@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <fstream>
 #include <set>
 #include <string>
@@ -38,14 +39,12 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
     settings.c_cflag &= ~CSIZE;
     settings.c_cflag |= SIZES.at(props.data_bits - 5);
     settings.c_cflag &= ~(PARENB | PARODD | CMSPAR);
-    settings.c_iflag &= ~(IGNPAR | PARMRK | INPCK);
+    // The port marks parity, framing, and break errors in the input and removes them,
+    // so it counts errors that IGNPAR would drop without a trace.
+    settings.c_iflag &= ~(IGNPAR | ISTRIP);
+    settings.c_iflag |= INPCK | PARMRK;
     const auto &parity = props.parity;
-    if (parity == synnax::serial::PARITY_NONE_) {
-        settings.c_iflag |= IGNPAR;
-    } else {
-        settings.c_iflag |= INPCK;
-        settings.c_cflag |= PARENB;
-    }
+    if (parity != synnax::serial::PARITY_NONE_) settings.c_cflag |= PARENB;
     if (parity == synnax::serial::PARITY_ODD_ || parity == synnax::serial::PARITY_MARK_)
         settings.c_cflag |= PARODD;
     if (parity == synnax::serial::PARITY_MARK_ ||
@@ -83,21 +82,25 @@ configure(const Handle handle, const synnax::serial::Properties &props) {
     }
     return x::errors::NIL;
 }
+
+std::pair<std::optional<std::uint32_t>, std::error_code> overrun_count(const int fd) {
+    serial_icounter_struct counts{};
+    if (::ioctl(fd, TIOCGICOUNT, &counts) == 0)
+        return {static_cast<std::uint32_t>(counts.overrun + counts.buf_overrun), {}};
+    // A driver without counters rejects the request.
+    if (errno == ENOTTY || errno == EINVAL) return {std::nullopt, {}};
+    return {std::nullopt, {errno, std::generic_category()}};
+}
 }
 
 namespace {
-/// @brief ttyS devices exist for every UART slot the kernel reserves. A slot without a
-/// UART reports type 0 (PORT_UNKNOWN).
-bool has_uart(const std::filesystem::path &root, const std::string &name) {
-    std::ifstream type(root / "sys" / "class" / "tty" / name / "type");
+/// @brief the kernel keeps a ttyS device for every UART slot it reserves. A slot
+/// without a UART reports type 0 (PORT_UNKNOWN).
+bool has_uart(const std::filesystem::path &tty) {
+    std::ifstream type(tty / "type");
     int value = -1;
     if (!(type >> value)) return true;
     return value != 0;
-}
-
-bool is_port(const std::string &name) {
-    return name.starts_with("ttyS") || name.starts_with("ttyUSB") ||
-           name.starts_with("ttyACM");
 }
 
 x::errors::Error
@@ -129,17 +132,23 @@ std::pair<std::vector<Info>, x::errors::Error> scan(const std::filesystem::path 
             });
         }
     }
-    std::filesystem::directory_iterator it(dev, ec);
-    if (ec) return {{}, list_failed(dev, ec)};
+    const auto ttys = root / "sys" / "class" / "tty";
+    std::filesystem::directory_iterator it(ttys, ec);
+    if (ec) return {{}, list_failed(ttys, ec)};
     std::vector<Info> devices;
     for (const auto &entry: it) {
+        // A tty that hardware backs has a device link. Virtual consoles and
+        // pseudo-terminals have none.
+        const auto backed = std::filesystem::exists(entry.path() / "device", ec);
+        if (ec) return {{}, list_failed(entry.path(), ec)};
+        if (!backed || !has_uart(entry.path())) continue;
         const auto name = entry.path().filename().string();
-        if (!is_port(name)) continue;
-        std::error_code missing;
-        if (linked.contains(std::filesystem::canonical(entry.path(), missing)))
-            continue;
-        if (name.starts_with("ttyS") && !has_uart(root, name)) continue;
-        devices.push_back({.path = entry.path().string(), .name = name});
+        const auto path = dev / name;
+        const auto target = std::filesystem::canonical(path, ec);
+        if (ec == std::errc::no_such_file_or_directory) continue;
+        if (ec) return {{}, list_failed(dev, ec)};
+        if (!linked.contains(target))
+            devices.push_back({.path = path.string(), .name = name});
     }
     std::ranges::sort(links, {}, &Info::path);
     std::ranges::sort(devices, {}, &Info::path);

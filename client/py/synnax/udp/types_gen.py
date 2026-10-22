@@ -25,12 +25,16 @@ class Properties(BaseModel):
             task only receives.
         remote_port: Is the port that writes and queries are sent to.
         multicast_group: Is the multicast group the task joins. Empty for unicast.
+        local_address: Is the local address the task receives on. A unicast socket binds
+            to it, and a multicast socket joins the group on its interface. Empty uses
+            every interface.
     """
 
     port: int = Field(default=0, ge=0, le=65535)
     remote_host: str = ""
     remote_port: int = Field(default=0, ge=0, le=65535)
     multicast_group: str = ""
+    local_address: str = ""
 
 
 class ReadConfig(bus.ReadConfig, bus.PollConfig):

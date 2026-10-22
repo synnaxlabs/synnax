@@ -47,6 +47,7 @@ var _ = Describe("Codec", func() {
 				LengthAdjustment:  6,
 				Checksum:          v0.Checksum("none"),
 				ChecksumByteOrder: library.ByteOrder("little_endian"),
+				MaxLength:         9,
 			}}),
 			Entry("cobs variant", v0.Framing{Variant: v0.CobsFraming{}}),
 			Entry("slip variant", v0.Framing{Variant: v0.SlipFraming{}}),
@@ -90,11 +91,11 @@ var _ = Describe("Codec", func() {
 					{
 						Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 						Disabled: false,
-						Index:    channel.Key(12),
 						Fields: []v0.ReadField{
 							{
-								Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-								Channel: channel.Key(15),
+								Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+								Channel: channel.Key(14),
+								Index:   channel.Key(15),
 							},
 						},
 					},
@@ -136,8 +137,13 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v0.ReadField{
 				Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Channel: channel.Key(3),
+				Index:   channel.Key(4),
 			}),
-			Entry("zero values", v0.ReadField{Field: uuid.Nil(), Channel: channel.Key(0)}),
+			Entry("zero values", v0.ReadField{
+				Field:   uuid.Nil(),
+				Channel: channel.Key(0),
+				Index:   channel.Key(0),
+			}),
 		)
 	})
 	Describe("ReadMessage", func() {
@@ -154,24 +160,22 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v0.ReadMessage{
 				Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Disabled: false,
-				Index:    channel.Key(4),
 				Fields: []v0.ReadField{
 					{
-						Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
-						Channel: channel.Key(7),
+						Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+						Channel: channel.Key(6),
+						Index:   channel.Key(7),
 					},
 				},
 			}),
 			Entry("zero values", v0.ReadMessage{
 				Message:  uuid.Nil(),
 				Disabled: false,
-				Index:    channel.Key(0),
 				Fields:   []v0.ReadField{},
 			}),
 			Entry("empty collections", v0.ReadMessage{
 				Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Disabled: false,
-				Index:    channel.Key(4),
 				Fields:   []v0.ReadField{},
 			}),
 		)
@@ -199,11 +203,11 @@ var _ = Describe("Codec", func() {
 					{
 						Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 						Disabled: false,
-						Index:    channel.Key(12),
 						Fields: []v0.ReadField{
 							{
-								Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-								Channel: channel.Key(15),
+								Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+								Channel: channel.Key(14),
+								Index:   channel.Key(15),
 							},
 						},
 					},
@@ -445,11 +449,11 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 			{
 				Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 				Disabled: false,
-				Index:    channel.Key(12),
 				Fields: []v0.ReadField{
 					{
-						Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-						Channel: channel.Key(15),
+						Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+						Channel: channel.Key(14),
+						Index:   channel.Key(15),
 					},
 				},
 			},
@@ -474,6 +478,7 @@ func BenchmarkEncodeDecodeReadField(b *testing.B) {
 	seed := v0.ReadField{
 		Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Channel: channel.Key(3),
+		Index:   channel.Key(4),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -494,11 +499,11 @@ func BenchmarkEncodeDecodeReadMessage(b *testing.B) {
 	seed := v0.ReadMessage{
 		Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Disabled: false,
-		Index:    channel.Key(4),
 		Fields: []v0.ReadField{
 			{
-				Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
-				Channel: channel.Key(7),
+				Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+				Channel: channel.Key(6),
+				Index:   channel.Key(7),
 			},
 		},
 	}
@@ -530,11 +535,11 @@ func BenchmarkEncodeDecodeStreamReadConfig(b *testing.B) {
 			{
 				Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 				Disabled: false,
-				Index:    channel.Key(12),
 				Fields: []v0.ReadField{
 					{
-						Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-						Channel: channel.Key(15),
+						Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+						Channel: channel.Key(14),
+						Index:   channel.Key(15),
 					},
 				},
 			},
@@ -703,6 +708,7 @@ func FuzzDecodeFraming(f *testing.F) {
 			LengthAdjustment:  6,
 			Checksum:          v0.Checksum("none"),
 			ChecksumByteOrder: library.ByteOrder("little_endian"),
+			MaxLength:         9,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -801,11 +807,11 @@ func FuzzDecodeReadConfig(f *testing.F) {
 				{
 					Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 					Disabled: false,
-					Index:    channel.Key(12),
 					Fields: []v0.ReadField{
 						{
-							Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-							Channel: channel.Key(15),
+							Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+							Channel: channel.Key(14),
+							Index:   channel.Key(15),
 						},
 					},
 				},
@@ -878,6 +884,7 @@ func FuzzDecodeReadField(f *testing.F) {
 		seed := v0.ReadField{
 			Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Channel: channel.Key(3),
+			Index:   channel.Key(4),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -886,7 +893,11 @@ func FuzzDecodeReadField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.ReadField{Field: uuid.Nil(), Channel: channel.Key(0)}
+		seed := v0.ReadField{
+			Field:   uuid.Nil(),
+			Channel: channel.Key(0),
+			Index:   channel.Key(0),
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -920,11 +931,11 @@ func FuzzDecodeReadMessage(f *testing.F) {
 		seed := v0.ReadMessage{
 			Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Disabled: false,
-			Index:    channel.Key(4),
 			Fields: []v0.ReadField{
 				{
-					Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
-					Channel: channel.Key(7),
+					Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+					Channel: channel.Key(6),
+					Index:   channel.Key(7),
 				},
 			},
 		}
@@ -938,7 +949,6 @@ func FuzzDecodeReadMessage(f *testing.F) {
 		seed := v0.ReadMessage{
 			Message:  uuid.Nil(),
 			Disabled: false,
-			Index:    channel.Key(0),
 			Fields:   []v0.ReadField{},
 		}
 		w := orc.NewWriter(0)
@@ -951,7 +961,6 @@ func FuzzDecodeReadMessage(f *testing.F) {
 		seed := v0.ReadMessage{
 			Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Disabled: false,
-			Index:    channel.Key(4),
 			Fields:   []v0.ReadField{},
 		}
 		w := orc.NewWriter(0)
@@ -996,11 +1005,11 @@ func FuzzDecodeStreamReadConfig(f *testing.F) {
 				{
 					Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 					Disabled: false,
-					Index:    channel.Key(12),
 					Fields: []v0.ReadField{
 						{
-							Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-							Channel: channel.Key(15),
+							Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+							Channel: channel.Key(14),
+							Index:   channel.Key(15),
 						},
 					},
 				},

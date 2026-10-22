@@ -12,8 +12,25 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "tcp",
-    srcs = ["client.cpp"],
-    hdrs = ["client.h"],
+    srcs = [
+        "client.cpp",
+        "errors.cpp",
+        "socket.cpp",
+    ] + select({
+        "@platforms//os:linux": ["keepalive_linux.cpp"],
+        "@platforms//os:macos": ["keepalive_macos.cpp"],
+        "@platforms//os:windows": ["keepalive_windows.cpp"],
+    }),
+    hdrs = [
+        "client.h",
+        "errors.h",
+        "keepalive.h",
+        "socket.h",
+    ],
+    linkopts = select({
+        "@platforms//os:windows": ["ws2_32.lib"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/tcp",
@@ -44,12 +61,37 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "model",
+    testonly = True,
+    srcs = ["model.cpp"],
+    hdrs = ["model.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":tcp",
+        "//x/cpp/telem",
+        "@asio//:asio_no_openssl",
+    ],
+)
+
 cc_test(
     name = "tcp_test",
     size = "small",
-    srcs = ["client_test.cpp"],
+    srcs = [
+        "client_test.cpp",
+        "errors_test.cpp",
+        "model_test.cpp",
+    ] + select({
+        "@platforms//os:linux": ["keepalive_linux_test.cpp"],
+        "@platforms//os:macos": ["keepalive_macos_test.cpp"],
+        "@platforms//os:windows": ["keepalive_windows_test.cpp"],
+    }),
     deps = [
+        ":model",
         ":tcp",
+        "//driver/bus",
+        "//driver/bus/testutil:contract",
+        "//driver/transport",
         "//x/cpp/test",
         "@asio//:asio_no_openssl",
         "@googletest//:gtest_main",

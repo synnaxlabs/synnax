@@ -1,0 +1,2078 @@
+{
+  "messages": [
+    {
+      "name": "STEERING_LTA",
+      "vectors": [
+        {
+          "payload": "7b9beb02f859a700",
+          "values": {
+            "SETME_X1": 0,
+            "COUNTER": 61,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": -1468.0833,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 0,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 248,
+            "TORQUE_WIND_DOWN": 89,
+            "ANGLE": -44.5,
+            "CHECKSUM": 0
+          },
+          "encoded": "7b9beb02f859a700"
+        },
+        {
+          "payload": "b7cb6b62e05cb6fe",
+          "values": {
+            "SETME_X1": 1,
+            "COUNTER": 27,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": -771.3153,
+            "CLEAR_HOLD_STEERING_ALERT": 1,
+            "SETME_X3": 2,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 224,
+            "TORQUE_WIND_DOWN": 92,
+            "ANGLE": -37.0,
+            "CHECKSUM": 254
+          },
+          "encoded": "b7cb6b62e05cb6fe"
+        },
+        {
+          "payload": "f9073e0f2d243bb5",
+          "values": {
+            "SETME_X1": 1,
+            "COUNTER": 60,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": 106.23419999999999,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 0,
+            "LKA_ACTIVE": 1,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 45,
+            "TORQUE_WIND_DOWN": 36,
+            "ANGLE": 29.5,
+            "CHECKSUM": 181
+          },
+          "encoded": "f9073e062d243bb5"
+        },
+        {
+          "payload": "2db92a7d4ed8addc",
+          "values": {
+            "SETME_X1": 0,
+            "COUNTER": 22,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": -1039.0782,
+            "CLEAR_HOLD_STEERING_ALERT": 1,
+            "SETME_X3": 3,
+            "LKA_ACTIVE": 1,
+            "STEER_REQUEST_2": 0,
+            "PERCENTAGE": 78,
+            "TORQUE_WIND_DOWN": 216,
+            "ANGLE": -41.5,
+            "CHECKSUM": 220
+          },
+          "encoded": "2db92a744ed8addc"
+        },
+        {
+          "payload": "32208094060a1427",
+          "values": {
+            "SETME_X1": 0,
+            "COUNTER": 25,
+            "STEER_REQUEST": 0,
+            "STEER_ANGLE_CMD": 476.736,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 1,
+            "LKA_ACTIVE": 1,
+            "STEER_REQUEST_2": 0,
+            "PERCENTAGE": 6,
+            "TORQUE_WIND_DOWN": 10,
+            "ANGLE": 10.0,
+            "CHECKSUM": 39
+          },
+          "encoded": "32208014060a1427"
+        },
+        {
+          "payload": "8795cbb7cb0c58f3",
+          "values": {
+            "SETME_X1": 1,
+            "COUNTER": 3,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": -1557.9297,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 3,
+            "LKA_ACTIVE": 1,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 203,
+            "TORQUE_WIND_DOWN": 12,
+            "ANGLE": 44.0,
+            "CHECKSUM": 243
+          },
+          "encoded": "8795cb36cb0c58f3"
+        },
+        {
+          "payload": "f5f3610c78942255",
+          "values": {
+            "SETME_X1": 1,
+            "COUNTER": 58,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": -185.13629999999998,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 0,
+            "LKA_ACTIVE": 1,
+            "STEER_REQUEST_2": 0,
+            "PERCENTAGE": 120,
+            "TORQUE_WIND_DOWN": 148,
+            "ANGLE": 17.0,
+            "CHECKSUM": 85
+          },
+          "encoded": "f5f3610478942255"
+        },
+        {
+          "payload": "300de8f9c8fd5e31",
+          "values": {
+            "SETME_X1": 0,
+            "COUNTER": 24,
+            "STEER_REQUEST": 0,
+            "STEER_ANGLE_CMD": 203.988,
+            "CLEAR_HOLD_STEERING_ALERT": 1,
+            "SETME_X3": 3,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 0,
+            "PERCENTAGE": 200,
+            "TORQUE_WIND_DOWN": 253,
+            "ANGLE": 47.0,
+            "CHECKSUM": 49
+          },
+          "encoded": "300de870c8fd5e31"
+        },
+        {
+          "payload": "e31b6520769ffad3",
+          "values": {
+            "SETME_X1": 1,
+            "COUNTER": 49,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": 401.8449,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 2,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 0,
+            "PERCENTAGE": 118,
+            "TORQUE_WIND_DOWN": 159,
+            "ANGLE": -3.0,
+            "CHECKSUM": 211
+          },
+          "encoded": "e31b6520769ffad3"
+        },
+        {
+          "payload": "b6ff81ace36f36ed",
+          "values": {
+            "SETME_X1": 1,
+            "COUNTER": 27,
+            "STEER_REQUEST": 0,
+            "STEER_ANGLE_CMD": -7.2771,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 2,
+            "LKA_ACTIVE": 1,
+            "STEER_REQUEST_2": 0,
+            "PERCENTAGE": 227,
+            "TORQUE_WIND_DOWN": 111,
+            "ANGLE": 27.0,
+            "CHECKSUM": 237
+          },
+          "encoded": "b6ff8124e36f36ed"
+        },
+        {
+          "payload": "3f8dddc1e6411369",
+          "values": {
+            "SETME_X1": 0,
+            "COUNTER": 31,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": -1674.2486999999999,
+            "CLEAR_HOLD_STEERING_ALERT": 1,
+            "SETME_X3": 0,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 0,
+            "PERCENTAGE": 230,
+            "TORQUE_WIND_DOWN": 65,
+            "ANGLE": 9.5,
+            "CHECKSUM": 105
+          },
+          "encoded": "3f8ddd40e6411369"
+        },
+        {
+          "payload": "71710b40ebe74884",
+          "values": {
+            "SETME_X1": 0,
+            "COUNTER": 56,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": 1658.2047,
+            "CLEAR_HOLD_STEERING_ALERT": 1,
+            "SETME_X3": 0,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 0,
+            "PERCENTAGE": 235,
+            "TORQUE_WIND_DOWN": 231,
+            "ANGLE": 36.0,
+            "CHECKSUM": 132
+          },
+          "encoded": "71710b40ebe74884"
+        },
+        {
+          "payload": "2901799ea7840c51",
+          "values": {
+            "SETME_X1": 0,
+            "COUNTER": 20,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": 21.6021,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 1,
+            "LKA_ACTIVE": 1,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 167,
+            "TORQUE_WIND_DOWN": 132,
+            "ANGLE": 6.0,
+            "CHECKSUM": 81
+          },
+          "encoded": "29017916a7840c51"
+        },
+        {
+          "payload": "88a642fb3e268164",
+          "values": {
+            "SETME_X1": 1,
+            "COUNTER": 4,
+            "STEER_REQUEST": 0,
+            "STEER_ANGLE_CMD": -1316.4102,
+            "CLEAR_HOLD_STEERING_ALERT": 1,
+            "SETME_X3": 3,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 62,
+            "TORQUE_WIND_DOWN": 38,
+            "ANGLE": -63.5,
+            "CHECKSUM": 100
+          },
+          "encoded": "88a642723e268164"
+        },
+        {
+          "payload": "92ea7556870b36e5",
+          "values": {
+            "SETME_X1": 1,
+            "COUNTER": 9,
+            "STEER_REQUEST": 0,
+            "STEER_ANGLE_CMD": -316.0095,
+            "CLEAR_HOLD_STEERING_ALERT": 1,
+            "SETME_X3": 1,
+            "LKA_ACTIVE": 1,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 135,
+            "TORQUE_WIND_DOWN": 11,
+            "ANGLE": 27.0,
+            "CHECKSUM": 229
+          },
+          "encoded": "92ea7556870b36e5"
+        },
+        {
+          "payload": "a5b9871e6c9ae0b6",
+          "values": {
+            "SETME_X1": 1,
+            "COUNTER": 18,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": -1033.7493,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 1,
+            "LKA_ACTIVE": 1,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 108,
+            "TORQUE_WIND_DOWN": 154,
+            "ANGLE": -16.0,
+            "CHECKSUM": 182
+          },
+          "encoded": "a5b987166c9ae0b6"
+        },
+        {
+          "payload": "79bda4faf3ca686c",
+          "values": {
+            "SETME_X1": 0,
+            "COUNTER": 60,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": -973.4123999999999,
+            "CLEAR_HOLD_STEERING_ALERT": 1,
+            "SETME_X3": 3,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 243,
+            "TORQUE_WIND_DOWN": 202,
+            "ANGLE": 52.0,
+            "CHECKSUM": 108
+          },
+          "encoded": "79bda472f3ca686c"
+        },
+        {
+          "payload": "d480c4eff11e72f3",
+          "values": {
+            "SETME_X1": 1,
+            "COUNTER": 42,
+            "STEER_REQUEST": 0,
+            "STEER_ANGLE_CMD": -1866.3755999999998,
+            "CLEAR_HOLD_STEERING_ALERT": 1,
+            "SETME_X3": 2,
+            "LKA_ACTIVE": 1,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 241,
+            "TORQUE_WIND_DOWN": 30,
+            "ANGLE": 57.0,
+            "CHECKSUM": 243
+          },
+          "encoded": "d480c466f11e72f3"
+        },
+        {
+          "payload": "20ac8843eba5fc58",
+          "values": {
+            "SETME_X1": 0,
+            "COUNTER": 16,
+            "STEER_REQUEST": 0,
+            "STEER_ANGLE_CMD": -1224.3863999999999,
+            "CLEAR_HOLD_STEERING_ALERT": 1,
+            "SETME_X3": 0,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 235,
+            "TORQUE_WIND_DOWN": 165,
+            "ANGLE": -2.0,
+            "CHECKSUM": 88
+          },
+          "encoded": "20ac8842eba5fc58"
+        },
+        {
+          "payload": "e3006a007b4f8b2c",
+          "values": {
+            "SETME_X1": 1,
+            "COUNTER": 49,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": 6.073799999999999,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 0,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 0,
+            "PERCENTAGE": 123,
+            "TORQUE_WIND_DOWN": 79,
+            "ANGLE": -58.5,
+            "CHECKSUM": 44
+          },
+          "encoded": "e3006a007b4f8b2c"
+        },
+        {
+          "payload": "a38d2d177733a9e4",
+          "values": {
+            "SETME_X1": 1,
+            "COUNTER": 17,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": -1684.3335,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 1,
+            "LKA_ACTIVE": 1,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 119,
+            "TORQUE_WIND_DOWN": 51,
+            "ANGLE": -43.5,
+            "CHECKSUM": 228
+          },
+          "encoded": "a38d2d167733a9e4"
+        },
+        {
+          "payload": "2126f597cd8379ac",
+          "values": {
+            "SETME_X1": 0,
+            "COUNTER": 16,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": 571.4529,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 1,
+            "LKA_ACTIVE": 1,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 205,
+            "TORQUE_WIND_DOWN": 131,
+            "ANGLE": 60.5,
+            "CHECKSUM": 172
+          },
+          "encoded": "2126f516cd8379ac"
+        },
+        {
+          "payload": "c89fa23055771ea1",
+          "values": {
+            "SETME_X1": 1,
+            "COUNTER": 36,
+            "STEER_REQUEST": 0,
+            "STEER_ANGLE_CMD": -1413.591,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 3,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 0,
+            "PERCENTAGE": 85,
+            "TORQUE_WIND_DOWN": 119,
+            "ANGLE": 15.0,
+            "CHECKSUM": 161
+          },
+          "encoded": "c89fa23055771ea1"
+        },
+        {
+          "payload": "3cd67f2333c5aa98",
+          "values": {
+            "SETME_X1": 0,
+            "COUNTER": 30,
+            "STEER_REQUEST": 0,
+            "STEER_ANGLE_CMD": -608.8125,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 2,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 51,
+            "TORQUE_WIND_DOWN": 197,
+            "ANGLE": -43.0,
+            "CHECKSUM": 152
+          },
+          "encoded": "3cd67f2233c5aa98"
+        },
+        {
+          "payload": "7c144dc0aa6705a1",
+          "values": {
+            "SETME_X1": 0,
+            "COUNTER": 62,
+            "STEER_REQUEST": 0,
+            "STEER_ANGLE_CMD": 297.7881,
+            "CLEAR_HOLD_STEERING_ALERT": 1,
+            "SETME_X3": 0,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 0,
+            "PERCENTAGE": 170,
+            "TORQUE_WIND_DOWN": 103,
+            "ANGLE": 2.5,
+            "CHECKSUM": 161
+          },
+          "encoded": "7c144d40aa6705a1"
+        },
+        {
+          "payload": "bf6621a2ee414b3e",
+          "values": {
+            "SETME_X1": 1,
+            "COUNTER": 31,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": 1498.1084999999998,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 2,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 238,
+            "TORQUE_WIND_DOWN": 65,
+            "ANGLE": 37.5,
+            "CHECKSUM": 62
+          },
+          "encoded": "bf662122ee414b3e"
+        },
+        {
+          "payload": "5cd66d22aa1fecfc",
+          "values": {
+            "SETME_X1": 0,
+            "COUNTER": 46,
+            "STEER_REQUEST": 0,
+            "STEER_ANGLE_CMD": -609.8439,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 2,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 170,
+            "TORQUE_WIND_DOWN": 31,
+            "ANGLE": -10.0,
+            "CHECKSUM": 252
+          },
+          "encoded": "5cd66d22aa1fecfc"
+        },
+        {
+          "payload": "f5a6674d93216adc",
+          "values": {
+            "SETME_X1": 1,
+            "COUNTER": 58,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": -1314.2901,
+            "CLEAR_HOLD_STEERING_ALERT": 1,
+            "SETME_X3": 0,
+            "LKA_ACTIVE": 1,
+            "STEER_REQUEST_2": 0,
+            "PERCENTAGE": 147,
+            "TORQUE_WIND_DOWN": 33,
+            "ANGLE": 53.0,
+            "CHECKSUM": 220
+          },
+          "encoded": "f5a6674493216adc"
+        },
+        {
+          "payload": "77ad86f380fe7530",
+          "values": {
+            "SETME_X1": 0,
+            "COUNTER": 59,
+            "STEER_REQUEST": 1,
+            "STEER_ANGLE_CMD": -1209.8321999999998,
+            "CLEAR_HOLD_STEERING_ALERT": 1,
+            "SETME_X3": 3,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 128,
+            "TORQUE_WIND_DOWN": 254,
+            "ANGLE": 58.5,
+            "CHECKSUM": 48
+          },
+          "encoded": "77ad867280fe7530"
+        },
+        {
+          "payload": "d869175a1ddaa87c",
+          "values": {
+            "SETME_X1": 1,
+            "COUNTER": 44,
+            "STEER_REQUEST": 0,
+            "STEER_ANGLE_CMD": 1541.5419,
+            "CLEAR_HOLD_STEERING_ALERT": 1,
+            "SETME_X3": 1,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 29,
+            "TORQUE_WIND_DOWN": 218,
+            "ANGLE": -44.0,
+            "CHECKSUM": 124
+          },
+          "encoded": "d86917521ddaa87c"
+        },
+        {
+          "payload": "7211386203a99174",
+          "values": {
+            "SETME_X1": 0,
+            "COUNTER": 57,
+            "STEER_REQUEST": 0,
+            "STEER_ANGLE_CMD": 252.5784,
+            "CLEAR_HOLD_STEERING_ALERT": 1,
+            "SETME_X3": 2,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 3,
+            "TORQUE_WIND_DOWN": 169,
+            "ANGLE": -55.5,
+            "CHECKSUM": 116
+          },
+          "encoded": "7211386203a99174"
+        },
+        {
+          "payload": "4097889aefcf9fcd",
+          "values": {
+            "SETME_X1": 0,
+            "COUNTER": 32,
+            "STEER_REQUEST": 0,
+            "STEER_ANGLE_CMD": -1532.4312,
+            "CLEAR_HOLD_STEERING_ALERT": 0,
+            "SETME_X3": 1,
+            "LKA_ACTIVE": 0,
+            "STEER_REQUEST_2": 1,
+            "PERCENTAGE": 239,
+            "TORQUE_WIND_DOWN": 207,
+            "ANGLE": -48.5,
+            "CHECKSUM": 205
+          },
+          "encoded": "40978812efcf9fcd"
+        }
+      ]
+    },
+    {
+      "name": "BRAKE_MODULE",
+      "vectors": [
+        {
+          "payload": "5111360cf50bc8f5",
+          "values": {
+            "BRAKE_PRESSURE": 273,
+            "BRAKE_POSITION": 12,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "0111000c20000000"
+        },
+        {
+          "payload": "a2ab93815be41fc2",
+          "values": {
+            "BRAKE_PRESSURE": 171,
+            "BRAKE_POSITION": 385,
+            "BRAKE_PRESSED": 0
+          },
+          "encoded": "00ab018100000000"
+        },
+        {
+          "payload": "981b447ae40ae2d0",
+          "values": {
+            "BRAKE_PRESSURE": 27,
+            "BRAKE_POSITION": 122,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "001b007a20000000"
+        },
+        {
+          "payload": "1c7de69dec67eeee",
+          "values": {
+            "BRAKE_PRESSURE": 125,
+            "BRAKE_POSITION": 157,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "007d009d20000000"
+        },
+        {
+          "payload": "3f477d0c8f0e00a7",
+          "values": {
+            "BRAKE_PRESSURE": 327,
+            "BRAKE_POSITION": 268,
+            "BRAKE_PRESSED": 0
+          },
+          "encoded": "0147010c00000000"
+        },
+        {
+          "payload": "1cda25666e0c01c4",
+          "values": {
+            "BRAKE_PRESSURE": 218,
+            "BRAKE_POSITION": 358,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "00da016620000000"
+        },
+        {
+          "payload": "28b185a7626bd66d",
+          "values": {
+            "BRAKE_PRESSURE": 177,
+            "BRAKE_POSITION": 423,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "00b101a720000000"
+        },
+        {
+          "payload": "e2bbe79bc8170321",
+          "values": {
+            "BRAKE_PRESSURE": 187,
+            "BRAKE_POSITION": 411,
+            "BRAKE_PRESSED": 0
+          },
+          "encoded": "00bb019b00000000"
+        },
+        {
+          "payload": "c3e3f2c9b3cf4397",
+          "values": {
+            "BRAKE_PRESSURE": 483,
+            "BRAKE_POSITION": 201,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "01e300c920000000"
+        },
+        {
+          "payload": "28ea4dc88898878f",
+          "values": {
+            "BRAKE_PRESSURE": 234,
+            "BRAKE_POSITION": 456,
+            "BRAKE_PRESSED": 0
+          },
+          "encoded": "00ea01c800000000"
+        },
+        {
+          "payload": "bff18faff5bbe09d",
+          "values": {
+            "BRAKE_PRESSURE": 497,
+            "BRAKE_POSITION": 431,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "01f101af20000000"
+        },
+        {
+          "payload": "ba8e14de310bf35b",
+          "values": {
+            "BRAKE_PRESSURE": 142,
+            "BRAKE_POSITION": 222,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "008e00de20000000"
+        },
+        {
+          "payload": "8763aefa07a263c4",
+          "values": {
+            "BRAKE_PRESSURE": 355,
+            "BRAKE_POSITION": 250,
+            "BRAKE_PRESSED": 0
+          },
+          "encoded": "016300fa00000000"
+        },
+        {
+          "payload": "0528322c6c70d4ef",
+          "values": {
+            "BRAKE_PRESSURE": 296,
+            "BRAKE_POSITION": 44,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "0128002c20000000"
+        },
+        {
+          "payload": "dfc39c1a92d0f0bf",
+          "values": {
+            "BRAKE_PRESSURE": 451,
+            "BRAKE_POSITION": 26,
+            "BRAKE_PRESSED": 0
+          },
+          "encoded": "01c3001a00000000"
+        },
+        {
+          "payload": "1024b81ddeee9d1e",
+          "values": {
+            "BRAKE_PRESSURE": 36,
+            "BRAKE_POSITION": 29,
+            "BRAKE_PRESSED": 0
+          },
+          "encoded": "0024001d00000000"
+        },
+        {
+          "payload": "cb2b0be9db851311",
+          "values": {
+            "BRAKE_PRESSURE": 299,
+            "BRAKE_POSITION": 489,
+            "BRAKE_PRESSED": 0
+          },
+          "encoded": "012b01e900000000"
+        },
+        {
+          "payload": "3b5d2ae5e3d19b8b",
+          "values": {
+            "BRAKE_PRESSURE": 349,
+            "BRAKE_POSITION": 229,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "015d00e520000000"
+        },
+        {
+          "payload": "535b1637a190dd32",
+          "values": {
+            "BRAKE_PRESSURE": 347,
+            "BRAKE_POSITION": 55,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "015b003720000000"
+        },
+        {
+          "payload": "ce0f100da34b4efe",
+          "values": {
+            "BRAKE_PRESSURE": 15,
+            "BRAKE_POSITION": 13,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "000f000d20000000"
+        },
+        {
+          "payload": "0abc4e27b6333c25",
+          "values": {
+            "BRAKE_PRESSURE": 188,
+            "BRAKE_POSITION": 39,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "00bc002720000000"
+        },
+        {
+          "payload": "0407a8a02e3fdf33",
+          "values": {
+            "BRAKE_PRESSURE": 7,
+            "BRAKE_POSITION": 160,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "000700a020000000"
+        },
+        {
+          "payload": "9d56eb29f9af9ceb",
+          "values": {
+            "BRAKE_PRESSURE": 342,
+            "BRAKE_POSITION": 297,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "0156012920000000"
+        },
+        {
+          "payload": "da6c9176f91f9783",
+          "values": {
+            "BRAKE_PRESSURE": 108,
+            "BRAKE_POSITION": 374,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "006c017620000000"
+        },
+        {
+          "payload": "e855eb0971160975",
+          "values": {
+            "BRAKE_PRESSURE": 85,
+            "BRAKE_POSITION": 265,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "0055010920000000"
+        },
+        {
+          "payload": "2bccb3a212b373a4",
+          "values": {
+            "BRAKE_PRESSURE": 460,
+            "BRAKE_POSITION": 418,
+            "BRAKE_PRESSED": 0
+          },
+          "encoded": "01cc01a200000000"
+        },
+        {
+          "payload": "7276504dee318f79",
+          "values": {
+            "BRAKE_PRESSURE": 118,
+            "BRAKE_POSITION": 77,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "0076004d20000000"
+        },
+        {
+          "payload": "d1d4f558a4a95d19",
+          "values": {
+            "BRAKE_PRESSURE": 468,
+            "BRAKE_POSITION": 344,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "01d4015820000000"
+        },
+        {
+          "payload": "8d4e40ea9bf5ea50",
+          "values": {
+            "BRAKE_PRESSURE": 334,
+            "BRAKE_POSITION": 234,
+            "BRAKE_PRESSED": 0
+          },
+          "encoded": "014e00ea00000000"
+        },
+        {
+          "payload": "e2708f9d3df4174e",
+          "values": {
+            "BRAKE_PRESSURE": 112,
+            "BRAKE_POSITION": 413,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "0070019d20000000"
+        },
+        {
+          "payload": "92c6608128735160",
+          "values": {
+            "BRAKE_PRESSURE": 198,
+            "BRAKE_POSITION": 129,
+            "BRAKE_PRESSED": 1
+          },
+          "encoded": "00c6008120000000"
+        },
+        {
+          "payload": "db42f108d28e4abe",
+          "values": {
+            "BRAKE_PRESSURE": 322,
+            "BRAKE_POSITION": 264,
+            "BRAKE_PRESSED": 0
+          },
+          "encoded": "0142010800000000"
+        }
+      ]
+    },
+    {
+      "name": "EPS_STATUS",
+      "vectors": [
+        {
+          "payload": "8b7b03bd7755436d",
+          "values": {
+            "IPAS_STATE": 11,
+            "LTA_STATE": 15,
+            "LKA_STATE": 94,
+            "TYPE": 1,
+            "CHECKSUM": 109
+          },
+          "encoded": "0b7800bd0000006d"
+        },
+        {
+          "payload": "0c3065131ffa4362",
+          "values": {
+            "IPAS_STATE": 12,
+            "LTA_STATE": 6,
+            "LKA_STATE": 9,
+            "TYPE": 1,
+            "CHECKSUM": 98
+          },
+          "encoded": "0c30001300000062"
+        },
+        {
+          "payload": "d9beaa8a2b60efa7",
+          "values": {
+            "IPAS_STATE": 9,
+            "LTA_STATE": 23,
+            "LKA_STATE": 69,
+            "TYPE": 0,
+            "CHECKSUM": 167
+          },
+          "encoded": "09b8008a000000a7"
+        },
+        {
+          "payload": "ec9ac4153a7692c5",
+          "values": {
+            "IPAS_STATE": 12,
+            "LTA_STATE": 19,
+            "LKA_STATE": 10,
+            "TYPE": 1,
+            "CHECKSUM": 197
+          },
+          "encoded": "0c980015000000c5"
+        },
+        {
+          "payload": "0afe1b9bb0bfa0c2",
+          "values": {
+            "IPAS_STATE": 10,
+            "LTA_STATE": 31,
+            "LKA_STATE": 77,
+            "TYPE": 1,
+            "CHECKSUM": 194
+          },
+          "encoded": "0af8009b000000c2"
+        },
+        {
+          "payload": "a316ac61e478181c",
+          "values": {
+            "IPAS_STATE": 3,
+            "LTA_STATE": 2,
+            "LKA_STATE": 48,
+            "TYPE": 1,
+            "CHECKSUM": 28
+          },
+          "encoded": "031000610000001c"
+        },
+        {
+          "payload": "f21d2d76eca0f62f",
+          "values": {
+            "IPAS_STATE": 2,
+            "LTA_STATE": 3,
+            "LKA_STATE": 59,
+            "TYPE": 0,
+            "CHECKSUM": 47
+          },
+          "encoded": "021800760000002f"
+        },
+        {
+          "payload": "f9cbd4b88694edac",
+          "values": {
+            "IPAS_STATE": 9,
+            "LTA_STATE": 25,
+            "LKA_STATE": 92,
+            "TYPE": 0,
+            "CHECKSUM": 172
+          },
+          "encoded": "09c800b8000000ac"
+        },
+        {
+          "payload": "2927c4a42a7d8d83",
+          "values": {
+            "IPAS_STATE": 9,
+            "LTA_STATE": 4,
+            "LKA_STATE": 82,
+            "TYPE": 0,
+            "CHECKSUM": 131
+          },
+          "encoded": "092000a400000083"
+        },
+        {
+          "payload": "cf71f3d9073bc8f7",
+          "values": {
+            "IPAS_STATE": 15,
+            "LTA_STATE": 14,
+            "LKA_STATE": 108,
+            "TYPE": 1,
+            "CHECKSUM": 247
+          },
+          "encoded": "0f7000d9000000f7"
+        },
+        {
+          "payload": "244ce392deafe762",
+          "values": {
+            "IPAS_STATE": 4,
+            "LTA_STATE": 9,
+            "LKA_STATE": 73,
+            "TYPE": 0,
+            "CHECKSUM": 98
+          },
+          "encoded": "0448009200000062"
+        },
+        {
+          "payload": "bd55aae561c2d34b",
+          "values": {
+            "IPAS_STATE": 13,
+            "LTA_STATE": 10,
+            "LKA_STATE": 114,
+            "TYPE": 1,
+            "CHECKSUM": 75
+          },
+          "encoded": "0d5000e50000004b"
+        },
+        {
+          "payload": "648784b95e56f3d7",
+          "values": {
+            "IPAS_STATE": 4,
+            "LTA_STATE": 16,
+            "LKA_STATE": 92,
+            "TYPE": 1,
+            "CHECKSUM": 215
+          },
+          "encoded": "048000b9000000d7"
+        },
+        {
+          "payload": "3b60c8a79c541aa5",
+          "values": {
+            "IPAS_STATE": 11,
+            "LTA_STATE": 12,
+            "LKA_STATE": 83,
+            "TYPE": 1,
+            "CHECKSUM": 165
+          },
+          "encoded": "0b6000a7000000a5"
+        },
+        {
+          "payload": "801e3c2a4f0f9024",
+          "values": {
+            "IPAS_STATE": 0,
+            "LTA_STATE": 3,
+            "LKA_STATE": 21,
+            "TYPE": 0,
+            "CHECKSUM": 36
+          },
+          "encoded": "0018002a00000024"
+        },
+        {
+          "payload": "7298198119f3c7df",
+          "values": {
+            "IPAS_STATE": 2,
+            "LTA_STATE": 19,
+            "LKA_STATE": 64,
+            "TYPE": 1,
+            "CHECKSUM": 223
+          },
+          "encoded": "02980081000000df"
+        },
+        {
+          "payload": "58f67f6ac8418668",
+          "values": {
+            "IPAS_STATE": 8,
+            "LTA_STATE": 30,
+            "LKA_STATE": 53,
+            "TYPE": 0,
+            "CHECKSUM": 104
+          },
+          "encoded": "08f0006a00000068"
+        },
+        {
+          "payload": "c184952a1d182580",
+          "values": {
+            "IPAS_STATE": 1,
+            "LTA_STATE": 16,
+            "LKA_STATE": 21,
+            "TYPE": 0,
+            "CHECKSUM": 128
+          },
+          "encoded": "0180002a00000080"
+        },
+        {
+          "payload": "f0317e98f6e5053c",
+          "values": {
+            "IPAS_STATE": 0,
+            "LTA_STATE": 6,
+            "LKA_STATE": 76,
+            "TYPE": 0,
+            "CHECKSUM": 60
+          },
+          "encoded": "003000980000003c"
+        },
+        {
+          "payload": "e9edffad3a599626",
+          "values": {
+            "IPAS_STATE": 9,
+            "LTA_STATE": 29,
+            "LKA_STATE": 86,
+            "TYPE": 1,
+            "CHECKSUM": 38
+          },
+          "encoded": "09e800ad00000026"
+        },
+        {
+          "payload": "55aac0bc5e69cd86",
+          "values": {
+            "IPAS_STATE": 5,
+            "LTA_STATE": 21,
+            "LKA_STATE": 94,
+            "TYPE": 0,
+            "CHECKSUM": 134
+          },
+          "encoded": "05a800bc00000086"
+        },
+        {
+          "payload": "47f115012eb456ea",
+          "values": {
+            "IPAS_STATE": 7,
+            "LTA_STATE": 30,
+            "LKA_STATE": 0,
+            "TYPE": 1,
+            "CHECKSUM": 234
+          },
+          "encoded": "07f00001000000ea"
+        },
+        {
+          "payload": "453ea834dd7ff8d8",
+          "values": {
+            "IPAS_STATE": 5,
+            "LTA_STATE": 7,
+            "LKA_STATE": 26,
+            "TYPE": 0,
+            "CHECKSUM": 216
+          },
+          "encoded": "05380034000000d8"
+        },
+        {
+          "payload": "9107e09d6167be58",
+          "values": {
+            "IPAS_STATE": 1,
+            "LTA_STATE": 0,
+            "LKA_STATE": 78,
+            "TYPE": 1,
+            "CHECKSUM": 88
+          },
+          "encoded": "0100009d00000058"
+        },
+        {
+          "payload": "90e8cb62337b9b4f",
+          "values": {
+            "IPAS_STATE": 0,
+            "LTA_STATE": 29,
+            "LKA_STATE": 49,
+            "TYPE": 0,
+            "CHECKSUM": 79
+          },
+          "encoded": "00e800620000004f"
+        },
+        {
+          "payload": "b3c0ad152bdd2e69",
+          "values": {
+            "IPAS_STATE": 3,
+            "LTA_STATE": 24,
+            "LKA_STATE": 10,
+            "TYPE": 1,
+            "CHECKSUM": 105
+          },
+          "encoded": "03c0001500000069"
+        },
+        {
+          "payload": "98f559280110eee4",
+          "values": {
+            "IPAS_STATE": 8,
+            "LTA_STATE": 30,
+            "LKA_STATE": 20,
+            "TYPE": 0,
+            "CHECKSUM": 228
+          },
+          "encoded": "08f00028000000e4"
+        },
+        {
+          "payload": "defbc3620a5f937e",
+          "values": {
+            "IPAS_STATE": 14,
+            "LTA_STATE": 31,
+            "LKA_STATE": 49,
+            "TYPE": 0,
+            "CHECKSUM": 126
+          },
+          "encoded": "0ef800620000007e"
+        },
+        {
+          "payload": "384e837e2fa0650d",
+          "values": {
+            "IPAS_STATE": 8,
+            "LTA_STATE": 9,
+            "LKA_STATE": 63,
+            "TYPE": 0,
+            "CHECKSUM": 13
+          },
+          "encoded": "0848007e0000000d"
+        },
+        {
+          "payload": "aa5f9cf45dac3786",
+          "values": {
+            "IPAS_STATE": 10,
+            "LTA_STATE": 11,
+            "LKA_STATE": 122,
+            "TYPE": 0,
+            "CHECKSUM": 134
+          },
+          "encoded": "0a5800f400000086"
+        },
+        {
+          "payload": "69340ec47b851754",
+          "values": {
+            "IPAS_STATE": 9,
+            "LTA_STATE": 6,
+            "LKA_STATE": 98,
+            "TYPE": 0,
+            "CHECKSUM": 84
+          },
+          "encoded": "093000c400000054"
+        },
+        {
+          "payload": "da9bdb4bf33b9ec7",
+          "values": {
+            "IPAS_STATE": 10,
+            "LTA_STATE": 19,
+            "LKA_STATE": 37,
+            "TYPE": 1,
+            "CHECKSUM": 199
+          },
+          "encoded": "0a98004b000000c7"
+        }
+      ]
+    },
+    {
+      "name": "LTA_RELATED",
+      "vectors": [
+        {
+          "payload": "c8011ea86cecdac5",
+          "values": {
+            "GAS_PEDAL": 0.005,
+            "STEER_ANGLE": 449.69039999999995,
+            "TURN_SIGNALS": 3,
+            "STEERING_PRESSED": 1,
+            "UNKNOWN": 0,
+            "LTA_STEER_REQUEST": 0,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 1
+          },
+          "encoded": "00011ea80c000084"
+        },
+        {
+          "payload": "f219dd2d1e81e300",
+          "values": {
+            "GAS_PEDAL": 0.125,
+            "STEER_ANGLE": -510.8295,
+            "TURN_SIGNALS": 3,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 0,
+            "LTA_STEER_REQUEST": 0,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "0019dd2d0c000000"
+        },
+        {
+          "payload": "a89b8f169f28a825",
+          "values": {
+            "GAS_PEDAL": 0.775,
+            "STEER_ANGLE": -1656.3138,
+            "TURN_SIGNALS": 3,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 0,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 1
+          },
+          "encoded": "009b8f160c000024"
+        },
+        {
+          "payload": "50dac2437ede5429",
+          "values": {
+            "GAS_PEDAL": 1.09,
+            "STEER_ANGLE": -905.6265,
+            "TURN_SIGNALS": 3,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 0,
+            "LDA_SA_TOGGLE": 1,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "00dac2430c000028"
+        },
+        {
+          "payload": "25ce8209869e271e",
+          "values": {
+            "GAS_PEDAL": 1.03,
+            "STEER_ANGLE": -1847.7531,
+            "TURN_SIGNALS": 1,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 0,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 1,
+            "UNKNOWN_2": 1
+          },
+          "encoded": "00ce82090400001c"
+        },
+        {
+          "payload": "fb40240a34f2b0bf",
+          "values": {
+            "GAS_PEDAL": 0.32,
+            "STEER_ANGLE": 528.6497999999999,
+            "TURN_SIGNALS": 1,
+            "STEERING_PRESSED": 1,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 1,
+            "UNKNOWN_2": 1
+          },
+          "encoded": "0040240a040000bc"
+        },
+        {
+          "payload": "870689bf7fd0f611",
+          "values": {
+            "GAS_PEDAL": 0.03,
+            "STEER_ANGLE": -1734.6428999999998,
+            "TURN_SIGNALS": 3,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 0,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "000689bf0c000010"
+        },
+        {
+          "payload": "2b52dd3cb89f2bda",
+          "values": {
+            "GAS_PEDAL": 0.41000000000000003,
+            "STEER_ANGLE": -509.96999999999997,
+            "TURN_SIGNALS": 2,
+            "STEERING_PRESSED": 1,
+            "UNKNOWN": 0,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 1,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "0052dd3c08000098"
+        },
+        {
+          "payload": "5a37b691a492dc37",
+          "values": {
+            "GAS_PEDAL": 0.275,
+            "STEER_ANGLE": -1077.1826999999998,
+            "TURN_SIGNALS": 1,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 1
+          },
+          "encoded": "0037b69104000034"
+        },
+        {
+          "payload": "4bfafd8ccb3a80d2",
+          "values": {
+            "GAS_PEDAL": 1.25,
+            "STEER_ANGLE": -35.9844,
+            "TURN_SIGNALS": 2,
+            "STEERING_PRESSED": 1,
+            "UNKNOWN": 0,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "00fafd8c08000090"
+        },
+        {
+          "payload": "845d6f0cf5222ef1",
+          "values": {
+            "GAS_PEDAL": 0.465,
+            "STEER_ANGLE": 1628.9243999999999,
+            "TURN_SIGNALS": 1,
+            "STEERING_PRESSED": 1,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "005d6f0c040000b0"
+        },
+        {
+          "payload": "8c50da0503cceb91",
+          "values": {
+            "GAS_PEDAL": 0.4,
+            "STEER_ANGLE": -557.1279,
+            "TURN_SIGNALS": 0,
+            "STEERING_PRESSED": 1,
+            "UNKNOWN": 0,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "0050da0500000090"
+        },
+        {
+          "payload": "d67754000b416d2d",
+          "values": {
+            "GAS_PEDAL": 0.595,
+            "STEER_ANGLE": 1232.1792,
+            "TURN_SIGNALS": 2,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 0,
+            "LDA_SA_TOGGLE": 1,
+            "UNKNOWN_2": 1
+          },
+          "encoded": "007754000800002c"
+        },
+        {
+          "payload": "3a56f668b978f6d1",
+          "values": {
+            "GAS_PEDAL": 0.43,
+            "STEER_ANGLE": -140.72879999999998,
+            "TURN_SIGNALS": 2,
+            "STEERING_PRESSED": 1,
+            "UNKNOWN": 0,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "0056f66808000090"
+        },
+        {
+          "payload": "fe075d0fb444e928",
+          "values": {
+            "GAS_PEDAL": 0.035,
+            "STEER_ANGLE": 1365.0579,
+            "TURN_SIGNALS": 1,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 0,
+            "LDA_SA_TOGGLE": 1,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "00075d0f04000028"
+        },
+        {
+          "payload": "631caec4a77948e4",
+          "values": {
+            "GAS_PEDAL": 0.14,
+            "STEER_ANGLE": -1191.6108,
+            "TURN_SIGNALS": 1,
+            "STEERING_PRESSED": 1,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 0,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 1
+          },
+          "encoded": "001caec4040000a4"
+        },
+        {
+          "payload": "cb5c36518103e9a1",
+          "values": {
+            "GAS_PEDAL": 0.46,
+            "STEER_ANGLE": 796.7565,
+            "TURN_SIGNALS": 0,
+            "STEERING_PRESSED": 1,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 0,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "005c3651000000a0"
+        },
+        {
+          "payload": "4d513256a2d7654b",
+          "values": {
+            "GAS_PEDAL": 0.405,
+            "STEER_ANGLE": 738.3678,
+            "TURN_SIGNALS": 0,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 0,
+            "LTA_STEER_REQUEST": 0,
+            "LDA_SA_TOGGLE": 1,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "0051325600000008"
+        },
+        {
+          "payload": "f365e8a102c39769",
+          "values": {
+            "GAS_PEDAL": 0.505,
+            "STEER_ANGLE": -342.8259,
+            "TURN_SIGNALS": 0,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 0,
+            "LDA_SA_TOGGLE": 1,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "0065e8a100000028"
+        },
+        {
+          "payload": "4e60c4fd1ea7fdb2",
+          "values": {
+            "GAS_PEDAL": 0.48,
+            "STEER_ANGLE": -865.6311,
+            "TURN_SIGNALS": 3,
+            "STEERING_PRESSED": 1,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "0060c4fd0c0000b0"
+        },
+        {
+          "payload": "1dd76323c461dd00",
+          "values": {
+            "GAS_PEDAL": 1.075,
+            "STEER_ANGLE": 1454.2167,
+            "TURN_SIGNALS": 1,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 0,
+            "LTA_STEER_REQUEST": 0,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "00d7632304000000"
+        },
+        {
+          "payload": "64250ad9b4665471",
+          "values": {
+            "GAS_PEDAL": 0.185,
+            "STEER_ANGLE": 159.1221,
+            "TURN_SIGNALS": 1,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "00250ad904000030"
+        },
+        {
+          "payload": "665bf38fe6175cd8",
+          "values": {
+            "GAS_PEDAL": 0.455,
+            "STEER_ANGLE": -182.5005,
+            "TURN_SIGNALS": 1,
+            "STEERING_PRESSED": 1,
+            "UNKNOWN": 0,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 1,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "005bf38f04000098"
+        },
+        {
+          "payload": "4930792317e279bb",
+          "values": {
+            "GAS_PEDAL": 0.24,
+            "STEER_ANGLE": 1776.9303,
+            "TURN_SIGNALS": 1,
+            "STEERING_PRESSED": 1,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 1,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "00307923040000b8"
+        },
+        {
+          "payload": "140af06c2df575be",
+          "values": {
+            "GAS_PEDAL": 0.05,
+            "STEER_ANGLE": -228.51239999999999,
+            "TURN_SIGNALS": 3,
+            "STEERING_PRESSED": 1,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 1,
+            "UNKNOWN_2": 1
+          },
+          "encoded": "000af06c0c0000bc"
+        },
+        {
+          "payload": "d7eea5340010bdad",
+          "values": {
+            "GAS_PEDAL": 1.19,
+            "STEER_ANGLE": -1331.8812,
+            "TURN_SIGNALS": 0,
+            "STEERING_PRESSED": 1,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 0,
+            "LDA_SA_TOGGLE": 1,
+            "UNKNOWN_2": 1
+          },
+          "encoded": "00eea534000000ac"
+        },
+        {
+          "payload": "256a1a92a4eec08c",
+          "values": {
+            "GAS_PEDAL": 0.53,
+            "STEER_ANGLE": 389.7546,
+            "TURN_SIGNALS": 1,
+            "STEERING_PRESSED": 1,
+            "UNKNOWN": 0,
+            "LTA_STEER_REQUEST": 0,
+            "LDA_SA_TOGGLE": 1,
+            "UNKNOWN_2": 1
+          },
+          "encoded": "006a1a920400008c"
+        },
+        {
+          "payload": "f25544b0a75dac5d",
+          "values": {
+            "GAS_PEDAL": 0.425,
+            "STEER_ANGLE": 1007.5631999999999,
+            "TURN_SIGNALS": 1,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 0,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 1,
+            "UNKNOWN_2": 1
+          },
+          "encoded": "005544b00400001c"
+        },
+        {
+          "payload": "4f91650f81f7eb71",
+          "values": {
+            "GAS_PEDAL": 0.725,
+            "STEER_ANGLE": 1482.4082999999998,
+            "TURN_SIGNALS": 0,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "0091650f00000030"
+        },
+        {
+          "payload": "39a918841ad48472",
+          "values": {
+            "GAS_PEDAL": 0.845,
+            "STEER_ANGLE": 359.6148,
+            "TURN_SIGNALS": 2,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "00a9188408000030"
+        },
+        {
+          "payload": "d4a041c7cf87b433",
+          "values": {
+            "GAS_PEDAL": 0.8,
+            "STEER_ANGLE": 964.8747,
+            "TURN_SIGNALS": 3,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 1,
+            "LTA_STEER_REQUEST": 1,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "00a041c70c000030"
+        },
+        {
+          "payload": "1ef3638cb9d61c01",
+          "values": {
+            "GAS_PEDAL": 1.215,
+            "STEER_ANGLE": 1460.2332,
+            "TURN_SIGNALS": 2,
+            "STEERING_PRESSED": 0,
+            "UNKNOWN": 0,
+            "LTA_STEER_REQUEST": 0,
+            "LDA_SA_TOGGLE": 0,
+            "UNKNOWN_2": 0
+          },
+          "encoded": "00f3638c08000000"
+        }
+      ]
+    },
+    {
+      "name": "BSM",
+      "vectors": [
+        {
+          "payload": "78a94ffc76fbcc86",
+          "values": {
+            "ADJACENT_ENABLED": 0,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 1,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 1
+          },
+          "encoded": "0081000000000000"
+        },
+        {
+          "payload": "88af4ac9392d1e86",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 1,
+            "R_APPROACHING": 1,
+            "L_APPROACHING": 1
+          },
+          "encoded": "8085000000000000"
+        },
+        {
+          "payload": "81198286347821eb",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 1,
+            "APPROACHING_ENABLED": 0,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 1
+          },
+          "encoded": "8101000000000000"
+        },
+        {
+          "payload": "065ecc906b80f487",
+          "values": {
+            "ADJACENT_ENABLED": 0,
+            "R_ADJACENT": 1,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 0,
+            "R_APPROACHING": 1,
+            "L_APPROACHING": 0
+          },
+          "encoded": "0204000000000000"
+        },
+        {
+          "payload": "244b628f6d8e1de7",
+          "values": {
+            "ADJACENT_ENABLED": 0,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 0,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 1
+          },
+          "encoded": "0001000000000000"
+        },
+        {
+          "payload": "5e63fd441b940b62",
+          "values": {
+            "ADJACENT_ENABLED": 0,
+            "R_ADJACENT": 1,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 0,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 1
+          },
+          "encoded": "0201000000000000"
+        },
+        {
+          "payload": "c9e9dc502c8f1d9e",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 1,
+            "APPROACHING_ENABLED": 1,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 1
+          },
+          "encoded": "8181000000000000"
+        },
+        {
+          "payload": "d2fa6e086fdc09d3",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 1,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 1,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 0
+          },
+          "encoded": "8280000000000000"
+        },
+        {
+          "payload": "b8a87b3c1bfc9be8",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 1,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 0
+          },
+          "encoded": "8080000000000000"
+        },
+        {
+          "payload": "f2115c5bddd26e63",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 1,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 0,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 1
+          },
+          "encoded": "8201000000000000"
+        },
+        {
+          "payload": "5f112e13d27572e6",
+          "values": {
+            "ADJACENT_ENABLED": 0,
+            "R_ADJACENT": 1,
+            "L_ADJACENT": 1,
+            "APPROACHING_ENABLED": 0,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 1
+          },
+          "encoded": "0301000000000000"
+        },
+        {
+          "payload": "78d68df9ca7f846b",
+          "values": {
+            "ADJACENT_ENABLED": 0,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 1,
+            "R_APPROACHING": 1,
+            "L_APPROACHING": 0
+          },
+          "encoded": "0084000000000000"
+        },
+        {
+          "payload": "43d6995bea7dcdda",
+          "values": {
+            "ADJACENT_ENABLED": 0,
+            "R_ADJACENT": 1,
+            "L_ADJACENT": 1,
+            "APPROACHING_ENABLED": 1,
+            "R_APPROACHING": 1,
+            "L_APPROACHING": 0
+          },
+          "encoded": "0384000000000000"
+        },
+        {
+          "payload": "33b099ae04f16e7c",
+          "values": {
+            "ADJACENT_ENABLED": 0,
+            "R_ADJACENT": 1,
+            "L_ADJACENT": 1,
+            "APPROACHING_ENABLED": 1,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 0
+          },
+          "encoded": "0380000000000000"
+        },
+        {
+          "payload": "ae9828522b7aa409",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 1,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 1,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 0
+          },
+          "encoded": "8280000000000000"
+        },
+        {
+          "payload": "82a29da8cec497f4",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 1,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 1,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 0
+          },
+          "encoded": "8280000000000000"
+        },
+        {
+          "payload": "aa161463115f5dde",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 1,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 0,
+            "R_APPROACHING": 1,
+            "L_APPROACHING": 0
+          },
+          "encoded": "8204000000000000"
+        },
+        {
+          "payload": "d9b4b36dff93bf12",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 1,
+            "APPROACHING_ENABLED": 1,
+            "R_APPROACHING": 1,
+            "L_APPROACHING": 0
+          },
+          "encoded": "8184000000000000"
+        },
+        {
+          "payload": "0bc869a7bb5c71f0",
+          "values": {
+            "ADJACENT_ENABLED": 0,
+            "R_ADJACENT": 1,
+            "L_ADJACENT": 1,
+            "APPROACHING_ENABLED": 1,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 0
+          },
+          "encoded": "0380000000000000"
+        },
+        {
+          "payload": "1472618227fb0f6e",
+          "values": {
+            "ADJACENT_ENABLED": 0,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 0,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 0
+          },
+          "encoded": "0000000000000000"
+        },
+        {
+          "payload": "d03b2ee0a2185522",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 0,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 1
+          },
+          "encoded": "8001000000000000"
+        },
+        {
+          "payload": "68da4e444e68e4c1",
+          "values": {
+            "ADJACENT_ENABLED": 0,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 1,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 0
+          },
+          "encoded": "0080000000000000"
+        },
+        {
+          "payload": "e988cf02d7eca9e2",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 1,
+            "APPROACHING_ENABLED": 1,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 0
+          },
+          "encoded": "8180000000000000"
+        },
+        {
+          "payload": "e7c436fe5e628e7c",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 1,
+            "L_ADJACENT": 1,
+            "APPROACHING_ENABLED": 1,
+            "R_APPROACHING": 1,
+            "L_APPROACHING": 0
+          },
+          "encoded": "8384000000000000"
+        },
+        {
+          "payload": "85342a1b31d4787f",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 1,
+            "APPROACHING_ENABLED": 0,
+            "R_APPROACHING": 1,
+            "L_APPROACHING": 0
+          },
+          "encoded": "8104000000000000"
+        },
+        {
+          "payload": "4e17d07a65c12b49",
+          "values": {
+            "ADJACENT_ENABLED": 0,
+            "R_ADJACENT": 1,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 0,
+            "R_APPROACHING": 1,
+            "L_APPROACHING": 1
+          },
+          "encoded": "0205000000000000"
+        },
+        {
+          "payload": "1417718e8cc88b5a",
+          "values": {
+            "ADJACENT_ENABLED": 0,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 0,
+            "R_APPROACHING": 1,
+            "L_APPROACHING": 1
+          },
+          "encoded": "0005000000000000"
+        },
+        {
+          "payload": "d16a686120163c7e",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 1,
+            "APPROACHING_ENABLED": 0,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 0
+          },
+          "encoded": "8100000000000000"
+        },
+        {
+          "payload": "8f8a989b61447eff",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 1,
+            "L_ADJACENT": 1,
+            "APPROACHING_ENABLED": 1,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 0
+          },
+          "encoded": "8380000000000000"
+        },
+        {
+          "payload": "d1001aa879af79e1",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 1,
+            "APPROACHING_ENABLED": 0,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 0
+          },
+          "encoded": "8100000000000000"
+        },
+        {
+          "payload": "d61ee9603ccdd186",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 1,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 0,
+            "R_APPROACHING": 1,
+            "L_APPROACHING": 0
+          },
+          "encoded": "8204000000000000"
+        },
+        {
+          "payload": "8072cd605af04cb0",
+          "values": {
+            "ADJACENT_ENABLED": 1,
+            "R_ADJACENT": 0,
+            "L_ADJACENT": 0,
+            "APPROACHING_ENABLED": 0,
+            "R_APPROACHING": 0,
+            "L_APPROACHING": 0
+          },
+          "encoded": "8000000000000000"
+        }
+      ]
+    }
+  ],
+  "skipped": {}
+}

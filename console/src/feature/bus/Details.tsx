@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bus, type channel, type library } from "@synnaxlabs/client";
+import { bus, type channel, type library } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -50,40 +50,36 @@ const ChannelLabel = ({ channel, planned }: ChannelLabelProps): ReactElement => 
   );
 };
 
-// Read and write tasks bind a field to a channel the same way.
-type Bound = bus.ReadField & bus.WriteField;
-
-interface FieldListProps {
+interface FieldListProps<B extends bus.WriteField> {
   entry: library.MessageEntry;
-  value: Bound[];
-  onChange: (value: Bound[]) => void;
+  value: B[];
+  onChange: (value: B[]) => void;
+  /** Creates the binding of a newly checked field. */
+  create: (field: library.FieldKey) => B;
   /** Renders how an included field binds to its channel. */
-  binding: (
-    field: library.BaseField,
-    bound: Bound,
-    update: (next: Bound) => void,
-  ) => ReactNode;
+  binding: (field: library.BaseField, bound: B, update: (next: B) => void) => ReactNode;
 }
 
 /**
  * Checks the fields of a message a task binds, in library order. A newly checked field
  * has no channel until configure creates one.
  */
-const FieldList = ({
+const FieldList = <B extends bus.WriteField>({
   entry,
   value,
   onChange,
+  create,
   binding,
-}: FieldListProps): ReactElement => {
+}: FieldListProps<B>): ReactElement => {
   const isPreview = Task.useIsPreview();
   const byField = new Map(value.map((f) => [f.field, f]));
   const toggle = (key: library.FieldKey, included: boolean) => {
     const next = new Map(byField);
-    if (included) next.set(key, { field: key, channel: 0 });
+    if (included) next.set(key, create(key));
     else next.delete(key);
     onChange(entry.payload.fields.flatMap((f) => next.get(f.key) ?? []));
   };
-  const update = (bound: Bound) =>
+  const update = (bound: B) =>
     onChange(value.map((f) => (f.field === bound.field ? bound : f)));
   return (
     <Flex.Box y gap="small" className={CSS.B("bus-fields")}>
@@ -119,13 +115,24 @@ const FieldList = ({
 /** Shows the channels a read task writes a message's fields to. */
 export const ReadDetails = ({ path, entry }: DetailsProps): ReactElement => {
   const device = useDeviceName();
-  const index = Form.useFieldValue<channel.Key>(`${path}.index`);
+  const fields = Form.useFieldValue<bus.ReadField[]>(`${path}.fields`);
   const plan = (name: string) => (device === "" ? "" : name);
+  const indexes = new Map<string, channel.Key>();
+  fields.forEach((f) => {
+    const name = indexName(device, entry, f.field);
+    if (f.index !== 0 || !indexes.has(name)) indexes.set(name, f.index);
+  });
   return (
     <Form.Sections className={CSS.B("bus-details")}>
-      <Form.Section title="Timestamps">
-        <ChannelLabel channel={index} planned={plan(indexName(device, entry.name))} />
-      </Form.Section>
+      {indexes.size > 0 && (
+        <Form.Section title="Timestamps">
+          <Flex.Box y gap="tiny">
+            {[...indexes].map(([name, index]) => (
+              <ChannelLabel key={name} channel={index} planned={plan(name)} />
+            ))}
+          </Flex.Box>
+        </Form.Section>
+      )}
       <Form.Section title="Fields">
         <Form.Field<bus.ReadField[]> path={`${path}.fields`} showLabel={false}>
           {({ value, onChange }) => (
@@ -133,6 +140,7 @@ export const ReadDetails = ({ path, entry }: DetailsProps): ReactElement => {
               entry={entry}
               value={value}
               onChange={onChange}
+              create={(field) => bus.readFieldZ.parse({ field })}
               binding={(f, bound) => (
                 <ChannelLabel
                   channel={bound.channel}
@@ -165,6 +173,7 @@ export const WriteDetails = ({ path, entry }: DetailsProps): ReactElement => {
               entry={entry}
               value={value}
               onChange={onChange}
+              create={(field) => bus.writeFieldZ.parse({ field })}
               binding={(f, bound, update) => (
                 <Flex.Box y gap="tiny" grow className={CSS.BE("bus-field", "binding")}>
                   <Channel.SelectSingle

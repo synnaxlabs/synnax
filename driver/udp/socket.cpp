@@ -8,34 +8,32 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
-#include <chrono>
 #include <string>
 #include <system_error>
 
-#include "asio/buffer.hpp"
-#include "asio/ip/multicast.hpp"
+#include "asio/error.hpp"
 
 #include "driver/udp/socket.h"
 
 namespace driver::udp {
 namespace {
-using Clock = std::chrono::steady_clock;
-
 x::errors::Error invalid(const std::string &message) {
     return x::errors::Error(transport::CONFIG_ERROR, message);
-}
-
-x::errors::Error unreachable(const std::string &context, const std::error_code &ec) {
-    return transport::error(transport::UNREACHABLE_ERROR, context, ec);
 }
 
 std::string to_string(const asio::ip::udp::endpoint &endpoint) {
     return endpoint.address().to_string() + ":" + std::to_string(endpoint.port());
 }
+
+asio::ip::udp protocol_of(const asio::ip::address &address) {
+    return address.is_v6() ? asio::ip::udp::v6() : asio::ip::udp::v4();
+}
 }
 
+Socket::Socket(const Config &config): stack(config.stacks(this->ctx)) {}
+
 std::pair<std::unique_ptr<Socket>, x::errors::Error>
-Socket::open(const synnax::udp::Properties &props) {
+Socket::open(const synnax::udp::Properties &props, const Config &config) {
     if (!props.remote_host.empty() && props.remote_port == 0)
         return {nullptr, invalid("a remote port is required with a remote host")};
     if (props.remote_host.empty() && props.remote_port != 0)
@@ -50,81 +48,96 @@ Socket::open(const synnax::udp::Properties &props) {
                 invalid("'" + props.multicast_group + "' is not a multicast address")
             };
     }
-    std::optional<asio::ip::udp> protocol;
-    if (group) protocol = group->is_v6() ? asio::ip::udp::v6() : asio::ip::udp::v4();
-    auto s = std::unique_ptr<Socket>(new Socket());
-    if (!props.remote_host.empty()) {
-        asio::ip::udp::resolver resolver(s->ctx);
-        const auto service = std::to_string(props.remote_port);
-        const auto results = protocol
-                               ? resolver
-                                     .resolve(*protocol, props.remote_host, service, ec)
-                               : resolver.resolve(props.remote_host, service, ec);
-        if (ec)
-            return {nullptr, unreachable("failed to resolve " + props.remote_host, ec)};
-        s->remote = results.begin()->endpoint();
-        protocol = s->remote->protocol();
-    }
-    const auto local = asio::ip::udp::endpoint(
-        protocol.value_or(asio::ip::udp::v4()),
-        props.port
-    );
-    s->socket.open(local.protocol(), ec);
-    if (ec) return {nullptr, unreachable("failed to open a UDP socket", ec)};
-    if (group) {
-        s->socket.set_option(asio::socket_base::reuse_address(true), ec);
+    std::optional<asio::ip::address> iface;
+    if (!props.local_address.empty()) {
+        iface = asio::ip::make_address(props.local_address, ec);
         if (ec)
             return {
                 nullptr,
-                unreachable(
-                    "failed to share UDP port " + std::to_string(props.port),
-                    ec
-                )
+                invalid("'" + props.local_address + "' is not an IP address")
             };
     }
-    s->socket.bind(local, ec);
-    if (ec)
+    if (group && iface && group->is_v6() != iface->is_v6())
         return {
             nullptr,
-            unreachable("failed to bind UDP port " + std::to_string(props.port), ec)
+            invalid(
+                "local address " + props.local_address + " and multicast group " +
+                props.multicast_group + " must use the same IP version"
+            )
         };
-    if (group) {
-        s->socket.set_option(asio::ip::multicast::join_group(*group), ec);
-        if (ec)
+    std::optional<asio::ip::udp> protocol;
+    if (iface) protocol = protocol_of(*iface);
+    if (group) protocol = protocol_of(*group);
+    auto s = std::unique_ptr<Socket>(new Socket(config));
+    if (!props.remote_host.empty()) {
+        const auto [endpoints, resolved] = s->stack->resolve(
+            props.remote_host,
+            props.remote_port
+        );
+        if (resolved)
             return {
                 nullptr,
-                unreachable(
-                    "failed to join multicast group " + props.multicast_group,
-                    ec
+                translate("failed to resolve " + props.remote_host, resolved)
+            };
+        const auto remote = std::ranges::find_if(endpoints, [&protocol](const auto &e) {
+            return !protocol || e.protocol() == *protocol;
+        });
+        if (remote == endpoints.end())
+            return {
+                nullptr,
+                invalid(
+                    "remote host " + props.remote_host +
+                    " has no address of the local address's IP version"
                 )
             };
+        s->remote = *remote;
+        protocol = remote->protocol();
     }
+    const auto port = std::to_string(props.port);
+    // Linux delivers group datagrams only to sockets bound to the any address, so a
+    // multicast socket uses the local address to pick the interface it joins on.
+    const auto local = iface && !group ? asio::ip::udp::endpoint(*iface, props.port)
+                                       : asio::ip::udp::endpoint(
+                                             protocol.value_or(asio::ip::udp::v4()),
+                                             props.port
+                                         );
+    if (const auto opened = s->stack->open(local.protocol()))
+        return {nullptr, translate("failed to open a UDP socket", opened)};
+    if (group)
+        if (const auto shared = s->stack->share())
+            return {nullptr, translate("failed to share UDP port " + port, shared)};
+    if (const auto bound = s->stack->bind(local))
+        return {
+            nullptr,
+            translate("failed to bind UDP port " + to_string(local), bound)
+        };
+    if (group)
+        if (const auto joined = s->stack->join(*group, iface))
+            return {
+                nullptr,
+                translate(
+                    "failed to join multicast group " + props.multicast_group,
+                    joined
+                )
+            };
     return {std::move(s), x::errors::NIL};
 }
 
 std::pair<transport::Chunk, x::errors::Error>
 Socket::read(const x::telem::TimeSpan timeout) {
-    const auto deadline = Clock::now() + timeout.chrono();
+    const auto deadline = x::telem::TimeStamp::now() + timeout;
     while (true) {
-        const auto remaining = std::max(
-            Clock::duration::zero(),
-            deadline - Clock::now()
-        );
         const auto done = transport::run_for(
             this->ctx,
-            x::telem::TimeSpan(
-                std::chrono::duration_cast<std::chrono::nanoseconds>(remaining)
-            ),
-            [this](auto handler) {
-                this->socket.async_receive(
-                    asio::buffer(this->buffer),
+            deadline - x::telem::TimeStamp::now(),
+            [this](Handler handler) {
+                this->stack->async_receive_from(
+                    this->buffer,
+                    this->sender,
                     std::move(handler)
                 );
             },
-            [this] {
-                std::error_code ignored;
-                this->socket.cancel(ignored);
-            }
+            [this] { this->stack->cancel(); }
         );
         if (done.timed_out()) return {{}, x::errors::NIL};
         // An ICMP port unreachable reply to an earlier send surfaces here on some
@@ -133,7 +146,8 @@ Socket::read(const x::telem::TimeSpan timeout) {
             done.ec == asio::error::connection_reset)
             continue;
         if (done.ec)
-            return {{}, unreachable("failed to receive a UDP datagram", done.ec)};
+            return {{}, translate("failed to receive a UDP datagram", done.ec)};
+        if (this->remote && this->sender != *this->remote) continue;
         return {
             {.data = {this->buffer.data(), done.size}, .time = done.time},
             x::errors::NIL
@@ -149,30 +163,19 @@ x::errors::Error Socket::write(
     const auto done = transport::run_for(
         this->ctx,
         timeout,
-        [this, data](auto handler) {
-            this->socket.async_send_to(
-                asio::buffer(data.data(), data.size()),
-                *this->remote,
-                std::move(handler)
-            );
+        [this, data](Handler handler) {
+            this->stack->async_send_to(data, *this->remote, std::move(handler));
         },
-        [this] {
-            std::error_code ignored;
-            this->socket.cancel(ignored);
-        }
+        [this] { this->stack->cancel(); }
     );
+    const auto context = "failed to send to " + to_string(*this->remote);
     if (done.timed_out())
-        return x::errors::Error(
-            transport::UNREACHABLE_ERROR,
-            "timed out sending to " + to_string(*this->remote)
-        );
-    if (done.ec)
-        return unreachable("failed to send to " + to_string(*this->remote), done.ec);
+        return translate(context, std::make_error_code(std::errc::timed_out));
+    if (done.ec) return translate(context, done.ec);
     return x::errors::NIL;
 }
 
 void Socket::close() {
-    std::error_code ignored;
-    this->socket.close(ignored);
+    this->stack->close();
 }
 }

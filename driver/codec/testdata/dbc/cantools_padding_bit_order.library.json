@@ -1,0 +1,260 @@
+{
+  "key": "00000000-0000-4000-8000-000000000000",
+  "name": "cantools_padding_bit_order",
+  "entries": [
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000001",
+      "name": "MSG0",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 1,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "A",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 6,
+            "bit_length": 15,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "B",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 7,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "C",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 38,
+            "bit_length": 15,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000005",
+            "name": "D",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 39,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000006",
+      "name": "MSG1",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 2,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000007",
+            "name": "E",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000008",
+            "name": "F",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 1,
+            "bit_length": 15,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000009",
+            "name": "G",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 32,
+            "bit_length": 1,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000a",
+            "name": "H",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 33,
+            "bit_length": 15,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-00000000000b",
+      "name": "MSG2",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 3,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-00000000000c",
+            "name": "I",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000d",
+            "name": "J",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 4,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000e",
+            "name": "K",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 8,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-00000000000f",
+      "name": "MSG3",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 4,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000010",
+            "name": "L",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 7,
+            "bit_length": 64,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000011",
+      "name": "MSG4",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 5,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000012",
+            "name": "M",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 64,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    }
+  ]
+}

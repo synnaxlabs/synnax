@@ -149,6 +149,8 @@ public:
         this->discarding = false;
     }
 
+    void gap() override {}
+
     x::errors::Error encode(const View frame, Bytes &out) const override {
         const auto &d = this->delimiter;
         if (auto err = validate(frame, frame.size() + d.size())) return err;
@@ -172,6 +174,8 @@ class Fixed final : public Framer {
     const std::size_t length;
     /// @brief buf holds the bytes of the frame in progress.
     Bytes buf;
+    /// @brief errors_ counts partial frames dropped at a gap.
+    std::size_t errors_ = 0;
 
 public:
     explicit Fixed(const std::size_t length): length(length) {
@@ -196,9 +200,15 @@ public:
         return x::errors::NIL;
     }
 
-    [[nodiscard]] std::size_t errors() const override { return 0; }
+    [[nodiscard]] std::size_t errors() const override { return this->errors_; }
 
     void reset() override { this->buf.clear(); }
+
+    void gap() override {
+        if (this->buf.empty()) return;
+        this->errors_++;
+        this->buf.clear();
+    }
 
     x::errors::Error encode(const View frame, Bytes &out) const override {
         if (frame.size() != this->length)
@@ -227,6 +237,8 @@ struct SyncLayout {
     Checksum checksum = Checksum::NONE;
     /// @brief checksum_big is true when the checksum is big-endian.
     bool checksum_big = false;
+    /// @brief max_size is the wire size of the largest valid frame.
+    std::size_t max_size = MAX_SIZE;
 };
 
 class Sync final : public Framer {
@@ -252,7 +264,7 @@ class Sync final : public Framer {
         const auto size = static_cast<std::int64_t>(this->header) +
                           static_cast<std::int64_t>(value) + l.length_adjustment;
         if (size < static_cast<std::int64_t>(this->min_size) ||
-            size > static_cast<std::int64_t>(MAX_SIZE))
+            size > static_cast<std::int64_t>(l.max_size))
             return 0;
         return static_cast<std::size_t>(size);
     }
@@ -336,11 +348,19 @@ public:
 
     void reset() override { this->buf.clear(); }
 
+    void gap() override {}
+
     x::errors::Error encode(const View frame, Bytes &out) const override {
         const auto &l = this->layout;
         const auto w = width(l.checksum);
         const auto size = frame.size() + w;
         if (auto err = validate(frame, size)) return err;
+        if (size > l.max_size)
+            return encode_error(
+                "frame of " + std::to_string(size) +
+                " bytes exceeds the max length of " + std::to_string(l.max_size) +
+                " bytes"
+            );
         if (frame.size() < this->header)
             return encode_error(
                 "frame of " + std::to_string(frame.size()) +
@@ -458,17 +478,21 @@ public:
         this->zero_pending = false;
     }
 
+    void gap() override {}
+
     x::errors::Error encode(const View frame, Bytes &out) const override {
         if (auto err = validate(frame, frame.size())) return err;
         auto code_at = out.size();
         out.push_back(0);
         std::uint8_t code = 1;
-        for (const auto b: frame) {
+        for (std::size_t i = 0; i < frame.size(); i++) {
+            const auto b = frame[i];
             if (b != 0) {
                 out.push_back(b);
                 code++;
             }
-            if (b == 0 || code == 0xFF) {
+            // A full block that ends the frame needs no empty block after it.
+            if (b == 0 || (code == 0xFF && i + 1 < frame.size())) {
                 out[code_at] = code;
                 code_at = out.size();
                 out.push_back(0);
@@ -526,6 +550,8 @@ public:
         this->u.reset();
         this->escaped = false;
     }
+
+    void gap() override {}
 
     x::errors::Error encode(const View frame, Bytes &out) const override {
         if (auto err = validate(frame, frame.size())) return err;
@@ -615,8 +641,18 @@ Result create(const bus::SyncFraming &f) {
     if (checksum_order_err) return {nullptr, checksum_order_err};
     if (f.length_offset < sync.size())
         return {nullptr, config_error("length field overlaps the sync sequence")};
-    if (f.length_offset + f.length_size + width(sum) > MAX_SIZE)
+    const auto min_size = f.length_offset + f.length_size + width(sum);
+    if (min_size > MAX_SIZE)
         return {nullptr, config_error("length offset is beyond the maximum frame")};
+    const std::size_t max_size = f.max_length == 0 ? MAX_SIZE : f.max_length;
+    if (max_size < min_size || max_size > MAX_SIZE)
+        return {
+            nullptr,
+            config_error(
+                "max length must be from " + std::to_string(min_size) + " to " +
+                std::to_string(MAX_SIZE) + " bytes"
+            ),
+        };
     return {
         std::make_unique<Sync>(SyncLayout{
             .sync = std::move(sync),
@@ -626,6 +662,7 @@ Result create(const bus::SyncFraming &f) {
             .length_adjustment = f.length_adjustment,
             .checksum = sum,
             .checksum_big = checksum_big,
+            .max_size = max_size,
         }),
         x::errors::NIL,
     };

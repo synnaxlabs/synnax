@@ -173,6 +173,247 @@ var _ = Describe("Resolver", func() {
 		)
 	})
 
+	Describe("Read indexes", func() {
+		var (
+			battery             library.MessageEntry
+			mode, volt, current library.BinaryField
+			temp1, temp2, humid library.BinaryField
+		)
+		BeforeEach(func(ctx SpecContext) {
+			mode = binaryField("mode", 0)
+			volt = multiplexed(binaryField("volt", 8), mode, 0)
+			current = multiplexed(binaryField("current", 16), mode, 0)
+			temp1 = multiplexed(binaryField("temp1", 8), mode, 1, 2)
+			temp2 = multiplexed(binaryField("temp2", 16), mode, 2, 1)
+			humid = multiplexed(binaryField("humid", 24), mode, 1)
+			battery = canMessage(
+				"Battery", 0x300, mode, volt, current, temp1, temp2, humid,
+			)
+			lib.Entries = append(lib.Entries, library.Entry{Variant: battery})
+			task = uuid.New()
+			createLibrary(ctx, &lib, task)
+		})
+
+		It("Should accept a plain message on one index", func(ctx SpecContext) {
+			cfg := readConfig(bus.ReadMessage{
+				Message: status.Key,
+				Fields: []bus.ReadField{
+					{Field: rpm.Key, Channel: 2, Index: 1},
+					{Field: temp.Key, Channel: 3, Index: 1},
+				},
+			})
+			Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+		})
+
+		It(
+			"Should accept multiplexed fields on one index per group",
+			func(ctx SpecContext) {
+				cfg := readConfig(bus.ReadMessage{
+					Message: battery.Key,
+					Fields: []bus.ReadField{
+						{Field: mode.Key, Channel: 2, Index: 1},
+						{Field: volt.Key, Channel: 3, Index: 4},
+						{Field: current.Key, Channel: 5, Index: 4},
+						{Field: temp1.Key, Channel: 6, Index: 7},
+						{Field: temp2.Key, Channel: 8, Index: 7},
+						{Field: humid.Key, Channel: 9, Index: 10},
+					},
+				})
+				Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+			},
+		)
+
+		It(
+			"Should reject fields that different multiplexor values select on one index",
+			func(ctx SpecContext) {
+				cfg := readConfig(bus.ReadMessage{
+					Message: battery.Key,
+					Fields: []bus.ReadField{
+						{Field: volt.Key, Channel: 3, Index: 4},
+						{Field: temp1.Key, Channel: 6, Index: 7},
+						{Field: humid.Key, Channel: 9, Index: 7},
+					},
+				})
+				Expect(resolver.Read(ctx, tx, task, &cfg)).To(MatchError(
+					"messages.0.fields.2.index: fields temp1 and humid share index " +
+						"7, but different multiplexor values select them: " +
+						"validation error",
+				))
+			},
+		)
+
+		It(
+			"Should reject a multiplexed field on the index of an always-present field",
+			func(ctx SpecContext) {
+				cfg := readConfig(bus.ReadMessage{
+					Message: battery.Key,
+					Fields: []bus.ReadField{
+						{Field: mode.Key, Channel: 2, Index: 1},
+						{Field: volt.Key, Channel: 3, Index: 1},
+					},
+				})
+				Expect(resolver.Read(ctx, tx, task, &cfg)).To(MatchError(
+					"messages.0.fields.1.index: fields mode and volt share index " +
+						"1, but different multiplexor values select them: " +
+						"validation error",
+				))
+			},
+		)
+
+		It("Should reject an index shared by two messages", func(ctx SpecContext) {
+			cfg := readConfig(
+				bus.ReadMessage{
+					Message: status.Key,
+					Fields:  []bus.ReadField{{Field: rpm.Key, Channel: 2, Index: 1}},
+				},
+				bus.ReadMessage{
+					Message: battery.Key,
+					Fields:  []bus.ReadField{{Field: mode.Key, Channel: 3, Index: 1}},
+				},
+			)
+			Expect(resolver.Read(ctx, tx, task, &cfg)).To(MatchError(
+				"messages.1.fields.0.index: index 1 already stamps message " +
+					"Status: validation error",
+			))
+		})
+
+		It(
+			"Should accept fields of different groups with no index",
+			func(ctx SpecContext) {
+				cfg := readConfig(
+					bus.ReadMessage{
+						Message: status.Key,
+						Fields:  []bus.ReadField{{Field: rpm.Key, Channel: 2}},
+					},
+					bus.ReadMessage{
+						Message: battery.Key,
+						Fields: []bus.ReadField{
+							{Field: volt.Key, Channel: 3},
+							{Field: humid.Key, Channel: 4},
+						},
+					},
+				)
+				Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+			},
+		)
+
+		It("Should skip a disabled message", func(ctx SpecContext) {
+			cfg := readConfig(
+				bus.ReadMessage{
+					Message: status.Key,
+					Fields:  []bus.ReadField{{Field: rpm.Key, Channel: 2, Index: 1}},
+				},
+				bus.ReadMessage{
+					Message:  battery.Key,
+					Disabled: true,
+					Fields: []bus.ReadField{
+						{Field: volt.Key, Channel: 3, Index: 1},
+						{Field: humid.Key, Channel: 4, Index: 1},
+					},
+				},
+			)
+			Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+		})
+	})
+
+	Describe("Read replies", func() {
+		var (
+			reading library.MessageEntry
+			labeled library.MessageEntry
+			line    library.MessageEntry
+			value   library.BinaryField
+			level   library.BinaryField
+		)
+		BeforeEach(func(ctx SpecContext) {
+			value = binaryField("value", 0)
+			reading = polled("Reading", "\\x01", value)
+			level = binaryField("level", 8)
+			labeled = canMessage("Level", 0x400, level)
+			query := "LEVEL?"
+			labeled.Query = &query
+			lineQuery := "MEAS?"
+			line = library.MessageEntry{
+				Key: uuid.New(), Name: "Line",
+				Payload: library.Payload{Variant: library.TextPayload{
+					Delimiter: ",",
+				}},
+				Query: &lineQuery,
+			}
+			lib.Entries = append(
+				lib.Entries,
+				library.Entry{Variant: reading},
+				library.Entry{Variant: labeled},
+				library.Entry{Variant: line},
+			)
+			task = uuid.New()
+			createLibrary(ctx, &lib, task)
+		})
+
+		It(
+			"Should reject a reply with no identifier beside a streamed message",
+			func(ctx SpecContext) {
+				cfg := readConfig(
+					bus.ReadMessage{Message: status.Key},
+					bus.ReadMessage{Message: reading.Key},
+				)
+				Expect(resolver.Read(ctx, tx, task, &cfg)).To(MatchError(
+					"messages.1.message: message Reading has a reply with no " +
+						"identifier, so it cannot share the task with messages the " +
+						"device sends unprompted: validation error",
+				))
+			},
+		)
+
+		It(
+			"Should reject a text reply with no prefix beside a streamed message",
+			func(ctx SpecContext) {
+				cfg := readConfig(
+					bus.ReadMessage{Message: line.Key},
+					bus.ReadMessage{Message: status.Key},
+				)
+				Expect(resolver.Read(ctx, tx, task, &cfg)).To(MatchError(
+					"messages.0.message: message Line has a reply with no " +
+						"identifier, so it cannot share the task with messages the " +
+						"device sends unprompted: validation error",
+				))
+			},
+		)
+
+		It(
+			"Should accept replies with no identifier when no message is streamed",
+			func(ctx SpecContext) {
+				cfg := readConfig(
+					bus.ReadMessage{Message: reading.Key},
+					bus.ReadMessage{Message: line.Key},
+					bus.ReadMessage{Message: labeled.Key},
+				)
+				Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+			},
+		)
+
+		It(
+			"Should accept a labeled reply beside a streamed message",
+			func(ctx SpecContext) {
+				cfg := readConfig(
+					bus.ReadMessage{Message: status.Key},
+					bus.ReadMessage{Message: labeled.Key},
+				)
+				Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+			},
+		)
+
+		It(
+			"Should ignore a disabled streamed message",
+			func(ctx SpecContext) {
+				cfg := readConfig(
+					bus.ReadMessage{Message: status.Key, Disabled: true},
+					bus.ReadMessage{Message: reading.Key},
+				)
+				Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+			},
+		)
+	})
+
 	Describe("Write", func() {
 		It("Should stamp the library hash into the config", func(ctx SpecContext) {
 			cfg := bus.WriteConfig{

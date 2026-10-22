@@ -23,7 +23,7 @@ import {
   indexName,
   rawName,
 } from "@/feature/bus/names";
-import { type Message, messagesOf } from "@/feature/bus/types";
+import { fieldOf, type Message, messagesOf } from "@/feature/bus/types";
 
 const FIELD_DATA_TYPE = DataType.FLOAT64.toString();
 
@@ -115,19 +115,9 @@ const entryOf = (ctx: Context, m: Message): library.MessageEntry => {
 };
 
 /**
- * @returns the name of the message field with the key.
- * @throws {Error} if the message has no such field.
- */
-const fieldName = (entry: library.MessageEntry, key: library.FieldKey): string => {
-  const field = entry.payload.fields.find((f) => f.key === key);
-  if (field == null) throw new Error(`Field ${key} is not in message ${entry.name}`);
-  return field.name;
-};
-
-/**
- * Creates the channels a read config names but that do not exist: one index per
- * message, one channel per field, and the virtual raw frame channel. Channels that
- * already exist by name are reused.
+ * Creates the channels a read config names but that do not exist: one index per group
+ * of fields that the same multiplexor values select, one channel per field, and the
+ * virtual raw frame channel. Channels that already exist by name are reused.
  * @returns the config bound to its channels and the rack of its device.
  */
 export const configureRead = async <C extends bus.ReadConfig>(
@@ -136,34 +126,43 @@ export const configureRead = async <C extends bus.ReadConfig>(
 ): Promise<[C, rack.Key]> => {
   const keys = [
     config.raw,
-    ...config.messages.flatMap((m) => [m.index, ...m.fields.map((f) => f.channel)]),
+    ...config.messages.flatMap((m) => m.fields.flatMap((f) => [f.index, f.channel])),
   ];
   const ctx = await openContext(client, config, keys);
-  const enabled = config.messages
-    .filter((m) => !m.disabled)
-    .map((m) => ({ m, entry: entryOf(ctx, m) }));
+  const fields = config.messages.flatMap((m) => {
+    if (m.disabled) return [];
+    const entry = entryOf(ctx, m);
+    return m.fields.map((field) => ({ field, entry }));
+  });
   const raw = rawName(ctx.device);
   const rawMissing = !ctx.existing.has(config.raw);
-  const unindexed = enabled.filter(({ m }) => !ctx.existing.has(m.index));
+  const unindexed = fields
+    .filter(({ field }) => !ctx.existing.has(field.index))
+    .map(({ field, entry }) => ({
+      field,
+      name: indexName(ctx.device, entry, field.field),
+    }));
   const keyOf = await createChannels(client, [
     ...(rawMissing ? [{ name: raw, dataType: DataType.BYTES, virtual: true }] : []),
-    ...unindexed.map(({ entry }) => newIndex(indexName(ctx.device, entry.name))),
+    ...unindexed.map(({ name }) => newIndex(name)),
   ]);
   if (rawMissing) config.raw = keyOf(raw);
-  unindexed.forEach(({ m, entry }) => {
-    m.index = keyOf(indexName(ctx.device, entry.name));
+  unindexed.forEach(({ field, name }) => {
+    field.index = keyOf(name);
   });
   await bindFields(
     client,
-    enabled.flatMap(({ m, entry }) =>
-      m.fields
-        .filter((f) => !ctx.existing.has(f.channel))
-        .map((field) => ({
-          field,
-          name: fieldChannelName(ctx.device, entry.name, fieldName(entry, field.field)),
-          index: m.index,
-        })),
-    ),
+    fields
+      .filter(({ field }) => !ctx.existing.has(field.channel))
+      .map(({ field, entry }) => ({
+        field,
+        name: fieldChannelName(
+          ctx.device,
+          entry.name,
+          fieldOf(entry, field.field).name,
+        ),
+        index: field.index,
+      })),
   );
   return [config, ctx.rack];
 };
@@ -194,7 +193,11 @@ export const configureWrite = async <C extends bus.WriteConfig>(
       const index = indexOf(commandIndexName(ctx.device, entry.name));
       return fields.map((field) => ({
         field,
-        name: commandChannelName(ctx.device, entry.name, fieldName(entry, field.field)),
+        name: commandChannelName(
+          ctx.device,
+          entry.name,
+          fieldOf(entry, field.field).name,
+        ),
         index,
       }));
     }),

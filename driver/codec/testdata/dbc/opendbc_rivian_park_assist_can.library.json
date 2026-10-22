@@ -1,0 +1,236 @@
+{
+  "key": "00000000-0000-4000-8000-000000000000",
+  "name": "opendbc_rivian_park_assist_can",
+  "entries": [
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000001",
+      "name": "WheelButtons",
+      "payload": {
+        "format": "binary",
+        "length": 7,
+        "identifier": {
+          "type": "can",
+          "id": 794,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "LeftButton_ScrollClick",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 19,
+            "bit_length": 2,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "LeftButton_RightClick",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 21,
+            "bit_length": 2,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "LeftButton_LeftClick",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 22,
+            "bit_length": 2,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000005",
+            "name": "LeftButton_Scroll",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 31,
+            "bit_length": 8,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000006",
+            "name": "RightButton_ScrollClick",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 35,
+            "bit_length": 2,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000007",
+            "name": "RightButton_RightClick",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 37,
+            "bit_length": 2,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000008",
+            "name": "RightButton_LeftClick",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 38,
+            "bit_length": 2,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000009",
+            "name": "RightButton_Scroll",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 47,
+            "bit_length": 8,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-00000000000a",
+      "name": "BSM_BlindSpotIndicator",
+      "payload": {
+        "format": "binary",
+        "length": 4,
+        "identifier": {
+          "type": "can",
+          "id": 848,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-00000000000b",
+            "name": "BSM_BlindSpotIndicator_Checksum",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000c",
+            "name": "BSM_BlindSpotIndicator_Counter",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 11,
+            "bit_length": 4,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000d",
+            "name": "BSM_BlindSpotIndicator_Left",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-00000000000f",
+            "multiplex_values": [],
+            "start_bit": 29,
+            "bit_length": 2,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000e",
+            "name": "BSM_BlindSpotIndicator_Right",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000010",
+            "multiplex_values": [],
+            "start_bit": 30,
+            "bit_length": 2,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000000f",
+      "name": "BSM_BlindSpotIndicator.BSM_BlindSpotIndicator_Left",
+      "values": [
+        {
+          "value": 0,
+          "name": "OFF"
+        },
+        {
+          "value": 1,
+          "name": "OBJECT_DETECTED"
+        },
+        {
+          "value": 2,
+          "name": "ACTIVE_WARNING"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000010",
+      "name": "BSM_BlindSpotIndicator.BSM_BlindSpotIndicator_Right",
+      "values": [
+        {
+          "value": 0,
+          "name": "OFF"
+        },
+        {
+          "value": 1,
+          "name": "OBJECT_DETECTED"
+        },
+        {
+          "value": 2,
+          "name": "ACTIVE_WARNING"
+        }
+      ]
+    }
+  ]
+}

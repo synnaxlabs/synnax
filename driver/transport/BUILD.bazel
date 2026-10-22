@@ -8,6 +8,7 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "transport",
@@ -21,5 +22,17 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/telem",
         "@asio//:asio_no_openssl",
+    ],
+)
+
+cc_test(
+    name = "transport_test",
+    size = "small",
+    srcs = ["transport_test.cpp"],
+    deps = [
+        ":transport",
+        "//x/cpp/test",
+        "@asio//:asio_no_openssl",
+        "@googletest//:gtest_main",
     ],
 )

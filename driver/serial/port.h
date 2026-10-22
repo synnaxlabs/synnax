@@ -23,28 +23,41 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
+#include "driver/serial/errors.h"
+#include "driver/serial/native.h"
 #include "driver/transport/transport.h"
 
 namespace driver::serial {
 /// @brief an open serial port. Calls must not overlap, but any thread may make them.
+/// Errors map through translate.
 class Port {
     std::string path;
     asio::io_context ctx{1};
     asio::serial_port device{ctx};
+    native::Line line;
     std::vector<std::uint8_t> buffer = std::vector<std::uint8_t>(
         transport::BUFFER_SIZE
     );
 
     explicit Port(std::string path): path(std::move(path)) {}
 
+    [[nodiscard]] native::Handle handle();
+
 public:
-    /// @brief opens the port at props.port and applies the settings in props.
-    /// @returns UNREACHABLE_ERROR when the port cannot be opened, and CONFIG_ERROR when
-    /// a setting is invalid or the port or platform cannot apply it.
+    /// @brief the pause after which a reader drops a partial frame. Serial lines lose
+    /// bytes, and devices pause between frames.
+    static inline const x::telem::TimeSpan FRAME_GAP = 50 * x::telem::MILLISECOND;
+
+    /// @brief opens the port at props.port, locks it against other programs, and
+    /// applies the settings in props.
+    /// @returns UNREACHABLE_ERROR when the port is missing or in use, and CONFIG_ERROR
+    /// when a setting is invalid or the port or platform cannot apply it.
     static std::pair<std::unique_ptr<Port>, x::errors::Error>
     open(const synnax::serial::Properties &props);
 
-    /// @brief blocks until bytes arrive or the timeout elapses.
+    /// @brief blocks until bytes arrive or the timeout elapses. The chunk leaves out
+    /// bytes with parity or framing errors and counts them, and counts receive
+    /// overruns.
     /// @returns the bytes that arrived, or an empty chunk on timeout. UNREACHABLE_ERROR
     /// when the port fails, as when its device is unplugged.
     std::pair<transport::Chunk, x::errors::Error> read(x::telem::TimeSpan timeout);

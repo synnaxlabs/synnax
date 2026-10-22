@@ -7,13 +7,52 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
+import { channel, type library } from "@synnaxlabs/client";
+
+import { fieldOf } from "@/feature/bus/types";
 
 const safe = (name: string): string => channel.escapeInvalidName(name, true);
 
-/** @returns the name of the index channel of a message a read task decodes. */
-export const indexName = (device: string, message: string): string =>
-  `${safe(device)}_${safe(message)}_time`;
+interface Selector {
+  multiplexor: library.BaseField;
+  values: number[];
+}
+
+/** @returns the multiplexors that select a field, outermost first. */
+const selectorsOf = (
+  entry: library.MessageEntry,
+  field: library.BaseField,
+): Selector[] => {
+  if (field.multiplexor == null) return [];
+  const multiplexor = fieldOf(entry, field.multiplexor);
+  const values = [...new Set(field.multiplexValues)].sort((a, b) => a - b);
+  return [...selectorsOf(entry, multiplexor), { multiplexor, values }];
+};
+
+/**
+ * @returns the name of the index a read task stamps a field's samples on. Fields that
+ * the same multiplexor values select share an index. With one multiplexor in the
+ * message, the name holds the values (mux1_2). With more, it holds each multiplexor and
+ * its values (Mode_3_Sub_5). An always-present field uses the plain index.
+ * @throws {Error} if the message has no such field.
+ */
+export const indexName = (
+  device: string,
+  entry: library.MessageEntry,
+  field: library.FieldKey,
+): string => {
+  const base = `${safe(device)}_${safe(entry.name)}`;
+  const selectors = selectorsOf(entry, fieldOf(entry, field));
+  if (selectors.length === 0) return `${base}_time`;
+  const multiplexors = new Set(
+    entry.payload.fields.flatMap((f) => f.multiplexor ?? []),
+  );
+  const group =
+    multiplexors.size === 1
+      ? `mux${selectors[0].values.join("_")}`
+      : selectors.map((s) => [s.multiplexor.name, ...s.values].join("_")).join("_");
+  return `${base}_${safe(group)}_time`;
+};
 
 /** @returns the name of the channel a read task writes a field to. */
 export const fieldChannelName = (device: string, message: string, field: string) =>

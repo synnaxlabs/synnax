@@ -25,6 +25,7 @@ func (p Properties) EncodeOrc(w *orc.Writer) error {
 	w.String(p.RemoteHost)
 	w.Uint16(uint16(p.RemotePort))
 	w.String(p.MulticastGroup)
+	w.String(p.LocalAddress)
 	return nil
 }
 
@@ -41,6 +42,9 @@ func (p *Properties) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if p.MulticastGroup, err = r.String(); err != nil {
+		return err
+	}
+	if p.LocalAddress, err = r.String(); err != nil {
 		return err
 	}
 	return nil

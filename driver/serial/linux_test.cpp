@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -29,6 +30,16 @@ void write_type(const std::filesystem::path &root, const std::string &name, int 
     std::filesystem::create_directories(dir);
     std::ofstream(dir / "type") << type << '\n';
 }
+
+/// @brief gives the tty a device link, as the kernel does for a tty that hardware
+/// backs.
+void link_device(const std::filesystem::path &root, const std::string &name) {
+    const auto dir = root / "sys" / "class" / "tty" / name;
+    std::filesystem::create_directories(dir);
+    const auto device = root / "sys" / "devices" / name;
+    std::filesystem::create_directories(device);
+    std::filesystem::create_directory_symlink(device, dir / "device");
+}
 }
 
 TEST(Scan, ListsByIdLinksFirstAndHidesTheDevicesTheyReach) {
@@ -37,6 +48,9 @@ TEST(Scan, ListsByIdLinksFirstAndHidesTheDevicesTheyReach) {
     const auto dev = root / "dev";
     for (const auto *name: {"ttyUSB0", "ttyUSB1", "ttyACM0", "ttyS0", "ttyS1", "tty0"})
         touch(dev / name);
+    for (const auto *name: {"ttyUSB0", "ttyUSB1", "ttyACM0", "ttyS0", "ttyS1"})
+        link_device(root, name);
+    std::filesystem::create_directories(root / "sys" / "class" / "tty" / "tty0");
     write_type(root, "ttyS0", 0);
     write_type(root, "ttyS1", 4);
     const auto by_id = dev / "serial" / "by-id";
@@ -51,6 +65,28 @@ TEST(Scan, ListsByIdLinksFirstAndHidesTheDevicesTheyReach) {
     EXPECT_EQ(ports[2].path, (dev / "ttyS1").string());
     EXPECT_EQ(ports[3].path, (dev / "ttyUSB1").string());
     EXPECT_EQ(ports[3].name, "ttyUSB1");
+}
+
+TEST(Scan, FindsEveryTtyThatHardwareBacks) {
+    const auto root = std::filesystem::path(::testing::TempDir()) / "linux_scan_any";
+    std::filesystem::remove_all(root);
+    const auto dev = root / "dev";
+    for (const auto *name: {"ttyAMA0", "ttymxc1", "ttyTHS2", "ttyXRUSB0", "ttyGS0"}) {
+        touch(dev / name);
+        link_device(root, name);
+    }
+    touch(dev / "ttyp0");
+    std::filesystem::create_directories(root / "sys" / "class" / "tty" / "ttyp0");
+    link_device(root, "ttyUSB7");
+    const auto ports = ASSERT_NIL_P(scan(root));
+    std::vector<std::string> names;
+    for (const auto &p: ports)
+        names.push_back(p.name);
+    EXPECT_EQ(
+        names,
+        (std::vector<
+            std::string>{"ttyAMA0", "ttyGS0", "ttyTHS2", "ttyXRUSB0", "ttymxc1"})
+    );
 }
 
 TEST(Scan, FailsWhenTheDeviceDirectoryIsMissing) {

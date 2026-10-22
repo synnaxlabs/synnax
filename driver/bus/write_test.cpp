@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <atomic>
+#include <chrono>
 #include <functional>
-#include <future>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -43,7 +44,8 @@ struct Harness {
     Harness(
         const synnax::library::MessageEntry &message,
         const std::vector<std::pair<synnax::channel::Key, std::size_t>> &bindings,
-        const std::optional<::synnax::bus::Framing> &framing
+        const std::optional<::synnax::bus::Framing> &framing,
+        x::telem::NowFunc now = steady_now
     ) {
         ::synnax::bus::WriteConfig cfg;
         cfg.device = "dev";
@@ -55,7 +57,7 @@ struct Harness {
         }
         cfg.messages = {wm};
         x::json::Parser parser(x::json::json::object());
-        auto resolved = WriteConfig::resolve(
+        auto [resolved, err] = WriteConfig::resolve(
             parser,
             cfg,
             framing,
@@ -63,9 +65,12 @@ struct Harness {
             channels
         );
         EXPECT_TRUE(parser.ok()) << parser.error_json().dump();
+        EXPECT_FALSE(err) << err;
+        resolved.device = "dev";
         this->sink = std::make_unique<Sink>(
             std::move(resolved),
-            std::make_unique<ConnectionTransmitter>(acquire(this->wire))
+            std::make_unique<ConnectionTransmitter>(acquire(this->wire)),
+            std::move(now)
         );
         this->sink->set_warning = [this](const x::errors::Error &err) {
             std::lock_guard lock(this->mu);
@@ -87,7 +92,17 @@ struct Harness {
         if (this->warnings.empty()) return std::nullopt;
         return this->warnings.back();
     }
+
+    /// @returns the message of the last warning, or an empty string when the last call
+    /// to set_warning cleared it or there was none.
+    std::string message() {
+        const auto w = this->warning();
+        return w.has_value() ? w->data : "";
+    }
 };
+
+const auto LONG = std::chrono::seconds(5);
+const auto TICK = std::chrono::milliseconds(1);
 
 const ::synnax::bus::Framing TWO_BYTES = ::synnax::bus::FixedFraming{.length = 2};
 }
@@ -172,49 +187,173 @@ TEST(Sink, StartsATextLineWithItsPrefix) {
     EXPECT_EQ(text(h.wire->written()[0]), "SET,5\n");
 }
 
-TEST(Sink, WarnsWhenTheDeviceIsUnreachableAndRecovers) {
+TEST(Sink, ResendsTheNewestPayloadAfterTheConnectionRecovers) {
     const auto m = binary_message("cmd", {binary_field("a", 0)});
     Harness h(m, {{1, 0}}, std::nullopt);
     {
         std::lock_guard lock(h.wire->mu);
-        h.wire->open_errs = {transport::UNREACHABLE_ERROR};
+        h.wire->write_errs = {x::errors::Error(transport::UNREACHABLE_ERROR, "down")};
     }
     h.command(1, 1);
-    ASSERT_EVENTUALLY_TRUE(h.warning().has_value());
-    EXPECT_TRUE(h.warning()->matches(transport::UNREACHABLE_ERROR));
+    ASSERT_EVENTUALLY_EQ(h.message(), "reconnecting to dev: down");
     EXPECT_EQ(h.count(), 0);
     h.command(1, 2);
-    ASSERT_EVENTUALLY_EQ(h.count(), 1);
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(h.count(), 1, LONG, TICK);
     EXPECT_EQ(h.wire->written()[0], Bytes{0x02});
     ASSERT_EVENTUALLY_TRUE(h.warning().has_value() && !*h.warning());
+    EXPECT_EQ(h.wire->opens, 2);
 }
 
-TEST(Sink, KeepsOnlyTheNewestUnsentPayloadOfAMessage) {
+TEST(Sink, ReturnsASendErrorThatNoResendCanFix) {
     const auto m = binary_message("cmd", {binary_field("a", 0)});
     Harness h(m, {{1, 0}}, std::nullopt);
-    std::promise<void> release;
-    const auto released = release.get_future().share();
-    std::atomic<bool> blocked = false;
     {
         std::lock_guard lock(h.wire->mu);
-        h.wire->on_write = [&](Wire &, std::span<const std::uint8_t>) {
-            if (blocked.exchange(true)) return;
-            released.wait();
-        };
+        h.wire->write_errs = {x::errors::Error(transport::CRITICAL_ERROR, "removed")};
     }
     h.command(1, 1);
-    ASSERT_EVENTUALLY_TRUE(blocked.load());
+    ASSERT_EVENTUALLY_EQ(h.message(), "removed");
+    x::telem::Frame fr(1, x::telem::Series(2.0, x::telem::FLOAT64_T));
+    ASSERT_OCCURRED_AS(h.sink->write(fr), transport::CRITICAL_ERROR);
+}
+
+TEST(Sink, OpensTheConnectionOnStart) {
+    const auto wire = std::make_shared<Wire>();
+    Sink sink(
+        write_config(binary_message("cmd", {binary_field("a", 0)}), {{1, 0}}, {}),
+        std::make_unique<ConnectionTransmitter>(acquire(wire))
+    );
+    ASSERT_NIL(sink.start());
+    EXPECT_EQ(wire->opens, 1);
+    ASSERT_NIL(sink.stop());
+}
+
+TEST(Sink, FailsToStartWithInvalidDeviceProperties) {
+    const auto wire = std::make_shared<Wire>();
+    wire->open_errs = {x::errors::Error(transport::CONFIG_ERROR, "no such baud")};
+    Sink sink(
+        write_config(binary_message("cmd", {binary_field("a", 0)}), {{1, 0}}, {}),
+        std::make_unique<ConnectionTransmitter>(acquire(wire))
+    );
+    ASSERT_OCCURRED_AS(sink.start(), transport::CONFIG_ERROR);
+}
+
+TEST(Sink, StartsWhileTheDeviceIsUnreachableAndSendsWhenItReturns) {
+    const auto wire = std::make_shared<Wire>();
+    wire->open_errs = {x::errors::Error(transport::UNREACHABLE_ERROR, "no port")};
+    Sink sink(
+        write_config(binary_message("cmd", {binary_field("a", 0)}), {{1, 0}}, {}),
+        std::make_unique<ConnectionTransmitter>(acquire(wire))
+    );
+    std::mutex mu;
+    std::string warning;
+    sink.set_warning = [&](const x::errors::Error &err) {
+        std::lock_guard lock(mu);
+        warning = err.data;
+    };
+    ASSERT_NIL(sink.start());
+    x::telem::Frame fr(1, x::telem::Series(4.0, x::telem::FLOAT64_T));
+    ASSERT_NIL(sink.write(fr));
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(wire->written().size(), 1, LONG, TICK);
+    EXPECT_EQ(wire->written()[0], Bytes{0x04});
+    ASSERT_NIL(sink.stop());
+}
+
+TEST(Sink, RefusesAValueOutsideTheRangeOfItsField) {
+    auto m = binary_message("cmd", {binary_field("a", 0)});
+    m.period = 10 * x::telem::MILLISECOND;
+    Harness h(m, {{1, 0}}, std::nullopt);
+    h.command(1, 7);
+    ASSERT_EVENTUALLY_GE(h.count(), 1);
+    h.command(1, 300);
+    ASSERT_EVENTUALLY_EQ(h.message(), "cmd.a: 300 is outside the range 0 to 255");
+    const auto refused = h.count();
+    ASSERT_EVENTUALLY_GE(h.count(), refused + 2);
+    for (const auto &w: h.wire->written())
+        EXPECT_EQ(w, Bytes{0x07});
+}
+
+TEST(Sink, RefusesNaN) {
+    const auto m = binary_message("cmd", {binary_field("a", 0)});
+    Harness h(m, {{1, 0}}, std::nullopt);
+    h.command(1, std::numeric_limits<double>::quiet_NaN());
+    ASSERT_EVENTUALLY_EQ(h.message(), "cmd.a: NaN is outside the range 0 to 255");
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    EXPECT_EQ(h.count(), 0);
+}
+
+TEST(Sink, ClearsARefusalWarningOneSecondAfterTheLastRefusal) {
+    const auto m = binary_message("cmd", {binary_field("a", 0)});
+    Clock clock;
+    Harness h(m, {{1, 0}}, std::nullopt, clock.func());
+    h.command(1, -1);
+    ASSERT_EVENTUALLY_EQ(h.message(), "cmd.a: -1 is outside the range 0 to 255");
+    clock.advance(WARNING_HOLD);
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        h.warning().has_value() && !*h.warning(),
+        LONG,
+        TICK
+    );
+}
+
+TEST(Sink, WarnsWhichFieldsAMessageWaitsFor) {
+    const auto m = binary_message(
+        "cmd",
+        {binary_field("a", 0), binary_field("b", 8), binary_field("c", 16)}
+    );
+    Harness h(m, {{1, 0}, {2, 1}, {3, 2}}, std::nullopt);
+    h.command(1, 1);
+    ASSERT_EVENTUALLY_EQ(h.message(), "cmd waits for b, c");
+    h.command(3, 1);
+    ASSERT_EVENTUALLY_EQ(h.message(), "cmd waits for b");
+    h.command(2, 1);
+    ASSERT_EVENTUALLY_TRUE(h.warning().has_value() && !*h.warning());
+    ASSERT_EVENTUALLY_EQ(h.count(), 1);
+}
+
+TEST(Sink, SchedulesAPeriodicMessageOnTheSteadyClock) {
+    auto m = binary_message("cmd", {binary_field("a", 0)});
+    m.period = 100 * x::telem::MILLISECOND;
+    Clock clock;
+    Harness h(m, {{1, 0}}, std::nullopt, clock.func());
+    h.command(1, 3);
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    EXPECT_EQ(h.count(), 0);
+    clock.advance(100 * x::telem::MILLISECOND);
+    ASSERT_EVENTUALLY_EQ(h.count(), 1);
+    clock.advance(50 * x::telem::MILLISECOND);
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    EXPECT_EQ(h.count(), 1);
+    clock.advance(50 * x::telem::MILLISECOND);
+    ASSERT_EVENTUALLY_EQ(h.count(), 2);
+    clock.advance(x::telem::SECOND);
+    ASSERT_EVENTUALLY_EQ(h.count(), 3);
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    EXPECT_EQ(h.count(), 3);
+    clock.advance(100 * x::telem::MILLISECOND);
+    ASSERT_EVENTUALLY_EQ(h.count(), 4);
+}
+
+TEST(Sink, KeepsOnlyTheNewestPayloadDuringASlowWrite) {
+    const auto m = binary_message("cmd", {binary_field("a", 0)});
+    Harness h(m, {{1, 0}}, std::nullopt);
+    {
+        std::lock_guard lock(h.wire->mu);
+        h.wire->write_delay = 200 * x::telem::MILLISECOND;
+    }
+    h.command(1, 1);
+    ASSERT_EVENTUALLY_TRUE([&] {
+        std::lock_guard lock(h.wire->mu);
+        return h.wire->started == 1;
+    }());
     for (int v = 2; v <= 50; v++)
         h.command(1, v);
-    release.set_value();
     ASSERT_EVENTUALLY_EQ(h.count(), 2);
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
     const auto written = h.wire->written();
     ASSERT_EQ(written.size(), 2);
     EXPECT_EQ(written[0], Bytes{1});
     EXPECT_EQ(written[1], Bytes{50});
-    std::lock_guard lock(h.wire->mu);
-    h.wire->on_write = nullptr;
 }
 
 TEST(Sink, WaitsForAPollOfTheSameDeviceToGetItsReply) {

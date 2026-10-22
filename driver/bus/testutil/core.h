@@ -80,7 +80,7 @@ struct Core {
                 0,
                 true
             ));
-            ::synnax::bus::ReadMessage rm{.message = m->key, .index = idx.key};
+            ::synnax::bus::ReadMessage rm{.message = m->key};
             for (const auto *f: field_bases(*m)) {
                 const auto ch = ASSERT_NIL_P(this->client->channels.create(
                     make_unique_channel_name(m->name + "_" + f->name),
@@ -88,7 +88,9 @@ struct Core {
                     idx.key,
                     false
                 ));
-                rm.fields.push_back({.field = f->key, .channel = ch.key});
+                rm.fields.push_back(
+                    {.field = f->key, .channel = ch.key, .index = idx.key}
+                );
             }
             cfg.messages.push_back(rm);
         }

@@ -303,81 +303,79 @@ TEST(PlanEncode, RoundsToTheNearestRawValue) {
     a.scale = 0.1;
     const auto plan = ASSERT_NIL_P(Plan::compile(message({a})));
     auto values = plan.values();
-    values.set(0, 1.26);
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(1.26)));
     std::vector<std::uint8_t> payload;
-    ASSERT_NIL(plan.encode(values, payload));
+    plan.encode(values, payload);
     EXPECT_EQ(payload, std::vector<std::uint8_t>{13});
-    values.set(0, 1.24);
-    ASSERT_NIL(plan.encode(values, payload));
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(1.24)));
+    plan.encode(values, payload);
     EXPECT_EQ(payload, std::vector<std::uint8_t>{12});
 }
 
-TEST(PlanEncode, ClampsToTheRawRangeOfAnUnsignedField) {
-    auto a = binary("a", 0, 8);
-    a.offset = 0.5;
-    const auto plan = ASSERT_NIL_P(Plan::compile(message({a})));
+TEST(PlanEncode, WritesTheEndsOfTheRawRange) {
+    auto u = binary("u", 0, 8);
+    u.offset = 0.5;
+    auto s = binary("s", 8, 8, true);
+    s.scale = 2;
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({u, s})));
     auto values = plan.values();
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(255.5)));
+    ASSERT_NIL(plan.set(values, 1, x::telem::SampleValue(-256.0)));
     std::vector<std::uint8_t> payload;
-    values.set(0, 300.0);
-    ASSERT_NIL(plan.encode(values, payload));
-    EXPECT_EQ(payload[0], 255);
-    values.set(0, -5.0);
-    ASSERT_NIL(plan.encode(values, payload));
-    EXPECT_EQ(payload[0], 0);
+    plan.encode(values, payload);
+    EXPECT_EQ(payload, (std::vector<std::uint8_t>{0xFF, 0x80}));
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(0.5)));
+    ASSERT_NIL(plan.set(values, 1, x::telem::SampleValue(254.0)));
+    plan.encode(values, payload);
+    EXPECT_EQ(payload, (std::vector<std::uint8_t>{0x00, 0x7F}));
 }
 
-TEST(PlanEncode, ClampsToTheRawRangeOfASignedField) {
-    auto a = binary("a", 0, 8, true);
-    a.scale = 2;
-    const auto plan = ASSERT_NIL_P(Plan::compile(message({a})));
-    auto values = plan.values();
-    std::vector<std::uint8_t> payload;
-    values.set(0, 1000.0);
-    ASSERT_NIL(plan.encode(values, payload));
-    EXPECT_EQ(payload[0], 0x7F);
-    values.set(0, -1000.0);
-    ASSERT_NIL(plan.encode(values, payload));
-    EXPECT_EQ(payload[0], 0x80);
-    values.set(0, std::numeric_limits<double>::infinity());
-    ASSERT_NIL(plan.encode(values, payload));
-    EXPECT_EQ(payload[0], 0x7F);
-}
-
-TEST(PlanEncode, ClampsExactIntegers) {
+TEST(PlanEncode, WritesTheEndsOfExactIntegerFields) {
     const auto u = binary("u", 0, 8);
     const auto s = binary("s", 8, 16, true);
     const auto plan = ASSERT_NIL_P(Plan::compile(message({u, s})));
     auto values = plan.values();
-    values.set(0, std::int64_t{-1});
-    values.set(1, std::numeric_limits<std::uint64_t>::max());
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(std::uint8_t{255})));
+    ASSERT_NIL(plan.set(values, 1, x::telem::SampleValue(std::int64_t{-32768})));
     std::vector<std::uint8_t> payload;
-    ASSERT_NIL(plan.encode(values, payload));
-    EXPECT_EQ(payload, (std::vector<std::uint8_t>{0x00, 0xFF, 0x7F}));
+    plan.encode(values, payload);
+    EXPECT_EQ(payload, (std::vector<std::uint8_t>{0xFF, 0x00, 0x80}));
 }
 
 TEST(PlanEncode, KeepsA64BitIntegerExact) {
     const auto plan = ASSERT_NIL_P(Plan::compile(message({binary("a", 0, 64, true)})));
     auto values = plan.values();
-    values.set(0, std::numeric_limits<std::int64_t>::min() + 1);
+    ASSERT_NIL(plan.set(
+        values,
+        0,
+        x::telem::SampleValue(std::numeric_limits<std::int64_t>::min() + 1)
+    ));
     std::vector<std::uint8_t> payload;
-    ASSERT_NIL(plan.encode(values, payload));
+    plan.encode(values, payload);
     EXPECT_EQ(payload, (std::vector<std::uint8_t>{1, 0, 0, 0, 0, 0, 0, 0x80}));
 }
 
-TEST(PlanEncode, ReturnsAnErrorOnNaN) {
-    const auto plan = ASSERT_NIL_P(Plan::compile(message({binary("a", 0, 8)})));
+TEST(PlanEncode, WritesTheLargestDoubleBelowTheEndOfAn64BitField) {
+    auto a = binary("a", 0, 64);
+    a.scale = 2;
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({a})));
     auto values = plan.values();
-    values.set(0, std::nan(""));
+    const auto below = std::nextafter(0x1p65, 0.0);
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(below)));
     std::vector<std::uint8_t> payload;
-    ASSERT_OCCURRED_AS(plan.encode(values, payload), ENCODE_ERROR);
+    plan.encode(values, payload);
+    EXPECT_EQ(
+        payload,
+        (std::vector<std::uint8_t>{0, 0xF8, 255, 255, 255, 255, 255, 255})
+    );
 }
 
 TEST(PlanEncode, LeavesTheOtherBitsOfThePayload) {
     const auto plan = ASSERT_NIL_P(Plan::compile(message({binary("a", 4, 8)})));
     auto values = plan.values();
-    values.set(0, 0.0);
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(0.0)));
     std::vector<std::uint8_t> payload = {0xFF, 0xFF, 0xFF};
-    ASSERT_NIL(plan.encode(values, payload));
+    plan.encode(values, payload);
     EXPECT_EQ(payload, (std::vector<std::uint8_t>{0x0F, 0xF0, 0xFF}));
 }
 
@@ -386,18 +384,18 @@ TEST(PlanEncode, SkipsAbsentFields) {
         Plan::compile(message({binary("a", 0, 8), binary("b", 8, 8)}))
     );
     auto values = plan.values();
-    values.set(1, 5.0);
+    ASSERT_NIL(plan.set(values, 1, x::telem::SampleValue(5.0)));
     std::vector<std::uint8_t> payload = {0xAA, 0xAA};
-    ASSERT_NIL(plan.encode(values, payload));
+    plan.encode(values, payload);
     EXPECT_EQ(payload, (std::vector<std::uint8_t>{0xAA, 5}));
 }
 
 TEST(PlanEncode, GrowsThePayloadToTheMessageLength) {
     const auto plan = ASSERT_NIL_P(Plan::compile(message({binary("a", 0, 8)}, 8)));
     auto values = plan.values();
-    values.set(0, 1.0);
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(1.0)));
     std::vector<std::uint8_t> payload;
-    ASSERT_NIL(plan.encode(values, payload));
+    plan.encode(values, payload);
     EXPECT_EQ(payload, (std::vector<std::uint8_t>{1, 0, 0, 0, 0, 0, 0, 0}));
 }
 
@@ -410,11 +408,11 @@ TEST(PlanEncode, WritesOnlyTheFieldsTheMultiplexorSelects) {
         Plan::compile(message({mux, a, b}), {a.key, b.key, mux.key})
     );
     auto values = plan.values();
-    values.set(0, 10.0);
-    values.set(1, 20.0);
-    values.set(2, 1.0);
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(10.0)));
+    ASSERT_NIL(plan.set(values, 1, x::telem::SampleValue(20.0)));
+    ASSERT_NIL(plan.set(values, 2, x::telem::SampleValue(1.0)));
     std::vector<std::uint8_t> payload;
-    ASSERT_NIL(plan.encode(values, payload));
+    plan.encode(values, payload);
     EXPECT_EQ(payload, (std::vector<std::uint8_t>{1, 20}));
 }
 
@@ -423,12 +421,12 @@ TEST(PlanEncode, ReadsAnUnselectedMultiplexorFromTheInitialPayload) {
     const auto a = multiplexed(binary("a", 8, 8), mux, 3);
     const auto plan = ASSERT_NIL_P(Plan::compile(message({mux, a}), {a.key}));
     auto values = plan.values();
-    values.set(0, 9.0);
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(9.0)));
     std::vector<std::uint8_t> selected = {3, 0};
-    ASSERT_NIL(plan.encode(values, selected));
+    plan.encode(values, selected);
     EXPECT_EQ(selected[1], 9);
     std::vector<std::uint8_t> other = {4, 0};
-    ASSERT_NIL(plan.encode(values, other));
+    plan.encode(values, other);
     EXPECT_EQ(other[1], 0);
 }
 
@@ -438,31 +436,179 @@ TEST(PlanEncode, WritesFloatBits) {
     a.offset = 1;
     const auto plan = ASSERT_NIL_P(Plan::compile(message({a})));
     auto values = plan.values();
-    values.set(0, 3.5);
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(3.5)));
     std::vector<std::uint8_t> payload;
-    ASSERT_NIL(plan.encode(values, payload));
+    plan.encode(values, payload);
     std::uint64_t bits = 0;
     for (int i = 7; i >= 0; i--)
         bits = (bits << 8) | payload[i];
     EXPECT_EQ(std::bit_cast<double>(bits), 2.5);
 }
 
-TEST(Values, SetsASampleValueExactly) {
+TEST(PlanSet, SetsASampleValueExactly) {
     const auto plan = ASSERT_NIL_P(Plan::compile(message({binary("a", 0, 32)})));
     auto values = plan.values();
-    ASSERT_NIL(values.set(0, x::telem::SampleValue(std::uint32_t{4000000000})));
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(std::uint32_t{4000000000})));
     std::vector<std::uint8_t> payload;
-    ASSERT_NIL(plan.encode(values, payload));
+    plan.encode(values, payload);
     EXPECT_EQ(payload, (std::vector<std::uint8_t>{0x00, 0x28, 0x6B, 0xEE}));
 }
 
-TEST(Values, RejectsAStringSample) {
+TEST(PlanSet, RefusesAStringSample) {
     const auto plan = ASSERT_NIL_P(Plan::compile(message({binary("a", 0, 8)})));
     auto values = plan.values();
     ASSERT_OCCURRED_AS(
-        values.set(0, x::telem::SampleValue(std::string("x"))),
+        plan.set(values, 0, x::telem::SampleValue(std::string("x"))),
         ENCODE_ERROR
     );
+}
+
+TEST(PlanSet, RefusesAValueOutsideTheBitsOfAnUnsignedField) {
+    auto a = binary("a", 0, 8);
+    a.offset = 0.5;
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({a})));
+    auto values = plan.values();
+    const auto err = plan.set(values, 0, x::telem::SampleValue(300.0));
+    ASSERT_OCCURRED_AS(err, RANGE_ERROR);
+    EXPECT_EQ(err.data, "300 is outside the range 0.5 to 255.5");
+    EXPECT_FALSE(values.present(0));
+    ASSERT_OCCURRED_AS(plan.set(values, 0, x::telem::SampleValue(-5.0)), RANGE_ERROR);
+    ASSERT_OCCURRED_AS(plan.set(values, 0, x::telem::SampleValue(256.0)), RANGE_ERROR);
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(255.9)));
+}
+
+TEST(PlanSet, RefusesAValueOutsideTheBitsOfASignedFieldWithANegativeScale) {
+    auto a = binary("a", 0, 8, true);
+    a.scale = -2;
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({a})));
+    auto values = plan.values();
+    const auto err = plan.set(values, 0, x::telem::SampleValue(257.0));
+    ASSERT_OCCURRED_AS(err, RANGE_ERROR);
+    EXPECT_EQ(err.data, "257 is outside the range -254 to 256");
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(256.0)));
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(-254.0)));
+}
+
+TEST(PlanSet, RefusesNaN) {
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({binary("a", 0, 8)})));
+    auto values = plan.values();
+    const auto err = plan.set(values, 0, x::telem::SampleValue(std::nan("")));
+    ASSERT_OCCURRED_AS(err, RANGE_ERROR);
+    EXPECT_EQ(err.data, "NaN is outside the range 0 to 255");
+}
+
+TEST(PlanSet, NarrowsTheRangeByTheFieldMinAndMax) {
+    auto a = binary("a", 0, 8);
+    a.min = 10;
+    a.max = 20.5;
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({a})));
+    auto values = plan.values();
+    const auto low = plan.set(values, 0, x::telem::SampleValue(std::int64_t{9}));
+    ASSERT_OCCURRED_AS(low, RANGE_ERROR);
+    EXPECT_EQ(low.data, "9 is outside the range 10 to 20.5");
+    ASSERT_OCCURRED_AS(plan.set(values, 0, x::telem::SampleValue(21.0)), RANGE_ERROR);
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(std::int64_t{10})));
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(20.5)));
+}
+
+TEST(PlanSet, KeepsTheLastAcceptedValue) {
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({binary("a", 0, 8)})));
+    auto values = plan.values();
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(5.0)));
+    ASSERT_OCCURRED_AS(plan.set(values, 0, x::telem::SampleValue(300.0)), RANGE_ERROR);
+    EXPECT_EQ(values.get(0), 5);
+}
+
+TEST(PlanSet, ChecksExactIntegersWithoutRounding) {
+    const auto u = binary("u", 0, 8);
+    const auto s = binary("s", 8, 16, true);
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({u, s})));
+    auto values = plan.values();
+    const auto negative = plan.set(values, 0, x::telem::SampleValue(std::int64_t{-1}));
+    ASSERT_OCCURRED_AS(negative, RANGE_ERROR);
+    EXPECT_EQ(negative.data, "-1 is outside the range 0 to 255");
+    const auto huge = plan.set(
+        values,
+        1,
+        x::telem::SampleValue(std::numeric_limits<std::uint64_t>::max())
+    );
+    ASSERT_OCCURRED_AS(huge, RANGE_ERROR);
+    EXPECT_EQ(huge.data, "18446744073709551615 is outside the range -32768 to 32767");
+}
+
+TEST(PlanSet, RefusesTheFirstValueBeyondAn64BitField) {
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({binary("a", 0, 64)})));
+    auto values = plan.values();
+    const auto err = plan.set(values, 0, x::telem::SampleValue(0x1p64));
+    ASSERT_OCCURRED_AS(err, RANGE_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "18446744073709551616 is outside the range 0 to 18446744073709551615"
+    );
+    ASSERT_NIL(plan.set(
+        values,
+        0,
+        x::telem::SampleValue(std::numeric_limits<std::uint64_t>::max())
+    ));
+}
+
+TEST(PlanSet, BoundsAFloat32FieldByTheLargestFloat) {
+    auto a = binary("a", 0, 32);
+    a.float_ = true;
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({a})));
+    auto values = plan.values();
+    ASSERT_OCCURRED_AS(plan.set(values, 0, x::telem::SampleValue(1e39)), RANGE_ERROR);
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(1e38)));
+}
+
+TEST(PlanSet, EncodesAnIntegerSampleOnAFloatFieldAsAFloat) {
+    auto a = binary("a", 0, 32);
+    a.float_ = true;
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({a})));
+    auto values = plan.values();
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(std::int64_t{3})));
+    std::vector<std::uint8_t> payload;
+    plan.encode(values, payload);
+    std::uint32_t bits = 0;
+    for (int i = 3; i >= 0; i--)
+        bits = (bits << 8) | payload[i];
+    EXPECT_EQ(std::bit_cast<float>(bits), 3.0f);
+}
+
+TEST(PlanSet, BoundsATextFieldByItsMinAndMaxAlone) {
+    auto a = delimited("a", 0);
+    a.max = 10;
+    const auto plan = ASSERT_NIL_P(Plan::compile(text({a, delimited("b", 1)})));
+    auto values = plan.values();
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(-1e300)));
+    ASSERT_OCCURRED_AS(plan.set(values, 0, x::telem::SampleValue(11.0)), RANGE_ERROR);
+    const auto inf = plan.set(
+        values,
+        1,
+        x::telem::SampleValue(std::numeric_limits<double>::infinity())
+    );
+    ASSERT_OCCURRED_AS(inf, RANGE_ERROR);
+    EXPECT_EQ(
+        inf.data,
+        "inf is outside the range -1.7976931348623157e+308 to "
+        "1.7976931348623157e+308"
+    );
+}
+
+TEST(PlanSetRaw, SetsThePhysicalValueOfARawValue) {
+    auto a = binary("a", 0, 8);
+    a.scale = 2;
+    a.offset = 100;
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({a})));
+    auto values = plan.values();
+    plan.set_raw(values, 0, 0);
+    EXPECT_EQ(values.get(0), 100);
+    std::vector<std::uint8_t> payload;
+    plan.encode(values, payload);
+    EXPECT_EQ(payload, std::vector<std::uint8_t>{0});
+    plan.set_raw(values, 0, 7);
+    plan.encode(values, payload);
+    EXPECT_EQ(payload, std::vector<std::uint8_t>{7});
 }
 
 TEST(Values, WritesNothingForAnAbsentSlot) {
@@ -483,6 +629,64 @@ TEST(Values, CastsToTheSeriesDataType) {
     x::telem::Series s(x::telem::FLOAT32_T, 1);
     ASSERT_EQ(values.write(0, s), 1);
     EXPECT_EQ(s.at<float>(0), 2.5f);
+}
+
+TEST(Values, FitsAnIntegerTypeOnlyWhenTheTruncatedValueIsInRange) {
+    const auto plan = ASSERT_NIL_P(Plan::compile(text({delimited("a", 0)})));
+    auto values = plan.values();
+    const auto fits = [&](const std::string &line, const x::telem::DataType &type) {
+        EXPECT_FALSE(plan.decode(bytes(line), values));
+        return values.fits(0, type);
+    };
+    EXPECT_TRUE(fits("127.9", x::telem::INT8_T));
+    EXPECT_FALSE(fits("128", x::telem::INT8_T));
+    EXPECT_TRUE(fits("-128.9", x::telem::INT8_T));
+    EXPECT_FALSE(fits("-129", x::telem::INT8_T));
+    EXPECT_TRUE(fits("-0.5", x::telem::UINT8_T));
+    EXPECT_FALSE(fits("-1", x::telem::UINT8_T));
+    EXPECT_FALSE(fits("256", x::telem::UINT8_T));
+    EXPECT_FALSE(fits("nan", x::telem::INT32_T));
+    EXPECT_FALSE(fits("inf", x::telem::INT64_T));
+    EXPECT_FALSE(fits("9223372036854775808", x::telem::INT64_T));
+    EXPECT_TRUE(fits("-9223372036854775808", x::telem::INT64_T));
+    EXPECT_FALSE(fits("18446744073709551616", x::telem::UINT64_T));
+}
+
+TEST(Values, FitsAFloatTypeUnlessAFiniteValueOverflowsIt) {
+    const auto plan = ASSERT_NIL_P(Plan::compile(text({delimited("a", 0)})));
+    auto values = plan.values();
+    const auto fits = [&](const std::string &line, const x::telem::DataType &type) {
+        EXPECT_FALSE(plan.decode(bytes(line), values));
+        return values.fits(0, type);
+    };
+    EXPECT_TRUE(fits("nan", x::telem::FLOAT32_T));
+    EXPECT_TRUE(fits("-inf", x::telem::FLOAT32_T));
+    EXPECT_TRUE(fits("3e38", x::telem::FLOAT32_T));
+    EXPECT_FALSE(fits("4e38", x::telem::FLOAT32_T));
+    EXPECT_TRUE(fits("1e308", x::telem::FLOAT64_T));
+}
+
+TEST(Values, FitsAnExactIntegerByItsBits) {
+    auto u = binary("u", 0, 64);
+    auto i = binary("i", 0, 64);
+    i.signed_ = true;
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({u, i})));
+    auto values = plan.values();
+    const std::vector<std::uint8_t> payload(8, 0xFF);
+    ASSERT_NIL(plan.decode(payload, values));
+    EXPECT_FALSE(values.fits(0, x::telem::INT64_T));
+    EXPECT_TRUE(values.fits(0, x::telem::UINT64_T));
+    EXPECT_TRUE(values.fits(0, x::telem::FLOAT32_T));
+    EXPECT_TRUE(values.fits(1, x::telem::INT8_T));
+    EXPECT_FALSE(values.fits(1, x::telem::UINT8_T));
+}
+
+TEST(Values, DoesNotFitATypeThatHoldsNoNumber) {
+    const auto plan = ASSERT_NIL_P(Plan::compile(message({binary("a", 0, 8)})));
+    auto values = plan.values();
+    ASSERT_NIL(plan.decode(std::vector<std::uint8_t>{1}, values));
+    EXPECT_FALSE(values.fits(0, x::telem::TIMESTAMP_T));
+    EXPECT_FALSE(values.fits(0, x::telem::STRING_T));
 }
 
 TEST(PlanText, DecodesDelimitedItemsByPosition) {
@@ -569,11 +773,11 @@ TEST(PlanText, EncodesItemsInPositionOrderThenTags) {
         Plan::compile(text({c, tagged("p", "P="), delimited("a", 0)}))
     );
     auto values = plan.values();
-    values.set(0, 3.5);
-    values.set(1, std::int64_t{-4});
-    values.set(2, 0.25);
+    ASSERT_NIL(plan.set(values, 0, x::telem::SampleValue(3.5)));
+    ASSERT_NIL(plan.set(values, 1, x::telem::SampleValue(std::int64_t{-4})));
+    ASSERT_NIL(plan.set(values, 2, x::telem::SampleValue(0.25)));
     std::vector<std::uint8_t> payload;
-    ASSERT_NIL(plan.encode(values, payload));
+    plan.encode(values, payload);
     EXPECT_EQ(str(payload), "0.25,,7,P=-4");
 }
 
@@ -582,9 +786,11 @@ TEST(PlanText, SkipsAbsentTaggedFieldsOnEncode) {
         Plan::compile(text({tagged("a", "A="), tagged("b", "B=")}))
     );
     auto values = plan.values();
-    values.set(1, std::uint64_t{18446744073709551615u});
+    ASSERT_NIL(
+        plan.set(values, 1, x::telem::SampleValue(std::uint64_t{18446744073709551615u}))
+    );
     std::vector<std::uint8_t> payload = {'x'};
-    ASSERT_NIL(plan.encode(values, payload));
+    plan.encode(values, payload);
     EXPECT_EQ(str(payload), "B=18446744073709551615");
 }
 }

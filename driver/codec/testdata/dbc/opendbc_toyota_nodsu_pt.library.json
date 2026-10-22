@@ -1,0 +1,637 @@
+{
+  "key": "00000000-0000-4000-8000-000000000000",
+  "name": "opendbc_toyota_nodsu_pt",
+  "entries": [
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000001",
+      "name": "STEERING_LTA",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 401,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "CHECKSUM",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 63,
+            "bit_length": 8,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "SETME_X3",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000028",
+            "multiplex_values": [],
+            "start_bit": 29,
+            "bit_length": 2,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "PERCENTAGE",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 39,
+            "bit_length": 8,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000005",
+            "name": "TORQUE_WIND_DOWN",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 47,
+            "bit_length": 8,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000006",
+            "name": "ANGLE",
+            "scale": 0.5,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 55,
+            "bit_length": 8,
+            "byte_order": "big_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000007",
+            "name": "STEER_ANGLE_CMD",
+            "scale": 0.0573,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 15,
+            "bit_length": 16,
+            "byte_order": "big_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000008",
+            "name": "STEER_REQUEST_2",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 25,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000009",
+            "name": "LKA_ACTIVE",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 26,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000a",
+            "name": "CLEAR_HOLD_STEERING_ALERT",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 30,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000b",
+            "name": "COUNTER",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 6,
+            "bit_length": 6,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000c",
+            "name": "STEER_REQUEST",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000d",
+            "name": "SETME_X1",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 7,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-00000000000e",
+      "name": "BRAKE_MODULE",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 550,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-00000000000f",
+            "name": "BRAKE_PRESSURE",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 9,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000010",
+            "name": "BRAKE_POSITION",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 16,
+            "bit_length": 9,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000011",
+            "name": "BRAKE_PRESSED",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 37,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000012",
+      "name": "EPS_STATUS",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 610,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000013",
+            "name": "IPAS_STATE",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-000000000029",
+            "multiplex_values": [],
+            "start_bit": 3,
+            "bit_length": 4,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000014",
+            "name": "LKA_STATE",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-00000000002a",
+            "multiplex_values": [],
+            "start_bit": 31,
+            "bit_length": 7,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000015",
+            "name": "LTA_STATE",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "enumeration": "00000000-0000-4000-8000-00000000002b",
+            "multiplex_values": [],
+            "start_bit": 15,
+            "bit_length": 5,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000016",
+            "name": "TYPE",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 24,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000017",
+            "name": "CHECKSUM",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 63,
+            "bit_length": 8,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000018",
+      "name": "LTA_RELATED",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 881,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000019",
+            "name": "GAS_PEDAL",
+            "scale": 0.005,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 15,
+            "bit_length": 8,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000001a",
+            "name": "STEER_ANGLE",
+            "scale": 0.0573,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 23,
+            "bit_length": 16,
+            "byte_order": "big_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000001b",
+            "name": "TURN_SIGNALS",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 35,
+            "bit_length": 2,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000001c",
+            "name": "UNKNOWN_2",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 58,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000001d",
+            "name": "LDA_SA_TOGGLE",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 59,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000001e",
+            "name": "LTA_STEER_REQUEST",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 60,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000001f",
+            "name": "UNKNOWN",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 61,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000020",
+            "name": "STEERING_PRESSED",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 63,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000021",
+      "name": "BSM",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 1014,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000022",
+            "name": "L_ADJACENT",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000023",
+            "name": "L_APPROACHING",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 8,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000024",
+            "name": "R_ADJACENT",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 1,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000025",
+            "name": "R_APPROACHING",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 10,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000026",
+            "name": "ADJACENT_ENABLED",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 7,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000027",
+            "name": "APPROACHING_ENABLED",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 15,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000028",
+      "name": "STEERING_LTA.SETME_X3",
+      "values": [
+        {
+          "value": 3,
+          "name": "TSS 2.0"
+        },
+        {
+          "value": 1,
+          "name": "TSS 2.5 or 2022 RAV4"
+        },
+        {
+          "value": 0,
+          "name": "TSS 2.0 on Alphard, Highlander, NX"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000029",
+      "name": "EPS_STATUS.IPAS_STATE",
+      "values": [
+        {
+          "value": 5,
+          "name": "override"
+        },
+        {
+          "value": 3,
+          "name": "enabled"
+        },
+        {
+          "value": 1,
+          "name": "disabled"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000002a",
+      "name": "EPS_STATUS.LKA_STATE",
+      "values": [
+        {
+          "value": 25,
+          "name": "temporary_fault"
+        },
+        {
+          "value": 17,
+          "name": "permanent_fault"
+        },
+        {
+          "value": 11,
+          "name": "lka_missing_unavailable2"
+        },
+        {
+          "value": 9,
+          "name": "temporary_fault2"
+        },
+        {
+          "value": 5,
+          "name": "active"
+        },
+        {
+          "value": 3,
+          "name": "lka_missing_unavailable"
+        },
+        {
+          "value": 1,
+          "name": "standby"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-00000000002b",
+      "name": "EPS_STATUS.LTA_STATE",
+      "values": [
+        {
+          "value": 25,
+          "name": "temporary_fault"
+        },
+        {
+          "value": 9,
+          "name": "temporary_fault2"
+        },
+        {
+          "value": 5,
+          "name": "active"
+        },
+        {
+          "value": 3,
+          "name": "lta_missing_unavailable"
+        },
+        {
+          "value": 1,
+          "name": "standby"
+        }
+      ]
+    }
+  ]
+}

@@ -10,7 +10,9 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <memory>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <string>
 #include <thread>
@@ -24,6 +26,8 @@
 
 #include "x/cpp/test/test.h"
 
+#include "driver/bus/testutil/contract.h"
+#include "driver/bus/transport.h"
 #include "driver/tcp/client.h"
 
 namespace driver::tcp {
@@ -36,20 +40,6 @@ std::string as_string(const std::span<const std::uint8_t> data) {
     return {reinterpret_cast<const char *>(data.data()), data.size()};
 }
 
-const Config FAST{
-    .connect_timeout = x::telem::SECOND,
-    .min_backoff = 10 * x::telem::MILLISECOND,
-    .max_backoff = 100 * x::telem::MILLISECOND,
-};
-
-/// @brief reads from the client until bytes arrive or one second of reads passes.
-std::pair<std::string, x::errors::Error> read_eventually(Client &client) {
-    for (int i = 0; i < 100; i++) {
-        auto [chunk, err] = client.read(10 * x::telem::MILLISECOND);
-        if (err || !chunk.data.empty()) return {as_string(chunk.data), err};
-    }
-    return {"", x::errors::NIL};
-}
 }
 
 /// @brief plays the device: a listener on a free localhost port.
@@ -78,7 +68,7 @@ protected:
 };
 
 TEST_F(ClientTest, ReadsWhatThePeerSends) {
-    const auto client = ASSERT_NIL_P(Client::open(this->props(), FAST));
+    const auto client = ASSERT_NIL_P(Client::open(this->props()));
     auto peer = this->accept();
     const auto before = x::telem::TimeStamp::now();
     asio::write(peer, asio::buffer(std::string("hello")));
@@ -89,7 +79,7 @@ TEST_F(ClientTest, ReadsWhatThePeerSends) {
 }
 
 TEST_F(ClientTest, AnswersAQueryInARoundTrip) {
-    const auto client = ASSERT_NIL_P(Client::open(this->props(), FAST));
+    const auto client = ASSERT_NIL_P(Client::open(this->props()));
     auto peer = this->accept();
     ASSERT_NIL(client->write(bytes("*IDN?\n"), x::telem::SECOND));
     EXPECT_EQ(receive(peer, 6), "*IDN?\n");
@@ -99,7 +89,7 @@ TEST_F(ClientTest, AnswersAQueryInARoundTrip) {
 }
 
 TEST_F(ClientTest, ReadsAfterAWriteFromAnotherThread) {
-    const auto client = ASSERT_NIL_P(Client::open(this->props(), FAST));
+    const auto client = ASSERT_NIL_P(Client::open(this->props()));
     auto peer = this->accept();
     std::mutex mu;
     std::string got;
@@ -133,7 +123,7 @@ TEST_F(ClientTest, ReadsAfterAWriteFromAnotherThread) {
 }
 
 TEST_F(ClientTest, ReturnsAnEmptyChunkWhenNothingArrivesBeforeTheTimeout) {
-    const auto client = ASSERT_NIL_P(Client::open(this->props(), FAST));
+    const auto client = ASSERT_NIL_P(Client::open(this->props()));
     auto peer = this->accept();
     const x::telem::Stopwatch sw;
     const auto chunk = ASSERT_NIL_P(client->read(50 * x::telem::MILLISECOND));
@@ -141,52 +131,26 @@ TEST_F(ClientTest, ReturnsAnEmptyChunkWhenNothingArrivesBeforeTheTimeout) {
     EXPECT_GE(sw.elapsed(), 50 * x::telem::MILLISECOND);
 }
 
-TEST_F(ClientTest, ReconnectsAfterThePeerClosesTheSocket) {
-    const auto client = ASSERT_NIL_P(Client::open(this->props(), FAST));
-    {
-        auto peer = this->accept();
-        asio::write(peer, asio::buffer(std::string("first")));
-        ASSERT_EQ(
-            as_string(ASSERT_NIL_P(client->read(x::telem::SECOND)).data),
-            "first"
-        );
-        peer.close();
-    }
-    ASSERT_OCCURRED_AS_P(client->read(x::telem::SECOND), transport::UNREACHABLE_ERROR);
-    std::thread device([this] {
-        auto peer = this->accept();
-        asio::write(peer, asio::buffer(std::string("second")));
-        EXPECT_EQ(receive(peer, 4), "ping");
-    });
-    const auto [data, err] = read_eventually(*client);
-    ASSERT_NIL(err);
-    EXPECT_EQ(data, "second");
-    ASSERT_NIL(client->write(bytes("ping"), x::telem::SECOND));
-    device.join();
-}
-
-TEST_F(ClientTest, WaitsOutTheBackoffBeforeReconnecting) {
-    Config config = FAST;
-    config.min_backoff = 200 * x::telem::MILLISECOND;
-    const auto client = ASSERT_NIL_P(Client::open(this->props(), config));
+TEST_F(ClientTest, StaysClosedAfterThePeerDrops) {
+    const auto client = ASSERT_NIL_P(Client::open(this->props()));
     this->accept().close();
-    this->acceptor.close();
     ASSERT_OCCURRED_AS_P(client->read(x::telem::SECOND), transport::UNREACHABLE_ERROR);
-    const auto waiting = ASSERT_NIL_P(client->read(10 * x::telem::MILLISECOND));
-    EXPECT_TRUE(waiting.data.empty());
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    ASSERT_OCCURRED_AS_P(client->read(x::telem::SECOND), transport::UNREACHABLE_ERROR);
     ASSERT_OCCURRED_AS(
         client->write(bytes("ping"), x::telem::SECOND),
         transport::UNREACHABLE_ERROR
     );
-    const x::telem::Stopwatch sw;
-    ASSERT_OCCURRED_AS_P(client->read(x::telem::SECOND), transport::UNREACHABLE_ERROR);
-    EXPECT_GE(sw.elapsed(), 150 * x::telem::MILLISECOND);
+    this->acceptor.non_blocking(true);
+    std::error_code ec;
+    this->acceptor.accept(ec);
+    EXPECT_EQ(ec, asio::error::would_block);
 }
 
 TEST_F(ClientTest, FailsToOpenWhenNothingListens) {
     const auto p = this->props();
     this->acceptor.close();
-    ASSERT_OCCURRED_AS_P(Client::open(p, FAST), transport::UNREACHABLE_ERROR);
+    ASSERT_OCCURRED_AS_P(Client::open(p), transport::UNREACHABLE_ERROR);
 }
 
 TEST(Client, RejectsAMissingHostOrPort) {
@@ -197,4 +161,80 @@ TEST(Client, RejectsAMissingHostOrPort) {
     p.port = 0;
     ASSERT_OCCURRED_AS_P(Client::open(p), transport::CONFIG_ERROR);
 }
+
+namespace {
+/// @brief plays a TCP device with a listener on a free localhost port.
+class LoopbackRig final : public bus::testutil::Rig {
+    asio::io_context ctx;
+    asio::ip::tcp::acceptor acceptor{
+        ctx,
+        asio::ip::tcp::endpoint(asio::ip::address_v4::loopback(), 0)
+    };
+    std::optional<asio::ip::tcp::socket> peer;
+
+    asio::ip::tcp::socket &accepted() {
+        if (!this->peer.has_value()) this->peer.emplace(this->acceptor.accept());
+        return *this->peer;
+    }
+
+    static bus::Opener open(const std::uint16_t port) {
+        synnax::tcp::Properties p;
+        p.host = "127.0.0.1";
+        p.port = port;
+        return bus::opener<Client>(p);
+    }
+
+public:
+    bus::Opener opener() override {
+        return open(this->acceptor.local_endpoint().port());
+    }
+
+    bus::Opener absent() override {
+        const asio::ip::tcp::acceptor probe(
+            this->ctx,
+            asio::ip::tcp::endpoint(asio::ip::address_v4::loopback(), 0)
+        );
+        return open(probe.local_endpoint().port());
+    }
+
+    void send(const std::string &data) override {
+        asio::write(this->accepted(), asio::buffer(data));
+    }
+
+    std::string receive(const std::size_t n) override {
+        auto &socket = this->accepted();
+        std::string out;
+        const auto deadline = x::telem::TimeStamp::now() + x::telem::SECOND;
+        while (out.size() < n && x::telem::TimeStamp::now() < deadline) {
+            if (socket.available() == 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                continue;
+            }
+            std::string chunk(socket.available(), '\0');
+            chunk.resize(socket.read_some(asio::buffer(chunk)));
+            out += chunk;
+        }
+        return out;
+    }
+
+    void hang_up() override {
+        this->accepted().close();
+        this->peer.reset();
+    }
+
+    void restore() override {}
+};
+
+const auto LOOPBACK = ::testing::Values(
+    bus::testutil::Case{
+        .name = "loopback",
+        .rig = [] { return std::make_unique<LoopbackRig>(); },
+    }
+);
+}
+
+using bus::testutil::StreamContract;
+using bus::testutil::TransportContract;
+INSTANTIATE_TEST_SUITE_P(Tcp, TransportContract, LOOPBACK, bus::testutil::name);
+INSTANTIATE_TEST_SUITE_P(Tcp, StreamContract, LOOPBACK, bus::testutil::name);
 }

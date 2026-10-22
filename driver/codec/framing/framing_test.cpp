@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <fstream>
+#include <functional>
 #include <memory>
 #include <random>
 #include <string>
 #include <vector>
 
 #include "gtest/gtest.h"
+#include "nlohmann/json.hpp"
 
 #include "client/cpp/bus/types.gen.h"
 #include "x/cpp/test/test.h"
@@ -83,24 +86,25 @@ Bytes random_payload(std::mt19937_64 &rng, const std::size_t max) {
     return p;
 }
 
-Bytes cobs(const Bytes &payload) {
-    Bytes out = {0};
-    std::size_t code_at = 0;
-    std::uint8_t code = 1;
-    for (const auto b: payload) {
-        if (b != 0) {
-            out.push_back(b);
-            code++;
-        }
-        if (b == 0 || code == 0xFF) {
-            out[code_at] = code;
-            code_at = out.size();
-            out.push_back(0);
-            code = 1;
-        }
+/// @returns the COBS wire bytes of a frame of n copies of a nonzero byte.
+Bytes cobs_run(const std::size_t n, const std::uint8_t b) {
+    Bytes out;
+    for (std::size_t left = n; left > 0;) {
+        const auto block = std::min<std::size_t>(left, 254);
+        out.push_back(static_cast<std::uint8_t>(block + 1));
+        out.insert(out.end(), block, b);
+        left -= block;
     }
-    out[code_at] = code;
     out.push_back(0);
+    return out;
+}
+
+Bytes from_hex(const std::string &hex) {
+    Bytes out;
+    for (std::size_t i = 0; i < hex.size(); i += 2)
+        out.push_back(
+            static_cast<std::uint8_t>(std::stoul(hex.substr(i, 2), nullptr, 16))
+        );
     return out;
 }
 
@@ -272,6 +276,36 @@ TEST(Fixed, SplitsAndMergesFrames) {
         c.frames,
         (std::vector{bytes("abc"), bytes("def"), bytes("ghi"), bytes("jkl")})
     );
+}
+
+TEST(Fixed, DropsAPartialFrameAtAGapAndCountsIt) {
+    const auto f = open(bus::FixedFraming{.length = 3});
+    Collector c;
+    ASSERT_NIL(f->write(bytes("ab"), c.handler()));
+    f->gap();
+    EXPECT_EQ(f->errors(), 1);
+    ASSERT_NIL(f->write(bytes("xyz"), c.handler()));
+    EXPECT_EQ(c.frames, std::vector<Bytes>{bytes("xyz")});
+}
+
+TEST(Fixed, CountsNoErrorAtAGapBetweenFrames) {
+    const auto f = open(bus::FixedFraming{.length = 3});
+    Collector c;
+    ASSERT_NIL(f->write(bytes("abc"), c.handler()));
+    f->gap();
+    ASSERT_NIL(f->write(bytes("def"), c.handler()));
+    EXPECT_EQ(f->errors(), 0);
+    EXPECT_EQ(c.frames, (std::vector{bytes("abc"), bytes("def")}));
+}
+
+TEST(Delimiter, KeepsAPartialLineAcrossAGap) {
+    const auto f = open(bus::DelimiterFraming{.delimiter = "\n"});
+    Collector c;
+    ASSERT_NIL(f->write(bytes("T=23.4"), c.handler()));
+    f->gap();
+    ASSERT_NIL(f->write(bytes(",P=1\n"), c.handler()));
+    EXPECT_EQ(c.frames, std::vector<Bytes>{bytes("T=23.4,P=1")});
+    EXPECT_EQ(f->errors(), 0);
 }
 
 TEST(Fixed, EncodeRejectsTheWrongSize) {
@@ -461,6 +495,28 @@ TEST(Sync, SplitsALengthPrefixedStreamWithNoSync) {
     );
 }
 
+TEST(Sync, SkipsALengthBeyondTheMaxLengthWithoutWaiting) {
+    const auto f = open(
+        bus::SyncFraming{.sync = "AA", .length_offset = 1, .max_length = 4}
+    );
+    Collector c;
+    const Bytes stream = {0xAA, 0x50, 0xAA, 0x02, 0x01, 0x02};
+    ASSERT_NIL(f->write(stream, c.handler()));
+    EXPECT_EQ(c.frames, (std::vector<Bytes>{{0xAA, 0x02, 0x01, 0x02}}));
+    EXPECT_GE(f->errors(), 1);
+}
+
+TEST(Sync, AcceptsAFrameOfExactlyTheMaxLength) {
+    const auto f = open(
+        bus::SyncFraming{.sync = "AA", .length_offset = 1, .max_length = 4}
+    );
+    Collector c;
+    ASSERT_NIL(f->write(Bytes{0xAA, 0x02, 0x01, 0x02}, c.handler()));
+    EXPECT_EQ(c.frames.size(), 1);
+    Bytes out;
+    ASSERT_OCCURRED_AS(f->encode(Bytes{0xAA, 0, 1, 2, 3}, out), ENCODE_ERROR);
+}
+
 TEST(Sync, EncodeRejectsAFrameShorterThanItsHeader) {
     const auto f = open(SYNC_MODBUS);
     Bytes out;
@@ -473,16 +529,20 @@ TEST(Sync, EncodeRejectsALengthTheFieldCannotHold) {
     ASSERT_OCCURRED_AS(f->encode(Bytes(300, 1), out), ENCODE_ERROR);
 }
 
-TEST(COBS, EncodesLikeAReferenceEncoder) {
-    std::mt19937_64 rng(5);
+TEST(COBS, EncodesAndDecodesLikeThePythonCobsPackage) {
+    std::ifstream file("driver/codec/framing/testdata/cobs.json");
+    const auto root = nlohmann::json::parse(file);
+    ASSERT_FALSE(root["vectors"].empty());
     const auto f = open(bus::CobsFraming{});
-    for (int i = 0; i < 100; i++) {
-        auto payload = random_payload(rng, i % 10 == 0 ? 600 : 40);
-        if (i % 7 == 0) std::fill(payload.begin(), payload.end(), 0x11);
+    for (const auto &v: root["vectors"]) {
+        const auto frame = from_hex(v["frame"]);
+        const auto wire = from_hex(v["wire"]);
         Bytes out;
-        ASSERT_NIL(f->encode(payload, out));
-        ASSERT_EQ(out, cobs(payload));
+        ASSERT_NIL(f->encode(frame, out));
+        EXPECT_EQ(out, wire) << v["frame"].get<std::string>().size() / 2 << " bytes";
+        EXPECT_EQ(trickle(*f, wire), std::vector<Bytes>{frame});
     }
+    EXPECT_EQ(f->errors(), 0);
 }
 
 TEST(COBS, RoundTripsRandomFramesAcrossRandomChunks) {
@@ -500,7 +560,7 @@ TEST(COBS, RoundTripsRandomFramesAcrossRandomChunks) {
 TEST(COBS, DropsAFrameThatEndsInsideABlock) {
     const auto f = open(bus::CobsFraming{});
     Bytes stream = {0x05, 0x11, 0x22, 0x00};
-    const auto good = cobs({1, 0, 2});
+    const Bytes good = {0x02, 0x01, 0x02, 0x02, 0x00};
     stream.insert(stream.end(), good.begin(), good.end());
     Collector c;
     ASSERT_NIL(f->write(stream, c.handler()));
@@ -510,8 +570,8 @@ TEST(COBS, DropsAFrameThatEndsInsideABlock) {
 
 TEST(COBS, DropsAnOversizedFrameAndRecovers) {
     const auto f = open(bus::CobsFraming{});
-    auto stream = cobs(Bytes(MAX_SIZE + 1, 7));
-    const auto good = cobs({7});
+    auto stream = cobs_run(MAX_SIZE + 1, 7);
+    const auto good = cobs_run(1, 7);
     stream.insert(stream.end(), good.begin(), good.end());
     Collector c;
     ASSERT_OCCURRED_AS(f->write(stream, c.handler()), OVERFLOW_ERROR);
@@ -570,6 +630,142 @@ TEST(SLIP, DropsAnOversizedFrameAndRecovers) {
     EXPECT_EQ(f->errors(), 1);
 }
 
+namespace {
+/// @brief Recovery is a framing and how a stream marks the end of garbage before the
+/// next frame starts clean.
+struct Recovery {
+    std::string name;
+    bus::Framing framing;
+    /// @brief boundary ends any frame in progress, or is empty when the framing finds
+    /// frames on its own.
+    Bytes boundary;
+    /// @brief gap is true when only a quiet line ends a frame in progress.
+    bool gap = false;
+    /// @brief frame returns a random frame the framing can carry.
+    std::function<Bytes(std::mt19937_64 &)> frame;
+};
+
+/// @returns random bytes that exclude every byte in banned.
+Bytes random_excluding(
+    std::mt19937_64 &rng,
+    const std::size_t max,
+    const Bytes &banned
+) {
+    Bytes out(rng() % max + 1);
+    for (auto &b: out)
+        do
+            b = static_cast<std::uint8_t>(rng());
+        while (std::ranges::find(banned, b) != banned.end());
+    return out;
+}
+
+std::vector<Recovery> recoveries() {
+    const auto with_header = [](const std::size_t header) {
+        return [header](std::mt19937_64 &rng) {
+            auto f = random_payload(rng, 64);
+            f.insert(f.begin(), header, 0);
+            return f;
+        };
+    };
+    return {
+        {
+            .name = "delimiter",
+            .framing = bus::DelimiterFraming{.delimiter = "\n"},
+            .boundary = bytes("\n"),
+            .frame = [](auto &rng) { return random_excluding(rng, 64, {'\n'}); },
+        },
+        {
+            .name = "two-byte delimiter",
+            .framing = bus::DelimiterFraming{.delimiter = "\r\n"},
+            .boundary = bytes("\r\n"),
+            .frame = [](auto &rng) { return random_excluding(rng, 64, {'\r', '\n'}); },
+        },
+        {
+            .name = "fixed",
+            .framing = bus::FixedFraming{.length = 8},
+            .gap = true,
+            .frame =
+                [](auto &rng) {
+                    Bytes f(8);
+                    for (auto &b: f)
+                        b = static_cast<std::uint8_t>(rng());
+                    return f;
+                },
+        },
+        {
+            .name = "sync",
+            .framing = SYNC_MODBUS,
+            .frame = with_header(3),
+        },
+        {
+            .name = "modbus style",
+            .framing =
+                [] {
+                    auto f = MODBUS_STYLE;
+                    f.max_length = 3 + 64 + 2;
+                    return f;
+                }(),
+            .frame = with_header(3),
+        },
+        {
+            .name = "cobs",
+            .framing = bus::CobsFraming{},
+            .boundary = {0x00},
+            .frame = [](auto &rng) { return random_payload(rng, 300); },
+        },
+        {
+            .name = "slip",
+            .framing = bus::SlipFraming{},
+            .boundary = {0xC0},
+            .frame = [](auto &rng) { return random_payload(rng, 300); },
+        },
+    };
+}
+}
+
+/// @brief After any garbage and the boundary its framing needs, every framer yields
+/// exactly the frames that follow, however the stream is chunked.
+TEST(Framers, RecoverAfterGarbageAndRoundTripTheFramesThatFollow) {
+    for (const auto &r: recoveries()) {
+        std::mt19937_64 rng(4975);
+        for (int round = 0; round < 50; round++) {
+            const auto f = open(r.framing);
+            std::vector<Bytes> sent;
+            Bytes wire = r.boundary;
+            for (int i = 0; i < 10; i++) {
+                auto frame = r.frame(rng);
+                const auto start = wire.size();
+                ASSERT_NIL(f->encode(frame, wire));
+                // Sync framing writes its sync and length into the frame.
+                if (std::holds_alternative<bus::SyncFraming>(r.framing))
+                    std::copy_n(wire.begin() + start, 3, frame.begin());
+                sent.push_back(std::move(frame));
+            }
+            Bytes garbage(rng() % 300);
+            for (auto &b: garbage)
+                b = static_cast<std::uint8_t>(rng());
+            Collector c;
+            for (std::size_t pos = 0; pos < garbage.size();) {
+                const auto n = std::min<std::size_t>(
+                    rng() % 17 + 1,
+                    garbage.size() - pos
+                );
+                ASSERT_NIL(f->write(std::span(garbage).subspan(pos, n), c.handler()));
+                pos += n;
+            }
+            if (r.gap) f->gap();
+            auto frames = feed(*f, wire, rng);
+            frames.insert(frames.begin(), c.frames.begin(), c.frames.end());
+            ASSERT_GE(frames.size(), sent.size()) << r.name << " round " << round;
+            EXPECT_EQ(
+                std::vector<Bytes>(frames.end() - sent.size(), frames.end()),
+                sent
+            ) << r.name
+              << " round " << round;
+        }
+    }
+}
+
 TEST(Create, RejectsAnEmptyDelimiter) {
     ASSERT_OCCURRED_AS_P(create(bus::DelimiterFraming{.delimiter = ""}), CONFIG_ERROR);
 }
@@ -610,6 +806,20 @@ TEST(Create, RejectsAnUnknownChecksumByteOrder) {
 TEST(Create, RejectsAnUnknownByteOrder) {
     ASSERT_OCCURRED_AS_P(
         create(bus::SyncFraming{.byte_order = "middle"}),
+        CONFIG_ERROR
+    );
+}
+
+TEST(Create, RejectsAMaxLengthShorterThanTheHeader) {
+    ASSERT_OCCURRED_AS_P(
+        create(bus::SyncFraming{.sync = "AA", .length_offset = 1, .max_length = 1}),
+        CONFIG_ERROR
+    );
+}
+
+TEST(Create, RejectsAMaxLengthBeyondTheLargestFrame) {
+    ASSERT_OCCURRED_AS_P(
+        create(bus::SyncFraming{.max_length = MAX_SIZE + 1}),
         CONFIG_ERROR
     );
 }

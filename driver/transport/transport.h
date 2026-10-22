@@ -9,11 +9,17 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <system_error>
+#include <thread>
+#include <type_traits>
+#include <utility>
 
 #include "asio/error.hpp"
 #include "asio/io_context.hpp"
@@ -39,6 +45,12 @@ struct Chunk {
     std::span<const std::uint8_t> data;
     /// @brief the host time at which the bytes arrived.
     x::telem::TimeStamp time;
+    /// @brief the number of bytes the line received with a parity or framing error and
+    /// dropped from data.
+    std::size_t errors = 0;
+    /// @brief the number of receive overruns the line reported since the last read:
+    /// bytes the UART or the OS dropped because the Driver read too slowly.
+    std::size_t overruns = 0;
 };
 
 /// @brief the outcome of one asynchronous operation.
@@ -49,10 +61,13 @@ struct Completion {
     std::size_t size = 0;
     /// @brief the host time at which the operation completed.
     x::telem::TimeStamp time;
+    /// @brief true when run_for cancelled the operation at its timeout.
+    bool cancelled = false;
 
-    /// @returns true when the timeout cancelled the operation.
+    /// @returns true when the timeout cancelled the operation. An operation that the OS
+    /// aborted on its own, as Windows does when a device goes away, is an error.
     [[nodiscard]] bool timed_out() const {
-        return this->ec == asio::error::operation_aborted;
+        return this->cancelled && this->ec == asio::error::operation_aborted;
     }
 };
 
@@ -82,7 +97,38 @@ Completion run_for(
         cancel();
         ctx.restart();
         ctx.run();
+        done->cancelled = true;
     }
     return *done;
+}
+
+/// @brief runs a blocking call that cannot be cancelled, such as getaddrinfo, on its
+/// own thread, and stops waiting for it after timeout. An abandoned call finishes in
+/// the background and its result is dropped.
+/// @param call returns a value and an std::error_code.
+/// @returns the call's result, or a default value and std::errc::timed_out when the
+/// timeout elapses first.
+template<typename Call>
+auto abandon_after(const x::telem::TimeSpan timeout, Call call)
+    -> std::invoke_result_t<Call> {
+    using Result = std::invoke_result_t<Call>;
+    struct State {
+        std::mutex mu;
+        std::condition_variable cv;
+        std::optional<Result> result;
+    };
+    auto state = std::make_shared<State>();
+    std::thread([state, call = std::move(call)]() mutable {
+        auto result = call();
+        std::lock_guard lock(state->mu);
+        state->result = std::move(result);
+        state->cv.notify_one();
+    }).detach();
+    std::unique_lock lock(state->mu);
+    if (!state->cv.wait_for(lock, timeout.chrono(), [&state] {
+            return state->result.has_value();
+        }))
+        return {{}, std::make_error_code(std::errc::timed_out)};
+    return std::move(*state->result);
 }
 }

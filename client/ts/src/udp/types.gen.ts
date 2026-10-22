@@ -27,6 +27,12 @@ export const propertiesZ = z.object({
   remotePort: zod.uint16.default(0),
   /** multicastGroup is the multicast group the task joins. Empty for unicast. */
   multicastGroup: z.string().default(""),
+  /**
+   * localAddress is the local address the task receives on. A unicast socket binds to
+   * it, and a multicast socket joins the group on its interface. Empty uses every
+   * interface.
+   */
+  localAddress: z.string().default(""),
 });
 export interface Properties extends z.infer<typeof propertiesZ> {}
 

@@ -30,16 +30,17 @@ type ReadField struct {
 	Field library.FieldKey `json:"field" msgpack:"field"`
 	// Channel is the channel the field's decoded values are written to.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Index is the index channel stamped with the time the field arrives.
+	Index channel.Key `json:"index" msgpack:"index"`
 }
 
-// ReadMessage is one library message a read task decodes.
+// ReadMessage is one library message a read task decodes. Fields share an index only
+// when the same multiplexor values select them.
 type ReadMessage struct {
 	// Message is the key of the message entry in the task's library.
 	Message library.EntryKey `json:"message" msgpack:"message"`
 	// Disabled is true when the task ignores the message.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// Index is the index channel stamped with the time each message arrives.
-	Index channel.Key `json:"index" msgpack:"index"`
 	// Fields are the fields of the message the task writes to channels.
 	Fields []ReadField `json:"fields" msgpack:"fields"`
 }
@@ -187,6 +188,10 @@ type SyncFraming struct {
 	Checksum Checksum `json:"checksum" msgpack:"checksum"`
 	// ChecksumByteOrder is the byte order of the checksum.
 	ChecksumByteOrder library.ByteOrder `json:"checksum_byte_order" msgpack:"checksum_byte_order"`
+	// MaxLength is the size in bytes of the largest frame, sync sequence and checksum
+	// included. A length field that gives a larger frame marks a corrupt frame. Zero
+	// allows the largest frame the Driver can hold.
+	MaxLength uint32 `json:"max_length" msgpack:"max_length"`
 }
 
 func (SyncFraming) isFramingVariant() {}

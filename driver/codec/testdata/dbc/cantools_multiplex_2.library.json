@@ -1,0 +1,335 @@
+{
+  "key": "00000000-0000-4000-8000-000000000000",
+  "name": "cantools_multiplex_2",
+  "entries": [
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000001",
+      "name": "Shared",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 201522942,
+          "extended": true,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "S2",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000004",
+            "multiplex_values": [2, 3, 4, 5],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "S1",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000004",
+            "multiplex_values": [1, 3],
+            "start_bit": 4,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "S0",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000005",
+      "name": "Normal",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 201457406,
+          "extended": true,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000006",
+            "name": "S2",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000008",
+            "multiplex_values": [1],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000007",
+            "name": "S1",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000008",
+            "multiplex_values": [0],
+            "start_bit": 4,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000008",
+            "name": "S0",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000009",
+      "name": "Extended",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 201391870,
+          "extended": true,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-00000000000a",
+            "name": "S8",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000000c",
+            "multiplex_values": [2],
+            "start_bit": 40,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000b",
+            "name": "S7",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-00000000000c",
+            "multiplex_values": [1],
+            "start_bit": 40,
+            "bit_length": 24,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000c",
+            "name": "S6",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 32,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000d",
+            "name": "S5",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000012",
+            "multiplex_values": [1],
+            "start_bit": 4,
+            "bit_length": 28,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000e",
+            "name": "S4",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000011",
+            "multiplex_values": [2],
+            "start_bit": 8,
+            "bit_length": 24,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-00000000000f",
+            "name": "S3",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000011",
+            "multiplex_values": [0],
+            "start_bit": 16,
+            "bit_length": 16,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000010",
+            "name": "S2",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000011",
+            "multiplex_values": [0],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000011",
+            "name": "S1",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000012",
+            "multiplex_values": [0],
+            "start_bit": 4,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000012",
+            "name": "S0",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000013",
+      "name": "ExtendedTypes",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 201588478,
+          "extended": true,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000014",
+            "name": "S9",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000017",
+            "multiplex_values": [5],
+            "start_bit": 24,
+            "bit_length": 32,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": true
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000015",
+            "name": "S10",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000016",
+            "multiplex_values": [0],
+            "start_bit": 16,
+            "bit_length": 32,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": true
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000016",
+            "name": "S0",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplexor": "00000000-0000-4000-8000-000000000017",
+            "multiplex_values": [3],
+            "start_bit": 8,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000017",
+            "name": "S11",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 5,
+            "byte_order": "little_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    }
+  ]
+}

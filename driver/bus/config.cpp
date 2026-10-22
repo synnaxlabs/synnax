@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <map>
 #include <set>
+#include <tuple>
 #include <unordered_map>
 #include <variant>
 
@@ -94,13 +97,30 @@ void check_medium(
     );
 }
 
-/// @brief binds an error when the channel cannot hold decoded or commanded values.
+/// @brief the data types a read task writes decoded values to.
+const std::set<x::telem::DataType> DECODED_TYPES = {
+    x::telem::FLOAT64_T,
+    x::telem::FLOAT32_T,
+    x::telem::INT64_T,
+    x::telem::INT32_T,
+    x::telem::INT16_T,
+    x::telem::INT8_T,
+    x::telem::UINT64_T,
+    x::telem::UINT32_T,
+    x::telem::UINT16_T,
+    x::telem::UINT8_T,
+};
+
+/// @brief binds an error when the channel cannot hold commanded values, or decoded
+/// values when decoded is true.
 void check_numeric(
     const x::json::Parser &parser,
     const std::string &at,
-    const synnax::channel::Channel &ch
+    const synnax::channel::Channel &ch,
+    const bool decoded
 ) {
-    if (ch.data_type.is_variable() || ch.data_type == x::telem::UUID_T)
+    const auto &t = ch.data_type;
+    if (decoded ? !DECODED_TYPES.contains(t) : t.is_variable() || t == x::telem::UUID_T)
         parser.field_err(
             at,
             "channel " + ch.name + " has data type " + ch.data_type.name() +
@@ -122,6 +142,27 @@ const synnax::channel::Channel *find_channel(
     if (it != channels.end()) return &it->second;
     parser.field_err(at, "channel " + std::to_string(key) + " does not exist");
     return nullptr;
+}
+
+/// @returns the plan of message, over keys when given. The Core checks every layout it
+/// stores, so a layout the Driver cannot compile is a bug in one of the two, and the
+/// error is x::errors::INTERNAL.
+std::pair<codec::Plan, x::errors::Error> compile_plan(
+    const synnax::library::MessageEntry &message,
+    const std::optional<std::vector<synnax::library::FieldKey>> &keys = std::nullopt
+) {
+    auto [plan, err] = keys.has_value() ? codec::Plan::compile(message, *keys)
+                                        : codec::Plan::compile(message);
+    if (!err) return {std::move(plan), x::errors::NIL};
+    return {
+        codec::Plan{},
+        x::errors::Error(
+            x::errors::INTERNAL,
+            "the Core accepted message " + message.name +
+                ", but the Driver cannot compile it (" + err.data +
+                "). Please report this as a bug"
+        ),
+    };
 }
 
 std::unique_ptr<codec::framing::Framer> create_framer(
@@ -156,6 +197,21 @@ std::pair<synnax::library::Library, x::errors::Error> retrieve_library(
         return {{}, x::errors::NIL};
     }
     return {std::move(lib), err};
+}
+
+/// @returns the name of the device with the given key. Binds an error to parser when
+/// the device does not exist.
+std::pair<std::string, x::errors::Error> retrieve_device(
+    const synnax::Synnax &client,
+    const x::json::Parser &parser,
+    const std::string &key
+) {
+    auto [dev, err] = client.devices.retrieve(key);
+    if (err.matches(x::errors::NOT_FOUND)) {
+        parser.field_err("device", "device " + key + " does not exist");
+        return {"", x::errors::NIL};
+    }
+    return {std::move(dev.name), err};
 }
 
 /// @brief retrieves the channels with the given keys, skipping zeros and keys with no
@@ -245,11 +301,11 @@ unescape(const std::string &escaped) {
     return {out, x::errors::NIL};
 }
 
-ReadConfig ReadConfig::resolve(
+std::pair<ReadConfig, x::errors::Error> ReadConfig::resolve(
     x::json::Parser &parser,
     const ::synnax::bus::ReadConfig &cfg,
     const ::synnax::bus::PollConfig &poll,
-    const std::optional<::synnax::bus::Framing> &framing,
+    const std::optional<Stream> &stream,
     const synnax::library::Library &library,
     const std::vector<synnax::channel::Channel> &channels,
     const Medium medium
@@ -258,7 +314,10 @@ ReadConfig ReadConfig::resolve(
     out.data_saving_disabled = cfg.data_saving_disabled;
     out.poll_rate = poll.rate;
     out.poll_timeout = poll.timeout;
-    out.framer = create_framer(parser, framing);
+    if (stream.has_value()) {
+        out.framer = create_framer(parser, stream->framing);
+        out.gap = stream->gap;
+    }
     const auto chs = to_map(channels);
     if (cfg.device.empty()) parser.field_err("device", "this field is required");
 
@@ -300,51 +359,70 @@ ReadConfig ReadConfig::resolve(
                 path(i, "message"),
                 "message " + entry->name + " has a query, which a CAN bus cannot send"
             );
-        ReadMessage msg{.entry = *entry, .index = m.index};
-        if (m.index != 0)
-            if (const auto
-                    *idx = find_channel(parser, path(i, "index"), chs, m.index)) {
-                if (!idx->is_index)
-                    parser.field_err(
-                        path(i, "index"),
-                        "channel " + idx->name + " is not an index channel"
-                    );
-                claim(path(i, "index"), idx->key);
-            }
+        ReadMessage msg{.entry = *entry};
+        if (entry->query.has_value())
+            msg.period = poll.rate.period();
+        else if (entry->period.has_value())
+            msg.period = *entry->period;
         if (m.fields.empty())
             parser.field_err(path(i, "fields"), "at least one field is required");
         const auto bases = field_bases(*entry);
         std::vector<synnax::library::FieldKey> keys;
+        std::map<synnax::channel::Key, std::size_t> groups;
         for (std::size_t j = 0; j < m.fields.size(); j++) {
             const auto &f = m.fields[j];
-            if (!find_field(bases, f.field)) {
+            const auto field = find_field(bases, f.field);
+            if (!field) {
                 parser.field_err(
                     field_path(i, j),
                     "field " + f.field.to_string() + " is not in message " + entry->name
                 );
                 continue;
             }
+            const auto &name = bases[*field]->name;
+            if (std::ranges::find(keys, f.field) != keys.end()) {
+                parser.field_err(field_path(i, j), "field " + name + " is read twice");
+                continue;
+            }
             keys.push_back(f.field);
-            const auto at = path(i, "fields." + std::to_string(j) + ".channel");
+            const auto field_at = path(i, "fields." + std::to_string(j));
+            if (f.index == 0)
+                msg.groups.push_back({});
+            else if (
+                const auto [it, added] = groups.emplace(f.index, msg.groups.size());
+                added
+            ) {
+                msg.groups.push_back({.index = f.index});
+                const auto at = field_at + ".index";
+                if (const auto *idx = find_channel(parser, at, chs, f.index)) {
+                    if (!idx->is_index)
+                        parser.field_err(
+                            at,
+                            "channel " + idx->name + " is not an index channel"
+                        );
+                    claim(at, idx->key);
+                }
+            }
+            auto &group = f.index == 0 ? msg.groups.back()
+                                       : msg.groups[groups.at(f.index)];
+            group.slots.push_back(keys.size() - 1);
+            const auto at = field_at + ".channel";
             const auto *ch = find_channel(parser, at, chs, f.channel);
             if (ch == nullptr) continue;
-            check_numeric(parser, at, *ch);
-            if (ch->index != m.index)
+            check_numeric(parser, at, *ch, true);
+            if (ch->index != f.index)
                 parser.field_err(
                     at,
                     "channel " + ch->name + " has index " + std::to_string(ch->index) +
-                        ", but message " + entry->name + " is stamped on " +
-                        std::to_string(m.index)
+                        ", but field " + name + " is stamped on " +
+                        std::to_string(f.index)
                 );
             claim(at, ch->key);
             msg.channels.push_back(*ch);
         }
         if (!parser.ok()) continue;
-        auto [plan, plan_err] = codec::Plan::compile(*entry, keys);
-        if (plan_err) {
-            parser.field_err(path(i, "message"), plan_err);
-            continue;
-        }
+        auto [plan, plan_err] = compile_plan(*entry, keys);
+        if (plan_err) return {std::move(out), plan_err};
         msg.plan = std::move(plan);
         if (entry->query.has_value()) {
             auto query = std::vector<std::uint8_t>(
@@ -385,7 +463,7 @@ ReadConfig ReadConfig::resolve(
         if (poll.timeout <= x::telem::TimeSpan(0))
             parser.field_err("timeout", "must be greater than 0");
     }
-    if (!parser.ok()) return out;
+    if (!parser.ok()) return {std::move(out), x::errors::NIL};
 
     std::vector<synnax::library::MessageEntry> streamed;
     for (const auto i: out.streamed)
@@ -393,7 +471,7 @@ ReadConfig ReadConfig::resolve(
     auto [matcher, err] = codec::Matcher::compile(streamed);
     if (err) parser.field_err("messages", err);
     out.matcher = std::move(matcher);
-    return out;
+    return {std::move(out), x::errors::NIL};
 }
 
 std::pair<ReadConfig, x::errors::Error> ReadConfig::parse(
@@ -401,7 +479,7 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::parse(
     x::json::Parser &parser,
     const ::synnax::bus::ReadConfig &cfg,
     const ::synnax::bus::PollConfig &poll,
-    const std::optional<::synnax::bus::Framing> &framing,
+    const std::optional<Stream> &stream,
     const Medium medium
 ) {
     auto [library, lib_err] = retrieve_library(client, parser, cfg.library);
@@ -409,18 +487,22 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::parse(
     std::set<synnax::channel::Key> keys{cfg.raw};
     for (const auto &m: cfg.messages) {
         if (m.disabled) continue;
-        keys.insert(m.index);
-        for (const auto &f: m.fields)
+        for (const auto &f: m.fields) {
+            keys.insert(f.index);
             keys.insert(f.channel);
+        }
     }
     auto [channels, ch_err] = retrieve_channels(client, keys);
     if (ch_err) return {ReadConfig{}, ch_err};
-    auto out = resolve(parser, cfg, poll, framing, library, channels, medium);
+    auto [out, err] = resolve(parser, cfg, poll, stream, library, channels, medium);
     if (!parser.ok()) return {std::move(out), parser.error()};
-    return {std::move(out), x::errors::NIL};
+    if (err) return {std::move(out), err};
+    std::tie(out.device, err) = retrieve_device(client, parser, cfg.device);
+    if (!parser.ok()) return {std::move(out), parser.error()};
+    return {std::move(out), err};
 }
 
-WriteConfig WriteConfig::resolve(
+std::pair<WriteConfig, x::errors::Error> WriteConfig::resolve(
     x::json::Parser &parser,
     const ::synnax::bus::WriteConfig &cfg,
     const std::optional<::synnax::bus::Framing> &framing,
@@ -455,21 +537,24 @@ WriteConfig WriteConfig::resolve(
                 path(i, "message"),
                 "message " + entry->name + " needs a CAN identifier to send with"
             );
+        if (entry->period.has_value() && *entry->period <= x::telem::TimeSpan::ZERO())
+            parser.field_err(
+                path(i, "message"),
+                "message " + entry->name + " has a period of " +
+                    entry->period->to_string() + ", which must be positive"
+            );
         if (m.fields.empty() && !entry->period.has_value())
             parser.field_err(
                 path(i, "fields"),
                 "message " + entry->name +
                     " has no period, so it needs at least one field"
             );
-        auto [plan, plan_err] = codec::Plan::compile(*entry);
-        if (plan_err) {
-            parser.field_err(path(i, "message"), plan_err);
-            continue;
-        }
+        auto [plan, plan_err] = compile_plan(*entry);
+        if (plan_err) return {std::move(out), plan_err};
         WriteMessage msg{.entry = *entry, .plan = std::move(plan)};
         msg.initial = msg.plan.values();
         for (std::size_t s = 0; s < msg.plan.size(); s++)
-            msg.initial.set(s, std::int64_t{0});
+            msg.plan.set_raw(msg.initial, s, 0);
         const auto bases = field_bases(*entry);
         std::set<std::size_t> bound;
         for (std::size_t j = 0; j < m.fields.size(); j++) {
@@ -490,8 +575,10 @@ WriteConfig WriteConfig::resolve(
             const auto at = path(i, "fields." + std::to_string(j) + ".channel");
             const auto *ch = find_channel(parser, at, chs, f.channel);
             if (ch == nullptr) continue;
-            check_numeric(parser, at, *ch);
-            msg.bindings.push_back({.channel = ch->key, .slot = *slot});
+            check_numeric(parser, at, *ch, false);
+            msg.bindings.push_back(
+                {.channel = ch->key, .slot = *slot, .field = bases[*slot]->name}
+            );
             if (commands.insert(ch->key).second) out.commands.push_back(ch->key);
         }
         if (binary == nullptr)
@@ -501,12 +588,16 @@ WriteConfig WriteConfig::resolve(
                     &*binary->identifier
                 ))
                 if (const auto slot = find_field(bases, id->field))
-                    msg.initial.set(*slot, static_cast<std::int64_t>(id->value));
+                    msg.plan.set_raw(
+                        msg.initial,
+                        *slot,
+                        static_cast<std::int64_t>(id->value)
+                    );
         out.messages.push_back(std::move(msg));
     }
     if (cfg.messages.empty() || (out.messages.empty() && parser.ok()))
         parser.field_err("messages", "at least one enabled message is required");
-    return out;
+    return {std::move(out), x::errors::NIL};
 }
 
 std::pair<WriteConfig, x::errors::Error> WriteConfig::parse(
@@ -526,8 +617,11 @@ std::pair<WriteConfig, x::errors::Error> WriteConfig::parse(
     }
     auto [channels, ch_err] = retrieve_channels(client, keys);
     if (ch_err) return {WriteConfig{}, ch_err};
-    auto out = resolve(parser, cfg, framing, library, channels, medium);
+    auto [out, err] = resolve(parser, cfg, framing, library, channels, medium);
     if (!parser.ok()) return {std::move(out), parser.error()};
-    return {std::move(out), x::errors::NIL};
+    if (err) return {std::move(out), err};
+    std::tie(out.device, err) = retrieve_device(client, parser, cfg.device);
+    if (!parser.ok()) return {std::move(out), parser.error()};
+    return {std::move(out), err};
 }
 }

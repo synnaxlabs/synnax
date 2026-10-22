@@ -24,29 +24,42 @@
 #include "x/cpp/telem/telem.h"
 
 #include "driver/transport/transport.h"
+#include "driver/udp/errors.h"
+#include "driver/udp/stack.h"
 
 namespace driver::udp {
-/// @brief a UDP socket bound to a local port. It receives from any sender and sends to
-/// an optional remote. Calls must not overlap, but any thread may make them.
+/// @brief configures how a socket reaches the network.
+struct Config {
+    /// @brief makes the socket's stack. Tests substitute a model of the network.
+    Stacks stacks = [](asio::io_context &ctx) {
+        return std::make_unique<AsioStack>(ctx);
+    };
+};
+
+/// @brief a UDP socket bound to a local port. It sends to an optional remote and
+/// receives from that remote alone, or from any sender when no remote is set. Calls
+/// must not overlap, but any thread may make them. Errors map through translate.
 class Socket {
     asio::io_context ctx{1};
-    asio::ip::udp::socket socket{ctx};
+    std::unique_ptr<Stack> stack;
     std::optional<asio::ip::udp::endpoint> remote;
+    asio::ip::udp::endpoint sender;
     std::vector<std::uint8_t> buffer = std::vector<std::uint8_t>(
         transport::BUFFER_SIZE
     );
 
-    Socket() = default;
+    explicit Socket(const Config &config);
 
 public:
-    /// @brief binds props.port on every interface, resolves the remote in
-    /// props.remote_host and props.remote_port when set, and joins
-    /// props.multicast_group when set.
-    /// @returns CONFIG_ERROR when props is invalid, and UNREACHABLE_ERROR when the
-    /// remote cannot be resolved, the port cannot be bound, or the group cannot be
-    /// joined.
+    /// @brief binds props.port on props.local_address, or on every interface when it is
+    /// empty, resolves the remote in props.remote_host and props.remote_port when set,
+    /// and joins props.multicast_group when set. A multicast socket binds every
+    /// interface and joins the group on the interface that holds props.local_address.
+    /// @returns CONFIG_ERROR when props is invalid or the port is in use, and
+    /// UNREACHABLE_ERROR when the remote does not resolve, no interface holds the local
+    /// address, or the group cannot be joined.
     static std::pair<std::unique_ptr<Socket>, x::errors::Error>
-    open(const synnax::udp::Properties &props);
+    open(const synnax::udp::Properties &props, const Config &config = Config{});
 
     /// @brief blocks until a datagram arrives or the timeout elapses.
     /// @returns one datagram, or an empty chunk on timeout. UNREACHABLE_ERROR when the
@@ -54,8 +67,8 @@ public:
     std::pair<transport::Chunk, x::errors::Error> read(x::telem::TimeSpan timeout);
 
     /// @brief sends data to the remote as one datagram.
-    /// @returns CONFIG_ERROR when no remote is set, and UNREACHABLE_ERROR when the send
-    /// fails or does not finish within the timeout.
+    /// @returns CONFIG_ERROR when no remote is set or the datagram is too large, and
+    /// UNREACHABLE_ERROR when the send fails or does not finish within the timeout.
     x::errors::Error
     write(std::span<const std::uint8_t> data, x::telem::TimeSpan timeout);
 

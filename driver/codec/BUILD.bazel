@@ -39,8 +39,9 @@ cc_test(
         "golden_test.cpp",
         "matcher_test.cpp",
         "plan_test.cpp",
+        "property_test.cpp",
     ],
-    data = ["testdata/vectors.json"],
+    data = glob(["testdata/dbc/*"]),
     deps = [
         ":codec",
         "//x/cpp/json",

@@ -33,6 +33,8 @@ inline ReadField ReadField::parse(x::json::Parser parser) {
             "channel",
             ::synnax::channel::Key(0)
         ),
+        .index = parser
+                     .field<::synnax::channel::Key>("index", ::synnax::channel::Key(0)),
     };
 }
 
@@ -40,6 +42,7 @@ inline x::json::json ReadField::to_json() const {
     x::json::json j;
     j["field"] = this->field.to_json();
     j["channel"] = this->channel;
+    j["index"] = this->index;
     return j;
 }
 
@@ -47,8 +50,6 @@ inline ReadMessage ReadMessage::parse(x::json::Parser parser) {
     return ReadMessage{
         .message = parser.field<::synnax::library::EntryKey>("message"),
         .disabled = parser.field<bool>("disabled", false),
-        .index = parser
-                     .field<::synnax::channel::Key>("index", ::synnax::channel::Key(0)),
         .fields = parser.field<std::vector<ReadField>>(
             "fields",
             std::vector<ReadField>{}
@@ -60,7 +61,6 @@ inline x::json::json ReadMessage::to_json() const {
     x::json::json j;
     j["message"] = this->message.to_json();
     j["disabled"] = this->disabled;
-    j["index"] = this->index;
     j["fields"] = x::json::to_array(this->fields);
     return j;
 }
@@ -251,6 +251,7 @@ inline SyncFraming SyncFraming::parse(x::json::Parser parser) {
         "checksum_byte_order",
         "little_endian"
     );
+    result.max_length = parser.field<std::uint32_t>("max_length", 0);
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -264,6 +265,7 @@ inline x::json::json SyncFraming::to_json() const {
     j["length_adjustment"] = this->length_adjustment;
     j["checksum"] = this->checksum;
     j["checksum_byte_order"] = this->checksum_byte_order;
+    j["max_length"] = this->max_length;
     j["type"] = this->type;
     return j;
 }

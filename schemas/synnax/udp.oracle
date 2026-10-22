@@ -30,6 +30,13 @@ Properties struct {
     multicast_group string = "" {
         @doc value "is the multicast group the task joins. Empty for unicast."
     }
+    local_address   string = "" {
+        @doc value """
+            is the local address the task receives on. A unicast socket binds to it, and
+            a multicast socket joins the group on its interface. Empty uses every
+            interface.
+        """
+    }
 
     @doc value  "are the properties of a UDP device."
     @go marshal

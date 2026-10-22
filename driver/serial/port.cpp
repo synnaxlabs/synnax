@@ -18,7 +18,6 @@
 #include "asio/buffer.hpp"
 #include "asio/write.hpp"
 
-#include "driver/serial/native.h"
 #include "driver/serial/port.h"
 
 namespace driver::serial {
@@ -80,23 +79,22 @@ native::Handle to_native(const NativeHandle handle) {
 }
 }
 
+native::Handle Port::handle() {
+    return to_native(this->device.native_handle());
+}
+
 std::pair<std::unique_ptr<Port>, x::errors::Error>
 Port::open(const synnax::serial::Properties &props) {
     if (auto err = validate(props)) return {nullptr, err};
     auto port = std::unique_ptr<Port>(new Port(props.port));
+    const auto context = "failed to open serial port " + props.port;
     std::error_code ec;
     port->device.open(props.port, ec);
-    if (ec)
-        return {
-            nullptr,
-            transport::error(
-                transport::UNREACHABLE_ERROR,
-                "failed to open serial port " + props.port,
-                ec
-            )
-        };
-    if (auto err = native::configure(to_native(port->device.native_handle()), props))
-        return {nullptr, err};
+    if (ec) return {nullptr, translate(context, ec)};
+    if (auto err = native::lock(port->handle(), props.port)) return {nullptr, err};
+    if (auto err = native::configure(port->handle(), props)) return {nullptr, err};
+    if (const auto watched = native::watch(port->handle(), port->line))
+        return {nullptr, translate(context, watched)};
     return {std::move(port), x::errors::NIL};
 }
 
@@ -117,17 +115,19 @@ Port::read(const x::telem::TimeSpan timeout) {
         }
     );
     if (done.timed_out()) return {{}, x::errors::NIL};
-    if (done.ec)
-        return {
-            {},
-            transport::error(
-                transport::UNREACHABLE_ERROR,
-                "failed to read from serial port " + this->path,
-                done.ec
-            )
-        };
+    const auto context = "failed to read from serial port " + this->path;
+    if (done.ec) return {{}, translate(context, done.ec)};
+    const auto [received, ec] = native::receive(
+        this->handle(),
+        this->line,
+        {this->buffer.data(), done.size}
+    );
+    if (ec) return {{}, translate(context, ec)};
     return {
-        {.data = {this->buffer.data(), done.size}, .time = done.time},
+        {.data = {this->buffer.data(), received.size},
+         .time = done.time,
+         .errors = received.errors,
+         .overruns = received.overruns},
         x::errors::NIL
     };
 }
@@ -151,30 +151,23 @@ x::errors::Error Port::write(
             this->device.cancel(ignored);
         }
     );
+    const auto context = "failed to write to serial port " + this->path;
     if (done.timed_out())
-        return x::errors::Error(
-            transport::UNREACHABLE_ERROR,
-            "timed out writing to serial port " + this->path
-        );
-    if (done.ec)
-        return transport::error(
-            transport::UNREACHABLE_ERROR,
-            "failed to write to serial port " + this->path,
-            done.ec
-        );
+        return translate(context, std::make_error_code(std::errc::timed_out));
+    if (done.ec) return translate(context, done.ec);
     return x::errors::NIL;
 }
 
 void Port::close(const x::telem::TimeSpan timeout) {
     if (!this->device.is_open()) return;
     // Closing a port discards the output that it has not yet sent.
-    const auto handle = to_native(this->device.native_handle());
     const auto deadline = x::telem::TimeStamp::now() + timeout;
     while (x::telem::TimeStamp::now() < deadline) {
-        const auto [queued, ec] = native::queued_output(handle);
+        const auto [queued, ec] = native::queued_output(this->handle());
         if (ec || queued == 0) break;
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+    native::unlock(this->handle());
     std::error_code ignored;
     this->device.close(ignored);
 }

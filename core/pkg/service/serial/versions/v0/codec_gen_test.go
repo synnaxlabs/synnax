@@ -81,11 +81,11 @@ var _ = Describe("Codec", func() {
 					{
 						Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 						Disabled: false,
-						Index:    channel.Key(12),
 						Fields: []bus.ReadField{
 							{
-								Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-								Channel: channel.Key(15),
+								Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+								Channel: channel.Key(14),
+								Index:   channel.Key(15),
 							},
 						},
 					},
@@ -239,11 +239,11 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 			{
 				Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 				Disabled: false,
-				Index:    channel.Key(12),
 				Fields: []bus.ReadField{
 					{
-						Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-						Channel: channel.Key(15),
+						Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+						Channel: channel.Key(14),
+						Index:   channel.Key(15),
 					},
 				},
 			},
@@ -394,11 +394,11 @@ func FuzzDecodeReadConfig(f *testing.F) {
 				{
 					Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 					Disabled: false,
-					Index:    channel.Key(12),
 					Fields: []bus.ReadField{
 						{
-							Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-							Channel: channel.Key(15),
+							Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+							Channel: channel.Key(14),
+							Index:   channel.Key(15),
 						},
 					},
 				},

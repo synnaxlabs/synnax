@@ -19,7 +19,7 @@ namespace {
 /// @returns settings with every flag that apply writes set, and a speed of 9600 baud.
 Settings dirty() {
     Settings s{};
-    s.c_iflag = IGNPAR | PARMRK | INPCK | IXON | IXOFF | ICRNL;
+    s.c_iflag = IGNPAR | ISTRIP | IXON | IXOFF | ICRNL;
     s.c_oflag = OPOST;
     s.c_cflag = B9600 | (B9600 << IBSHIFT) | CS5 | PARENB | PARODD | CMSPAR | CSTOPB |
                 CRTSCTS | CREAD | CLOCAL;
@@ -46,7 +46,7 @@ TEST(Line, AppliesSevenDataBitsOddParityTwoStopBitsAndHardwareFlowControl) {
             BOTHER | (BOTHER << IBSHIFT) | CS7 | PARENB | PARODD | CSTOPB | CRTSCTS
         )
     );
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK));
     EXPECT_EQ(s.c_ispeed, 19200u);
     EXPECT_EQ(s.c_ospeed, 19200u);
 }
@@ -58,7 +58,7 @@ TEST(Line, ClearsParityStopBitsAndFlowControlForTheDefaults) {
         s.c_cflag,
         static_cast<tcflag_t>(BOTHER | (BOTHER << IBSHIFT) | CS8 | CREAD | CLOCAL)
     );
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(IGNPAR | ICRNL));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK | ICRNL));
     EXPECT_EQ(s.c_ospeed, 9600u);
 }
 
@@ -75,7 +75,7 @@ TEST(Line, AppliesSoftwareFlowControl) {
     p.flow_control = synnax::serial::FLOW_CONTROL_SOFTWARE;
     auto s = dirty();
     ASSERT_NIL(apply(p, s));
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(IGNPAR | IXON | IXOFF | ICRNL));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK | IXON | IXOFF | ICRNL));
     EXPECT_FALSE(s.c_cflag & CRTSCTS);
 }
 
@@ -85,7 +85,10 @@ TEST(Line, AppliesEvenParity) {
     auto s = dirty();
     ASSERT_NIL(apply(p, s));
     EXPECT_EQ(s.c_cflag & (PARENB | PARODD | CMSPAR), static_cast<tcflag_t>(PARENB));
-    EXPECT_EQ(s.c_iflag & (IGNPAR | PARMRK | INPCK), static_cast<tcflag_t>(INPCK));
+    EXPECT_EQ(
+        s.c_iflag & (IGNPAR | PARMRK | INPCK),
+        static_cast<tcflag_t>(INPCK | PARMRK)
+    );
 }
 
 TEST(Line, AppliesMarkParity) {
@@ -97,7 +100,7 @@ TEST(Line, AppliesMarkParity) {
         s.c_cflag & (PARENB | PARODD | CMSPAR),
         static_cast<tcflag_t>(PARENB | PARODD | CMSPAR)
     );
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK));
 }
 
 TEST(Line, AppliesSpaceParity) {

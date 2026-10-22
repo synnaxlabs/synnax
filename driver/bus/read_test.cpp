@@ -24,6 +24,7 @@
 
 namespace driver::bus {
 using namespace testutil;
+using namespace std::chrono_literals;
 
 namespace {
 /// @brief what a sequence of reads produced.
@@ -51,11 +52,16 @@ public:
     x::breaker::Breaker breaker{x::breaker::Config{.name = "test"}};
     bool started = false;
 
-    explicit Harness(ReadConfig cfg) {
+    explicit Harness(ReadConfig cfg, x::telem::NowFunc now = steady_now) {
         for (const auto &m: cfg.messages)
-            if (m.index != 0) this->indexes.insert(m.index);
+            for (const auto &g: m.groups)
+                if (g.index != 0) this->indexes.insert(g.index);
         this->raw = cfg.raw;
-        this->source = std::make_unique<Source>(std::move(cfg), acquire(this->wire));
+        this->source = std::make_unique<Source>(
+            std::move(cfg),
+            acquire(this->wire),
+            std::move(now)
+        );
         this->breaker.start();
     }
 
@@ -235,25 +241,51 @@ TEST(Source, ReconnectsAndDropsThePartialFrameAfterTheTransportFails) {
     ASSERT_NIL(h.start());
     h.wire->push(bytes("A,1"));
     h.read();
-    h.wire->fail(transport::UNREACHABLE_ERROR);
+    h.wire->fail(x::errors::Error(transport::UNREACHABLE_ERROR, "port unplugged"));
     h.read();
-    ASSERT_OCCURRED_AS(h.out.error, transport::UNREACHABLE_ERROR);
+    ASSERT_NIL(h.out.error);
+    EXPECT_EQ(h.out.warning, "reconnecting to dev: port unplugged");
     h.wire->push(bytes("2\nA,3\n"));
     ASSERT_TRUE(h.read_until([](const Output &o) { return o.values.contains(1); }));
     EXPECT_EQ(h.values(1), std::vector<double>{3});
     EXPECT_EQ(h.wire->opens, 2);
 }
 
-TEST(Source, StartsWhileTheDeviceIsUnreachable) {
+TEST(Source, ClearsTheReconnectWarningAfterItReconnects) {
     const auto m = text_message("a", {delimited_field("x", 0)});
     Harness h(read_config({m}, NEWLINE));
-    h.wire->open_errs = {transport::UNREACHABLE_ERROR, transport::UNREACHABLE_ERROR};
     ASSERT_NIL(h.start());
+    h.wire->fail(x::errors::Error(transport::UNREACHABLE_ERROR, "port unplugged"));
     h.read();
-    ASSERT_OCCURRED_AS(h.out.error, transport::UNREACHABLE_ERROR);
+    EXPECT_EQ(h.out.warning, "reconnecting to dev: port unplugged");
+    ASSERT_TRUE(h.read_until([](const Output &o) { return o.warning.empty(); }));
+    ASSERT_NIL(h.out.error);
+}
+
+TEST(Source, WaitsForTheDeviceWhileItIsUnreachable) {
+    const auto m = text_message("a", {delimited_field("x", 0)});
+    Harness h(read_config({m}, NEWLINE));
+    const auto gone = x::errors::Error(transport::UNREACHABLE_ERROR, "no such port");
+    h.wire->open_errs = {gone, gone};
+    ASSERT_NIL(h.start());
+    const x::telem::Stopwatch sw;
+    h.read();
+    EXPECT_LE(sw.elapsed(), READ_TIMEOUT + 20 * x::telem::MILLISECOND);
+    ASSERT_NIL(h.out.error);
+    EXPECT_EQ(h.out.warning, "reconnecting to dev: no such port");
     h.wire->push(bytes("4\n"));
     ASSERT_TRUE(h.read_until([](const Output &o) { return o.values.contains(1); }));
     EXPECT_EQ(h.values(1), std::vector<double>{4});
+    EXPECT_EQ(h.wire->attempts, 3);
+}
+
+TEST(Source, ReturnsAnErrorThatReconnectingCannotFix) {
+    const auto m = text_message("a", {delimited_field("x", 0)});
+    Harness h(read_config({m}, NEWLINE));
+    ASSERT_NIL(h.start());
+    h.wire->fail(x::errors::Error(transport::CRITICAL_ERROR, "port removed"));
+    h.read();
+    ASSERT_OCCURRED_AS(h.out.error, transport::CRITICAL_ERROR);
 }
 
 TEST(Source, FailsToStartWithInvalidDeviceProperties) {
@@ -275,8 +307,8 @@ TEST(Source, PollsEachQueryAndDecodesItsReplyInOrder) {
         {.rate = x::telem::Rate(50), .timeout = 500 * x::telem::MILLISECOND}
     ));
     h.wire->on_write = [](Wire &w, const std::span<const std::uint8_t> data) {
-        if (text(data) == "VOLT?\n") w.reads.push_back(bytes("1.5\n"));
-        if (text(data) == "CURR?\n") w.reads.push_back(bytes("0.25\n"));
+        if (text(data) == "VOLT?\n") w.reads.push_back({bytes("1.5\n")});
+        if (text(data) == "CURR?\n") w.reads.push_back({bytes("0.25\n")});
     };
     ASSERT_NIL(h.start());
     ASSERT_TRUE(h.read_until([](const Output &o) {
@@ -302,7 +334,7 @@ TEST(Source, DoesNotTakeAStreamedFrameAsTheReply) {
         {.rate = x::telem::Rate(20), .timeout = 500 * x::telem::MILLISECOND}
     ));
     h.wire->on_write = [](Wire &w, std::span<const std::uint8_t>) {
-        w.reads.push_back(bytes("S,9\nR,1\n"));
+        w.reads.push_back({bytes("S,9\nR,1\n")});
     };
     ASSERT_NIL(h.start());
     ASSERT_TRUE(h.read_until([](const Output &o) {
@@ -312,7 +344,7 @@ TEST(Source, DoesNotTakeAStreamedFrameAsTheReply) {
     EXPECT_EQ(h.values(2)[0], 9);
 }
 
-TEST(Source, WarnsOnAMissedReplyAndRecoversWhenRepliesResume) {
+TEST(Source, WarnsOnMissedRepliesAndRecoversWhenRepliesResume) {
     auto volt = text_message("volt", {delimited_field("v", 0)});
     volt.query = "VOLT?";
     Harness h(read_config(
@@ -323,11 +355,11 @@ TEST(Source, WarnsOnAMissedReplyAndRecoversWhenRepliesResume) {
     ));
     ASSERT_NIL(h.start());
     ASSERT_TRUE(h.read_until([](const Output &o) { return !o.warning.empty(); }));
-    EXPECT_EQ(h.out.warning, "no reply to the query of volt within 20ms");
+    EXPECT_EQ(h.out.warning, "volt missed 3 periods (expected every 50ms)");
     {
         std::lock_guard lock(h.wire->mu);
         h.wire->on_write = [](Wire &w, std::span<const std::uint8_t>) {
-            w.reads.push_back(bytes("2\n"));
+            w.reads.push_back({bytes("2\n")});
         };
     }
     ASSERT_TRUE(h.read_until([](const Output &o) {
@@ -336,7 +368,60 @@ TEST(Source, WarnsOnAMissedReplyAndRecoversWhenRepliesResume) {
     EXPECT_EQ(h.values(1).back(), 2);
 }
 
-TEST(Source, DiscardsALateReplyBeforeTheNextQuery) {
+TEST(Source, DiscardsALateReplyAndWaitsForQuietBeforeTheNextQuery) {
+    auto volt = text_message("volt", {delimited_field("v", 0)});
+    volt.query = "VOLT?";
+    Harness h(read_config(
+        {volt},
+        NEWLINE,
+        nullptr,
+        {.rate = x::telem::Rate(10), .timeout = 40 * x::telem::MILLISECOND}
+    ));
+    ASSERT_NIL(h.start());
+    h.read();
+    ASSERT_EQ(h.wire->written().size(), 1);
+    h.wire->push(bytes("1\n"));
+    h.read();
+    EXPECT_EQ(h.out.warning, "late reply to volt discarded");
+    EXPECT_EQ(h.wire->written().size(), 1);
+    h.wire->push(bytes("3\n"));
+    h.read();
+    EXPECT_EQ(h.wire->written().size(), 1);
+    {
+        std::lock_guard lock(h.wire->mu);
+        h.wire->on_write = [](Wire &w, std::span<const std::uint8_t>) {
+            w.reads.push_back({bytes("2\n")});
+        };
+    }
+    ASSERT_TRUE(h.read_until([](const Output &o) { return o.values.contains(1); }));
+    EXPECT_EQ(h.values(1), std::vector<double>{2});
+    EXPECT_EQ(h.wire->written().size(), 2);
+}
+
+TEST(Source, NeverTakesALateReplyAsTheReplyToTheNextQuery) {
+    auto volt = text_message("volt", {delimited_field("v", 0)});
+    volt.query = "VOLT?";
+    auto curr = text_message("curr", {delimited_field("i", 0)});
+    curr.query = "CURR?";
+    Harness h(read_config(
+        {volt, curr},
+        NEWLINE,
+        nullptr,
+        {.rate = x::telem::Rate(10), .timeout = 30 * x::telem::MILLISECOND}
+    ));
+    h.wire->on_write = [](Wire &w, const std::span<const std::uint8_t> data) {
+        const auto now = std::chrono::steady_clock::now();
+        if (text(data) == "VOLT?\n")
+            w.reads.push_back({.data = bytes("1.5\n"), .at = now + 45ms});
+        if (text(data) == "CURR?\n") w.reads.push_back({.data = bytes("0.25\n")});
+    };
+    ASSERT_NIL(h.start());
+    ASSERT_TRUE(h.read_until([](const Output &o) { return o.values.contains(2); }));
+    EXPECT_EQ(h.values(2), std::vector<double>{0.25});
+    EXPECT_FALSE(h.out.values.contains(1));
+}
+
+TEST(Source, DropsAPartialFrameLeftBeforeAQuery) {
     auto volt = text_message("volt", {delimited_field("v", 0)});
     volt.query = "VOLT?";
     Harness h(read_config(
@@ -345,18 +430,45 @@ TEST(Source, DiscardsALateReplyBeforeTheNextQuery) {
         nullptr,
         {.rate = x::telem::Rate(1000), .timeout = 20 * x::telem::MILLISECOND}
     ));
+    h.wire->push(bytes("7"));
+    h.wire->on_write = [](Wire &w, std::span<const std::uint8_t>) {
+        w.reads.push_back({bytes("2\n")});
+    };
+    ASSERT_NIL(h.start());
+    ASSERT_TRUE(h.read_until([](const Output &o) { return o.values.contains(1); }));
+    EXPECT_EQ(h.values(1)[0], 2);
+}
+
+TEST(Source, SchedulesPollsOnTheSteadyClock) {
+    auto volt = text_message("volt", {delimited_field("v", 0)});
+    volt.query = "VOLT?";
+    Clock clock;
+    Harness h(
+        read_config(
+            {volt},
+            NEWLINE,
+            nullptr,
+            {.rate = x::telem::Rate(10), .timeout = 20 * x::telem::MILLISECOND}
+        ),
+        clock.func()
+    );
+    h.wire->on_write = [](Wire &w, std::span<const std::uint8_t>) {
+        w.reads.push_back({bytes("1\n")});
+    };
     ASSERT_NIL(h.start());
     h.read();
-    ASSERT_EQ(h.out.warning, "no reply to the query of volt within 20ms");
-    {
-        std::lock_guard lock(h.wire->mu);
-        h.wire->reads.push_back(bytes("1\n7"));
-        h.wire->on_write = [](Wire &w, std::span<const std::uint8_t>) {
-            w.reads.push_back(bytes("2\n"));
-        };
-    }
-    ASSERT_TRUE(h.read_until([](const Output &o) { return o.values.contains(1); }));
-    EXPECT_EQ(h.values(1), std::vector<double>{2});
+    h.read();
+    EXPECT_EQ(h.wire->written().size(), 1);
+    clock.advance(99 * x::telem::MILLISECOND);
+    h.read();
+    EXPECT_EQ(h.wire->written().size(), 1);
+    clock.advance(x::telem::MILLISECOND);
+    h.read();
+    EXPECT_EQ(h.wire->written().size(), 2);
+    clock.advance(10 * x::telem::SECOND);
+    h.read();
+    h.read();
+    EXPECT_EQ(h.wire->written().size(), 3);
 }
 
 TEST(Source, DecodesEachDatagramAsOneFrame) {
@@ -372,5 +484,91 @@ TEST(Source, DecodesEachDatagramAsOneFrame) {
     }));
     EXPECT_EQ(h.values(1), (std::vector<double>{1, 3}));
     EXPECT_EQ(h.values(2), (std::vector<double>{2, 4}));
+}
+}
+
+namespace driver::bus {
+TEST(Source, DropsAPartialFixedFrameAfterAGap) {
+    const auto m = binary_message(
+        "status",
+        {binary_field("a", 0), binary_field("b", 8, 16)}
+    );
+    auto cfg = read_config({m}, ::synnax::bus::FixedFraming{.length = 3});
+    cfg.gap = 20 * x::telem::MILLISECOND;
+    Harness h(std::move(cfg));
+    ASSERT_NIL(h.start());
+    h.wire->push({0x01, 0x02});
+    h.read();
+    h.read();
+    h.wire->push({0x05, 0x34, 0x12});
+    ASSERT_TRUE(h.read_until([](const Output &o) { return o.values.contains(1); }));
+    EXPECT_EQ(h.values(1), std::vector<double>{5});
+    EXPECT_EQ(h.values(2), std::vector<double>{0x1234});
+    EXPECT_EQ(h.out.warning, "dropped corrupt or unframed segments of the byte stream");
+}
+
+TEST(Source, KeepsAFixedFrameThatArrivesWithoutAGap) {
+    const auto m = binary_message(
+        "status",
+        {binary_field("a", 0), binary_field("b", 8, 16)}
+    );
+    auto cfg = read_config({m}, ::synnax::bus::FixedFraming{.length = 3});
+    cfg.gap = 20 * x::telem::MILLISECOND;
+    Harness h(std::move(cfg));
+    ASSERT_NIL(h.start());
+    h.wire->push({0x05, 0x34});
+    h.wire->push({0x12});
+    ASSERT_TRUE(h.read_until([](const Output &o) { return o.values.contains(1); }));
+    EXPECT_EQ(h.values(1), std::vector<double>{5});
+    EXPECT_TRUE(h.out.warning.empty());
+}
+
+TEST(Source, WarnsAboutBytesTheLineDropped) {
+    const auto m = text_message("a", {delimited_field("x", 0)});
+    Harness h(read_config({m}, NEWLINE));
+    h.wire->push(bytes("1\n"), 2);
+    ASSERT_TRUE(h.read_until([](const Output &o) { return o.values.contains(1); }));
+    EXPECT_EQ(h.out.warning, "dropped bytes received with parity or framing errors");
+}
+
+TEST(Source, WarnsAboutReceiveOverruns) {
+    const auto m = text_message("a", {delimited_field("x", 0)});
+    Harness h(read_config({m}, NEWLINE));
+    h.wire->push({}, 0, 1);
+    ASSERT_TRUE(h.read_until([](const Output &o) { return !o.warning.empty(); }));
+    EXPECT_EQ(h.out.warning, "lost received bytes to receive overruns");
+}
+
+TEST(Source, StampsEachMultiplexGroupOnItsOwnIndex) {
+    auto mux = binary_field("mux", 0);
+    auto a = binary_field("a", 8);
+    a.multiplexor = mux.key;
+    a.multiplex_values = {0};
+    auto b = binary_field("b", 8);
+    b.multiplexor = mux.key;
+    b.multiplex_values = {1};
+    const auto m = binary_message("status", {mux, a, b});
+    Harness h(read_config(
+        {m},
+        ::synnax::bus::FixedFraming{.length = 2},
+        [](auto &cfg) {
+            cfg.messages[0].fields[1].index = 101;
+            cfg.messages[0].fields[2].index = 102;
+        },
+        {},
+        {index_channel(101),
+         index_channel(102),
+         data_channel(2, 101),
+         data_channel(3, 102)}
+    ));
+    h.wire->push({0x00, 0x07, 0x01, 0x09, 0x00, 0x08});
+    ASSERT_TRUE(h.read_until([](const Output &o) {
+        return o.values.contains(1) && o.values.at(1).size() == 3;
+    }));
+    EXPECT_EQ(h.values(2), (std::vector<double>{7, 8}));
+    EXPECT_EQ(h.values(3), std::vector<double>{9});
+    EXPECT_EQ(h.out.times[100].size(), 3);
+    EXPECT_EQ(h.out.times[101].size(), 2);
+    EXPECT_EQ(h.out.times[102].size(), 1);
 }
 }

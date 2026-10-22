@@ -214,3 +214,17 @@ TEST(Matcher, RejectsAFloatHeaderField) {
     EXPECT_EQ(err.data, "message message: identifier field must be an integer");
 }
 }
+
+namespace driver::codec {
+TEST(Matcher, RejectsAHeaderFieldThatIsNotInTheMessage) {
+    auto m = header(1);
+    std::get<library::FieldIdentifier>(
+        *std::get<library::BinaryPayload>(m.payload).identifier
+    )
+        .field = x::uuid::create();
+    const std::vector messages = {m};
+    const auto [_, err] = Matcher::compile(messages);
+    ASSERT_MATCHES(err, CONFIG_ERROR);
+    EXPECT_EQ(err.data, "message message: identifier field is not in the message");
+}
+}

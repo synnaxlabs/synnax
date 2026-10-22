@@ -12,19 +12,30 @@
 #include <string>
 #include <utility>
 
+#include "x/cpp/strings/strings.h"
 #include "x/cpp/thread/thread.h"
 
 #include "driver/bus/write.h"
+#include "driver/errors/errors.h"
+#include "driver/transport/errors.h"
 
 namespace driver::bus {
-Sink::Sink(WriteConfig cfg, std::unique_ptr<Transmitter> transmitter):
+Sink::Sink(
+    WriteConfig cfg,
+    std::unique_ptr<Transmitter> transmitter,
+    x::telem::NowFunc now
+):
     common::Sink(cfg.commands),
     cfg(std::move(cfg)),
     transmitter(std::move(transmitter)),
-    states(this->cfg.messages.size()) {
-    for (std::size_t i = 0; i < this->cfg.messages.size(); i++)
-        for (const auto &b: this->cfg.messages[i].bindings)
-            this->targets[b.channel].emplace_back(i, b.slot);
+    now(std::move(now)),
+    states(this->cfg.messages.size()),
+    warnings(this->now) {
+    for (std::size_t i = 0; i < this->cfg.messages.size(); i++) {
+        const auto &bindings = this->cfg.messages[i].bindings;
+        for (std::size_t b = 0; b < bindings.size(); b++)
+            this->targets[bindings[b].channel].emplace_back(i, b);
+    }
     this->reset();
 }
 
@@ -33,7 +44,7 @@ Sink::~Sink() {
 }
 
 void Sink::reset() {
-    const auto now = x::telem::TimeStamp::now();
+    const auto now = this->now();
     for (std::size_t i = 0; i < this->cfg.messages.size(); i++) {
         const auto &m = this->cfg.messages[i];
         auto &s = this->states[i];
@@ -44,6 +55,11 @@ void Sink::reset() {
         s.pending.reset();
     }
     this->queue.clear();
+    this->warnings.clear();
+    this->failure = x::errors::NIL;
+    this->fatal = x::errors::NIL;
+    this->resend_at = now;
+    this->shown.clear();
 }
 
 x::errors::Error Sink::start() {
@@ -51,6 +67,7 @@ x::errors::Error Sink::start() {
     if (this->running) return x::errors::NIL;
     if (const auto err = this->transmitter->acquire()) return err;
     this->reset();
+    this->schedule(this->now());
     this->running = true;
     this->thread = std::thread([this] { this->run(); });
     return x::errors::NIL;
@@ -70,19 +87,25 @@ x::errors::Error Sink::stop() {
 }
 
 x::errors::Error Sink::write(x::telem::Frame &frame) {
-    std::set<std::size_t> changed;
     {
         std::lock_guard lock(this->mu);
+        if (this->fatal) return this->fatal;
+        std::set<std::size_t> changed;
         for (const auto &[key, series]: frame) {
             if (series.size() == 0) continue;
             const auto it = this->targets.find(key);
             if (it == this->targets.end()) continue;
             const auto value = series.at(-1);
-            for (const auto &[message, slot]: it->second) {
+            for (const auto &[message, binding]: it->second) {
+                const auto &m = this->cfg.messages[message];
+                const auto &b = m.bindings[binding];
                 auto &s = this->states[message];
-                if (const auto err = s.values.set(slot, value)) return err;
-                if (!s.seen[slot]) {
-                    s.seen[slot] = true;
+                if (const auto err = m.plan.set(s.values, b.slot, value)) {
+                    this->warnings.add(m.entry.name + "." + b.field + ": " + err.data);
+                    continue;
+                }
+                if (!s.seen[b.slot]) {
+                    s.seen[b.slot] = true;
                     s.unseen--;
                 }
                 changed.insert(message);
@@ -91,6 +114,7 @@ x::errors::Error Sink::write(x::telem::Frame &frame) {
         for (const auto message: changed)
             if (!this->cfg.messages[message].entry.period.has_value())
                 this->enqueue(message);
+        this->report();
     }
     this->cv.notify_all();
     return x::errors::NIL;
@@ -101,10 +125,7 @@ void Sink::enqueue(const std::size_t message) {
     const auto &s = this->states[message];
     if (s.unseen > 0) return;
     std::vector<std::uint8_t> payload;
-    if (const auto err = m.plan.encode(s.values, payload)) {
-        this->set_warning(x::errors::Error(err, m.entry.name + ": " + err.data));
-        return;
-    }
+    m.plan.encode(s.values, payload);
     if (!m.prefix.empty()) {
         // The prefix of a text line is its item 0, which the plan leaves empty.
         std::string_view prefix = m.prefix;
@@ -121,7 +142,7 @@ void Sink::enqueue(const std::size_t message) {
     if (this->cfg.framer == nullptr) return this->push(message, std::move(payload));
     std::vector<std::uint8_t> wire;
     if (const auto err = this->cfg.framer->encode(payload, wire)) {
-        this->set_warning(x::errors::Error(err, m.entry.name + ": " + err.data));
+        this->warnings.add(m.entry.name + ": " + err.data);
         return;
     }
     this->push(message, std::move(wire));
@@ -133,24 +154,61 @@ void Sink::push(const std::size_t message, std::vector<std::uint8_t> payload) {
     pending = std::move(payload);
 }
 
+void Sink::report() {
+    std::vector<std::string> out;
+    for (std::size_t i = 0; i < this->cfg.messages.size(); i++) {
+        const auto &m = this->cfg.messages[i];
+        const auto &s = this->states[i];
+        if (s.unseen == 0 || s.unseen == m.bindings.size()) continue;
+        std::vector<std::string> fields;
+        for (const auto &b: m.bindings)
+            if (!s.seen[b.slot]) fields.push_back(b.field);
+        out.push_back(m.entry.name + " waits for " + x::strings::join(fields, ", "));
+    }
+    if (this->fatal) out.push_back(this->fatal.data);
+    if (this->failure)
+        out.push_back(
+            "reconnecting to " + this->cfg.device + ": " + this->failure.data
+        );
+    this->warnings.collect(out);
+    auto warning = x::strings::join(out, "; ");
+    if (warning == this->shown) return;
+    this->shown = warning;
+    if (warning.empty())
+        this->set_warning(x::errors::NIL);
+    else
+        this->set_warning(
+            x::errors::Error(driver::errors::TEMPORARY_HARDWARE_ERROR, warning)
+        );
+}
+
+x::telem::TimeStamp Sink::schedule(const x::telem::TimeStamp now) {
+    auto next = x::telem::TimeStamp::max();
+    for (std::size_t i = 0; i < this->cfg.messages.size(); i++) {
+        const auto &period = this->cfg.messages[i].entry.period;
+        if (!period.has_value()) continue;
+        auto &s = this->states[i];
+        if (now >= s.due) {
+            this->enqueue(i);
+            s.due = s.due + *period;
+            if (s.due <= now) s.due = now + *period;
+        }
+        next = std::min(next, s.due);
+    }
+    return next;
+}
+
 void Sink::run() {
     x::thread::set_name("bus:write");
     std::unique_lock lock(this->mu);
     while (this->running) {
-        const auto now = x::telem::TimeStamp::now();
-        auto next = x::telem::TimeStamp::max();
-        for (std::size_t i = 0; i < this->cfg.messages.size(); i++) {
-            const auto &period = this->cfg.messages[i].entry.period;
-            if (!period.has_value()) continue;
-            auto &s = this->states[i];
-            if (now >= s.due) {
-                this->enqueue(i);
-                s.due = s.due + *period;
-                if (s.due <= now) s.due = now + *period;
-            }
-            next = std::min(next, s.due);
-        }
-        if (this->queue.empty()) {
+        const auto now = this->now();
+        auto next = this->schedule(now);
+        this->report();
+        next = std::min(next, this->warnings.expiry());
+        const bool sending = !this->queue.empty() && !this->fatal;
+        if (!sending || now < this->resend_at) {
+            if (sending) next = std::min(next, this->resend_at);
             if (next == x::telem::TimeStamp::max())
                 this->cv.wait(lock);
             else
@@ -159,22 +217,32 @@ void Sink::run() {
         }
         const auto message = this->queue.front();
         this->queue.pop_front();
-        const auto payload = std::move(*this->states[message].pending);
+        auto payload = std::move(*this->states[message].pending);
         this->states[message].pending.reset();
         lock.unlock();
-        this->send(message, payload);
+        const auto err = this->transmitter->send(message, payload);
         lock.lock();
+        if (!err) {
+            this->failure = x::errors::NIL;
+            continue;
+        }
+        if (!err.matches(driver::errors::TEMPORARY_HARDWARE_ERROR)) {
+            this->fatal = err;
+            continue;
+        }
+        this->failure = err;
+        this->resend_at = this->now() + RESEND_INTERVAL;
+        if (!this->states[message].pending.has_value())
+            this->push(message, std::move(payload));
     }
-}
-
-void Sink::send(const std::size_t message, const std::vector<std::uint8_t> &payload) {
-    this->set_warning(this->transmitter->send(message, payload));
 }
 
 x::errors::Error ConnectionTransmitter::acquire() {
     auto [conn, err] = this->acquirer();
+    if (err) return err;
     this->conn = std::move(conn);
-    return err;
+    auto guard = this->conn->lock();
+    return guard.transport().second.skip(transport::UNREACHABLE_ERROR);
 }
 
 void ConnectionTransmitter::release() {
@@ -185,8 +253,9 @@ x::errors::Error
 ConnectionTransmitter::send(std::size_t, const std::span<const std::uint8_t> payload) {
     auto guard = this->conn->lock();
     auto [t, err] = guard.transport();
-    if (!err) err = t->write(payload, WRITE_TIMEOUT);
-    if (err) guard.close();
+    if (err) return err;
+    err = t->write(payload, WRITE_TIMEOUT);
+    if (err) guard.fail(err);
     return err;
 }
 }

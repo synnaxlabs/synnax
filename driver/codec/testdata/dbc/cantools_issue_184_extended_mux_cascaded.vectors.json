@@ -1,0 +1,283 @@
+{
+  "messages": [
+    {
+      "name": "ext_MUX_cascaded",
+      "vectors": [
+        {
+          "payload": "0201eb02f859a700",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 1,
+            "muxed_B_1": 2
+          },
+          "encoded": "0201000200000000"
+        },
+        {
+          "payload": "0100b6fef9073e0f",
+          "values": {
+            "MUX_A": 1,
+            "muxed_A_1": 0
+          },
+          "encoded": "0100000000000000"
+        },
+        {
+          "payload": "01002db92a7d4ed8",
+          "values": {
+            "MUX_A": 1,
+            "muxed_A_1": 0
+          },
+          "encoded": "0100000000000000"
+        },
+        {
+          "payload": "0101060a14278795",
+          "values": {
+            "MUX_A": 1,
+            "muxed_A_1": 1
+          },
+          "encoded": "0101000000000000"
+        },
+        {
+          "payload": "0200f3610c789422",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 0,
+            "muxed_B_0": -13
+          },
+          "encoded": "0200f30000000000"
+        },
+        {
+          "payload": "0101f9c8fd5e31e3",
+          "values": {
+            "MUX_A": 1,
+            "muxed_A_1": 1
+          },
+          "encoded": "0101000000000000"
+        },
+        {
+          "payload": "02009ffad3b6ff81",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 0,
+            "muxed_B_0": -97
+          },
+          "encoded": "02009f0000000000"
+        },
+        {
+          "payload": "02018dddc1e64113",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 1,
+            "muxed_B_1": -35
+          },
+          "encoded": "020100dd00000000"
+        },
+        {
+          "payload": "010140ebe7488429",
+          "values": {
+            "MUX_A": 1,
+            "muxed_A_1": 1
+          },
+          "encoded": "0101000000000000"
+        },
+        {
+          "payload": "0100840c5188a642",
+          "values": {
+            "MUX_A": 1,
+            "muxed_A_1": 0
+          },
+          "encoded": "0100000000000000"
+        },
+        {
+          "payload": "010092ea7556870b",
+          "values": {
+            "MUX_A": 1,
+            "muxed_A_1": 0
+          },
+          "encoded": "0100000000000000"
+        },
+        {
+          "payload": "0201e0b679bda4fa",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 1,
+            "muxed_B_1": -74
+          },
+          "encoded": "020100b600000000"
+        },
+        {
+          "payload": "0101c4eff11e72f3",
+          "values": {
+            "MUX_A": 1,
+            "muxed_A_1": 1
+          },
+          "encoded": "0101000000000000"
+        },
+        {
+          "payload": "0201fc58e3006a00",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 1,
+            "muxed_B_1": 88
+          },
+          "encoded": "0201005800000000"
+        },
+        {
+          "payload": "0100a38d2d177733",
+          "values": {
+            "MUX_A": 1,
+            "muxed_A_1": 0
+          },
+          "encoded": "0100000000000000"
+        },
+        {
+          "payload": "0101cd8379acc89f",
+          "values": {
+            "MUX_A": 1,
+            "muxed_A_1": 1
+          },
+          "encoded": "0101000000000000"
+        },
+        {
+          "payload": "0200a13cd67f2333",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 0,
+            "muxed_B_0": -95
+          },
+          "encoded": "0200a10000000000"
+        },
+        {
+          "payload": "0101aa6705a1bf66",
+          "values": {
+            "MUX_A": 1,
+            "muxed_A_1": 1
+          },
+          "encoded": "0101000000000000"
+        },
+        {
+          "payload": "02015cd66d22aa1f",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 1,
+            "muxed_B_1": -42
+          },
+          "encoded": "020100d600000000"
+        },
+        {
+          "payload": "02006adc77ad86f3",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 0,
+            "muxed_B_0": 106
+          },
+          "encoded": "02006a0000000000"
+        },
+        {
+          "payload": "0200175a1ddaa87c",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 0,
+            "muxed_B_0": 23
+          },
+          "encoded": "0200170000000000"
+        },
+        {
+          "payload": "020003a991744097",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 0,
+            "muxed_B_0": 3
+          },
+          "encoded": "0200030000000000"
+        },
+        {
+          "payload": "0200f50bc8f5a2ab",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 0,
+            "muxed_B_0": -11
+          },
+          "encoded": "0200f50000000000"
+        },
+        {
+          "payload": "01011b447ae40ae2",
+          "values": {
+            "MUX_A": 1,
+            "muxed_A_1": 1
+          },
+          "encoded": "0101000000000000"
+        },
+        {
+          "payload": "0200ec67eeee3f47",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 0,
+            "muxed_B_0": -20
+          },
+          "encoded": "0200ec0000000000"
+        },
+        {
+          "payload": "020000a71cda2566",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 0,
+            "muxed_B_0": 0
+          },
+          "encoded": "0200000000000000"
+        },
+        {
+          "payload": "020028b185a7626b",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 0,
+            "muxed_B_0": 40
+          },
+          "encoded": "0200280000000000"
+        },
+        {
+          "payload": "0200c3e3f2c9b3cf",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 0,
+            "muxed_B_0": -61
+          },
+          "encoded": "0200c30000000000"
+        },
+        {
+          "payload": "0100c88898878fbf",
+          "values": {
+            "MUX_A": 1,
+            "muxed_A_1": 0
+          },
+          "encoded": "0100000000000000"
+        },
+        {
+          "payload": "02005b8763aefa07",
+          "values": {
+            "MUX_A": 2,
+            "muxed_A_2_MUX_B": 0,
+            "muxed_B_0": 91
+          },
+          "encoded": "02005b0000000000"
+        },
+        {
+          "payload": "01002c6c70d4efdf",
+          "values": {
+            "MUX_A": 1,
+            "muxed_A_1": 0
+          },
+          "encoded": "0100000000000000"
+        },
+        {
+          "payload": "01001ddeee9d1ecb",
+          "values": {
+            "MUX_A": 1,
+            "muxed_A_1": 0
+          },
+          "encoded": "0100000000000000"
+        }
+      ]
+    }
+  ],
+  "skipped": {}
+}

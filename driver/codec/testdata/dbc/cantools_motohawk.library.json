@@ -1,0 +1,78 @@
+{
+  "key": "00000000-0000-4000-8000-000000000000",
+  "name": "cantools_motohawk",
+  "entries": [
+    {
+      "kind": "message",
+      "key": "00000000-0000-4000-8000-000000000001",
+      "name": "ExampleMessage",
+      "payload": {
+        "format": "binary",
+        "length": 8,
+        "identifier": {
+          "type": "can",
+          "id": 496,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "Temperature",
+            "scale": 0.01,
+            "offset": 250,
+            "units": "degK",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 12,
+            "byte_order": "big_endian",
+            "signed": true,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "AverageRadius",
+            "scale": 0.1,
+            "offset": 0,
+            "units": "m",
+            "multiplex_values": [],
+            "start_bit": 6,
+            "bit_length": 6,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "Enable",
+            "scale": 1,
+            "offset": 0,
+            "units": "-",
+            "enumeration": "00000000-0000-4000-8000-000000000005",
+            "multiplex_values": [],
+            "start_bit": 7,
+            "bit_length": 1,
+            "byte_order": "big_endian",
+            "signed": false,
+            "float": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "enum",
+      "key": "00000000-0000-4000-8000-000000000005",
+      "name": "ExampleMessage.Enable",
+      "values": [
+        {
+          "value": 0,
+          "name": "Disabled"
+        },
+        {
+          "value": 1,
+          "name": "Enabled"
+        }
+      ]
+    }
+  ]
+}

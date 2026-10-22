@@ -1,0 +1,298 @@
+{
+  "messages": [
+    {
+      "name": "ExampleMessage",
+      "vectors": [
+        {
+          "payload": "7b9beb02f859a700",
+          "values": {
+            "Enable": 0,
+            "AverageRadius": 6.1000000000000005,
+            "Temperature": 241.99
+          },
+          "encoded": "7b9be00000000000"
+        },
+        {
+          "payload": "b7cb6b62e05cb6fe",
+          "values": {
+            "Enable": 1,
+            "AverageRadius": 2.7,
+            "Temperature": 245.79
+          },
+          "encoded": "b7cb600000000000"
+        },
+        {
+          "payload": "f9073e0f2d243bb5",
+          "values": {
+            "Enable": 1,
+            "AverageRadius": 6.0,
+            "Temperature": 230.09
+          },
+          "encoded": "f907200000000000"
+        },
+        {
+          "payload": "2db92a7d4ed8addc",
+          "values": {
+            "Enable": 0,
+            "AverageRadius": 2.2,
+            "Temperature": 244.33
+          },
+          "encoded": "2db9200000000000"
+        },
+        {
+          "payload": "32208094060a1427",
+          "values": {
+            "Enable": 0,
+            "AverageRadius": 2.5,
+            "Temperature": 252.6
+          },
+          "encoded": "3220800000000000"
+        },
+        {
+          "payload": "8795cbb7cb0c58f3",
+          "values": {
+            "Enable": 1,
+            "AverageRadius": 0.30000000000000004,
+            "Temperature": 241.5
+          },
+          "encoded": "8795c00000000000"
+        },
+        {
+          "payload": "f5f3610c78942255",
+          "values": {
+            "Enable": 1,
+            "AverageRadius": 5.800000000000001,
+            "Temperature": 248.99
+          },
+          "encoded": "f5f3600000000000"
+        },
+        {
+          "payload": "300de8f9c8fd5e31",
+          "values": {
+            "Enable": 0,
+            "AverageRadius": 2.4000000000000004,
+            "Temperature": 251.11
+          },
+          "encoded": "300de00000000000"
+        },
+        {
+          "payload": "e31b6520769ffad3",
+          "values": {
+            "Enable": 1,
+            "AverageRadius": 4.9,
+            "Temperature": 231.71
+          },
+          "encoded": "e31b600000000000"
+        },
+        {
+          "payload": "b6ff81ace36f36ed",
+          "values": {
+            "Enable": 1,
+            "AverageRadius": 2.7,
+            "Temperature": 270.44
+          },
+          "encoded": "b6ff800000000000"
+        },
+        {
+          "payload": "3f8dddc1e6411369",
+          "values": {
+            "Enable": 0,
+            "AverageRadius": 3.1,
+            "Temperature": 240.86
+          },
+          "encoded": "3f8dc00000000000"
+        },
+        {
+          "payload": "71710b40ebe74884",
+          "values": {
+            "Enable": 0,
+            "AverageRadius": 5.6000000000000005,
+            "Temperature": 238.56
+          },
+          "encoded": "7171000000000000"
+        },
+        {
+          "payload": "2901799ea7840c51",
+          "values": {
+            "Enable": 0,
+            "AverageRadius": 2.0,
+            "Temperature": 229.63
+          },
+          "encoded": "2901600000000000"
+        },
+        {
+          "payload": "88a642fb3e268164",
+          "values": {
+            "Enable": 1,
+            "AverageRadius": 0.4,
+            "Temperature": 263.3
+          },
+          "encoded": "88a6400000000000"
+        },
+        {
+          "payload": "92ea7556870b36e5",
+          "values": {
+            "Enable": 1,
+            "AverageRadius": 0.9,
+            "Temperature": 268.75
+          },
+          "encoded": "92ea600000000000"
+        },
+        {
+          "payload": "a5b9871e6c9ae0b6",
+          "values": {
+            "Enable": 1,
+            "AverageRadius": 1.8,
+            "Temperature": 244.36
+          },
+          "encoded": "a5b9800000000000"
+        },
+        {
+          "payload": "79bda4faf3ca686c",
+          "values": {
+            "Enable": 0,
+            "AverageRadius": 6.0,
+            "Temperature": 244.69
+          },
+          "encoded": "79bda00000000000"
+        },
+        {
+          "payload": "d480c4eff11e72f3",
+          "values": {
+            "Enable": 1,
+            "AverageRadius": 4.2,
+            "Temperature": 260.3
+          },
+          "encoded": "d480c00000000000"
+        },
+        {
+          "payload": "20ac8843eba5fc58",
+          "values": {
+            "Enable": 0,
+            "AverageRadius": 1.6,
+            "Temperature": 263.8
+          },
+          "encoded": "20ac800000000000"
+        },
+        {
+          "payload": "e3006a007b4f8b2c",
+          "values": {
+            "Enable": 1,
+            "AverageRadius": 4.9,
+            "Temperature": 229.55
+          },
+          "encoded": "e300600000000000"
+        },
+        {
+          "payload": "a38d2d177733a9e4",
+          "values": {
+            "Enable": 1,
+            "AverageRadius": 1.7000000000000002,
+            "Temperature": 240.81
+          },
+          "encoded": "a38d200000000000"
+        },
+        {
+          "payload": "2126f597cd8379ac",
+          "values": {
+            "Enable": 0,
+            "AverageRadius": 1.6,
+            "Temperature": 232.63
+          },
+          "encoded": "2126e00000000000"
+        },
+        {
+          "payload": "c89fa23055771ea1",
+          "values": {
+            "Enable": 1,
+            "AverageRadius": 3.6,
+            "Temperature": 262.77
+          },
+          "encoded": "c89fa00000000000"
+        },
+        {
+          "payload": "3cd67f2333c5aa98",
+          "values": {
+            "Enable": 0,
+            "AverageRadius": 3.0,
+            "Temperature": 267.15
+          },
+          "encoded": "3cd6600000000000"
+        },
+        {
+          "payload": "7c144dc0aa6705a1",
+          "values": {
+            "Enable": 0,
+            "AverageRadius": 6.2,
+            "Temperature": 251.62
+          },
+          "encoded": "7c14400000000000"
+        },
+        {
+          "payload": "bf6621a2ee414b3e",
+          "values": {
+            "Enable": 1,
+            "AverageRadius": 3.1,
+            "Temperature": 237.69
+          },
+          "encoded": "bf66200000000000"
+        },
+        {
+          "payload": "5cd66d22aa1fecfc",
+          "values": {
+            "Enable": 0,
+            "AverageRadius": 4.6000000000000005,
+            "Temperature": 267.15
+          },
+          "encoded": "5cd6600000000000"
+        },
+        {
+          "payload": "f5a6674d93216adc",
+          "values": {
+            "Enable": 1,
+            "AverageRadius": 5.800000000000001,
+            "Temperature": 242.83
+          },
+          "encoded": "f5a6600000000000"
+        },
+        {
+          "payload": "77ad86f380fe7530",
+          "values": {
+            "Enable": 0,
+            "AverageRadius": 5.9,
+            "Temperature": 243.4
+          },
+          "encoded": "77ad800000000000"
+        },
+        {
+          "payload": "d869175a1ddaa87c",
+          "values": {
+            "Enable": 1,
+            "AverageRadius": 4.4,
+            "Temperature": 258.4
+          },
+          "encoded": "d869000000000000"
+        },
+        {
+          "payload": "7211386203a99174",
+          "values": {
+            "Enable": 0,
+            "AverageRadius": 5.7,
+            "Temperature": 251.37
+          },
+          "encoded": "7211200000000000"
+        },
+        {
+          "payload": "4097889aefcf9fcd",
+          "values": {
+            "Enable": 0,
+            "AverageRadius": 3.2,
+            "Temperature": 262.12
+          },
+          "encoded": "4097800000000000"
+        }
+      ]
+    }
+  ],
+  "skipped": {}
+}

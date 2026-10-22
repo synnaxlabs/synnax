@@ -39,10 +39,12 @@ class ReadField(BaseModel):
     Attributes:
         field: Is the key of the field within its message.
         channel: Is the channel the field's decoded values are written to.
+        index: Is the index channel stamped with the time the field arrives.
     """
 
     field: library_.FieldKey
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
 
 
 class WriteField(BaseModel):
@@ -102,6 +104,7 @@ class SyncFraming(BaseModel):
     length_adjustment: int = Field(default=0, ge=-2147483648, le=2147483647)
     checksum: Checksum = "none"
     checksum_byte_order: library_.ByteOrder = "little_endian"
+    max_length: int = Field(default=0, ge=0, le=4294967295)
 
 
 class CobsFraming(BaseModel):
@@ -124,18 +127,17 @@ Framing = Annotated[
 
 
 class ReadMessage(BaseModel):
-    """Is one library message a read task decodes.
+    """Is one library message a read task decodes. Fields share an index only when the
+    same multiplexor values select them.
 
     Attributes:
         message: Is the key of the message entry in the task's library.
         disabled: Is true when the task ignores the message.
-        index: Is the index channel stamped with the time each message arrives.
         fields: Are the fields of the message the task writes to channels.
     """
 
     message: library_.EntryKey
     disabled: bool = False
-    index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     fields: list[ReadField] = Field(default_factory=list)
 
 

@@ -22,4 +22,6 @@ const x::errors::Error CONFIG_ERROR = driver::errors::CONFIGURATION_ERROR.sub("c
 const x::errors::Error SHORT_PAYLOAD_ERROR = BASE_ERROR.sub("short_payload");
 /// @brief a value the plan cannot encode.
 const x::errors::Error ENCODE_ERROR = BASE_ERROR.sub("encode");
+/// @brief a value outside the range of the field it is set on.
+const x::errors::Error RANGE_ERROR = ENCODE_ERROR.sub("range");
 }

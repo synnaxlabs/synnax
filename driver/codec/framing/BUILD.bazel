@@ -35,9 +35,11 @@ cc_test(
         "checksum_test.cpp",
         "framing_test.cpp",
     ],
+    data = ["testdata/cobs.json"],
     deps = [
         ":framing",
         "//x/cpp/test",
         "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )

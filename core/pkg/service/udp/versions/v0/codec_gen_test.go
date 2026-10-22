@@ -43,12 +43,14 @@ var _ = Describe("Codec", func() {
 				RemoteHost:     "test_2",
 				RemotePort:     4,
 				MulticastGroup: "test_4",
+				LocalAddress:   "test_5",
 			}),
 			Entry("zero values", v0.Properties{
 				Port:           0,
 				RemoteHost:     "",
 				RemotePort:     0,
 				MulticastGroup: "",
+				LocalAddress:   "",
 			}),
 		)
 	})
@@ -75,11 +77,11 @@ var _ = Describe("Codec", func() {
 					{
 						Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 						Disabled: false,
-						Index:    channel.Key(12),
 						Fields: []bus.ReadField{
 							{
-								Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-								Channel: channel.Key(15),
+								Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+								Channel: channel.Key(14),
+								Index:   channel.Key(15),
 							},
 						},
 					},
@@ -172,6 +174,7 @@ func BenchmarkEncodeDecodeProperties(b *testing.B) {
 		RemoteHost:     "test_2",
 		RemotePort:     4,
 		MulticastGroup: "test_4",
+		LocalAddress:   "test_5",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -201,11 +204,11 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 			{
 				Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 				Disabled: false,
-				Index:    channel.Key(12),
 				Fields: []bus.ReadField{
 					{
-						Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-						Channel: channel.Key(15),
+						Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+						Channel: channel.Key(14),
+						Index:   channel.Key(15),
 					},
 				},
 			},
@@ -271,6 +274,7 @@ func FuzzDecodeProperties(f *testing.F) {
 			RemoteHost:     "test_2",
 			RemotePort:     4,
 			MulticastGroup: "test_4",
+			LocalAddress:   "test_5",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -284,6 +288,7 @@ func FuzzDecodeProperties(f *testing.F) {
 			RemoteHost:     "",
 			RemotePort:     0,
 			MulticastGroup: "",
+			LocalAddress:   "",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -327,11 +332,11 @@ func FuzzDecodeReadConfig(f *testing.F) {
 				{
 					Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 					Disabled: false,
-					Index:    channel.Key(12),
 					Fields: []bus.ReadField{
 						{
-							Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-							Channel: channel.Key(15),
+							Field:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+							Channel: channel.Key(14),
+							Index:   channel.Key(15),
 						},
 					},
 				},

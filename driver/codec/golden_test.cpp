@@ -7,19 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <filesystem>
 #include <fstream>
+#include <iostream>
+#include <limits>
+#include <map>
+#include <optional>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
+#include "client/cpp/library/json.gen.h"
 #include "client/cpp/library/types.gen.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/test/test.h"
-#include "x/cpp/uuid/uuid.h"
 
+#include "driver/codec/errors.h"
 #include "driver/codec/matcher.h"
 #include "driver/codec/plan.h"
 
@@ -28,14 +37,29 @@ namespace {
 namespace library = synnax::library;
 using json = nlohmann::json;
 
-/// @brief Golden is one message from vectors.json, with its layout rebuilt as a library
-/// entry.
+/// @brief Golden is one DBC file: each message as the Core's importer writes it to a
+/// library, and the vectors cantools decodes and encodes for each message it can.
 struct Golden {
-    library::MessageEntry message;
-    std::vector<std::string> names;
-    json signals;
-    json vectors;
+    std::string file;
+    std::vector<library::MessageEntry> messages;
+    /// @brief vectors holds the vectors of each message, or nullopt when cantools
+    /// skipped it.
+    std::vector<std::optional<json>> vectors;
+    /// @brief problems lists where the importer's library and cantools disagree.
+    std::vector<std::string> problems;
 };
+
+/// @returns the directory of DBC files with their golden JSON. SYNNAX_GOLDEN_DIR
+/// replaces it, as for a downloaded corpus.
+std::filesystem::path golden_dir() {
+    if (const char *dir = std::getenv("SYNNAX_GOLDEN_DIR")) return dir;
+    return "driver/codec/testdata/dbc";
+}
+
+json read(const std::filesystem::path &path) {
+    std::ifstream file(path);
+    return json::parse(file);
+}
 
 std::vector<std::uint8_t> from_hex(const std::string &hex) {
     std::vector<std::uint8_t> out;
@@ -46,141 +70,237 @@ std::vector<std::uint8_t> from_hex(const std::string &hex) {
     return out;
 }
 
+/// @returns a signal that cantools decodes and the message has no field for, or an
+/// empty string.
+std::string unknown_signal(const library::MessageEntry &m, const json &vectors) {
+    const auto &fs = std::get<library::BinaryPayload>(m.payload).fields;
+    for (const auto &v: vectors)
+        for (const auto &[name, _]: v["values"].items())
+            if (std::ranges::none_of(fs, [&name](const auto &f) {
+                    return f.name == name;
+                }))
+                return name;
+    return "";
+}
+
 std::vector<Golden> load() {
-    std::ifstream file("driver/codec/testdata/vectors.json");
-    const auto root = json::parse(file);
+    std::vector<std::filesystem::path> paths;
+    for (const auto &e: std::filesystem::directory_iterator(golden_dir()))
+        if (e.path().extension() == ".dbc") paths.push_back(e.path());
+    std::ranges::sort(paths);
     std::vector<Golden> out;
-    for (const auto &m: root["messages"]) {
-        Golden g;
-        g.message.key = x::uuid::create();
-        g.message.name = m["name"];
-        library::BinaryPayload payload{
-            .length = m["length"].get<std::uint16_t>(),
-            .identifier = library::CanIdentifier{
-                .id = m["id"],
-                .extended = m["extended"],
-            },
-        };
-        std::unordered_map<std::string, library::FieldKey> keys;
-        for (const auto &s: m["signals"])
-            keys[s["name"]] = x::uuid::create();
-        for (const auto &s: m["signals"]) {
-            library::BinaryField f;
-            f.key = keys[s["name"]];
-            f.name = s["name"];
-            f.start_bit = s["start_bit"];
-            f.bit_length = s["bit_length"];
-            f.byte_order = s["byte_order"];
-            f.signed_ = s["signed"];
-            f.float_ = s["float"];
-            f.scale = s["scale"];
-            f.offset = s["offset"];
-            if (!s["multiplexor"].is_null()) {
-                f.multiplexor = keys[s["multiplexor"]];
-                using V = decltype(f.multiplex_values)::value_type;
-                for (const auto &v: s["multiplex_values"])
-                    f.multiplex_values.push_back(v.get<V>());
-            }
-            g.names.push_back(f.name);
-            payload.fields.push_back(std::move(f));
+    for (const auto &path: paths) {
+        auto stem = path;
+        stem.replace_extension();
+        auto lib_path = stem;
+        lib_path += ".library.json";
+        auto vectors_path = stem;
+        vectors_path += ".vectors.json";
+        Golden g{.file = path.filename().string()};
+        if (!std::filesystem::exists(lib_path)) {
+            g.problems.emplace_back("the importer wrote no library");
+            out.push_back(std::move(g));
+            continue;
         }
-        g.message.payload = std::move(payload);
-        g.signals = m["signals"];
-        g.vectors = m["vectors"];
+        x::json::Parser parser(read(lib_path));
+        const auto lib = library::Library::parse(parser);
+        if (!parser.ok()) g.problems.push_back(parser.error().message());
+        const auto vectors = read(vectors_path);
+        const auto &skipped = vectors["skipped"];
+        std::map<std::string, json> by_name;
+        for (const auto &m: vectors["messages"])
+            by_name[m["name"].get<std::string>()] = m["vectors"];
+        for (const auto &e: lib.entries) {
+            const auto *m = std::get_if<library::MessageEntry>(&e);
+            if (m == nullptr) continue;
+            g.messages.push_back(*m);
+            const auto it = by_name.find(m->name);
+            if (it != by_name.end()) {
+                const auto unknown = unknown_signal(*m, it->second);
+                if (unknown.empty())
+                    g.vectors.emplace_back(it->second);
+                else {
+                    g.vectors.emplace_back(std::nullopt);
+                    g.problems.push_back(m->name + " has no field " + unknown);
+                }
+                by_name.erase(it);
+                continue;
+            }
+            g.vectors.emplace_back(std::nullopt);
+            if (skipped.contains(m->name))
+                std::cout << g.file << ": cantools skipped " << m->name << ": "
+                          << skipped[m->name].get<std::string>() << "\n";
+            else if (skipped.contains(g.file))
+                std::cout << g.file << ": cantools skipped the file: "
+                          << skipped[g.file].get<std::string>() << "\n";
+            else
+                g.problems.push_back("cantools has no message " + m->name);
+        }
+        for (const auto &[name, _]: by_name)
+            g.problems.push_back("the library has no message " + name);
         out.push_back(std::move(g));
     }
     return out;
 }
 
-bool exact(const json &signal) {
-    return !signal["float"].get<bool>() && signal["scale"] == 1 &&
-           signal["offset"] == 0;
+const std::vector<library::BinaryField> &fields(const library::MessageEntry &m) {
+    return std::get<library::BinaryPayload>(m.payload).fields;
 }
 
-class GoldenVectors : public ::testing::Test {
-protected:
-    std::vector<Golden> goldens = load();
-};
+/// @returns how far two computations of raw * scale + offset can differ when one
+/// fuses the multiply and add and the other rounds the product first.
+double rounding(const double value, const double offset) {
+    return 4 * std::numeric_limits<double>::epsilon() *
+           (std::abs(value) + 2 * std::abs(offset));
 }
 
-TEST_F(GoldenVectors, CoverEveryMessageInTheDBC) {
-    ASSERT_EQ(this->goldens.size(), 13);
-    for (const auto &g: this->goldens)
-        ASSERT_EQ(g.vectors.size(), 64) << g.message.name;
+bool exact(const library::BinaryField &f) {
+    return !f.float_ && f.scale == 1 && f.offset == 0;
 }
 
-TEST_F(GoldenVectors, DecodeToTheValuesCantoolsDecodes) {
-    for (const auto &g: this->goldens) {
-        const auto plan = ASSERT_NIL_P(Plan::compile(g.message));
-        auto values = plan.values();
-        for (const auto &v: g.vectors) {
-            const auto payload = from_hex(v["payload"]);
-            ASSERT_NIL(plan.decode(payload, values));
-            for (std::size_t i = 0; i < g.names.size(); i++) {
-                const auto &name = g.names[i];
+const std::vector<Golden> &goldens() {
+    static const auto g = load();
+    return g;
+}
+}
+
+TEST(GoldenVectors, ImportEveryMessageAndSignalCantoolsLoads) {
+    ASSERT_FALSE(goldens().empty());
+    for (const auto &g: goldens())
+        for (const auto &p: g.problems)
+            ADD_FAILURE() << g.file << ": " << p;
+}
+
+/// @brief The Driver must compile every message the Core's importer accepts.
+TEST(GoldenVectors, CompileEveryMessageTheImporterAccepts) {
+    for (const auto &g: goldens()) {
+        for (const auto &m: g.messages) {
+            const auto [plan, err] = Plan::compile(m);
+            EXPECT_FALSE(err) << g.file << " " << m.name << ": " << err;
+        }
+        const auto [matcher, err] = Matcher::compile(g.messages);
+        EXPECT_FALSE(err) << g.file << ": " << err;
+    }
+}
+
+TEST(GoldenVectors, DecodeToTheValuesCantoolsDecodes) {
+    for (const auto &g: goldens())
+        for (std::size_t m = 0; m < g.messages.size(); m++) {
+            if (!g.vectors[m].has_value()) continue;
+            const auto &message = g.messages[m];
+            const auto [plan, err] = Plan::compile(message);
+            // CompileEveryMessageTheImporterAccepts reports the error.
+            if (err) continue;
+            auto values = plan.values();
+            const auto &fs = fields(message);
+            for (const auto &v: *g.vectors[m]) {
+                const auto payload = from_hex(v["payload"]);
+                ASSERT_NIL(plan.decode(payload, values));
                 const auto &expected = v["values"];
-                const auto ctx = g.message.name + "." + name + " " +
+                for (std::size_t i = 0; i < fs.size(); i++) {
+                    const auto &f = fs[i];
+                    const auto ctx = g.file + " " + message.name + "." + f.name + " " +
+                                     v["payload"].get<std::string>();
+                    if (!expected.contains(f.name)) {
+                        EXPECT_FALSE(values.present(i)) << ctx;
+                        continue;
+                    }
+                    ASSERT_TRUE(values.present(i)) << ctx;
+                    const auto &e = expected[f.name];
+                    if (!exact(f)) {
+                        const auto want = e.get<double>();
+                        EXPECT_NEAR(values.get(i), want, rounding(want, f.offset))
+                            << ctx;
+                        continue;
+                    }
+                    if (f.signed_) {
+                        x::telem::Series s(x::telem::INT64_T, 1);
+                        ASSERT_EQ(values.write(i, s), 1);
+                        EXPECT_EQ(s.at<std::int64_t>(0), e.get<std::int64_t>()) << ctx;
+                    } else {
+                        x::telem::Series s(x::telem::UINT64_T, 1);
+                        ASSERT_EQ(values.write(i, s), 1);
+                        EXPECT_EQ(s.at<std::uint64_t>(0), e.get<std::uint64_t>())
+                            << ctx;
+                    }
+                }
+            }
+        }
+}
+
+/// @brief cantools encodes any value, so a value outside a field's min and max must be
+/// refused, and the payload is compared only when every value is accepted.
+TEST(GoldenVectors, EncodeToThePayloadCantoolsEncodes) {
+    for (const auto &g: goldens())
+        for (std::size_t m = 0; m < g.messages.size(); m++) {
+            if (!g.vectors[m].has_value()) continue;
+            const auto &message = g.messages[m];
+            const auto [plan, err] = Plan::compile(message);
+            // CompileEveryMessageTheImporterAccepts reports the error.
+            if (err) continue;
+            auto values = plan.values();
+            const auto &fs = fields(message);
+            std::vector<std::uint8_t> payload;
+            for (const auto &v: *g.vectors[m]) {
+                const auto ctx = g.file + " " + message.name + " " +
                                  v["payload"].get<std::string>();
-                if (!expected.contains(name)) {
-                    EXPECT_FALSE(values.present(i)) << ctx;
-                    continue;
+                values.clear();
+                bool accepted = true;
+                for (std::size_t i = 0; i < fs.size(); i++) {
+                    const auto &f = fs[i];
+                    const auto &expected = v["values"];
+                    if (!expected.contains(f.name)) continue;
+                    const auto &e = expected[f.name];
+                    x::telem::SampleValue sample;
+                    if (!exact(f))
+                        sample = e.get<double>();
+                    else if (f.signed_)
+                        sample = e.get<std::int64_t>();
+                    else
+                        sample = e.get<std::uint64_t>();
+                    const auto physical = e.get<double>();
+                    if ((f.min && physical < *f.min) || (f.max && physical > *f.max)) {
+                        ASSERT_OCCURRED_AS(plan.set(values, i, sample), RANGE_ERROR);
+                        accepted = false;
+                        continue;
+                    }
+                    ASSERT_NIL(plan.set(values, i, sample));
                 }
-                ASSERT_TRUE(values.present(i)) << ctx;
-                const auto &e = expected[name];
-                if (!exact(g.signals[i])) {
-                    EXPECT_DOUBLE_EQ(values.get(i), e.get<double>()) << ctx;
-                    continue;
-                }
-                if (g.signals[i]["signed"].get<bool>()) {
-                    x::telem::Series s(x::telem::INT64_T, 1);
-                    ASSERT_EQ(values.write(i, s), 1);
-                    EXPECT_EQ(s.at<std::int64_t>(0), e.get<std::int64_t>()) << ctx;
-                } else {
-                    x::telem::Series s(x::telem::UINT64_T, 1);
-                    ASSERT_EQ(values.write(i, s), 1);
-                    EXPECT_EQ(s.at<std::uint64_t>(0), e.get<std::uint64_t>()) << ctx;
-                }
+                if (!accepted) continue;
+                payload.assign(plan.length(), 0);
+                plan.encode(values, payload);
+                EXPECT_EQ(payload, from_hex(v["encoded"])) << ctx;
             }
         }
-    }
 }
 
-TEST_F(GoldenVectors, EncodeToThePayloadCantoolsEncodes) {
-    for (const auto &g: this->goldens) {
-        const auto plan = ASSERT_NIL_P(Plan::compile(g.message));
-        auto values = plan.values();
-        std::vector<std::uint8_t> payload;
-        for (const auto &v: g.vectors) {
-            values.clear();
-            for (std::size_t i = 0; i < g.names.size(); i++) {
-                const auto &expected = v["values"];
-                if (!expected.contains(g.names[i])) continue;
-                const auto &e = expected[g.names[i]];
-                if (!exact(g.signals[i]))
-                    values.set(i, e.get<double>());
-                else if (g.signals[i]["signed"].get<bool>())
-                    values.set(i, e.get<std::int64_t>());
-                else
-                    values.set(i, e.get<std::uint64_t>());
+TEST(GoldenVectors, MatchEachMessageByItsCANIdentifier) {
+    for (const auto &g: goldens()) {
+        const auto [matcher, err] = Matcher::compile(g.messages);
+        // CompileEveryMessageTheImporterAccepts reports the error.
+        if (err) continue;
+        for (std::size_t i = 0; i < g.messages.size(); i++) {
+            const auto &payload = std::get<library::BinaryPayload>(
+                g.messages[i].payload
+            );
+            const auto &id = std::get<library::CanIdentifier>(*payload.identifier);
+            const auto match = matcher.match(id.id, id.extended);
+            if (!match.has_value()) {
+                ADD_FAILURE() << g.file << " " << g.messages[i].name;
+                continue;
             }
-            payload.assign(plan.length(), 0);
-            ASSERT_NIL(plan.encode(values, payload));
-            EXPECT_EQ(payload, from_hex(v["encoded"]))
-                << g.message.name << " " << v["payload"].get<std::string>();
+            EXPECT_EQ(
+                std::get<library::CanIdentifier>(
+                    *std::get<library::BinaryPayload>(g.messages[*match].payload)
+                         .identifier
+                )
+                    .id,
+                id.id
+            ) << g.file
+              << " " << g.messages[i].name;
+            EXPECT_EQ(matcher.match(id.id, !id.extended), std::nullopt)
+                << g.file << " " << g.messages[i].name;
         }
-    }
-}
-
-TEST_F(GoldenVectors, MatchEachMessageByItsCANIdentifier) {
-    std::vector<library::MessageEntry> messages;
-    for (const auto &g: this->goldens)
-        messages.push_back(g.message);
-    const auto matcher = ASSERT_NIL_P(Matcher::compile(messages));
-    for (std::size_t i = 0; i < messages.size(); i++) {
-        const auto &payload = std::get<library::BinaryPayload>(messages[i].payload);
-        const auto &id = std::get<library::CanIdentifier>(*payload.identifier);
-        EXPECT_EQ(matcher.match(id.id, id.extended), i);
-        EXPECT_EQ(matcher.match(id.id, !id.extended), std::nullopt);
     }
 }
 }

@@ -1,0 +1,921 @@
+{
+  "messages": [
+    {
+      "name": "TestMsg_FDEx",
+      "vectors": [
+        {
+          "payload": "7b9beb02f859a700",
+          "values": {
+            "TestSig": 123
+          },
+          "encoded": "7b00000000000000"
+        },
+        {
+          "payload": "b7cb6b62e05cb6fe",
+          "values": {
+            "TestSig": -73
+          },
+          "encoded": "b700000000000000"
+        },
+        {
+          "payload": "f9073e0f2d243bb5",
+          "values": {
+            "TestSig": -7
+          },
+          "encoded": "f900000000000000"
+        },
+        {
+          "payload": "2db92a7d4ed8addc",
+          "values": {
+            "TestSig": 45
+          },
+          "encoded": "2d00000000000000"
+        },
+        {
+          "payload": "32208094060a1427",
+          "values": {
+            "TestSig": 50
+          },
+          "encoded": "3200000000000000"
+        },
+        {
+          "payload": "8795cbb7cb0c58f3",
+          "values": {
+            "TestSig": -121
+          },
+          "encoded": "8700000000000000"
+        },
+        {
+          "payload": "f5f3610c78942255",
+          "values": {
+            "TestSig": -11
+          },
+          "encoded": "f500000000000000"
+        },
+        {
+          "payload": "300de8f9c8fd5e31",
+          "values": {
+            "TestSig": 48
+          },
+          "encoded": "3000000000000000"
+        },
+        {
+          "payload": "e31b6520769ffad3",
+          "values": {
+            "TestSig": -29
+          },
+          "encoded": "e300000000000000"
+        },
+        {
+          "payload": "b6ff81ace36f36ed",
+          "values": {
+            "TestSig": -74
+          },
+          "encoded": "b600000000000000"
+        },
+        {
+          "payload": "3f8dddc1e6411369",
+          "values": {
+            "TestSig": 63
+          },
+          "encoded": "3f00000000000000"
+        },
+        {
+          "payload": "71710b40ebe74884",
+          "values": {
+            "TestSig": 113
+          },
+          "encoded": "7100000000000000"
+        },
+        {
+          "payload": "2901799ea7840c51",
+          "values": {
+            "TestSig": 41
+          },
+          "encoded": "2900000000000000"
+        },
+        {
+          "payload": "88a642fb3e268164",
+          "values": {
+            "TestSig": -120
+          },
+          "encoded": "8800000000000000"
+        },
+        {
+          "payload": "92ea7556870b36e5",
+          "values": {
+            "TestSig": -110
+          },
+          "encoded": "9200000000000000"
+        },
+        {
+          "payload": "a5b9871e6c9ae0b6",
+          "values": {
+            "TestSig": -91
+          },
+          "encoded": "a500000000000000"
+        },
+        {
+          "payload": "79bda4faf3ca686c",
+          "values": {
+            "TestSig": 121
+          },
+          "encoded": "7900000000000000"
+        },
+        {
+          "payload": "d480c4eff11e72f3",
+          "values": {
+            "TestSig": -44
+          },
+          "encoded": "d400000000000000"
+        },
+        {
+          "payload": "20ac8843eba5fc58",
+          "values": {
+            "TestSig": 32
+          },
+          "encoded": "2000000000000000"
+        },
+        {
+          "payload": "e3006a007b4f8b2c",
+          "values": {
+            "TestSig": -29
+          },
+          "encoded": "e300000000000000"
+        },
+        {
+          "payload": "a38d2d177733a9e4",
+          "values": {
+            "TestSig": -93
+          },
+          "encoded": "a300000000000000"
+        },
+        {
+          "payload": "2126f597cd8379ac",
+          "values": {
+            "TestSig": 33
+          },
+          "encoded": "2100000000000000"
+        },
+        {
+          "payload": "c89fa23055771ea1",
+          "values": {
+            "TestSig": -56
+          },
+          "encoded": "c800000000000000"
+        },
+        {
+          "payload": "3cd67f2333c5aa98",
+          "values": {
+            "TestSig": 60
+          },
+          "encoded": "3c00000000000000"
+        },
+        {
+          "payload": "7c144dc0aa6705a1",
+          "values": {
+            "TestSig": 124
+          },
+          "encoded": "7c00000000000000"
+        },
+        {
+          "payload": "bf6621a2ee414b3e",
+          "values": {
+            "TestSig": -65
+          },
+          "encoded": "bf00000000000000"
+        },
+        {
+          "payload": "5cd66d22aa1fecfc",
+          "values": {
+            "TestSig": 92
+          },
+          "encoded": "5c00000000000000"
+        },
+        {
+          "payload": "f5a6674d93216adc",
+          "values": {
+            "TestSig": -11
+          },
+          "encoded": "f500000000000000"
+        },
+        {
+          "payload": "77ad86f380fe7530",
+          "values": {
+            "TestSig": 119
+          },
+          "encoded": "7700000000000000"
+        },
+        {
+          "payload": "d869175a1ddaa87c",
+          "values": {
+            "TestSig": -40
+          },
+          "encoded": "d800000000000000"
+        },
+        {
+          "payload": "7211386203a99174",
+          "values": {
+            "TestSig": 114
+          },
+          "encoded": "7200000000000000"
+        },
+        {
+          "payload": "4097889aefcf9fcd",
+          "values": {
+            "TestSig": 64
+          },
+          "encoded": "4000000000000000"
+        }
+      ]
+    },
+    {
+      "name": "TestMsg_FDStd",
+      "vectors": [
+        {
+          "payload": "5111360cf50bc8f5",
+          "values": {
+            "TestSig_Copy_2": 81
+          },
+          "encoded": "5100000000000000"
+        },
+        {
+          "payload": "a2ab93815be41fc2",
+          "values": {
+            "TestSig_Copy_2": -94
+          },
+          "encoded": "a200000000000000"
+        },
+        {
+          "payload": "981b447ae40ae2d0",
+          "values": {
+            "TestSig_Copy_2": -104
+          },
+          "encoded": "9800000000000000"
+        },
+        {
+          "payload": "1c7de69dec67eeee",
+          "values": {
+            "TestSig_Copy_2": 28
+          },
+          "encoded": "1c00000000000000"
+        },
+        {
+          "payload": "3f477d0c8f0e00a7",
+          "values": {
+            "TestSig_Copy_2": 63
+          },
+          "encoded": "3f00000000000000"
+        },
+        {
+          "payload": "1cda25666e0c01c4",
+          "values": {
+            "TestSig_Copy_2": 28
+          },
+          "encoded": "1c00000000000000"
+        },
+        {
+          "payload": "28b185a7626bd66d",
+          "values": {
+            "TestSig_Copy_2": 40
+          },
+          "encoded": "2800000000000000"
+        },
+        {
+          "payload": "e2bbe79bc8170321",
+          "values": {
+            "TestSig_Copy_2": -30
+          },
+          "encoded": "e200000000000000"
+        },
+        {
+          "payload": "c3e3f2c9b3cf4397",
+          "values": {
+            "TestSig_Copy_2": -61
+          },
+          "encoded": "c300000000000000"
+        },
+        {
+          "payload": "28ea4dc88898878f",
+          "values": {
+            "TestSig_Copy_2": 40
+          },
+          "encoded": "2800000000000000"
+        },
+        {
+          "payload": "bff18faff5bbe09d",
+          "values": {
+            "TestSig_Copy_2": -65
+          },
+          "encoded": "bf00000000000000"
+        },
+        {
+          "payload": "ba8e14de310bf35b",
+          "values": {
+            "TestSig_Copy_2": -70
+          },
+          "encoded": "ba00000000000000"
+        },
+        {
+          "payload": "8763aefa07a263c4",
+          "values": {
+            "TestSig_Copy_2": -121
+          },
+          "encoded": "8700000000000000"
+        },
+        {
+          "payload": "0528322c6c70d4ef",
+          "values": {
+            "TestSig_Copy_2": 5
+          },
+          "encoded": "0500000000000000"
+        },
+        {
+          "payload": "dfc39c1a92d0f0bf",
+          "values": {
+            "TestSig_Copy_2": -33
+          },
+          "encoded": "df00000000000000"
+        },
+        {
+          "payload": "1024b81ddeee9d1e",
+          "values": {
+            "TestSig_Copy_2": 16
+          },
+          "encoded": "1000000000000000"
+        },
+        {
+          "payload": "cb2b0be9db851311",
+          "values": {
+            "TestSig_Copy_2": -53
+          },
+          "encoded": "cb00000000000000"
+        },
+        {
+          "payload": "3b5d2ae5e3d19b8b",
+          "values": {
+            "TestSig_Copy_2": 59
+          },
+          "encoded": "3b00000000000000"
+        },
+        {
+          "payload": "535b1637a190dd32",
+          "values": {
+            "TestSig_Copy_2": 83
+          },
+          "encoded": "5300000000000000"
+        },
+        {
+          "payload": "ce0f100da34b4efe",
+          "values": {
+            "TestSig_Copy_2": -50
+          },
+          "encoded": "ce00000000000000"
+        },
+        {
+          "payload": "0abc4e27b6333c25",
+          "values": {
+            "TestSig_Copy_2": 10
+          },
+          "encoded": "0a00000000000000"
+        },
+        {
+          "payload": "0407a8a02e3fdf33",
+          "values": {
+            "TestSig_Copy_2": 4
+          },
+          "encoded": "0400000000000000"
+        },
+        {
+          "payload": "9d56eb29f9af9ceb",
+          "values": {
+            "TestSig_Copy_2": -99
+          },
+          "encoded": "9d00000000000000"
+        },
+        {
+          "payload": "da6c9176f91f9783",
+          "values": {
+            "TestSig_Copy_2": -38
+          },
+          "encoded": "da00000000000000"
+        },
+        {
+          "payload": "e855eb0971160975",
+          "values": {
+            "TestSig_Copy_2": -24
+          },
+          "encoded": "e800000000000000"
+        },
+        {
+          "payload": "2bccb3a212b373a4",
+          "values": {
+            "TestSig_Copy_2": 43
+          },
+          "encoded": "2b00000000000000"
+        },
+        {
+          "payload": "7276504dee318f79",
+          "values": {
+            "TestSig_Copy_2": 114
+          },
+          "encoded": "7200000000000000"
+        },
+        {
+          "payload": "d1d4f558a4a95d19",
+          "values": {
+            "TestSig_Copy_2": -47
+          },
+          "encoded": "d100000000000000"
+        },
+        {
+          "payload": "8d4e40ea9bf5ea50",
+          "values": {
+            "TestSig_Copy_2": -115
+          },
+          "encoded": "8d00000000000000"
+        },
+        {
+          "payload": "e2708f9d3df4174e",
+          "values": {
+            "TestSig_Copy_2": -30
+          },
+          "encoded": "e200000000000000"
+        },
+        {
+          "payload": "92c6608128735160",
+          "values": {
+            "TestSig_Copy_2": -110
+          },
+          "encoded": "9200000000000000"
+        },
+        {
+          "payload": "db42f108d28e4abe",
+          "values": {
+            "TestSig_Copy_2": -37
+          },
+          "encoded": "db00000000000000"
+        }
+      ]
+    },
+    {
+      "name": "TestMsg_Std",
+      "vectors": [
+        {
+          "payload": "8b7b03bd7755436d",
+          "values": {
+            "TestSig_Copy_3": -117
+          },
+          "encoded": "8b00000000000000"
+        },
+        {
+          "payload": "0c3065131ffa4362",
+          "values": {
+            "TestSig_Copy_3": 12
+          },
+          "encoded": "0c00000000000000"
+        },
+        {
+          "payload": "d9beaa8a2b60efa7",
+          "values": {
+            "TestSig_Copy_3": -39
+          },
+          "encoded": "d900000000000000"
+        },
+        {
+          "payload": "ec9ac4153a7692c5",
+          "values": {
+            "TestSig_Copy_3": -20
+          },
+          "encoded": "ec00000000000000"
+        },
+        {
+          "payload": "0afe1b9bb0bfa0c2",
+          "values": {
+            "TestSig_Copy_3": 10
+          },
+          "encoded": "0a00000000000000"
+        },
+        {
+          "payload": "a316ac61e478181c",
+          "values": {
+            "TestSig_Copy_3": -93
+          },
+          "encoded": "a300000000000000"
+        },
+        {
+          "payload": "f21d2d76eca0f62f",
+          "values": {
+            "TestSig_Copy_3": -14
+          },
+          "encoded": "f200000000000000"
+        },
+        {
+          "payload": "f9cbd4b88694edac",
+          "values": {
+            "TestSig_Copy_3": -7
+          },
+          "encoded": "f900000000000000"
+        },
+        {
+          "payload": "2927c4a42a7d8d83",
+          "values": {
+            "TestSig_Copy_3": 41
+          },
+          "encoded": "2900000000000000"
+        },
+        {
+          "payload": "cf71f3d9073bc8f7",
+          "values": {
+            "TestSig_Copy_3": -49
+          },
+          "encoded": "cf00000000000000"
+        },
+        {
+          "payload": "244ce392deafe762",
+          "values": {
+            "TestSig_Copy_3": 36
+          },
+          "encoded": "2400000000000000"
+        },
+        {
+          "payload": "bd55aae561c2d34b",
+          "values": {
+            "TestSig_Copy_3": -67
+          },
+          "encoded": "bd00000000000000"
+        },
+        {
+          "payload": "648784b95e56f3d7",
+          "values": {
+            "TestSig_Copy_3": 100
+          },
+          "encoded": "6400000000000000"
+        },
+        {
+          "payload": "3b60c8a79c541aa5",
+          "values": {
+            "TestSig_Copy_3": 59
+          },
+          "encoded": "3b00000000000000"
+        },
+        {
+          "payload": "801e3c2a4f0f9024",
+          "values": {
+            "TestSig_Copy_3": -128
+          },
+          "encoded": "8000000000000000"
+        },
+        {
+          "payload": "7298198119f3c7df",
+          "values": {
+            "TestSig_Copy_3": 114
+          },
+          "encoded": "7200000000000000"
+        },
+        {
+          "payload": "58f67f6ac8418668",
+          "values": {
+            "TestSig_Copy_3": 88
+          },
+          "encoded": "5800000000000000"
+        },
+        {
+          "payload": "c184952a1d182580",
+          "values": {
+            "TestSig_Copy_3": -63
+          },
+          "encoded": "c100000000000000"
+        },
+        {
+          "payload": "f0317e98f6e5053c",
+          "values": {
+            "TestSig_Copy_3": -16
+          },
+          "encoded": "f000000000000000"
+        },
+        {
+          "payload": "e9edffad3a599626",
+          "values": {
+            "TestSig_Copy_3": -23
+          },
+          "encoded": "e900000000000000"
+        },
+        {
+          "payload": "55aac0bc5e69cd86",
+          "values": {
+            "TestSig_Copy_3": 85
+          },
+          "encoded": "5500000000000000"
+        },
+        {
+          "payload": "47f115012eb456ea",
+          "values": {
+            "TestSig_Copy_3": 71
+          },
+          "encoded": "4700000000000000"
+        },
+        {
+          "payload": "453ea834dd7ff8d8",
+          "values": {
+            "TestSig_Copy_3": 69
+          },
+          "encoded": "4500000000000000"
+        },
+        {
+          "payload": "9107e09d6167be58",
+          "values": {
+            "TestSig_Copy_3": -111
+          },
+          "encoded": "9100000000000000"
+        },
+        {
+          "payload": "90e8cb62337b9b4f",
+          "values": {
+            "TestSig_Copy_3": -112
+          },
+          "encoded": "9000000000000000"
+        },
+        {
+          "payload": "b3c0ad152bdd2e69",
+          "values": {
+            "TestSig_Copy_3": -77
+          },
+          "encoded": "b300000000000000"
+        },
+        {
+          "payload": "98f559280110eee4",
+          "values": {
+            "TestSig_Copy_3": -104
+          },
+          "encoded": "9800000000000000"
+        },
+        {
+          "payload": "defbc3620a5f937e",
+          "values": {
+            "TestSig_Copy_3": -34
+          },
+          "encoded": "de00000000000000"
+        },
+        {
+          "payload": "384e837e2fa0650d",
+          "values": {
+            "TestSig_Copy_3": 56
+          },
+          "encoded": "3800000000000000"
+        },
+        {
+          "payload": "aa5f9cf45dac3786",
+          "values": {
+            "TestSig_Copy_3": -86
+          },
+          "encoded": "aa00000000000000"
+        },
+        {
+          "payload": "69340ec47b851754",
+          "values": {
+            "TestSig_Copy_3": 105
+          },
+          "encoded": "6900000000000000"
+        },
+        {
+          "payload": "da9bdb4bf33b9ec7",
+          "values": {
+            "TestSig_Copy_3": -38
+          },
+          "encoded": "da00000000000000"
+        }
+      ]
+    },
+    {
+      "name": "TestMsg_Ex",
+      "vectors": [
+        {
+          "payload": "c8011ea86cecdac5",
+          "values": {
+            "TestSig_Copy_1": -56
+          },
+          "encoded": "c800000000000000"
+        },
+        {
+          "payload": "f219dd2d1e81e300",
+          "values": {
+            "TestSig_Copy_1": -14
+          },
+          "encoded": "f200000000000000"
+        },
+        {
+          "payload": "a89b8f169f28a825",
+          "values": {
+            "TestSig_Copy_1": -88
+          },
+          "encoded": "a800000000000000"
+        },
+        {
+          "payload": "50dac2437ede5429",
+          "values": {
+            "TestSig_Copy_1": 80
+          },
+          "encoded": "5000000000000000"
+        },
+        {
+          "payload": "25ce8209869e271e",
+          "values": {
+            "TestSig_Copy_1": 37
+          },
+          "encoded": "2500000000000000"
+        },
+        {
+          "payload": "fb40240a34f2b0bf",
+          "values": {
+            "TestSig_Copy_1": -5
+          },
+          "encoded": "fb00000000000000"
+        },
+        {
+          "payload": "870689bf7fd0f611",
+          "values": {
+            "TestSig_Copy_1": -121
+          },
+          "encoded": "8700000000000000"
+        },
+        {
+          "payload": "2b52dd3cb89f2bda",
+          "values": {
+            "TestSig_Copy_1": 43
+          },
+          "encoded": "2b00000000000000"
+        },
+        {
+          "payload": "5a37b691a492dc37",
+          "values": {
+            "TestSig_Copy_1": 90
+          },
+          "encoded": "5a00000000000000"
+        },
+        {
+          "payload": "4bfafd8ccb3a80d2",
+          "values": {
+            "TestSig_Copy_1": 75
+          },
+          "encoded": "4b00000000000000"
+        },
+        {
+          "payload": "845d6f0cf5222ef1",
+          "values": {
+            "TestSig_Copy_1": -124
+          },
+          "encoded": "8400000000000000"
+        },
+        {
+          "payload": "8c50da0503cceb91",
+          "values": {
+            "TestSig_Copy_1": -116
+          },
+          "encoded": "8c00000000000000"
+        },
+        {
+          "payload": "d67754000b416d2d",
+          "values": {
+            "TestSig_Copy_1": -42
+          },
+          "encoded": "d600000000000000"
+        },
+        {
+          "payload": "3a56f668b978f6d1",
+          "values": {
+            "TestSig_Copy_1": 58
+          },
+          "encoded": "3a00000000000000"
+        },
+        {
+          "payload": "fe075d0fb444e928",
+          "values": {
+            "TestSig_Copy_1": -2
+          },
+          "encoded": "fe00000000000000"
+        },
+        {
+          "payload": "631caec4a77948e4",
+          "values": {
+            "TestSig_Copy_1": 99
+          },
+          "encoded": "6300000000000000"
+        },
+        {
+          "payload": "cb5c36518103e9a1",
+          "values": {
+            "TestSig_Copy_1": -53
+          },
+          "encoded": "cb00000000000000"
+        },
+        {
+          "payload": "4d513256a2d7654b",
+          "values": {
+            "TestSig_Copy_1": 77
+          },
+          "encoded": "4d00000000000000"
+        },
+        {
+          "payload": "f365e8a102c39769",
+          "values": {
+            "TestSig_Copy_1": -13
+          },
+          "encoded": "f300000000000000"
+        },
+        {
+          "payload": "4e60c4fd1ea7fdb2",
+          "values": {
+            "TestSig_Copy_1": 78
+          },
+          "encoded": "4e00000000000000"
+        },
+        {
+          "payload": "1dd76323c461dd00",
+          "values": {
+            "TestSig_Copy_1": 29
+          },
+          "encoded": "1d00000000000000"
+        },
+        {
+          "payload": "64250ad9b4665471",
+          "values": {
+            "TestSig_Copy_1": 100
+          },
+          "encoded": "6400000000000000"
+        },
+        {
+          "payload": "665bf38fe6175cd8",
+          "values": {
+            "TestSig_Copy_1": 102
+          },
+          "encoded": "6600000000000000"
+        },
+        {
+          "payload": "4930792317e279bb",
+          "values": {
+            "TestSig_Copy_1": 73
+          },
+          "encoded": "4900000000000000"
+        },
+        {
+          "payload": "140af06c2df575be",
+          "values": {
+            "TestSig_Copy_1": 20
+          },
+          "encoded": "1400000000000000"
+        },
+        {
+          "payload": "d7eea5340010bdad",
+          "values": {
+            "TestSig_Copy_1": -41
+          },
+          "encoded": "d700000000000000"
+        },
+        {
+          "payload": "256a1a92a4eec08c",
+          "values": {
+            "TestSig_Copy_1": 37
+          },
+          "encoded": "2500000000000000"
+        },
+        {
+          "payload": "f25544b0a75dac5d",
+          "values": {
+            "TestSig_Copy_1": -14
+          },
+          "encoded": "f200000000000000"
+        },
+        {
+          "payload": "4f91650f81f7eb71",
+          "values": {
+            "TestSig_Copy_1": 79
+          },
+          "encoded": "4f00000000000000"
+        },
+        {
+          "payload": "39a918841ad48472",
+          "values": {
+            "TestSig_Copy_1": 57
+          },
+          "encoded": "3900000000000000"
+        },
+        {
+          "payload": "d4a041c7cf87b433",
+          "values": {
+            "TestSig_Copy_1": -44
+          },
+          "encoded": "d400000000000000"
+        },
+        {
+          "payload": "1ef3638cb9d61c01",
+          "values": {
+            "TestSig_Copy_1": 30
+          },
+          "encoded": "1e00000000000000"
+        }
+      ]
+    }
+  ],
+  "skipped": {}
+}

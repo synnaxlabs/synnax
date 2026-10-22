@@ -46,6 +46,8 @@ struct ReadField {
     ::synnax::library::FieldKey field;
     /// @brief channel is the channel the field's decoded values are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
+    /// @brief index is the index channel stamped with the time the field arrives.
+    ::synnax::channel::Key index = ::synnax::channel::Key(0);
 
     static ReadField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -76,14 +78,13 @@ struct PollConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief ReadMessage is one library message a read task decodes.
+/// @brief ReadMessage is one library message a read task decodes. Fields share an index
+/// only when the same multiplexor values select them.
 struct ReadMessage {
     /// @brief message is the key of the message entry in the task's library.
     ::synnax::library::EntryKey message;
     /// @brief disabled is true when the task ignores the message.
     bool disabled = false;
-    /// @brief index is the index channel stamped with the time each message arrives.
-    ::synnax::channel::Key index = ::synnax::channel::Key(0);
     /// @brief fields are the fields of the message the task writes to channels.
     std::vector<ReadField> fields;
 
@@ -146,6 +147,10 @@ struct SyncFraming {
     std::string checksum = CHECKSUM_NONE;
     /// @brief checksum_byte_order is the byte order of the checksum.
     std::string checksum_byte_order = ::synnax::library::BYTE_ORDER_LITTLE_ENDIAN;
+    /// @brief max_length is the size in bytes of the largest frame, sync sequence and
+    /// checksum included. A length field that gives a larger frame marks a corrupt
+    /// frame. Zero allows the largest frame the Driver can hold.
+    std::uint32_t max_length = 0;
 
     static SyncFraming parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
