@@ -50,7 +50,8 @@ var rgbPattern = regexp.MustCompile(
 
 // hslPattern matches hsl(h, s%, l%) or hsla(h, s%, l%, a).
 var hslPattern = regexp.MustCompile(
-	`^(hsla?)\(\s*([0-9.]+)\s*,\s*([0-9.]+)%\s*,\s*([0-9.]+)%\s*(?:,\s*([0-9.]+)\s*)?\)$`,
+	`^(hsla?)\(\s*(-?[0-9.]+)\s*,\s*([0-9.]+)%\s*,\s*([0-9.]+)%` +
+		`\s*(?:,\s*([0-9.]+)\s*)?\)$`,
 )
 
 // FromCSS parses a CSS-style color string: a hex value with a leading '#', an
@@ -183,9 +184,12 @@ func parsePercent(raw string) (float64, error) {
 }
 
 // hslToRGB converts a hue in degrees and 0-1 saturation and lightness fractions to
-// 0-255 channels. A non-negative hue wraps, as it does in CSS.
+// 0-255 channels. The hue wraps, as it does in CSS.
 func hslToRGB(h, s, l float64) (uint8, uint8, uint8) {
 	h = math.Mod(h, 360)
+	if h < 0 {
+		h += 360
+	}
 	c := (1 - math.Abs(2*l-1)) * s
 	x := c * (1 - math.Abs(math.Mod(h/60, 2)-1))
 	m := l - c/2

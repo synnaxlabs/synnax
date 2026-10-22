@@ -83,7 +83,11 @@ var _ = Describe("Color", func() {
 				"  rgb(1,2,3)  ",
 				color.Color{R: 1, G: 2, B: 3, A: 1},
 			),
-			Entry("hsl red", "hsl(0, 100%, 50%)", color.Color{R: 255, G: 0, B: 0, A: 1}),
+			Entry(
+				"hsl red",
+				"hsl(0, 100%, 50%)",
+				color.Color{R: 255, G: 0, B: 0, A: 1},
+			),
 			Entry(
 				"hsl green",
 				"hsl(120,100%,50%)",
@@ -99,7 +103,11 @@ var _ = Describe("Color", func() {
 				"hsl(180,100%,50%)",
 				color.Color{R: 0, G: 255, B: 255, A: 1},
 			),
-			Entry("hsl blue", "hsl(240,100%,50%)", color.Color{R: 0, G: 0, B: 255, A: 1}),
+			Entry(
+				"hsl blue",
+				"hsl(240,100%,50%)",
+				color.Color{R: 0, G: 0, B: 255, A: 1},
+			),
 			Entry(
 				"hsl magenta",
 				"hsl(300,100%,50%)",
@@ -115,6 +123,11 @@ var _ = Describe("Color", func() {
 				"hsl wraps hue",
 				"hsl(480, 100%, 50%)",
 				color.Color{R: 0, G: 255, B: 0, A: 1},
+			),
+			Entry(
+				"hsl wraps negative hue",
+				"hsl(-120, 100%, 50%)",
+				color.Color{R: 0, G: 0, B: 255, A: 1},
 			),
 			Entry(
 				"hsla",
