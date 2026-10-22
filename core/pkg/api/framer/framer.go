@@ -126,6 +126,9 @@ type ReadResponse struct {
 	// requested channels, excluding any the caller already requested. It is empty
 	// unless the request set IndexesIncluded.
 	Indexes []channel.Channel
+	// DownsampleFactor is the request's downsample factor. Sample i of a series sits at
+	// the series' alignment plus i times the factor. Values below 2 keep every sample.
+	DownsampleFactor uint32
 }
 
 // Close closes the response's iterator. Call it for a response that no encoder drains.
@@ -169,7 +172,12 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 	if err != nil {
 		return ReadResponse{}, err
 	}
-	return ReadResponse{Iterator: iter, Channels: channels, Indexes: indexes}, nil
+	return ReadResponse{
+		Iterator:         iter,
+		Channels:         channels,
+		Indexes:          indexes,
+		DownsampleFactor: req.DownsampleFactor,
+	}, nil
 }
 
 // enforceRetrieve reports whether the request's subject may retrieve every given

@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/telem"
@@ -31,6 +32,11 @@ type writeSizes []int
 func (w *writeSizes) Write(p []byte) (int, error) {
 	*w = append(*w, len(p))
 	return len(p), nil
+}
+
+// csvRows returns the rows of a CSV body that follow its header.
+func csvRows(body []byte) []string {
+	return strings.Split(strings.TrimSuffix(string(body), "\n"), "\n")[1:]
 }
 
 var _ = Describe("CSV", func() {
@@ -246,8 +252,7 @@ var _ = Describe("CSV", func() {
 				Channels: channels,
 				Indexes:  indexes,
 			}))
-			rows := strings.Split(strings.TrimSuffix(string(b), "\n"), "\n")[1:]
-			Expect(rows).To(Equal([]string{
+			Expect(csvRows(b)).To(Equal([]string{
 				",,,,500000000,0.5",
 				"1000000000,1,,,,",
 				",,1500000000,1.5,,",
@@ -260,6 +265,220 @@ var _ = Describe("CSV", func() {
 				"6000000000,6,,,,",
 				",,,,6500000000,6.5",
 			}))
+		})
+
+		It("Should leave a cell empty where its channel has no sample", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Float32T, telem.StringT)
+			write(ctx, index, telem.NewSeriesSecondsTSV(1, 2, 3, 4), nil)
+			writeData(
+				ctx,
+				channels[0],
+				telem.SecondTS*3,
+				telem.NewSeriesV[float32](1.5, 2.5),
+			)
+			writeData(ctx, channels[1], telem.SecondTS, telem.NewSeriesV("a", "b"))
+			b := MustSucceed(
+				framer.CSVEncoder.Encode(ctx, read(ctx, index, channels...)),
+			)
+			Expect(string(b)).To(Equal(fmt.Sprintf(
+				"%s,%s,%s\n"+
+					"1000000000,,a\n"+
+					"2000000000,,b\n"+
+					"3000000000,1.5,\n"+
+					"4000000000,2.5,\n",
+				index.Name,
+				channels[0].Name,
+				channels[1].Name,
+			)))
+		})
+
+		It("Should hold a channel's samples until its index reaches them", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			write(ctx, index, telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6), nil)
+			writeData(ctx, channels[0], telem.SecondTS, telem.NewSeriesV[float32](1, 2))
+			writeData(
+				ctx,
+				channels[0],
+				telem.SecondTS*5,
+				telem.NewSeriesV[float32](5, 6),
+			)
+			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
+				Keys:      svcchannel.KeysFromChannels(append(channels, index)),
+				Bounds:    readBounds,
+				ChunkSize: 2,
+			}))
+			b := MustSucceed(framer.CSVEncoder.Encode(ctx, framer.ReadResponse{
+				Iterator: iter,
+				Channels: channels,
+				Indexes:  []svcchannel.Channel{index},
+			}))
+			Expect(csvRows(b)).To(Equal([]string{
+				"1000000000,1",
+				"2000000000,2",
+				"3000000000,",
+				"4000000000,",
+				"5000000000,5",
+				"6000000000,6",
+			}))
+		})
+
+		It("Should pair a channel's samples with each index domain that holds them",
+			func(ctx SpecContext) {
+				index, channels := createIndexed(ctx, telem.Float32T)
+				write(ctx, index, telem.NewSeriesSecondsTSV(1, 2, 3), nil)
+				write(ctx, index, telem.NewSeriesSecondsTSV(10, 11, 12), nil)
+				writeData(
+					ctx,
+					channels[0],
+					telem.SecondTS*2,
+					telem.NewSeriesV[float32](2, 3),
+				)
+				writeData(
+					ctx,
+					channels[0],
+					telem.SecondTS*10,
+					telem.NewSeriesV[float32](10, 11),
+				)
+				b := MustSucceed(
+					framer.CSVEncoder.Encode(ctx, read(ctx, index, channels...)),
+				)
+				Expect(csvRows(b)).To(Equal([]string{
+					"1000000000,",
+					"2000000000,2",
+					"3000000000,3",
+					"10000000000,10",
+					"11000000000,11",
+					"12000000000,",
+				}))
+			},
+		)
+
+		It("Should pair each group's samples with its own index", func(
+			ctx SpecContext,
+		) {
+			firstIndex, first := createIndexed(ctx, telem.Float32T)
+			secondIndex, second := createIndexed(ctx, telem.Float32T)
+			write(ctx, firstIndex, telem.NewSeriesSecondsTSV(1, 3, 5), nil)
+			write(ctx, secondIndex, telem.NewSeriesSecondsTSV(2, 4, 6), nil)
+			writeData(ctx, first[0], telem.SecondTS*3, telem.NewSeriesV[float32](3, 5))
+			writeData(ctx, second[0], telem.SecondTS*2, telem.NewSeriesV[float32](2))
+			channels := append(first, second...)
+			indexes := []svcchannel.Channel{firstIndex, secondIndex}
+			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
+				Keys:      svcchannel.KeysFromChannels(append(channels, indexes...)),
+				Bounds:    readBounds,
+				ChunkSize: 1,
+			}))
+			b := MustSucceed(framer.CSVEncoder.Encode(ctx, framer.ReadResponse{
+				Iterator: iter,
+				Channels: channels,
+				Indexes:  indexes,
+			}))
+			Expect(csvRows(b)).To(Equal([]string{
+				"1000000000,,,",
+				",,2000000000,2",
+				"3000000000,3,,",
+				",,4000000000,",
+				"5000000000,5,,",
+				",,6000000000,",
+			}))
+		})
+
+		It("Should pair a downsampled channel's samples with its index", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			write(ctx, index, telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6), nil)
+			writeData(
+				ctx,
+				channels[0],
+				telem.SecondTS*2,
+				telem.NewSeriesV[float32](2, 3, 4, 5, 6),
+			)
+			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
+				Keys:             svcchannel.KeysFromChannels(append(channels, index)),
+				Bounds:           readBounds,
+				DownsampleFactor: 2,
+			}))
+			b := MustSucceed(framer.CSVEncoder.Encode(ctx, framer.ReadResponse{
+				Iterator:         iter,
+				Channels:         channels,
+				Indexes:          []svcchannel.Channel{index},
+				DownsampleFactor: 2,
+			}))
+			Expect(csvRows(b)).To(Equal([]string{
+				"1000000000,",
+				"3000000000,3",
+				"5000000000,5",
+			}))
+		})
+
+		It("Should pair a calculated channel's samples with its index", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			write(ctx, index, telem.NewSeriesSecondsTSV(1, 2, 3, 4), nil)
+			writeData(
+				ctx,
+				channels[0],
+				telem.SecondTS*3,
+				telem.NewSeriesV[float32](3, 4),
+			)
+			calculated := svcchannel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				Expression: "return " + channels[0].Name + " * 2",
+			}
+			Expect(channelWriter.Create(ctx, &calculated)).To(Succeed())
+			var calculatedIndex svcchannel.Channel
+			Expect(channelSvc.NewRetrieve().
+				Entry(&calculatedIndex).
+				Where(svcchannel.MatchKeys(calculated.Index())).
+				Exec(ctx, nil)).To(Succeed())
+			b := MustSucceed(framer.CSVEncoder.Encode(
+				ctx,
+				read(ctx, calculatedIndex, calculated),
+			))
+			Expect(csvRows(b)).To(Equal([]string{"3000000000,6", "4000000000,8"}))
+		})
+
+		It("Should return an error when a sample has no index sample", func(
+			ctx SpecContext,
+		) {
+			index, _ := createIndexed(ctx)
+			write(ctx, index, telem.NewSeriesSecondsTSV(1, 2, 3), nil)
+			write(ctx, index, telem.NewSeriesSecondsTSV(10, 11, 12), nil)
+			otherIndex, channels := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				otherIndex,
+				telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
+				nil,
+			)
+			writeData(
+				ctx,
+				channels[0],
+				telem.SecondTS*6,
+				telem.NewSeriesV[float32](6, 7, 8),
+			)
+			misindexed := channels[0]
+			misindexed.LocalIndex = index.LocalKey
+			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
+				Keys:   svcchannel.Keys{misindexed.Key(), index.Key()},
+				Bounds: readBounds,
+			}))
+			Expect(framer.CSVEncoder.Encode(ctx, framer.ReadResponse{
+				Iterator: iter,
+				Channels: []svcchannel.Channel{misindexed},
+				Indexes:  []svcchannel.Channel{index},
+			})).Error().To(MatchError(fmt.Sprintf(
+				"[api.Read] channel %s has a sample at alignment 0-5 with no index sample",
+				misindexed.Name,
+			)))
 		})
 
 		It("Should write a large read in bounded pieces", func(ctx SpecContext) {

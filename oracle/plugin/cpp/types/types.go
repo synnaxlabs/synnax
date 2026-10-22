@@ -62,6 +62,7 @@ func (p *Plugin) Domains() []string { return []string{"cpp"} }
 func (p *Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("cpp")
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
 	typeDefCollector, err := framework.CollectDistinct("cpp", req)
