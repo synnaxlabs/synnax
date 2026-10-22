@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <fstream>
+#include <functional>
 #include <memory>
 #include <random>
 #include <string>
@@ -627,6 +628,142 @@ TEST(SLIP, DropsAnOversizedFrameAndRecovers) {
     ASSERT_OCCURRED_AS(f->write(stream, c.handler()), OVERFLOW_ERROR);
     EXPECT_EQ(c.frames, (std::vector<Bytes>{{4}}));
     EXPECT_EQ(f->errors(), 1);
+}
+
+namespace {
+/// @brief Recovery is a framing and how a stream marks the end of garbage before the
+/// next frame starts clean.
+struct Recovery {
+    std::string name;
+    bus::Framing framing;
+    /// @brief boundary ends any frame in progress, or is empty when the framing finds
+    /// frames on its own.
+    Bytes boundary;
+    /// @brief gap is true when only a quiet line ends a frame in progress.
+    bool gap = false;
+    /// @brief frame returns a random frame the framing can carry.
+    std::function<Bytes(std::mt19937_64 &)> frame;
+};
+
+/// @returns random bytes that exclude every byte in banned.
+Bytes random_excluding(
+    std::mt19937_64 &rng,
+    const std::size_t max,
+    const Bytes &banned
+) {
+    Bytes out(rng() % max + 1);
+    for (auto &b: out)
+        do
+            b = static_cast<std::uint8_t>(rng());
+        while (std::ranges::find(banned, b) != banned.end());
+    return out;
+}
+
+std::vector<Recovery> recoveries() {
+    const auto with_header = [](const std::size_t header) {
+        return [header](std::mt19937_64 &rng) {
+            auto f = random_payload(rng, 64);
+            f.insert(f.begin(), header, 0);
+            return f;
+        };
+    };
+    return {
+        {
+            .name = "delimiter",
+            .framing = bus::DelimiterFraming{.delimiter = "\n"},
+            .boundary = bytes("\n"),
+            .frame = [](auto &rng) { return random_excluding(rng, 64, {'\n'}); },
+        },
+        {
+            .name = "two-byte delimiter",
+            .framing = bus::DelimiterFraming{.delimiter = "\r\n"},
+            .boundary = bytes("\r\n"),
+            .frame = [](auto &rng) { return random_excluding(rng, 64, {'\r', '\n'}); },
+        },
+        {
+            .name = "fixed",
+            .framing = bus::FixedFraming{.length = 8},
+            .gap = true,
+            .frame =
+                [](auto &rng) {
+                    Bytes f(8);
+                    for (auto &b: f)
+                        b = static_cast<std::uint8_t>(rng());
+                    return f;
+                },
+        },
+        {
+            .name = "sync",
+            .framing = SYNC_MODBUS,
+            .frame = with_header(3),
+        },
+        {
+            .name = "modbus style",
+            .framing =
+                [] {
+                    auto f = MODBUS_STYLE;
+                    f.max_length = 3 + 64 + 2;
+                    return f;
+                }(),
+            .frame = with_header(3),
+        },
+        {
+            .name = "cobs",
+            .framing = bus::CobsFraming{},
+            .boundary = {0x00},
+            .frame = [](auto &rng) { return random_payload(rng, 300); },
+        },
+        {
+            .name = "slip",
+            .framing = bus::SlipFraming{},
+            .boundary = {0xC0},
+            .frame = [](auto &rng) { return random_payload(rng, 300); },
+        },
+    };
+}
+}
+
+/// @brief After any garbage and the boundary its framing needs, every framer yields
+/// exactly the frames that follow, however the stream is chunked.
+TEST(Framers, RecoverAfterGarbageAndRoundTripTheFramesThatFollow) {
+    for (const auto &r: recoveries()) {
+        std::mt19937_64 rng(4975);
+        for (int round = 0; round < 50; round++) {
+            const auto f = open(r.framing);
+            std::vector<Bytes> sent;
+            Bytes wire = r.boundary;
+            for (int i = 0; i < 10; i++) {
+                auto frame = r.frame(rng);
+                const auto start = wire.size();
+                ASSERT_NIL(f->encode(frame, wire));
+                // Sync framing writes its sync and length into the frame.
+                if (std::holds_alternative<bus::SyncFraming>(r.framing))
+                    std::copy_n(wire.begin() + start, 3, frame.begin());
+                sent.push_back(std::move(frame));
+            }
+            Bytes garbage(rng() % 300);
+            for (auto &b: garbage)
+                b = static_cast<std::uint8_t>(rng());
+            Collector c;
+            for (std::size_t pos = 0; pos < garbage.size();) {
+                const auto n = std::min<std::size_t>(
+                    rng() % 17 + 1,
+                    garbage.size() - pos
+                );
+                ASSERT_NIL(f->write(std::span(garbage).subspan(pos, n), c.handler()));
+                pos += n;
+            }
+            if (r.gap) f->gap();
+            auto frames = feed(*f, wire, rng);
+            frames.insert(frames.begin(), c.frames.begin(), c.frames.end());
+            ASSERT_GE(frames.size(), sent.size()) << r.name << " round " << round;
+            EXPECT_EQ(
+                std::vector<Bytes>(frames.end() - sent.size(), frames.end()),
+                sent
+            ) << r.name
+              << " round " << round;
+        }
+    }
 }
 
 TEST(Create, RejectsAnEmptyDelimiter) {
