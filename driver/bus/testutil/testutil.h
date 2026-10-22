@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <algorithm>
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
@@ -212,6 +214,8 @@ struct Read {
     std::size_t errors = 0;
     /// @brief the receive overruns the line reported.
     std::size_t overruns = 0;
+    /// @brief when the bytes arrive. Later reads wait behind this one.
+    std::chrono::steady_clock::time_point at;
 };
 
 /// @brief the state an in-memory Transport shares with the test that scripts it.
@@ -289,15 +293,26 @@ public:
     std::pair<transport::Chunk, x::errors::Error>
     read(const x::telem::TimeSpan timeout) override {
         std::unique_lock lock(this->wire->mu);
-        this->wire->cv.wait_for(lock, timeout.chrono(), [this] {
-            return !this->wire->reads.empty() || this->wire->read_err;
-        });
+        const auto deadline = std::chrono::steady_clock::now() + timeout.chrono();
+        const auto ready = [this] {
+            return this->wire->read_err ||
+                   (!this->wire->reads.empty() &&
+                    this->wire->reads.front().at <= std::chrono::steady_clock::now());
+        };
+        while (!ready()) {
+            auto until = deadline;
+            if (!this->wire->reads.empty())
+                until = std::min(until, this->wire->reads.front().at);
+            if (this->wire->cv.wait_until(lock, until) == std::cv_status::timeout &&
+                until == deadline)
+                break;
+        }
         if (this->wire->read_err) {
             auto err = this->wire->read_err;
             this->wire->read_err = x::errors::NIL;
             return {{}, err};
         }
-        if (this->wire->reads.empty()) return {{}, x::errors::NIL};
+        if (!ready()) return {{}, x::errors::NIL};
         auto read = std::move(this->wire->reads.front());
         this->wire->reads.pop_front();
         this->last = std::move(read.data);

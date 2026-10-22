@@ -24,6 +24,7 @@
 
 namespace driver::bus {
 using namespace testutil;
+using namespace std::chrono_literals;
 
 namespace {
 /// @brief what a sequence of reads produced.
@@ -395,6 +396,29 @@ TEST(Source, DiscardsALateReplyAndWaitsForQuietBeforeTheNextQuery) {
     ASSERT_TRUE(h.read_until([](const Output &o) { return o.values.contains(1); }));
     EXPECT_EQ(h.values(1), std::vector<double>{2});
     EXPECT_EQ(h.wire->written().size(), 2);
+}
+
+TEST(Source, NeverTakesALateReplyAsTheReplyToTheNextQuery) {
+    auto volt = text_message("volt", {delimited_field("v", 0)});
+    volt.query = "VOLT?";
+    auto curr = text_message("curr", {delimited_field("i", 0)});
+    curr.query = "CURR?";
+    Harness h(read_config(
+        {volt, curr},
+        NEWLINE,
+        nullptr,
+        {.rate = x::telem::Rate(10), .timeout = 30 * x::telem::MILLISECOND}
+    ));
+    h.wire->on_write = [](Wire &w, const std::span<const std::uint8_t> data) {
+        const auto now = std::chrono::steady_clock::now();
+        if (text(data) == "VOLT?\n")
+            w.reads.push_back({.data = bytes("1.5\n"), .at = now + 45ms});
+        if (text(data) == "CURR?\n") w.reads.push_back({.data = bytes("0.25\n")});
+    };
+    ASSERT_NIL(h.start());
+    ASSERT_TRUE(h.read_until([](const Output &o) { return o.values.contains(2); }));
+    EXPECT_EQ(h.values(2), std::vector<double>{0.25});
+    EXPECT_FALSE(h.out.values.contains(1));
 }
 
 TEST(Source, DropsAPartialFrameLeftBeforeAQuery) {
