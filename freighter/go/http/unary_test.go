@@ -214,7 +214,7 @@ var _ = BeforeSuite(func() {
 		next freighter.Next,
 	) (freighter.Context, error) {
 		oCtx, err := next(ctx)
-		if _, fail := ctx.Params.Get(failAfterHandlerHeader); fail && err == nil {
+		if _, fail := ctx.Get(failAfterHandlerHeader); fail && err == nil {
 			err = errors.New("failed after the handler")
 		}
 		return oCtx, err
