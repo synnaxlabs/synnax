@@ -116,6 +116,18 @@ BaseField struct {
             are the raw values of the multiplexor for which this field is present.
         """
     }
+    min              float64?  {
+        @doc value """
+            is the smallest decoded value a write task accepts. When absent the field's
+            bit width sets the limit.
+        """
+    }
+    max              float64?  {
+        @doc value """
+            is the largest decoded value a write task accepts. When absent the field's
+            bit width sets the limit.
+        """
+    }
 
     @doc value  "carries the parts every message field shares."
     @go marshal

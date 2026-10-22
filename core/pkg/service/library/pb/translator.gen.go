@@ -83,6 +83,12 @@ func BaseFieldToPB(r library.BaseField) (*BaseField, error) {
 		v := (*r.Multiplexor).String()
 		pb.Multiplexor = &v
 	}
+	if r.Min != nil {
+		pb.Min = r.Min
+	}
+	if r.Max != nil {
+		pb.Max = r.Max
+	}
 	return pb, nil
 }
 
@@ -118,6 +124,12 @@ func BaseFieldFromPB(pb *BaseField) (library.BaseField, error) {
 		}
 		v := parsed
 		r.Multiplexor = &v
+	}
+	if pb.Min != nil {
+		r.Min = pb.Min
+	}
+	if pb.Max != nil {
+		r.Max = pb.Max
 	}
 	return r, nil
 }
@@ -175,6 +187,12 @@ func BinaryFieldToPB(r library.BinaryField) (*BinaryField, error) {
 		v := (*r.Multiplexor).String()
 		pb.Multiplexor = &v
 	}
+	if r.Min != nil {
+		pb.Min = r.Min
+	}
+	if r.Max != nil {
+		pb.Max = r.Max
+	}
 	return pb, nil
 }
 
@@ -218,6 +236,12 @@ func BinaryFieldFromPB(pb *BinaryField) (library.BinaryField, error) {
 		}
 		v := parsed
 		r.Multiplexor = &v
+	}
+	if pb.Min != nil {
+		r.Min = pb.Min
+	}
+	if pb.Max != nil {
+		r.Max = pb.Max
 	}
 	return r, nil
 }

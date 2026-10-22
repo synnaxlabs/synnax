@@ -93,6 +93,16 @@ export const baseFieldZ = z.object({
     .int32()
     .array()
     .default(() => []),
+  /**
+   * min is the smallest decoded value a write task accepts. When absent the field's bit
+   * width sets the limit.
+   */
+  min: z.number().optional(),
+  /**
+   * max is the largest decoded value a write task accepts. When absent the field's bit
+   * width sets the limit.
+   */
+  max: z.number().optional(),
 });
 export interface BaseField extends z.infer<typeof baseFieldZ> {}
 

@@ -87,6 +87,10 @@ class BaseField(BaseModel):
             When absent the field is always present.
         multiplex_values: Are the raw values of the multiplexor for which this field is
             present.
+        min: Is the smallest decoded value a write task accepts. When absent the field's
+            bit width sets the limit.
+        max: Is the largest decoded value a write task accepts. When absent the field's
+            bit width sets the limit.
     """
 
     key: FieldKey = Field(default_factory=uuid4)
@@ -97,6 +101,8 @@ class BaseField(BaseModel):
     enumeration: EntryKey | None = None
     multiplexor: FieldKey | None = None
     multiplex_values: list[int] = Field(default_factory=list)
+    min: float | None = None
+    max: float | None = None
 
 
 class CanIdentifier(BaseModel):

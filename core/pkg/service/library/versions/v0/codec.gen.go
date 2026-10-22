@@ -62,6 +62,18 @@ func (bf BaseField) EncodeOrc(w *orc.Writer) error {
 			w.Int32(int32(bf.MultiplexValues[i]))
 		}
 	}
+	if bf.Min != nil {
+		w.Bool(true)
+		w.Float64(float64(*bf.Min))
+	} else {
+		w.Bool(false)
+	}
+	if bf.Max != nil {
+		w.Bool(true)
+		w.Float64(float64(*bf.Max))
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -127,6 +139,32 @@ func (bf *BaseField) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			bf.Min = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			bf.Max = &hv
+		}
+	}
 	return nil
 }
 
@@ -155,6 +193,18 @@ func (bf BinaryField) EncodeOrc(w *orc.Writer) error {
 		for i := range bf.MultiplexValues {
 			w.Int32(int32(bf.MultiplexValues[i]))
 		}
+	}
+	if bf.Min != nil {
+		w.Bool(true)
+		w.Float64(float64(*bf.Min))
+	} else {
+		w.Bool(false)
+	}
+	if bf.Max != nil {
+		w.Bool(true)
+		w.Float64(float64(*bf.Max))
+	} else {
+		w.Bool(false)
 	}
 	w.Uint16(uint16(bf.StartBit))
 	w.Uint8(uint8(bf.BitLength))
@@ -224,6 +274,32 @@ func (bf *BinaryField) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			bf.Min = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			bf.Max = &hv
 		}
 	}
 	if bf.StartBit, err = r.Uint16(); err != nil {

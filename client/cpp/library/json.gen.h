@@ -49,6 +49,8 @@ inline BaseField BaseField::parse(x::json::Parser parser) {
             "multiplex_values",
             std::vector<std::int32_t>{}
         ),
+        .min = parser.field<std::optional<double>>("min"),
+        .max = parser.field<std::optional<double>>("max"),
     };
 }
 
@@ -62,6 +64,8 @@ inline x::json::json BaseField::to_json() const {
     if (this->enumeration.has_value()) j["enumeration"] = this->enumeration->to_json();
     if (this->multiplexor.has_value()) j["multiplexor"] = this->multiplexor->to_json();
     j["multiplex_values"] = this->multiplex_values;
+    j["min"] = this->min;
+    j["max"] = this->max;
     return j;
 }
 

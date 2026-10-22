@@ -184,6 +184,12 @@ type BaseField struct {
 	// MultiplexValues are the raw values of the multiplexor for which this field is
 	// present.
 	MultiplexValues []int32 `json:"multiplex_values" msgpack:"multiplex_values"`
+	// Min is the smallest decoded value a write task accepts. When absent the field's
+	// bit width sets the limit.
+	Min *float64 `json:"min,omitzero" msgpack:"min,omitempty"`
+	// Max is the largest decoded value a write task accepts. When absent the field's
+	// bit width sets the limit.
+	Max *float64 `json:"max,omitzero" msgpack:"max,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

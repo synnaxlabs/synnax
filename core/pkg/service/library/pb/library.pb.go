@@ -156,8 +156,14 @@ type BaseField struct {
 	// multiplex_values are the raw values of the multiplexor for which this field is
 	// present.
 	MultiplexValues []int32 `protobuf:"varint,8,rep,packed,name=multiplex_values,json=multiplexValues,proto3" json:"multiplex_values,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// min is the smallest decoded value a write task accepts. When absent the field's bit
+	// width sets the limit.
+	Min *float64 `protobuf:"fixed64,9,opt,name=min,proto3,oneof" json:"min,omitempty"`
+	// max is the largest decoded value a write task accepts. When absent the field's bit
+	// width sets the limit.
+	Max           *float64 `protobuf:"fixed64,10,opt,name=max,proto3,oneof" json:"max,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *BaseField) Reset() {
@@ -246,6 +252,20 @@ func (x *BaseField) GetMultiplexValues() []int32 {
 	return nil
 }
 
+func (x *BaseField) GetMin() float64 {
+	if x != nil && x.Min != nil {
+		return *x.Min
+	}
+	return 0
+}
+
+func (x *BaseField) GetMax() float64 {
+	if x != nil && x.Max != nil {
+		return *x.Max
+	}
+	return 0
+}
+
 // BinaryField is a field read from a bit range of a binary payload.
 type BinaryField struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -268,18 +288,24 @@ type BinaryField struct {
 	// multiplex_values are the raw values of the multiplexor for which this field is
 	// present.
 	MultiplexValues []int32 `protobuf:"varint,8,rep,packed,name=multiplex_values,json=multiplexValues,proto3" json:"multiplex_values,omitempty"`
+	// min is the smallest decoded value a write task accepts. When absent the field's bit
+	// width sets the limit.
+	Min *float64 `protobuf:"fixed64,9,opt,name=min,proto3,oneof" json:"min,omitempty"`
+	// max is the largest decoded value a write task accepts. When absent the field's bit
+	// width sets the limit.
+	Max *float64 `protobuf:"fixed64,10,opt,name=max,proto3,oneof" json:"max,omitempty"`
 	// start_bit is the bit where the field starts, numbered as in a DBC file: the least
 	// significant bit for little-endian fields and the most significant bit for
 	// big-endian fields.
-	StartBit uint32 `protobuf:"varint,9,opt,name=start_bit,json=startBit,proto3" json:"start_bit,omitempty"`
+	StartBit uint32 `protobuf:"varint,11,opt,name=start_bit,json=startBit,proto3" json:"start_bit,omitempty"`
 	// bit_length is the number of bits in the field, from 1 to 64.
-	BitLength uint32 `protobuf:"varint,10,opt,name=bit_length,json=bitLength,proto3" json:"bit_length,omitempty"`
+	BitLength uint32 `protobuf:"varint,12,opt,name=bit_length,json=bitLength,proto3" json:"bit_length,omitempty"`
 	// byte_order is the byte order of the field.
-	ByteOrder ByteOrder `protobuf:"varint,11,opt,name=byte_order,json=byteOrder,proto3,enum=service.library.pb.ByteOrder" json:"byte_order,omitempty"`
+	ByteOrder ByteOrder `protobuf:"varint,13,opt,name=byte_order,json=byteOrder,proto3,enum=service.library.pb.ByteOrder" json:"byte_order,omitempty"`
 	// signed is true when the raw value is two's complement.
-	Signed bool `protobuf:"varint,12,opt,name=signed,proto3" json:"signed,omitempty"`
+	Signed bool `protobuf:"varint,14,opt,name=signed,proto3" json:"signed,omitempty"`
 	// float is true when the raw bits are an IEEE 754 float of 32 or 64 bits.
-	Float         bool `protobuf:"varint,13,opt,name=float,proto3" json:"float,omitempty"`
+	Float         bool `protobuf:"varint,15,opt,name=float,proto3" json:"float,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -368,6 +394,20 @@ func (x *BinaryField) GetMultiplexValues() []int32 {
 		return x.MultiplexValues
 	}
 	return nil
+}
+
+func (x *BinaryField) GetMin() float64 {
+	if x != nil && x.Min != nil {
+		return *x.Min
+	}
+	return 0
+}
+
+func (x *BinaryField) GetMax() float64 {
+	if x != nil && x.Max != nil {
+		return *x.Max
+	}
+	return 0
 }
 
 func (x *BinaryField) GetStartBit() uint32 {
@@ -1393,7 +1433,7 @@ const file_core_pkg_service_library_pb_library_proto_rawDesc = "" +
 	")core/pkg/service/library/pb/library.proto\x12\x12service.library.pb\"5\n" +
 	"\tEnumValue\x12\x14\n" +
 	"\x05value\x18\x01 \x01(\x05R\x05value\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"\x8e\x02\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"\xcc\x02\n" +
 	"\tBaseField\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -1402,9 +1442,14 @@ const file_core_pkg_service_library_pb_library_proto_rawDesc = "" +
 	"\x05units\x18\x05 \x01(\tR\x05units\x12%\n" +
 	"\venumeration\x18\x06 \x01(\tH\x00R\venumeration\x88\x01\x01\x12%\n" +
 	"\vmultiplexor\x18\a \x01(\tH\x01R\vmultiplexor\x88\x01\x01\x12)\n" +
-	"\x10multiplex_values\x18\b \x03(\x05R\x0fmultiplexValuesB\x0e\n" +
+	"\x10multiplex_values\x18\b \x03(\x05R\x0fmultiplexValues\x12\x15\n" +
+	"\x03min\x18\t \x01(\x01H\x02R\x03min\x88\x01\x01\x12\x15\n" +
+	"\x03max\x18\n" +
+	" \x01(\x01H\x03R\x03max\x88\x01\x01B\x0e\n" +
 	"\f_enumerationB\x0e\n" +
-	"\f_multiplexor\"\xb8\x03\n" +
+	"\f_multiplexorB\x06\n" +
+	"\x04_minB\x06\n" +
+	"\x04_max\"\xf6\x03\n" +
 	"\vBinaryField\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -1413,17 +1458,21 @@ const file_core_pkg_service_library_pb_library_proto_rawDesc = "" +
 	"\x05units\x18\x05 \x01(\tR\x05units\x12%\n" +
 	"\venumeration\x18\x06 \x01(\tH\x00R\venumeration\x88\x01\x01\x12%\n" +
 	"\vmultiplexor\x18\a \x01(\tH\x01R\vmultiplexor\x88\x01\x01\x12)\n" +
-	"\x10multiplex_values\x18\b \x03(\x05R\x0fmultiplexValues\x12\x1b\n" +
-	"\tstart_bit\x18\t \x01(\rR\bstartBit\x12\x1d\n" +
+	"\x10multiplex_values\x18\b \x03(\x05R\x0fmultiplexValues\x12\x15\n" +
+	"\x03min\x18\t \x01(\x01H\x02R\x03min\x88\x01\x01\x12\x15\n" +
+	"\x03max\x18\n" +
+	" \x01(\x01H\x03R\x03max\x88\x01\x01\x12\x1b\n" +
+	"\tstart_bit\x18\v \x01(\rR\bstartBit\x12\x1d\n" +
 	"\n" +
-	"bit_length\x18\n" +
-	" \x01(\rR\tbitLength\x12<\n" +
+	"bit_length\x18\f \x01(\rR\tbitLength\x12<\n" +
 	"\n" +
-	"byte_order\x18\v \x01(\x0e2\x1d.service.library.pb.ByteOrderR\tbyteOrder\x12\x16\n" +
-	"\x06signed\x18\f \x01(\bR\x06signed\x12\x14\n" +
-	"\x05float\x18\r \x01(\bR\x05floatB\x0e\n" +
+	"byte_order\x18\r \x01(\x0e2\x1d.service.library.pb.ByteOrderR\tbyteOrder\x12\x16\n" +
+	"\x06signed\x18\x0e \x01(\bR\x06signed\x12\x14\n" +
+	"\x05float\x18\x0f \x01(\bR\x05floatB\x0e\n" +
 	"\f_enumerationB\x0e\n" +
-	"\f_multiplexor\"1\n" +
+	"\f_multiplexorB\x06\n" +
+	"\x04_minB\x06\n" +
+	"\x04_max\"1\n" +
 	"\tBaseEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"d\n" +

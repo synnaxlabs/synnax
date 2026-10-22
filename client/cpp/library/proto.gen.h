@@ -33,7 +33,7 @@ byte_order_to_pb(const std::string &cpp) {
             {BYTE_ORDER_LITTLE_ENDIAN,
              ::service::library::pb::BYTE_ORDER_LITTLE_ENDIAN},
             {BYTE_ORDER_BIG_ENDIAN, ::service::library::pb::BYTE_ORDER_BIG_ENDIAN},
-    };
+        };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
         return {{}, x::errors::Error("unrecognized ByteOrder value: " + cpp)};
@@ -82,6 +82,8 @@ BaseField::to_proto() const {
         pb.set_multiplexor(this->multiplexor->to_string());
     for (const auto &item: this->multiplex_values)
         pb.add_multiplex_values(item);
+    if (this->min.has_value()) pb.set_min(*this->min);
+    if (this->max.has_value()) pb.set_max(*this->max);
     return {pb, x::errors::NIL};
 }
 
@@ -109,6 +111,8 @@ BaseField::from_proto(const ::service::library::pb::BaseField &pb) {
     }
     for (const auto &item: pb.multiplex_values())
         cpp.multiplex_values.push_back(item);
+    if (pb.has_min()) cpp.min = pb.min();
+    if (pb.has_max()) cpp.max = pb.max();
     return {cpp, x::errors::NIL};
 }
 
@@ -126,6 +130,8 @@ BinaryField::to_proto() const {
         pb.set_multiplexor(this->multiplexor->to_string());
     for (const auto &item: this->multiplex_values)
         pb.add_multiplex_values(item);
+    if (this->min.has_value()) pb.set_min(*this->min);
+    if (this->max.has_value()) pb.set_max(*this->max);
     pb.set_start_bit(this->start_bit);
     pb.set_bit_length(this->bit_length);
     {
@@ -162,6 +168,8 @@ BinaryField::from_proto(const ::service::library::pb::BinaryField &pb) {
     }
     for (const auto &item: pb.multiplex_values())
         cpp.multiplex_values.push_back(item);
+    if (pb.has_min()) cpp.min = pb.min();
+    if (pb.has_max()) cpp.max = pb.max();
     cpp.start_bit = pb.start_bit();
     cpp.bit_length = pb.bit_length();
     {

@@ -122,6 +122,12 @@ struct BaseField {
     /// field
     /// is present.
     std::vector<std::int32_t> multiplex_values = {};
+    /// @brief min is the smallest decoded value a write task accepts. When absent the
+    /// field's bit width sets the limit.
+    std::optional<double> min;
+    /// @brief max is the largest decoded value a write task accepts. When absent the
+    /// field's bit width sets the limit.
+    std::optional<double> max;
 
     static BaseField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
