@@ -58,6 +58,6 @@ func AppendSampleText(dst []byte, dt DataType, sample []byte) ([]byte, error) {
 	case BytesT:
 		return base64.StdEncoding.AppendEncode(dst, sample), nil
 	default:
-		return dst, errors.Newf("data type %s has no text form", dt)
+		return nil, errors.Newf("data type %s has no text form", dt)
 	}
 }

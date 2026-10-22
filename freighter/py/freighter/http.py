@@ -10,8 +10,8 @@
 import json
 import os
 import pathlib
-from collections.abc import Generator, Iterable
-from contextlib import closing
+from collections.abc import Generator, Iterable, Iterator
+from contextlib import contextmanager
 from typing import IO, Any
 from urllib.parse import urlencode
 
@@ -46,14 +46,6 @@ def _file_content_type(path: FilePath) -> str:
             f"(path: {os.fspath(path)!r})"
         )
     return content_type
-
-
-def _stream_body(res: BaseHTTPResponse) -> Generator[bytes, None, None]:
-    """Yields the chunks of res, releasing its connection once the caller is done."""
-    try:
-        yield from res.stream()
-    finally:
-        res.release_conn()
 
 
 class HTTPClient(MiddlewareCollector):
@@ -159,16 +151,20 @@ class HTTPClient(MiddlewareCollector):
         An empty response body is rejected as an error rather than written as a
         zero-byte file, so dest is left untouched in that case too.
         """
-        with closing(self.stream(target, req, _file_content_type(dest))) as body:
+        with self.stream(target, req, _file_content_type(dest)) as body:
             stream_to_file(body, dest, allow_empty=False)
 
-    def stream(self, target: str, req: RQ, accept: str) -> Generator[bytes, None, None]:
+    @contextmanager
+    def stream(
+        self, target: str, req: RQ, accept: str
+    ) -> Generator[Iterator[bytes], None, None]:
         """
-        Sends req to target and yields the response body in chunks as it arrives. accept
-        drives the encoding the server picks for the body.
+        Sends req to target and returns a context manager over the response body, in
+        chunks as they arrive. accept drives the encoding the server picks for the body.
 
-        The request is issued before the first chunk is pulled, so a transport failure
-        or a server error raises from this call rather than from the iterator.
+        The request is issued on entering the context, so a transport failure or a
+        server error raises from the with statement rather than from the iterator.
+        Leaving the context releases the connection, whether or not the body was read.
         """
         url = self._build_url(target)
         res_container: list[BaseHTTPResponse | None] = [None]
@@ -186,10 +182,17 @@ class HTTPClient(MiddlewareCollector):
             return out_ctx
 
         in_ctx = Context(self._endpoint.protocol, url, "client")
-        self.exec(in_ctx, finalizer)
-        http_res = res_container[0]
-        assert http_res is not None
-        return _stream_body(http_res)
+        try:
+            self.exec(in_ctx, finalizer)
+            http_res = res_container[0]
+            assert http_res is not None
+            yield http_res.stream()
+        finally:
+            if (res := res_container[0]) is not None:
+                # Closing drops a connection that still holds unread body bytes. A read
+                # to the end has already returned the connection to the pool.
+                res.close()
+                res.release_conn()
 
     def _build_url(self, target: str, params: dict[str, str] | None = None) -> str:
         url = self._endpoint.child(target).stringify()

@@ -242,7 +242,7 @@ func writeCSVRows(
 				}
 				var err error
 				if dst, err = appendCSVSample(dst, &g.columns[j]); err != nil {
-					return dst, err
+					return nil, err
 				}
 			}
 		}
@@ -251,7 +251,7 @@ func writeCSVRows(
 			continue
 		}
 		if _, err := w.Write(dst); err != nil {
-			return dst, err
+			return nil, err
 		}
 		dst = dst[:0]
 	}
@@ -267,9 +267,12 @@ func appendCSVSample(dst []byte, c *csvColumn) ([]byte, error) {
 	c.offset += n
 	start := len(dst)
 	dst, err := telem.AppendSampleText(dst, c.dataType, sample)
+	if err != nil {
+		return nil, err
+	}
 	// Only variable-length text can hold a character that needs quoting.
-	if err != nil || c.size != 0 {
-		return dst, err
+	if c.size != 0 {
+		return dst, nil
 	}
 	return quoteCSVField(dst, start), nil
 }
