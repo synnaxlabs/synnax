@@ -188,6 +188,7 @@ var _ = Describe("Alignment", func() {
 						Expect(w.Close()).To(Succeed())
 					}
 					BeforeAll(func(ctx SpecContext) {
+						ShouldNotLeakGoroutines()
 						db = mustOpenDBOnFS(
 							ctx,
 							openFS(),
@@ -423,6 +424,25 @@ var _ = Describe("Alignment", func() {
 								span:     cesium.AutoSpan,
 								chunk:    5,
 								factor:   2,
+							},
+						),
+						Entry(
+							"Should read past forward chunks that keep no samples",
+							alignmentRead{
+								bounds: telem.TimeRangeMax,
+								span:   cesium.AutoSpan,
+								chunk:  1,
+								factor: 2,
+							},
+						),
+						Entry(
+							"Should read past backward chunks that keep no samples",
+							alignmentRead{
+								bounds:   telem.TimeRangeMax,
+								backward: true,
+								span:     cesium.AutoSpan,
+								chunk:    2,
+								factor:   3,
 							},
 						),
 						Entry(

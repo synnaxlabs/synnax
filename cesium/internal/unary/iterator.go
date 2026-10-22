@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -51,7 +52,11 @@ func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
 }
 
 // Validate implements config.Config.
-func (i IteratorConfig) Validate() error { return nil }
+func (i IteratorConfig) Validate() error {
+	v := validate.New("unary.iterator_config")
+	v.Positive("auto_chunk_size", i.AutoChunkSize)
+	return v.Error()
+}
 
 var (
 	_                     config.Config[IteratorConfig] = IteratorConfig{}
@@ -86,7 +91,6 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 	if db.closed.Load() {
 		return nil, db.wrapError(ErrDBClosed)
 	}
-	// Safe to ignore error here as Validate will always return nil
 	cfg, err := config.New(DefaultIteratorConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -220,10 +224,21 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	return ok
 }
 
-// autoNext reads up to AutoChunkSize samples forward from the current view end. Each
+// autoNext reads chunks forward from the current view end until one holds data. A
+// downsampled chunk can keep no samples, so an empty chunk does not end the read.
+func (i *Iterator) autoNext(ctx context.Context) bool {
+	for {
+		if more := i.nextChunk(ctx); !more || i.partiallySatisfied() {
+			return i.partiallySatisfied()
+		}
+	}
+}
+
+// nextChunk reads up to AutoChunkSize samples forward from the current view end. Each
 // domain resolves the chunk to a pair of sample positions, and both the samples read
 // and the time range reported come from that pair, so the two cannot disagree.
-func (i *Iterator) autoNext(ctx context.Context) bool {
+// nextChunk returns true if samples can follow the chunk.
+func (i *Iterator) nextChunk(ctx context.Context) bool {
 	// The chunk provisionally covers everything left in bounds. The sample that closes
 	// it replaces the end once the read reaches it.
 	i.reset(i.view.End.Range(i.bounds.End))
@@ -231,6 +246,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 		nRemaining = i.AutoChunkSize
 		end        = i.view.Start
 		closed     bool
+		more       bool
 	)
 	for {
 		domainTR := i.internal.TimeRange()
@@ -273,23 +289,33 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			return false
 		}
 		nRemaining -= srcLen
-		if closed || nRemaining <= 0 || !i.internal.Next() {
+		if more = closed || nRemaining <= 0; more || !i.internal.Next() {
 			break
 		}
 	}
 	i.view.End = min(end, i.bounds.End)
-	return i.partiallySatisfied()
+	return more && !i.atEnd()
 }
 
-// autoPrev reads up to AutoChunkSize samples backward from the current view start. It
-// mirrors autoNext: the chunk resolves to sample positions first, and its time range
-// follows from them.
+// autoPrev mirrors autoNext, reading chunks backward from the current view start.
 func (i *Iterator) autoPrev(ctx context.Context) bool {
+	for {
+		if more := i.prevChunk(ctx); !more || i.partiallySatisfied() {
+			return i.partiallySatisfied()
+		}
+	}
+}
+
+// prevChunk reads up to AutoChunkSize samples backward from the current view start. It
+// mirrors nextChunk: the chunk resolves to sample positions first, and its time range
+// follows from them.
+func (i *Iterator) prevChunk(ctx context.Context) bool {
 	i.reset(i.bounds.Start.Range(i.view.Start))
 	var (
 		nRemaining = i.AutoChunkSize
 		start      = i.view.End
 		closed     bool
+		more       bool
 	)
 	for {
 		domainTR := i.internal.TimeRange()
@@ -332,12 +358,12 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 			return false
 		}
 		nRemaining -= srcLen
-		if closed || nRemaining <= 0 || !i.internal.Prev() {
+		if more = closed || nRemaining <= 0; more || !i.internal.Prev() {
 			break
 		}
 	}
 	i.view.Start = max(start, i.bounds.Start)
-	return i.partiallySatisfied()
+	return more && !i.atStart()
 }
 
 // stampSample returns the timestamp of the sample at position offset within the domain
