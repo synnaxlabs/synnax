@@ -999,10 +999,10 @@ describe("MultiplexedStreamer", () => {
     ): channel.Payload =>
       channel.payloadZ.parse({ name: `ch-${p.key}`, dataType: DataType.FLOAT32, ...p });
     const CHANNELS = [
-      payload({ key: 1, dataType: DataType.TIMESTAMP, isIndex: true }),
+      payload({ key: 1, index: 1, dataType: DataType.TIMESTAMP, isIndex: true }),
       payload({ key: 2, index: 1 }),
       payload({ key: 3, index: 1 }),
-      payload({ key: 4, dataType: DataType.TIMESTAMP, isIndex: true }),
+      payload({ key: 4, index: 4, dataType: DataType.TIMESTAMP, isIndex: true }),
       payload({ key: 5, index: 4 }),
     ];
     const createCache = (): Cache =>

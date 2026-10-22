@@ -64,7 +64,12 @@ describe("Cache", () => {
     p: Partial<channel.Payload> & Pick<channel.Payload, "key">,
   ): channel.Payload =>
     channel.payloadZ.parse({ name: `ch-${p.key}`, dataType: DataType.FLOAT32, ...p });
-  const INDEX = payload({ key: 1, dataType: DataType.TIMESTAMP, isIndex: true });
+  const INDEX = payload({
+    key: 1,
+    index: 1,
+    dataType: DataType.TIMESTAMP,
+    isIndex: true,
+  });
   const DATA = payload({ key: 2, index: 1 });
   const VIRTUAL = payload({ key: 3, virtual: true });
   const CALCULATED = payload({ key: 4, index: 1, virtual: true, expression: "a" });

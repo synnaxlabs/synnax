@@ -38,12 +38,6 @@ export interface CacheProps
   retrieveChannels?: ChannelRetriever;
 }
 
-// An index is its own index. A channel with none, virtual included, reports zero.
-const indexKey = (ch: channel.Payload): channel.Key | null => {
-  if (ch.isIndex) return ch.key;
-  return ch.index === 0 ? null : ch.index;
-};
-
 /**
  * Maintains an in-memory cache of channel data. Entries are created on demand and
  * buffer types derive from the data written to them. An entry learns its index channel
@@ -97,7 +91,7 @@ export class Cache {
       // Recorded since the lookup began, as an earlier key's index or by another call.
       if (this.indexes.has(key)) return;
       const ch = found.get(key);
-      const index = ch == null ? null : indexKey(ch);
+      const index = ch == null || ch.index === 0 ? null : ch.index;
       this.indexes.set(key, index);
       if (index == null) return;
       const entry = this.get(index);
