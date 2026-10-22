@@ -95,6 +95,12 @@ export const syncFramingZ = z.object({
   checksum: checksumZ.default("none"),
   /** checksumByteOrder is the byte order of the checksum. */
   checksumByteOrder: library.byteOrderZ.default("little_endian"),
+  /**
+   * maxLength is the size in bytes of the largest frame, sync sequence and checksum
+   * included. A length field that gives a larger frame marks a corrupt frame. Zero
+   * allows the largest frame the Driver can hold.
+   */
+  maxLength: z.uint32().default(0),
 });
 export interface SyncFraming extends z.infer<typeof syncFramingZ> {}
 

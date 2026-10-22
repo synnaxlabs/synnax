@@ -47,6 +47,7 @@ var _ = Describe("Codec", func() {
 				LengthAdjustment:  6,
 				Checksum:          v0.Checksum("none"),
 				ChecksumByteOrder: library.ByteOrder("little_endian"),
+				MaxLength:         9,
 			}}),
 			Entry("cobs variant", v0.Framing{Variant: v0.CobsFraming{}}),
 			Entry("slip variant", v0.Framing{Variant: v0.SlipFraming{}}),
@@ -707,6 +708,7 @@ func FuzzDecodeFraming(f *testing.F) {
 			LengthAdjustment:  6,
 			Checksum:          v0.Checksum("none"),
 			ChecksumByteOrder: library.ByteOrder("little_endian"),
+			MaxLength:         9,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

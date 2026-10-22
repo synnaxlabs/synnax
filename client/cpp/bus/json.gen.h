@@ -251,6 +251,7 @@ inline SyncFraming SyncFraming::parse(x::json::Parser parser) {
         "checksum_byte_order",
         "little_endian"
     );
+    result.max_length = parser.field<std::uint32_t>("max_length", 0);
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -264,6 +265,7 @@ inline x::json::json SyncFraming::to_json() const {
     j["length_adjustment"] = this->length_adjustment;
     j["checksum"] = this->checksum;
     j["checksum_byte_order"] = this->checksum_byte_order;
+    j["max_length"] = this->max_length;
     j["type"] = this->type;
     return j;
 }

@@ -64,6 +64,11 @@ public:
     /// @brief drops any partial frame, as after a reconnect.
     virtual void reset() = 0;
 
+    /// @brief tells the framer that the stream went quiet before the next chunk. Fixed
+    /// framing has no boundaries of its own, so it drops a partial frame there and
+    /// counts an error. Other framings resynchronize on their own and keep it.
+    virtual void gap() = 0;
+
     /// @brief appends the wire bytes of one frame to out. Feeding them to write()
     /// yields the frame again. For sync framing, the frame starts at the sync sequence
     /// and ends before the checksum, and encode overwrites its sync and length bytes.

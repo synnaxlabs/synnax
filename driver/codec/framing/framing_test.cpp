@@ -274,6 +274,36 @@ TEST(Fixed, SplitsAndMergesFrames) {
     );
 }
 
+TEST(Fixed, DropsAPartialFrameAtAGapAndCountsIt) {
+    const auto f = open(bus::FixedFraming{.length = 3});
+    Collector c;
+    ASSERT_NIL(f->write(bytes("ab"), c.handler()));
+    f->gap();
+    EXPECT_EQ(f->errors(), 1);
+    ASSERT_NIL(f->write(bytes("xyz"), c.handler()));
+    EXPECT_EQ(c.frames, std::vector<Bytes>{bytes("xyz")});
+}
+
+TEST(Fixed, CountsNoErrorAtAGapBetweenFrames) {
+    const auto f = open(bus::FixedFraming{.length = 3});
+    Collector c;
+    ASSERT_NIL(f->write(bytes("abc"), c.handler()));
+    f->gap();
+    ASSERT_NIL(f->write(bytes("def"), c.handler()));
+    EXPECT_EQ(f->errors(), 0);
+    EXPECT_EQ(c.frames, (std::vector{bytes("abc"), bytes("def")}));
+}
+
+TEST(Delimiter, KeepsAPartialLineAcrossAGap) {
+    const auto f = open(bus::DelimiterFraming{.delimiter = "\n"});
+    Collector c;
+    ASSERT_NIL(f->write(bytes("T=23.4"), c.handler()));
+    f->gap();
+    ASSERT_NIL(f->write(bytes(",P=1\n"), c.handler()));
+    EXPECT_EQ(c.frames, std::vector<Bytes>{bytes("T=23.4,P=1")});
+    EXPECT_EQ(f->errors(), 0);
+}
+
 TEST(Fixed, EncodeRejectsTheWrongSize) {
     const auto f = open(bus::FixedFraming{.length = 3});
     Bytes out;
@@ -461,6 +491,28 @@ TEST(Sync, SplitsALengthPrefixedStreamWithNoSync) {
     );
 }
 
+TEST(Sync, SkipsALengthBeyondTheMaxLengthWithoutWaiting) {
+    const auto f = open(
+        bus::SyncFraming{.sync = "AA", .length_offset = 1, .max_length = 4}
+    );
+    Collector c;
+    const Bytes stream = {0xAA, 0x50, 0xAA, 0x02, 0x01, 0x02};
+    ASSERT_NIL(f->write(stream, c.handler()));
+    EXPECT_EQ(c.frames, (std::vector<Bytes>{{0xAA, 0x02, 0x01, 0x02}}));
+    EXPECT_GE(f->errors(), 1);
+}
+
+TEST(Sync, AcceptsAFrameOfExactlyTheMaxLength) {
+    const auto f = open(
+        bus::SyncFraming{.sync = "AA", .length_offset = 1, .max_length = 4}
+    );
+    Collector c;
+    ASSERT_NIL(f->write(Bytes{0xAA, 0x02, 0x01, 0x02}, c.handler()));
+    EXPECT_EQ(c.frames.size(), 1);
+    Bytes out;
+    ASSERT_OCCURRED_AS(f->encode(Bytes{0xAA, 0, 1, 2, 3}, out), ENCODE_ERROR);
+}
+
 TEST(Sync, EncodeRejectsAFrameShorterThanItsHeader) {
     const auto f = open(SYNC_MODBUS);
     Bytes out;
@@ -610,6 +662,20 @@ TEST(Create, RejectsAnUnknownChecksumByteOrder) {
 TEST(Create, RejectsAnUnknownByteOrder) {
     ASSERT_OCCURRED_AS_P(
         create(bus::SyncFraming{.byte_order = "middle"}),
+        CONFIG_ERROR
+    );
+}
+
+TEST(Create, RejectsAMaxLengthShorterThanTheHeader) {
+    ASSERT_OCCURRED_AS_P(
+        create(bus::SyncFraming{.sync = "AA", .length_offset = 1, .max_length = 1}),
+        CONFIG_ERROR
+    );
+}
+
+TEST(Create, RejectsAMaxLengthBeyondTheLargestFrame) {
+    ASSERT_OCCURRED_AS_P(
+        create(bus::SyncFraming{.max_length = MAX_SIZE + 1}),
         CONFIG_ERROR
     );
 }

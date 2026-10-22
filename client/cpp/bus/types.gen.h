@@ -147,6 +147,10 @@ struct SyncFraming {
     std::string checksum = CHECKSUM_NONE;
     /// @brief checksum_byte_order is the byte order of the checksum.
     std::string checksum_byte_order = ::synnax::library::BYTE_ORDER_LITTLE_ENDIAN;
+    /// @brief max_length is the size in bytes of the largest frame, sync sequence and
+    /// checksum included. A length field that gives a larger frame marks a corrupt
+    /// frame. Zero allows the largest frame the Driver can hold.
+    std::uint32_t max_length = 0;
 
     static SyncFraming parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

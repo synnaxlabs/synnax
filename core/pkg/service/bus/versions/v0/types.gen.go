@@ -188,6 +188,10 @@ type SyncFraming struct {
 	Checksum Checksum `json:"checksum" msgpack:"checksum"`
 	// ChecksumByteOrder is the byte order of the checksum.
 	ChecksumByteOrder library.ByteOrder `json:"checksum_byte_order" msgpack:"checksum_byte_order"`
+	// MaxLength is the size in bytes of the largest frame, sync sequence and checksum
+	// included. A length field that gives a larger frame marks a corrupt frame. Zero
+	// allows the largest frame the Driver can hold.
+	MaxLength uint32 `json:"max_length" msgpack:"max_length"`
 }
 
 func (SyncFraming) isFramingVariant() {}
