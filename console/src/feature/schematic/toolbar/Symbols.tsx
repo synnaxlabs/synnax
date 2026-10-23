@@ -49,7 +49,7 @@ const HAUL_DRAG_PROPS: Haul.UseDragProps = {
 export interface SymbolsChangeProps {
   /** The symbol that every symbol to change draws, if they all draw the same one. */
   value?: string;
-  onChange: (symbol: string) => void;
+  onChange: <V extends Schematic.Node.Variant>(input: Schematic.Node.Input<V>) => void;
 }
 
 const ChangeContext = createContext<SymbolsChangeProps | undefined>(undefined);
@@ -89,7 +89,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
       selected={change?.value === variant}
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
-      onClick={change == null ? handleAddNode : () => change.onChange(variant)}
+      onClick={change == null ? handleAddNode : () => change.onChange({ variant })}
       y
       {...props}
     >
@@ -172,7 +172,11 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
       selected={change?.value === itemKey}
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
-      onClick={change == null ? handleAddNode : () => change.onChange(itemKey)}
+      onClick={
+        change == null
+          ? handleAddNode
+          : () => change.onChange({ variant, specKey: itemKey })
+      }
       y
       {...props}
     >

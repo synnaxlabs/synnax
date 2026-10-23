@@ -18,7 +18,6 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Panel as PlutoPanel, Schematic } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
-import { z } from "zod";
 
 import { Control } from "@/feature/schematic/toolbar/Control";
 import { Properties } from "@/feature/schematic/toolbar/Properties";
@@ -87,13 +86,14 @@ interface SymbolName {
 
 const useSymbolName = (configs: Map<string, Schematic.Node.Config>): SymbolName => {
   const symbolKeys = new Set(Array.from(configs.values(), Schematic.Node.symbolKey));
-  const symbol = symbolKeys.size === 1 ? symbolKeys.values().next().value : undefined;
-  const isCustom = z.validate(schematic.symbol.keyZ, symbol);
-  const { symbol: custom } = Schematic.Symbol.useResolved(isCustom ? symbol : null);
-  if (isCustom) return { symbol, name: custom?.name ?? "" };
-  if (symbol == null) return { name: "Mixed" };
-  const spec = Schematic.Node.resolveSpec(symbol);
-  return { symbol, name: spec.label ?? spec.name };
+  const shared = symbolKeys.size === 1 ? configs.values().next().value : undefined;
+  const specKey =
+    shared != null && Schematic.Node.isCustomConfig(shared) ? shared.specKey : null;
+  const { symbol: custom } = Schematic.Symbol.useResolved(specKey);
+  if (shared == null) return { name: "Mixed" };
+  if (specKey != null) return { symbol: specKey, name: custom?.name ?? "" };
+  const spec = Schematic.Node.resolveSpec(shared.variant);
+  return { symbol: shared.variant, name: spec.label ?? spec.name };
 };
 
 interface SymbolSummaryProps {
@@ -170,8 +170,8 @@ const Internal = (): ReactElement => {
     if (!changing) return undefined;
     return {
       value: current.symbol,
-      onChange: (symbol) => {
-        changeSymbol([...changeable.keys()], symbol);
+      onChange: (input) => {
+        changeSymbol([...changeable.keys()], input);
         setChanging(false);
       },
     };

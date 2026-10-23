@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import {
-  NotFoundError,
   type ontology,
   type project,
   query,
@@ -17,7 +16,6 @@ import {
 } from "@synnaxlabs/client";
 import { array, compare, uuid, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
@@ -296,43 +294,24 @@ const defaultLabel = (client: Client, config: Node.Config): string | undefined =
   return query.isLive(sym) ? sym.name : undefined;
 };
 
-const resolveSymbol = (client: Client, symbol: string): Node.Input<Node.Variant> => {
-  if (!z.validate(schematic.symbol.keyZ, symbol))
-    return { variant: Node.variantZ.parse(symbol) };
-  const sym = client.schematics.symbols.getCached(symbol);
-  if (!query.isLive(sym))
-    throw new NotFoundError(`Symbol with key ${symbol} not found`);
-  const input: Node.Input<Node.CustomVariant> = {
-    variant: Node.customVariant(sym),
-    specKey: symbol,
-  };
-  return input;
-};
-
 /**
- * useChangeSymbol returns a callback that changes the given symbols to another
- * symbol, dispatched as a single undoable step. The symbol is a variant for a built-in
- * symbol, or the key of a custom symbol. A label that still reads the old symbol's
- * name takes the new symbol's name.
- * @throws {NotFoundError} if a custom symbol is not in the client cache.
+ * useChangeSymbol returns a callback that changes the given symbols to the symbol the
+ * input names, dispatched as a single undoable step. A label that still reads the old
+ * symbol's name takes the new symbol's name.
  */
-export const useChangeSymbol = (): ((
-  keys: readonly string[],
-  symbol: string,
-) => void) => {
+export const useChangeSymbol = () => {
   const key = Scope.use();
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
   return useCallback(
-    (keys, symbol) => {
+    <V extends Node.Variant>(keys: readonly string[], input: Node.Input<V>) => {
       const s = client?.schematics.getCached({ key });
       if (client == null || !query.isLive(s)) return;
-      const input = resolveSymbol(client, symbol);
       const actions = keys.flatMap((k) => {
         const config = s.configs[k];
         if (!Node.isConfig(config)) throw new Error(`Element ${k} is not a symbol`);
-        if (Node.symbolKey(config) === symbol) return [];
         const next = Node.changeConfig(config, input);
+        if (Node.symbolKey(next) === Node.symbolKey(config)) return [];
         if (
           "label" in config &&
           "label" in next &&
