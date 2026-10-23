@@ -87,7 +87,7 @@ type ServiceConfig[E any] struct {
 	// Legacy is the rewrite that converts the type's legacy config shapes. Nil
 	// applies era normalization alone.
 	Legacy *legacy.Rewrite
-	// ApplyEntryDefaults fills absent fields of a decoded entry before it is stored.
+	// ApplyEntryDefaults fills absent fields of a decoded entry.
 	// [OPTIONAL] - nil when the entry type has no defaults.
 	ApplyEntryDefaults func(*E)
 	// ValidateEntry checks a decoded entry before it is stored.
