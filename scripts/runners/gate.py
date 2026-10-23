@@ -40,8 +40,9 @@ class Gate:
         self.channels = channels
         self.log = log
         self.enabled = enabled
-        # What the last fan-out sent, so only a change fans out again.
-        self.sent = enabled
+        # What the last fan-out sent, so only a change fans out again. None until the
+        # first, which applies the start state over the runners' saved ones.
+        self.sent: bool | None = None
         self.known: set[str] = set()
         self.state = Publisher(client, GATE_STATE_INDEX, [], report=log.error)
         self.published: dict[str, bool] = {}

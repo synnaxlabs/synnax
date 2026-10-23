@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import numpy as np
+
 from common import Channels, channel_name
 from conftest import Client, core
 from gate import Gate
@@ -40,3 +42,17 @@ class TestGate:
         client.failing = False
         g.step({RUNNER})
         assert client.written(CHANNEL) == [True, False]
+
+    def test_should_apply_the_start_state_over_saved_states(
+        self, client: Client
+    ) -> None:
+        client.latest[channel_name("gh_state", RUNNER)] = np.array([1], np.uint8)
+        g = gate(client)
+        g.enabled = False
+        g.step({RUNNER})
+        assert client.written(CHANNEL) == [False]
+
+    def test_should_resend_nothing_saved_on_restart(self, client: Client) -> None:
+        client.latest[channel_name("gh_state", RUNNER)] = np.array([1], np.uint8)
+        gate(client).step({RUNNER})
+        assert client.written(CHANNEL) == []
