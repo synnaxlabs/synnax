@@ -227,6 +227,17 @@ describe("ICD editor", () => {
     expect(await screen.findByText(/^Value 2: duplicate value 0/)).toBeTruthy();
   });
 
+  it("should mark a blank name shortly after an edit, with no save", async () => {
+    const ic = await createICD([createStateEnum()]);
+    await renderEditor(ic);
+    await commit("Name", 2, "");
+    expect(
+      await screen.findByText(
+        /^Value 2: Too small: expected string to have >=1 characters/,
+      ),
+    ).toBeTruthy();
+  });
+
   it("should clear the mark when an edit fixes the problem", async () => {
     const ic = await createICD([createStateEnum()]);
     await renderEditor(ic);

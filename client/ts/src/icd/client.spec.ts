@@ -218,6 +218,19 @@ describe("icd", () => {
       ]);
     });
 
+    it("should return the problems with a rule of the schema", async () => {
+      const problems = await client.icds.check({
+        name: "ICD",
+        entries: [{ kind: "enum", name: "Mode", values: [{ value: 0, name: "" }] }],
+      });
+      expect(problems).toEqual([
+        {
+          path: "entries.0.values.0.name",
+          message: "Too small: expected string to have >=1 characters",
+        },
+      ]);
+    });
+
     it("should not save the ICD", async () => {
       const ic = icd.icdZ.parse(createNew());
       await client.icds.check(ic);

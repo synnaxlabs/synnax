@@ -131,12 +131,20 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
 
   /**
    * Checks an ICD against the rules a save enforces, without saving it.
-   * @returns Every problem in the ICD, or an empty array when it is valid.
+   * @returns Every problem in the ICD, or an empty array when it is valid. An ICD that
+   * breaks a rule of its schema returns only those problems, as the Core cannot read
+   * it.
    */
   async check(icd: New): Promise<library.Problem[]> {
+    const parsed = icdZ.safeParse(icd);
+    if (!parsed.success)
+      return parsed.error.issues.map(({ path, message }) => ({
+        path: path.join("."),
+        message,
+      }));
     const res = await this.cfg.unary.send(
       "/icd/check",
-      { icd: zod.parse(icdZ, icd, { label: "icd" }) },
+      { icd: parsed.data },
       checkReqZ,
       checkResZ,
     );
