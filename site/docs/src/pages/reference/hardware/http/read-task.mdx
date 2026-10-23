@@ -184,9 +184,9 @@ A field has these settings:
 
 ## Troubleshooting
 
-### `index channel ... is referenced by fields on different endpoints`
+<Problem.List>
 
-<Problem.Body>
+<Problem.Item message={"index channel ... is referenced by fields on different endpoints"}>
 <Problem.Cause>
 
 Two endpoints record into channels that share one index channel.
@@ -197,11 +197,9 @@ Two endpoints record into channels that share one index channel.
 Give each endpoint its own index channel.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `field ... not found in response from ...`
-
-<Problem.Body>
+<Problem.Item message={"field ... not found in response from ..."}>
 <Problem.Cause>
 
 The response has no value at the pointer.
@@ -213,11 +211,9 @@ Check the pointer against a response from the server. Pointers start with `/` an
 case sensitive.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `... endpoints ... overran the period`
-
-<Problem.Body>
+<Problem.Item message={"... endpoints ... overran the period"}>
 <Problem.Cause>
 
 The requests take longer than one period.
@@ -229,11 +225,9 @@ Lower **Rate**, or increase **Max concurrent requests** on the
 [server](/reference/hardware/http/connect-server#connection-options).
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### The task stopped while the server was down
-
-<Problem.Body>
+<Problem.Item symptom={"The task stopped while the server was down."}>
 <Problem.Cause>
 
 The task tries again for a long time, then stops.
@@ -244,6 +238,8 @@ The task tries again for a long time, then stops.
 Start the task again when the server is back.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
+
+</Problem.List>
 
 For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

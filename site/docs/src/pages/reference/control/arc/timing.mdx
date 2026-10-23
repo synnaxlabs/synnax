@@ -8,6 +8,7 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Platform } from "@/components/platform";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -89,7 +90,8 @@ more than a few hundred microseconds.
 
 A Driver runs Arc on a high-priority thread, so other programs on the computer do not
 delay it. On Windows and macOS, it gets this priority with no setup. On Linux, it needs
-real-time permission. See [Linux](#linux).
+real-time permission. See the Linux tab of
+[Get the best timing from a computer](/reference/control/arc/timing?platform=Linux#get-the-best-timing-from-a-computer).
 
 The Core runs Arc as a normal program. When the computer is busy, other programs delay
 it. In our tests on fully loaded computers at Auto, 1% of Core timers fired 2 ms late on
@@ -144,7 +146,9 @@ delay that is the same on every fire does not show.
 
 ## Get the best timing from a computer
 
-### Linux
+<Platform.Tabs exclude={["Docker"]}>
+
+<Fragment slot="Linux">
 
 These steps give the Driver the most precise timing. NI Linux Real-Time needs none of
 them.
@@ -173,7 +177,9 @@ The Driver inside the Core gets real-time permission only when the Core has it:
 The Driver inside the Core does not get permission to keep CPU cores out of deep sleep.
 For the most precise timing, install the Driver as a service.
 
-### Windows
+</Fragment>
+
+<Fragment slot="Windows">
 
 1. **Set the power mode to Best performance.** Go to **Settings** > **System** > **Power
    & battery** > **Power mode**. On Windows Server, use the **High performance** power
@@ -190,7 +196,12 @@ For the most precise timing, install the Driver as a service.
    when the computer is plugged in to **Never**. A computer that sleeps stops all its
    automations.
 
-### macOS
+The Driver inside the Core and Synnax Desktop gets the same priority as a Driver that
+runs on its own.
+
+</Fragment>
+
+<Fragment slot="macOS">
 
 1. **Do not use Low Power Mode.** Go to **System Settings** > **Battery** on a laptop,
    or **Energy** on a desktop, then **Energy Mode**. Select **Automatic**, or **High
@@ -204,7 +215,11 @@ For the most precise timing, install the Driver as a service.
    sleeps stops all its automations.
 
 The Driver inside the Core and Synnax Desktop gets the same priority as a Driver that
-runs on its own, on both Windows and macOS.
+runs on its own.
+
+</Fragment>
+
+</Platform.Tabs>
 
 <Divider.Divider x />
 

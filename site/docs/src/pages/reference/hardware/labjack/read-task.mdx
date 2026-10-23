@@ -10,6 +10,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Channel } from "@/components/channel";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -50,6 +51,8 @@ and the **Stream rate** has no effect. See [timing](/reference/hardware/tasks#ti
 The Console creates the channels. For a device with the identifier `lj1`, the channel
 for `AIN0` is `lj1_AIN0`, with the index channel `lj1_time`. To use a different name,
 enter it in the channel list before you start the task.
+
+<Video id="hardware/labjack/read-task" />
 
   </Fragment>
   <Fragment slot="python">
@@ -217,9 +220,9 @@ Reads a temperature from a thermocouple.
 
 ## Troubleshooting
 
-### `Synnax Driver can't keep up with hardware data acquisition`
+<Problem.List>
 
-<Problem.Body>
+<Problem.Item message={"Synnax Driver can't keep up with hardware data acquisition"}>
 <Problem.Cause>
 
 The Driver cannot send the samples as fast as the device makes them.
@@ -230,11 +233,9 @@ The Driver cannot send the samples as fast as the device makes them.
 Lower the **Stream rate**, or lower the **Sample rate**.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### Thermocouple values are wrong
-
-<Problem.Body>
+<Problem.Item symptom={"Thermocouple values are wrong."}>
 <Problem.Cause>
 
 The device is not a T7. The Driver sets up thermocouples on the T7 only.
@@ -245,11 +246,9 @@ The device is not a T7. The Driver sets up thermocouples on the T7 only.
 Use a T7 for thermocouple channels.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `Port ... has already been used on another channel`
-
-<Problem.Body>
+<Problem.Item message={"Port ... has already been used on another channel"}>
 <Problem.Cause>
 
 Two channels use the same port.
@@ -260,7 +259,9 @@ Two channels use the same port.
 Select a different port for one of them.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
+
+</Problem.List>
 
 For other problems, see
 [Configure a LabJack device](/reference/hardware/labjack/configure-device#troubleshooting)

@@ -13,18 +13,6 @@ export interface Group {
   name: string;
 }
 
-/** What the Console shows while a step is active. */
-export interface Scene {
-  /** The left toolbar to open. */
-  toolbar?: string;
-  /** Whether the component toolbar is open. */
-  component?: boolean;
-  /** Whether the command palette is open. */
-  palette?: boolean;
-  /** The mosaic leaf to focus. */
-  leaf?: string;
-}
-
 /** One stop of the tour. The page supplies its text. */
 export interface Step {
   key: string;
@@ -34,9 +22,12 @@ export interface Step {
   group: string;
   /** The key that opens the part, when it has one. */
   trigger?: string;
-  /** Selectors of the elements the step highlights, as one box around them all. */
-  targets: string[];
-  scene: Scene;
+  /** The still of the Console that shows the step. */
+  still: string;
+  /** The regions of the still that the step highlights, as one box around them all. */
+  regions: string[];
+  /** Whether the still shows a dialog, which a selection outside of closes. */
+  modal?: boolean;
 }
 
 export const GROUPS: Group[] = [
@@ -47,61 +38,46 @@ export const GROUPS: Group[] = [
 
 const slug = (title: string): string => title.toLowerCase().replaceAll(" ", "-");
 
+const part = (
+  key: string,
+  title: string,
+  group: string,
+  anchor = slug(title),
+): Step => ({
+  key,
+  title,
+  anchor,
+  group,
+  still: "mosaic",
+  regions: [key],
+});
+
 const toolbar = (key: string, title: string, trigger: string): Step => ({
   key,
   title,
   anchor: slug(title),
   group: "left",
   trigger,
-  targets: [`[data-toolbar="${key}"]`, `[data-drawer="${key}"]`],
-  scene: { toolbar: key },
-});
-
-const leaf = (key: string, title: string): Step => ({
-  key,
-  title,
-  anchor: slug(title),
-  group: "mosaic",
-  targets: [`[data-leaf="${key}"]`],
-  scene: { leaf: key },
+  still: key,
+  regions: [key, "drawer"],
 });
 
 export const STEPS: Step[] = [
-  {
-    key: "mosaic",
-    anchor: "parts-of-the-console",
-    title: "Mosaic",
-    group: "mosaic",
-    targets: ['[data-part="mosaic"]'],
-    scene: {},
-  },
-  leaf("schematic", "Schematic"),
-  leaf("lineplot", "Line plot"),
-  leaf("editor", "Arc editor"),
-  {
-    key: "project",
-    anchor: "project-selector",
-    title: "Project selector",
-    group: "left",
-    targets: ['[data-part="project"]'],
-    scene: {},
-  },
+  part("mosaic", "Mosaic", "mosaic", "parts-of-the-console"),
+  part("schematic", "Schematic", "mosaic"),
+  part("lineplot", "Line plot", "mosaic"),
+  part("editor", "Arc editor", "mosaic"),
+  part("project", "Project selector", "left"),
   {
     key: "search",
     anchor: "search-and-command-palette",
     title: "Search and command palette",
     group: "left",
-    targets: ['[data-part="search"]', "[data-palette]"],
-    scene: { palette: true },
+    still: "search",
+    regions: ["search", "palette"],
+    modal: true,
   },
-  {
-    key: "toolbars",
-    anchor: "toolbars",
-    title: "Toolbars",
-    group: "left",
-    targets: ['[data-toolbar]:not([data-toolbar="component"])'],
-    scene: {},
-  },
+  part("toolbars", "Toolbars", "left"),
   toolbar("channel", "Channels", "C"),
   toolbar("range", "Ranges", "R"),
   toolbar("workspace", "Projects", "W"),
@@ -109,31 +85,9 @@ export const STEPS: Step[] = [
   toolbar("task", "Tasks", "T"),
   toolbar("arc", "Arcs", "A"),
   toolbar("status", "Statuses", "S"),
-  {
-    key: "component",
-    anchor: "component",
-    title: "Component toolbar",
-    group: "left",
-    trigger: "V",
-    targets: ['[data-toolbar="component"]', '[data-drawer="component"]'],
-    scene: { component: true, leaf: "lineplot" },
-  },
-  {
-    key: "panels",
-    anchor: "panel-selector",
-    title: "Panel selector",
-    group: "top",
-    targets: ['[data-part="panels"]'],
-    scene: {},
-  },
-  {
-    key: "help",
-    anchor: "getting-help",
-    title: "Help and updates",
-    group: "top",
-    targets: ['[data-part="help"]'],
-    scene: {},
-  },
+  { ...toolbar("component", "Component toolbar", "V"), anchor: "component" },
+  part("panels", "Panel selector", "top"),
+  part("help", "Help and updates", "top", "getting-help"),
 ];
 
 /**

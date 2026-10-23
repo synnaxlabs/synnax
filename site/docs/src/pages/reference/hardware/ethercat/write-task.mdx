@@ -9,6 +9,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Channel } from "@/components/channel";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -57,6 +58,8 @@ every frame.
 The Console creates a command channel and a state channel for each output. For a module
 with the identifier `do1`, an output named `Output` gives `do1_Output_cmd`,
 `do1_Output_cmd_time`, and `do1_Output_state`, with the index `do1_state_time`.
+
+<Video id="hardware/ethercat/write-task" />
 
   </Fragment>
   <Fragment slot="python">

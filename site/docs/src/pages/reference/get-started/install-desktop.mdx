@@ -6,6 +6,7 @@ layout: "@/layouts/Reference.astro"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@/components/note";
+import { Platform } from "@/components/platform";
 import { Desktop } from "@/components/desktop";
 import Placeholder from "@/components/media/Placeholder.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -53,17 +54,25 @@ Earlier versions are on the
 
 ## Install
 
-### macOS
+<Platform.Tabs exclude={["Linux", "Docker"]}>
+
+<Fragment slot="Windows">
+
+1. Open the downloaded `-setup.exe` file.
+2. Follow the steps of the installer.
+3. Open Synnax Desktop from the Start menu.
+
+</Fragment>
+
+<Fragment slot="macOS">
 
 1. Open the downloaded `.dmg` file.
 2. Drag Synnax Desktop into the Applications folder.
 3. Open Synnax Desktop from the Applications folder.
 
-### Windows
+</Fragment>
 
-1. Open the downloaded `-setup.exe` file.
-2. Follow the steps of the installer.
-3. Open Synnax Desktop from the Start menu.
+</Platform.Tabs>
 
 <Divider.Divider x />
 

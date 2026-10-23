@@ -7,25 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { advance, current, plot, run, type State } from "@/components/console/tour/sim";
-import { GROUPS, type Scene, STEPS } from "@/components/console/tour/steps";
+import { GROUPS, STEPS } from "@/components/console/tour/steps";
+import { BASE, box } from "@/components/console/tour/stills";
 
-const ROOT = "[data-console-tour]";
-const SELECTED = "pluto--selected";
-const FOCUSED = "pluto--alt-color";
-const ENABLED = "docs-console--enabled";
-const ACTIVE = "docs-console--active";
-const DONE = "docs-console--done";
-const TANK_HEIGHT = 198;
-const TANK_BOTTOM = 200;
+const ROOT = "[data-tour-root]";
+const ACTIVE = "docs-tour--active";
+const DONE = "docs-tour--done";
+const WARM = "docs-tour--warm";
 // Pixels between the card and the box it points at, and between the card and the edge
-// of the Console.
+// of the stage.
 const GAP = 14;
 const INSET = 12;
 // Pixels the spotlight leaves around its box.
 const PAD = 4;
-// Drawers slide in, so the card moves again once they finish.
-const SETTLE_MS = 180;
 
 const TRIGGERS: Record<string, string> = {
   c: "channel",
@@ -52,81 +46,15 @@ const one = <E extends Element = HTMLElement>(
   return el;
 };
 
-const setToolbar = (root: HTMLElement, key: string | null): void => {
-  for (const el of all(root, ".docs-console__drawer"))
-    el.hidden = el.dataset.drawer !== key;
-  for (const el of all(root, '[data-toolbar]:not([data-toolbar="component"])'))
-    el.classList.toggle(SELECTED, el.dataset.toolbar === key);
-};
+const clamp = (v: number, lower: number, upper: number): number =>
+  Math.min(Math.max(v, lower), Math.max(lower, upper));
 
-const setComponent = (root: HTMLElement, open: boolean): void => {
-  one(root, '[data-drawer="component"]').hidden = !open;
-  one(root, '[data-toolbar="component"]').classList.toggle(SELECTED, open);
-};
-
-const setPalette = (root: HTMLElement, open: boolean): void => {
-  one(root, "[data-palette]").hidden = !open;
-};
-
-const focusLeaf = (root: HTMLElement, leaf: string): void => {
-  for (const el of all(root, "[data-leaf]")) {
-    const tab = el.querySelector(`.pluto-tabs__tab.${SELECTED}`);
-    tab?.classList.toggle(FOCUSED, el.dataset.leaf === leaf);
-  }
-  for (const el of all(root, "[data-component-icon]"))
-    el.hidden = el.dataset.componentIcon !== leaf;
-  for (const el of all(root, "[data-component-panel]"))
-    el.hidden = el.dataset.componentPanel !== leaf;
-};
-
-const selectLeafTab = (tab: HTMLElement): void => {
-  const leaf = tab.closest<HTMLElement>("[data-leaf]");
-  if (leaf == null) return;
-  const key = tab.dataset.leafTab;
-  for (const el of all(leaf, "[data-leaf-tab]")) {
-    const selected = el === tab;
-    el.classList.toggle(SELECTED, selected);
-    el.setAttribute("aria-selected", String(selected));
-    if (!selected) el.classList.remove(FOCUSED);
-  }
-  for (const el of all(leaf, "[data-leaf-panel]"))
-    el.hidden = el.dataset.leafPanel !== key;
-};
-
-const applyScene = (root: HTMLElement, scene: Scene): void => {
-  setToolbar(root, scene.toolbar ?? null);
-  setComponent(root, scene.component === true);
-  setPalette(root, scene.palette === true);
-  if (scene.leaf != null) focusLeaf(root, scene.leaf);
-};
-
-interface Box {
+interface Rect {
   left: number;
   top: number;
   right: number;
   bottom: number;
 }
-
-// Returns one box around every shown element that matches the selectors, relative to
-// the frame.
-const boxAround = (root: HTMLElement, frame: DOMRect, selectors: string[]): Box => {
-  const rects = selectors
-    .flatMap((selector) => all(root, selector))
-    .filter((el) => el.closest("[hidden]") == null)
-    .map((el) => el.getBoundingClientRect())
-    .filter((r) => r.width > 0 && r.height > 0);
-  if (rects.length === 0)
-    throw new Error(`nothing to highlight for ${selectors.join(", ")}`);
-  return {
-    left: Math.min(...rects.map((r) => r.left)) - frame.left,
-    top: Math.min(...rects.map((r) => r.top)) - frame.top,
-    right: Math.max(...rects.map((r) => r.right)) - frame.left,
-    bottom: Math.max(...rects.map((r) => r.bottom)) - frame.top,
-  };
-};
-
-const clamp = (v: number, lower: number, upper: number): number =>
-  Math.min(Math.max(v, lower), Math.max(lower, upper));
 
 type Side = "left" | "right" | "top" | "bottom";
 
@@ -138,86 +66,103 @@ interface Placement {
 
 // Puts the card beside the box where it fits, and inside the box when nothing does.
 const placeBeside = (
-  box: Box,
+  rect: Rect,
   width: number,
   height: number,
   frameWidth: number,
   frameHeight: number,
 ): Placement => {
-  const midX = (box.left + box.right) / 2;
-  const midY = (box.top + box.bottom) / 2;
+  const midX = (rect.left + rect.right) / 2;
+  const midY = (rect.top + rect.bottom) / 2;
   const x = clamp(midX - width / 2, INSET, frameWidth - width - INSET);
   const y = clamp(midY - height / 2, INSET, frameHeight - height - INSET);
-  if (box.right + GAP + width <= frameWidth - INSET)
-    return { x: box.right + GAP, y, side: "left" };
-  if (box.left - GAP - width >= INSET)
-    return { x: box.left - GAP - width, y, side: "right" };
-  if (box.bottom + GAP + height <= frameHeight - INSET)
-    return { x, y: box.bottom + GAP, side: "top" };
-  if (box.top - GAP - height >= INSET)
-    return { x, y: box.top - GAP - height, side: "bottom" };
+  if (rect.right + GAP + width <= frameWidth - INSET)
+    return { x: rect.right + GAP, y, side: "left" };
+  if (rect.left - GAP - width >= INSET)
+    return { x: rect.left - GAP - width, y, side: "right" };
+  if (rect.bottom + GAP + height <= frameHeight - INSET)
+    return { x, y: rect.bottom + GAP, side: "top" };
+  if (rect.top - GAP - height >= INSET)
+    return { x, y: rect.top - GAP - height, side: "bottom" };
   return {
-    x: clamp(box.right - width - INSET, INSET, frameWidth - width - INSET),
-    y: clamp(box.bottom - height - INSET, INSET, frameHeight - height - INSET),
+    x: clamp(rect.right - width - INSET, INSET, frameWidth - width - INSET),
+    y: clamp(rect.bottom - height - INSET, INSET, frameHeight - height - INSET),
     side: null,
   };
 };
 
 interface Tour {
   root: HTMLElement;
-  state: State;
-  visible: boolean;
   /** The index of the active step, or null before the tour starts. */
   step: number | null;
-  settle?: ReturnType<typeof setTimeout>;
 }
 
 const place = ({ root, step: index }: Tour): void => {
-  const frameEl = one(root, ".docs-console__frame");
-  const card = one(root, "[data-card]");
-  const arrow = one(root, "[data-card-arrow]");
   const spotlight = one(root, "[data-spotlight]");
-  const frame = frameEl.getBoundingClientRect();
-  const floating = getComputedStyle(card).position === "absolute";
-  const { offsetWidth: width, offsetHeight: height } = card;
   if (index == null) {
     spotlight.classList.remove(ACTIVE);
     return;
   }
-  const box = boxAround(root, frame, STEPS[index].targets);
-  // The spotlight sits inside the stage, whose border moves it off the frame's corner.
-  const { clientLeft, clientTop } = one(root, ".docs-console__stage");
+  const { still, regions } = STEPS[index];
+  const { left, top, width, height } = box(still, regions);
   Object.assign(spotlight.style, {
-    left: `${box.left - clientLeft - PAD}px`,
-    top: `${box.top - clientTop - PAD}px`,
-    width: `${box.right - box.left + PAD * 2}px`,
-    height: `${box.bottom - box.top + PAD * 2}px`,
+    left: `calc(${left}% - ${PAD}px)`,
+    top: `calc(${top}% - ${PAD}px)`,
+    width: `calc(${width}% + ${PAD * 2}px)`,
+    height: `calc(${height}% + ${PAD * 2}px)`,
   });
   spotlight.classList.add(ACTIVE);
-  if (!floating) {
+
+  const card = one(root, "[data-card]");
+  const arrow = one(root, "[data-card-arrow]");
+  if (getComputedStyle(card).position !== "absolute") {
     arrow.dataset.side = "";
     return;
   }
-  const { x, y, side } = placeBeside(box, width, height, frame.width, frame.height);
+  // The stage's border moves its content off the frame's corner.
+  const stage = one(root, ".docs-tour__stage");
+  const { clientLeft, clientTop, clientWidth, clientHeight } = stage;
+  const rect: Rect = {
+    left: clientLeft + (left / 100) * clientWidth,
+    top: clientTop + (top / 100) * clientHeight,
+    right: clientLeft + ((left + width) / 100) * clientWidth,
+    bottom: clientTop + ((top + height) / 100) * clientHeight,
+  };
+  const { offsetWidth: cardWidth, offsetHeight: cardHeight } = card;
+  const { x, y, side } = placeBeside(
+    rect,
+    cardWidth,
+    cardHeight,
+    stage.offsetWidth,
+    stage.offsetHeight,
+  );
   card.style.left = `${x}px`;
   card.style.top = `${y}px`;
   arrow.dataset.side = side ?? "";
+  const midX = (rect.left + rect.right) / 2;
+  const midY = (rect.top + rect.bottom) / 2;
   if (side === "left" || side === "right")
-    arrow.style.top = `${clamp((box.top + box.bottom) / 2 - y, 16, height - 16)}px`;
-  else arrow.style.left = `${clamp((box.left + box.right) / 2 - x, 16, width - 16)}px`;
+    arrow.style.top = `${clamp(midY - y, 16, cardHeight - 16)}px`;
+  else arrow.style.left = `${clamp(midX - x, 16, cardWidth - 16)}px`;
 };
 
-const settle = (tour: Tour): void => {
-  clearTimeout(tour.settle);
-  requestAnimationFrame(() => place(tour));
-  tour.settle = setTimeout(() => place(tour), SETTLE_MS);
+const show = (root: HTMLElement, still: string): void => {
+  for (const el of all(root, "[data-still]")) {
+    const active = el.dataset.still === still;
+    el.classList.toggle(ACTIVE, active);
+    if (active) el.removeAttribute("aria-hidden");
+    else el.setAttribute("aria-hidden", "true");
+  }
+  for (const el of all(root, "[data-hotspots]"))
+    el.hidden = el.dataset.hotspots !== still;
 };
 
 const go = (tour: Tour, index: number | null): void => {
   const { root } = tour;
+  root.classList.add(WARM);
   tour.step = index;
   const active = index == null ? null : STEPS[index];
-  applyScene(root, active?.scene ?? {});
+  show(root, active?.still ?? BASE);
   one(root, "[data-card]").hidden = active == null;
   one(root, '[data-tour="start"]').hidden = active != null;
   one(root, '[data-tour="end"]').hidden = active == null;
@@ -228,18 +173,17 @@ const go = (tour: Tour, index: number | null): void => {
     index == null || group == null
       ? ""
       : `${group.name} · ${index + 1} of ${STEPS.length}`;
-  const backButton = one<HTMLButtonElement>(root, '[data-tour="back"]');
-  backButton.disabled = index === 0;
+  one<HTMLButtonElement>(root, '[data-tour="back"]').disabled = index === 0;
   one(root, '[data-tour="next"]').textContent =
     index === STEPS.length - 1 ? "Finish" : "Next";
-  for (const el of all(root, "[data-step-target]")) {
+  for (const el of all(root, ".docs-tour__progress-step")) {
     const i = STEPS.findIndex((s) => s.key === el.dataset.stepTarget);
     el.classList.toggle(ACTIVE, i === index);
     el.classList.toggle(DONE, index != null && i < index);
   }
   for (const el of all(root, "[data-progress-group]"))
     el.classList.toggle(ACTIVE, el.dataset.progressGroup === active?.group);
-  settle(tour);
+  requestAnimationFrame(() => place(tour));
 };
 
 const next = (tour: Tour): void => {
@@ -251,9 +195,13 @@ const back = (tour: Tour): void => {
   if (tour.step != null && tour.step > 0) go(tour, tour.step - 1);
 };
 
-const goTo = (tour: Tour, key: string): void => {
+// Selecting the part of the active step closes what the step opened, as in the
+// Console: a toolbar, the component toolbar, or the palette.
+const select = (tour: Tour, key: string): void => {
   const index = STEPS.findIndex((s) => s.key === key);
-  if (index !== -1) go(tour, index);
+  if (index === -1) throw new Error(`unknown tour step: ${key}`);
+  if (index === tour.step && STEPS[index].still !== BASE) go(tour, null);
+  else go(tour, index);
 };
 
 // A link to a step's anchor opens the step, since the browser cannot scroll to the
@@ -265,66 +213,10 @@ const openLinked = (tour: Tour): void => {
   tour.root.scrollIntoView({ block: "start" });
 };
 
-// Selecting the toolbar of the active step closes it, as in the Console.
-const toggleToolbar = (tour: Tour, key: string): void => {
-  if (tour.step != null && STEPS[tour.step].key === key) go(tour, null);
-  else goTo(tour, key);
-};
-
-const render = ({ root, state }: Tour): void => {
-  const { pressure, press, vent } = current(state);
-  const box = root.querySelector<HTMLElement>("[data-plot]");
-  const svg = box?.querySelector("svg");
-  if (box != null && svg != null && box.clientWidth > 0) {
-    const { clientWidth: w, clientHeight: h } = box;
-    svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
-    svg.setAttribute("width", String(w));
-    svg.setAttribute("height", String(h));
-    svg.innerHTML = plot(state, w, h);
-  }
-  const fill = root.querySelector("[data-tank-fill]");
-  const height = (pressure / 500) * TANK_HEIGHT;
-  fill?.setAttribute("y", (TANK_BOTTOM - height).toFixed(1));
-  fill?.setAttribute("height", height.toFixed(1));
-  const value = root.querySelector("[data-tank-value]");
-  if (value != null) value.textContent = pressure.toFixed(1);
-  root
-    .querySelector('[data-valve-group="press"]')
-    ?.classList.toggle(ENABLED, press === 1);
-  root
-    .querySelector('[data-valve-group="vent"]')
-    ?.classList.toggle(ENABLED, vent === 1);
-};
-
-const fit = (root: HTMLElement): void => {
-  const canvas = root.querySelector<HTMLElement>(".docs-console__canvas");
-  const stage = root.querySelector<HTMLElement>(".docs-console__stage");
-  if (canvas == null || stage == null) return;
-  const width = parseFloat(
-    getComputedStyle(root).getPropertyValue("--docs-console-width"),
-  );
-  canvas.style.setProperty(
-    "--docs-console-zoom",
-    String(Math.min(1, stage.clientWidth / width)),
-  );
-};
-
-const command = (tour: Tour, name: string): void => {
-  const { state } = tour;
-  state.stage = name === "start" ? "pressurize" : "vent";
-  state.stageStart = state.t;
-};
-
-const mount = (root: HTMLElement, motion: boolean): (() => void) => {
+const mount = (root: HTMLElement): (() => void) => {
   for (const { key } of STEPS) one(root, `[data-card] [data-step="${key}"]`);
-  const tour: Tour = {
-    root,
-    state: run(34),
-    visible: false,
-    step: null,
-  };
-  const stage = one(root, ".docs-console__stage");
-  const palette = one(root, "[data-palette]");
+  const tour: Tour = { root, step: null };
+  const stage = one(root, ".docs-tour__stage");
 
   const handleClick = (e: MouseEvent): void => {
     if (!(e.target instanceof Element)) return;
@@ -336,38 +228,26 @@ const mount = (root: HTMLElement, motion: boolean): (() => void) => {
       else go(tour, null);
       return;
     }
-    const target = e.target.closest<HTMLElement>("[data-step-target]");
-    if (target != null) {
-      goTo(tour, target.dataset.stepTarget ?? "");
+    const progress = e.target.closest<HTMLElement>(".docs-tour__progress-step");
+    if (progress != null) {
+      go(
+        tour,
+        STEPS.findIndex((s) => s.key === progress.dataset.stepTarget),
+      );
       return;
     }
-    if (!palette.hidden) {
-      setPalette(root, false);
-      if (tour.step != null && STEPS[tour.step].key === "search") go(tour, null);
+    const hotspot = e.target.closest<HTMLElement>(".docs-tour__hotspot");
+    if (hotspot != null) {
+      select(tour, hotspot.dataset.stepTarget ?? "");
       return;
     }
-    const cmd = e.target.closest<SVGElement>("[data-command]");
-    if (cmd != null) {
-      command(tour, cmd.dataset.command ?? "");
-      return;
-    }
-    const item = e.target.closest<HTMLElement>(
-      ".docs-console__drawer .pluto-list__item",
-    );
-    if (item != null) {
-      for (const el of all(item.closest("[data-drawer]") ?? root, ".pluto-list__item"))
-        el.classList.toggle(SELECTED, el === item);
-      return;
-    }
-    const toolbar = e.target.closest<HTMLElement>("[data-toolbar]");
-    if (toolbar != null) {
-      toggleToolbar(tour, toolbar.dataset.toolbar ?? "");
-      return;
-    }
-    const leafTab = e.target.closest<HTMLElement>("[data-leaf-tab]");
-    if (leafTab != null) selectLeafTab(leafTab);
-    const part = e.target.closest<HTMLElement>("[data-part]");
-    if (part != null) goTo(tour, part.dataset.part ?? "");
+    if (
+      tour.step != null &&
+      STEPS[tour.step].modal === true &&
+      e.target.closest(".docs-tour__blocker") == null &&
+      stage.contains(e.target)
+    )
+      go(tour, null);
   };
 
   const handleKey = (e: KeyboardEvent): void => {
@@ -377,7 +257,7 @@ const mount = (root: HTMLElement, motion: boolean): (() => void) => {
     }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "p") {
       e.preventDefault();
-      goTo(tour, "search");
+      select(tour, "search");
       return;
     }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -390,59 +270,42 @@ const mount = (root: HTMLElement, motion: boolean): (() => void) => {
     const key = TRIGGERS[e.key.toLowerCase()];
     if (key == null) return;
     e.preventDefault();
-    toggleToolbar(tour, key);
+    select(tour, key);
   };
 
-  const timer = motion
-    ? setInterval(() => {
-        if (!tour.visible) return;
-        advance(tour.state);
-        render(tour);
-      }, 100)
-    : null;
-  const intersection = new IntersectionObserver(([entry]) => {
-    tour.visible = entry.isIntersecting;
-  });
-  intersection.observe(root);
-  const resize = new ResizeObserver(() => {
-    fit(root);
-    render(tour);
-    place(tour);
-  });
+  // The other stills load once the reader reaches for the tour.
+  const warm = (): void => root.classList.add(WARM);
+  const resize = new ResizeObserver(() => place(tour));
   resize.observe(stage);
-  resize.observe(one(root, "[data-plot]"));
   resize.observe(one(root, "[data-card]"));
   root.addEventListener("click", handleClick);
-  stage.addEventListener("keydown", handleKey);
+  root.addEventListener("pointerenter", warm, { once: true });
+  root.addEventListener("focusin", warm, { once: true });
+  root.addEventListener("keydown", handleKey);
   const handleHash = (): void => openLinked(tour);
   window.addEventListener("hashchange", handleHash);
-  fit(root);
-  render(tour);
-  go(tour, null);
   openLinked(tour);
 
   return () => {
-    if (timer != null) clearInterval(timer);
-    clearTimeout(tour.settle);
-    intersection.disconnect();
     resize.disconnect();
     root.removeEventListener("click", handleClick);
-    stage.removeEventListener("keydown", handleKey);
+    root.removeEventListener("pointerenter", warm);
+    root.removeEventListener("focusin", warm);
+    root.removeEventListener("keydown", handleKey);
     window.removeEventListener("hashchange", handleHash);
   };
 };
 
 /**
- * Starts every copy of the Console on the page: its tour steps through each part, its
- * toolbars, tabs, and command palette respond to clicks and keys, and its tank runs
- * while it is on screen. Call it once; it follows page swaps by itself.
+ * Starts every Console tour on the page: its steps highlight each part of the Console
+ * on stills of it, and its parts, toolbar keys, and command palette keys open their
+ * steps. Call it once; it follows page swaps by itself.
  */
 export const start = (): void => {
   let unmounts: Array<() => void> = [];
   const load = (): void => {
     for (const unmount of unmounts) unmount();
-    const motion = !matchMedia("(prefers-reduced-motion: reduce)").matches;
-    unmounts = all(document, ROOT).map((root) => mount(root, motion));
+    unmounts = all(document, ROOT).map(mount);
   };
   load();
   document.addEventListener("astro:after-swap", load);

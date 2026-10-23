@@ -10,6 +10,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Channel } from "@/components/channel";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -46,6 +47,8 @@ every frame.
 The Console creates the channels. For a device with the identifier `lj1`, the output
 `DIO4` gives the command channel `lj1_DIO4_cmd` with the index `lj1_DIO4_cmd_time`, and
 the state channel `lj1_DIO4_state` with the index `lj1_write_state_time`.
+
+<Video id="hardware/labjack/write-task" />
 
   </Fragment>
   <Fragment slot="python">
@@ -170,9 +173,9 @@ Sets a digital line. The command is 0 or 1, as `uint8`.
 
 ## Troubleshooting
 
-### `output channels must set cmd_channel and state_channel`
+<Problem.List>
 
-<Problem.Body>
+<Problem.Item message={"output channels must set cmd_channel and state_channel"}>
 <Problem.Cause>
 
 A channel in code has no command channel or no state channel.
@@ -183,7 +186,9 @@ A channel in code has no command channel or no state channel.
 Create both and set them on the channel.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
+
+</Problem.List>
 
 For other problems, see
 [Configure a LabJack device](/reference/hardware/labjack/configure-device#troubleshooting)

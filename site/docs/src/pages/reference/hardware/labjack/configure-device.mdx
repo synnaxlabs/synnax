@@ -92,9 +92,9 @@ so only a device that the Driver found works in a task.
 
 ## Troubleshooting
 
-### The device does not show in the devices toolbar
+<Problem.List>
 
-<Problem.Body>
+<Problem.Item symptom={"The device does not show in the devices toolbar."}>
 <Problem.Cause>
 
 The Driver cannot load the LJM library, or it runs on Linux.
@@ -111,11 +111,9 @@ For more causes, see
 [Troubleshoot hardware](/reference/hardware/troubleshooting#a-device-does-not-show-in-the-devices-toolbar).
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `A device matching the requested device parameters could not be found`
-
-<Problem.Body>
+<Problem.Item message={"A device matching the requested device parameters could not be found"}>
 <Problem.Cause>
 
 Another program holds the device. A USB device works with one program at a time.
@@ -127,11 +125,9 @@ Another program holds the device. A USB device works with one program at a time.
 2. Start the task again.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `The device is temporarily unreachable. Will keep trying`
-
-<Problem.Body>
+<Problem.Item message={"The device is temporarily unreachable. Will keep trying"}>
 <Problem.Cause>
 
 The Driver lost the connection to the device.
@@ -142,6 +138,8 @@ The Driver lost the connection to the device.
 Check the USB cable or the network. The task continues when the device comes back.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
+
+</Problem.List>
 
 For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

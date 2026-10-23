@@ -179,7 +179,8 @@ own regions (`Diagram.Nest`, `Diagram.Handoff`) sit on the page.
   itself has a **Cause** only, which says what happens.
 - The exact error text, as a code block or tabs, goes under the heading, above the body.
 - A reference list of many short entries (compiler errors, task errors) uses
-  `Problem.List` and `Problem.Item`, grouped under h3s. Each entry keeps its anchor.
+  `Problem.List` and `Problem.Item`, grouped under h3s. Each entry keeps its anchor. The
+  troubleshooting section of a task, device, or server page is such a list.
 - A troubleshooting page, where readers scan the outline for their error, keeps one
   heading per problem, with `Problem.Body` holding the cause and the fix. The heading
   slug never changes, because code prints some of them

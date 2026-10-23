@@ -179,9 +179,9 @@ An additional field is static or generated:
 
 ## Troubleshooting
 
-### `... returned ...: ...`
+<Problem.List>
 
-<Problem.Body>
+<Problem.Item message={"... returned ...: ..."}>
 <Problem.Cause>
 
 The server rejected the request. The message shows the status code and the response
@@ -193,11 +193,9 @@ body. The task tries again after a temporary error, such as 408, 429, or a 5xx c
 Check the path, the body fields, and the authentication of the server.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `Pointer ... is already used by another field`
-
-<Problem.Body>
+<Problem.Item message={"Pointer ... is already used by another field"}>
 <Problem.Cause>
 
 Two fields in the body use the same pointer.
@@ -208,6 +206,8 @@ Two fields in the body use the same pointer.
 Give each field its own pointer.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
+
+</Problem.List>
 
 For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

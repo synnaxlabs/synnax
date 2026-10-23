@@ -9,6 +9,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Channel } from "@/components/channel";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -42,6 +43,8 @@ Before you start, you need a
 The Console creates the channels. For a device with the identifier `dev1`, port 0 gives
 the command channel `dev1_ao_0_cmd` with the index `dev1_ao_0_cmd_time`, and the state
 channel `dev1_ao_0_state` with the index `dev1_ao_state_time`.
+
+<Video id="hardware/ni/analog-write-task" />
 
   </Fragment>
   <Fragment slot="python">
@@ -217,9 +220,9 @@ and **Scaled units** (`scaled_units`).
 
 ## Troubleshooting
 
-### The outputs stop changing after a command
+<Problem.List>
 
-<Problem.Body>
+<Problem.Item symptom={"The outputs stop changing after a command."}>
 <Problem.Cause>
 
 A command was outside the **Range** of its channel. NI-DAQmx rejects it with no message,
@@ -232,11 +235,9 @@ channels still show the commands that were not written.
 Send a value inside the range to that channel. The task then writes again.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `Port ... has already been used on another channel`
-
-<Problem.Body>
+<Problem.Item message={"Port ... has already been used on another channel"}>
 <Problem.Cause>
 
 Two channels use the same port.
@@ -247,7 +248,9 @@ Two channels use the same port.
 Change the port of one of them.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
+
+</Problem.List>
 
 For other problems, see
 [Configure an NI device](/reference/hardware/ni/configure-device#troubleshooting) and

@@ -126,6 +126,49 @@ export const EL3102: SimulatedDevice = {
   },
 };
 
+/** The output entry of one EL2004 channel, in its standard PDO. */
+const el2004Output = (channel: number): Entry =>
+  entry(0x1600 + channel, 0x7000 + channel * 0x10, 0x01, "Output", "uint8", 1);
+
+/**
+ * An EL2004 digital output module that the Driver found on the en5 port, after the
+ * EL3102, with the properties SOEM discovery writes from the ESI catalog.
+ */
+export const EL2004: SimulatedDevice = {
+  key: "ethercat_en5_2_131346514_3",
+  name: "EL2004",
+  make: "ethercat",
+  model: "slave",
+  location: "en5.Slot 3",
+  message: "Discovered (0 inputs, 4 outputs)",
+  properties: {
+    vendor_id: 2,
+    product_code: 0x07d43052,
+    revision: 0x00110000,
+    serial: 0,
+    name: "EL2004",
+    network: "en5",
+    position: 3,
+    input_bits: 0,
+    output_bits: 4,
+    pdo_order_reliable: true,
+    enabled: true,
+    pdos: { inputs: [], outputs: [0, 1, 2, 3].map(el2004Output) },
+  },
+};
+
+/** configured returns the device as a user leaves it after configuring it. */
+export const configured = (
+  dev: SimulatedDevice,
+  name: string,
+  identifier: string,
+): SimulatedDevice => ({
+  ...dev,
+  name,
+  configured: true,
+  properties: { ...dev.properties, identifier },
+});
+
 export interface DriverOptions extends ConnectionOptions {
   /** Devices to create on the embedded rack, with a status for each. */
   devices?: SimulatedDevice[];

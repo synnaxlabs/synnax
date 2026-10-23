@@ -166,9 +166,9 @@ In TypeScript, the fields are in `properties.connection` in camel case, such as
 
 ## Troubleshooting
 
-### `Failed to reach server`
+<Problem.List>
 
-<Problem.Body>
+<Problem.Item message={"Failed to reach server"}>
 <Problem.Cause>
 
 The Driver checks each server every 5 seconds. The status shows "Failed to reach server"
@@ -181,11 +181,9 @@ when the Driver cannot connect. The description shows the reason.
 2. Make sure that the computer that runs the Driver can reach the server.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `circuit breaker open`
-
-<Problem.Body>
+<Problem.Item message={"circuit breaker open"}>
 <Problem.Cause>
 
 The Driver failed to connect three times in a row, so it waits 5 seconds before it tries
@@ -198,11 +196,9 @@ again.
 2. Try again.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `Failed to configure encryption`
-
-<Problem.Body>
+<Problem.Item message={"Failed to configure encryption"}>
 <Problem.Cause>
 
 The Driver could not use the certificate, the key, or the policy.
@@ -215,11 +211,9 @@ The Driver could not use the certificate, the key, or the policy.
 3. Select a policy that the server supports.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `The certificate is not trusted.`
-
-<Problem.Body>
+<Problem.Item message={"The certificate is not trusted."}>
 <Problem.Cause>
 
 The server rejected the client certificate.
@@ -230,11 +224,9 @@ The server rejected the client certificate.
 Add the client certificate to the trust list of the server.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `The URI specified in the ApplicationDescription does not match the URI in the certificate.`
-
-<Problem.Body>
+<Problem.Item message={"The URI specified in the ApplicationDescription does not match the URI in the certificate."}>
 <Problem.Cause>
 
 The URI in the client certificate is different from the URI that the server expects.
@@ -245,11 +237,9 @@ The URI in the client certificate is different from the URI that the server expe
 Create a certificate whose URI matches the server configuration.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `User does not have permission to perform the requested operation.`
-
-<Problem.Body>
+<Problem.Item message={"User does not have permission to perform the requested operation."}>
 <Problem.Cause>
 
 The server rejected the **Username** or the **Password**. Some servers show "The user
@@ -261,11 +251,9 @@ identity token is valid but the server has rejected it." for the same cause.
 Enter a **Username** and a **Password** that the server accepts.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `The user identity token is not valid.`
-
-<Problem.Body>
+<Problem.Item message={"The user identity token is not valid."}>
 <Problem.Cause>
 
 The server does not accept an anonymous login.
@@ -276,6 +264,8 @@ The server does not accept an anonymous login.
 Enter a **Username** and a **Password**.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
+
+</Problem.List>
 
 For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

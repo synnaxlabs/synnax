@@ -16,6 +16,11 @@ import { manifest } from "@/index";
  */
 export default manifest.define([
   {
+    id: "console/ui-overview/tour",
+    script: "scripts/still-ui-overview.ts",
+    stills: { regions: "../site/docs/src/components/console/tour/regions.json" },
+  },
+  {
     id: "console/ui-overview/palette-search",
     script: "scripts/ui-overview-palette-search.ts",
   },
@@ -153,6 +158,15 @@ export default manifest.define([
     id: "device-drivers/ethercat/configure-device/ethercat-configure",
     script: "scripts/ethercat-configure-device.ts",
   },
+  { id: "hardware/ni/analog-read-task", script: "scripts/ni-analog-read-task.ts" },
+  { id: "hardware/ni/analog-write-task", script: "scripts/ni-analog-write-task.ts" },
+  { id: "hardware/ni/counter-read-task", script: "scripts/ni-counter-read-task.ts" },
+  { id: "hardware/ni/digital-read-task", script: "scripts/ni-digital-read-task.ts" },
+  { id: "hardware/ni/digital-write-task", script: "scripts/ni-digital-write-task.ts" },
+  { id: "hardware/labjack/read-task", script: "scripts/labjack-read-task.ts" },
+  { id: "hardware/labjack/write-task", script: "scripts/labjack-write-task.ts" },
+  { id: "hardware/ethercat/read-task", script: "scripts/ethercat-read-task.ts" },
+  { id: "hardware/ethercat/write-task", script: "scripts/ethercat-write-task.ts" },
   // The custom devices tutorial runs against fixtures/arduino.ts.
   {
     id: "client/resources/build-device-driver/line-plot",
@@ -165,6 +179,32 @@ export default manifest.define([
   {
     id: "client/resources/build-device-driver/console-setup",
     script: "scripts/custom-devices-console-setup.ts",
+  },
+  // These run the real Driver against a server from fixtures/simulator.ts.
+  {
+    id: "device-drivers/modbus/connect-server/modbus-connect",
+    script: "scripts/modbus-connect-server.ts",
+  },
+  {
+    id: "device-drivers/opc-ua/connect-server/connect-server",
+    script: "scripts/opcua-connect-server.ts",
+  },
+  {
+    id: "device-drivers/opc-ua/read-task/read",
+    script: "scripts/opcua-read-task.ts",
+  },
+  {
+    id: "device-drivers/opc-ua/write-task/write",
+    script: "scripts/opcua-write-task.ts",
+  },
+  {
+    id: "device-drivers/http/connect-server/connect-server",
+    script: "scripts/http-connect-server.ts",
+  },
+  { id: "device-drivers/http/read-task/read", script: "scripts/http-read-task.ts" },
+  {
+    id: "device-drivers/http/write-task/write",
+    script: "scripts/http-write-task.ts",
   },
   { id: "hardware/modbus/read-task", script: "scripts/modbus-read-task.ts" },
   { id: "hardware/modbus/write-task", script: "scripts/modbus-write-task.ts" },

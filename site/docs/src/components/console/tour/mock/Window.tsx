@@ -24,7 +24,7 @@ import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type CSSProperties, type ReactElement, type ReactNode } from "react";
 
-import { current, LINES, plot, run } from "@/components/console/tour/sim";
+import { current, LINES, plot, run } from "@/components/console/tour/mock/sim";
 
 // The tank after it has run long enough to fill the plot and start a pressurization.
 const INITIAL = run(34);

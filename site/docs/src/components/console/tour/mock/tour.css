@@ -1,0 +1,1117 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The docs retune Lyra's type scale and heights; the copy of the Console puts back the
+   values the Console ships with. */
+.docs-console__canvas {
+    --pluto-h5-size: round(2.3333rem, 1px);
+    --pluto-h5-weight: 450;
+    --pluto-h5-line-height: round(3.5rem, 1px);
+    --pluto-p-size: round(2.1667rem, 1px);
+    --pluto-p-weight: 400;
+    --pluto-p-line-height: round(3rem, 1px);
+    --pluto-small-size: round(1.8333rem, 1px);
+    --pluto-small-weight: 400;
+    --pluto-small-line-height: round(2.3333rem, 1px);
+    --pluto-height-small: 4rem;
+    --pluto-height-medium: round(4.6667rem, 1px);
+    --pluto-height-large: 6rem;
+    --pluto-gray-l8: #9ea2a7;
+
+    /* Lyra's symbol tokens for each theme. The docs pick the theme by media query, not
+       by Lyra's theme classes. */
+    --pluto-symbol-l-extreme: 0;
+    --pluto-symbol-l-min: 0;
+    --pluto-symbol-l-max: 0.8;
+    --pluto-symbol-c-thresh: 0.05;
+
+    @media (prefers-color-scheme: dark) {
+        --pluto-gray-l8: #5d6166;
+        --pluto-symbol-l-extreme: 1;
+        --pluto-symbol-l-min: 0.4;
+        --pluto-symbol-l-max: 1;
+        --pluto-symbol-c-thresh: 0.09;
+    }
+
+    :is(h1, h2, h3, h4, h5, h6, p) {
+        margin: 0;
+    }
+
+    /* Lyra's span text inherits its size, which the Console's containers set. */
+    font-size: var(--pluto-p-size);
+    line-height: var(--pluto-p-line-height);
+
+    span.pluto-text--h5 {
+        font-size: var(--pluto-h5-size);
+        line-height: var(--pluto-h5-line-height);
+    }
+
+    span.pluto-text--small {
+        font-size: var(--pluto-small-size);
+        line-height: var(--pluto-small-line-height);
+    }
+
+    /* The docs restyle article tabs; these put back Lyra's own rules. */
+    .pluto-tabs__selector {
+        margin: 0;
+        --pluto-height-medium: round(4.6667rem, 1px);
+        --pluto-tabs-tab-height: initial;
+
+        > .pluto-tabs__tab {
+            gap: 0;
+
+            .pluto-text {
+                color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
+            }
+
+            &.pluto--selected .pluto-text {
+                color: var(
+                    --pluto-tabs-selected-text-color,
+                    var(--pluto-selected-subtle-color)
+                );
+            }
+        }
+    }
+
+    .pluto-tabs__selector--default .pluto-tabs__tab {
+        padding: 0;
+
+        .pluto-text {
+            margin: 0 2rem;
+        }
+
+        > .pluto-icon {
+            margin: 0 1rem 0 1.5rem;
+        }
+
+        &:has(> .pluto-icon) .pluto-text {
+            margin-left: 0;
+        }
+    }
+
+    .pluto-tabs__selector--pill .pluto-tabs__tab {
+        padding: 0 2rem;
+
+        .pluto-text {
+            margin: 0;
+        }
+
+        > .pluto-icon {
+            margin: 0 1rem 0 0;
+        }
+
+        &.pluto--selected .pluto-text {
+            color: var(--pluto-tabs-selected-text-color, var(--pluto-gray-l11));
+        }
+    }
+}
+
+/* The Console lays out at a laptop window's size, then zooms to fit the stage. */
+.docs-console {
+    --docs-console-width: 1280px;
+    --docs-console-height: 806px;
+
+    @media (max-width: 800px) {
+        --docs-console-width: 820px;
+        --docs-console-height: 560px;
+    }
+
+    margin-block: 5rem;
+
+    [hidden] {
+        display: none !important;
+    }
+}
+
+.docs-console__stage {
+    width: 100%;
+    overflow: hidden;
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l6);
+    border-radius: 2rem;
+    box-shadow: var(--pluto-shadow-v1);
+    background: var(--pluto-gray-l2);
+
+    &:focus-visible {
+        outline: 2px solid var(--pluto-primary-z);
+        outline-offset: 2px;
+    }
+}
+
+.docs-console__canvas {
+    position: relative;
+    width: var(--docs-console-width);
+    height: var(--docs-console-height);
+    zoom: var(--docs-console-zoom, 0.75);
+    font-family: var(--pluto-font-family);
+    user-select: none;
+}
+
+.docs-console__window,
+.docs-console__workspace {
+    width: 100%;
+    height: 100%;
+}
+
+/* The macOS layout: the top bar spans the window under the traffic lights. */
+.docs-console__workspace {
+    display: grid;
+    background: var(--pluto-gray-l2);
+    grid-template-columns: 0.5rem 7.5rem 0.5rem minmax(0, 1fr) 1rem;
+    grid-template-rows: 7rem minmax(0, 1fr) 1rem;
+    grid-template-areas:
+        "top top  top top     top"
+        ".   rail .   content ."
+        ".   .    .   .       .";
+}
+
+.docs-console__top {
+    grid-area: top;
+    padding-left: 2rem;
+    padding-right: 1.5rem;
+
+    > .pluto-navbar__content.pluto--start {
+        min-width: 0;
+        margin-right: 5rem;
+    }
+}
+
+.docs-console__traffic {
+    display: flex;
+    gap: 1.5rem;
+    margin-right: 1rem;
+
+    > span {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #fc5753;
+
+        &:nth-child(2) {
+            background: #fdbc40;
+        }
+
+        &:nth-child(3) {
+            background: #36c84b;
+        }
+    }
+}
+
+.docs-console__rail {
+    grid-area: rail;
+
+    .pluto-navbar__content {
+        z-index: 2;
+        padding: 2rem 0;
+    }
+
+    button {
+        --pluto-height: round(5.333rem, 1px);
+        font-size: var(--pluto-h5-size);
+
+        &.pluto--square {
+            min-width: var(--pluto-height);
+        }
+    }
+
+    .console-project-selector__trigger {
+        --pluto-height: round(6rem, 1px);
+        padding: 0;
+    }
+
+    .pluto-avatar {
+        --pluto-avatar-size: round(5.6667rem, 1px);
+    }
+
+    .docs-console__component-icon {
+        display: contents;
+    }
+
+    .console-palette__btn {
+        margin-bottom: 1rem;
+    }
+
+    .pluto-menu-item {
+        position: relative;
+
+        &::after {
+            content: "";
+            position: absolute;
+            left: round(-1.666rem, 1px);
+            top: 0.5rem;
+            width: 0.5rem;
+            height: calc(100% - 1rem);
+            border-top-right-radius: 0.5rem;
+            border-bottom-right-radius: 0.5rem;
+            background: var(--pluto-primary-z);
+            opacity: 0;
+            transform: scaleY(0);
+            transition:
+                transform 0.15s,
+                opacity 0.15s;
+        }
+
+        &.pluto--selected::after {
+            transform: scaleY(1);
+            opacity: 1;
+        }
+    }
+}
+
+.docs-console__content {
+    grid-area: content;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+    min-height: 0;
+}
+
+.docs-console__main {
+    display: flex;
+    gap: 1rem;
+    flex: 1;
+    min-height: 0;
+}
+
+.docs-console__drawer,
+.docs-console__bottom {
+    overflow: hidden;
+    flex-shrink: 0;
+    box-shadow: var(--pluto-shadow-overlay);
+    transition:
+        opacity 0.12s linear,
+        translate 0.15s ease-out;
+
+    @starting-style {
+        opacity: 0;
+    }
+}
+
+.docs-console__drawer {
+    width: 200px;
+
+    &[data-drawer="arc"] {
+        width: 300px;
+    }
+
+    @starting-style {
+        translate: -2rem 0;
+    }
+}
+
+.docs-console__bottom {
+    height: 200px;
+
+    @starting-style {
+        translate: 0 3rem;
+    }
+}
+
+.console-toolbar__header {
+    padding: 1rem 1.5rem;
+
+    .console-toolbar__action {
+        box-shadow: var(--pluto-shadow-lift);
+    }
+}
+
+.docs-console__bottom-header {
+    height: 6rem;
+    padding: 0 0 0 1.5rem;
+
+    .pluto-tabs {
+        align-self: stretch;
+    }
+
+    .docs-console__toolbar-buttons {
+        height: 100%;
+        align-items: center;
+        padding-right: 1rem;
+    }
+}
+
+.docs-console__toolbar-body {
+    overflow: hidden;
+}
+
+/* Lyra's tree item rules, keyed to this wrapper because the docs restyle .pluto-tree
+   for the page navigation. */
+.docs-console__tree {
+    padding: 1rem;
+
+    .pluto-tree__item {
+        height: 27px;
+        min-height: 27px;
+        flex-shrink: 0;
+        padding: 0 1.5rem 0 var(--pluto-tree-item-offset);
+
+        .pluto-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+        }
+
+        .pluto-icon:not(.pluto-tree__expansion-indicator) {
+            color: var(--pluto-gray-l10);
+        }
+    }
+}
+
+.docs-console__list {
+    padding: 1rem;
+
+    .console-arc__metadata {
+        flex-shrink: 1;
+        overflow: hidden;
+        padding-top: 0.25rem;
+    }
+
+    .console-arc-list-item__status {
+        font-size: 2rem;
+        min-width: 2rem;
+    }
+}
+
+.docs-console__select-trigger .pluto-caret-animated {
+    margin-left: auto;
+}
+
+/* The mosaic: the schematic over the plot on the left, the editor on the right. */
+.docs-console__mosaic {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    overflow: hidden;
+    box-shadow: var(--pluto-shadow-lift);
+
+    > .docs-console__leaf {
+        flex: 1;
+    }
+}
+
+.docs-console__mosaic-column {
+    flex: 0 0 52%;
+    min-width: 0;
+    border-right: var(--pluto-border);
+    display: flex;
+    flex-direction: column;
+
+    > .docs-console__leaf {
+        flex: 1;
+        min-height: 0;
+
+        & + .docs-console__leaf {
+            border-top: var(--pluto-border);
+        }
+    }
+}
+
+.docs-console__leaf {
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
+
+    > .pluto-tabs {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr);
+        width: 100%;
+        height: 100%;
+    }
+
+    > .pluto-tabs > .pluto-tabs__selector.pluto--direction-x {
+        mask-image: none;
+        min-height: 5rem;
+        padding-left: 1rem;
+        --pluto-tabs-tab-height: round(4.3333rem, 1px);
+        --pluto-tabs-tab-align: flex-end;
+        --pluto-tabs-selected-text-color: var(--pluto-gray-l10);
+        --pluto-tabs-selected-min-width: min-content;
+        --pluto-tabs-tab-min-width: 11rem;
+    }
+
+    .pluto-tabs__tab {
+        cursor: default;
+    }
+}
+
+.docs-console__leaf-body {
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pluto-panel-mosaic__cap {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    flex-shrink: 0;
+    align-self: stretch;
+    padding: 0 1rem;
+    background: var(--pluto-gray-l0);
+}
+
+.pluto-panel-mosaic__create {
+    border-radius: var(--pluto-border-radius-small);
+
+    &.pluto-btn.pluto--square > .pluto-icon {
+        width: round(2.25rem, 1px);
+        height: round(2.25rem, 1px);
+    }
+}
+
+/* The schematic opens in view mode, so it has no grid dots. */
+.docs-console__schematic {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: var(--pluto-gray-l0);
+    font-family: var(--pluto-font-family);
+}
+
+.docs-console__symbol {
+    fill: none;
+    stroke: var(--pluto-symbol-display);
+    stroke-width: 2px;
+    vector-effect: non-scaling-stroke;
+}
+
+.docs-console--enabled .docs-console__symbol {
+    fill: var(--pluto-symbol-display);
+}
+
+.docs-console__schematic text {
+    stroke: none;
+}
+
+.docs-console__symbol-label {
+    fill: var(--pluto-text-color);
+    font-size: 14px;
+    font-weight: 450;
+}
+
+.docs-console__pipes path {
+    fill: none;
+    stroke: var(--pluto-symbol-display);
+    stroke-width: 2px;
+}
+
+.docs-console__tank-fill {
+    fill: #dc136c;
+}
+
+.docs-console__value-box {
+    fill: none;
+    stroke: var(--pluto-symbol-display);
+    stroke-width: 2px;
+}
+
+.docs-console__value-divider {
+    stroke: var(--pluto-symbol-display);
+    stroke-width: 2px;
+}
+
+.docs-console__value {
+    fill: var(--pluto-gray-l11);
+    font-family: var(--pluto-code-font-family);
+    font-size: 16px;
+}
+
+.docs-console__value-units {
+    fill: var(--pluto-gray-l11);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.docs-console__symbol-button {
+    cursor: pointer;
+
+    rect {
+        fill: #3774d0;
+        stroke: #3774d0;
+        stroke-width: 1px;
+    }
+
+    text {
+        fill: #fff;
+        font-size: 13px;
+        font-weight: 400;
+    }
+
+    &:hover {
+        opacity: 0.85;
+    }
+
+    &:active {
+        opacity: 0.6;
+    }
+}
+
+.docs-console__symbol-button--danger rect {
+    fill: #f5242e;
+    stroke: #f5242e;
+}
+
+.docs-console__plot {
+    position: absolute;
+    inset: 0;
+
+    > svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+}
+
+.docs-console__plot-grid {
+    stroke: var(--pluto-gray-l3);
+    stroke-width: 1px;
+}
+
+.docs-console__plot-axis {
+    stroke: var(--pluto-gray-l6);
+    stroke-width: 1px;
+}
+
+.docs-console__plot-tick {
+    fill: var(--pluto-gray-l9);
+    font-family: var(--pluto-code-font-family);
+    font-size: 9px;
+}
+
+.docs-console__plot-line {
+    fill: none;
+    stroke-width: 1.5px;
+    stroke-linejoin: round;
+}
+
+.docs-console__legend {
+    position: absolute;
+    top: 3rem;
+    left: 9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l5);
+    border-radius: var(--pluto-border-radius-small);
+    background: var(--pluto-gray-l1);
+
+    .pluto-text {
+        color: var(--pluto-gray-l11);
+    }
+}
+
+.docs-console__legend-swatch {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+}
+
+.docs-console__editor {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.docs-console__code {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--pluto-gray-l5) transparent;
+
+    pre.astro-code {
+        margin: 0;
+        padding: 1rem 0 2rem;
+        border: none;
+        border-radius: 0;
+        background-color: transparent !important;
+        counter-reset: docs-console-line;
+    }
+
+    pre.astro-code code {
+        font-family: var(--pluto-code-font-family);
+        font-size: 10.5px;
+        line-height: 16px;
+    }
+
+    .line::before {
+        counter-increment: docs-console-line;
+        content: counter(docs-console-line);
+        display: inline-block;
+        width: 4.5rem;
+        margin-right: 2rem;
+        text-align: right;
+        color: var(--pluto-gray-l7);
+    }
+}
+
+/* The Console's task controls, with its container queries for narrow editors. */
+.docs-console__editor {
+    container-type: inline-size;
+
+    .docs-console__code {
+        padding-bottom: 11rem;
+    }
+
+    &::after {
+        content: "";
+        position: absolute;
+        bottom: 10rem;
+        left: 0;
+        right: 0;
+        height: 5rem;
+        background: linear-gradient(to bottom, transparent, var(--pluto-gray-l0));
+        pointer-events: none;
+    }
+}
+
+.console-task-controls {
+    position: absolute;
+    z-index: 1;
+    bottom: 2rem;
+    left: 2rem;
+    right: 2rem;
+    max-width: calc(100% - 4rem);
+    max-height: min-content;
+    border-color: var(--pluto-gray-l6);
+    background-color: var(--pluto-gray-l1);
+    box-shadow: var(--pluto-shadow-overlay);
+
+    > .console-task-status {
+        position: relative;
+        flex: 1 1 auto;
+        height: auto;
+        min-height: 100%;
+        width: 100%;
+        padding: 2rem;
+        border-right: var(--pluto-border);
+        cursor: default;
+
+        &:hover {
+            background: var(--pluto-gray-l2);
+        }
+    }
+
+    .console-task-status__expand-indicator {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        color: var(--pluto-gray-l9);
+        font-size: 2rem;
+    }
+
+    .console-task-status__message {
+        width: 100%;
+        padding-right: 4rem;
+    }
+
+    .console-task-status__message-content {
+        min-width: 0;
+    }
+
+    .console-task-status__message-text {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .console-task-controls__actions {
+        padding: 2rem;
+        gap: 1rem;
+        flex-shrink: 0;
+    }
+
+    .console-rack-select {
+        flex-grow: 1;
+        min-width: 200px;
+    }
+}
+
+@container (max-width: 600px) {
+    .docs-console__editor .docs-console__code {
+        padding-bottom: 21rem;
+    }
+
+    .console-task-controls {
+        flex-direction: column !important;
+        overflow: hidden;
+
+        > .console-task-status {
+            min-height: 10rem;
+            border-right: none;
+            border-bottom: var(--pluto-border);
+        }
+
+        .console-task-controls__actions {
+            width: 100%;
+            align-self: flex-end;
+        }
+    }
+}
+
+@container (max-width: 400px) {
+    .console-task-controls .console-rack-select {
+        display: none;
+    }
+}
+
+.docs-console__fields {
+    gap: 1.5rem;
+    padding: 2rem;
+
+    .docs-console__field-x {
+        max-width: 400px;
+        width: 100%;
+
+        > .pluto-dialog__trigger {
+            flex: 1;
+        }
+    }
+}
+
+.docs-console__bottom-empty {
+    height: calc(100% - 6rem);
+}
+
+.docs-console__palette {
+    position: absolute;
+    top: 9rem;
+    left: 50%;
+    z-index: 10;
+    width: 60%;
+    translate: -50% 0;
+    overflow: hidden;
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l6);
+    border-radius: var(--pluto-border-radius-large);
+    background: var(--pluto-gray-l1);
+    box-shadow: var(--pluto-shadow-overlay);
+    transition:
+        opacity 0.1s,
+        translate 0.1s;
+
+    @starting-style {
+        opacity: 0;
+        translate: -50% -1rem;
+    }
+}
+
+.docs-console__palette-input {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    height: 7rem;
+    padding: 0 2rem;
+    border-bottom: var(--pluto-border);
+    color: var(--pluto-gray-l9);
+    font-size: var(--pluto-h5-size);
+}
+
+.docs-console__palette-caret {
+    width: 1px;
+    height: 2.5rem;
+    margin-left: -1rem;
+    background: var(--pluto-gray-l11);
+    animation: docs-console-blink 1s steps(1) infinite;
+}
+
+@keyframes docs-console-blink {
+    50% {
+        opacity: 0;
+    }
+}
+
+.docs-console__palette-list {
+    padding: 0.5rem 0;
+}
+
+.docs-console__palette-item {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    height: 5.5rem;
+    padding: 0 2rem;
+    color: var(--pluto-gray-l11);
+
+    > .pluto-icon {
+        color: var(--pluto-gray-l10);
+    }
+}
+
+.docs-console__palette-item--selected {
+    background: var(--pluto-gray-l4);
+}
+
+/* The tour: a spotlight on the active part, a card that points at it, and a progress
+   bar of every step. */
+.docs-console {
+    container-type: inline-size;
+    align-items: stretch;
+    font-family: var(--pluto-font-family);
+}
+
+.docs-console__frame {
+    position: relative;
+}
+
+.docs-console__stage {
+    position: relative;
+    isolation: isolate;
+}
+
+.docs-console__spotlight {
+    position: absolute;
+    z-index: 10;
+    border-radius: 1.5rem;
+    pointer-events: none;
+    opacity: 0;
+    box-shadow:
+        0 0 0 2px var(--pluto-primary-z),
+        0 0 0 200vmax color-mix(in srgb, var(--pluto-gray-l0) 62%, transparent);
+    transition:
+        left 0.3s ease,
+        top 0.3s ease,
+        width 0.3s ease,
+        height 0.3s ease,
+        opacity 0.2s ease;
+
+    &.docs-console--active {
+        opacity: 1;
+    }
+}
+
+.docs-console__card {
+    position: absolute;
+    z-index: 1;
+    width: 300px;
+    padding: 2.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l5);
+    border-radius: 1.5rem;
+    background: var(--pluto-gray-l1);
+    box-shadow: var(--pluto-shadow-overlay);
+    text-align: left;
+    font-style: normal;
+    transition:
+        left 0.3s ease,
+        top 0.3s ease;
+}
+
+.docs-console__card-arrow {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: var(--pluto-gray-l1);
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l5);
+    rotate: 45deg;
+    translate: -50% -50%;
+
+    &[data-side=""] {
+        display: none;
+    }
+
+    &[data-side="left"] {
+        left: 0;
+        border-top-color: transparent;
+        border-right-color: transparent;
+    }
+
+    &[data-side="right"] {
+        left: 100%;
+        border-bottom-color: transparent;
+        border-left-color: transparent;
+    }
+
+    &[data-side="top"] {
+        top: 0;
+        border-right-color: transparent;
+        border-bottom-color: transparent;
+    }
+
+    &[data-side="bottom"] {
+        top: 100%;
+        border-top-color: transparent;
+        border-left-color: transparent;
+    }
+}
+
+.docs-console__card-meta {
+    color: var(--pluto-gray-l8);
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
+
+    &:empty {
+        display: none;
+    }
+}
+
+.docs-tour__step {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    color: var(--docs-body-color, var(--pluto-gray-l10));
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
+
+    h2.docs-tour__step-title {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        margin: 0;
+        padding: 0;
+        border: none;
+        color: var(--pluto-gray-l11);
+        font-size: var(--pluto-h5-size);
+        font-weight: 500;
+        line-height: var(--pluto-h5-line-height);
+    }
+
+    kbd {
+        padding: 0 1rem;
+        border: var(--pluto-border);
+        border-radius: var(--pluto-border-radius-small);
+        background: var(--pluto-gray-l2);
+        color: var(--pluto-gray-l10);
+        font-family: var(--pluto-code-font-family);
+        font-size: var(--pluto-small-size);
+        font-weight: 400;
+    }
+
+    :is(p, ul, li, .edition-block) {
+        margin: 0;
+        font: inherit;
+        color: inherit;
+    }
+
+    ul {
+        padding-left: 2.5rem;
+    }
+
+    .pluto-icon {
+        vertical-align: middle;
+    }
+}
+
+.docs-console__card-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.docs-console__progress {
+    display: flex;
+    align-items: flex-end;
+    gap: 2rem;
+    margin-top: 3rem;
+    padding: 0 0.5rem;
+
+    > .docs-console__start {
+        flex-shrink: 0;
+    }
+}
+
+.docs-console__progress-group {
+    display: flex;
+    flex-direction: column;
+    flex-basis: 0;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.docs-console__progress-label {
+    color: var(--pluto-gray-l8);
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
+    white-space: nowrap;
+    transition: color 0.2s;
+
+    .docs-console__progress-group.docs-console--active > & {
+        color: var(--pluto-gray-l11);
+    }
+}
+
+.docs-console__progress-steps {
+    display: flex;
+    gap: 0.75rem;
+}
+
+/* The hit area is taller than the bar it draws. */
+.docs-console__progress-step {
+    flex: 1;
+    height: 3rem;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+
+    &::before {
+        content: "";
+        display: block;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--pluto-gray-l4);
+        transition: background 0.2s;
+    }
+
+    &:hover::before {
+        background: var(--pluto-gray-l7);
+    }
+
+    &.docs-console--done::before {
+        background: oklch(from var(--pluto-primary-z) l c h / 45%);
+    }
+
+    &.docs-console--active::before {
+        background: var(--pluto-primary-z);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pluto-primary-z);
+        outline-offset: 2px;
+        border-radius: 2px;
+    }
+}
+
+/* Below this width the card no longer fits beside a part, so it sits under the
+   Console. */
+@container (max-width: 720px) {
+    .docs-console__card {
+        position: static;
+        width: auto;
+        margin-top: 2rem;
+        box-shadow: none;
+    }
+
+    .docs-console__progress {
+        gap: 1rem;
+    }
+
+    .docs-console__progress-label {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .docs-console * {
+        animation: none !important;
+        transition: none !important;
+    }
+}

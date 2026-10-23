@@ -69,8 +69,8 @@ The `install` command creates a `synnax` system user, the empty environment file
 `/etc/synnax/driver.env`, and the `synnax-driver` service. It does not start the
 service. It gives the service real-time permission and writes the udev rule
 `/etc/udev/rules.d/99-synnax-driver-latency.rules`, so Arc automations can run with
-[precise timing](/reference/control/arc/timing#linux). After you upgrade the Driver, run
-`sudo synnax-driver install` again.
+[precise timing](/reference/control/arc/timing?platform=Linux#get-the-best-timing-from-a-computer).
+After you upgrade the Driver, run `sudo synnax-driver install` again.
 
 </Fragment>
 <Fragment slot="Windows">
@@ -210,19 +210,42 @@ synnax-driver start --standalone
 
 ## <Step step="4" level="h2">Check the Driver</Step>
 
-On Linux and NI Linux Real-Time, check the service:
+<Driver.Tabs>
+<Fragment slot="ni-linux-rt">
+
+Check the service:
 
 ```bash
 synnax-driver status
 ```
 
-On NI Linux Real-Time, a running Driver prints:
+A running Driver prints:
 
 ```
 Synnax Driver is running (PID: 28191)
 ```
 
-On Windows and macOS, the terminal that runs the Driver shows its logs.
+</Fragment>
+<Fragment slot="Linux">
+
+Check the service:
+
+```bash
+synnax-driver status
+```
+
+</Fragment>
+<Fragment slot="Windows">
+
+The terminal that runs the Driver shows its logs.
+
+</Fragment>
+<Fragment slot="macOS">
+
+The terminal that runs the Driver shows its logs.
+
+</Fragment>
+</Driver.Tabs>
 
 The Driver shows in the devices toolbar under the host name of its computer. To connect
 devices to it, see [Devices](/reference/hardware/devices).

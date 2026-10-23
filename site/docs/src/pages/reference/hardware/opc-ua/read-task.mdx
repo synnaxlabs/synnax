@@ -215,9 +215,9 @@ The Console creates each channel with the data type of its node:
 
 ## Troubleshooting
 
-### `Invalid NodeId format`
+<Problem.List>
 
-<Problem.Body>
+<Problem.Item message={"Invalid NodeId format"}>
 <Problem.Cause>
 
 The node ID is not in the form `NS=<namespace>;<type>=<identifier>`.
@@ -228,11 +228,9 @@ The node ID is not in the form `NS=<namespace>;<type>=<identifier>`.
 Write `NS` and the type in uppercase.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `... (NS=...): The node id refers to a node that does not exist in the server address space.`
-
-<Problem.Body>
+<Problem.Item message={"... (NS=...): The node id refers to a node that does not exist in the server address space."}>
 <Problem.Cause>
 
 The server has no node with that ID.
@@ -243,11 +241,9 @@ The server has no node with that ID.
 Drag the node from the **Browser** again.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `OPC UA array for ... is too small` or `... is too large`
-
-<Problem.Body>
+<Problem.Item message={["OPC UA array for ... is too small", "... is too large"]}>
 <Problem.Cause>
 
 An array node has a different number of values than **Array size**.
@@ -258,11 +254,9 @@ An array node has a different number of values than **Array size**.
 Set **Array size** to the length of the array.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `Invalid OPC UA data detected for channel ...`
-
-<Problem.Body>
+<Problem.Item message={"Invalid OPC UA data detected for channel ..."}>
 <Problem.Cause>
 
 The server sent a value that the Driver cannot convert. The Driver skips the frame.
@@ -273,11 +267,9 @@ The server sent a value that the Driver cannot convert. The Driver skips the fra
 Check the data type of the node.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `Channel ... already exists as ...`
-
-<Problem.Body>
+<Problem.Item message={"Channel ... already exists as ..."}>
 <Problem.Cause>
 
 Another task already reads the node into that channel.
@@ -288,11 +280,9 @@ Another task already reads the node into that channel.
 Move the channels to one task.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `Failed to browse OPC UA nodes`
-
-<Problem.Body>
+<Problem.Item message={"Failed to browse OPC UA nodes"}>
 <Problem.Cause>
 
 The Driver could not browse the server.
@@ -304,6 +294,8 @@ Check the
 [server connection](/reference/hardware/opc-ua/connect-server#troubleshooting).
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
+
+</Problem.List>
 
 For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

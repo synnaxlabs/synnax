@@ -9,6 +9,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Channel } from "@/components/channel";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -57,6 +58,8 @@ the PDO at `0x3101:02` is `ai1_0x3101_2`, with the index channel `ai1_time`.
 
 Starting a task restarts the network on that port. Other tasks on the port pause for a
 moment.
+
+<Video id="hardware/ethercat/read-task" />
 
   </Fragment>
   <Fragment slot="python">

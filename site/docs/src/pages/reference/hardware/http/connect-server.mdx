@@ -161,9 +161,9 @@ In code, `auth` is a dictionary:
 
 ## Troubleshooting
 
-### `Failed to reach server`
+<Problem.List>
 
-<Problem.Body>
+<Problem.Item message={"Failed to reach server"}>
 <Problem.Cause>
 
 The server passed the test in the **Connect** dialog, but the health check or a task
@@ -178,11 +178,9 @@ which is 100 ms by default.
 2. Increase **Expected response time**.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `Failed to execute HTTP request`
-
-<Problem.Body>
+<Problem.Item message={"Failed to execute HTTP request"}>
 <Problem.Cause>
 
 The Driver could not reach the address. The description shows the reason.
@@ -195,11 +193,9 @@ The Driver could not reach the address. The description shows the reason.
 3. For a server with a self-signed certificate, turn off **Verify SSL**.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `HTTP 401` or `HTTP 403`
-
-<Problem.Body>
+<Problem.Item message={["HTTP 401", "HTTP 403"]}>
 <Problem.Cause>
 
 The server rejected the credentials.
@@ -210,6 +206,8 @@ The server rejected the credentials.
 Check the [authentication](#authentication) settings.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
+
+</Problem.List>
 
 For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

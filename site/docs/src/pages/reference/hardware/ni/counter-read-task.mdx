@@ -11,6 +11,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Channel } from "@/components/channel";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -51,6 +52,8 @@ The Driver reads the counters on the computer clock, at the **Sample rate**. See
 
 The Console creates the channels. For a device with the identifier `dev1`, counter 0
 gives `dev1_ctr_0`, with the index channel `dev1_ctr_time`.
+
+<Video id="hardware/ni/counter-read-task" />
 
   </Fragment>
   <Fragment slot="python">
@@ -420,9 +423,9 @@ and **Scaled units** (`scaled_units`).
 
 ## Troubleshooting
 
-### `Counter port ... has already been used on another channel on the same device`
+<Problem.List>
 
-<Problem.Body>
+<Problem.Item message={"Counter port ... has already been used on another channel on the same device"}>
 <Problem.Cause>
 
 Two channels use the same counter of one device.
@@ -433,11 +436,9 @@ Two channels use the same counter of one device.
 Change the port of one of them.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `No device provided for channel ...`
-
-<Problem.Body>
+<Problem.Item message={"No device provided for channel ..."}>
 <Problem.Cause>
 
 A Python channel has no `device`, and the task has no `device` either.
@@ -448,11 +449,9 @@ A Python channel has no `device`, and the task has no `device` either.
 Set one of them.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `Cannot create task with channels from multiple racks`
-
-<Problem.Body>
+<Problem.Item message={"Cannot create task with channels from multiple racks"}>
 <Problem.Cause>
 
 The channels use devices on two Drivers.
@@ -463,7 +462,9 @@ The channels use devices on two Drivers.
 Create one task for each Driver.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
+
+</Problem.List>
 
 For other problems, see
 [Configure an NI device](/reference/hardware/ni/configure-device#troubleshooting) and

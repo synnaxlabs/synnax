@@ -275,9 +275,9 @@ const PALETTE_READ_MS = 700;
 
 /**
  * openPalette clicks the palette button, clears any stale query, and holds so the
- * viewer sees it open.
+ * viewer sees it open. Returns the palette's dialog.
  */
-const openPalette = async (session: CaptureSession): Promise<Locator> => {
+export const openPalette = async (session: CaptureSession): Promise<Locator> => {
   const { page } = session;
   // No zoom: the dialog spans most of the window, so any zoom deep enough to read
   // as one crops its edges.

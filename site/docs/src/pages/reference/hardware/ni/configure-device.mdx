@@ -99,9 +99,9 @@ device that the Driver finds, and the Console cannot use it.
 
 ## Troubleshooting
 
-### The device does not show in the devices toolbar
+<Problem.List>
 
-<Problem.Body>
+<Problem.Item symptom={"The device does not show in the devices toolbar."}>
 <Problem.Cause>
 
 The Driver cannot load NI-DAQmx, or it skips the device.
@@ -117,11 +117,9 @@ For more causes, see
 [Troubleshoot hardware](/reference/hardware/troubleshooting#a-device-does-not-show-in-the-devices-toolbar).
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `Cannot create the task because the NI-DAQmx and System Configuration libraries are not installed`
-
-<Problem.Body>
+<Problem.Item message={"Cannot create the task because the NI-DAQmx and System Configuration libraries are not installed"}>
 <Problem.Cause>
 
 The Driver cannot load the NI-DAQmx and System Configuration libraries.
@@ -133,11 +131,9 @@ The Driver cannot load the NI-DAQmx and System Configuration libraries.
 2. Restart the Driver.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `The device is temporarily unreachable. Will keep trying`
-
-<Problem.Body>
+<Problem.Item message={"The device is temporarily unreachable. Will keep trying"}>
 <Problem.Cause>
 
 The Driver lost the connection to the device.
@@ -148,6 +144,8 @@ The Driver lost the connection to the device.
 Check the cable and the power. The task continues when the device comes back.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
+
+</Problem.List>
 
 For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

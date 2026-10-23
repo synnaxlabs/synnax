@@ -18,8 +18,8 @@ interface Props {
 const { title, trigger, key, anchor } = find(Astro.props.step);
 ---
 
-<section class="docs-console__step" id={anchor} data-step={key} hidden>
-    <h2 class="docs-console__step-title">
+<section class="docs-tour__step" id={anchor} data-step={key} hidden>
+    <h2 class="docs-tour__step-title">
         {title} {trigger != null && <kbd>{trigger}</kbd>}
     </h2>
     <slot />

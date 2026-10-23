@@ -154,9 +154,9 @@ A `uint8` channel writes a Boolean, so the task cannot write to a Byte node.
 
 ## Troubleshooting
 
-### `... (NS=...): The value supplied for the attribute is not of the same type as the attribute's value.`
+<Problem.List>
 
-<Problem.Body>
+<Problem.Item message={"... (NS=...): The value supplied for the attribute is not of the same type as the attribute's value."}>
 <Problem.Cause>
 
 The data type of the command channel does not match the type of the node.
@@ -168,11 +168,9 @@ Use the data type from the [table](#channel-reference). For example, a Double no
 a `float64` channel.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `... (NS=...): The access level does not allow writing to the Node.`
-
-<Problem.Body>
+<Problem.Item message={"... (NS=...): The access level does not allow writing to the Node."}>
 <Problem.Cause>
 
 The node is read only on the server, or the user of the connection cannot write to it.
@@ -183,11 +181,9 @@ The node is read only on the server, or the user of the connection cannot write 
 Make the node writable on the server, or connect with a user that can write to it.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `Invalid NodeId format`
-
-<Problem.Body>
+<Problem.Item message={"Invalid NodeId format"}>
 <Problem.Cause>
 
 The node ID is not in the form `NS=<namespace>;<type>=<identifier>`.
@@ -198,17 +194,17 @@ The node ID is not in the form `NS=<namespace>;<type>=<identifier>`.
 Write `NS` and the type in uppercase.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### The server disconnects during a write
-
-<Problem.Body>
+<Problem.Item symptom={"The server disconnects during a write."}>
 <Problem.Cause>
 
 The Driver connects again once and repeats the write. If the second write fails, the
 task shows the error.
 
 </Problem.Cause>
-</Problem.Body>
+</Problem.Item>
+
+</Problem.List>
 
 For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

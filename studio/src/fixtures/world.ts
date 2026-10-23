@@ -14,6 +14,7 @@ import {
   type channel,
   ni,
   project,
+  type rack,
   type Synnax,
   task,
   TimeSpan,
@@ -91,6 +92,8 @@ const SAMPLE = TimeSpan.milliseconds(40);
 const HISTORY = TimeSpan.seconds(60);
 /** Wall-clock interval at which the stand catches up to its clock. */
 const POLL_MS = 10;
+/** Wall-clock interval between the DAQ rack's "Driver is running" heartbeats. */
+const HEARTBEAT_MS = 1000;
 /** Fuel tank pressure while the fuel side stands by, in psi. */
 const FUEL_HOLD = 42;
 /** Idle seconds recorded before and after each past run. */
@@ -277,16 +280,17 @@ const pastRun = (press: number): Array<Record<string, number>> => {
 const DAQ_DEVICE = "01F3A8C2";
 
 /**
- * hardware registers the stand's DAQ card with an analog read task that acquires every
- * sensor, and adds a Hardware panel holding the task's form to the project. The task is
- * never deployed, since the stand has no real card.
+ * hardware registers the stand's DAQ card on its own rack with an analog read task that
+ * acquires every sensor, and adds a Hardware panel holding the task's form to the
+ * project. The task is never deployed, since the stand has no real card. Returns the
+ * rack and the task.
  */
 const hardware = async (
   client: Synnax,
   proj: project.Key,
   daq: channel.Key,
   key: (name: string) => channel.Key,
-): Promise<void> => {
+): Promise<{ rack: rack.Rack; task: task.Task }> => {
   const rack = await client.racks.create({
     name: "Test stand DAQ",
     integrations: ["ni"],
@@ -369,6 +373,43 @@ const hardware = async (
       tabs: [{ variant: "resource", resource: task.ontologyID(acquire.key) }],
     },
   });
+  return { rack, task: acquire };
+};
+
+/**
+ * report writes the statuses a Driver writes while it runs the stand's DAQ task, since
+ * the simulation stands in for the card.
+ */
+const report = async (
+  client: Synnax,
+  { rack, task: acquire }: { rack: rack.Rack; task: task.Task },
+): Promise<void> => {
+  await client.statuses.set({
+    key: `rack:${rack.key}`,
+    name: rack.name,
+    variant: "success",
+    message: "Driver is running",
+    details: { rack: rack.key },
+  });
+  await client.statuses.set({
+    key: `device:${DAQ_DEVICE}`,
+    name: "NI PXIe-6363",
+    variant: "success",
+    message: "Device present",
+    details: { rack: rack.key, device: DAQ_DEVICE },
+  });
+  await client.statuses.set({
+    key: task.statusKey(acquire.key),
+    name: acquire.name,
+    variant: "success",
+    message: "Task started successfully",
+    details: {
+      task: acquire.key,
+      running: true,
+      configHash: acquire.configHash,
+      rack: rack.key,
+    },
+  });
 };
 
 /**
@@ -378,7 +419,7 @@ const hardware = async (
  * hardware, and review). It deploys the Ox Coldflow
  * Arc program to the Core, where the Start Sequence button runs it, and simulates the
  * stand until stopped: valves follow their commands, and tank, pressurant, and feed
- * readings follow the valves.
+ * readings follow the valves. The DAQ card's rack and task report that they run.
  */
 export const testStand = async ({
   now = () => TimeStamp.now(),
@@ -459,7 +500,7 @@ export const testStand = async ({
   );
   const bundle = new Uint8Array(await new Response(zip.create(files)).arrayBuffer());
   const imported = await client.projects.import(bundle, { fileName: "TPC.zip" });
-  await hardware(client, imported.key, daq, key);
+  const daqHardware = await hardware(client, imported.key, daq, key);
 
   const task = await startArc(
     client,
@@ -491,6 +532,12 @@ export const testStand = async ({
   const logged: string[] = [];
   const latest = new Map<string, number>(SENSORS.map((s) => [s, 0]));
   let running = true;
+  const heartbeat = (async () => {
+    while (running) {
+      await report(client, daqHardware);
+      await new Promise((resolve) => setTimeout(resolve, HEARTBEAT_MS));
+    }
+  })();
   const sim = (async () => {
     while (running) {
       await new Promise((resolve) => setTimeout(resolve, POLL_MS));
@@ -545,7 +592,7 @@ export const testStand = async ({
       await task.stop();
       running = false;
       streamer.close();
-      await Promise.all([commands, sim]);
+      await Promise.all([commands, sim, heartbeat]);
       await client.close();
     },
   };

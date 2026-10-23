@@ -8,6 +8,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -44,6 +45,8 @@ The Driver reads the lines on the computer clock, at the **Sample rate**. See
 
 The Console creates the channels. For a device with the identifier `dev1`, port 0, line
 1 gives `dev1_di_0_1`, with the index channel `dev1_di_time`.
+
+<Video id="hardware/ni/digital-read-task" />
 
   </Fragment>
   <Fragment slot="python">
@@ -140,9 +143,9 @@ table shows the Console label of each setting, with its Python field under it.
 
 ## Troubleshooting
 
-### `Port ..., line ... has already been used on another channel`
+<Problem.List>
 
-<Problem.Body>
+<Problem.Item message={"Port ..., line ... has already been used on another channel"}>
 <Problem.Cause>
 
 Two channels use the same line.
@@ -153,7 +156,9 @@ Two channels use the same line.
 Change the port or the line of one of them.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
+
+</Problem.List>
 
 For other problems, see
 [Configure an NI device](/reference/hardware/ni/configure-device#troubleshooting) and

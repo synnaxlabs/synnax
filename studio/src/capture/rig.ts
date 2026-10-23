@@ -74,6 +74,9 @@ export interface CaptureOptions {
 /** Mirrors DEV_PORT_KEY in console/src/platform/core/detectConnection.ts. */
 const DEV_PORT_KEY = "synnax-dev-connection-port";
 
+/** WebP quality of a still, from 0 to 100. */
+const STILL_QUALITY = 92;
+
 /**
  * Pauses any newly discovered Web Animations (CSS transitions/animations, WAAPI)
  * and advances them manually per tick, so compositor-clocked motion steps in
@@ -138,6 +141,30 @@ const workerClock = (origin: number): string => `(() => {
 })()`;
 
 /**
+ * Counts a worker's animation frames, so a still can wait for the Aether worker to
+ * draw. The worker draws on its own frames, which the virtual clock does not reach.
+ */
+const WORKER_FRAMES = `(() => {
+  const raf = globalThis.requestAnimationFrame?.bind(globalThis);
+  if (raf == null) return;
+  let frames = 0;
+  let last;
+  const waiters = [];
+  globalThis.requestAnimationFrame = (cb) =>
+    raf((t) => {
+      cb(t);
+      if (t === last) return;
+      last = t;
+      frames++;
+      while (waiters.length > 0 && waiters[0].at <= frames) waiters.shift().resolve();
+    });
+  globalThis.__studioFrames = (n) =>
+    frames === 0
+      ? Promise.resolve()
+      : new Promise((resolve) => waiters.push({ at: frames + n, resolve }));
+})()`;
+
+/**
  * CaptureSession drives the Console under a stepped virtual clock, saving one
  * lossless PNG per tick while recording and logging every synthetic input event
  * to the timeline. Actions dispatch real Playwright input; the on-screen cursor
@@ -151,6 +178,7 @@ export class CaptureSession {
   private readonly events: Event[] = [];
   private readonly samplers = new Map<string, () => number>();
   private readonly tracks: Record<string, number[]> = {};
+  private readonly stills: Record<string, Record<string, Rect>> = {};
   private frame = 0;
   private appMs = 0;
   /** Wall time in epoch milliseconds at which the virtual clock started. */
@@ -221,7 +249,10 @@ export class CaptureSession {
     await page.clock.install({ time: origin });
     const workers = new Set<Promise<Worker>>();
     page.on("worker", (worker) => {
-      const installed = worker.evaluate(workerClock(origin)).then(() => worker);
+      const installed = worker
+        .evaluate(workerClock(origin))
+        .then(async () => await worker.evaluate(WORKER_FRAMES))
+        .then(() => worker);
       workers.add(installed);
       worker.on("close", () => workers.delete(installed));
     });
@@ -300,13 +331,27 @@ export class CaptureSession {
       this.stepMs,
     );
     if (!this.recording) return;
+    const data = await this.grab("png", true);
+    for (const [track, sample] of this.samplers) this.tracks[track].push(sample());
+    const name = String(this.frame).padStart(6, "0");
+    await writeFile(path.join(this.opts.outDir, "frames", `${name}.png`), data);
+    this.frame++;
+  }
+
+  /** grab captures the viewport at full device resolution. */
+  private async grab(
+    format: "png" | "webp",
+    optimizeForSpeed: boolean,
+    quality?: number,
+  ): Promise<Buffer> {
     // A plain surface capture returns CSS-pixel resolution even when the context
     // emulates a higher device scale factor; the clip's scale forces rendering at
     // full device resolution (width*dsf x height*dsf).
     const { data } = await this.cdp.send("Page.captureScreenshot", {
-      format: "png",
+      format,
+      quality,
       fromSurface: true,
-      optimizeForSpeed: true,
+      optimizeForSpeed,
       captureBeyondViewport: false,
       clip: {
         x: 0,
@@ -316,13 +361,66 @@ export class CaptureSession {
         scale: this.opts.dsf,
       },
     });
-    for (const [track, sample] of this.samplers) this.tracks[track].push(sample());
-    const name = String(this.frame).padStart(6, "0");
+    return Buffer.from(data, "base64");
+  }
+
+  /**
+   * still saves the current frame as `<outDir>/stills/<name>.webp`, and the box around
+   * each region's elements, in CSS pixels, to `<outDir>/stills/regions.json`. Recording
+   * does not need to be on. Throws when a region matches no visible element or runs off
+   * the screen, or when the name is already taken.
+   */
+  async still(
+    name: string,
+    regions: Record<string, Locator | Locator[]> = {},
+  ): Promise<void> {
+    if (name in this.stills) throw new Error(`still "${name}" is already taken`);
+    const boxes: Record<string, Rect> = {};
+    for (const [region, targets] of Object.entries(regions)) {
+      const rects = [];
+      for (const target of Array.isArray(targets) ? targets : [targets])
+        for (const el of await target.all()) {
+          const box = await el.boundingBox();
+          if (box != null && box.width > 0 && box.height > 0) rects.push(box);
+        }
+      if (rects.length === 0)
+        throw new Error(`region "${region}" of still "${name}" shows nothing`);
+      const left = Math.min(...rects.map((r) => r.x));
+      const top = Math.min(...rects.map((r) => r.y));
+      const right = Math.max(...rects.map((r) => r.x + r.width));
+      const bottom = Math.max(...rects.map((r) => r.y + r.height));
+      if (left < 0 || top < 0 || right > this.opts.width || bottom > this.opts.height)
+        throw new Error(`region "${region}" of still "${name}" runs off the screen`);
+      const round = (v: number): number => Math.round(v * 100) / 100;
+      boxes[region] = {
+        x: round(left),
+        y: round(top),
+        width: round(right - left),
+        height: round(bottom - top),
+      };
+    }
+    this.stills[name] = boxes;
+    await this.drawn();
+    const dir = path.join(this.opts.outDir, "stills");
+    await mkdir(dir, { recursive: true });
     await writeFile(
-      path.join(this.opts.outDir, "frames", `${name}.png`),
-      Buffer.from(data, "base64"),
+      path.join(dir, `${name}.webp`),
+      await this.grab("webp", false, STILL_QUALITY),
     );
-    this.frame++;
+    const { width, height } = this.opts;
+    await writeFile(
+      path.join(dir, "regions.json"),
+      JSON.stringify({ width, height, stills: this.stills }, null, 2),
+    );
+  }
+
+  /** drawn waits for every worker that animates to draw two more frames. */
+  private async drawn(): Promise<void> {
+    await Promise.all(
+      [...this.workers].map(
+        async (w) => await (await w).evaluate("globalThis.__studioFrames?.(2)"),
+      ),
+    );
   }
 
   /** settle advances virtual time without capturing; use during setup. */

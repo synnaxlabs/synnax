@@ -89,6 +89,14 @@ theme, so batch prunes them after a successful render (`--keep-frames` retains t
 `produce --skip-capture` iteration). Draft renders are refused by `pnpm upload` unless
 `--allow-draft` is passed.
 
+An entry with `stills` produces stills instead of a video. Its script saves each one
+with `session.still(name, regions)`, which also records the box of each named region.
+Batch captures both themes, skips the render, and writes the stills to
+`out/stills/<id>/<version>/<name>-<theme>.webp`, where `<version>` hashes their content.
+It writes the version and the regions to the entry's `regions` path, and fails when the
+two themes disagree. Upload serves each still at
+`docs/<id>/<version>/<name>-<theme>.webp`, so the CDN never serves a cached old still.
+
 ## One-off production
 
 For iterating on a single script, outside the manifest:

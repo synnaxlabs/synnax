@@ -12,6 +12,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
 import { Channel } from "@/components/channel";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -52,6 +53,8 @@ module fails to start with an NI-DAQmx error that says the resource is reserved.
 The Console creates the channels. For a device with the identifier `dev1`, port 0 gives
 `dev1_ai_0`, and the built-in temperature sensor gives `dev1_ai_temp`. Each device has
 an index channel, such as `dev1_ai_time`.
+
+<Video id="hardware/ni/analog-read-task" />
 
   </Fragment>
   <Fragment slot="python">
@@ -897,9 +900,9 @@ and **Scaled units** (`scaled_units`).
 
 ## Troubleshooting
 
-### `configured sample rate ... is below device minimum ...`
+<Problem.List>
 
-<Problem.Body>
+<Problem.Item message={"configured sample rate ... is below device minimum ..."}>
 <Problem.Cause>
 
 The device cannot sample that slowly.
@@ -910,11 +913,9 @@ The device cannot sample that slowly.
 Raise the **Sample rate** to at least the minimum in the message.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### The task does not start, with an error that says the resource is reserved
-
-<Problem.Body>
+<Problem.Item symptom={"The task does not start, with an error that says the resource is reserved."}>
 <Problem.Cause>
 
 Another running task uses the analog inputs of the same module.
@@ -925,11 +926,9 @@ Another running task uses the analog inputs of the same module.
 Stop the other task, or move its channels into this task.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `Port ... has already been used on another channel on the same device`
-
-<Problem.Body>
+<Problem.Item message={"Port ... has already been used on another channel on the same device"}>
 <Problem.Cause>
 
 Two channels use the same port of one device.
@@ -940,11 +939,9 @@ Two channels use the same port of one device.
 Change the port of one of them.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `No device provided for channel ...`
-
-<Problem.Body>
+<Problem.Item message={"No device provided for channel ..."}>
 <Problem.Cause>
 
 A Python channel has no `device`, and the task has no `device` either.
@@ -955,11 +952,9 @@ A Python channel has no `device`, and the task has no `device` either.
 Set one of them.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
 
-### `the network cannot keep up with the stream rate specified`
-
-<Problem.Body>
+<Problem.Item message={"the network cannot keep up with the stream rate specified"}>
 <Problem.Cause>
 
 The Driver cannot send the samples fast enough.
@@ -970,7 +965,9 @@ The Driver cannot send the samples fast enough.
 Lower the **Stream rate**, so that each batch holds more samples.
 
 </Problem.Fix>
-</Problem.Body>
+</Problem.Item>
+
+</Problem.List>
 
 For other problems, see
 [Configure an NI device](/reference/hardware/ni/configure-device#troubleshooting) and
