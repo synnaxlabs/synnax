@@ -708,8 +708,8 @@ inline void eventually_true(
     )
 
 /// @brief skips the current test for a missing host capability, such as a vcan
-/// interface. Fails the test instead when SYNNAX_TEST_REQUIRE_CAPABILITIES is set, as CI
-/// sets it, so that a missing capability never passes silently.
+/// interface. Fails the test instead when SYNNAX_TEST_REQUIRE_CAPABILITIES is set, as
+/// in CI, where a missing capability must never pass silently.
 /// @param reason streamed into the skip or failure message.
 #define SKIP_MISSING_CAPABILITY(reason)                                                \
     do {                                                                               \
