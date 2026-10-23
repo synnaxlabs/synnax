@@ -72,7 +72,9 @@ describe("bus framing editor", () => {
   });
 
   it("should only ask for the checksum byte order when a checksum is set", async () => {
-    const { key } = await render({ framing: { type: "sync", sync: "AA55" } });
+    const { key } = await render({
+      framing: { type: "sync", sync: "AA55", lengthOffset: 2 },
+    });
     await screen.findByDisplayValue("AA55");
     expect(screen.queryByText("Checksum byte order")).toBeNull();
     await selectFromDropdown("None", "CRC-32");
@@ -80,17 +82,20 @@ describe("bus framing editor", () => {
     await awaitFraming(key, {
       type: "sync",
       sync: "AA55",
-      lengthOffset: 0,
+      lengthOffset: 2,
       lengthSize: 1,
       byteOrder: "little_endian",
       lengthAdjustment: 0,
       checksum: "crc32",
       checksumByteOrder: "little_endian",
+      maxLength: 0,
     });
   });
 
   it("should set the length size of a sync framing from its numeric options", async () => {
-    const { key } = await render({ framing: { type: "sync", sync: "AA55" } });
+    const { key } = await render({
+      framing: { type: "sync", sync: "AA55", lengthOffset: 2 },
+    });
     await selectFromDropdown("1 byte", "4 bytes");
     await waitFor(async () => {
       const tsk = await client.tasks.retrieve({
@@ -119,7 +124,10 @@ describe("bus framing editor", () => {
     });
 
     it("should show a sync that is not hex bytes on the sync field", async () => {
-      const { container } = await render({ framing: { type: "sync", sync: "A" } });
+      const { container } = await render({
+        framing: { type: "sync", sync: "AA55", lengthOffset: 2 },
+      });
+      await enterField("Sync", "A");
       await clickDeploy(container);
       await screen.findByText("Sync must be hex bytes, such as AA55");
     });

@@ -130,6 +130,7 @@ describe("bus config round trip", () => {
       lengthAdjustment: -1,
       checksum: "crc16_modbus",
       checksumByteOrder: "big_endian",
+      maxLength: 64,
     } as const;
     const { config } = await deploy({
       Form: Serial.Task.Read,

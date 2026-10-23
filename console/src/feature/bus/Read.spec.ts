@@ -331,7 +331,7 @@ describe("bus read task", () => {
     await renderBusTask(CAN.Task.Read, client, draft.key);
     await screen.findByText("0x100");
     fireEvent.click(await findDialogTriggerByText(first.icd.name));
-    fireEvent.change(await screen.findByPlaceholderText("Search ICDS..."), {
+    fireEvent.change(await screen.findByPlaceholderText("Search ICDs..."), {
       target: { value: second.icd.name },
     });
     fireEvent.click(await screen.findByText(second.icd.name));
@@ -347,7 +347,7 @@ describe("bus read task", () => {
     const draft = await createDraft({});
     await renderBusTask(CAN.Task.Read, client, draft.key);
     fireEvent.click(await findDialogTriggerByText("Select ICD"));
-    fireEvent.change(await screen.findByPlaceholderText("Search ICDS..."), {
+    fireEvent.change(await screen.findByPlaceholderText("Search ICDs..."), {
       target: { value: ic.name },
     });
     fireEvent.click(await screen.findByText(ic.name));
