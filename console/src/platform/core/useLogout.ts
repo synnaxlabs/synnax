@@ -26,14 +26,11 @@ export const useLogout = (): (() => void) => {
   const clearSession = Session.useLogout();
   const handleError = Status.useErrorHandler();
   return useCallback(() => {
-    const ending = client;
-    handleError(async () => {
-      try {
-        await ending?.auth.logout();
-      } finally {
-        if (core != null) await deleteToken(core);
-      }
-    }, "Failed to log out");
+    // the delete goes out before a later login can save a token, so it never removes
+    // a newer one
+    if (core != null)
+      handleError(async () => await deleteToken(core), "Failed to forget the session");
+    handleError(async () => await client?.auth.logout(), "Failed to log out");
     clearSession();
     if (core != null) dispatch(Session.Core.set({ ...core, password: "" }));
   }, [client, core, dispatch, clearSession, handleError]);

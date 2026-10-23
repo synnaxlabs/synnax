@@ -285,6 +285,8 @@ export class Client {
    * @throws {Error} if the Core cannot be reached or refuses to end the session.
    */
   async release(): Promise<void> {
+    // a login still in flight decides whether this client owns the session
+    if (!this.authState.authenticated) await this.authenticating;
     if (this.ownsSession && !this.persistent) return await this.logout();
     this.authState = { authenticated: false };
     this.authenticating = undefined;
