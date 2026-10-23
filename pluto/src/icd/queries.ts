@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd, type ontology, PathError, query } from "@synnaxlabs/client";
+import { icd, type ontology, PathError, query, ValidationError } from "@synnaxlabs/client";
 import { errors, verbs } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Flux } from "@/flux";
-import { toFormPath } from "@/library/formPath";
+import { markProblems, toFormPath } from "@/library/problems";
 
 const RESOURCE_NAME = "ICD";
 const PLURAL_RESOURCE_NAME = "ICDs";
@@ -113,10 +113,11 @@ const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
 };
 
 /**
- * Edits one ICD. A save writes the whole ICD with the hash the form read, so the Core
- * replaces it and assigns keys to new entries and fields. The save fails with a
- * StaleError when the ICD changed since the form read it. A validation error from the
- * Core lands on the field it names.
+ * Edits one ICD. A save checks the ICD first, puts each problem on the field it names,
+ * and fails with a ValidationError when there are any. Otherwise it writes the whole
+ * ICD with the hash the form read, so the Core replaces it and assigns keys to new
+ * entries and fields. The save fails with a StaleError when the ICD changed since the
+ * form read it.
  */
 export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   name: RESOURCE_NAME,
@@ -129,6 +130,12 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   },
   update: async ({ client, value, reset, setFieldStatus }) => {
     const current = value();
+    const problems = await client.icds.check(current);
+    if (problems.length > 0) {
+      markProblems(problems, current, setFieldStatus);
+      const noun = problems.length === 1 ? "problem" : "problems";
+      throw new ValidationError(`The ICD has ${problems.length} ${noun}`);
+    }
     try {
       reset(await client.icds.create(current));
     } catch (e) {

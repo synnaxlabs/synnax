@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type library } from "@synnaxlabs/client";
+import { type Form } from "@synnaxlabs/lyra/form";
 import { caseconv, deep } from "@synnaxlabs/x";
 
 /**
@@ -16,3 +18,14 @@ import { caseconv, deep } from "@synnaxlabs/x";
  */
 export const toFormPath = (path: string, value: unknown): string =>
   deep.resolvePath(caseconv.snakeToCamel(path.split(".")).join("."), value);
+
+/** Puts each problem as an error status on the form path it names in the value. */
+export const markProblems = (
+  problems: library.Problem[],
+  value: unknown,
+  setStatus: Form.ContextValue["setStatus"],
+): void =>
+  problems.forEach(({ path, message }) => {
+    const formPath = toFormPath(path, value);
+    setStatus(formPath, { key: formPath, variant: "error", message });
+  });

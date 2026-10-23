@@ -174,7 +174,7 @@ describe("ICD queries", () => {
       expect(retrieved.entries.map((e) => e.name)).toEqual(["State", "Status"]);
     });
 
-    it("should place a Core validation error on the field it names", async () => {
+    it("should put each problem on the field it names and not save", async () => {
       const ic = await createICD();
       const [state] = ic.entries;
       const { result } = await renderHookSuspended(
@@ -191,8 +191,10 @@ describe("ICD queries", () => {
       const status = result.current.form.get(`entries.${second}.name`).status;
       expect(status).toMatchObject({
         variant: "error",
-        message: 'duplicate entry name "State": validation error',
+        message: 'duplicate entry name "State"',
       });
+      expect(result.current.status.description).toEqual("The ICD has 1 problem");
+      expect((await client.icds.retrieve({ key: ic.key })).entries).toEqual(ic.entries);
     });
 
     it("should reject a save when the ICD changed elsewhere", async () => {

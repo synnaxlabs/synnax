@@ -14,7 +14,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { deep, TimeSpan } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
-import { toFormPath } from "@/library/formPath";
+import { markProblems } from "@/library/problems";
 import { Synnax } from "@/synnax";
 
 /** How long the form must stay unchanged before a check runs. */
@@ -48,10 +48,7 @@ export const useCheck = <V>({ form, check }: UseCheckArgs<V>): void => {
         const problems = await checkRef.current(client, v);
         // The form changed while the check ran, so its problems are out of date.
         if (!deep.equal(value(), v)) return;
-        problems.forEach(({ path, message }) => {
-          const formPath = toFormPath(path, v);
-          setStatus(formPath, { key: formPath, variant: "error", message });
-        });
+        markProblems(problems, v, setStatus);
       }, "Failed to check");
     const unbind = bind(() => {
       if (deep.equal(value(), checked)) return;
