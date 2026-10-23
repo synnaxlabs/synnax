@@ -15,6 +15,7 @@ import { z } from "zod";
 import { actions } from "@/actions";
 import { channel } from "@/channel";
 import { channelEntryZ, keyZ, type Log, logZ } from "@/log/types.gen";
+import { ranger } from "@/ranger";
 
 /**
  * Create replaces the document with the given created state. Emitted by the Core on
@@ -187,6 +188,13 @@ export type SetReceiptTimestampHiddenPayload = z.infer<
   typeof setReceiptTimestampHiddenPayloadZ
 >;
 
+/** SetRange sets the range the log displays. */
+export const setRangePayloadZ = z.object({
+  range: ranger.refZ,
+});
+
+export type SetRangePayload = z.infer<typeof setRangePayloadZ>;
+
 export type Action =
   | { type: "create"; create: CreatePayload }
   | { type: "rename"; rename: RenamePayload }
@@ -218,7 +226,8 @@ export type Action =
   | {
       type: "set_receipt_timestamp_hidden";
       setReceiptTimestampHidden: SetReceiptTimestampHiddenPayload;
-    };
+    }
+  | { type: "set_range"; setRange: SetRangePayload };
 
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
@@ -267,6 +276,7 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
     type: z.literal("set_receipt_timestamp_hidden"),
     setReceiptTimestampHidden: setReceiptTimestampHiddenPayloadZ,
   }),
+  z.object({ type: z.literal("set_range"), setRange: setRangePayloadZ }),
 ]);
 
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
@@ -403,6 +413,13 @@ export const setReceiptTimestampHidden = (
   }),
 });
 
+export const setRange = (payload: z.input<typeof setRangePayloadZ>): Action => ({
+  type: "set_range",
+  setRange: zod.parse(setRangePayloadZ, payload, {
+    label: "log set_range action payload",
+  }),
+});
+
 export type HandlerResult = actions.HandlerResult<Action>;
 
 export type ReduceAllResult = actions.ReduceAllResult<Log, Action>;
@@ -454,6 +471,7 @@ export interface Handlers {
     state: Draft<Log>,
     payload: SetReceiptTimestampHiddenPayload,
   ) => HandlerResult;
+  setRange: (state: Draft<Log>, payload: SetRangePayload) => HandlerResult;
 }
 
 export const createReduceAll = (handlers: Handlers) =>
@@ -497,6 +515,8 @@ export const createReduceAll = (handlers: Handlers) =>
           state,
           action.setReceiptTimestampHidden,
         );
+      case "set_range":
+        return handlers.setRange(state, action.setRange);
     }
   });
 

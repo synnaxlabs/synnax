@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NoopLogSource } from "@/log/aether/telem/noop";
-import { StreamMultiChannelLog } from "@/log/aether/telem/sources";
+import { MultiChannelLog } from "@/log/aether/telem/sources";
 import { type telem } from "@/telem/aether";
 
 export class LogFactory implements telem.Factory {
@@ -21,8 +21,8 @@ export class LogFactory implements telem.Factory {
 
   create(spec: telem.Spec, options?: telem.CreateOptions): telem.Telem | null {
     if (spec.type === NoopLogSource.TYPE) return new NoopLogSource();
-    if (spec.type === StreamMultiChannelLog.TYPE)
-      return new StreamMultiChannelLog(this.client, spec.props, options);
+    if (spec.type === MultiChannelLog.TYPE)
+      return new MultiChannelLog(this.client, spec.props, options);
     return null;
   }
 }

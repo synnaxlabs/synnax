@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { Ranger } from "@synnaxlabs/pluto";
-import { type NumericTimeRange } from "@synnaxlabs/x";
+import { type LinePlot, Ranger } from "@synnaxlabs/pluto";
+import { type NumericTimeRange, type telem, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { Session } from "@/session";
@@ -74,3 +74,23 @@ export const useResolve = (key?: string): Resolved | undefined => {
     return fold(entry, found);
   }, [entry, data]);
 };
+
+/** @returns the window a Pluto visualization reads for the resolved range. */
+export const toResolvedRange = (range: Resolved): LinePlot.ResolvedRange =>
+  range.variant === "dynamic"
+    ? { variant: "dynamic", span: new TimeSpan(range.span) }
+    : { variant: "static", timeRange: new TimeRange(range.timeRange) };
+
+/** @returns the window a Pluto visualization reads for a stored window. */
+export const resolveWindow = (window: telem.Window): LinePlot.ResolvedRange =>
+  window.variant === "dynamic"
+    ? { variant: "dynamic", span: new TimeSpan(window.timeSpan) }
+    : {
+        variant: "static",
+        // BigInt, not the constructor: TimeStamp parses a bare string as a date-time,
+        // not a decimal int64.
+        timeRange: new TimeRange(
+          BigInt(window.timeRange.start),
+          BigInt(window.timeRange.end),
+        ),
+      };

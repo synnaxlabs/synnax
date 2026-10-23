@@ -17,19 +17,21 @@ import { type LogEntry, type LogSource, type LogSourceSpec } from "./types";
 export class MockLogSource implements LogSource {
   static readonly TYPE = TEST_SOURCE_TYPE;
   private _entries: LogEntry[] = [];
-  private _evictedCount = 0;
   private activeChannels: Set<channel.Key> = new Set();
   private readonly observable = new observe.BaseObserver<void>();
+  isLoading = false;
+  // Whether value() starts a read, as a source does whose read was canceled or that
+  // has not read yet.
+  loadsOnValue = false;
+  valueCalls = 0;
 
-  get evictedCount(): number {
-    return this._evictedCount;
-  }
-
-  set evictedCount(count: number) {
-    this._evictedCount = count;
+  loading(): boolean {
+    return this.isLoading;
   }
 
   value(): LogEntry[] {
+    this.valueCalls++;
+    if (this.loadsOnValue) this.isLoading = true;
     if (this.activeChannels.size === 0) return this._entries;
     return this._entries.filter((e) => this.activeChannels.has(e.channelKey));
   }

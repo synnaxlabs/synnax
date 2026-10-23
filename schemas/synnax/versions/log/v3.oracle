@@ -1,0 +1,50 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/ranger/v1"
+
+Key = v0.Key
+
+TimestampConfig = v2.TimestampConfig
+
+ChannelEntry = v2.ChannelEntry
+
+Log struct {
+    key                      Key = create {
+        @doc value "is the unique identifier for this log."
+        @key
+    }
+    name                     string         {
+        @doc value "is a human-readable name for the log."
+    }
+    channels                 ChannelEntry[] = [] {
+        @doc value "are the channels displayed in this log, in order."
+    }
+    timestamp_precision      int32 = 0 {
+        @doc value "is the precision of displayed timestamps (0-3)."
+    }
+    channel_names_hidden     bool = false {
+        @doc value "is true when channel names are hidden."
+    }
+    receipt_timestamp_hidden bool = false {
+        @doc value "is true when the receipt timestamp column is hidden."
+    }
+    range                    ranger.Ref = {
+        variant = "window",
+        window = { variant = "dynamic", time_span = 604800000000000 }
+    } {
+        @doc value """
+            is the range the log displays. It defaults to a rolling 7-day window.
+        """
+    }
+
+    @go imex
+    @go marshal
+    @go migrate
+}

@@ -10,16 +10,15 @@
 import { type log } from "@synnaxlabs/client";
 import { type Menu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { primitive, TimeSpan } from "@synnaxlabs/x";
+import { primitive } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { streamMultiChannelLog } from "@/log/aether/telem/sources";
+import { type LinePlot } from "@/lineplot";
+import { noopLogSourceSpec } from "@/log/aether/telem/noop";
+import { multiChannelLog } from "@/log/aether/telem/sources";
 import { Base, type BaseProps } from "@/log/Base";
 import { use, useRedo, useUndo } from "@/log/queries";
 import { useKey } from "@/log/Suspended";
-
-const DEFAULT_RETENTION = TimeSpan.days(7);
-const PRELOAD = TimeSpan.seconds(30);
 
 const useUndoRedo = (
   key: log.Key,
@@ -41,14 +40,21 @@ export interface LogProps extends Omit<
   | "channelNamesHidden"
   | "receiptTimestampHidden"
   | "timestampPrecision"
-> {}
+> {
+  /** The window the log's range key resolves to. The log stays empty while unset. */
+  resolvedRange?: LinePlot.ResolvedRange;
+}
 
 // Log is the connected log visualization. It reads the full log document from the
-// Pluto flux store keyed by the surrounding Log scope, builds the streaming telemetry
-// source internally, and renders the Base primitive. Cmd+Z / Cmd+Shift+Z are wired to
-// undo and redo, gated by enableTriggers. The component suspends until the record is in
-// cache, so callers must render it within a Log.Suspended boundary.
-export const Log = ({ enableTriggers, ...rest }: LogProps): ReactElement | null => {
+// Pluto flux store keyed by the surrounding Log scope, builds the telemetry source for
+// resolvedRange internally, and renders the Base primitive. Cmd+Z / Cmd+Shift+Z are
+// wired to undo and redo, gated by enableTriggers. The component suspends until the
+// record is in cache, so callers must render it within a Log.Suspended boundary.
+export const Log = ({
+  enableTriggers,
+  resolvedRange,
+  ...rest
+}: LogProps): ReactElement | null => {
   const key = useKey();
   const { channels, channelNamesHidden, receiptTimestampHidden, timestampPrecision } =
     use({
@@ -58,11 +64,10 @@ export const Log = ({ enableTriggers, ...rest }: LogProps): ReactElement | null 
   // A channel entry with key 0 is an unconfigured placeholder row; the telem source
   // must not subscribe to it.
   const activeChannels = channels.filter((e) => !primitive.isZero(e.channel));
-  const telem = streamMultiChannelLog({
-    channels: [],
-    timeSpan: PRELOAD,
-    keepFor: DEFAULT_RETENTION,
-  });
+  const telem =
+    resolvedRange == null
+      ? noopLogSourceSpec
+      : multiChannelLog({ channels: [], range: resolvedRange });
   return (
     <Base
       telem={telem}

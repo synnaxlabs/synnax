@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/platform/range/CustomInput";
 export * from "@/platform/range/FavoriteButton";
 export * from "@/platform/range/overview/Details";
 export * from "@/platform/range/overview/MetaData";
+export * from "@/platform/range/ref";
 export * from "@/platform/range/resolve";
 export * from "@/platform/range/Select";
+export * from "@/platform/range/SelectRef";
 export * from "@/platform/range/SnapshotMenuItem";
 export * from "@/platform/range/snapshots";
 export * from "@/platform/range/useAddToActivePlot";

@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { log } from "@/log";
+import { type ranger } from "@/ranger";
 
 const createChannelEntry = (
   channel: number,
@@ -332,6 +333,32 @@ describe("log reducer", () => {
           log.setReceiptTimestampHidden({ receiptTimestampHidden: false }),
         ).receiptTimestampHidden,
       ).toEqual(true);
+    });
+  });
+
+  describe("setRange", () => {
+    const RANGE_KEY = "6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+    const rolling1h: ranger.Ref = {
+      variant: "window",
+      window: { variant: "dynamic", timeSpan: Number(TimeSpan.hours(1)) },
+    };
+    it("should default a new log to the rolling 7 day window", () => {
+      expect(createEmpty().range).toEqual({
+        variant: "window",
+        window: { variant: "dynamic", timeSpan: Number(TimeSpan.days(7)) },
+      });
+    });
+    it("should set the range", () => {
+      expect(apply(createEmpty(), log.setRange({ range: rolling1h })).range).toEqual(
+        rolling1h,
+      );
+    });
+    it("should restore the previous range through its inverse", () => {
+      const state = createEmpty({ range: { variant: "key", key: RANGE_KEY } });
+      expect(roundTrip(state, log.setRange({ range: rolling1h })).range).toEqual({
+        variant: "key",
+        key: RANGE_KEY,
+      });
     });
   });
 
