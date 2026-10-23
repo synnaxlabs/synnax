@@ -259,6 +259,7 @@ const renderColumn = (
               value={value}
               onChange={onChange}
               preview={preview}
+              variant="floating"
             >
               <Select.Item itemKey="little_endian">Little endian</Select.Item>
               <Select.Item itemKey="big_endian">Big endian</Select.Item>
@@ -275,6 +276,7 @@ const renderColumn = (
               value={value}
               onChange={onChange}
               preview={preview}
+              variant="floating"
             >
               <Select.Item itemKey={NONE}>None</Select.Item>
               {enums.map(({ key, name }) => (
@@ -295,6 +297,7 @@ const renderColumn = (
               value={value}
               onChange={onChange}
               preview={preview}
+              variant="floating"
             >
               <Select.Item itemKey={NONE}>None</Select.Item>
               {fields.map(({ key, name }) => (

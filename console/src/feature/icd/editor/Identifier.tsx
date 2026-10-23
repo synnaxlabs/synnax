@@ -82,7 +82,7 @@ const TypeFields = ({ path, type, fields }: TypeFieldsProps): ReactElement => {
         <>
           <Form.Field<string> path={`${path}.field`} label="Field">
             {(p) => (
-              <Select.Simple<string> resourceName="field" {...p}>
+              <Select.Simple<string> resourceName="field" variant="floating" {...p}>
                 {fields.map(({ key, name }) => (
                   <Select.Item key={key} itemKey={key}>
                     {name}
@@ -119,6 +119,7 @@ export const Identifier = ({ path }: IdentifierProps): ReactElement => {
           resourceName="identifier"
           value={identifier?.type ?? "none"}
           onChange={handleChange}
+          variant="floating"
         >
           {TYPES.map((type) => (
             <Select.Item key={type} itemKey={type}>
