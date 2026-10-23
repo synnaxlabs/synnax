@@ -27,12 +27,11 @@ const DESKTOP_SPECS = "src/**/*.desktop.spec.{ts,tsx}";
 const under = (dir: string): RegExp =>
   new RegExp(`^${RegExp.escape(normalizePath(path.join(repoRoot, dir)))}/`);
 
-// Lyra styles bare elements, so third-party and media CSS sit above it. Pluto overrides
-// all three, and the Console's own CSS, left unlayered, overrides everything.
+// Lyra styles bare elements, so third-party CSS sits above it. Pluto overrides both,
+// and the Console's own CSS, left unlayered, overrides everything.
 const CSS_LAYERS = [
   { name: "lyra", files: under("lyra") },
   { name: "vendor", files: /\/node_modules\// },
-  { name: "media", files: under("x/media") },
   { name: "pluto", files: under("pluto") },
 ];
 
@@ -106,8 +105,6 @@ export default defineConfig({
           "@synnaxlabs/x": path.resolve(repoRoot, "x/ts/src"),
           "@synnaxlabs/drift/dist": path.resolve(repoRoot, "drift/dist"),
           "@synnaxlabs/drift": path.resolve(repoRoot, "drift/src"),
-          "@synnaxlabs/media/dist": path.resolve(repoRoot, "x/media/dist"),
-          "@synnaxlabs/media": path.resolve(repoRoot, "x/media/src"),
         }
       : {},
   },

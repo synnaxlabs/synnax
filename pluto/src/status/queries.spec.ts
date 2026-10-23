@@ -15,6 +15,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { Flux } from "@/flux";
 import { Status } from "@/status";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -28,6 +29,32 @@ describe("Status queries", () => {
   });
 
   describe("useList", () => {
+    it("should update an item read by key when it changes", async () => {
+      const item = await client.statuses.set({
+        key: uuid.create(),
+        name: "original",
+        variant: "info",
+        message: "test",
+        time: TimeStamp.now(),
+      });
+      const { result } = renderHook(
+        () => {
+          const list = Status.useList({ useCachedList: false });
+          return Flux.useListItem({
+            subscribe: list.subscribe,
+            getItem: list.getItem,
+            key: item.key,
+          });
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current?.name).toEqual("original"));
+      await act(async () => {
+        await client.statuses.set({ ...item, name: "updated" });
+      });
+      await waitFor(() => expect(result.current?.name).toEqual("updated"));
+    });
+
     it("should return a list of status keys", async () => {
       const status1 = await client.statuses.set({
         name: "Status 1",

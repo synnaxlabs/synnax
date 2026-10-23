@@ -11,8 +11,6 @@ package cert
 
 import (
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/ed25519"
 	"crypto/mldsa"
 	"crypto/rand"
 	"crypto/rsa"
@@ -79,15 +77,4 @@ func (a KeyAlgorithm) GenerateKey(keySize int) (crypto.Signer, error) {
 		return mldsa.GenerateKey(mldsa.MLDSA87())
 	}
 	return nil, errors.Wrapf(errUnsupportedKeyAlgorithm, "%q", a)
-}
-
-// SignsJWT reports whether key's algorithm has a JWT signing method. ML-DSA does not:
-// RFC 7518 defines no ML-DSA algorithm, so a Core serving an ML-DSA certificate signs
-// authentication tokens with a dedicated key instead.
-func SignsJWT(key crypto.PrivateKey) bool {
-	switch key.(type) {
-	case *rsa.PrivateKey, *ecdsa.PrivateKey, ed25519.PrivateKey:
-		return true
-	}
-	return false
 }

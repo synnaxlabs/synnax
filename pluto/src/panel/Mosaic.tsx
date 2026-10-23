@@ -138,13 +138,14 @@ const CreateTab = memo(({ selected, onAdd }: CreateTabProps): ReactElement => {
   // Create acts on the panel's focused tab, so only the leaf holding that tab may
   // advertise the shortcut. An empty leaf holds none, and "" matches no tab.
   const { head } = Select.useItemState(selected ?? "");
+  const reserved = Triggers.useReserved(CREATE_TAB_TRIGGER);
   return (
     <Button.Button
       variant="text"
       size="small"
       onClick={onAdd}
       className={CSS.BE("panel-mosaic", "create")}
-      tooltip={head ? CREATE_TAB_TOOLTIP : undefined}
+      tooltip={head && !reserved ? CREATE_TAB_TOOLTIP : undefined}
     >
       <Icon.Add color={9} />
     </Button.Button>

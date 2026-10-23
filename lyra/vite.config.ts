@@ -12,13 +12,12 @@
 import react from "@vitejs/plugin-react";
 import { lib } from "@synnaxlabs/vite-plugin";
 import path from "path";
-import { defineConfig, esmExternalRequirePlugin } from "vite";
+import { defineConfig } from "vite";
 import { copyFileSync, mkdirSync } from "fs";
 
 export default defineConfig({
   base: "/lyra/",
   plugins: [
-    esmExternalRequirePlugin({ external: [/^react(-dom)?(\/.*)?$/] }),
     react(),
     lib({ name: "lyra", modules: true }),
     {
@@ -38,23 +37,6 @@ export default defineConfig({
       },
     },
   ],
-  build: {
-    rolldownOptions: {
-      external: [
-        "vitest",
-        /^@vitest\//,
-        /^@testing-library\//,
-        /^react(-dom)?(\/.*)?$/,
-        /^react-icons(\/.*)?$/,
-        /^@fontsource(-variable)?\//,
-        "clsx",
-        /^compromise(-dates)?$/,
-        "mathjs",
-        "zod",
-        "@synnaxlabs/x",
-      ],
-    },
-  },
   test: {
     globals: true,
     environment: "jsdom",

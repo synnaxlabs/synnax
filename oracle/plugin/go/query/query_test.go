@@ -10,8 +10,6 @@
 package query_test
 
 import (
-	"strings"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/query"
@@ -81,10 +79,93 @@ var _ = Describe("Go Query Plugin", func() {
 						ToNotContain(
 							"Search(",
 							"execSearch",
-							"\"github.com/samber/lo\"",
+							"\"slices\"",
 						)
 				},
 			)
+		})
+
+		Context("union entry", func() {
+			It("Should take the key from the union's base", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/view"
+
+					Base struct {
+						key uuid @key
+						name string
+					}
+
+					View union on type extends Base {
+						first {
+							size int32
+						}
+						second {
+							count int32
+						}
+						@ontology type "view"
+						@retrieve
+						@search
+					}
+				`
+				resp := MustGenerate(ctx, source, "view", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"gorp.Retrieve[uuid.UUID, View]",
+						"func MatchKeys(keys ...uuid.UUID) Filter",
+						"func (r Retrieve) Search(term string) Retrieve",
+					)
+			})
+
+			It(
+				"Should reject two @retrieve types in one output",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/view"
+
+					Base struct {
+						key uuid @key
+					}
+
+					View union on type extends Base {
+						first {
+							size int32
+						}
+						@retrieve
+					}
+
+					Other struct {
+						key uuid @key
+						@retrieve
+					}
+				`
+					req := MustGenerateRequest(ctx, source, "view", loader)
+					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+						"only one @retrieve type is allowed per output, found 2",
+					)))
+				},
+			)
+
+			It("Should reject a @filter on a union field", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/view"
+
+					Base struct {
+						key uuid @key
+						name string @filter
+					}
+
+					View union on type extends Base {
+						first {
+							size int32
+						}
+						@retrieve
+					}
+				`
+				req := MustGenerateRequest(ctx, source, "view", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"@filter and @index are not supported on union fields",
+				)))
+			})
 		})
 
 		Context("inherited key", func() {
@@ -174,7 +255,7 @@ var _ = Describe("Go Query Plugin", func() {
 					).
 					ToNotContain(
 						"MatchInternals(",
-						"lo.Contains",
+						"slices.Contains(vals",
 						"func (r Retrieve) MatchInternal(",
 					)
 			})
@@ -228,7 +309,7 @@ var _ = Describe("Go Query Plugin", func() {
 					ToContain(
 						"type Filter = gorp.BoundFilter[Retrieve, uuid.UUID, User]",
 						"func MatchUsernames(vals ...string) Filter",
-						"lo.Contains(vals, e.Username)",
+						"slices.Contains(vals, e.Username)",
 					).
 					ToNotContain("func (r Retrieve) MatchUsernames(")
 			})
@@ -296,7 +377,7 @@ var _ = Describe("Go Query Plugin", func() {
 						ToContain(
 							"type Filter = gorp.BoundFilter[Retrieve, string, Device]",
 							"func MatchRacks(vals ...rack.Key) Filter",
-							"lo.Contains(vals, e.Rack)",
+							"slices.Contains(vals, e.Rack)",
 						).
 						ToNotContain("func (r Retrieve) MatchRacks(")
 				},
@@ -388,7 +469,7 @@ var _ = Describe("Go Query Plugin", func() {
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
 							"func MatchNames(vals ...string) Filter",
-							"return func(r Retrieve) gorp.Filter[uint32, Rack]",
+							"return func(Retrieve) gorp.Filter[uint32, Rack]",
 						)
 				},
 			)
@@ -481,7 +562,7 @@ var _ = Describe("Go Query Plugin", func() {
 						ToContain(
 							"type Filter = gorp.BoundFilter[Retrieve, Key, Channel]",
 							"func MatchNames(vals ...string) Filter",
-							"return func(_ Retrieve) gorp.Filter[Key, Channel]",
+							"return func(Retrieve) gorp.Filter[Key, Channel]",
 							"func MatchKeys(keys ...Key) Filter",
 						)
 				},
@@ -606,12 +687,12 @@ var _ = Describe("Go Query Plugin", func() {
 							"\"context\"",
 						).
 						ToNotContain(
-							"\"github.com/samber/lo\"",
+							"\"slices\"",
 						)
 				},
 			)
 
-			It("Should import lo for slice filters", func(ctx SpecContext) {
+			It("Should import slices for variadic filters", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/user"
 
@@ -629,10 +710,10 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "user", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
-					ToContain("\"github.com/samber/lo\"")
+					ToContain("\"slices\"")
 			})
 
-			It("Should not import lo for bool-only filters", func(ctx SpecContext) {
+			It("Should not import slices for bool-only filters", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/task"
 
@@ -650,7 +731,7 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "task", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
-					ToNotContain("\"github.com/samber/lo\"")
+					ToNotContain("\"slices\"")
 			})
 
 			It("Should import search and ontology for @search", func(ctx SpecContext) {
@@ -768,7 +849,7 @@ var _ = Describe("Go Query Plugin", func() {
 							"ByUsername",
 							"OrderByUsername",
 							"gorp.NewSortedIndex",
-							"lo.Contains",
+							"slices.Contains(vals",
 						)
 				},
 			)
@@ -880,34 +961,25 @@ var _ = Describe("Go Query Plugin", func() {
 
 		Context("multiple structs in same output", func() {
 			It(
-				"Should generate methods for both structs in one file",
+				"Should reject two @retrieve structs in one output",
 				func(ctx SpecContext) {
 					source := `
 					@go output "core/pkg/service/views"
 
 					LinePlot struct {
-						key uuid {
-							@key
-						}
-						name string
-						@ontology type "lineplot"
+						key uuid @key
 						@retrieve
 					}
 
 					Table struct {
-						key uuid {
-							@key
-						}
-						data string
-						@ontology type "table"
+						key uuid @key
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "views", loader, p)
-					Expect(resp.Files).To(HaveLen(1))
-
-					content := MustContentOf(resp, "retrieve.gen.go")
-					Expect(strings.Count(content, "type Retrieve struct")).To(Equal(2))
+					req := MustGenerateRequest(ctx, source, "views", loader)
+					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+						"only one @retrieve type is allowed per output, found 2",
+					)))
 				},
 			)
 		})

@@ -21,7 +21,6 @@ from freighter import (
 from synnax.exceptions import ExpiredToken, InvalidToken
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
-from x.deprecation import deprecated_getattr
 from x.telem import TimeStamp
 
 
@@ -120,10 +119,3 @@ class Client:
         refresh = ctx.get(TOKEN_REFRESH_HEADER, None)
         if refresh is not None:
             self.token = refresh
-
-
-_DEPRECATED = {
-    "AuthenticationClient": "Client",
-}
-
-__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())

@@ -13,6 +13,7 @@ package query
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/pluralize"
 )
 
@@ -56,7 +58,8 @@ func (p *Plugin) Domains() []string { return []string{"go"} }
 // Requires returns plugin dependencies.
 func (p *Plugin) Requires() []string { return []string{"go/types"} }
 
-// Generate produces retrieve.gen.go files for structs with @retrieve annotation.
+// Generate produces retrieve.gen.go files for structs and unions with a @retrieve
+// annotation.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
@@ -67,7 +70,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	entries := make(map[string]*entry)
 
-	for _, typ := range req.Resolutions.StructTypes() {
+	for _, typ := range slices.Concat(
+		req.Resolutions.StructTypes(),
+		req.Resolutions.UnionTypes(),
+	) {
 		if !plugindomain.HasDomainFromType(typ, "retrieve") {
 			continue
 		}
@@ -84,6 +90,14 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	for _, e := range entries {
+		// Every entry emits the same Retrieve, Filter, and MatchKeys names.
+		if len(e.structs) > 1 {
+			return nil, errors.Newf(
+				"%s: only one @retrieve type is allowed per output, found %d",
+				e.path,
+				len(e.structs),
+			)
+		}
 		content, err := generateRetrieveFile(
 			e.path,
 			e.structs,
@@ -193,7 +207,10 @@ func generateRetrieveFile(
 
 	var infos []retrieveInfo
 	for _, typ := range structs {
-		info := extractRetrieveInfo(typ, table, r, ctx)
+		info, err := extractRetrieveInfo(typ, table, r, ctx)
+		if err != nil {
+			return nil, err
+		}
 		if info != nil {
 			infos = append(infos, *info)
 		}
@@ -231,23 +248,14 @@ func generateRetrieveFile(
 		)
 	}
 
-	// Check if any info needs lo for variadic Match filters. Index-routed filters use
-	// the index's .Filter(...) method instead of lo.Contains, so only non-indexed,
-	// non-slice variadic filters contribute.
-	hasVariadicFilter := lo.SomeBy(infos, func(i retrieveInfo) bool {
+	// Index-routed filters use the index's .Filter(...) method, so only slice and
+	// non-indexed variadic filters need slices.Contains.
+	needsSlices := lo.SomeBy(infos, func(i retrieveInfo) bool {
 		return lo.SomeBy(i.Filters, func(f filterInfo) bool {
-			return !f.IsScalar && !f.IsSlice && f.IndexFieldName == ""
+			return f.IsSlice || (!f.IsScalar && f.IndexFieldName == "")
 		})
 	})
-	if hasVariadicFilter {
-		imps.AddExternal("github.com/samber/lo")
-	}
-
-	// Check if any info needs the slices stdlib package for slice-contains filters.
-	hasArrayFilter := lo.SomeBy(infos, func(i retrieveInfo) bool {
-		return lo.SomeBy(i.Filters, func(f filterInfo) bool { return f.IsSlice })
-	})
-	if hasArrayFilter {
+	if needsSlices {
 		imps.AddExternal("slices")
 	}
 
@@ -269,10 +277,12 @@ func extractRetrieveInfo(
 	table *resolution.Table,
 	r *resolver.Resolver,
 	ctx *resolver.Context,
-) *retrieveInfo {
-	if _, ok := typ.Form.(resolution.StructForm); !ok {
-		return nil
+) (*retrieveInfo, error) {
+	_, isUnion := typ.Form.(resolution.UnionForm)
+	if _, isStruct := typ.Form.(resolution.StructForm); !isStruct && !isUnion {
+		return nil, nil
 	}
+	allFields := retrieveFields(typ, table)
 
 	// Resolve the key type. A struct-level `@retrieve key "TypeName"` override takes
 	// precedence; this is useful when the entry type has a computed GorpKey that is not
@@ -293,15 +303,14 @@ func extractRetrieveInfo(
 		keyPrimitive = key.ResolvePrimitive(keyRef, table)
 	} else {
 		var keyField *resolution.Field
-		fields := resolution.UnifiedFields(typ, table)
-		for i := range fields {
-			if plugindomain.HasDomainFromField(fields[i], "key") {
-				keyField = &fields[i]
+		for i := range allFields {
+			if plugindomain.HasDomainFromField(allFields[i], "key") {
+				keyField = &allFields[i]
 				break
 			}
 		}
 		if keyField == nil {
-			return nil
+			return nil, nil
 		}
 		keyType = r.ResolveTypeRef(keyField.Type, ctx)
 		keyPrimitive = key.ResolvePrimitive(keyField.Type, table)
@@ -326,12 +335,20 @@ func extractRetrieveInfo(
 	// never referenced in retrieve.gen.go.
 	var filters []filterInfo
 	var indexes []indexInfo
-	allFields := resolution.UnifiedFields(typ, table)
 	for _, field := range allFields {
 		hasFilter := plugindomain.HasDomainFromField(field, "filter")
 		hasIndex := plugindomain.HasDomainFromField(field, "index")
 		if !hasFilter && !hasIndex {
 			continue
+		}
+		// A union entry holds its fields behind Variant, so generated filters cannot
+		// read them.
+		if isUnion {
+			return nil, errors.Newf(
+				"%s: @filter and @index are not supported on union fields (%s)",
+				typ.QualifiedName,
+				field.Name,
+			)
 		}
 
 		primitive := key.ResolvePrimitive(field.Type, table)
@@ -387,7 +404,23 @@ func extractRetrieveInfo(
 		KeysFromOntologyIDsHasError: keyPrimitive != "string",
 		Filters:                     filters,
 		Indexes:                     indexes,
+	}, nil
+}
+
+// retrieveFields returns a struct's fields, or the fields a union shares through its
+// base structs.
+func retrieveFields(typ resolution.Type, table *resolution.Table) []resolution.Field {
+	form, ok := typ.Form.(resolution.UnionForm)
+	if !ok {
+		return resolution.UnifiedFields(typ, table)
 	}
+	var fields []resolution.Field
+	for _, ext := range form.Extends {
+		if base, ok := ext.Resolve(table); ok {
+			fields = append(fields, resolution.UnifiedFields(base, table)...)
+		}
+	}
+	return fields
 }
 
 type templateData struct {
@@ -586,7 +619,7 @@ func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...{{$ret.KeyType}}) Filter {
-	return func(_ Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+	return func(Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		return gorp.MatchKeys[{{$ret.KeyType}}, {{$ret.GoName}}](keys...)
 	}
 }
@@ -595,7 +628,7 @@ func MatchKeys(keys ...{{$ret.KeyType}}) Filter {
 // Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} by their
 // {{.GoName}} field.
 func Match{{.GoName}}(v bool) Filter {
-	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+	return func({{if .IndexFieldName}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- if .IndexFieldName}}
 		return r.indexes.{{.IndexFieldName}}.Filter(v)
 {{- else}}
@@ -610,7 +643,7 @@ func Match{{.GoName}}(v bool) Filter {
 // {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} contains the provided
 // value.
 func Match{{.GoName | singularize}}(v {{.ElemGoType}}) Filter {
-	return func(_ Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+	return func(Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
 			return slices.Contains(e.{{.GoName}}, v), nil
 		})
@@ -620,7 +653,7 @@ func Match{{.GoName | singularize}}(v {{.ElemGoType}}) Filter {
 // Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose
 // {{.GoName}} matches the provided value.
 func Match{{.GoName}}(v {{.GoType}}) Filter {
-	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+	return func({{if .IndexFieldName}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- if .IndexFieldName}}
 		return r.indexes.{{.IndexFieldName}}.Filter(v)
 {{- else}}
@@ -635,12 +668,12 @@ func Match{{.GoName}}(v {{.GoType}}) Filter {
 // {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches any of the
 // provided values.
 func Match{{.GoName | pluralize}}(vals ...{{.GoType}}) Filter {
-	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+	return func({{if .IndexFieldName}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- if .IndexFieldName}}
 		return r.indexes.{{.IndexFieldName}}.Filter(vals...)
 {{- else}}
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-			return lo.Contains(vals, e.{{.GoName}}), nil
+			return slices.Contains(vals, e.{{.GoName}}), nil
 		})
 {{- end}}
 	}

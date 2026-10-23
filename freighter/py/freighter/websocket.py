@@ -45,6 +45,12 @@ def handle_close_err(e: ConnectionClosedOK) -> Exception:
     return EOF()
 
 
+def _decode_close_exception(exc_pld: ExceptionPayload | None) -> Exception:
+    # A close without an error is a clean close.
+    exc = decode_exception(exc_pld)
+    return EOF() if exc is None else exc
+
+
 class Message(BaseModel, Generic[P]):
     type: Literal["data", "close", "open"]
     payload: P | None = None
@@ -112,14 +118,15 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         if server_closed is not None:
             raise server_closed
 
-        data = await self._internal.recv()
+        try:
+            data = await self._internal.recv()
+        except ConnectionClosedOK as e:
+            raise handle_close_err(e) from e
         assert isinstance(data, bytes)
         msg = self._encoder.decode(data, self._res_msg_t)
 
         if msg.type == "close":
-            await self._close_server(msg.error)
-            assert self._server_closed is not None
-            raise self._server_closed
+            raise await self._close_server(msg.error)
 
         assert msg.payload is not None
         return msg.payload
@@ -140,20 +147,26 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         try:
             await self._internal.send(encoded)
         except ConnectionClosedOK as e:
-            raise EOF() from e
+            raise handle_close_err(e) from e
 
     async def receive_open_ack(self) -> None:
-        msg = await self._internal.recv()
-        assert isinstance(msg, bytes)
-        decoded_msg = self._encoder.decode(msg, Message)
-        if decoded_msg.type == "open":
-            return
-        exc = decode_exception(decoded_msg.error)
-        if exc is not None:
-            raise exc
-        raise RuntimeError(
-            f"expected 'open' ack from server, got message type {decoded_msg.type!r}"
-        )
+        """Waits for the server to ack the open. Closes the connection on failure."""
+        try:
+            msg = await self._internal.recv()
+            assert isinstance(msg, bytes)
+            decoded_msg = self._encoder.decode(msg, Message)
+            if decoded_msg.type == "open":
+                return
+            exc = decode_exception(decoded_msg.error)
+            if exc is not None:
+                raise exc
+            raise RuntimeError(
+                f"expected 'open' ack from server, got message type "
+                f"{decoded_msg.type!r}"
+            )
+        except BaseException:
+            await self._internal.close()
+            raise
 
     async def close_send(self) -> None:
         """Implements the AsyncStream protocol."""
@@ -163,15 +176,17 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         msg = Message[RQ](type="close", payload=None, error=None)
         try:
             await self._internal.send(self._encoder.encode(msg))
+        except ConnectionClosedOK as e:
+            raise handle_close_err(e) from e
         finally:
             self._send_closed = True
 
-    async def _close_server(self, exc_pld: ExceptionPayload | None) -> None:
+    async def _close_server(self, exc_pld: ExceptionPayload | None) -> Exception:
         if self._server_closed is not None:
-            return
+            return self._server_closed
         try:
-            assert exc_pld is not None
-            self._server_closed = decode_exception(exc_pld)
+            self._server_closed = _decode_close_exception(exc_pld)
+            return self._server_closed
         finally:
             await self._internal.close()
 
@@ -213,9 +228,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         msg = self._encoder.decode(data, self._res_msg_t)
 
         if msg.type == "close":
-            self._close_server(msg.error)
-            assert self._server_closed is not None
-            raise self._server_closed
+            raise self._close_server(msg.error)
 
         assert msg.payload is not None
         return msg.payload
@@ -224,17 +237,23 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         return self._internal.recv_bufsize > 0
 
     def receive_open_ack(self) -> None:
-        msg = self._internal.recv()
-        assert isinstance(msg, bytes)
-        decoded_msg = self._encoder.decode(msg, self._res_msg_t)
-        if decoded_msg.type == "open":
-            return
-        exc = decode_exception(decoded_msg.error)
-        if exc is not None:
-            raise exc
-        raise RuntimeError(
-            f"expected 'open' ack from server, got message type {decoded_msg.type!r}"
-        )
+        """Waits for the server to ack the open. Closes the connection on failure."""
+        try:
+            msg = self._internal.recv()
+            assert isinstance(msg, bytes)
+            decoded_msg = self._encoder.decode(msg, self._res_msg_t)
+            if decoded_msg.type == "open":
+                return
+            exc = decode_exception(decoded_msg.error)
+            if exc is not None:
+                raise exc
+            raise RuntimeError(
+                f"expected 'open' ack from server, got message type "
+                f"{decoded_msg.type!r}"
+            )
+        except BaseException:
+            self._connection.close()
+            raise
 
     def send(self, payload: RQ) -> None:
         if self._server_closed is not None:
@@ -263,12 +282,12 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         finally:
             self._send_closed = True
 
-    def _close_server(self, exc_pld: ExceptionPayload | None) -> None:
+    def _close_server(self, exc_pld: ExceptionPayload | None) -> Exception:
         if self._server_closed is not None:
-            return
+            return self._server_closed
         try:
-            assert exc_pld is not None
-            self._server_closed = decode_exception(exc_pld)
+            self._server_closed = _decode_close_exception(exc_pld)
+            return self._server_closed
         finally:
             self._connection.close()
 
@@ -277,7 +296,7 @@ class _Base:
     _endpoint: URL
     _encoder: Codec
     _max_message_size: int
-    _secure: bool = False
+    _ssl_context: ssl.SSLContext | None
     _kwargs: dict[str, Any]
 
     def __init__(
@@ -285,16 +304,16 @@ class _Base:
         encoder: Codec,
         base_url: URL,
         max_message_size: int = DEFAULT_MAX_SIZE,
-        secure: bool = False,
+        ssl_context: ssl.SSLContext | None = None,
         **kwargs: Any,
     ) -> None:
         self._encoder = encoder
-        self._secure = secure
-        self._endpoint = base_url.replace(protocol="ws" if not secure else "wss")
+        self._ssl_context = ssl_context
+        self._endpoint = base_url.replace(
+            protocol="ws" if ssl_context is None else "wss"
+        )
         self._max_message_size = max_message_size
         self._kwargs = kwargs
-        if self._secure and "ssl" not in self._kwargs:
-            self._kwargs["ssl"] = ssl._create_unverified_context()
 
     def additional_headers(self, others: MutableMapping[str, str]) -> dict[str, str]:
         return {"Content-Type": self._encoder.content_type(), **others}
@@ -309,7 +328,8 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         :param base_url: A base url to use as a prefix for all requests.
         :param max_message_size: The maximum size of a message to receive. Defaults to
         DEFAULT_MAX_SIZE.
-        :param secure: Whether to use TLS encryption on the connection or not.
+        :param ssl_context: The TLS context that verifies the server. The client uses
+            TLS when set and a plain connection when None.
         """
         AsyncMiddlewareCollector.__init__(self)
         _Base.__init__(self, **kwargs)
@@ -324,11 +344,12 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         socket_container: list[AsyncWebsocketStream[RQ, RS] | None] = [None]
 
         async def finalizer(ctx: Context) -> Context:
-            out_ctx = Context(target, "websocket", "client")
+            out_ctx = Context("websocket", target, "client")
             ws = await connect(
                 self._endpoint.child(target).stringify(),
                 additional_headers=self.additional_headers(ctx.params),
                 max_size=self._max_message_size,
+                ssl=self._ssl_context,
                 **self._kwargs,
             )
             socket = AsyncWebsocketStream[RQ, RS](self._encoder, ws, res_t)
@@ -336,7 +357,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
             socket_container[0] = socket
             return out_ctx
 
-        await self.exec(Context(target, "websocket", "client"), finalizer)
+        await self.exec(Context("websocket", target, "client"), finalizer)
 
         socket = socket_container[0]
         assert socket is not None
@@ -355,7 +376,8 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         client = AsyncWebsocketClient(
             encoder=codec,
             base_url=self._endpoint,
-            secure=self._secure,
+            max_message_size=self._max_message_size,
+            ssl_context=self._ssl_context,
             **self._kwargs,
         )
         # Copy middleware
@@ -378,12 +400,13 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
         socket_container: list[SyncWebsocketStream[RQ, RS] | None] = [None]
 
         def finalizer(ctx: Context) -> Context:
-            out_ctx = Context(target, "websocket", "client")
+            out_ctx = Context("websocket", target, "client")
             connector = sync_connect(
                 self._endpoint.child(target).stringify(),
                 additional_headers=self.additional_headers(ctx.params),
                 max_size=self._max_message_size,
                 legacy=False,
+                ssl=self._ssl_context,
                 **self._kwargs,
             )
             socket = SyncWebsocketStream[RQ, RS](self._encoder, connector, res_t)
@@ -391,7 +414,7 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
             socket_container[0] = socket
             return out_ctx
 
-        self.exec(Context(target, "websocket", "client"), finalizer)
+        self.exec(Context("websocket", target, "client"), finalizer)
         socket = socket_container[0]
         assert socket is not None
         return socket
@@ -410,7 +433,7 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
             encoder=codec,
             base_url=self._endpoint,
             max_message_size=self._max_message_size,
-            secure=self._secure,
+            ssl_context=self._ssl_context,
             **self._kwargs,
         )
         # Copy middleware

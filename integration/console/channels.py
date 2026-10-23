@@ -80,7 +80,7 @@ class ChannelClient(ResourceClient):
         name: str,
         data_type: sy.telem.CrudeDataType = sy.DataType.UNKNOWN,
         is_index: bool = False,
-        index: sy.channel.Key = 0,
+        index: str = "",
         virtual: bool = False,
     ) -> bool:
         """Creates a new channel via console UI.
@@ -88,7 +88,7 @@ class ChannelClient(ResourceClient):
         :param name: The name for the channel.
         :param data_type: The data type of the samples in the channel.
         :param is_index: Boolean indicating whether the channel is an index.
-        :param index: The key of the channel that indexes this channel.
+        :param index: The name of the channel that indexes this channel.
         :param virtual: Boolean indicating whether the channel is virtual.
         :returns: True if the channel was created successfully.
         """
@@ -102,7 +102,7 @@ class ChannelClient(ResourceClient):
         if is_index:
             self.layout.click_checkbox("Is index")
         else:
-            if index == 0:
+            if not index:
                 raise ValueError("Index must be provided if is_index is False")
             data_type_str = str(sy.DataType(data_type))
             self.layout.click_btn("Data type")
@@ -110,7 +110,7 @@ class ChannelClient(ResourceClient):
                 data_type_str, "Search Data Types", exact=True
             )
             self.layout.click_btn("Index")
-            self.layout.select_from_dropdown(str(index), "Search Channels")
+            self.layout.select_from_dropdown(index, "Search Channels")
 
         self.layout.click_role("button", "Create", exact=True)
         self.layout.wait_for_selector_hidden(self.layout.MODAL_SELECTOR)
@@ -490,7 +490,7 @@ class ChannelClient(ResourceClient):
             if len(normalized_names.channels) != len(normalized_new_names.channels):
                 return False
             for old_name, new_name in zip(
-                normalized_names.channels, normalized_new_names.channels
+                normalized_names.channels, normalized_new_names.channels, strict=True
             ):
                 self._rename_single_channel(
                     old_name=str(old_name), new_name=str(new_name)

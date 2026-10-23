@@ -258,8 +258,7 @@ component_matches() {
     local log=$3
     local action ref
     for action in ${TOOLCHAIN[${comp}]}; do
-        ref=$(yq ".jobs.build.steps[].uses // \"\" | select(test(\"^${action}@\"))" \
-            "${WORKFLOW}")
+        ref=$("$(dirname "$0")/toolchain_ref.sh" "${WORKFLOW}" "${action}")
         if [ -z "${ref}" ] || ! grep -qxF "##[group]Run ${ref}" "${log}"; then
             return 1
         fi

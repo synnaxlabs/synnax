@@ -11,7 +11,9 @@
 
 #pragma once
 
+#include <type_traits>
 #include <utility>
+#include <variant>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
@@ -81,7 +83,11 @@ Transition::to_proto() const {
         *pb.mutable_on() = v;
     }
     pb.set_kind(static_cast<::arc::ir::pb::EdgeKind>(this->kind));
-    if (this->target_key.has_value()) pb.set_target_key(*this->target_key);
+    {
+        auto [v, err] = ::arc::ir::to_proto(this->target);
+        if (err) return {{}, err};
+        *pb.mutable_target() = v;
+    }
     return {pb, x::errors::NIL};
 }
 
@@ -94,7 +100,35 @@ Transition::from_proto(const ::arc::ir::pb::Transition &pb) {
         cpp.on = v;
     }
     cpp.kind = static_cast<EdgeKind>(pb.kind());
-    if (pb.has_target_key()) cpp.target_key = pb.target_key();
+    {
+        auto [v, err] = ::arc::ir::target_from_proto(pb.target());
+        if (err) return {{}, err};
+        cpp.target = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::arc::ir::pb::Activation, x::errors::Error>
+Activation::to_proto() const {
+    ::arc::ir::pb::Activation pb;
+    {
+        auto [v, err] = this->on.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_on() = v;
+    }
+    pb.set_kind(static_cast<::arc::ir::pb::EdgeKind>(this->kind));
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Activation, x::errors::Error>
+Activation::from_proto(const ::arc::ir::pb::Activation &pb) {
+    Activation cpp;
+    {
+        auto [v, err] = Handle::from_proto(pb.on());
+        if (err) return {{}, err};
+        cpp.on = v;
+    }
+    cpp.kind = static_cast<EdgeKind>(pb.kind());
     return {cpp, x::errors::NIL};
 }
 
@@ -126,12 +160,11 @@ inline std::pair<::arc::ir::pb::Scope, x::errors::Error> Scope::to_proto() const
     pb.set_key(this->key);
     pb.set_mode(static_cast<::arc::ir::pb::ScopeMode>(this->mode));
     pb.set_liveness(static_cast<::arc::ir::pb::Liveness>(this->liveness));
-    if (this->activation.has_value()) {
-        auto [v, err] = this->activation->to_proto();
+    for (const auto &item: this->activations) {
+        auto [v, err] = item.to_proto();
         if (err) return {{}, err};
-        *pb.mutable_activation() = v;
+        *pb.add_activations() = v;
     }
-    pb.set_activation_kind(static_cast<::arc::ir::pb::EdgeKind>(this->activation_kind));
     for (const auto &item: this->strata) {
         auto *wrapper = pb.add_strata();
         for (const auto &v: item) {
@@ -159,12 +192,11 @@ Scope::from_proto(const ::arc::ir::pb::Scope &pb) {
     cpp.key = pb.key();
     cpp.mode = static_cast<ScopeMode>(pb.mode());
     cpp.liveness = static_cast<Liveness>(pb.liveness());
-    if (pb.has_activation()) {
-        auto [v, err] = Handle::from_proto(pb.activation());
-        if (err) return {{}, err};
-        cpp.activation = v;
-    }
-    cpp.activation_kind = static_cast<EdgeKind>(pb.activation_kind());
+    if (auto err = x::pb::from_proto_repeated<Activation>(
+            cpp.activations,
+            pb.activations()
+        ))
+        return {{}, err};
     for (const auto &wrapper: pb.strata()) {
         std::vector<Member> inner;
         if (auto err = x::pb::from_proto_repeated<Member>(inner, wrapper.values()))
@@ -359,6 +391,93 @@ inline std::pair<IR, x::errors::Error> IR::from_proto(const ::arc::ir::pb::IR &p
         cpp.root = v;
     }
     return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::arc::ir::pb::TargetExitPayload, x::errors::Error>
+ExitTarget::to_proto() const {
+    ::arc::ir::pb::TargetExitPayload pb;
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<ExitTarget, x::errors::Error>
+ExitTarget::from_proto(const ::arc::ir::pb::TargetExitPayload &pb) {
+    ExitTarget cpp;
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::arc::ir::pb::TargetStepPayload, x::errors::Error>
+StepTarget::to_proto() const {
+    ::arc::ir::pb::TargetStepPayload pb;
+    pb.set_key(this->key);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<StepTarget, x::errors::Error>
+StepTarget::from_proto(const ::arc::ir::pb::TargetStepPayload &pb) {
+    StepTarget cpp;
+    cpp.key = pb.key();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::arc::ir::pb::TargetScopePayload, x::errors::Error>
+ScopeTarget::to_proto() const {
+    ::arc::ir::pb::TargetScopePayload pb;
+    pb.set_key(this->key);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<ScopeTarget, x::errors::Error>
+ScopeTarget::from_proto(const ::arc::ir::pb::TargetScopePayload &pb) {
+    ScopeTarget cpp;
+    cpp.key = pb.key();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::arc::ir::pb::Target, x::errors::Error>
+to_proto(const Target &value) {
+    ::arc::ir::pb::Target pb;
+    const auto visit_err = std::visit(
+        [&pb](const auto &v) -> x::errors::Error {
+            using V = std::decay_t<decltype(v)>;
+            auto [inner, err] = v.to_proto();
+            if (err) return err;
+            if constexpr (std::is_same_v<V, ExitTarget>)
+                *pb.mutable_exit() = inner;
+            else if constexpr (std::is_same_v<V, StepTarget>)
+                *pb.mutable_step() = inner;
+            else if constexpr (std::is_same_v<V, ScopeTarget>)
+                *pb.mutable_scope() = inner;
+            return x::errors::NIL;
+        },
+        value
+    );
+    return {pb, visit_err};
+}
+
+inline std::pair<Target, x::errors::Error>
+target_from_proto(const ::arc::ir::pb::Target &pb) {
+    switch (pb.variant_case()) {
+        case ::arc::ir::pb::Target::kExit: {
+            auto [v, err] = ExitTarget::from_proto(pb.exit());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        case ::arc::ir::pb::Target::kStep: {
+            auto [v, err] = StepTarget::from_proto(pb.step());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        case ::arc::ir::pb::Target::kScope: {
+            auto [v, err] = ScopeTarget::from_proto(pb.scope());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        default:
+            return {
+                {},
+                x::errors::Error(x::errors::VALIDATION, "Target: no variant set")
+            };
+    }
 }
 
 }

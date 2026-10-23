@@ -59,6 +59,7 @@ jobs:
       aspen: ${{ steps.filter.outputs.aspen }}
       buildifier: ${{ steps.filter.outputs.buildifier }}
       cesium: ${{ steps.filter.outputs.cesium }}
+      ci_scripts: ${{ steps.filter.outputs.ci_scripts }}
       client_cpp: ${{ steps.filter.outputs.client_cpp }}
       client_py: ${{ steps.filter.outputs.client_py }}
       client_ts: ${{ steps.filter.outputs.client_ts }}
@@ -71,6 +72,8 @@ jobs:
       drift: ${{ steps.filter.outputs.drift }}
       driver: ${{ steps.filter.outputs.driver }}
       driver_build: ${{ steps.filter.outputs.driver_build }}
+      eslint_config: ${{ steps.filter.outputs.eslint_config }}
+      foundation: ${{ steps.filter.outputs.foundation }}
       freighter_cpp: ${{ steps.filter.outputs.freighter_cpp }}
       freighter_go: ${{ steps.filter.outputs.freighter_go }}
       freighter_image: ${{ steps.filter.outputs.freighter_image }}
@@ -81,7 +84,6 @@ jobs:
       knip: ${{ steps.filter.outputs.knip }}
       lint_integration: ${{ steps.filter.outputs.lint_integration }}
       lyra: ${{ steps.filter.outputs.lyra }}
-      media: ${{ steps.filter.outputs.media }}
       oracle: ${{ steps.filter.outputs.oracle }}
       oracle_check: ${{ steps.filter.outputs.oracle_check }}
       oracle_language: ${{ steps.filter.outputs.oracle_language }}
@@ -146,7 +148,7 @@ jobs:
       needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
-      core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      core_image: ${{ needs.core-image.outputs.image }}
       directories: arc/cpp
       macos: *full
       rust: true
@@ -195,6 +197,14 @@ jobs:
       windows: *full
     secrets: inherit
 
+  ci-scripts:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.ci_scripts == 'true'
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: .github/scripts
+    secrets: inherit
+
   client-cpp:
     needs: [changes, core-image]
     if:
@@ -202,7 +212,7 @@ jobs:
       needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
-      core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      core_image: ${{ needs.core-image.outputs.image }}
       directories: client/cpp client/clib
       macos: *full
       targets: //client/cpp/... //client/clib/...
@@ -217,11 +227,11 @@ jobs:
       needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.py.yaml
     with:
-      core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: client-py
       coverage_module: synnax
       directory: client/py
-      type_check_dir: ./synnax
+      type_check_dir: ./synnax ./examples ./tests
     secrets: inherit
 
   client-ts:
@@ -231,7 +241,7 @@ jobs:
       needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
-      core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: client-ts
       directory: client/ts
       package: client
@@ -244,7 +254,7 @@ jobs:
       needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
-      core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: console
       directory: console
       package: console
@@ -275,7 +285,7 @@ jobs:
     uses: ./.github/workflows/build.docker.yaml
     with:
       module: core
-      tag: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      repository: ghcr.io/synnaxlabs/synnax
     secrets: inherit
 
   desktop-shell:
@@ -339,7 +349,7 @@ jobs:
     uses: ./.github/workflows/test.cpp.yaml
     with:
       apt_packages: libsystemd-dev
-      core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      core_image: ${{ needs.core-image.outputs.image }}
       directories: driver
       macos: *full
       rust: true
@@ -349,8 +359,28 @@ jobs:
       windows: *full
     secrets: inherit
 
+  eslint-config:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.eslint_config == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: configs/eslint
+      package: eslint-config
+    secrets: inherit
+
   format:
     uses: ./.github/workflows/test.format.yaml
+
+  foundation:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.foundation == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: site/foundation
+      macos: *full
+      package: foundation
+      windows: *full
+    secrets: inherit
 
   freighter-cpp:
     needs: changes
@@ -383,7 +413,7 @@ jobs:
     uses: ./.github/workflows/build.docker.yaml
     with:
       module: freighter/integration
-      tag: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
+      repository: ghcr.io/synnaxlabs/freighter-go-integration
     secrets: inherit
 
   freighter-integration:
@@ -407,7 +437,7 @@ jobs:
       coverage_flag: freighter-py
       coverage_module: freighter
       directory: freighter/py
-      freighter_image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
+      freighter_image: ${{ needs.freighter-image.outputs.image }}
     secrets: inherit
 
   freighter-ts:
@@ -419,7 +449,7 @@ jobs:
     with:
       coverage_flag: freighter-ts
       directory: freighter/ts
-      freighter_image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
+      freighter_image: ${{ needs.freighter-image.outputs.image }}
       package: freighter
     secrets: inherit
 
@@ -461,7 +491,6 @@ jobs:
     uses: ./.github/workflows/test.py.yaml
     with:
       directory: integration
-      test: false
     secrets: inherit
 
   lyra:
@@ -474,16 +503,6 @@ jobs:
       macos: *full
       package: lyra
       windows: *full
-    secrets: inherit
-
-  media:
-    needs: changes
-    if: inputs.full || needs.changes.outputs.media == 'true'
-    uses: ./.github/workflows/test.ts.yaml
-    with:
-      directory: x/media
-      package: media
-      test: false
     secrets: inherit
 
   oracle:
@@ -523,7 +542,7 @@ jobs:
       == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
-      core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: pluto
       directory: pluto
       package: pluto
@@ -551,7 +570,9 @@ jobs:
   scripts:
     needs: changes
     if: inputs.full || needs.changes.outputs.scripts == 'true'
-    uses: ./.github/workflows/test.scripts.yaml
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: scripts
     secrets: inherit
 
   site-common:
@@ -699,6 +720,7 @@ jobs:
       - buildifier
       - cesium
       - changes
+      - ci-scripts
       - client-cpp
       - client-py
       - client-ts
@@ -711,7 +733,9 @@ jobs:
       - docs-site
       - drift
       - driver
+      - eslint-config
       - format
+      - foundation
       - freighter-cpp
       - freighter-go
       - freighter-image
@@ -722,7 +746,6 @@ jobs:
       - knip
       - lint-integration
       - lyra
-      - media
       - oracle
       - oracle-check
       - oracle-language

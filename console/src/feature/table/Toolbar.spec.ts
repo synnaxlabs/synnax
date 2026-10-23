@@ -13,13 +13,13 @@ import { color } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Table } from "@/feature/table";
 import {
   client,
   createCellGrid,
   createPreloadedState,
   renderTable,
 } from "@/feature/table/testutil";
+import { Toolbar } from "@/feature/table/Toolbar";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
 import { assertDefined, getInputByItemLabel, uniqueName } from "@/testutil";
@@ -58,7 +58,7 @@ const renderToolbar = async ({
   as,
 }: RenderToolbarOptions = {}) => {
   const name = uniqueName("table");
-  const handle = await renderTable(Table.Toolbar, {
+  const handle = await renderTable(Toolbar, {
     table: { name, ...(withCells ? createCellGrid() : {}) },
     preloadedState: (key) => createPreloadedState(key, tableState),
     as,
@@ -152,7 +152,7 @@ describe("table/Toolbar", () => {
   });
 
   it("keeps the selected form tab when another value cell is selected", async () => {
-    const { key, store } = await renderTable(Table.Toolbar, {
+    const { key, store } = await renderTable(Toolbar, {
       table: {
         name: uniqueName("table"),
         rows: [{ size: 36, cells: ["a", "b"] }],
@@ -176,7 +176,7 @@ describe("table/Toolbar", () => {
   });
 
   it("sets a fill on every selected cell whose fill is auto", async () => {
-    const { key } = await renderTable(Table.Toolbar, {
+    const { key } = await renderTable(Toolbar, {
       table: { name: uniqueName("table"), ...createUncoloredGrid() },
       preloadedState: (key) =>
         createPreloadedState(key, { selectedCells: ["a", "b"], lastSelected: "b" }),
@@ -225,7 +225,7 @@ describe("table/Toolbar", () => {
   });
 
   it("writes a number format only to the value cells", async () => {
-    const { key, result } = await renderTable(Table.Toolbar, {
+    const { key, result } = await renderTable(Toolbar, {
       table: {
         name: uniqueName("table"),
         rows: [{ size: 36, cells: ["a", "b"] }],

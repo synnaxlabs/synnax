@@ -54,7 +54,7 @@ class ModbusWriteHoldingRegister(ModbusWriteTaskCase):
                     index=idx.key,
                 ),
                 address=10 + i * 2,
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
             )
             for i in range(3)
         ]
@@ -86,7 +86,7 @@ class ModbusWriteMixed(ModbusWriteTaskCase):
                     index=idx.key,
                 ),
                 address=20 + i * 2,
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
             )
             for i in range(2)
         ]

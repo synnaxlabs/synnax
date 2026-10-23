@@ -303,7 +303,8 @@ func (x *Edge) GetKind() EdgeKind {
 	return EdgeKind_EDGE_KIND_UNSPECIFIED
 }
 
-// Transition is a declarative state-transition rule on a sequential Scope.
+// Transition is a declarative state-transition rule on a sequential Scope, or an exit
+// from a parallel Scope.
 type Transition struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// on is the dataflow handle whose output fires this transition.
@@ -311,9 +312,8 @@ type Transition struct {
 	// kind is conditional when only a truthy output fires the transition (`=>`), and
 	// continuous when every output fires it (`->`).
 	Kind EdgeKind `protobuf:"varint,2,opt,name=kind,proto3,enum=arc.ir.pb.EdgeKind" json:"kind,omitempty"`
-	// target_key is the sibling step key to activate. Null when the transition exits the
-	// scope, yielding to the parent.
-	TargetKey     *string `protobuf:"bytes,3,opt,name=target_key,json=targetKey,proto3,oneof" json:"target_key,omitempty"`
+	// target is where the transition goes when it fires.
+	Target        *Target `protobuf:"bytes,3,opt,name=target,proto3" json:"target,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -362,11 +362,67 @@ func (x *Transition) GetKind() EdgeKind {
 	return EdgeKind_EDGE_KIND_UNSPECIFIED
 }
 
-func (x *Transition) GetTargetKey() string {
-	if x != nil && x.TargetKey != nil {
-		return *x.TargetKey
+func (x *Transition) GetTarget() *Target {
+	if x != nil {
+		return x.Target
 	}
-	return ""
+	return nil
+}
+
+// Activation is a handle that activates a gated Scope without leaving any scope.
+type Activation struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// on is the dataflow handle whose output activates the scope.
+	On *Handle `protobuf:"bytes,1,opt,name=on,proto3" json:"on,omitempty"`
+	// kind is conditional when only a truthy output activates the scope (`=>`), and
+	// continuous when every output does (`->`).
+	Kind          EdgeKind `protobuf:"varint,2,opt,name=kind,proto3,enum=arc.ir.pb.EdgeKind" json:"kind,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Activation) Reset() {
+	*x = Activation{}
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Activation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Activation) ProtoMessage() {}
+
+func (x *Activation) ProtoReflect() protoreflect.Message {
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Activation.ProtoReflect.Descriptor instead.
+func (*Activation) Descriptor() ([]byte, []int) {
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Activation) GetOn() *Handle {
+	if x != nil {
+		return x.On
+	}
+	return nil
+}
+
+func (x *Activation) GetKind() EdgeKind {
+	if x != nil {
+		return x.Kind
+	}
+	return EdgeKind_EDGE_KIND_UNSPECIFIED
 }
 
 // Member is a tagged union representing a single child of a Scope. Exactly one of
@@ -385,7 +441,7 @@ type Member struct {
 
 func (x *Member) Reset() {
 	*x = Member{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[3]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -397,7 +453,7 @@ func (x *Member) String() string {
 func (*Member) ProtoMessage() {}
 
 func (x *Member) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[3]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -410,7 +466,7 @@ func (x *Member) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Member.ProtoReflect.Descriptor instead.
 func (*Member) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{3}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Member) GetNodeKey() string {
@@ -436,7 +492,7 @@ type MembersWrapper struct {
 
 func (x *MembersWrapper) Reset() {
 	*x = MembersWrapper{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[4]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -448,7 +504,7 @@ func (x *MembersWrapper) String() string {
 func (*MembersWrapper) ProtoMessage() {}
 
 func (x *MembersWrapper) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[4]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -461,7 +517,7 @@ func (x *MembersWrapper) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MembersWrapper.ProtoReflect.Descriptor instead.
 func (*MembersWrapper) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{4}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *MembersWrapper) GetValues() []*Member {
@@ -482,29 +538,25 @@ type Scope struct {
 	Mode ScopeMode `protobuf:"varint,2,opt,name=mode,proto3,enum=arc.ir.pb.ScopeMode" json:"mode,omitempty"`
 	// liveness defines whether this scope is continuously active or must be activated.
 	Liveness Liveness `protobuf:"varint,3,opt,name=liveness,proto3,enum=arc.ir.pb.Liveness" json:"liveness,omitempty"`
-	// activation is the handle whose output activates a gated scope. Unset for
-	// always-live scopes.
-	Activation *Handle `protobuf:"bytes,4,opt,name=activation,proto3,oneof" json:"activation,omitempty"`
-	// activation_kind is conditional when only a truthy activation output activates the
-	// scope (`=>`), and continuous when every output does (`->`). Unspecified when
-	// activation is unset.
-	ActivationKind EdgeKind `protobuf:"varint,5,opt,name=activation_kind,json=activationKind,proto3,enum=arc.ir.pb.EdgeKind" json:"activation_kind,omitempty"`
+	// activations contains the handles that activate a gated scope. Empty for always-live
+	// scopes.
+	Activations []*Activation `protobuf:"bytes,4,rep,name=activations,proto3" json:"activations,omitempty"`
 	// strata contains stratified execution layers for parallel scopes. On sequential
 	// scopes, strata hold variable nodes that run every pass alongside the active step.
 	// Stratum N depends only on strata 0 to N-1.
-	Strata []*MembersWrapper `protobuf:"bytes,6,rep,name=strata,proto3" json:"strata,omitempty"`
+	Strata []*MembersWrapper `protobuf:"bytes,5,rep,name=strata,proto3" json:"strata,omitempty"`
 	// steps contains ordered steps for sequential scopes. Empty for parallel scopes.
-	Steps []*Member `protobuf:"bytes,7,rep,name=steps,proto3" json:"steps,omitempty"`
-	// transitions contains state-transition rules for sequential scopes. Empty for
-	// parallel scopes.
-	Transitions   []*Transition `protobuf:"bytes,8,rep,name=transitions,proto3" json:"transitions,omitempty"`
+	Steps []*Member `protobuf:"bytes,6,rep,name=steps,proto3" json:"steps,omitempty"`
+	// transitions contains state-transition rules in source order. A parallel scope holds
+	// only exits.
+	Transitions   []*Transition `protobuf:"bytes,7,rep,name=transitions,proto3" json:"transitions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Scope) Reset() {
 	*x = Scope{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[5]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -516,7 +568,7 @@ func (x *Scope) String() string {
 func (*Scope) ProtoMessage() {}
 
 func (x *Scope) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[5]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -529,7 +581,7 @@ func (x *Scope) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Scope.ProtoReflect.Descriptor instead.
 func (*Scope) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{5}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Scope) GetKey() string {
@@ -553,18 +605,11 @@ func (x *Scope) GetLiveness() Liveness {
 	return Liveness_LIVENESS_UNSPECIFIED
 }
 
-func (x *Scope) GetActivation() *Handle {
+func (x *Scope) GetActivations() []*Activation {
 	if x != nil {
-		return x.Activation
+		return x.Activations
 	}
 	return nil
-}
-
-func (x *Scope) GetActivationKind() EdgeKind {
-	if x != nil {
-		return x.ActivationKind
-	}
-	return EdgeKind_EDGE_KIND_UNSPECIFIED
 }
 
 func (x *Scope) GetStrata() []*MembersWrapper {
@@ -599,7 +644,7 @@ type Body struct {
 
 func (x *Body) Reset() {
 	*x = Body{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[6]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -611,7 +656,7 @@ func (x *Body) String() string {
 func (*Body) ProtoMessage() {}
 
 func (x *Body) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[6]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -624,7 +669,7 @@ func (x *Body) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Body.ProtoReflect.Descriptor instead.
 func (*Body) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{6}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *Body) GetRaw() string {
@@ -654,7 +699,7 @@ type Function struct {
 
 func (x *Function) Reset() {
 	*x = Function{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[7]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -666,7 +711,7 @@ func (x *Function) String() string {
 func (*Function) ProtoMessage() {}
 
 func (x *Function) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[7]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -679,7 +724,7 @@ func (x *Function) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Function.ProtoReflect.Descriptor instead.
 func (*Function) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{7}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Function) GetKey() string {
@@ -736,7 +781,7 @@ type Node struct {
 
 func (x *Node) Reset() {
 	*x = Node{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[8]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -748,7 +793,7 @@ func (x *Node) String() string {
 func (*Node) ProtoMessage() {}
 
 func (x *Node) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[8]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -761,7 +806,7 @@ func (x *Node) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Node.ProtoReflect.Descriptor instead.
 func (*Node) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{8}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Node) GetKey() string {
@@ -812,7 +857,7 @@ type Authorities struct {
 
 func (x *Authorities) Reset() {
 	*x = Authorities{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[9]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -824,7 +869,7 @@ func (x *Authorities) String() string {
 func (*Authorities) ProtoMessage() {}
 
 func (x *Authorities) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[9]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -837,7 +882,7 @@ func (x *Authorities) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Authorities.ProtoReflect.Descriptor instead.
 func (*Authorities) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{9}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Authorities) GetDefault() uint32 {
@@ -875,7 +920,7 @@ type IR struct {
 
 func (x *IR) Reset() {
 	*x = IR{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[10]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -887,7 +932,7 @@ func (x *IR) String() string {
 func (*IR) ProtoMessage() {}
 
 func (x *IR) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[10]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -900,7 +945,7 @@ func (x *IR) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IR.ProtoReflect.Descriptor instead.
 func (*IR) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{10}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *IR) GetFunctions() []*Function {
@@ -938,6 +983,231 @@ func (x *IR) GetRoot() *Scope {
 	return nil
 }
 
+type TargetExitPayload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TargetExitPayload) Reset() {
+	*x = TargetExitPayload{}
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TargetExitPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TargetExitPayload) ProtoMessage() {}
+
+func (x *TargetExitPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TargetExitPayload.ProtoReflect.Descriptor instead.
+func (*TargetExitPayload) Descriptor() ([]byte, []int) {
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{12}
+}
+
+type TargetStepPayload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the key of the sibling step to activate.
+	Key           string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TargetStepPayload) Reset() {
+	*x = TargetStepPayload{}
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TargetStepPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TargetStepPayload) ProtoMessage() {}
+
+func (x *TargetStepPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TargetStepPayload.ProtoReflect.Descriptor instead.
+func (*TargetStepPayload) Descriptor() ([]byte, []int) {
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *TargetStepPayload) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+type TargetScopePayload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the key of the top-level scope to activate.
+	Key           string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TargetScopePayload) Reset() {
+	*x = TargetScopePayload{}
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TargetScopePayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TargetScopePayload) ProtoMessage() {}
+
+func (x *TargetScopePayload) ProtoReflect() protoreflect.Message {
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TargetScopePayload.ProtoReflect.Descriptor instead.
+func (*TargetScopePayload) Descriptor() ([]byte, []int) {
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *TargetScopePayload) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+// Target is where a transition goes when it fires.
+type Target struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*Target_Exit
+	//	*Target_Step
+	//	*Target_Scope
+	Variant       isTarget_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Target) Reset() {
+	*x = Target{}
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Target) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Target) ProtoMessage() {}
+
+func (x *Target) ProtoReflect() protoreflect.Message {
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Target.ProtoReflect.Descriptor instead.
+func (*Target) Descriptor() ([]byte, []int) {
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *Target) GetVariant() isTarget_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *Target) GetExit() *TargetExitPayload {
+	if x != nil {
+		if x, ok := x.Variant.(*Target_Exit); ok {
+			return x.Exit
+		}
+	}
+	return nil
+}
+
+func (x *Target) GetStep() *TargetStepPayload {
+	if x != nil {
+		if x, ok := x.Variant.(*Target_Step); ok {
+			return x.Step
+		}
+	}
+	return nil
+}
+
+func (x *Target) GetScope() *TargetScopePayload {
+	if x != nil {
+		if x, ok := x.Variant.(*Target_Scope); ok {
+			return x.Scope
+		}
+	}
+	return nil
+}
+
+type isTarget_Variant interface {
+	isTarget_Variant()
+}
+
+type Target_Exit struct {
+	Exit *TargetExitPayload `protobuf:"bytes,1,opt,name=exit,proto3,oneof"`
+}
+
+type Target_Step struct {
+	Step *TargetStepPayload `protobuf:"bytes,2,opt,name=step,proto3,oneof"`
+}
+
+type Target_Scope struct {
+	Scope *TargetScopePayload `protobuf:"bytes,3,opt,name=scope,proto3,oneof"`
+}
+
+func (*Target_Exit) isTarget_Variant() {}
+
+func (*Target_Step) isTarget_Variant() {}
+
+func (*Target_Scope) isTarget_Variant() {}
+
 var File_arc_go_ir_pb_ir_proto protoreflect.FileDescriptor
 
 const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
@@ -949,33 +1219,31 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x04Edge\x12)\n" +
 	"\x06source\x18\x01 \x01(\v2\x11.arc.ir.pb.HandleR\x06source\x12)\n" +
 	"\x06target\x18\x02 \x01(\v2\x11.arc.ir.pb.HandleR\x06target\x12'\n" +
-	"\x04kind\x18\x03 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\"\x8b\x01\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\"\x83\x01\n" +
 	"\n" +
 	"Transition\x12!\n" +
 	"\x02on\x18\x01 \x01(\v2\x11.arc.ir.pb.HandleR\x02on\x12'\n" +
-	"\x04kind\x18\x02 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\x12\"\n" +
+	"\x04kind\x18\x02 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\x12)\n" +
+	"\x06target\x18\x03 \x01(\v2\x11.arc.ir.pb.TargetR\x06target\"X\n" +
 	"\n" +
-	"target_key\x18\x03 \x01(\tH\x00R\ttargetKey\x88\x01\x01B\r\n" +
-	"\v_target_key\"l\n" +
+	"Activation\x12!\n" +
+	"\x02on\x18\x01 \x01(\v2\x11.arc.ir.pb.HandleR\x02on\x12'\n" +
+	"\x04kind\x18\x02 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\"l\n" +
 	"\x06Member\x12\x1e\n" +
 	"\bnode_key\x18\x01 \x01(\tH\x00R\anodeKey\x88\x01\x01\x12+\n" +
 	"\x05scope\x18\x02 \x01(\v2\x10.arc.ir.pb.ScopeH\x01R\x05scope\x88\x01\x01B\v\n" +
 	"\t_node_keyB\b\n" +
 	"\x06_scope\";\n" +
 	"\x0eMembersWrapper\x12)\n" +
-	"\x06values\x18\x01 \x03(\v2\x11.arc.ir.pb.MemberR\x06values\"\x8e\x03\n" +
+	"\x06values\x18\x01 \x03(\v2\x11.arc.ir.pb.MemberR\x06values\"\xc2\x02\n" +
 	"\x05Scope\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12(\n" +
 	"\x04mode\x18\x02 \x01(\x0e2\x14.arc.ir.pb.ScopeModeR\x04mode\x12/\n" +
-	"\bliveness\x18\x03 \x01(\x0e2\x13.arc.ir.pb.LivenessR\bliveness\x126\n" +
-	"\n" +
-	"activation\x18\x04 \x01(\v2\x11.arc.ir.pb.HandleH\x00R\n" +
-	"activation\x88\x01\x01\x12<\n" +
-	"\x0factivation_kind\x18\x05 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x0eactivationKind\x121\n" +
-	"\x06strata\x18\x06 \x03(\v2\x19.arc.ir.pb.MembersWrapperR\x06strata\x12'\n" +
-	"\x05steps\x18\a \x03(\v2\x11.arc.ir.pb.MemberR\x05steps\x127\n" +
-	"\vtransitions\x18\b \x03(\v2\x15.arc.ir.pb.TransitionR\vtransitionsB\r\n" +
-	"\v_activation\"\x18\n" +
+	"\bliveness\x18\x03 \x01(\x0e2\x13.arc.ir.pb.LivenessR\bliveness\x127\n" +
+	"\vactivations\x18\x04 \x03(\v2\x15.arc.ir.pb.ActivationR\vactivations\x121\n" +
+	"\x06strata\x18\x05 \x03(\v2\x19.arc.ir.pb.MembersWrapperR\x06strata\x12'\n" +
+	"\x05steps\x18\x06 \x03(\v2\x11.arc.ir.pb.MemberR\x05steps\x127\n" +
+	"\vtransitions\x18\a \x03(\v2\x15.arc.ir.pb.TransitionR\vtransitions\"\x18\n" +
 	"\x04Body\x12\x10\n" +
 	"\x03raw\x18\x01 \x01(\tR\x03raw\"\xd1\x01\n" +
 	"\bFunction\x12\x10\n" +
@@ -1003,7 +1271,17 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x05nodes\x18\x02 \x03(\v2\x0f.arc.ir.pb.NodeR\x05nodes\x12%\n" +
 	"\x05edges\x18\x03 \x03(\v2\x0f.arc.ir.pb.EdgeR\x05edges\x128\n" +
 	"\vauthorities\x18\x04 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities\x12$\n" +
-	"\x04root\x18\x05 \x01(\v2\x10.arc.ir.pb.ScopeR\x04root*Z\n" +
+	"\x04root\x18\x05 \x01(\v2\x10.arc.ir.pb.ScopeR\x04root\"\x13\n" +
+	"\x11TargetExitPayload\"%\n" +
+	"\x11TargetStepPayload\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\"&\n" +
+	"\x12TargetScopePayload\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\"\xb2\x01\n" +
+	"\x06Target\x122\n" +
+	"\x04exit\x18\x01 \x01(\v2\x1c.arc.ir.pb.TargetExitPayloadH\x00R\x04exit\x122\n" +
+	"\x04step\x18\x02 \x01(\v2\x1c.arc.ir.pb.TargetStepPayloadH\x00R\x04step\x125\n" +
+	"\x05scope\x18\x03 \x01(\v2\x1d.arc.ir.pb.TargetScopePayloadH\x00R\x05scopeB\t\n" +
+	"\avariant*Z\n" +
 	"\bEdgeKind\x12\x19\n" +
 	"\x15EDGE_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14EDGE_KIND_CONTINUOUS\x10\x01\x12\x19\n" +
@@ -1031,25 +1309,30 @@ func file_arc_go_ir_pb_ir_proto_rawDescGZIP() []byte {
 }
 
 var file_arc_go_ir_pb_ir_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_arc_go_ir_pb_ir_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_arc_go_ir_pb_ir_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_arc_go_ir_pb_ir_proto_goTypes = []any{
-	(EdgeKind)(0),          // 0: arc.ir.pb.EdgeKind
-	(ScopeMode)(0),         // 1: arc.ir.pb.ScopeMode
-	(Liveness)(0),          // 2: arc.ir.pb.Liveness
-	(*Handle)(nil),         // 3: arc.ir.pb.Handle
-	(*Edge)(nil),           // 4: arc.ir.pb.Edge
-	(*Transition)(nil),     // 5: arc.ir.pb.Transition
-	(*Member)(nil),         // 6: arc.ir.pb.Member
-	(*MembersWrapper)(nil), // 7: arc.ir.pb.MembersWrapper
-	(*Scope)(nil),          // 8: arc.ir.pb.Scope
-	(*Body)(nil),           // 9: arc.ir.pb.Body
-	(*Function)(nil),       // 10: arc.ir.pb.Function
-	(*Node)(nil),           // 11: arc.ir.pb.Node
-	(*Authorities)(nil),    // 12: arc.ir.pb.Authorities
-	(*IR)(nil),             // 13: arc.ir.pb.IR
-	nil,                    // 14: arc.ir.pb.Authorities.ChannelsEntry
-	(*pb.Param)(nil),       // 15: arc.types.pb.Param
-	(*pb.Channels)(nil),    // 16: arc.types.pb.Channels
+	(EdgeKind)(0),              // 0: arc.ir.pb.EdgeKind
+	(ScopeMode)(0),             // 1: arc.ir.pb.ScopeMode
+	(Liveness)(0),              // 2: arc.ir.pb.Liveness
+	(*Handle)(nil),             // 3: arc.ir.pb.Handle
+	(*Edge)(nil),               // 4: arc.ir.pb.Edge
+	(*Transition)(nil),         // 5: arc.ir.pb.Transition
+	(*Activation)(nil),         // 6: arc.ir.pb.Activation
+	(*Member)(nil),             // 7: arc.ir.pb.Member
+	(*MembersWrapper)(nil),     // 8: arc.ir.pb.MembersWrapper
+	(*Scope)(nil),              // 9: arc.ir.pb.Scope
+	(*Body)(nil),               // 10: arc.ir.pb.Body
+	(*Function)(nil),           // 11: arc.ir.pb.Function
+	(*Node)(nil),               // 12: arc.ir.pb.Node
+	(*Authorities)(nil),        // 13: arc.ir.pb.Authorities
+	(*IR)(nil),                 // 14: arc.ir.pb.IR
+	(*TargetExitPayload)(nil),  // 15: arc.ir.pb.TargetExitPayload
+	(*TargetStepPayload)(nil),  // 16: arc.ir.pb.TargetStepPayload
+	(*TargetScopePayload)(nil), // 17: arc.ir.pb.TargetScopePayload
+	(*Target)(nil),             // 18: arc.ir.pb.Target
+	nil,                        // 19: arc.ir.pb.Authorities.ChannelsEntry
+	(*pb.Param)(nil),           // 20: arc.types.pb.Param
+	(*pb.Channels)(nil),        // 21: arc.types.pb.Channels
 }
 var file_arc_go_ir_pb_ir_proto_depIdxs = []int32{
 	3,  // 0: arc.ir.pb.Edge.source:type_name -> arc.ir.pb.Handle
@@ -1057,33 +1340,38 @@ var file_arc_go_ir_pb_ir_proto_depIdxs = []int32{
 	0,  // 2: arc.ir.pb.Edge.kind:type_name -> arc.ir.pb.EdgeKind
 	3,  // 3: arc.ir.pb.Transition.on:type_name -> arc.ir.pb.Handle
 	0,  // 4: arc.ir.pb.Transition.kind:type_name -> arc.ir.pb.EdgeKind
-	8,  // 5: arc.ir.pb.Member.scope:type_name -> arc.ir.pb.Scope
-	6,  // 6: arc.ir.pb.MembersWrapper.values:type_name -> arc.ir.pb.Member
-	1,  // 7: arc.ir.pb.Scope.mode:type_name -> arc.ir.pb.ScopeMode
-	2,  // 8: arc.ir.pb.Scope.liveness:type_name -> arc.ir.pb.Liveness
-	3,  // 9: arc.ir.pb.Scope.activation:type_name -> arc.ir.pb.Handle
-	0,  // 10: arc.ir.pb.Scope.activation_kind:type_name -> arc.ir.pb.EdgeKind
-	7,  // 11: arc.ir.pb.Scope.strata:type_name -> arc.ir.pb.MembersWrapper
-	6,  // 12: arc.ir.pb.Scope.steps:type_name -> arc.ir.pb.Member
-	5,  // 13: arc.ir.pb.Scope.transitions:type_name -> arc.ir.pb.Transition
-	9,  // 14: arc.ir.pb.Function.body:type_name -> arc.ir.pb.Body
-	15, // 15: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
-	15, // 16: arc.ir.pb.Function.outputs:type_name -> arc.types.pb.Param
-	16, // 17: arc.ir.pb.Function.channels:type_name -> arc.types.pb.Channels
-	15, // 18: arc.ir.pb.Node.inputs:type_name -> arc.types.pb.Param
-	15, // 19: arc.ir.pb.Node.outputs:type_name -> arc.types.pb.Param
-	16, // 20: arc.ir.pb.Node.channels:type_name -> arc.types.pb.Channels
-	14, // 21: arc.ir.pb.Authorities.channels:type_name -> arc.ir.pb.Authorities.ChannelsEntry
-	10, // 22: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
-	11, // 23: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
-	4,  // 24: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
-	12, // 25: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
-	8,  // 26: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Scope
-	27, // [27:27] is the sub-list for method output_type
-	27, // [27:27] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	18, // 5: arc.ir.pb.Transition.target:type_name -> arc.ir.pb.Target
+	3,  // 6: arc.ir.pb.Activation.on:type_name -> arc.ir.pb.Handle
+	0,  // 7: arc.ir.pb.Activation.kind:type_name -> arc.ir.pb.EdgeKind
+	9,  // 8: arc.ir.pb.Member.scope:type_name -> arc.ir.pb.Scope
+	7,  // 9: arc.ir.pb.MembersWrapper.values:type_name -> arc.ir.pb.Member
+	1,  // 10: arc.ir.pb.Scope.mode:type_name -> arc.ir.pb.ScopeMode
+	2,  // 11: arc.ir.pb.Scope.liveness:type_name -> arc.ir.pb.Liveness
+	6,  // 12: arc.ir.pb.Scope.activations:type_name -> arc.ir.pb.Activation
+	8,  // 13: arc.ir.pb.Scope.strata:type_name -> arc.ir.pb.MembersWrapper
+	7,  // 14: arc.ir.pb.Scope.steps:type_name -> arc.ir.pb.Member
+	5,  // 15: arc.ir.pb.Scope.transitions:type_name -> arc.ir.pb.Transition
+	10, // 16: arc.ir.pb.Function.body:type_name -> arc.ir.pb.Body
+	20, // 17: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
+	20, // 18: arc.ir.pb.Function.outputs:type_name -> arc.types.pb.Param
+	21, // 19: arc.ir.pb.Function.channels:type_name -> arc.types.pb.Channels
+	20, // 20: arc.ir.pb.Node.inputs:type_name -> arc.types.pb.Param
+	20, // 21: arc.ir.pb.Node.outputs:type_name -> arc.types.pb.Param
+	21, // 22: arc.ir.pb.Node.channels:type_name -> arc.types.pb.Channels
+	19, // 23: arc.ir.pb.Authorities.channels:type_name -> arc.ir.pb.Authorities.ChannelsEntry
+	11, // 24: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
+	12, // 25: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
+	4,  // 26: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
+	13, // 27: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
+	9,  // 28: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Scope
+	15, // 29: arc.ir.pb.Target.exit:type_name -> arc.ir.pb.TargetExitPayload
+	16, // 30: arc.ir.pb.Target.step:type_name -> arc.ir.pb.TargetStepPayload
+	17, // 31: arc.ir.pb.Target.scope:type_name -> arc.ir.pb.TargetScopePayload
+	32, // [32:32] is the sub-list for method output_type
+	32, // [32:32] is the sub-list for method input_type
+	32, // [32:32] is the sub-list for extension type_name
+	32, // [32:32] is the sub-list for extension extendee
+	0,  // [0:32] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_ir_pb_ir_proto_init() }
@@ -1091,17 +1379,20 @@ func file_arc_go_ir_pb_ir_proto_init() {
 	if File_arc_go_ir_pb_ir_proto != nil {
 		return
 	}
-	file_arc_go_ir_pb_ir_proto_msgTypes[2].OneofWrappers = []any{}
-	file_arc_go_ir_pb_ir_proto_msgTypes[3].OneofWrappers = []any{}
-	file_arc_go_ir_pb_ir_proto_msgTypes[5].OneofWrappers = []any{}
-	file_arc_go_ir_pb_ir_proto_msgTypes[9].OneofWrappers = []any{}
+	file_arc_go_ir_pb_ir_proto_msgTypes[4].OneofWrappers = []any{}
+	file_arc_go_ir_pb_ir_proto_msgTypes[10].OneofWrappers = []any{}
+	file_arc_go_ir_pb_ir_proto_msgTypes[15].OneofWrappers = []any{
+		(*Target_Exit)(nil),
+		(*Target_Step)(nil),
+		(*Target_Scope)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_arc_go_ir_pb_ir_proto_rawDesc), len(file_arc_go_ir_pb_ir_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   12,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

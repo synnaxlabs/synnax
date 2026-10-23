@@ -209,7 +209,7 @@ class LayoutClient:
                 self.dialog.get_by_role("option").first.wait_for(
                     state="attached", timeout=10000
                 )
-            except PlaywrightTimeoutError:
+            except PlaywrightTimeoutError as e:
                 no_results = self.page.get_by_text(empty_message).is_visible()
                 if no_results and attempt < retries - 1:
                     self.page.keyboard.press("Escape")
@@ -233,21 +233,21 @@ class LayoutClient:
                     f"Palette open: {palette_open}. "
                     f"List visible: {list_visible}. "
                     f"List HTML: {list_html}"
-                )
+                ) from e
 
             target_result = (
                 self.dialog.get_by_role("option").filter(has_text=query).first
             )
             try:
                 target_result.wait_for(state="visible", timeout=5000)
-            except PlaywrightTimeoutError:
+            except PlaywrightTimeoutError as e:
                 input_value = palette_input.input_value()
                 options = self.dialog.get_by_role("option").all_text_contents()
                 raise RuntimeError(
                     f"{error_prefix}: Could not find '{query}'. "
                     f"Input value: '{input_value}'. "
                     f"Available options: {options}"
-                )
+                ) from e
             target_result.click(timeout=5000)
             return
 
@@ -431,16 +431,23 @@ class LayoutClient:
         )
         return toggle.is_checked()
 
-    def get_dropdown_value(self, dropdown_label: str) -> str:
-        """Get the current value of a dropdown by label."""
-        dropdown_button = (
+    def _dropdown_button(self, dropdown_label: str) -> Locator:
+        return (
             self.page.locator(f"text={dropdown_label}")
             .locator("..")
             .locator("button")
             .first
         )
+
+    def get_dropdown_value(self, dropdown_label: str) -> str:
+        """Get the current value of a dropdown by label."""
+        dropdown_button = self._dropdown_button(dropdown_label)
         dropdown_button.wait_for(state="attached", timeout=5000)
         return dropdown_button.inner_text().strip()
+
+    def wait_for_dropdown_value(self, dropdown_label: str, value: str) -> None:
+        """Wait until a dropdown, found by label, shows the given value."""
+        expect(self._dropdown_button(dropdown_label)).to_have_text(value, timeout=5000)
 
     def get_selected_button(self, button_options: list[str]) -> str:
         """Get the currently selected button from a button group (no label)."""

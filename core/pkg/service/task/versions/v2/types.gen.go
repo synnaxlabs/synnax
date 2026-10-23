@@ -14,12 +14,13 @@ package v2
 import (
 	"uuid"
 
-	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
+	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	rackv2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a task.
@@ -73,6 +74,14 @@ type Task struct {
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Status is the current execution status of the task.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t Task) Validate() error {
+	v := validate.New("Task")
+	v.NotEmptyString("name", t.Name)
+	return v.Error()
 }
 
 // KeyedConfig is the base for every stored task configuration record.

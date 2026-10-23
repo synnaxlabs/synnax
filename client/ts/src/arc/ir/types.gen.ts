@@ -78,6 +78,48 @@ export const authoritiesZ = z.object({
 });
 export interface Authorities extends z.infer<typeof authoritiesZ> {}
 
+/** ExitTarget leaves the scope and yields to its parent. */
+export const exitTargetZ = z.object({
+  type: z.literal("exit"),
+});
+export interface ExitTarget extends z.infer<typeof exitTargetZ> {}
+
+/** StepTarget activates a sibling step of the same scope. */
+export const stepTargetZ = z.object({
+  type: z.literal("step"),
+  /** key is the key of the sibling step to activate. */
+  key: z.string(),
+});
+export interface StepTarget extends z.infer<typeof stepTargetZ> {}
+
+/** ScopeTarget leaves the scope, then activates a top-level scope. */
+export const scopeTargetZ = z.object({
+  type: z.literal("scope"),
+  /** key is the key of the top-level scope to activate. */
+  key: z.string(),
+});
+export interface ScopeTarget extends z.infer<typeof scopeTargetZ> {}
+
+export const TARGET_TYPES = ["exit", "step", "scope"] as const;
+export const targetTypeZ = z.enum(TARGET_TYPES);
+export type TargetType = z.infer<typeof targetTypeZ>;
+
+/** Target is where a transition goes when it fires. */
+export const targetZ = z.discriminatedUnion("type", [
+  exitTargetZ,
+  stepTargetZ,
+  scopeTargetZ,
+]);
+export type Target = ExitTarget | StepTarget | ScopeTarget;
+
+export const TARGET_SCHEMAS: {
+  [K in TargetType]: z.ZodType<Extract<Target, { type: K }>>;
+} = {
+  exit: exitTargetZ,
+  step: stepTargetZ,
+  scope: scopeTargetZ,
+};
+
 /** Edge is a dataflow connection between node parameters in the Arc graph. */
 export const edgeZ = z.object({
   /** source is the source node parameter producing data. */
@@ -89,22 +131,17 @@ export const edgeZ = z.object({
 });
 export interface Edge extends z.infer<typeof edgeZ> {}
 
-/** Transition is a declarative state-transition rule on a sequential Scope. */
-export const transitionZ = z.object({
-  /** on is the dataflow handle whose output fires this transition. */
+/** Activation is a handle that activates a gated Scope without leaving any scope. */
+export const activationZ = z.object({
+  /** on is the dataflow handle whose output activates the scope. */
   on: handleZ,
   /**
-   * kind is conditional when only a truthy output fires the transition (`=>`), and
-   * continuous when every output fires it (`->`).
+   * kind is conditional when only a truthy output activates the scope (`=>`), and
+   * continuous when every output does (`->`).
    */
   kind: edgeKindZ,
-  /**
-   * targetKey is the sibling step key to activate. Null when the transition exits the
-   * scope, yielding to the parent.
-   */
-  targetKey: z.string().optional(),
 });
-export interface Transition extends z.infer<typeof transitionZ> {}
+export interface Activation extends z.infer<typeof activationZ> {}
 
 /**
  * Function is a function template definition with typed parameters, serving as a
@@ -126,6 +163,23 @@ export interface Function extends z.infer<typeof functionZ> {}
 
 export const nodesZ = nodeZ.array().default(() => []);
 export type Nodes = z.infer<typeof nodesZ>;
+
+/**
+ * Transition is a declarative state-transition rule on a sequential Scope, or an exit
+ * from a parallel Scope.
+ */
+export const transitionZ = z.object({
+  /** on is the dataflow handle whose output fires this transition. */
+  on: handleZ,
+  /**
+   * kind is conditional when only a truthy output fires the transition (`=>`), and
+   * continuous when every output fires it (`->`).
+   */
+  kind: edgeKindZ,
+  /** target is where the transition goes when it fires. */
+  target: targetZ,
+});
+export interface Transition extends z.infer<typeof transitionZ> {}
 
 export const edgesZ = edgeZ.array().default(() => []);
 export type Edges = z.infer<typeof edgesZ>;
@@ -163,8 +217,7 @@ export interface Scope {
   key: string;
   mode: ScopeMode;
   liveness: Liveness;
-  activation?: Handle;
-  activationKind: EdgeKind;
+  activations: Activation[];
   strata: Members[];
   steps: Members;
   transitions: Transition[];
@@ -179,16 +232,10 @@ export const scopeZ: z.ZodType<Scope> = z.object({
    */
   liveness: livenessZ,
   /**
-   * activation is the handle whose output activates a gated scope. Unset for
-   * always-live scopes.
+   * activations contains the handles that activate a gated scope. Empty for always-live
+   * scopes.
    */
-  activation: handleZ.optional(),
-  /**
-   * activationKind is conditional when only a truthy activation output activates the
-   * scope (`=>`), and continuous when every output does (`->`). Unspecified when
-   * activation is unset.
-   */
-  activationKind: edgeKindZ,
+  activations: activationZ.array().default(() => []),
   /**
    * strata contains stratified execution layers for parallel scopes. On sequential
    * scopes, strata hold variable nodes that run every pass alongside the active step.
@@ -202,8 +249,8 @@ export const scopeZ: z.ZodType<Scope> = z.object({
     return membersZ;
   },
   /**
-   * transitions contains state-transition rules for sequential scopes. Empty for
-   * parallel scopes.
+   * transitions contains state-transition rules in source order. A parallel scope holds
+   * only exits.
    */
   transitions: transitionZ.array().default(() => []),
 });

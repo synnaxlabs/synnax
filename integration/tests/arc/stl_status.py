@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import synnax as sy
 from framework.utils import create_virtual_channel
@@ -138,7 +138,7 @@ class StlStatus(ArcCase):
     arc_source = ARC_STL_STATUS_SOURCE
     arc_name_prefix = "ArcStlStatus"
     start_cmd_channel = "start_stl_status_cmd"
-    subscribe_channels = KEY_CHANNELS + [DUP_FUNC_KEY, SEQ_DONE]
+    subscribe_channels = [*KEY_CHANNELS, DUP_FUNC_KEY, SEQ_DONE]
     collect_notifications = True
 
     def setup(self) -> None:
@@ -187,7 +187,7 @@ class StlStatus(ArcCase):
                 self.client.statuses.delete(keys)
         super().teardown()
 
-    def _rows(self, name: str) -> list[sy.Status]:
+    def _rows(self, name: str) -> list[sy.Status[Any]]:
         return [
             s for s in self.client.statuses.retrieve(search_term=name) if s.name == name
         ]

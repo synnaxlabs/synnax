@@ -32,6 +32,7 @@ cc_library(
 cc_test(
     name = "ranges_test",
     srcs = ["ranges_test.cpp"],
+    tags = ["requires-core"],
     deps = [
         ":ranges",
         "//arc/cpp/runtime/errors",

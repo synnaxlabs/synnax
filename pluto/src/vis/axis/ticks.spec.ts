@@ -174,10 +174,10 @@ describe("TimeTickFactory", () => {
         size,
       });
 
-    it("should label microsecond ticks below a 50µs span", () => {
+    it("should label microsecond ticks below a 50μs span", () => {
       const ticks = preciseTicks(Number(TimeSpan.microseconds(10).valueOf()), 450);
       expect(ticks.length).toBeGreaterThan(0);
-      ticks.forEach((t) => expect(t.label).toMatch(/µs$/));
+      ticks.forEach((t) => expect(t.label).toMatch(/μs$/));
     });
 
     it("should label millisecond ticks below a 5ms span", () => {

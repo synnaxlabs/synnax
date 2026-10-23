@@ -2,6 +2,9 @@
   "name": "@synnaxlabs/pluto",
   "private": true,
   "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
     "build": "vite build",
     "check-types": "tsc --noEmit",
@@ -24,7 +27,6 @@
     "@synnaxlabs/client": "catalog:",
     "@synnaxlabs/freighter": "catalog:",
     "@synnaxlabs/lyra": "catalog:",
-    "@synnaxlabs/media": "catalog:",
     "@synnaxlabs/x": "catalog:",
     "@xyflow/react": "catalog:",
     "vscode-languageclient": "catalog:",

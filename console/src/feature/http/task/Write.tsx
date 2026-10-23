@@ -26,7 +26,6 @@ import { type FC, useCallback, useMemo, useState } from "react";
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
-import { ContextMenu } from "@/feature/http/task/ContextMenu";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
@@ -358,7 +357,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
 
   const listItem = useCallback(
     ({ key, ...p }: List.ItemProps<string>) => (
-      <FieldListItem {...p} key={key} epKey={epKey} />
+      <FieldListItem key={key} {...p} epKey={epKey} />
     ),
     [epKey],
   );
@@ -366,7 +365,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   const menuProps = Menu.useContextMenu();
   const menuRenderProp = useCallback(
     (p: Menu.ContextMenuMenuProps) => (
-      <ContextMenu keys={p.keys} onRemove={handleRemove} />
+      <Task.Views.ContextMenu keys={p.keys} onRemove={handleRemove} />
     ),
     [handleRemove],
   );
@@ -511,7 +510,7 @@ const Form: FC = () => {
   const menuProps = Menu.useContextMenu();
   const menuRenderProp = useCallback(
     (p: Menu.ContextMenuMenuProps) => (
-      <ContextMenu
+      <Task.Views.ContextMenu
         keys={p.keys}
         onRemove={handleRemoveEndpoints}
         onDuplicate={handleDuplicateEndpoints}

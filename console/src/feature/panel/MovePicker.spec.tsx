@@ -41,7 +41,6 @@ const createTab = (): panel.Tab => ({
   variant: "view",
   key: uuid.create(),
   type: "t",
-  args: {},
 });
 
 const rowNames = (): (string | null)[] =>

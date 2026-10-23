@@ -175,6 +175,17 @@ manages your hardware. To deploy:
 The status indicator shows whether your automation is running, stopped, or has errors.
 You can stop execution at any time with the **Pause** button.
 
+### Performance
+
+The **Performance** dropdown next to the Driver sets how closely the automation holds
+its intervals and waits to their deadlines. A higher level is more precise and uses more
+CPU. Auto is the default. To choose a level, see
+[performance levels](/reference/control/arc/timing#performance-levels).
+
+You can select a level only after you choose a Driver. A running automation keeps its
+old level until you click **Redeploy**. A redeploy starts the automation again from the
+start.
+
 <Divider.Divider x />
 
 ## A threshold alarm

@@ -10,8 +10,12 @@
 package schematic
 
 import (
+	"context"
+	"encoding/json/v2"
 	"slices"
 
+	v9 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -142,4 +146,82 @@ func noVariantError(key string) error {
 		"[Schematic] - config for %q names no variant",
 		key,
 	)
+}
+
+// rawSetNodePayload is the wire shape of SetNodePayload. The config stays raw so the
+// decode can tell a field the client omitted from one it set to zero.
+type rawSetNodePayload struct {
+	// Node is the node to insert or replace.
+	Node Node `json:"node" msgpack:"node"`
+	// Config is the node's config as the client sent it. Nil when the payload carries
+	// none, which leaves the stored config untouched.
+	Config msgpack.EncodedJSON `json:"config,omitzero" msgpack:"config,omitempty"`
+}
+
+// rawSetConfigPayload is the wire shape of SetConfigPayload. See rawSetNodePayload.
+type rawSetConfigPayload struct {
+	// Key is the node or edge key the config is stored under.
+	Key string `json:"key" msgpack:"key"`
+	// Config is the config as the client sent it. It must name a variant.
+	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
+}
+
+// UnmarshalJSON decodes the payload with the schema defaults filled for every config
+// field it omits. A field the payload carries keeps its value, zero included.
+func (p *SetNodePayload) UnmarshalJSON(data []byte) error {
+	var raw rawSetNodePayload
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	return p.fromRaw(raw)
+}
+
+// UnmarshalMsgpack decodes the payload the way UnmarshalJSON does.
+func (p *SetNodePayload) UnmarshalMsgpack(data []byte) error {
+	var raw rawSetNodePayload
+	if err := msgpack.Codec.Decode(context.Background(), data, &raw); err != nil {
+		return err
+	}
+	return p.fromRaw(raw)
+}
+
+func (p *SetNodePayload) fromRaw(raw rawSetNodePayload) error {
+	*p = SetNodePayload{Node: raw.Node}
+	if raw.Config == nil {
+		return nil
+	}
+	cfg, err := v9.DecodeWithDefaults(raw.Config)
+	if err != nil {
+		return err
+	}
+	p.Config = &cfg
+	return nil
+}
+
+// UnmarshalJSON decodes the payload with the schema defaults filled for every config
+// field it omits. A field the payload carries keeps its value, zero included.
+func (p *SetConfigPayload) UnmarshalJSON(data []byte) error {
+	var raw rawSetConfigPayload
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	return p.fromRaw(raw)
+}
+
+// UnmarshalMsgpack decodes the payload the way UnmarshalJSON does.
+func (p *SetConfigPayload) UnmarshalMsgpack(data []byte) error {
+	var raw rawSetConfigPayload
+	if err := msgpack.Codec.Decode(context.Background(), data, &raw); err != nil {
+		return err
+	}
+	return p.fromRaw(raw)
+}
+
+func (p *SetConfigPayload) fromRaw(raw rawSetConfigPayload) error {
+	cfg, err := v9.DecodeWithDefaults(raw.Config)
+	if err != nil {
+		return err
+	}
+	*p = SetConfigPayload{Key: raw.Key, Config: cfg}
+	return nil
 }

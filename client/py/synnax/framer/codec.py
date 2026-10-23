@@ -103,7 +103,7 @@ class CodecState:
 
     def __init__(self, keys: list[channel.Key], data_types: list[DataType]) -> None:
         self.keys = sorted(keys)
-        self.data_types = {k: dt for k, dt in zip(keys, data_types)}
+        self.data_types = dict(zip(keys, data_types, strict=True))
         self.has_variable_data_types = any(dt.is_variable for dt in data_types)
 
 
@@ -119,7 +119,7 @@ class Codec:
         data_types: list[DataType] | None = None,
     ) -> None:
         self._seq_num = 0
-        self._states = dict()
+        self._states = {}
         if keys is not None and data_types is not None:
             self.update(keys, data_types)
 
@@ -161,7 +161,7 @@ class Codec:
                 raise ValidationError(
                     f"encoder was provided a key {key} that is not in the codec state."
                 )
-            elif dt != ser.data_type:
+            if dt != ser.data_type:
                 raise ValidationError(
                     f"data type {ser.data_type} for key {key} does not match codec state data type {dt}."
                 )
@@ -215,7 +215,7 @@ class Codec:
                 raise ValidationError(
                     f"Codec state does not contain data type for key {k}."
                 )
-            elif dt != ser.data_type:
+            if dt != ser.data_type:
                 raise ValidationError(
                     f"Series data type {ser.data_type} for key {k} does not match codec state data type {dt}."
                 )
@@ -240,10 +240,7 @@ class Codec:
                 offset += len(ser.data)
 
             if not flg.eq_tr and not flg.time_ranges_zero:
-                if ser.time_range is None:
-                    tr = TimeRange.ZERO
-                else:
-                    tr = ser.time_range
+                tr = TimeRange.ZERO if ser.time_range is None else ser.time_range
                 struct.pack_into("<QQ", buffer, offset, tr.start, tr.end)
                 offset += TIME_RANGE_SIZE
 
@@ -269,7 +266,7 @@ class Codec:
             return FramePayload()
 
         to_del = None
-        for seq_num in self._states.keys():
+        for seq_num in self._states:
             if seq_num < curr_seq_num:
                 if to_del is None:
                     to_del = set()
@@ -296,8 +293,8 @@ class Codec:
             alignment = Alignment(struct.unpack_from("<Q", buffer, idx)[0])
             idx += ALIGNMENT_SIZE
 
-        keys = list()
-        series_list = list()
+        keys = []
+        series_list = []
 
         def decode_series(key: channel.Key) -> bool:
             nonlocal idx
@@ -376,7 +373,7 @@ LOW_PERF_SPECIAL_CHAR = 254
 HIGH_PERF_SPECIAL_CHAR = 255
 
 
-class WSFramerCodec(XCodec):
+class WSCodec(XCodec):
     def __init__(self, codec: Codec) -> None:
         self.codec = codec
         self.lower_perf_codec = JSONCodec()

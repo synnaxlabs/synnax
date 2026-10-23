@@ -22,6 +22,7 @@ import (
 	policyv0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -74,15 +75,23 @@ var _ = Describe("Legacy Permission Migration", func() {
 				Ontology: otg,
 				Search:   searchIdx,
 			}))
-			authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
+			passwordSvc := MustOpen(
+				password.OpenService(ctx, password.ServiceConfig{DB: db}),
+			)
 			userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-				DB:              db,
-				Ontology:        otg,
-				Group:           groupSvc,
-				Search:          searchIdx,
-				Auth:            authSvc,
-				RootCredentials: auth.Credentials{Username: "root", Password: "p"},
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+				Search:   searchIdx,
 			}))
+			MustSucceed2(
+				user.ProvisionRoot(
+					ctx,
+					userSvc,
+					passwordSvc,
+					auth.Credentials{Username: "root", Password: "p"},
+				),
+			)
 
 			// Create test users
 			tx := DeferClose(db.OpenTx())
@@ -233,15 +242,23 @@ var _ = Describe("Legacy Permission Migration", func() {
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
-		authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
+		passwordSvc := MustOpen(
+			password.OpenService(ctx, password.ServiceConfig{DB: db}),
+		)
 		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:              db,
-			Ontology:        otg,
-			Group:           groupSvc,
-			Search:          searchIdx,
-			Auth:            authSvc,
-			RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
+			DB:       db,
+			Ontology: otg,
+			Group:    groupSvc,
+			Search:   searchIdx,
 		}))
+		MustSucceed2(
+			user.ProvisionRoot(
+				ctx,
+				userSvc,
+				passwordSvc,
+				auth.Credentials{Username: "suite-root", Password: "p"},
+			),
+		)
 
 		policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
 			DB:       db,
@@ -287,15 +304,23 @@ var _ = Describe("Legacy Permission Migration", func() {
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
-		authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
+		passwordSvc := MustOpen(
+			password.OpenService(ctx, password.ServiceConfig{DB: db}),
+		)
 		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:              db,
-			Ontology:        otg,
-			Group:           groupSvc,
-			Search:          searchIdx,
-			Auth:            authSvc,
-			RootCredentials: auth.Credentials{Username: "root", Password: "p"},
+			DB:       db,
+			Ontology: otg,
+			Group:    groupSvc,
+			Search:   searchIdx,
 		}))
+		MustSucceed2(
+			user.ProvisionRoot(
+				ctx,
+				userSvc,
+				passwordSvc,
+				auth.Credentials{Username: "root", Password: "p"},
+			),
+		)
 		policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
 			DB:       db,
 			Ontology: otg,

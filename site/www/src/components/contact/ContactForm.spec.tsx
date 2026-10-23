@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { ContactForm } from "@/components/contact/ContactForm";
 
@@ -59,10 +59,6 @@ const send = async (): Promise<void> => {
 const container = (): Element => document.querySelector(".contact-form-container")!;
 
 describe("ContactForm", () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   describe("validation", () => {
     it("should flag every empty field and send nothing", async () => {
       const { fetch } = setup();
@@ -125,27 +121,18 @@ describe("ContactForm", () => {
       expect(fetch).toHaveBeenCalledOnce();
     });
 
-    it("should thank the visitor half a second after a success", async () => {
-      vi.useFakeTimers();
+    it("should thank the visitor after a success", async () => {
       setup();
       fill();
       await send();
       expect(disabled()).toBe(true);
-      expect(container().classList).not.toContain("success");
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(500);
-      });
       expect(container().classList).toContain("success");
     });
 
     it("should return to the form on back", async () => {
-      vi.useFakeTimers();
       setup();
       fill();
       await send();
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(500);
-      });
       fireEvent.click(screen.getByText("Back"));
       expect(container().classList).not.toContain("success");
       expect(disabled()).toBe(false);

@@ -46,110 +46,62 @@ func autoMigrateWriteConfig(ctx context.Context, old v1.WriteConfig) (WriteConfi
 	}, nil
 }
 
-func autoMigrateCoilReadChannel(_ context.Context, old v1.CoilReadChannel) (CoilReadChannel, error) {
-	return CoilReadChannel{
-		BaseReadChannel: old.BaseReadChannel,
-	}, nil
-}
-
-func autoMigrateDiscreteInputReadChannel(_ context.Context, old v1.DiscreteInputReadChannel) (DiscreteInputReadChannel, error) {
-	return DiscreteInputReadChannel{
-		BaseReadChannel: old.BaseReadChannel,
-	}, nil
-}
-
-func autoMigrateHoldingRegisterReadChannel(ctx context.Context, old v1.HoldingRegisterReadChannel) (HoldingRegisterReadChannel, error) {
-	registerValue, err := MigrateRegisterValue(ctx, old.RegisterValue)
-	if err != nil {
-		return HoldingRegisterReadChannel{}, err
-	}
-	return HoldingRegisterReadChannel{
-		BaseReadChannel: old.BaseReadChannel,
-		RegisterValue:   registerValue,
-		StringLength:    old.StringLength,
-	}, nil
-}
-
-func autoMigrateInputRegisterReadChannel(ctx context.Context, old v1.InputRegisterReadChannel) (InputRegisterReadChannel, error) {
-	registerValue, err := MigrateRegisterValue(ctx, old.RegisterValue)
-	if err != nil {
-		return InputRegisterReadChannel{}, err
-	}
-	return InputRegisterReadChannel{
-		BaseReadChannel: old.BaseReadChannel,
-		RegisterValue:   registerValue,
-		StringLength:    old.StringLength,
-	}, nil
-}
-
 func autoMigrateReadChannel(ctx context.Context, old v1.ReadChannel) (ReadChannel, error) {
-	switch v := old.Variant.(type) {
+	switch variant := old.Variant.(type) {
 	case nil:
 		return ReadChannel{}, nil
 	case v1.CoilReadChannel:
-		nv, err := autoMigrateCoilReadChannel(ctx, v)
-		if err != nil {
-			return ReadChannel{}, err
-		}
-		return ReadChannel{Variant: nv}, nil
+		return ReadChannel{Variant: CoilReadChannel{
+			BaseReadChannel: variant.BaseReadChannel,
+		}}, nil
 	case v1.DiscreteInputReadChannel:
-		nv, err := autoMigrateDiscreteInputReadChannel(ctx, v)
-		if err != nil {
-			return ReadChannel{}, err
-		}
-		return ReadChannel{Variant: nv}, nil
+		return ReadChannel{Variant: DiscreteInputReadChannel{
+			BaseReadChannel: variant.BaseReadChannel,
+		}}, nil
 	case v1.HoldingRegisterReadChannel:
-		nv, err := autoMigrateHoldingRegisterReadChannel(ctx, v)
+		registerValue, err := MigrateRegisterValue(ctx, variant.RegisterValue)
 		if err != nil {
 			return ReadChannel{}, err
 		}
-		return ReadChannel{Variant: nv}, nil
+		return ReadChannel{Variant: HoldingRegisterReadChannel{
+			BaseReadChannel: variant.BaseReadChannel,
+			RegisterValue:   registerValue,
+			StringLength:    variant.StringLength,
+		}}, nil
 	case v1.InputRegisterReadChannel:
-		nv, err := autoMigrateInputRegisterReadChannel(ctx, v)
+		registerValue, err := MigrateRegisterValue(ctx, variant.RegisterValue)
 		if err != nil {
 			return ReadChannel{}, err
 		}
-		return ReadChannel{Variant: nv}, nil
+		return ReadChannel{Variant: InputRegisterReadChannel{
+			BaseReadChannel: variant.BaseReadChannel,
+			RegisterValue:   registerValue,
+			StringLength:    variant.StringLength,
+		}}, nil
 	default:
-		return ReadChannel{}, errors.Newf("ReadChannel: unknown variant %T", v)
+		return ReadChannel{}, errors.Newf("unknown ReadChannel variant %T", variant)
 	}
-}
-
-func autoMigrateCoilWriteChannel(_ context.Context, old v1.CoilWriteChannel) (CoilWriteChannel, error) {
-	return CoilWriteChannel{
-		BaseWriteChannel: old.BaseWriteChannel,
-	}, nil
-}
-
-func autoMigrateHoldingRegisterWriteChannel(ctx context.Context, old v1.HoldingRegisterWriteChannel) (HoldingRegisterWriteChannel, error) {
-	registerValue, err := MigrateRegisterValue(ctx, old.RegisterValue)
-	if err != nil {
-		return HoldingRegisterWriteChannel{}, err
-	}
-	return HoldingRegisterWriteChannel{
-		BaseWriteChannel: old.BaseWriteChannel,
-		RegisterValue:    registerValue,
-	}, nil
 }
 
 func autoMigrateWriteChannel(ctx context.Context, old v1.WriteChannel) (WriteChannel, error) {
-	switch v := old.Variant.(type) {
+	switch variant := old.Variant.(type) {
 	case nil:
 		return WriteChannel{}, nil
 	case v1.CoilWriteChannel:
-		nv, err := autoMigrateCoilWriteChannel(ctx, v)
-		if err != nil {
-			return WriteChannel{}, err
-		}
-		return WriteChannel{Variant: nv}, nil
+		return WriteChannel{Variant: CoilWriteChannel{
+			BaseWriteChannel: variant.BaseWriteChannel,
+		}}, nil
 	case v1.HoldingRegisterWriteChannel:
-		nv, err := autoMigrateHoldingRegisterWriteChannel(ctx, v)
+		registerValue, err := MigrateRegisterValue(ctx, variant.RegisterValue)
 		if err != nil {
 			return WriteChannel{}, err
 		}
-		return WriteChannel{Variant: nv}, nil
+		return WriteChannel{Variant: HoldingRegisterWriteChannel{
+			BaseWriteChannel: variant.BaseWriteChannel,
+			RegisterValue:    registerValue,
+		}}, nil
 	default:
-		return WriteChannel{}, errors.Newf("WriteChannel: unknown variant %T", v)
+		return WriteChannel{}, errors.Newf("unknown WriteChannel variant %T", variant)
 	}
 }
 

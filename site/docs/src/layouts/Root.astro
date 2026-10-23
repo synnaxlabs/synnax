@@ -12,8 +12,8 @@ import Header from "@/components/layout/Header.astro";
 import "@/styles/main.css";
 import PostHog from "@/components/analytics/PostHog.astro";
 import { ClientRouter } from "astro:transitions";
-import { SEO } from "astro-seo";
 import Footer from "@synnaxlabs/site-common/Footer.astro";
+import Head from "@synnaxlabs/site-common/Head.astro";
 import { enabled } from "@/flags";
 import { sectionOf } from "@/pages/_nav";
 import { normalizeRoute } from "@/util/route";
@@ -24,9 +24,6 @@ const {
 // A page behind a flag that is off does not exist.
 const hidden = flag != null && !enabled(flag);
 if (hidden) Astro.response.status = 404;
-const DEFAULT_OG_IMAGE =
-    "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs/og-default.png";
-const ogImage = image || DEFAULT_OG_IMAGE;
 // Query strings (the ?client= switcher) and trailing slashes must not split a page
 // into duplicates.
 const route = normalizeRoute(Astro.url.pathname);
@@ -69,55 +66,21 @@ const FOOTER_COLUMNS = [
 <html lang="en" transition:animate="none">
     <head>
         <PostHog />
-        <SEO
-            title={pageTitle}
-            titleTemplate="%s | Synnax"
-            titleDefault="Synnax"
+        <Head
+            title={fullTitle}
             description={description}
             canonical={canonicalUrl}
-            openGraph={{
-                basic: {
-                    title: fullTitle,
-                    type: article == null ? "website" : "article",
-                    image: ogImage,
-                    url: canonicalUrl,
-                },
-                optional: {
-                    description: description,
-                    siteName: "Synnax",
-                },
-                image: {
-                    alt: cleanTitle || "Synnax",
-                },
-                article,
-            }}
-            twitter={{
-                card: "summary_large_image",
-                title: fullTitle,
-                description: description,
-                image: ogImage,
-            }}
-            extend={{
-                link: [
-                    { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
-                    { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
-                    {
-                        rel: "alternate",
-                        type: "application/rss+xml",
-                        title: "Synnax blog",
-                        href: "/blog/rss.xml",
-                    },
-                ],
-                meta: [
-                    {
-                        name: "viewport",
-                        content: "width=device-width, initial-scale=1.0",
-                    },
-                ],
-            }}
+            image={image || undefined}
+            imageAlt={cleanTitle || "Synnax"}
+            article={article}
+        />
+        <link
+            rel="alternate"
+            type="application/rss+xml"
+            title="Synnax blog"
+            href="/blog/rss.xml"
         />
         <ClientRouter />
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
         <slot name="head" />
     </head>
     <body>

@@ -5,8 +5,8 @@
     "noEmit": false,
     "declaration": true,
     "declarationMap": true,
-    "emitDeclarationOnly": true,
-    "rootDir": "."
+    "sourceMap": true,
+    "rootDir": "src"
   },
   "include": ["src/**/*"],
   "exclude": ["src/**/*.spec.*", "src/**/*.bench.*"]
