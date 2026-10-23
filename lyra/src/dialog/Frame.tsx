@@ -393,16 +393,18 @@ export const Frame = ({
         dialogRef.current == null
       )
         return;
+      const dialogEl = dialogRef.current;
+      // A dialog with an open child dialog leaves Escape to the child.
+      if (dialogEl.querySelector(`.${FRAME_CLASS}.${CSS.visible(true)}`) != null)
+        return;
       if (variant !== "modal") {
         close();
         stopPropagation();
         return;
       }
-      const dialogEl = dialogRef.current;
       const allModals = Array.from(document.getElementsByClassName(BACKGROUND_CLASS));
       const thisModalIndex = allModals.findIndex((e) => e.contains(dialogEl));
-      const children = dialogEl.getElementsByClassName(CSS.visible(true));
-      if (thisModalIndex === allModals.length - 1 && children.length === 0) {
+      if (thisModalIndex === allModals.length - 1) {
         close();
         stopPropagation();
       }

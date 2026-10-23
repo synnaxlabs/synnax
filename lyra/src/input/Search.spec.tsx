@@ -56,6 +56,26 @@ describe("Search", () => {
     expect(c.getByText("Outer")).toBeTruthy();
   });
 
+  it("should close a dialog open inside its dialog first", () => {
+    const c = render(
+      <Triggers.Provider>
+        <Dialog.Frame initialVisible>
+          <Dialog.Dialog>
+            <Input.Search value="" onChange={vi.fn()} />
+            <Dialog.Frame initialVisible>
+              <Dialog.Dialog>
+                <p>Child</p>
+              </Dialog.Dialog>
+            </Dialog.Frame>
+          </Dialog.Dialog>
+        </Dialog.Frame>
+      </Triggers.Provider>,
+    );
+    fireEvent.keyDown(c.getByRole("textbox"), ESCAPE);
+    expect(c.queryByText("Child")).toBeNull();
+    expect(c.queryByRole("textbox")).not.toBeNull();
+  });
+
   it("should pass the key to onKeyDown", () => {
     const onKeyDown = vi.fn();
     const c = render(

@@ -140,6 +140,33 @@ describe("Dialog", () => {
       expect(onEscape).not.toHaveBeenCalled();
     });
 
+    it("should close nested floating dialogs one Escape at a time", () => {
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame variant="floating">
+            <Dialog.Trigger>Outer</Dialog.Trigger>
+            <Dialog.Dialog>
+              <p>Outer content</p>
+              <Dialog.Frame variant="floating">
+                <Dialog.Trigger>Inner</Dialog.Trigger>
+                <Dialog.Dialog>
+                  <p>Inner content</p>
+                </Dialog.Dialog>
+              </Dialog.Frame>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      fireEvent.click(c.getByText("Outer"));
+      fireEvent.click(c.getByText("Inner"));
+      fireEvent.keyDown(c.container, { code: "Escape" });
+      expect(c.queryByText("Inner content")).toBeNull();
+      expect(c.queryByText("Outer content")).not.toBeNull();
+      fireEvent.keyUp(c.container, { code: "Escape" });
+      fireEvent.keyDown(c.container, { code: "Escape" });
+      expect(c.queryByText("Outer content")).toBeNull();
+    });
+
     it("should let Escape propagate to lower-priority subscribers when no dialog is open", () => {
       const onEscape = vi.fn();
       const c = render(

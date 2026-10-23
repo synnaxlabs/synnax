@@ -27,9 +27,22 @@ import { Search } from "@/input/Search";
 import { type Control } from "@/input/types";
 import { Text } from "@/text";
 
-export interface IconPickerProps extends Control<string | undefined, string> {
+export interface IconPickerProps extends Control<
+  string | undefined,
+  string | undefined
+> {
   /** Draws every icon in this color, through {@link Icon.tint}. */
   color?: color.Crude;
+  /**
+   * The icon drawn while the value is absent. Setting it adds a Default cell, first in
+   * the grid, that clears the value.
+   */
+  fallback?: Icon.FC;
+}
+
+/** A cell of the grid. The Default cell has no key, since picking it clears the value. */
+interface Cell extends Pick<Icon.Pickable, "name" | "icon"> {
+  key?: string;
 }
 
 const COLUMNS = 10;
@@ -54,41 +67,44 @@ export const IconPicker = ({
   value,
   onChange,
   color,
+  fallback,
 }: IconPickerProps): ReactElement => {
   const [term, setTerm] = useState("");
-  const [focused, setFocused] = useState<string>();
+  const [focused, setFocused] = useState<Pick<Cell, "key">>();
   const fuse = useMemo(
     () => new Fuse(Icon.PICKABLE, { keys: ["name", "tags"], threshold: 0.3 }),
     [],
   );
-  const icons = term === "" ? Icon.PICKABLE : fuse.search(term).map(({ item }) => item);
+  let cells: readonly Cell[] = Icon.PICKABLE;
+  if (term !== "") cells = fuse.search(term).map(({ item }) => item);
+  else if (fallback != null) cells = [{ name: "Default", icon: fallback }, ...cells];
   const searchRef = useRef<HTMLInputElement>(null);
-  const cellRefs = useRef(new Map<string, HTMLElement>());
-  const indexOf = (key?: string): number => icons.findIndex((i) => i.key === key);
-  const focusedIndex = indexOf(focused);
+  const cellRefs = useRef(new Map<string | undefined, HTMLElement>());
+  const indexOf = (key?: string): number => cells.findIndex((c) => c.key === key);
+  const focusedIndex = focused == null ? -1 : indexOf(focused.key);
   const active = focusedIndex >= 0 ? focusedIndex : Math.max(indexOf(value), 0);
   const focusCell = (index: number): void =>
-    cellRefs.current.get(icons[index].key)?.focus();
+    cellRefs.current.get(cells[index].key)?.focus();
 
   const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
-    if (icons.length === 0) return;
+    if (cells.length === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
       focusCell(active);
-    } else if (e.key === "Enter") onChange(icons[0].key);
+    } else if (e.key === "Enter" && term !== "") onChange(cells[0].key);
   };
 
   const handleGridKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
     const move = MOVES[e.key];
     if (move == null) return;
     e.preventDefault();
-    const dims = { width: COLUMNS, height: Math.ceil(icons.length / COLUMNS) };
+    const dims = { width: COLUMNS, height: Math.ceil(cells.length / COLUMNS) };
     const next = move(dims, { x: active % COLUMNS, y: Math.floor(active / COLUMNS) });
     if (next == null) {
       if (e.key === "ArrowUp") searchRef.current?.focus();
       return;
     }
-    focusCell(Math.min(next.y * COLUMNS + next.x, icons.length - 1));
+    focusCell(Math.min(next.y * COLUMNS + next.x, cells.length - 1));
   };
 
   return (
@@ -104,7 +120,7 @@ export const IconPicker = ({
         placeholder="Search icons"
         aria-label="Search icons"
       />
-      {icons.length === 0 ? (
+      {cells.length === 0 ? (
         <Text.Text level="small" color={9}>
           No icons match
         </Text.Text>
@@ -116,9 +132,9 @@ export const IconPicker = ({
           style={{ [CSS.variable("icon-picker", "columns")]: COLUMNS }}
           onKeyDown={handleGridKeyDown}
         >
-          {icons.map(({ key, name, icon: Glyph }, i) => (
+          {cells.map(({ key, name, icon: Glyph }, i) => (
             <Button.Button
-              key={key}
+              key={key ?? ""}
               ref={(el: HTMLElement | null) => {
                 if (el == null) cellRefs.current.delete(key);
                 else cellRefs.current.set(key, el);
@@ -131,7 +147,7 @@ export const IconPicker = ({
               size="small"
               tabIndex={i === active ? 0 : -1}
               className={CSS.cls(CSS.selected(key === value))}
-              onFocus={() => setFocused(key)}
+              onFocus={() => setFocused({ key })}
               onClick={() => onChange(key)}
             >
               <Glyph {...Icon.tint(color)} />
