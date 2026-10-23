@@ -329,7 +329,7 @@ const TaskListItem = ({
               : ""
           }`}
         >
-          <Icon.Save />
+          {dataSaving ? <Icon.Database /> : <Icon.DatabaseOff />}
         </Button.Button>
       )}
       {canControl && (

@@ -37,7 +37,6 @@ import {
   awaitTextEditing,
   commitTextEdit,
   createConsoleWrapper,
-  findIconButton,
   getIconButton,
   openContextMenu,
   queryIconButton,
@@ -215,7 +214,9 @@ describe("task/Toolbar", () => {
       const t = await createTask({ type: "pagerduty_alert" });
       await renderToolbar();
       await screen.findByText(t.name);
-      expect(queryIconButton(getRow(t.name), "save")).toBeNull();
+      expect(
+        within(getRow(t.name)).queryByRole("button", { name: /^Data saving/ }),
+      ).toBeNull();
     });
 
     it("leaves the config unchanged when a viewer clicks the button", async () => {
@@ -223,7 +224,11 @@ describe("task/Toolbar", () => {
       const viewer = await roles.get("Viewer");
       await renderToolbar(viewer);
       await screen.findByText(t.name);
-      fireEvent.click(await findIconButton(getRow(t.name), "save"));
+      fireEvent.click(
+        await within(getRow(t.name)).findByRole("button", {
+          name: "Data saving enabled",
+        }),
+      );
       const updated = await client.tasks.retrieve(t.key);
       expect(updated.config).toMatchObject({ dataSavingDisabled: false });
     });
