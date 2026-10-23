@@ -89,7 +89,9 @@ var _ = Describe("Service", func() {
 					Type:        testType,
 					SetEntryKey: (*arctask.Config).SetKey,
 				},
-			)).Error().To(MatchError(ContainSubstring("ladder.decode: must be non-nil")))
+			)).Error().To(MatchError(ContainSubstring(
+				"ladder.decode: must be non-nil",
+			)))
 		})
 	})
 
@@ -305,15 +307,16 @@ var _ = Describe("Service", func() {
 			Expect(out).To(HaveKeyWithValue("performance", "auto"))
 		})
 
-		It("Should reject a version the ladder never exported", func(ctx SpecContext) {
-			Expect(versioned.Normalize(ctx, 2, msgpack.EncodedJSON{})).Error().
-				To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(
-						"decoding versioned_test config: version: arc_task.Config "+
-							"version 2",
-					)),
-				))
+		It("Should run the legacy rewrite on a version below the ladder's first", func(
+			ctx SpecContext,
+		) {
+			arcKey := uuid.New()
+			out := MustSucceed(versioned.Normalize(
+				ctx,
+				arcversions.ConfigLadder.First-1,
+				msgpack.EncodedJSON{"module": arcKey.String()},
+			))
+			Expect(out).To(HaveKeyWithValue("arc_key", arcKey.String()))
 		})
 
 		It("Should reject data that does not decode at its version", func(

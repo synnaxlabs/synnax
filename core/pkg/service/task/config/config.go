@@ -49,9 +49,9 @@ type Store interface {
 	// to. It returns an error wrapping query.ErrNotFound when from does not exist.
 	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
 	// Normalize converts a config blob at the given version to the current stored
-	// shape with defaults applied. A legacy version runs the type's legacy rewrite
-	// first. It returns a validation error when data does not decode at version or
-	// version is newer than the store's.
+	// shape with defaults applied. A version that predates the type's ladder runs the
+	// type's legacy rewrite first. It returns a validation error when data does not
+	// decode at version or version is newer than the store's.
 	Normalize(
 		ctx context.Context,
 		version imex.Version,
@@ -81,8 +81,9 @@ type ServiceConfig[E any] struct {
 	// migrates them to the current shape. Its Latest is stamped on exports.
 	// [REQUIRED]
 	Ladder imex.Ladder[E]
-	// LegacyVersion is the newest version whose blobs decode through Legacy. The
-	// rewritten blob enters Ladder at its First version.
+	// LegacyVersion is the newest version released Cores stamped on a shape that needs
+	// Legacy. Blobs at or below it, or below Ladder's First version, decode through
+	// Legacy and enter Ladder at First.
 	LegacyVersion imex.Version
 	// Legacy is the rewrite that converts the type's legacy config shapes. Nil
 	// applies era normalization alone.
@@ -240,7 +241,7 @@ func (s *Service[E]) Normalize(
 	data msgpack.EncodedJSON,
 ) (msgpack.EncodedJSON, error) {
 	ladder := s.cfg.Ladder
-	if version <= s.cfg.LegacyVersion {
+	if version < ladder.First || version <= s.cfg.LegacyVersion {
 		rewrite := legacy.Rewrite{}
 		if s.cfg.Legacy != nil {
 			rewrite = *s.cfg.Legacy
