@@ -30,12 +30,6 @@ const (
 	ModeGraph Mode = v1.ModeGraph
 )
 
-// StatusDetails contains Arc-specific status details for execution state.
-type StatusDetails = v1.StatusDetails
-
-// Status is the status of an Arc module including execution state.
-type Status = v1.Status
-
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 type Arc struct {
@@ -52,8 +46,6 @@ type Arc struct {
 	Text text.Text `json:"text" msgpack:"text"`
 	// Program is the compiled module output including IR and WebAssembly bytecode.
 	Program *program.Program `json:"program,omitzero" msgpack:"program,omitempty"`
-	// Status is the current execution status of the module.
-	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

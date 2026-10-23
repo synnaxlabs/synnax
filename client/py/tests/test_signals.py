@@ -16,6 +16,8 @@ import pytest
 import synnax as sy
 from synnax.state import LatestState
 from synnax.telem import SampleValue
+from tests.proxy import Proxy
+from x.strings import random_name
 
 # Seconds to wait for a written sample to reach a handler.
 TIMEOUT = 5
@@ -55,6 +57,14 @@ async def write_until(
             with client.open_writer(sy.TimeStamp.now(), ch.key) as w:
                 w.write({ch.key: [value]})
             await asyncio.sleep(POLL)
+
+
+def create_channel(client: sy.Synnax) -> sy.Channel:
+    return client.channels.create(
+        name=f"test_{random_name()}_virtual",
+        virtual=True,
+        data_type=sy.DataType.FLOAT64,
+    )
 
 
 @pytest.mark.signals
@@ -128,3 +138,83 @@ class TestRegistry:
                 fresh_client, virtual_channel, 10, lambda: every[-1] == 10
             )
         assert set(filtered) == {10}
+
+
+@pytest.mark.signals
+class TestRegistryDispatch:
+    """Tests which handlers the registry runs for a frame."""
+
+    @pytest.mark.asyncio
+    async def test_frame_without_handler_channels(
+        self, fresh_client: sy.Synnax
+    ) -> None:
+        """Should not run a filter on a frame without the handler's channels."""
+        a, b = create_channel(fresh_client), create_channel(fresh_client)
+        a_values: list[SampleValue] = []
+        b_values: list[SampleValue] = []
+
+        @fresh_client.signals.on(a.key, lambda s: s[a.key] == 1)
+        def on_a(state: LatestState) -> None:
+            a_values.append(state[a.key])
+
+        @fresh_client.signals.on(b.key, lambda _: True)
+        def on_b(state: LatestState) -> None:
+            b_values.append(state[b.key])
+
+        async with processing(fresh_client):
+            await write_until(fresh_client, b, 2, lambda: len(b_values) > 0)
+            await write_until(fresh_client, a, 1, lambda: len(a_values) > 0)
+        assert a_values[-1] == 1
+
+    @pytest.mark.asyncio
+    async def test_handler_channel_without_value(self, fresh_client: sy.Synnax) -> None:
+        """Should not run a filter until every handler channel has a value."""
+        a, b = create_channel(fresh_client), create_channel(fresh_client)
+        a_values: list[SampleValue] = []
+        sums: list[float] = []
+
+        @fresh_client.signals.on(a.key, lambda _: True)
+        def on_a(state: LatestState) -> None:
+            a_values.append(state[a.key])
+
+        def sum_above_two(s: LatestState) -> bool:
+            a_value, b_value = s[a.key], s[b.key]
+            assert isinstance(a_value, float)
+            assert isinstance(b_value, float)
+            return a_value + b_value > 2
+
+        @fresh_client.signals.on([a.key, b.key], sum_above_two)
+        def on_both(state: LatestState) -> None:
+            a_value, b_value = state[a.key], state[b.key]
+            assert isinstance(a_value, float)
+            assert isinstance(b_value, float)
+            sums.append(a_value + b_value)
+
+        async with processing(fresh_client):
+            await write_until(fresh_client, a, 2, lambda: len(a_values) > 0)
+            await write_until(fresh_client, b, 3, lambda: len(sums) > 0)
+        assert sums[-1] == 5
+
+
+@pytest.mark.signals
+class TestRegistryStreamer:
+    """Tests the lifecycle of the registry's streamer."""
+
+    @pytest.mark.asyncio
+    async def test_close_on_cancel(
+        self, client: sy.Synnax, proxy: Proxy, proxied_client: sy.Synnax
+    ) -> None:
+        """Should close the streamer when process is cancelled."""
+        ch = create_channel(client)
+        values: list[SampleValue] = []
+
+        @proxied_client.signals.on(ch.key, lambda _: True)
+        def handler(state: LatestState) -> None:
+            values.append(state[ch.key])
+
+        async with processing(proxied_client):
+            await write_until(client, ch, 1, lambda: len(values) > 0)
+            assert proxy.websockets == 1
+        async with asyncio.timeout(TIMEOUT):
+            while proxy.websockets > 0:
+                await asyncio.sleep(POLL)
