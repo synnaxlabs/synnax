@@ -36,6 +36,7 @@ from synnax.telem import (
     CrudeTimeStamp,
     MultiSeries,
     Reduction,
+    StrideReduction,
     TimeRange,
     TimeSpan,
 )
@@ -239,7 +240,7 @@ class Client:
         self,
         tr: TimeRange,
         channels: list[channel.Key] | tuple[channel.Key] | list[str] | tuple[str],
-        downsample_factor: int = 1,
+        reduction: Reduction | None = None,
     ) -> Frame: ...
 
     @overload
@@ -247,28 +248,29 @@ class Client:
         self,
         tr: TimeRange,
         channels: channel.Key | str,
-        downsample_factor: int = 1,
+        reduction: Reduction | None = None,
     ) -> MultiSeries: ...
 
     def read(
         self,
         tr: TimeRange,
         channels: channel.Params,
-        downsample_factor: int = 1,
+        reduction: Reduction | None = None,
     ) -> MultiSeries | Frame:
         """
         Reads telemetry from the channel between the two timestamps.
 
         :param tr: The time range to read from.
         :param channels: The key or name of the channel to read from.
-        :param downsample_factor: Keeps one sample in every downsample_factor. A factor
-        of 1, the default, keeps every sample.
+        :param reduction: How the Core reduces the samples of each channel. A
+        StrideReduction keeps every factor-th sample. A LimitReduction reduces each
+        channel to about point_limit points. Defaults to keeping every sample.
 
         :returns: A tuple where the first item is a numpy array containing the telemetry
         and the second item is the time range occupied by that array.
         """
         normal = channel.normalize_params(channels)
-        frame = self._reader.read(tr, channels, downsample_factor)
+        frame = self._reader.read(tr, channels, reduction)
         if len(normal.channels) > 1:
             return frame
         series = frame.get(normal.channels[0], None)
@@ -283,7 +285,7 @@ class Client:
         tr: TimeRange,
         channels: channel.Params,
         dest: FilePath,
-        downsample_factor: int = 1,
+        reduction: StrideReduction | None = None,
     ) -> None:
         """
         Reads telemetry from the channels between the two timestamps into a CSV file.
@@ -292,10 +294,10 @@ class Client:
         :param tr: The time range to read from.
         :param channels: The keys or names of the channels to read from.
         :param dest: The path of the CSV file to write. It must end in .csv.
-        :param downsample_factor: Keeps one sample in every downsample_factor. A factor
-        of 1, the default, keeps every sample.
+        :param reduction: Keeps every factor-th sample of each channel. Defaults to
+        keeping every sample.
         """
-        self._reader.read_csv(tr, channels, dest, downsample_factor)
+        self._reader.read_csv(tr, channels, dest, reduction)
 
     @overload
     def read_latest(

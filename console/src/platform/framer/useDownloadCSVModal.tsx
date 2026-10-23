@@ -159,7 +159,9 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
     const name = get<string>("name").value;
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
-      const stream = await client.readCSV(timeRange, channels, { downsampleFactor });
+      const stream = await client.readCSV(timeRange, channels, {
+        reduction: { variant: "stride", factor: downsampleFactor },
+      });
       await download({
         stream,
         name,

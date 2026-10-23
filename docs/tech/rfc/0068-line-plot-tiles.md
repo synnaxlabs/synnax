@@ -197,6 +197,11 @@ stride and a limit together. The field travels the path SY-4786 built for
 (`cesium/internal/unary/iterator.go:34-37`). The streamer keeps its own
 `downsampleFactor`.
 
+The `/frame/read` request (RFC 0059) takes the same `reduction` in place of its
+`downsample_factor`. CSV export accepts only a `stride`. Under a `limit`, a non-numeric
+channel stays raw beside its reduced index, so its samples have no row, and the read
+fails before the first byte.
+
 Cesium reduces in the unary iterator, beside the every-Nth path. Each data channel's
 iterator counts the samples of its index channel inside the read bounds, with
 `index.Domain.Distance` (`cesium/internal/index/domain.go:64`). Every channel on one
@@ -264,10 +269,10 @@ readTile(spec: TileSpec): Promise<MultiSeries>;
 optional `end`. The `Feed` returns the cached tile or fetches it, and the caller
 acquires the result like any `Feed.read` result.
 
-- **Batching**: Tile reads with equal time bounds and options merge into one iterator
-  open, through the existing reader batcher (`client/ts/src/framer/cache/reader.ts:30`).
-  The x and y tiles of one slot therefore come back from one request with one group
-  size.
+- **Batching**: Tile reads with equal time bounds and options merge into one
+  `/frame/read` request, through the existing reader batcher
+  (`client/ts/src/framer/cache/reader.ts:30`). The x and y tiles of one slot therefore
+  come back from one request with one group size.
 - **Cache**: A tile cache inside `framer/cache`, keyed by the full `TileSpec`. It is
   separate from the alignment-keyed `Static` cache. Tiles never merge, so they need no
   insertion plan.
@@ -352,10 +357,11 @@ Console flag `lineplotTiles` in `console/src/flags.ts`, which Pluto receives as 
   are kept. Tiles push often, so the plot depends on it.
 - **Phase 2: Core reduction.** Go `Series.AlignmentMultiple` and codec bits 6 and 7 in
   the Go, TS, Python, and C++ codecs. The `reduction` union through Cesium, the
-  distribution layer, the service, the API, and the TS and Python clients, with CSV
-  export moved to `stride`. `min_max`, `average`, and `decimate` under a point limit in
-  the Cesium unary iterator, with index-anchored groups and one group size per index.
-  Pieced raw reads, and the service-layer path for calculated channels.
+  distribution layer, the service, the iterator and `/frame/read` APIs, and the TS and
+  Python clients, with CSV export moved to `stride`. `min_max`, `average`, and
+  `decimate` under a point limit in the Cesium unary iterator, with index-anchored
+  groups and one group size per index. Pieced raw reads, and the service-layer path for
+  calculated channels.
 - **Phase 3: Tile cache.** `Feed.readTile` with its cache, batching, eviction budget,
   staleness, and partial tiles. Live-Core `Feed` specs cover the path end to end. No
   plot uses it yet.
@@ -433,6 +439,13 @@ service cannot cut reads at a sample count, and a second iterator position in th
 service could drift from Cesium's. Reducing each chunk alone was also considered. It
 adds two points at every chunk edge: 2,848 points for a limit of 2,000 at 100,000-sample
 chunks. The trade is real: the reducer holds one group per channel between pieces.
+
+**6.12 Tiles read through `/frame/read`, not the iterator.** A tile is one bounded read,
+the job RFC 0059 gives `/frame/read`. Through the iterator, each tile costs a new
+WebSocket and four exchanges: open, seek, next, and close. The trade is real: a browser
+allows six HTTP/1.1 connections to one host, shared with unary requests, so a burst of
+tile reads can delay other requests to the Core. `Feed.read` already reads plot data
+through `/frame/read` and pays the same cost.
 
 ## 7 What this RFC does not cover
 
