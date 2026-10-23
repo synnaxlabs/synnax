@@ -12,7 +12,7 @@ package v1_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
