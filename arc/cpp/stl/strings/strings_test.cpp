@@ -316,6 +316,18 @@ TEST(StrModule, FromF64UsesExponentNotationOutsideFixedRange) {
     EXPECT_EQ(call_from<float>(f, "call_from_f32", 1e30f), "1e+30");
 }
 
+TEST(StrModule, FromFloatKeepsOnlyTheShortestDigitsInFixedNotation) {
+    StrModuleFixture f;
+    EXPECT_EQ(call_from<float>(f, "call_from_f32", 1e20f), "100000000000000000000");
+    EXPECT_EQ(
+        call_from<double>(f, "call_from_f64", 1000000000000000128.0),
+        "1000000000000000100"
+    );
+    EXPECT_EQ(call_from<double>(f, "call_from_f64", 0.0), "0");
+    EXPECT_EQ(call_from<double>(f, "call_from_f64", 0.00012), "0.00012");
+    EXPECT_EQ(call_from<double>(f, "call_from_f64", -123.456), "-123.456");
+}
+
 TEST(StrModule, FromBoolFormatsTrueFalse) {
     StrModuleFixture f;
     EXPECT_EQ(call_from<int32_t>(f, "call_from_bool", 1), "true");

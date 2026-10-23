@@ -34,22 +34,35 @@ template<typename T>
 std::string format_float(T v) {
     if (std::isnan(v)) return "NaN";
     if (std::isinf(v)) return v > 0 ? "Infinity" : "-Infinity";
-    const double a = std::abs(static_cast<double>(v));
-    const bool exponent = a != 0 && (a < 1e-6 || a >= 1e21);
     char buf[64];
     const auto [end, ec] = std::to_chars(
         buf,
         buf + sizeof(buf),
         v,
-        exponent ? std::chars_format::scientific : std::chars_format::fixed
+        std::chars_format::scientific
     );
     if (ec != std::errc{}) return "";
-    std::string out(buf, end);
-    // to_chars pads a one-digit exponent with a zero.
-    const size_t n = out.size();
-    if (exponent && out[n - 2] == '0' && (out[n - 3] == '+' || out[n - 3] == '-'))
-        out.erase(n - 2, 1);
-    return out;
+    // Fixed-mode to_chars writes every integer digit of a large value, not the
+    // shortest ones, so expand the shortest scientific digits by hand.
+    const std::string sci(buf, end);
+    const size_t e = sci.find('e');
+    const int exp = std::stoi(sci.substr(e + 1));
+    const bool neg = sci[0] == '-';
+    std::string digits;
+    for (size_t i = neg ? 1 : 0; i < e; ++i)
+        if (sci[i] != '.') digits += sci[i];
+    std::string out = neg ? "-" : "";
+    const double a = std::abs(static_cast<double>(v));
+    if (a != 0 && (a < 1e-6 || a >= 1e21)) {
+        out += digits[0];
+        if (digits.size() > 1) out += "." + digits.substr(1);
+        return out + (exp < 0 ? "e-" : "e+") + std::to_string(std::abs(exp));
+    }
+    if (exp < 0) return out + "0." + std::string(-exp - 1, '0') + digits;
+    const auto point = static_cast<size_t>(exp) + 1;
+    if (digits.size() <= point)
+        return out + digits + std::string(point - digits.size(), '0');
+    return out + digits.substr(0, point) + "." + digits.substr(point);
 }
 
 /// Formats v as the shortest round-trippable decimal, matching Go's

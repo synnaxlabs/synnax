@@ -42,6 +42,18 @@ var _ = Describe("AppendFloatText", func() {
 		Entry("float32 at its own precision", float64(float32(0.1)), 32, "0.1"),
 		Entry("float32 with an exponent", float64(float32(1e30)), 32, "1e+30"),
 		Entry("float32 infinity", float64(float32(math.Inf(1))), 32, "Infinity"),
+		Entry(
+			"float32 with fewer digits than its integer part",
+			float64(float32(1e20)),
+			32,
+			"100000000000000000000",
+		),
+		Entry(
+			"float64 with fewer digits than its integer part",
+			1000000000000000128.0,
+			64,
+			"1000000000000000100",
+		),
 	)
 
 	It("Should append after the existing content of dst", func() {
