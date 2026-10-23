@@ -160,12 +160,12 @@ cannot compile is a bug, and the Driver reports it as an internal error.
 
 ### 5.3 Task references
 
-A task config that uses an ICD embeds the toolkit's reference:
+A task config that uses an ICD embeds the ICD's reference:
 
 ```
 Reference struct {
-    icd  Key?
-    hash string = ""
+    icd      Key?
+    icd_hash string = ""
 }
 ```
 
@@ -217,7 +217,7 @@ ICD never lose an edit without seeing it.
 - **Problems**: the live check marks each bad cell with its message.
 - **Usage**: the tab lists the tasks that use the ICD, from the `uses` traversal.
 
-The Console surface is behind a `library` flag in `console/src/flags.ts` until the bus
+The Console surface is behind an `icd` flag in `console/src/flags.ts` until the bus
 integrations ship (RFC 0075).
 
 ## 6 What this RFC does not cover
@@ -237,7 +237,7 @@ The toolkit, the ICD, and the bus integrations land together with RFC 0075 (SY-4
   per-entry hashes, stale-save rejection, and the HTTP and gRPC routes.
 - **Phase 2: Clients.** TS, Python, and C++.
 - **Phase 3: Console.** Tree, tab, editor frame, problem marking, the reload prompt, and
-  the usage list, behind the `library` flag.
+  the usage list, behind the `icd` flag.
 
 No ICD has shipped in a release, so no migration is needed.
 

@@ -313,10 +313,10 @@ The Core imports files into an ICD, adding `message` and `enum` entries:
 
 - **DBC**: messages, signals, value tables, `GenMsgCycleTime` as the period, and
   multiplexing, as binary payloads. The parser is a copy of
-  `go.einride.tech/can/pkg/dbc` in `core/pkg/service/icd/internal/dbc`, kept
-  under its MIT license. The copy adds extended multiplexing (`m0M`, `SG_MUL_VAL_`),
-  which the upstream parser rejects, and fixes an upstream bug that skips the line after
-  an unknown definition. `cantools` output is the test oracle for the import specs.
+  `go.einride.tech/can/pkg/dbc` in `core/pkg/service/icd/internal/dbc`, kept under its
+  MIT license. The copy adds extended multiplexing (`m0M`, `SG_MUL_VAL_`), which the
+  upstream parser rejects, and fixes an upstream bug that skips the line after an
+  unknown definition. `cantools` output is the test oracle for the import specs.
 - **CSV and XLSX**: one line per field of a binary payload, with columns for message
   name, identifier, start bit, bit length, byte order, sign, scale, offset, units, and
   period. A header line maps columns by name. XLSX parses with `excelize`.
@@ -430,7 +430,7 @@ takes. Modbus and OPC UA keep their own policies.
 
 ## 7 Implementation phases
 
-The work lands as two PRs, each behind the `library` and `can` flags until the last.
+The work lands as two PRs, each behind the `icd` and `can` flags until the last.
 
 - **Phase 1: ICD, codec, CAN, serial, TCP, and UDP (SY-4971).** The library toolkit and
   the ICD (RFC 0074), ICD import, the clients in every language, the Console ICD editor,
