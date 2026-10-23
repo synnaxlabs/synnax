@@ -52,18 +52,28 @@ const UNSHADOW_SYMBOL: PluginObj = {
 /** Fails on any component or hook that the compiler cannot compile. */
 const STRICT = { ...OPTIONS, panicThreshold: "all_errors" };
 
-const preset = (build: boolean): RolldownBabelPreset =>
+// A workspace dependency's dist is already compiled.
+const DIST = /[/\\]dist[/\\]/;
+
+const preset = (build: boolean, exclude: RegExp[]): RolldownBabelPreset =>
   defineRolldownBabelPreset({
     preset: () => ({
       plugins: [UNSHADOW_SYMBOL, [COMPILER, build ? STRICT : OPTIONS]],
     }),
     rolldown: {
-      // A workspace dependency's dist is already compiled.
-      filter: { id: { exclude: /[/\\]dist[/\\]/ } },
+      filter: { id: { exclude: [DIST, ...exclude] } },
       optimizeDeps: { include: ["react/compiler-runtime"] },
       configResolvedHook: (config) => (config.command === "build") === build,
     },
   });
+
+export interface ReactCompilerOptions {
+  /**
+   * Modules the compiler leaves as written, such as code that runs outside React but
+   * names its functions like hooks.
+   */
+  exclude?: RegExp[];
+}
 
 /**
  * Compiles components and hooks with the React Compiler. Unlike the preset that
@@ -71,8 +81,10 @@ const preset = (build: boolean): RolldownBabelPreset =>
  * compiled code that builds emit. A build fails on a component or hook that the
  * compiler cannot compile; a `"use no memo"` directive opts one out.
  */
-export const reactCompiler = (): PluginOption => [
-  babel({ presets: [preset(true), preset(false)] }),
+export const reactCompiler = ({
+  exclude = [],
+}: ReactCompilerOptions = {}): PluginOption => [
+  babel({ presets: [preset(true, exclude), preset(false, exclude)] }),
   {
     name: "synnax:react-compiler",
     // Vitest keys its module cache on plugin names, not on how they transform.

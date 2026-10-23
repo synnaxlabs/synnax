@@ -15,7 +15,7 @@ import { declarations } from "./declarations.js";
 import { checkExports } from "./modules.js";
 import { ENTRY, transpile } from "./transpile.js";
 
-export { reactCompiler } from "./compiler.js";
+export { reactCompiler, type ReactCompilerOptions } from "./compiler.js";
 export { type Layer, layers } from "./layers.js";
 export { discoverModules, moduleExports, packageExports } from "./modules.js";
 
