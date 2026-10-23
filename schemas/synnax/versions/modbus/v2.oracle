@@ -89,6 +89,7 @@ ReadConfig struct extends task.ReadConfig {
     }
 
     @doc value  "configures a Modbus read task."
+    @go imex    body
     @go marshal
     @go migrate
 }
@@ -99,6 +100,7 @@ WriteConfig struct extends task.WriteConfig {
     }
 
     @doc value  "configures a Modbus write task."
+    @go imex    body
     @go marshal
     @go migrate
 }

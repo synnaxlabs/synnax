@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/modbus/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/versions/legacy"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -73,14 +74,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
-			DB:              cfg.DB,
-			Instrumentation: cfg.Instrumentation,
-			Type:            "modbus_read",
-			Version:         legacy.LastVersion + 2,
-			Legacy:          &legacy.Read,
-			Upgrades: []config.Upgrade{
-				config.NewUpgrade(v2.MigrateReadConfig),
-			},
+			DB:                 cfg.DB,
+			Instrumentation:    cfg.Instrumentation,
+			Type:               "modbus_read",
+			LegacyVersion:      legacy.LastVersion,
+			Ladder:             versions.ReadConfigLadder,
+			Legacy:             &legacy.Read,
 			Migrations:         []migrate.Migration{v2.ReadMigration},
 			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
@@ -90,14 +89,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
-			DB:              cfg.DB,
-			Instrumentation: cfg.Instrumentation,
-			Type:            "modbus_write",
-			Version:         legacy.LastVersion + 2,
-			Legacy:          &legacy.Write,
-			Upgrades: []config.Upgrade{
-				config.NewUpgrade(v2.MigrateWriteConfig),
-			},
+			DB:                 cfg.DB,
+			Instrumentation:    cfg.Instrumentation,
+			Type:               "modbus_write",
+			LegacyVersion:      legacy.LastVersion,
+			Ladder:             versions.WriteConfigLadder,
+			Legacy:             &legacy.Write,
 			Migrations:         []migrate.Migration{v2.WriteMigration},
 			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
@@ -110,7 +107,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "modbus_scan",
-			Version:            legacy.LastVersion + 1,
+			LegacyVersion:      legacy.LastVersion,
+			Ladder:             versions.ScanConfigLadder,
 			Legacy:             &legacy.Scan,
 			SetEntryKey:        (*ScanConfig).SetKey,
 			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,

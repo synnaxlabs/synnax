@@ -49,10 +49,9 @@ type Store interface {
 	// to. It returns an error wrapping query.ErrNotFound when from does not exist.
 	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
 	// Normalize converts a config blob at the given version to the current stored
-	// shape: a legacy version runs the type's legacy rewrite and then every upgrade, a
-	// typed version runs the upgrades above it, the current version returns data
-	// unchanged, and a version above the current one returns an error wrapping
-	// validate.ErrValidation.
+	// shape with defaults applied. A legacy version runs the type's legacy rewrite
+	// first. It returns an error wrapping validate.ErrValidation when data does not
+	// decode at version or version is newer than the store's.
 	Normalize(
 		ctx context.Context,
 		version imex.Version,
@@ -78,17 +77,16 @@ type ServiceConfig[E any] struct {
 	// Migrations is the stored-shape migration chain for the record type. Empty for
 	// a type whose stored shape has never changed.
 	Migrations []migrate.Migration
-	// Version is the current version of the config type: one above the integration's
-	// legacy.LastVersion, plus one per upgrade. Envelopes below it decode through
-	// Legacy and Upgrades; envelopes above it are rejected.
-	Version imex.Version
+	// Ladder decodes typed config blobs at every version the type has exported and
+	// migrates them to the current shape. Its Latest is stamped on exports.
+	// [REQUIRED]
+	Ladder imex.Ladder[E]
+	// LegacyVersion is the newest version whose blobs decode through Legacy. The
+	// rewritten blob enters Ladder at its First version.
+	LegacyVersion imex.Version
 	// Legacy is the rewrite that converts the type's legacy config shapes. Nil
 	// applies era normalization alone.
 	Legacy *legacy.Rewrite
-	// Upgrades lift config blobs through the type's typed versions: Upgrades[i]
-	// converts version Version-len(Upgrades)+i to the next. Versions below the first
-	// typed version are legacy.
-	Upgrades []Upgrade
 	// ApplyEntryDefaults fills absent fields of a decoded entry before it is stored.
 	// [OPTIONAL] - nil when the entry type has no defaults.
 	ApplyEntryDefaults func(*E)
@@ -106,9 +104,9 @@ func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 	c.Type = override.String(c.Type, other.Type)
 	c.SetEntryKey = override.Nil(c.SetEntryKey, other.SetEntryKey)
 	c.Migrations = override.Slice(c.Migrations, other.Migrations)
-	c.Version = override.Numeric(c.Version, other.Version)
+	c.Ladder = override.If(c.Ladder, other.Ladder, other.Ladder.Decode != nil)
+	c.LegacyVersion = override.Numeric(c.LegacyVersion, other.LegacyVersion)
 	c.Legacy = override.Nil(c.Legacy, other.Legacy)
-	c.Upgrades = override.Slice(c.Upgrades, other.Upgrades)
 	c.ApplyEntryDefaults = override.Nil(c.ApplyEntryDefaults, other.ApplyEntryDefaults)
 	c.ValidateEntry = override.Nil(c.ValidateEntry, other.ValidateEntry)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -121,11 +119,7 @@ func (c ServiceConfig[E]) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotEmptyString("type", c.Type)
 	v.NotNil("set_entry_key", c.SetEntryKey)
-	v.Ternary(
-		"upgrades",
-		len(c.Upgrades) > 0 && imex.Version(len(c.Upgrades)) >= c.Version,
-		"must leave version 0 to legacy configs",
-	)
+	v.NotNil("ladder.decode", c.Ladder.Decode)
 	return v.Error()
 }
 
@@ -209,6 +203,10 @@ func (s *Service[E]) Read(
 	if err != nil {
 		return nil, err
 	}
+	return encode(e)
+}
+
+func encode[E any](e E) (msgpack.EncodedJSON, error) {
 	b, err := json.Marshal(e)
 	if err != nil {
 		return nil, err
@@ -241,57 +239,30 @@ func (s *Service[E]) Normalize(
 	version imex.Version,
 	data msgpack.EncodedJSON,
 ) (msgpack.EncodedJSON, error) {
-	if version > s.cfg.Version {
-		return nil, imex.NewErrUnsupportedVersion(s.cfg.Type, version, s.cfg.Version)
-	}
-	first := s.cfg.Version - imex.Version(len(s.cfg.Upgrades))
-	if version < first {
+	ladder := s.cfg.Ladder
+	if version <= s.cfg.LegacyVersion {
 		rewrite := legacy.Rewrite{}
 		if s.cfg.Legacy != nil {
 			rewrite = *s.cfg.Legacy
 		}
-		data, version = rewrite.Apply(data), first
+		data, version = rewrite.Apply(data), ladder.First
+	} else if version > ladder.Latest {
+		return nil, imex.NewErrUnsupportedVersion(s.cfg.Type, version, ladder.Latest)
 	}
-	for _, upgrade := range s.cfg.Upgrades[version-first:] {
-		var err error
-		if data, err = upgrade(ctx, data); err != nil {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "upgrading %s config: %s", s.cfg.Type, err,
-			)
-		}
+	e, err := ladder.Decode(ctx, version, data)
+	if err != nil {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
+		)
 	}
-	return data, nil
-}
-
-// Upgrade converts a config blob from one typed version to the next.
-type Upgrade func(context.Context, msgpack.EncodedJSON) (msgpack.EncodedJSON, error)
-
-// NewUpgrade returns the Upgrade that decodes a blob as Old, runs migrate, and encodes
-// the result, so config blobs and stored records share one transform.
-func NewUpgrade[Old, New any](migrate func(context.Context, Old) (New, error)) Upgrade {
-	return func(ctx context.Context, data msgpack.EncodedJSON) (msgpack.EncodedJSON, error) {
-		b, err := json.Marshal(data)
-		if err != nil {
-			return nil, err
-		}
-		var old Old
-		if err = json.Unmarshal(b, &old); err != nil {
-			return nil, err
-		}
-		n, err := migrate(ctx, old)
-		if err != nil {
-			return nil, err
-		}
-		if b, err = json.Marshal(n); err != nil {
-			return nil, err
-		}
-		var out msgpack.EncodedJSON
-		return out, json.Unmarshal(b, &out)
+	if s.cfg.ApplyEntryDefaults != nil {
+		s.cfg.ApplyEntryDefaults(&e)
 	}
+	return encode(e)
 }
 
 // Version implements Store.
-func (s *Service[E]) Version() imex.Version { return s.cfg.Version }
+func (s *Service[E]) Version() imex.Version { return s.cfg.Ladder.Latest }
 
 // Copy implements Store.
 func (s *Service[E]) Copy(

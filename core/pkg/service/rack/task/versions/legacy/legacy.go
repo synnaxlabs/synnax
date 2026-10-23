@@ -13,6 +13,6 @@ package legacy
 
 import "github.com/synnaxlabs/synnax/pkg/service/imex"
 
-// LastVersion is the newest legacy rack status shape. The typed shape sits directly
-// above it.
+// LastVersion is the newest legacy rack status shape. The typed shape shares it, and
+// era normalization leaves the typed shape unchanged.
 const LastVersion imex.Version = 0

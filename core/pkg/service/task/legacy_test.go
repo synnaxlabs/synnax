@@ -467,7 +467,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			delete(legacy, "type")
 			store := MustBeOk(configs.Store(env.Type))
 			expected := MustSucceed(store.Normalize(ctx, 0, legacy))
-			// The store stamps the key on write, and a typed upgrade emits a zero one.
+			// The store assigns the key on write.
 			delete(expected, "key")
 			expectSubset(
 				"config",

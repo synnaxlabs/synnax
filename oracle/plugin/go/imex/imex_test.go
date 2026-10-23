@@ -327,7 +327,7 @@ Symbol struct {
 				}
 				req := chainRequest(ctx, tmpDir, liveLog, map[int]string{
 					2: logChain(true),
-					3: logChain(true),
+					3: "Log = v2.Log\n",
 				})
 				resp := MustSucceed(p.Generate(req))
 				ExpectContent(
@@ -339,6 +339,20 @@ Symbol struct {
 					"return t2, nil",
 				).
 					ToBeValidGoSource()
+			},
+		)
+
+		It(
+			"Should error when a version redeclares the type without a migrate step",
+			func(ctx SpecContext) {
+				req := chainRequest(ctx, GinkgoT().TempDir(), liveLog, map[int]string{
+					2: logChain(true),
+					3: logChain(true),
+				})
+				Expect(p.Generate(req)).Error().To(MatchError(
+					"core/pkg/service/log/versions/v3 redeclares log.Log without the " +
+						"MigrateLog step its import ladder needs",
+				))
 			},
 		)
 
@@ -421,6 +435,159 @@ Symbol struct {
 			Expect(p.Generate(req)).Error().To(MatchError(
 				ContainSubstring("@go imex without a version chain"),
 			))
+		})
+
+		Describe("Body", func() {
+			// configChain is one version file's persisted surface of two task configs.
+			configChain := func(marker string) string {
+				return fmt.Sprintf(
+					"ReadConfig struct {\n\tkey uuid @key\n\trate int32%[1]s\n}\n\n"+
+						"ScanConfig struct {\n\tkey uuid @key%[1]s\n}\n",
+					marker,
+				)
+			}
+			const liveConfigs = `
+@go output "core/pkg/service/modbus"
+
+ReadConfig struct {
+	key  uuid @key
+	rate int32
+	@go imex body
+}
+
+ScanConfig struct {
+	key uuid @key
+	@go imex body
+}
+`
+			configRequest := func(
+				ctx context.Context, root string, chain map[int]string,
+			) *plugin.Request {
+				GinkgoHelper()
+				return chainRequestFor(ctx, root, "modbus", liveConfigs, chain)
+			}
+
+			It("Should emit a ladder per type and no Export", func(ctx SpecContext) {
+				req := configRequest(ctx, GinkgoT().TempDir(), map[int]string{
+					1: configChain("\n\t@go imex body"),
+				})
+				resp := MustSucceed(p.Generate(req))
+				Expect(resp.Files).To(HaveLen(2))
+				ExpectContent(
+					resp, "core/pkg/service/modbus/versions/v1/imex.gen.go",
+				).ToContain(
+					"// Version is the portable schema version of the shapes this "+
+						"package defines.",
+					"const Version imex.Version = 1",
+				).ToBeValidGoSource()
+				ExpectContent(
+					resp, "core/pkg/service/modbus/versions/imex.gen.go",
+				).ToContain(
+					`"github.com/synnaxlabs/x/encoding/msgpack"`,
+					"const Latest = v1.Version",
+					"var ReadConfigLadder = imex.Ladder[ReadConfig]{",
+					"First:  v1.Version,",
+					"Decode: decodeReadConfig,",
+					"var ScanConfigLadder = imex.Ladder[ScanConfig]{",
+					"case v1.Version:",
+					`return imex.DecodeBlob[ReadConfig](data, "modbus.ReadConfig", `+
+						"version)",
+					`return ReadConfig{}, imex.NewErrUnsupportedVersion(`+
+						`"modbus.ReadConfig", version, Latest)`,
+				).ToBeValidGoSource()
+			})
+
+			It(
+				"Should migrate each type from its own first exported version",
+				func(ctx SpecContext) {
+					tmpDir := GinkgoT().TempDir()
+					for _, dir := range []string{"v1", "v2"} {
+						Expect(os.MkdirAll(
+							filepath.Join(
+								tmpDir,
+								"core/pkg/service/modbus/versions",
+								dir,
+							),
+							0o755,
+						)).To(Succeed())
+					}
+					Expect(os.WriteFile(
+						filepath.Join(
+							tmpDir, "core/pkg/service/modbus/versions/v2/migrate.go",
+						),
+						[]byte("package v2\n\nfunc MigrateReadConfig() {}\n"),
+						0o644,
+					)).To(Succeed())
+					req := configRequest(ctx, tmpDir, map[int]string{
+						1: configChain("\n\t@go imex body"),
+						2: "ReadConfig struct {\n\tkey uuid @key\n\trate int64\n\n" +
+							"\t@go imex body\n}\n\nScanConfig = v1.ScanConfig\n",
+					})
+					resp := MustSucceed(p.Generate(req))
+					ExpectContent(
+						resp, "core/pkg/service/modbus/versions/imex.gen.go",
+					).ToContain(
+						"const Latest = v2.Version",
+						`t1, err := imex.DecodeBlob[v1.ReadConfig](data, `+
+							`"modbus.ReadConfig", version)`,
+						"t2, err := v2.MigrateReadConfig(ctx, t1)",
+						`t1, err := imex.DecodeBlob[v1.ScanConfig](data, `+
+							`"modbus.ScanConfig", version)`,
+						"return t1, nil",
+					).ToBeValidGoSource()
+				},
+			)
+
+			It("Should start a type's ladder at its first marked version", func(
+				ctx SpecContext,
+			) {
+				req := configRequest(ctx, GinkgoT().TempDir(), map[int]string{
+					1: "ReadConfig struct {\n\tkey uuid @key\n\trate int32\n}\n\n" +
+						"ScanConfig struct {\n\tkey uuid @key\n\n\t@go imex body\n}\n",
+					2: "ReadConfig struct {\n\tkey uuid @key\n\trate int64\n\n" +
+						"\t@go imex body\n}\n\nScanConfig = v1.ScanConfig\n",
+				})
+				resp := MustSucceed(p.Generate(req))
+				ExpectContent(
+					resp, "core/pkg/service/modbus/versions/imex.gen.go",
+				).ToContain(
+					"var ReadConfigLadder = imex.Ladder[ReadConfig]{\n\tFirst:  v2.Version,",
+					"var ScanConfigLadder = imex.Ladder[ScanConfig]{\n\tFirst:  v1.Version,",
+				).
+					ToBeValidGoSource()
+			})
+
+			It(
+				"Should error when a bare marker shares a package with a body type",
+				func(
+					ctx SpecContext,
+				) {
+					live := `
+@go output "core/pkg/service/modbus"
+
+ReadConfig struct {
+	key  uuid @key
+	rate int32
+	@go imex
+}
+
+ScanConfig struct {
+	key uuid @key
+	@go imex body
+}
+`
+					req := chainRequestFor(
+						ctx, GinkgoT().TempDir(), "modbus", live, map[int]string{
+							1: "ReadConfig struct {\n\tkey uuid @key\n\trate int32\n\n" +
+								"\t@go imex\n}\n\nScanConfig struct {\n\tkey uuid @key\n\n" +
+								"\t@go imex body\n}\n",
+						},
+					)
+					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+						"duplicate @go imex declarations for core/pkg/service/modbus",
+					)))
+				},
+			)
 		})
 
 		It(
