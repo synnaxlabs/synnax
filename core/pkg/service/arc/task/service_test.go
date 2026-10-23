@@ -103,9 +103,15 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			data := MustSucceed(svc.Config.Normalize(
-				ctx, versions.Latest, msgpack.EncodedJSON{"performance": "low"},
+				ctx,
+				versions.Latest,
+				msgpack.EncodedJSON{
+					"performance":    "low",
+					"execution_mode": "BUSY_WAIT",
+				},
 			))
 			Expect(data).To(HaveKeyWithValue("performance", "low"))
+			Expect(data).ToNot(HaveKey("execution_mode"))
 		})
 	})
 })
