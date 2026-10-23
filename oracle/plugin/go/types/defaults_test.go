@@ -691,6 +691,62 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		})
 
 		It(
+			"Should bound an optional number only when it is present",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					level int32? {
+						@validate min 0
+						@validate max 17
+					}
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"if c.Level != nil {",
+					`v.GreaterThanEq("level", *c.Level, 0)`,
+					`v.LessThanEq("level", *c.Level, 17)`,
+				)
+			},
+		)
+
+		It(
+			"Should not require an optional field to be present",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					name string? {
+						@validate required
+					}
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToNotContain("NotEmptyString")
+			},
+		)
+
+		It(
+			"Should accept an empty string for a zero minimum length",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					name string? {
+						@validate min_length 0
+					}
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToNotContain("Validate()")
+			},
+		)
+
+		It(
 			"Should recurse into a nested type that only has a constraint",
 			func(ctx SpecContext) {
 				source := `

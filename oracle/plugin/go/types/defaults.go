@@ -520,19 +520,21 @@ type constraintCheckData struct {
 	Kind string
 	// Arg is the length or numeric threshold literal for the kinds that take one.
 	Arg string
+	// Opens and Closes mark the first and last checks of an optional field, which the
+	// template wraps in one nil guard.
+	Opens, Closes bool
+	// Deref is true for an optional field, whose pointer the checks dereference.
+	Deref bool
 }
 
 // goConstraintChecks returns the @validate constraint assertions for a field,
 // classified against the field type's underlying primitive so a distinct numeric type
-// (e.g. a Key over uint32) validates as a number. Optional fields are skipped: a bound
-// on an absent value is ambiguous.
+// (e.g. a Key over uint32) validates as a number. An optional field is checked only
+// when present, and never for being required.
 func goConstraintChecks(
 	field resolution.Field,
 	data *templateData,
 ) []constraintCheckData {
-	if field.Optional {
-		return nil
-	}
 	domain, ok := field.Domains["validate"]
 	if !ok {
 		return nil
@@ -550,14 +552,16 @@ func goConstraintChecks(
 			FieldName: jsonName,
 			Kind:      kind,
 			Arg:       arg,
+			Deref:     field.Optional,
 		}
 	}
 	var checks []constraintCheckData
 	if resolution.IsStringPrimitive(base) {
 		switch {
-		case rules.Required, rules.MinLength != nil && *rules.MinLength <= 1:
+		case rules.Required && !field.Optional,
+			rules.MinLength != nil && *rules.MinLength == 1:
 			checks = append(checks, check("non_empty_string", ""))
-		case rules.MinLength != nil:
+		case rules.MinLength != nil && *rules.MinLength > 1:
 			checks = append(
 				checks,
 				check("min_len", strconv.FormatInt(*rules.MinLength, 10)),
@@ -571,7 +575,7 @@ func goConstraintChecks(
 		}
 	}
 	if resolution.IsNumberPrimitive(base) {
-		if rules.Required {
+		if rules.Required && !field.Optional {
 			checks = append(checks, check("non_zero", ""))
 		}
 		if rules.Min != nil {
@@ -580,6 +584,10 @@ func goConstraintChecks(
 		if rules.Max != nil {
 			checks = append(checks, check("le", numberLiteral(rules.Max)))
 		}
+	}
+	if field.Optional && len(checks) > 0 {
+		checks[0].Opens = true
+		checks[len(checks)-1].Closes = true
 	}
 	return checks
 }

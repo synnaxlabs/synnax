@@ -29,7 +29,7 @@ import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";
 
-const PRECISION_BOUNDS = { lower: -1, upper: 17 };
+const PRECISION_BOUNDS = { lower: 0, upper: 17 };
 
 const showsNumericFields = (dt: DataType | undefined): boolean =>
   dt != null && dt.isNumeric && !dt.equals(DataType.TIMESTAMP);
@@ -68,7 +68,7 @@ const ChannelRow = ({
     [channel, dispatch],
   );
   const handlePrecisionChange = useCallback(
-    (precision: number) => dispatch(log.setChannelPrecision({ channel, precision })),
+    (precision?: number) => dispatch(log.setChannelPrecision({ channel, precision })),
     [channel, dispatch],
   );
   const handleFormatChange = useCallback(
@@ -140,8 +140,6 @@ const ChannelRow = ({
             <Input.Numeric
               value={precision}
               onChange={handlePrecisionChange}
-              resetValue={-1}
-              emptyValue={-1}
               placeholder="Auto"
               bounds={PRECISION_BOUNDS}
               disabled={disabled}
@@ -154,10 +152,10 @@ const ChannelRow = ({
             >
               <Button.Button
                 variant="outlined"
-                disabled={disabled || precision === -1}
-                onClick={() => handlePrecisionChange(-1)}
+                disabled={disabled || precision == null}
+                onClick={() => handlePrecisionChange()}
                 tooltip={
-                  config.precision === -1
+                  precision == null
                     ? "Type a number to disable auto precision"
                     : "Enable auto precision"
                 }
