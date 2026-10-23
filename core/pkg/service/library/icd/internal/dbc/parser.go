@@ -17,20 +17,29 @@ import (
 	"strings"
 	"text/scanner"
 	"unicode/utf8"
+
+	"golang.org/x/text/encoding/charmap"
 )
 
-const defaultScannerMode = scanner.ScanIdents | scanner.ScanFloats
+// The format has no comments, but some tools write // line comments.
+const defaultScannerMode = scanner.ScanIdents |
+	scanner.ScanFloats |
+	scanner.ScanComments |
+	scanner.SkipComments
 
 const (
 	defaultWhitespace  = scanner.GoWhitespace
 	significantNewline = defaultWhitespace & ^uint64(1<<'\n')
-	significantTab     = defaultWhitespace & ^uint64(1<<'\t')
 )
 
 // Parse returns the definitions of a DBC file in file order. A definition it does not
-// know becomes an UnknownDef that spans the rest of its line. It returns an *Error when
-// the file does not parse.
+// know becomes an UnknownDef that spans the rest of its line. Data that is not UTF-8 is
+// read as Windows-1252, which most tools write. It returns an *Error when the file does
+// not parse.
 func Parse(data []byte) (defs []Def, err error) {
+	if !utf8.Valid(data) {
+		data = fromWindows1252(data)
+	}
 	p := newParser(data)
 	defer func() {
 		if r := recover(); r != nil {
@@ -43,6 +52,14 @@ func Parse(data []byte) (defs []Def, err error) {
 	}()
 	p.parse()
 	return p.defs, nil
+}
+
+func fromWindows1252(data []byte) []byte {
+	out := make([]byte, 0, len(data))
+	for _, b := range data {
+		out = utf8.AppendRune(out, charmap.Windows1252.DecodeByte(b))
+	}
+	return out
 }
 
 type token struct {
@@ -64,7 +81,14 @@ func newParser(data []byte) *parser {
 	p.sc.Init(bytes.NewReader(data))
 	p.sc.Mode = defaultScannerMode
 	p.sc.Whitespace = defaultWhitespace
-	p.sc.Error = func(sc *scanner.Scanner, msg string) { p.failf(sc.Pos(), "%s", msg) }
+	p.sc.Error = func(sc *scanner.Scanner, msg string) {
+		// A DBC number never holds an underscore, so this is a name that starts with
+		// a digit.
+		if msg == "'_' must separate successive digits" {
+			p.failf(sc.Position, "a name must start with a letter or an underscore")
+		}
+		p.failf(sc.Pos(), "%s", msg)
+	}
 	return p
 }
 
@@ -185,7 +209,7 @@ func (p *parser) peekToken() token {
 func (p *parser) string() string {
 	tok := p.nextToken()
 	if tok.typ != '"' {
-		p.failf(tok.pos, `expected token "`)
+		p.failf(tok.pos, "expected a string")
 	}
 	var b strings.Builder
 	for {
@@ -211,19 +235,14 @@ func (p *parser) string() string {
 
 func (p *parser) identifier() Identifier {
 	tok := p.nextToken()
-	if tok.typ != scanner.Ident {
-		p.failf(tok.pos, "expected ident")
+	switch tok.typ {
+	case scanner.Ident:
+	case scanner.Int, scanner.Float:
+		p.failf(tok.pos, "a name must start with a letter or an underscore")
+	default:
+		p.failf(tok.pos, "expected a name")
 	}
 	id := Identifier(tok.txt)
-	if err := id.validate(); err != nil {
-		p.failf(tok.pos, "%s", err)
-	}
-	return id
-}
-
-func (p *parser) stringIdentifier() Identifier {
-	tok := p.peekToken()
-	id := Identifier(p.string())
 	if err := id.validate(); err != nil {
 		p.failf(tok.pos, "%s", err)
 	}
@@ -240,7 +259,7 @@ func (p *parser) keyword(kw Keyword) token {
 func (p *parser) peekKeyword() Keyword {
 	tok := p.peekToken()
 	if tok.typ != scanner.Ident {
-		p.failf(tok.pos, "expected ident")
+		p.failf(tok.pos, "expected a keyword")
 	}
 	return Keyword(tok.txt)
 }
@@ -278,11 +297,7 @@ func (p *parser) enumValue(values []string) string {
 }
 
 func (p *parser) float() float64 {
-	isNegative := false
-	if p.peekToken().typ == '-' {
-		p.token('-')
-		isNegative = true
-	}
+	isNegative := p.sign()
 	tok := p.nextToken()
 	if tok.typ != scanner.Int && tok.typ != scanner.Float {
 		p.failf(tok.pos, "expected int or float")
@@ -298,11 +313,7 @@ func (p *parser) float() float64 {
 }
 
 func (p *parser) int() int64 {
-	isNegative := false
-	if p.peekToken().typ == '-' {
-		p.token('-')
-		isNegative = true
-	}
+	isNegative := p.sign()
 	tok := p.nextToken()
 	if tok.typ != scanner.Int && tok.typ != scanner.Float {
 		p.failf(tok.pos, "expected int or float")
@@ -321,6 +332,38 @@ func (p *parser) int() int64 {
 		i *= -1
 	}
 	return i
+}
+
+// sign reads an optional sign and reports whether it is a minus.
+func (p *parser) sign() bool {
+	switch p.peekToken().typ {
+	case '-':
+		p.token('-')
+		return true
+	case '+':
+		p.token('+')
+	}
+	return false
+}
+
+// valueDescriptions reads value descriptions up to the ';' that closes the definition
+// that starts at pos with kw.
+func (p *parser) valueDescriptions(
+	pos scanner.Position,
+	kw Keyword,
+) []ValueDescriptionDef {
+	var descs []ValueDescriptionDef
+	for p.peekToken().typ != ';' {
+		// A value never starts with a name, so the next definition has begun.
+		if typ := p.peekToken().typ; typ == scanner.Ident || typ == scanner.EOF {
+			p.failf(pos, "%s has no closing ';'", kw)
+		}
+		var desc ValueDescriptionDef
+		desc.parseFrom(p)
+		descs = append(descs, desc)
+	}
+	p.token(';')
+	return descs
 }
 
 func (p *parser) uint() uint64 {
@@ -389,11 +432,7 @@ func (p *parser) messageID() MessageID {
 	if u > math.MaxUint32 {
 		p.failf(tok.pos, "invalid message ID: %v", u)
 	}
-	messageID := MessageID(u)
-	if err := messageID.validate(); err != nil {
-		p.failf(tok.pos, "%s", err)
-	}
-	return messageID
+	return MessageID(u)
 }
 
 func (p *parser) signalValueType() SignalValueType {

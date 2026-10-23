@@ -10,13 +10,19 @@
 package icd_test
 
 import (
+	"archive/zip"
+	"bytes"
+	"io"
+	"strconv"
 	"strings"
+	"testing"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/library"
 	"github.com/synnaxlabs/synnax/pkg/service/library/icd"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/xuri/excelize/v2"
@@ -75,6 +81,8 @@ var tableEntries = []library.Entry{
 			Scale:     1,
 			Offset:    -40,
 			Units:     "degC",
+			Min:       new(-40.0),
+			Max:       new(87.5),
 			StartBit:  16,
 			BitLength: 8,
 			ByteOrder: library.ByteOrderLittleEndian,
@@ -109,8 +117,22 @@ var tableEntries = []library.Entry{
 
 var tableRows = [][]string{
 	{
-		"Message", "ID", "Extended", "Length", "Period_MS", "Field", "Start_Bit",
-		"Bit_Length", "Byte_Order", "Signed", "Float", "Scale", "Offset", "Units",
+		"Message",
+		"ID",
+		"Extended",
+		"Length",
+		"Period_MS",
+		"Field",
+		"Start_Bit",
+		"Bit_Length",
+		"Byte_Order",
+		"Signed",
+		"Float",
+		"Scale",
+		"Offset",
+		"Units",
+		"Min",
+		"Max",
 	},
 	{
 		"Engine", "0x100", "", "8", "100", "rpm", "0", "16", "little_endian", "false",
@@ -119,7 +141,7 @@ var tableRows = [][]string{
 	{"", "", "", "", "", "", "", "", "", "", "", "", "", ""},
 	{
 		"Engine", "256", "", "", "", "temp", "16", "8", "intel", "true", "", "1", "-40",
-		"degC",
+		"degC", "-40", "87.5",
 	},
 	{
 		"Battery", "419361024", "", "", "", "voltage", "7", "16", "Motorola", "", "",
@@ -136,26 +158,174 @@ func toCSV(rows [][]string) []byte {
 	return []byte(strings.Join(lines, "\n") + "\n")
 }
 
-func toXLSX(sheets ...[][]string) []byte {
-	GinkgoHelper()
+// cellValue returns s as a spreadsheet stores it: a number, a boolean, or text.
+func cellValue(s string) any {
+	if v, err := strconv.ParseFloat(s, 64); err == nil {
+		return v
+	}
+	switch strings.ToLower(s) {
+	case "true":
+		return true
+	case "false":
+		return false
+	}
+	return s
+}
+
+// writeWorkbook returns a workbook with one sheet per element of sheets, whose cells
+// hold the typed value of each string.
+func writeWorkbook(sheets ...[][]string) (*excelize.File, error) {
 	f := excelize.NewFile()
-	DeferCleanup(f.Close)
 	for i, rows := range sheets {
 		name := "Sheet1"
 		if i > 0 {
 			name = "Other"
-			MustSucceed(f.NewSheet(name))
+			if _, err := f.NewSheet(name); err != nil {
+				return nil, errors.Join(err, f.Close())
+			}
 		}
 		for j, r := range rows {
 			cells := make([]any, len(r))
 			for k, c := range r {
-				cells[k] = c
+				cells[k] = cellValue(c)
 			}
-			cell := MustSucceed(excelize.CoordinatesToCellName(1, j+1))
-			Expect(f.SetSheetRow(name, cell, &cells)).To(Succeed())
+			cell, err := excelize.CoordinatesToCellName(1, j+1)
+			if err == nil {
+				err = f.SetSheetRow(name, cell, &cells)
+			}
+			if err != nil {
+				return nil, errors.Join(err, f.Close())
+			}
 		}
 	}
-	return MustSucceed(f.WriteToBuffer()).Bytes()
+	return f, nil
+}
+
+func newWorkbook(sheets ...[][]string) *excelize.File {
+	GinkgoHelper()
+	f := MustSucceed(writeWorkbook(sheets...))
+	DeferCleanup(f.Close)
+	return f
+}
+
+// encodeWorkbook returns the bytes of a workbook written by writeWorkbook.
+func encodeWorkbook(sheets ...[][]string) ([]byte, error) {
+	f, err := writeWorkbook(sheets...)
+	if err != nil {
+		return nil, err
+	}
+	buf, err := f.WriteToBuffer()
+	if err = errors.Join(err, f.Close()); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func toXLSX(sheets ...[][]string) []byte {
+	GinkgoHelper()
+	return MustSucceed(encodeWorkbook(sheets...))
+}
+
+const firstSheet = "xl/worksheets/sheet1.xml"
+
+// mapSheet returns the workbook data with the XML of its first sheet replaced by the
+// result of fn.
+func mapSheet(data []byte, fn func(sheet []byte) []byte) ([]byte, error) {
+	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, err
+	}
+	var out bytes.Buffer
+	w := zip.NewWriter(&out)
+	for _, f := range r.File {
+		src, err := f.Open()
+		if err != nil {
+			return nil, err
+		}
+		content, err := io.ReadAll(src)
+		if err = errors.Join(err, src.Close()); err != nil {
+			return nil, err
+		}
+		if f.Name == firstSheet {
+			content = fn(content)
+		}
+		dst, err := w.Create(f.Name)
+		if err != nil {
+			return nil, err
+		}
+		if _, err = dst.Write(content); err != nil {
+			return nil, err
+		}
+	}
+	if err = w.Close(); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
+}
+
+// replaceInSheet returns the workbook data with old replaced by new in the XML of its
+// first sheet.
+func replaceInSheet(data []byte, old, new string) []byte {
+	GinkgoHelper()
+	return MustSucceed(mapSheet(data, func(sheet []byte) []byte {
+		Expect(string(sheet)).To(ContainSubstring(old))
+		return []byte(strings.Replace(string(sheet), old, new, 1))
+	}))
+}
+
+// FuzzParseCSV checks that any input either imports with resolved references or fails
+// with a validation error, and never panics.
+func FuzzParseCSV(f *testing.F) {
+	f.Add(toCSV(tableRows))
+	f.Add(toCSV(tableRows[:1]))
+	f.Add(
+		[]byte(
+			"message,field,start_bit,bit_length,id,extended\nm,a,0,8,0x1FFFFFFF,1\n",
+		),
+	)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		entries, err := icd.Parse(icd.FormatCSV, data)
+		checkImport(t, entries, err)
+	})
+}
+
+// FuzzParseXLSX checks that any input either imports with resolved references or fails
+// with a validation error, and never panics.
+func FuzzParseXLSX(f *testing.F) {
+	for _, rows := range [][][]string{tableRows, tableRows[:1]} {
+		data, err := encodeWorkbook(rows)
+		if err != nil {
+			f.Fatal(err)
+		}
+		f.Add(data)
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		entries, err := icd.Parse(icd.FormatXLSX, data)
+		checkImport(t, entries, err)
+	})
+}
+
+// FuzzParseXLSXSheet is FuzzParseXLSX for a valid workbook whose first sheet holds any
+// XML, which reaches the cell reader that most whole-file inputs never get past.
+func FuzzParseXLSXSheet(f *testing.F) {
+	workbook, err := encodeWorkbook(tableRows)
+	if err != nil {
+		f.Fatal(err)
+	}
+	if _, err = mapSheet(workbook, func(sheet []byte) []byte {
+		f.Add(sheet)
+		return sheet
+	}); err != nil {
+		f.Fatal(err)
+	}
+	f.Fuzz(func(t *testing.T, sheet []byte) {
+		data, err := mapSheet(workbook, func([]byte) []byte { return sheet })
+		if err != nil {
+			t.Fatal(err)
+		}
+		entries, err := icd.Parse(icd.FormatXLSX, data)
+		checkImport(t, entries, err)
+	})
 }
 
 var _ = Describe("Parse CSV", func() {
@@ -191,11 +361,13 @@ var _ = Describe("Parse CSV", func() {
 
 	header := "message,id,extended,length,period_ms,field,start_bit,bit_length," +
 		"byte_order,signed,float\n"
-	DescribeTable("Should reject an invalid table", func(csv, message string) {
-		Expect(icd.Parse(icd.FormatCSV, []byte(csv))).Error().To(MatchError(
-			"data: " + message + ": validation error",
-		))
-	},
+	DescribeTable(
+		"Should reject an invalid table",
+		func(csv, message string) {
+			Expect(icd.Parse(icd.FormatCSV, []byte(csv))).Error().To(MatchError(
+				"data: " + message + ": validation error",
+			))
+		},
 		Entry("an empty file", "", "missing header row"),
 		Entry("an unknown column", "message,field,start_bit,bit_length,Color\n",
 			`row 1: unknown column "Color"`),
@@ -217,6 +389,37 @@ var _ = Describe("Parse CSV", func() {
 			`row 2, column length: invalid length "-1"`),
 		Entry("an invalid period", header+"m,,,,0,a,0,8\n",
 			`row 2, column period_ms: invalid period "0"`),
+		Entry("a period that is not a number", header+"m,,,,NaN,a,0,8\n",
+			`row 2, column period_ms: invalid period "NaN"`),
+		Entry("a period shorter than a nanosecond", header+"m,,,,1e-9,a,0,8\n",
+			`row 2, column period_ms: invalid period "1e-9"`),
+		Entry("a period past the longest span", header+"m,,,,1e300,a,0,8\n",
+			`row 2, column period_ms: invalid period "1e300"`),
+		Entry(
+			"an invalid minimum",
+			"message,field,start_bit,bit_length,min\nm,a,0,8,low\n",
+			`row 2, column min: invalid number "low"`,
+		),
+		Entry(
+			"an invalid maximum",
+			"message,field,start_bit,bit_length,max\nm,a,0,8,hi\n",
+			`row 2, column max: invalid number "hi"`,
+		),
+		Entry(
+			"a scale that is not a number",
+			"message,field,start_bit,bit_length,scale\nm,a,0,8,NaN\n",
+			`row 2, column scale: invalid number "NaN"`,
+		),
+		Entry(
+			"an infinite offset",
+			"message,field,start_bit,bit_length,offset\nm,a,0,8,-Inf\n",
+			`row 2, column offset: invalid number "-Inf"`,
+		),
+		Entry(
+			"a maximum past the float64 range",
+			"message,field,start_bit,bit_length,max\nm,a,0,8,1e400\n",
+			`row 2, column max: invalid number "1e400"`,
+		),
 		Entry("an invalid byte order", header+"m,,,,,a,0,8,middle\n",
 			`row 2, column byte_order: invalid byte order "middle"`),
 		Entry("an invalid boolean", header+"m,,,,,a,0,8,,maybe\n",
@@ -234,6 +437,33 @@ var _ = Describe("Parse XLSX", func() {
 		other := [][]string{{"Color"}, {"red"}}
 		entries := MustSucceed(icd.Parse(icd.FormatXLSX, toXLSX(tableRows, other)))
 		Expect(withoutKeys(entries)).To(Equal(tableEntries))
+	})
+
+	It("Should read the value of a numeric cell, not its formatted text", func() {
+		f := newWorkbook([][]string{
+			{"message", "field", "start_bit", "bit_length", "scale", "offset"},
+			{"m", "a", "8", "16", "0.001", "0.125"},
+		})
+		style := MustSucceed(f.NewStyle(&excelize.Style{CustomNumFmt: new("0.0")}))
+		Expect(f.SetCellStyle("Sheet1", "C2", "F2", style)).To(Succeed())
+		entries := MustSucceed(
+			icd.Parse(icd.FormatXLSX, MustSucceed(f.WriteToBuffer()).Bytes()),
+		)
+		a := binaryFields(messagesOf(entries)[0])[0]
+		Expect(a.StartBit).To(Equal(uint16(8)))
+		Expect(a.Scale).To(Equal(0.001))
+		Expect(a.Offset).To(Equal(0.125))
+	})
+
+	It("Should report a row whose cell reference is invalid", func() {
+		rows := [][]string{
+			{"message", "field", "start_bit", "bit_length"},
+			{"m", "a", "0", "8"},
+			{"m", "b", "8", "8"},
+		}
+		data := replaceInSheet(toXLSX(rows), `r="B3"`, `r="3B"`)
+		Expect(icd.Parse(icd.FormatXLSX, data)).Error().
+			To(MatchError(HavePrefix("data: row 3: ")))
 	})
 
 	It("Should report the row of an invalid cell", func() {

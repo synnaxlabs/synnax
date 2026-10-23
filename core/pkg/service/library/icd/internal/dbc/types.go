@@ -75,14 +75,11 @@ const (
 	maxExtendedID = 0x1fffffff
 	// messageIDExtendedFlag is set for extended message IDs.
 	messageIDExtendedFlag MessageID = 0x80000000
-	// messageIDIndependentSignals is the ID of the message that holds the signals no
-	// message carries.
-	messageIDIndependentSignals MessageID = 0xc0000000
 )
 
 // IsExtended reports whether the message ID is an extended CAN ID.
 func (m MessageID) IsExtended() bool {
-	return m != messageIDIndependentSignals && m&messageIDExtendedFlag > 0
+	return m&messageIDExtendedFlag > 0
 }
 
 // ToCAN returns the CAN ID of the message ID, without the extended flag.
@@ -90,15 +87,15 @@ func (m MessageID) ToCAN() uint32 {
 	return uint32(m &^ messageIDExtendedFlag)
 }
 
-func (m MessageID) validate() error {
-	if m == messageIDIndependentSignals {
-		return nil
-	}
+// Validate returns an error when the message ID is not a valid CAN ID. Parse does not
+// check message IDs, since a file may give any ID to the message that holds the signals
+// no message carries.
+func (m MessageID) Validate() error {
 	if m.IsExtended() && m.ToCAN() > maxExtendedID {
-		return errors.Newf("invalid extended ID: %v", m)
+		return errors.Newf("extended ID 0x%X has more than 29 bits", m.ToCAN())
 	}
 	if !m.IsExtended() && m.ToCAN() > maxID {
-		return errors.Newf("invalid standard ID: %v", m)
+		return errors.Newf("standard ID 0x%X has more than 11 bits", m.ToCAN())
 	}
 	return nil
 }
@@ -193,11 +190,24 @@ const (
 	AccessTypeRead         AccessType = "DUMMY_NODE_VECTOR1"
 	AccessTypeWrite        AccessType = "DUMMY_NODE_VECTOR2"
 	AccessTypeReadWrite    AccessType = "DUMMY_NODE_VECTOR3"
+	// The access types with 0x8000 added make the variable a string, whatever its
+	// type.
+	AccessTypeUnrestrictedString AccessType = "DUMMY_NODE_VECTOR8000"
+	AccessTypeReadString         AccessType = "DUMMY_NODE_VECTOR8001"
+	AccessTypeWriteString        AccessType = "DUMMY_NODE_VECTOR8002"
+	AccessTypeReadWriteString    AccessType = "DUMMY_NODE_VECTOR8003"
 )
 
 func (a AccessType) validate() error {
 	switch a {
-	case AccessTypeUnrestricted, AccessTypeRead, AccessTypeWrite, AccessTypeReadWrite:
+	case AccessTypeUnrestricted,
+		AccessTypeRead,
+		AccessTypeWrite,
+		AccessTypeReadWrite,
+		AccessTypeUnrestrictedString,
+		AccessTypeReadString,
+		AccessTypeWriteString,
+		AccessTypeReadWriteString:
 		return nil
 	}
 	return errors.Newf("invalid access type: %v", a)

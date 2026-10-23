@@ -14,6 +14,7 @@ package icd
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/library/versions"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -25,13 +26,13 @@ const (
 	FormatDBC Format = "dbc"
 	// FormatCSV is a field table in comma-separated values. The first row is a header
 	// that names each column, in any case: message, id, extended, length, period_ms,
-	// field, start_bit, bit_length, byte_order, signed, float, scale, offset, and
-	// units. The message, field, start_bit, and bit_length columns are required. Each
-	// other row is one binary field, and the rows of one message form one message
-	// entry, with a CAN identifier when an id is present.
+	// field, start_bit, bit_length, byte_order, signed, float, scale, offset, units,
+	// min, and max. The message, field, start_bit, and bit_length columns are
+	// required. Each other row is one binary field, and the rows of one message form
+	// one message entry, with a CAN identifier when an id is present.
 	FormatCSV Format = "csv"
 	// FormatXLSX is a field table, laid out as for FormatCSV, in the first sheet of an
-	// Excel workbook.
+	// Excel workbook. A numeric cell is read as its value, whatever its number format.
 	FormatXLSX Format = "xlsx"
 )
 
@@ -52,6 +53,16 @@ func Parse(format Format, data []byte) ([]versions.Entry, error) {
 		errors.Wrapf(validate.ErrValidation, "unsupported format %q", format),
 		"format",
 	)
+}
+
+// msToSpan converts a period in milliseconds to a time span. It returns false unless
+// the span is from 1ns to telem.TimeSpanMax.
+func msToSpan(ms float64) (telem.TimeSpan, bool) {
+	span := ms * float64(telem.Millisecond)
+	if !(span >= float64(telem.Nanosecond) && span < float64(telem.TimeSpanMax)) {
+		return 0, false
+	}
+	return telem.TimeSpan(span), true
 }
 
 func dataErrorf(format string, args ...any) error {

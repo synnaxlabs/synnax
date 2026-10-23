@@ -5,7 +5,8 @@
       "sequence_name": "Driver Task Lifecycle",
       "tests": [
         { "case": "driver/opcua_status_spam" },
-        { "case": "driver/disconnect_task" },
+        { "case": "driver/disconnect_task", "name": "DisconnectOpcua" },
+        { "case": "driver/disconnect_task", "name": "DisconnectModbus" },
         { "case": "driver/modbus_read" },
         { "case": "driver/modbus_write" },
         { "case": "driver/modbus_invalid" },
@@ -34,7 +35,11 @@
         { "case": "driver/serial_read" },
         { "case": "driver/serial_write" },
         { "case": "driver/can_read" },
-        { "case": "driver/can_write" }
+        { "case": "driver/can_write" },
+        { "case": "driver/disconnect_task", "name": "DisconnectTCP" },
+        { "case": "driver/disconnect_task", "name": "DisconnectUDP" },
+        { "case": "driver/disconnect_task", "name": "DisconnectSerial" },
+        { "case": "driver/disconnect_task", "name": "DisconnectCAN" }
       ]
     },
     {

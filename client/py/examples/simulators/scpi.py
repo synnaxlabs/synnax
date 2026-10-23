@@ -22,7 +22,9 @@ separated by semicolons.
   reply with them.
 
 A muted simulator reads commands and ignores them, so the Driver sees a device that
-stops answering.
+stops answering. A hung simulator stops reading commands, as a frozen instrument does,
+and answers the ones that queued up once it resumes. A delayed simulator holds each
+reply before it sends it, so replies arrive late.
 """
 
 import asyncio
@@ -95,6 +97,8 @@ class SCPISim(BusSim[str]):
     def __init__(self, rate: sy.Rate = 50 * sy.Rate.HZ, verbose: bool = False):
         super().__init__(rate=rate, verbose=verbose)
         self._muted = multiprocessing.Event()
+        self._hung = multiprocessing.Event()
+        self._delay = multiprocessing.Value("d", 0.0)
 
     def mute(self) -> None:
         """Stops answering and executing commands until unmute is called."""
@@ -103,6 +107,20 @@ class SCPISim(BusSim[str]):
     def unmute(self) -> None:
         """Resumes answering and executing commands."""
         self._muted.clear()
+
+    def hang(self) -> None:
+        """Stops reading commands until unhang is called. Connections stay open, and
+        the commands sent meanwhile wait in order."""
+        self._hung.set()
+
+    def unhang(self) -> None:
+        """Resumes reading commands, starting with the ones that waited."""
+        self._hung.clear()
+
+    def delay(self, seconds: float) -> None:
+        """Holds each reply for the given number of seconds before sending it. Replies
+        on one connection keep their order. Zero sends replies at once."""
+        self._delay.value = seconds
 
     def query(self, command: str, timeout: float = 2) -> str:
         """Sends one query on a new connection and returns the reply line.
@@ -120,19 +138,32 @@ class SCPISim(BusSim[str]):
     async def _run_server(self) -> None:
         instrument = _Instrument()
 
+        async def unhung() -> None:
+            while self._hung.is_set():
+                await asyncio.sleep(0.01)
+
         async def serve(
             reader: asyncio.StreamReader, writer: asyncio.StreamWriter
         ) -> None:
             try:
-                while line := await reader.readline():
+                while True:
+                    await unhung()
+                    line = await reader.readline()
+                    # A read already waiting when the hang starts still returns.
+                    await unhung()
+                    if not line:
+                        break
                     if self._muted.is_set():
                         continue
                     text = line.decode("ascii").rstrip("\r\n")
                     self._record(text)
                     reply = instrument.execute(text)
-                    if reply is not None:
-                        writer.write(f"{reply}\n".encode("ascii"))
-                        await writer.drain()
+                    if reply is None:
+                        continue
+                    if (delay := self._delay.value) > 0:
+                        await asyncio.sleep(delay)
+                    writer.write(f"{reply}\n".encode("ascii"))
+                    await writer.drain()
             except (ConnectionError, UnicodeDecodeError):
                 pass
             finally:

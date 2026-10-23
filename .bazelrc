@@ -174,19 +174,38 @@ build:opt-windows --copt=/O2
 build:opt-windows --copt=/GL
 build:opt-windows --linkopt=/LTCG
 
-# ===== Sanitizers (Memory/Undefined Behavior Detection) =====
+# ===== Sanitizers (Memory/Undefined Behavior/Data Race Detection) =====
+#
+# Runtime suppression files live in scripts/sanitizers/. A sanitizer needs an absolute
+# path to one, so CI passes each through its *_OPTIONS with --test_env.
+
+# UndefinedBehaviorSanitizer (UBSan) - Detects undefined behavior
+# - Integer overflow
+# - Null pointer dereference
+# - Misaligned pointer access
+# - Division by zero
+# - Invalid enum values
+# Checks recover so that a suppression can silence a report, and halt_on_error fails the
+# test on any other report. Dependencies are not instrumented, since they are not ours
+# to fix.
+build:ubsan --copt=-fsanitize=undefined
+build:ubsan --per_file_copt=external/.*,vendor/.*@-fno-sanitize=undefined
+build:ubsan --copt=-fno-omit-frame-pointer
+build:ubsan --copt=-g
+build:ubsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
+build:ubsan --linkopt=-fsanitize=undefined
+build:ubsan --test_env=UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1
 
 # AddressSanitizer (ASan) - Detects memory errors
 # - Heap/stack buffer overflows
 # - Use-after-free
 # - Double-free
 # - Memory leaks (via LeakSanitizer on Linux only)
+# It includes UBSan, since the two share one build.
+build:asan --config=ubsan
 build:asan --copt=-fsanitize=address
-build:asan --copt=-fno-omit-frame-pointer
 build:asan --copt=-O1
-build:asan --copt=-g
 build:asan --copt=-fno-optimize-sibling-calls
-build:asan --copt=-fdebug-prefix-map=/proc/self/cwd=.
 build:asan --linkopt=-fsanitize=address
 build:asan --test_env=ASAN_OPTIONS=abort_on_error=1:halt_on_error=1:detect_stack_use_after_return=1
 build:asan --test_timeout=120,600,1800,3600  # ASan adds ~2-3x overhead
@@ -207,25 +226,21 @@ build:lsan --copt=-fno-omit-frame-pointer
 build:lsan --copt=-g
 build:lsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
 build:lsan --linkopt=-fsanitize=leak
-build:lsan --test_env=LSAN_OPTIONS=suppressions=scripts/sanitizers/lsan_suppressions.txt
 
-# UndefinedBehaviorSanitizer (UBSan) - Detects undefined behavior
-# - Integer overflow
-# - Null pointer dereference
-# - Misaligned pointer access
-# - Division by zero
-# - Invalid enum values
-build:ubsan --copt=-fsanitize=undefined
-build:ubsan --copt=-fno-sanitize-recover=undefined
-build:ubsan --copt=-fno-omit-frame-pointer
-build:ubsan --copt=-g
-build:ubsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
-build:ubsan --linkopt=-fsanitize=undefined
-build:ubsan --test_env=UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
+# ThreadSanitizer (TSan) - Detects data races, lock order inversions, and misuse of
+# mutexes. It cannot share a build with ASan, so it has its own. Every library,
+# dependencies included, must be instrumented, or TSan reports false races.
+build:tsan --copt=-fsanitize=thread
+build:tsan --copt=-fno-omit-frame-pointer
+build:tsan --copt=-O1
+build:tsan --copt=-g
+build:tsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
+build:tsan --linkopt=-fsanitize=thread
+build:tsan --test_env=TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1
+build:tsan --test_timeout=300,1500,4500,9000  # TSan adds ~5-15x overhead
 
 # Combined sanitizers (recommended for local development)
 build:sanitize --config=asan
-build:sanitize --config=ubsan
 
 # Sanitizers for CI (optimized settings)
 build:sanitize-ci --config=sanitize

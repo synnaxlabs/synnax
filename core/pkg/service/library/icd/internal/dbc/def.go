@@ -43,12 +43,14 @@ type NewSymbolsDef struct {
 var _ Def = (*NewSymbolsDef)(nil)
 
 func (d *NewSymbolsDef) parseFrom(p *parser) {
-	p.useWhitespace(significantTab)
-	defer p.useWhitespace(defaultWhitespace)
 	d.Pos = p.keyword(KeywordNewSymbols).pos
 	p.token(':')
-	for p.peekToken().typ == '\t' {
-		p.token('\t')
+	// Symbols are indented, and the next definition starts its line.
+	for {
+		tok := p.peekToken()
+		if tok.typ != scanner.Ident || tok.pos.Column == 1 {
+			return
+		}
 		d.Symbols = append(d.Symbols, Keyword(p.identifier()))
 	}
 }
@@ -135,12 +137,7 @@ var _ Def = (*ValueTableDef)(nil)
 func (d *ValueTableDef) parseFrom(p *parser) {
 	d.Pos = p.keyword(KeywordValueTable).pos
 	d.TableName = p.identifier()
-	for p.peekToken().typ != ';' {
-		var desc ValueDescriptionDef
-		desc.parseFrom(p)
-		d.ValueDescriptions = append(d.ValueDescriptions, desc)
-	}
-	p.token(';')
+	d.ValueDescriptions = p.valueDescriptions(d.Pos, KeywordValueTable)
 }
 
 // Position implements Def.
@@ -237,9 +234,10 @@ func (d *SignalDef) parseFrom(p *parser) {
 func (d *SignalDef) parseMultiplexing(p *parser) {
 	tok := p.nextToken()
 	if tok.typ != scanner.Ident {
-		p.failf(tok.pos, "expected ident")
+		p.failf(tok.pos, "expected multiplexer")
 	}
-	if tok.txt == "M" {
+	// Some files write a lone m for M.
+	if tok.txt == "M" || tok.txt == "m" {
 		d.IsMultiplexerSwitch = true
 		return
 	}
@@ -368,12 +366,7 @@ func (d *ValueDescriptionsDef) parseFrom(p *parser) {
 		d.MessageID = p.messageID()
 		d.SignalName = p.identifier()
 	}
-	for p.peekToken().typ != ';' {
-		var desc ValueDescriptionDef
-		desc.parseFrom(p)
-		d.ValueDescriptions = append(d.ValueDescriptions, desc)
-	}
-	p.token(';')
+	d.ValueDescriptions = p.valueDescriptions(d.Pos, KeywordValueDescriptions)
 }
 
 // Position implements Def.
@@ -493,7 +486,7 @@ var _ Def = (*AttributeDef)(nil)
 func (d *AttributeDef) parseFrom(p *parser) {
 	d.Pos = p.keyword(KeywordAttribute).pos
 	d.ObjectType = p.optionalObjectType()
-	d.Name = p.stringIdentifier()
+	d.Name = Identifier(p.string())
 	d.Type = p.attributeValueType()
 	switch d.Type {
 	case AttributeValueTypeInt, AttributeValueTypeHex:

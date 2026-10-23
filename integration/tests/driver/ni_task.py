@@ -80,7 +80,7 @@ class _NITaskMixin(TaskCase[TaskT]):
 
     def setup(self) -> None:
         if platform.system().lower() != "windows":
-            self.auto_pass(msg="Windows DAQmx drivers required")
+            self.skip("Windows DAQmx drivers required")
             return
         _ensure_ni_max_config(self.log)
         # The NI scanner registers devices with location = NI MAX alias.

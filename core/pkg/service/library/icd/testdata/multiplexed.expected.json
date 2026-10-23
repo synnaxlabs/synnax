@@ -29,7 +29,9 @@
             }
           ],
           "multiplexor": null,
-          "multiplex_values": []
+          "multiplex_values": [],
+          "min": 0,
+          "max": 255
         },
         {
           "name": "Temperature",
@@ -43,7 +45,9 @@
           "units": "degC",
           "choices": null,
           "multiplexor": "Mode",
-          "multiplex_values": [0]
+          "multiplex_values": [0],
+          "min": -3276.8,
+          "max": 3276.7
         },
         {
           "name": "Pressure",
@@ -57,7 +61,9 @@
           "units": "kPa",
           "choices": null,
           "multiplexor": "Mode",
-          "multiplex_values": [1]
+          "multiplex_values": [1],
+          "min": 0,
+          "max": 32767.5
         },
         {
           "name": "Humidity",
@@ -71,7 +77,9 @@
           "units": "%",
           "choices": null,
           "multiplexor": "Mode",
-          "multiplex_values": [1]
+          "multiplex_values": [1],
+          "min": 0,
+          "max": 100
         },
         {
           "name": "Uptime",
@@ -85,7 +93,9 @@
           "units": "s",
           "choices": null,
           "multiplexor": null,
-          "multiplex_values": []
+          "multiplex_values": [],
+          "min": 0,
+          "max": 4294967295
         }
       ]
     }

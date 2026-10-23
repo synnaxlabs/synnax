@@ -10,13 +10,43 @@
 package dbc_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/library/icd/internal/dbc"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// FuzzParse checks that Parse returns definitions or an *Error for any input, and never
+// panics.
+func FuzzParse(f *testing.F) {
+	paths, err := filepath.Glob(filepath.Join("..", "..", "testdata", "*.dbc"))
+	if err != nil {
+		f.Fatal(err)
+	}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			f.Fatal(err)
+		}
+		f.Add(data)
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		defs, err := dbc.Parse(data)
+		if err == nil {
+			return
+		}
+		var perr *dbc.Error
+		if !errors.As(err, &perr) || defs != nil {
+			t.Fatalf("Parse returned %d definitions and error %v", len(defs), err)
+		}
+	})
+}
 
 // parseOne parses src and returns its only definition, which must have type D.
 func parseOne[D dbc.Def](src string) D {
@@ -64,6 +94,35 @@ var _ = Describe("Parse", func() {
 		}))
 	})
 
+	DescribeTable("Should report whether a message ID is valid",
+		func(id dbc.MessageID, message string) {
+			if message == "" {
+				Expect(id.Validate()).To(Succeed())
+				return
+			}
+			Expect(id.Validate()).To(MatchError(message))
+		},
+		Entry("the largest standard ID", dbc.MessageID(0x7FF), ""),
+		Entry("the largest extended ID", dbc.MessageID(0x9FFFFFFF), ""),
+		Entry(
+			"a standard ID past 11 bits",
+			dbc.MessageID(0x800),
+			"standard ID 0x800 has more than 11 bits",
+		),
+		Entry(
+			"an extended ID past 29 bits",
+			dbc.MessageID(0xFFFFFFFF),
+			"extended ID 0x7FFFFFFF has more than 29 bits",
+		),
+	)
+
+	It("Should parse a message ID that is not a valid CAN ID", func() {
+		msg := parseOne[*dbc.MessageDef](
+			"BO_ 1073741824 VECTOR__INDEPENDENT_SIG_MSG: 0 X\n",
+		)
+		Expect(msg.MessageID).To(Equal(dbc.MessageID(0x40000000)))
+	})
+
 	DescribeTable("Should read the multiplexing marker of a signal",
 		func(marker string, isSwitch, isMultiplexed bool, value uint64) {
 			s := signalOf(marker)
@@ -74,6 +133,7 @@ var _ = Describe("Parse", func() {
 		Entry("a multiplexer switch", "M", true, false, uint64(0)),
 		Entry("a multiplexed signal", "m3", false, true, uint64(3)),
 		Entry("an extended multiplexer switch", "m12M", true, true, uint64(12)),
+		Entry("a lone m, which some files write for M", "m", true, false, uint64(0)),
 	)
 
 	DescribeTable("Should reject an invalid multiplexing marker",
@@ -83,6 +143,7 @@ var _ = Describe("Parse", func() {
 			))).Error().To(MatchError("line 2, column 8: " + reason))
 		},
 		Entry("an unknown marker", "x", "expected multiplexer"),
+		Entry("a number", "1", "expected multiplexer"),
 		Entry("a marker without a value", "mM", "invalid multiplexer value"),
 		Entry("a marker with a bad value", "m1x", "invalid multiplexer value"),
 	)
@@ -108,7 +169,7 @@ var _ = Describe("Parse", func() {
 		Entry(
 			"a missing switch",
 			"SG_MUL_VAL_ 256 A;\n",
-			"line 1, column 18: expected ident",
+			"line 1, column 18: expected a name",
 		),
 		Entry(
 			"a range without an upper bound",
@@ -206,6 +267,71 @@ SIG_VALTYPE_ 256 Temp : 1;
 		Expect(defs[3]).To(HaveField("NodeNames", []dbc.Identifier{"Ecu", "Gateway"}))
 	})
 
+	It("Should parse new symbols indented with spaces", func() {
+		defs := MustSucceed(dbc.Parse([]byte(
+			"NS_ :\n    CM_\n    BA_DEF_\n    BA_\n\nBS_:\n",
+		)))
+		Expect(defs).To(HaveLen(2))
+		Expect(defs[0]).To(HaveField("Symbols", []dbc.Keyword{
+			dbc.KeywordComment,
+			dbc.KeywordAttribute,
+			dbc.KeywordAttributeValue,
+		}))
+		Expect(defs[1]).To(BeAssignableToTypeOf(&dbc.BitTimingDef{}))
+	})
+
+	It("Should skip line comments", func() {
+		defs := MustSucceed(dbc.Parse([]byte(
+			"// A comment.\r\nVERSION \"2.0\" // Another comment.\r\n\r\nBS_:\r\n",
+		)))
+		Expect(defs).To(HaveLen(2))
+		Expect(defs[0]).To(HaveField("Version", "2.0"))
+	})
+
+	It("Should keep a comment marker inside a string", func() {
+		def := parseOne[*dbc.CommentDef]("CM_ \"See http://example.com\";\n")
+		Expect(def.Comment).To(Equal("See http://example.com"))
+	})
+
+	It("Should read a file that is not UTF-8 as Windows-1252", func() {
+		def := parseOne[*dbc.CommentDef]("CM_ \"Range \xb10.5 \xb0C, cost \x80\";\n")
+		Expect(def.Comment).To(Equal("Range ±0.5 °C, cost €"))
+	})
+
+	It("Should read numbers with a plus sign", func() {
+		s := parseOne[*dbc.MessageDef](
+			"BO_ 256 M: 8 Ecu\n SG_ S : 8|8@1- (+1,-128) [-128|+127] \"\" Ecu\n",
+		).Signals[0]
+		Expect(s.Factor).To(Equal(1.0))
+		Expect(s.Minimum).To(Equal(-128.0))
+		Expect(s.Maximum).To(Equal(127.0))
+	})
+
+	It("Should accept an attribute name that is not an identifier", func() {
+		defs := MustSucceed(dbc.Parse([]byte(`BA_DEF_ SG_ "NWM-Wakeup" ENUM "No","Yes";
+BA_DEF_DEF_ "NWM-Wakeup" "No";
+BA_ "NWM-Wakeup" SG_ 256 A 1;
+`)))
+		Expect(defs).To(HaveLen(3))
+		Expect(defs[0]).To(HaveField("Name", dbc.Identifier("NWM-Wakeup")))
+		Expect(defs[2]).To(HaveField("StringValue", "Yes"))
+	})
+
+	DescribeTable("Should parse the access type of an environment variable",
+		func(accessType dbc.AccessType) {
+			def := parseOne[*dbc.EnvironmentVariableDef](
+				"EV_ Mode: 0 [0|0] \"\" 0 2 " + string(accessType) + " Vector__XXX;\n",
+			)
+			Expect(def.AccessType).To(Equal(accessType))
+		},
+		Entry("unrestricted", dbc.AccessTypeUnrestricted),
+		Entry("read and write", dbc.AccessTypeReadWrite),
+		Entry("unrestricted, for a string", dbc.AccessTypeUnrestrictedString),
+		Entry("read, for a string", dbc.AccessTypeReadString),
+		Entry("write, for a string", dbc.AccessTypeWriteString),
+		Entry("read and write, for a string", dbc.AccessTypeReadWriteString),
+	)
+
 	It("Should parse environment variables and transmitters", func() {
 		defs := MustSucceed(dbc.Parse([]byte(
 			`EV_ Speed: 1 [0|100] "km/h" 0 1 DUMMY_NODE_VECTOR1 Ecu;
@@ -228,9 +354,44 @@ BO_TX_BU_ 256 : Ecu,Gateway;
 			Expect(dbc.Parse([]byte(src))).Error().To(MatchError(message))
 		},
 		Entry(
-			"a standard ID past 11 bits",
-			"BO_ 2048 M: 8 Ecu\n",
-			"line 1, column 5: invalid standard ID: 2048",
+			"a definition that does not start with a keyword",
+			"VERSION \"\"\n256\n",
+			"line 2, column 1: expected a keyword",
+		),
+		Entry(
+			"a name that is a number",
+			"BO_ 1275 2017_5: 8 Ecu\n",
+			"line 1, column 10: a name must start with a letter or an underscore",
+		),
+		Entry(
+			"a comment with an ID but no object type",
+			"CM_ 145 \"Pedal\";\n",
+			"line 1, column 5: expected a string",
+		),
+		Entry(
+			"a signal comment with no signal name",
+			"CM_ SG_ 304 \"Pedal\";\n",
+			"line 1, column 13: expected a name",
+		),
+		Entry(
+			"a name that starts with a digit",
+			"BO_ 256 M: 8 Ecu\n SG_ 0_COUNT : 0|8@1+ (1,0) [0|0] \"\" Ecu\n",
+			"line 2, column 6: a name must start with a letter or an underscore",
+		),
+		Entry(
+			"a value description with no closing semicolon",
+			"VAL_ 256 A 1 \"On\" 0 \"Off\"\nVAL_ 256 B 1 \"On\" ;\n",
+			"line 1, column 1: VAL_ has no closing ';'",
+		),
+		Entry(
+			"a value table with no closing semicolon",
+			"VAL_TABLE_ T 1 \"On\"\nBO_ 256 M: 8 Ecu\n",
+			"line 1, column 1: VAL_TABLE_ has no closing ';'",
+		),
+		Entry(
+			"an unknown access type",
+			"EV_ Mode: 0 [0|0] \"\" 0 2 DUMMY_NODE_VECTOR4 Vector__XXX;\n",
+			"line 1, column 26: invalid access type",
 		),
 		Entry(
 			"a message ID past 32 bits",
@@ -261,6 +422,6 @@ BO_TX_BU_ 256 : Ecu,Gateway;
 		perr = err.(*dbc.Error)
 		Expect(perr.Pos.Line).To(Equal(1))
 		Expect(perr.Pos.Column).To(Equal(9))
-		Expect(perr.Reason).To(Equal(`expected token "`))
+		Expect(perr.Reason).To(Equal("expected a string"))
 	})
 })

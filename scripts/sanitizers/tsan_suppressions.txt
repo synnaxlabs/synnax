@@ -1,0 +1,14 @@
+# ThreadSanitizer Suppression File
+# Format: <type>:<pattern>, where pattern matches a function, source file, or module.
+# Types: race, race_top, thread, mutex, signal, deadlock, called_from_lib
+# Prefer a function name to a file, and link the issue that tracks the fix.
+# See: https://github.com/google/sanitizers/wiki/ThreadSanitizerSuppressions
+
+# ===== Third-Party Libraries =====
+
+# ===== Known Issues (Temporary - Link to GitHub issues) =====
+
+# Add temporary suppressions here with issue links
+# Example:
+# race:driver::bus::Reader::read
+# Issue: https://github.com/synnaxlabs/synnax/issues/XXXX

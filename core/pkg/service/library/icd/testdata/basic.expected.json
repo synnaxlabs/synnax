@@ -20,7 +20,9 @@
           "units": "rpm",
           "choices": null,
           "multiplexor": null,
-          "multiplex_values": []
+          "multiplex_values": [],
+          "min": 0,
+          "max": 16383.75
         },
         {
           "name": "CoolantTemp",
@@ -34,7 +36,9 @@
           "units": "degC",
           "choices": null,
           "multiplexor": null,
-          "multiplex_values": []
+          "multiplex_values": [],
+          "min": -168,
+          "max": 87
         },
         {
           "name": "Gear",
@@ -65,7 +69,9 @@
             }
           ],
           "multiplexor": null,
-          "multiplex_values": []
+          "multiplex_values": [],
+          "min": 0,
+          "max": 7
         },
         {
           "name": "Throttle",
@@ -79,7 +85,9 @@
           "units": "%",
           "choices": null,
           "multiplexor": null,
-          "multiplex_values": []
+          "multiplex_values": [],
+          "min": 0,
+          "max": 102.3
         }
       ]
     },
@@ -103,7 +111,9 @@
           "units": "V",
           "choices": null,
           "multiplexor": null,
-          "multiplex_values": []
+          "multiplex_values": [],
+          "min": 0,
+          "max": 655.35
         },
         {
           "name": "Current",
@@ -117,7 +127,9 @@
           "units": "A",
           "choices": null,
           "multiplexor": null,
-          "multiplex_values": []
+          "multiplex_values": [],
+          "min": -204.8,
+          "max": 204.7
         },
         {
           "name": "State",
@@ -148,7 +160,9 @@
             }
           ],
           "multiplexor": null,
-          "multiplex_values": []
+          "multiplex_values": [],
+          "min": 0,
+          "max": 15
         },
         {
           "name": "Charge",
@@ -162,7 +176,9 @@
           "units": "%",
           "choices": null,
           "multiplexor": null,
-          "multiplex_values": []
+          "multiplex_values": [],
+          "min": 0,
+          "max": 100
         }
       ]
     },
@@ -186,7 +202,9 @@
           "units": "m/s^2",
           "choices": null,
           "multiplexor": null,
-          "multiplex_values": []
+          "multiplex_values": [],
+          "min": -100,
+          "max": 100
         },
         {
           "name": "AccelY",
@@ -200,7 +218,9 @@
           "units": "m/s^2",
           "choices": null,
           "multiplexor": null,
-          "multiplex_values": []
+          "multiplex_values": [],
+          "min": -100,
+          "max": 100
         }
       ]
     },
@@ -224,7 +244,9 @@
           "units": "deg",
           "choices": null,
           "multiplexor": null,
-          "multiplex_values": []
+          "multiplex_values": [],
+          "min": -90,
+          "max": 90
         }
       ]
     },
@@ -248,7 +270,9 @@
           "units": "",
           "choices": null,
           "multiplexor": null,
-          "multiplex_values": []
+          "multiplex_values": [],
+          "min": 0,
+          "max": 65535
         },
         {
           "name": "Checksum",
@@ -262,7 +286,9 @@
           "units": "",
           "choices": null,
           "multiplexor": null,
-          "multiplex_values": []
+          "multiplex_values": [],
+          "min": 0,
+          "max": 255
         }
       ]
     }

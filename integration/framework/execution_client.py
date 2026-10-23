@@ -346,6 +346,7 @@ class ExecutionClient:
 
             test_instance.execute()
             test.status = test_instance._status
+            test.skip_reason = test_instance._skip_reason
             if test_instance._error_message is not None:
                 test.error_message = test_instance._error_message
             if test_instance._error_traceback is not None:

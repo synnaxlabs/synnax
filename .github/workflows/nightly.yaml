@@ -33,9 +33,60 @@ jobs:
       full: true
     secrets: inherit
 
+  # The Driver jobs below test against a Core, and CI builds its image in a job they
+  # cannot depend on. Both builds tag the image by its sources, so the second finds the
+  # image the first pushed, or pushes the same one.
+  core-image:
+    name: Core image
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build.docker.yaml
+    with:
+      module: core
+      repository: ghcr.io/synnaxlabs/synnax
+    secrets: inherit
+
+  # TSan cannot share the ASan build that CI runs, so it covers the bus code, which
+  # moves data between threads, once a night.
+  driver-tsan:
+    name: Driver - TSan
+    needs: core-image
+    uses: ./.github/workflows/test.cpp.yaml
+    with:
+      apt_packages: libsystemd-dev
+      capabilities_required: true
+      core_image: ${{ needs.core-image.outputs.image }}
+      rust: true
+      sanitizer: thread
+      targets: >-
+        //driver/bus/... //driver/can/... //driver/codec/... //driver/serial/...
+        //driver/tcp/... //driver/udp/...
+      test_flags: --spawn_strategy=local --local_test_jobs=1
+      test_tags: -hardware
+      vcan: true
+    secrets: inherit
+
+  driver-coverage:
+    name: Driver - Coverage
+    needs: core-image
+    uses: ./.github/workflows/test.cpp.yaml
+    with:
+      apt_packages: libsystemd-dev
+      capabilities_required: true
+      core_image: ${{ needs.core-image.outputs.image }}
+      coverage_flag: driver
+      rust: true
+      sanitizer: none
+      targets: //driver/...
+      test_flags: --spawn_strategy=local --local_test_jobs=1
+      test_tags: -hardware
+      vcan: true
+    secrets: inherit
+
   notify:
     name: Notify Slack
-    needs: ci
+    needs: [ci, core-image, driver-coverage, driver-tsan]
     if: failure()
     runs-on: ubuntu-latest
     permissions: {}

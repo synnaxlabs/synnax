@@ -40,6 +40,8 @@ def signal_of(s: cantools.database.Signal) -> dict:
         "choices": choices,
         "multiplexor": s.multiplexer_signal,
         "multiplex_values": sorted(s.multiplexer_ids or []),
+        "min": s.minimum,
+        "max": s.maximum,
     }
 
 

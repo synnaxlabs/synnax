@@ -10,11 +10,86 @@
 package icd_test
 
 import (
+	"math"
+	"slices"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/library"
 	"github.com/synnaxlabs/synnax/pkg/service/library/icd"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// checkImport fails t unless err is a validation error at the data path, or the entries
+// have unique keys, references that resolve, finite numbers, and positive periods.
+func checkImport(t *testing.T, entries []library.Entry, err error) {
+	t.Helper()
+	if err != nil {
+		var pathErr validate.PathError
+		if !errors.As(err, &pathErr) || !slices.Equal(pathErr.Path, []string{"data"}) ||
+			!errors.Is(pathErr.Err, validate.ErrValidation) {
+			t.Fatalf("not a validation error at the data path: %v", err)
+		}
+		return
+	}
+	keys := make(set.Set[library.EntryKey], len(entries))
+	enums := make(set.Set[library.EntryKey])
+	var messages []library.MessageEntry
+	for _, e := range entries {
+		var key library.EntryKey
+		switch v := e.Variant.(type) {
+		case library.EnumEntry:
+			key = v.Key
+			enums.Add(key)
+		case library.MessageEntry:
+			key = v.Key
+			messages = append(messages, v)
+		default:
+			t.Fatalf("unexpected entry %T", v)
+		}
+		if keys.Contains(key) {
+			t.Fatalf("duplicate entry key %s", key)
+		}
+		keys.Add(key)
+	}
+	for _, m := range messages {
+		if m.Period != nil && *m.Period <= 0 {
+			t.Fatalf("message %s has period %s", m.Name, *m.Period)
+		}
+		p, ok := m.Payload.Variant.(library.BinaryPayload)
+		if !ok {
+			t.Fatalf("message %s has payload %T", m.Name, m.Payload.Variant)
+		}
+		fields := make(set.Set[library.FieldKey], len(p.Fields))
+		for _, f := range p.Fields {
+			if fields.Contains(f.Key) {
+				t.Fatalf("message %s has duplicate field key %s", m.Name, f.Key)
+			}
+			fields.Add(f.Key)
+		}
+		for _, f := range p.Fields {
+			for _, v := range []*float64{&f.Scale, &f.Offset, f.Min, f.Max} {
+				if v != nil && (math.IsNaN(*v) || math.IsInf(*v, 0)) {
+					t.Fatalf(
+						"field %s.%s has a number that is not finite",
+						m.Name,
+						f.Name,
+					)
+				}
+			}
+			if f.Enumeration != nil && !enums.Contains(*f.Enumeration) {
+				t.Fatalf("field %s.%s has no enum entry", m.Name, f.Name)
+			}
+			if f.Multiplexor != nil && !fields.Contains(*f.Multiplexor) {
+				t.Fatalf("field %s.%s has no multiplexor field", m.Name, f.Name)
+			}
+		}
+	}
+}
 
 var _ = Describe("Parse", func() {
 	DescribeTable("Should parse each format",

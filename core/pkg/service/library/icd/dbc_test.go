@@ -14,6 +14,7 @@ import (
 	"encoding/json/v2"
 	"os"
 	"path/filepath"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -54,6 +55,8 @@ type expectedField struct {
 	Choices         []library.EnumValue `json:"choices"`
 	Multiplexor     *string             `json:"multiplexor"`
 	MultiplexValues []int32             `json:"multiplex_values"`
+	Min             *float64            `json:"min"`
+	Max             *float64            `json:"max"`
 }
 
 func messagesOf(entries []library.Entry) []library.MessageEntry {
@@ -105,6 +108,10 @@ func binaryPayload(m library.MessageEntry) library.BinaryPayload {
 	return m.Payload.Variant.(library.BinaryPayload)
 }
 
+func canIdentifier(m library.MessageEntry) library.CanIdentifier {
+	return binaryPayload(m).Identifier.Variant.(library.CanIdentifier)
+}
+
 func binaryFields(m library.MessageEntry) []library.BinaryField {
 	return binaryPayload(m).Fields
 }
@@ -154,6 +161,8 @@ func toExpected(entries []library.Entry) []expectedMessage {
 				Offset:          f.Offset,
 				Units:           f.Units,
 				MultiplexValues: append([]int32{}, f.MultiplexValues...),
+				Min:             f.Min,
+				Max:             f.Max,
 			}
 			if f.Enumeration != nil {
 				ef.Choices = enumWithKey(entries, *f.Enumeration).Values
@@ -175,6 +184,36 @@ func readFixture(name string) ([]byte, expectedFile) {
 	var want expectedFile
 	Expect(json.Unmarshal(raw, &want)).To(Succeed())
 	return data, want
+}
+
+// FuzzParseDBC checks that any input either imports with resolved references or fails
+// with a validation error, and never panics.
+func FuzzParseDBC(f *testing.F) {
+	paths, err := filepath.Glob(filepath.Join("testdata", "*.dbc"))
+	if err != nil {
+		f.Fatal(err)
+	}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			f.Fatal(err)
+		}
+		f.Add(data)
+	}
+	f.Add([]byte(dbcHeader + `BO_ 2364539904 M: 24 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|0] "" Ecu
+
+BA_DEF_ "BusType" STRING ;
+BA_DEF_ "ProtocolType" STRING ;
+BA_DEF_ BO_ "VFrameFormat" INT 0 15;
+BA_ "BusType" "CAN FD";
+BA_ "ProtocolType" "J1939";
+BA_ "VFrameFormat" BO_ 2364539904 3;
+`))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		entries, err := icd.Parse(icd.FormatDBC, data)
+		checkImport(t, entries, err)
+	})
 }
 
 const dbcHeader = `VERSION ""
@@ -246,8 +285,127 @@ BA_DEF_DEF_ "VFrameFormat" 0;
 BA_ "VFrameFormat" BO_ 256 14;
 `)
 		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "Fast")
-		Expect(binaryPayload(m).Identifier.Variant.(library.CanIdentifier).Fd).
-			To(BeTrue())
+		Expect(canIdentifier(m).Fd).To(BeTrue())
+	})
+
+	DescribeTable("Should choose between CAN and CAN FD frames",
+		func(body string, fd bool) {
+			data := []byte(dbcHeader + body)
+			m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
+			Expect(canIdentifier(m).Fd).To(Equal(fd))
+		},
+		Entry("FD for a message longer than 8 bytes with no VFrameFormat",
+			`BO_ 256 M: 24 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+`, true),
+		Entry("FD for a message longer than 8 bytes with a classic VFrameFormat",
+			`BO_ 256 M: 64 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ BO_ "VFrameFormat" ENUM "StandardCAN","ExtendedCAN";
+BA_DEF_DEF_ "VFrameFormat" "StandardCAN";
+`, true),
+		Entry("FD on a CAN FD bus with no VFrameFormat", `BO_ 256 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ "BusType" STRING ;
+BA_DEF_DEF_ "BusType" "";
+BA_ "BusType" "CAN FD";
+`, true),
+		Entry("classic on a CAN FD bus with a classic VFrameFormat", `BO_ 256 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ "BusType" STRING ;
+BA_DEF_ BO_ "VFrameFormat" ENUM "StandardCAN","ExtendedCAN";
+BA_DEF_DEF_ "VFrameFormat" "StandardCAN";
+BA_ "BusType" "CAN FD";
+`, false),
+		Entry("classic on a classic bus", `BO_ 256 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ "BusType" STRING ;
+BA_ "BusType" "CAN";
+`, false),
+	)
+
+	j1939Formats := `BA_DEF_ BO_ "VFrameFormat" ENUM "StandardCAN","ExtendedCAN",
+ "reserved","J1939PG";
+BA_DEF_DEF_ "VFrameFormat" "J1939PG";
+`
+	DescribeTable("Should match a J1939 message by its parameter group number",
+		func(body string, id, mask uint32) {
+			data := []byte(dbcHeader + body)
+			m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
+			Expect(canIdentifier(m)).To(Equal(library.CanIdentifier{
+				ID:       id,
+				Extended: true,
+				Mask:     new(mask),
+			}))
+		},
+		Entry("ignoring the priority and source address of a PDU2 message",
+			`BO_ 2364539904 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+`+j1939Formats, uint32(0x0CF00400), uint32(0x03FFFF00)),
+		Entry("ignoring the destination address of a PDU1 message",
+			`BO_ 2348810243 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+`+j1939Formats, uint32(0x0C000003), uint32(0x03FF0000)),
+		Entry("from a VFrameFormat defined as an INT attribute",
+			`BO_ 2364539904 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ BO_ "VFrameFormat" INT 0 15;
+BA_ "VFrameFormat" BO_ 2364539904 3;
+`, uint32(0x0CF00400), uint32(0x03FFFF00)),
+		Entry("from a ProtocolType of J1939 with no VFrameFormat",
+			`BO_ 2364539904 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ "ProtocolType" STRING ;
+BA_ "ProtocolType" "J1939";
+`, uint32(0x0CF00400), uint32(0x03FFFF00)),
+	)
+
+	It("Should match a standard message in a J1939 file exactly", func() {
+		data := []byte(dbcHeader + `BO_ 256 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+` + j1939Formats)
+		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
+		Expect(canIdentifier(m)).To(Equal(library.CanIdentifier{ID: 0x100}))
+	})
+
+	It("Should match a message that is not a J1939 group exactly", func() {
+		data := []byte(dbcHeader + `BO_ 2364539904 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ "ProtocolType" STRING ;
+` + j1939Formats + `BA_ "ProtocolType" "J1939";
+BA_ "VFrameFormat" BO_ 2364539904 1;
+`)
+		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
+		Expect(canIdentifier(m)).To(Equal(library.CanIdentifier{
+			ID:       0x0CF00400,
+			Extended: true,
+		}))
+	})
+
+	It("Should keep the range of a signal unless both of its limits are zero", func() {
+		data := []byte(dbcHeader + `BO_ 256 M: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|0] "" Ecu
+ SG_ B : 8|8@1- (0.5,-10) [-20|50] "" Ecu
+ SG_ C : 16|8@1+ (1,0) [0|255] "" Ecu
+`)
+		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
+		a, b, c := fieldNamed(m, "A"), fieldNamed(m, "B"), fieldNamed(m, "C")
+		Expect(a.Min).To(BeNil())
+		Expect(a.Max).To(BeNil())
+		Expect(b.Min).To(Equal(new(-20.0)))
+		Expect(b.Max).To(Equal(new(50.0)))
+		Expect(c.Min).To(Equal(new(0.0)))
+		Expect(c.Max).To(Equal(new(255.0)))
 	})
 
 	It("Should read the lines that follow an unknown definition", func() {
@@ -293,6 +451,85 @@ and ends here.";
 			To(HaveLen(1))
 	})
 
+	It("Should name messages, signals, and their enums by their long names", func() {
+		data := []byte(dbcHeader + `BO_ 256 Engine_Stat: 8 Ecu
+ SG_ Mode : 0|8@1+ (1,0) [0|0] "" Ecu
+ SG_ Rpm : 8|8@1+ (1,0) [0|0] "" Ecu
+ SG_ Gear : 16|8@1+ (1,0) [0|0] "" Ecu
+ SG_ T M : 24|8@1+ (1,0) [0|0] "" Ecu
+ SG_ U m0 : 32|8@1+ (1,0) [0|0] "" Ecu
+
+BA_DEF_ SG_ "SystemSignalLongSymbol" STRING ;
+BA_DEF_ BO_ "SystemMessageLongSymbol" STRING ;
+BA_DEF_DEF_ "SystemSignalLongSymbol" "";
+BA_DEF_DEF_ "SystemMessageLongSymbol" "";
+BA_ "SystemMessageLongSymbol" BO_ 256 "Engine_Status_From_The_Engine_Control_Unit";
+BA_ "SystemSignalLongSymbol" SG_ 256 Mode "Operating_Mode_Of_The_Engine_Control_Unit";
+BA_ "SystemSignalLongSymbol" SG_ 256 Gear "";
+BA_ "SystemSignalLongSymbol" SG_ 256 T "Multiplexor_Of_The_Engine_Status_Message";
+VAL_ 256 Mode 0 "Off" 1 "On" ;
+`)
+		entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
+		m := messageNamed(entries, "Engine_Status_From_The_Engine_Control_Unit")
+		mode := fieldNamed(m, "Operating_Mode_Of_The_Engine_Control_Unit")
+		fieldNamed(m, "Rpm")
+		fieldNamed(m, "Gear")
+		t := fieldNamed(m, "Multiplexor_Of_The_Engine_Status_Message")
+		Expect(fieldNamed(m, "U").Multiplexor).To(Equal(new(t.Key)))
+		e := enumNamed(
+			entries,
+			"Engine_Status_From_The_Engine_Control_Unit."+
+				"Operating_Mode_Of_The_Engine_Control_Unit",
+		)
+		Expect(mode.Enumeration).To(Equal(new(e.Key)))
+	})
+
+	It("Should accept signals that end at the last bit of the message", func() {
+		data := []byte(dbcHeader + `BO_ 256 M: 2 Ecu
+ SG_ A : 8|8@1+ (1,0) [0|0] "" Ecu
+ SG_ B : 7|8@0+ (1,0) [0|0] "" Ecu
+ SG_ C : 7|16@0+ (1,0) [0|0] "" Ecu
+`)
+		Expect(binaryFields(messageNamed(
+			MustSucceed(icd.Parse(icd.FormatDBC, data)),
+			"M",
+		))).To(HaveLen(3))
+	})
+
+	It("Should multiplex a switch that an SG_MUL_VAL_ line names", func() {
+		data := []byte(dbcHeader + `BO_ 2147483904 M: 8 Ecu
+ SG_ A m1 : 16|8@1+ (1,0) [0|0] "" Ecu
+ SG_ T M : 8|8@1+ (1,0) [0|0] "" Ecu
+ SG_ S M : 0|8@1+ (1,0) [0|0] "" Ecu
+
+SG_MUL_VAL_ 2147483904 A T 1-1;
+SG_MUL_VAL_ 2147483904 T S 0-0;
+`)
+		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
+		a, t, s := fieldNamed(m, "A"), fieldNamed(m, "T"), fieldNamed(m, "S")
+		Expect(a.Multiplexor).To(Equal(new(t.Key)))
+		Expect(a.MultiplexValues).To(Equal([]int32{1}))
+		Expect(t.Multiplexor).To(Equal(new(s.Key)))
+		Expect(t.MultiplexValues).To(Equal([]int32{0}))
+		Expect(s.Multiplexor).To(BeNil())
+	})
+
+	DescribeTable("Should skip the message of independent signals, whatever its ID",
+		func(id string) {
+			data := []byte(dbcHeader + "BO_ " + id + ` VECTOR__INDEPENDENT_SIG_MSG: 0 X
+ SG_ A : 0|8@1+ (1,0) [0|0] "" X
+
+BO_ 256 M: 8 Ecu
+ SG_ B : 0|8@1+ (1,0) [0|0] "" Ecu
+`)
+			messages := messagesOf(MustSucceed(icd.Parse(icd.FormatDBC, data)))
+			Expect(messages).To(HaveLen(1))
+			Expect(messages[0].Name).To(Equal("M"))
+		},
+		Entry("with the extended flag", "3221225472"),
+		Entry("without the extended flag", "1073741824"),
+	)
+
 	DescribeTable("Should reject an invalid file", func(body, message string) {
 		err := MatchError(SatisfyAll(
 			HavePrefix("data: "+message),
@@ -308,8 +545,26 @@ and ends here.";
 SG_MUL_VAL_ 256 A S 0-0;
 BO_ x
 `, "line 13, column 5"),
+		Entry("a standard ID past 11 bits", `BO_ 2048 Engine: 8 Ecu
+`, "line 9: standard ID 0x800 has more than 11 bits in message Engine"),
+		Entry("an extended ID past 29 bits", `BO_ 4294967295 Engine: 8 Ecu
+`, "line 9: extended ID 0x7FFFFFFF has more than 29 bits in message Engine"),
+		Entry("a little-endian signal past the message", `BO_ 256 Engine: 2 Ecu
+ SG_ A : 8|9@1+ (1,0) [0|0] "" Ecu
+`, "line 10: signal A extends past the 2-byte message Engine"),
+		Entry("a big-endian signal past the message", `BO_ 256 Engine: 2 Ecu
+ SG_ A : 7|17@0+ (1,0) [0|0] "" Ecu
+`, "line 10: signal A extends past the 2-byte message Engine"),
+		Entry("a multiplexed signal past the message", `BO_ 256 Engine: 1 Ecu
+ SG_ S M : 0|4@1+ (1,0) [0|0] "" Ecu
+ SG_ A m1 : 4|8@1+ (1,0) [0|0] "" Ecu
+`, "line 11: signal A extends past the 1-byte message Engine"),
+		Entry("a message with two signals of the same name", `BO_ 256 Engine: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+ SG_ A : 8|8@1+ (1,0) [0|255] "" Ecu
+`, "line 11: message Engine has more than one signal named A"),
 		Entry("a malformed SG_MUL_VAL_ line", `SG_MUL_VAL_ 256 A;
-`, "line 9, column 18: expected ident"),
+`, "line 9, column 18: expected a name"),
 		Entry("an inverted multiplexor range", `SG_MUL_VAL_ 256 A S 3-1;
 `, `line 9: invalid multiplexor range "3-1"`),
 		Entry("a multiplexor range past int32", `SG_MUL_VAL_ 256 A S 0-4294967296;
@@ -359,5 +614,17 @@ VAL_ 256 A 4294967296 "Big" ;
 BA_DEF_ BO_ "GenMsgCycleTime" INT -100 65535;
 BA_ "GenMsgCycleTime" BO_ 256 -5;
 `, "line 9: message Engine has a negative cycle time"),
+		Entry("a cycle time past the longest period", `BO_ 256 Engine: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ BO_ "GenMsgCycleTime" FLOAT 0 1e300;
+BA_ "GenMsgCycleTime" BO_ 256 1e300;
+`, "line 9: message Engine has a cycle time out of range: 1e+300 ms"),
+		Entry("a cycle time shorter than a nanosecond", `BO_ 256 Engine: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BA_DEF_ BO_ "GenMsgCycleTime" FLOAT 0 1;
+BA_ "GenMsgCycleTime" BO_ 256 1e-9;
+`, "line 9: message Engine has a cycle time out of range: 1e-09 ms"),
 	)
 })

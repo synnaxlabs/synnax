@@ -64,6 +64,7 @@ Neither script touches `.oracle` schema files.
 
 ## Sanitizers (`sanitizers/`)
 
-`asan_suppressions.txt`, `lsan_suppressions.txt`, `ubsan_suppressions.txt` — suppression
-lists for ASan/LSan/UBSan runs against the C++ driver. Add an entry here instead of
-disabling a sanitizer wholesale.
+`asan_suppressions.txt`, `lsan_suppressions.txt`, `ubsan_suppressions.txt`,
+`tsan_suppressions.txt` — suppression lists for ASan/LSan/UBSan/TSan runs against the
+C++ driver. `test.cpp.yaml` passes them by absolute path; pass the same `--test_env` to
+use one locally. Add an entry here instead of disabling a sanitizer wholesale.

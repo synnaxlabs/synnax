@@ -26,17 +26,40 @@ import (
 const (
 	attrCycleTime   = "GenMsgCycleTime"
 	attrFrameFormat = "VFrameFormat"
+	attrBusType     = "BusType"
+	attrProtocol    = "ProtocolType"
+	busTypeFD       = "CAN FD"
+	protocolJ1939   = "J1939"
+	formatJ1939     = "J1939PG"
+	formatFDSuffix  = "CAN_FD"
+	// The long name attributes hold names past the 32 characters a DBC name allows.
+	attrMessageLongName = "SystemMessageLongSymbol"
+	attrSignalLongName  = "SystemSignalLongSymbol"
 	// independentSignals names the pseudo-message that holds unassigned signals.
 	independentSignals = "VECTOR__INDEPENDENT_SIG_MSG"
 	// maxMultiplexValues bounds the values the ranges of one SG_MUL_VAL_ line hold.
 	maxMultiplexValues = 1 << 16
+	// maxCANLength is the length of the longest classic CAN frame.
+	maxCANLength = 8
+	// minPDU2Format is the smallest PDU format of a J1939 group whose PDU specific
+	// byte is a group extension, not a destination address.
+	minPDU2Format = 240
+	// pdu1Mask and pdu2Mask keep the bits of a J1939 identifier that hold the
+	// parameter group number of a PDU1 and a PDU2 group.
+	pdu1Mask = 0x03FF0000
+	pdu2Mask = 0x03FFFF00
 )
 
 // parseDBC parses a DBC file into one message entry per BO_ definition, with a CAN
 // identifier and a binary field per signal, followed by one enum entry per value
 // table and per signal whose value descriptions match no value table. Extended
-// multiplexing (m<N>M markers and SG_MUL_VAL_ ranges) is supported. Every entry and
-// field gets a new key. Errors are scoped to the "data" path and name the line.
+// multiplexing (m<N>M markers and SG_MUL_VAL_ ranges) is supported. A message is CAN
+// FD when its VFrameFormat says so, when it is longer than 8 bytes, or, in a file with
+// no VFrameFormat, when the BusType is CAN FD. A J1939 group matches frames by its
+// parameter group number. A signal keeps its [min|max] range unless both are zero.
+// Messages and signals take their long names when the file gives them.
+// Every entry and field gets a new key. Errors are scoped to the "data" path and name
+// the line.
 func parseDBC(data []byte) ([]versions.Entry, error) {
 	defs, err := dbc.Parse(data)
 	if err != nil {
@@ -112,24 +135,32 @@ type attrRef struct {
 
 // dbcFile indexes the definitions of a parsed DBC file.
 type dbcFile struct {
-	mux        map[signalRef]muxSpec
-	messages   []*dbc.MessageDef
-	tables     []*dbc.ValueTableDef
-	attrs      map[dbc.Identifier]*dbc.AttributeDef
-	defaults   map[dbc.Identifier]*dbc.AttributeDefaultValueDef
-	values     map[attrRef]*dbc.AttributeValueForObjectDef
-	valueTypes map[signalRef]*dbc.SignalValueTypeDef
-	choices    map[signalRef]*dbc.ValueDescriptionsDef
+	mux           map[signalRef]muxSpec
+	messages      []*dbc.MessageDef
+	tables        []*dbc.ValueTableDef
+	attrs         map[dbc.Identifier]*dbc.AttributeDef
+	networkAttrs  set.Set[dbc.Identifier]
+	defaults      map[dbc.Identifier]*dbc.AttributeDefaultValueDef
+	values        map[attrRef]*dbc.AttributeValueForObjectDef
+	networkValues map[dbc.Identifier]*dbc.AttributeValueForObjectDef
+	valueTypes    map[signalRef]*dbc.SignalValueTypeDef
+	choices       map[signalRef]*dbc.ValueDescriptionsDef
+	messageNames  map[dbc.MessageID]string
+	signalNames   map[signalRef]string
 }
 
 func newDBCFile(defs []dbc.Def) (dbcFile, error) {
 	f := dbcFile{
-		mux:        make(map[signalRef]muxSpec),
-		attrs:      make(map[dbc.Identifier]*dbc.AttributeDef),
-		defaults:   make(map[dbc.Identifier]*dbc.AttributeDefaultValueDef),
-		values:     make(map[attrRef]*dbc.AttributeValueForObjectDef),
-		valueTypes: make(map[signalRef]*dbc.SignalValueTypeDef),
-		choices:    make(map[signalRef]*dbc.ValueDescriptionsDef),
+		mux:           make(map[signalRef]muxSpec),
+		attrs:         make(map[dbc.Identifier]*dbc.AttributeDef),
+		networkAttrs:  make(set.Set[dbc.Identifier]),
+		defaults:      make(map[dbc.Identifier]*dbc.AttributeDefaultValueDef),
+		values:        make(map[attrRef]*dbc.AttributeValueForObjectDef),
+		networkValues: make(map[dbc.Identifier]*dbc.AttributeValueForObjectDef),
+		valueTypes:    make(map[signalRef]*dbc.SignalValueTypeDef),
+		choices:       make(map[signalRef]*dbc.ValueDescriptionsDef),
+		messageNames:  make(map[dbc.MessageID]string),
+		signalNames:   make(map[signalRef]string),
 	}
 	for _, def := range defs {
 		switch d := def.(type) {
@@ -140,14 +171,28 @@ func newDBCFile(defs []dbc.Def) (dbcFile, error) {
 		case *dbc.ValueTableDef:
 			f.tables = append(f.tables, d)
 		case *dbc.AttributeDef:
-			if d.ObjectType == dbc.ObjectTypeMessage {
+			switch d.ObjectType {
+			case dbc.ObjectTypeMessage:
 				f.attrs[d.Name] = d
+			case dbc.ObjectTypeUnspecified:
+				f.networkAttrs.Add(d.Name)
 			}
 		case *dbc.AttributeDefaultValueDef:
 			f.defaults[d.AttributeName] = d
 		case *dbc.AttributeValueForObjectDef:
-			if d.ObjectType == dbc.ObjectTypeMessage {
+			switch d.ObjectType {
+			case dbc.ObjectTypeMessage:
 				f.values[attrRef{name: d.AttributeName, message: d.MessageID}] = d
+				if d.AttributeName == attrMessageLongName && d.StringValue != "" {
+					f.messageNames[d.MessageID] = d.StringValue
+				}
+			case dbc.ObjectTypeSignal:
+				if d.AttributeName == attrSignalLongName && d.StringValue != "" {
+					ref := signalRef{message: d.MessageID, signal: string(d.SignalName)}
+					f.signalNames[ref] = d.StringValue
+				}
+			case dbc.ObjectTypeUnspecified:
+				f.networkValues[d.AttributeName] = d
 			}
 		case *dbc.SignalValueTypeDef:
 			f.valueTypes[signalRef{message: d.MessageID, signal: string(d.SignalName)}] = d
@@ -226,6 +271,14 @@ func (f dbcFile) message(
 	tables []versions.EnumEntry,
 	used set.Set[signalRef],
 ) (versions.MessageEntry, []versions.Entry, error) {
+	if err := m.MessageID.Validate(); err != nil {
+		return versions.MessageEntry{}, nil, dataErrorf(
+			"line %d: %s in message %s",
+			m.Pos.Line,
+			err,
+			m.Name,
+		)
+	}
 	if m.Size > math.MaxUint16 {
 		return versions.MessageEntry{}, nil, dataErrorf(
 			"line %d: message %s is longer than %d bytes",
@@ -239,17 +292,25 @@ func (f dbcFile) message(
 		return versions.MessageEntry{}, nil, err
 	}
 	payload := versions.BinaryPayload{
-		Identifier: &versions.Identifier{Variant: versions.CanIdentifier{
-			ID:       m.MessageID.ToCAN(),
-			Extended: m.MessageID.IsExtended(),
-			Fd:       f.fd(m.MessageID),
-		}},
-		Length: new(uint16(m.Size)),
-		Fields: make([]versions.BinaryField, 0, len(m.Signals)),
+		Identifier: &versions.Identifier{Variant: f.identifier(m)},
+		Length:     new(uint16(m.Size)),
+		Fields:     make([]versions.BinaryField, 0, len(m.Signals)),
+	}
+	name := string(m.Name)
+	if long, ok := f.messageNames[m.MessageID]; ok {
+		name = long
 	}
 	keys := make(map[string]versions.FieldKey, len(m.Signals))
 	var switches []string
 	for _, s := range m.Signals {
+		if _, ok := keys[string(s.Name)]; ok {
+			return versions.MessageEntry{}, nil, dataErrorf(
+				"line %d: message %s has more than one signal named %s",
+				s.Pos.Line,
+				m.Name,
+				s.Name,
+			)
+		}
 		keys[string(s.Name)] = uuid.New()
 		if s.IsMultiplexerSwitch {
 			switches = append(switches, string(s.Name))
@@ -258,7 +319,7 @@ func (f dbcFile) message(
 	var enums []versions.Entry
 	for _, s := range m.Signals {
 		ref := signalRef{message: m.MessageID, signal: string(s.Name)}
-		field, err := f.field(s, ref, keys[ref.signal])
+		field, err := f.field(m, s, ref, keys[ref.signal])
 		if err != nil {
 			return versions.MessageEntry{}, nil, err
 		}
@@ -271,7 +332,7 @@ func (f dbcFile) message(
 			if !ok {
 				e := versions.EnumEntry{
 					Key:    uuid.New(),
-					Name:   string(m.Name) + "." + ref.signal,
+					Name:   name + "." + field.Name,
 					Values: values,
 				}
 				enums = append(enums, versions.Entry{Variant: e})
@@ -279,7 +340,10 @@ func (f dbcFile) message(
 			}
 			field.Enumeration = &key
 		}
-		if s.IsMultiplexed {
+		// Some tools mark a multiplexed switch with M alone and name its multiplexor
+		// in an SG_MUL_VAL_ line.
+		_, named := f.mux[ref]
+		if s.IsMultiplexed || (s.IsMultiplexerSwitch && named) {
 			mux, values, err := f.multiplexor(m, s, switches, keys, used)
 			if err != nil {
 				return versions.MessageEntry{}, nil, err
@@ -291,13 +355,14 @@ func (f dbcFile) message(
 	}
 	return versions.MessageEntry{
 		Key:     uuid.New(),
-		Name:    string(m.Name),
+		Name:    name,
 		Payload: versions.Payload{Variant: payload},
 		Period:  period,
 	}, enums, nil
 }
 
 func (f dbcFile) field(
+	m *dbc.MessageDef,
 	s dbc.SignalDef,
 	ref signalRef,
 	key versions.FieldKey,
@@ -307,6 +372,15 @@ func (f dbcFile) field(
 			"line %d: signal %s does not fit a message",
 			s.Pos.Line,
 			s.Name,
+		)
+	}
+	if lastByte(s) >= int(m.Size) {
+		return versions.BinaryField{}, dataErrorf(
+			"line %d: signal %s extends past the %d-byte message %s",
+			s.Pos.Line,
+			s.Name,
+			m.Size,
+			m.Name,
 		)
 	}
 	isFloat := false
@@ -333,9 +407,13 @@ func (f dbcFile) field(
 	if s.IsBigEndian {
 		byteOrder = versions.ByteOrderBigEndian
 	}
-	return versions.BinaryField{
+	name := string(s.Name)
+	if long, ok := f.signalNames[ref]; ok {
+		name = long
+	}
+	field := versions.BinaryField{
 		Key:       key,
-		Name:      string(s.Name),
+		Name:      name,
 		Scale:     s.Factor,
 		Offset:    s.Offset,
 		Units:     s.Unit,
@@ -344,7 +422,23 @@ func (f dbcFile) field(
 		ByteOrder: byteOrder,
 		Signed:    s.IsSigned && !isFloat,
 		Float:     isFloat,
-	}, nil
+	}
+	// A range of [0|0] means the file gives none.
+	if s.Minimum != 0 || s.Maximum != 0 {
+		field.Min, field.Max = new(s.Minimum), new(s.Maximum)
+	}
+	return field, nil
+}
+
+// lastByte returns the index of the last payload byte a signal touches. The start bit
+// of a big-endian signal is its most significant bit, and the signal continues toward
+// higher byte indices.
+func lastByte(s dbc.SignalDef) int {
+	start, size := int(s.StartBit), int(s.Size)
+	if s.IsBigEndian {
+		start = 8*(start/8) + 7 - start%8
+	}
+	return (start + size - 1) / 8
 }
 
 // multiplexor returns the name of the signal that multiplexes s and the switch values
@@ -413,7 +507,16 @@ func (f dbcFile) period(m *dbc.MessageDef) (*telem.TimeSpan, error) {
 	if ms == 0 {
 		return nil, nil
 	}
-	return new(telem.TimeSpan(ms * float64(telem.Millisecond))), nil
+	span, ok := msToSpan(ms)
+	if !ok {
+		return nil, dataErrorf(
+			"line %d: message %s has a cycle time out of range: %g ms",
+			m.Pos.Line,
+			m.Name,
+			ms,
+		)
+	}
+	return &span, nil
 }
 
 func numeric(def *dbc.AttributeDef, i int64, f float64) float64 {
@@ -423,24 +526,80 @@ func numeric(def *dbc.AttributeDef, i int64, f float64) float64 {
 	return float64(i)
 }
 
-// fd reports whether the VFrameFormat of the message is a CAN FD format. An INT
-// attribute holds the index of the format in Vector's list, where 14 and 15 are the FD
-// formats.
-func (f dbcFile) fd(id dbc.MessageID) bool {
+// identifier returns the CAN identifier of the message.
+func (f dbcFile) identifier(m *dbc.MessageDef) versions.CanIdentifier {
+	format := f.frameFormat(m.MessageID)
+	id := versions.CanIdentifier{
+		ID:       m.MessageID.ToCAN(),
+		Extended: m.MessageID.IsExtended(),
+		Fd: strings.HasSuffix(format, formatFDSuffix) || m.Size > maxCANLength ||
+			format == "" && f.networkString(attrBusType) == busTypeFD,
+	}
+	// A J1939 parameter group always has an extended identifier.
+	if id.Extended && (format == formatJ1939 ||
+		format == "" && f.networkString(attrProtocol) == protocolJ1939) {
+		id.Mask = new(groupMask(id.ID))
+	}
+	return id
+}
+
+// groupMask returns the mask that matches a J1939 identifier by its parameter group
+// number. The mask drops the priority and the source address, and for a PDU1 group
+// also the destination address.
+func groupMask(id uint32) uint32 {
+	if pduFormat := id >> 16 & 0xFF; pduFormat < minPDU2Format {
+		return pdu1Mask
+	}
+	return pdu2Mask
+}
+
+// frameFormat returns the name of the message's VFrameFormat, or "" when the file
+// gives it none. An INT attribute holds the index of the format in Vector's list.
+func (f dbcFile) frameFormat(id dbc.MessageID) string {
 	def, ok := f.attrs[attrFrameFormat]
 	if !ok {
-		return false
+		return ""
 	}
-	name, index := "", int64(0)
+	var name string
+	var index int64
 	if v, ok := f.values[attrRef{name: attrFrameFormat, message: id}]; ok {
 		name, index = v.StringValue, v.IntValue
 	} else if d, ok := f.defaults[attrFrameFormat]; ok {
 		name, index = d.DefaultStringValue, d.DefaultIntValue
+	} else {
+		return ""
 	}
 	if def.Type == dbc.AttributeValueTypeEnum {
-		return strings.HasSuffix(name, "CAN_FD")
+		return name
 	}
-	return index == 14 || index == 15
+	switch index {
+	case 0:
+		return "StandardCAN"
+	case 1:
+		return "ExtendedCAN"
+	case 3:
+		return formatJ1939
+	case 14:
+		return "StandardCAN_FD"
+	case 15:
+		return "ExtendedCAN_FD"
+	}
+	return "reserved"
+}
+
+// networkString returns the value of the network attribute with the given name, or its
+// default when the file sets none.
+func (f dbcFile) networkString(name dbc.Identifier) string {
+	if !f.networkAttrs.Contains(name) {
+		return ""
+	}
+	if v, ok := f.networkValues[name]; ok {
+		return v.StringValue
+	}
+	if d, ok := f.defaults[name]; ok {
+		return d.DefaultStringValue
+	}
+	return ""
 }
 
 // enumValues converts the value descriptions of owner, a named signal or value table,

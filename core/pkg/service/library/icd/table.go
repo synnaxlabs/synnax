@@ -12,6 +12,7 @@ package icd
 import (
 	"bytes"
 	"encoding/csv"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -39,6 +40,8 @@ const (
 	columnScale     = "scale"
 	columnOffset    = "offset"
 	columnUnits     = "units"
+	columnMin       = "min"
+	columnMax       = "max"
 )
 
 const (
@@ -75,11 +78,38 @@ func parseXLSX(data []byte) (entries []versions.Entry, err error) {
 	if len(sheets) == 0 {
 		return nil, dataErrorf("workbook has no sheets")
 	}
-	rows, err := f.GetRows(sheets[0])
+	rows, err := readRows(f, sheets[0])
+	if err != nil {
+		return nil, err
+	}
+	return parseTable(rows)
+}
+
+// readRows returns the raw cell values of every row of the sheet, so a number format
+// never rounds a number. Unlike excelize's GetRows, it returns an error for a row it
+// cannot read instead of dropping that row and every row after it.
+func readRows(f *excelize.File, sheet string) (table [][]string, err error) {
+	rows, err := f.Rows(sheet)
 	if err != nil {
 		return nil, dataErrorf("invalid workbook: %s", err)
 	}
-	return parseTable(rows)
+	// Without a temporary file, Close returns rows.Error, which err already holds.
+	defer func() {
+		if closeErr := rows.Close(); err == nil {
+			err = closeErr
+		}
+	}()
+	for row := 1; rows.Next(); row++ {
+		cells, err := rows.Columns(excelize.Options{RawCellValue: true})
+		if err != nil {
+			return nil, dataErrorf("row %d: %s", row, err)
+		}
+		table = append(table, cells)
+	}
+	if err = rows.Error(); err != nil {
+		return nil, dataErrorf("invalid workbook: %s", err)
+	}
+	return table, nil
 }
 
 // attr is a message-level value that every row of the message may repeat.
@@ -162,7 +192,7 @@ func (t *table) readHeader(cells []string) error {
 	known := []string{
 		columnMessage, columnID, columnExtended, columnLength, columnPeriodMS,
 		columnField, columnStartBit, columnBitLength, columnByteOrder, columnSigned,
-		columnFloat, columnScale, columnOffset, columnUnits,
+		columnFloat, columnScale, columnOffset, columnUnits, columnMin, columnMax,
 	}
 	for i, cell := range cells {
 		name := strings.ToLower(strings.TrimSpace(cell))
@@ -252,10 +282,10 @@ func (t *table) readMessage(row int, cells []string, m *tableMessage) error {
 	}
 	if s := t.cell(cells, columnPeriodMS); s != "" {
 		ms, err := strconv.ParseFloat(s, 64)
-		if err != nil || ms <= 0 {
+		period, ok := msToSpan(ms)
+		if err != nil || !ok {
 			return rowErrorf(row, columnPeriodMS, "invalid period %q", s)
 		}
-		period := telem.TimeSpan(ms * float64(telem.Millisecond))
 		if err = m.period.merge(columnPeriodMS, row, period); err != nil {
 			return err
 		}
@@ -300,17 +330,40 @@ func (t *table) readField(row int, cells []string) (versions.BinaryField, error)
 			return f, err
 		}
 	}
-	if s := t.cell(cells, columnScale); s != "" {
-		if f.Scale, err = strconv.ParseFloat(s, 64); err != nil {
-			return f, rowErrorf(row, columnScale, "invalid number %q", s)
-		}
+	scale, err := t.number(row, cells, columnScale)
+	if err != nil {
+		return f, err
 	}
-	if s := t.cell(cells, columnOffset); s != "" {
-		if f.Offset, err = strconv.ParseFloat(s, 64); err != nil {
-			return f, rowErrorf(row, columnOffset, "invalid number %q", s)
-		}
+	if scale != nil {
+		f.Scale = *scale
+	}
+	offset, err := t.number(row, cells, columnOffset)
+	if err != nil {
+		return f, err
+	}
+	if offset != nil {
+		f.Offset = *offset
+	}
+	if f.Min, err = t.number(row, cells, columnMin); err != nil {
+		return f, err
+	}
+	if f.Max, err = t.number(row, cells, columnMax); err != nil {
+		return f, err
 	}
 	return f, nil
+}
+
+// number returns the finite number in the named column, or nil when the cell is empty.
+func (t *table) number(row int, cells []string, column string) (*float64, error) {
+	s := t.cell(cells, column)
+	if s == "" {
+		return nil, nil
+	}
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
+		return nil, rowErrorf(row, column, "invalid number %q", s)
+	}
+	return &v, nil
 }
 
 func (t *table) uint(row int, cells []string, column string, bits int) (uint64, error) {

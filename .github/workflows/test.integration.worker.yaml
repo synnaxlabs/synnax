@@ -29,11 +29,16 @@ on:
         type: string
         required: false
         default: ""
+      timeout_minutes:
+        description: "Timeout of the test conductor and of each job"
+        type: number
+        required: false
+        default: 30
 
 jobs:
   run:
     name: ${{ matrix.name }}
-    timeout-minutes: 30
+    timeout-minutes: ${{ inputs.timeout_minutes }}
     runs-on:
       - self-hosted
       - ${{ inputs.os }}
@@ -69,11 +74,15 @@ jobs:
           REF_RUN_ID: ${{ inputs.ref_run_id }}
         run: integration/scripts/download_artifacts.sh
 
+      # An MTU of 72 carries CAN FD frames. The interface outlives the job on a build
+      # bot, and its MTU changes only while it is down.
       - name: Create the virtual CAN interface
         if: runner.os == 'Linux'
         run: |
           sudo modprobe vcan
           ip link show vcan0 || sudo ip link add dev vcan0 type vcan
+          sudo ip link set down vcan0
+          sudo ip link set vcan0 mtu 72
           sudo ip link set up vcan0
 
       - name: Install uv
@@ -123,7 +132,7 @@ jobs:
       - name: Test conductor (Windows)
         if: runner.os == 'Windows'
         id: test-conductor-win
-        timeout-minutes: 30
+        timeout-minutes: ${{ inputs.timeout_minutes }}
         shell: cmd
         working-directory: integration
         env:
@@ -136,7 +145,7 @@ jobs:
       - name: Test conductor (Ubuntu)
         if: runner.os == 'Linux'
         id: test-conductor-unix
-        timeout-minutes: 30
+        timeout-minutes: ${{ inputs.timeout_minutes }}
         working-directory: integration
         env:
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}

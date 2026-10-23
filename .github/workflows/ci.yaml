@@ -349,6 +349,7 @@ jobs:
     uses: ./.github/workflows/test.cpp.yaml
     with:
       apt_packages: libsystemd-dev
+      capabilities_required: true
       core_image: ${{ needs.core-image.outputs.image }}
       directories: driver
       macos: *full
@@ -594,7 +595,7 @@ jobs:
     uses: ./.github/workflows/test.cpp.yaml
     with:
       macos: true
-      sanitizers: false
+      sanitizer: none
       targets: //vendor/soem:all
       ubuntu: false
     secrets: inherit
