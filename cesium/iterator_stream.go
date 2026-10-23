@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
@@ -124,10 +123,25 @@ type IteratorResponse struct {
 	Ack bool
 }
 
+// channelIterator is the per-channel iterator a streamIterator drives.
+type channelIterator interface {
+	SetBounds(tr telem.TimeRange)
+	SeekFirst(ctx context.Context) bool
+	SeekLast(ctx context.Context) bool
+	SeekLE(ctx context.Context, ts telem.TimeStamp) bool
+	SeekGE(ctx context.Context, ts telem.TimeStamp) bool
+	Next(ctx context.Context, span telem.TimeSpan) bool
+	Prev(ctx context.Context, span telem.TimeSpan) bool
+	Valid() bool
+	Value() channel.Frame
+	Error() error
+	Close() error
+}
+
 type streamIterator struct {
 	confluence.UnarySink[IteratorRequest]
 	confluence.AbstractUnarySource[IteratorResponse]
-	internal []*unary.Iterator
+	internal []channelIterator
 }
 
 // IteratorConfig is the configuration for opening an iterator :). See the fields for
@@ -184,36 +198,36 @@ func (s *streamIterator) exec(
 	case IteratorCommandNext:
 		ok = s.execWithResponse(
 			req.SeqNum,
-			func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) },
+			func(i channelIterator) bool { return i.Next(ctx, req.Span) },
 		)
 	case IteratorCommandPrev:
 		ok = s.execWithResponse(
 			req.SeqNum,
-			func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) },
+			func(i channelIterator) bool { return i.Prev(ctx, req.Span) },
 		)
 	case IteratorCommandSeekFirst:
 		ok = s.execWithoutResponse(
-			func(i *unary.Iterator) bool { return i.SeekFirst(ctx) },
+			func(i channelIterator) bool { return i.SeekFirst(ctx) },
 		)
 	case IteratorCommandSeekLast:
 		ok = s.execWithoutResponse(
-			func(i *unary.Iterator) bool { return i.SeekLast(ctx) },
+			func(i channelIterator) bool { return i.SeekLast(ctx) },
 		)
 	case IterCommandSeekLE:
 		ok = s.execWithoutResponse(
-			func(i *unary.Iterator) bool { return i.SeekLE(ctx, req.Stamp) },
+			func(i channelIterator) bool { return i.SeekLE(ctx, req.Stamp) },
 		)
 	case IteratorCommandSeekGE:
 		ok = s.execWithoutResponse(
-			func(i *unary.Iterator) bool { return i.SeekGE(ctx, req.Stamp) },
+			func(i channelIterator) bool { return i.SeekGE(ctx, req.Stamp) },
 		)
 	case IteratorCommandValid:
-		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.Valid() })
+		ok = s.execWithoutResponse(func(i channelIterator) bool { return i.Valid() })
 	case IteratorCommandError:
 		err = s.error()
 	case IteratorCommandSetBounds:
 		ok = s.execWithoutResponse(
-			func(i *unary.Iterator) bool { i.SetBounds(req.Bounds); return true },
+			func(i channelIterator) bool { i.SetBounds(req.Bounds); return true },
 		)
 	}
 	return ok, err
@@ -221,7 +235,7 @@ func (s *streamIterator) exec(
 
 func (s *streamIterator) execWithResponse(
 	seqNum int,
-	f func(i *unary.Iterator) bool,
+	f func(i channelIterator) bool,
 ) (ok bool) {
 	for _, i := range s.internal {
 		if f(i) {
@@ -237,7 +251,7 @@ func (s *streamIterator) execWithResponse(
 	return ok
 }
 
-func (s *streamIterator) execWithoutResponse(f func(i *unary.Iterator) bool) (ok bool) {
+func (s *streamIterator) execWithoutResponse(f func(i channelIterator) bool) (ok bool) {
 	for _, i := range s.internal {
 		if f(i) {
 			ok = true

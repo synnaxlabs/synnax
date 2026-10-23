@@ -491,6 +491,7 @@ var _ = Describe("Writer", func() {
 				Expect(groupDomain).To(BeNumerically(">", cesium.ZeroLeadingAlignment))
 				Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(0))
 				Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
+				Expect(writtenData.TimeRange).To(Equal(telem.TimeRangeZero))
 				data = telem.NewSeriesV[float32](3, 4)
 				idx = telem.NewSeriesSecondsTSV(12*telem.SecondTS, 13*telem.SecondTS)
 				Expect(writer.Write(frame.NewMulti(
@@ -506,6 +507,52 @@ var _ = Describe("Writer", func() {
 				Expect(writtenData.Alignment.DomainIndex()).To(Equal(groupDomain))
 				Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(2))
 				Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
+			},
+		)
+
+		It(
+			"Should stamp index-less free channels with the gateway's clock",
+			func(ctx SpecContext) {
+				s := DeferClose(gatewayOnlyScenario(ctx))
+				ch := channel.Channel{
+					Name:        "free_unindexed",
+					DataType:    telem.Int64T,
+					Leaseholder: node.KeyFree,
+					Virtual:     true,
+				}
+				ch = MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{ch}))[0]
+				keys := channel.Keys{ch.Key()}
+				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
+					Keys:        keys,
+					SendOpenAck: new(true),
+				}))
+				_, out := confluence.Attach(streamer, 10)
+				sCtx, cancel := signal.WithCancel(ctx)
+				defer cancel()
+				streamer.Flow(sCtx)
+				var res framer.StreamerResponse
+				Eventually(out.Outlet()).Should(Receive(&res))
+				s.dist.Framer.SetFreeIndexResolver(indexResolver{})
+				writer := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  keys,
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				data := telem.NewSeriesV[int64](1, 2)
+				data.TimeRange = telem.TimeRange{
+					Start: 1 * telem.SecondTS,
+					End:   2 * telem.SecondTS,
+				}
+				before := telem.Now()
+				Expect(writer.Write(frame.NewUnary(ch.Key(), data))).To(BeTrue())
+				Eventually(out.Outlet()).Should(Receive(&res))
+				after := telem.Now()
+				written := res.Frame.Get(ch.Key()).Series[0]
+				Expect(written).To(telem.MatchSeriesData(data))
+				Expect(written.TimeRange.Span()).To(Equal(telem.Nanosecond))
+				Expect(written.TimeRange.Start).To(BeNumerically(">=", before))
+				Expect(written.TimeRange.Start).To(BeNumerically("<=", after))
+				Expect(written.Alignment).To(Equal(telem.Alignment(0)))
 			},
 		)
 

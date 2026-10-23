@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
+import { type bounds, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
+import { type ChannelRetriever } from "@/framer/adapter";
 import { type DynamicProps } from "@/framer/cache/dynamic";
 import {
   DEFAULT_STATIC_PROPS,
@@ -30,15 +31,23 @@ export interface CacheProps
    * @default TimeSpan.seconds(30)
    */
   gcInterval?: TimeSpan;
+  /**
+   * Fetches channel payloads, so entries learn their index and timeAt can pair samples
+   * with stamps. Defaults to a retriever that finds no channel.
+   */
+  retrieveChannels?: ChannelRetriever;
 }
 
 /**
  * Maintains an in-memory cache of channel data. Entries are created on demand and
- * carry no channel metadata; buffer types derive from the data written to them.
+ * buffer types derive from the data written to them. An entry learns its index channel
+ * through resolve.
  */
 export class Cache {
   private readonly props: Required<CacheProps>;
   private readonly cache = new Map<channel.Key, Unary>();
+  // Resolved keys. Null marks a channel with no index.
+  private readonly indexes = new Map<channel.Key, channel.Key | null>();
   private readonly gcInterval: ReturnType<typeof setInterval>;
   private closed = false;
 
@@ -50,6 +59,7 @@ export class Cache {
       transform = DEFAULT_STATIC_PROPS.transform,
       staleEntryThreshold = DEFAULT_STATIC_PROPS.staleEntryThreshold,
       staleCoverageThreshold = DEFAULT_STATIC_PROPS.staleCoverageThreshold,
+      retrieveChannels = async () => [],
     } = props;
     this.props = {
       dynamicBufferSize,
@@ -58,8 +68,52 @@ export class Cache {
       transform,
       staleEntryThreshold,
       staleCoverageThreshold,
+      retrieveChannels,
     };
     this.gcInterval = setInterval(() => this.gc(), gcInterval.milliseconds);
+  }
+
+  /**
+   * Resolves the index of each key not yet resolved, so timeAt can pair its samples
+   * with their stamps. A key the retriever omits resolves to no index. An index
+   * resolves with the first channel that names it.
+   * @throws {UnexpectedError} if the cache has been closed.
+   */
+  async resolve(keys: channel.Key[]): Promise<void> {
+    if (this.closed)
+      throw new UnexpectedError("resolve called on a closed telemetry cache");
+    const pending = keys.filter((k) => !this.indexes.has(k));
+    if (pending.length === 0) return;
+    const channels = await this.props.retrieveChannels(pending);
+    if (this.closed) return;
+    const found = new Map(channels.map((ch) => [ch.key, ch]));
+    pending.forEach((key) => {
+      // Recorded since the lookup began, as an earlier key's index or by another call.
+      if (this.indexes.has(key)) return;
+      const ch = found.get(key);
+      const index = ch == null || ch.index === 0 ? null : ch.index;
+      this.indexes.set(key, index);
+      if (index == null) return;
+      const entry = this.get(index);
+      entry.index = entry;
+      this.indexes.set(index, index);
+      this.get(key).index = entry;
+    });
+  }
+
+  /** @returns the key of the channel's index, or null when unresolved or none. */
+  indexOf(key: channel.Key): channel.Key | null {
+    return this.indexes.get(key) ?? null;
+  }
+
+  /** @returns the stamp of the channel's sample at alignment, else null. */
+  timeAt(key: channel.Key, alignment: bigint): TimeStamp | null {
+    return this.get(key).timeAt(alignment);
+  }
+
+  /** @returns the end of the channel's last stamped live write, else null. */
+  lastWrite(key: channel.Key): TimeStamp | null {
+    return this.get(key).lastWrite;
   }
 
   /**
@@ -94,9 +148,20 @@ export class Cache {
       instrumentation: { L },
     } = this.props;
     L.info("starting garbage collection");
+    // Stamps stay while a consumer holds the samples they belong to.
+    const held = new Map<channel.Key, bounds.Bounds<bigint>[]>();
+    this.cache.forEach((c, key) => {
+      const index = this.indexes.get(key);
+      if (index == null) return;
+      const spans = c.heldAlignments();
+      if (spans.length === 0) return;
+      const prev = held.get(index);
+      if (prev == null) held.set(index, spans);
+      else prev.push(...spans);
+    });
     const total = zeroGCMetrics();
-    this.cache.forEach((c) => {
-      const res = c.gc();
+    this.cache.forEach((c, key) => {
+      const res = c.gc(held.get(key) ?? []);
       total.purgedSeries += res.purgedSeries;
       total.purgedBytes = total.purgedBytes.add(res.purgedBytes);
     });

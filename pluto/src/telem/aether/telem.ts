@@ -71,6 +71,8 @@ export interface Source<V> extends Telem, observe.Observable<void> {
   /** @returns true while the source's initial read is in flight. */
   loading?: () => boolean;
   sampleTime?: () => TimeStamp | null;
+  /** @returns the Core's stamp of the newest sample the source holds, else null. */
+  lastWrite?: () => TimeStamp | null;
 }
 
 export interface Sink<V> extends Telem {

@@ -78,6 +78,7 @@ describe("remote", () => {
 
       feed = {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
+        lastWrite: (): TimeStamp | null => null,
         read: async (): Promise<MultiSeries> => this.response,
         stream: (
           handler: framer.StreamHandler,
@@ -319,14 +320,12 @@ describe("remote", () => {
         expect(live.refCount).toBe(1);
       });
 
-      it("should skip the read for a virtual channel", async () => {
+      it("should read the latest sample for a virtual channel", async () => {
         c.channel = new channel.Channel({ ...c.channel, virtual: true });
         c.feed.readLatest = vi.fn(async () => new MultiSeries([stored()]));
         const scv = new StreamChannelValue(c, { channel: c.channel.key });
-        await waitForStream(scv, c);
-        await new Promise((resolve) => setTimeout(resolve, 5));
-        expect(c.feed.readLatest).not.toHaveBeenCalled();
-        expect(scv.value()).toBe(NaN);
+        expect(await waitForResolve(scv)).toBe(7);
+        expect(c.feed.readLatest).toHaveBeenCalledWith(c.channel.key);
       });
 
       it("should read the latest sample for a calculated channel", async () => {
@@ -434,6 +433,52 @@ describe("remote", () => {
           expect(scv.sampleTime()).toBeNull();
         });
       });
+
+      describe("lastWrite", () => {
+        const STAMP = TimeStamp.seconds(200);
+
+        it("should be null before the stream opens", () => {
+          c.feed.lastWrite = () => STAMP;
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          expect(scv.lastWrite()).toBeNull();
+        });
+
+        it("should be the stamp the feed reports for the channel", async () => {
+          c.feed.lastWrite = vi.fn(() => STAMP);
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForStream(scv, c);
+          expect(scv.lastWrite()?.equals(STAMP)).toBe(true);
+          expect(c.feed.lastWrite).toHaveBeenCalledWith(c.channel.key);
+        });
+
+        it("should fall back to the initial sample's time", async () => {
+          c.feed.readLatest = async () => new MultiSeries([stored()]);
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForResolve(scv);
+          expect(scv.lastWrite()?.equals(SAMPLE_TIME)).toBe(true);
+        });
+
+        it("should prefer the feed's stamp over the initial sample", async () => {
+          c.feed.lastWrite = () => STAMP;
+          c.feed.readLatest = async () => new MultiSeries([stored()]);
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForResolve(scv);
+          expect(scv.lastWrite()?.equals(STAMP)).toBe(true);
+        });
+
+        it("should be null after cleanup", async () => {
+          c.feed.lastWrite = () => STAMP;
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForStream(scv, c);
+          scv.cleanup();
+          expect(scv.lastWrite()).toBeNull();
+        });
+
+        it("should be null without a client", () => {
+          const scv = new StreamChannelValue(null, { channel: c.channel.key });
+          expect(scv.lastWrite()).toBeNull();
+        });
+      });
     });
   });
 
@@ -460,6 +505,7 @@ describe("remote", () => {
 
       feed = {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
+        lastWrite: (): TimeStamp | null => null,
         read: async (): Promise<MultiSeries> => this.response,
         stream: (
           handler: framer.StreamHandler,
@@ -721,14 +767,12 @@ describe("remote", () => {
         expect(initial.refCount).toBe(0);
       });
 
-      it("should skip the read for a virtual channel", async () => {
+      it("should read the latest sample for a virtual channel", async () => {
         c.channel = new channel.Channel({ ...c.channel, virtual: true });
         c.feed.readLatest = vi.fn(async () => new MultiSeries([stored()]));
         const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
-        await waitForStream(scsv, c);
-        await new Promise((resolve) => setTimeout(resolve, 5));
-        expect(c.feed.readLatest).not.toHaveBeenCalled();
-        expect(scsv.value()).toBe("");
+        expect(await waitForResolve(scsv)).toBe("ARMED");
+        expect(c.feed.readLatest).toHaveBeenCalledWith(c.channel.key);
       });
 
       it("should post a status and keep streaming when the read fails", async () => {
@@ -819,6 +863,7 @@ describe("remote", () => {
 
       feed = {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
+        lastWrite: (): TimeStamp | null => null,
         read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
           this.readMock(tr, key);
           return this.response[key];
@@ -1222,6 +1267,7 @@ describe("remote", () => {
 
       feed = {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
+        lastWrite: (): TimeStamp | null => null,
         read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
           this.readMock(tr, key);
           return this.response;
@@ -2033,11 +2079,8 @@ describe("remote", () => {
       expect(args[1]).toBe(c.channel.key);
     });
 
-    it("should not read data when the channel is virtual", async () => {
-      c.channel = new channel.Channel({
-        ...c.channel,
-        virtual: true,
-      });
+    it("should read data when the channel is virtual", async () => {
+      c.channel = new channel.Channel({ ...c.channel, virtual: true });
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.seconds(20),
         channel: c.channel.key,
@@ -2045,7 +2088,12 @@ describe("remote", () => {
       const now = TimeStamp.milliseconds(10);
       const cd = new StreamChannelData(c, props, undefined, () => now);
       await waitForResolve(cd);
-      expect(c.readMock).not.toHaveBeenCalled();
+      expect(c.readMock).toHaveBeenCalled();
+      const args = c.readMock.mock.calls[0];
+      expect(args[0].equals(new TimeRange(now.spanRange(-TimeSpan.seconds(20))))).toBe(
+        true,
+      );
+      expect(args[1]).toBe(c.channel.key);
     });
 
     it("should read data when the channel is calculated", async () => {
@@ -2170,18 +2218,6 @@ describe("remote", () => {
       it("should clear loading immediately with a null client", () => {
         const cd = new StreamChannelData(null, { timeSpan: TimeSpan.MAX, channel: 1 });
         expect(cd.loading()).toBe(false);
-      });
-
-      it("should clear loading for a virtual channel without a history read", async () => {
-        c.channel = new channel.Channel({ ...c.channel, virtual: true });
-        const cd = new StreamChannelData(c, {
-          timeSpan: TimeSpan.MAX,
-          channel: c.channel.key,
-        });
-        expect(cd.loading()).toBe(true);
-        await expect.poll(() => cd.loading()).toBe(false);
-        expect(c.readMock).not.toHaveBeenCalled();
-        cd.cleanup();
       });
 
       it("should stay silent when cleanup precedes the back-fill resolving", async () => {

@@ -76,6 +76,37 @@ interface CoveredRange {
   addedAt: TimeStamp;
 }
 
+// Sorts spans by start and joins the ones that touch or overlap.
+const mergeSpans = (spans: bounds.Bounds<bigint>[]): bounds.Bounds<bigint>[] => {
+  const sorted = [...spans].sort((a, b) => (a.lower < b.lower ? -1 : 1));
+  const merged: bounds.Bounds<bigint>[] = [];
+  for (const span of sorted) {
+    const last = merged[merged.length - 1];
+    if (last == null || span.lower > last.upper) merged.push(span);
+    else if (span.upper > last.upper)
+      merged[merged.length - 1] = { lower: last.lower, upper: span.upper };
+  }
+  return merged;
+};
+
+// Sorted, disjoint items, so only the first one ending past a sample can hold it.
+const firstEndingAfter = <T>(
+  items: T[],
+  boundsOf: (item: T) => bounds.Bounds<bigint>,
+  alignment: bigint,
+): T | undefined => {
+  let lo = 0;
+  let hi = items.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (boundsOf(items[mid]).upper <= alignment) lo = mid + 1;
+    else hi = mid;
+  }
+  return items[lo];
+};
+
+const entryBounds = (e: CacheEntry): bounds.Bounds<bigint> => e.data.alignmentBounds;
+
 /**
  * A cache for historical channel data that will not be modified after it is written.
  * Fetched and streamed entries are held apart because they measure position in
@@ -109,14 +140,12 @@ export class Static {
   /**
    * Writes the given series to the cache, merging written series with any existing
    * series in the cache.
-   * @param streamed - Marks the series as live-streamed data. A fetched write evicts
-   * every streamed entry whose time range it fully covers.
+   * @param streamed - Marks the series as live-streamed data.
    */
   write(series: MultiSeries, streamed: boolean = false): void {
     if (series.length === 0) return;
     const converted = series.series.map((s) => this.props.transform.convert(s));
     this.retainDataType(converted[0].dataType);
-    if (!streamed) this.evictStreamed(series);
     const entries = streamed ? this.streamed : this.fetched;
     converted.forEach((s) => this.writeOne(s, entries));
     this.repairIntegrity(series, entries);
@@ -165,27 +194,15 @@ export class Static {
     return TimeStamp.since(c.addedAt).lessThan(this.props.staleCoverageThreshold);
   }
 
-  // Containment, not overlap: a fetch stamped wider than the data it returned
-  // (an uncommitted tail) must not evict streamed samples it did not replace.
-  private evictStreamed(written: MultiSeries): void {
-    this.streamed = this.streamed.filter(
-      (e) =>
-        !written.series.some(
-          (s) =>
-            s.timeRange.start.beforeEq(e.data.timeRange.start) &&
-            s.timeRange.end.afterEq(e.data.timeRange.end),
-        ),
-    );
-  }
-
   /**
    * Executes a 'dirty' read of the cache, retrieving any series in the cache that
    * overlap with the given time range. The series may extend before or after the range.
    * Gaps are computed against fetched entries only. Streamed entries carry provisional
    * leading alignments that cannot pair with fetched data on another channel, so they
-   * never claim coverage; the fetch they provoke evicts them. A streamed entry that
-   * overlaps a fetched one is left out: consumers order series by alignment, so the
-   * two forms of one span would join backwards in time.
+   * never claim coverage. A streamed entry that overlaps a fetched one is left out:
+   * consumers order series by alignment, so the two forms of one span would join
+   * backwards in time. It stays cached until garbage collection, so lookups by its
+   * alignment keep working while a consumer holds it.
    * @returns A list of series that overlap with the given time range and a list of
    * gaps, representing the regions of time the fetched series do not cover.
    */
@@ -209,6 +226,26 @@ export class Static {
       pushGap(fetched[i - 1].timeRange.end, fetched[i].timeRange.start);
     pushGap(fetched[fetched.length - 1].timeRange.end, tr.end);
     return { series: new MultiSeries(series), gaps };
+  }
+
+  /** @returns the series holding the sample at alignment, else undefined. */
+  find(alignment: bigint): Series | undefined {
+    const hit = (entries: CacheEntry[]): Series | undefined => {
+      const e = firstEndingAfter(entries, entryBounds, alignment);
+      return e != null && e.data.alignment <= alignment ? e.data : undefined;
+    };
+    return hit(this.streamed) ?? hit(this.fetched);
+  }
+
+  /** @returns the alignment spans of every entry a consumer holds. */
+  heldAlignments(): bounds.Bounds<bigint>[] {
+    const held: bounds.Bounds<bigint>[] = [];
+    const collect = (entries: CacheEntry[]): void => {
+      for (const e of entries) if (e.data.refCount > 0) held.push(entryBounds(e));
+    };
+    collect(this.fetched);
+    collect(this.streamed);
+    return held;
   }
 
   /** @returns the data type of the held series, or null when the cache is empty. */
@@ -268,16 +305,24 @@ export class Static {
 
   /**
    * Garbage collects the cache, removing any stale entries.
+   * @param retain - Alignment spans whose entries survive however stale they are.
    * @returns metrics about the garbage collection.
    */
-  gc(): GCMetrics {
+  gc(retain: bounds.Bounds<bigint>[] = []): GCMetrics {
     const { staleEntryThreshold } = this.props;
     const res = zeroGCMetrics();
+    const spans = mergeSpans(retain);
+    const retained = (s: Series): boolean => {
+      const b = s.alignmentBounds;
+      const span = firstEndingAfter(spans, (x) => x, b.lower);
+      return span != null && span.lower < b.upper;
+    };
     const collect = (entries: CacheEntry[]): CacheEntry[] =>
       entries.filter((s) => {
         const shouldKeep =
           s.data.refCount > 0 ||
-          TimeStamp.since(s.addedAt).lessThan(staleEntryThreshold);
+          TimeStamp.since(s.addedAt).lessThan(staleEntryThreshold) ||
+          retained(s.data);
         if (!shouldKeep) {
           res.purgedBytes = res.purgedBytes.add(s.data.byteCapacity);
           res.purgedSeries++;

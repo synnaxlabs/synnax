@@ -82,6 +82,7 @@ describe("StreamMultiChannelLog", () => {
 
     feed = {
       readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
+      lastWrite: (): TimeStamp | null => null,
       read: async (): Promise<MultiSeries> => new MultiSeries([]),
       stream: (
         handler: framer.StreamHandler,
