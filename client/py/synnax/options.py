@@ -19,3 +19,4 @@ class Options(BaseModel):
     password: str = ""
     api_key: str = ""
     secure: bool = False
+    ca_cert: str | None = None
