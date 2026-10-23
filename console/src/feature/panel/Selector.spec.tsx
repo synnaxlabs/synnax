@@ -532,7 +532,8 @@ describe("Panel.Selector", () => {
   });
 
   describe("change icon", () => {
-    const PICKER_TITLE = "Panel icon";
+    const picker = (): HTMLElement | null =>
+      screen.queryByRole("dialog", { name: "Panel icon" });
 
     const pillIcon = (pan: panel.Panel): SVGElement => {
       const pill = screen
@@ -543,15 +544,19 @@ describe("Panel.Selector", () => {
       return svg;
     };
 
+    const openPickerOn = async (pan: panel.Panel): Promise<void> => {
+      fireEvent.contextMenu(screen.getByText(pan.name));
+      fireEvent.click(await screen.findByText("Change icon"));
+      await waitFor(() => expect(picker()).not.toBeNull());
+    };
+
     const openPicker = async (props: CreateProjectPanelProps = {}) => {
       const { key: projectKey } = await client.projects.create({
         name: uniqueName("project"),
       });
       const pan = await createProjectPanel(projectKey, props);
       await renderStrip([pan], projectKey);
-      fireEvent.contextMenu(screen.getByText(pan.name));
-      fireEvent.click(await screen.findByText("Change icon"));
-      await screen.findByText(PICKER_TITLE);
+      await openPickerOn(pan);
       return pan;
     };
 
@@ -572,7 +577,7 @@ describe("Panel.Selector", () => {
       await waitFor(() =>
         expect(pillIcon(pan).classList).toContain("pluto-icon--valve"),
       );
-      expect(screen.queryByText(PICKER_TITLE)).toBeNull();
+      expect(picker()).toBeNull();
     });
 
     it("should tint the pill icon and keep the picker open on a color", async () => {
@@ -585,13 +590,32 @@ describe("Panel.Selector", () => {
           "220, 19, 108",
         ),
       );
-      expect(screen.getByText(PICKER_TITLE)).toBeTruthy();
+      expect(picker()).not.toBeNull();
+    });
+
+    it("should leave the selection alone on a click in another panel's picker", async () => {
+      const { key: projectKey } = await client.projects.create({
+        name: uniqueName("project"),
+      });
+      const panels = [
+        await createProjectPanel(projectKey, { name: "alpha" }),
+        await createProjectPanel(projectKey, { name: "bravo" }),
+      ];
+      const { store, row } = await renderStrip(panels, projectKey);
+      await act(async () => {
+        fireEvent.click(screen.getByText(row[0].name));
+      });
+      await openPickerOn(row[1]);
+      await act(async () => {
+        fireEvent.click(screen.getByRole("dialog", { name: "Panel icon" }));
+      });
+      expect(Session.Panel.selectSelected(store.getState())).toEqual(row[0].key);
     });
 
     it("should reset the icon and the color", async () => {
       const pan = await openPicker({ icon: "valve", color: "#dc136c" });
       await act(async () => {
-        fireEvent.click(findModalButton("Reset"));
+        fireEvent.click(screen.getByRole("button", { name: "Reset" }));
       });
       await waitFor(() =>
         expect(pillIcon(pan).classList).toContain("pluto-icon--panel"),

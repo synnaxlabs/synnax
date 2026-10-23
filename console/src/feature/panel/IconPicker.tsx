@@ -12,33 +12,38 @@ import "@/feature/panel/IconPicker.css";
 import { panel } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Modal } from "@synnaxlabs/lyra/modal";
-import { Nav } from "@synnaxlabs/lyra/nav";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Errors, Panel } from "@synnaxlabs/pluto";
 import { type color } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
-import { renderIcon } from "@/feature/panel/icon";
 import { CSS } from "@/platform/css";
-import { Modals } from "@/platform/modals";
-import { type Session } from "@/session";
 
-export interface IconPickerParams {
+const frameID = (key: panel.Key): string => CSS.B(`panel-icon-picker-${key}`);
+
+/**
+ * Opens the {@link IconPicker} of the panel.
+ *
+ * @throws {Error} if no icon picker for the panel is mounted.
+ */
+export const openIconPicker = (key: panel.Key): void => Dialog.open(frameID(key));
+
+interface ContentProps {
   /** The panel whose icon and color the picker sets. */
   panel: panel.Key;
 }
 
-type ContentProps = Session.Modals.ContentProps<IconPickerParams, void>;
-
 // A color pick keeps the picker open so the user can see it on each icon. An icon pick
 // closes it.
-const Content = ({ panel: key, close }: ContentProps): ReactElement => {
+const Content = ({ panel: key }: ContentProps): ReactElement => {
   Panel.useEnsure({ key });
   const icon = Panel.useIcon({ key });
   const color = Panel.useColor({ key });
   const { colors } = Theming.use();
+  const { close } = Dialog.useContext();
   const { dispatch } = Panel.useDispatch();
   const updateFrequent = Color.useFrequentUpdater();
   const handleColorChange = useCallback(
@@ -60,35 +65,42 @@ const Content = ({ panel: key, close }: ContentProps): ReactElement => {
     close();
   }, [dispatch, key, close]);
   return (
-    <Modal.Frame className={CSS.B("panel-icon-picker")}>
-      <Modal.Header icon={renderIcon({ icon, color })}>Panel icon</Modal.Header>
-      <Modal.Body gap="large">
-        <Color.Swatches
-          value={color}
-          onChange={handleColorChange}
-          fallback={colors.gray.l10}
-        />
-        <Input.IconPicker value={icon} onChange={handleIconChange} color={color} />
-      </Modal.Body>
-      <Modal.Footer>
-        <Nav.Bar.End x align="center">
-          <Button.Button
-            variant="text"
-            onClick={handleReset}
-            disabled={icon == null && color == null}
-          >
-            Reset
-          </Button.Button>
-        </Nav.Bar.End>
-      </Modal.Footer>
-    </Modal.Frame>
+    <Flex.Box y gap="large" className={CSS.BE("panel-icon-picker", "content")}>
+      <Color.Swatches
+        value={color}
+        onChange={handleColorChange}
+        fallback={colors.gray.l10}
+      />
+      <Input.IconPicker value={icon} onChange={handleIconChange} color={color} />
+      <Flex.Box x justify="end">
+        <Button.Button
+          variant="text"
+          size="small"
+          onClick={handleReset}
+          disabled={icon == null && color == null}
+        >
+          Reset
+        </Button.Button>
+      </Flex.Box>
+    </Flex.Box>
   );
 };
 
-const Boundary = (props: ContentProps): ReactElement => (
-  <Errors.SuspenseBoundary>
-    <Content {...props} />
-  </Errors.SuspenseBoundary>
-);
+export interface IconPickerProps extends ContentProps {
+  /** The pill the picker opens under. */
+  anchor: HTMLElement;
+}
 
-export const useIconPicker = Modals.create<IconPickerParams>(Boundary);
+/**
+ * The icon and color picker of a panel, closed until {@link openIconPicker} opens it.
+ * Render it outside the pill strip, so its events never reach a pill.
+ */
+export const IconPicker = ({ panel, anchor }: IconPickerProps): ReactElement => (
+  <Dialog.Frame id={frameID(panel)} anchor={anchor}>
+    <Dialog.Dialog className={CSS.B("panel-icon-picker")} aria-label="Panel icon">
+      <Errors.SuspenseBoundary>
+        <Content panel={panel} />
+      </Errors.SuspenseBoundary>
+    </Dialog.Dialog>
+  </Dialog.Frame>
+);

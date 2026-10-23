@@ -10,13 +10,13 @@
  */
 
 /* Wide enough for the ten-column swatch and icon grids, and no wider, so the cells stay
-   close together. */
+   close together. As tall as its content: the frame still keeps it inside the window. */
 .console-panel-icon-picker {
-    --pluto-dialog-min-width: 0;
+    --pluto-dialog-max-height: 100vh;
 
     width: 60rem;
+}
 
-    .pluto-modal__body {
-        padding: 3rem;
-    }
+.console-panel-icon-picker__content {
+    padding: 2rem;
 }

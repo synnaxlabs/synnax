@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { uuid } from "@synnaxlabs/x";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
@@ -25,6 +25,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 import { renderPalette } from "@/feature/command/testutil";
 import { Panel } from "@/feature/panel";
 import { Command } from "@/platform/command";
+import { createPanelWrapper } from "@/platform/panel/testutil";
 import { Session } from "@/session";
 import { uniqueName } from "@/testutil";
 
@@ -80,7 +81,7 @@ describe("Panel Commands", () => {
   describe("change icon", () => {
     const client = createTestClient();
 
-    it("should set the icon of the selected panel", async () => {
+    it("should set the icon of the selected panel from its pill", async () => {
       const proj = await client.projects.create({ name: uniqueName("project") });
       const pan = await client.panels.create({
         name: uniqueName("panel"),
@@ -90,11 +91,24 @@ describe("Panel Commands", () => {
         client,
         commands: Panel.COMMANDS,
       });
+      // The picker opens under the pill, so the strip renders beside the palette.
+      const { wrapper } = await createPanelWrapper({
+        client,
+        store,
+        project: proj.key,
+      });
       act(() => {
+        store.dispatch(
+          Session.Panel.reconcileOrder({ panels: [{ key: pan.key, name: pan.name }] }),
+        );
         store.dispatch(
           Session.Panel.select({ key: pan.key, windowKey: Drift.MAIN_WINDOW }),
         );
       });
+      await act(async () => {
+        render(<Panel.Selector />, { wrapper });
+      });
+      await screen.findByText(pan.name);
       await openCommandPalette();
       await selectCommand(CHANGE_ICON);
       await act(async () => {
