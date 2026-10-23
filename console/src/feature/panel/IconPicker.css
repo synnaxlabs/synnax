@@ -10,7 +10,7 @@
  */
 
 /* Wide enough for the ten-column swatch and icon grids, and no wider, so the cells stay
-   close together. As tall as its content: the frame still keeps it inside the window. */
+   close together. As tall as its content: the frame still keeps it in the window. */
 .console-panel-icon-picker {
     --pluto-dialog-max-height: 100vh;
 
