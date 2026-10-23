@@ -14,7 +14,7 @@ import { CSS } from "@synnaxlabs/lyra/css";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, direction, xy } from "@synnaxlabs/x";
-import { useReactFlow } from "@xyflow/react";
+import { type ReactFlowState, useReactFlow, useStore } from "@xyflow/react";
 import {
   type FC,
   Fragment,
@@ -52,6 +52,8 @@ export interface PathProps extends Omit<Base.BaseProps, "path" | "points"> {
   crossings: xy.XY[];
 }
 
+const selectZoom = ({ transform }: ReactFlowState): number => transform[2];
+
 const create = (Path: FC<PathProps>): Edge => {
   const E: Edge = ({
     edgeKey,
@@ -64,6 +66,7 @@ const create = (Path: FC<PathProps>): Edge => {
     onChange,
   }): ReactElement | null => {
     const flow = useReactFlow();
+    const zoom = useStore(selectZoom);
     const crossings = Jumps.useCrossings(edgeKey);
     const visualSegments = build({
       source,
@@ -134,7 +137,7 @@ const create = (Path: FC<PathProps>): Edge => {
       ),
     });
 
-    const points = segmentsToPoints(source.position, segments, flow.getZoom(), true);
+    const points = segmentsToPoints(source.position, segments, zoom, true);
 
     if (segments.length === 0) return null;
 
