@@ -439,7 +439,7 @@ green at every step. The migration brings 0.59 data forward near the end.
 - **Phases 16 to 21: Console, one integration each.** Forms, tree items, menus, links,
   and palette commands on the typed client. Each phase removes its make from `make.tsx`;
   Phase 21 deletes the file.
-- **Phase 22: Migration.** §4.8 steps 1 to 3, and the policy rewrite. The map now exists
+- **Phase 22: Migration.** §4.8 steps 1 to 3 and the policy rewrite. The map now exists
   for the next phase.
 - **Phase 23: Task config references.** Typed device keys on every config, with the
   config migrations of §4.8 step 4 reading the map.
