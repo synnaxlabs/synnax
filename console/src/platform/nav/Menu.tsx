@@ -146,9 +146,9 @@ const MenuItem = ({
 
   return (
     <PMenu.Item
+      key={key}
       className={CSS.cls(CSS.BE("main-nav", "item"), PCSS.selected(selected))}
       {...itemProps}
-      key={key}
       itemKey={key}
       size="medium"
       triggerIndicator={trigger}

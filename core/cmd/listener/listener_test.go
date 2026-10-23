@@ -316,7 +316,6 @@ var _ = Describe("Listener", func() {
 			mock.GenerateCerts(coreFS)
 			prov = MustSucceed(security.NewProvider(security.ProviderConfig{
 				FS:       coreFS,
-				KeySize:  mock.SmallKeySize,
 				Insecure: new(false),
 			}))
 			coreFC = cert.FactoryConfig{
@@ -481,7 +480,6 @@ var _ = Describe("Listener", func() {
 				lc.CACertPath = "absent.crt"
 				extProv := MustSucceed(security.NewProvider(security.ProviderConfig{
 					LoaderConfig: lc,
-					KeySize:      mock.SmallKeySize,
 					Insecure:     new(false),
 				}))
 				extFC := foreignFC

@@ -27,7 +27,6 @@ import (
 	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/security"
-	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
@@ -88,7 +87,6 @@ var _ = Describe("HTTP", func() {
 				To(Succeed())
 			sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 				Insecure: new(true),
-				KeySize:  secmock.SmallKeySize,
 			}))
 			svc := MustOpen(service.OpenLayer(ctx, service.LayerConfig{
 				Distribution:    node.Layer,

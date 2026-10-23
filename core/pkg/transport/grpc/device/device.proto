@@ -11,7 +11,7 @@ syntax = "proto3";
 
 package grpc.device;
 
-import "core/pkg/service/device/pb/device.proto";
+import "core/pkg/service/legacy/device/pb/device.proto";
 import "google/protobuf/empty.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/device";
