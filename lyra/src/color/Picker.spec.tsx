@@ -84,7 +84,7 @@ describe("Picker", () => {
 
     it("should make a typed hex opaque when the color is transparent", () => {
       const onChange = vi.fn();
-      const c = renderPicker({ fallback: color.ZERO, onChange });
+      const c = renderPicker({ value: undefined, fallback: color.ZERO, onChange });
       fireEvent.change(hexInput(c), { target: { value: "0000ff" } });
       expect(color.aValue(onChange.mock.calls[0][0])).toEqual(1);
     });
@@ -147,7 +147,11 @@ describe("Picker", () => {
     });
 
     it("should mark Auto and show the fallback while the value is absent", () => {
-      const c = renderPicker({ fallback: "#888888", onChange: vi.fn() });
+      const c = renderPicker({
+        value: undefined,
+        fallback: "#888888",
+        onChange: vi.fn(),
+      });
       expect(c.getByLabelText("Auto").className).toContain(CSS.M("selected"));
       expect(hexInput(c).value).toEqual("888888");
     });

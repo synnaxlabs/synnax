@@ -19,13 +19,13 @@ import { CSS } from "@/css";
 import { Divider } from "@/divider";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
+import { type Input } from "@/input";
 import { Theming } from "@/theming";
 
-export interface SwatchesProps {
-  /** The picked color. The swatch that matches it shows as selected. */
-  value?: color.Crude;
-  /** Called with the picked color, or with undefined when the user picks Auto. */
-  onChange: (value?: color.Color) => void;
+export interface SwatchesProps extends Input.Control<
+  color.Crude | undefined,
+  color.Color | undefined
+> {
   /**
    * The color the theme paints while the value is absent. Setting it adds an Auto
    * button that clears the value.
