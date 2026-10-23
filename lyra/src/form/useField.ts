@@ -78,11 +78,12 @@ export const useField = (<I, O = I>(
     (status: Status.Crude) => setStatus(path, status),
     [path, setStatus],
   );
-  const state = useSyncExternalStore(
-    bind,
-    useCallback(() => get<I>(path, { optional }), [path, get, optional]),
-    () => null,
+  // The form state lives in memory, so a server render reads it like the client does.
+  const getSnapshot = useCallback(
+    () => get<I>(path, { optional }),
+    [path, get, optional],
   );
+  const state = useSyncExternalStore(bind, getSnapshot, getSnapshot);
   if (state == null) {
     if (!optional) throw new Error(`Field state is null: ${path}`);
     return null;
@@ -119,11 +120,8 @@ export const useFieldState = (<I, O = I, Z extends z.ZodType = z.ZodType>(
   opts?: GetOptions & ContextOptions<Z>,
 ): FieldState<O> | null => {
   const { get, bind } = useContext(opts?.ctx);
-  return useSyncExternalStore(
-    bind,
-    useCallback(() => get<O>(path, opts), [path, get, opts]),
-    () => null,
-  );
+  const getSnapshot = useCallback(() => get<O>(path, opts), [path, get, opts]);
+  return useSyncExternalStore(bind, getSnapshot, getSnapshot);
 }) as UseFieldState;
 
 /** Reads just a field's value. Use it to render from a field the caller does not edit. */

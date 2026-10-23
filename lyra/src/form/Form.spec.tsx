@@ -10,6 +10,7 @@
 import { deep, type record } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
+import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -416,6 +417,14 @@ describe("Form", () => {
   });
 
   describe("Field", () => {
+    it("should render its value on the server", () => {
+      const html = renderToString(
+        <FormContainer>
+          <Form.Field path="name" />
+        </FormContainer>,
+      );
+      expect(html).toContain('value="John Doe"');
+    });
     it("should return a text field with the correct value", () => {
       const c = render(<Form.Field path="name" />, { wrapper });
       expect(c.getByDisplayValue("John Doe")).toBeTruthy();
