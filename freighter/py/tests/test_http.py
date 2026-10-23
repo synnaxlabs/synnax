@@ -279,10 +279,10 @@ class TestStream:
         ):
             pass
 
-    def test_response_dropped_before_the_body_raises(self, client: HTTPClient) -> None:
-        """Should raise when the server drops the response before sending its body."""
+    def test_encoder_failing_before_it_writes_raises(self, client: HTTPClient) -> None:
+        """Should raise the error of an encoder that fails before it writes."""
         with (
-            pytest.raises(ProtocolError, match="Connection aborted"),
+            pytest.raises(Exception, match="truncating encoder failed partway"),
             client.stream(
                 "/truncated", Message(id=0, message="ab"), "application/x-truncated"
             ),

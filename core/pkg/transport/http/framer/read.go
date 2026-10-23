@@ -17,11 +17,12 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	xhttp "github.com/synnaxlabs/x/http"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 const (
@@ -65,12 +66,15 @@ func (frameEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) er
 		return err
 	}
 	keys, dataTypes := keysAndDataTypes(res.Channels)
+	iter, err := res.OpenIterator(ctx, keys)
+	if err != nil {
+		return err
+	}
 	c := codec.NewStatic(keys, dataTypes)
-	keySet := set.New(keys...)
 	var buf bytes.Buffer
-	readErr := drain(res, func(fr Frame) error {
+	readErr := drain(iter, func(fr Frame) error {
 		buf.Reset()
-		if err := c.EncodeStream(ctx, &buf, fr.KeepKeys(keySet)); err != nil {
+		if err := c.EncodeStream(ctx, &buf, fr); err != nil {
 			return err
 		}
 		return writeRecord(w, recordData, buf.Bytes())
@@ -97,19 +101,19 @@ func writeRecord(w io.Writer, kind byte, payload []byte) error {
 	return err
 }
 
-// drain seeks res.Iterator to the start of its bounds and calls f with every frame it
-// returns, stopping at the first error. It always closes the iterator, and it returns
-// the read error that Close reports.
-func drain(res ReadResponse, f func(Frame) error) error {
+// drain seeks iter to the start of its bounds and calls f with every frame it returns,
+// stopping at the first error. It always closes iter, and it returns the read error
+// that Close reports.
+func drain(iter *svcframer.Iterator, f func(Frame) error) error {
 	var err error
-	if res.Iterator.SeekFirst() {
-		for res.Iterator.Next(IteratorAutoSpan) {
-			if err = f(res.Iterator.Value()); err != nil {
+	if iter.SeekFirst() {
+		for iter.Next(IteratorAutoSpan) {
+			if err = f(iter.Value()); err != nil {
 				break
 			}
 		}
 	}
-	return errors.Combine(err, res.Iterator.Close())
+	return errors.Combine(err, iter.Close())
 }
 
 func readResponse(value any) (ReadResponse, error) {
@@ -122,8 +126,8 @@ func readResponse(value any) (ReadResponse, error) {
 
 // groupByIndex groups the channels of res by the index channel that timestamps them,
 // ordered by the first channel each group timestamps. Each group starts with its index.
-// A channel is excluded when the read does not include its index.
-func groupByIndex(res ReadResponse) [][]channel.Channel {
+// It returns a validation error when res leaves out the index of a channel.
+func groupByIndex(res ReadResponse) ([][]channel.Channel, error) {
 	all := slices.Concat(res.Channels, res.Indexes)
 	records := make(map[channel.Key]channel.Channel, len(all))
 	for _, ch := range all {
@@ -134,7 +138,12 @@ func groupByIndex(res ReadResponse) [][]channel.Channel {
 	for _, ch := range res.Channels {
 		index, ok := records[ch.Index()]
 		if !ok {
-			continue
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"channel %s has no index in the read: add its index to keys or set "+
+					"timestamps_included",
+				ch.Name,
+			)
 		}
 		i, ok := position[index.Key()]
 		if !ok {
@@ -145,7 +154,7 @@ func groupByIndex(res ReadResponse) [][]channel.Channel {
 			groups[i] = append(groups[i], ch)
 		}
 	}
-	return groups
+	return groups, nil
 }
 
 func keysAndDataTypes(channels []channel.Channel) (channel.Keys, []telem.DataType) {

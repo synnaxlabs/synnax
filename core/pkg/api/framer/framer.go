@@ -111,32 +111,31 @@ type ReadRequest struct {
 	Keys             channel.Keys    `json:"keys"              msgpack:"keys"`
 	Bounds           telem.TimeRange `json:"bounds"            msgpack:"bounds"`
 	DownsampleFactor uint32          `json:"downsample_factor" msgpack:"downsample_factor"`
-	// IndexesIncluded also reads the index channels of Keys that Keys leaves out.
-	IndexesIncluded bool `json:"indexes_included" msgpack:"indexes_included"`
+	// TimestampsIncluded also reads the index channels that timestamp Keys, when Keys
+	// leaves them out. A CSV read fails without it unless Keys holds every index.
+	TimestampsIncluded bool `json:"timestamps_included" msgpack:"timestamps_included"`
 }
 
-// ReadResponse is the handle a read encoder drives to produce the response body. It
-// carries an open Iterator the encoder must close. It is never encoded by a
-// general-purpose codec.
+// ReadResponse is the handle a read encoder drives to produce the response body. It is
+// never encoded by a general-purpose codec.
 type ReadResponse struct {
-	Iterator *framer.Iterator
 	// Channels holds the records of the requested channels, in no particular order.
 	Channels []channel.Channel
 	// Indexes holds the records of the index channels pulled in to timestamp the
 	// requested channels, excluding any the caller already requested. It is empty
-	// unless the request set IndexesIncluded.
+	// unless the request set TimestampsIncluded.
 	Indexes []channel.Channel
 	// DownsampleFactor is the request's downsample factor. Sample i of a series sits at
 	// the series' alignment plus i times the factor. Values below 2 keep every sample.
 	DownsampleFactor uint32
+	// OpenIterator opens an iterator over keys within the read's bounds and at its
+	// downsample factor. The caller must close it.
+	OpenIterator func(ctx context.Context, keys channel.Keys) (*framer.Iterator, error)
 }
 
-// Close closes the response's iterator. Call it for a response that no encoder drains.
-func (r ReadResponse) Close() error { return r.Iterator.Close() }
-
-// Read opens an iterator over the channels and bounds in req, along with their index
-// channels when req sets IndexesIncluded. The caller is the response encoder, which
-// drains the iterator and closes it.
+// Read checks that the caller may read the channels in req, along with their index
+// channels when req sets TimestampsIncluded, and returns the response an encoder
+// reads them through.
 func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, error) {
 	if err := s.enforceRetrieve(ctx, req.Keys); err != nil {
 		return ReadResponse{}, err
@@ -149,7 +148,7 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 		return ReadResponse{}, err
 	}
 	var indexes []channel.Channel
-	if req.IndexesIncluded {
+	if req.TimestampsIncluded {
 		var err error
 		if indexes, err = s.retrieveMissingIndexes(ctx, channels); err != nil {
 			return ReadResponse{}, err
@@ -163,20 +162,20 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 			return ReadResponse{}, err
 		}
 	}
-	keys := append(channel.KeysFromChannels(channels), indexKeys...)
-	iter, err := s.internal.OpenIterator(ctx, framer.IteratorConfig{
-		Keys:             keys,
-		Bounds:           req.Bounds,
-		DownsampleFactor: req.DownsampleFactor,
-	})
-	if err != nil {
-		return ReadResponse{}, err
-	}
 	return ReadResponse{
-		Iterator:         iter,
 		Channels:         channels,
 		Indexes:          indexes,
 		DownsampleFactor: req.DownsampleFactor,
+		OpenIterator: func(
+			ctx context.Context,
+			keys channel.Keys,
+		) (*framer.Iterator, error) {
+			return s.internal.OpenIterator(ctx, framer.IteratorConfig{
+				Keys:             keys,
+				Bounds:           req.Bounds,
+				DownsampleFactor: req.DownsampleFactor,
+			})
+		},
 	}, nil
 }
 

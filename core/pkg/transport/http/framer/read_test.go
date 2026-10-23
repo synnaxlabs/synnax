@@ -11,6 +11,7 @@ package framer_test
 
 import (
 	"bytes"
+	"context"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -91,21 +92,32 @@ func writeData(
 	Expect(w.Close()).To(Succeed())
 }
 
-// read opens a response over every sample in the given channels, indexed by index.
+// read returns a response over every sample in the given channels, indexed by index.
 func read(
-	ctx SpecContext,
+	_ SpecContext,
 	index svcchannel.Channel,
 	channels ...svcchannel.Channel,
 ) framer.ReadResponse {
-	GinkgoHelper()
-	iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
-		Keys:   svcchannel.KeysFromChannels(append(channels, index)),
-		Bounds: readBounds,
-	}))
+	return response(channels, []svcchannel.Channel{index}, svcframer.IteratorConfig{})
+}
+
+// response returns a response over every sample in channels and indexes. Its iterators
+// take their chunk size and downsample factor from cfg.
+func response(
+	channels, indexes []svcchannel.Channel,
+	cfg svcframer.IteratorConfig,
+) framer.ReadResponse {
 	return framer.ReadResponse{
-		Iterator: iter,
-		Channels: channels,
-		Indexes:  []svcchannel.Channel{index},
+		Channels:         channels,
+		Indexes:          indexes,
+		DownsampleFactor: cfg.DownsampleFactor,
+		OpenIterator: func(
+			ctx context.Context,
+			keys svcchannel.Keys,
+		) (*svcframer.Iterator, error) {
+			cfg.Keys, cfg.Bounds = keys, readBounds
+			return framerSvc.OpenIterator(ctx, cfg)
+		},
 	}
 }
 

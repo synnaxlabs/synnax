@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 const (
@@ -341,15 +342,12 @@ var _ = Describe("TDMS", func() {
 			)
 			channels := append(first, second...)
 			indexes := []svcchannel.Channel{firstIndex, secondIndex}
-			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
-				Keys:   svcchannel.KeysFromChannels(append(channels, indexes...)),
-				Bounds: readBounds,
-			}))
-			b := MustSucceed(framer.TDMSEncoder.Encode(ctx, framer.ReadResponse{
-				Iterator: iter,
-				Channels: channels,
-				Indexes:  indexes,
-			}))
+			b := MustSucceed(
+				framer.TDMSEncoder.Encode(
+					ctx,
+					response(channels, indexes, svcframer.IteratorConfig{}),
+				),
+			)
 			segments := parseTDMS(b)
 			Expect(segments[0].objects).To(Equal([]tdmsObject{
 				{path: "/"},
@@ -404,16 +402,16 @@ var _ = Describe("TDMS", func() {
 				telem.NewSeriesV(floats...),
 				telem.NewSeriesV(strs...),
 			)
-			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
-				Keys:      svcchannel.KeysFromChannels(append(channels, index)),
-				Bounds:    readBounds,
-				ChunkSize: 1000,
-			}))
-			b := MustSucceed(framer.TDMSEncoder.Encode(ctx, framer.ReadResponse{
-				Iterator: iter,
-				Channels: channels,
-				Indexes:  []svcchannel.Channel{index},
-			}))
+			b := MustSucceed(
+				framer.TDMSEncoder.Encode(
+					ctx,
+					response(
+						channels,
+						[]svcchannel.Channel{index},
+						svcframer.IteratorConfig{ChunkSize: 1000},
+					),
+				),
+			)
 			segments := parseTDMS(b)
 			Expect(len(segments)).To(BeNumerically(">", 2))
 			Expect(tdmsChannelData(
@@ -439,14 +437,16 @@ var _ = Describe("TDMS", func() {
 				channels,
 				telem.NewSeriesV[float32](1),
 			)
-			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
-				Keys:   svcchannel.Keys{index.Key()},
-				Bounds: readBounds,
-			}))
-			b := MustSucceed(framer.TDMSEncoder.Encode(ctx, framer.ReadResponse{
-				Iterator: iter,
-				Channels: []svcchannel.Channel{index},
-			}))
+			b := MustSucceed(
+				framer.TDMSEncoder.Encode(
+					ctx,
+					response(
+						[]svcchannel.Channel{index},
+						nil,
+						svcframer.IteratorConfig{},
+					),
+				),
+			)
 			segments := parseTDMS(b)
 			Expect(segments[0].objects).To(Equal([]tdmsObject{
 				{path: "/"},
@@ -469,46 +469,24 @@ var _ = Describe("TDMS", func() {
 				To(Equal(tdmsPath(index.Name, "it''s é")))
 		})
 
-		It("Should leave out a channel whose index the read does not include", func(
+		It("Should fail a read that leaves out the index of a channel", func(
 			ctx SpecContext,
 		) {
-			firstIndex, first := createIndexed(ctx, telem.Float32T)
-			secondIndex, second := createIndexed(ctx, telem.Float32T)
+			index, channels := createIndexed(ctx, telem.Float32T)
 			write(
 				ctx,
-				firstIndex,
+				index,
 				telem.NewSeriesSecondsTSV(1),
-				first,
+				channels,
 				telem.NewSeriesV[float32](1),
 			)
-			write(
+			Expect(framer.TDMSEncoder.Encode(
 				ctx,
-				secondIndex,
-				telem.NewSeriesSecondsTSV(1),
-				second,
-				telem.NewSeriesV[float32](2),
-			)
-			channels := []svcchannel.Channel{firstIndex, first[0], second[0]}
-			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
-				Keys:   svcchannel.KeysFromChannels(channels),
-				Bounds: readBounds,
-			}))
-			b := MustSucceed(framer.TDMSEncoder.Encode(ctx, framer.ReadResponse{
-				Iterator: iter,
-				Channels: channels,
-			}))
-			segments := parseTDMS(b)
-			Expect(segments[0].objects).To(Equal([]tdmsObject{
-				{path: "/"},
-				{path: tdmsPath(firstIndex.Name)},
-				{path: tdmsPath(firstIndex.Name, firstIndex.Name)},
-				{path: tdmsPath(firstIndex.Name, first[0].Name)},
-			}))
-			Expect(segments[1].objects).To(HaveLen(2))
-			Expect(tdmsChannelData(
-				segments,
-				tdmsPath(firstIndex.Name, first[0].Name),
-			).data).To(Equal(telem.NewSeriesV[float32](1).Data))
+				response(channels, nil, svcframer.IteratorConfig{}),
+			)).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(channels[0].Name)),
+			))
 		})
 
 		It("Should return an error for a data type with no TDMS form", func(

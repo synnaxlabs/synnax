@@ -27,9 +27,9 @@ import (
 // channel that timestamps them, and each group holds its index, then its data channels.
 // The first segment declares every group and channel, and each frame then becomes one
 // segment, so the file streams. Timestamps become TDMS timestamps, and UUID, bytes, and
-// JSON samples become TDMS strings in their text form. A channel is excluded when the
-// read does not include its index. A read that fails after the first byte truncates the
-// body.
+// JSON samples become TDMS strings in their text form. A read of a channel whose index
+// it does not include fails before the first byte. A read that fails after the first
+// byte truncates the body.
 var TDMSEncoder tdmsEncoder
 
 type tdmsEncoder struct{}
@@ -50,19 +50,27 @@ func (e tdmsEncoder) Encode(ctx context.Context, value any) ([]byte, error) {
 }
 
 // EncodeStream implements encoding.Encoder. value must be a ReadResponse.
-func (tdmsEncoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
+func (tdmsEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	res, err := readResponse(value)
 	if err != nil {
 		return err
 	}
 	s, err := newTDMSSegmenter(res)
-	if err == nil {
-		err = s.writeHeader(w)
-	}
 	if err != nil {
-		return errors.Combine(err, res.Close())
+		return err
 	}
-	return drain(res, func(fr Frame) error { return s.writeFrame(w, fr) })
+	keys := make(channel.Keys, len(s.channels))
+	for i, ch := range s.channels {
+		keys[i] = ch.key
+	}
+	iter, err := res.OpenIterator(ctx, keys)
+	if err != nil {
+		return err
+	}
+	if err = s.writeHeader(w); err != nil {
+		return errors.Combine(err, iter.Close())
+	}
+	return drain(iter, func(fr Frame) error { return s.writeFrame(w, fr) })
 }
 
 const (
@@ -117,8 +125,12 @@ type tdmsSegmenter struct {
 }
 
 func newTDMSSegmenter(res ReadResponse) (*tdmsSegmenter, error) {
+	groups, err := groupByIndex(res)
+	if err != nil {
+		return nil, err
+	}
 	s := &tdmsSegmenter{}
-	for _, group := range groupByIndex(res) {
+	for _, group := range groups {
 		groupPath := "/" + tdmsName(group[0].Name)
 		s.groups = append(s.groups, groupPath)
 		for _, ch := range group {

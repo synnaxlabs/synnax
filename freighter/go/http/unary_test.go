@@ -74,8 +74,10 @@ func (repeatingEncoder) ContentType() string { return "application/x-repeat" }
 
 func (e repeatingEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
 	var buf bytes.Buffer
-	err := e.EncodeStream(ctx, &buf, v)
-	return buf.Bytes(), err
+	if err := e.EncodeStream(ctx, &buf, v); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (repeatingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {
@@ -99,8 +101,10 @@ func (truncatingEncoder) ContentType() string { return "application/x-truncate" 
 
 func (e truncatingEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
 	var buf bytes.Buffer
-	err := e.EncodeStream(ctx, &buf, v)
-	return buf.Bytes(), err
+	if err := e.EncodeStream(ctx, &buf, v); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (truncatingEncoder) EncodeStream(ctx context.Context, w io.Writer, v any) error {
@@ -119,8 +123,10 @@ func (echoingEncoder) ContentType() string { return "application/x-echo" }
 
 func (e echoingEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
 	var buf bytes.Buffer
-	err := e.EncodeStream(ctx, &buf, v)
-	return buf.Bytes(), err
+	if err := e.EncodeStream(ctx, &buf, v); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (echoingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {
@@ -152,8 +158,10 @@ func (closingEncoder) ContentType() string { return "application/x-closing" }
 
 func (e closingEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
 	var buf bytes.Buffer
-	err := e.EncodeStream(ctx, &buf, v)
-	return buf.Bytes(), err
+	if err := e.EncodeStream(ctx, &buf, v); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (closingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {
@@ -819,9 +827,23 @@ var _ = Describe("Unary", func() {
 				httpReq.Header.Set(fiber.HeaderAcceptEncoding, acceptEncoding)
 				Expect((&http.Client{}).Do(httpReq)).Error().To(MatchError(io.EOF))
 			},
-			Entry("before the first byte", 0, "identity"),
 			Entry("after the first byte", 3, "identity"),
 			Entry("in a gzipped body", 3, "gzip"),
+		)
+
+		DescribeTable(
+			"should answer with a 400 when the encoder fails before it writes",
+			func(ctx context.Context, acceptEncoding string) {
+				res := streamingPost(
+					ctx, test.Request{ID: 0, Message: "ab"}, truncate, acceptEncoding,
+				)
+				Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
+				Expect(res.Header.Get(fiber.HeaderContentEncoding)).To(BeEmpty())
+				Expect(io.ReadAll(res.Body)).
+					To(ContainSubstring(errTruncatingEncoderFail.Error()))
+			},
+			Entry("in an uncompressed body", "identity"),
+			Entry("in a gzipped body", "gzip"),
 		)
 
 		It("should cut the body short when the encoder fails after part of it leaves",

@@ -96,35 +96,36 @@ FrameRead: http.NewUnaryServer[framer.ReadRequest, framer.ReadResponse](
 
 `ReadRequest` carries `keys`, `bounds`, and `downsample_factor`, matching the fields
 `IteratorRequest` already accepts (`core/pkg/service/framer/iterator/service.go:33-56`),
-plus `indexes_included`.
+plus `timestamps_included`.
 
-The Core reads exactly the channels in `keys`. When `indexes_included` is set, it also
-reads the index channels that `keys` leaves out, and enforces `access.ActionRetrieve` on
-them. The request states this, not the encoder: the handler runs before the encoder
-does, and a request field keeps the rule in the API layer. A CSV read without the field
-gets a column only for a channel whose index is also in `keys`.
+The Core reads exactly the channels in `keys`. When `timestamps_included` is set, it
+also reads the index channels that `keys` leaves out, and enforces
+`access.ActionRetrieve` on them. The request states this, not the encoder: the handler
+runs before the encoder does, and a request field keeps the rule in the API layer. A CSV
+read fails with a validation error when `keys` leaves out the index of a channel and the
+field is not set.
 
 The handler enforces `access.ActionRetrieve` over `framer.OntologyIDs(keys)`, exactly as
 `openIterator` does (`core/pkg/api/framer/framer.go:194`), resolves the channel records,
-opens a service-layer iterator, and returns:
+and returns:
 
 ```go
 type ReadResponse struct {
-    Iterator *framer.Iterator
-    Channels []channel.Channel
-    Indexes  []channel.Channel
+    Channels     []channel.Channel
+    Indexes      []channel.Channel
+    OpenIterator func(context.Context, channel.Keys) (*framer.Iterator, error)
 }
 ```
 
 `Indexes` holds the index channels the Core pulled in. It is empty unless the request
-set `indexes_included`.
+set `timestamps_included`.
 
 `ReadResponse` is never serialized by a general codec. It is the handle the two
-registered encoders drive, and each encoder closes the iterator in a defer. Opening the
-iterator in the handler keeps Principle 4: a bad key or a denied subject is a 400 with a
-normal error body. `ReadResponse` implements `io.Closer`, and the unary server closes a
-response it does not encode, so a middleware that fails after the handler does not leak
-the iterator.
+registered encoders drive. Each encoder opens the service-layer iterators it needs
+through `OpenIterator` and closes them. The handler keeps Principle 4: a bad key or a
+denied subject is a 400 with a normal error body. An iterator that fails to open fails
+the encoder before its first write, which is also a 400 (§4.1). The response holds
+nothing open, so a middleware that fails after the handler leaks nothing.
 
 Calculated channels and downsampling come from the service-layer iterator, so `/read`
 inherits both without knowing they exist.
@@ -140,7 +141,9 @@ which is fasthttp chunked output.
 `http.WithStreamingResponse()` is a new `UnaryServerOption` that switches a route from
 `Encode` to `EncodeStream` driven by `SendStreamWriter`. It is opt-in because the two
 differ in a way every existing route would feel: a buffered encode that fails still
-produces a 400, and a streamed encode that fails has already committed a 200.
+produces a 400, and a streamed encode that fails has already committed a 200. The server
+holds the status until the encoder first writes, so an encoder that fails before any
+output, such as a CSV read that lacks an index, still produces a 400.
 
 fasthttp runs the stream writer after the handler returns, so the closure captures the
 server context rather than the `fiber.Ctx`, which fiber recycles. Middleware finishes
@@ -166,7 +169,7 @@ against a chunk of telemetry.
 
 No preamble and no handshake. The server encodes with `codec.NewStatic(keys, dataTypes)`
 and the client decodes with `new Codec(keys, dataTypes)` over the keys it asked for. The
-index channels the Core pulls in for an `indexes_included` read never reach this
+index channels the Core pulls in for a `timestamps_included` read never reach this
 encoding. Both sides sort keys ascending before use (`codec.go:303`, `codec.ts:118`) and
 both start at sequence number 1, so the states match by construction.
 
@@ -180,13 +183,13 @@ then its data columns, each headed by the channel name. Rows merge across groups
 timestamp, with empty cells where a group has no sample at that timestamp. Lines end in
 `\n`.
 
-The iterator advances each channel by sample count, not by time, so one frame covers a
-different time span for each group. The encoder keeps a lower bound on the timestamp of
-each group's next row: the pending index sample, or the last timestamp the group
-returned plus one, or no bound once a frame leaves the group out. It writes the earliest
-ready row only when every group that is not ready has a bound after that row. No later
-frame can then precede the row or add cells to it. Rows leave in 64 KiB writes, so the
-encoder holds one buffer however large the read is.
+An iterator advances each channel by sample count, not by time, so one iterator over
+every column reads ahead on the columns whose rows come later. Two groups in separate
+time ranges would hold the whole later group in memory. The encoder instead reads each
+column through its own iterator and asks for the next chunk only when the column runs
+out. It writes the row of the earliest pending index sample. Each column holds at most
+one chunk, and rows leave in 64 KiB writes, so memory is bounded however large the read
+is.
 
 Values are appended with `telem.AppendSampleText` into that buffer. A UUID takes its
 canonical form and bytes are base64. There is no string per sample and no record object
@@ -239,14 +242,14 @@ main consumer, would never see one.
   incrementally with the static `Codec`. `FileOptions.encoding`
   (`freighter/ts/src/file.ts:40`) also accepts a `contentType` sent verbatim, so the
   frame media type stays in the client. `FileEncoding` gains only the generic `CSV`.
-  `client.readCSV(tr, channels, opts)` requests `text/csv` with `indexes_included` and
-  returns the byte stream. It takes `ReadCSVOptions`, which extends `ReadOptions`.
+  `client.readCSV(tr, channels, opts)` requests `text/csv` with `timestamps_included`
+  and returns the byte stream. It takes `ReadCSVOptions`, which extends `ReadOptions`.
 - **Console**: `useDownload` (`console/src/platform/csv/useDownload.ts:49`) requests
   `text/csv` and pipes the response into `Runtime.downloadStream` unchanged.
 - **Python**: `client.read` posts to `/read`. Freighter gains a download-to-memory
   variant beside its download-to-file (`freighter/py/freighter/http.py:138`).
   `client.read_csv(tr, channels, dest)` streams the CSV into `dest` with
-  `indexes_included`.
+  `timestamps_included`.
 - **C++**: unchanged. It speaks gRPC, and the endpoint is not exposed there
   (`core/pkg/transport/grpc/grpc.go:80` binds it as a noop). Nothing in the Driver reads
   history in bulk, so giving the client a second transport would buy a caller that does
@@ -311,10 +314,10 @@ returns bytes, so they are separate methods: `read` and `readCSV`. A format para
 format. A later format adds a method.
 
 **6.7 Indexes on request, resolved in the Core.** The Core reads the channels the caller
-names, as the iterator and the streamer do. `indexes_included` is a request field, not
-something the transport derives from the negotiated encoder: Freighter negotiates the
-encoder after the handler is bound, and a transport that rewrites the request would put
-a transport concern in the API type. Resolution stays in the Core and not in the
+names, as the iterator and the streamer do. `timestamps_included` is a request field,
+not something the transport derives from the negotiated encoder: Freighter negotiates
+the encoder after the handler is bound, and a transport that rewrites the request would
+put a transport concern in the API type. Resolution stays in the Core and not in the
 clients, so every client and every raw HTTP caller gets one behavior.
 
 **6.8 CSV headers are channel names.** Range aliases were considered and rejected: the

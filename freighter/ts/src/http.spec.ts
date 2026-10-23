@@ -256,10 +256,10 @@ describe("http", () => {
 
     const TRUNCATED = { encoding: { contentType: "application/x-truncated" } };
 
-    test("rejects a response the server drops before its body", async () => {
+    test("rejects with the error of an encoder that fails before it writes", async () => {
       await expect(
         client.download("/truncated", { id: 0, message: "ab" }, messageZ, TRUNCATED),
-      ).rejects.toThrow(Unreachable);
+      ).rejects.toThrow("truncating encoder failed partway");
     });
 
     test("rejects a body the server cuts short", async () => {
