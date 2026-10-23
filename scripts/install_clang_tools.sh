@@ -9,10 +9,14 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+set -e
+
 LLVM_VERSION=23
 
 wget -O llvm.sh https://apt.llvm.org/llvm.sh
 sudo bash llvm.sh "$LLVM_VERSION"
-sudo apt-get install -y "clang-format-${LLVM_VERSION}"
-sudo update-alternatives --install /usr/bin/clang-format clang-format "/usr/bin/clang-format-${LLVM_VERSION}" 100
-sudo update-alternatives --set clang-format "/usr/bin/clang-format-${LLVM_VERSION}"
+for tool in clang-format clang-tidy; do
+    sudo apt-get install -y "${tool}-${LLVM_VERSION}"
+    sudo update-alternatives --install "/usr/bin/${tool}" "$tool" "/usr/bin/${tool}-${LLVM_VERSION}" 100
+    sudo update-alternatives --set "$tool" "/usr/bin/${tool}-${LLVM_VERSION}"
+done

@@ -19,6 +19,7 @@
 #include "x/cpp/control/control.h"
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
+#include "x/cpp/telem/mono_clock.h"
 #include "x/cpp/thread/thread.h"
 
 #include "arc/cpp/program/program.h"

@@ -20,6 +20,7 @@
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/telem/frame.h"
+#include "x/cpp/telem/mono_clock.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 

@@ -14,6 +14,7 @@
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
+#include "x/cpp/telem/mono_clock.h"
 #include "x/cpp/telem/series.h"
 
 namespace driver::common {

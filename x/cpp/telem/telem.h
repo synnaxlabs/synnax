@@ -1342,5 +1342,3 @@ struct std::hash<x::telem::DataType> {
         return hash<string>()(dt.value);
     }
 };
-
-#include "x/cpp/telem/mono_clock.h"
