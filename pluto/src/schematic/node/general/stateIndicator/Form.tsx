@@ -62,7 +62,6 @@ export const StateIndicatorForm = ({ tab, onTabChange }: FormProps): ReactElemen
           <Base.NumericField
             path="inlineSize"
             label="Width"
-            hideIfNull
             padHelpText={false}
             inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
           />
