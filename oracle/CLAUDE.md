@@ -34,11 +34,12 @@ or generator logic and schemas disagree.
   type was removed at N. The versions directory is the sole version authority: there is
   no `@go version` tag; the current version is the highest vN file, and membership in it
   marks a type persisted. Version-owned content: fields, optionality, docs, `@key`, and
-  the `@go` persistence set (`marshal` incl. field-level `omit`, `hand`, `migrate`,
-  `imex`). Codecs are explicit: a struct or union gets one iff its declaration carries
-  `@go marshal`; references never pull a codec in. `@go marshal hand` marks hand-written
-  codec methods: nothing generates, references stay valid. Generation fails when a
-  codec's persisted graph reaches a struct or union carrying neither form.
+  the `@go` persistence set (`marshal` incl. field-level `omit`, `wire`, `hand`,
+  `migrate`, `imex`). Codecs are explicit: a struct or union gets one iff its
+  declaration carries `@go marshal`; references never pull a codec in.
+  `@go marshal hand` marks hand-written codec methods: nothing generates, references
+  stay valid. Generation fails when a codec's persisted graph reaches a struct or union
+  carrying neither form.
 - **The live file is a generated projection, then an annotation surface.** Sync writes
   each versioned resource's live schema by merging chain resolution (version-owned
   content) with the live file's own annotations (outputs, `@ts`/`@py`/`@cpp` bindings,
@@ -169,6 +170,14 @@ when most types need it, declare it file-level and omit the exceptions.
 - `@<lang> hand`: the type exists, hand-written at the declared output path. No
   declaration is generated, but references resolve to it, pb translators generate
   against it, and it anchors the language output.
+- Field-level `@<lang> omit` (ts, py, cpp, pb): the field does not exist in that
+  language's type, codecs, translators, or action payloads. An override inherits its
+  parent field's omit and cannot add one; a pb message reserves the omitted number.
+  Never on a `@key` field, never in a language the type does not generate, and never in
+  every language the type generates.
+- Go has no field-level omit. `@go marshal omit` keeps a field out of the codec;
+  `@go wire omit` keeps it out of JSON and msgpack (`json:"-" msgpack:"-"`), so the API
+  can return a stored record without a secret. Both are version-owned.
 
 ## Rules
 

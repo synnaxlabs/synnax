@@ -161,7 +161,7 @@ var _ = Describe("Service", func() {
 			"Should open a session for the identity the proof proves",
 			func(ctx SpecContext) {
 				session, token := login(ctx)
-				Expect(token).To(HavePrefix(auth.TokenPrefix))
+				Expect(token).To(HavePrefix("sys_"))
 				Expect(session.Subject).To(Equal(alice))
 				var stored auth.Session
 				Expect(
@@ -217,7 +217,7 @@ var _ = Describe("Service", func() {
 			Entry("empty", func(string) string { return "" }),
 			Entry(
 				"no prefix",
-				func(t string) string { return t[len(auth.TokenPrefix):] },
+				func(t string) string { return t[len("sys_"):] },
 			),
 			Entry("not base64", func(t string) string { return t + "!" }),
 			Entry("too short", func(t string) string { return t[:len(t)-8] }),
