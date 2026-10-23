@@ -14,7 +14,7 @@ package v2
 import (
 	"uuid"
 
-	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
+	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	rackv2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/status"

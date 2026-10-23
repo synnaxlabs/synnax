@@ -107,12 +107,7 @@ export const ValueForm = ({ tab, onTabChange }: FormProps) => {
               label="Fill"
               fallback={colorFallbacks.fillColor()}
             />
-            <Form.Field<text.Level>
-              path="level"
-              label="Size"
-              hideIfNull
-              padHelpText={false}
-            >
+            <Form.Field<text.Level> path="level" label="Size" padHelpText={false}>
               {(p) => <Select.Text.Level {...p} />}
             </Form.Field>
           </Form.Section>
@@ -136,23 +131,13 @@ export const TextForm = (): ReactElement => {
     <Form.Sections x>
       <Form.Section title="Text">
         <Form.TextField path="value" label="Text" padHelpText={false} />
-        <Form.Field<text.Level>
-          path="level"
-          label="Size"
-          hideIfNull
-          padHelpText={false}
-        >
+        <Form.Field<text.Level> path="level" label="Size" padHelpText={false}>
           {(p) => <Select.Text.Level {...p} />}
         </Form.Field>
         <Form.Field<text.Weight> path="weight" label="Weight" padHelpText={false}>
           {(p) => <Select.Text.Weight {...p} />}
         </Form.Field>
-        <Form.Field<Flex.Alignment>
-          path="align"
-          label="Alignment"
-          hideIfNull
-          padHelpText={false}
-        >
+        <Form.Field<Flex.Alignment> path="align" label="Alignment" padHelpText={false}>
           {(p) => <Select.Flex.Alignment {...p} />}
         </Form.Field>
       </Form.Section>
