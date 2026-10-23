@@ -90,12 +90,12 @@ export type SetChannelNotationPayload = z.infer<typeof setChannelNotationPayload
 
 /**
  * SetChannelPrecision sets the number of decimal digits displayed for the entry
- * identified by channel. -1 means "use the log-level precision". No-op when no entry
- * references the channel.
+ * identified by channel. Absent clears it, so samples show as they arrive. No-op when
+ * no entry references the channel.
  */
 export const setChannelPrecisionPayloadZ = z.object({
   channel: channel.keyZ,
-  precision: z.int32(),
+  precision: z.int32().optional(),
 });
 
 export type SetChannelPrecisionPayload = z.infer<typeof setChannelPrecisionPayloadZ>;

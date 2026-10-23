@@ -16,11 +16,12 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
 )
 
 // Latest is the portable schema version stamped on exported Log envelopes and the
 // highest version import accepts. It equals the resource's current schema version.
-const Latest = v2.Version
+const Latest = v3.Version
 
 // autoDecodeEnvelope decodes a server-exported envelope as its version's Log
 // shape and lifts it through the per-version migration chain to the current shape. A
@@ -28,6 +29,16 @@ const Latest = v2.Version
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Log, error) {
 	switch env.Version {
 	case v2.Version:
+		t2, err := env.Decode[v2.Log](ctx)
+		if err != nil {
+			return Log{}, err
+		}
+		t3, err := v3.MigrateLog(ctx, t2)
+		if err != nil {
+			return Log{}, err
+		}
+		return t3, nil
+	case v3.Version:
 		return env.Decode[Log](ctx)
 	}
 	return Log{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)

@@ -85,11 +85,11 @@ type SetChannelNotationPayload struct {
 }
 
 // SetChannelPrecisionPayload sets the number of decimal digits displayed for the entry
-// identified by channel. -1 means "use the log-level precision". No-op when no entry
-// references the channel.
+// identified by channel. Absent clears it, so samples show as they arrive. No-op when
+// no entry references the channel.
 type SetChannelPrecisionPayload struct {
 	Channel   channel.Key `json:"channel" msgpack:"channel"`
-	Precision int32       `json:"precision" msgpack:"precision"`
+	Precision *int32      `json:"precision,omitzero" msgpack:"precision,omitempty"`
 }
 
 // SetChannelAliasPayload sets the human-readable alias of the entry identified by

@@ -36,10 +36,10 @@ export const channelEntryZ = z.object({
   /** notation is the numeric notation used to render samples. */
   notation: notation.notationZ.default("standard"),
   /**
-   * precision is the number of decimal digits to display. -1 means "use the log-level
-   * precision"; 17 is the maximum significant digits for a float64.
+   * precision is the number of decimal digits to display. Absent shows each sample as
+   * it arrives; 17 is the maximum significant digits for a float64.
    */
-  precision: z.int32().min(-1).max(17).default(-1),
+  precision: z.int32().min(0).max(17).optional(),
   /** alias is a human-readable alias displayed in place of the channel name. */
   alias: z.string().default(""),
   /** timestamp is the per-channel timestamp display configuration. */
