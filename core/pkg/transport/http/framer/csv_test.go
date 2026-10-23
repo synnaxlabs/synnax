@@ -106,6 +106,29 @@ var _ = Describe("CSV", func() {
 			)))
 		})
 
+		It("Should quote an empty value to tell it apart from a missing one", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.StringT, telem.BytesT)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1),
+				channels,
+				telem.NewSeriesV(""),
+				telem.NewSeriesV([]byte{}),
+			)
+			b := MustSucceed(
+				framer.CSVEncoder.Encode(ctx, read(ctx, index, channels...)),
+			)
+			Expect(string(b)).To(Equal(fmt.Sprintf(
+				"%s,%s,%s\n1000000000,\"\",\"\"\n",
+				index.Name,
+				channels[0].Name,
+				channels[1].Name,
+			)))
+		})
+
 		It("Should write a UUID in canonical form and bytes as base64", func(
 			ctx SpecContext,
 		) {

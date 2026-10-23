@@ -29,8 +29,9 @@ const csvFlushSize = 64 << 10
 // channel, headed by the channel's name. Rows are ordered by timestamp, and a group's
 // cells are empty at a timestamp it has no sample for. A data channel's cell holds its
 // sample at the alignment of the row's index sample, and is empty when the channel has
-// no sample there. A channel is excluded when the read does not include its index. A
-// read that fails after the first byte truncates the body.
+// no sample there. An empty variable-length sample is written as "", so it differs
+// from a missing one. A channel is excluded when the read does not include its index.
+// A read that fails after the first byte truncates the body.
 var CSVEncoder csvEncoder
 
 type csvEncoder struct{}
@@ -322,6 +323,9 @@ func appendCSVSample(dst []byte, c *csvColumn) ([]byte, error) {
 	// Only variable-length text can hold a character that needs quoting.
 	if c.size != 0 {
 		return dst, nil
+	}
+	if len(dst) == start {
+		return append(dst, `""`...), nil
 	}
 	return quoteCSVField(dst, start), nil
 }
