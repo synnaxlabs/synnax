@@ -10,6 +10,7 @@
 export * from "@/input/Checkbox";
 export * from "@/input/DragButton";
 export * from "@/input/HelpText";
+export * from "@/input/IconPicker";
 export * from "@/input/Item";
 export * from "@/input/Label";
 export * from "@/input/Numeric";
