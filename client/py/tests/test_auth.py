@@ -15,6 +15,7 @@ import freighter
 import synnax as sy
 from freighter import Context, Empty, Next
 from freighter.mock import MockUnaryClient
+from synnax.auth.client import _SessionCreateResponse
 from tests.proxy import Proxy
 
 
@@ -53,7 +54,7 @@ class TestAuthRetry:
         """Fixture that provides the mock clients and auth setup for retry tests."""
         # Setup mock login client with two successful login responses
         user_key = uuid4()
-        res = sy.auth.SessionCreateResponse(
+        res = _SessionCreateResponse(
             token="abc",
             session=sy.auth.Session(
                 key=uuid4(),
@@ -128,8 +129,7 @@ class TestAuthRetry:
         )
         login = MockUnaryClient(
             responses=[
-                sy.auth.SessionCreateResponse(token=t, session=session)
-                for t in ("abc", "def")
+                _SessionCreateResponse(token=t, session=session) for t in ("abc", "def")
             ]
         )
         auth = sy.auth.Client(login, "synnax", "seldon")

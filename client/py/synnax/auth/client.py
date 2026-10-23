@@ -27,32 +27,32 @@ from synnax.user.payload import User
 from synnax.util.send_required import send_required
 
 
-class SessionCreateRequest(BaseModel):
+class _SessionCreateRequest(BaseModel):
     proof: Proof
 
 
-class SessionCreateResponse(BaseModel):
+class _SessionCreateResponse(BaseModel):
     token: str
     session: Session
     user: User | None = None
 
 
-class SessionRetrieveRequest(BaseModel):
+class _SessionRetrieveRequest(BaseModel):
     subjects: list[ontology.ID] = []
 
 
-class SessionRetrieveResponse(BaseModel):
+class _SessionRetrieveResponse(BaseModel):
     sessions: list[Session] = []
 
 
-class SessionDeleteRequest(BaseModel):
+class _SessionDeleteRequest(BaseModel):
     keys: list[SessionKey] = []
 
 
-SESSION_CREATE_ENDPOINT = "/auth/session/create"
-SESSION_RENEW_ENDPOINT = "/auth/session/renew"
-SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve"
-SESSION_DELETE_ENDPOINT = "/auth/session/delete"
+_SESSION_CREATE_ENDPOINT = "/auth/session/create"
+_SESSION_RENEW_ENDPOINT = "/auth/session/renew"
+_SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve"
+_SESSION_DELETE_ENDPOINT = "/auth/session/delete"
 
 AUTHORIZATION_HEADER = "Authorization"
 RETRY_ON_ERRORS = (InvalidToken, ExpiredToken, SessionEnded)
@@ -95,11 +95,11 @@ class Client:
         """Opens a session with the stored username and password."""
         res = send_required(
             self.client,
-            SESSION_CREATE_ENDPOINT,
-            SessionCreateRequest(
+            _SESSION_CREATE_ENDPOINT,
+            _SessionCreateRequest(
                 proof=PasswordProof(username=self.username, password=self.password)
             ),
-            SessionCreateResponse,
+            _SessionCreateResponse,
         )
         self.token = res.token
         self.session = res.session
@@ -113,7 +113,7 @@ class Client:
 
     def renew(self) -> None:
         """Reports activity on the session so it does not idle out."""
-        send_required(self.client, SESSION_RENEW_ENDPOINT, Empty(), Empty)
+        send_required(self.client, _SESSION_RENEW_ENDPOINT, Empty(), Empty)
 
     def retrieve_sessions(
         self, subjects: list[ontology.ID] | None = None
@@ -123,9 +123,9 @@ class Client:
         """
         res = send_required(
             self.client,
-            SESSION_RETRIEVE_ENDPOINT,
-            SessionRetrieveRequest(subjects=subjects or []),
-            SessionRetrieveResponse,
+            _SESSION_RETRIEVE_ENDPOINT,
+            _SessionRetrieveRequest(subjects=subjects or []),
+            _SessionRetrieveResponse,
         )
         return res.sessions
 
@@ -133,8 +133,8 @@ class Client:
         """Ends the given sessions. Unknown keys are ignored."""
         send_required(
             self.client,
-            SESSION_DELETE_ENDPOINT,
-            SessionDeleteRequest(keys=list(keys)),
+            _SESSION_DELETE_ENDPOINT,
+            _SessionDeleteRequest(keys=list(keys)),
             Empty,
         )
 
@@ -164,12 +164,12 @@ class Client:
         """Attaches the token and reports whether a rejected token may log in again."""
         target = ctx.target.rstrip("/")
         # The login request itself carries no token, and must not trigger a login.
-        if target.endswith(SESSION_CREATE_ENDPOINT):
+        if target.endswith(_SESSION_CREATE_ENDPOINT):
             return False
         # A logout ends the session its token belongs to; a dead one must not log in
         # again.
         logout_token = self._logout_token.get()
-        if logout_token is not None and target.endswith(SESSION_DELETE_ENDPOINT):
+        if logout_token is not None and target.endswith(_SESSION_DELETE_ENDPOINT):
             ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + logout_token)
             return False
         if not self.authenticated:

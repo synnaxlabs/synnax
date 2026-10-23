@@ -44,16 +44,21 @@ const retrieveResZ = z.object({ sessions: sessionZ.array() });
 const deleteReqZ = z.object({ keys: sessionKeyZ.array() });
 const emptyResZ = z.object({});
 
-/** The login route a Core without sessions serves. Kept exempt for one release. */
-export const LEGACY_LOGIN_ENDPOINT = "/auth/login";
-/** Opens a session from a proof. Works without a token. */
-export const SESSION_CREATE_ENDPOINT = "/auth/session/create";
-/** Reports activity on the caller's session. */
-export const SESSION_RENEW_ENDPOINT = "/auth/session/renew";
-/** Lists sessions. */
-export const SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve";
-/** Ends sessions. */
-export const SESSION_DELETE_ENDPOINT = "/auth/session/delete";
+// the login route a Core without sessions serves; kept for one release
+const LEGACY_LOGIN_ENDPOINT = "/auth/login";
+const SESSION_CREATE_ENDPOINT = "/auth/session/create";
+const SESSION_RENEW_ENDPOINT = "/auth/session/renew";
+const SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve";
+const SESSION_DELETE_ENDPOINT = "/auth/session/delete";
+
+/** The routes the client sends to as it opens, keeps, and ends a session. */
+export const SESSION_ENDPOINTS = [
+  LEGACY_LOGIN_ENDPOINT,
+  SESSION_CREATE_ENDPOINT,
+  SESSION_RENEW_ENDPOINT,
+  SESSION_RETRIEVE_ENDPOINT,
+  SESSION_DELETE_ENDPOINT,
+] as const;
 
 const MAX_RETRIES = 3;
 
