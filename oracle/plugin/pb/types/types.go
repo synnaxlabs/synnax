@@ -12,7 +12,6 @@ package types
 import (
 	"bytes"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -254,7 +253,7 @@ func (p *Plugin) generateFile(
 	}
 
 	data := &templateData{
-		Package:    derivePackageName(outputPath, structs),
+		Package:    derivePackageName(outputPath, namespace),
 		GoPackage:  deriveGoPackage(outputPath, repoRoot),
 		OutputPath: outputPath,
 		Namespace:  namespace,
@@ -301,25 +300,10 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-func derivePackageName(outputPath string, structs []resolution.Type) string {
-	namespace := ""
-	if len(structs) > 0 {
-		namespace = structs[0].Namespace
-	} else {
-		// Fallback: derive namespace from output path
-		parts := strings.Split(outputPath, "/")
-		if len(parts) >= 1 {
-			if parts[len(parts)-1] == "pb" && len(parts) >= 2 {
-				namespace = parts[len(parts)-2]
-			} else {
-				namespace = parts[len(parts)-1]
-			}
-		} else {
-			namespace = filepath.Base(outputPath)
-		}
-	}
-	prefix := deriveLayerPrefix(outputPath)
-	return prefix + "." + namespace + ".pb"
+// derivePackageName names the proto package generated at outputPath for the schema
+// namespace. The C++ plugins mirror it in naming.PBNamespace.
+func derivePackageName(outputPath, namespace string) string {
+	return deriveLayerPrefix(outputPath) + "." + namespace + ".pb"
 }
 
 func deriveLayerPrefix(outputPath string) string {
@@ -638,7 +622,7 @@ func (p *Plugin) resolveUnionType(
 	}
 	importPath := targetOutputPath + "/" + resolved.Namespace + ".proto"
 	data.imports.add(importPath)
-	pkg := derivePackageName(targetOutputPath, []resolution.Type{resolved})
+	pkg := derivePackageName(targetOutputPath, resolved.Namespace)
 	return fmt.Sprintf(".%s.%s", pkg, pbName), nil
 }
 
@@ -749,7 +733,7 @@ func (p *Plugin) resolveStructType(
 	importPath := targetOutputPath + "/" + resolved.Namespace + ".proto"
 	data.imports.add(importPath)
 
-	pkg := derivePackageName(targetOutputPath, []resolution.Type{resolved})
+	pkg := derivePackageName(targetOutputPath, resolved.Namespace)
 	return fmt.Sprintf(".%s.%s", pkg, pbName), nil
 }
 
@@ -766,7 +750,7 @@ func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) s
 	importPath := targetOutputPath + "/" + resolved.Namespace + ".proto"
 	data.imports.add(importPath)
 
-	pkg := deriveLayerPrefix(targetOutputPath) + "." + resolved.Namespace + ".pb"
+	pkg := derivePackageName(targetOutputPath, resolved.Namespace)
 	return fmt.Sprintf(".%s.%s", pkg, resolved.Name)
 }
 

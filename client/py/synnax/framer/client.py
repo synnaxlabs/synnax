@@ -22,10 +22,10 @@ from freighter import (
 )
 from synnax import ontology
 from synnax.channel.retrieve import Retriever
-from synnax.exceptions import QueryError
+from synnax.exceptions import QueryError, ValidationError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.deleter import Deleter
-from synnax.framer.frame import CrudeFrame, Frame, K
+from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K
 from synnax.framer.iterator import AUTO_SPAN, Iterator
 from synnax.framer.reader import Reader
 from synnax.framer.streamer import DEFAULT_KEEP_ALIVE, AsyncStreamer, Streamer
@@ -206,17 +206,18 @@ class Client:
         *,
         strict: bool = False,
     ) -> None:
-        parsed_channels: channel.Params = []
-        if isinstance(channels, (list, channel.Key, channel.Payload, str)):
-            parsed_channels = channels
-        elif isinstance(channels, Mapping):
+        parsed_channels: channel.Params
+        if isinstance(channels, Mapping):
             # normalize_params rejects a mix of keys and names
             parsed_channels = cast(channel.Params, list(channels.keys()))
         elif isinstance(channels, Frame):
-            # Frame channels are homogeneous (all Key or all str) at runtime
             parsed_channels = cast(channel.Params, channels.channels)
+        elif isinstance(channels, FramePayload):
+            parsed_channels = channels.keys
         elif isinstance(channels, pd.DataFrame):
             parsed_channels = list(channels.columns)
+        else:
+            parsed_channels = channels
         with self.open_writer(
             start=start,
             channels=parsed_channels,
@@ -225,7 +226,12 @@ class Client:
             err_on_unauthorized=True,
             auto_index_persist_interval=TimeSpan.MAX,
         ) as w:
-            w.write(channels, series)  # type: ignore[arg-type]
+            if isinstance(channels, (Mapping, Frame, FramePayload, pd.DataFrame)):
+                w.write(channels)
+            elif series is None:
+                raise ValidationError(f"No series provided for channels {channels}")
+            else:
+                w.write(channels, series)
 
     @overload
     def read(

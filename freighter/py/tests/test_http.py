@@ -9,6 +9,8 @@
 
 import itertools
 import json
+import socket
+import ssl
 import threading
 import uuid
 import warnings
@@ -18,6 +20,7 @@ import pytest
 from urllib3 import Retry
 from urllib3.exceptions import ProtocolError
 
+import freighter
 from freighter import URL
 from freighter.context import Context
 from freighter.http import HTTPClient
@@ -35,7 +38,7 @@ def client(endpoint: URL) -> HTTPClient:
 class TestConstruction:
     def test_url_unchanged(self, endpoint: URL) -> None:
         """Should not change the protocol of the URL passed by the caller."""
-        HTTPClient(endpoint, JSONCodec(), secure=True)
+        HTTPClient(endpoint, JSONCodec(), ssl_context=ssl.create_default_context())
         assert endpoint.protocol == ""
 
     def test_warning_filters_unchanged(self, endpoint: URL) -> None:
@@ -43,6 +46,29 @@ class TestConstruction:
         before = list(warnings.filters)
         HTTPClient(endpoint, JSONCodec())
         assert warnings.filters == before
+
+
+@pytest.fixture
+def unreachable_client() -> HTTPClient:
+    """A client whose endpoint is a closed local port."""
+    with socket.socket() as sock:
+        sock.bind(("localhost", 0))
+        port = sock.getsockname()[1]
+    return HTTPClient(URL("localhost", port), JSONCodec())
+
+
+class TestUnreachable:
+    def test_send(self, unreachable_client: HTTPClient) -> None:
+        """Should raise Unreachable when a send cannot connect."""
+        with pytest.raises(freighter.Unreachable):
+            unreachable_client.send("/echo", Message(id=1, message="hello"), Message)
+
+    def test_upload(self, unreachable_client: HTTPClient, tmp_path: Path) -> None:
+        """Should raise Unreachable when an upload cannot connect."""
+        path = tmp_path / "in.json"
+        path.write_bytes(JSONCodec().encode(Message(id=1, message="hello")))
+        with pytest.raises(freighter.Unreachable):
+            unreachable_client.upload("/echo", path, Message)
 
 
 @pytest.mark.http
