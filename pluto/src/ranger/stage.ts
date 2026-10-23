@@ -42,8 +42,24 @@ export const getStage = (
 const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
 /**
- * @returns the time to read the stage of `timeRange` at. It holds across renders and
- * advances when now crosses one of the range's ends or the range changes.
+ * @returns the next instant after `now` that changes how the range reads: one of its
+ * ends, a day past the start of an open range, or local midnight.
+ */
+const nextBoundary = (start: number, end: number, now: TimeStamp): number => {
+  const midnight = now.date();
+  midnight.setHours(24, 0, 0, 0);
+  let next = new TimeStamp(midnight).nanoseconds;
+  const day = end >= UNSET ? start + Number(TimeSpan.DAY.valueOf()) : UNSET;
+  for (const instant of [start, end, day])
+    if (instant < UNSET && instant > now.nanoseconds && instant < next) next = instant;
+  return next;
+};
+
+/**
+ * @returns the time to read the stage and labels of `timeRange` at. It holds across
+ * renders and advances when the range changes or now crosses an instant that changes
+ * how the range reads: one of its ends, a day past the start of an open range, or local
+ * midnight.
  */
 export const useClock = (timeRange: CrudeTimeRange): TimeStamp => {
   const { start, end } = new TimeRange(timeRange).makeValid().numeric;
@@ -58,11 +74,8 @@ export const useClock = (timeRange: CrudeTimeRange): TimeStamp => {
     [start, end],
   );
   const { now } = clock;
-  let boundary: number | null = null;
-  if (start < UNSET && start > now.nanoseconds) boundary = start;
-  else if (end < UNSET && end > now.nanoseconds) boundary = end;
+  const boundary = nextBoundary(start, end, now);
   useEffect(() => {
-    if (boundary == null) return;
     const remaining = (boundary - TimeStamp.now().nanoseconds) / 1e6;
     const delay = Math.min(Math.max(0, Math.ceil(remaining)) + 1, MAX_TIMEOUT_MS);
     const t = setTimeout(
