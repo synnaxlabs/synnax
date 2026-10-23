@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bus, type library } from "@synnaxlabs/client";
+import { bus, type icd } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -30,7 +30,7 @@ const TYPE_NAMES = {
 const BYTE_ORDER_NAMES = {
   little_endian: "Little endian",
   big_endian: "Big endian",
-} as const satisfies Record<library.ByteOrder, string>;
+} as const satisfies Record<icd.ByteOrder, string>;
 
 const CHECKSUM_NAMES = {
   none: "None",
@@ -51,7 +51,7 @@ const TypeField = Form.buildSelectField<bus.FramingType>({
   inputProps: { resourceName: "framing", children: Task.selectItems(TYPE_NAMES) },
 });
 
-const ByteOrderField = Form.buildSelectField<library.ByteOrder>({
+const ByteOrderField = Form.buildSelectField<icd.ByteOrder>({
   inputProps: {
     resourceName: "byte order",
     children: Task.selectItems(BYTE_ORDER_NAMES),

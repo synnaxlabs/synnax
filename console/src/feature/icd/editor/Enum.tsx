@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type library } from "@synnaxlabs/client";
+import { type icd } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { useNestedStatus } from "@/feature/library/editor/useNestedStatus";
+import { useNestedStatus } from "@/feature/icd/editor/useNestedStatus";
 
 /** Appends the value after the largest one, so a new row starts out unique. */
 const createRow = (rows: Input.TableCell[][]): Input.TableCell[] => {
@@ -30,7 +30,7 @@ export interface EnumProps {
 export const Enum = ({ path }: EnumProps): ReactElement => {
   const valuesPath = `${path}.values`;
   const { set } = Form.useContext();
-  const values = Form.useFieldValue<library.EnumValue[]>(valuesPath);
+  const values = Form.useFieldValue<icd.EnumValue[]>(valuesPath);
   const rows = useMemo(() => values.map(({ value, name }) => [value, name]), [values]);
   const handleChange = (next: Input.TableCell[][]) =>
     set(

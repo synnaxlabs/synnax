@@ -7,30 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type library } from "@synnaxlabs/client";
+import { type icd } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Library } from "@synnaxlabs/pluto";
+import { ICD } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useSyncExternalStore } from "react";
 
-const PATH = "config.library";
+const PATH = "config.icd";
 
 /**
- * Picks the library a task reads its messages from. A new task has none. Changing it
- * removes the task's messages, since their keys belong to the old library.
+ * Picks the ICD a task reads its messages from. A new task has none. Changing it
+ * removes the task's messages, since their keys belong to the old ICD.
  */
-export const SelectLibrary = (): ReactElement => {
+export const SelectICD = (): ReactElement => {
   const { set, bind, getStatuses, mode } = Form.useContext();
-  const value = Form.useFieldValue<library.Key>(PATH, { optional: true });
+  const value = Form.useFieldValue<icd.Key>(PATH, { optional: true });
   // A form keeps no field state for an absent value, so the status that configure sets
-  // on a missing library is only in the form's statuses.
+  // on a missing ICD is only in the form's statuses.
   const status = useSyncExternalStore(
     bind,
     useCallback(() => getStatuses().find((s) => s.key === PATH), [getStatuses]),
   );
   const preview = mode === "preview";
   const handleChange = useCallback(
-    (next: library.Key | null) => {
+    (next: icd.Key | null) => {
       if (next === value) return;
       set(PATH, next ?? undefined);
       set("config.messages", []);
@@ -39,14 +39,14 @@ export const SelectLibrary = (): ReactElement => {
   );
   return (
     <Input.Item
-      label="Library"
+      label="ICD"
       required={!preview}
       padHelpText
       helpText={status?.message}
       status={status?.variant}
       grow
     >
-      <Library.SelectSingle
+      <ICD.SelectSingle
         value={value ?? undefined}
         onChange={handleChange}
         preview={preview}

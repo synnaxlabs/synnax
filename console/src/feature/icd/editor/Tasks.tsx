@@ -7,24 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type library } from "@synnaxlabs/client";
+import { type icd } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Library } from "@synnaxlabs/pluto";
+import { ICD } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
 
 export interface TasksProps {
-  libraryKey: library.Key;
+  icdKey: icd.Key;
 }
 
-/** Lists the tasks that use the library. Selecting one opens it. */
-export const Tasks = ({ libraryKey }: TasksProps): ReactElement => {
-  const { data, variant, status } = Library.useTasksResult({ key: libraryKey });
+/** Lists the tasks that use the ICD. Selecting one opens it. */
+export const Tasks = ({ icdKey }: TasksProps): ReactElement => {
+  const { data, variant, status } = ICD.useTasksResult({ key: icdKey });
   const open = Panel.useOpenResource();
   let content: ReactElement;
   if (variant === "error")
@@ -36,7 +36,7 @@ export const Tasks = ({ libraryKey }: TasksProps): ReactElement => {
   else if (data == null || data.length === 0)
     content = (
       <Text.Text level="small" color={9}>
-        {data == null ? "Loading tasks" : "No tasks use this library"}
+        {data == null ? "Loading tasks" : "No tasks use this ICD"}
       </Text.Text>
     );
   else
@@ -56,7 +56,7 @@ export const Tasks = ({ libraryKey }: TasksProps): ReactElement => {
       </Flex.Box>
     );
   return (
-    <Flex.Box y gap="small" className={CSS.BE("library-editor", "tasks")}>
+    <Flex.Box y gap="small" className={CSS.BE("icd-editor", "tasks")}>
       <Text.Text level="small" weight={500}>
         Used by
       </Text.Text>

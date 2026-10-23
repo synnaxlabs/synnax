@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { library } from "@synnaxlabs/client";
-import { Access, Library } from "@synnaxlabs/pluto";
+import { icd } from "@synnaxlabs/client";
+import { Access, ICD } from "@synnaxlabs/pluto";
 
-import { useCreate } from "@/feature/library/useCreate";
+import { useCreate } from "@/feature/icd/useCreate";
 import { Command } from "@/platform/command";
 
 const CreateCommand = Command.create({
-  key: "create_library",
-  name: "Create library",
-  icon: <Library.CreateIcon />,
-  useVisible: () => Access.useCreateGranted(library.TYPE_ONTOLOGY_ID),
+  key: "create_icd",
+  name: "Create ICD",
+  icon: <ICD.CreateIcon />,
+  useVisible: () => Access.useCreateGranted(icd.TYPE_ONTOLOGY_ID),
   useOnSelect: useCreate,
 });
 

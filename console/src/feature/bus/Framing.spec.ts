@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createBusDevice,
-  createBusLibrary,
+  createBusICD,
   createBusTask,
   createMessage,
   enterField,
@@ -26,7 +26,7 @@ import { clickDeploy, selectFromDropdown } from "@/platform/task/testutil";
 const client = createTestClient();
 
 const render = async (config: Record<string, unknown> = {}) => {
-  const { library, status } = await createBusLibrary(client);
+  const { icd: ic, status } = await createBusICD(client);
   const dev = await createBusDevice(
     client,
     Serial.Device.MAKE,
@@ -36,7 +36,7 @@ const render = async (config: Record<string, unknown> = {}) => {
     client,
     Serial.Task.READ_TYPE,
     Serial.Task.READ_SCHEMAS.config.parse({
-      library: library.key,
+      icd: ic.key,
       device: dev.key,
       messages: [createMessage(status)],
       ...config,

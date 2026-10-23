@@ -17,7 +17,7 @@ import {
 import { Device } from "@/feature/device";
 import { Task } from "@/feature/task";
 
-vi.mock("@/flags", () => ({ FLAGS: { library: true, can: false } }));
+vi.mock("@/flags", () => ({ FLAGS: { icd: true, can: false } }));
 
 describe("bus integration flag off", () => {
   it("should hide every bus selectable and command when off", () => {

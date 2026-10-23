@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createBusDevice,
-  createBusLibrary,
+  createBusICD,
   createBusTask,
   createMessage,
   findFieldRow,
@@ -29,7 +29,7 @@ import { uniqueName } from "@/testutil";
 const client = createTestClient();
 
 const setup = async () => {
-  const lib = await createBusLibrary(client);
+  const fixture = await createBusICD(client);
   const dev = await createBusDevice(
     client,
     TCP.Device.MAKE,
@@ -39,12 +39,12 @@ const setup = async () => {
     client,
     TCP.Task.WRITE_TYPE,
     TCP.Task.WRITE_SCHEMAS.config.parse({
-      library: lib.library.key,
+      icd: fixture.icd.key,
       device: dev.key,
-      messages: [createMessage(lib.status)],
+      messages: [createMessage(fixture.status)],
     }),
   );
-  return { ...lib, dev, draft };
+  return { ...fixture, dev, draft };
 };
 
 const createCommandChannel = async () => {
@@ -93,7 +93,7 @@ describe("bus write task", () => {
   });
 
   it("should put the command channels of each message on its own index", async () => {
-    const { library, engine, brake } = await createBusLibrary(client);
+    const { icd: ic, engine, brake } = await createBusICD(client);
     const dev = await createBusDevice(
       client,
       CAN.Device.MAKE,
@@ -103,7 +103,7 @@ describe("bus write task", () => {
       client,
       CAN.Task.WRITE_TYPE,
       CAN.Task.WRITE_SCHEMAS.config.parse({
-        library: library.key,
+        icd: ic.key,
         device: dev.key,
         messages: [createMessage(engine), createMessage(brake)],
       }),

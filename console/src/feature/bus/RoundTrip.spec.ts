@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { can, type library, serial, type task, tcp, udp } from "@synnaxlabs/client";
+import { can, type icd, serial, type task, tcp, udp } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type record, TimeSpan } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createBusDevice,
-  createBusLibrary,
+  createBusICD,
   createBusTask,
   createMessage,
   findFieldRow,
@@ -43,8 +43,8 @@ interface DeployParams<S extends task.Schemas> {
 }
 
 const expectMessage = (
-  messages: { message: library.EntryKey; fields: { field: library.EntryKey }[] }[],
-  entry: library.MessageEntry,
+  messages: { message: icd.EntryKey; fields: { field: icd.EntryKey }[] }[],
+  entry: icd.MessageEntry,
 ) => {
   expect(messages.map((m) => m.message)).toEqual([entry.key]);
   expect(messages[0].fields.map((f) => f.field)).toEqual(
@@ -70,7 +70,7 @@ const deploy = async <S extends task.Schemas>({
 
 describe("bus config round trip", () => {
   it("should keep a CAN read config", async () => {
-    const lib = await createBusLibrary(client);
+    const fixture = await createBusICD(client);
     const dev = await createBusDevice(
       client,
       CAN.Device.MAKE,
@@ -81,19 +81,19 @@ describe("bus config round trip", () => {
       type: CAN.Task.READ_TYPE,
       schemas: CAN.Task.READ_SCHEMAS,
       config: CAN.Task.READ_SCHEMAS.config.parse({
-        library: lib.library.key,
+        icd: fixture.icd.key,
         device: dev.key,
-        messages: [createMessage(lib.engine)],
+        messages: [createMessage(fixture.engine)],
       }),
       field: "Rpm",
     });
-    expect(config.library).toBe(lib.library.key);
+    expect(config.icd).toBe(fixture.icd.key);
     expect(config.device).toBe(dev.key);
-    expectMessage(config.messages, lib.engine);
+    expectMessage(config.messages, fixture.engine);
   });
 
   it("should keep a CAN write config", async () => {
-    const lib = await createBusLibrary(client);
+    const fixture = await createBusICD(client);
     const dev = await createBusDevice(
       client,
       CAN.Device.MAKE,
@@ -104,18 +104,18 @@ describe("bus config round trip", () => {
       type: CAN.Task.WRITE_TYPE,
       schemas: CAN.Task.WRITE_SCHEMAS,
       config: CAN.Task.WRITE_SCHEMAS.config.parse({
-        library: lib.library.key,
+        icd: fixture.icd.key,
         device: dev.key,
-        messages: [createMessage(lib.engine)],
+        messages: [createMessage(fixture.engine)],
       }),
       field: "Rpm",
     });
     expect(config.device).toBe(dev.key);
-    expectMessage(config.messages, lib.engine);
+    expectMessage(config.messages, fixture.engine);
   });
 
   it("should keep a serial read config with sync framing and poll settings", async () => {
-    const lib = await createBusLibrary(client);
+    const fixture = await createBusICD(client);
     const dev = await createBusDevice(
       client,
       Serial.Device.MAKE,
@@ -136,9 +136,9 @@ describe("bus config round trip", () => {
       type: Serial.Task.READ_TYPE,
       schemas: Serial.Task.READ_SCHEMAS,
       config: Serial.Task.READ_SCHEMAS.config.parse({
-        library: lib.library.key,
+        icd: fixture.icd.key,
         device: dev.key,
-        messages: [createMessage(lib.status)],
+        messages: [createMessage(fixture.status)],
         framing,
         rate: 5,
         timeout: TimeSpan.milliseconds(250),
@@ -149,11 +149,11 @@ describe("bus config round trip", () => {
     expect(config.framing).toEqual(framing);
     expect(config.rate).toBe(5);
     expect(config.timeout.milliseconds).toBe(250);
-    expectMessage(config.messages, lib.status);
+    expectMessage(config.messages, fixture.status);
   });
 
   it("should keep a serial write config with SLIP framing", async () => {
-    const lib = await createBusLibrary(client);
+    const fixture = await createBusICD(client);
     const dev = await createBusDevice(
       client,
       Serial.Device.MAKE,
@@ -164,19 +164,19 @@ describe("bus config round trip", () => {
       type: Serial.Task.WRITE_TYPE,
       schemas: Serial.Task.WRITE_SCHEMAS,
       config: Serial.Task.WRITE_SCHEMAS.config.parse({
-        library: lib.library.key,
+        icd: fixture.icd.key,
         device: dev.key,
-        messages: [createMessage(lib.status)],
+        messages: [createMessage(fixture.status)],
         framing: { type: "slip" },
       }),
       field: "Volts",
     });
     expect(config.framing).toEqual({ type: "slip" });
-    expectMessage(config.messages, lib.status);
+    expectMessage(config.messages, fixture.status);
   });
 
   it("should keep a TCP read config with a two-byte delimiter", async () => {
-    const lib = await createBusLibrary(client);
+    const fixture = await createBusICD(client);
     const dev = await createBusDevice(
       client,
       TCP.Device.MAKE,
@@ -187,9 +187,9 @@ describe("bus config round trip", () => {
       type: TCP.Task.READ_TYPE,
       schemas: TCP.Task.READ_SCHEMAS,
       config: TCP.Task.READ_SCHEMAS.config.parse({
-        library: lib.library.key,
+        icd: fixture.icd.key,
         device: dev.key,
-        messages: [createMessage(lib.status)],
+        messages: [createMessage(fixture.status)],
         framing: { type: "delimiter", delimiter: "\r\n" },
         rate: 20,
         timeout: TimeSpan.milliseconds(50),
@@ -203,7 +203,7 @@ describe("bus config round trip", () => {
   });
 
   it("should keep a TCP write config with fixed framing", async () => {
-    const lib = await createBusLibrary(client);
+    const fixture = await createBusICD(client);
     const dev = await createBusDevice(
       client,
       TCP.Device.MAKE,
@@ -214,9 +214,9 @@ describe("bus config round trip", () => {
       type: TCP.Task.WRITE_TYPE,
       schemas: TCP.Task.WRITE_SCHEMAS,
       config: TCP.Task.WRITE_SCHEMAS.config.parse({
-        library: lib.library.key,
+        icd: fixture.icd.key,
         device: dev.key,
-        messages: [createMessage(lib.status)],
+        messages: [createMessage(fixture.status)],
         framing: { type: "fixed", length: 16 },
       }),
       field: "Volts",
@@ -226,7 +226,7 @@ describe("bus config round trip", () => {
   });
 
   it("should keep a UDP read config with poll settings", async () => {
-    const lib = await createBusLibrary(client);
+    const fixture = await createBusICD(client);
     const dev = await createBusDevice(
       client,
       UDP.Device.MAKE,
@@ -237,9 +237,9 @@ describe("bus config round trip", () => {
       type: UDP.Task.READ_TYPE,
       schemas: UDP.Task.READ_SCHEMAS,
       config: UDP.Task.READ_SCHEMAS.config.parse({
-        library: lib.library.key,
+        icd: fixture.icd.key,
         device: dev.key,
-        messages: [createMessage(lib.status)],
+        messages: [createMessage(fixture.status)],
         rate: 2,
         timeout: TimeSpan.seconds(2),
       }),
@@ -248,11 +248,11 @@ describe("bus config round trip", () => {
     });
     expect(config.rate).toBe(2);
     expect(config.timeout.milliseconds).toBe(2000);
-    expectMessage(config.messages, lib.status);
+    expectMessage(config.messages, fixture.status);
   });
 
   it("should keep a UDP write config", async () => {
-    const lib = await createBusLibrary(client);
+    const fixture = await createBusICD(client);
     const dev = await createBusDevice(
       client,
       UDP.Device.MAKE,
@@ -263,13 +263,13 @@ describe("bus config round trip", () => {
       type: UDP.Task.WRITE_TYPE,
       schemas: UDP.Task.WRITE_SCHEMAS,
       config: UDP.Task.WRITE_SCHEMAS.config.parse({
-        library: lib.library.key,
+        icd: fixture.icd.key,
         device: dev.key,
-        messages: [createMessage(lib.status)],
+        messages: [createMessage(fixture.status)],
       }),
       field: "Volts",
     });
     expect(config.device).toBe(dev.key);
-    expectMessage(config.messages, lib.status);
+    expectMessage(config.messages, fixture.status);
   });
 });

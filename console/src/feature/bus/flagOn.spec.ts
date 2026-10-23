@@ -17,7 +17,7 @@ import {
 import { Device } from "@/feature/device";
 import { Task } from "@/feature/task";
 
-vi.mock("@/flags", () => ({ FLAGS: { library: true, can: true } }));
+vi.mock("@/flags", () => ({ FLAGS: { icd: true, can: true } }));
 
 describe("bus integration flag on", () => {
   it("should register every bus selectable and command when on", () => {

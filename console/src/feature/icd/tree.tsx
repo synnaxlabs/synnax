@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { library } from "@synnaxlabs/client";
+import { icd } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Access, Library } from "@synnaxlabs/pluto";
+import { Access, ICD } from "@synnaxlabs/pluto";
 
-import { useImport } from "@/feature/library/useImport";
+import { useImport } from "@/feature/icd/useImport";
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";
@@ -20,14 +20,15 @@ import { Panel } from "@/platform/panel";
 import { Tree } from "@/platform/tree";
 
 const useRename = Tree.createUseRename({
-  query: Library.useRename,
-  ontologyID: library.ontologyID,
+  query: ICD.useRename,
+  ontologyID: icd.ontologyID,
   convertKey: String,
 });
 
 const useDelete = Tree.createUseDelete({
-  type: "Library",
-  query: Library.useDelete,
+  type: "ICD",
+  icon: "Library",
+  query: ICD.useDelete,
   convertKey: String,
 });
 
@@ -72,11 +73,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 };
 
 const TreeItem = Tree.createItem({
-  type: "library",
+  type: "icd",
   icon: <Icon.Library />,
   hasChildren: false,
   useOnSelect: Panel.useOpenResource,
   ContextMenu: TreeContextMenu,
 });
 
-export const TREE_ITEMS = { library: TreeItem } satisfies Tree.Items;
+export const TREE_ITEMS = { icd: TreeItem } satisfies Tree.Items;

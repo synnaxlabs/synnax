@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type library } from "@synnaxlabs/client";
+import { type icd } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
-import { useNestedStatus } from "@/feature/library/editor/useNestedStatus";
+import { useNestedStatus } from "@/feature/icd/editor/useNestedStatus";
 
-type Field = library.BinaryField | library.TextField;
-type Encoding = "binary" | library.TextFieldType;
+type Field = icd.BinaryField | icd.TextField;
+type Encoding = "binary" | icd.TextFieldType;
 type FieldOf<E extends Encoding> = E extends "binary"
-  ? library.BinaryField
-  : Extract<library.TextField, { encoding: E }>;
+  ? icd.BinaryField
+  : Extract<icd.TextField, { encoding: E }>;
 
 const encodingOf = (field: Field): Encoding =>
   "encoding" in field ? field.encoding : "binary";
@@ -122,7 +122,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       name: "Byte order",
       render: "byteOrder",
       get: ({ byteOrder }) => byteOrder,
-      set: (f, cell) => ({ ...f, byteOrder: cell as library.ByteOrder }),
+      set: (f, cell) => ({ ...f, byteOrder: cell as icd.ByteOrder }),
     },
     {
       name: "Signed",
@@ -136,7 +136,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       get: ({ float }) => Number(float),
       set: (f, cell) => ({ ...f, float: cell === 1 }),
     },
-    ...shared<library.BinaryField>(),
+    ...shared<icd.BinaryField>(),
   ],
   delimited: [
     name(),
@@ -146,7 +146,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       get: ({ position }) => position,
       set: (f, cell) => ({ ...f, position: Number(cell) }),
     },
-    ...shared<library.DelimitedTextField>(),
+    ...shared<icd.DelimitedTextField>(),
   ],
   tagged: [
     name(),
@@ -156,7 +156,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       get: ({ tag }) => tag,
       set: (f, cell) => ({ ...f, tag: String(cell) }),
     },
-    ...shared<library.TaggedTextField>(),
+    ...shared<icd.TaggedTextField>(),
   ],
 };
 
@@ -222,7 +222,7 @@ const mergeFields = (all: Field[], encoding: Encoding, updated: Field[]): Field[
 };
 
 interface CellContext {
-  enums: library.EnumEntry[];
+  enums: icd.EnumEntry[];
   fields: Field[];
 }
 
@@ -327,9 +327,9 @@ export const Fields = ({ path, encoding, label }: FieldsProps): ReactElement => 
   const fieldsPath = `${path}.fields`;
   const { set } = Form.useContext();
   const fields = Form.useFieldValue<Field[]>(fieldsPath);
-  const entries = Form.useFieldValue<library.Entry[]>("entries");
+  const entries = Form.useFieldValue<icd.Entry[]>("entries");
   const enums = useMemo(
-    () => entries.filter((e): e is library.EnumEntry => e.kind === "enum"),
+    () => entries.filter((e): e is icd.EnumEntry => e.kind === "enum"),
     [entries],
   );
   const columns = COLUMNS[encoding] as Column<Field>[];

@@ -10,7 +10,7 @@
 import {
   type bus,
   type channel,
-  type library,
+  type icd,
   type rack,
   type Synnax,
 } from "@synnaxlabs/client";
@@ -89,7 +89,7 @@ const bindFields = async (client: Synnax, unbound: Unbound[]): Promise<void> => 
 interface Context {
   device: string;
   rack: rack.Key;
-  messages: Map<library.EntryKey, library.MessageEntry>;
+  messages: Map<icd.EntryKey, icd.MessageEntry>;
   existing: Set<channel.Key>;
 }
 
@@ -98,19 +98,19 @@ const openContext = async (
   config: bus.ReadConfig | bus.WriteConfig,
   keys: channel.Key[],
 ): Promise<Context> => {
-  const { library: key } = config;
-  if (key == null) throw new Error("Select a library before configuring the task");
-  const [dev, lib, existing] = await Promise.all([
+  const { icd: key } = config;
+  if (key == null) throw new Error("Select an ICD before configuring the task");
+  const [dev, ic, existing] = await Promise.all([
     client.devices.retrieve({ key: config.device }),
-    client.libraries.retrieve({ key }),
+    client.icds.retrieve({ key }),
     retrieveExisting(client, keys),
   ]);
-  return { device: dev.name, rack: dev.rack, messages: messagesOf(lib), existing };
+  return { device: dev.name, rack: dev.rack, messages: messagesOf(ic), existing };
 };
 
-const entryOf = (ctx: Context, m: Message): library.MessageEntry => {
+const entryOf = (ctx: Context, m: Message): icd.MessageEntry => {
   const entry = ctx.messages.get(m.message);
-  if (entry == null) throw new Error(`Message ${m.message} is not in the library`);
+  if (entry == null) throw new Error(`Message ${m.message} is not in the ICD`);
   return entry;
 };
 
@@ -118,7 +118,7 @@ const entryOf = (ctx: Context, m: Message): library.MessageEntry => {
  * @returns the name of the message field with the key.
  * @throws {Error} if the message has no such field.
  */
-const fieldName = (entry: library.MessageEntry, key: library.FieldKey): string => {
+const fieldName = (entry: icd.MessageEntry, key: icd.FieldKey): string => {
   const field = entry.payload.fields.find((f) => f.key === key);
   if (field == null) throw new Error(`Field ${key} is not in message ${entry.name}`);
   return field.name;

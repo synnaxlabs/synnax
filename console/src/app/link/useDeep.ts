@@ -11,7 +11,7 @@ import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
 import { Core } from "@/feature/core";
 import { Device } from "@/feature/device";
-import { Library } from "@/feature/library";
+import { ICD } from "@/feature/icd";
 import { LinePlot } from "@/feature/lineplot";
 import { Link } from "@/feature/link";
 import { Log } from "@/feature/log";
@@ -27,7 +27,7 @@ const LINKS: Link.Registry = {
   ...Arc.LINKS,
   ...Channel.LINKS,
   ...Device.LINKS,
-  ...(FLAGS.library ? Library.LINKS : {}),
+  ...(FLAGS.icd ? ICD.LINKS : {}),
   ...LinePlot.LINKS,
   ...Log.LINKS,
   ...Range.LINKS,

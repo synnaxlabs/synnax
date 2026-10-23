@@ -9,7 +9,7 @@
 
 import "@/feature/bus/Form.css";
 
-import { bus, type library, type task } from "@synnaxlabs/client";
+import { bus, type icd, type task } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { type Icon } from "@synnaxlabs/lyra/icon";
@@ -19,7 +19,7 @@ import { z } from "zod";
 import { configureRead, configureWrite } from "@/feature/bus/configure";
 import { ReadDetails, WriteDetails } from "@/feature/bus/Details";
 import { Messages } from "@/feature/bus/Messages";
-import { SelectLibrary } from "@/feature/bus/SelectLibrary";
+import { SelectICD } from "@/feature/bus/SelectICD";
 import { type Accepts, validateRead, validateWrite } from "@/feature/bus/types";
 import { type Command } from "@/platform/command";
 import { Selector } from "@/platform/selector";
@@ -50,7 +50,7 @@ export interface CreateTasksParams<
   icon: Icon.ReactElement;
   readConfigZ: R;
   writeConfigZ: W;
-  /** Whether the integration can carry a library message. */
+  /** Whether the integration can carry an ICD message. */
   accepts: Accepts;
   /** Selects the task's device. */
   SelectDevice: FC;
@@ -64,13 +64,13 @@ export interface CreateTasksParams<
   writeChecks?: Check<z.infer<W>>[];
 }
 
-const createReadMessage = (entry: library.MessageEntry): bus.ReadMessage =>
+const createReadMessage = (entry: icd.MessageEntry): bus.ReadMessage =>
   bus.readMessageZ.parse({
     message: entry.key,
     fields: entry.payload.fields.map((f) => ({ field: f.key })),
   });
 
-const createWriteMessage = (entry: library.MessageEntry): bus.WriteMessage =>
+const createWriteMessage = (entry: icd.MessageEntry): bus.WriteMessage =>
   bus.writeMessageZ.parse({
     message: entry.key,
     fields: entry.payload.fields.map((f) => ({ field: f.key })),
@@ -85,7 +85,7 @@ const applyChecks = <S extends z.ZodType>(schema: S, checks: Check<z.infer<S>>[]
 /**
  * Creates the read and write task forms of a bus integration and everything that
  * registers them. An integration supplies its config schemas, its device select, and
- * any settings beyond the library, message, and field bindings every bus task shares.
+ * any settings beyond the ICD, message, and field bindings every bus task shares.
  */
 export const createTasks = <
   P extends string,
@@ -122,7 +122,7 @@ export const createTasks = <
   const Shared = () => (
     <>
       <SelectDevice />
-      <SelectLibrary />
+      <SelectICD />
       <Flex.Box x grow>
         <Task.Fields.DataSaving />
         <Task.Fields.AutoStart />

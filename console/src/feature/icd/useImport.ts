@@ -7,43 +7,43 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { library } from "@synnaxlabs/client";
+import { icd } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Library } from "@synnaxlabs/pluto";
+import { ICD } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Runtime } from "@/platform/runtime";
 
-const formatOf = (path: string): library.ImportFormat =>
-  library.importFormatZ.parse(path.split(".").at(-1)?.toLowerCase());
+const formatOf = (path: string): icd.ImportFormat =>
+  icd.importFormatZ.parse(path.split(".").at(-1)?.toLowerCase());
 
 export interface UseImportParams {
-  /** Called with the library the Core holds after the import. */
-  onImport?: (imported: library.Library) => void;
+  /** Called with the ICD the Core holds after the import. */
+  onImport?: (imported: icd.ICD) => void;
 }
 
 /**
  * @returns a function that asks for a DBC, CSV, or XLSX file and imports it into the
- * library with the given key. The file's extension selects the format.
+ * ICD with the given key. The file's extension selects the format.
  */
 export const useImport = ({ onImport }: UseImportParams = {}): ((
-  key: library.Key,
+  key: icd.Key,
 ) => void) => {
   const handleError = Status.useErrorHandler();
-  const { updateAsync } = Library.useImport({
+  const { updateAsync } = ICD.useImport({
     afterSuccess: ({ data }) => onImport?.(data),
   });
   return useCallback(
-    (key: library.Key) =>
+    (key: icd.Key) =>
       handleError(async () => {
         const file = await Runtime.pickFiles({
-          title: "Import library",
-          extension: [...library.IMPORT_FORMATS],
+          title: "Import ICD",
+          extension: [...icd.IMPORT_FORMATS],
         });
         if (file == null) return;
         const data = await Runtime.toBytes(await file.read());
         await updateAsync({ key, format: formatOf(file.path), data });
-      }, "Failed to import library"),
+      }, "Failed to import ICD"),
     [handleError, updateAsync],
   );
 };

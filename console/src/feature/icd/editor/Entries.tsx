@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type library } from "@synnaxlabs/client";
+import { type icd } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -20,30 +20,27 @@ import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { uuid } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { useNestedStatus } from "@/feature/library/editor/useNestedStatus";
+import { useNestedStatus } from "@/feature/icd/editor/useNestedStatus";
 import { CSS } from "@/platform/css";
 
-const KIND_NAMES: Record<library.EntryType, string> = {
+const KIND_NAMES: Record<icd.EntryType, string> = {
   enum: "Enum",
   message: "Message",
 };
 
-const KIND_ICONS: Record<library.EntryType, Icon.ReactElement> = {
+const KIND_ICONS: Record<icd.EntryType, Icon.ReactElement> = {
   enum: <Icon.Constant />,
   message: <Icon.Binary />,
 };
 
-const uniqueName = (kind: library.EntryType, entries: library.Entry[]): string => {
+const uniqueName = (kind: icd.EntryType, entries: icd.Entry[]): string => {
   const names = new Set(entries.map(({ name }) => name));
   let i = entries.length + 1;
   while (names.has(`${KIND_NAMES[kind]} ${i}`)) i++;
   return `${KIND_NAMES[kind]} ${i}`;
 };
 
-const createEntry = (
-  kind: library.EntryType,
-  entries: library.Entry[],
-): library.Entry => {
+const createEntry = (kind: icd.EntryType, entries: icd.Entry[]): icd.Entry => {
   const base = { key: uuid.create(), name: uniqueName(kind, entries) };
   if (kind === "enum") return { ...base, kind, values: [] };
   return { ...base, kind, payload: { format: "binary", fields: [] } };
@@ -56,7 +53,7 @@ interface ItemProps extends List.ItemRenderProps<string> {
 const Item = ({ onRemove, ...rest }: ItemProps): ReactElement | null => {
   const { itemKey } = rest;
   const path = `entries.${itemKey}`;
-  const entry = Form.useFieldValue<library.Entry>(path, { optional: true });
+  const entry = Form.useFieldValue<icd.Entry>(path, { optional: true });
   const status = useNestedStatus(path);
   if (entry == null) return null;
   return (
@@ -89,11 +86,11 @@ export interface EntriesProps {
   onSelect: (key: string | null) => void;
 }
 
-/** Lists the entries of the library, and adds and removes them. */
+/** Lists the entries of the ICD, and adds and removes them. */
 export const Entries = ({ selected, onSelect }: EntriesProps): ReactElement => {
-  const entries = Form.useFieldList<string, library.Entry>("entries");
+  const entries = Form.useFieldList<string, icd.Entry>("entries");
   const { data, push, remove } = entries;
-  const handleAdd = (kind: library.EntryType) => {
+  const handleAdd = (kind: icd.EntryType) => {
     const entry = createEntry(kind, entries.value());
     push(entry);
     onSelect(entry.key);
@@ -103,15 +100,15 @@ export const Entries = ({ selected, onSelect }: EntriesProps): ReactElement => {
     if (key === selected) onSelect(remaining[0] ?? null);
   };
   return (
-    <Flex.Box y empty className={CSS.BE("library-editor", "entries")}>
-      <Select.Frame<string, library.Entry>
+    <Flex.Box y empty className={CSS.BE("icd-editor", "entries")}>
+      <Select.Frame<string, icd.Entry>
         data={data}
         value={selected ?? undefined}
         onChange={onSelect}
         allowNone={false}
       >
         <List.Scroll full="y">
-          <List.Items<string, library.Entry>
+          <List.Items<string, icd.Entry>
             emptyContent={
               <Text.Text center level="small" color={9}>
                 No entries
@@ -122,7 +119,7 @@ export const Entries = ({ selected, onSelect }: EntriesProps): ReactElement => {
           </List.Items>
         </List.Scroll>
       </Select.Frame>
-      <Flex.Box x gap="small" className={CSS.BE("library-editor", "add")}>
+      <Flex.Box x gap="small" className={CSS.BE("icd-editor", "add")}>
         <Button.Button variant="outlined" onClick={() => handleAdd("enum")} grow>
           <Icon.Add />
           Add enum

@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/lyra/icon";
+import { Link } from "@/platform/link";
 
-import { Search } from "@/platform/search";
+const useLink = Link.createUseOpenResourceTab("icd");
 
-const SearchListItem = Search.createListItem({ icon: <Icon.Library /> });
-
-export const SEARCH_LIST_ITEMS: Search.ListItems = { library: SearchListItem };
+export const LINKS: Link.Registry = { icd: useLink };

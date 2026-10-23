@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type library } from "@synnaxlabs/client";
+import { type icd } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -15,11 +15,11 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Fields } from "@/feature/library/editor/Fields";
-import { Identifier } from "@/feature/library/editor/Identifier";
-import { OptionalField, parseInteger } from "@/feature/library/editor/OptionalField";
+import { Fields } from "@/feature/icd/editor/Fields";
+import { Identifier } from "@/feature/icd/editor/Identifier";
+import { OptionalField, parseInteger } from "@/feature/icd/editor/OptionalField";
 
-const createPayload = (format: library.PayloadType): library.Payload => {
+const createPayload = (format: icd.PayloadType): icd.Payload => {
   switch (format) {
     case "binary":
       return { format, fields: [] };
@@ -81,20 +81,17 @@ export interface MessageProps {
 export const Message = ({ path }: MessageProps): ReactElement => {
   const payloadPath = `${path}.payload`;
   const { set } = Form.useContext();
-  const format = Form.useFieldValue<library.PayloadType>(`${payloadPath}.format`);
-  const handleFormatChange = (next: library.PayloadType) => {
+  const format = Form.useFieldValue<icd.PayloadType>(`${payloadPath}.format`);
+  const handleFormatChange = (next: icd.PayloadType) => {
     if (next !== format) set(payloadPath, createPayload(next));
   };
   return (
     <Flex.Box y gap="medium">
       <Flex.Box x wrap gap="large">
         <Input.Item label="Format" padHelpText>
-          <Select.Buttons<library.PayloadType>
-            value={format}
-            onChange={handleFormatChange}
-          >
-            <Select.Item<library.PayloadType> itemKey="binary">Binary</Select.Item>
-            <Select.Item<library.PayloadType> itemKey="text">Text</Select.Item>
+          <Select.Buttons<icd.PayloadType> value={format} onChange={handleFormatChange}>
+            <Select.Item<icd.PayloadType> itemKey="binary">Binary</Select.Item>
+            <Select.Item<icd.PayloadType> itemKey="text">Text</Select.Item>
           </Select.Buttons>
         </Input.Item>
         <OptionalField<TimeSpan>

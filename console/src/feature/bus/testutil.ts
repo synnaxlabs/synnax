@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type library, type Synnax, type task } from "@synnaxlabs/client";
+import { type device, type icd, type Synnax, type task } from "@synnaxlabs/client";
 import { id, type record } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
@@ -21,26 +21,26 @@ import {
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
-export interface BusLibrary {
-  library: library.Library;
+export interface BusICD {
+  icd: icd.ICD;
   /** A CAN message with the binary fields Rpm and Temp. */
-  engine: library.MessageEntry;
+  engine: icd.MessageEntry;
   /** A CAN message with the binary field Pressure. */
-  brake: library.MessageEntry;
+  brake: icd.MessageEntry;
   /** A text message matched by prefix S, with the delimited fields Volts and Amps. */
-  status: library.MessageEntry;
+  status: icd.MessageEntry;
 }
 
-const findMessage = (lib: library.Library, name: string): library.MessageEntry => {
-  const entry = lib.entries.find((e) => e.kind === "message" && e.name === name);
+const findMessage = (ic: icd.ICD, name: string): icd.MessageEntry => {
+  const entry = ic.entries.find((e) => e.kind === "message" && e.name === name);
   if (entry?.kind !== "message") throw new Error(`message ${name} not found`);
   return entry;
 };
 
-/** Creates a library holding two CAN messages and one text message. */
-export const createBusLibrary = async (client: Synnax): Promise<BusLibrary> => {
-  const lib = await client.libraries.create({
-    name: uniqueName("bus_library"),
+/** Creates an ICD holding two CAN messages and one text message. */
+export const createBusICD = async (client: Synnax): Promise<BusICD> => {
+  const ic = await client.icds.create({
+    name: uniqueName("bus_icd"),
     entries: [
       {
         kind: "message",
@@ -80,10 +80,10 @@ export const createBusLibrary = async (client: Synnax): Promise<BusLibrary> => {
     ],
   });
   return {
-    library: lib,
-    engine: findMessage(lib, "Engine"),
-    brake: findMessage(lib, "Brake"),
-    status: findMessage(lib, "Status"),
+    icd: ic,
+    engine: findMessage(ic, "Engine"),
+    brake: findMessage(ic, "Brake"),
+    status: findMessage(ic, "Status"),
   };
 };
 
@@ -140,7 +140,7 @@ export const findFieldRow = async (name: string): Promise<HTMLElement> => {
 };
 
 /** Creates the config entry of a task message that binds every field of entry. */
-export const createMessage = (entry: library.MessageEntry) => ({
+export const createMessage = (entry: icd.MessageEntry) => ({
   message: entry.key,
   fields: entry.payload.fields.map((f) => ({ field: f.key })),
 });

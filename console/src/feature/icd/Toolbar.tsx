@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { library } from "@synnaxlabs/client";
+import { icd } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, type Flux, Library } from "@synnaxlabs/pluto";
+import { Access, type Flux, ICD } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 
-import { useCreate } from "@/feature/library/useCreate";
-import { useImport } from "@/feature/library/useImport";
+import { useCreate } from "@/feature/icd/useCreate";
+import { useImport } from "@/feature/icd/useImport";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { Empty } from "@/platform/empty";
@@ -28,25 +28,25 @@ import { type Nav } from "@/platform/nav";
 import { Panel } from "@/platform/panel";
 import { Toolbar } from "@/platform/toolbar";
 
-const nameID = (key: library.Key): string => `library-name-${key}`;
+const nameID = (key: icd.Key): string => `icd-name-${key}`;
 
 interface ContextMenuProps extends Menu.ContextMenuMenuProps {
-  getItem: List.GetItem<library.Key, library.Library>;
+  getItem: List.GetItem<icd.Key, icd.ICD>;
 }
 
 const ContextMenu = ({ keys, getItem }: ContextMenuProps): ReactElement => {
-  const ids = library.ontologyID(keys);
+  const ids = icd.ontologyID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const openResource = Panel.useOpenResource();
   const handleImport = useImport();
   const handleLink = Core.useCopyLinkToClipboard();
-  const confirm = Modals.useConfirmDelete({ type: "Library" });
-  const { update: del } = Library.useDelete({
+  const confirm = Modals.useConfirmDelete({ type: "ICD", icon: "Library" });
+  const { update: del } = ICD.useDelete({
     beforeUpdate: useCallback(
-      async ({ data }: Flux.BeforeUpdateParams<Library.DeleteParams>) => {
-        const libraries = getItem(array.toArray(data));
-        return (await confirm(libraries)) && data;
+      async ({ data }: Flux.BeforeUpdateParams<ICD.DeleteParams>) => {
+        const icds = getItem(array.toArray(data));
+        return (await confirm(icds)) && data;
       },
       [getItem, confirm],
     ),
@@ -61,7 +61,7 @@ const ContextMenu = ({ keys, getItem }: ContextMenuProps): ReactElement => {
           itemKey="open"
           onClick={() =>
             openResource({
-              id: library.ontologyID(first),
+              id: icd.ontologyID(first),
               key: first,
               name: firstItem.name,
             })
@@ -84,7 +84,7 @@ const ContextMenu = ({ keys, getItem }: ContextMenuProps): ReactElement => {
       {firstItem != null && (
         <Link.CopyContextMenuItem
           onClick={() =>
-            handleLink({ name: firstItem.name, ontologyID: library.ontologyID(first) })
+            handleLink({ name: firstItem.name, ontologyID: icd.ontologyID(first) })
           }
         />
       )}
@@ -98,15 +98,15 @@ const ContextMenu = ({ keys, getItem }: ContextMenuProps): ReactElement => {
   );
 };
 
-interface ItemProps extends List.ItemProps<library.Key> {
-  onOpen: (key: library.Key) => void;
+interface ItemProps extends List.ItemProps<icd.Key> {
+  onOpen: (key: icd.Key) => void;
 }
 
 const Item = ({ onOpen, ...rest }: ItemProps): ReactElement | null => {
   const { itemKey } = rest;
-  const item = List.useItem<library.Key, library.Library>(itemKey);
-  const canRename = Access.useUpdateGranted(library.ontologyID(itemKey));
-  const { update: rename } = Library.useRename();
+  const item = List.useItem<icd.Key, icd.ICD>(itemKey);
+  const canRename = Access.useUpdateGranted(icd.ontologyID(itemKey));
+  const { update: rename } = ICD.useRename();
   if (item == null) return null;
   return (
     <Select.Item {...rest} onDoubleClick={() => onOpen(itemKey)}>
@@ -123,16 +123,15 @@ const Item = ({ onOpen, ...rest }: ItemProps): ReactElement | null => {
 };
 
 const Content = (): ReactElement => {
-  const [selected, setSelected] = useState<library.Key[]>([]);
+  const [selected, setSelected] = useState<icd.Key[]>([]);
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
   const create = useCreate();
-  const canCreate = Access.useCreateGranted(library.TYPE_ONTOLOGY_ID);
-  const { data, getItem, subscribe, retrieve, answered } = Library.useList({});
+  const canCreate = Access.useCreateGranted(icd.TYPE_ONTOLOGY_ID);
+  const { data, getItem, subscribe, retrieve, answered } = ICD.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
   const handleOpen = useCallback(
-    (key: library.Key) =>
-      openTab({ variant: "resource", resource: library.ontologyID(key) }),
+    (key: icd.Key) => openTab({ variant: "resource", resource: icd.ontologyID(key) }),
     [openTab],
   );
   const menu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
@@ -145,15 +144,11 @@ const Content = (): ReactElement => {
         <Toolbar.Header>
           <Toolbar.Title>
             <Icon.Library />
-            Libraries
+            ICDs
           </Toolbar.Title>
           {canCreate && (
             <Toolbar.Actions>
-              <Toolbar.Action
-                tooltip="Create library"
-                onClick={create}
-                variant="filled"
-              >
+              <Toolbar.Action tooltip="Create ICD" onClick={create} variant="filled">
                 <Icon.Add />
               </Toolbar.Action>
             </Toolbar.Actions>
@@ -171,12 +166,12 @@ const Content = (): ReactElement => {
             replaceOnSingle
           >
             <List.Scroll full="y" onContextMenu={menuProps.open}>
-              <List.Items<library.Key, library.Library>
+              <List.Items<icd.Key, icd.ICD>
                 emptyContent={
                   answered && (
                     <Empty.Action
-                      message="No libraries"
-                      action={canCreate ? "Create library" : undefined}
+                      message="No ICDs"
+                      action={canCreate ? "Create ICD" : undefined}
                       onClick={create}
                     />
                   )
@@ -193,12 +188,12 @@ const Content = (): ReactElement => {
 };
 
 export const TOOLBAR: Nav.Toolbar = {
-  key: "library",
+  key: "icd",
   icon: <Icon.Library />,
   content: <Content />,
   trigger: ["L"],
-  tooltip: "Libraries",
+  tooltip: "ICDs",
   sizeBounds: { lower: 225, upper: 400 },
   initialSize: 300,
-  useVisible: () => Access.useRetrieveGranted(library.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(icd.TYPE_ONTOLOGY_ID),
 };

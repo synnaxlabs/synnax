@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type library } from "@synnaxlabs/client";
+import { type icd } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement } from "react";
 
-import { OptionalField, parseInteger } from "@/feature/library/editor/OptionalField";
+import { OptionalField, parseInteger } from "@/feature/icd/editor/OptionalField";
 
-type Type = library.IdentifierType | "none";
+type Type = icd.IdentifierType | "none";
 
 const NAMES: Record<Type, string> = {
   none: "None",
@@ -27,9 +27,9 @@ const NAMES: Record<Type, string> = {
 const TYPES = Object.keys(NAMES) as Type[];
 
 const create = (
-  type: library.IdentifierType,
-  fields: library.BinaryField[],
-): library.Identifier => {
+  type: icd.IdentifierType,
+  fields: icd.BinaryField[],
+): icd.Identifier => {
   switch (type) {
     case "can":
       return { type, id: 0, extended: false, fd: false };
@@ -42,8 +42,8 @@ const formatHex = (value: number): string => `0x${value.toString(16).toUpperCase
 
 interface TypeFieldsProps {
   path: string;
-  type: library.IdentifierType;
-  fields: library.BinaryField[];
+  type: icd.IdentifierType;
+  fields: icd.BinaryField[];
 }
 
 const TypeFields = ({ path, type, fields }: TypeFieldsProps): ReactElement => {
@@ -92,10 +92,10 @@ export interface IdentifierProps {
 export const Identifier = ({ path }: IdentifierProps): ReactElement => {
   const identifierPath = `${path}.identifier`;
   const { set } = Form.useContext();
-  const identifier = Form.useFieldValue<library.Identifier>(identifierPath, {
+  const identifier = Form.useFieldValue<icd.Identifier>(identifierPath, {
     optional: true,
   });
-  const fields = Form.useFieldValue<library.BinaryField[]>(`${path}.fields`);
+  const fields = Form.useFieldValue<icd.BinaryField[]>(`${path}.fields`);
   const handleChange = (type: Type) =>
     set(identifierPath, type === "none" ? undefined : create(type, fields));
   return (

@@ -7,4 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Library from "@/feature/library/external";
+export * as ICD from "@/feature/icd/external";
