@@ -74,7 +74,7 @@ def connect_client(ctx: Context, clusters: ClustersConfig) -> Synnax | None:
 
 def save_api_key(client: Synnax, opts: Options, clusters: ClustersConfig) -> None:
     """Creates an API key for the logged-in user and saves it with opts in place of
-    the username and password. Deletes the key when the save fails.
+    the username and password. Deletes the key when it is not saved.
     """
     token, key = client.auth.create_key(name=f"Python CLI on {socket.gethostname()}")
     try:
@@ -90,7 +90,11 @@ def save_api_key(client: Synnax, opts: Options, clusters: ClustersConfig) -> Non
             )
         )
     except (OSError, KeyringError):
-        client.auth.delete_keys(key.key)
+        # a failure after the save, such as a stale password that cannot be deleted,
+        # leaves the key in use
+        saved = clusters.get()
+        if saved is None or saved.options.api_key != token:
+            client.auth.delete_keys(key.key)
         raise
 
 

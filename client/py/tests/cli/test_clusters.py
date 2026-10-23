@@ -12,7 +12,7 @@ from uuid import UUID
 
 import pytest
 from keyring.backend import KeyringBackend
-from keyring.errors import PasswordDeleteError
+from keyring.errors import KeyringError, PasswordDeleteError
 
 import synnax as sy
 from synnax.cli.connect import connect_client
@@ -39,6 +39,11 @@ class MemoryKeyring(KeyringBackend):
     def delete_password(self, service: str, username: str) -> None:
         if self.values.pop((service, username), None) is None:
             raise PasswordDeleteError(username)
+
+
+class UndeletableKeyring(MemoryKeyring):
+    def delete_password(self, service: str, username: str) -> None:
+        raise KeyringError("locked")
 
 
 @pytest.fixture
@@ -254,3 +259,28 @@ class TestConnectClient:
         assert connected is not None
         assert keyring.values == {("synnax", "default"): password}
         assert {k.key for k in client.auth.retrieve_keys()} == before
+
+    def test_keeps_saved_key_when_cleanup_fails(
+        self,
+        tmp_path: Path,
+        login_info: tuple[str, int, str, str],
+        client: sy.Synnax,
+    ) -> None:
+        """Should keep the saved key on the Core when the old password cannot be
+        deleted.
+        """
+        host, port, username, password = login_info
+        before = {k.key for k in client.auth.retrieve_keys()}
+        keyring = UndeletableKeyring()
+        clusters = ClustersConfig(ConfigFile(tmp_path), keyring)
+        save_legacy_password(
+            clusters,
+            keyring,
+            Options(host=host, port=port, username=username, password=password),
+        )
+        assert connect_client(Context(console=MockConsole()), clusters) is not None
+        keyed = connect_client(Context(console=MockConsole()), clusters)
+        assert keyed is not None
+        assert keyed.auth.session is not None
+        assert keyed.auth.session.credential not in before
+        delete_new_keys(client, before)
