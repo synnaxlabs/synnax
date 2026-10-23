@@ -56,6 +56,7 @@ func (p *Plugin) Domains() []string { return nil }
 func (p *Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("py")
 	gen := &framework.Generator{
 		Domain:          "py",
 		FilePattern:     p.Options.FileNamePattern,

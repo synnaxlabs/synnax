@@ -111,9 +111,9 @@ export const Canvas = ({
         dpr: window.devicePixelRatio,
       }));
     };
-    window
-      .matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
-      .addEventListener("change", handleChange, { once: true });
+    const query = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    query.addEventListener("change", handleChange, { once: true });
+    return () => query.removeEventListener("change", handleChange);
   }, [dpr]);
 
   // We want to trigger a re-render when the window is focused or blurred to ensure
@@ -134,6 +134,10 @@ export const Canvas = ({
     };
     window.addEventListener("focus", handler);
     window.addEventListener("blur", handler);
+    return () => {
+      window.removeEventListener("focus", handler);
+      window.removeEventListener("blur", handler);
+    };
   }, [setState]);
 
   const refCallback = useCallback(

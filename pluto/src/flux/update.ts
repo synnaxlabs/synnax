@@ -280,7 +280,7 @@ const useDirect = <
 ): UseDirectUpdateReturn<Input, StatusDetails> => {
   const { name, verbs, ...restParams } = params;
   const initialStatusDetails = parseInitialStatusDetails<StatusDetails>(params);
-  const [result, setResult] = useState<Result<Input | undefined, StatusDetails>>(
+  const [result, setResult] = useState<Result<Input | undefined, StatusDetails>>(() =>
     successResult<Input | undefined, StatusDetails>(
       `${verbs.past} ${name}`,
       undefined,

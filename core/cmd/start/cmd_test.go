@@ -12,6 +12,7 @@ package start_test
 import (
 	"io/fs"
 	"path/filepath"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -107,6 +108,23 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 			))
 		},
 	)
+
+	Describe("Session idle timeout", func() {
+		It("Should fill the default when the flag is unset", func() {
+			viper.Set(start.FlagInsecure, true)
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(start.DefaultCoreConfig.Override(cfg).Validate()).
+				ToNot(MatchError(ContainSubstring("session_idle_timeout")))
+		})
+
+		It("Should reject a negative timeout", func() {
+			viper.Set(start.FlagInsecure, true)
+			viper.Set(start.FlagSessionIdleTimeout, -time.Second)
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(start.DefaultCoreConfig.Override(cfg).Validate()).
+				To(MatchError(ContainSubstring("session_idle_timeout")))
+		})
+	})
 
 	It("Should allow a Tailscale advertised listener in insecure mode", func() {
 		viper.Set(listener.FlagListen, []any{
