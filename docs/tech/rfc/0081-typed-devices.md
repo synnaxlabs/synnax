@@ -242,17 +242,23 @@ service has moved out. Its config mirrors `config.ServiceConfig[E]`:
 
 ```go
 type ServiceConfig[D gorp.Entry[uuid.UUID]] struct {
-    DB              *gorp.DB
-    Ontology        *ontology.Ontology
-    Search          *search.Service
-    Status          *status.Service
-    Signals         *signals.Provider
-    Type            ontology.ResourceType
-    Migrations      []migrate.Migration
-    SetEntryKey     func(*D, uuid.UUID)
-    RackOf          func(D) rack.Key
-    ParentOf        func(D) (ontology.ID, bool)
-    ValidateEntry   func(*D) error
+    DB               *gorp.DB
+    Ontology         *ontology.Ontology
+    Search           *search.Index
+    Status           *status.Service
+    Signals          *signals.Provider
+    Type             ontology.ResourceType
+    Schema           zyn.Schema
+    SearchableFields []string
+    Migrations       []migrate.Migration
+    SetEntryKey      func(*D, uuid.UUID)
+    NameOf           func(D) string
+    RackOf           func(D) rack.Key
+    ParentOf         func(D) (ontology.ID, bool)
+    StatusDetails    func(D) any
+    ValidateEntry    func(*D) error
+    Referenced       func(context.Context, gorp.Tx, uuid.UUID) (bool, error)
+    DeleteChildren   func(context.Context, gorp.Tx, uuid.UUID) error
     alamos.Instrumentation
 }
 ```
@@ -263,8 +269,8 @@ services for `Type`, publishes `sy_<type>_set` and `sy_<type>_delete` through
 `Create` writes the row, an initial unknown status, the ontology resource, and the
 `parent_of` edge from `ParentOf`, or from the rack when there is no parent. `Update`
 takes a function over the stored row, so a caller changes one field group and leaves the
-other as stored. `Delete` refuses with a `validate.ErrValidation` wrap while the
-integration's referrer check returns true, then deletes children, status, resource, and
+other as stored. `Delete` refuses with a `validate.ErrValidation` wrap while
+`Referenced` returns true, then runs `DeleteChildren` and deletes status, resource, and
 row in one transaction.
 
 Each integration service opens one `device.Service[D]` per resource beside its config
