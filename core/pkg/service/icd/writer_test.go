@@ -267,25 +267,24 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
-		It("Should reject a save read before a rename", func(ctx SpecContext) {
-			stale := ic
+		It("Should accept a save read before a rename", func(ctx SpecContext) {
+			read := ic
 			Expect(svc.NewWriter(tx).Rename(ctx, ic.Key, "Renamed")).To(Succeed())
-			Expect(svc.NewWriter(tx).Create(ctx, &stale)).
-				To(MatchError(library.ErrStale))
+			read.Name = "Renamed"
+			Expect(svc.NewWriter(tx).Create(ctx, &read)).To(Succeed())
 			Expect(retrieveICD(ctx, ic.Key).Name).To(Equal("Renamed"))
 		})
 	})
 
 	Describe("Rename", func() {
-		It("Should rename an ICD and update its hash", func(ctx SpecContext) {
+		It("Should rename an ICD and keep its hash", func(ctx SpecContext) {
 			ic := icd.ICD{Name: "Before"}
 			w := svc.NewWriter(tx)
 			Expect(w.Create(ctx, &ic)).To(Succeed())
 			Expect(w.Rename(ctx, ic.Key, "After")).To(Succeed())
 			res := retrieveICD(ctx, ic.Key)
 			Expect(res.Name).To(Equal("After"))
-			Expect(res.Hash).To(Equal(MustSucceed(icd.Hash(res))))
-			Expect(res.Hash).ToNot(Equal(ic.Hash))
+			Expect(res.Hash).To(Equal(ic.Hash))
 		})
 
 		It("Should reject an empty name", func(ctx SpecContext) {

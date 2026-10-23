@@ -16,14 +16,10 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// Hash returns the hash of the ICD's name and entries. The Core stores it in the ICD's
-// Hash field, and a writer sends the hash it read so the Core can reject a stale save.
-func Hash(ic ICD) (string, error) {
-	return library.Hash(struct {
-		Name    string  `json:"name"`
-		Entries []Entry `json:"entries"`
-	}{Name: ic.Name, Entries: ic.Entries})
-}
+// Hash returns the hash of the ICD's entries. The Core stores it in the ICD's Hash
+// field, and a writer sends the hash it read so the Core can reject a stale save. A
+// rename leaves it unchanged.
+func Hash(ic ICD) (string, error) { return library.Hash(ic.Entries) }
 
 // TaskHash returns the hash of the entries a task uses: the messages with the given
 // keys and the enums their fields name. It ignores keys of messages the ICD does not

@@ -39,10 +39,10 @@ var _ = Describe("Hash", func() {
 		Expect(MustSucceed(icd.Hash(a))).To(Equal(MustSucceed(icd.Hash(b))))
 	})
 
-	It("Should change when the name changes", func() {
+	It("Should not change when the name changes", func() {
 		a, b := base(), base()
 		b.Name = "B"
-		Expect(MustSucceed(icd.Hash(a))).ToNot(Equal(MustSucceed(icd.Hash(b))))
+		Expect(MustSucceed(icd.Hash(a))).To(Equal(MustSucceed(icd.Hash(b))))
 	})
 
 	It("Should change when an entry changes", func() {

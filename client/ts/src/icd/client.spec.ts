@@ -150,7 +150,7 @@ describe("icd", () => {
     });
 
     it("should replace an ICD with an existing key", async () => {
-      const ic = await client.icds.create(createNew());
+      const ic = await client.icds.create(createNew("Engine"));
       await client.icds.create({ ...ic, entries: [ic.entries[0]] });
       const retrieved = await client.icds.retrieve(ic.key);
       expect(retrieved.entries).toHaveLength(1);
@@ -158,11 +158,18 @@ describe("icd", () => {
     });
 
     it("should reject a replacement that carries a stale hash", async () => {
-      const ic = await client.icds.create(createNew());
-      await client.icds.create({ ...ic, name: "Changed" });
+      const ic = await client.icds.create(createNew("Engine"));
+      await client.icds.create({ ...ic, entries: [ic.entries[0]] });
       await expect(client.icds.create({ ...ic, entries: [] })).rejects.toEqual(
-        new StaleError("ICD Changed: changed since it was read"),
+        new StaleError("ICD Engine: changed since it was read"),
       );
+    });
+
+    it("should accept a replacement read before a rename", async () => {
+      const ic = await client.icds.create(createNew());
+      await client.icds.rename(ic.key, "Renamed");
+      const saved = await client.icds.create({ ...ic, name: "Renamed", entries: [] });
+      expect(saved.entries).toEqual([]);
     });
 
     it("should reject duplicate entry names", async () => {

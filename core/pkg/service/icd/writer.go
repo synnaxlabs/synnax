@@ -132,8 +132,8 @@ func (w Writer) Import(
 	return ic, nil
 }
 
-// Rename changes the name of the ICD with the given key, and so its Hash. It returns an
-// error wrapping query.ErrNotFound when no ICD has the key.
+// Rename changes the name of the ICD with the given key. It returns an error wrapping
+// query.ErrNotFound when no ICD has the key.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	if name == "" {
 		return validate.PathedError(
@@ -149,10 +149,6 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		return err
 	}
 	ic.Name = name
-	var err error
-	if ic.Hash, err = Hash(ic); err != nil {
-		return err
-	}
 	return w.table.NewCreate().Entry(&ic).Exec(ctx, w.tx)
 }
 
