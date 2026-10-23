@@ -1,0 +1,118 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "CAN | Supported adapters"
+heading: "Supported CAN adapters"
+description:
+  "See which CAN adapters the Synnax Driver supports on each operating system, and how
+  we test each one."
+flag: "can"
+prev: "Task basics"
+prevURL: "/reference/driver/task-basics"
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Table } from "@/components/table";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The Synnax Driver reads from and writes to a CAN bus through a backend. Each backend
+talks to a family of adapters through the vendor library or the operating system. This
+page tells you which backend to use on each operating system, and how much testing each
+combination has had.
+
+<Divider.Divider x />
+
+## Test levels
+
+Each combination of backend and operating system has one of these labels:
+
+- **Hardware** -> We ran the Driver on the real adapter.
+- **Virtual device** -> We ran the Driver through the real operating system driver,
+  connected to a virtual device. For example, SocketCAN on a `vcan` interface.
+- **Model** -> We ran the Driver against a model of the vendor library or the adapter
+  firmware. We built each model from the vendor's documentation and source code. A model
+  can be wrong in ways that only real hardware shows.
+
+A field report on real hardware moves a combination up to **Hardware**. If you use an
+adapter that has the **Model** label, please tell us whether it works.
+
+<Divider.Divider x />
+
+## Backends by operating system
+
+<Table.Data
+  columns={[
+    { key: "backend", name: "Backend", type: "html", width: 150 },
+    { key: "adapters", name: "Adapters", type: "html" },
+    { key: "windows", name: "Windows", type: "html", width: 120 },
+    { key: "macos", name: "macOS", type: "html", width: 120 },
+    { key: "linux", name: "Linux", type: "html", width: 120 },
+  ]}
+  data={[
+    {
+      backend: "SocketCAN",
+      adapters:
+        "Any adapter with a Linux kernel driver, such as PEAK, Kvaser, and candleLight adapters",
+      windows: "Not available",
+      macos: "Not available",
+      linux: "Virtual device",
+    },
+    {
+      backend: "PCAN-Basic",
+      adapters: "PEAK-System PCAN adapters",
+      windows: "Model",
+      macos: "Model",
+      linux: "Use SocketCAN",
+    },
+    {
+      backend: "gs_usb",
+      adapters: "Adapters with candleLight firmware",
+      windows: "Model",
+      macos: "Model",
+      linux: "Use SocketCAN",
+    },
+    {
+      backend: "SLCAN",
+      adapters: "CANable and other adapters that use the LAWICEL serial protocol",
+      windows: "Model",
+      macos: "Model",
+      linux: "Model",
+    },
+    {
+      backend: "Kvaser CANlib",
+      adapters: "Kvaser adapters",
+      windows: "Model",
+      macos: "Not available",
+      linux: "Use SocketCAN",
+    },
+    {
+      backend: "NI-XNET",
+      adapters: "NI-XNET CAN interfaces",
+      windows: "Model",
+      macos: "Not available",
+      linux: "Model (NI Linux Real-Time)",
+    },
+  ]}
+/>
+
+<Note.Note variant="info">
+  On Windows, the SLCAN tests examine the serial protocol but not the serial port.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Vendor libraries
+
+The PCAN-Basic, gs_usb, Kvaser CANlib, and NI-XNET backends use a library from the
+vendor. The Driver loads each library when it starts, so install the library first:
+
+- **PCAN-Basic** -> [PCAN-Basic](https://www.peak-system.com/PCAN-Basic.239.0.html) on
+  Windows, or [PCBUSB](https://www.mac-can.com) on macOS.
+- **gs_usb** -> [libusb](https://libusb.info).
+- **Kvaser CANlib** -> [Kvaser CANlib](https://www.kvaser.com/downloads-kvaser/).
+- **NI-XNET** ->
+  [NI-XNET](https://www.ni.com/en/support/downloads/drivers/download.ni-xnet.html).
+
+If a library is missing, a task that uses its backend shows an error with the download
+link. After you install the library, restart the Driver.

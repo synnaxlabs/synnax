@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { FLAG_PORTAL, VERCEL_ENV } from "astro:env/client";
+import { FLAG_CAN, FLAG_PORTAL, VERCEL_ENV } from "astro:env/client";
 
 // Preview deploys show every flagged surface, so reviewers see dark work.
 const PREVIEW = VERCEL_ENV === "preview";
@@ -24,6 +24,8 @@ export const FLAGS = {
   // Portal team. Hides the header's Log in button until the portal launches, which
   // removes the flag.
   portal: flag(FLAG_PORTAL),
+  // Emiliano Bonilla. Hides the CAN pages until the Console's can flag is removed.
+  can: flag(FLAG_CAN),
 } satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;

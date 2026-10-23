@@ -46,6 +46,11 @@ export default defineConfig({
         access: "public",
         default: false,
       }),
+      FLAG_CAN: envField.boolean({
+        context: "client",
+        access: "public",
+        default: false,
+      }),
     },
   },
   adapter: vercel({

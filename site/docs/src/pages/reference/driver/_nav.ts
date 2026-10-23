@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type PageNavNode } from "@/components/nav/Page";
+import { CAN_NAV } from "@/pages/reference/driver/can/_nav";
 import { ETHERCAT_NAV } from "@/pages/reference/driver/ethercat/_nav";
 import { HTTP_NAV } from "@/pages/reference/driver/http/_nav";
 import { LABJACK_NAV } from "@/pages/reference/driver/labjack/_nav";
@@ -36,6 +37,7 @@ export const DRIVER_NAV: PageNavNode = {
       href: "/reference/driver/task-basics",
       name: "Task basics",
     },
+    CAN_NAV,
     ETHERCAT_NAV,
     HTTP_NAV,
     LABJACK_NAV,
