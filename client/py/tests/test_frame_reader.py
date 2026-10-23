@@ -75,8 +75,8 @@ def _tdms_timestamps(ch: TdmsChannel) -> list[int]:
     ]
 
 
-def _tdms_group(file: TdmsFile, index: sy.Channel) -> TdmsGroup:
-    [group] = [g for g in file.groups() if g.name == index.name]
+def _tdms_group(file: TdmsFile, ch: sy.Channel) -> TdmsGroup:
+    [group] = [g for g in file.groups() if g.name == ch.name]
     return group
 
 
@@ -252,13 +252,20 @@ class TestReader:
         tdms = _read_tdms(client, channels, tmp_path / "out.tdms")
 
         assert tdms.tdms_version == 4713
-        assert [g.name for g in tdms.groups()] == [index.name]
-        [tdms_index, *tdms_channels] = tdms.groups()[0].channels()
+        floats = {sy.DataType.FLOAT32, sy.DataType.FLOAT64}
+        own = [ch for ch in channels if ch.data_type not in floats]
+        assert tdms.groups()[0].name == index.name
+        assert {g.name for g in tdms.groups()} == {index.name, *(c.name for c in own)}
+        [tdms_index, *tdms_channels] = _tdms_group(tdms, index).channels()
         assert tdms_index.name == index.name
         assert tdms_index.data_type is types.TimeStamp
         assert _tdms_timestamps(tdms_index) == timestamps
         by_name = {c.name: c for c in tdms_channels}
-        assert by_name.keys() == {ch.name for ch in channels}
+        assert by_name.keys() == {ch.name for ch in channels if ch.data_type in floats}
+        for ch in own:
+            tdms_time, by_name[ch.name] = _tdms_group(tdms, ch).channels()
+            assert tdms_time.name == index.name
+            assert _tdms_timestamps(tdms_time) == timestamps
         for dt, ch in by_type.items():
             assert by_name[ch.name].data_type is _TDMS_TYPES[dt]
         for dt, values in numeric.items():
@@ -298,15 +305,73 @@ class TestReader:
 
         tdms = _read_tdms(client, [fast, slow], tmp_path / "out.tdms")
 
-        assert {g.name for g in tdms.groups()} == {fast_index.name, slow_index.name}
-        for index, ch, times, values in (
-            (fast_index, fast, fast_times, np.arange(10, dtype=np.float64)),
-            (slow_index, slow, slow_times, np.array([-1, 0, 1], dtype=np.int32)),
-        ):
-            tdms_index, tdms_ch = _tdms_group(tdms, index).channels()
-            assert (tdms_index.name, tdms_ch.name) == (index.name, ch.name)
-            assert _tdms_timestamps(tdms_index) == [int(t) for t in times]
-            np.testing.assert_array_equal(tdms_ch[:], values)
+        assert {g.name for g in tdms.groups()} == {
+            fast_index.name,
+            slow_index.name,
+            slow.name,
+        }
+        tdms_index, tdms_fast = _tdms_group(tdms, fast_index).channels()
+        assert (tdms_index.name, tdms_fast.name) == (fast_index.name, fast.name)
+        assert _tdms_timestamps(tdms_index) == [int(t) for t in fast_times]
+        np.testing.assert_array_equal(tdms_fast[:], np.arange(10, dtype=np.float64))
+        [tdms_index] = _tdms_group(tdms, slow_index).channels()
+        assert _tdms_timestamps(tdms_index) == [int(t) for t in slow_times]
+        tdms_time, tdms_slow = _tdms_group(tdms, slow).channels()
+        assert (tdms_time.name, tdms_slow.name) == (slow_index.name, slow.name)
+        assert _tdms_timestamps(tdms_time) == [int(t) for t in slow_times]
+        np.testing.assert_array_equal(
+            tdms_slow[:], np.array([-1, 0, 1], dtype=np.int32)
+        )
+
+    def test_read_tdms_late_channels(
+        self, client: sy.Synnax, tmp_path: pathlib.Path
+    ) -> None:
+        """Should pair the samples of channels that start late with their
+        timestamps"""
+        index = _create_index(client)
+        full, late_float, late_int = client.channels.create(
+            [
+                sy.Channel(
+                    name=f"test_{random_name()}_{dt}", data_type=dt, index=index.key
+                )
+                for dt in (sy.DataType.FLOAT64, sy.DataType.FLOAT32, sy.DataType.INT32)
+            ]
+        )
+        times = seconds_linspace(1, 6)
+        with client.open_writer(start=times[0], channels=[index.key, full.key]) as w:
+            w.write({index.key: times[:3], full.key: np.arange(3, dtype=np.float64)})
+            w.commit()
+        with client.open_writer(
+            start=times[3],
+            channels=[index.key, full.key, late_float.key, late_int.key],
+        ) as w:
+            w.write(
+                {
+                    index.key: times[3:],
+                    full.key: np.arange(3, 6, dtype=np.float64),
+                    late_float.key: np.array([3, 4, 5], dtype=np.float32),
+                    late_int.key: np.array([-3, -4, -5], dtype=np.int32),
+                }
+            )
+            w.commit()
+
+        tdms = _read_tdms(client, [full, late_float, late_int], tmp_path / "out.tdms")
+
+        tdms_index, *tdms_floats = _tdms_group(tdms, index).channels()
+        assert _tdms_timestamps(tdms_index) == [int(t) for t in times]
+        by_name = {c.name: c for c in tdms_floats}
+        np.testing.assert_array_equal(
+            by_name[full.name][:], np.arange(6, dtype=np.float64)
+        )
+        np.testing.assert_array_equal(
+            by_name[late_float.name][:],
+            np.array([np.nan, np.nan, np.nan, 3, 4, 5], dtype=np.float32),
+        )
+        tdms_time, tdms_int = _tdms_group(tdms, late_int).channels()
+        assert _tdms_timestamps(tdms_time) == [int(t) for t in times[3:]]
+        np.testing.assert_array_equal(
+            tdms_int[:], np.array([-3, -4, -5], dtype=np.int32)
+        )
 
     def test_read_tdms_segments(
         self,

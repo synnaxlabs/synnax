@@ -15,21 +15,22 @@ import (
 	"io"
 	"math"
 	"math/bits"
+	"slices"
 	"strings"
 
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/errors"
 	xhttp "github.com/synnaxlabs/x/http"
 	"github.com/synnaxlabs/x/telem"
 )
 
-// TDMSEncoder encodes a read as an NI TDMS file. Channels are grouped by the index
-// channel that timestamps them, and each group holds its index, then its data channels.
-// The first segment declares every group and channel, and each frame then becomes one
-// segment, so the file streams. Timestamps become TDMS timestamps, and UUID, bytes, and
-// JSON samples become TDMS strings in their text form. A read of a channel whose index
-// it does not include fails before the first byte. A read that fails after the first
-// byte truncates the body.
+// TDMSEncoder encodes a read as an NI TDMS file. Each index channel heads a group named
+// after it, followed by the float channels it timestamps. A float channel holds NaN,
+// which NI tools read as no value, where it has no sample. TDMS has no missing value
+// for other types, so each other channel gets its own group: the timestamps of its
+// samples, then the samples. Each group sets wf_xcolumns to mark its first channel as
+// its time channel. UUID, bytes, and JSON samples become TDMS strings in their text
+// form. A read of a channel whose index it does not include fails before the first
+// byte. A read that fails after the first byte truncates the body.
 var TDMSEncoder tdmsEncoder
 
 type tdmsEncoder struct{}
@@ -55,22 +56,15 @@ func (tdmsEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) err
 	if err != nil {
 		return err
 	}
-	s, err := newTDMSSegmenter(res)
+	f, err := newTDMSFile(res)
 	if err != nil {
 		return err
 	}
-	keys := make(channel.Keys, len(s.channels))
-	for i, ch := range s.channels {
-		keys[i] = ch.key
-	}
-	iter, err := res.OpenIterator(ctx, keys)
-	if err != nil {
+	columns := f.columns()
+	if err = openColumns(ctx, res, columns); err != nil {
 		return err
 	}
-	if err = s.writeHeader(w); err != nil {
-		return errors.Combine(err, iter.Close())
-	}
-	return drain(iter, func(fr Frame) error { return s.writeFrame(w, fr) })
+	return errors.Combine(f.write(w), closeColumns(columns))
 }
 
 const (
@@ -79,6 +73,8 @@ const (
 	tdmsLeadInSize = 28
 	// tdmsNoRawData is the raw data index of an object with no data in a segment.
 	tdmsNoRawData uint32 = 0xFFFFFFFF
+	// tdmsSegmentSamples is the number of index samples after which a segment ends.
+	tdmsSegmentSamples = 100_000
 )
 
 // Flags of a segment's table of contents.
@@ -107,46 +103,101 @@ const (
 	tdmsTimeStamp tdmsDataType = 0x44
 )
 
-// tdmsChannel is a channel of the file.
-type tdmsChannel struct {
-	key      channel.Key
-	path     string
-	dataType telem.DataType
-	tdmsType tdmsDataType
+// tdmsFile writes the segments of a file, reusing its buffers across them.
+type tdmsFile struct {
+	groups  []tdmsGroup
+	objects uint32
+	meta    []byte
+	raw     [][]byte
 }
 
-// tdmsSegmenter writes the segments of a file, reusing its buffers across them.
-type tdmsSegmenter struct {
-	groups   []string
+// tdmsGroup holds an index channel and the channels it timestamps.
+type tdmsGroup struct {
+	index column
+	// path is the object path of the group the index heads.
+	path      string
+	indexPath string
+	// times holds the TDMS timestamps of the segment's index samples.
+	times []byte
+	// channels holds the channels that share the index's timestamps, then the channels
+	// with groups of their own.
 	channels []tdmsChannel
-	meta     []byte
-	raw      []byte
-	text     []byte
 }
 
-func newTDMSSegmenter(res ReadResponse) (*tdmsSegmenter, error) {
-	groups, err := groupByIndex(res)
+// tdmsChannel is a data channel of the file.
+type tdmsChannel struct {
+	column
+	// groupPath is the object path of the channel's own group, or empty when the
+	// channel shares the timestamps of its index.
+	groupPath string
+	path      string
+	// timePath is the object path of the channel's own time channel.
+	timePath string
+	tdmsType tdmsDataType
+	// nan is the sample a channel that shares its index's timestamps holds where it has
+	// none.
+	nan []byte
+	// count is the number of samples the segment holds for the channel.
+	count int
+	// data holds the segment's samples, or the end offset of each string.
+	data []byte
+	// text holds the segment's strings.
+	text []byte
+	// times holds the TDMS timestamps of the segment's samples, for a channel with its
+	// own time channel.
+	times []byte
+}
+
+func newTDMSFile(res ReadResponse) (*tdmsFile, error) {
+	indexGroups, err := groupByIndex(res)
 	if err != nil {
 		return nil, err
 	}
-	s := &tdmsSegmenter{}
-	for _, group := range groups {
-		groupPath := "/" + tdmsName(group[0].Name)
-		s.groups = append(s.groups, groupPath)
-		for _, ch := range group {
+	var (
+		stride = max(res.DownsampleFactor, 1)
+		f      = &tdmsFile{groups: make([]tdmsGroup, len(indexGroups))}
+	)
+	for i, channels := range indexGroups {
+		index := channels[0]
+		g := &f.groups[i]
+		g.index, g.path = newColumn(index, stride), tdmsPath(index.Name)
+		g.indexPath = tdmsPath(index.Name, index.Name)
+		var own []tdmsChannel
+		for _, ch := range channels[1:] {
 			t, err := newTDMSDataType(ch.DataType)
 			if err != nil {
 				return nil, err
 			}
-			s.channels = append(s.channels, tdmsChannel{
-				key:      ch.Key(),
-				path:     groupPath + "/" + tdmsName(ch.Name),
-				dataType: ch.DataType,
+			c := tdmsChannel{
+				column:   newColumn(ch, stride),
 				tdmsType: t,
-			})
+				nan:      tdmsNaN(t),
+			}
+			if c.nan != nil {
+				c.path = tdmsPath(index.Name, ch.Name)
+				g.channels = append(g.channels, c)
+				continue
+			}
+			c.groupPath, c.path = tdmsPath(ch.Name), tdmsPath(ch.Name, ch.Name)
+			c.timePath = tdmsPath(ch.Name, index.Name)
+			own = append(own, c)
+		}
+		g.channels = append(g.channels, own...)
+	}
+	return f, nil
+}
+
+// columns returns a pointer to every column of the file.
+func (f *tdmsFile) columns() []*column {
+	var columns []*column
+	for i := range f.groups {
+		g := &f.groups[i]
+		columns = append(columns, &g.index)
+		for j := range g.channels {
+			columns = append(columns, &g.channels[j].column)
 		}
 	}
-	return s, nil
+	return columns
 }
 
 func newTDMSDataType(dt telem.DataType) (tdmsDataType, error) {
@@ -182,109 +233,264 @@ func newTDMSDataType(dt telem.DataType) (tdmsDataType, error) {
 	}
 }
 
-// tdmsName quotes name as one element of an object path.
-func tdmsName(name string) string {
-	return "'" + strings.ReplaceAll(name, "'", "''") + "'"
-}
-
-// writeHeader writes a segment that declares the file, its groups, and its channels.
-func (s *tdmsSegmenter) writeHeader(w io.Writer) error {
-	s.meta = telem.ByteOrder.AppendUint32(
-		s.meta[:0],
-		uint32(1+len(s.groups)+len(s.channels)),
-	)
-	s.meta = appendTDMSObject(s.meta, "/")
-	for _, g := range s.groups {
-		s.meta = appendTDMSObject(s.meta, g)
-	}
-	for _, c := range s.channels {
-		s.meta = appendTDMSObject(s.meta, c.path)
-	}
-	s.raw = s.raw[:0]
-	return s.write(w, tdmsTocMetaData|tdmsTocNewObjList)
-}
-
-func appendTDMSObject(dst []byte, path string) []byte {
-	dst = appendTDMSString(dst, path)
-	dst = telem.ByteOrder.AppendUint32(dst, tdmsNoRawData)
-	return telem.ByteOrder.AppendUint32(dst, 0)
-}
-
-// writeFrame writes a segment that holds the samples fr carries for the file's
-// channels. It writes nothing when fr carries none.
-func (s *tdmsSegmenter) writeFrame(w io.Writer, fr Frame) error {
-	s.meta, s.raw = s.meta[:4], s.raw[:0]
-	var objects uint32
-	for _, c := range s.channels {
-		series := fr.Get(c.key).Series
-		var count int64
-		for _, ser := range series {
-			count += ser.Len()
-		}
-		if count == 0 {
-			continue
-		}
-		objects++
-		s.meta = appendTDMSString(s.meta, c.path)
-		indexSize := uint32(20)
-		if c.tdmsType == tdmsString {
-			indexSize = 28
-		}
-		s.meta = telem.ByteOrder.AppendUint32(s.meta, indexSize)
-		s.meta = telem.ByteOrder.AppendUint32(s.meta, uint32(c.tdmsType))
-		s.meta = telem.ByteOrder.AppendUint32(s.meta, 1)
-		s.meta = telem.ByteOrder.AppendUint64(s.meta, uint64(count))
-		switch c.tdmsType {
-		case tdmsString:
-			if err := s.appendText(c.dataType, series); err != nil {
-				return err
-			}
-			// The total size covers the offsets and the text.
-			s.meta = telem.ByteOrder.AppendUint64(
-				s.meta,
-				uint64(4*count)+uint64(len(s.text)),
-			)
-		case tdmsTimeStamp:
-			for _, ser := range series {
-				for i := 0; i+8 <= len(ser.Data); i += 8 {
-					ts := telem.TimeStamp(telem.ByteOrder.Uint64(ser.Data[i:]))
-					s.raw = appendTDMSTimeStamp(s.raw, ts)
-				}
-			}
-		default:
-			for _, ser := range series {
-				s.raw = append(s.raw, ser.Data...)
-			}
-		}
-		s.meta = telem.ByteOrder.AppendUint32(s.meta, 0)
-	}
-	if objects == 0 {
+// tdmsNaN returns the NaN sample of t, or nil when t is not a float type.
+func tdmsNaN(t tdmsDataType) []byte {
+	switch t {
+	case tdmsF32:
+		return telem.ByteOrder.AppendUint32(nil, math.Float32bits(float32(math.NaN())))
+	case tdmsF64:
+		return telem.ByteOrder.AppendUint64(nil, math.Float64bits(math.NaN()))
+	default:
 		return nil
 	}
-	telem.ByteOrder.PutUint32(s.meta, objects)
-	return s.write(w, tdmsTocMetaData|tdmsTocNewObjList|tdmsTocRawData)
 }
 
-// appendText appends the raw data of a string channel: the end offset of every string,
-// then the strings.
-func (s *tdmsSegmenter) appendText(dt telem.DataType, series []telem.Series) error {
-	s.text = s.text[:0]
-	for _, ser := range series {
-		for sample := range ser.Samples() {
-			var err error
-			if s.text, err = telem.AppendSampleText(s.text, dt, sample); err != nil {
+// tdmsPath returns the object path of the given names, quoting each one.
+func tdmsPath(names ...string) string {
+	var b strings.Builder
+	for _, name := range names {
+		b.WriteString("/'")
+		b.WriteString(strings.ReplaceAll(name, "'", "''"))
+		b.WriteByte('\'')
+	}
+	return b.String()
+}
+
+// write writes the file: a segment that declares its groups and channels, then the
+// segments of each group's samples.
+func (f *tdmsFile) write(w io.Writer) error {
+	if err := f.writeHeader(w); err != nil {
+		return err
+	}
+	for i := range f.groups {
+		g := &f.groups[i]
+		for {
+			n, err := g.read()
+			if err != nil {
 				return err
 			}
-			if len(s.text) > math.MaxUint32 {
-				return errors.Newf(
-					"text of a TDMS segment exceeds the %d bytes its offsets can address",
-					uint32(math.MaxUint32),
-				)
+			if n == 0 {
+				break
 			}
-			s.raw = telem.ByteOrder.AppendUint32(s.raw, uint32(len(s.text)))
+			if err = f.writeSegment(w, g, n); err != nil {
+				return err
+			}
 		}
 	}
-	s.raw = append(s.raw, s.text...)
+	return nil
+}
+
+func (f *tdmsFile) writeHeader(w io.Writer) error {
+	f.reset()
+	f.appendDeclaration("/", false)
+	for i := range f.groups {
+		g := &f.groups[i]
+		f.appendDeclaration(g.path, true)
+		for j := range g.channels {
+			if c := &g.channels[j]; c.groupPath != "" {
+				f.appendDeclaration(c.groupPath, true)
+			}
+		}
+	}
+	for i := range f.groups {
+		g := &f.groups[i]
+		f.appendDeclaration(g.indexPath, false)
+		for j := range g.channels {
+			c := &g.channels[j]
+			if c.groupPath != "" {
+				f.appendDeclaration(c.timePath, false)
+			}
+			f.appendDeclaration(c.path, false)
+		}
+	}
+	return f.flush(w, tdmsTocMetaData|tdmsTocNewObjList)
+}
+
+// appendDeclaration appends an object with no raw data. A group's object marks its
+// first channel as its time channel.
+func (f *tdmsFile) appendDeclaration(path string, group bool) {
+	f.objects++
+	f.meta = appendTDMSString(f.meta, path)
+	f.meta = telem.ByteOrder.AppendUint32(f.meta, tdmsNoRawData)
+	if !group {
+		f.meta = telem.ByteOrder.AppendUint32(f.meta, 0)
+		return
+	}
+	f.meta = telem.ByteOrder.AppendUint32(f.meta, 1)
+	f.meta = appendTDMSString(f.meta, "wf_xcolumns")
+	f.meta = telem.ByteOrder.AppendUint32(f.meta, uint32(tdmsString))
+	f.meta = appendTDMSString(f.meta, "one")
+}
+
+// writeSegment writes a segment of the n index samples g read and the channel samples
+// at their alignments.
+func (f *tdmsFile) writeSegment(w io.Writer, g *tdmsGroup, n int) error {
+	f.reset()
+	f.appendData(g.indexPath, tdmsTimeStamp, n, g.times, nil)
+	for i := range g.channels {
+		c := &g.channels[i]
+		if c.count == 0 {
+			continue
+		}
+		if c.groupPath != "" {
+			f.appendData(c.timePath, tdmsTimeStamp, c.count, c.times, nil)
+		}
+		f.appendData(c.path, c.tdmsType, c.count, c.data, c.text)
+	}
+	return f.flush(w, tdmsTocMetaData|tdmsTocNewObjList|tdmsTocRawData)
+}
+
+// appendData appends an object that holds count samples of type t in the segment,
+// stored as data followed by text.
+func (f *tdmsFile) appendData(
+	path string,
+	t tdmsDataType,
+	count int,
+	data, text []byte,
+) {
+	f.objects++
+	f.meta = appendTDMSString(f.meta, path)
+	indexSize := uint32(20)
+	if t == tdmsString {
+		indexSize = 28
+	}
+	f.meta = telem.ByteOrder.AppendUint32(f.meta, indexSize)
+	f.meta = telem.ByteOrder.AppendUint32(f.meta, uint32(t))
+	f.meta = telem.ByteOrder.AppendUint32(f.meta, 1)
+	f.meta = telem.ByteOrder.AppendUint64(f.meta, uint64(count))
+	if t == tdmsString {
+		f.meta = telem.ByteOrder.AppendUint64(f.meta, uint64(len(data)+len(text)))
+	}
+	f.meta = telem.ByteOrder.AppendUint32(f.meta, 0)
+	f.raw = append(f.raw, data, text)
+}
+
+// read fills the group's buffers with its next index samples and the channel samples at
+// their alignments. It stops after the series that reaches tdmsSegmentSamples, and
+// returns the number of index samples read.
+func (g *tdmsGroup) read() (int, error) {
+	g.times = g.times[:0]
+	for i := range g.channels {
+		c := &g.channels[i]
+		c.count, c.data, c.text, c.times = 0, c.data[:0], c.text[:0], c.times[:0]
+	}
+	var n int
+	for n < tdmsSegmentSamples {
+		if _, size := g.index.sample(); size == 0 {
+			break
+		}
+		var (
+			start = g.index.alignment()
+			k     = g.index.remaining()
+			data  = g.index.pending[0].Data[g.index.offset:]
+			from  = len(g.times)
+		)
+		for i := range k {
+			ts := telem.TimeStamp(telem.ByteOrder.Uint64(data[8*i:]))
+			g.times = appendTDMSTimeStamp(g.times, ts)
+		}
+		g.index.skip(k)
+		for i := range g.channels {
+			if err := g.channels[i].read(start, k, g.times[from:]); err != nil {
+				return 0, err
+			}
+		}
+		n += k
+	}
+	return n, nil
+}
+
+// read appends the channel's samples at the n index alignments from start, which sit in
+// one domain. times holds the TDMS timestamps of those alignments.
+func (c *tdmsChannel) read(start telem.Alignment, n int, times []byte) error {
+	for i := 0; i < n; {
+		if _, size := c.sample(); size == 0 {
+			c.appendMissing(n - i)
+			return nil
+		}
+		at, a := start.AddSamples(uint32(i)*c.stride), c.alignment()
+		if a < at {
+			return c.unindexedError()
+		}
+		if a > at {
+			gap := n - i
+			if a.DomainIndex() == at.DomainIndex() {
+				d := uint64(a.SampleIndex()-at.SampleIndex()) + uint64(c.stride) - 1
+				gap = min(gap, int(d/uint64(c.stride)))
+			}
+			c.appendMissing(gap)
+			i += gap
+			continue
+		}
+		k := 1
+		if c.size > 0 {
+			k = min(n-i, c.remaining())
+		}
+		if err := c.appendSamples(k); err != nil {
+			return err
+		}
+		if c.groupPath != "" {
+			c.times = append(c.times, times[16*i:16*(i+k)]...)
+		}
+		i += k
+	}
+	return nil
+}
+
+// appendMissing fills k index samples the channel has no sample for. Only a channel
+// that shares its index's timestamps holds anything there.
+func (c *tdmsChannel) appendMissing(k int) {
+	if c.groupPath != "" {
+		return
+	}
+	c.count += k
+	start := len(c.data)
+	c.data = slices.Grow(c.data, k*len(c.nan))[:start+k*len(c.nan)]
+	filled := copy(c.data[start:], c.nan)
+	for filled < k*len(c.nan) {
+		filled += copy(c.data[start+filled:], c.data[start:start+filled])
+	}
+}
+
+// appendSamples appends the next k samples of the series the channel points at.
+func (c *tdmsChannel) appendSamples(k int) error {
+	c.count += k
+	switch c.tdmsType {
+	case tdmsString:
+		for range k {
+			sample, n := c.sample()
+			if err := c.appendText(sample); err != nil {
+				return err
+			}
+			c.advance(n)
+		}
+	case tdmsTimeStamp:
+		data := c.pending[0].Data[c.offset:]
+		for i := range k {
+			ts := telem.TimeStamp(telem.ByteOrder.Uint64(data[8*i:]))
+			c.data = appendTDMSTimeStamp(c.data, ts)
+		}
+		c.skip(k)
+	default:
+		c.data = append(c.data, c.pending[0].Data[c.offset:c.offset+k*c.size]...)
+		c.skip(k)
+	}
+	return nil
+}
+
+// appendText appends the text form of sample to a string channel.
+func (c *tdmsChannel) appendText(sample []byte) error {
+	var err error
+	if c.text, err = telem.AppendSampleText(c.text, c.dataType, sample); err != nil {
+		return err
+	}
+	if len(c.text) > math.MaxUint32 {
+		return errors.Newf(
+			"text of a TDMS segment exceeds the %d bytes its offsets can address",
+			uint32(math.MaxUint32),
+		)
+	}
+	c.data = telem.ByteOrder.AppendUint32(c.data, uint32(len(c.text)))
 	return nil
 }
 
@@ -313,15 +519,33 @@ func appendTDMSString(dst []byte, v string) []byte {
 	return append(dst, v...)
 }
 
-// write writes the lead-in, the metadata, and the raw data of a segment.
-func (s *tdmsSegmenter) write(w io.Writer, toc uint32) error {
+func (f *tdmsFile) reset() {
+	f.objects, f.meta, f.raw = 0, append(f.meta[:0], 0, 0, 0, 0), f.raw[:0]
+}
+
+// flush writes the lead-in, the metadata, and the raw data of a segment.
+func (f *tdmsFile) flush(w io.Writer, toc uint32) error {
+	telem.ByteOrder.PutUint32(f.meta, f.objects)
+	size := len(f.meta)
+	for _, b := range f.raw {
+		size += len(b)
+	}
 	var leadIn [tdmsLeadInSize]byte
 	copy(leadIn[:4], "TDSm")
 	telem.ByteOrder.PutUint32(leadIn[4:], toc)
 	telem.ByteOrder.PutUint32(leadIn[8:], tdmsVersion)
-	telem.ByteOrder.PutUint64(leadIn[12:], uint64(len(s.meta)+len(s.raw)))
-	telem.ByteOrder.PutUint64(leadIn[20:], uint64(len(s.meta)))
-	for _, b := range [][]byte{leadIn[:], s.meta, s.raw} {
+	telem.ByteOrder.PutUint64(leadIn[12:], uint64(size))
+	telem.ByteOrder.PutUint64(leadIn[20:], uint64(len(f.meta)))
+	if _, err := w.Write(leadIn[:]); err != nil {
+		return err
+	}
+	if _, err := w.Write(f.meta); err != nil {
+		return err
+	}
+	for _, b := range f.raw {
+		if len(b) == 0 {
+			continue
+		}
 		if _, err := w.Write(b); err != nil {
 			return err
 		}

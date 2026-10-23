@@ -157,6 +157,122 @@ func groupByIndex(res ReadResponse) ([][]channel.Channel, error) {
 	return groups, nil
 }
 
+// column walks the samples of one channel. It reads the channel through its own
+// iterator, one chunk at a time, so it never holds more than one chunk ahead of the
+// samples written.
+type column struct {
+	key      channel.Key
+	name     string
+	dataType telem.DataType
+	// size is the byte size of one sample, or 0 for a variable-length data type.
+	size int
+	iter *svcframer.Iterator
+	// done is true once iter has no samples left.
+	done bool
+	// pending holds the series read for the channel that are not fully written.
+	pending []telem.Series
+	// offset is the byte position of the next sample within the first pending series.
+	offset int
+	// position is the index of the next sample within the first pending series.
+	position uint32
+	// stride is the alignment distance between consecutive samples of a series.
+	stride uint32
+}
+
+func newColumn(ch channel.Channel, stride uint32) column {
+	c := column{key: ch.Key(), name: ch.Name, dataType: ch.DataType, stride: stride}
+	if !ch.DataType.IsVariable() {
+		c.size = int(ch.DataType.Density())
+	}
+	return c
+}
+
+// openColumns opens an iterator for every column. On failure, it closes the iterators
+// it opened.
+func openColumns(ctx context.Context, res ReadResponse, columns []*column) error {
+	for _, c := range columns {
+		iter, err := res.OpenIterator(ctx, channel.Keys{c.key})
+		if err != nil {
+			return errors.Combine(err, closeColumns(columns))
+		}
+		c.iter, c.done = iter, !iter.SeekFirst()
+	}
+	return nil
+}
+
+// closeColumns closes the iterator of every column and returns their read errors.
+func closeColumns(columns []*column) error {
+	var err error
+	for _, c := range columns {
+		if c.iter != nil {
+			err = errors.Combine(err, c.iter.Close())
+			c.iter = nil
+		}
+	}
+	return err
+}
+
+// sample discards the series the column has fully written, reading the next chunk when
+// none is left, then returns the sample the column points at and the number of bytes it
+// occupies. n is 0 when no sample remains.
+func (c *column) sample() (sample []byte, n int) {
+	for {
+		for len(c.pending) > 0 {
+			data := c.pending[0].Data[c.offset:]
+			if c.size == 0 {
+				sample, n = telem.UnmarshalVariableSample(data)
+			} else if len(data) >= c.size {
+				sample, n = data[:c.size], c.size
+			}
+			if n > 0 {
+				return sample, n
+			}
+			c.pending, c.offset, c.position = c.pending[1:], 0, 0
+		}
+		if c.done {
+			return nil, 0
+		}
+		if c.done = !c.iter.Next(IteratorAutoSpan); !c.done {
+			c.pending = c.iter.Value().Get(c.key).Series
+		}
+	}
+}
+
+// alignment returns the alignment of the sample the column points at. Only valid when
+// sample returns one.
+func (c *column) alignment() telem.Alignment {
+	return c.pending[0].Alignment.AddSamples(c.position * c.stride)
+}
+
+// advance moves the column past the sample it points at, which occupies n bytes.
+func (c *column) advance(n int) {
+	c.offset += n
+	c.position++
+}
+
+// remaining returns the number of samples left in the series the column points at. Only
+// valid for a fixed-size data type, and when sample returns one.
+func (c *column) remaining() int {
+	return (len(c.pending[0].Data) - c.offset) / c.size
+}
+
+// skip moves the column past the next k samples of its series. Only valid for a
+// fixed-size data type, and when the series holds them.
+func (c *column) skip(k int) {
+	c.offset += k * c.size
+	c.position += uint32(k)
+}
+
+// unindexedError returns the error for a sample the column points at that sits at no
+// alignment of its index.
+func (c *column) unindexedError() error {
+	return errors.Newf(
+		"[api.Read] channel %s has a sample at alignment %s with no index sample",
+		c.name,
+		c.alignment(),
+	)
+}
+
 func keysAndDataTypes(channels []channel.Channel) (channel.Keys, []telem.DataType) {
 	keys := make(channel.Keys, len(channels))
 	dataTypes := make([]telem.DataType, len(channels))
