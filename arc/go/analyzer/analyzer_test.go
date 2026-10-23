@@ -357,6 +357,22 @@ var _ = Describe("Analyzer Integration", func() {
 		})
 
 		It(
+			"Should diagnose a series operand with an invalid element type",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+				func test() series i64 {
+					s series i64 := [1, 2, 3]
+					return s + [undefined_var]
+				}
+				`, nil)
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
+					"cannot return series invalid from 'test': expected series i64",
+				))
+			},
+		)
+
+		It(
 			"Should handle type unification in statement analysis",
 			func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement("x f32 := 100"))
