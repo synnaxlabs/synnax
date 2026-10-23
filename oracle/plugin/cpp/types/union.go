@@ -79,7 +79,7 @@ func (p *Plugin) processUnion(
 	pbNamespace := ""
 	if hasPBFlag(entry) && !omit.IsSkipped(entry, "pb") {
 		if pbOutputPath := output.GetPBPath(entry); pbOutputPath != "" {
-			pbNamespace = cppnaming.PBNamespace(pbOutputPath)
+			pbNamespace = cppnaming.PBNamespace(pbOutputPath, entry.Namespace)
 			ud.HasProto = true
 			ud.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, cppnaming.PBName(entry))
 			data.AddSystem("utility")

@@ -13,9 +13,10 @@ import json
 import uuid
 from collections.abc import Iterator
 from datetime import datetime
-from typing import Any, TypeAlias
+from typing import Any, TypeAlias, cast
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 from pydantic import BaseModel, PrivateAttr
 
@@ -114,7 +115,7 @@ class Series(ArrayOperators, BaseModel):
         if data_type is not None:
             data_type = DataType(data_type)
         align = None if alignment is None else Alignment(alignment)
-        if isinstance(data, (TimeStamp, int, float, np.number)):
+        if isinstance(data, (TimeStamp, int, float, np.number, np.bool_)):
             data_type = data_type or DataType(data)
             data_ = np.array([data], dtype=data_type.np).tobytes()
         elif isinstance(data, Series):
@@ -213,7 +214,8 @@ class Series(ArrayOperators, BaseModel):
             d = self.__variable_getitem__(index)
             return d.decode("utf-8")
 
-        return self.__array__()[index]  # type: ignore[no-any-return]
+        # numpy stubs type scalar indexing as Any.
+        return cast(np.number | np.bool_, self.__array__()[index])
 
     def __variable_getitem__(self, index: int) -> bytes:
         offset = 0
@@ -270,8 +272,8 @@ class Series(ArrayOperators, BaseModel):
         This represents the range [alignment, alignment + length * alignment_multiple).
         """
         return Bounds(
-            lower=float(int(self.alignment)),
-            upper=float(int(self.alignment) + len(self) * self.alignment_multiple),
+            lower=int(self.alignment),
+            upper=int(self.alignment) + len(self) * self.alignment_multiple,
         )
 
     def astype(self, data_type: DataType) -> Series:
@@ -287,7 +289,7 @@ class Series(ArrayOperators, BaseModel):
 
 
 SampleValue: TypeAlias = (
-    np.number | uuid.UUID | dict[str, Any] | str | int | float | TimeStamp
+    np.number | np.bool_ | uuid.UUID | dict[str, Any] | str | int | float | TimeStamp
 )
 TypedCrudeSeries: TypeAlias = Series | pd.Series | np.ndarray
 
@@ -325,6 +327,7 @@ CrudeSeries: TypeAlias = (
     | list[uuid.UUID]
     | list[TimeStamp]
     | np.number
+    | np.bool_
     | str
     | uuid.UUID
     | dict[str, Any]
@@ -335,13 +338,13 @@ CrudeSeries: TypeAlias = (
 )
 
 
-def elapsed_seconds(d: np.ndarray) -> np.ndarray:
+def elapsed_seconds(d: npt.NDArray[np.int64]) -> npt.NDArray[np.float64]:
     """Converts a Series of timestamps to elapsed seconds since the first timestamp.
 
     :param d: A Series of timestamps.
     :returns: A Series of elapsed seconds.
     """
-    return (d - d[0]) / TimeSpan.SECOND  # type: ignore[no-any-return]
+    return (d - d[:1]) / TimeSpan.SECOND
 
 
 class MultiSeries(ArrayOperators):

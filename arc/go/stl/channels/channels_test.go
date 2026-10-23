@@ -1090,36 +1090,6 @@ var _ = Describe("Channel", func() {
 					Expect(emittedTS("s1")).To(Equal(telem.TimeStamp(101)))
 				},
 			)
-
-			It(
-				"Should pair data written partway into an index series",
-				func(ctx SpecContext) {
-					src := newSource("s0", 10)
-					t := telem.NewSeriesV[telem.TimeStamp](100, 200, 300)
-					t.Alignment = al(0)
-					channelState.Ingest(telem.UnaryFrame[uint32](99, t))
-					writeDataOnly(10, 42, al(1))
-					Expect(firesOn(ctx, src)).To(BeTrue())
-					Expect(emittedValue("s0")).To(Equal(float32(42)))
-					out := progState.Node("s0").OutputTime(0)
-					Expect(out.Alignment).To(Equal(al(1)))
-					Expect(*out).To(telem.MatchSeriesDataV[telem.TimeStamp](200))
-				},
-			)
-
-			It(
-				"Should not pair data that runs past the end of an index series",
-				func(ctx SpecContext) {
-					src := newSource("s0", 10)
-					t := telem.NewSeriesV[telem.TimeStamp](100, 200)
-					t.Alignment = al(0)
-					channelState.Ingest(telem.UnaryFrame[uint32](99, t))
-					d := telem.NewSeriesV[float32](42, 43)
-					d.Alignment = al(1)
-					channelState.Ingest(telem.UnaryFrame[uint32](10, d))
-					Expect(firesOn(ctx, src)).To(BeFalse())
-				},
-			)
 		})
 
 		Describe("Single write fires each source once", func() {
@@ -1287,6 +1257,64 @@ var _ = Describe("Channel", func() {
 				Expect(firesOn(ctx, src)).To(BeFalse())
 				Expect(firesOn(ctx, src)).To(BeFalse())
 			})
+		})
+
+		Describe("Partial index series", func() {
+			// writeIndex writes an index series of several samples, as a read delivers
+			// an index whose data channels start partway through it.
+			writeIndex := func(
+				idxKey uint32,
+				a telem.Alignment,
+				stamps ...telem.TimeStamp,
+			) {
+				t := telem.NewSeriesV(stamps...)
+				t.Alignment = a
+				channelState.Ingest(telem.UnaryFrame(idxKey, t))
+			}
+			writeDataSeries := func(
+				dataKey uint32,
+				a telem.Alignment,
+				values ...float32,
+			) {
+				d := telem.NewSeriesV(values...)
+				d.Alignment = a
+				channelState.Ingest(telem.UnaryFrame(dataKey, d))
+			}
+			It(
+				"Should pair data with the samples of the index series that holds it",
+				func(ctx SpecContext) {
+					src := newSource("s0", 10)
+					writeIndex(99, al(0), 100, 200, 300, 400)
+					writeDataSeries(10, al(1), 42, 43)
+					Expect(firesOn(ctx, src)).To(BeTrue())
+					out := *progState.Node("s0").OutputTime(0)
+					Expect(out).To(telem.MatchSeriesDataV[telem.TimeStamp](200, 300))
+					Expect(out.Alignment).To(Equal(al(1)))
+					Expect(emittedValue("s0")).To(Equal(float32(43)))
+				},
+			)
+			It(
+				"Should trim the index series to a data series that ends before it",
+				func(ctx SpecContext) {
+					src := newSource("s0", 10)
+					writeIndex(99, al(0), 100, 200, 300, 400)
+					writeDataSeries(10, al(0), 42, 43)
+					Expect(firesOn(ctx, src)).To(BeTrue())
+					out := *progState.Node("s0").OutputTime(0)
+					Expect(out).To(telem.MatchSeriesDataV[telem.TimeStamp](100, 200))
+					Expect(emittedTS("s0")).To(Equal(telem.TimeStamp(200)))
+				},
+			)
+			It(
+				"Should not fire when the data runs past the end of the index series",
+				func(ctx SpecContext) {
+					src := newSource("s0", 10)
+					writeIndex(99, al(0), 100, 200)
+					writeDataSeries(10, al(1), 42, 43)
+					Expect(firesOn(ctx, src)).To(BeFalse(),
+						"the second data sample has no index sample")
+				},
+			)
 		})
 
 		Describe("Late or missing index", func() {

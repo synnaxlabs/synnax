@@ -48,10 +48,10 @@ type Config struct {
 	//
 	// [OPTIONAL]
 	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
-	// Reduction reduces the samples of each channel read. A stride keeps every
-	// factor-th sample. A limit reduces each channel in Bounds to about PointLimit
-	// points, and every channel on one index reduces over the same groups, so reduced
-	// index and data series share alignments.
+	// Reduction reduces the samples of each channel read. A stride keeps the samples
+	// whose alignment is a multiple of its factor. A limit reduces each channel in
+	// Bounds to about PointLimit points. Either way, every channel on one index keeps
+	// the same alignments.
 	//
 	// [OPTIONAL]
 	Reduction telem.Reduction `json:"reduction" msgpack:"reduction"`
