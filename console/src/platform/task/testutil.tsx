@@ -40,6 +40,7 @@ import { onTestFinished } from "vitest";
 import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
+import { Modals } from "@/platform/modals";
 import { type FormTabProps } from "@/platform/task/Form";
 import { Session } from "@/session";
 import {
@@ -364,7 +365,8 @@ export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
 /**
  * Renders a Task.wrapForm tab the way the task panel entry does: seeds a panel doc
  * whose single leaf holds a resource tab for the task, then mounts the form inside
- * the panel and tab scopes within the full console provider stack.
+ * the panel and tab scopes within the full console provider stack. A modal stack
+ * renders beside the panel, as in a window, so dialogs the form opens mount.
  */
 export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
@@ -393,6 +395,7 @@ export const renderTaskFormTab = async (
   const result = await renderSuspended(
     <Analytics.Provider sink={analytics}>
       <Haul.Provider>
+        <Modals.Stack />
         <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
           <Form taskKey={taskKey} />
           {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}

@@ -93,8 +93,15 @@ const renderRead = async (entries: MQTT.Task.ReadEntry[] = []) => {
   return { ...result, dev, draft };
 };
 
+// The add button renders once the form leaves its loading preview.
+const openAddData = async () => {
+  fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
+  return within(await screen.findByRole("dialog"));
+};
+
 const addEntry = async (): Promise<void> => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add topic" }));
+  const dialog = await openAddData();
+  fireEvent.click(dialog.getByRole("button", { name: "Add a topic by name" }));
   await screen.findByText("Subscription");
 };
 
@@ -121,12 +128,6 @@ describe("MQTT Read form", () => {
     expect(screen.getByRole("button", { name: "Arrival time" })).toBeTruthy();
     expect(screen.getAllByText("New topic")).toHaveLength(2);
     expect(screen.queryByText("Select an entry or field to configure")).toBeNull();
-  });
-
-  it("should show the browser beside the entries", async () => {
-    await renderRead();
-    await screen.findByText("Entries");
-    expect(screen.getByRole("button", { name: "Browse" })).toBeTruthy();
   });
 
   it("should select a quality of service", async () => {
@@ -232,83 +233,72 @@ describe("MQTT Read form", () => {
     expect(screen.queryByText("Add field")).toBeNull();
   });
 
-  describe("dropping browsed items on the entries", () => {
+  describe("picking values in the add data dialog", () => {
     const TOPIC = "plant/line1/temperature";
-
-    const scoped = (container: ParentNode, selector: string) => {
-      const el = container.querySelector<HTMLElement>(selector);
-      if (el == null) throw new Error(`${selector} is not rendered`);
-      return within(el);
+    const TOPICS = [
+      { topic: TOPIC, payload: '{"temperature": 21.5, "label": "ok"}', retained: true },
+    ];
+    const NODES = [{ group: "plant", edgeNode: "line1", devices: [] }];
+    const TAG = {
+      device: "",
+      name: "flow",
+      dataType: "float",
+      value: "1",
+      supported: true,
     };
 
-    const renderPanes = async () => {
-      const { container, dev, draft } = await renderRead();
-      // The browser mounts once the form leaves its loading preview.
-      await screen.findByRole("button", { name: "Browse" });
-      return {
-        dev,
-        draft,
-        browser: scoped(container, ".console-mqtt-browser"),
-        entries: scoped(container, ".console-panes__list"),
-      };
-    };
-
-    it("should build an entry from a dropped topic once", async () => {
-      const { dev, draft, browser, entries } = await renderPanes();
+    it("should add more values of a topic to the entry that reads it", async () => {
+      const { dev, draft } = await renderRead();
       const scanner = await openScanner(client, dev.rack);
-      fireEvent.click(browser.getByRole("button", { name: "Browse" }));
-      const topics = [
-        {
-          topic: TOPIC,
-          payload: '{"temperature": 21.5, "label": "ok"}',
-          retained: true,
-        },
-      ];
-      await scanner.answer({ data: { topics, truncated: false } });
-      scanner.close();
-      fireEvent.dragStart(await browser.findByText(TOPIC));
-      fireEvent.drop(entries.getByText("No entries"));
+      let dialog = await openAddData();
+      await scanner.answer({ data: { topics: TOPICS, truncated: false } });
+      fireEvent.click(
+        await dialog.findByRole("checkbox", { name: "Pick temperature" }),
+      );
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 channel" }));
       await screen.findByText("Subscription");
       await waitFor(async () =>
         expect(await retrieveEntries(draft.key)).toMatchObject([
           {
             type: "plain",
             topic: TOPIC,
+            fields: [{ pointer: "/temperature", dataType: "float64", disabled: false }],
+          },
+        ]),
+      );
+      dialog = await openAddData();
+      await scanner.answer({ data: { topics: TOPICS, truncated: false } });
+      scanner.close();
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Record label" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 channel" }));
+      await waitFor(async () =>
+        expect(await retrieveEntries(draft.key)).toMatchObject([
+          {
+            topic: TOPIC,
             fields: [
-              { pointer: "/temperature", dataType: "float64", disabled: false },
-              { pointer: "/label", dataType: "string", disabled: true },
+              { pointer: "/temperature", dataType: "float64" },
+              { pointer: "/label", dataType: "string", disabled: false },
             ],
           },
         ]),
       );
-      await entries.findByRole("treeitem", { name: /\/label/ });
-      fireEvent.dragStart(browser.getByText(TOPIC));
-      fireEvent.drop(entries.getByRole("treeitem", { name: /^\/temperature/ }));
-      await waitFor(async () =>
-        expect(await retrieveEntries(draft.key)).toHaveLength(1),
-      );
     });
 
-    it("should build an entry from a dropped Sparkplug B tag once", async () => {
-      const { dev, draft, browser, entries } = await renderPanes();
+    it("should add a picked Sparkplug B tag once", async () => {
+      const { dev, draft } = await renderRead();
       const scanner = await openScanner(client, dev.rack);
-      fireEvent.click(browser.getByRole("button", { name: "Sparkplug B" }));
-      fireEvent.click(await browser.findByRole("button", { name: "Browse" }));
-      await scanner.answer({
-        data: { nodes: [{ group: "plant", edgeNode: "line1", devices: [] }], tags: [] },
-      });
-      fireEvent.click(await browser.findByText("plant/line1"));
-      const tag = {
-        device: "",
-        name: "flow",
-        dataType: "float",
-        value: "1",
-        supported: true,
+      const browseTag = async () => {
+        const dialog = await openAddData();
+        await scanner.answer({ data: { topics: [], truncated: false } });
+        fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+        await scanner.answer({ data: { nodes: NODES, tags: [] } });
+        await scanner.answer({ data: { nodes: [], tags: [TAG] } });
+        await dialog.findByRole("checkbox", { name: "Record flow" });
+        return dialog;
       };
-      await scanner.answer({ data: { nodes: [], tags: [tag] } });
-      scanner.close();
-      fireEvent.dragStart(await browser.findByText("flow"));
-      fireEvent.drop(entries.getByText("No entries"));
+      let dialog = await browseTag();
+      fireEvent.click(dialog.getByRole("checkbox", { name: "Record flow" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 channel" }));
       await screen.findByText("Edge node");
       await waitFor(async () =>
         expect(await retrieveEntries(draft.key)).toMatchObject([
@@ -321,11 +311,12 @@ describe("MQTT Read form", () => {
           },
         ]),
       );
-      fireEvent.dragStart(browser.getByText("flow"));
-      fireEvent.drop(entries.getByRole("treeitem", { name: /plant\/line1\/flow/ }));
-      await waitFor(async () =>
-        expect(await retrieveEntries(draft.key)).toHaveLength(1),
-      );
+      dialog = await browseTag();
+      scanner.close();
+      expect(dialog.getByText("In task")).toBeTruthy();
+      fireEvent.click(dialog.getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(await retrieveEntries(draft.key)).toHaveLength(1);
     });
   });
 
@@ -347,10 +338,11 @@ describe("MQTT Read form", () => {
       ).toBeTruthy();
     });
 
-    it("should add a tag from the list footer and show its fields", async () => {
+    it("should add a tag by name and show its fields", async () => {
       const { draft } = await renderRead();
-      await screen.findByText("No entries");
-      fireEvent.click(screen.getByRole("button", { name: "Add Sparkplug B tag" }));
+      const dialog = await openAddData();
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      fireEvent.click(await dialog.findByRole("button", { name: "Add a tag by name" }));
       await screen.findByText("Edge node");
       expect(screen.getByText("Group")).toBeTruthy();
       expect(screen.getByPlaceholderText("Optional")).toBeTruthy();
