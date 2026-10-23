@@ -15,7 +15,7 @@ import { type ReactElement, useMemo } from "react";
 
 import { streamMultiChannelLog } from "@/log/aether/telem/sources";
 import { Base, type BaseProps } from "@/log/Base";
-import { useRetrieve, useRedo, useUndo } from "@/log/queries";
+import { useRedo, useRetrieve, useUndo } from "@/log/queries";
 import { useKey } from "@/log/Suspended";
 
 const DEFAULT_RETENTION = TimeSpan.days(7);

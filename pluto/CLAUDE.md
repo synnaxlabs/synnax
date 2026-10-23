@@ -9,10 +9,9 @@ TypeScript development rules for this package: @../docs/claude/toolchains/typesc
 
 A feature often ships both: `LinePlot` (React components) and `lineplot` (its aether
 worker counterpart). Put worker code in an `aether/` directory: the React Compiler and
-the `react-hooks` lint rules skip those (`configs/vite/src/compiler.ts`,
-`eslint.config.ts`), because Aether names worker functions like hooks. Follow the casing
-when adding a module — a worker-safe package exported as PascalCase (or the reverse) is
-a defect.
+its lint rules skip those (`configs/vite/src/compiler.ts`, `configs/eslint/index.ts`),
+because Aether names worker functions like hooks. Follow the casing when adding a module
+— a worker-safe package exported as PascalCase (or the reverse) is a defect.
 
 ## Live-Core tests
 

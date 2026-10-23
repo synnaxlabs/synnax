@@ -8,19 +8,5 @@
 // included in the file licenses/APL.txt.
 
 import cfg from "@synnaxlabs/eslint-config";
-import { type Linter } from "eslint";
 
-const reactHooksRules = cfg.flatMap((c) =>
-  Object.keys(c.rules ?? {}).filter((rule) => rule.startsWith("react-hooks/")),
-);
-
-const config: Linter.Config[] = [
-  ...cfg,
-  {
-    // Aether worker modules name their functions like hooks but run outside React.
-    files: ["src/**/aether/**/*.ts", "src/vis/render/**/*.ts"],
-    rules: Object.fromEntries(reactHooksRules.map((rule) => [rule, "off"])),
-  },
-];
-
-export default config;
+export default cfg;

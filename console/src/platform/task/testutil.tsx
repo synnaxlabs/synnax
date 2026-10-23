@@ -93,11 +93,13 @@ export type FormRef = { current: PForm.ContextValue<z.ZodType> | null };
 export const renderTaskFormHook = async <R,>(
   values: TaskFormValues,
   useValue: (ctx: PForm.ContextValue<z.ZodType>) => R,
-) =>
-  await renderHookWithConsole(() => {
+) => {
+  const useHarness = () => {
     const ctx = PForm.useState<z.ZodType>({ values });
     return { ctx, value: useValue(ctx) };
-  });
+  };
+  return await renderHookWithConsole(useHarness);
+};
 
 export interface TaskFormProviderProps extends PropsWithChildren {
   values: TaskFormValues;

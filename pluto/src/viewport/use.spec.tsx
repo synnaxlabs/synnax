@@ -17,9 +17,9 @@ import { afterEach, assert, describe, expect, it, type Mock, vi } from "vitest";
 import {
   PAN_DEFAULT_TRIGGERS,
   SELECT_DEFAULT_TRIGGERS,
-  useMask,
   type UseEvent,
   type UseHandler,
+  useMask,
   type UseProps,
   type UseRefValue,
   type UseReturn,

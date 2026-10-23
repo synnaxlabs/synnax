@@ -19,9 +19,36 @@ import path from "path";
 import tseslint from "typescript-eslint";
 
 import { jsxFilenameExtension } from "./rules/jsxFilenameExtension";
+import { namedHookCallers } from "./rules/namedHookCallers";
 
 const synnax: ESLint.Plugin = {
-  rules: { "jsx-filename-extension": jsxFilenameExtension },
+  rules: {
+    "jsx-filename-extension": jsxFilenameExtension,
+    "named-hook-callers": namedHookCallers,
+  },
+};
+
+const COMPILER_RULES: Linter.RulesRecord = {
+  "react-hooks/rules-of-hooks": "error",
+  "react-hooks/hooks": "error",
+  "react-hooks/use-memo": "error",
+  "react-hooks/void-use-memo": "error",
+  "react-hooks/preserve-manual-memoization": "error",
+  "react-hooks/memo-dependencies": "error",
+  "react-hooks/incompatible-library": "error",
+  "react-hooks/immutability": "error",
+  "react-hooks/globals": "error",
+  "react-hooks/refs": "error",
+  "react-hooks/purity": "error",
+  "react-hooks/set-state-in-render": "error",
+  "react-hooks/component-hook-factories": "error",
+  "react-hooks/unsupported-syntax": "error",
+  "react-hooks/todo": "error",
+  "react-hooks/syntax": "error",
+  "react-hooks/invariant": "error",
+  "react-hooks/config": "error",
+  "react-hooks/gating": "error",
+  "synnax/named-hook-callers": "error",
 };
 
 const gitignorePath = path.join(import.meta.dirname, "../../.gitignore");
@@ -219,27 +246,13 @@ const config: Linter.Config[] = [
     // The React Compiler skips a component or hook that breaks one of these rules.
     // Specs do not ship, so their harnesses may break them.
     ignores: ["**/*.spec.ts", "**/*.spec.tsx"],
-    rules: {
-      "react-hooks/rules-of-hooks": "error",
-      "react-hooks/hooks": "error",
-      "react-hooks/use-memo": "error",
-      "react-hooks/void-use-memo": "error",
-      "react-hooks/preserve-manual-memoization": "error",
-      "react-hooks/memo-dependencies": "error",
-      "react-hooks/incompatible-library": "error",
-      "react-hooks/immutability": "error",
-      "react-hooks/globals": "error",
-      "react-hooks/refs": "error",
-      "react-hooks/purity": "error",
-      "react-hooks/set-state-in-render": "error",
-      "react-hooks/component-hook-factories": "error",
-      "react-hooks/unsupported-syntax": "error",
-      "react-hooks/todo": "error",
-      "react-hooks/syntax": "error",
-      "react-hooks/invariant": "error",
-      "react-hooks/config": "error",
-      "react-hooks/gating": "error",
-    },
+    rules: COMPILER_RULES,
+  },
+  {
+    // Aether worker code names its functions like hooks but runs outside React, so the
+    // compiler skips it too (configs/vite/src/compiler.ts).
+    files: ["**/aether/**/*.ts", "**/vis/render/**/*.ts"],
+    rules: Object.fromEntries(Object.keys(COMPILER_RULES).map((rule) => [rule, "off"])),
   },
   {
     // Packages declare their JavaScript free of side effects, so a bundler skips a
