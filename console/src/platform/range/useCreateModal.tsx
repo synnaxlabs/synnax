@@ -19,7 +19,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Ranger, Synnax } from "@synnaxlabs/pluto";
 import { type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useRef } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -68,7 +68,7 @@ const TimelineField = (): ReactElement => {
 
 export const useCreateModal = Modals.create<CreateModalParams>(
   ({ close, rangeKey, ...params }) => {
-    const now = useRef(Number(TimeStamp.now().valueOf())).current;
+    const [now] = useState(() => Number(TimeStamp.now().valueOf()));
     const dispatch = Session.useDispatch();
     const { capture } = Analytics.useSink();
 
@@ -146,7 +146,6 @@ export const useCreateModal = Modals.create<CreateModalParams>(
                   {({ onChange, value }) => (
                     <Ranger.Select
                       className={CSS.BE("range-create-layout", "parent")}
-                      zIndex={-1}
                       filter={recursiveParentFilter}
                       value={value}
                       // Clearing the selection reports null, but the schema types an

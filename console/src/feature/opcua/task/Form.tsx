@@ -158,7 +158,7 @@ const ChannelList = <C extends Channel>({
       push(toAdd);
       return dropped;
     },
-    [push],
+    [ctx, convertHaulItemToChannel, push],
   );
 
   const haulProps = Haul.useDrop({
@@ -170,7 +170,8 @@ const ChannelList = <C extends Channel>({
   // The browser hides in preview, but a second opcua tab's browser can still source
   // drags, so the drop target goes inert too.
   const isPreview = Task.useIsPreview();
-  const isDragging = !isPreview && canDropHaulItem(Haul.useDraggingState());
+  const draggingState = Haul.useDraggingState();
+  const isDragging = !isPreview && canDropHaulItem(draggingState);
 
   const [selected, setSelected] = useState(data.length > 0 ? [data[0]] : []);
   const listItem = useCallback(
@@ -179,7 +180,7 @@ const ChannelList = <C extends Channel>({
         {children}
       </ChannelListItem>
     ),
-    [children],
+    [children, getChannelKeyAndID],
   );
   return (
     <Task.ChannelList

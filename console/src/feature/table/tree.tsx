@@ -51,7 +51,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const firstID = ids[0];
-  const first = getResource(firstID);
   const isSingle = ids.length === 1;
   return (
     <ContextMenu.Menu>
@@ -69,9 +68,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       <Menu.Divider />
       {isSingle && (
         <>
-          <Export.ContextMenuItem onClick={() => handleExport(first.id)} />
+          <Export.ContextMenuItem onClick={() => handleExport(firstID)} />
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
+            onClick={() =>
+              handleLink({ name: getResource(firstID).name, ontologyID: firstID })
+            }
           />
           <Tree.CopyPropertiesContextMenuItem {...props} />
         </>

@@ -39,6 +39,7 @@ export const createState = (
     setNodes: () => {},
     setResource: () => {},
     getResource,
+    subscribeResource: () => () => {},
     setSelection: () => {},
     expand: () => {},
     contract: () => {},

@@ -78,7 +78,7 @@ export const BaseList = <E extends record.Keyed<string>>({
       if (v.startsWith(prefix)) v = v.slice(prefix.length);
       search(v);
     },
-    [search, onChange],
+    [search, onChange, prefix],
   );
   return (
     <Select.Frame<string, E>

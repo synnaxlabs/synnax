@@ -24,7 +24,13 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { Synnax, TimeSpan } from "@synnaxlabs/pluto";
 import { array, type optional } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useState,
+} from "react";
 
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
 import { type ConnectionConfig, type Device } from "@/feature/opcua/device/types";
@@ -120,6 +126,7 @@ export const Browser = ({ device }: BrowserProps) => {
   );
   const opcNodesStore = List.useMapData<string, ScannedNode>();
   const [stat, setStat] = useState<status.Status | null>(null);
+  const [initialLoading, setInitialLoading] = useState(false);
   const client = Synnax.useClient();
   const handleError = Status.useErrorHandler();
   const retrieveNodes = useCallback(
@@ -160,7 +167,7 @@ export const Browser = ({ device }: BrowserProps) => {
           ]);
       }, "Failed to browse OPC UA nodes");
     },
-    [client, device, handleError, opcNodesStore],
+    [client, device, handleError, opcNodesStore, setTreeNodes, treeNodesRef],
   );
 
   const expand = useCallback(
@@ -173,13 +180,13 @@ export const Browser = ({ device }: BrowserProps) => {
 
   const treeProps = Tree.useState({ nodes: treeNodes, onExpand: expand });
   const { shape, clearExpanded } = treeProps;
-  const [initialLoading, setInitialLoading] = useState(false);
-  const refresh = useCallback(() => {
+  const refresh = () => {
     setInitialLoading(true);
     expand({ action: "expand", current: [] });
     clearExpanded();
-  }, [clearExpanded]);
-  useEffect(refresh, [refresh]);
+  };
+  const refreshOnMount = useEffectEvent(refresh);
+  useEffect(() => refreshOnMount(), []);
   let content: ReactElement;
   if (stat?.variant === "error") content = <Status.Summary center status={stat} />;
   else if (initialLoading)

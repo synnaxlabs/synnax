@@ -57,14 +57,18 @@ export const Drawer = ({
         width: box.width(b) + threshold.x * 2,
         height: box.height(b) + threshold.y * 2,
       });
-      const lis = (e: MouseEvent) => {
-        const pos = xy.construct(e);
-        if (!box.contains(b, pos)) {
-          window.removeEventListener("mousemove", lis);
-          onStopHover();
-        } else if (e.buttons != 0) window.removeEventListener("mousemove", lis);
-      };
-      window.addEventListener("mousemove", lis);
+      const controller = new AbortController();
+      window.addEventListener(
+        "mousemove",
+        (e: MouseEvent) => {
+          const pos = xy.construct(e);
+          if (!box.contains(b, pos)) {
+            controller.abort();
+            onStopHover();
+          } else if (e.buttons != 0) controller.abort();
+        },
+        { signal: controller.signal },
+      );
     },
     [loc, onStopHover],
   );

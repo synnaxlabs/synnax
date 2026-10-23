@@ -68,7 +68,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   const {
     selection,
     selection: { ids, rootID },
-    state: { getResource, shape },
+    state,
   } = props;
   const handleDelete = useDelete(props);
   const group = Group.useCreateFromSelection();
@@ -82,7 +82,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   const handleLink = Core.useCopyLinkToClipboard();
   const handleExport = Export.useAction();
   const handleRename = useRename(props);
-  const resources = getResource(ids);
+  const resources = Tree.useResources(state, ids);
   const first = resources[0];
   const singleResource = resources.length === 1;
   const hasUpdatePermission = Access.useUpdateGranted(ids);
@@ -102,7 +102,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
           {singleResource && <ContextMenu.RenameItem onClick={handleRename} />}
           <Group.ContextMenuItem
             ids={ids}
-            shape={shape}
+            shape={state.shape}
             rootID={rootID}
             onClick={() => group(props)}
           />

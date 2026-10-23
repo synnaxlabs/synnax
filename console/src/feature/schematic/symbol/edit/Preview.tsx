@@ -18,7 +18,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Schematic, Theming, TimeSpan } from "@synnaxlabs/pluto";
-import { box, id, type xy } from "@synnaxlabs/x";
+import { id, type xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -59,6 +59,8 @@ const MAX_ZOOM = 5;
 const ZOOM_STEP = 1.2;
 const ZOOM_REPEAT = TimeSpan.milliseconds(70);
 
+const ZOOM_PATH = "data.previewViewport.zoom";
+
 interface PreviewProps {
   selectedState: string;
   selectedHandle?: string;
@@ -83,32 +85,29 @@ export const Preview = ({
   const [themeContainer, setThemeContainer] = useState<HTMLDivElement | null>(null);
   const spec = Form.useFieldValue<schematic.symbol.Spec>("data");
   const pan = Form.useField<xy.XY>("data.previewViewport.position");
-  const zoom = Form.useField<number>("data.previewViewport.zoom");
+  const zoom = Form.useField<number>(ZOOM_PATH);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const isDark = Base.useTheme().key === "synnaxDark";
   const [isDarkMode, setIsDarkMode] = useState<boolean>(isDark);
   useEffect(() => setIsDarkMode(isDark), [isDark]);
 
-  const svgElementRef = useRef<SVGSVGElement>(null);
+  const [svg, setSVG] = useState<SVGSVGElement | null>(null);
+  const form = Form.useContext();
 
   const resetViewport = () => {
     zoom.onChange(1);
     pan.onChange({ x: 0, y: 0 });
   };
 
-  // A held chord steps on an interval, so the step reads the live zoom and setter
-  // rather than the ones captured when the hold started.
-  const zoomRef = useRef(zoom.value);
-  zoomRef.current = zoom.value;
-  const setZoomRef = useRef(zoom.onChange);
-  setZoomRef.current = zoom.onChange;
+  // A held chord steps on an interval, so the step reads the live zoom from the form
+  // rather than the one captured when the hold started.
   const stepZoom = useCallback(
-    (factor: number) =>
-      setZoomRef.current(
-        Math.min(Math.max(zoomRef.current * factor, MIN_ZOOM), MAX_ZOOM),
-      ),
-    [],
+    (factor: number) => {
+      const current = form.get<number>(ZOOM_PATH).value;
+      form.set(ZOOM_PATH, Math.min(Math.max(current * factor, MIN_ZOOM), MAX_ZOOM));
+    },
+    [form],
   );
 
   const handleZoomIn = useCallback(() => stepZoom(ZOOM_STEP), [stepZoom]);
@@ -167,7 +166,7 @@ export const Preview = ({
   });
 
   const onMount = (svgElement: SVGSVGElement) => {
-    svgElementRef.current = svgElement;
+    setSVG(svgElement);
     const addInteractivity = (el: Element) => {
       if (!(el instanceof SVGElement) || el.tagName === "svg") return;
       el.classList.add(CSS.BEM("schematic", "svg-region", "hoverable"));
@@ -243,7 +242,6 @@ export const Preview = ({
     [setRenderContainer],
   );
 
-  const form = Form.useContext();
   const handleContentsChange = (contents: string, filename?: string) => {
     const processedSVG = Schematic.Node.Region.normalizeSVG(contents);
     if (containerRef.current == null) return;
@@ -262,8 +260,6 @@ export const Preview = ({
   };
 
   const fileDropEnabled = spec.svg.length === 0;
-  let svgBox: box.Box = box.ZERO;
-  if (svgElementRef.current != null) svgBox = box.construct(svgElementRef.current);
 
   const svgWrapperStyle = useMemo(
     () => ({
@@ -345,7 +341,7 @@ export const Preview = ({
               <HandleOverlay
                 handles={spec.handles}
                 selectedHandle={selectedHandle}
-                svgBox={svgBox}
+                svg={svg}
                 onSelect={onHandleSelect}
                 onDrag={onHandlePlace}
               />

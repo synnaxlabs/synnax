@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Provider } from "@synnaxlabs/drift/react";
-import { useInitializerRef } from "@synnaxlabs/lyra/hooks";
 import { Synnax } from "@synnaxlabs/pluto";
 import {
   createContext,
@@ -16,6 +15,7 @@ import {
   type ReactElement,
   type ReactNode,
   useContext,
+  useState,
 } from "react";
 
 import { Arc } from "@/session/arc";
@@ -39,10 +39,10 @@ export interface ContextProps {
 }
 
 export const Context = ({ children }: ContextProps) => {
-  const storeRef = useInitializerRef(() => createStore());
+  const [store] = useState(() => createStore());
   return (
     <Modals.Context>
-      <Provider store={storeRef.current}>{children}</Provider>
+      <Provider store={store}>{children}</Provider>
     </Modals.Context>
   );
 };

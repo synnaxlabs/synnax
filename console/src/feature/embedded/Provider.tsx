@@ -40,13 +40,11 @@ export const Provider = ({ children }: PropsWithChildren): ReactElement => {
       changed = true;
       if (!signal.aborted) setStatus(next);
     });
-    try {
-      const current = await retrieveStatus();
-      if (!signal.aborted && !changed) setStatus(current);
-    } catch (err) {
+    const current = await retrieveStatus().catch((err: unknown) => {
       unlisten();
       throw errors.fromUnknown(err);
-    }
+    });
+    if (!signal.aborted && !changed) setStatus(current);
     return unlisten;
   }, []);
   return <Context value={status}>{children}</Context>;

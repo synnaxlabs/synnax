@@ -103,7 +103,7 @@ const useDeleteAlias = ({
         range: activeRange ?? undefined,
         channels: ids.map((id) => Number(id.key)),
       }),
-    [update, ids],
+    [update, activeRange, ids],
   );
 };
 
@@ -119,12 +119,12 @@ const useEditCalculated = () => {
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getResource, shape },
+    state,
   } = props;
   const activeRange = Range.useResolve();
   const groupFromSelection = Group.useCreateFromSelection();
   const handleSetAlias = useSetAlias(props);
-  const resources = getResource(ids);
+  const resources = Tree.useResources(state, ids);
   const channelKeys = useMemo(() => ids.map((r) => Number(r.key)), [ids]);
   const channels = PChannel.useMultiple({
     rangeKey: activeRange?.key,
@@ -170,7 +170,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {hasUpdatePermission && (
         <Group.ContextMenuItem
           ids={ids}
-          shape={shape}
+          shape={state.shape}
           rootID={rootID}
           onClick={() => groupFromSelection(props)}
         />

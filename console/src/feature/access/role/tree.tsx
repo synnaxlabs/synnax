@@ -37,7 +37,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const handleRename = useRename(props);
   const singleResource = ids.length === 1;
-  const resources = state.getResource(ids);
+  const resources = Tree.useResources(state, ids);
   const hasInternal = resources.some((r) => r.data?.internal === true);
   return (
     <ContextMenu.Menu>

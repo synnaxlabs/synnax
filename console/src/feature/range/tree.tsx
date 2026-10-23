@@ -82,7 +82,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const handleLink = Core.useCopyLinkToClipboard();
   const firstID = ids[0];
-  const first = getResource(firstID);
   const singleResource = ids.length === 1;
   const handleFavorite = () => {
     handleError(async () => {
@@ -129,7 +128,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       <Menu.Divider />
       {singleResource && (
         <Link.CopyContextMenuItem
-          onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
+          onClick={() =>
+            handleLink({ name: getResource(firstID).name, ontologyID: firstID })
+          }
         />
       )}
       <Menu.Divider />

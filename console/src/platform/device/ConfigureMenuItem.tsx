@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 
-import { type Tree } from "@/platform/tree";
+import { Tree } from "@/platform/tree";
 
 export interface ConfigureMenuItemProps extends Pick<
   Tree.ContextMenuProps,
@@ -24,9 +24,9 @@ export interface ConfigureMenuItemProps extends Pick<
 export const ConfigureMenuItem = ({
   onConfigure,
   selection: { ids },
-  state: { getResource },
+  state,
 }: ConfigureMenuItemProps) => {
-  const first = getResource(ids[0]);
+  const first = Tree.useResource(state, ids[0]);
   const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(ids[0].key));
   if (ids.length !== 1 || first.data?.configured === true || !hasUpdatePermission)
     return null;

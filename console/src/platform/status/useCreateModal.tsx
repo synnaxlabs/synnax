@@ -15,6 +15,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/pluto";
 import { TimeStamp } from "@synnaxlabs/x";
+import { useState } from "react";
 
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
@@ -27,13 +28,14 @@ export interface CreateModalParams {
 
 export const useCreateModal = Modals.create<CreateModalParams>(
   ({ close, statusKey }) => {
+    const [now] = useState(() => TimeStamp.now());
     const { form, save, variant } = Status.useForm({
       query: statusKey == null ? null : { key: statusKey },
       autoSave: false,
       initialValues: {
         key: "",
         message: "",
-        time: TimeStamp.now(),
+        time: now,
         name: "",
         description: "",
         variant: "success",

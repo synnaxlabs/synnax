@@ -34,7 +34,12 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import {
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  useImperativeHandle,
+} from "react";
 import { onTestFinished } from "vitest";
 import { type z } from "zod";
 
@@ -113,7 +118,7 @@ export const TaskFormProvider = ({
   children,
 }: TaskFormProviderProps): ReactElement => {
   const ctx = PForm.useState<z.ZodType>({ values, mode });
-  if (formRef != null) formRef.current = ctx;
+  useImperativeHandle(formRef, () => ctx, [ctx]);
   return <PForm.Form {...ctx}>{children}</PForm.Form>;
 };
 TaskFormProvider.displayName = "TaskFormProvider";

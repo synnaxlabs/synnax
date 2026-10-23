@@ -49,7 +49,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   );
   const handleDragStart = useCallback(
     () => startDrag([Schematic.createHaulItem(createParams())]),
-    [startDrag, variant],
+    [startDrag, createParams],
   );
   const handleAddNode = useCallback(
     () => addNode(createParams()),
@@ -131,7 +131,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   );
   const handleDragStart = useCallback(
     () => startDrag([Schematic.createHaulItem(createParams())]),
-    [startDrag, variant, itemKey],
+    [startDrag, createParams],
   );
   const handleAddNode = useCallback(
     () => addNode(createParams()),
@@ -530,13 +530,15 @@ const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement =
     string,
     Schematic.Node.Spec | schematic.symbol.Symbol
   >({ first: staticData, second: remote });
+  const { retrieve: retrieveRemote } = remote;
+  const { retrieve: retrieveStatic } = staticData;
   const { search } = List.usePager({
     retrieve: useCallback(
       (args) => {
-        remote.retrieve(args);
-        staticData.retrieve(args);
+        retrieveRemote(args);
+        retrieveStatic(args);
       },
-      [remote.retrieve, staticData.retrieve],
+      [retrieveRemote, retrieveStatic],
     ),
   });
 
@@ -572,9 +574,10 @@ export const Symbols = (): ReactElement => {
   if (isRemoteGroup)
     symbolList = <RemoteSymbolList key={groupKey} groupKey={groupKey} />;
   else if (searchMode) symbolList = <SearchSymbolList searchTerm={searchTerm} />;
+  const symbolGroupKey = symbolGroup?.key;
   const symbolGroupID = useMemo(
-    () => (symbolGroup == null ? undefined : group.ontologyID(symbolGroup.key)),
-    [symbolGroup?.key],
+    () => (symbolGroupKey == null ? undefined : group.ontologyID(symbolGroupKey)),
+    [symbolGroupKey],
   );
   return (
     <Flex.Box y empty className={CSS.BE("schematic", "symbols")}>

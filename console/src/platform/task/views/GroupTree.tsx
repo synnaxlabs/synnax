@@ -303,7 +303,7 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
           fields.push(f);
           if (!chosen.has(f.key)) continue;
           const copy = copyField(f);
-          first ??= copy.key;
+          if (first == null) first = copy.key;
           fields.push(copy);
         }
         next.push({ ...g, fields });
@@ -315,7 +315,7 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
           index: copiedKeys.get(g.index) ?? g.index,
           fields: g.fields.map((f) => copyField(f, copiedKeys.get(f.key))),
         };
-        first ??= copy.key;
+        if (first == null) first = copy.key;
         next.push(copy);
         expand(copy.key);
       }

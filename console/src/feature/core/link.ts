@@ -94,6 +94,6 @@ export const useLink = (): Link.Connect => {
         setActive: (key) => dispatch(Session.Core.select(key)),
         poll: new breaker.Breaker(SWAP_POLL_BREAKER_CONFIG),
       }),
-    [dispatch, store],
+    [clientRef, dispatch, store],
   );
 };
