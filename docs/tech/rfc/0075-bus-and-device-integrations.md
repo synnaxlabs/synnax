@@ -113,7 +113,7 @@ listens as a monitor (§5.5).
 
 ```
 Identifier union on type {
-    can   { id uint32, extended bool, fd bool, mask uint32? }
+    can   { id uint32, extended bool, fd bool, bitrate_switched bool, mask uint32? }
     field { field FieldKey, value int32 }   // binary header field match
 }
 
@@ -311,8 +311,8 @@ latest command channel values of the messages it owns.
 
 The Core imports files into an ICD, adding `message` and `enum` entries:
 
-- **DBC**: messages, signals, value tables, `GenMsgCycleTime` as the period, and
-  multiplexing, as binary payloads. The parser is a copy of
+- **DBC**: messages, signals, value tables, `GenMsgCycleTime` as the period, `CANFD_BRS`
+  as bitrate switching, and multiplexing, as binary payloads. The parser is a copy of
   `go.einride.tech/can/pkg/dbc` in `core/pkg/service/icd/internal/dbc`, kept under its
   MIT license. The copy adds extended multiplexing (`m0M`, `SG_MUL_VAL_`), which the
   upstream parser rejects, and fixes an upstream bug that skips the line after an

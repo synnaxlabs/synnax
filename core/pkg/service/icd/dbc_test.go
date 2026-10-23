@@ -328,6 +328,37 @@ BA_ "BusType" "CAN";
 `, false),
 	)
 
+	DescribeTable("Should switch the bitrate of a CAN FD message by its CANFD_BRS",
+		func(body string, switched bool) {
+			data := []byte(dbcHeader + `BO_ 256 M: 24 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+BO_ 257 Classic: 8 Ecu
+ SG_ B : 0|8@1+ (1,0) [0|255] "" Ecu
+
+` + body)
+			entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
+			Expect(canIdentifier(messageNamed(entries, "M")).BitrateSwitched).
+				To(Equal(switched))
+			Expect(canIdentifier(messageNamed(entries, "Classic")).BitrateSwitched).
+				To(BeFalse())
+		},
+		Entry("from the default of an ENUM attribute",
+			`BA_DEF_ BO_ "CANFD_BRS" ENUM "0","1";
+BA_DEF_DEF_ "CANFD_BRS" "1";
+`, true),
+		Entry("from the value an ENUM attribute gives the message",
+			`BA_DEF_ BO_ "CANFD_BRS" ENUM "0","1";
+BA_DEF_DEF_ "CANFD_BRS" "1";
+BA_ "CANFD_BRS" BO_ 256 0;
+`, false),
+		Entry("from an INT attribute",
+			`BA_DEF_ BO_ "CANFD_BRS" INT 0 1;
+BA_DEF_DEF_ "CANFD_BRS" 0;
+BA_ "CANFD_BRS" BO_ 256 1;
+`, true),
+		Entry("off with no CANFD_BRS", "", false),
+	)
+
 	j1939Formats := `BA_DEF_ BO_ "VFrameFormat" ENUM "StandardCAN","ExtendedCAN",
  "reserved","J1939PG";
 BA_DEF_DEF_ "VFrameFormat" "J1939PG";

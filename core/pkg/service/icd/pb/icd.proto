@@ -138,9 +138,11 @@ message IdentifierCanPayload {
   bool extended = 2;
   // fd is true when the message is sent as a CAN FD frame.
   bool fd = 3;
+  // bitrate_switched is true when a CAN FD frame switches to the data bitrate.
+  bool bitrate_switched = 4;
   // mask is the bit mask applied to both identifiers before matching. When absent the
   // identifiers must match exactly.
-  optional uint32 mask = 4;
+  optional uint32 mask = 5;
 }
 message IdentifierFieldPayload {
   // field is the key of the message field that holds the identifier.

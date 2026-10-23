@@ -142,6 +142,36 @@ describe("ICD editor", () => {
     });
   });
 
+  it("should clear the bitrate switch when CAN FD turns off", async () => {
+    const ic = await createICD([
+      {
+        ...createMessage([]),
+        payload: {
+          format: "binary",
+          fields: [createBinaryField("Rpm", 0)],
+          identifier: {
+            type: "can",
+            id: 0x100,
+            extended: false,
+            fd: true,
+            bitrateSwitched: true,
+          },
+        },
+      },
+    ]);
+    await renderEditor(ic);
+    const brs = await screen.findByLabelText<HTMLInputElement>("Bitrate switch");
+    expect(brs.checked).toBe(true);
+    fireEvent.click(screen.getByLabelText("CAN FD"));
+    await waitFor(() => expect(screen.queryByLabelText("Bitrate switch")).toBeNull());
+    await save();
+    await waitFor(async () => {
+      expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+        identifier: { fd: false, bitrateSwitched: false },
+      });
+    });
+  });
+
   it("should replace the payload when the format changes", async () => {
     const ic = await createICD([createMessage([createBinaryField("Rpm", 0)])]);
     await renderEditor(ic);

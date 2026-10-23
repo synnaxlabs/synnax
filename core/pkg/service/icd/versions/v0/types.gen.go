@@ -85,6 +85,8 @@ type CanIdentifier struct {
 	Extended bool `json:"extended" msgpack:"extended"`
 	// Fd is true when the message is sent as a CAN FD frame.
 	Fd bool `json:"fd" msgpack:"fd"`
+	// BitrateSwitched is true when a CAN FD frame switches to the data bitrate.
+	BitrateSwitched bool `json:"bitrate_switched" msgpack:"bitrate_switched"`
 	// Mask is the bit mask applied to both identifiers before matching. When absent the
 	// identifiers must match exactly.
 	Mask *uint32 `json:"mask,omitzero" msgpack:"mask,omitempty"`

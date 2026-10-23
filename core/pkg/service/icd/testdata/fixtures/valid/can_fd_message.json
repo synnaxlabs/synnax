@@ -30,7 +30,8 @@
             "type": "can",
             "id": 2047,
             "extended": false,
-            "fd": true
+            "fd": true,
+            "bitrate_switched": true
           }
         }
       }

@@ -520,6 +520,7 @@ func (iv Identifier) EncodeOrc(w *orc.Writer) error {
 		w.Uint32(uint32(v.ID))
 		w.Bool(v.Extended)
 		w.Bool(v.Fd)
+		w.Bool(v.BitrateSwitched)
 		if v.Mask != nil {
 			w.Bool(true)
 			w.Uint32(uint32(*v.Mask))
@@ -552,6 +553,9 @@ func (iv *Identifier) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if v.Fd, err = r.Bool(); err != nil {
+			return err
+		}
+		if v.BitrateSwitched, err = r.Bool(); err != nil {
 			return err
 		}
 		{

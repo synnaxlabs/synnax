@@ -26,6 +26,7 @@ import (
 const (
 	attrCycleTime   = "GenMsgCycleTime"
 	attrFrameFormat = "VFrameFormat"
+	attrBRS         = "CANFD_BRS"
 	attrBusType     = "BusType"
 	attrProtocol    = "ProtocolType"
 	busTypeFD       = "CAN FD"
@@ -53,16 +54,16 @@ const (
 )
 
 // parseDBC parses a DBC file into one message entry per BO_ definition, with a CAN
-// identifier and a binary field per signal, followed by one enum entry per value
-// table and per signal whose value descriptions match no value table. Extended
-// multiplexing (m<N>M markers and SG_MUL_VAL_ ranges) is supported. A message is CAN
-// FD when its VFrameFormat says so, when it is longer than 8 bytes, or, in a file with
-// no VFrameFormat, when the BusType is CAN FD. A J1939 group matches frames by its
-// parameter group number, and also by its addresses when other messages share the
-// group. A signal keeps its [min|max] range unless both are zero.
-// Messages and signals take their long names when the file gives them.
-// Every entry and field gets a new key. Errors are scoped to the "data" path and name
-// the line.
+// identifier and a binary field per signal, followed by one enum entry per value table
+// and per signal whose value descriptions match no value table. Extended multiplexing
+// (m<N>M markers and SG_MUL_VAL_ ranges) is supported. A message is CAN FD when its
+// VFrameFormat says so, when it is longer than 8 bytes, or, in a file with no
+// VFrameFormat, when the BusType is CAN FD. A CAN FD message switches bitrates when its
+// CANFD_BRS is 1. A J1939 group matches frames by its parameter group number, and also
+// by its addresses when other messages share the group. A signal keeps its [min|max]
+// range unless both are zero. Messages and signals take their long names when the file
+// gives them. Every entry and field gets a new key. Errors are scoped to the "data"
+// path and name the line.
 func parseDBC(data []byte) ([]versions.Entry, error) {
 	defs, err := dbc.Parse(data)
 	if err != nil {
@@ -516,16 +517,11 @@ func (f dbcFile) multiplexor(
 
 // period returns the GenMsgCycleTime of the message, or nil when it is absent or zero.
 func (f dbcFile) period(m *dbc.MessageDef) (*telem.TimeSpan, error) {
-	def, ok := f.attrs[attrCycleTime]
+	v, ok := f.attr(attrCycleTime, m.MessageID)
 	if !ok {
 		return nil, nil
 	}
-	var ms float64
-	if v, ok := f.values[attrRef{name: attrCycleTime, message: m.MessageID}]; ok {
-		ms = numeric(def, v.IntValue, v.FloatValue)
-	} else if d, ok := f.defaults[attrCycleTime]; ok {
-		ms = numeric(def, d.DefaultIntValue, d.DefaultFloatValue)
-	}
+	ms := v.number()
 	if ms < 0 {
 		return nil, dataErrorf(
 			"line %d: message %s has a negative cycle time",
@@ -548,11 +544,46 @@ func (f dbcFile) period(m *dbc.MessageDef) (*telem.TimeSpan, error) {
 	return &span, nil
 }
 
-func numeric(def *dbc.AttributeDef, i int64, f float64) float64 {
-	if def.Type == dbc.AttributeValueTypeFloat {
-		return f
+// attrValue is the value of a message attribute. An ENUM attribute holds the name of
+// its value in str.
+type attrValue struct {
+	typ dbc.AttributeValueType
+	str string
+	i   int64
+	f   float64
+}
+
+func (v attrValue) number() float64 {
+	if v.typ == dbc.AttributeValueTypeFloat {
+		return v.f
 	}
-	return float64(i)
+	return float64(v.i)
+}
+
+// attr returns the value the message gives the named attribute, or the attribute's
+// default. It returns false when the file defines the attribute without either.
+func (f dbcFile) attr(name dbc.Identifier, id dbc.MessageID) (attrValue, bool) {
+	def, ok := f.attrs[name]
+	if !ok {
+		return attrValue{}, false
+	}
+	if v, ok := f.values[attrRef{name: name, message: id}]; ok {
+		return attrValue{
+			typ: def.Type,
+			str: v.StringValue,
+			i:   v.IntValue,
+			f:   v.FloatValue,
+		}, true
+	}
+	if d, ok := f.defaults[name]; ok {
+		return attrValue{
+			typ: def.Type,
+			str: d.DefaultStringValue,
+			i:   d.DefaultIntValue,
+			f:   d.DefaultFloatValue,
+		}, true
+	}
+	return attrValue{}, false
 }
 
 // identifier returns the CAN identifier of the message.
@@ -563,6 +594,10 @@ func (f dbcFile) identifier(m *dbc.MessageDef) versions.CanIdentifier {
 		Extended: m.MessageID.IsExtended(),
 		Fd: strings.HasSuffix(format, formatFDSuffix) || m.Size > maxCANLength ||
 			format == "" && f.networkString(attrBusType) == busTypeFD,
+	}
+	if v, ok := f.attr(attrBRS, m.MessageID); ok && id.Fd {
+		id.BitrateSwitched = v.str == "1" ||
+			v.typ != dbc.AttributeValueTypeEnum && v.number() == 1
 	}
 	if mask, ok := f.groupMasks[m.MessageID]; ok {
 		id.Mask = new(mask)
@@ -583,23 +618,14 @@ func groupMask(id uint32) uint32 {
 // frameFormat returns the name of the message's VFrameFormat, or "" when the file
 // gives it none. An INT attribute holds the index of the format in Vector's list.
 func (f dbcFile) frameFormat(id dbc.MessageID) string {
-	def, ok := f.attrs[attrFrameFormat]
+	v, ok := f.attr(attrFrameFormat, id)
 	if !ok {
 		return ""
 	}
-	var name string
-	var index int64
-	if v, ok := f.values[attrRef{name: attrFrameFormat, message: id}]; ok {
-		name, index = v.StringValue, v.IntValue
-	} else if d, ok := f.defaults[attrFrameFormat]; ok {
-		name, index = d.DefaultStringValue, d.DefaultIntValue
-	} else {
-		return ""
+	if v.typ == dbc.AttributeValueTypeEnum {
+		return v.str
 	}
-	if def.Type == dbc.AttributeValueTypeEnum {
-		return name
-	}
-	switch index {
+	switch v.i {
 	case 0:
 		return "StandardCAN"
 	case 1:

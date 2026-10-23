@@ -115,6 +115,8 @@ export const canIdentifierZ = z.object({
   extended: z.boolean().default(false),
   /** fd is true when the message is sent as a CAN FD frame. */
   fd: z.boolean().default(false),
+  /** bitrateSwitched is true when a CAN FD frame switches to the data bitrate. */
+  bitrateSwitched: z.boolean().default(false),
   /**
    * mask is the bit mask applied to both identifiers before matching. When absent the
    * identifiers must match exactly.

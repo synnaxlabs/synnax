@@ -14,6 +14,7 @@
           "id": 201522942,
           "extended": true,
           "fd": false,
+          "bitrate_switched": false,
           "mask": 67043328
         },
         "fields": [
@@ -73,6 +74,7 @@
           "id": 201457406,
           "extended": true,
           "fd": false,
+          "bitrate_switched": false,
           "mask": 67043328
         },
         "fields": [
@@ -132,6 +134,7 @@
           "id": 201391870,
           "extended": true,
           "fd": false,
+          "bitrate_switched": false,
           "mask": 67043328
         },
         "fields": [
@@ -274,6 +277,7 @@
           "id": 201588478,
           "extended": true,
           "fd": false,
+          "bitrate_switched": false,
           "mask": 67043328
         },
         "fields": [

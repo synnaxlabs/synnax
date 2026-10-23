@@ -257,6 +257,7 @@ CanIdentifier::to_proto() const {
     pb.set_id(this->id);
     pb.set_extended(this->extended);
     pb.set_fd(this->fd);
+    pb.set_bitrate_switched(this->bitrate_switched);
     if (this->mask.has_value()) pb.set_mask(*this->mask);
     return {pb, x::errors::NIL};
 }
@@ -267,6 +268,7 @@ CanIdentifier::from_proto(const ::service::icd::pb::IdentifierCanPayload &pb) {
     cpp.id = pb.id();
     cpp.extended = pb.extended();
     cpp.fd = pb.fd();
+    cpp.bitrate_switched = pb.bitrate_switched();
     if (pb.has_mask()) cpp.mask = pb.mask();
     return {cpp, x::errors::NIL};
 }

@@ -149,6 +149,9 @@ struct CanIdentifier {
     bool extended = false;
     /// @brief fd is true when the message is sent as a CAN FD frame.
     bool fd = false;
+    /// @brief bitrate_switched is true when a CAN FD frame switches to the data
+    /// bitrate.
+    bool bitrate_switched = false;
     /// @brief mask is the bit mask applied to both identifiers before matching. When
     /// absent
     /// the identifiers must match exactly.

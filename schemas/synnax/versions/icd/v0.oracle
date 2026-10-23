@@ -42,16 +42,19 @@ ByteOrder enum {
 
 Identifier union on type {
     can {
-        id       uint32 = 0 {
+        id               uint32 = 0 {
             @doc value "is the CAN arbitration identifier."
         }
-        extended bool = false {
+        extended         bool = false {
             @doc value "is true when the identifier is a 29-bit extended identifier."
         }
-        fd       bool = false {
+        fd               bool = false {
             @doc value "is true when the message is sent as a CAN FD frame."
         }
-        mask     uint32? {
+        bitrate_switched bool = false {
+            @doc value "is true when a CAN FD frame switches to the data bitrate."
+        }
+        mask             uint32? {
             @doc value """
                 is the bit mask applied to both identifiers before matching. When absent
                 the identifiers must match exactly.

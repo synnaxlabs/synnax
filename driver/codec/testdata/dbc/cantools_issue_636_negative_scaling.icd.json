@@ -13,7 +13,8 @@
           "type": "can",
           "id": 496,
           "extended": false,
-          "fd": false
+          "fd": false,
+          "bitrate_switched": false
         },
         "fields": [
           {

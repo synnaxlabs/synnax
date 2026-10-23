@@ -34,6 +34,7 @@ frames(const x::json::Parser &parser, const bus::WriteConfig &cfg, const bool fd
             .id = id.id,
             .extended = id.extended,
             .fd = id.fd,
+            .bitrate_switched = id.bitrate_switched,
             .length = static_cast<std::uint8_t>(length),
         };
         if (const auto err = validate(frame, fd))

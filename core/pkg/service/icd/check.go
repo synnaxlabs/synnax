@@ -263,6 +263,12 @@ func (c *checker) checkIdentifier(
 				limit,
 			)
 		}
+		if id.BitrateSwitched && !id.Fd {
+			c.addf(
+				pathOf(idPath, "bitrate_switched"),
+				"only a CAN FD frame can switch bitrates",
+			)
+		}
 		if maxLength := canLength(id); p.Length != nil && *p.Length > maxLength {
 			c.addf(
 				pathOf(path, "length"),

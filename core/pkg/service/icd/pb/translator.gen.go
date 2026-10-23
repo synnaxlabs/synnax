@@ -444,9 +444,10 @@ func ReferencesFromPB(pbs []*Reference) ([]icd.Reference, error) {
 // CanIdentifierToPB converts CanIdentifier to IdentifierCanPayload.
 func CanIdentifierToPB(r icd.CanIdentifier) (*IdentifierCanPayload, error) {
 	pb := &IdentifierCanPayload{
-		Id:       r.ID,
-		Extended: r.Extended,
-		Fd:       r.Fd,
+		Id:              r.ID,
+		Extended:        r.Extended,
+		Fd:              r.Fd,
+		BitrateSwitched: r.BitrateSwitched,
 	}
 	if r.Mask != nil {
 		pb.Mask = r.Mask
@@ -463,6 +464,7 @@ func CanIdentifierFromPB(pb *IdentifierCanPayload) (icd.CanIdentifier, error) {
 	r.ID = pb.Id
 	r.Extended = pb.Extended
 	r.Fd = pb.Fd
+	r.BitrateSwitched = pb.BitrateSwitched
 	if pb.Mask != nil {
 		r.Mask = pb.Mask
 	}

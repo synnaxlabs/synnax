@@ -641,9 +641,11 @@ type IdentifierCanPayload struct {
 	Extended bool `protobuf:"varint,2,opt,name=extended,proto3" json:"extended,omitempty"`
 	// fd is true when the message is sent as a CAN FD frame.
 	Fd bool `protobuf:"varint,3,opt,name=fd,proto3" json:"fd,omitempty"`
+	// bitrate_switched is true when a CAN FD frame switches to the data bitrate.
+	BitrateSwitched bool `protobuf:"varint,4,opt,name=bitrate_switched,json=bitrateSwitched,proto3" json:"bitrate_switched,omitempty"`
 	// mask is the bit mask applied to both identifiers before matching. When absent the
 	// identifiers must match exactly.
-	Mask          *uint32 `protobuf:"varint,4,opt,name=mask,proto3,oneof" json:"mask,omitempty"`
+	Mask          *uint32 `protobuf:"varint,5,opt,name=mask,proto3,oneof" json:"mask,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -695,6 +697,13 @@ func (x *IdentifierCanPayload) GetExtended() bool {
 func (x *IdentifierCanPayload) GetFd() bool {
 	if x != nil {
 		return x.Fd
+	}
+	return false
+}
+
+func (x *IdentifierCanPayload) GetBitrateSwitched() bool {
+	if x != nil {
+		return x.BitrateSwitched
 	}
 	return false
 }
@@ -1494,12 +1503,13 @@ const file_core_pkg_service_icd_pb_icd_proto_rawDesc = "" +
 	"\tReference\x12\x15\n" +
 	"\x03icd\x18\x01 \x01(\tH\x00R\x03icd\x88\x01\x01\x12\x19\n" +
 	"\bicd_hash\x18\x02 \x01(\tR\aicdHashB\x06\n" +
-	"\x04_icd\"t\n" +
+	"\x04_icd\"\x9f\x01\n" +
 	"\x14IdentifierCanPayload\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x1a\n" +
 	"\bextended\x18\x02 \x01(\bR\bextended\x12\x0e\n" +
-	"\x02fd\x18\x03 \x01(\bR\x02fd\x12\x17\n" +
-	"\x04mask\x18\x04 \x01(\rH\x00R\x04mask\x88\x01\x01B\a\n" +
+	"\x02fd\x18\x03 \x01(\bR\x02fd\x12)\n" +
+	"\x10bitrate_switched\x18\x04 \x01(\bR\x0fbitrateSwitched\x12\x17\n" +
+	"\x04mask\x18\x05 \x01(\rH\x00R\x04mask\x88\x01\x01B\a\n" +
 	"\x05_mask\"D\n" +
 	"\x16IdentifierFieldPayload\x12\x14\n" +
 	"\x05field\x18\x01 \x01(\tR\x05field\x12\x14\n" +

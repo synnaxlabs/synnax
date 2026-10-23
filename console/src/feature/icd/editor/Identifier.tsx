@@ -32,13 +32,40 @@ const create = (
 ): icd.Identifier => {
   switch (type) {
     case "can":
-      return { type, id: 0, extended: false, fd: false };
+      return { type, id: 0, extended: false, fd: false, bitrateSwitched: false };
     case "field":
       return { type, field: fields[0]?.key ?? "", value: 0 };
   }
 };
 
 const formatHex = (value: number): string => `0x${value.toString(16).toUpperCase()}`;
+
+const CANFields = ({ path }: { path: string }): ReactElement => {
+  const fd = Form.useFieldValue<boolean>(`${path}.fd`);
+  return (
+    <>
+      <Form.NumericField path={`${path}.id`} label="ID" />
+      <OptionalField<number>
+        path={`${path}.mask`}
+        label="Mask"
+        placeholder="Exact match"
+        format={formatHex}
+        parse={parseInteger}
+      />
+      <Form.SwitchField path={`${path}.extended`} label="Extended" />
+      <Form.SwitchField
+        path={`${path}.fd`}
+        label="CAN FD"
+        onChange={(fd, { set }) => {
+          if (!fd) set(`${path}.bitrateSwitched`, false);
+        }}
+      />
+      {fd && (
+        <Form.SwitchField path={`${path}.bitrateSwitched`} label="Bitrate switch" />
+      )}
+    </>
+  );
+};
 
 interface TypeFieldsProps {
   path: string;
@@ -49,20 +76,7 @@ interface TypeFieldsProps {
 const TypeFields = ({ path, type, fields }: TypeFieldsProps): ReactElement => {
   switch (type) {
     case "can":
-      return (
-        <>
-          <Form.NumericField path={`${path}.id`} label="ID" />
-          <OptionalField<number>
-            path={`${path}.mask`}
-            label="Mask"
-            placeholder="Exact match"
-            format={formatHex}
-            parse={parseInteger}
-          />
-          <Form.SwitchField path={`${path}.extended`} label="Extended" />
-          <Form.SwitchField path={`${path}.fd`} label="CAN FD" />
-        </>
-      );
+      return <CANFields path={path} />;
     case "field":
       return (
         <>

@@ -815,6 +815,20 @@ TEST(CANFrames, BuildsTheFrameOfEachMessage) {
     EXPECT_EQ(built[0].length, 1);
 }
 
+TEST(CANFrames, SwitchesTheBitrateOfAnFDMessageThatAsks) {
+    auto m = binary_message(
+        "status",
+        {binary_field("v", 0)},
+        synnax::icd::CanIdentifier{.id = 0x20, .fd = true, .bitrate_switched = true}
+    );
+    x::json::Parser parser(x::json::json::object());
+    const auto built = frames(parser, write_config({m}), true);
+    ASSERT_TRUE(parser.ok());
+    ASSERT_EQ(built.size(), 1);
+    EXPECT_TRUE(built[0].fd);
+    EXPECT_TRUE(built[0].bitrate_switched);
+}
+
 TEST(CANFrames, RejectsAFrameTheBusCannotCarry) {
     auto m = binary_message(
         "status",

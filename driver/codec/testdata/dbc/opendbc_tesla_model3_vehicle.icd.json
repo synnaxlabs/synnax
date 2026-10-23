@@ -13,7 +13,8 @@
           "type": "can",
           "id": 962,
           "extended": false,
-          "fd": false
+          "fd": false,
+          "bitrate_switched": false
         },
         "fields": [
           {
@@ -903,7 +904,8 @@
           "type": "can",
           "id": 259,
           "extended": false,
-          "fd": false
+          "fd": false,
+          "bitrate_switched": false
         },
         "fields": [
           {
@@ -1241,7 +1243,8 @@
           "type": "can",
           "id": 585,
           "extended": false,
-          "fd": false
+          "fd": false,
+          "bitrate_switched": false
         },
         "fields": [
           {
@@ -1351,7 +1354,8 @@
           "type": "can",
           "id": 280,
           "extended": false,
-          "fd": false
+          "fd": false,
+          "bitrate_switched": false
         },
         "fields": [
           {
@@ -1572,7 +1576,8 @@
           "type": "can",
           "id": 835,
           "extended": false,
-          "fd": false
+          "fd": false,
+          "bitrate_switched": false
         },
         "fields": [
           {
@@ -1742,7 +1747,8 @@
           "type": "can",
           "id": 553,
           "extended": false,
-          "fd": false
+          "fd": false,
+          "bitrate_switched": false
         },
         "fields": [
           {
@@ -1851,7 +1857,8 @@
           "type": "can",
           "id": 297,
           "extended": false,
-          "fd": false
+          "fd": false,
+          "bitrate_switched": false
         },
         "fields": [
           {
@@ -2020,7 +2027,8 @@
           "type": "can",
           "id": 258,
           "extended": false,
-          "fd": false
+          "fd": false,
+          "bitrate_switched": false
         },
         "fields": [
           {
@@ -2343,7 +2351,8 @@
           "type": "can",
           "id": 568,
           "extended": false,
-          "fd": false
+          "fd": false,
+          "bitrate_switched": false
         },
         "fields": [
           {
@@ -2781,7 +2790,8 @@
           "type": "can",
           "id": 1001,
           "extended": false,
-          "fd": false
+          "fd": false,
+          "bitrate_switched": false
         },
         "fields": [
           {
@@ -2970,7 +2980,8 @@
           "type": "can",
           "id": 1013,
           "extended": false,
-          "fd": false
+          "fd": false,
+          "bitrate_switched": false
         },
         "fields": [
           {

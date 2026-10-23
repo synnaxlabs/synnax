@@ -156,6 +156,7 @@ inline CanIdentifier CanIdentifier::parse(x::json::Parser parser) {
     result.id = parser.field<std::uint32_t>("id", 0);
     result.extended = parser.field<bool>("extended", false);
     result.fd = parser.field<bool>("fd", false);
+    result.bitrate_switched = parser.field<bool>("bitrate_switched", false);
     result.mask = parser.field<std::optional<std::uint32_t>>("mask");
     result.type = parser.field<std::string>("type");
     return result;
@@ -166,6 +167,7 @@ inline x::json::json CanIdentifier::to_json() const {
     j["id"] = this->id;
     j["extended"] = this->extended;
     j["fd"] = this->fd;
+    j["bitrate_switched"] = this->bitrate_switched;
     j["mask"] = this->mask;
     j["type"] = this->type;
     return j;

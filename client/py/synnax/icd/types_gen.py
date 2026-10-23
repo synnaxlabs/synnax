@@ -112,6 +112,7 @@ class CanIdentifier(BaseModel):
     id: int = Field(default=0, ge=0, le=4294967295)
     extended: bool = False
     fd: bool = False
+    bitrate_switched: bool = False
     mask: int | None = Field(default=None, ge=0, le=4294967295)
 
 
