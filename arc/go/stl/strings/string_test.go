@@ -225,12 +225,12 @@ var _ = Describe("Strings", func() {
 
 		It("Should format positive infinity", func(ctx SpecContext) {
 			h := callU32(ctx, "from_f32", testutil.F32(float32(math.Inf(1))))
-			Expect(MustBeOk(ss.Get(h))).To(Equal("+Inf"))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("Infinity"))
 		})
 
 		It("Should format negative infinity", func(ctx SpecContext) {
 			h := callU32(ctx, "from_f32", testutil.F32(float32(math.Inf(-1))))
-			Expect(MustBeOk(ss.Get(h))).To(Equal("-Inf"))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("-Infinity"))
 		})
 	})
 
@@ -278,7 +278,7 @@ var _ = Describe("Strings", func() {
 			Entry("-3.10 (negative trailing zero)", float64(-3.10), "-3.1"),
 			Entry("-1.0 (negative integer-valued)", float64(-1.0), "-1"),
 			Entry("5.000 (three trailing zeros)", float64(5.000), "5"),
-			Entry("1e10 integer-valued", float64(10000000000.0), "1e+10"),
+			Entry("1e10 integer-valued", float64(10000000000.0), "10000000000"),
 		)
 
 		It("Should format NaN", func(ctx SpecContext) {
@@ -288,12 +288,12 @@ var _ = Describe("Strings", func() {
 
 		It("Should format positive infinity", func(ctx SpecContext) {
 			h := callU32(ctx, "from_f64", testutil.F64(math.Inf(1)))
-			Expect(MustBeOk(ss.Get(h))).To(Equal("+Inf"))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("Infinity"))
 		})
 
 		It("Should format negative infinity", func(ctx SpecContext) {
 			h := callU32(ctx, "from_f64", testutil.F64(math.Inf(-1)))
-			Expect(MustBeOk(ss.Get(h))).To(Equal("-Inf"))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("-Infinity"))
 		})
 	})
 

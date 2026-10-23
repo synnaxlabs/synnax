@@ -26,13 +26,36 @@ namespace arc::stl::strings {
 
 inline constexpr const char *MODULE_NAME = "strings";
 
-/// Formats v as the shortest round-trippable decimal, matching Go's
-/// strconv.FormatFloat(v, 'g', -1, bitSize). NaN and ±Inf are emitted as
-/// "NaN", "+Inf", "-Inf" to match Go's output exactly.
+/// Formats v as the shortest text that parses back to v, matching Go's
+/// telem.AppendFloatText. The text is in exponent notation below 1e-6 or from 1e21,
+/// with an unpadded exponent (1e-7, 1e+21). Infinities are "Infinity" and
+/// "-Infinity".
 template<typename T>
 std::string format_float(T v) {
     if (std::isnan(v)) return "NaN";
-    if (std::isinf(v)) return v > 0 ? "+Inf" : "-Inf";
+    if (std::isinf(v)) return v > 0 ? "Infinity" : "-Infinity";
+    const double a = std::abs(static_cast<double>(v));
+    const bool exponent = a != 0 && (a < 1e-6 || a >= 1e21);
+    char buf[64];
+    const auto [end, ec] = std::to_chars(
+        buf,
+        buf + sizeof(buf),
+        v,
+        exponent ? std::chars_format::scientific : std::chars_format::fixed
+    );
+    if (ec != std::errc{}) return "";
+    std::string out(buf, end);
+    // to_chars pads a one-digit exponent with a zero.
+    const size_t n = out.size();
+    if (exponent && out[n - 2] == '0' && (out[n - 3] == '+' || out[n - 3] == '-'))
+        out.erase(n - 2, 1);
+    return out;
+}
+
+/// Formats v as the shortest round-trippable decimal, matching Go's
+/// strconv.FormatFloat(v, 'g', -1, bitSize). v must be finite.
+template<typename T>
+std::string format_float_general(T v) {
     char buf[32];
     const auto [end, ec] = std::to_chars(
         buf,
@@ -334,8 +357,9 @@ format_int_value(const std::string &spec_str, int64_t value, bool is_signed) {
     return apply_width(sign, prefix, body, f);
 }
 
-/// Formats a float value to match Go's fmt.Sprintf("%"+spec, v). Delegates
-/// finite values to snprintf; NaN/±Inf use Go's capitalization.
+/// Formats a float value to match Go's fmt.Sprintf("%"+spec, v). Delegates finite
+/// values to snprintf. NaN uses Go's capitalization, and an infinity is written as
+/// Infinity, signed only when negative or when spec asks for a sign.
 inline std::string format_float_value(const std::string &spec_str, double v) {
     if (spec_str.empty()) return format_float(v);
     const FormatSpec f = parse_format_spec(spec_str);
@@ -350,23 +374,22 @@ inline std::string format_float_value(const std::string &spec_str, double v) {
         return apply_width(sign, "", "NaN", g);
     }
     if (std::isinf(v)) {
-        const bool neg = v < 0;
         std::string sign;
-        if (neg)
+        if (v < 0)
             sign = "-";
+        else if (f.plus)
+            sign = "+";
         else if (f.space)
             sign = " ";
-        else
-            sign = "+";
         FormatSpec g = f;
         g.zero = false;
-        return apply_width(sign, "", "Inf", g);
+        return apply_width(sign, "", "Infinity", g);
     }
     // Go's %g/%G with default precision uses shortest roundtrip. C's snprintf
     // defaults to 6 significant digits, so route those cases through
-    // format_float() which uses std::to_chars(general).
+    // format_float_general() which uses std::to_chars(general).
     if ((f.verb == 'g' || f.verb == 'G') && f.precision < 0) {
-        std::string body = format_float(v);
+        std::string body = format_float_general(v);
         if (f.verb == 'G')
             for (auto &c: body)
                 if (c == 'e') {

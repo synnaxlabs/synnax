@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import csv
+import math
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -184,7 +185,9 @@ class CSVWriter(ExtensionMatcher):
         return self
 
     def write(self, df: pd.DataFrame) -> None:
-        df.to_csv(self._path, index=False, mode="a", header=self._header)
+        df.replace({math.inf: "Infinity", -math.inf: "-Infinity"}).to_csv(
+            self._path, index=False, mode="a", header=self._header
+        )
         self._header = False
 
     def path(self) -> Path:
