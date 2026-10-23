@@ -25,7 +25,9 @@ const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
 );
 
 const renderPicker = (props: Partial<Input.IconPickerProps> = {}): RenderResult =>
-  render(<Input.IconPicker onChange={vi.fn()} {...props} />, { wrapper: Wrapper });
+  render(<Input.IconPicker value={undefined} onChange={vi.fn()} {...props} />, {
+    wrapper: Wrapper,
+  });
 
 const search = (c: RenderResult): HTMLInputElement =>
   c.getByLabelText("Search icons") as HTMLInputElement;
@@ -196,7 +198,7 @@ describe("IconPicker", () => {
       const c = render(
         <Dialog.Frame initialVisible>
           <Dialog.Dialog>
-            <Input.IconPicker onChange={vi.fn()} />
+            <Input.IconPicker value={undefined} onChange={vi.fn()} />
           </Dialog.Dialog>
         </Dialog.Frame>,
         { wrapper: Wrapper },

@@ -10,7 +10,6 @@
 import { type KeyboardEvent, type ReactElement } from "react";
 
 import { Dialog } from "@/dialog";
-import { Icon } from "@/icon";
 import { Text, type TextProps } from "@/input/Text";
 
 /** Props for {@link Search}. */
@@ -27,12 +26,5 @@ export const Search = ({ onKeyDown, ...rest }: SearchProps): ReactElement => {
     onKeyDown?.(e);
     if (e.key === "Escape") close();
   };
-  return (
-    <Text
-      autoFocus
-      startContent={<Icon.Search />}
-      {...rest}
-      onKeyDown={handleKeyDown}
-    />
-  );
+  return <Text autoFocus {...rest} onKeyDown={handleKeyDown} />;
 };

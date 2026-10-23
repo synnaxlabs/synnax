@@ -13,8 +13,7 @@ import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks/ref";
 import { Icon } from "@/icon";
-import { type Input } from "@/input";
-import { Search as Base } from "@/input/Search";
+import { Input } from "@/input";
 import { useRegistryContext } from "@/select/registry";
 import { useClosed } from "@/select/scope";
 
@@ -55,7 +54,7 @@ export const Search = ({
   );
   if (closed) return null;
   const input = (
-    <Base
+    <Input.Search
       value={term}
       flush
       startContent={loading ? <Icon.Loading /> : <Icon.Search />}
