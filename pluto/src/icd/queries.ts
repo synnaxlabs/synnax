@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd, type ontology, PathError, query, ValidationError } from "@synnaxlabs/client";
+import {
+  icd,
+  type ontology,
+  PathError,
+  query,
+  ValidationError,
+} from "@synnaxlabs/client";
 import { errors, verbs } from "@synnaxlabs/x";
 import { type z } from "zod";
 

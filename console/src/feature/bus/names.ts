@@ -19,10 +19,7 @@ interface Selector {
 }
 
 /** @returns the multiplexors that select a field, outermost first. */
-const selectorsOf = (
-  entry: icd.MessageEntry,
-  field: icd.BaseField,
-): Selector[] => {
+const selectorsOf = (entry: icd.MessageEntry, field: icd.BaseField): Selector[] => {
   if (field.multiplexor == null) return [];
   const multiplexor = fieldOf(entry, field.multiplexor);
   const values = [...new Set(field.multiplexValues)].sort((a, b) => a - b);

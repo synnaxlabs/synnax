@@ -42,10 +42,7 @@ export const messagesOf = (
  * @returns the field of a message entry with the key.
  * @throws {Error} if the message has no such field.
  */
-export const fieldOf = (
-  entry: icd.MessageEntry,
-  key: icd.FieldKey,
-): icd.BaseField => {
+export const fieldOf = (entry: icd.MessageEntry, key: icd.FieldKey): icd.BaseField => {
   const field = entry.payload.fields.find((f) => f.key === key);
   if (field == null) throw new Error(`Field ${key} is not in message ${entry.name}`);
   return field;
