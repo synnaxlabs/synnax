@@ -16,6 +16,7 @@ import { id } from "@/id";
 import { instance } from "@/instance";
 import { math } from "@/math";
 import { bounds } from "@/spatial";
+import { strings } from "@/strings";
 import {
   type GLBufferController,
   type GLBufferUsage,
@@ -44,22 +45,6 @@ interface GL {
 }
 
 interface IterableIterator<T> extends Iterator<T>, Iterable<T> {}
-
-/**
- * Shortest text that parses back to value at the given width. It matches the float text
- * of Arc and the Core: exponent notation below 1e-6 or from 1e21, NaN as NaN, and
- * infinities as Infinity and -Infinity.
- */
-const stringifyFloat = (value: number, float32: boolean): string => {
-  if (Object.is(value, -0)) return "-0";
-  if (!float32 || !Number.isFinite(value)) return String(value);
-  const f32 = Math.fround(value);
-  for (let p = 1; p <= 9; p++) {
-    const parsed = parseFloat(f32.toPrecision(p));
-    if (Math.fround(parsed) === f32) return String(parsed);
-  }
-  return String(f32);
-};
 
 /** A condensed set of information describing the layout of a series. */
 export interface SeriesDigest {
@@ -900,7 +885,7 @@ export class Series<T extends TelemValue = TelemValue>
     // bigint at runtime — an i64 value narrowed into a float32 GL buffer and
     // reconstructed via a bigint sampleOffset — which stringifies as an integer.
     if (typeof v !== "number") return String(v);
-    return stringifyFloat(v, this.dataType.equals(DataType.FLOAT32));
+    return strings.formatFloat(v, this.dataType.equals(DataType.FLOAT32) ? 32 : 64);
   }
 
   private atVariable(index: number, required: boolean): string | undefined {

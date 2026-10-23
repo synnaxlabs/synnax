@@ -120,3 +120,24 @@ export const escapeHTML = (s: string): string =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+
+/**
+ * Formats a float as the shortest text that parses back to it at the given width. The
+ * text is in exponent notation below 1e-6 or from 1e21 (1e-7, 1e+21). NaN is NaN, and
+ * infinities are Infinity and -Infinity. It matches the float text of every Synnax
+ * runtime.
+ *
+ * @param value - The float to format.
+ * @param bits - The width of the float, 32 or 64.
+ * @returns The text of value.
+ */
+export const formatFloat = (value: number, bits: 32 | 64 = 64): string => {
+  if (Object.is(value, -0)) return "-0";
+  if (bits === 64 || !Number.isFinite(value)) return String(value);
+  const f32 = Math.fround(value);
+  for (let p = 1; p <= 9; p++) {
+    const parsed = parseFloat(f32.toPrecision(p));
+    if (Math.fround(parsed) === f32) return String(parsed);
+  }
+  return String(f32);
+};
