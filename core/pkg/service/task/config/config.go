@@ -50,8 +50,8 @@ type Store interface {
 	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
 	// Normalize converts a config blob at the given version to the current stored
 	// shape with defaults applied. A legacy version runs the type's legacy rewrite
-	// first. It returns an error wrapping validate.ErrValidation when data does not
-	// decode at version or version is newer than the store's.
+	// first. It returns a validation error when data does not decode at version or
+	// version is newer than the store's.
 	Normalize(
 		ctx context.Context,
 		version imex.Version,

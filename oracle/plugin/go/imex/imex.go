@@ -49,9 +49,10 @@ import (
 type Options struct {
 	// FileNamePattern is the basename written for each output package.
 	FileNamePattern string
-	// RuntimeImportPath is the Go package supplying the Version type, Envelope, Decode,
-	// and NewErrUnsupportedVersion the generated files call. Its package name must be
-	// imex — the templates qualify every call with that identifier. Required.
+	// RuntimeImportPath is the Go package supplying the Version type, Envelope, Ladder,
+	// DecodeBlob, and NewErrUnsupportedVersion the generated files call. Its package
+	// name must be imex — the templates qualify every call with that identifier.
+	// Required.
 	RuntimeImportPath string
 	// OntologyImportPath is the Go package supplying the ID the generated Export takes.
 	// Its package name must be ontology. Required.
@@ -157,6 +158,8 @@ type target struct {
 	floor    int
 	// exported holds the versions the Core has exported the type at, oldest first.
 	exported []int
+	// steps holds the exported versions whose package declares Migrate<Type>.
+	steps set.Set[int]
 }
 
 func newTarget(
@@ -188,7 +191,8 @@ func newTarget(
 		return target{}, err
 	}
 	exported := exportedVersions(req, livePath, floor, current)
-	if err := requireMigrateSteps(ctx, req, typ, livePath, exported); err != nil {
+	steps, err := migrateSteps(ctx, req, typ, livePath, exported)
+	if err != nil {
 		return target{}, err
 	}
 	return target{
@@ -199,6 +203,7 @@ func newTarget(
 		current:  current,
 		floor:    floor,
 		exported: exported,
+		steps:    steps,
 	}, nil
 }
 
@@ -264,9 +269,9 @@ func (p *Plugin) generatePackage(
 	}
 	var buf bytes.Buffer
 	if targets[0].body {
-		err = p.executeBody(&buf, req.RepoRoot, outputPath, targets, imports)
+		err = p.executeBody(&buf, targets, imports)
 	} else {
-		err = p.executeChain(&buf, req.RepoRoot, outputPath, targets[0], imports)
+		err = p.executeChain(&buf, targets[0], imports)
 	}
 	if err != nil {
 		return err
@@ -299,20 +304,11 @@ func (p *Plugin) generatePackage(
 	return nil
 }
 
-func (p *Plugin) executeChain(
-	buf *bytes.Buffer,
-	repoRoot, outputPath string,
-	t target,
-	imports []string,
-) error {
-	arms, err := chainArms(repoRoot, outputPath, t.goName, t.exported, envelopeDecode)
-	if err != nil {
-		return err
-	}
+func (p *Plugin) executeChain(buf *bytes.Buffer, t target, imports []string) error {
 	return chainTemplate.Execute(buf, &chainData{
 		Type:       t.goName,
 		CurrentPkg: versioning.Dir(t.current),
-		Arms:       arms,
+		Arms:       chainArms(t, envelopeDecode),
 		Imports:    imports,
 		Runtime:    p.options.RuntimeImportPath,
 	})
@@ -320,7 +316,6 @@ func (p *Plugin) executeChain(
 
 func (p *Plugin) executeBody(
 	buf *bytes.Buffer,
-	repoRoot, outputPath string,
 	targets []target,
 	imports []string,
 ) error {
@@ -330,17 +325,11 @@ func (p *Plugin) executeBody(
 		Runtime:    p.options.RuntimeImportPath,
 	}
 	for _, t := range targets {
-		arms, err := chainArms(
-			repoRoot, outputPath, t.goName, t.exported, blobDecode(t.typ.QualifiedName),
-		)
-		if err != nil {
-			return err
-		}
 		data.Ladders = append(data.Ladders, ladderData{
 			Type:     t.goName,
 			Name:     t.typ.QualifiedName,
 			FirstPkg: versioning.Dir(t.floor),
-			Arms:     arms,
+			Arms:     chainArms(t, blobDecode(t.typ.QualifiedName)),
 		})
 	}
 	return bodyTemplate.Execute(buf, data)
@@ -492,31 +481,11 @@ func blobDecode(name string) decodeExpr {
 	}
 }
 
-// chainArms builds one ladder arm per exported version below current: each decodes the
-// stamped vK shape and lifts it through every later bump's exported Migrate<Type> step.
-// Alias-only bumps (no step on disk) pass the value through unchanged. nums holds the
-// chain's declared versions from the floor up to current, which skip the numbers that
-// never got a stored shape.
-func chainArms(
-	repoRoot, outputPath, goName string,
-	nums []int,
-	decode decodeExpr,
-) ([]chainArm, error) {
-	if len(nums) < 2 {
-		return nil, nil
-	}
-	steps := make(set.Set[int], len(nums)-1)
-	for _, j := range nums[1:] {
-		hasStep, err := migrateStepExists(
-			filepath.Join(repoRoot, versioning.VersionedPath(outputPath, j)), goName,
-		)
-		if err != nil {
-			return nil, err
-		}
-		if hasStep {
-			steps.Add(j)
-		}
-	}
+// chainArms builds one ladder arm per exported version of t below current: each decodes
+// the stamped vK shape and lifts it through every later bump's Migrate<Type> step.
+// Alias-only bumps pass the value through unchanged.
+func chainArms(t target, decode decodeExpr) []chainArm {
+	nums, goName := t.exported, t.goName
 	arms := make([]chainArm, 0, len(nums)-1)
 	for i, k := range nums[:len(nums)-1] {
 		var b strings.Builder
@@ -524,7 +493,7 @@ func chainArms(
 		fmt.Fprintf(&b, "\t\t%s, err := %s\n", cur, decode(versioning.Dir(k), goName))
 		fmt.Fprintf(&b, "\t\tif err != nil {\n\t\t\treturn %s{}, err\n\t\t}\n", goName)
 		for _, j := range nums[i+1:] {
-			if !steps.Contains(j) {
+			if !t.steps.Contains(j) {
 				continue
 			}
 			next := fmt.Sprintf("t%d", j)
@@ -540,45 +509,47 @@ func chainArms(
 		fmt.Fprintf(&b, "\t\treturn %s, nil", cur)
 		arms = append(arms, chainArm{Pkg: versioning.Dir(k), Body: b.String()})
 	}
-	return arms, nil
+	return arms
 }
 
-// requireMigrateSteps errors when a version in exported redeclares typ without an
-// exported Migrate<Type> step, since the ladder would pass the old shape through
-// unchanged. A version that only aliases typ keeps its shape and needs no step.
-func requireMigrateSteps(
+// migrateSteps returns the versions in exported, above the first, whose package
+// declares Migrate<Type>. It errors when a version redeclares typ without that step,
+// since the ladder would pass the old shape through unchanged. A version that only
+// aliases typ keeps its shape and needs no step.
+func migrateSteps(
 	ctx context.Context,
 	req *plugin.Request,
 	typ resolution.Type,
 	livePath string,
 	exported []int,
-) error {
-	if len(exported) < 2 {
-		return nil
-	}
-	goName := naming.GetGoName(typ)
-	outputPath := output.GetPath(typ, "go")
+) (set.Set[int], error) {
+	var (
+		goName     = naming.GetGoName(typ)
+		outputPath = output.GetPath(typ, "go")
+		steps      = make(set.Set[int])
+	)
 	for _, k := range exported[1:] {
-		surf, err := req.Versions.Surface(ctx, livePath, k)
-		if err != nil {
-			return err
-		}
-		if def, ok := surf[typ.Name]; !ok || def.Version != k {
-			continue
-		}
 		dir := versioning.VersionedPath(outputPath, k)
 		hasStep, err := migrateStepExists(filepath.Join(req.RepoRoot, dir), goName)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if !hasStep {
-			return errors.Newf(
+		if hasStep {
+			steps.Add(k)
+			continue
+		}
+		surf, err := req.Versions.Surface(ctx, livePath, k)
+		if err != nil {
+			return nil, err
+		}
+		if def, ok := surf[typ.Name]; ok && def.Version == k {
+			return nil, errors.Newf(
 				"%s redeclares %s without the Migrate%s step its import ladder needs",
 				dir, typ.QualifiedName, goName,
 			)
 		}
 	}
-	return nil
+	return steps, nil
 }
 
 // migrateStepExists reports whether the version package at dir declares the scaffolded
