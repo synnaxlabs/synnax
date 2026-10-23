@@ -11,6 +11,8 @@ import socket
 import ssl
 from pathlib import Path
 
+from keyring.errors import KeyringError
+
 from freighter.exceptions import Unreachable
 from synnax import Synnax
 from synnax.cli.flow import Context
@@ -63,26 +65,33 @@ def connect_client(ctx: Context, clusters: ClustersConfig) -> Synnax | None:
     ctx.console.info("Using saved credentials.")
     client = connect_from_options(ctx, cluster.options)
     if client is not None and not cluster.options.api_key:
-        save_api_key(client, cluster.options, clusters)
+        try:
+            save_api_key(client, cluster.options, clusters)
+        except (OSError, KeyringError, AuthError, Unreachable) as e:
+            ctx.console.warn(f"Cannot replace the saved password with an API key: {e}")
     return client
 
 
 def save_api_key(client: Synnax, opts: Options, clusters: ClustersConfig) -> None:
     """Creates an API key for the logged-in user and saves it with opts in place of
-    the username and password.
+    the username and password. Deletes the key when the save fails.
     """
-    token, _ = client.auth.create_key(name=f"Python CLI on {socket.gethostname()}")
-    clusters.set(
-        ClusterConfig(
-            options=Options(
-                host=opts.host,
-                port=opts.port,
-                secure=opts.secure,
-                ca_cert=opts.ca_cert,
-                api_key=token,
+    token, key = client.auth.create_key(name=f"Python CLI on {socket.gethostname()}")
+    try:
+        clusters.set(
+            ClusterConfig(
+                options=Options(
+                    host=opts.host,
+                    port=opts.port,
+                    secure=opts.secure,
+                    ca_cert=opts.ca_cert,
+                    api_key=token,
+                )
             )
         )
-    )
+    except (OSError, KeyringError):
+        client.auth.delete_keys(key.key)
+        raise
 
 
 def connect_from_options(ctx: Context, opts: Options) -> Synnax | None:

@@ -56,6 +56,7 @@ class ClustersConfig:
                     host=opts["host"],
                     port=opts["port"],
                     secure=opts.get("secure", False),
+                    ca_cert=opts.get("ca_cert"),
                     api_key=api_key,
                 )
             )
@@ -64,13 +65,21 @@ class ClustersConfig:
 
     def set(self, c: ClusterConfig, key: str = "default") -> None:
         """Saves the options and their API key, and deletes any saved password. A
-        failure at any step leaves options that still connect.
+        failed save leaves the saved options as they were.
         """
         prev = self.internal.get(f"clusters.{key}.options")
         p = c.model_dump(exclude={"options": {"username", "password"}})
         entry = _api_key_entry(key, c.options.host, c.options.port)
+        prev_api_key = self.keyring.get_password(_API_KEY_SERVICE, entry)
         self.keyring.set_password(_API_KEY_SERVICE, entry, p["options"].pop("api_key"))
-        self.internal.set(f"clusters.{key}", p)
+        try:
+            self.internal.set(f"clusters.{key}", p)
+        except OSError:
+            if prev_api_key is None:
+                self.keyring.delete_password(_API_KEY_SERVICE, entry)
+            else:
+                self.keyring.set_password(_API_KEY_SERVICE, entry, prev_api_key)
+            raise
         stale = [(_PASSWORD_SERVICE, key)]
         if prev is not None:
             prev_entry = _api_key_entry(key, prev["host"], prev["port"])

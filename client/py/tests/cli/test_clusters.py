@@ -61,6 +61,12 @@ def save_legacy_password(
     keyring.set_password("synnax", "default", opts.password)
 
 
+def block_config_writes(clusters: ClustersConfig) -> None:
+    path = clusters.internal.config_file
+    path.unlink()
+    path.mkdir()
+
+
 @pytest.mark.cli
 class TestClustersConfig:
     def test_set_saves_api_key(
@@ -114,23 +120,39 @@ class TestClustersConfig:
         assert keyring.values == {("synnax.api_key", "default@b:1"): "kb"}
 
     def test_set_failed_write_keeps_old_pair(
-        self,
-        clusters: ClustersConfig,
-        keyring: MemoryKeyring,
-        monkeypatch: pytest.MonkeyPatch,
+        self, clusters: ClustersConfig, keyring: MemoryKeyring
     ) -> None:
         """Should keep the old address with its own key when the config write fails."""
         clusters.set(ClusterConfig(options=Options(host="a", port=1, api_key="ka")))
-
-        def fail(*_: object) -> None:
-            raise OSError("disk full")
-
-        monkeypatch.setattr(clusters.internal, "set", fail)
-        with pytest.raises(OSError, match="disk full"):
+        block_config_writes(clusters)
+        with pytest.raises(IsADirectoryError):
             clusters.set(ClusterConfig(options=Options(host="b", port=1, api_key="kb")))
+        assert keyring.values == {("synnax.api_key", "default@a:1"): "ka"}
         got = clusters.get()
         assert got is not None
         assert got.options == Options(host="a", port=1, api_key="ka")
+
+    def test_set_failed_write_keeps_password(
+        self, clusters: ClustersConfig, keyring: MemoryKeyring
+    ) -> None:
+        """Should keep a password an older CLI saved when the config write fails."""
+        opts = Options(host="h", port=1, username="u", password="p")
+        save_legacy_password(clusters, keyring, opts)
+        block_config_writes(clusters)
+        with pytest.raises(IsADirectoryError):
+            clusters.set(ClusterConfig(options=Options(host="h", port=1, api_key="k")))
+        assert keyring.values == {("synnax", "default"): "p"}
+        got = clusters.get()
+        assert got is not None
+        assert got.options == opts
+
+    def test_get_keeps_ca_cert(self, clusters: ClustersConfig) -> None:
+        """Should keep the CA certificate saved with an API key."""
+        opts = Options(host="h", port=1, secure=True, ca_cert="/ca.pem", api_key="k")
+        clusters.set(ClusterConfig(options=opts))
+        got = clusters.get()
+        assert got is not None
+        assert got.options == opts
 
     def test_get_legacy_password(
         self, clusters: ClustersConfig, keyring: MemoryKeyring
@@ -209,3 +231,26 @@ class TestConnectClient:
         created = {k.key for k in client.auth.retrieve_keys()} - before
         assert keyed.auth.session.credential in created
         delete_new_keys(client, before)
+
+    def test_keeps_password_when_save_fails(
+        self,
+        clusters: ClustersConfig,
+        keyring: MemoryKeyring,
+        login_info: tuple[str, int, str, str],
+        client: sy.Synnax,
+    ) -> None:
+        """Should connect, keep the saved password, and delete the new key when the
+        config write fails.
+        """
+        host, port, username, password = login_info
+        before = {k.key for k in client.auth.retrieve_keys()}
+        save_legacy_password(
+            clusters,
+            keyring,
+            Options(host=host, port=port, username=username, password=password),
+        )
+        block_config_writes(clusters)
+        connected = connect_client(Context(console=MockConsole()), clusters)
+        assert connected is not None
+        assert keyring.values == {("synnax", "default"): password}
+        assert {k.key for k in client.auth.retrieve_keys()} == before
