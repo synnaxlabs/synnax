@@ -125,6 +125,22 @@ describe("IconPicker", () => {
       expect(stops.map((o) => o.getAttribute("aria-label"))).toEqual(["Pump"]);
     });
 
+    it("should move back past the neighbor of the picked icon", () => {
+      const c = renderPicker({ value: "pump" });
+      fireEvent.keyDown(search(c), { key: "ArrowDown" });
+      fireEvent.keyDown(document.activeElement as Element, { key: "ArrowLeft" });
+      fireEvent.keyDown(document.activeElement as Element, { key: "ArrowLeft" });
+      expect(focusedName()).toEqual("Database");
+    });
+
+    it("should move the tab stop to the focused icon", () => {
+      const c = renderPicker({ value: "pump" });
+      fireEvent.keyDown(search(c), { key: "ArrowDown" });
+      fireEvent.keyDown(document.activeElement as Element, { key: "ArrowLeft" });
+      const stops = options(c).filter((o) => o.tabIndex === 0);
+      expect(stops.map((o) => o.getAttribute("aria-label"))).toEqual(["Valve"]);
+    });
+
     it("should move along a line and wrap onto the next", () => {
       const c = renderPicker();
       fireEvent.keyDown(search(c), { key: "ArrowDown" });
