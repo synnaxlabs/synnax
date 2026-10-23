@@ -57,6 +57,18 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::auth::SessionDeleteRequest,
         google::protobuf::Empty,
         grpc::auth::AuthSessionDeleteService>>(pool, base_target);
+    this->auth_key_create = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::auth::KeyCreateRequest,
+        grpc::auth::KeyCreateResponse,
+        grpc::auth::AuthKeyCreateService>>(pool, base_target);
+    this->auth_key_retrieve = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::auth::KeyRetrieveRequest,
+        grpc::auth::KeyRetrieveResponse,
+        grpc::auth::AuthKeyRetrieveService>>(pool, base_target);
+    this->auth_key_delete = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::auth::KeyDeleteRequest,
+        google::protobuf::Empty,
+        grpc::auth::AuthKeyDeleteService>>(pool, base_target);
     this->frame_stream = std::make_unique<freighter::grpc::StreamClient<
         grpc::framer::StreamerRequest,
         grpc::framer::StreamerResponse,
@@ -172,6 +184,9 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
 };
 
 void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
+    auth_key_create->use(mw);
+    auth_key_retrieve->use(mw);
+    auth_key_delete->use(mw);
     frame_stream->use(mw);
     frame_write->use(mw);
     chan_create->use(mw);

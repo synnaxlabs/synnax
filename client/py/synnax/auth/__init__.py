@@ -7,8 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.auth.client import Client
+from synnax.auth.client import APIKey, Client
 from synnax.auth.types_gen import (
+    APIKeyCredentials,
+    ApiKeyProof,
     Credentials,
     Method,
     PasswordProof,
@@ -18,6 +20,9 @@ from synnax.auth.types_gen import (
 )
 
 __all__ = [
+    "APIKey",
+    "APIKeyCredentials",
+    "ApiKeyProof",
     "Client",
     "Credentials",
     "Method",
