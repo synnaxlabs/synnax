@@ -60,9 +60,9 @@ var _ = Describe("Framer", func() {
 			"Should pull in the index channels an indexes-included request left out",
 			func(ctx SpecContext) {
 				res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
-					Keys:            channel.Keys{data.Key()},
-					Bounds:          telem.TimeRangeMax,
-					IndexesIncluded: true,
+					Keys:               channel.Keys{data.Key()},
+					Bounds:             telem.TimeRangeMax,
+					TimestampsIncluded: true,
 				}))
 				DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })
 				Expect(res.Indexes).To(HaveLen(1))
@@ -74,9 +74,9 @@ var _ = Describe("Framer", func() {
 			ctx SpecContext,
 		) {
 			res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
-				Keys:            channel.Keys{data.Key(), index.Key()},
-				Bounds:          telem.TimeRangeMax,
-				IndexesIncluded: true,
+				Keys:               channel.Keys{data.Key(), index.Key()},
+				Bounds:             telem.TimeRangeMax,
+				TimestampsIncluded: true,
 			}))
 			DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })
 			Expect(res.Channels).To(HaveLen(2))
@@ -122,9 +122,9 @@ var _ = Describe("Framer", func() {
 				Expect(apiSvc.Read(
 					subjectCtx(ctx, u.OntologyID()),
 					apiframer.ReadRequest{
-						Keys:            channel.Keys{data.Key()},
-						Bounds:          telem.TimeRangeMax,
-						IndexesIncluded: true,
+						Keys:               channel.Keys{data.Key()},
+						Bounds:             telem.TimeRangeMax,
+						TimestampsIncluded: true,
 					},
 				)).Error().To(MatchError(access.ErrDenied))
 			})
@@ -160,9 +160,9 @@ var _ = Describe("Framer", func() {
 				res := MustSucceed(apiSvc.Read(
 					subjectCtx(ctx, u.OntologyID()),
 					apiframer.ReadRequest{
-						Keys:            channel.Keys{data.Key()},
-						Bounds:          telem.TimeRangeMax,
-						IndexesIncluded: true,
+						Keys:               channel.Keys{data.Key()},
+						Bounds:             telem.TimeRangeMax,
+						TimestampsIncluded: true,
 					},
 				))
 				DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })

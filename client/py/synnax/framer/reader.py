@@ -34,7 +34,7 @@ class _Request(BaseModel):
     keys: list[channel.Key]
     bounds: TimeRange
     downsample_factor: int
-    indexes_included: bool = False
+    timestamps_included: bool = False
 
 
 class Reader:
@@ -99,7 +99,7 @@ class Reader:
             keys=adapter.keys,
             bounds=tr,
             downsample_factor=downsample_factor,
-            indexes_included=True,
+            timestamps_included=True,
         )
         self._file.download(_ENDPOINT, req, dest)
 

@@ -111,8 +111,9 @@ type ReadRequest struct {
 	Keys             channel.Keys    `json:"keys"              msgpack:"keys"`
 	Bounds           telem.TimeRange `json:"bounds"            msgpack:"bounds"`
 	DownsampleFactor uint32          `json:"downsample_factor" msgpack:"downsample_factor"`
-	// IndexesIncluded also reads the index channels of Keys that Keys leaves out.
-	IndexesIncluded bool `json:"indexes_included" msgpack:"indexes_included"`
+	// TimestampsIncluded also reads the index channels that timestamp Keys, when Keys
+	// leaves them out. A CSV read fails without it unless Keys holds every index.
+	TimestampsIncluded bool `json:"timestamps_included" msgpack:"timestamps_included"`
 }
 
 // ReadResponse is the handle a read encoder drives to produce the response body. It
@@ -124,7 +125,7 @@ type ReadResponse struct {
 	Channels []channel.Channel
 	// Indexes holds the records of the index channels pulled in to timestamp the
 	// requested channels, excluding any the caller already requested. It is empty
-	// unless the request set IndexesIncluded.
+	// unless the request set TimestampsIncluded.
 	Indexes []channel.Channel
 	// DownsampleFactor is the request's downsample factor. Sample i of a series sits at
 	// the series' alignment plus i times the factor. Values below 2 keep every sample.
@@ -135,7 +136,7 @@ type ReadResponse struct {
 func (r ReadResponse) Close() error { return r.Iterator.Close() }
 
 // Read opens an iterator over the channels and bounds in req, along with their index
-// channels when req sets IndexesIncluded. The caller is the response encoder, which
+// channels when req sets TimestampsIncluded. The caller is the response encoder, which
 // drains the iterator and closes it.
 func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, error) {
 	if err := s.enforceRetrieve(ctx, req.Keys); err != nil {
@@ -149,7 +150,7 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 		return ReadResponse{}, err
 	}
 	var indexes []channel.Channel
-	if req.IndexesIncluded {
+	if req.TimestampsIncluded {
 		var err error
 		if indexes, err = s.retrieveMissingIndexes(ctx, channels); err != nil {
 			return ReadResponse{}, err

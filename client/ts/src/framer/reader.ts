@@ -24,7 +24,7 @@ const reqZ = z.object({
   keys: keyZ.array(),
   bounds: TimeRange.z,
   downsampleFactor: z.uint32(),
-  indexesIncluded: z.boolean(),
+  timestampsIncluded: z.boolean(),
 });
 
 /** Options controlling how the Core resolves a read. */
@@ -110,7 +110,7 @@ export class Reader {
     keys: channel.Key[],
     tr: CrudeTimeRange,
     encoding: FileOptions["encoding"],
-    indexesIncluded: boolean,
+    timestampsIncluded: boolean,
     opts: ReadOptions,
   ): Promise<ReadableStream<Uint8Array>> {
     return await this.file.download(
@@ -119,7 +119,7 @@ export class Reader {
         keys,
         bounds: new TimeRange(tr),
         downsampleFactor: opts.downsampleFactor ?? 1,
-        indexesIncluded,
+        timestampsIncluded,
       },
       reqZ,
       { encoding },
