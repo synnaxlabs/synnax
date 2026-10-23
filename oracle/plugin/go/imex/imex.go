@@ -83,10 +83,11 @@ func (*Plugin) Requires() []string { return []string{"go/types"} }
 // a Version constant in each versions/vK package the Core has exported, and Latest in
 // the versions package root. Constants below the earliest exported version are deleted.
 // A bare marker adds the autoDecodeEnvelope ladder and Service.Export; `@go imex body`
-// adds an exported <Type>Ladder per type instead. It errors when a marked type has no
-// version chain, when a bare marker shares its package with another marked type, when
-// body types in one package come from different chains, when a version redeclares a
-// type without its Migrate<Type> step, or when a version package does not parse.
+// adds an exported <Type>Ladder per type instead and deletes any Export. It errors when
+// a marked type has no version chain, when a bare marker shares its package with
+// another marked type, when body types in one package come from different chains, when
+// a version redeclares a type without its Migrate<Type> step, or when a version package
+// does not parse.
 //
 // The emitted Export calls the service's NewRetrieve, MatchKeys, and Type, and parses
 // id.Key as a UUID. A resource missing any of them, or keyed by something else, fails
@@ -280,6 +281,9 @@ func (p *Plugin) generatePackage(
 		Content: buf.Bytes(),
 	})
 	if targets[0].body {
+		resp.Deletions = append(
+			resp.Deletions, outputPath+"/"+p.options.FileNamePattern,
+		)
 		return nil
 	}
 	// A fresh buffer: plugin.File.Content aliases the backing array, so reusing buf
