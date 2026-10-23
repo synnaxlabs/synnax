@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
@@ -136,7 +137,7 @@ const Item = (props: List.ItemRenderProps<string>) => {
   );
 };
 
-const item = (props: List.ItemRenderProps<string>) => <Item {...props} />;
+const item = Component.renderProp(Item);
 
 interface GroupListProps extends Pick<ValuesProps, "picked" | "onPickedChange"> {
   values: Value[];
