@@ -71,7 +71,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
 
   private readonly statuses: Map<string, Status.Crude>;
   private readonly touched: Set<string>;
-  private readonly cachedRefs: Map<string, {}>;
+  private readonly cachedRefs: Map<string, { state: FieldState; stale: boolean }>;
 
   constructor(values: z.infer<Z>, schema?: Z) {
     super();
@@ -318,8 +318,8 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
    */
   getState<V>(path: string, opts: GetOptions = {}): FieldState<V> | null {
     const { optional = false } = opts;
-    const cachedRef = map.getOrSetDefault(this.cachedRefs, path, {}) as FieldState<V>;
-    if (cachedRef.status != null) return cachedRef;
+    const cached = this.cachedRefs.get(path);
+    if (cached != null && !cached.stale) return cached.state as FieldState<V>;
     let value = deep.get<V, z.infer<Z>>(this.values, path, { optional: true });
     value ??= this.readAbsent(path) as V | null;
     let required = false;
@@ -344,26 +344,37 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
       if (optional) return null;
       throw new Error(`Field ${path} is not in the form`);
     }
-    cachedRef.value = value;
-    cachedRef.required = required;
-    cachedRef.status = map.getOrSetDefault(this.statuses, path, {
+    const status = map.getOrSetDefault(this.statuses, path, {
       key: path,
       variant: "success",
       message: "",
     });
-    cachedRef.touched = this.touched.has(path);
-    return cachedRef;
+    const touched = this.touched.has(path);
+    // A field whose state did not change keeps its object, so it does not re-render.
+    if (
+      cached != null &&
+      cached.state.value === value &&
+      cached.state.required === required &&
+      cached.state.status === status &&
+      cached.state.touched === touched
+    ) {
+      cached.stale = false;
+      return cached.state as FieldState<V>;
+    }
+    const state: FieldState<V> = { value, required, status, touched };
+    this.cachedRefs.set(path, { state, stale: false });
+    return state;
   }
 
   /**
-   * Drops the cached state of the path, its ancestors, and everything under its
+   * Marks stale the cached state of the path, its ancestors, and everything under its
    * parent. A sibling can be the discriminator that decides the path's schema.
    */
   private updateCachedRefs(fieldPath: string) {
     const parent = fieldPath.slice(0, Math.max(fieldPath.lastIndexOf("."), 0));
-    this.cachedRefs.forEach((_, refPath) => {
+    this.cachedRefs.forEach((cached, refPath) => {
       if (deep.pathsMatch(refPath, parent) || deep.pathsMatch(fieldPath, refPath))
-        this.cachedRefs.set(refPath, {});
+        cached.stale = true;
     });
   }
 }

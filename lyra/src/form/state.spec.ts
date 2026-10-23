@@ -173,6 +173,16 @@ describe("State", () => {
         expect(before.port).toBe(1);
       });
 
+      it("should keep the state object of a sibling the write left unchanged", () => {
+        const state = new State(initialValues, basicSchema);
+        const sibling = state.getState("email");
+        const written = state.getState("name");
+        state.setValue("name", "Jane Doe");
+        expect(state.getState("email")).toBe(sibling);
+        expect(state.getState("name")).not.toBe(written);
+        expect(state.getState("name").value).toBe("Jane Doe");
+      });
+
       it("should give the ancestors of a removed path a new identity", () => {
         const state = new State<z.ZodType<Keyed>>(keyed());
         const { channels } = state.values;
