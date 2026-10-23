@@ -32,6 +32,7 @@ const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
       <Base.Section title="State">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
+            allowNone
             value={value.channel ?? 0}
             onChange={handleSourceChange}
           />
@@ -61,7 +62,6 @@ export const StateIndicatorForm = ({ tab, onTabChange }: FormProps): ReactElemen
           <Base.NumericField
             path="inlineSize"
             label="Width"
-            hideIfNull
             padHelpText={false}
             inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
           />

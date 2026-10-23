@@ -994,9 +994,9 @@ var _ = Describe("Task", Ordered, func() {
 			).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 			Eventually(func(g Gomega) {
-				var stat svcarc.Status
-				g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
-					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
+				var stat status.Status[struct{}]
+				g.Expect(statusSvc.NewRetrieve[struct{}]().
+					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 						return s.Name == "ox_alarm", nil
 					})).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
@@ -1044,11 +1044,11 @@ var _ = Describe("Task", Ordered, func() {
 			).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
-			byName := func(name string) svcarc.Status {
+			byName := func(name string) status.Status[struct{}] {
 				GinkgoHelper()
-				var stat svcarc.Status
-				Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
-					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
+				var stat status.Status[struct{}]
+				Expect(statusSvc.NewRetrieve[struct{}]().
+					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 						return s.Name == name, nil
 					})).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
@@ -1056,11 +1056,11 @@ var _ = Describe("Task", Ordered, func() {
 			}
 
 			Eventually(func(g Gomega) {
-				g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
-					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
+				g.Expect(statusSvc.NewRetrieve[struct{}]().
+					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 						return s.Name == base+"_d", nil
 					})).
-					Entry(&svcarc.Status{}).Exec(ctx, nil)).To(Succeed())
+					Entry(&status.Status[struct{}]{}).Exec(ctx, nil)).To(Succeed())
 			}).Should(Succeed())
 
 			Expect(byName(base + "_b").Variant).To(BeEquivalentTo("error"))
@@ -1110,9 +1110,9 @@ var _ = Describe("Task", Ordered, func() {
 
 				oneRow := func(g Gomega) {
 					GinkgoHelper()
-					var rows []svcarc.Status
-					g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
-						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
+					var rows []status.Status[struct{}]
+					g.Expect(statusSvc.NewRetrieve[struct{}]().
+						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 							return s.Name == name, nil
 						})).
 						Entries(&rows).Exec(ctx, nil)).To(Succeed())
@@ -1235,9 +1235,9 @@ var _ = Describe("Task", Ordered, func() {
 
 				oneRow := func(g Gomega) {
 					GinkgoHelper()
-					var rows []svcarc.Status
-					g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
-						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
+					var rows []status.Status[struct{}]
+					g.Expect(statusSvc.NewRetrieve[struct{}]().
+						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 							return s.Name == name, nil
 						})).
 						Entries(&rows).Exec(ctx, nil)).To(Succeed())
@@ -1311,9 +1311,9 @@ var _ = Describe("Task", Ordered, func() {
 
 				oneRow := func(g Gomega) {
 					GinkgoHelper()
-					var rows []svcarc.Status
-					g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
-						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
+					var rows []status.Status[struct{}]
+					g.Expect(statusSvc.NewRetrieve[struct{}]().
+						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 							return s.Name == name, nil
 						})).
 						Entries(&rows).Exec(ctx, nil)).To(Succeed())
@@ -1388,9 +1388,9 @@ var _ = Describe("Task", Ordered, func() {
 
 				oneRow := func(g Gomega) {
 					GinkgoHelper()
-					var rows []svcarc.Status
-					g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
-						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
+					var rows []status.Status[struct{}]
+					g.Expect(statusSvc.NewRetrieve[struct{}]().
+						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 							return s.Name == name, nil
 						})).
 						Entries(&rows).Exec(ctx, nil)).To(Succeed())

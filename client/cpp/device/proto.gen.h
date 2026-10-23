@@ -22,7 +22,7 @@
 #include "x/cpp/json/struct.h"
 #include "x/cpp/pb/pb.h"
 
-#include "core/pkg/service/device/pb/device.pb.h"
+#include "core/pkg/service/legacy/device/pb/device.pb.h"
 
 namespace synnax::device {
 
