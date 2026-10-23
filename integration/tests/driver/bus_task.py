@@ -329,9 +329,8 @@ class BusCase(SimulatorCase):
         }
         read = bus.ReadMessage(
             message=entry.key,
-            index=index,
             fields=[
-                bus.ReadField(field=keys[name], channel=key)
+                bus.ReadField(field=keys[name], channel=key, index=index)
                 for name, key in channels.items()
             ],
         )

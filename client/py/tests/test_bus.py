@@ -57,8 +57,7 @@ class TestBusTasks:
             messages=[
                 sy.bus.ReadMessage(
                     message=message,
-                    index=1,
-                    fields=[sy.bus.ReadField(field=field, channel=2)],
+                    fields=[sy.bus.ReadField(field=field, channel=2, index=1)],
                 )
             ],
         )
