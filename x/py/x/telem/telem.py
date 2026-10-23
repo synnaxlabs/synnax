@@ -18,7 +18,7 @@ from typing import Any, ClassVar, Literal, TypeAlias
 import numpy as np
 import pandas as pd
 from numpy.typing import DTypeLike
-from pydantic import BaseModel, GetCoreSchemaHandler
+from pydantic import BaseModel, ConfigDict, GetCoreSchemaHandler
 from pydantic_core import core_schema
 
 from x.exceptions import ContiguityError
@@ -59,6 +59,38 @@ def _int64(value: int, name: str) -> int:
     return value
 
 
+def _stamp_nanoseconds(value: CrudeTimeStamp) -> int:
+    if isinstance(value, str):
+        return int(value)
+    if isinstance(value, pd.Timestamp):
+        return int(value.value)
+    if isinstance(value, datetime):
+        return _timedelta_nanoseconds(value.astimezone() - _EPOCH)
+    if isinstance(value, timedelta):
+        return _timedelta_nanoseconds(value)
+    if isinstance(value, np.datetime64):
+        if np.isnat(value):
+            raise ValueError("Cannot convert NaT to TimeStamp")
+        return int(pd.Timestamp(value).value)
+    if isinstance(value, (int, float, np.integer, np.floating)):
+        return int(value)
+    raise TypeError(f"Cannot convert {type(value)} to TimeStamp")
+
+
+def _span_nanoseconds(value: CrudeTimeSpan) -> int:
+    if isinstance(value, str):
+        return int(value)
+    if isinstance(value, pd.Timedelta):
+        return int(value.value)
+    if isinstance(value, timedelta):
+        return _timedelta_nanoseconds(value)
+    if isinstance(value, np.timedelta64):
+        return _timedelta64_nanoseconds(value)
+    if isinstance(value, (int, float, np.integer, np.floating)):
+        return int(value)
+    raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
+
+
 class TimeStamp(int):
     """TimeStamp represents a 64 bit nanosecond-precision UTC timestamp. The TimeStamp
     constructor accepts a variety of types and will attempt to convert them to a
@@ -76,27 +108,9 @@ class TimeStamp(int):
     """
 
     def __new__(cls, value: CrudeTimeStamp) -> TimeStamp:
-        if isinstance(value, str):
-            value = int(value)
-        elif isinstance(value, TimeStamp):
+        if isinstance(value, TimeStamp):
             return value
-        elif isinstance(value, TimeSpan):
-            value = int(value)
-        elif isinstance(value, pd.Timestamp):
-            value = value.value
-        elif isinstance(value, datetime):
-            value = _timedelta_nanoseconds(value.astimezone() - _EPOCH)
-        elif isinstance(value, timedelta):
-            value = _timedelta_nanoseconds(value)
-        elif isinstance(value, np.datetime64):
-            if np.isnat(value):
-                raise ValueError("Cannot convert NaT to TimeStamp")
-            value = int(pd.Timestamp(value).value)
-        elif isinstance(value, (int, float, np.integer, np.floating)):
-            value = int(value)
-        else:
-            raise TypeError(f"Cannot convert {type(value)} to TimeStamp")
-        return super().__new__(cls, _int64(value, "TimeStamp"))
+        return super().__new__(cls, _int64(_stamp_nanoseconds(value), "TimeStamp"))
 
     @classmethod
     def __get_pydantic_core_schema__(
@@ -154,25 +168,25 @@ class TimeStamp(int):
         :param ts: The TimeStamp to compare to.
 
         """
-        return super().__gt__(TimeStamp(ts))
+        return super().__gt__(_stamp_nanoseconds(ts))
 
     def after_eq(self, ts: CrudeTimeStamp) -> bool:
         """:return: True if the TimeStamp is after or equal to the given TimeStamp.
         :param ts: The TimeStamp to compare to.
         """
-        return super().__ge__(TimeStamp(ts))
+        return super().__ge__(_stamp_nanoseconds(ts))
 
     def before(self, ts: CrudeTimeStamp) -> bool:
         """:returns: True if the TimeStamp is strictly before the given TimeStamp.
         :param ts: The TimeStamp to compare to.
         """
-        return super().__lt__(TimeStamp(ts))
+        return super().__lt__(_stamp_nanoseconds(ts))
 
     def before_eq(self, ts: CrudeTimeStamp) -> bool:
         """:returns: True if the TimeStamp is before or equal to the given TimeStamp.
         :param ts: The TimeStamp to compare to.
         """
-        return super().__le__(TimeStamp(ts))
+        return super().__le__(_stamp_nanoseconds(ts))
 
     def span_range(self, span: TimeSpan) -> TimeRange:
         """:returns: A TimeRange that spans the given TimeSpan
@@ -210,7 +224,7 @@ class TimeStamp(int):
             rhs, (int, TimeSpan, datetime, timedelta, np.datetime64, np.int64)
         ):
             return False
-        return super().__eq__(TimeStamp(rhs))
+        return super().__eq__(_stamp_nanoseconds(rhs))
 
     def __hash__(self) -> int:
         return super().__hash__()
@@ -240,19 +254,7 @@ class TimeSpan(int):
     """
 
     def __new__(cls, value: CrudeTimeSpan) -> TimeSpan:
-        if isinstance(value, str):
-            value = int(value)
-        if isinstance(value, pd.Timedelta):
-            ns = value.value
-        elif isinstance(value, timedelta):
-            ns = _timedelta_nanoseconds(value)
-        elif isinstance(value, np.timedelta64):
-            ns = _timedelta64_nanoseconds(value)
-        elif isinstance(value, (int, float, np.floating, np.integer)):
-            ns = int(value)
-        else:
-            raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
-        return super().__new__(cls, _int64(ns, "TimeSpan"))
+        return super().__new__(cls, _int64(_span_nanoseconds(value), "TimeSpan"))
 
     @classmethod
     def __get_pydantic_core_schema__(
@@ -468,21 +470,23 @@ class TimeSpan(int):
 
     # Omits np.timedelta64: its reflected comparisons return np.bool, not bool.
     def __gt__(self, rhs: _ComparableTimeSpan) -> bool:
-        return super().__gt__(TimeSpan(rhs))
+        return super().__gt__(_span_nanoseconds(rhs))
 
     def __ge__(self, rhs: _ComparableTimeSpan) -> bool:
-        return super().__ge__(TimeSpan(rhs))
+        return super().__ge__(_span_nanoseconds(rhs))
 
     def __lt__(self, rhs: _ComparableTimeSpan) -> bool:
-        return super().__lt__(TimeSpan(rhs))
+        return super().__lt__(_span_nanoseconds(rhs))
 
     def __le__(self, rhs: _ComparableTimeSpan) -> bool:
-        return super().__le__(TimeSpan(rhs))
+        return super().__le__(_span_nanoseconds(rhs))
 
     def __eq__(self, rhs: object) -> bool:
-        if not isinstance(rhs, (int, float, timedelta, np.timedelta64)):
+        if isinstance(rhs, (int, float)):
+            return int(self) == rhs
+        if not isinstance(rhs, (timedelta, np.timedelta64)):
             return NotImplemented
-        return super().__eq__(int(TimeSpan(rhs)))
+        return super().__eq__(_span_nanoseconds(rhs))
 
     def __hash__(self) -> int:
         return super().__hash__()
@@ -687,6 +691,8 @@ class TimeRange(BaseModel):
     is start inclusive and end exclusive.
     """
 
+    model_config = ConfigDict(frozen=True)
+
     start: TimeStamp
     """The starting TimeStamp of the TimeRange.
 
@@ -737,16 +743,16 @@ class TimeRange(BaseModel):
         :param bound: The TimeRange to clamp by.
         :returns: The clamped TimeRange.
         """
-        copy = self.copy()
+        start, end = self.start, self.end
         if bound.start.after(self.start):
-            copy.start = bound.start
+            start = bound.start
         if bound.start.after(self.end):
-            copy.end = bound.start
+            end = bound.start
         if bound.end.before(self.end):
-            copy.end = bound.end
+            end = bound.end
         if bound.end.before(self.start):
-            copy.start = bound.end
-        return copy
+            start = bound.end
+        return TimeRange(start, end)
 
     def contains(self, value: TimeRange | CrudeTimeStamp) -> bool:
         """Checks if the TimeRange contains the given TimeRange or TimeStamp. If
@@ -1217,6 +1223,7 @@ DataType._FROM_NUMPY = {
     np.dtype(np.uint16): DataType.UINT16,
     np.dtype(np.uint8): DataType.UINT8,
     np.dtype(np.bool_): DataType.BOOLEAN,
+    np.dtype(np.datetime64): DataType.TIMESTAMP,
     np.dtype("datetime64[ns]"): DataType.TIMESTAMP,
     np.dtype(np.str_): DataType.STRING,
 }

@@ -19,6 +19,7 @@ import pandas as pd
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
+from pydantic import ValidationError
 
 import x.telem as sy
 from x.exceptions import ContiguityError
@@ -584,6 +585,7 @@ class TestDataType:
             (["a"], sy.DataType.STRING),
             (uuid.uuid4(), sy.DataType.UUID),
             (np.dtype("datetime64[ns]"), sy.DataType.TIMESTAMP),
+            (np.datetime64, sy.DataType.TIMESTAMP),
         ],
     )
     def test_construction(self, crude: sy.CrudeDataType, expected: sy.DataType) -> None:
@@ -995,8 +997,29 @@ class TestTimeProperties:
         assert hash(sy.TimeSpan(value)) == hash(value)
         assert len({sy.TimeStamp(value), sy.TimeSpan(value), value}) == 1
 
+    @given(_SPAN, st.floats(allow_nan=False, allow_infinity=False))
+    def test_span_float_eq_matches_hash(self, value: int, other: float) -> None:
+        """Should only equal a float whose hash matches"""
+        span = sy.TimeSpan(value)
+        assert (span == other) == (value == other)
+        if span == other:
+            assert hash(span) == hash(other)
+
+    @given(_STAMP, st.integers(min_value=2**63))
+    def test_compare_with_out_of_range_int(self, value: int, big: int) -> None:
+        """Should compare against an int that does not fit in 64 bits"""
+        assert sy.TimeStamp(value) < big
+        assert sy.TimeSpan(value) < big
+        assert sy.TimeStamp(value) != big
+
     @given(_STAMP, _STAMP)
     def test_time_range_hash_matches_eq(self, start: int, end: int) -> None:
         """Should hash equal time ranges to the same value"""
         assert hash(sy.TimeRange(start, end)) == hash(sy.TimeRange(start, end))
         assert len({sy.TimeRange(start, end), sy.TimeRange(start, end)}) == 1
+
+    def test_time_range_frozen(self) -> None:
+        """Should reject a change to a hashable time range"""
+        tr = sy.TimeRange(0, 10)
+        with pytest.raises(ValidationError):
+            sy.TimeRange.__setattr__(tr, "end", sy.TimeStamp(20))
