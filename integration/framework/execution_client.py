@@ -20,7 +20,7 @@ from framework import run_dir, server_log
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.models import STATUS, SynnaxConnection, Test
 from framework.test_case import TestCase
-from framework.watchdog import Timeout, Watchdog, interrupt
+from framework.watchdog import Slots, Timeout, Watchdog, interrupt
 
 # Range coloring
 COLORS: list[str] = [
@@ -38,7 +38,8 @@ COLORS: list[str] = [
     "#000033",
 ]
 
-# Seconds a timed-out test has to tear down before the conductor stops waiting on it.
+# Seconds past its timeout a test has to finish before the conductor stops waiting on
+# it.
 TIMEOUT_GRACE = 60.0
 
 
@@ -224,7 +225,7 @@ class ExecutionClient:
         pool_size: int = -1,
     ) -> None:
         use_pool = 0 < pool_size < len(tests)
-        semaphore = threading.Semaphore(pool_size) if use_pool else None
+        slots = Slots(pool_size) if use_pool else None
 
         if use_pool:
             self._log(
@@ -234,28 +235,17 @@ class ExecutionClient:
             )
 
         pending: list[tuple[threading.Thread, Future[Test], TestDefinition]] = []
-        freed: set[threading.Thread] = set()
-        freed_lock = threading.Lock()
-
-        # Both a finished test and the wait loop that abandons it free its slot.
-        def _free_slot(thread: threading.Thread) -> None:
-            if semaphore is None:
-                return
-            with freed_lock:
-                if thread in freed:
-                    return
-                freed.add(thread)
-            semaphore.release()
 
         def _run(td: TestDefinition, ft: Future[Test], idx: int) -> None:
-            if semaphore is not None:
-                semaphore.acquire()
+            if slots is not None:
+                slots.acquire()
             try:
-                if semaphore is not None:
+                if slots is not None:
                     self._log(f"[{idx}/{self._total_tests}] {td}", True)
                 self._test_runner_thread(td, ft)
             finally:
-                _free_slot(threading.current_thread())
+                if slots is not None:
+                    slots.free(threading.current_thread())
 
         for i, test_def in enumerate(tests):
             if self.should_stop:
@@ -263,7 +253,7 @@ class ExecutionClient:
                 break
 
             global_idx = len(self._tests) - self._tests_offset + i + 1
-            if semaphore is None:
+            if slots is None:
                 self._log(f"[{global_idx}/{self._total_tests}] {test_def}", True)
 
             future: Future[Test] = Future()
@@ -282,7 +272,8 @@ class ExecutionClient:
             still_pending = []
             for t, ft, td in pending:
                 if self._watchdog.abandoned(t):
-                    _free_slot(t)
+                    if slots is not None:
+                        slots.free(t)
                     self._collect_result(td, ft)
                 elif not t.is_alive():
                     self._collect_result(td, ft)
@@ -384,6 +375,7 @@ class ExecutionClient:
             self._log(f"Traceback: {traceback.format_exc()}", True)
 
         finally:
+            self._watchdog.disarm(threading.current_thread())
             test.ended_at = time.time()
             self._slice_server_log_if_failed(test, bundle_dir, log_start_offset)
             run_dir.set_test_dir(None)

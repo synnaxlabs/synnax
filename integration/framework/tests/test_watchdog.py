@@ -11,7 +11,7 @@ import threading
 import time
 from collections.abc import Callable
 
-from framework.watchdog import Timeout, Watchdog
+from framework.watchdog import Slots, Timeout, Watchdog
 
 POLL = 0.01
 WAIT = 5.0
@@ -92,3 +92,39 @@ class TestWatchdog:
         worker.released.set()
         worker.thread.join(WAIT)
         assert not watchdog.abandoned(worker.thread)
+
+    def test_no_interrupt_after_disarm(self) -> None:
+        """Should not interrupt a disarmed thread, but still abandon it."""
+        watchdog = Watchdog(grace=0.05)
+        worker = Worker()
+        watchdog.watch(worker.thread, 0)
+        watchdog.disarm(worker.thread)
+        assert watchdog.check() == []
+        assert until(lambda: watchdog.abandoned(worker.thread))
+        worker.released.set()
+        worker.thread.join(WAIT)
+        assert not worker.timed_out.is_set()
+
+
+class TestSlots:
+    def test_free_once(self) -> None:
+        """Should free a holder's slot only once, so a second free does not add a
+        slot."""
+        slots = Slots(1)
+        holder = threading.Thread(target=slots.acquire)
+        holder.start()
+        holder.join(WAIT)
+        waiter = threading.Thread(target=slots.acquire, daemon=True)
+        waiter.start()
+        waiter.join(0.05)
+        assert waiter.is_alive()
+        slots.free(holder)
+        slots.free(holder)
+        waiter.join(WAIT)
+        assert not waiter.is_alive()
+        third = threading.Thread(target=slots.acquire, daemon=True)
+        third.start()
+        third.join(0.05)
+        assert third.is_alive()
+        slots.free(waiter)
+        third.join(WAIT)
