@@ -1,0 +1,323 @@
+<!--
+  Copyright 2026 Synnax Labs, Inc.
+
+  Use of this software is governed by the Business Source License included in the file
+  licenses/BSL.txt.
+
+  As of the Change Date specified in that file, in accordance with the Business Source
+  License, use of this software will be governed by the Apache License, Version 2.0,
+  included in the file licenses/APL.txt.
+  -->
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 760 440"
+    font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
+    font-size="12"
+>
+  <style>
+    .ink { fill: #1f2328; }
+    .muted { fill: #898781; }
+    .grid { stroke: #e1e0d9; }
+    .axis { stroke: #c3c2b7; }
+    .ref { stroke: #898781; }
+    .surface { fill: #ffffff; }
+    .all { stroke: #eb6834; fill: #eb6834; }
+    .edge { stroke: #2a78d6; fill: #2a78d6; }
+    .hollow { fill: #ffffff; }
+    @media (prefers-color-scheme: dark) {
+      .ink { fill: #e6edf3; }
+      .grid { stroke: #2c2c2a; }
+      .axis { stroke: #383835; }
+      .surface { fill: #0d1117; }
+      .all { stroke: #d95926; fill: #d95926; }
+      .edge { stroke: #3987e5; fill: #3987e5; }
+      .hollow { fill: #0d1117; }
+    }
+    .tick { font-variant-numeric: tabular-nums; }
+  </style>
+
+  <text
+        x="70"
+        y="22"
+        class="ink"
+        font-size="14"
+        font-weight="600"
+    >Time per module save, all 37 runs</text>
+  <text
+        x="70"
+        y="40"
+        class="muted"
+    >N automations, a chain of D modules, P automations importing each module; I = (D − 1) + P × D</text>
+
+  <!-- marker legend -->
+  <g font-size="12">
+    <circle cx="500" cy="60" r="4" class="ink" />
+    <text x="510" y="64" class="ink">D = 1</text>
+    <circle cx="570" cy="60" r="4" fill="none" class="axis" stroke-width="2" />
+    <text x="580" y="64" class="ink">D = 4</text>
+    <rect
+            x="636"
+            y="56"
+            width="8"
+            height="8"
+            fill="none"
+            class="axis"
+            stroke-width="2"
+        />
+    <text x="650" y="64" class="ink">D = 8</text>
+  </g>
+
+  <!-- shared y gridlines across both panels, one decade per 60 px -->
+  <g class="grid" stroke-width="1">
+    <line x1="70" y1="310" x2="340" y2="310" /><line
+            x1="430"
+            y1="310"
+            x2="700"
+            y2="310"
+        />
+    <line x1="70" y1="250" x2="340" y2="250" /><line
+            x1="430"
+            y1="250"
+            x2="700"
+            y2="250"
+        />
+    <line x1="70" y1="190" x2="340" y2="190" /><line
+            x1="430"
+            y1="190"
+            x2="700"
+            y2="190"
+        />
+    <line x1="70" y1="130" x2="340" y2="130" /><line
+            x1="430"
+            y1="130"
+            x2="700"
+            y2="130"
+        />
+    <line x1="70" y1="70" x2="340" y2="70" /><line x1="430" y1="70" x2="700" y2="70" />
+  </g>
+  <g class="muted tick" text-anchor="end">
+    <text x="62" y="314">0.1</text>
+    <text x="62" y="254">1</text>
+    <text x="62" y="194">10</text>
+    <text x="62" y="134">100</text>
+    <text x="62" y="74">1000</text>
+  </g>
+  <text x="62" y="58" class="muted" text-anchor="end">ms</text>
+
+  <!-- panel titles -->
+  <text x="70" y="96" class="ink" font-weight="600">Scan every Arc</text>
+  <text x="430" y="96" class="ink" font-weight="600">Ontology imports</text>
+
+  <!-- x axes -->
+  <line x1="70" y1="360" x2="340" y2="360" class="axis" stroke-width="1" />
+  <line x1="430" y1="360" x2="700" y2="360" class="axis" stroke-width="1" />
+  <g class="muted tick" text-anchor="middle">
+    <text x="70.0" y="378">10</text>
+    <text x="160.0" y="378">100</text>
+    <text x="250.0" y="378">1000</text>
+    <text x="340.0" y="378">10000</text>
+    <text x="430.0" y="378">1</text>
+    <text x="520.0" y="378">10</text>
+    <text x="610.0" y="378">100</text>
+    <text x="700.0" y="378">1000</text>
+  </g>
+  <text x="205" y="400" class="muted" text-anchor="middle">Arcs stored, N + D</text>
+  <text
+        x="565"
+        y="400"
+        class="muted"
+        text-anchor="middle"
+    >Arcs that depend on the saved module, I</text>
+
+  <!-- reference lines -->
+  <line
+        x1="70.0"
+        y1="250.0"
+        x2="340.0"
+        y2="70.0"
+        class="ref"
+        stroke-width="1"
+        stroke-dasharray="4 4"
+    />
+  <text
+        x="140"
+        y="238"
+        class="muted"
+        font-size="11"
+        transform="rotate(-33.7 140 238)"
+    >0.1 ms per Arc stored</text>
+  <line
+        x1="430.0"
+        y1="323.3"
+        x2="700.0"
+        y2="143.3"
+        class="ref"
+        stroke-width="1"
+        stroke-dasharray="4 4"
+    />
+  <text
+        x="448"
+        y="348"
+        class="muted"
+        font-size="11"
+        transform="rotate(-33.7 448 348)"
+    >0.06 ms per dependent Arc</text>
+
+  <!-- resync all: x = N -->
+  <g class="all surface" stroke-width="2"><circle cx="70.0" cy="245.6" r="4" /><circle
+            cx="70.0"
+            cy="247.1"
+            r="4"
+        /><circle cx="160.0" cy="187.9" r="4" /><circle
+            cx="160.0"
+            cy="188.4"
+            r="4"
+        /><circle cx="160.0" cy="190.6" r="4" /><circle
+            cx="160.0"
+            cy="203.0"
+            r="4"
+        /><circle cx="250.0" cy="129.4" r="4" /><circle
+            cx="250.0"
+            cy="129.1"
+            r="4"
+        /><circle cx="250.0" cy="128.8" r="4" /><circle
+            cx="250.0"
+            cy="130.4"
+            r="4"
+        /><circle cx="340.0" cy="69.9" r="4" /><circle
+            cx="340.0"
+            cy="70.2"
+            r="4"
+        /><circle cx="340.0" cy="70.0" r="4" /><circle cx="340.0" cy="70.3" r="4" /></g>
+  <g class="all hollow" stroke-width="2"><circle cx="70.0" cy="234.7" r="4" /><circle
+            cx="160.0"
+            cy="185.0"
+            r="4"
+        /><circle cx="160.0" cy="188.4" r="4" /><circle
+            cx="160.0"
+            cy="199.9"
+            r="4"
+        /><circle cx="250.0" cy="129.4" r="4" /><circle
+            cx="250.0"
+            cy="129.6"
+            r="4"
+        /><circle cx="250.0" cy="129.6" r="4" /><circle
+            cx="250.0"
+            cy="134.2"
+            r="4"
+        /><circle cx="340.0" cy="69.7" r="4" /><circle
+            cx="340.0"
+            cy="70.2"
+            r="4"
+        /><circle cx="340.0" cy="69.5" r="4" /><circle
+            cx="340.0"
+            cy="69.9"
+            r="4"
+        /><rect x="66.0" y="221.1" width="8" height="8" /><rect
+            x="156.0"
+            y="180.7"
+            width="8"
+            height="8"
+        /><rect x="156.0" y="181.1" width="8" height="8" /><rect
+            x="246.0"
+            y="125.1"
+            width="8"
+            height="8"
+        /><rect x="246.0" y="125.4" width="8" height="8" /><rect
+            x="246.0"
+            y="127.19999999999999"
+            width="8"
+            height="8"
+        /><rect x="246.0" y="135.9" width="8" height="8" /><rect
+            x="336.0"
+            y="65.0"
+            width="8"
+            height="8"
+        /><rect x="336.0" y="64.6" width="8" height="8" /><rect
+            x="336.0"
+            y="65.6"
+            width="8"
+            height="8"
+        /><rect x="336.0" y="65.1" width="8" height="8" /></g>
+
+  <!-- imports relationship: x = I -->
+  <g class="edge surface" stroke-width="2"><circle cx="430.0" cy="319.5" r="4" /><circle
+            cx="492.9"
+            cy="278.8"
+            r="4"
+        /><circle cx="430.0" cy="320.9" r="4" /><circle
+            cx="492.9"
+            cy="277.9"
+            r="4"
+        /><circle cx="555.8" cy="238.5" r="4" /><circle
+            cx="610.0"
+            cy="202.5"
+            r="4"
+        /><circle cx="430.0" cy="321.0" r="4" /><circle
+            cx="492.9"
+            cy="280.4"
+            r="4"
+        /><circle cx="555.8" cy="237.5" r="4" /><circle
+            cx="610.0"
+            cy="202.1"
+            r="4"
+        /><circle cx="430.0" cy="320.6" r="4" /><circle
+            cx="492.9"
+            cy="279.9"
+            r="4"
+        /><circle cx="555.8" cy="238.5" r="4" /><circle
+            cx="610.0"
+            cy="202.0"
+            r="4"
+        /></g>
+  <g class="edge hollow" stroke-width="2"><circle cx="506.1" cy="247.9" r="4" /><circle
+            cx="506.1"
+            cy="250.0"
+            r="4"
+        /><circle cx="552.6" cy="231.6" r="4" /><circle
+            cx="611.2"
+            cy="199.3"
+            r="4"
+        /><circle cx="506.1" cy="251.0" r="4" /><circle
+            cx="552.6"
+            cy="231.9"
+            r="4"
+        /><circle cx="611.2" cy="199.8" r="4" /><circle
+            cx="664.5"
+            cy="166.0"
+            r="4"
+        /><circle cx="506.1" cy="250.1" r="4" /><circle
+            cx="552.6"
+            cy="232.4"
+            r="4"
+        /><circle cx="611.2" cy="199.1" r="4" /><circle
+            cx="664.5"
+            cy="159.8"
+            r="4"
+        /><rect x="531.8" y="216.4" width="8" height="8" /><rect
+            x="531.8"
+            y="224.6"
+            width="8"
+            height="8"
+        /><rect x="576.5" y="207.3" width="8" height="8" /><rect
+            x="531.8"
+            y="225.9"
+            width="8"
+            height="8"
+        /><rect x="576.5" y="209.0" width="8" height="8" /><rect
+            x="634.4"
+            y="177.2"
+            width="8"
+            height="8"
+        /><rect x="687.6" y="143.8" width="8" height="8" /><rect
+            x="531.8"
+            y="224.3"
+            width="8"
+            height="8"
+        /><rect x="576.5" y="204.5" width="8" height="8" /><rect
+            x="634.4"
+            y="175.8"
+            width="8"
+            height="8"
+        /><rect x="687.6" y="142.6" width="8" height="8" /></g>
+</svg>
