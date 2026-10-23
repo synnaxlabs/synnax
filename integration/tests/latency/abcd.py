@@ -164,4 +164,6 @@ class Abcd(Latency):
 
                 idx += 1
 
+            if idx == 0:
+                self.fail("No samples arrived on t_a, t_b, t_c, and t_d")
             self.log("WARNING (⚠️): LatencyABC Report not implemented...")
