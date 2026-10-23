@@ -5,6 +5,8 @@
   "main": "index.ts",
   "scripts": {
     "check-types": "tsc --noEmit",
+    "test": "vitest",
+    "cov": "vitest --coverage",
     "lint": "eslint",
     "fix": "eslint --fix"
   },
@@ -19,7 +21,9 @@
   "devDependencies": {
     "@synnaxlabs/tsconfig": "catalog:",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
-    "typescript": "catalog:ts6"
+    "typescript": "catalog:ts6",
+    "vitest": "catalog:"
   }
 }

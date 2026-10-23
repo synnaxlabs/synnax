@@ -73,7 +73,6 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
         />
         <PForm.NumericField
           inputProps={{ showDragHandle: false }}
-          hideIfNull
           showLabel={false}
           showHelpText={false}
           path={`${path}.address`}
@@ -83,7 +82,6 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
             path={`${path}.dataType`}
             showLabel={false}
             showHelpText={false}
-            hideIfNull
           >
             {renderTelemSelectDataType}
           </PForm.Field>
