@@ -72,6 +72,7 @@ jobs:
       drift: ${{ steps.filter.outputs.drift }}
       driver: ${{ steps.filter.outputs.driver }}
       driver_build: ${{ steps.filter.outputs.driver_build }}
+      eslint_config: ${{ steps.filter.outputs.eslint_config }}
       foundation: ${{ steps.filter.outputs.foundation }}
       freighter_cpp: ${{ steps.filter.outputs.freighter_cpp }}
       freighter_go: ${{ steps.filter.outputs.freighter_go }}
@@ -356,6 +357,15 @@ jobs:
       test_flags: --spawn_strategy=local --local_test_jobs=1
       test_tags: -hardware
       windows: *full
+    secrets: inherit
+
+  eslint-config:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.eslint_config == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: configs/eslint
+      package: eslint-config
     secrets: inherit
 
   format:
@@ -723,6 +733,7 @@ jobs:
       - docs-site
       - drift
       - driver
+      - eslint-config
       - format
       - foundation
       - freighter-cpp

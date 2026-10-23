@@ -10,12 +10,18 @@
 import pluginJs from "@eslint/js";
 import pluginReact from "@eslint-react/eslint-plugin";
 import stylistic from "@stylistic/eslint-plugin";
-import type { Linter } from "eslint";
+import type { ESLint, Linter } from "eslint";
 import { includeIgnoreFile } from "eslint/config";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
 import path from "path";
 import tseslint from "typescript-eslint";
+
+import { jsxFilenameExtension } from "./rules/jsxFilenameExtension";
+
+const synnax: ESLint.Plugin = {
+  rules: { "jsx-filename-extension": jsxFilenameExtension },
+};
 
 const gitignorePath = path.join(import.meta.dirname, "../../.gitignore");
 
@@ -45,8 +51,13 @@ const config: Linter.Config[] = [
         tsconfigRootDir: import.meta.dirname,
       },
     },
-    plugins: { "simple-import-sort": simpleImportSort, "@stylistic": stylistic },
+    plugins: {
+      "simple-import-sort": simpleImportSort,
+      "@stylistic": stylistic,
+      synnax,
+    },
     rules: {
+      "synnax/jsx-filename-extension": "error",
       "new-cap": ["error", { capIsNew: false }],
       "no-constant-condition": ["error", { checkLoops: false }],
       "no-duplicate-imports": "error",
@@ -110,10 +121,11 @@ const config: Linter.Config[] = [
       "@eslint-react/no-missing-context-display-name": "error",
       "@eslint-react/jsx-no-useless-fragment": "error",
       "@eslint-react/dom-no-unsafe-target-blank": "error",
-      // Off until a SY-5149 follow-up PR fixes their hits.
-      "@eslint-react/web-api-no-leaked-event-listener": "off",
-      "@eslint-react/web-api-no-leaked-timeout": "off",
-      "@eslint-react/use-state": "off",
+      // Allows force-update hooks and acronym setters such as setOAuthError.
+      "@eslint-react/use-state": [
+        "error",
+        { enforceAssignment: false, enforceSetterName: false },
+      ],
       // Off until a SY-5149 hook audit: the fixes change render behavior.
       "@eslint-react/exhaustive-deps": "off",
       "@eslint-react/rules-of-hooks": "off",

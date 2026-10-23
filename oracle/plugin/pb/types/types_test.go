@@ -77,6 +77,31 @@ var _ = Describe("Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should reserve the number of a field omitted in pb", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key     string
+						hash    bytes { @pb omit }
+						subject string
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, p)
+				ExpectContent(resp, "test.proto").
+					ToContain(
+						"string key = 1;",
+						"reserved 2;",
+						"string subject = 3;",
+					).
+					ToNotContain("hash")
+			})
+		})
+
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct proto type",
 				func(ctx SpecContext, oracleType, expectedProtoType string) {
@@ -167,6 +192,26 @@ var _ = Describe("Plugin", func() {
 						`google.protobuf.Struct data = 1;`,
 					)
 			})
+		})
+
+		It("Should name an enum-only package after its namespace", func() {
+			table := resolution.NewTable()
+			Expect(table.Add(resolution.Type{
+				Name:          "Variant",
+				Namespace:     "status",
+				QualifiedName: "status.Variant",
+				Form: resolution.EnumForm{
+					Values: []resolution.EnumValue{{Name: "info"}, {Name: "error"}},
+				},
+				Domains: pbDomains("core/pkg/service/legacy"),
+			})).To(Succeed())
+			resp := MustSucceed(p.Generate(&plugin.Request{
+				Resolutions: table,
+				RepoRoot:    "/tmp/test",
+			}))
+			Expect(resp.Files).To(HaveLen(1))
+			Expect(string(resp.Files[0].Content)).
+				To(ContainSubstring("package service.status.pb;"))
 		})
 
 		It("Should generate proto file for simple struct", func() {
