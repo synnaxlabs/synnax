@@ -37,7 +37,7 @@ class _SessionCreateResponse(BaseModel):
     user: User | None = None
 
 
-class SessionRenewResponse(BaseModel):
+class _SessionRenewResponse(BaseModel):
     session: Session
     user: User | None = None
 
@@ -121,7 +121,7 @@ class Client:
         session the Core sees.
         """
         res = send_required(
-            self.client, _SESSION_RENEW_ENDPOINT, Empty(), SessionRenewResponse
+            self.client, _SESSION_RENEW_ENDPOINT, Empty(), _SessionRenewResponse
         )
         self.session = res.session
         self.user = res.user
