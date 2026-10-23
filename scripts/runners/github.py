@@ -11,38 +11,25 @@
 job reads jobs.py builds on."""
 
 import json
-import os
 import ssl
-import subprocess
 import urllib.request
 
 import certifi
 
-from common import BUSY, IDLE, OFFLINE
+from common import BUSY, IDLE, OFFLINE, secret
 
 REPO = "synnaxlabs/synnax"
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
 
 def github_token() -> str:
-    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
-    if token:
-        return token
-    res = subprocess.run(
-        ["gh", "auth", "token"], capture_output=True, text=True, check=False
-    )
-    if res.returncode != 0:
-        raise RuntimeError(f"gh auth token failed: {res.stderr.strip()}")
-    return res.stdout.strip()
+    return secret("GH_TOKEN")
 
 
 def webhook_secret() -> str:
     """Required, so a misconfigured deploy fails at startup rather than serving a
     listener that accepts unsigned posts."""
-    secret = os.environ.get("GH_WEBHOOK_SECRET")
-    if not secret:
-        raise RuntimeError("GH_WEBHOOK_SECRET is not set")
-    return secret
+    return secret("GH_WEBHOOK_SECRET")
 
 
 class GitHub:
