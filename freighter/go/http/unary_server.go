@@ -298,7 +298,9 @@ func (s *unaryServer[RQ, RS]) streamAndWrite(
 		// Once the encoder writes, the status is committed. A pipe closed with an error
 		// makes the server drop the connection before the chunk that ends the body, so
 		// the client sees the body cut short instead of complete.
-		pw.CloseWithError(err)
+		if cErr := pw.CloseWithError(err); cErr != nil {
+			s.L.Error("failed to close streamed response", zap.Error(cErr))
+		}
 	}()
 	select {
 	case <-started:

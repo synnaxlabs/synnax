@@ -74,8 +74,10 @@ func (repeatingEncoder) ContentType() string { return "application/x-repeat" }
 
 func (e repeatingEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
 	var buf bytes.Buffer
-	err := e.EncodeStream(ctx, &buf, v)
-	return buf.Bytes(), err
+	if err := e.EncodeStream(ctx, &buf, v); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (repeatingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {
@@ -99,8 +101,10 @@ func (truncatingEncoder) ContentType() string { return "application/x-truncate" 
 
 func (e truncatingEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
 	var buf bytes.Buffer
-	err := e.EncodeStream(ctx, &buf, v)
-	return buf.Bytes(), err
+	if err := e.EncodeStream(ctx, &buf, v); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (truncatingEncoder) EncodeStream(ctx context.Context, w io.Writer, v any) error {
@@ -119,8 +123,10 @@ func (echoingEncoder) ContentType() string { return "application/x-echo" }
 
 func (e echoingEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
 	var buf bytes.Buffer
-	err := e.EncodeStream(ctx, &buf, v)
-	return buf.Bytes(), err
+	if err := e.EncodeStream(ctx, &buf, v); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (echoingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {
@@ -152,8 +158,10 @@ func (closingEncoder) ContentType() string { return "application/x-closing" }
 
 func (e closingEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
 	var buf bytes.Buffer
-	err := e.EncodeStream(ctx, &buf, v)
-	return buf.Bytes(), err
+	if err := e.EncodeStream(ctx, &buf, v); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (closingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {

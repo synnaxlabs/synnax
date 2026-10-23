@@ -104,6 +104,7 @@ func createUserGranted(
 	action access.Action,
 	objects ...ontology.ID,
 ) user.User {
+	GinkgoHelper()
 	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 		Username: "api-framer-" + uuid.New().String(),
 	}))
