@@ -194,6 +194,26 @@ var _ = Describe("Plugin", func() {
 			})
 		})
 
+		It("Should name an enum-only package after its namespace", func() {
+			table := resolution.NewTable()
+			Expect(table.Add(resolution.Type{
+				Name:          "Variant",
+				Namespace:     "status",
+				QualifiedName: "status.Variant",
+				Form: resolution.EnumForm{
+					Values: []resolution.EnumValue{{Name: "info"}, {Name: "error"}},
+				},
+				Domains: pbDomains("core/pkg/service/legacy"),
+			})).To(Succeed())
+			resp := MustSucceed(p.Generate(&plugin.Request{
+				Resolutions: table,
+				RepoRoot:    "/tmp/test",
+			}))
+			Expect(resp.Files).To(HaveLen(1))
+			Expect(string(resp.Files[0].Content)).
+				To(ContainSubstring("package service.status.pb;"))
+		})
+
 		It("Should generate proto file for simple struct", func() {
 			table := resolution.NewTable()
 			Expect(table.Add(resolution.Type{

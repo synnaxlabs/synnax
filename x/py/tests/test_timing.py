@@ -78,6 +78,19 @@ class TestTiming:
         )
         assert result is None
 
+    def test_poll_reads_numbers_as_seconds(self) -> None:
+        """Should read a numeric timeout and interval as seconds, like sleep"""
+        call_count = 0
+
+        def condition() -> str | None:
+            nonlocal call_count
+            call_count += 1
+            return "done" if call_count >= 3 else None
+
+        t = Timer()
+        assert poll(condition, timeout=5, interval=0.01) == "done"
+        assert t.elapsed() >= 20 * TimeSpan.MILLISECOND
+
     def test_poll_returns_immediately(self) -> None:
         """Should return immediately if the condition is already met."""
         t = Timer()

@@ -12,8 +12,8 @@ package versions
 import (
 	"slices"
 
-	v0 "github.com/synnaxlabs/synnax/pkg/service/device/versions/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
 	"github.com/synnaxlabs/x/migrate"
 )
 

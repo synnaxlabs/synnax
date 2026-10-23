@@ -426,7 +426,8 @@ green at every step. The migration brings 0.59 data forward near the end.
 - **Phase 0: Modbus make.** `MAKE = "Modbus"` in the Driver (SY-5129). Independent of
   this RFC.
 - **Phase 1: Legacy move.** `core/pkg/service/device` moves to
-  `core/pkg/service/device/legacy`. Mechanical, `review/bot`.
+  `core/pkg/service/legacy/device` (SY-5190). The package name, proto package, and C++
+  namespace stay `device`, so only import paths change. Mechanical, `review/bot`.
 - **Phase 2: Generic service.** `device.Service[D]`, `ServiceConfig[D]`, and its suite.
   No caller.
 - **Phase 3: Ontology types and roles.** The eight `ResourceType` members, regenerated
@@ -497,8 +498,6 @@ reference, and policy carried forward. A client older than Phase 24 gets a not-f
 
 - Tree layout: the `Devices` root group with racks under it, or typed children directly
   under each rack.
-- The home of the generic service while the legacy one exists: `device/legacy` as
-  proposed, or the generic under a new name.
 - Whether `rack` on an EtherCAT slave stays a filter column or is read through the
   master.
 - The retention period for quarantined rows.
