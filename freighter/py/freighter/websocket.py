@@ -279,7 +279,7 @@ class _Base:
     _endpoint: URL
     _encoder: Codec
     _max_message_size: int
-    _secure: bool = False
+    _ssl_context: ssl.SSLContext | None
     _kwargs: dict[str, Any]
 
     def __init__(
@@ -287,16 +287,16 @@ class _Base:
         encoder: Codec,
         base_url: URL,
         max_message_size: int = DEFAULT_MAX_SIZE,
-        secure: bool = False,
+        ssl_context: ssl.SSLContext | None = None,
         **kwargs: Any,
     ) -> None:
         self._encoder = encoder
-        self._secure = secure
-        self._endpoint = base_url.replace(protocol="ws" if not secure else "wss")
+        self._ssl_context = ssl_context
+        self._endpoint = base_url.replace(
+            protocol="ws" if ssl_context is None else "wss"
+        )
         self._max_message_size = max_message_size
         self._kwargs = kwargs
-        if self._secure and "ssl" not in self._kwargs:
-            self._kwargs["ssl"] = ssl._create_unverified_context()
 
     def additional_headers(self, others: MutableMapping[str, str]) -> dict[str, str]:
         return {"Content-Type": self._encoder.content_type(), **others}
@@ -311,7 +311,8 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         :param base_url: A base url to use as a prefix for all requests.
         :param max_message_size: The maximum size of a message to receive. Defaults to
         DEFAULT_MAX_SIZE.
-        :param secure: Whether to use TLS encryption on the connection or not.
+        :param ssl_context: The TLS context that verifies the server. The client uses
+            TLS when set and a plain connection when None.
         """
         AsyncMiddlewareCollector.__init__(self)
         _Base.__init__(self, **kwargs)
@@ -331,6 +332,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
                 self._endpoint.child(target).stringify(),
                 additional_headers=self.additional_headers(ctx.params),
                 max_size=self._max_message_size,
+                ssl=self._ssl_context,
                 **self._kwargs,
             )
             socket = AsyncWebsocketStream[RQ, RS](self._encoder, ws, res_t)
@@ -357,7 +359,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         client = AsyncWebsocketClient(
             encoder=codec,
             base_url=self._endpoint,
-            secure=self._secure,
+            ssl_context=self._ssl_context,
             **self._kwargs,
         )
         # Copy middleware
@@ -386,6 +388,7 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
                 additional_headers=self.additional_headers(ctx.params),
                 max_size=self._max_message_size,
                 legacy=False,
+                ssl=self._ssl_context,
                 **self._kwargs,
             )
             socket = SyncWebsocketStream[RQ, RS](self._encoder, connector, res_t)
@@ -412,7 +415,7 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
             encoder=codec,
             base_url=self._endpoint,
             max_message_size=self._max_message_size,
-            secure=self._secure,
+            ssl_context=self._ssl_context,
             **self._kwargs,
         )
         # Copy middleware
