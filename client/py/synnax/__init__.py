@@ -33,7 +33,6 @@ from synnax.arc import (
     Position,
     Text,
 )
-from synnax.arc import Task as ArcTask
 from synnax.channel import Channel
 from synnax.control import Controller
 from synnax.device import Device
@@ -73,8 +72,6 @@ from synnax.rack import Rack
 from synnax.ranger import Range
 from synnax.status import Status
 from synnax.synnax import Synnax
-from synnax.task import Status as TaskStatus
-from synnax.task import StatusDetails as TaskStatusDetails
 from synnax.task import Task
 from synnax.telem import (
     Aggregation,
@@ -109,49 +106,26 @@ from synnax.user.payload import User
 from synnax.view import View
 from x import color
 from x.color import Color
-from x.deprecation import deprecated_getattr
 from x.exceptions import ContiguityError
 
 __version__ = _version("synnax")
 
-_DEPRECATED: dict[str, str | tuple[str, str]] = {
-    "ArcTask": ("synnax.arc.Task", "ArcTask"),
-    "TaskStatus": ("synnax.task.Status", "TaskStatus"),
-    "TaskStatusDetails": ("synnax.task.StatusDetails", "TaskStatusDetails"),
-    "SynnaxOptions": "Options",
-}
-
-__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
-    "ArcTask",
-    "TaskStatus",
-    "TaskStatusDetails",
-    "Aggregation",
-    "LimitReduction",
-    "Reduction",
-    "StrideReduction",
-    "Alignment",
-    "Arc",
     "AUTO_SPAN",
     "AccessDenied",
+    "Aggregation",
+    "Alignment",
+    "Arc",
     "AuthError",
     "Authority",
-    "Controller",
     "Bounds",
     "Channel",
     "Color",
-    "Edge",
     "ConfigurationError",
-    "ExpiredLicense",
-    "InvalidLicense",
-    "LicenseError",
-    "LicenseFingerprintMismatch",
-    "LicenseLimitExceeded",
-    "MissingLicense",
     "ContiguityError",
     "ControlError",
-    "convert_time_units",
+    "Controller",
     "CrudeAlignment",
     "CrudeAuthority",
     "CrudeDataType",
@@ -162,63 +136,73 @@ __all__ = [
     "DataType",
     "Density",
     "Device",
-    "Project",
-    "View",
-    "elapsed_seconds",
+    "Edge",
+    "ExpiredLicense",
     "ExpiredToken",
-    "PathError",
     "Frame",
     "Graph",
     "GraphEdge",
     "GraphNode",
     "Handle",
-    "Iterator",
+    "InvalidLicense",
     "InvalidToken",
+    "Iterator",
+    "LicenseError",
+    "LicenseFingerprintMismatch",
+    "LicenseLimitExceeded",
+    "LimitReduction",
     "Loop",
+    "MissingLicense",
+    "MultiSeries",
     "MultipleFoundError",
     "NotFoundError",
     "Options",
-    "poll",
+    "PathError",
     "Policy",
     "Position",
+    "Project",
     "QueryError",
     "Rack",
     "Range",
     "Rate",
+    "Reduction",
     "Role",
     "RouteError",
     "Series",
-    "MultiSeries",
     "Size",
-    "sleep",
     "Status",
     "Streamer",
+    "StrideReduction",
     "Synnax",
     "Task",
     "Text",
-    "Timer",
     "TimeRange",
     "TimeSpan",
     "TimeSpanUnits",
     "TimeStamp",
+    "Timer",
     "UnauthorizedError",
     "UnexpectedError",
     "User",
     "ValidationError",
+    "View",
     "Writer",
     "WriterMode",
     "color",
+    "convert_time_units",
+    "elapsed_seconds",
     "ethercat",
+    "group",
     "http",
     "labjack",
     "license",
     "modbus",
     "ni",
     "node",
+    "ontology",
     "opcua",
     "pagerduty",
-    "ontology",
+    "poll",
+    "sleep",
     "status",
-    "Status",
-    "group",
 ]

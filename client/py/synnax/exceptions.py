@@ -167,6 +167,10 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
     if encoded.type.startswith(AuthError.TYPE):
         if encoded.type.startswith(InvalidCredentials.TYPE):
             return InvalidCredentials(encoded.data)
+        if encoded.type.startswith(InvalidToken.TYPE):
+            return InvalidToken(encoded.data)
+        if encoded.type.startswith(ExpiredToken.TYPE):
+            return ExpiredToken(encoded.data)
         if encoded.type.startswith(AccessDenied.TYPE):
             return AccessDenied(encoded.data)
         return AuthError(encoded.data)

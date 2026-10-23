@@ -219,6 +219,10 @@ export interface CreateStoreOptions extends Partial<
   enablePersistence?: boolean;
   /** Overrides the persistence KV store. Tests inject an in-memory KV. */
   openKV?: Persist.KVOpener;
+  /**
+   * Receives each storage failure persistence recovers from. Defaults to console.error.
+   */
+  onPersistError?: (error: Error) => void;
 }
 
 export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store> => {
@@ -228,6 +232,7 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
     debug = false,
     enablePersistence = true,
     openKV,
+    onPersistError,
   } = opts;
   let { preloadedState } = opts;
   const middleware: Middleware[] = [...BASE_MIDDLEWARE];
@@ -241,6 +246,7 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
       exclude: PERSIST_EXCLUDE,
       migrate: Legacy.migrate,
       openKV,
+      onError: onPersistError,
     });
     preloadedState ??= persist.initialState;
     middleware.push(persist.middleware);

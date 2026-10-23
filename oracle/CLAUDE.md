@@ -34,11 +34,12 @@ or generator logic and schemas disagree.
   type was removed at N. The versions directory is the sole version authority: there is
   no `@go version` tag; the current version is the highest vN file, and membership in it
   marks a type persisted. Version-owned content: fields, optionality, docs, `@key`, and
-  the `@go` persistence set (`marshal` incl. field-level `omit`, `hand`, `migrate`,
-  `imex`). Codecs are explicit: a struct or union gets one iff its declaration carries
-  `@go marshal`; references never pull a codec in. `@go marshal hand` marks hand-written
-  codec methods: nothing generates, references stay valid. Generation fails when a
-  codec's persisted graph reaches a struct or union carrying neither form.
+  the `@go` persistence set (`marshal` incl. field-level `omit`, `wire`, `hand`,
+  `migrate`, `imex`). Codecs are explicit: a struct or union gets one iff its
+  declaration carries `@go marshal`; references never pull a codec in.
+  `@go marshal hand` marks hand-written codec methods: nothing generates, references
+  stay valid. Generation fails when a codec's persisted graph reaches a struct or union
+  carrying neither form.
 - **The live file is a generated projection, then an annotation surface.** Sync writes
   each versioned resource's live schema by merging chain resolution (version-owned
   content) with the live file's own annotations (outputs, `@ts`/`@py`/`@cpp` bindings,
@@ -74,11 +75,15 @@ or generator logic and schemas disagree.
   minimality (a redeclaration structurally identical to its resolved predecessor must be
   an alias; enum member sets compare exactly).
 - Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
-  files. Hand-written frozen definer files are marked `@go hand` in their version file;
-  hand-ness is version-local — an aliased member whose definer is an older version still
-  generates in the current package as a backward alias. `migrate.gen.go` is a pure
-  function of the two adjacent version files; hand-written transforms live in
-  `migrate.go` (renames and cross-resource moves have no generated counterpart).
+  files. In current and frozen packages alike, a stored reference resolves to the
+  dependency version that the declaring version file imports, so a freeze never moves a
+  generated import. A frozen type that the current version aliases also gets the live
+  `@validate` rules, since the current package's alias runs its `Validate`. Hand-written
+  frozen definer files are marked `@go hand` in their version file; hand-ness is
+  version-local — an aliased member whose definer is an older version still generates in
+  the current package as a backward alias. `migrate.gen.go` is a pure function of the
+  two adjacent version files; hand-written transforms live in `migrate.go` (renames and
+  cross-resource moves have no generated counterpart).
 - Omit-transient members — types reachable from a file's `@go marshal` declarations only
   through omitted fields, e.g. task's StatusDetails — track the live shape: they always
   declare fully, may match their predecessor (exempt from the minimality gate), and
@@ -119,6 +124,15 @@ the "did you forget" check impossible to write.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
+## Union discriminators
+
+A union's discriminator is a generated `<Union>Type` with one constant per variant. When
+a declared enum already names the same set, borrow it:
+`Proof union on method Method { ... }`. The discriminator then has the enum's type in
+every language, the variant constants are the enum's members, and no `<Union>Type` is
+emitted. The enum must be a string enum whose values are exactly the variant names; the
+analyzer rejects a variant without a member and a member without a variant.
+
 ## Default groups
 
 `@default group "<name>"` on two or more fields makes their defaults fill as a unit: the
@@ -156,6 +170,14 @@ when most types need it, declare it file-level and omit the exceptions.
 - `@<lang> hand`: the type exists, hand-written at the declared output path. No
   declaration is generated, but references resolve to it, pb translators generate
   against it, and it anchors the language output.
+- Field-level `@<lang> omit` (ts, py, cpp, pb): the field does not exist in that
+  language's type, codecs, translators, or action payloads. An override inherits its
+  parent field's omit and cannot add one; a pb message reserves the omitted number.
+  Never on a `@key` field, never in a language the type does not generate, and never in
+  every language the type generates.
+- Go has no field-level omit. `@go marshal omit` keeps a field out of the codec;
+  `@go wire omit` keeps it out of JSON and msgpack (`json:"-" msgpack:"-"`), so the API
+  can return a stored record without a secret. Both are version-owned.
 
 ## Rules
 

@@ -74,23 +74,21 @@ class Client:
     @overload
     def create(self, *, users: list[New]) -> list[User]: ...
 
-    @require_named_params(example_params=("user", "NewUser(username='synnax')"))
+    @require_named_params(example_params=("user", "New(username='synnax')"))
     def create(
         self,
         *,
         username: str | None = None,
         password: str | None = None,
-        first_name: str | None = None,
-        last_name: str | None = None,
+        first_name: str = "",
+        last_name: str = "",
         key: UUID | None = None,
         user: New | None = None,
         users: list[New] | None = None,
     ) -> User | list[User]:
         if username is not None:
-            if first_name is None:
-                first_name = ""
-            if last_name is None:
-                last_name = ""
+            if password is None:
+                raise ValueError("password is required when username is provided")
             user = New(
                 username=username,
                 password=password,
@@ -112,7 +110,7 @@ class Client:
 
     def change_username(self, key: UUID, username: str) -> None:
         self.client.send(
-            "/user/change_username",
+            "/user/change-username",
             _ChangeUsernameRequest(key=key, username=username),
             Empty,
         )
@@ -121,7 +119,7 @@ class Client:
         self, key: UUID, *, first_name: str = "", last_name: str = ""
     ) -> None:
         self.client.send(
-            "/user/change_name",
+            "/user/rename",
             _ChangeNameRequest(key=key, first_name=first_name, last_name=last_name),
             Empty,
         )

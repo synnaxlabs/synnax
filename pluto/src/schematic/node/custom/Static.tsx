@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type location } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { Custom } from "@/schematic/node/common/custom";
 import { Handle } from "@/schematic/node/common/handle";
@@ -44,12 +44,16 @@ export const Static = ({
     spec,
     stateOverrides,
   });
-  if (missing)
+  const invalid = useMemo(
+    () => spec != null && !Custom.isValidSVG(spec.svg),
+    [spec?.svg],
+  );
+  if (missing || invalid)
     return (
       <Note.Note variant="warning" className={className}>
         <Text.Text level="p" status="warning">
           <Icon.Warning />
-          Missing custom symbol
+          {missing ? "Missing custom symbol" : "Invalid custom symbol"}
         </Text.Text>
       </Note.Note>
     );

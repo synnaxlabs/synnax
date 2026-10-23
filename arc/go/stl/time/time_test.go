@@ -11,11 +11,9 @@ package time_test
 
 import (
 	"context"
-	"math"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -24,7 +22,6 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -34,7 +31,7 @@ import (
 
 var _ = Describe("Time", func() {
 	Describe("NewModule", func() {
-		It("Should create module with max timing base", func(ctx SpecContext) {
+		It("Should create a host", func(ctx SpecContext) {
 			factory := MustSucceed(
 				time.NewHost(
 					ctx,
@@ -182,7 +179,7 @@ var _ = Describe("Time", func() {
 				}
 				Expect(factory.Create(cfg)).Error().To(SatisfyAll(
 					BeAValidationPathError(),
-					MatchError(ContainSubstring("period: must be positive, got")),
+					MatchError(ContainSubstring("period: must be positive, got - 1s")),
 				))
 			},
 		)
@@ -204,26 +201,6 @@ var _ = Describe("Time", func() {
 				}
 				n := MustSucceed(factory.Create(cfg))
 				Expect(n).ToNot(BeNil())
-			},
-		)
-		It(
-			"Should not fold a zero var-bound period into the timing base",
-			func() {
-				cfg := node.Config{
-					Node: ir.Node{
-						Type: "interval",
-						Inputs: types.Params{
-							{
-								Name:  "period",
-								Type:  types.VarRef(types.TimeSpan(), "p"),
-								Value: telem.TimeSpan(0),
-							},
-						},
-					},
-					State: s.Node("interval_1"),
-				}
-				MustSucceed(factory.Create(cfg))
-				Expect(factory.BaseInterval).To(Equal(telem.TimeSpanMax))
 			},
 		)
 		It("Should fire immediately on first tick", func(ctx SpecContext) {
@@ -283,11 +260,11 @@ var _ = Describe("Time", func() {
 			})
 			Expect(changedOutputs).To(HaveLen(1))
 
-			// Second tick at 500ms - should not fire (period is 1s)
+			// Second tick 1ns before the period - should not fire
 			changedOutputs = nil
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 500 * telem.Millisecond,
+				Elapsed: telem.Second - telem.Nanosecond,
 				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
@@ -368,23 +345,6 @@ var _ = Describe("Time", func() {
 			outputTime := intervalNode.OutputTime(0)
 			Expect(outputTime.Len()).To(Equal(int64(1)))
 			Expect(outputTime.ValueAt[telem.TimeStamp](0)).To(Equal(now))
-		})
-		It("Should update timing base", func() {
-			cfg := node.Config{
-				Node: ir.Node{
-					Type: "interval",
-					Inputs: types.Params{
-						{
-							Name:  "period",
-							Type:  types.TimeSpan(),
-							Value: 100 * telem.Millisecond,
-						},
-					},
-				},
-				State: s.Node("interval_1"),
-			}
-			_, _ = factory.Create(cfg)
-			Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
 		})
 		It(
 			"Should not fire on channel input even when period elapsed",
@@ -471,8 +431,7 @@ var _ = Describe("Time", func() {
 				// Reset the interval (simulates stage re-entry)
 				n.Reset(node.Context{})
 
-				// Third tick at 1.5s - should fire because Reset set lastFired =
-				// -period
+				// Third tick at 1.5s - should fire because Reset clears started
 				changedOutputs = nil
 				n.Next(node.Context{
 					Context: ctx,
@@ -612,10 +571,21 @@ var _ = Describe("Time", func() {
 			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
 
-			// Tick at 500ms - should not fire
+			// First tick at 0 to set start time
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 500 * telem.Millisecond,
+				Elapsed: 0,
+				Reason:  node.ReasonTimerTick,
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
+				},
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(_ telem.TimeSpan) {},
+			})
+			// Tick 1ns before the duration - should not fire
+			n.Next(node.Context{
+				Context: ctx,
+				Elapsed: telem.Second - telem.Nanosecond,
 				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
@@ -1265,82 +1235,6 @@ var _ = Describe("Time", func() {
 			Expect(reported).To(HaveLen(1))
 		})
 	})
-	Describe("TimingBase", func() {
-		It("Should compute GCD of multiple intervals", func(ctx SpecContext) {
-			factory := MustSucceed(
-				time.NewHost(
-					ctx,
-					wazero.NewRuntimeWithConfig(
-						ctx,
-						wazero.NewRuntimeConfigInterpreter(),
-					),
-				),
-			)
-			g := graph.Graph{
-				Nodes: []graph.Node{
-					{Key: "interval_1"},
-					{Key: "interval_2"},
-				},
-				Inputs: map[string]msgpack.EncodedJSON{
-					"interval_1": {
-						"type":   "interval",
-						"period": int64(100 * telem.Millisecond),
-					},
-					"interval_2": {
-						"type":   "interval",
-						"period": int64(150 * telem.Millisecond),
-					},
-				},
-				Functions: []ir.Function{{
-					Key: "interval",
-					Outputs: types.Params{
-						{Name: ir.DefaultOutputParam, Type: types.U8()},
-					},
-					Inputs: types.Params{
-						{Name: "period", Type: types.I64()},
-					},
-				}},
-			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
-			Expect(diagnostics.Ok()).To(BeTrue())
-			s := node.New(analyzed)
-
-			// Create first interval with 100ms period
-			cfg1 := node.Config{
-				Node: ir.Node{
-					Type: "interval",
-					Inputs: types.Params{
-						{
-							Name:  "period",
-							Type:  types.TimeSpan(),
-							Value: 100 * telem.Millisecond,
-						},
-					},
-				},
-				State: s.Node("interval_1"),
-			}
-			_, _ = factory.Create(cfg1)
-			Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
-
-			// Create second interval with 150ms period
-			cfg2 := node.Config{
-				Node: ir.Node{
-					Type: "interval",
-					Inputs: types.Params{
-						{
-							Name:  "period",
-							Type:  types.TimeSpan(),
-							Value: 150 * telem.Millisecond,
-						},
-					},
-				},
-				State: s.Node("interval_2"),
-			}
-			_, _ = factory.Create(cfg2)
-			// GCD(100ms, 150ms) = 50ms
-			Expect(factory.BaseInterval).To(Equal(50 * telem.Millisecond))
-		})
-	})
 	Describe("Symbols", func() {
 		var root *symbol.Symbol
 		BeforeEach(func() { root = symbol.NewRoot(nil, time.NewSymbols()) })
@@ -1381,354 +1275,22 @@ var _ = Describe("Time", func() {
 			Expect(sym.Deprecated.QualifiedName()).To(Equal("time.wait"))
 		})
 	})
-	Describe("CalculateTolerance", func() {
-		It("Should return half of base interval for 100ms", func() {
-			tolerance := time.CalculateTolerance(100 * telem.Millisecond)
-			Expect(tolerance).To(Equal(50 * telem.Millisecond))
-		})
-		It(
-			"Should return MinTolerance when half interval is less than MinTolerance",
-			func() {
-				tolerance := time.CalculateTolerance(2 * telem.Millisecond)
-				Expect(tolerance).To(Equal(time.MinTolerance))
-			},
-		)
-		It(
-			"Should return MinTolerance for MaxInt64 base interval",
-			func() {
-				tolerance := time.CalculateTolerance(telem.TimeSpan(math.MaxInt64))
-				Expect(tolerance).To(Equal(time.MinTolerance))
-			},
-		)
-		It(
-			"Should return exactly MinTolerance when half equals MinTolerance",
-			func() {
-				tolerance := time.CalculateTolerance(2 * time.MinTolerance)
-				Expect(tolerance).To(Equal(time.MinTolerance))
-			},
-		)
-	})
-	Describe("Tolerance Behavior", func() {
-		var factory *time.Host
-		var s *node.ProgramState
-		var changedOutputs []int
-		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(
-				time.NewHost(
-					ctx,
-					wazero.NewRuntimeWithConfig(
-						ctx,
-						wazero.NewRuntimeConfigInterpreter(),
-					),
-				),
-			)
-			changedOutputs = nil
-			g := graph.Graph{
-				Nodes: []graph.Node{{Key: "interval_1"}},
-				Inputs: map[string]msgpack.EncodedJSON{
-					"interval_1": {
-						"type":   "interval",
-						"period": int64(100 * telem.Millisecond),
-					},
-				},
-				Functions: []ir.Function{{
-					Key: "interval",
-					Outputs: types.Params{
-						{Name: ir.DefaultOutputParam, Type: types.U8()},
-					},
-					Inputs: types.Params{
-						{Name: "period", Type: types.I64()},
-					},
-				}},
-			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
-			Expect(diagnostics.Ok()).To(BeTrue())
-			s = node.New(analyzed)
-		})
-		Describe("Interval with tolerance", func() {
-			It("Should fire on early tick within tolerance", func(ctx SpecContext) {
-				cfg := node.Config{
-					Node: ir.Node{
-						Type: "interval",
-						Inputs: types.Params{
-							{
-								Name:  "period",
-								Type:  types.TimeSpan(),
-								Value: 100 * telem.Millisecond,
-							},
-						},
-					},
-					State: s.Node("interval_1"),
-				}
-				n := MustSucceed(factory.Create(cfg))
-				intervalNode := s.Node("interval_1")
-				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
-				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
-
-				tolerance := telem.TimeSpan(50 * telem.Millisecond)
-				n.Next(node.Context{
-					Context:   ctx,
-					Elapsed:   0,
-					Reason:    node.ReasonTimerTick,
-					Tolerance: tolerance,
-					MarkChanged: func(i int) {
-						changedOutputs = append(changedOutputs, i)
-					},
-					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
-				})
-				Expect(changedOutputs).To(HaveLen(1))
-
-				changedOutputs = nil
-				n.Next(node.Context{
-					Context:   ctx,
-					Elapsed:   telem.TimeSpan(99500 * telem.Microsecond),
-					Reason:    node.ReasonTimerTick,
-					Tolerance: tolerance,
-					MarkChanged: func(i int) {
-						changedOutputs = append(changedOutputs, i)
-					},
-					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
-				})
-				Expect(changedOutputs).To(HaveLen(1))
-			})
-			It("Should not fire too early beyond tolerance", func(ctx SpecContext) {
-				cfg := node.Config{
-					Node: ir.Node{
-						Type: "interval",
-						Inputs: types.Params{
-							{
-								Name:  "period",
-								Type:  types.TimeSpan(),
-								Value: 100 * telem.Millisecond,
-							},
-						},
-					},
-					State: s.Node("interval_1"),
-				}
-				n := MustSucceed(factory.Create(cfg))
-				intervalNode := s.Node("interval_1")
-				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
-				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
-
-				tolerance := telem.TimeSpan(50 * telem.Millisecond)
-				n.Next(node.Context{
-					Context:   ctx,
-					Elapsed:   0,
-					Reason:    node.ReasonTimerTick,
-					Tolerance: tolerance,
-					MarkChanged: func(i int) {
-						changedOutputs = append(changedOutputs, i)
-					},
-					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
-				})
-				Expect(changedOutputs).To(HaveLen(1))
-
-				changedOutputs = nil
-				n.Next(node.Context{
-					Context:   ctx,
-					Elapsed:   40 * telem.Millisecond,
-					Reason:    node.ReasonTimerTick,
-					Tolerance: tolerance,
-					MarkChanged: func(i int) {
-						changedOutputs = append(changedOutputs, i)
-					},
-					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
-				})
-				Expect(changedOutputs).To(BeEmpty())
-			})
-			It(
-				"Should handle jitter simulation with correct firings",
-				func(ctx SpecContext) {
-					cfg := node.Config{
-						Node: ir.Node{
-							Type: "interval",
-							Inputs: types.Params{
-								{
-									Name:  "period",
-									Type:  types.TimeSpan(),
-									Value: 100 * telem.Millisecond,
-								},
-							},
-						},
-						State: s.Node("interval_1"),
-					}
-					n := MustSucceed(factory.Create(cfg))
-					intervalNode := s.Node("interval_1")
-					*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
-					*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
-
-					tolerance := telem.TimeSpan(50 * telem.Millisecond)
-					fireCount := 0
-					tickTimes := []telem.TimeSpan{
-						0,
-						telem.TimeSpan(99500 * telem.Microsecond),
-						telem.TimeSpan(199800 * telem.Microsecond),
-						telem.TimeSpan(300100 * telem.Microsecond),
-						telem.TimeSpan(399000 * telem.Microsecond),
-					}
-
-					for _, elapsed := range tickTimes {
-						n.Next(node.Context{
-							Context:   ctx,
-							Elapsed:   elapsed,
-							Reason:    node.ReasonTimerTick,
-							Tolerance: tolerance,
-							MarkChanged: func(int) {
-								fireCount++
-							},
-							MarkSelfChanged: func() {},
-							SetDeadline:     func(_ telem.TimeSpan) {},
-						})
-					}
-					Expect(fireCount).To(Equal(5))
-				},
-			)
-			It("Should use MinTolerance floor for OS jitter", func(ctx SpecContext) {
-				cfg := node.Config{
-					Node: ir.Node{
-						Type: "interval",
-						Inputs: types.Params{
-							{
-								Name:  "period",
-								Type:  types.TimeSpan(),
-								Value: 100 * telem.Millisecond,
-							},
-						},
-					},
-					State: s.Node("interval_1"),
-				}
-				n := MustSucceed(factory.Create(cfg))
-				intervalNode := s.Node("interval_1")
-				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
-				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
-
-				tolerance := time.MinTolerance
-				n.Next(node.Context{
-					Context:   ctx,
-					Elapsed:   0,
-					Reason:    node.ReasonTimerTick,
-					Tolerance: tolerance,
-					MarkChanged: func(i int) {
-						changedOutputs = append(changedOutputs, i)
-					},
-					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
-				})
-				Expect(changedOutputs).To(HaveLen(1))
-
-				changedOutputs = nil
-				n.Next(node.Context{
-					Context:   ctx,
-					Elapsed:   96 * telem.Millisecond,
-					Reason:    node.ReasonTimerTick,
-					Tolerance: tolerance,
-					MarkChanged: func(i int) {
-						changedOutputs = append(changedOutputs, i)
-					},
-					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
-				})
-				Expect(changedOutputs).To(HaveLen(1))
-			})
-		})
-		Describe("Wait with tolerance", func() {
-			It("Should fire early within tolerance", func(ctx SpecContext) {
-				g := graph.Graph{
-					Nodes: []graph.Node{{Key: "wait_1"}},
-					Inputs: map[string]msgpack.EncodedJSON{
-						"wait_1": {
-							"type":     "wait",
-							"duration": int64(100 * telem.Millisecond),
-						},
-					},
-					Functions: []ir.Function{{
-						Key: "wait",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.U8()},
-						},
-						Inputs: types.Params{
-							{Name: "duration", Type: types.I64()},
-						},
-					}},
-				}
-				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
-				Expect(diagnostics.Ok()).To(BeTrue())
-				waitState := node.New(analyzed)
-				waitFactory := MustSucceed(
-					time.NewHost(
-						ctx,
-						wazero.NewRuntimeWithConfig(
-							ctx,
-							wazero.NewRuntimeConfigInterpreter(),
-						),
-					),
-				)
-
-				cfg := node.Config{
-					Node: ir.Node{
-						Type: "wait",
-						Inputs: types.Params{
-							{
-								Name:  "duration",
-								Type:  types.TimeSpan(),
-								Value: 100 * telem.Millisecond,
-							},
-						},
-					},
-					State: waitState.Node("wait_1"),
-				}
-				n := MustSucceed(waitFactory.Create(cfg))
-				waitNode := waitState.Node("wait_1")
-				*waitNode.Output(0) = telem.NewSeriesV[uint8]()
-				*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
-
-				tolerance := telem.TimeSpan(50 * telem.Millisecond)
-				var waitChangedOutputs []int
-
-				n.Next(node.Context{
-					Context:   ctx,
-					Elapsed:   0,
-					Reason:    node.ReasonTimerTick,
-					Tolerance: tolerance,
-					MarkChanged: func(i int) {
-						waitChangedOutputs = append(waitChangedOutputs, i)
-					},
-					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
-				})
-				Expect(waitChangedOutputs).To(BeEmpty())
-
-				n.Next(node.Context{
-					Context:   ctx,
-					Elapsed:   telem.TimeSpan(99500 * telem.Microsecond),
-					Reason:    node.ReasonTimerTick,
-					Tolerance: tolerance,
-					MarkChanged: func(i int) {
-						waitChangedOutputs = append(waitChangedOutputs, i)
-					},
-					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
-				})
-				Expect(waitChangedOutputs).To(HaveLen(1))
-			})
-		})
-	})
 	Describe("Deadline Reporting", func() {
 		Describe("Interval", func() {
-			var factory *time.Host
-			var s *node.ProgramState
+			const period = telem.Second
+			var (
+				n        node.Node
+				deadline telem.TimeSpan
+				fired    int
+			)
 			BeforeEach(func(ctx SpecContext) {
-				factory = MustSucceed(time.NewHost(ctx, nil))
+				factory := MustSucceed(time.NewHost(ctx, nil))
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "interval_1"}},
 					Inputs: map[string]msgpack.EncodedJSON{
 						"interval_1": {
 							"type":   "interval",
-							"period": int64(telem.Second),
+							"period": int64(period),
 						},
 					},
 					Functions: []ir.Function{{
@@ -1743,76 +1305,78 @@ var _ = Describe("Time", func() {
 				}
 				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s = node.New(analyzed)
-			})
-			It("Should set deadline to lastFired + period", func(ctx SpecContext) {
-				cfg := node.Config{
+				s := node.New(analyzed)
+				n = MustSucceed(factory.Create(node.Config{
 					Node: ir.Node{
 						Type: "interval",
 						Inputs: types.Params{
-							{
-								Name:  "period",
-								Type:  types.TimeSpan(),
-								Value: telem.Second,
-							},
+							{Name: "period", Type: types.TimeSpan(), Value: period},
 						},
 					},
 					State: s.Node("interval_1"),
-				}
-				n := MustSucceed(factory.Create(cfg))
+				}))
 				intervalNode := s.Node("interval_1")
 				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
-
-				var deadline telem.TimeSpan
+				deadline, fired = 0, 0
+			})
+			tick := func(ctx context.Context, elapsed telem.TimeSpan) {
 				n.Next(node.Context{
 					Context:         ctx,
-					Elapsed:         0,
+					Elapsed:         elapsed,
 					Reason:          node.ReasonTimerTick,
-					MarkChanged:     func(int) {},
+					MarkChanged:     func(int) { fired++ },
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(d telem.TimeSpan) { deadline = d },
 				})
-				Expect(deadline).To(Equal(telem.Second))
+			}
+			It("Should set deadline to lastFired + period", func(ctx SpecContext) {
+				tick(ctx, 0)
+				Expect(deadline).To(Equal(period))
 			})
+			It("Should count the next fire from the schedule", func(ctx SpecContext) {
+				late := 500 * telem.Microsecond
+				tick(ctx, 0)
+				tick(ctx, period+late)
+				Expect(fired).To(Equal(2))
+				Expect(deadline).To(Equal(2 * period))
+				tick(ctx, 2*period+late)
+				Expect(fired).To(Equal(3))
+				Expect(deadline).To(Equal(3 * period))
+			})
+			It("Should skip the missed fires after a pause", func(ctx SpecContext) {
+				tick(ctx, 0)
+				tick(ctx, 3500*telem.Millisecond)
+				Expect(fired).To(Equal(2))
+				Expect(deadline).To(Equal(4 * period))
+				tick(ctx, 4*period-telem.Nanosecond)
+				Expect(fired).To(Equal(2))
+				tick(ctx, 4*period)
+				Expect(fired).To(Equal(3))
+			})
+			It(
+				"Should skip the missed fire exactly one period behind",
+				func(ctx SpecContext) {
+					tick(ctx, 0)
+					tick(ctx, 2*period)
+					Expect(fired).To(Equal(2))
+					Expect(deadline).To(Equal(3 * period))
+					tick(ctx, 2*period)
+					Expect(fired).To(Equal(2))
+				},
+			)
 			It("Should set deadline on channel input", func(ctx SpecContext) {
-				cfg := node.Config{
-					Node: ir.Node{
-						Type: "interval",
-						Inputs: types.Params{
-							{
-								Name:  "period",
-								Type:  types.TimeSpan(),
-								Value: telem.Second,
-							},
-						},
-					},
-					State: s.Node("interval_1"),
-				}
-				n := MustSucceed(factory.Create(cfg))
-				intervalNode := s.Node("interval_1")
-				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
-				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
-
-				n.Next(node.Context{
-					Context:         ctx,
-					Elapsed:         0,
-					Reason:          node.ReasonTimerTick,
-					MarkChanged:     func(int) {},
-					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
-				})
-
-				var deadline telem.TimeSpan
+				tick(ctx, 0)
+				var channelDeadline telem.TimeSpan
 				n.Next(node.Context{
 					Context:         ctx,
 					Elapsed:         500 * telem.Millisecond,
 					Reason:          node.ReasonChannelInput,
 					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
-					SetDeadline:     func(d telem.TimeSpan) { deadline = d },
+					SetDeadline:     func(d telem.TimeSpan) { channelDeadline = d },
 				})
-				Expect(deadline).To(Equal(telem.Second))
+				Expect(channelDeadline).To(Equal(period))
 			})
 		})
 		Describe("Wait", func() {
@@ -1916,6 +1480,48 @@ var _ = Describe("Time", func() {
 				})
 				Expect(deadlineCalled).To(BeFalse())
 			})
+			It(
+				"Should not set a deadline on the pass that fires",
+				func(ctx SpecContext) {
+					cfg := node.Config{
+						Node: ir.Node{
+							Type: "wait",
+							Inputs: types.Params{
+								{
+									Name:  "duration",
+									Type:  types.TimeSpan(),
+									Value: telem.Second,
+								},
+							},
+						},
+						State: s.Node("wait_1"),
+					}
+					n := MustSucceed(factory.Create(cfg))
+					waitNode := s.Node("wait_1")
+					*waitNode.Output(0) = telem.NewSeriesV[uint8]()
+					*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+					n.Next(node.Context{
+						Context:         ctx,
+						Elapsed:         0,
+						Reason:          node.ReasonTimerTick,
+						MarkChanged:     func(int) {},
+						MarkSelfChanged: func() {},
+						SetDeadline:     func(_ telem.TimeSpan) {},
+					})
+					deadlineCalled := false
+					n.Next(node.Context{
+						Context:         ctx,
+						Elapsed:         telem.Second,
+						Reason:          node.ReasonTimerTick,
+						MarkChanged:     func(int) {},
+						MarkSelfChanged: func() {},
+						SetDeadline:     func(_ telem.TimeSpan) { deadlineCalled = true },
+					})
+					Expect(waitNode.Output(0).Len()).To(Equal(int64(1)))
+					Expect(deadlineCalled).To(BeFalse())
+				},
+			)
 			It("Should set correct deadline after reset", func(ctx SpecContext) {
 				cfg := node.Config{
 					Node: ir.Node{
@@ -2078,15 +1684,6 @@ var _ = Describe("Time", func() {
 				Expect(n).ToNot(BeNil())
 			},
 		)
-		It("Should not update base interval", func() {
-			Expect(factory.BaseInterval).To(Equal(telem.TimeSpanMax))
-			cfg := node.Config{
-				Node:  ir.Node{Type: "now"},
-				State: s.Node("now_1"),
-			}
-			MustSucceed(factory.Create(cfg))
-			Expect(factory.BaseInterval).To(Equal(telem.TimeSpanMax))
-		})
 		It("Should set matching output and output time", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "now"},
@@ -2203,6 +1800,7 @@ var _ = Describe("Time", func() {
 				MarkChanged:     func(int) { r.fired = true },
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(d telem.TimeSpan) { r.deadline = d },
+				ReportError:     func(error) {},
 			})
 			return r
 		}
@@ -2220,6 +1818,18 @@ var _ = Describe("Time", func() {
 						To(BeFalse())
 					Expect(
 						tick(ctx, n, telem.Second, node.ReasonTimerTick).fired,
+					).To(BeTrue())
+				},
+			)
+			It(
+				"Should fire at once when a zero period turns positive",
+				func(ctx SpecContext) {
+					cfg, set := varConfig("interval", "period", 0)
+					n := MustSucceed(factory.Create(cfg))
+					Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeFalse())
+					set(telem.Second)
+					Expect(
+						tick(ctx, n, 100*telem.Millisecond, node.ReasonTimerTick).fired,
 					).To(BeTrue())
 				},
 			)
@@ -2286,17 +1896,6 @@ var _ = Describe("Time", func() {
 						).fired,
 					).
 						To(BeTrue())
-				},
-			)
-			It(
-				"Should seed the timing base from the declared value only",
-				func(ctx SpecContext) {
-					cfg, set := varConfig("interval", "period", 100*telem.Millisecond)
-					n := MustSucceed(factory.Create(cfg))
-					Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
-					set(telem.Millisecond)
-					Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
-					Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
 				},
 			)
 		})
@@ -2372,203 +1971,4 @@ var _ = Describe("Time", func() {
 			})
 		})
 	})
-})
-
-var _ = Describe("TimingBase GCD matrix", func() {
-	// compileBase compiles source and creates every timer node through a fresh
-	// time Host, returning the resulting BaseInterval.
-	compileBase := func(ctx context.Context, source string) telem.TimeSpan {
-		GinkgoHelper()
-		root := NewRoot(
-			nil,
-			symbol.Symbol{
-				Name: "a",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.U8()),
-				ID:   501,
-			},
-			symbol.Symbol{
-				Name: "b",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.U8()),
-				ID:   502,
-			},
-		)
-		prog := MustSucceed(
-			arc.CompileText(ctx, arc.Text{Raw: "import time\n" + source}, root),
-		)
-		factory := MustSucceed(time.NewHost(ctx, nil))
-		s := node.New(prog.IR)
-		f := node.CompoundFactory{factory}
-		for _, n := range prog.Nodes {
-			if _, err := f.Create(node.Config{
-				Node: n, Program: prog, State: s.Node(n.Key),
-			}); err != nil && !errors.Is(err, query.ErrNotFound) {
-				Fail("create " + n.Key + ": " + err.Error())
-			}
-		}
-		return factory.BaseInterval
-	}
-
-	DescribeTable("computes the GCD over declared and literal-reassigned spans",
-		func(ctx SpecContext, source string, expected telem.TimeSpan) {
-			Expect(compileBase(ctx, source)).To(Equal(expected))
-		},
-		Entry("two literal intervals", `
-time.interval{period=100ms} -> a
-time.interval{period=60ms} -> b
-`, 20*telem.Millisecond),
-		Entry("two intervals fed by vars, never reassigned", `
-sequence main {
-    p := i64 ns(100ms)
-    q := i64 ns(60ms)
-    stage run {
-        time.interval{period=p} -> a
-        time.interval{period=q} -> b
-    }
-}
-`, 20*telem.Millisecond),
-		Entry("two intervals fed by vars, each reassigned with a literal", `
-sequence main {
-    p := i64 ns(100ms)
-    q := i64 ns(60ms)
-    stage run {
-        time.interval{period=p} -> a
-        time.interval{period=q} -> b
-        1 => faster
-    }
-    stage faster {
-        p = i64 ns(10ms)
-        q = i64 ns(45ms)
-    }
-}
-`, 5*telem.Millisecond),
-		Entry("two intervals fed by vars, expression reassignments excluded", `
-sequence main {
-    p := i64 ns(100ms)
-    q := i64 ns(60ms)
-    stage run {
-        time.interval{period=p} -> a
-        time.interval{period=q} -> b
-        1 => faster
-    }
-    stage faster {
-        p = i64 ns(2 * 25ms)
-        q = i64 ns(3 * 20ms)
-    }
-}
-`, 20*telem.Millisecond),
-		Entry("two literal waits", `
-time.wait{duration=75ms} -> a
-time.wait{duration=50ms} -> b
-`, 25*telem.Millisecond),
-		Entry("two waits fed by vars, each reassigned with a literal", `
-sequence main {
-    d := i64 ns(80ms)
-    e := i64 ns(50ms)
-    stage run {
-        time.wait{duration=d} -> a
-        time.wait{duration=e} -> b
-        1 => faster
-    }
-    stage faster {
-        d = i64 ns(30ms)
-        e = i64 ns(35ms)
-    }
-}
-`, 5*telem.Millisecond),
-		Entry("interval + wait fed by vars, never reassigned", `
-sequence main {
-    p := i64 ns(100ms)
-    d := i64 ns(75ms)
-    stage run {
-        time.interval{period=p} -> a
-        time.wait{duration=d} -> b
-    }
-}
-`, 25*telem.Millisecond),
-		Entry("interval + wait fed by vars, each reassigned with a literal", `
-sequence main {
-    p := i64 ns(100ms)
-    d := i64 ns(80ms)
-    stage run {
-        time.interval{period=p} -> a
-        time.wait{duration=d} -> b
-        1 => faster
-    }
-    stage faster {
-        p = i64 ns(60ms)
-        d = i64 ns(30ms)
-    }
-}
-`, 10*telem.Millisecond),
-		Entry("interval + wait fed by vars, expression reassignments excluded", `
-sequence main {
-    p := i64 ns(100ms)
-    d := i64 ns(75ms)
-    stage run {
-        time.interval{period=p} -> a
-        time.wait{duration=d} -> b
-        1 => faster
-    }
-    stage faster {
-        p = i64 ns(2 * 25ms)
-        d = i64 ns(3 * 15ms)
-    }
-}
-`, 25*telem.Millisecond),
-		Entry("literal interval + reassigned var wait", `
-sequence main {
-    d := i64 ns(60ms)
-    stage run {
-        time.interval{period=100ms} -> a
-        time.wait{duration=d} -> b
-        1 => faster
-    }
-    stage faster {
-        d = i64 ns(45ms)
-    }
-}
-`, 5*telem.Millisecond),
-		Entry("var interval, two reassignment sites", `
-sequence main {
-    p := i64 ns(100ms)
-    stage run {
-        time.interval{period=p} -> a
-        1 => mid
-    }
-    stage mid {
-        p = i64 ns(50ms)
-        1 => fast
-    }
-    stage fast {
-        p = i64 ns(30ms)
-    }
-}
-`, 10*telem.Millisecond),
-		Entry("same var feeding both timer kinds", `
-sequence main {
-    p := i64 ns(40ms)
-    stage run {
-        time.interval{period=p} -> a
-        time.wait{duration=p} -> b
-        1 => faster
-    }
-    stage faster {
-        p = i64 ns(30ms)
-    }
-}
-`, 10*telem.Millisecond),
-		Entry("reassignment in an unreached stage still counts", `
-sequence main {
-    p := i64 ns(100ms)
-    stage run {
-        time.interval{period=p} -> a
-    }
-    stage never {
-        p = i64 ns(30ms)
-    }
-}
-`, 10*telem.Millisecond),
-	)
 })

@@ -14,17 +14,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import synnax as sy
-from synnax.cli import default
-from synnax.cli.channel import select_channel
+from synnax.cli import channel, default
 from synnax.cli.connect import connect_client
-from synnax.cli.warning import warning
 
 
 @click.command()
-@click.pass_context
-def check_timing(ctx: click.Context) -> None:
+def check_timing() -> None:
     """Check the timing characteristics of a time channel."""
-    warning(ctx)
     client = connect_client(default.context())
     if client is None:
         return
@@ -38,7 +34,7 @@ def check_timing(ctx: click.Context) -> None:
         return
 
     # Let user select the time channel
-    time_channel = select_channel(default.context(), time_channels)
+    time_channel = channel.select(default.context(), time_channels)
     if time_channel is None:
         return
 
@@ -68,11 +64,11 @@ def collect_samples(
     list[sy.TimeSpan], list[sy.TimeSpan], list[sy.TimeStamp], sy.TimeStamp, sy.TimeStamp
 ]:
     # Tracks the offset between the local clock and the time channel
-    offsets: list[sy.TimeSpan] = list()
+    offsets: list[sy.TimeSpan] = []
     # Tracks the spacing between the samples inside individual reads
-    diffs: list[sy.TimeSpan] = list()
+    diffs: list[sy.TimeSpan] = []
     # Tracks all the times received
-    times: list[sy.TimeStamp] = list()
+    times: list[sy.TimeStamp] = []
     # Track local start time
     local_start = sy.TimeStamp.now()
 

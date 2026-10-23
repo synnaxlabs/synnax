@@ -11,6 +11,7 @@ package msgpack
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"io"
 	"math"
@@ -70,8 +71,9 @@ func (*codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 
 // EncodedJSON is a map[string]any that handles backwards-compatible MessagePack
 // decoding. When existing data was stored as a JSON string (the old format), it
-// unmarshals the string into a map. When new data arrives as a map, it uses it
-// directly.
+// unmarshals the string into a map. Invalid UTF-8 and lone surrogates in the string
+// become U+FFFD, and the last of duplicate keys wins. When new data arrives as a map,
+// it uses it directly.
 type EncodedJSON map[string]any
 
 func (e *EncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {
@@ -87,7 +89,12 @@ func (e *EncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {
 	case string:
 		m := make(map[string]any)
 		if len(val) != 0 {
-			if err = json.Unmarshal([]byte(val), &m); err != nil {
+			if err = json.Unmarshal(
+				[]byte(val),
+				&m,
+				jsontext.AllowInvalidUTF8(true),
+				jsontext.AllowDuplicateNames(true),
+			); err != nil {
 				return errors.Wrapf(
 					err,
 					"failed to unmarshal JSON string into EncodedJSON",

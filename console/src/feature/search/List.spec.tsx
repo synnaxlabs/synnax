@@ -55,7 +55,11 @@ const searchInput = (): HTMLInputElement => {
 describe("Search.List", () => {
   it("shows the empty state once the search answers with nothing", async () => {
     await renderSearch({});
-    fireEvent.change(searchInput(), { target: { value: uniqueName("no_such") } });
+    // One word with no separators: the Core matches each word of a term on its own, by
+    // prefix and edit distance, so a short word can hit another spec's fixture.
+    fireEvent.change(searchInput(), {
+      target: { value: uniqueName("nosuch").replace(/_/g, "") },
+    });
     expect(screen.queryByText("No resources found")).toBeNull();
     await screen.findByText("No resources found");
   });

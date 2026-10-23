@@ -18,17 +18,44 @@ import (
 var _ = Describe("Transition", func() {
 	Describe("String", func() {
 		It("Should render a transition targeting a sibling step", func() {
-			target := "next"
 			t := ir.Transition{
-				On:        ir.Handle{Node: "n", Param: "done"},
-				TargetKey: &target,
+				On:     ir.Handle{Node: "n", Param: "done"},
+				Kind:   ir.EdgeKindConditional,
+				Target: ir.Target{Variant: ir.StepTarget{Key: "next"}},
 			}
 			Expect(t.String()).To(Equal("on n/done => next"))
 		})
 
-		It("Should render an exiting transition when TargetKey is nil", func() {
-			t := ir.Transition{On: ir.Handle{Node: "n", Param: "done"}}
+		It("Should render an exiting transition", func() {
+			t := ir.Transition{
+				On:     ir.Handle{Node: "n", Param: "done"},
+				Kind:   ir.EdgeKindConditional,
+				Target: ir.Target{Variant: ir.ExitTarget{}},
+			}
 			Expect(t.String()).To(Equal("on n/done => exit"))
+		})
+
+		It("Should render a transition that exits to a top-level scope", func() {
+			t := ir.Transition{
+				On:     ir.Handle{Node: "n", Param: "done"},
+				Kind:   ir.EdgeKindConditional,
+				Target: ir.Target{Variant: ir.ScopeTarget{Key: "abort"}},
+			}
+			Expect(t.String()).To(Equal("on n/done => exit to abort"))
+		})
+
+		It("Should render a continuous transition with ->", func() {
+			t := ir.Transition{
+				On:     ir.Handle{Node: "n", Param: "done"},
+				Kind:   ir.EdgeKindContinuous,
+				Target: ir.Target{Variant: ir.StepTarget{Key: "next"}},
+			}
+			Expect(t.String()).To(Equal("on n/done -> next"))
+		})
+
+		It("Should render a transition with no kind with ?>", func() {
+			t := ir.Transition{On: ir.Handle{Node: "n", Param: "done"}}
+			Expect(t.String()).To(Equal("on n/done ?> exit"))
 		})
 	})
 })

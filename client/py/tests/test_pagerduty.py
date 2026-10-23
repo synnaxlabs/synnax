@@ -10,6 +10,7 @@
 import pytest
 
 import synnax as sy
+from tests.json_value import arr, obj
 
 
 @pytest.mark.pagerduty
@@ -79,11 +80,11 @@ class TestPagerDutyAlertTask:
             },
         ],
     )
-    def test_parse_alert_task_config(self, test_data):
+    def test_parse_alert_task_config(self, test_data: dict[str, object]) -> None:
         """Test that TaskConfig can parse various configurations."""
         sy.pagerduty.TaskConfig.model_validate(test_data["data"])
 
-    def test_alert_defaults(self):
+    def test_alert_defaults(self) -> None:
         """Test that Alert has correct defaults."""
         alert = sy.pagerduty.Alert(status="my-status")
         assert alert.status == "my-status"
@@ -93,7 +94,7 @@ class TestPagerDutyAlertTask:
         assert alert.class_ == ""
         assert alert.disabled is False
 
-    def test_alert_class_alias(self):
+    def test_alert_class_alias(self) -> None:
         """Test that Alert serializes class_ as 'class' in JSON."""
         alert = sy.pagerduty.Alert(
             status="my-status",
@@ -104,14 +105,14 @@ class TestPagerDutyAlertTask:
         assert dumped["class"] == "cpu_load"
         assert "class_" not in dumped
 
-    def test_alert_class_from_alias(self):
+    def test_alert_class_from_alias(self) -> None:
         """Test that Alert can be created from JSON with 'class' key."""
         alert = sy.pagerduty.Alert.model_validate(
             {"status": "my-status", "class": "ping_failure", "disabled": False}
         )
         assert alert.class_ == "ping_failure"
 
-    def test_task_config_defaults(self):
+    def test_task_config_defaults(self) -> None:
         """Test that TaskConfig has correct defaults."""
         config = sy.pagerduty.TaskConfig(
             routing_key="12345678901234567890123456789012",
@@ -119,7 +120,7 @@ class TestPagerDutyAlertTask:
         )
         assert config.auto_start is False
 
-    def test_alert_task_auto_key_generation(self):
+    def test_alert_task_auto_key_generation(self) -> None:
         """Test that the AlertTask assigns keys to alerts missing one."""
         task = sy.pagerduty.AlertTask(
             name="test",
@@ -130,7 +131,7 @@ class TestPagerDutyAlertTask:
         assert alert.key != ""
         assert len(alert.key) > 0
 
-    def test_alert_task_serialization(self):
+    def test_alert_task_serialization(self) -> None:
         """Test that AlertTask serializes correctly."""
         task = sy.pagerduty.AlertTask(
             name="test-alert",
@@ -149,13 +150,14 @@ class TestPagerDutyAlertTask:
         payload = task.to_payload()
         assert payload.config["routing_key"] == "12345678901234567890123456789012"
         assert payload.config["auto_start"] is True
-        assert len(payload.config["alerts"]) == 1
-        alert = payload.config["alerts"][0]
+        alerts = arr(payload.config, "alerts")
+        assert len(alerts) == 1
+        alert = obj(alerts[0])
         assert alert["status"] == "db-health"
         assert alert["class"] == "db_error"
         assert "class_" not in alert
 
-    def test_create_and_retrieve_alert_task(self, client: sy.Synnax):
+    def test_create_and_retrieve_alert_task(self, client: sy.Synnax) -> None:
         """Test that AlertTask can be created and retrieved from the database."""
         task = sy.pagerduty.AlertTask(
             name="test-pagerduty-alert",
@@ -178,7 +180,7 @@ class TestPagerDutyAlertTask:
         assert tsk.config.routing_key == task.config.routing_key
         assert tsk.config.auto_start == task.config.auto_start
         assert len(tsk.config.alerts) == len(task.config.alerts)
-        for orig, retr in zip(task.config.alerts, tsk.config.alerts):
+        for orig, retr in zip(task.config.alerts, tsk.config.alerts, strict=True):
             assert retr.status == orig.status
             assert retr.disabled == orig.disabled
             assert retr.errors_critical == orig.errors_critical
@@ -186,7 +188,7 @@ class TestPagerDutyAlertTask:
             assert retr.group == orig.group
             assert retr.class_ == orig.class_
 
-    def test_alert_task_serialization_round_trip(self, client: sy.Synnax):
+    def test_alert_task_serialization_round_trip(self, client: sy.Synnax) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original = sy.pagerduty.AlertTask(
             name="test-round-trip",
@@ -218,7 +220,9 @@ class TestPagerDutyAlertTask:
         assert retrieved.config.routing_key == original.config.routing_key
         assert retrieved.config.auto_start == original.config.auto_start
         assert len(retrieved.config.alerts) == len(original.config.alerts)
-        for orig, retr in zip(original.config.alerts, retrieved.config.alerts):
+        for orig, retr in zip(
+            original.config.alerts, retrieved.config.alerts, strict=True
+        ):
             assert retr.status == orig.status
             assert retr.disabled == orig.disabled
             assert retr.errors_critical == orig.errors_critical

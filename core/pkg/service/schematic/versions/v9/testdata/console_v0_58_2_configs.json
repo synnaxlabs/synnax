@@ -1,0 +1,447 @@
+{
+  "scale": {
+    "color": [12, 140, 220, 1],
+    "dimensions": {
+      "height": 160,
+      "width": 34
+    },
+    "indicator": {
+      "axisColor": [90, 90, 200, 1],
+      "bounds": {
+        "lower": -100,
+        "upper": 0
+      },
+      "caretSide": "left",
+      "color": [10, 120, 30, 1],
+      "level": "small",
+      "notation": "scientific",
+      "precision": 0,
+      "showCaret": false,
+      "showFill": false,
+      "showScale": false,
+      "side": "left",
+      "stalenessColor": [0, 0, 0, 0],
+      "stalenessTimeout": 5,
+      "telem": {
+        "props": {
+          "connections": [
+            {
+              "from": "valueStream",
+              "to": "rollingAverage"
+            }
+          ],
+          "outlet": "rollingAverage",
+          "segments": {
+            "rollingAverage": {
+              "props": {
+                "windowSize": 7
+              },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": {
+                "channel": 1048584
+              },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "number",
+        "variant": "source"
+      },
+      "textColor": [200, 90, 20, 1],
+      "units": ""
+    },
+    "label": {
+      "align": "start",
+      "direction": "x",
+      "label": "E Scale",
+      "level": "p",
+      "maxInlineSize": 120,
+      "orientation": "bottom"
+    },
+    "orientation": "bottom",
+    "variant": "scale"
+  },
+  "tank": {
+    "backgroundColor": [10, 200, 10, 0.5],
+    "borderRadius": {
+      "x": 0,
+      "y": 0
+    },
+    "color": [12, 140, 220, 1],
+    "dimensions": {
+      "height": 200,
+      "width": 125
+    },
+    "fill": {
+      "axisColor": [90, 90, 200, 1],
+      "bounds": {
+        "lower": -100,
+        "upper": 0
+      },
+      "caretSide": "left",
+      "color": [10, 120, 30, 1],
+      "level": "small",
+      "notation": "scientific",
+      "precision": 0,
+      "showCaret": true,
+      "showFill": false,
+      "showScale": true,
+      "side": "right",
+      "stalenessColor": [0, 0, 0, 0],
+      "stalenessTimeout": 5,
+      "textColor": [200, 90, 20, 1],
+      "units": "",
+      "telem": {
+        "props": {
+          "connections": [
+            {
+              "from": "valueStream",
+              "to": "rollingAverage"
+            }
+          ],
+          "outlet": "rollingAverage",
+          "segments": {
+            "rollingAverage": {
+              "props": {
+                "windowSize": 7
+              },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": {
+                "channel": 1048584
+              },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "number",
+        "variant": "source"
+      }
+    },
+    "label": {
+      "align": "start",
+      "direction": "x",
+      "label": "E Tank",
+      "level": "p",
+      "maxInlineSize": 120,
+      "orientation": "bottom"
+    },
+    "orientation": "right",
+    "variant": "tank"
+  },
+  "value": {
+    "color": [12, 140, 220, 1],
+    "inlineSize": 70,
+    "label": {
+      "align": "start",
+      "direction": "x",
+      "label": "E Value",
+      "level": "p",
+      "maxInlineSize": 120,
+      "orientation": "bottom"
+    },
+    "level": "h4",
+    "orientation": "right",
+    "redline": {
+      "bounds": {
+        "lower": 1,
+        "upper": 9
+      },
+      "gradient": [
+        {
+          "key": "s1",
+          "color": "#00ff00",
+          "position": 0.2
+        },
+        {
+          "key": "s2",
+          "color": [255, 0, 0, 1],
+          "position": 0.8,
+          "switched": true
+        }
+      ]
+    },
+    "stalenessColor": [200, 10, 10, 1],
+    "stalenessTimeout": 9,
+    "telem": {
+      "props": {
+        "connections": [
+          {
+            "from": "valueStream",
+            "to": "rollingAverage"
+          },
+          {
+            "from": "rollingAverage",
+            "to": "stringifier"
+          }
+        ],
+        "outlet": "stringifier",
+        "segments": {
+          "rollingAverage": {
+            "props": {
+              "windowSize": 1.5
+            },
+            "type": "rolling-average",
+            "valueType": "number",
+            "variant": "source"
+          },
+          "stringifier": {
+            "props": {
+              "notation": "scientific",
+              "precision": 4
+            },
+            "type": "stringify-number",
+            "valueType": "string",
+            "variant": "source"
+          },
+          "valueStream": {
+            "props": {
+              "channel": 1048584
+            },
+            "type": "stream-channel-value",
+            "valueType": "number",
+            "variant": "source"
+          }
+        }
+      },
+      "type": "source-pipeline",
+      "valueType": "string",
+      "variant": "source"
+    },
+    "units": "",
+    "variant": "value"
+  },
+  "gauge": {
+    "barWidth": 10,
+    "bounds": {
+      "lower": -100,
+      "upper": 0
+    },
+    "color": [12, 140, 220, 1],
+    "label": {
+      "align": "start",
+      "direction": "x",
+      "label": "E Gauge",
+      "level": "p",
+      "maxInlineSize": 120,
+      "orientation": "bottom"
+    },
+    "level": "h5",
+    "orientation": "right",
+    "stalenessColor": [200, 10, 10, 1],
+    "stalenessTimeout": 9,
+    "telem": {
+      "props": {
+        "connections": [
+          {
+            "from": "valueStream",
+            "to": "rollingAverage"
+          },
+          {
+            "from": "rollingAverage",
+            "to": "stringifier"
+          }
+        ],
+        "outlet": "stringifier",
+        "segments": {
+          "rollingAverage": {
+            "props": {
+              "windowSize": 7
+            },
+            "type": "rolling-average",
+            "valueType": "number",
+            "variant": "source"
+          },
+          "stringifier": {
+            "props": {
+              "notation": "scientific",
+              "precision": 4
+            },
+            "type": "stringify-number",
+            "valueType": "string",
+            "variant": "source"
+          },
+          "valueStream": {
+            "props": {
+              "channel": 1048584
+            },
+            "type": "stream-channel-value",
+            "valueType": "number",
+            "variant": "source"
+          }
+        }
+      },
+      "type": "source-pipeline",
+      "valueType": "string",
+      "variant": "source"
+    },
+    "units": "",
+    "variant": "gauge"
+  },
+  "valve": {
+    "color": [12, 140, 220, 1],
+    "control": {
+      "show": false
+    },
+    "label": {
+      "align": "start",
+      "direction": "x",
+      "label": "E Valve",
+      "level": "p",
+      "maxInlineSize": 120,
+      "orientation": "bottom"
+    },
+    "onClickDelay": 250,
+    "orientation": "right",
+    "scale": 1.5,
+    "sink": {
+      "props": {
+        "connections": [
+          {
+            "from": "setpoint",
+            "to": "setter"
+          }
+        ],
+        "inlet": "setpoint",
+        "segments": {
+          "setpoint": {
+            "props": {
+              "truthy": 3,
+              "falsy": 2
+            },
+            "type": "boolean-numeric-converter-sink",
+            "valueType": "boolean",
+            "variant": "sink"
+          },
+          "setter": {
+            "props": {
+              "channel": 1048585
+            },
+            "type": "controlled-numeric-telem-sink",
+            "valueType": "number",
+            "variant": "sink"
+          }
+        }
+      },
+      "type": "sink-pipeline",
+      "valueType": "boolean",
+      "variant": "sink"
+    },
+    "source": {
+      "props": {
+        "connections": [
+          {
+            "from": "valueStream",
+            "to": "threshold"
+          }
+        ],
+        "outlet": "threshold",
+        "segments": {
+          "threshold": {
+            "props": {
+              "trueBound": {
+                "lower": 4.5,
+                "upper": 5.5
+              }
+            },
+            "type": "boolean-source",
+            "valueType": "boolean",
+            "variant": "source"
+          },
+          "valueStream": {
+            "props": {
+              "channel": 1048584
+            },
+            "type": "stream-channel-value",
+            "valueType": "number",
+            "variant": "source"
+          }
+        }
+      },
+      "type": "source-pipeline",
+      "valueType": "boolean",
+      "variant": "source"
+    },
+    "stalenessColor": [200, 10, 10, 1],
+    "stalenessTimeout": 9,
+    "variant": "valve"
+  },
+  "textBox": {
+    "align": "start",
+    "autoFit": false,
+    "color": [12, 140, 220, 1],
+    "label": {
+      "align": "start",
+      "direction": "x",
+      "label": "E Text box",
+      "level": "p",
+      "maxInlineSize": 120,
+      "orientation": "bottom"
+    },
+    "level": "h3",
+    "orientation": "right",
+    "value": "",
+    "variant": "textBox",
+    "width": 140
+  },
+  "offPageReference": {
+    "color": [12, 140, 220, 1],
+    "label": {
+      "align": "start",
+      "direction": "x",
+      "label": "E Off page reference",
+      "level": "p",
+      "maxInlineSize": 120,
+      "orientation": "bottom"
+    },
+    "orientation": "left",
+    "variant": "offPageReference",
+    "dblClickNav": false
+  },
+  "line": {
+    "color": [12, 140, 220, 1],
+    "end": {
+      "x": 0,
+      "y": 120
+    },
+    "start": {
+      "x": 50,
+      "y": 5
+    },
+    "strokeWidth": 0,
+    "variant": "line"
+  },
+  "box": {
+    "backgroundColor": [10, 200, 10, 0.5],
+    "borderRadius": 0,
+    "color": [12, 140, 220, 1],
+    "dimensions": {
+      "height": 200,
+      "width": 125
+    },
+    "label": {
+      "align": "start",
+      "direction": "x",
+      "label": "E Box",
+      "level": "p",
+      "maxInlineSize": 120,
+      "orientation": "bottom"
+    },
+    "orientation": "right",
+    "strokeWidth": 0,
+    "variant": "box"
+  }
+}

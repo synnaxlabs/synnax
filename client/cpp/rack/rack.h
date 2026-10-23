@@ -28,6 +28,8 @@
 
 namespace synnax::rack {
 
+const std::string SET_CHANNEL = "sy_rack_set";
+
 /// @brief Type alias for the transport used to create a rack.
 using CreateClient = freighter::
     UnaryClient<grpc::rack::CreateRequest, grpc::rack::CreateResponse>;

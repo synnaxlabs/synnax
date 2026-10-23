@@ -53,32 +53,43 @@ client = sy.Synnax()
 # Retrieve the OPC UA server from Synnax
 dev = client.devices.retrieve(name=DEVICE_NAME)
 
-# Create an index channel for the command channels
-opcua_cmd_time = client.channels.create(
-    name="opcua_cmd_time",
+# Create command channels that will be used to send control values to the OPC UA nodes.
+# These are regular Synnax channels - the write task will listen to them and forward
+# the values to the OPC UA server. Each command channel gets its own index, so a writer
+# can command one channel at a time.
+opcua_cmd_0_time = client.channels.create(
+    name="opcua_cmd_0_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
-
-# Create command channels that will be used to send control values to the OPC UA nodes.
-# These are regular Synnax channels - the write task will listen to them and forward
-# the values to the OPC UA server.
 cmd_channel_0 = client.channels.create(
     name="opcua_cmd_0",
-    index=opcua_cmd_time.key,
+    index=opcua_cmd_0_time.key,
     data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
+opcua_cmd_1_time = client.channels.create(
+    name="opcua_cmd_1_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
 cmd_channel_1 = client.channels.create(
     name="opcua_cmd_1",
-    index=opcua_cmd_time.key,
+    index=opcua_cmd_1_time.key,
     data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
+opcua_cmd_2_time = client.channels.create(
+    name="opcua_cmd_2_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
 cmd_channel_2 = client.channels.create(
     name="opcua_cmd_2",
-    index=opcua_cmd_time.key,
+    index=opcua_cmd_2_time.key,
     data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
 )
@@ -114,13 +125,15 @@ print("-" * 70)
 # Start the write task
 with tsk.run():
     # Open a writer to send commands to the OPC UA server
-    # IMPORTANT: Must include the index channel (opcua_cmd_time) along with data channels
+    # IMPORTANT: Must include each command's index channel along with the command
     with client.open_writer(
         start=sy.TimeStamp.now(),
         channels=[
-            opcua_cmd_time.key,
+            opcua_cmd_0_time.key,
             cmd_channel_0.key,
+            opcua_cmd_1_time.key,
             cmd_channel_1.key,
+            opcua_cmd_2_time.key,
             cmd_channel_2.key,
         ],
         enable_auto_commit=True,
@@ -133,10 +146,13 @@ with tsk.run():
 
             print(f"{i + 1:<8} {val0:>12.1f} {val1:>12.1f} {val2:>12.1f}")
 
-            # Write timestamp to index channel along with command values
+            # Write timestamps to the index channels along with command values
+            now = sy.TimeStamp.now()
             writer.write(
                 {
-                    opcua_cmd_time.key: sy.TimeStamp.now(),
+                    opcua_cmd_0_time.key: now,
+                    opcua_cmd_1_time.key: now,
+                    opcua_cmd_2_time.key: now,
                     cmd_channel_0.key: val0,
                     cmd_channel_1.key: val1,
                     cmd_channel_2.key: val2,

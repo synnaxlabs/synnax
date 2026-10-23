@@ -14,13 +14,16 @@ import {
   type Adder,
   createAsyncErrorHandler,
   createErrorHandler,
+  type Log,
 } from "@/status/aether/errorHandler";
+
+const quiet: Log = () => {};
 
 describe("errorHandler", () => {
   describe("checkSkip", () => {
     it("should skip errors that match single matcher", () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createErrorHandler(mockAdder);
+      const handler = createErrorHandler(mockAdder, quiet);
       const error = new Error("test error");
       const matcher: errors.Matchable = {
         matches: (e) => e === error,
@@ -31,7 +34,7 @@ describe("errorHandler", () => {
 
     it("should skip errors that match any matcher in array", () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createErrorHandler(mockAdder);
+      const handler = createErrorHandler(mockAdder, quiet);
       const error = new Error("test error");
       const matchers: errors.Matchable[] = [
         { matches: () => false },
@@ -43,7 +46,7 @@ describe("errorHandler", () => {
 
     it("should not skip errors that don't match", () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createErrorHandler(mockAdder);
+      const handler = createErrorHandler(mockAdder, quiet);
       const error = new Error("test error");
       const matcher: errors.Matchable = {
         matches: () => false,
@@ -56,7 +59,7 @@ describe("errorHandler", () => {
   describe("createErrorHandler", () => {
     it("should handle direct exceptions", () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createErrorHandler(mockAdder);
+      const handler = createErrorHandler(mockAdder, quiet);
       const error = new Error("test error");
 
       handler(error, "custom message");
@@ -70,7 +73,7 @@ describe("errorHandler", () => {
 
     it("should handle synchronous functions that throw", () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createErrorHandler(mockAdder);
+      const handler = createErrorHandler(mockAdder, quiet);
       const error = new Error("sync error");
       const func = () => {
         throw error;
@@ -87,7 +90,7 @@ describe("errorHandler", () => {
 
     it("should handle synchronous functions that don't throw", () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createErrorHandler(mockAdder);
+      const handler = createErrorHandler(mockAdder, quiet);
       const func = () => {};
 
       handler(func);
@@ -97,7 +100,7 @@ describe("errorHandler", () => {
 
     it("should handle async functions that reject", async () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createErrorHandler(mockAdder);
+      const handler = createErrorHandler(mockAdder, quiet);
       const error = new Error("async error");
       const func = async () => {
         throw error;
@@ -116,7 +119,7 @@ describe("errorHandler", () => {
 
     it("should handle async functions that resolve", async () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createErrorHandler(mockAdder);
+      const handler = createErrorHandler(mockAdder, quiet);
       const func = async () => {};
 
       handler(func);
@@ -128,7 +131,7 @@ describe("errorHandler", () => {
 
     it("should not add status if error is skipped", () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createErrorHandler(mockAdder);
+      const handler = createErrorHandler(mockAdder, quiet);
       const error = new Error("skippable");
       const skip: errors.Matchable = {
         matches: (e) => e instanceof Error && e.message === "skippable",
@@ -138,24 +141,12 @@ describe("errorHandler", () => {
 
       expect(mockAdder).not.toHaveBeenCalled();
     });
-
-    it("should log errors to console", () => {
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const mockAdder: Adder = vi.fn();
-      const handler = createErrorHandler(mockAdder);
-      const error = new Error("console test");
-
-      handler(error);
-
-      expect(consoleSpy).toHaveBeenCalled();
-      consoleSpy.mockRestore();
-    });
   });
 
   describe("createAsyncErrorHandler", () => {
     it("should handle direct exceptions", async () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createAsyncErrorHandler(mockAdder);
+      const handler = createAsyncErrorHandler(mockAdder, quiet);
       const error = new Error("test error");
 
       await handler(error, "custom message");
@@ -169,7 +160,7 @@ describe("errorHandler", () => {
 
     it("should handle synchronous functions that throw", async () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createAsyncErrorHandler(mockAdder);
+      const handler = createAsyncErrorHandler(mockAdder, quiet);
       const error = new Error("sync error");
       const func = () => {
         throw error;
@@ -186,7 +177,7 @@ describe("errorHandler", () => {
 
     it("should handle synchronous functions that don't throw", async () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createAsyncErrorHandler(mockAdder);
+      const handler = createAsyncErrorHandler(mockAdder, quiet);
       const func = () => {};
 
       await handler(func);
@@ -196,7 +187,7 @@ describe("errorHandler", () => {
 
     it("should handle async functions that reject", async () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createAsyncErrorHandler(mockAdder);
+      const handler = createAsyncErrorHandler(mockAdder, quiet);
       const error = new Error("async error");
       const func = async () => {
         throw error;
@@ -213,7 +204,7 @@ describe("errorHandler", () => {
 
     it("should handle async functions that resolve", async () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createAsyncErrorHandler(mockAdder);
+      const handler = createAsyncErrorHandler(mockAdder, quiet);
       const func = async () => {};
 
       await handler(func);
@@ -223,7 +214,7 @@ describe("errorHandler", () => {
 
     it("should not add status if error is skipped", async () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createAsyncErrorHandler(mockAdder);
+      const handler = createAsyncErrorHandler(mockAdder, quiet);
       const error = new Error("skippable");
       const skip: errors.Matchable = {
         matches: (e) => e instanceof Error && e.message === "skippable",
@@ -236,7 +227,7 @@ describe("errorHandler", () => {
 
     it("should handle multiple skip matchers", async () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createAsyncErrorHandler(mockAdder);
+      const handler = createAsyncErrorHandler(mockAdder, quiet);
       const error = new TypeError("type error");
       const skips: errors.Matchable[] = [
         { matches: (e) => e instanceof RangeError },
@@ -248,21 +239,18 @@ describe("errorHandler", () => {
       expect(mockAdder).not.toHaveBeenCalled();
     });
 
-    it("should log errors to console", async () => {
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const mockAdder: Adder = vi.fn();
-      const handler = createAsyncErrorHandler(mockAdder);
-      const error = new Error("console test");
+    it("should print errors through the log", async () => {
+      const log = vi.fn<Log>();
+      const handler = createAsyncErrorHandler(vi.fn(), log);
 
-      await handler(error);
+      await handler(new Error("log test"));
 
-      expect(consoleSpy).toHaveBeenCalled();
-      consoleSpy.mockRestore();
+      expect(log).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("log test"));
     });
 
     it("should await promise returned by function", async () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createAsyncErrorHandler(mockAdder);
+      const handler = createAsyncErrorHandler(mockAdder, quiet);
       let resolved = false;
       const func = async () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
@@ -277,7 +265,7 @@ describe("errorHandler", () => {
 
     it("should handle promise rejection properly", async () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createAsyncErrorHandler(mockAdder);
+      const handler = createAsyncErrorHandler(mockAdder, quiet);
       const error = new Error("promise rejection");
       const func = async () => {
         await new Promise((_, reject) => setTimeout(() => reject(error), 10));
@@ -293,7 +281,7 @@ describe("errorHandler", () => {
     });
     it("should coerce non-Error exceptions into a status - undefined", async () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createAsyncErrorHandler(mockAdder);
+      const handler = createAsyncErrorHandler(mockAdder, quiet);
       const func = () => {
         // eslint-disable-next-line @typescript-eslint/only-throw-error
         throw undefined;
@@ -306,7 +294,7 @@ describe("errorHandler", () => {
 
     it("should coerce non-Error exceptions into a status - string", async () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createAsyncErrorHandler(mockAdder);
+      const handler = createAsyncErrorHandler(mockAdder, quiet);
       const func = () => {
         // eslint-disable-next-line @typescript-eslint/only-throw-error
         throw "dog";
@@ -318,10 +306,10 @@ describe("errorHandler", () => {
     });
   });
 
-  describe("parseException", () => {
+  describe("status creation", () => {
     it("should create status from exception", () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createErrorHandler(mockAdder);
+      const handler = createErrorHandler(mockAdder, quiet);
       const error = new Error("parse test");
 
       handler(error, "custom message");
@@ -334,10 +322,43 @@ describe("errorHandler", () => {
     });
   });
 
+  describe("log", () => {
+    it("should print each reported error", () => {
+      const log = vi.fn<Log>();
+      const handler = createErrorHandler(vi.fn(), log);
+      handler(new Error("printed error"), "printed message");
+      expect(log).toHaveBeenCalledExactlyOnceWith(
+        expect.stringContaining("ERROR: printed message"),
+      );
+    });
+
+    it("should not print a skipped error", () => {
+      const log = vi.fn<Log>();
+      const error = new Error("skipped error");
+      const handler = createErrorHandler(vi.fn(), log);
+      handler(error, "message", { matches: (e) => e === error });
+      expect(log).not.toHaveBeenCalled();
+    });
+
+    it("should not print a skipped rejection", async () => {
+      const log = vi.fn<Log>();
+      const error = new Error("skipped rejection");
+      const handler = createAsyncErrorHandler(vi.fn(), log);
+      await handler(
+        async () => {
+          throw error;
+        },
+        "message",
+        { matches: (e) => e === error },
+      );
+      expect(log).not.toHaveBeenCalled();
+    });
+  });
+
   describe("Adder interface", () => {
     it("should accept status with data", () => {
       const mockAdder: Adder = vi.fn();
-      const handler = createErrorHandler(mockAdder);
+      const handler = createErrorHandler(mockAdder, quiet);
       const error = new Error("test");
 
       handler(error, "message");
@@ -352,7 +373,7 @@ describe("errorHandler", () => {
       const mockAdder: Adder = (spec) => {
         capturedStatus = spec;
       };
-      const handler = createErrorHandler(mockAdder);
+      const handler = createErrorHandler(mockAdder, quiet);
       const error = new Error("structured error");
 
       handler(error, "structured message");

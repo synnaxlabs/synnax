@@ -30,6 +30,7 @@ const setResZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
 ) => z.object({ statuses: statusZ({ details: detailsSchema }).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
+const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
@@ -215,16 +216,22 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const stat = await this.retrieve(key);
-    const renamed = { ...stat, name };
+    const rename = () => [
+      query.partialUpdate(this.store, key, { name }),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+    ];
     await query.optimistic({
-      rollbacks: [
-        this.store.set(renamed),
-        this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-      ],
+      rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
-      commit: async () => await this.set(renamed),
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/status/rename",
+          { key, name },
+          renameReqZ,
+          emptyResZ,
+        ),
     });
+    rename();
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

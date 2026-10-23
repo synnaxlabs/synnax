@@ -19,6 +19,8 @@ import (
 type Field struct {
 	Name      string
 	Primitive string
+	// Type is the field's declared type.
+	Type resolution.TypeRef
 }
 
 // SkipFunc is a predicate that determines whether to skip a type when collecting keys.
@@ -43,6 +45,7 @@ func Collect(types []resolution.Type, table *resolution.Table, skip SkipFunc) []
 					result = append(result, Field{
 						Name:      f.Name,
 						Primitive: ResolvePrimitive(f.Type, table),
+						Type:      f.Type,
 					})
 				}
 			}

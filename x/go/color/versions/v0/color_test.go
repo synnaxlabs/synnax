@@ -45,18 +45,6 @@ var _ = Describe("Color", func() {
 		})
 	})
 
-	Describe("IsZero", func() {
-		It("Should return true for the zero value", func() {
-			Expect(v0.Color{}.IsZero()).To(BeTrue())
-		})
-		It("Should return false when R is non-zero", func() {
-			Expect(v0.Color{R: 1}.IsZero()).To(BeFalse())
-		})
-		It("Should return false when A is non-zero", func() {
-			Expect(v0.Color{A: 0.5}.IsZero()).To(BeFalse())
-		})
-	})
-
 	Describe("JSON", func() {
 		It("Should marshal to struct format", func() {
 			c := v0.Color{R: 255, G: 128, B: 0, A: 1}
@@ -169,6 +157,27 @@ var _ = Describe("Color", func() {
 		)
 	})
 
+	Describe("Optional fields", func() {
+		type optional struct {
+			Set   *v0.Color `json:"set,omitzero"   msgpack:"set,omitempty"`
+			Unset *v0.Color `json:"unset,omitzero" msgpack:"unset,omitempty"`
+		}
+		It("Should keep a transparent black color through JSON", func() {
+			var out optional
+			Expect(json.Unmarshal(
+				MustSucceed(json.Marshal(optional{Set: &v0.Color{}})), &out,
+			)).To(Succeed())
+			Expect(out).To(Equal(optional{Set: &v0.Color{}}))
+		})
+		It("Should keep a transparent black color through MessagePack", func() {
+			var out optional
+			Expect(msgpack.Unmarshal(
+				MustSucceed(msgpack.Marshal(optional{Set: &v0.Color{}})), &out,
+			)).To(Succeed())
+			Expect(out).To(Equal(optional{Set: &v0.Color{}}))
+		})
+	})
+
 	Describe("MessagePack", func() {
 		It("Should decode from a string (backwards compat)", func() {
 			encoded := MustSucceed(msgpack.Marshal("#ff0000"))
@@ -176,6 +185,16 @@ var _ = Describe("Color", func() {
 			Expect(msgpack.Unmarshal(encoded, &c)).To(Succeed())
 			Expect(c).To(Equal(v0.Color{R: 255, G: 0, B: 0, A: 1}))
 		})
+		DescribeTable("Should decode a string that is not hex as no color",
+			func(s string) {
+				encoded := MustSucceed(msgpack.Marshal(s))
+				c := v0.Color{R: 1, G: 2, B: 3, A: 1}
+				Expect(msgpack.Unmarshal(encoded, &c)).To(Succeed())
+				Expect(c).To(Equal(v0.Color{}))
+			},
+			Entry("a named color", "red"),
+			Entry("a short hex color", "#f00"),
+		)
 		It("Should decode from a string with alpha (backwards compat)", func() {
 			encoded := MustSucceed(msgpack.Marshal("#00ff0080"))
 			var c v0.Color

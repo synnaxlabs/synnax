@@ -8,26 +8,18 @@
 #  included in the file licenses/APL.txt.
 
 from pathlib import Path
+from typing import ClassVar
 
-from .protocol import Matcher
 
+class ExtensionMatcher:
+    """Matches files whose extension is in the subclass's ``_extensions``."""
 
-def new_extension_matcher(extensions: list[str]) -> type[Matcher]:
-    """Return a matcher that matches file extensions.
+    _extensions: ClassVar[tuple[str, ...]]
 
-    :returns: a matcher that matches file extensions.
-    """
-    _e = extensions
+    @classmethod
+    def match(cls, path: Path) -> bool:
+        return path.suffix[1:] in cls.extensions()
 
-    class ExtensionMatcher:
-        _extensions = _e
-
-        @classmethod
-        def match(cls, path: Path) -> bool:
-            return path.suffix[1:] in cls.extensions()
-
-        @classmethod
-        def extensions(cls) -> list[str]:
-            return cls._extensions
-
-    return ExtensionMatcher
+    @classmethod
+    def extensions(cls) -> list[str]:
+        return list(cls._extensions)

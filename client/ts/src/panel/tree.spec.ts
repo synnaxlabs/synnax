@@ -19,7 +19,6 @@ const leaf = (...tabKeys: string[]): panel.Node => ({
     key,
     type: "selector",
     name: "",
-    args: {},
   })),
 });
 
@@ -118,7 +117,7 @@ describe("tree", () => {
       first: leaf("a"),
       last: {
         variant: "leaf",
-        tabs: [{ variant: "view", key: "e", type: "range_explorer", args: {} }],
+        tabs: [{ variant: "view", key: "e", type: "range_explorer" }],
       },
     };
 

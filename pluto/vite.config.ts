@@ -42,7 +42,7 @@ export default defineConfig({
         "@synnaxlabs/client",
         "@synnaxlabs/alamos",
         "@synnaxlabs/freighter",
-        "@synnaxlabs/media",
+        /^@fontsource(-variable)?\//,
       ],
       output: {
         globals: {

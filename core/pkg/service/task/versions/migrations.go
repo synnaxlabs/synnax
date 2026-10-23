@@ -45,6 +45,7 @@ func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
 				Ontology: cfg.Ontology,
 				Configs:  cfg.Configs,
 			}),
+			v2.NameMigration,
 		},
 	)
 }

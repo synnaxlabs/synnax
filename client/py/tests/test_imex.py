@@ -131,7 +131,8 @@ class TestImex:
         out = tmp_path / "log.json"
         client.imex.export(id, out)
         parsed = json.loads(out.read_bytes())
-        assert parsed["name"] == name and parsed["type"] == "log"
+        assert parsed["name"] == name
+        assert parsed["type"] == "log"
 
     def test_export_nonexistent(self, client: sy.Synnax, tmp_path: Path) -> None:
         """Exporting a resource that does not exist raises NotFoundError."""

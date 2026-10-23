@@ -11,15 +11,13 @@ package v1
 
 import (
 	"maps"
-	"uuid"
 
-	"github.com/synnaxlabs/arc/ir"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
-// Go field names and new lowercase msgpack tag names for backward compatibility.
+// DecodeMsgpack implements msgpack.CustomDecoder. It also reads graphs that Consoles
+// before v0.57 sent with each node's type and config inline and no inputs map.
 func (g *Graph) DecodeMsgpack(dec *msgpack.Decoder) error {
 	type alias Graph
 	raw, err := dec.DecodeRaw()
@@ -29,24 +27,6 @@ func (g *Graph) DecodeMsgpack(dec *msgpack.Decoder) error {
 	if err = msgpack.Unmarshal(raw, (*alias)(g)); err != nil {
 		return err
 	}
-	if g.Nodes == nil {
-		var legacy struct {
-			Functions ir.Functions
-			Edges     ir.Edges
-			Nodes     Nodes
-		}
-		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
-			return err
-		}
-		g.Functions = legacy.Functions
-		g.Edges = make(Edges, len(legacy.Edges))
-		for i, e := range legacy.Edges {
-			g.Edges[i] = Edge{Edge: e, Key: uuid.New().String()}
-		}
-		g.Nodes = legacy.Nodes
-	}
-	// Legacy graphs stored the function type and config inline on each node with
-	// no inputs map; lift them into Inputs keyed by node key.
 	if g.Inputs == nil {
 		var legacy struct {
 			Nodes []struct {

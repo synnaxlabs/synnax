@@ -35,16 +35,19 @@ with client.open_streamer(read_from) as s:
     # Loop through the frames in the streamer. Each iteration will block until a new
     # frame is available, then we'll just print it out.
     over_threshold = False
-    start = None
+    start = sy.TimeStamp(0)
     for frame in s:
-        if frame["stream_write_example_data_1"][0] > 0 and not over_threshold:
+        if (
+            frame["stream_write_example_data_1"].to_numpy()[0] > 0
+            and not over_threshold
+        ):
             print("Exceeds Threshold")
             over_threshold = True
-            start = frame["stream_write_example_time"][0]
+            start = sy.TimeStamp(int(frame["stream_write_example_time"].to_numpy()[0]))
             print(over_threshold)
-        elif over_threshold and frame["stream_write_example_data_1"][0] < 0:
+        elif over_threshold and frame["stream_write_example_data_1"].to_numpy()[0] < 0:
             print("Data Exceeds Threshold")
-            end = frame["stream_write_example_time"][0]
+            end = sy.TimeStamp(int(frame["stream_write_example_time"].to_numpy()[0]))
             tr = sy.TimeRange(start, end)
             client.ranges.create(
                 name="Data Exceeds Threshold",

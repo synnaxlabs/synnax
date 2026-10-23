@@ -74,19 +74,61 @@ Liveness enum {
     @doc value "defines whether a Scope is continuously active or must be activated."
 }
 
-Transition struct {
-    on        Handle  {
-        @doc value "is the dataflow handle whose truthy value fires this transition."
+Target union on type {
+    exit {
+        @doc value "leaves the scope and yields to its parent."
     }
-    targetKey string? {
+    step {
+        key string {
+            @doc value "is the key of the sibling step to activate."
+        }
+
+        @doc value "activates a sibling step of the same scope."
+    }
+    scope {
+        key string {
+            @doc value "is the key of the top-level scope to activate."
+        }
+
+        @doc value "leaves the scope, then activates a top-level scope."
+    }
+
+    @doc value "is where a transition goes when it fires."
+}
+
+Transition struct {
+    on     Handle   {
+        @doc value "is the dataflow handle whose output fires this transition."
+    }
+    kind   EdgeKind {
         @doc value """
-            is the sibling step key to activate. Null when the transition exits the
-            scope, yielding to the parent.
+            is conditional when only a truthy output fires the transition (`=>`), and
+            continuous when every output fires it (`->`).
         """
+    }
+    target Target   {
+        @doc value "is where the transition goes when it fires."
     }
 
     @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Transition& t)"
-    @doc value   "is a declarative state-transition rule on a sequential Scope."
+    @doc value   """
+        is a declarative state-transition rule on a sequential Scope, or an exit from a
+        parallel Scope.
+    """
+}
+
+Activation struct {
+    on   Handle   {
+        @doc value "is the dataflow handle whose output activates the scope."
+    }
+    kind EdgeKind {
+        @doc value """
+            is conditional when only a truthy output activates the scope (`=>`), and
+            continuous when every output does (`->`).
+        """
+    }
+
+    @doc value "is a handle that activates a gated Scope without leaving any scope."
 }
 
 Member struct {
@@ -124,10 +166,10 @@ Scope struct {
             defines whether this scope is continuously active or must be activated.
         """
     }
-    activation  Handle?      {
+    activations Activation[] {
         @doc value """
-            is the handle whose truthy value activates a gated scope. Unset for
-            always-live scopes.
+            contains the handles that activate a gated scope. Empty for always-live
+            scopes.
         """
     }
     strata      Members[]    {
@@ -144,8 +186,8 @@ Scope struct {
     }
     transitions Transition[] {
         @doc value """
-            contains state-transition rules for sequential scopes. Empty for parallel
-            scopes.
+            contains state-transition rules in source order. A parallel scope holds only
+            exits.
         """
     }
 

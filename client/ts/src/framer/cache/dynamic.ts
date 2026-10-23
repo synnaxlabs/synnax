@@ -126,6 +126,11 @@ export class Dynamic {
     return this.curr;
   }
 
+  /** Discards the leading buffer when it holds a data type other than dt. */
+  retainDataType(dt: DataType): void {
+    if (this.curr != null && !this.curr.dataType.equals(dt)) this.curr = null;
+  }
+
   /**
    * @returns the time range the buffer's samples actually cover: its start to the last
    * stamped write, or the wall clock when the buffer holds unstamped data. Unlike the

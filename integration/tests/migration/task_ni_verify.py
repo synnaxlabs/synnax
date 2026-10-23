@@ -20,7 +20,9 @@ from tests.migration.task_ni_setup import (
 from tests.migration.task_verify import ReadTaskConsoleVerify, ReadTaskMigrationVerify
 
 
-class NIAnalogReadVerify(ReadTaskMigrationVerify, NIAnalogReadTaskCase):
+class NIAnalogReadVerify(
+    ReadTaskMigrationVerify[sy.ni.AnalogReadTask], NIAnalogReadTaskCase
+):
     """Verify NI analog read task config survived and task can still run."""
 
     task_name = TASK_NAME
@@ -33,7 +35,7 @@ class NIAnalogReadVerify(ReadTaskMigrationVerify, NIAnalogReadTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AIVoltageChannel]:
+    ) -> list[sy.ni.AIChannel]:
         idx = create_index(client, IDX_NAME)
         return [
             sy.ni.AIVoltageChannel(

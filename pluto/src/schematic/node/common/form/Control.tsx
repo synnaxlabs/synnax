@@ -20,8 +20,7 @@ export const ControlChipField = (
   <NegatedSwitchField
     path="control.hidden"
     label="Control chip"
-    hideIfNull
-    optional
+    defaultValue={false}
     padHelpText={false}
     {...props}
   />

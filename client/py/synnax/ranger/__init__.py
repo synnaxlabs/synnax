@@ -8,15 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.ranger.client import Client, Range
-from synnax.ranger.retrieve import Retriever
 from synnax.ranger.writer import Writer
-from x.deprecation import deprecated_getattr
 
-_DEPRECATED = {
-    "RangeRetriever": "Retriever",
-    "RangeWriter": "Writer",
-}
-
-__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
-
-__all__ = ["Client", "Range", "Retriever", "Writer"]
+__all__ = ["Client", "Range", "Writer"]
