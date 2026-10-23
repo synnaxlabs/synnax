@@ -119,6 +119,9 @@ code in the editor.
 - Name a hook `use` and a capital letter (`useClient`, `useRetrieve`), never bare `use`.
   The compiler caches a call to a bare `use` like a plain function, and the lint rules
   do not catch it.
+- Give every component and hook a name, including one a factory returns or one passed
+  to `Component.renderProp` or `Modals.create`: `const useForm = ...; return useForm;`.
+  The compiler skips an anonymous function.
 - Keep render pure. The compiler caches each computation on its inputs, so a clock, a
   ref, a module cache, or an object changed in place goes stale in render without an
   error. Pass the current time in as state, and copy an object instead of changing it.
@@ -127,6 +130,9 @@ code in the editor.
   calls a hook, so a cached call to it breaks the hook order.
 - Call `use` in the component or hook itself, never inside a plain helper. The compiler
   caches a call to a plain function, so a later render skips the `use` in it.
+- Subscribe to any changing data a component reads in render: a store, a cache, or a
+  list's `getItem`. A compiled parent reuses a child whose props did not change, so a
+  child that reads without subscribing shows stale data.
 - Write `if (x == null) x = y;` in a component or hook. The compiler cannot compile
   `??=`.
 - Use the `"use no memo"` directive only for an incompatible library, a fixed hook
