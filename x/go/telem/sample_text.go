@@ -19,18 +19,19 @@ import (
 )
 
 // AppendSampleText appends the text form of sample to dst and returns the extended
-// buffer. sample must hold exactly one sample of data type dt. Numbers use their
-// shortest decimal form, booleans are 0 or 1, a UUID takes its canonical form, and
-// BytesT is base64. StringT and JSONT are appended as is. It returns an error when dt
-// has no text form.
+// buffer. sample must hold exactly one sample of data type dt. A float takes the
+// shortest text that parses back to the same value, in exponent notation below 1e-6 or
+// from 1e21. Integers are decimal, booleans are 0 or 1, a UUID takes its canonical
+// form, and BytesT is base64. StringT and JSONT are appended as is. It returns an
+// error when dt has no text form.
 func AppendSampleText(dst []byte, dt DataType, sample []byte) ([]byte, error) {
 	switch dt {
 	case Float64T:
 		v := math.Float64frombits(ByteOrder.Uint64(sample))
-		return strconv.AppendFloat(dst, v, 'f', -1, 64), nil
+		return appendFloatText(dst, v, 64), nil
 	case Float32T:
 		v := math.Float32frombits(ByteOrder.Uint32(sample))
-		return strconv.AppendFloat(dst, float64(v), 'f', -1, 32), nil
+		return appendFloatText(dst, float64(v), 32), nil
 	case Int64T, TimestampT:
 		return strconv.AppendInt(dst, int64(ByteOrder.Uint64(sample)), 10), nil
 	case Int32T:
@@ -60,4 +61,17 @@ func AppendSampleText(dst []byte, dt DataType, sample []byte) ([]byte, error) {
 	default:
 		return nil, errors.Newf("data type %s has no text form", dt)
 	}
+}
+
+func appendFloatText(dst []byte, v float64, bitSize int) []byte {
+	if a := math.Abs(v); a != 0 && !math.IsInf(v, 0) && (a < 1e-6 || a >= 1e21) {
+		dst = strconv.AppendFloat(dst, v, 'e', -1, bitSize)
+		// strconv pads a one-digit exponent with a zero.
+		if n := len(dst); dst[n-2] == '0' && (dst[n-3] == '+' || dst[n-3] == '-') {
+			dst[n-2] = dst[n-1]
+			dst = dst[:n-1]
+		}
+		return dst
+	}
+	return strconv.AppendFloat(dst, v, 'f', -1, bitSize)
 }

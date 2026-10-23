@@ -10,6 +10,9 @@
 package telem_test
 
 import (
+	"math"
+	"math/rand/v2"
+	"strconv"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -28,7 +31,19 @@ var _ = Describe("AppendSampleText", func() {
 			Expect(string(text)).To(Equal(expected))
 		},
 		Entry("float64", telem.NewSeriesV(-1.5), "-1.5"),
-		Entry("float64 without an exponent", telem.NewSeriesV(1e21), "1"+zeros(21)),
+		Entry("float64 below 1e21", telem.NewSeriesV(1e20), "100000000000000000000"),
+		Entry("float64 from 1e21", telem.NewSeriesV(1e21), "1e+21"),
+		Entry("float64 at 1e-6", telem.NewSeriesV(1e-6), "0.000001"),
+		Entry("float64 below 1e-6", telem.NewSeriesV(1.5e-7), "1.5e-7"),
+		Entry(
+			"float64 maximum",
+			telem.NewSeriesV(math.MaxFloat64),
+			"1.7976931348623157e+308",
+		),
+		Entry("float64 smallest", telem.NewSeriesV(5e-324), "5e-324"),
+		Entry("negative zero", telem.NewSeriesV(math.Copysign(0, -1)), "-0"),
+		Entry("NaN", telem.NewSeriesV(math.NaN()), "NaN"),
+		Entry("float32 with an exponent", telem.NewSeriesV[float32](1e30), "1e+30"),
 		Entry("float32 at its own precision", telem.NewSeriesV[float32](0.1), "0.1"),
 		Entry("int64", telem.NewSeriesV[int64](-9e18), "-9000000000000000000"),
 		Entry("int32", telem.NewSeriesV[int32](-7), "-7"),
@@ -50,6 +65,25 @@ var _ = Describe("AppendSampleText", func() {
 		Entry("bytes", telem.NewSeriesV([]byte{0, 255}), "AP8="),
 	)
 
+	It("Should append floats that parse back to the same bits", func() {
+		r := rand.New(rand.NewPCG(1, 2))
+		for range 100_000 {
+			v64 := math.Float64frombits(r.Uint64())
+			v32 := math.Float32frombits(r.Uint32())
+			if math.IsNaN(v64) || math.IsNaN(float64(v32)) {
+				continue
+			}
+			s64 := telem.NewSeriesV(v64)
+			text := MustSucceed(telem.AppendSampleText(nil, s64.DataType, s64.At(0)))
+			parsed := MustSucceed(strconv.ParseFloat(string(text), 64))
+			Expect(math.Float64bits(parsed)).To(Equal(math.Float64bits(v64)))
+			s32 := telem.NewSeriesV(v32)
+			text = MustSucceed(telem.AppendSampleText(nil, s32.DataType, s32.At(0)))
+			parsed = MustSucceed(strconv.ParseFloat(string(text), 32))
+			Expect(math.Float32bits(float32(parsed))).To(Equal(math.Float32bits(v32)))
+		}
+	})
+
 	It("Should append after the existing content of dst", func() {
 		s := telem.NewSeriesV[int32](42)
 		text := MustSucceed(telem.AppendSampleText([]byte("x="), s.DataType, s.At(0)))
@@ -61,11 +95,3 @@ var _ = Describe("AppendSampleText", func() {
 			To(MatchError(ContainSubstring("has no text form")))
 	})
 })
-
-func zeros(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = '0'
-	}
-	return string(b)
-}
