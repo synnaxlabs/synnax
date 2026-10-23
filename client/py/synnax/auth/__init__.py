@@ -9,7 +9,6 @@
 
 from synnax.auth.client import (
     Client,
-    ClusterInfo,
     SessionCreateRequest,
     SessionCreateResponse,
     SessionDeleteRequest,
@@ -27,7 +26,6 @@ from synnax.auth.types_gen import (
 
 __all__ = [
     "Client",
-    "ClusterInfo",
     "Credentials",
     "Method",
     "PasswordProof",

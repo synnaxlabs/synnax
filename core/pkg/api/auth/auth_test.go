@@ -269,8 +269,6 @@ var _ = Describe("CreateSession", func() {
 		Expect(res.Session.Subject).To(Equal(root.OntologyID()))
 		Expect(res.Session.Credential).To(Equal(session.Credential))
 		Expect(res.User).To(HaveValue(Equal(root)))
-		Expect(res.ClusterInfo.ClusterKey).To(Equal(node.Cluster.Key().String()))
-		Expect(res.ClusterInfo.NodeTime).ToNot(BeZero())
 	})
 	DescribeTable("Should leave the hash off the wire", func(
 		ctx SpecContext,
