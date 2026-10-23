@@ -13,14 +13,15 @@ import { type ReactElement } from "react";
 
 import { ColorField } from "@/schematic/node/common/form/Color";
 import { ScaleField } from "@/schematic/node/common/form/Scale";
-import { StyleForm } from "@/schematic/node/common/form/Style";
+import { StyleForm, type StyleFormProps } from "@/schematic/node/common/form/Style";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 
-interface ToggleFormProps extends FormProps {
+export interface ToggleFormProps
+  extends FormProps, Pick<StyleFormProps, "showNormallyOpen"> {
   hideInnerOrientation?: boolean;
   omit?: string[];
 }
@@ -30,6 +31,7 @@ export const ToggleForm = ({
   tab,
   onTabChange,
   hideInnerOrientation,
+  showNormallyOpen,
   omit,
 }: ToggleFormProps): ReactElement => (
   <Properties.Tabs
@@ -39,7 +41,10 @@ export const ToggleForm = ({
     actions={actions}
   >
     <BaseTabs.Content itemKey="style">
-      <StyleForm hideInnerOrientation={hideInnerOrientation} />
+      <StyleForm
+        hideInnerOrientation={hideInnerOrientation}
+        showNormallyOpen={showNormallyOpen}
+      />
     </BaseTabs.Content>
     <BaseTabs.Content itemKey="control">
       <Toggle.ChannelForm path="" omit={omit} />
@@ -55,7 +60,7 @@ export const DummyToggleForm = (): ReactElement => (
     <Form.Section title="Appearance">
       <ColorField path="strokeColor" label="Stroke" />
       <ScaleField path="scale" />
-      <Form.SwitchField path="clickable" label="Clickable" hideIfNull optional />
+      <Form.SwitchField path="clickable" label="Clickable" />
     </Form.Section>
     <Orientation.Section path="" />
   </Form.Sections>

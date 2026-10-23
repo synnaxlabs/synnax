@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/listener"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 )
 
 // Flag names used for starting a Synnax Core.
@@ -28,6 +29,7 @@ const (
 	FlagPassword                     = "password"
 	FlagNoDriver                     = "no-driver"
 	FlagSlowConsumerTimeout          = "slow-consumer-timeout"
+	FlagSessionIdleTimeout           = "session-idle-timeout"
 	FlagEnableIntegrations           = "enable-integrations"
 	FlagDisableIntegrations          = "disable-integrations"
 	FlagTaskOpTimeout                = "task-op-timeout"
@@ -88,6 +90,11 @@ func AddFlags(cmd *cobra.Command) {
 		FlagStopOnStdinClose,
 		false,
 		"Stop the Core when its standard input closes. For a parent process that manages the Core through a pipe",
+	)
+	cmd.Flags().Duration(
+		FlagSessionIdleTimeout,
+		auth.DefaultIdleTimeout,
+		"End a session after this long without a request from its client",
 	)
 	cmd.Flags().Duration(
 		FlagSlowConsumerTimeout,
