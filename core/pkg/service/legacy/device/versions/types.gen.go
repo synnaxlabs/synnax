@@ -11,7 +11,7 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
+import "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
 
 // Key is a unique identifier for the device
 type Key = v1.Key
