@@ -76,9 +76,9 @@ struct PollConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief ReadMessage is one library message a read task decodes.
+/// @brief ReadMessage is one ICD message a read task decodes.
 struct ReadMessage {
-    /// @brief message is the key of the message entry in the task's library.
+    /// @brief message is the key of the message entry in the task's ICD.
     ::synnax::icd::EntryKey message;
     /// @brief disabled is true when the task ignores the message.
     bool disabled = false;
@@ -91,11 +91,10 @@ struct ReadMessage {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief WriteMessage is one library message a write task encodes. A message with a
-/// period is sent on that period, and one without is sent when a command channel
-/// changes.
+/// @brief WriteMessage is one ICD message a write task encodes. A message with a period
+/// is sent on that period, and one without is sent when a command channel changes.
 struct WriteMessage {
-    /// @brief message is the key of the message entry in the task's library.
+    /// @brief message is the key of the message entry in the task's ICD.
     ::synnax::icd::EntryKey message;
     /// @brief disabled is true when the task does not send the message.
     bool disabled = false;

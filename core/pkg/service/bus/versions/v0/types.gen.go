@@ -32,9 +32,9 @@ type ReadField struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
-// ReadMessage is one library message a read task decodes.
+// ReadMessage is one ICD message a read task decodes.
 type ReadMessage struct {
-	// Message is the key of the message entry in the task's library.
+	// Message is the key of the message entry in the task's ICD.
 	Message icd.EntryKey `json:"message" msgpack:"message"`
 	// Disabled is true when the task ignores the message.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
@@ -53,10 +53,10 @@ type WriteField struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
-// WriteMessage is one library message a write task encodes. A message with a period is
-// sent on that period, and one without is sent when a command channel changes.
+// WriteMessage is one ICD message a write task encodes. A message with a period is sent
+// on that period, and one without is sent when a command channel changes.
 type WriteMessage struct {
-	// Message is the key of the message entry in the task's library.
+	// Message is the key of the message entry in the task's ICD.
 	Message icd.EntryKey `json:"message" msgpack:"message"`
 	// Disabled is true when the task does not send the message.
 	Disabled bool `json:"disabled" msgpack:"disabled"`

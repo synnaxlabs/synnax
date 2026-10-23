@@ -124,10 +124,10 @@ Framing = Annotated[
 
 
 class ReadMessage(BaseModel):
-    """Is one library message a read task decodes.
+    """Is one ICD message a read task decodes.
 
     Attributes:
-        message: Is the key of the message entry in the task's library.
+        message: Is the key of the message entry in the task's ICD.
         disabled: Is true when the task ignores the message.
         index: Is the index channel stamped with the time each message arrives.
         fields: Are the fields of the message the task writes to channels.
@@ -140,11 +140,11 @@ class ReadMessage(BaseModel):
 
 
 class WriteMessage(BaseModel):
-    """Is one library message a write task encodes. A message with a period is sent on
-    that period, and one without is sent when a command channel changes.
+    """Is one ICD message a write task encodes. A message with a period is sent on that
+    period, and one without is sent when a command channel changes.
 
     Attributes:
-        message: Is the key of the message entry in the task's library.
+        message: Is the key of the message entry in the task's ICD.
         disabled: Is true when the task does not send the message.
         fields: Are the fields of the message driven by command channels.
     """

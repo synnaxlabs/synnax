@@ -27,7 +27,7 @@ ReadField struct {
 
 ReadMessage struct {
     message  icd.EntryKey {
-        @doc value "is the key of the message entry in the task's library."
+        @doc value "is the key of the message entry in the task's ICD."
     }
     disabled bool = false {
         @doc value "is true when the task ignores the message."
@@ -39,7 +39,7 @@ ReadMessage struct {
         @doc value "are the fields of the message the task writes to channels."
     }
 
-    @doc value  "is one library message a read task decodes."
+    @doc value  "is one ICD message a read task decodes."
     @go marshal
 }
 
@@ -60,7 +60,7 @@ WriteField struct {
 
 WriteMessage struct {
     message  icd.EntryKey {
-        @doc value "is the key of the message entry in the task's library."
+        @doc value "is the key of the message entry in the task's ICD."
     }
     disabled bool = false {
         @doc value "is true when the task does not send the message."
@@ -70,8 +70,8 @@ WriteMessage struct {
     }
 
     @doc value  """
-        is one library message a write task encodes. A message with a period is sent on
-        that period, and one without is sent when a command channel changes.
+        is one ICD message a write task encodes. A message with a period is sent on that
+        period, and one without is sent when a command channel changes.
     """
     @go marshal
 }

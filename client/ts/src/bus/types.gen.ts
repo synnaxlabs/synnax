@@ -133,9 +133,9 @@ export const FRAMING_SCHEMAS: {
   slip: slipFramingZ,
 };
 
-/** ReadMessage is one library message a read task decodes. */
+/** ReadMessage is one ICD message a read task decodes. */
 export const readMessageZ = z.object({
-  /** message is the key of the message entry in the task's library. */
+  /** message is the key of the message entry in the task's ICD. */
   message: icd.entryKeyZ,
   /** disabled is true when the task ignores the message. */
   disabled: z.boolean().default(false),
@@ -147,11 +147,11 @@ export const readMessageZ = z.object({
 export interface ReadMessage extends z.infer<typeof readMessageZ> {}
 
 /**
- * WriteMessage is one library message a write task encodes. A message with a period is
- * sent on that period, and one without is sent when a command channel changes.
+ * WriteMessage is one ICD message a write task encodes. A message with a period is sent
+ * on that period, and one without is sent when a command channel changes.
  */
 export const writeMessageZ = z.object({
-  /** message is the key of the message entry in the task's library. */
+  /** message is the key of the message entry in the task's ICD. */
   message: icd.entryKeyZ,
   /** disabled is true when the task does not send the message. */
   disabled: z.boolean().default(false),
