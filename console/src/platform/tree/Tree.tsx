@@ -434,7 +434,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const addStatus = Status.useAdder();
   const store = useStore<State, Action>();
 
-  const moveChildren = Ontology.useMoveChildren({});
+  const { update: moveChildren } = Ontology.useMoveChildren({});
 
   const getBaseProps = useCallback(
     (client: Client): BaseProps => ({
@@ -475,7 +475,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       });
       contract(...moved.map(({ key }) => key));
       bySource.forEach((ids, sourceKey) =>
-        moveChildren.update({
+        moveChildren({
           source: ontology.parseID(sourceKey),
           destination,
           ids,
