@@ -66,7 +66,6 @@ class TestCase(ABC):
     TELEMETRY_RATE: sy.TimeSpan = 500 * sy.TimeSpan.MILLISECOND
     STATUS_SETTLE_DELAY: sy.TimeSpan = 200 * sy.TimeSpan.MILLISECOND
     WEBSOCKET_RETRY_DELAY: sy.TimeSpan = 500 * sy.TimeSpan.MILLISECOND
-    DEFAULT_TIMEOUT_LIMIT: sy.CrudeTimeSpan | None = None
     DEFAULT_MANUAL_TIMEOUT: sy.CrudeTimeSpan | None = None
 
     # Opt-in: when True, the base lifecycle records cluster status notifications
@@ -90,7 +89,6 @@ class TestCase(ABC):
         self.synnax_connection = synnax_connection
         self.params = params
         self.start_time: sy.TimeStamp = sy.TimeStamp.now()
-        self._timeout_limit: sy.CrudeTimeSpan | None = self.DEFAULT_TIMEOUT_LIMIT
         self._manual_timeout: sy.CrudeTimeSpan | None = self.DEFAULT_MANUAL_TIMEOUT
         self.read_timeout: sy.CrudeTimeSpan = self.DEFAULT_READ_TIMEOUT
 
@@ -148,12 +146,6 @@ class TestCase(ABC):
         tlm[self._ch_time] = now
         tlm[self._ch_uptime] = uptime
         tlm[self._ch_state] = self._status.value
-
-        if self._timeout_limit is not None and (
-            now - self.start_time
-        ) > sy.TimeSpan.from_seconds(self._timeout_limit):
-            self.log(f"Timeout at {uptime:.1f}s")
-            self.STATUS = STATUS.TIMEOUT
 
         if self._status.value >= STATUS.FAILED.value:
             tlm[self._ch_state] = self._status.value
@@ -221,13 +213,6 @@ class TestCase(ABC):
             self.log(f"PASSED ({status_symbol})")
         elif self._status == STATUS.FAILED:
             self.log(f"FAILED ({status_symbol})")
-        elif self._status == STATUS.TIMEOUT:
-            limit_str = (
-                sy.TimeSpan.from_seconds(self._timeout_limit)
-                if self._timeout_limit is not None
-                else "N/A"
-            )
-            self.log(f"TIMEOUT ({status_symbol}): {limit_str}")
         elif self._status == STATUS.KILLED:
             self.log(f"KILLED ({status_symbol})")
 
@@ -554,14 +539,12 @@ class TestCase(ABC):
         self,
         read_timeout: sy.CrudeTimeSpan | None = None,
         loop_rate: sy.CrudeTimeSpan | None = None,
-        timeout_limit: sy.CrudeTimeSpan | None = None,
         manual_timeout: sy.CrudeTimeSpan | None = None,
     ) -> None:
         """Configure test case parameters.
 
         :param read_timeout: Timeout for synnax client read operations.
         :param loop_rate: Synnax Client Loop interval.
-        :param timeout_limit: Maximum execution time before failure.
         :param manual_timeout: Manual timeout for test termination.
         """
         log_parts: list[str] = []
@@ -571,9 +554,6 @@ class TestCase(ABC):
         if loop_rate is not None:
             self.loop = sy.Loop(sy.TimeSpan.from_seconds(loop_rate))
             log_parts.append(f"loop_rate={loop_rate}")
-        if timeout_limit is not None:
-            self._timeout_limit = timeout_limit
-            log_parts.append(f"timeout_limit={timeout_limit}")
         if manual_timeout is not None:
             self._manual_timeout = manual_timeout
             log_parts.append(f"manual_timeout={manual_timeout}")

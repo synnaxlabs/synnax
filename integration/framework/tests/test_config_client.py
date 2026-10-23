@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -14,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from framework import config_client
+from framework.target_filter import TargetFilter
 
 GENERIC_CASE = """
 from typing import Generic, TypeVar
@@ -89,3 +91,32 @@ class TestConfigClient:
         assert a.__name__ == "CaseA"
         assert b.__name__ == "CaseB"
         assert a.__module__ != b.__module__
+
+    def test_timeout(self, cases_dir: Path) -> None:
+        """Should apply the default timeout and keep a per-test timeout through
+        parameter expansion."""
+        write_case(cases_dir, "config_client_spec/plain", named_case("Plain"))
+        write_case(cases_dir, "config_client_spec/slow", named_case("Slow"))
+        sequence = {
+            "sequence_name": "timeouts",
+            "tests": [
+                {"case": "config_client_spec/plain"},
+                {
+                    "case": "config_client_spec/slow",
+                    "timeout": 12.5,
+                    "parameters": {"n": [1, 2]},
+                },
+            ],
+        }
+        (cases_dir / "spec_tests.json").write_text(
+            json.dumps({"sequences": [sequence]})
+        )
+        _, defs = config_client.ConfigClient(tests_dir=cases_dir).load(
+            TargetFilter(file_filter=["spec"])
+        )
+        timeouts = {str(d): d.timeout for d in defs}
+        assert timeouts == {
+            "config_client_spec/plain": config_client.DEFAULT_TIMEOUT,
+            "config_client_spec/slow (slow_1)": 12.5,
+            "config_client_spec/slow (slow_2)": 12.5,
+        }
