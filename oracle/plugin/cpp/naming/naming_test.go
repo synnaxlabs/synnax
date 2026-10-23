@@ -85,20 +85,36 @@ var _ = Describe("Namespace", func() {
 
 var _ = Describe("PBNamespace", func() {
 	DescribeTable(
-		"should derive the C++ namespace from the pb output path",
-		func(pbOutputPath, expected string) {
-			Expect(naming.PBNamespace(pbOutputPath)).To(Equal(expected))
+		"should derive the C++ namespace from the pb output path and namespace",
+		func(pbOutputPath, namespace, expected string) {
+			Expect(naming.PBNamespace(pbOutputPath, namespace)).To(Equal(expected))
 		},
-		Entry("empty path", "", "pb"),
+		Entry("empty path", "", "channel", "pb"),
 		Entry(
 			"core layer path",
 			"core/pkg/distribution/channel/pb",
+			"channel",
 			"::distribution::channel::pb",
 		),
-		Entry("x/go path", "x/go/telem/pb", "::x::telem::pb"),
-		Entry("two-segment path", "freighter/pb", "::freighter::freighter::pb"),
-		Entry("path not ending in pb", "x/go/telem", "::x::telem::pb"),
-		Entry("leading slash falls back to synnax", "/foo/pb", "::synnax::foo::pb"),
+		Entry(
+			"nested core path keeps the namespace",
+			"core/pkg/service/legacy/device/pb",
+			"device",
+			"::service::device::pb",
+		),
+		Entry("x/go path", "x/go/telem/pb", "telem", "::x::telem::pb"),
+		Entry(
+			"two-segment path",
+			"freighter/pb",
+			"freighter",
+			"::freighter::freighter::pb",
+		),
+		Entry(
+			"leading slash falls back to synnax",
+			"/foo/pb",
+			"foo",
+			"::synnax::foo::pb",
+		),
 	)
 })
 

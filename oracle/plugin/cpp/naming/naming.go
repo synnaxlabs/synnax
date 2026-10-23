@@ -71,25 +71,16 @@ func Namespace(outputPath string) string {
 	return topLevel + "::" + strings.Join(rest, "::")
 }
 
-// PBNamespace converts a pb output path to a fully qualified C++ namespace.
-// This mirrors the package derivation logic in pb/types plugin:
-// - For "core/pkg/{layer}/{service}/pb" -> "::{layer}::{service}::pb"
-// - For "x/go/{service}/pb" -> "::x::{service}::pb"
-// - For other paths -> "::{first}::{last-before-pb}::pb"
-func PBNamespace(pbOutputPath string) string {
+// PBNamespace returns the C++ namespace of the protobuf package generated at
+// pbOutputPath for the schema namespace. It mirrors the pb/types plugin, which
+// takes the layer prefix from the path and the package name from the namespace:
+// - For "core/pkg/{layer}/.../pb" -> "::{layer}::{namespace}::pb"
+// - For "x/go/.../pb" -> "::x::{namespace}::pb"
+func PBNamespace(pbOutputPath, namespace string) string {
 	if pbOutputPath == "" {
 		return "pb"
 	}
 	parts := strings.Split(pbOutputPath, "/")
-	if len(parts) == 0 {
-		return "pb"
-	}
-
-	// Derive namespace (directory before /pb, or last component)
-	namespace := parts[len(parts)-1]
-	if namespace == "pb" && len(parts) >= 2 {
-		namespace = parts[len(parts)-2]
-	}
 
 	// Derive layer prefix (mirrors deriveLayerPrefix in pb/types)
 	var prefix string
