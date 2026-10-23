@@ -87,11 +87,7 @@ const LabelListItem = ({
     >
       <Flex.Box x gap="small" align="center">
         <Form.Form<typeof Label.formSchema> {...form}>
-          <Form.Field<color.Color>
-            path="color"
-            padHelpText={false}
-            showLabel={false}
-          >
+          <Form.Field<color.Color> path="color" padHelpText={false} showLabel={false}>
             {(p) => <Color.Swatch onlyChangeOnBlur variant="text" {...p} />}
           </Form.Field>
           <Form.TextField
