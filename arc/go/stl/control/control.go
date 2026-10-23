@@ -122,7 +122,7 @@ func (s *setAuthority) Reset(ctx node.Context) {
 
 func (s *setAuthority) IsOutputTruthy(int) bool { return false }
 
-func (s *setAuthority) Next(node.Context) {
+func (s *setAuthority) Next(ctx node.Context) {
 	if s.initialized {
 		return
 	}
@@ -132,4 +132,5 @@ func (s *setAuthority) Next(node.Context) {
 		channelKey = &key
 	}
 	s.auth.Set(channelKey, s.NumericInput[uint8]("value"))
+	ctx.MarkDone()
 }

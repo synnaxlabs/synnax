@@ -63,6 +63,7 @@ node::Context make_context() {
     return node::Context{
         .cycle = {.elapsed = x::telem::SECOND},
         .mark_changed = [](size_t) {},
+        .mark_done = [] {},
         .report_error = [](const x::errors::Error &) {},
         .reserve_stamps = testutil::reserve_stamps(),
     };
@@ -279,8 +280,12 @@ func double() {val f32} f32 {
         changed_outputs.push_back(func_node->outputs[i].name);
     };
 
+    bool done = false;
+    ctx.mark_done = [&] { done = true; };
+
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed_outputs.empty());
+    EXPECT_FALSE(done);
 }
 
 /// @brief reset() keeps a consumed edge-fed input on stage re-entry.
@@ -478,8 +483,12 @@ func double() {val f32} f32 {
         changed_outputs.push_back(func_node->outputs[i].name);
     };
 
+    bool done = false;
+    ctx.mark_done = [&] { done = true; };
+
     ASSERT_NIL(node.next(ctx));
     ASSERT_EQ(changed_outputs.size(), 1);
+    EXPECT_TRUE(done);
 
     // Verify the double node's output
     auto double_node_state = ASSERT_NIL_P(state.node(func_node->key));
@@ -732,8 +741,12 @@ func divide_by_zero() {val i32} i32 {
         reported_errors.push_back(err);
     };
 
+    bool done = false;
+    ctx.mark_done = [&] { done = true; };
+
     ASSERT_NIL(node.next(ctx));
     EXPECT_GE(reported_errors.size(), 1);
+    EXPECT_FALSE(done);
 }
 
 /// @brief Node::is_output_truthy returns false for nonexistent outputs.
