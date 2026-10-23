@@ -268,7 +268,7 @@ export const TagPicker = ({
 }: TagPickerProps) => {
   const client = Synnax.use();
   const [listing, setListing] = useState<Listing | null>(null);
-  const [tags, setTags] = useState(new Map<string, NodeTags>());
+  const [tags, setTags] = useState(() => new Map<string, NodeTags>());
   const [error, setError] = useState<status.Status | null>(null);
   const [loading, setLoading] = useState(false);
   const [round, setRound] = useState(0);

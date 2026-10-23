@@ -42,8 +42,8 @@ const Discover = ({
   const [mode, setMode] = useState<Mode>("topics");
   // The Sparkplug B tab listens only once the user opens it.
   const [sparkplugOpened, setSparkplugOpened] = useState(false);
-  const [topicPicks, setTopicPicks] = useState<TopicPicks>(new Map());
-  const [tagPicks, setTagPicks] = useState<TagPicks>(new Map());
+  const [topicPicks, setTopicPicks] = useState<TopicPicks>(() => new Map());
+  const [tagPicks, setTagPicks] = useState<TagPicks>(() => new Map());
 
   const handleMode = (next: Mode) => {
     setMode(next);
