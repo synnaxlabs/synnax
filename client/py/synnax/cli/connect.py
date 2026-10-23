@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import ssl
 from pathlib import Path
 
 from freighter.exceptions import Unreachable
@@ -76,6 +77,11 @@ def connect_from_options(ctx: Context, opts: Options) -> Synnax | None:
         return None
     except AuthError:
         ctx.console.error("Invalid credentials")
+        return None
+    except (FileNotFoundError, ssl.SSLError) as e:
+        if opts.ca_cert is None:
+            raise
+        ctx.console.error(f"Cannot load the CA certificate at {opts.ca_cert}: {e}")
         return None
     except Exception as e:
         raise e
