@@ -33,7 +33,7 @@ public:
     SetAuthority(runtime::state::Node &&state, runtime::state::State &auth):
         state(std::move(state)), auth(auth) {}
 
-    x::errors::Error next(runtime::node::Context & /*ctx*/) override {
+    x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->initialized) return x::errors::NIL;
         this->initialized = true;
         std::optional<types::ChannelKey> channel_key;
@@ -44,6 +44,7 @@ public:
             channel_key,
             this->state.numeric_input<uint8_t>("value")
         );
+        ctx.mark_done();
         return x::errors::NIL;
     }
 

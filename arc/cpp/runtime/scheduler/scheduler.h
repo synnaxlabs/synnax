@@ -90,6 +90,9 @@ class Scheduler {
         /// @brief marks a node with no incoming edges and no channel reads.
         /// Entry nodes fire once per activation.
         bool entry = false;
+        /// @brief marked_flags index of the node's ir::done_param pseudo-output,
+        /// NO_INDEX when no transition waits on it.
+        size_t done = NO_INDEX;
         /// @brief propagation table indexed by output ordinal.
         std::vector<OutputResolved> outputs;
     };
@@ -524,6 +527,13 @@ private:
         DCHECK(this->curr_node != NO_INDEX);
         this->self_changed_flags[this->curr_node] = 1;
     }
+
+    /// @brief records a fresh mark on the current node's ir::done_param pseudo-output.
+    void mark_done() {
+        DCHECK(this->curr_node != NO_INDEX);
+        const size_t done = this->nodes[this->curr_node].done;
+        if (done != NO_INDEX) this->marked_flags[done] = 1;
+    }
 };
 
 namespace detail {
@@ -801,6 +811,8 @@ private:
             auto &out = on_node.outputs[out_idx];
             if (out.mark_handle_idx == NO_INDEX)
                 out.mark_handle_idx = this->next_handle_idx++;
+            if (transitions[i].on.param == ir::done_param)
+                on_node.done = out.mark_handle_idx;
             state.transition_on_node[i] = on;
             state.transition_on_output_idx[i] = out_idx;
             state.transition_on_idx[i] = out.mark_handle_idx;
@@ -897,6 +909,7 @@ inline Scheduler::Scheduler(
     error_handler(std::move(error_handler)), prog(std::move(prog)) {
     this->ctx.mark_changed = std::bind_front(&Scheduler::mark_changed, this);
     this->ctx.mark_self_changed = std::bind_front(&Scheduler::mark_self_changed, this);
+    this->ctx.mark_done = std::bind_front(&Scheduler::mark_done, this);
     this->ctx.set_deadline =
         [this](const x::telem::TimeSpan at, const x::telem::TimeSpan span) {
             auto &min = this->min_deadline;
