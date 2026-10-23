@@ -23,7 +23,6 @@ export const SelectWriteChannelTypeField = Form.buildSelectField<WriteChannelTyp
     label: "Channel type",
     showLabel: false,
     showHelpText: false,
-    hideIfNull: true,
   },
   inputProps: {
     allowNone: false,
