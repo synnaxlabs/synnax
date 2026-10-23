@@ -618,16 +618,20 @@ class TestCase(ABC):
                 self._error_message = str(e)
             self._error_traceback = tb
         finally:
-            phase_started = sy.TimeStamp.now()
+            # A conductor timeout can interrupt teardown, so the client threads stop
+            # in a finally of their own.
             try:
-                self.teardown()
-            except Exception as teardown_error:
-                self.log(f"Teardown error: {teardown_error}")
-            log_phase("teardown")
-            if self._notifications is not None:
-                self._notifications.close()
-            if self._task_status is not None:
-                self._task_status.close()
-            self._check_expectation()
-            self._stop_client()
-            self._wait_for_client_completion()
+                phase_started = sy.TimeStamp.now()
+                try:
+                    self.teardown()
+                except Exception as teardown_error:
+                    self.log(f"Teardown error: {teardown_error}")
+                log_phase("teardown")
+                if self._notifications is not None:
+                    self._notifications.close()
+                if self._task_status is not None:
+                    self._task_status.close()
+                self._check_expectation()
+            finally:
+                self._stop_client()
+                self._wait_for_client_completion()

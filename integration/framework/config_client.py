@@ -12,6 +12,7 @@ import importlib.util
 import inspect
 import itertools
 import json
+import math
 import os
 import sys
 import threading
@@ -26,6 +27,21 @@ from framework.test_case import TestCase
 DEFAULT_TIMEOUT = 300.0
 """Seconds a test may run before the conductor marks it TIMEOUT, unless its
 definition sets `timeout`."""
+
+
+def _timeout(case: str, value: Any) -> float:
+    """:raises ValueError: If value is not a finite, positive number of seconds."""
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value <= 0
+    ):
+        raise ValueError(
+            f"Test '{case}' has timeout {value!r}; it must be a positive number of "
+            "seconds"
+        )
+    return float(value)
 
 
 @dataclass
@@ -183,7 +199,7 @@ class ConfigClient:
                     name=test.get("name", None),
                     parameters=test.get("parameters", {}),
                     matrix=test.get("matrix", None),
-                    timeout=test.get("timeout", DEFAULT_TIMEOUT),
+                    timeout=_timeout(case_path, test.get("timeout", DEFAULT_TIMEOUT)),
                 )
 
                 class_defs = self._expand_test_classes(test_def)

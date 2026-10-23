@@ -234,6 +234,18 @@ class ExecutionClient:
             )
 
         pending: list[tuple[threading.Thread, Future[Test], TestDefinition]] = []
+        freed: set[threading.Thread] = set()
+        freed_lock = threading.Lock()
+
+        # Both a finished test and the wait loop that abandons it free its slot.
+        def _free_slot(thread: threading.Thread) -> None:
+            if semaphore is None:
+                return
+            with freed_lock:
+                if thread in freed:
+                    return
+                freed.add(thread)
+            semaphore.release()
 
         def _run(td: TestDefinition, ft: Future[Test], idx: int) -> None:
             if semaphore is not None:
@@ -243,8 +255,7 @@ class ExecutionClient:
                     self._log(f"[{idx}/{self._total_tests}] {td}", True)
                 self._test_runner_thread(td, ft)
             finally:
-                if semaphore is not None:
-                    semaphore.release()
+                _free_slot(threading.current_thread())
 
         for i, test_def in enumerate(tests):
             if self.should_stop:
@@ -270,7 +281,10 @@ class ExecutionClient:
         while pending:
             still_pending = []
             for t, ft, td in pending:
-                if not t.is_alive() or self._watchdog.abandoned(t):
+                if self._watchdog.abandoned(t):
+                    _free_slot(t)
+                    self._collect_result(td, ft)
+                elif not t.is_alive():
                     self._collect_result(td, ft)
                 else:
                     still_pending.append((t, ft, td))
@@ -307,6 +321,7 @@ class ExecutionClient:
         future.set_result(result)
 
     def _execute_single_test(self, test_def: TestDefinition) -> Test:
+        self._watchdog.watch(threading.current_thread(), test_def.timeout)
         test = Test(
             test_name=test_def.case,
             name=test_def.display_name,
@@ -333,7 +348,6 @@ class ExecutionClient:
         test.started_at = time.time()
 
         test_instance: TestCase | None = None
-        self._watchdog.watch(threading.current_thread(), test_def.timeout)
         try:
             test_class = self._config_client.load_test_class(test_def)
             test_instance = test_class(
@@ -370,7 +384,6 @@ class ExecutionClient:
             self._log(f"Traceback: {traceback.format_exc()}", True)
 
         finally:
-            self._watchdog.unwatch(threading.current_thread())
             test.ended_at = time.time()
             self._slice_server_log_if_failed(test, bundle_dir, log_start_offset)
             run_dir.set_test_dir(None)
@@ -405,6 +418,7 @@ class ExecutionClient:
                 ]
 
             self._on_status_change(test)
+            self._watchdog.unwatch(threading.current_thread())
 
         return test
 
