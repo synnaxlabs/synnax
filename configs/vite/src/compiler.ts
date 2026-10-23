@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// <reference types="vitest/config" />
+
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -23,12 +25,15 @@ const COMPILER = require.resolve("babel-plugin-react-compiler");
 const JSX = require.resolve("@babel/plugin-transform-react-jsx");
 const MAP_COMMENT = /\n\/\/# sourceMappingURL=\S*\s*$/;
 
+// Outlining moves a callback in a hook or component nested in a factory to module
+// scope, where the factory's bindings are unbound.
+const OPTIONS = { environment: { enableFunctionOutlining: false } };
 /** Fails on any component or hook that the compiler cannot compile. */
-const STRICT = { panicThreshold: "all_errors" };
+const STRICT = { ...OPTIONS, panicThreshold: "all_errors" };
 
 const preset = (build: boolean): RolldownBabelPreset =>
   defineRolldownBabelPreset({
-    preset: () => ({ plugins: [[COMPILER, build ? STRICT : {}]] }),
+    preset: () => ({ plugins: [[COMPILER, build ? STRICT : OPTIONS]] }),
     rolldown: {
       // A workspace dependency's dist is already compiled.
       filter: { id: { exclude: /[/\\]dist[/\\]/ } },
@@ -43,8 +48,15 @@ const preset = (build: boolean): RolldownBabelPreset =>
  * compiled code that builds emit. A build fails on a component or hook that the
  * compiler cannot compile; a `"use no memo"` directive opts one out.
  */
-export const reactCompiler = (): PluginOption =>
-  babel({ presets: [preset(true), preset(false)] });
+export const reactCompiler = (): PluginOption => [
+  babel({ presets: [preset(true), preset(false)] }),
+  {
+    name: "synnax:react-compiler",
+    // Vitest keys its module cache on plugin names, not on their options.
+    configureVitest: ({ defineCacheKeyGenerator }) =>
+      defineCacheKeyGenerator(() => JSON.stringify(OPTIONS)),
+  },
+];
 
 /**
  * Compiles a JavaScript or JSX file that `tsc` emitted, in place, chaining its source
