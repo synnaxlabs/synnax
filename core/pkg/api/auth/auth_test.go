@@ -304,8 +304,71 @@ var _ = Describe("CreateSession", func() {
 })
 
 var _ = Describe("RenewSession", func() {
-	It("Should succeed for a live session", func(ctx SpecContext) {
-		Expect(apiSvc.RenewSession(ctx, struct{}{})).Error().ToNot(HaveOccurred())
+	It("Should return the caller's session and user", func(ctx SpecContext) {
+		created := MustSucceed(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{
+				Proof: passwordProof(creds.Username, creds.Password),
+			},
+		))
+		res := MustSucceed(apiSvc.RenewSession(authed(ctx, created.Token), struct{}{}))
+		Expect(res.Session.Key).To(Equal(created.Session.Key))
+		Expect(res.Session.Subject).To(Equal(root.OntologyID()))
+		Expect(res.User).ToNot(BeNil())
+		Expect(res.User.Key).To(Equal(root.Key))
+	})
+})
+
+var _ = Describe("Session cookie", func() {
+	It(
+		"Should hand the token to the transport instead of the body",
+		func(ctx SpecContext) {
+			fctx := requestCtx(ctx)
+			res := MustSucceed(apiSvc.CreateSession(fctx, apiauth.SessionCreateRequest{
+				Proof:  passwordProof(creds.Username, creds.Password),
+				Cookie: true,
+			}))
+			Expect(res.Token).To(BeEmpty())
+			token := MustBeOk(fctx.Get(apiauth.SessionCookieParam))
+			Expect(token).To(HavePrefix("sys_"))
+			Expect(MustSucceed(apiSvc.RenewSession(
+				authed(ctx, token.(string)),
+				struct{}{},
+			)).Session.Key).To(Equal(res.Session.Key))
+		},
+	)
+	It("Should ask the transport to clear the cookie on logout", func(ctx SpecContext) {
+		created := MustSucceed(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{
+				Proof: passwordProof(creds.Username, creds.Password),
+			},
+		))
+		fctx := authed(ctx, created.Token)
+		MustSucceed(apiSvc.DeleteSessions(fctx, apiauth.SessionDeleteRequest{
+			Keys: []auth.SessionKey{created.Session.Key},
+		}))
+		Expect(MustBeOk(fctx.Get(apiauth.SessionCookieParam))).To(Equal(""))
+	})
+	It("Should not touch the cookie when ending other sessions", func(ctx SpecContext) {
+		created := MustSucceed(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{
+				Proof: passwordProof(creds.Username, creds.Password),
+			},
+		))
+		other := MustSucceed(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{
+				Proof: passwordProof(creds.Username, creds.Password),
+			},
+		))
+		fctx := authed(ctx, created.Token)
+		MustSucceed(apiSvc.DeleteSessions(fctx, apiauth.SessionDeleteRequest{
+			Keys: []auth.SessionKey{other.Session.Key},
+		}))
+		_, set := fctx.Get(apiauth.SessionCookieParam)
+		Expect(set).To(BeFalse())
 	})
 })
 

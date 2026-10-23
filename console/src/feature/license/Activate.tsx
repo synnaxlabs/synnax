@@ -21,6 +21,7 @@ import { License as PLicense, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { Shell } from "@/feature/shell";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { License } from "@/platform/license";
 import { Runtime } from "@/platform/runtime";
@@ -54,7 +55,7 @@ export interface ActivateProps {
 export const Activate = ({ onBack }: ActivateProps): ReactElement => {
   const client = Synnax.use();
   const target = Session.Core.useSelectSelected();
-  const logout = Session.useLogout();
+  const logout = Core.useLogout();
   const handleError = Status.useErrorHandler();
   const result = PLicense.useResult({});
   const [key, setKey] = useState("");

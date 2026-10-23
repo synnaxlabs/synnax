@@ -47,7 +47,7 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::auth::AuthSessionCreateService>>(pool, base_target);
     this->auth_session_renew = std::make_unique<freighter::grpc::UnaryClient<
         google::protobuf::Empty,
-        google::protobuf::Empty,
+        grpc::auth::SessionRenewResponse,
         grpc::auth::AuthSessionRenewService>>(pool, base_target);
     this->auth_session_retrieve = std::make_unique<freighter::grpc::UnaryClient<
         grpc::auth::SessionRetrieveRequest,

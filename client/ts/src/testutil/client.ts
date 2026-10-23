@@ -13,11 +13,13 @@ import { afterAll, onTestFinished, vi } from "vitest";
 import Synnax, { type SynnaxParams } from "@/client";
 import { createSeverableProxy, type SeverableProxy } from "@/testutil/proxy";
 
+/** The root credentials of the test Core. */
+export const TEST_CREDENTIALS = { username: "synnax", password: "seldon" };
+
 export const TEST_CLIENT_PARAMS: SynnaxParams = {
   host: "localhost",
   port: 9090,
-  username: "synnax",
-  password: "seldon",
+  ...TEST_CREDENTIALS,
   retry: {
     maxRetries: 4,
     baseInterval: TimeSpan.seconds(1),

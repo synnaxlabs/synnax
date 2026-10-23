@@ -25,6 +25,7 @@ import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { ContextMenu, listItem } from "@/feature/project/Selector";
 import { Shell } from "@/feature/shell";
 import { Button } from "@/platform/button";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Project as PlatformProject } from "@/platform/project";
@@ -33,7 +34,7 @@ import { Session } from "@/session";
 /** Full-window project picker shown when the session has no active project. */
 export const Splash = (): ReactElement => {
   const dispatch = Session.useDispatch();
-  const logout = Session.useLogout();
+  const logout = Core.useLogout();
   const activeCore = Session.Core.useSelectSelected();
   const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);

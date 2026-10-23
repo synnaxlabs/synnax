@@ -100,7 +100,14 @@ parameters.
         <b>Password</b>
       </td>
       <td>
-        <p>The password to use when connecting to the Core.</p>
+        <p>
+          The password to use when connecting to the Core. The Console uses it once to
+          log in and does not store it. The session it opens is kept in the operating
+          system keychain on desktop and in a browser cookie on the web, so the Console
+          connects again without the password until you log out or the session expires.
+          On Linux, the keychain is the Secret Service (GNOME Keyring or KWallet);
+          without one, the Console asks for the password on each launch.
+        </p>
       </td>
     </tr>
   </tbody>

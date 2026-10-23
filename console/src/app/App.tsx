@@ -22,6 +22,7 @@ import { Tree } from "@/app/tree";
 import { Vis } from "@/app/vis";
 import { Window } from "@/app/window";
 import { Embedded } from "@/feature/embedded";
+import { Core } from "@/platform/core";
 import { Errors } from "@/platform/errors";
 import { Runtime } from "@/platform/runtime";
 import { Version } from "@/platform/version";
@@ -54,7 +55,7 @@ export const App = ({ workerURL }: AppProps): ReactElement => (
       <BuildContext>
         <Session.Context>
           <Pluto.Context workerURL={workerURL}>
-            {DESKTOP && <Analytics.Watch />}
+            {DESKTOP ? <Analytics.Watch /> : <Core.TokenKeeper />}
             <Session.SettledProvider>
               <Errors.OverlayWithStore>
                 <Panel.Context>

@@ -83,11 +83,16 @@ func parseRequestCtx(
 		Variant:  lo.Ternary(stream, freighter.VariantStream, freighter.VariantUnary),
 	}
 	headers := fiberCtx.GetReqHeaders()
-	freighterCtx.Params = make(freighter.Params, len(headers))
+	freighterCtx.Params = make(freighter.Params, len(headers)+1)
 	for k, v := range fiberCtx.GetReqHeaders() {
 		if len(v) > 0 {
 			freighterCtx.Params[k] = v[0]
 		}
+	}
+	// fasthttp parses cookies out of the header list, so the Cookie header is read back
+	// on its own for middleware that authenticates by cookie.
+	if cookies := fiberCtx.Get(fiber.HeaderCookie); cookies != "" {
+		freighterCtx.Params[fiber.HeaderCookie] = cookies
 	}
 	for k, v := range parseQueryString(fiberCtx) {
 		if isFreighterQueryStringParam(k) {

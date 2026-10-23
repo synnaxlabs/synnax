@@ -151,6 +151,22 @@ const { actions, reducer } = createSlice({
 
 export const { set, select, clearSelected, remove, rename, setClusterKey } = actions;
 
+const purgePasswords = <S extends StoreState>(state: S): S => ({
+  ...state,
+  [SLICE_NAME]: {
+    ...state[SLICE_NAME],
+    cores: Object.fromEntries(
+      Object.entries(state[SLICE_NAME].cores).map(([key, core]) => [
+        key,
+        { ...core, password: "" },
+      ]),
+    ),
+  },
+});
+
+/** Keeps every password out of the stored state; a session resumes from its token. */
+export const PERSIST_EXCLUDE = [purgePasswords];
+
 export { reducer };
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

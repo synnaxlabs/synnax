@@ -57,6 +57,87 @@ describe("Synchronizer.use", () => {
     expect(calls).toEqual(["first:start", "first:end", "second"]);
   });
 
+  it("should stop a pass once the hook unmounts", async () => {
+    const calls: string[] = [];
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const { wrapper } = await createConsoleWrapper({ client });
+    const { unmount } = renderHook(
+      () =>
+        Synchronizer.use([
+          {
+            name: "first",
+            use: () => ({
+              reconcile: async () => {
+                calls.push("first:start");
+                await gate;
+                calls.push("first:end");
+              },
+            }),
+          },
+          {
+            name: "second",
+            use: () => ({
+              reconcile: () => {
+                calls.push("second");
+              },
+            }),
+          },
+        ]),
+      { wrapper },
+    );
+    await waitFor(() => expect(calls).toContain("first:start"));
+    unmount();
+    release();
+    await waitFor(() => expect(calls).toContain("first:end"));
+    await gate;
+    expect(calls).toEqual(["first:start", "first:end"]);
+  });
+
+  it("should drop a pass whose client closes while it runs", async () => {
+    const error = vi.spyOn(console, "error");
+    try {
+      const closing = createTestClient();
+      const calls: string[] = [];
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { wrapper } = await createConsoleWrapper({ client: closing });
+      renderHook(
+        () =>
+          Synchronizer.use([
+            {
+              name: "first",
+              use: () => ({
+                reconcile: async () => {
+                  calls.push("first:start");
+                  await gate;
+                  throw new Error("closed under the pass");
+                },
+              }),
+            },
+            {
+              name: "second",
+              use: () => ({
+                reconcile: () => {
+                  calls.push("second");
+                },
+              }),
+            },
+          ]),
+        { wrapper },
+      );
+      await waitFor(() => expect(calls).toContain("first:start"));
+      await closing.close();
+      release();
+      await gate;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(calls).toEqual(["first:start"]);
+      expect(error).not.toHaveBeenCalled();
+    } finally {
+      error.mockRestore();
+    }
+  });
+
   it("should keep reconciling after an earlier synchronizer fails", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
