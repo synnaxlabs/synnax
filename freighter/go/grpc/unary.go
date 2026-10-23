@@ -162,10 +162,11 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(
 		},
 		),
 	)
-	if err == nil {
-		return tRes, nil
+	if err != nil {
+		var zero RST
+		return zero, errors.Encode(ctx, err, u.Internal)
 	}
-	return tRes, errors.Encode(ctx, err, u.Internal)
+	return tRes, nil
 }
 
 func (u *UnaryServer[RQ, RQT, RS, RST]) BindHandler(
