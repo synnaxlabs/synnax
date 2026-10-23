@@ -31,6 +31,14 @@ var _ = Describe("EdgeKind", func() {
 		})
 	})
 
+	DescribeTable(
+		"Arrow",
+		func(k v0.EdgeKind, arrow string) { Expect(k.Arrow()).To(Equal(arrow)) },
+		Entry("continuous", v0.EdgeKindContinuous, "->"),
+		Entry("conditional", v0.EdgeKindConditional, "=>"),
+		Entry("unspecified", v0.EdgeKindUnspecified, "?>"),
+	)
+
 	Describe("JSON Serialization", func() {
 		It("Should marshal Continuous as 1", func() {
 			edge := v0.Edge{

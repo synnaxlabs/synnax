@@ -12,6 +12,7 @@ package service_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -123,10 +125,22 @@ var _ = Describe("Legacy project bundles", func() {
 				ontology.ResourceTypeSchematic,
 				ontology.ResourceTypeLineplot,
 			))
+			Expect(typesOf(children)).ToNot(ContainElement(ontology.ResourceTypeLog))
+			Expect(lo.Map(children, func(c ontology.Resource, _ int) string {
+				return c.Name
+			})).To(ContainElements("Line Plot", "Schematic"))
 			// A task parents under its rack's task group, never the project.
 			Expect(typesOf(children)).ToNot(ContainElement(
 				ontology.ResourceTypeTask,
 			))
+			var tasks []task.Task
+			Expect(l.Task.NewRetrieve().
+				Where(task.MatchNames("NI Analog Read Task", "LabJack Write Task")).
+				Entries(&tasks).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(lo.Map(tasks, func(t task.Task, _ int) string { return t.Type })).To(
+				ConsistOf("ni_analog_read", "labjack_write"),
+			)
 		})
 	})
 

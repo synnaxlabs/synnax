@@ -36,8 +36,6 @@
 #include "core/pkg/transport/grpc/status/status.pb.h"
 #include "core/pkg/transport/grpc/task/task.grpc.pb.h"
 #include "core/pkg/transport/grpc/task/task.pb.h"
-#include "core/pkg/transport/grpc/view/view.grpc.pb.h"
-#include "core/pkg/transport/grpc/view/view.pb.h"
 
 namespace synnax::details {
 Transport::Transport(const uint16_t port, const std::string &ip, const bool secure) {
@@ -155,18 +153,6 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::arc::DeleteRequest,
         google::protobuf::Empty,
         grpc::arc::ArcDeleteService>>(pool, base_target);
-    this->view_create = std::make_unique<freighter::grpc::UnaryClient<
-        grpc::view::CreateRequest,
-        grpc::view::CreateResponse,
-        grpc::view::ViewCreateService>>(pool, base_target);
-    this->view_retrieve = std::make_unique<freighter::grpc::UnaryClient<
-        grpc::view::RetrieveRequest,
-        grpc::view::RetrieveResponse,
-        grpc::view::ViewRetrieveService>>(pool, base_target);
-    this->view_delete = std::make_unique<freighter::grpc::UnaryClient<
-        grpc::view::DeleteRequest,
-        google::protobuf::Empty,
-        grpc::view::ViewDeleteService>>(pool, base_target);
     this->connectivity_check = std::make_unique<freighter::grpc::UnaryClient<
         google::protobuf::Empty,
         grpc::connectivity::CheckResponse,
@@ -201,8 +187,5 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     arc_create->use(mw);
     arc_retrieve->use(mw);
     arc_delete->use(mw);
-    view_create->use(mw);
-    view_retrieve->use(mw);
-    view_delete->use(mw);
 }
 }

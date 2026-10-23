@@ -108,11 +108,8 @@ class ThermalSimDAQ(SimDAQ):
         loop = sy.Loop(sy.Rate.HZ * 50)
         loop_count = 0
 
-        state = {
-            "thermal_daq_time": sy.TimeStamp.now(),
-            "temp_sensor": self.AMBIENT_TEMP,
-            "heater_state": 0,
-        }
+        temp_sensor = self.AMBIENT_TEMP
+        heater_state = 0
 
         with self.client.open_streamer(
             ["heater_cmd", "force_overheat_cmd"]
@@ -128,23 +125,18 @@ class ThermalSimDAQ(SimDAQ):
                     while True:
                         frame = streamer.read(timeout=0)
                         if frame is not None:
-                            heater_cmd_data = frame.get("heater_cmd")
+                            heater_cmd_data = frame["heater_cmd"]
                             if len(heater_cmd_data) > 0:
-                                new_val = heater_cmd_data[-1]
-                                if hasattr(new_val, "item"):
-                                    new_val = new_val.item()
-                                if new_val != state["heater_state"]:
-                                    self.log(
-                                        f"Heater: {state['heater_state']} -> {new_val}"
-                                    )
-                                state["heater_state"] = new_val
+                                new_val = int(heater_cmd_data.to_numpy()[-1])
+                                if new_val != heater_state:
+                                    self.log(f"Heater: {heater_state} -> {new_val}")
+                                heater_state = new_val
 
-                            overheat_cmd_data = frame.get("force_overheat_cmd")
+                            overheat_cmd_data = frame["force_overheat_cmd"]
                             if len(overheat_cmd_data) > 0:
-                                new_overheat = overheat_cmd_data[-1]
-                                if hasattr(new_overheat, "item"):
-                                    new_overheat = new_overheat.item()
-                                new_overheat = new_overheat == 1
+                                new_overheat = bool(
+                                    overheat_cmd_data.to_numpy()[-1] == 1
+                                )
                                 if new_overheat != force_overheat:
                                     self.log(
                                         f"Force overheat: {force_overheat} -> {new_overheat}"
@@ -153,23 +145,28 @@ class ThermalSimDAQ(SimDAQ):
                         else:
                             break
 
-                    if force_overheat or state["heater_state"] == 1:
-                        state["temp_sensor"] += self.HEAT_RATE
+                    if force_overheat or heater_state == 1:
+                        temp_sensor += self.HEAT_RATE
                     else:
-                        if state["temp_sensor"] > self.AMBIENT_TEMP:
-                            state["temp_sensor"] -= self.COOL_RATE
-                        if state["temp_sensor"] < self.AMBIENT_TEMP:
-                            state["temp_sensor"] = self.AMBIENT_TEMP
+                        if temp_sensor > self.AMBIENT_TEMP:
+                            temp_sensor -= self.COOL_RATE
+                        if temp_sensor < self.AMBIENT_TEMP:
+                            temp_sensor = self.AMBIENT_TEMP
 
-                    state["temp_sensor"] += random.uniform(-self.NOISE, self.NOISE)
-                    state["thermal_daq_time"] = sy.TimeStamp.now()
-                    writer.write(state)
+                    temp_sensor += random.uniform(-self.NOISE, self.NOISE)
+                    writer.write(
+                        {
+                            "thermal_daq_time": sy.TimeStamp.now(),
+                            "temp_sensor": temp_sensor,
+                            "heater_state": heater_state,
+                        }
+                    )
 
                     loop_count += 1
                     if loop_count % 100 == 0:
                         self.log(
-                            f"temp={state['temp_sensor']:.2f}°C, "
-                            f"heater={state['heater_state']}, "
+                            f"temp={temp_sensor:.2f}°C, "
+                            f"heater={heater_state}, "
                             f"overheat={force_overheat}"
                         )
 

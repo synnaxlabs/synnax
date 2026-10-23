@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
@@ -44,6 +44,6 @@ class LimitReduction(BaseModel):
 
 # Selects how a read reduces samples. A read without one keeps every sample.
 Reduction = Annotated[
-    Union[StrideReduction, LimitReduction],
+    StrideReduction | LimitReduction,
     Field(discriminator="variant"),
 ]

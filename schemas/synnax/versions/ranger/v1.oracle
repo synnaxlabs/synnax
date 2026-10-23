@@ -50,3 +50,26 @@ Range struct {
     @go marshal
     @go migrate
 }
+
+Ref union on variant {
+    key {
+        key Key {
+            @doc value "is the key of a range saved in the Core."
+        }
+
+        @doc value "is a range saved in the Core."
+    }
+    window {
+        window telem.Window {
+            @doc value "is the window the reference resolves to."
+        }
+
+        @doc value "is a window carried inline: rolling or fixed."
+    }
+
+    @doc value  """
+        is the range a visualization shows: a range saved in the Core, or an inline
+        window.
+    """
+    @go marshal
+}

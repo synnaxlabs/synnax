@@ -43,6 +43,7 @@ const TelemForm = (): ReactElement => {
       <Base.Section title="Source">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
+            allowNone
             value={value.channel ?? 0}
             onChange={handleSourceChange}
             // Only variable density channels (STRING, JSON, UUID) read as text.

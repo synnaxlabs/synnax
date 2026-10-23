@@ -42,7 +42,7 @@ data_channel = client.channels.create(
     data_type=sy.DataType.FLOAT32,
 )
 
-SAMPLE_COUNT = int(100)
+SAMPLE_COUNT = 100
 
 # We'll start our write at the current time. This timestamp should be the same as or
 # just before the first timestamp we write.
@@ -62,4 +62,4 @@ data = np.sin(np.linspace(1, 10, SAMPLE_COUNT)) * 20 + np.random.randn(SAMPLE_CO
 time_channel.write(start, stamps)
 data_channel.write(start, data)
 
-print(client.read_latest(["daq_time", "ox_pt_1"], 1))
+print(client.read_latest([time_channel.key, data_channel.key], 1))

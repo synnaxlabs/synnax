@@ -41,6 +41,6 @@ class ChannelsVerify(TestCase):
         keys = [self.client.channels.retrieve(name).key for name, _, _ in DATA_CHANNELS]
         frame = self.client.read(time_range, keys)
 
-        for key, (name, _, expected) in zip(keys, DATA_CHANNELS):
+        for key, (name, _, expected) in zip(keys, DATA_CHANNELS, strict=True):
             data = frame[key].to_numpy()
             assert np.array_equal(data, expected), f"{name}: data mismatch: {data}"

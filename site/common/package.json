@@ -3,9 +3,16 @@
   "type": "module",
   "private": true,
   "exports": {
+    "./Drawer.astro": "./src/Drawer.astro",
     "./Footer.astro": "./src/Footer.astro",
-    "./drawer.css": "./src/drawer.css",
-    "./tokens.css": "./src/tokens.css"
+    "./Head.astro": "./src/Head.astro",
+    "./MenuButton.astro": "./src/MenuButton.astro",
+    "./PrivacyPolicy.astro": "./src/PrivacyPolicy.astro",
+    "./base.css": "./src/base.css",
+    "./integration": "./src/integration.ts",
+    "./shiki": "./src/shiki.ts",
+    "./sitemap": "./src/sitemap.ts",
+    "./integrations/*": "./src/integrations/*"
   },
   "scripts": {
     "check-types": "astro check",
@@ -19,9 +26,11 @@
   },
   "dependencies": {
     "@astrojs/react": "catalog:",
+    "@synnaxlabs/arc": "catalog:",
     "@synnaxlabs/lyra": "catalog:",
-    "@synnaxlabs/media": "catalog:",
-    "astro": "catalog:"
+    "astro": "catalog:",
+    "astro-seo": "catalog:",
+    "shiki": "catalog:"
   },
   "devDependencies": {
     "@astrojs/check": "catalog:",

@@ -10,6 +10,7 @@
 package v0_test
 
 import (
+	"encoding/hex"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -106,4 +107,47 @@ var _ = Describe("NormalizeKeys", func() {
 			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
+})
+
+var _ = Describe("Graph", func() {
+	It("Should decode a graph stored by a v0.53 Core", func(ctx SpecContext) {
+		// An Arc as a v0.53.4 Core stored it: an "on" node wired to a "write" node.
+		stored := MustSucceed(hex.DecodeString(
+			"87a47465787482a3415354c0a3726177a0a776657273696f6ea0a46e616d65a96772" +
+				"61706820617263a46d6f6465a56772617068a770726f6772616d89a753796d626f6c" +
+				"73c0a7547970654d6170c0a946756e6374696f6e73c0a953657175656e636573c0a5" +
+				"4e6f646573c0a54564676573c0a6537472617461c0b14f75747075744d656d6f7279" +
+				"4261736573c0a45741534dc0a5677261706884a946756e6374696f6e73c0a5456467" +
+				"65739183a6536f7572636582a44e6f6465a46e5f6f6ea5506172616da66f75747075" +
+				"74a654617267657482a44e6f6465a46e5f7772a5506172616da5696e707574a44b69" +
+				"6e6400a54e6f6465739284a6436f6e66696781a76368616e6e656ccb413000090000" +
+				"0000a34b6579a46e5f6f6ea454797065a26f6ea8506f736974696f6e82a158cb4024" +
+				"000000000000a159cb403400000000000084a6436f6e66696781a76368616e6e656c" +
+				"cb4130000a00000000a34b6579a46e5f7772a454797065a57772697465a8506f7369" +
+				"74696f6e82a158cb4069000000000000a159cb4034000000000000a856696577706f" +
+				"727482a8506f736974696f6e82a158cb0000000000000000a159cb00000000000000" +
+				"00a45a6f6f6dca00000000a36b6579c41096e1d792008a4905a3bc5c9fc103cdda",
+		))
+		var a v0.Arc
+		Expect(xmsgpack.Codec.Decode(ctx, stored, &a)).To(Succeed())
+		Expect(a.Name).To(Equal("graph arc"))
+		Expect(a.Graph.Nodes).To(HaveLen(2))
+		Expect(a.Graph.Nodes[0]).To(And(
+			HaveField("Key", "n_on"),
+			HaveField("Type", "on"),
+			HaveField("Config", HaveKeyWithValue("channel", BeEquivalentTo(1048585))),
+			HaveField("Position.X", 10.0),
+			HaveField("Position.Y", 20.0),
+		))
+		Expect(a.Graph.Nodes[1]).To(And(
+			HaveField("Key", "n_wr"), HaveField("Type", "write"),
+		))
+		Expect(a.Graph.Edges).To(HaveLen(1))
+		Expect(a.Graph.Edges[0]).To(And(
+			HaveField("Source.Node", "n_on"),
+			HaveField("Source.Param", "output"),
+			HaveField("Target.Node", "n_wr"),
+			HaveField("Target.Param", "input"),
+		))
+	})
 })

@@ -27,7 +27,7 @@ export const policyZ = z.object({
   /** key is the unique identifier for this policy. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the policy. */
-  name: z.string(),
+  name: z.string().min(1, "name is required"),
   /** objects is the list of ontology resources this policy applies to. */
   objects: ontology.idZ.array().default(() => []),
   /** actions is the list of actions this policy permits. */

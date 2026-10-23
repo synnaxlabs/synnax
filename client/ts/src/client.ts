@@ -70,6 +70,13 @@ export const synnaxParamsZ = z.object({
   onInternalError: z
     .function({ input: z.tuple([z.instanceof(Error)]), output: z.unknown() })
     .optional(),
+  /**
+   * Receives each failed attempt the client retries: a request to an unreachable Core,
+   * or a stream reconnect. Defaults to console.warn.
+   */
+  onRetry: z
+    .function({ input: z.tuple([z.instanceof(Error)]), output: z.unknown() })
+    .optional(),
 });
 
 export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
@@ -147,6 +154,7 @@ export default class Synnax extends framer.Client {
       new url.URL({ host, port: Number(port) }),
       retry,
       secure,
+      parsedParams.onRetry,
     );
     transport.use(errorsMiddleware);
     // The arrow reads this.channels only when called, after construction completes.
@@ -156,7 +164,12 @@ export default class Synnax extends framer.Client {
       );
       return result.map((ch) => ch.payload);
     };
-    super({ stream: transport.stream, unary: transport.unary, retrieveChannels });
+    super({
+      stream: transport.stream,
+      unary: transport.unary,
+      retrieveChannels,
+      onRetry: parsedParams.onRetry,
+    });
     const cache = new query.Cache({
       openStreamer: parsedParams.cache
         ? async (config) => await this.openStreamer(config)
@@ -165,6 +178,7 @@ export default class Synnax extends framer.Client {
       onStreamLive: () => this.conn.notify({ type: "stream.live" }),
       onStreamDrop: (error) => this.conn.notify({ type: "stream.drop", error }),
       onStreamDenied: (error) => this.conn.notify({ type: "stream.denied", error }),
+      onStreamRetry: parsedParams.onRetry,
       onError: parsedParams.onInternalError,
     });
     this.cache = cache;

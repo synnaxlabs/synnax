@@ -18,6 +18,7 @@ import {
   Series,
   TimeRange,
   TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -451,6 +452,42 @@ describe("line", () => {
       expect(vertices([a, b])).toEqual([2, 1, 5, 0]);
     });
 
+    it("should leave out a bridge with a non-finite end", () => {
+      const a = op(f32(0, 1), f32(2, NaN), 2);
+      const b = op(f32(5, 6), f32(7, 4), 2);
+      const c = op(f32(8), f32(Infinity), 1);
+      const d = op(f32(9, 10), f32(3, 2), 2);
+      expect(vertices([a, b, c, d])).toEqual([]);
+      expect(vertices([b, d])).toEqual([6, 4, 9, 3]);
+    });
+
+    describe("time order", () => {
+      const timed = (start: number, end: number, ...data: number[]): Series =>
+        new Series({
+          data: new Float32Array(data),
+          timeRange: new TimeRange(TimeStamp.seconds(start), TimeStamp.seconds(end)),
+        });
+
+      it("should join ops in time order whatever their array order", () => {
+        const a = op(timed(0, 10, 0, 1), timed(0, 10, 2, 3), 2);
+        const b = op(timed(20, 30, 5, 6), timed(20, 30, 7, 4), 2);
+        expect(vertices([b, a])).toEqual([1, 3, 5, 7]);
+      });
+
+      it("should not join two ops that hold overlapping spans", () => {
+        const whole = op(timed(0, 100, 0, 50, 99), timed(0, 100, 1, 2, 3), 3);
+        const copy = op(timed(48, 100, 48, 99), timed(48, 100, 5, 6), 2);
+        expect(vertices([whole, copy])).toEqual([]);
+      });
+
+      it("should join an x series split across two y series", () => {
+        const x = timed(0, 20, 0, 1, 2, 3);
+        const first = op(x, timed(0, 10, 4, 5), 2);
+        const second: DrawOperation = { ...op(x, timed(10, 20, 6, 7), 2), xOffset: 2 };
+        expect(vertices([second, first])).toEqual([1, 5, 2, 6]);
+      });
+    });
+
     it("should map each vertex through the scale", () => {
       const s = new scale.XY(
         scale.Scale.scale<number>(100, 200).scale(1),
@@ -541,8 +578,16 @@ describe("line", () => {
       const draws = (): [number, number][] =>
         calls
           .filter((c) => c.op === "drawArraysInstanced")
-          .map((c) => [c.args[0] as number, c.args[2] as number]);
-      return { line: h.child<Line>("line"), calls, draws };
+          .map((c) => [Number(c.args[0]), Number(c.args[2])]);
+      const strips = (): [number, number][] =>
+        calls
+          .filter(
+            (c) =>
+              c.op === "drawArraysInstanced" &&
+              c.args[0] === canvasTest.GL_ENUMS.LINE_STRIP,
+          )
+          .map((c) => [Number(c.args[1]), Number(c.args[2])]);
+      return { line: h.child<Line>("line"), calls, draws, strips };
     };
 
     const X1 = series([0, 1, 2], 0n, { start: 0, end: 100 });
@@ -568,6 +613,56 @@ describe("line", () => {
         const upload = m.calls.filter((c) => c.op === "bufferData").at(-1);
         expect(Array.from(upload?.args[1] as Float32Array)).toEqual([2, 30, 5, 40]);
       });
+
+      describe("non-finite samples", () => {
+        const RANGE = { start: 0, end: 100 };
+        const strips = (x: number[], y: number[], yAlignment = 0n) => {
+          const m = mount([series(x, 0n, RANGE)], [series(y, yAlignment, RANGE)]);
+          m.line.render(PROPS);
+          return m.strips();
+        };
+
+        it("should leave a gap at a NaN y sample", () => {
+          expect(strips([0, 1, 2, 3, 4], [10, 20, NaN, 40, 50])).toEqual([
+            [0, 2],
+            [3, 2],
+          ]);
+        });
+
+        it("should leave a gap at an infinite x or y sample", () => {
+          expect(
+            strips([0, 1, 2, 3, Infinity, 5, 6], [1, 2, -Infinity, 4, 5, 6, 7]),
+          ).toEqual([
+            [0, 2],
+            [5, 2],
+          ]);
+        });
+
+        it("should draw nothing for a finite sample between two NaN samples", () => {
+          expect(strips([0, 1, 2, 3], [NaN, 1, NaN, 2])).toEqual([]);
+        });
+
+        it("should draw nothing when every sample is NaN", () => {
+          expect(strips([0, 1, 2], [NaN, NaN, NaN])).toEqual([]);
+        });
+
+        it("should find a non-finite x sample through the x offset", () => {
+          // x starts one sample before y, so the strip begins at x[1].
+          expect(strips([0, 1, 2, 3, Infinity, 5], [10, 11, 12, 13, 14], 1n)).toEqual([
+            [0, 3],
+          ]);
+        });
+      });
+
+      it("should not bridge two domains across an infinite sample", () => {
+        const y1 = series([10, 20, Infinity], 0n, { start: 0, end: 100 });
+        const m = mount([X1, X2], [y1, Y2]);
+        m.line.render(PROPS);
+        expect(m.draws()).toEqual([
+          [canvasTest.GL_ENUMS.LINE_STRIP, 2],
+          [canvasTest.GL_ENUMS.LINE_STRIP, 2],
+        ]);
+      });
     });
 
     describe("findByXValue", () => {
@@ -585,6 +680,20 @@ describe("line", () => {
       it("should return the sample under the target", () => {
         const m = mount([X], [Y]);
         expect(m.line.findByXValue(PROPS, 3).value).toEqual({ x: 3, y: 30 });
+      });
+
+      it("should return a NaN sample under the target", () => {
+        const y = series([0, NaN, 20], 0n, { start: 0, end: 100 });
+        const m = mount([X1], [y]);
+        const { value } = m.line.findByXValue(PROPS, 1);
+        expect(value.x).toBe(1);
+        expect(value.y).toBeNaN();
+      });
+
+      it("should return a NaN x when no y sample shares the target's alignment", () => {
+        const y = series([0, 10, 20], 5n, { start: 0, end: 100 });
+        const m = mount([X1], [y]);
+        expect(m.line.findByXValue(PROPS, 1).value.x).toBeNaN();
       });
     });
   });

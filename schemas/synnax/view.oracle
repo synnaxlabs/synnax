@@ -7,45 +7,76 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@cpp output "client/cpp/view"
-@go output  "core/pkg/service/view"
-@pb
-@py output  "client/py/synnax/view"
-@ts output  "client/ts/src/view"
+import "schemas/synnax/label"
+import "schemas/synnax/status"
+
+@go output "core/pkg/service/view"
+@py output "client/py/synnax/view"
+@ts output "client/ts/src/view"
 
 Key = uuid {
     @doc value "is a unique identifier for a saved view configuration."
 }
 
-View struct {
-    key   Key = create {
-        @doc value "is the unique identifier for this view."
-        @key
+View union on type extends Base {
+    range {
+        query RangeQuery {
+            @doc value "filters the ranges the view shows."
+        }
+
+        @doc value "is a saved view of ranges."
     }
-    name  string {
-        @doc value "is a human-readable name for the view."
-    }
-    type  string {
-        @doc value """
-            is the view type identifier (e.g., 'lineplot', 'table', 'schematic').
-        """
-        @filter
-    }
-    query record {
-        @doc value """
-            is a type-agnostic JSON object containing view-specific configuration and
-            query parameters.
-        """
+    status {
+        query StatusQuery {
+            @doc value "filters the statuses the view shows."
+        }
+
+        @doc value "is a saved view of statuses."
     }
 
     @create
     @doc value     """
-        is a persisted view configuration storing visualization settings and query
-        parameters for line plots, tables, schematics, and other view types.
+        is a saved, named filter over a list of resources. The type selects the resource
+        the view lists and the shape of its query.
     """
     @go marshal
     @go migrate
     @ontology type "view"
     @retrieve
     @search
+}
+
+Base struct {
+    key  Key = create {
+        @doc value "is the unique identifier for this view."
+        @key
+    }
+    name string {
+        @doc value         "is a human-readable name for the view."
+        @validate required
+    }
+
+    @doc value  "carries the fields shared by every view variant."
+    @go marshal
+}
+
+RangeQuery struct {
+    has_labels label.Key[] = [] {
+        @doc value "restricts the view to ranges carrying any of these labels."
+    }
+
+    @doc value  "filters the ranges shown by a range view."
+    @go marshal
+}
+
+StatusQuery struct {
+    has_labels label.Key[] = [] {
+        @doc value "restricts the view to statuses carrying any of these labels."
+    }
+    variants   status.Variant[] = [] {
+        @doc value "restricts the view to statuses of these variants."
+    }
+
+    @doc value  "filters the statuses shown by a status view."
+    @go marshal
 }

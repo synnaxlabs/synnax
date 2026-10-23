@@ -19,6 +19,7 @@ import synnax as sy
 from synnax import http
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
+    DriverTask,
     assert_configure_rejected,
     assert_start_rejected,
     cleanup_task,
@@ -73,7 +74,7 @@ class HTTPInvalidConfig(SimulatorCase):
                                 data_type=sy.DataType.FLOAT64,
                                 index=idx.key,
                             ),
-                            data_type="float64",
+                            data_type=sy.DataType.FLOAT64,
                         ),
                     ],
                 ),
@@ -103,7 +104,7 @@ class HTTPInvalidConfig(SimulatorCase):
                                 data_type=sy.DataType.FLOAT64,
                                 index=idx.key,
                             ),
-                            data_type="float64",
+                            data_type=sy.DataType.FLOAT64,
                             disabled=True,
                         ),
                     ],
@@ -127,7 +128,7 @@ class HTTPInvalidConfig(SimulatorCase):
                         http.ReadField(
                             pointer="/temperature",
                             channel=999999999,
-                            data_type="float64",
+                            data_type=sy.DataType.FLOAT64,
                         ),
                     ],
                 ),
@@ -156,7 +157,7 @@ class HTTPInvalidConfig(SimulatorCase):
                                 data_type=sy.DataType.FLOAT64,
                                 index=idx.key,
                             ),
-                            data_type="float64",
+                            data_type=sy.DataType.FLOAT64,
                         ),
                     ],
                 ),
@@ -188,7 +189,7 @@ class HTTPInvalidConfig(SimulatorCase):
                             http.ReadField(
                                 pointer="/temperature",
                                 channel=shared_ch_key,
-                                data_type="float64",
+                                data_type=sy.DataType.FLOAT64,
                             ),
                         ],
                     ),
@@ -220,7 +221,9 @@ class HTTPInvalidConfig(SimulatorCase):
                 "same channel — both tasks ran simultaneously"
             )
 
-    def _assert_deploy_fails(self, task: sy.Task, label: str) -> None:
+    def _assert_deploy_fails(
+        self, task: DriverTask[sy.task.StartConfig], label: str
+    ) -> None:
         """Save a task and assert the driver rejects it on start."""
         message = assert_start_rejected(self.client, task, label)
         self.log(f"  Correctly rejected ({label}): {message}")

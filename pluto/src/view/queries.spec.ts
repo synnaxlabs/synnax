@@ -9,7 +9,7 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -18,6 +18,7 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { View } from "@/view";
 
 const client = createTestClient();
+const label = uuid.create();
 
 describe("View queries", () => {
   let controller: AbortController;
@@ -31,13 +32,13 @@ describe("View queries", () => {
     it("should retrieve a list of views", async () => {
       const view1 = await client.views.create({
         name: "View 1",
-        type: "lineplot",
-        query: { channels: ["ch1"] },
+        type: "range",
+        query: {},
       });
       const view2 = await client.views.create({
         name: "View 2",
-        type: "table",
-        query: { channels: ["ch2"] },
+        type: "status",
+        query: { variants: ["error"] },
       });
 
       const { result } = renderHook(() => View.useList(), { wrapper });
@@ -51,85 +52,56 @@ describe("View queries", () => {
     });
 
     it("should retrieve a list of views by type", async () => {
-      const type = id.create();
-      const view1 = await client.views.create({
-        name: "View 1",
-        type,
-        query: { channels: ["ch1"] },
-      });
-      const view2 = await client.views.create({
-        name: "View 2",
-        type,
-        query: { channels: ["ch2"] },
-      });
-
+      const views = await client.views.create([
+        { name: "View 1", type: "range", query: {} },
+        { name: "View 2", type: "status", query: {} },
+      ]);
+      const keys = views.map((v) => v.key);
       const { result } = renderHook(() => View.useList(), { wrapper });
       act(() => {
-        result.current.retrieve({ types: [type] });
+        result.current.retrieve({ keys, types: ["status"] });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBe(2);
-      expect(result.current.data).toContain(view1.key);
-      expect(result.current.data).toContain(view2.key);
+      expect(result.current.data).toEqual([views[1].key]);
     });
 
     it("should retrieve views that already exist before the hook is mounted", async () => {
-      const type = id.create();
       const views = await client.views.create([
-        {
-          name: "View 1",
-          type,
-          query: { channels: ["ch1"] },
-        },
-        {
-          name: "View 2",
-          type,
-          query: { channels: ["ch2"] },
-        },
+        { name: "View 1", type: "range", query: {} },
+        { name: "View 2", type: "range", query: {} },
+        { name: "Solo View", type: "status", query: {} },
       ]);
-      const soloView = await client.views.create({
-        name: "Solo View",
-        type,
-        query: { channels: ["ch2"] },
+      const keys = views.map((v) => v.key);
+      const { result } = renderHook(() => View.useList({ initialQuery: { keys } }), {
+        wrapper,
       });
-      const { result } = renderHook(
-        () => View.useList({ initialQuery: { types: [type] } }),
-        { wrapper },
-      );
       await act(async () => {
-        await result.current.retrieveAsync({ types: [type] });
+        await result.current.retrieveAsync({ keys });
       });
       expect(result.current.data.length).toBe(3);
-      expect(result.current.data).toContain(views[0].key);
-      expect(result.current.data).toContain(views[1].key);
-      expect(result.current.data).toContain(soloView.key);
+      keys.forEach((key) => expect(result.current.data).toContain(key));
     });
 
     it("should update the list when a view is created", async () => {
-      const type = id.create();
       const { result } = renderHook(() => View.useList({}), { wrapper });
       act(() => {
-        result.current.retrieve({ types: [type] });
+        result.current.retrieve({ types: ["status"] });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBe(0);
       const newView = await client.views.create({
         name: "New View",
-        type,
-        query: { channels: ["ch3"] },
+        type: "status",
+        query: {},
       });
-      await waitFor(() => {
-        expect(result.current.data.length).toBe(1);
-        expect(result.current.data).toContain(newView.key);
-      });
+      await waitFor(() => expect(result.current.data).toContain(newView.key));
     });
   });
   describe("useDelete", () => {
     it("should delete a single view", async () => {
       const view = await client.views.create({
         name: "delete-single",
-        type: "lineplot",
-        query: { channels: ["ch1"] },
+        type: "range",
+        query: {},
       });
       const { result } = renderHook(() => View.useDelete(), { wrapper });
       await act(async () => {
@@ -139,16 +111,10 @@ describe("View queries", () => {
       await expect(client.views.retrieve(view.key)).rejects.toThrow(NotFoundError);
     });
     it("should delete multiple views", async () => {
-      const view1 = await client.views.create({
-        name: "delete-multi-1",
-        type: "lineplot",
-        query: { channels: ["ch1"] },
-      });
-      const view2 = await client.views.create({
-        name: "delete-multi-2",
-        type: "lineplot",
-        query: { channels: ["ch2"] },
-      });
+      const [view1, view2] = await client.views.create([
+        { name: "delete-multi-1", type: "range", query: {} },
+        { name: "delete-multi-2", type: "status", query: {} },
+      ]);
       const { result } = renderHook(() => View.useDelete(), { wrapper });
       await act(async () => {
         await result.current.updateAsync([view1.key, view2.key]);
@@ -163,14 +129,15 @@ describe("View queries", () => {
       const { result } = renderHook(() => View.useForm({ query: null }), { wrapper });
       act(() => {
         result.current.form.set("name", "new-view");
-        result.current.form.set("type", "lineplot");
-        result.current.form.set("query", { channels: ["ch1"] });
+        result.current.form.set("query.hasLabels", [label]);
         result.current.save({ signal: controller.signal });
       });
       await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("new-view");
-        expect(result.current.form.value().type).toEqual("lineplot");
-        expect(result.current.form.value().query).toEqual({ channels: ["ch1"] });
+        expect(result.current.form.value()).toMatchObject({
+          name: "new-view",
+          type: "range",
+          query: { hasLabels: [label] },
+        });
         expect(result.current.form.value().key).toBeDefined();
         expect(result.current.form.value().key).not.toEqual("");
       });
@@ -178,50 +145,48 @@ describe("View queries", () => {
     it("should retrieve and edit an existing view", async () => {
       const view = await client.views.create({
         name: "existing-view",
-        type: "lineplot",
-        query: { channels: ["ch1"] },
+        type: "status",
+        query: { variants: ["error"] },
       });
       const { result } = renderHook(() => View.useForm({ query: { key: view.key } }), {
         wrapper,
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.form.value().name).toEqual("existing-view");
-      expect(result.current.form.value().type).toEqual("lineplot");
-      expect(result.current.form.value().query).toEqual({ channels: ["ch1"] });
-      expect(result.current.form.value().key).toEqual(view.key);
+      expect(result.current.form.value()).toEqual(view);
       act(() => {
         result.current.form.set("name", "edited-view");
-        result.current.form.set("query", { channels: ["ch2"] });
+        result.current.form.set("query.variants", ["warning"]);
         result.current.save({ signal: controller.signal });
       });
       await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("edited-view");
-        expect(result.current.form.value().query).toEqual({ channels: ["ch2"] });
+        expect(result.current.form.value()).toMatchObject({
+          name: "edited-view",
+          query: { variants: ["warning"] },
+        });
       });
     });
     it("should update the form when the view is updated externally", async () => {
       const view = await client.views.create({
         name: "existing-view",
-        type: "lineplot",
-        query: { channels: ["ch1"] },
+        type: "range",
+        query: {},
       });
       const { result } = renderHook(() => View.useForm({ query: { key: view.key } }), {
         wrapper,
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.form.value().name).toEqual("existing-view");
-      expect(result.current.form.value().type).toEqual("lineplot");
-      expect(result.current.form.value().query).toEqual({ channels: ["ch1"] });
-      expect(result.current.form.value().key).toEqual(view.key);
+      expect(result.current.form.value()).toEqual(view);
       await client.views.create({
         key: view.key,
         name: "edited-view",
-        type: "lineplot",
-        query: { channels: ["ch2"] },
+        type: "range",
+        query: { hasLabels: [label] },
       });
       await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("edited-view");
-        expect(result.current.form.value().query).toEqual({ channels: ["ch2"] });
+        expect(result.current.form.value()).toMatchObject({
+          name: "edited-view",
+          query: { hasLabels: [label] },
+        });
       });
     });
   });
@@ -229,8 +194,8 @@ describe("View queries", () => {
     it("should rename a view", async () => {
       const view = await client.views.create({
         name: "existing-view",
-        type: "lineplot",
-        query: { channels: ["ch1"] },
+        type: "range",
+        query: {},
       });
       const { result } = renderHook(() => View.useRename(), { wrapper });
       await act(async () => {

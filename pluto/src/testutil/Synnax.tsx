@@ -44,6 +44,9 @@ const RenderContextSeed = ({
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };
 
+/** Tests assert on reported statuses, so their printed copies are noise. */
+const quiet = (): void => {};
+
 const TEST_THEME = theme.themeZ.parse(theme.SYNNAX_THEMES.synnaxLight);
 
 // Mounts the production aether theming provider without the React provider's
@@ -115,7 +118,7 @@ export const createSynnaxWrapper = ({
     if (telemFactories != null) inner = <Telem.Provider>{inner}</Telem.Provider>;
     return (
       <AetherProvider>
-        <Status.Aggregator>
+        <Status.Aggregator log={quiet}>
           <Alamos.Provider>
             <Synnax.TestProvider client={client} status={connectionStatus}>
               <Suspense fallback={null}>

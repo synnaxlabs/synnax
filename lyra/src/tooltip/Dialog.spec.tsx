@@ -138,6 +138,37 @@ describe("Tooltip.Dialog", () => {
       advance(PAST_DELAY);
       expect(getTooltip()).toBeNull();
     });
+
+    describe("hide function", () => {
+      const mountWithHide = (hide: (anchor: HTMLElement) => boolean) => {
+        const res = render(
+          <Tooltip.Dialog hide={hide}>
+            Tip content
+            <button>Target</button>
+          </Tooltip.Dialog>,
+          { wrapper: Wrapper },
+        );
+        const btn = res.getByText("Target");
+        mockRect(btn);
+        return btn;
+      };
+
+      it("should ask the function with the anchor on each hover", () => {
+        const hide = vi.fn(() => true);
+        const btn = mountWithHide(hide);
+        hover(btn);
+        advance(PAST_DELAY);
+        expect(getTooltip()).toBeNull();
+        expect(hide).toHaveBeenCalledWith(btn);
+      });
+
+      it("should open when the function returns false", () => {
+        const btn = mountWithHide(() => false);
+        hover(btn);
+        advance(PAST_DELAY);
+        expect(getTooltip()?.textContent).toBe("Tip content");
+      });
+    });
   });
 
   describe("closing", () => {

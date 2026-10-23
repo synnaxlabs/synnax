@@ -16,11 +16,17 @@ import synnax as sy
 client = sy.Synnax()
 
 idx = client.channels.create(
-    name="idx", is_index=True, data_type="timestamp", retrieve_if_name_exists=True
+    name="idx",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
 )
 
 data = client.channels.create(
-    name="data", index=idx.key, data_type="float32", retrieve_if_name_exists=True
+    name="data",
+    index=idx.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
 )
 
 count = 100
@@ -39,11 +45,17 @@ with client.open_writer(sy.TimeStamp.now(), [idx.key, data.key]) as writer:
 time.sleep(1)
 
 data_2 = client.channels.create(
-    name="data_2", index=idx.key, data_type="float32", retrieve_if_name_exists=True
+    name="data_2",
+    index=idx.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
 )
 
 data_3 = client.channels.create(
-    name="data_3", index=idx.key, data_type="float32", retrieve_if_name_exists=True
+    name="data_3",
+    index=idx.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
 )
 
 with client.open_writer(

@@ -20,8 +20,6 @@ from freighter.context import Context
 class Empty(BaseModel):
     """Empty represents an empty payload."""
 
-    pass
-
 
 RQ = TypeVar("RQ", bound=BaseModel, contravariant=True)
 """Represents a general request payload."""
@@ -118,7 +116,7 @@ class MiddlewareCollector:
         def _next(ctx_: Context) -> Context:
             if len(middleware) == 0:
                 return finalizer(ctx_)
-            return middleware.pop()(ctx_, _next)
+            return middleware.pop(0)(ctx_, _next)
 
         return _next(ctx)
 
@@ -150,6 +148,6 @@ class AsyncMiddlewareCollector:
         async def _next(_md: Context) -> Context:
             if len(middleware) == 0:
                 return await finalizer(_md)
-            return await middleware.pop()(_md, _next)
+            return await middleware.pop(0)(_md, _next)
 
         return await _next(md)

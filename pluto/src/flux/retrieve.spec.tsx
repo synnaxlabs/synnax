@@ -51,6 +51,8 @@ beforeAll(async () => {
   await waitFor(() => expect(client.connection.status.details.epoch).toBe(1));
 });
 
+const quiet = (): void => {};
+
 /** Mounts the real provider against a live cluster reached through `port`. */
 const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
   const AetherProvider = aetherTest.createProvider({
@@ -66,10 +68,11 @@ const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
       maxInterval: TimeSpan.milliseconds(50),
       scale: 1.5,
     },
+    onRetry: quiet,
   };
   const Live = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
-      <Status.Aggregator>
+      <Status.Aggregator log={quiet}>
         <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>
       </Status.Aggregator>
     </AetherProvider>
@@ -198,6 +201,7 @@ describe("use", () => {
             <Display />
           </Errors.SuspenseBoundary>
         </Wrapper>,
+        { onCaughtError: quiet },
       );
     });
 
@@ -237,6 +241,7 @@ describe("use", () => {
             <Display />
           </Errors.SuspenseBoundary>
         </Wrapper>,
+        { onCaughtError: quiet },
       );
     });
 
@@ -436,6 +441,64 @@ describe("use", () => {
     });
   });
 
+  describe("suspended mount retry", () => {
+    // A mount outside a transition commits the fallback and discards its suspended
+    // attempt. The retry mounts a new component that finds the answer cached. The
+    // mount runs outside act, which would otherwise replay the attempt in place.
+    const mountWithFallback = async (domainCached: boolean): Promise<unknown[][]> => {
+      let cached: number | undefined;
+      let resolveRetrieve: ((value: number) => void) | undefined;
+      const { use } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: () =>
+          new Promise<number>((resolve) => {
+            resolveRetrieve = (value) => {
+              if (domainCached) cached = value;
+              resolve(value);
+            };
+          }),
+        getCached: () => cached,
+      });
+      const key = id.create();
+      const Display = (): ReactElement => <div data-testid="value">{use({ key })}</div>;
+      let mount: () => void = () => {};
+      const Harness = (): ReactElement => {
+        const [mounted, setMounted] = useState(false);
+        mount = () => setMounted(true);
+        return (
+          <Errors.SuspenseBoundary loading={<div>loading</div>}>
+            {mounted && <Display />}
+          </Errors.SuspenseBoundary>
+        );
+      };
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const utils = render(
+          <Wrapper>
+            <Harness />
+          </Wrapper>,
+        );
+        mount();
+        await waitFor(() => expect(utils.queryByText("loading")).toBeTruthy());
+        resolveRetrieve?.(7);
+        await waitFor(() =>
+          expect(utils.queryByTestId("value")?.textContent).toBe("7"),
+        );
+        return consoleError.mock.calls;
+      } finally {
+        consoleError.mockRestore();
+      }
+    };
+
+    it("reads the domain-cached answer without a conditional use", async () => {
+      expect(await mountWithFallback(true)).toEqual([]);
+    });
+
+    it("reads the locally settled answer without a conditional use", async () => {
+      expect(await mountWithFallback(false)).toEqual([]);
+    });
+  });
+
   describe("equal", () => {
     const sameNumbers = (a: number[], b: number[]): boolean =>
       a.length === b.length && a.every((v, i) => v === b[i]);
@@ -556,6 +619,7 @@ describe("use", () => {
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
+          { onCaughtError: quiet },
         );
       });
 
@@ -713,6 +777,7 @@ describe("use", () => {
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
+          { onCaughtError: quiet },
         );
       });
       return { utils, retrieve };
@@ -817,6 +882,7 @@ describe("use", () => {
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
+          { onCaughtError: quiet },
         );
       });
       return {
@@ -908,6 +974,7 @@ describe("use", () => {
                 <Display />
               </Errors.SuspenseBoundary>
             </Wrapper>,
+            { onCaughtError: quiet },
           );
         });
         await act(async () => {
@@ -1002,6 +1069,7 @@ describe("use", () => {
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
+          { onCaughtError: quiet },
         );
       });
 
@@ -1040,6 +1108,7 @@ describe("use", () => {
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
+          { onCaughtError: quiet },
         );
       });
 
@@ -1082,6 +1151,7 @@ describe("use", () => {
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
+          { onCaughtError: quiet },
         );
       });
 
@@ -1126,13 +1196,16 @@ describe("use", () => {
 
       // The first read opens the change stream, which is what advances the epoch
       // once the connection returns.
-      const utils = render(tree(first.key));
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(tree(first.key), { onCaughtError: quiet });
+      });
       mounted = utils;
       await waitFor(() => expect(utils.getByText(first.name)).toBeTruthy());
 
       // The second label was never read, so it cannot be served from the cache.
       await proxy.sever();
-      utils.rerender(tree(second.key));
+      await act(async () => utils.rerender(tree(second.key)));
       await waitFor(() => expect(utils.getByTestId("error")).toBeTruthy());
 
       await proxy.restore();
@@ -1206,6 +1279,7 @@ describe("useEnsure", () => {
             <Display />
           </Errors.SuspenseBoundary>
         </Wrapper>,
+        { onCaughtError: quiet },
       );
     });
 
@@ -1248,7 +1322,7 @@ describe("use connection changes", () => {
 
     let utils!: ReturnType<typeof render>;
     await act(async () => {
-      utils = render(<Harness connected />);
+      utils = render(<Harness connected />, { onCaughtError: quiet });
     });
     await waitFor(() =>
       expect(utils.queryByTestId("value")?.textContent).toBe("value-42"),
@@ -1361,6 +1435,7 @@ describe("createSelector", () => {
             <Display />
           </Errors.SuspenseBoundary>
         </Wrapper>,
+        { onCaughtError: quiet },
       );
     });
     expect(utils.queryByText("loading-select")).toBeNull();
@@ -1389,6 +1464,7 @@ describe("createSelector", () => {
             <Display />
           </Errors.SuspenseBoundary>
         </Wrapper>,
+        { onCaughtError: quiet },
       );
     });
     expect(utils.queryByTestId("error")?.textContent).toEqual("deleted");
@@ -1414,6 +1490,7 @@ describe("createSelector", () => {
             <Display />
           </Errors.SuspenseBoundary>
         </NullWrapper>,
+        { onCaughtError: quiet },
       );
     });
     expect(utils.queryByTestId("error")?.textContent).toEqual("disconnected");

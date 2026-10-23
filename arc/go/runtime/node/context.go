@@ -68,7 +68,4 @@ type Context struct {
 	// ReportError reports a runtime error without stopping execution.
 	// The node should continue where possible, using safe defaults.
 	ReportError func(err error)
-	// Tolerance is the timing tolerance for interval/wait comparisons.
-	// Allows firing up to this amount early to handle OS scheduling jitter.
-	Tolerance telem.TimeSpan
 }

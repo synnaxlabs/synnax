@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType, type framer } from "@synnaxlabs/client";
-import { id, MultiSeries, Series } from "@synnaxlabs/x";
+import { id, MultiSeries, Series, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { createFactory } from "@/telem/aether/factory";
@@ -19,6 +19,7 @@ import { telemTest } from "@/telem/aether/test";
 import { withinBounds } from "@/telem/aether/transformers";
 
 class MockClient implements Client {
+  now = (): TimeStamp => TimeStamp.now();
   key = id.create();
   streamHandler: framer.StreamHandler | null = null;
   streamF = vi.fn();

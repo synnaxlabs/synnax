@@ -16,11 +16,11 @@ from .thermal import ThermalSimDAQ
 from .tpc import TPCSimDAQ
 
 __all__ = [
-    "Simulator",
-    "SimDAQ",
     "DeviceSim",
     "LoadCurrentSimDAQ",
     "PressSimDAQ",
-    "ThermalSimDAQ",
+    "SimDAQ",
+    "Simulator",
     "TPCSimDAQ",
+    "ThermalSimDAQ",
 ]

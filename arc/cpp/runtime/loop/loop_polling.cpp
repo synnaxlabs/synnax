@@ -48,7 +48,8 @@ public:
 
     WakeReason wait(
         x::breaker::Breaker &breaker,
-        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0)
+        x::telem::TimeSpan max_timeout = x::telem::TimeSpan(0),
+        x::telem::TimeSpan span = x::telem::TimeSpan::max()
     ) override {
         if (!this->started_) return WakeReason::Shutdown;
 
@@ -147,5 +148,4 @@ std::unique_ptr<Loop>
 create(const Config &cfg, std::shared_ptr<x::thread::rt::Handle> rt_handle) {
     return std::make_unique<PollingLoop>(cfg);
 }
-
 }

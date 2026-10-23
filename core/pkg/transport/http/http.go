@@ -40,7 +40,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
-	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
 )
 
@@ -353,6 +352,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 		RackDelete: router.NewUnaryServer[rack.DeleteRequest, struct{}](
 			"/api/v1/rack/delete",
 		),
+		RackRename: router.NewUnaryServer[rack.RenameRequest, struct{}](
+			"/api/v1/rack/rename",
+		),
 
 		// TASK
 		TaskCreate: router.NewUnaryServer[task.CreateRequest, task.CreateResponse](
@@ -367,6 +369,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 		TaskCopy: router.NewUnaryServer[task.CopyRequest, task.CopyResponse](
 			"/api/v1/task/copy",
 		),
+		TaskRename: router.NewUnaryServer[task.RenameRequest, struct{}](
+			"/api/v1/task/rename",
+		),
 
 		// DEVICE
 		DeviceCreate: router.NewUnaryServer[device.CreateRequest, device.CreateResponse](
@@ -377,6 +382,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 		DeviceDelete: router.NewUnaryServer[device.DeleteRequest, struct{}](
 			"/api/v1/device/delete",
+		),
+		DeviceRename: router.NewUnaryServer[device.RenameRequest, struct{}](
+			"/api/v1/device/rename",
 		),
 
 		// ACCESS
@@ -418,8 +426,8 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ArcDispatch: router.NewUnaryServer[arc.DispatchRequest, struct{}](
 			"/api/v1/arc/dispatch",
 		),
-		ArcSetRack: router.NewUnaryServer[arc.SetRackRequest, arc.SetRackResponse](
-			"/api/v1/arc/set-rack",
+		ArcUpdateTask: router.NewUnaryServer[arc.UpdateTaskRequest, arc.UpdateTaskResponse](
+			"/api/v1/arc/update-task",
 		),
 		ArcLSP: router.NewStreamServer[arc.LSPMessage, arc.LSPMessage](
 			"/api/v1/arc/lsp",
@@ -438,6 +446,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 		StatusSetByKeyOrName: router.NewUnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse](
 			"/api/v1/status/set-by-key-or-name",
 		),
+		StatusRename: router.NewUnaryServer[status.RenameRequest, struct{}](
+			"/api/v1/status/rename",
+		),
 
 		// VIEW
 		ViewCreate: router.NewUnaryServer[view.CreateRequest, view.CreateResponse](
@@ -449,11 +460,14 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ViewDelete: router.NewUnaryServer[view.DeleteRequest, struct{}](
 			"/api/v1/view/delete",
 		),
+		ViewRename: router.NewUnaryServer[view.RenameRequest, struct{}](
+			"/api/v1/view/rename",
+		),
 
 		// IMPORT/EXPORT
 		ImExImport: router.NewUnaryServer[imex.ImportRequest, imex.ImportResponse](
 			"/api/v1/imex/import",
-			http.WithRequestDecoders(json.Codec),
+			http.WithRequestDecoders(imex.ImportCodec),
 		),
 		ImExExport: router.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](
 			"/api/v1/imex/export",
