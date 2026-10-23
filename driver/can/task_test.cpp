@@ -344,8 +344,8 @@ protected:
     }
 };
 
-/// @returns the library messages of the vcan read case.
-std::vector<synnax::library::MessageEntry> read_messages() {
+/// @returns the ICD messages of the vcan read case.
+std::vector<synnax::icd::MessageEntry> read_messages() {
     auto sine_field = binary_field("sine", 16, 16);
     sine_field.signed_ = true;
     sine_field.scale = SINE_SCALE;
@@ -354,7 +354,7 @@ std::vector<synnax::library::MessageEntry> read_messages() {
     temperature_field.scale = 0.5;
     temperature_field.offset = -10;
     auto speed_field = binary_field("speed", 55, 16);
-    speed_field.byte_order = synnax::library::BYTE_ORDER_BIG_ENDIAN;
+    speed_field.byte_order = synnax::icd::BYTE_ORDER_BIG_ENDIAN;
     auto fast_msg = binary_message(
         "fast",
         {binary_field("count", 0, 16),
@@ -362,7 +362,7 @@ std::vector<synnax::library::MessageEntry> read_messages() {
          temperature_field,
          binary_field("state", 44, 4),
          speed_field},
-        synnax::library::CanIdentifier{.id = FAST_ID}
+        synnax::icd::CanIdentifier{.id = FAST_ID}
     );
     binary(fast_msg).length = 8;
     auto ratio = binary_field("ratio", 32, 32);
@@ -370,7 +370,7 @@ std::vector<synnax::library::MessageEntry> read_messages() {
     auto slow_msg = binary_message(
         "slow",
         {binary_field("count", 0, 32), ratio},
-        synnax::library::CanIdentifier{
+        synnax::icd::CanIdentifier{
             .id = SLOW_ID & SLOW_MASK,
             .extended = true,
             .mask = SLOW_MASK,
@@ -383,7 +383,7 @@ std::vector<synnax::library::MessageEntry> read_messages() {
 /// @brief resolves a CAN write config over messages. The fields of the messages map
 /// in order to command channels numbered from 7.
 bus::WriteConfig
-write_config(const std::vector<synnax::library::MessageEntry> &messages) {
+write_config(const std::vector<synnax::icd::MessageEntry> &messages) {
     ::synnax::bus::WriteConfig cfg;
     cfg.device = "dev";
     std::vector<synnax::channel::Channel> channels;
@@ -401,7 +401,7 @@ write_config(const std::vector<synnax::library::MessageEntry> &messages) {
         parser,
         cfg,
         std::nullopt,
-        library(messages),
+        create_icd(messages),
         channels,
         bus::Medium::CAN
     );
@@ -412,7 +412,7 @@ write_config(const std::vector<synnax::library::MessageEntry> &messages) {
 }
 
 /// @returns the command and heartbeat messages of the vcan write case.
-std::vector<synnax::library::MessageEntry> write_messages() {
+std::vector<synnax::icd::MessageEntry> write_messages() {
     auto setpoint = binary_field("setpoint", 0, 16);
     setpoint.scale = 0.5;
     auto trim = binary_field("trim", 16, 8);
@@ -420,13 +420,13 @@ std::vector<synnax::library::MessageEntry> write_messages() {
     auto command = binary_message(
         "command",
         {setpoint, trim, binary_field("enabled", 24, 1)},
-        synnax::library::CanIdentifier{.id = COMMAND_ID}
+        synnax::icd::CanIdentifier{.id = COMMAND_ID}
     );
     binary(command).length = 8;
     auto heartbeat = binary_message(
         "heartbeat",
         {binary_field("beat", 0, 16)},
-        synnax::library::CanIdentifier{.id = HEARTBEAT_ID}
+        synnax::icd::CanIdentifier{.id = HEARTBEAT_ID}
     );
     binary(heartbeat).length = 2;
     heartbeat.period = 100 * x::telem::MILLISECOND;
@@ -440,7 +440,7 @@ bus::ReadConfig status_read_config() {
         {binary_message(
             "status",
             {binary_field("v", 0)},
-            synnax::library::CanIdentifier{.id = 0x10}
+            synnax::icd::CanIdentifier{.id = 0x10}
         )},
         std::nullopt,
         nullptr,
@@ -451,11 +451,11 @@ bus::ReadConfig status_read_config() {
 }
 
 /// @returns a message, cmd, whose first byte v comes from channel 7.
-synnax::library::MessageEntry command_message() {
+synnax::icd::MessageEntry command_message() {
     return binary_message(
         "cmd",
         {binary_field("v", 0)},
-        synnax::library::CanIdentifier{.id = 0x20}
+        synnax::icd::CanIdentifier{.id = 0x20}
     );
 }
 }
@@ -790,7 +790,7 @@ TEST_F(CANTask, RejectsAFrameLongerThanTheBusCarries) {
     auto m = binary_message(
         "big",
         {binary_field("v", 0)},
-        synnax::library::CanIdentifier{.id = 0x20}
+        synnax::icd::CanIdentifier{.id = 0x20}
     );
     Transmitter tx(message_frames(write_config({m}), false), this->acquire());
     ASSERT_NIL(tx.acquire());
@@ -803,7 +803,7 @@ TEST(CANFrames, BuildsTheFrameOfEachMessage) {
     auto m = binary_message(
         "status",
         {binary_field("v", 0)},
-        synnax::library::CanIdentifier{.id = 0x1ABCDEF0, .extended = true}
+        synnax::icd::CanIdentifier{.id = 0x1ABCDEF0, .extended = true}
     );
     x::json::Parser parser(x::json::json::object());
     const auto built = frames(parser, write_config({m}), false);
@@ -819,7 +819,7 @@ TEST(CANFrames, RejectsAFrameTheBusCannotCarry) {
     auto m = binary_message(
         "status",
         {binary_field("v", 0)},
-        synnax::library::CanIdentifier{.id = 0x20, .fd = true}
+        synnax::icd::CanIdentifier{.id = 0x20, .fd = true}
     );
     x::json::Parser parser(x::json::json::object());
     const auto built = frames(parser, write_config({m}), false);

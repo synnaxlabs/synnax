@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-#include "client/cpp/library/types.gen.h"
+#include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
@@ -108,22 +108,22 @@ public:
     /// @brief compiles a plan whose slots are every field of the message, in order.
     /// @returns CONFIG_ERROR when the message layout is invalid.
     static std::pair<Plan, x::errors::Error>
-    compile(const synnax::library::MessageEntry &message);
+    compile(const synnax::icd::MessageEntry &message);
 
     /// @brief compiles a plan whose slots are the given fields, in the given order.
     /// Multiplexors of the given fields are resolved even when not in keys.
     /// @returns CONFIG_ERROR when a key is missing or duplicated, or when the layout of
     /// a field the plan needs is invalid.
     static std::pair<Plan, x::errors::Error> compile(
-        const synnax::library::MessageEntry &message,
-        const std::vector<synnax::library::FieldKey> &keys
+        const synnax::icd::MessageEntry &message,
+        const std::vector<synnax::icd::FieldKey> &keys
     );
 
     /// @returns the number of slots.
     [[nodiscard]] std::size_t size() const { return this->keys.size(); }
 
     /// @returns the key of the field in the slot.
-    [[nodiscard]] const synnax::library::FieldKey &key(const std::size_t slot) const {
+    [[nodiscard]] const synnax::icd::FieldKey &key(const std::size_t slot) const {
         return this->keys[slot];
     }
 
@@ -181,7 +181,7 @@ private:
         /// @param type the type of a binary field, or nullopt for a text field.
         /// @param bits the length of a binary field.
         Limit(
-            const synnax::library::BaseField &field,
+            const synnax::icd::BaseField &field,
             std::optional<Type> type,
             std::uint8_t bits
         );
@@ -286,10 +286,10 @@ private:
     }
     /// @brief compiles the fields of keys from a binary payload.
     /// @returns CONFIG_ERROR when the layout of a field the plan needs is invalid.
-    x::errors::Error compile_payload(const synnax::library::BinaryPayload &payload);
+    x::errors::Error compile_payload(const synnax::icd::BinaryPayload &payload);
     /// @brief compiles the fields of keys from a text payload.
     /// @returns CONFIG_ERROR when the delimiter or a field the plan needs is invalid.
-    x::errors::Error compile_payload(const synnax::library::TextPayload &payload);
+    x::errors::Error compile_payload(const synnax::icd::TextPayload &payload);
     x::errors::Error
     decode_binary(std::span<const std::uint8_t> payload, Values &values) const;
     void decode_text(std::span<const std::uint8_t> payload, Values &values) const;
@@ -297,7 +297,7 @@ private:
     void encode_text(const Values &values, std::vector<std::uint8_t> &payload) const;
 
     /// @brief keys is the field key of each slot.
-    std::vector<synnax::library::FieldKey> keys;
+    std::vector<synnax::icd::FieldKey> keys;
     /// @brief limits holds the range of each slot.
     std::vector<Limit> limits;
     /// @brief text is true for text messages.

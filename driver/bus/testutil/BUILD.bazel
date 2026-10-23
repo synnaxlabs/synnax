@@ -17,7 +17,7 @@ cc_library(
     deps = [
         "//client/cpp/bus",
         "//client/cpp/channel",
-        "//client/cpp/library",
+        "//client/cpp/icd",
         "//driver/bus",
         "//x/cpp/errors",
         "//x/cpp/json",

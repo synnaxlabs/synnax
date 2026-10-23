@@ -42,7 +42,7 @@ struct Harness {
     /// @param bindings maps each command channel to the index of the field it drives in
     /// message.
     Harness(
-        const synnax::library::MessageEntry &message,
+        const synnax::icd::MessageEntry &message,
         const std::vector<std::pair<synnax::channel::Key, std::size_t>> &bindings,
         const std::optional<::synnax::bus::Framing> &framing,
         x::telem::NowFunc now = steady_now
@@ -61,7 +61,7 @@ struct Harness {
             parser,
             cfg,
             framing,
-            library({message}),
+            create_icd({message}),
             channels
         );
         EXPECT_TRUE(parser.ok()) << parser.error_json().dump();
@@ -169,10 +169,7 @@ TEST(Sink, SendsAPeriodicMessageWithNoFields) {
 TEST(Sink, WritesTheValueOfAFieldIdentifier) {
     auto id = binary_field("kind", 0);
     auto m = binary_message("cmd", {id, binary_field("v", 8)});
-    binary(m).identifier = synnax::library::FieldIdentifier{
-        .field = id.key,
-        .value = 0x42
-    };
+    binary(m).identifier = synnax::icd::FieldIdentifier{.field = id.key, .value = 0x42};
     Harness h(m, {{1, 1}}, std::nullopt);
     h.command(1, 7);
     ASSERT_EVENTUALLY_EQ(h.count(), 1);

@@ -15,7 +15,7 @@
 
 #include "gtest/gtest.h"
 
-#include "client/cpp/library/types.gen.h"
+#include "client/cpp/icd/types.gen.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/test/test.h"
 #include "x/cpp/uuid/uuid.h"
@@ -25,15 +25,15 @@
 
 namespace driver::codec {
 namespace {
-namespace library = synnax::library;
+namespace icd = synnax::icd;
 
-library::BinaryField binary(
+icd::BinaryField binary(
     const std::string &name,
     const std::uint16_t start_bit,
     const std::uint8_t bit_length,
     const bool signed_ = false
 ) {
-    library::BinaryField f;
+    icd::BinaryField f;
     f.key = x::uuid::create();
     f.name = name;
     f.start_bit = start_bit;
@@ -42,9 +42,9 @@ library::BinaryField binary(
     return f;
 }
 
-library::BinaryField multiplexed(
-    library::BinaryField f,
-    const library::BinaryField &mux,
+icd::BinaryField multiplexed(
+    icd::BinaryField f,
+    const icd::BinaryField &mux,
     const std::int32_t value
 ) {
     f.multiplexor = mux.key;
@@ -52,40 +52,40 @@ library::BinaryField multiplexed(
     return f;
 }
 
-library::DelimitedTextField
+icd::DelimitedTextField
 delimited(const std::string &name, const std::uint32_t pos) {
-    library::DelimitedTextField f;
+    icd::DelimitedTextField f;
     f.key = x::uuid::create();
     f.name = name;
     f.position = pos;
     return f;
 }
 
-library::TaggedTextField tagged(const std::string &name, const std::string &tag) {
-    library::TaggedTextField f;
+icd::TaggedTextField tagged(const std::string &name, const std::string &tag) {
+    icd::TaggedTextField f;
     f.key = x::uuid::create();
     f.name = name;
     f.tag = tag;
     return f;
 }
 
-library::MessageEntry message(
-    std::vector<library::BinaryField> fields,
+icd::MessageEntry message(
+    std::vector<icd::BinaryField> fields,
     const std::optional<std::uint16_t> length = std::nullopt
 ) {
-    library::MessageEntry m;
+    icd::MessageEntry m;
     m.key = x::uuid::create();
     m.name = "message";
-    m.payload = library::BinaryPayload{.length = length, .fields = std::move(fields)};
+    m.payload = icd::BinaryPayload{.length = length, .fields = std::move(fields)};
     return m;
 }
 
-library::MessageEntry
-text(std::vector<library::TextField> fields, const std::string &delimiter = ",") {
-    library::MessageEntry m;
+icd::MessageEntry
+text(std::vector<icd::TextField> fields, const std::string &delimiter = ",") {
+    icd::MessageEntry m;
     m.key = x::uuid::create();
     m.name = "message";
-    m.payload = library::TextPayload{
+    m.payload = icd::TextPayload{
         .delimiter = delimiter,
         .fields = std::move(fields),
     };

@@ -23,24 +23,24 @@
 
 namespace driver::codec {
 namespace {
-namespace library = synnax::library;
+namespace icd = synnax::icd;
 
 x::errors::Error field_error(const std::string &field, const std::string &msg) {
     return x::errors::Error(CONFIG_ERROR, "field " + field + ": " + msg);
 }
 
-const library::BaseField &base(const library::BinaryField &field) {
+const icd::BaseField &base(const icd::BinaryField &field) {
     return field;
 }
 
-const library::BaseField &base(const library::TextField &field) {
+const icd::BaseField &base(const icd::TextField &field) {
     return std::visit(
-        [](const auto &f) -> const library::BaseField & { return f; },
+        [](const auto &f) -> const icd::BaseField & { return f; },
         field
     );
 }
 
-x::errors::Error validate_scaling(const library::BaseField &field) {
+x::errors::Error validate_scaling(const icd::BaseField &field) {
     if (!std::isfinite(field.scale) || field.scale == 0)
         return field_error(field.name, "scale must be finite and non-zero");
     if (!std::isfinite(field.offset))
@@ -53,10 +53,10 @@ x::errors::Error validate_scaling(const library::BaseField &field) {
 /// scaling is invalid.
 template<typename Field>
 std::pair<std::vector<const Field *>, x::errors::Error> select(
-    const std::unordered_map<library::FieldKey, const Field *> &by_key,
-    const std::vector<library::FieldKey> &keys
+    const std::unordered_map<icd::FieldKey, const Field *> &by_key,
+    const std::vector<icd::FieldKey> &keys
 ) {
-    std::unordered_set<library::FieldKey> seen;
+    std::unordered_set<icd::FieldKey> seen;
     std::vector<const Field *> fields;
     fields.reserve(keys.size());
     for (const auto &key: keys) {
@@ -79,9 +79,9 @@ std::pair<std::vector<const Field *>, x::errors::Error> select(
 
 /// @returns each field by its key.
 template<typename Field>
-std::unordered_map<library::FieldKey, const Field *>
+std::unordered_map<icd::FieldKey, const Field *>
 keyed(const std::vector<Field> &fields) {
-    std::unordered_map<library::FieldKey, const Field *> by_key;
+    std::unordered_map<icd::FieldKey, const Field *> by_key;
     for (const auto &f: fields)
         by_key[base(f).key] = &f;
     return by_key;
@@ -152,7 +152,7 @@ void append_number(std::vector<std::uint8_t> &out, const T value) {
 }
 
 Plan::Limit::Limit(
-    const library::BaseField &field,
+    const icd::BaseField &field,
     const std::optional<Type> type,
     const std::uint8_t bits
 ):
@@ -374,8 +374,8 @@ void Plan::set_raw(
         values.set(slot, raw);
 }
 
-std::pair<Plan, x::errors::Error> Plan::compile(const library::MessageEntry &message) {
-    std::vector<library::FieldKey> keys;
+std::pair<Plan, x::errors::Error> Plan::compile(const icd::MessageEntry &message) {
+    std::vector<icd::FieldKey> keys;
     std::visit(
         [&keys](const auto &payload) {
             keys.reserve(payload.fields.size());
@@ -388,8 +388,8 @@ std::pair<Plan, x::errors::Error> Plan::compile(const library::MessageEntry &mes
 }
 
 std::pair<Plan, x::errors::Error> Plan::compile(
-    const library::MessageEntry &message,
-    const std::vector<library::FieldKey> &keys
+    const icd::MessageEntry &message,
+    const std::vector<icd::FieldKey> &keys
 ) {
     Plan plan;
     plan.keys = keys;
@@ -401,7 +401,7 @@ std::pair<Plan, x::errors::Error> Plan::compile(
     return {std::move(plan), x::errors::NIL};
 }
 
-x::errors::Error Plan::compile_payload(const library::TextPayload &payload) {
+x::errors::Error Plan::compile_payload(const icd::TextPayload &payload) {
     if (payload.delimiter.empty())
         return x::errors::Error(CONFIG_ERROR, "text delimiter is empty");
     this->text = true;
@@ -416,12 +416,12 @@ x::errors::Error Plan::compile_payload(const library::TextPayload &payload) {
             return field_error(fb.name, "text fields cannot be multiplexed");
         this->limits[slot] = Limit(fb, std::nullopt, 0);
         Text t{.slot = slot, .scale = fb.scale, .offset = fb.offset};
-        if (const auto *d = std::get_if<library::DelimitedTextField>(&field)) {
+        if (const auto *d = std::get_if<icd::DelimitedTextField>(&field)) {
             t.position = d->position;
             this->positional.push_back(std::move(t));
             continue;
         }
-        const auto &tagged = std::get<library::TaggedTextField>(field);
+        const auto &tagged = std::get<icd::TaggedTextField>(field);
         if (tagged.tag.empty()) return field_error(fb.name, "tag is empty");
         t.tag = tagged.tag;
         this->tagged.push_back(std::move(t));
@@ -434,12 +434,12 @@ x::errors::Error Plan::compile_payload(const library::TextPayload &payload) {
     return x::errors::NIL;
 }
 
-x::errors::Error Plan::compile_payload(const library::BinaryPayload &payload) {
+x::errors::Error Plan::compile_payload(const icd::BinaryPayload &payload) {
     const auto by_key = keyed(payload.fields);
     const auto [fields, err] = select(by_key, this->keys);
     if (err) return err;
     this->limits.resize(fields.size());
-    std::unordered_map<library::FieldKey, int> mux_index;
+    std::unordered_map<icd::FieldKey, int> mux_index;
     std::vector<std::pair<std::size_t, Binary>> ordered;
     for (std::size_t slot = 0; slot < fields.size(); slot++) {
         const auto &bf = *fields[slot];
@@ -471,7 +471,7 @@ x::errors::Error Plan::compile_payload(const library::BinaryPayload &payload) {
         const auto target = [this, &b](const int fill) -> Condition & {
             return fill < 0 ? b.condition : this->muxes[fill].condition;
         };
-        const library::BinaryField *cur = &bf;
+        const icd::BinaryField *cur = &bf;
         int fill = -1;
         std::size_t depth = 0;
         const auto cycle = field_error(bf.name, "multiplexors form a cycle");

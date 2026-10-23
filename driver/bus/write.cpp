@@ -133,7 +133,7 @@ void Sink::enqueue(const std::size_t message) {
             reinterpret_cast<const char *>(payload.data()),
             payload.size()
         );
-        const auto &delimiter = std::get<synnax::library::TextPayload>(m.entry.payload)
+        const auto &delimiter = std::get<synnax::icd::TextPayload>(m.entry.payload)
                                     .delimiter;
         if (prefix.ends_with(delimiter) && body.starts_with(delimiter))
             prefix.remove_suffix(delimiter.size());

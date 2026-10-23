@@ -13,7 +13,7 @@
 
 #include "gtest/gtest.h"
 
-#include "client/cpp/library/types.gen.h"
+#include "client/cpp/icd/types.gen.h"
 #include "x/cpp/test/test.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -22,53 +22,53 @@
 
 namespace driver::codec {
 namespace {
-namespace library = synnax::library;
+namespace icd = synnax::icd;
 
-library::MessageEntry message(
-    std::optional<library::Identifier> identifier,
+icd::MessageEntry message(
+    std::optional<icd::Identifier> identifier,
     const std::string &name = "message",
-    std::vector<library::BinaryField> fields = {}
+    std::vector<icd::BinaryField> fields = {}
 ) {
-    library::MessageEntry m;
+    icd::MessageEntry m;
     m.key = x::uuid::create();
     m.name = name;
-    m.payload = library::BinaryPayload{
+    m.payload = icd::BinaryPayload{
         .identifier = std::move(identifier),
         .fields = std::move(fields),
     };
     return m;
 }
 
-library::MessageEntry
+icd::MessageEntry
 can(const std::uint32_t id,
     const bool extended = false,
     const std::optional<std::uint32_t> mask = std::nullopt) {
     return message(
-        library::CanIdentifier{.id = id, .extended = extended, .mask = mask}
+        icd::CanIdentifier{.id = id, .extended = extended, .mask = mask}
     );
 }
 
-library::MessageEntry
+icd::MessageEntry
 prefixed(const std::string &prefix, const std::string &name = "message") {
-    library::MessageEntry m;
+    icd::MessageEntry m;
     m.key = x::uuid::create();
     m.name = name;
-    m.payload = library::TextPayload{.prefix = prefix};
+    m.payload = icd::TextPayload{.prefix = prefix};
     return m;
 }
 
-library::MessageEntry header(
+icd::MessageEntry header(
     const std::int32_t value,
     const std::string &name = "message",
     const std::uint8_t bit_length = 8
 ) {
-    library::BinaryField type;
+    icd::BinaryField type;
     type.key = x::uuid::create();
     type.name = "type";
     type.start_bit = 0;
     type.bit_length = bit_length;
     return message(
-        library::FieldIdentifier{.field = type.key, .value = value},
+        icd::FieldIdentifier{.field = type.key, .value = value},
         name,
         {type}
     );
@@ -177,8 +177,8 @@ TEST(Matcher, RejectsTwoMessagesWithTheSameHeaderValue) {
 
 TEST(Matcher, RejectsTwoMessagesWithTheSameExactId) {
     const std::vector messages = {
-        message(library::CanIdentifier{.id = 0x100}, "a"),
-        message(library::CanIdentifier{.id = 0x100}, "b"),
+        message(icd::CanIdentifier{.id = 0x100}, "a"),
+        message(icd::CanIdentifier{.id = 0x100}, "b"),
     };
     const auto [_, err] = Matcher::compile(messages);
     ASSERT_MATCHES(err, CONFIG_ERROR);
@@ -187,8 +187,8 @@ TEST(Matcher, RejectsTwoMessagesWithTheSameExactId) {
 
 TEST(Matcher, RejectsTwoMessagesWithTheSameIdAndMask) {
     const std::vector messages = {
-        message(library::CanIdentifier{.id = 0x100, .mask = 0x700}, "a"),
-        message(library::CanIdentifier{.id = 0x1FF, .mask = 0x700}, "b"),
+        message(icd::CanIdentifier{.id = 0x100, .mask = 0x700}, "a"),
+        message(icd::CanIdentifier{.id = 0x1FF, .mask = 0x700}, "b"),
     };
     const auto [_, err] = Matcher::compile(messages);
     ASSERT_MATCHES(err, CONFIG_ERROR);
@@ -207,7 +207,7 @@ TEST(Matcher, NamesBothMessagesWithNoIdentifier) {
 
 TEST(Matcher, RejectsAFloatHeaderField) {
     auto m = header(1);
-    std::get<library::BinaryPayload>(m.payload).fields[0].float_ = true;
+    std::get<icd::BinaryPayload>(m.payload).fields[0].float_ = true;
     const std::vector messages = {m};
     const auto [_, err] = Matcher::compile(messages);
     ASSERT_MATCHES(err, CONFIG_ERROR);
@@ -218,8 +218,8 @@ TEST(Matcher, RejectsAFloatHeaderField) {
 namespace driver::codec {
 TEST(Matcher, RejectsAHeaderFieldThatIsNotInTheMessage) {
     auto m = header(1);
-    std::get<library::FieldIdentifier>(
-        *std::get<library::BinaryPayload>(m.payload).identifier
+    std::get<icd::FieldIdentifier>(
+        *std::get<icd::BinaryPayload>(m.payload).identifier
     )
         .field = x::uuid::create();
     const std::vector messages = {m};

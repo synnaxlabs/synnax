@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <string>
 
-#include "client/cpp/library/types.gen.h"
+#include "client/cpp/icd/types.gen.h"
 
 #include "driver/codec/framing/checksum.h"
 #include "driver/codec/framing/framing.h"
@@ -18,7 +18,7 @@
 namespace driver::codec::framing {
 namespace {
 namespace bus = synnax::bus;
-namespace library = synnax::library;
+namespace icd = synnax::icd;
 
 using Bytes = std::vector<std::uint8_t>;
 using View = std::span<const std::uint8_t>;
@@ -604,8 +604,8 @@ std::pair<Checksum, x::errors::Error> parse_checksum(const std::string &name) {
 
 /// @returns true for big-endian, false for little-endian.
 std::pair<bool, x::errors::Error> parse_byte_order(const std::string &order) {
-    if (order == library::BYTE_ORDER_BIG_ENDIAN) return {true, x::errors::NIL};
-    if (order == library::BYTE_ORDER_LITTLE_ENDIAN) return {false, x::errors::NIL};
+    if (order == icd::BYTE_ORDER_BIG_ENDIAN) return {true, x::errors::NIL};
+    if (order == icd::BYTE_ORDER_LITTLE_ENDIAN) return {false, x::errors::NIL};
     return {false, config_error("unknown byte order " + order)};
 }
 

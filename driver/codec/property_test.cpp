@@ -17,7 +17,7 @@
 
 #include "gtest/gtest.h"
 
-#include "client/cpp/library/types.gen.h"
+#include "client/cpp/icd/types.gen.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/test/test.h"
 #include "x/cpp/uuid/uuid.h"
@@ -27,7 +27,7 @@
 
 namespace driver::codec {
 namespace {
-namespace library = synnax::library;
+namespace icd = synnax::icd;
 using Bytes = std::vector<std::uint8_t>;
 
 constexpr std::array SCALES = {0.5, 0.1, 0.001, 2.0, -1.0, -0.25, 10.0};
@@ -46,14 +46,14 @@ positions(const std::size_t start, const std::size_t length, const bool big) {
     return out;
 }
 
-library::MessageEntry message(
-    std::vector<library::BinaryField> fields,
+icd::MessageEntry message(
+    std::vector<icd::BinaryField> fields,
     const std::optional<std::uint16_t> length
 ) {
-    library::MessageEntry m;
+    icd::MessageEntry m;
     m.key = x::uuid::create();
     m.name = "message";
-    m.payload = library::BinaryPayload{.length = length, .fields = std::move(fields)};
+    m.payload = icd::BinaryPayload{.length = length, .fields = std::move(fields)};
     return m;
 }
 
@@ -61,7 +61,7 @@ library::MessageEntry message(
 /// every value survives an encode and decode.
 class Layout {
 public:
-    library::MessageEntry entry;
+    icd::MessageEntry entry;
     /// @brief parent is the index of each field's multiplexor in fields, or nullopt.
     std::vector<std::optional<std::size_t>> parent;
 
@@ -86,7 +86,7 @@ public:
         this->entry = message(this->fields, static_cast<std::uint16_t>(this->length));
     }
 
-    [[nodiscard]] const std::vector<library::BinaryField> &all() const {
+    [[nodiscard]] const std::vector<icd::BinaryField> &all() const {
         return this->fields;
     }
 
@@ -106,15 +106,15 @@ private:
     std::mt19937_64 &rng;
     /// @brief length is the message length in bytes.
     std::size_t length;
-    std::vector<library::BinaryField> fields;
+    std::vector<icd::BinaryField> fields;
     /// @brief muxes holds the indices of the fields that may multiplex others.
     std::vector<std::size_t> muxes;
     /// @brief used holds the payload bits the fields cover.
     std::set<std::size_t> used;
 
-    library::BinaryField
+    icd::BinaryField
     integer(const bool signed_, const std::uint8_t bits, const bool exact) {
-        library::BinaryField f;
+        icd::BinaryField f;
         f.signed_ = signed_;
         f.bit_length = bits;
         if (!exact) {
@@ -124,10 +124,10 @@ private:
         return f;
     }
 
-    library::BinaryField random() {
+    icd::BinaryField random() {
         switch (this->rng() % 6) {
             case 0: {
-                library::BinaryField f;
+                icd::BinaryField f;
                 f.float_ = true;
                 f.bit_length = this->rng() % 2 == 0 ? 32 : 64;
                 return f;
@@ -140,7 +140,7 @@ private:
         }
     }
 
-    void multiplex(library::BinaryField &f, const std::size_t mux) {
+    void multiplex(icd::BinaryField &f, const std::size_t mux) {
         const auto values = std::uint64_t{1} << this->fields[mux].bit_length;
         f.multiplex_values = {static_cast<std::int32_t>(this->rng() % values)};
         if (this->rng() % 2 == 0)
@@ -153,7 +153,7 @@ private:
     /// @brief places the field at a random start where its bits are free.
     /// @returns the field's index, or nullopt when no place was found.
     std::optional<std::size_t>
-    add(library::BinaryField f, const std::optional<std::size_t> by = std::nullopt) {
+    add(icd::BinaryField f, const std::optional<std::size_t> by = std::nullopt) {
         const auto bits = this->length * 8;
         for (int attempt = 0; attempt < 32; attempt++) {
             const auto start = this->rng() % bits;
@@ -167,8 +167,8 @@ private:
             f.key = x::uuid::create();
             f.name = "f" + std::to_string(this->fields.size());
             f.start_bit = static_cast<std::uint16_t>(start);
-            f.byte_order = big ? library::BYTE_ORDER_BIG_ENDIAN
-                               : library::BYTE_ORDER_LITTLE_ENDIAN;
+            f.byte_order = big ? icd::BYTE_ORDER_BIG_ENDIAN
+                               : icd::BYTE_ORDER_LITTLE_ENDIAN;
             this->fields.push_back(std::move(f));
             this->parent.push_back(by);
             return this->fields.size() - 1;
@@ -179,7 +179,7 @@ private:
 
 /// @returns a random raw value of the field: its bit pattern for floats, otherwise
 /// the integer, sign-extended for signed fields.
-std::uint64_t random_raw(std::mt19937_64 &rng, const library::BinaryField &f) {
+std::uint64_t random_raw(std::mt19937_64 &rng, const icd::BinaryField &f) {
     if (f.float_) {
         while (true) {
             if (f.bit_length == 32) {
@@ -199,7 +199,7 @@ std::uint64_t random_raw(std::mt19937_64 &rng, const library::BinaryField &f) {
 }
 
 /// @returns the sample that holds the raw value in the field's physical units.
-x::telem::SampleValue sample(const library::BinaryField &f, const std::uint64_t raw) {
+x::telem::SampleValue sample(const icd::BinaryField &f, const std::uint64_t raw) {
     if (f.float_) {
         if (f.bit_length == 32)
             return static_cast<double>(
@@ -215,12 +215,12 @@ x::telem::SampleValue sample(const library::BinaryField &f, const std::uint64_t 
     return integer * f.scale + f.offset;
 }
 
-library::TextField random_text_field(std::mt19937_64 &rng, const std::size_t i) {
-    library::TextField field;
+icd::TextField random_text_field(std::mt19937_64 &rng, const std::size_t i) {
+    icd::TextField field;
     if (rng() % 2 == 0)
-        field = library::DelimitedTextField{.position = static_cast<std::uint32_t>(i)};
+        field = icd::DelimitedTextField{.position = static_cast<std::uint32_t>(i)};
     else
-        field = library::TaggedTextField{.tag = std::string(1, 'A' + i) + "="};
+        field = icd::TaggedTextField{.tag = std::string(1, 'A' + i) + "="};
     std::visit(
         [&rng, i](auto &f) {
             f.key = x::uuid::create();
@@ -235,8 +235,8 @@ library::TextField random_text_field(std::mt19937_64 &rng, const std::size_t i) 
     return field;
 }
 
-const library::BaseField &base(const library::TextField &f) {
-    return std::visit([](const auto &v) -> const library::BaseField & { return v; }, f);
+const icd::BaseField &base(const icd::TextField &f) {
+    return std::visit([](const auto &v) -> const icd::BaseField & { return v; }, f);
 }
 }
 
@@ -246,15 +246,15 @@ TEST(PlanProperty, DecodeHandlesAnyPayloadForAnyLayout) {
     std::mt19937_64 rng(4971);
     std::size_t compiled = 0;
     for (int layout = 0; layout < 2000; layout++) {
-        std::vector<library::BinaryField> fields(rng() % 6 + 1);
+        std::vector<icd::BinaryField> fields(rng() % 6 + 1);
         for (std::size_t i = 0; i < fields.size(); i++) {
             auto &f = fields[i];
             f.key = x::uuid::create();
             f.name = "f" + std::to_string(i);
             f.start_bit = static_cast<std::uint16_t>(rng() % 600);
             f.bit_length = static_cast<std::uint8_t>(rng() % 70);
-            f.byte_order = rng() % 2 == 0 ? library::BYTE_ORDER_BIG_ENDIAN
-                                          : library::BYTE_ORDER_LITTLE_ENDIAN;
+            f.byte_order = rng() % 2 == 0 ? icd::BYTE_ORDER_BIG_ENDIAN
+                                          : icd::BYTE_ORDER_LITTLE_ENDIAN;
             f.signed_ = rng() % 2 == 0;
             f.float_ = rng() % 8 == 0;
             f.scale = SCALES[rng() % SCALES.size()];
@@ -287,12 +287,12 @@ TEST(PlanProperty, DecodeHandlesAnyTextLine) {
     std::mt19937_64 rng(4972);
     const std::string alphabet = "0123456789.-+eE ,;=ABCnai\t\r";
     for (int layout = 0; layout < 300; layout++) {
-        library::TextPayload payload;
+        icd::TextPayload payload;
         payload.delimiter = rng() % 2 == 0 ? "," : (rng() % 2 == 0 ? ";;" : " ");
         const auto count = rng() % 5 + 1;
         for (std::size_t i = 0; i < count; i++)
             payload.fields.push_back(random_text_field(rng, i));
-        library::MessageEntry m;
+        icd::MessageEntry m;
         m.key = x::uuid::create();
         m.payload = payload;
         const auto plan = ASSERT_NIL_P(Plan::compile(m));
@@ -368,11 +368,11 @@ TEST(PlanProperty, DecodeReturnsTheEncodedValue) {
 TEST(PlanProperty, DecodeReturnsTheEncodedTextValue) {
     std::mt19937_64 rng(4974);
     for (int l = 0; l < 200; l++) {
-        library::TextPayload payload{.delimiter = ","};
+        icd::TextPayload payload{.delimiter = ","};
         const auto count = rng() % 5 + 1;
         for (std::size_t i = 0; i < count; i++)
             payload.fields.push_back(random_text_field(rng, i));
-        library::MessageEntry m;
+        icd::MessageEntry m;
         m.key = x::uuid::create();
         m.payload = payload;
         const auto plan = ASSERT_NIL_P(Plan::compile(m));

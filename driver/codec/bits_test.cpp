@@ -12,7 +12,7 @@
 
 #include "gtest/gtest.h"
 
-#include "client/cpp/library/types.gen.h"
+#include "client/cpp/icd/types.gen.h"
 #include "x/cpp/test/test.h"
 
 #include "driver/codec/bits.h"
@@ -20,7 +20,7 @@
 
 namespace driver::codec {
 namespace {
-namespace library = synnax::library;
+namespace icd = synnax::icd;
 
 /// @brief Walker visits a field's bits one at a time from least to most significant,
 /// following the DBC rules directly rather than the codec's linearization.
@@ -75,7 +75,7 @@ struct Walker {
 };
 
 const char *order(const bool big) {
-    return big ? library::BYTE_ORDER_BIG_ENDIAN : library::BYTE_ORDER_LITTLE_ENDIAN;
+    return big ? icd::BYTE_ORDER_BIG_ENDIAN : icd::BYTE_ORDER_LITTLE_ENDIAN;
 }
 }
 

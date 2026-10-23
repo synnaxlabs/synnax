@@ -180,7 +180,7 @@ std::string Decoder::warning() {
         this->received.has_value() && *this->received > this->matched &&
         now - this->matched >= SILENCE && now - *this->received < SILENCE
     )
-        out.emplace_back("frames arrive, but none match a message in the library");
+        out.emplace_back("frames arrive, but none match a message in the ICD");
     else {
         std::size_t late = 0;
         for (std::size_t i = 0; i < this->cfg.messages.size(); i++) {

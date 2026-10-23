@@ -29,7 +29,7 @@ FLOW_SCALE = 0.5
 # The type byte follows the two sync bytes and the length byte.
 TYPE_START_BIT = 24
 CORRUPT = "dropped corrupt or unframed segments"
-UNMATCHED = "none match a message in the library"
+UNMATCHED = "none match a message in the ICD"
 # A task warns about unmatched frames once none has matched for 10 s.
 UNMATCHED_TIMEOUT = 20 * sy.TimeSpan.SECOND
 

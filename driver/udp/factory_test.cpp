@@ -87,15 +87,15 @@ protected:
         return x::json::json::parse(msg.substr(msg.find('{')))["errors"];
     }
 
-    /// @returns a write config that drives the first field of the library's message on
+    /// @returns a write config that drives the first field of the ICD's message on
     /// device from a new virtual channel.
     [[nodiscard]] synnax::udp::WriteConfig
-    write_config(const synnax::library::Library &lib, const std::string &device) const {
-        const auto &m = std::get<synnax::library::MessageEntry>(lib.entries[0]);
+    write_config(const synnax::icd::ICD &ic, const std::string &device) const {
+        const auto &m = std::get<synnax::icd::MessageEntry>(ic.entries[0]);
         const auto cmd = create_virtual_channel(*core.client, x::telem::FLOAT64_T);
         synnax::udp::WriteConfig cfg;
         cfg.device = device;
-        cfg.library = lib.key;
+        cfg.icd = ic.key;
         cfg.messages = {{
             .message = m.key,
             .fields = {{.field = field_key(m, 0), .channel = cmd.key}},
@@ -106,10 +106,10 @@ protected:
 }
 
 TEST_F(UDPFactory, RejectsAWriteTaskOnADeviceWithNoRemoteHost) {
-    const auto lib = core.create_library(
+    const auto ic = core.create_icd(
         {binary_message("cmd", {binary_field("v", 0)})}
     );
-    const auto cfg = this->write_config(lib, this->create_listening_device());
+    const auto cfg = this->write_config(ic, this->create_listening_device());
     EXPECT_EQ(this->configure(WRITE_TASK_TYPE, cfg.to_json()), nullptr);
     const auto errs = this->field_errors();
     ASSERT_EQ(errs.size(), 1);
@@ -120,11 +120,11 @@ TEST_F(UDPFactory, RejectsAWriteTaskOnADeviceWithNoRemoteHost) {
 TEST_F(UDPFactory, RejectsAPollingReadTaskOnADeviceWithNoRemoteHost) {
     auto m = binary_message("status", {binary_field("v", 0, 16)});
     m.query = "Q";
-    const auto lib = core.create_library({m});
+    const auto ic = core.create_icd({m});
     synnax::udp::ReadConfig cfg;
     static_cast<::synnax::bus::ReadConfig &>(
         cfg
-    ) = core.read_config(lib, this->create_listening_device());
+    ) = core.read_config(ic, this->create_listening_device());
     EXPECT_EQ(this->configure(READ_TASK_TYPE, cfg.to_json()), nullptr);
     const auto errs = this->field_errors();
     ASSERT_EQ(errs.size(), 1);
@@ -133,25 +133,25 @@ TEST_F(UDPFactory, RejectsAPollingReadTaskOnADeviceWithNoRemoteHost) {
 }
 
 TEST_F(UDPFactory, ConfiguresAListeningReadTaskOnADeviceWithNoRemoteHost) {
-    const auto lib = core.create_library(
+    const auto ic = core.create_icd(
         {binary_message("status", {binary_field("v", 0, 16)})}
     );
     synnax::udp::ReadConfig cfg;
     static_cast<::synnax::bus::ReadConfig &>(
         cfg
-    ) = core.read_config(lib, this->create_listening_device());
+    ) = core.read_config(ic, this->create_listening_device());
     EXPECT_NE(this->configure(READ_TASK_TYPE, cfg.to_json()), nullptr);
     EXPECT_TRUE(core.ctx->statuses.empty());
 }
 
 TEST_F(UDPFactory, NamesOnlyTheChannelsThatDoNotExist) {
-    const auto lib = core.create_library(
+    const auto ic = core.create_icd(
         {binary_message("status", {binary_field("a", 0), binary_field("b", 8)})}
     );
     synnax::udp::ReadConfig cfg;
     static_cast<::synnax::bus::ReadConfig &>(
         cfg
-    ) = core.read_config(lib, this->create_device());
+    ) = core.read_config(ic, this->create_device());
     const synnax::channel::Key missing = (1 << 16) | 0xFFFF;
     cfg.messages[0].fields[1].channel = missing;
     EXPECT_EQ(this->configure(READ_TASK_TYPE, cfg.to_json()), nullptr);
@@ -162,13 +162,13 @@ TEST_F(UDPFactory, NamesOnlyTheChannelsThatDoNotExist) {
 }
 
 TEST_F(UDPFactory, ConfiguresAReadTaskThatStreamsDecodedValues) {
-    const auto lib = core.create_library(
+    const auto ic = core.create_icd(
         {binary_message("status", {binary_field("v", 0, 16)})}
     );
     synnax::udp::ReadConfig cfg;
     static_cast<::synnax::bus::ReadConfig &>(
         cfg
-    ) = core.read_config(lib, this->create_device());
+    ) = core.read_config(ic, this->create_device());
     const auto data = cfg.messages[0].fields[0].channel;
     auto [t, ok] = this->factory.configure_task(
         core.ctx,
@@ -190,14 +190,14 @@ TEST_F(UDPFactory, ConfiguresAReadTaskThatStreamsDecodedValues) {
 }
 
 TEST_F(UDPFactory, ConfiguresAWriteTask) {
-    const auto lib = core.create_library(
+    const auto ic = core.create_icd(
         {binary_message("cmd", {binary_field("v", 0)})}
     );
-    const auto &m = std::get<synnax::library::MessageEntry>(lib.entries[0]);
+    const auto &m = std::get<synnax::icd::MessageEntry>(ic.entries[0]);
     const auto cmd = create_virtual_channel(*core.client, x::telem::FLOAT64_T);
     synnax::udp::WriteConfig cfg;
     cfg.device = this->create_device();
-    cfg.library = lib.key;
+    cfg.icd = ic.key;
     cfg.messages = {{
         .message = m.key,
         .fields = {{.field = field_key(m, 0), .channel = cmd.key}},

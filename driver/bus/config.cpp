@@ -21,40 +21,35 @@ namespace {
 using ChannelMap = std::unordered_map<synnax::channel::Key, synnax::channel::Channel>;
 
 /// @returns the parts every field of the message shares, in field order.
-std::vector<const synnax::library::BaseField *>
-field_bases(const synnax::library::MessageEntry &message) {
-    std::vector<const synnax::library::BaseField *> bases;
-    if (const auto *b = std::get_if<synnax::library::BinaryPayload>(&message.payload))
+std::vector<const synnax::icd::BaseField *>
+field_bases(const synnax::icd::MessageEntry &message) {
+    std::vector<const synnax::icd::BaseField *> bases;
+    if (const auto *b = std::get_if<synnax::icd::BinaryPayload>(&message.payload))
         for (const auto &f: b->fields)
             bases.push_back(&f);
     else
-        for (const auto &f:
-             std::get<synnax::library::TextPayload>(message.payload).fields)
+        for (const auto &f: std::get<synnax::icd::TextPayload>(message.payload).fields)
             bases.push_back(
                 std::visit(
-                    [](const auto &v) -> const synnax::library::BaseField * {
-                        return &v;
-                    },
+                    [](const auto &v) -> const synnax::icd::BaseField * { return &v; },
                     f
                 )
             );
     return bases;
 }
 
-const synnax::library::MessageEntry *find_message(
-    const synnax::library::Library &lib,
-    const synnax::library::EntryKey &key
-) {
-    for (const auto &entry: lib.entries)
-        if (const auto *m = std::get_if<synnax::library::MessageEntry>(&entry);
+const synnax::icd::MessageEntry *
+find_message(const synnax::icd::ICD &ic, const synnax::icd::EntryKey &key) {
+    for (const auto &entry: ic.entries)
+        if (const auto *m = std::get_if<synnax::icd::MessageEntry>(&entry);
             m != nullptr && m->key == key)
             return m;
     return nullptr;
 }
 
 std::optional<std::size_t> find_field(
-    const std::vector<const synnax::library::BaseField *> &bases,
-    const synnax::library::FieldKey &key
+    const std::vector<const synnax::icd::BaseField *> &bases,
+    const synnax::icd::FieldKey &key
 ) {
     for (std::size_t i = 0; i < bases.size(); i++)
         if (bases[i]->key == key) return i;
@@ -75,17 +70,17 @@ std::string field_path(const std::size_t message, const std::size_t field) {
 void check_medium(
     const x::json::Parser &parser,
     const std::size_t index,
-    const synnax::library::MessageEntry &message,
+    const synnax::icd::MessageEntry &message,
     const Medium medium
 ) {
     const bool can = medium == Medium::CAN;
     std::string what;
-    const auto *binary = std::get_if<synnax::library::BinaryPayload>(&message.payload);
+    const auto *binary = std::get_if<synnax::icd::BinaryPayload>(&message.payload);
     if (binary == nullptr) {
         if (can) what = "a text payload";
     } else if (binary->identifier.has_value()) {
         const auto &id = *binary->identifier;
-        if (std::holds_alternative<synnax::library::CanIdentifier>(id) != can)
+        if (std::holds_alternative<synnax::icd::CanIdentifier>(id) != can)
             what = "a " + std::visit([](const auto &i) { return i.type; }, id) +
                    " identifier";
     }
@@ -148,8 +143,8 @@ const synnax::channel::Channel *find_channel(
 /// stores, so a layout the Driver cannot compile is a bug in one of the two, and the
 /// error is x::errors::INTERNAL.
 std::pair<codec::Plan, x::errors::Error> compile_plan(
-    const synnax::library::MessageEntry &message,
-    const std::optional<std::vector<synnax::library::FieldKey>> &keys = std::nullopt
+    const synnax::icd::MessageEntry &message,
+    const std::optional<std::vector<synnax::icd::FieldKey>> &keys = std::nullopt
 ) {
     auto [plan, err] = keys.has_value() ? codec::Plan::compile(message, *keys)
                                         : codec::Plan::compile(message);
@@ -182,21 +177,21 @@ ChannelMap to_map(const std::vector<synnax::channel::Channel> &channels) {
     return map;
 }
 
-std::pair<synnax::library::Library, x::errors::Error> retrieve_library(
+std::pair<synnax::icd::ICD, x::errors::Error> retrieve_icd(
     const synnax::Synnax &client,
     const x::json::Parser &parser,
-    const std::optional<synnax::library::Key> &key
+    const std::optional<synnax::icd::Key> &key
 ) {
     if (!key.has_value()) {
-        parser.field_err("library", "select a library");
+        parser.field_err("icd", "select an ICD");
         return {{}, x::errors::NIL};
     }
-    auto [lib, err] = client.libraries.retrieve(*key);
+    auto [ic, err] = client.icds.retrieve(*key);
     if (err.matches(x::errors::NOT_FOUND)) {
-        parser.field_err("library", "library " + key->to_string() + " does not exist");
+        parser.field_err("icd", "ICD " + key->to_string() + " does not exist");
         return {{}, x::errors::NIL};
     }
-    return {std::move(lib), err};
+    return {std::move(ic), err};
 }
 
 /// @returns the name of the device with the given key. Binds an error to parser when
@@ -306,7 +301,7 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::resolve(
     const ::synnax::bus::ReadConfig &cfg,
     const ::synnax::bus::PollConfig &poll,
     const std::optional<Stream> &stream,
-    const synnax::library::Library &library,
+    const synnax::icd::ICD &ic,
     const std::vector<synnax::channel::Channel> &channels,
     const Medium medium
 ) {
@@ -344,12 +339,11 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::resolve(
     for (std::size_t i = 0; i < cfg.messages.size(); i++) {
         const auto &m = cfg.messages[i];
         if (m.disabled) continue;
-        const auto *entry = find_message(library, m.message);
+        const auto *entry = find_message(ic, m.message);
         if (entry == nullptr) {
             parser.field_err(
                 path(i, "message"),
-                "message " + m.message.to_string() + " is not in library " +
-                    library.name
+                "message " + m.message.to_string() + " is not in ICD " + ic.name
             );
             continue;
         }
@@ -367,7 +361,7 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::resolve(
         if (m.fields.empty())
             parser.field_err(path(i, "fields"), "at least one field is required");
         const auto bases = field_bases(*entry);
-        std::vector<synnax::library::FieldKey> keys;
+        std::vector<synnax::icd::FieldKey> keys;
         std::map<synnax::channel::Key, std::size_t> groups;
         for (std::size_t j = 0; j < m.fields.size(); j++) {
             const auto &f = m.fields[j];
@@ -429,9 +423,7 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::resolve(
                 entry->query->begin(),
                 entry->query->end()
             );
-            if (std::holds_alternative<synnax::library::BinaryPayload>(
-                    entry->payload
-                )) {
+            if (std::holds_alternative<synnax::icd::BinaryPayload>(entry->payload)) {
                 auto [bytes, err] = unescape(*entry->query);
                 if (err) parser.field_err(path(i, "message"), err);
                 query = std::move(bytes);
@@ -465,7 +457,7 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::resolve(
     }
     if (!parser.ok()) return {std::move(out), x::errors::NIL};
 
-    std::vector<synnax::library::MessageEntry> streamed;
+    std::vector<synnax::icd::MessageEntry> streamed;
     for (const auto i: out.streamed)
         streamed.push_back(out.messages[i].entry);
     auto [matcher, err] = codec::Matcher::compile(streamed);
@@ -482,8 +474,8 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::parse(
     const std::optional<Stream> &stream,
     const Medium medium
 ) {
-    auto [library, lib_err] = retrieve_library(client, parser, cfg.library);
-    if (lib_err) return {ReadConfig{}, lib_err};
+    auto [ic, ic_err] = retrieve_icd(client, parser, cfg.icd);
+    if (ic_err) return {ReadConfig{}, ic_err};
     std::set<synnax::channel::Key> keys{cfg.raw};
     for (const auto &m: cfg.messages) {
         if (m.disabled) continue;
@@ -494,7 +486,7 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::parse(
     }
     auto [channels, ch_err] = retrieve_channels(client, keys);
     if (ch_err) return {ReadConfig{}, ch_err};
-    auto [out, err] = resolve(parser, cfg, poll, stream, library, channels, medium);
+    auto [out, err] = resolve(parser, cfg, poll, stream, ic, channels, medium);
     if (!parser.ok()) return {std::move(out), parser.error()};
     if (err) return {std::move(out), err};
     std::tie(out.device, err) = retrieve_device(client, parser, cfg.device);
@@ -506,7 +498,7 @@ std::pair<WriteConfig, x::errors::Error> WriteConfig::resolve(
     x::json::Parser &parser,
     const ::synnax::bus::WriteConfig &cfg,
     const std::optional<::synnax::bus::Framing> &framing,
-    const synnax::library::Library &library,
+    const synnax::icd::ICD &ic,
     const std::vector<synnax::channel::Channel> &channels,
     const Medium medium
 ) {
@@ -518,19 +510,16 @@ std::pair<WriteConfig, x::errors::Error> WriteConfig::resolve(
     for (std::size_t i = 0; i < cfg.messages.size(); i++) {
         const auto &m = cfg.messages[i];
         if (m.disabled) continue;
-        const auto *entry = find_message(library, m.message);
+        const auto *entry = find_message(ic, m.message);
         if (entry == nullptr) {
             parser.field_err(
                 path(i, "message"),
-                "message " + m.message.to_string() + " is not in library " +
-                    library.name
+                "message " + m.message.to_string() + " is not in ICD " + ic.name
             );
             continue;
         }
         check_medium(parser, i, *entry, medium);
-        const auto *binary = std::get_if<synnax::library::BinaryPayload>(
-            &entry->payload
-        );
+        const auto *binary = std::get_if<synnax::icd::BinaryPayload>(&entry->payload);
         if (medium == Medium::CAN && binary != nullptr &&
             !binary->identifier.has_value())
             parser.field_err(
@@ -582,9 +571,9 @@ std::pair<WriteConfig, x::errors::Error> WriteConfig::resolve(
             if (commands.insert(ch->key).second) out.commands.push_back(ch->key);
         }
         if (binary == nullptr)
-            msg.prefix = std::get<synnax::library::TextPayload>(entry->payload).prefix;
+            msg.prefix = std::get<synnax::icd::TextPayload>(entry->payload).prefix;
         else if (binary->identifier.has_value())
-            if (const auto *id = std::get_if<synnax::library::FieldIdentifier>(
+            if (const auto *id = std::get_if<synnax::icd::FieldIdentifier>(
                     &*binary->identifier
                 ))
                 if (const auto slot = find_field(bases, id->field))
@@ -607,8 +596,8 @@ std::pair<WriteConfig, x::errors::Error> WriteConfig::parse(
     const std::optional<::synnax::bus::Framing> &framing,
     const Medium medium
 ) {
-    auto [library, lib_err] = retrieve_library(client, parser, cfg.library);
-    if (lib_err) return {WriteConfig{}, lib_err};
+    auto [ic, ic_err] = retrieve_icd(client, parser, cfg.icd);
+    if (ic_err) return {WriteConfig{}, ic_err};
     std::set<synnax::channel::Key> keys;
     for (const auto &m: cfg.messages) {
         if (m.disabled) continue;
@@ -617,7 +606,7 @@ std::pair<WriteConfig, x::errors::Error> WriteConfig::parse(
     }
     auto [channels, ch_err] = retrieve_channels(client, keys);
     if (ch_err) return {WriteConfig{}, ch_err};
-    auto [out, err] = resolve(parser, cfg, framing, library, channels, medium);
+    auto [out, err] = resolve(parser, cfg, framing, ic, channels, medium);
     if (!parser.ok()) return {std::move(out), parser.error()};
     if (err) return {std::move(out), err};
     std::tie(out.device, err) = retrieve_device(client, parser, cfg.device);

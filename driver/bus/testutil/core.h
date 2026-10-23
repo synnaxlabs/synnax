@@ -24,7 +24,7 @@
 
 /// @brief fixtures for bus task tests against a live Core.
 namespace driver::bus::testutil {
-/// @brief a library, device, and channels created in a live Core for one task.
+/// @brief an ICD, device, and channels created in a live Core for one task.
 struct Core {
     std::shared_ptr<synnax::Synnax> client = std::make_shared<synnax::Synnax>(
         new_test_client()
@@ -34,15 +34,14 @@ struct Core {
     );
     synnax::rack::Rack rack = ASSERT_NIL_P(this->client->racks.create("bus_test"));
 
-    /// @returns the library holding messages, created in the Core.
-    synnax::library::Library
-    create_library(std::vector<synnax::library::MessageEntry> messages) const {
-        synnax::library::Library lib{.name = "bus_test"};
+    /// @returns the ICD holding messages, created in the Core.
+    synnax::icd::ICD create_icd(std::vector<synnax::icd::MessageEntry> messages) const {
+        synnax::icd::ICD ic{.name = "bus_test"};
         for (auto &m: messages)
-            lib.entries.emplace_back(std::move(m));
-        const auto err = this->client->libraries.create(lib);
+            ic.entries.emplace_back(std::move(m));
+        const auto err = this->client->icds.create(ic);
         EXPECT_FALSE(err) << err;
-        return lib;
+        return ic;
     }
 
     /// @returns the key of a device with the given make and properties, created in the
@@ -63,16 +62,16 @@ struct Core {
         return dev.key;
     }
 
-    /// @returns a read config over every message and field in lib, with an index and a
+    /// @returns a read config over every message and field in ic, with an index and a
     /// float64 channel per field created in the Core.
     ::synnax::bus::ReadConfig
-    read_config(const synnax::library::Library &lib, const std::string &device) const {
+    read_config(const synnax::icd::ICD &ic, const std::string &device) const {
         ::synnax::bus::ReadConfig cfg;
         cfg.device = device;
-        cfg.library = lib.key;
+        cfg.icd = ic.key;
         cfg.data_saving_disabled = true;
-        for (const auto &e: lib.entries) {
-            const auto *m = std::get_if<synnax::library::MessageEntry>(&e);
+        for (const auto &e: ic.entries) {
+            const auto *m = std::get_if<synnax::icd::MessageEntry>(&e);
             if (m == nullptr) continue;
             const auto idx = ASSERT_NIL_P(this->client->channels.create(
                 make_unique_channel_name(m->name + "_time"),

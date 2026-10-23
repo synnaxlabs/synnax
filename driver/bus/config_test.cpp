@@ -25,7 +25,7 @@ namespace {
 /// @brief a read config over one text message with one field on channel 2, stamped on
 /// index 1.
 struct ReadFixture {
-    synnax::library::MessageEntry message = text_message(
+    synnax::icd::MessageEntry message = text_message(
         "status",
         {delimited_field("value", 0)}
     );
@@ -52,16 +52,16 @@ struct ReadFixture {
         return Stream{.framing = *framing};
     }
 
-    /// @returns the config resolved against lib, and the error of resolve.
+    /// @returns the config resolved against ic, and the error of resolve.
     [[nodiscard]] std::pair<ReadConfig, x::errors::Error>
-    resolve(const synnax::library::Library &lib) const {
+    resolve(const synnax::icd::ICD &ic) const {
         x::json::Parser parser(x::json::json::object());
         auto [out, err] = ReadConfig::resolve(
             parser,
             cfg,
             poll,
             stream(),
-            lib,
+            ic,
             channels,
             medium
         );
@@ -69,16 +69,16 @@ struct ReadFixture {
         return {std::move(out), err};
     }
 
-    /// @returns the first field error of resolving the config against lib.
+    /// @returns the first field error of resolving the config against ic.
     [[nodiscard]] std::pair<std::string, std::string>
-    first_error(const synnax::library::Library &lib) const {
+    first_error(const synnax::icd::ICD &ic) const {
         x::json::Parser parser(x::json::json::object());
         const auto [_, err] = ReadConfig::resolve(
             parser,
             cfg,
             poll,
             stream(),
-            lib,
+            ic,
             channels,
             medium
         );
@@ -88,7 +88,7 @@ struct ReadFixture {
     }
 
     [[nodiscard]] std::pair<std::string, std::string> first_error() const {
-        return this->first_error(library({message}));
+        return this->first_error(create_icd({message}));
     }
 };
 
@@ -119,7 +119,7 @@ TEST(Unescape, RejectsATruncatedHexEscape) {
 
 TEST(ReadConfig, ResolvesAValidConfig) {
     ReadFixture f;
-    const auto [cfg, err] = f.resolve(library({f.message}));
+    const auto [cfg, err] = f.resolve(create_icd({f.message}));
     ASSERT_NIL(err);
     ASSERT_EQ(cfg.messages.size(), 1);
     ASSERT_EQ(cfg.messages[0].groups.size(), 1);
@@ -131,11 +131,11 @@ TEST(ReadConfig, ResolvesAValidConfig) {
     EXPECT_NE(cfg.framer, nullptr);
 }
 
-TEST(ReadConfig, RejectsAMessageNotInTheLibrary) {
+TEST(ReadConfig, RejectsAMessageNotInTheICD) {
     ReadFixture f;
-    const auto [path, msg] = f.first_error(library({}));
+    const auto [path, msg] = f.first_error(create_icd({}));
     EXPECT_EQ(path, "messages.0.message");
-    EXPECT_EQ(msg, "message " + f.message.key.to_string() + " is not in library test");
+    EXPECT_EQ(msg, "message " + f.message.key.to_string() + " is not in ICD test");
 }
 
 TEST(ReadConfig, RejectsAFieldNotInTheMessage) {
@@ -225,7 +225,7 @@ TEST(ReadConfig, RejectsACANIdentifierOnAByteStream) {
     f.message = binary_message(
         "status",
         {binary_field("value", 0)},
-        synnax::library::CanIdentifier{.id = 0x10}
+        synnax::icd::CanIdentifier{.id = 0x10}
     );
     f.cfg.messages[0].message = f.message.key;
     f.cfg.messages[0].fields[0].field = field_key(f.message, 0);
@@ -240,7 +240,7 @@ TEST(ReadConfig, RejectsACANIdentifierOnAByteStream) {
 TEST(ReadConfig, RejectsAFieldIdentifierOnACANBus) {
     ReadFixture f;
     f.message = binary_message("status", {binary_field("value", 0)});
-    binary(f.message).identifier = synnax::library::FieldIdentifier{
+    binary(f.message).identifier = synnax::icd::FieldIdentifier{
         .field = field_key(f.message, 0),
         .value = 1,
     };
@@ -270,7 +270,7 @@ TEST(ReadConfig, RejectsAQueryOnACANBus) {
     f.message = binary_message(
         "status",
         {binary_field("value", 0)},
-        synnax::library::CanIdentifier{.id = 0x10}
+        synnax::icd::CanIdentifier{.id = 0x10}
     );
     f.message.query = R"(\x01)";
     f.cfg.messages[0].message = f.message.key;
@@ -338,7 +338,7 @@ TEST(ReadConfig, SendsTheFramedQueryOfAPolledMessage) {
     ReadFixture f;
     f.message.query = "VOLT?";
     f.poll = {.rate = x::telem::Rate(4), .timeout = x::telem::SECOND};
-    const auto [cfg, err] = f.resolve(library({f.message}));
+    const auto [cfg, err] = f.resolve(create_icd({f.message}));
     ASSERT_NIL(err);
     EXPECT_EQ(cfg.polled, std::vector<std::size_t>{0});
     EXPECT_EQ(cfg.messages[0].period, 250 * x::telem::MILLISECOND);
@@ -362,7 +362,7 @@ TEST(ReadConfig, GroupsTheFieldsOfAMessageByIndex) {
     f.channels.push_back(index_channel(3));
     f.channels.push_back(data_channel(4, 3));
     f.channels.push_back(data_channel(5, 1));
-    const auto [cfg, err] = f.resolve(library({f.message}));
+    const auto [cfg, err] = f.resolve(create_icd({f.message}));
     ASSERT_NIL(err);
     const auto &groups = cfg.messages[0].groups;
     ASSERT_EQ(groups.size(), 2);
@@ -383,7 +383,7 @@ TEST(ReadConfig, GivesEachFieldWithoutAnIndexItsOwnGroup) {
         },
     }};
     f.channels = {data_channel(4, 0), data_channel(5, 0)};
-    const auto [cfg, err] = f.resolve(library({f.message}));
+    const auto [cfg, err] = f.resolve(create_icd({f.message}));
     ASSERT_NIL(err);
     const auto &groups = cfg.messages[0].groups;
     ASSERT_EQ(groups.size(), 2);
@@ -400,15 +400,15 @@ TEST(ReadConfig, RejectsAnIndexThatStampsTwoMessages) {
         .fields = {{.field = field_key(other, 0), .channel = 4, .index = 1}},
     });
     f.channels.push_back(data_channel(4, 1));
-    const auto [path, msg] = f.first_error(library({f.message, other}));
+    const auto [path, msg] = f.first_error(create_icd({f.message, other}));
     EXPECT_EQ(path, "messages.1.fields.0.index");
     EXPECT_EQ(msg, "channel 1 is used more than once");
 }
 
-TEST(ReadConfig, ExpectsAStreamedMessageEveryLibraryPeriod) {
+TEST(ReadConfig, ExpectsAStreamedMessageEveryICDPeriod) {
     ReadFixture f;
     f.message.period = 20 * x::telem::MILLISECOND;
-    const auto [cfg, err] = f.resolve(library({f.message}));
+    const auto [cfg, err] = f.resolve(create_icd({f.message}));
     ASSERT_NIL(err);
     EXPECT_EQ(cfg.messages[0].period, 20 * x::telem::MILLISECOND);
 }
@@ -419,7 +419,7 @@ TEST(ReadConfig, ReportsALayoutTheDriverCannotCompileAsABug) {
     binary(f.message).fields[0].bit_length = 65;
     f.cfg.messages[0].message = f.message.key;
     f.cfg.messages[0].fields[0].field = field_key(f.message, 0);
-    const auto [_, err] = f.resolve(library({f.message}));
+    const auto [_, err] = f.resolve(create_icd({f.message}));
     ASSERT_MATCHES(err, x::errors::INTERNAL);
     EXPECT_TRUE(err.data.starts_with(
         "the Core accepted message status, but the Driver cannot compile it ("
@@ -440,14 +440,14 @@ TEST(WriteConfig, ReportsALayoutTheDriverCannotCompileAsABug) {
         parser,
         cfg,
         std::nullopt,
-        library({m}),
+        create_icd({m}),
         {data_channel(5, 0)}
     );
     ASSERT_NIL(parser.error());
     ASSERT_MATCHES(err, x::errors::INTERNAL);
 }
 
-TEST(ReadConfig, ParseRejectsATaskWithNoLibrary) {
+TEST(ReadConfig, ParseRejectsATaskWithNoICD) {
     const auto client = unreachable_client();
     ::synnax::bus::ReadConfig cfg;
     cfg.device = "dev";
@@ -455,8 +455,8 @@ TEST(ReadConfig, ParseRejectsATaskWithNoLibrary) {
     const auto [_, err] = ReadConfig::parse(client, parser, cfg, {}, std::nullopt);
     ASSERT_MATCHES(err, x::errors::VALIDATION);
     const auto first = parser.error_json()["errors"][0];
-    EXPECT_EQ(first["path"], "library");
-    EXPECT_EQ(first["message"], "select a library");
+    EXPECT_EQ(first["path"], "icd");
+    EXPECT_EQ(first["message"], "select an ICD");
 }
 
 TEST(WriteConfig, BindsCommandChannelsToFieldSlots) {
@@ -471,7 +471,7 @@ TEST(WriteConfig, BindsCommandChannelsToFieldSlots) {
         parser,
         cfg,
         std::nullopt,
-        library({m}),
+        create_icd({m}),
         {data_channel(5, 0)}
     );
     ASSERT_NIL(parser.error());
@@ -497,7 +497,7 @@ TEST(WriteConfig, RejectsAFieldMappedTwice) {
         parser,
         cfg,
         std::nullopt,
-        library({m}),
+        create_icd({m}),
         {data_channel(5, 0), data_channel(6, 0)}
     );
     const auto err = parser.error_json()["errors"][0];
@@ -511,7 +511,7 @@ TEST(WriteConfig, RequiresFieldsOnAMessageWithoutAPeriod) {
     cfg.device = "dev";
     cfg.messages = {{.message = m.key}};
     x::json::Parser parser(x::json::json::object());
-    std::ignore = WriteConfig::resolve(parser, cfg, std::nullopt, library({m}), {});
+    std::ignore = WriteConfig::resolve(parser, cfg, std::nullopt, create_icd({m}), {});
     const auto err = parser.error_json()["errors"][0];
     EXPECT_EQ(err["path"], "messages.0.fields");
     EXPECT_EQ(
@@ -527,7 +527,7 @@ TEST(WriteConfig, RejectsAMessagePeriodThatIsNotPositive) {
     cfg.device = "dev";
     cfg.messages = {{.message = m.key}};
     x::json::Parser parser(x::json::json::object());
-    std::ignore = WriteConfig::resolve(parser, cfg, std::nullopt, library({m}), {});
+    std::ignore = WriteConfig::resolve(parser, cfg, std::nullopt, create_icd({m}), {});
     const auto err = parser.error_json()["errors"][0];
     EXPECT_EQ(err["path"], "messages.0.message");
     EXPECT_EQ(
@@ -548,7 +548,7 @@ TEST(WriteConfig, RequiresACANIdentifierOnACANBus) {
         parser,
         cfg,
         std::nullopt,
-        library({m}),
+        create_icd({m}),
         {data_channel(5, 0)},
         Medium::CAN
     );
@@ -557,7 +557,7 @@ TEST(WriteConfig, RequiresACANIdentifierOnACANBus) {
     EXPECT_EQ(err["message"], "message cmd needs a CAN identifier to send with");
 }
 
-TEST(WriteConfig, ParseRejectsATaskWithNoLibrary) {
+TEST(WriteConfig, ParseRejectsATaskWithNoICD) {
     const auto client = unreachable_client();
     ::synnax::bus::WriteConfig cfg;
     cfg.device = "dev";
@@ -565,7 +565,7 @@ TEST(WriteConfig, ParseRejectsATaskWithNoLibrary) {
     const auto [_, err] = WriteConfig::parse(client, parser, cfg, std::nullopt);
     ASSERT_MATCHES(err, x::errors::VALIDATION);
     const auto first = parser.error_json()["errors"][0];
-    EXPECT_EQ(first["path"], "library");
-    EXPECT_EQ(first["message"], "select a library");
+    EXPECT_EQ(first["path"], "icd");
+    EXPECT_EQ(first["message"], "select an ICD");
 }
 }

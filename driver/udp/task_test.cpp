@@ -119,13 +119,13 @@ TEST_F(UDPTask, DecodesEachDatagramAsOneMessage) {
     const auto a = binary_message(
         "a",
         {kind, binary_field("v", 8, 16)},
-        synnax::library::FieldIdentifier{.field = kind.key, .value = 1}
+        synnax::icd::FieldIdentifier{.field = kind.key, .value = 1}
     );
     auto kind_b = binary_field("kind", 0);
     const auto b = binary_message(
         "b",
         {kind_b, binary_field("v", 8)},
-        synnax::library::FieldIdentifier{.field = kind_b.key, .value = 2}
+        synnax::icd::FieldIdentifier{.field = kind_b.key, .value = 2}
     );
     auto t = this->read_task(read_config({a, b}, std::nullopt));
     t->start("start");

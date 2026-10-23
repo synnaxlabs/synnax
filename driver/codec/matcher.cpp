@@ -15,7 +15,7 @@
 
 namespace driver::codec {
 namespace {
-namespace library = synnax::library;
+namespace icd = synnax::icd;
 
 constexpr std::uint32_t STANDARD_ID_MASK = 0x7FF;
 constexpr std::uint32_t EXTENDED_ID_MASK = 0x1FFFFFFF;
@@ -25,12 +25,12 @@ std::uint32_t exact_key(const std::uint32_t id, const bool extended) {
     return extended ? id | EXTENDED_KEY_BIT : id;
 }
 
-x::errors::Error message_error(const library::MessageEntry &m, const std::string &msg) {
+x::errors::Error message_error(const icd::MessageEntry &m, const std::string &msg) {
     return x::errors::Error(CONFIG_ERROR, "message " + m.name + ": " + msg);
 }
 
 x::errors::Error duplicate(
-    const std::span<const library::MessageEntry> messages,
+    const std::span<const icd::MessageEntry> messages,
     const std::size_t first,
     const std::size_t second,
     const std::string &what
@@ -42,8 +42,8 @@ x::errors::Error duplicate(
     );
 }
 
-const library::BinaryField *
-find_field(const library::BinaryPayload &payload, const library::FieldKey &key) {
+const icd::BinaryField *
+find_field(const icd::BinaryPayload &payload, const icd::FieldKey &key) {
     for (const auto &f: payload.fields)
         if (f.key == key) return &f;
     return nullptr;
@@ -51,12 +51,12 @@ find_field(const library::BinaryPayload &payload, const library::FieldKey &key) 
 }
 
 std::pair<Matcher, x::errors::Error>
-Matcher::compile(const std::span<const library::MessageEntry> messages) {
+Matcher::compile(const std::span<const icd::MessageEntry> messages) {
     Matcher m;
     for (std::size_t i = 0; i < messages.size(); i++) {
         const auto &msg = messages[i];
-        const auto *text = std::get_if<library::TextPayload>(&msg.payload);
-        const auto *binary = std::get_if<library::BinaryPayload>(&msg.payload);
+        const auto *text = std::get_if<icd::TextPayload>(&msg.payload);
+        const auto *binary = std::get_if<icd::BinaryPayload>(&msg.payload);
         if (text != nullptr ? text->prefix.empty() : !binary->identifier.has_value()) {
             if (m.fallback.has_value())
                 return {
@@ -82,7 +82,7 @@ Matcher::compile(const std::span<const library::MessageEntry> messages) {
             continue;
         }
         const auto &identifier = *binary->identifier;
-        if (const auto *can = std::get_if<library::CanIdentifier>(&identifier)) {
+        if (const auto *can = std::get_if<icd::CanIdentifier>(&identifier)) {
             const auto valid = can->extended ? EXTENDED_ID_MASK : STANDARD_ID_MASK;
             const auto mask = can->mask.value_or(valid) & valid;
             if (mask != valid) {
@@ -114,7 +114,7 @@ Matcher::compile(const std::span<const library::MessageEntry> messages) {
                 };
             continue;
         }
-        const auto &field = std::get<library::FieldIdentifier>(identifier);
+        const auto &field = std::get<icd::FieldIdentifier>(identifier);
         const auto *found = find_field(*binary, field.field);
         if (found == nullptr)
             return {{}, message_error(msg, "identifier field is not in the message")};

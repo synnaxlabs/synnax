@@ -17,7 +17,7 @@
 #include <vector>
 
 #include "client/cpp/bus/types.gen.h"
-#include "client/cpp/library/types.gen.h"
+#include "client/cpp/icd/types.gen.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
@@ -69,10 +69,10 @@ struct Group {
     std::vector<std::size_t> slots;
 };
 
-/// @brief a library message a read task decodes.
+/// @brief an ICD message a read task decodes.
 struct ReadMessage {
-    /// @brief the message's library entry.
-    synnax::library::MessageEntry entry;
+    /// @brief the message's ICD entry.
+    synnax::icd::MessageEntry entry;
     /// @brief decodes the message. Its slots follow the configured fields.
     codec::Plan plan;
     /// @brief the fields of the message grouped by index channel.
@@ -80,7 +80,7 @@ struct ReadMessage {
     /// @brief the channel each plan slot is written to.
     std::vector<synnax::channel::Channel> channels;
     /// @brief how often the message arrives: its poll period when it has a query, its
-    /// library period otherwise, or zero when unknown.
+    /// ICD period otherwise, or zero when unknown.
     x::telem::TimeSpan period;
     /// @brief the wire bytes of the message's query. Empty when the device sends the
     /// message unprompted.
@@ -89,7 +89,7 @@ struct ReadMessage {
     codec::Matcher reply;
 };
 
-/// @brief a bus read task config resolved against its library and channels.
+/// @brief a bus read task config resolved against its ICD and channels.
 struct ReadConfig {
     /// @brief the name of the device, for status messages.
     std::string device;
@@ -116,7 +116,7 @@ struct ReadConfig {
     /// @brief the pause after which fixed framing drops a partial frame.
     x::telem::TimeSpan gap = x::telem::TimeSpan::max();
 
-    /// @brief resolves cfg against its library and the channels it names, binding
+    /// @brief resolves cfg against its ICD and the channels it names, binding
     /// validation errors to their fields on parser.
     /// @param stream how the byte stream splits into frames. Absent for datagrams and
     /// CAN.
@@ -127,12 +127,12 @@ struct ReadConfig {
         const ::synnax::bus::ReadConfig &cfg,
         const ::synnax::bus::PollConfig &poll,
         const std::optional<Stream> &stream,
-        const synnax::library::Library &library,
+        const synnax::icd::ICD &ic,
         const std::vector<synnax::channel::Channel> &channels,
         Medium medium = Medium::BYTES
     );
 
-    /// @brief retrieves the device, library, and channels cfg names from the Core, then
+    /// @brief retrieves the device, ICD, and channels cfg names from the Core, then
     /// resolves cfg as resolve does.
     /// @returns x::errors::VALIDATION with field errors when cfg is invalid,
     /// x::errors::INTERNAL as resolve does, or the Core's error when a retrieval fails.
@@ -156,10 +156,10 @@ struct Binding {
     std::string field;
 };
 
-/// @brief a library message a write task encodes.
+/// @brief an ICD message a write task encodes.
 struct WriteMessage {
-    /// @brief the message's library entry.
-    synnax::library::MessageEntry entry;
+    /// @brief the message's ICD entry.
+    synnax::icd::MessageEntry entry;
     /// @brief encodes the message. Its slots are every field of the message, in order.
     codec::Plan plan;
     /// @brief binds command channels to slots.
@@ -171,7 +171,7 @@ struct WriteMessage {
     codec::Values initial;
 };
 
-/// @brief a bus write task config resolved against its library and channels.
+/// @brief a bus write task config resolved against its ICD and channels.
 struct WriteConfig {
     /// @brief the name of the device, for status messages.
     std::string device;
@@ -188,7 +188,7 @@ struct WriteConfig {
         x::json::Parser &parser,
         const ::synnax::bus::WriteConfig &cfg,
         const std::optional<::synnax::bus::Framing> &framing,
-        const synnax::library::Library &library,
+        const synnax::icd::ICD &ic,
         const std::vector<synnax::channel::Channel> &channels,
         Medium medium = Medium::BYTES
     );

@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-#include "client/cpp/library/types.gen.h"
+#include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
 
 #include "driver/codec/bits.h"
@@ -38,7 +38,7 @@ public:
     /// identifier and mask, header field value, or prefix, or when neither has an
     /// identifier or prefix. CONFIG_ERROR when an identifier field is a float.
     static std::pair<Matcher, x::errors::Error>
-    compile(std::span<const synnax::library::MessageEntry> messages);
+    compile(std::span<const synnax::icd::MessageEntry> messages);
 
     /// @brief matches a CAN frame. Exact identifiers are checked first in constant
     /// time, then masked identifiers in declaration order, then the message with no

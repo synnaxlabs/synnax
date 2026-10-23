@@ -9,7 +9,7 @@
 
 #include <algorithm>
 
-#include "client/cpp/library/types.gen.h"
+#include "client/cpp/icd/types.gen.h"
 
 #include "driver/codec/bits.h"
 #include "driver/codec/errors.h"
@@ -28,8 +28,8 @@ std::pair<BitRange, x::errors::Error> BitRange::compile(
                 "bit length must be from 1 to 64, got " + std::to_string(bit_length)
             ),
         };
-    const bool big = byte_order == synnax::library::BYTE_ORDER_BIG_ENDIAN;
-    if (!big && byte_order != synnax::library::BYTE_ORDER_LITTLE_ENDIAN)
+    const bool big = byte_order == synnax::icd::BYTE_ORDER_BIG_ENDIAN;
+    if (!big && byte_order != synnax::icd::BYTE_ORDER_LITTLE_ENDIAN)
         return {
             {},
             x::errors::Error(CONFIG_ERROR, "unknown byte order: " + byte_order),

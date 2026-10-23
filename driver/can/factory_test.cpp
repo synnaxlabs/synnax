@@ -64,15 +64,15 @@ protected:
         return status.message;
     }
 
-    /// @returns a write config that drives the first field of the library's message
+    /// @returns a write config that drives the first field of the ICD's message
     /// on device from a new virtual channel.
     synnax::can::WriteConfig
-    write_config(const synnax::library::Library &lib, const std::string &device) {
-        const auto &m = std::get<synnax::library::MessageEntry>(lib.entries[0]);
+    write_config(const synnax::icd::ICD &ic, const std::string &device) {
+        const auto &m = std::get<synnax::icd::MessageEntry>(ic.entries[0]);
         const auto cmd = create_virtual_channel(*core.client, x::telem::FLOAT64_T);
         synnax::can::WriteConfig cfg;
         cfg.device = device;
-        cfg.library = lib.key;
+        cfg.icd = ic.key;
         cfg.messages = {{
             .message = m.key,
             .fields = {{.field = field_key(m, 0), .channel = cmd.key}},
@@ -81,12 +81,12 @@ protected:
     }
 };
 
-synnax::library::MessageEntry
+synnax::icd::MessageEntry
 can_message(const std::uint32_t id, const std::uint16_t length = 1) {
     auto m = binary_message(
         "m",
         {binary_field("v", 0)},
-        synnax::library::CanIdentifier{.id = id}
+        synnax::icd::CanIdentifier{.id = id}
     );
     binary(m).length = length;
     return m;
@@ -94,11 +94,11 @@ can_message(const std::uint32_t id, const std::uint16_t length = 1) {
 }
 
 TEST_F(CANFactory, ConfiguresAReadTaskThatStreamsDecodedValues) {
-    const auto lib = core.create_library({can_message(0x10)});
+    const auto ic = core.create_icd({can_message(0x10)});
     synnax::can::ReadConfig cfg;
     static_cast<::synnax::bus::ReadConfig &>(
         cfg
-    ) = core.read_config(lib, core.create_device(MAKE, props().to_json()));
+    ) = core.read_config(ic, core.create_device(MAKE, props().to_json()));
     const auto data = cfg.messages[0].fields[0].channel;
     auto t = this->configure(READ_TASK_TYPE, cfg.to_json());
     ASSERT_NE(t, nullptr);
@@ -115,9 +115,9 @@ TEST_F(CANFactory, ConfiguresAReadTaskThatStreamsDecodedValues) {
 }
 
 TEST_F(CANFactory, ConfiguresAWriteTask) {
-    const auto lib = core.create_library({can_message(0x20)});
+    const auto ic = core.create_icd({can_message(0x20)});
     const auto cfg = this->write_config(
-        lib,
+        ic,
         core.create_device(MAKE, props().to_json())
     );
     const auto cmd = cfg.messages[0].fields[0].channel;
@@ -141,20 +141,20 @@ TEST_F(CANFactory, ConfiguresAWriteTask) {
 }
 
 TEST_F(CANFactory, RejectsAWriteTaskOnAListenOnlyDevice) {
-    const auto lib = core.create_library({can_message(0x20)});
+    const auto ic = core.create_icd({can_message(0x20)});
     auto p = props();
     p.listen_only = true;
-    const auto cfg = this->write_config(lib, core.create_device(MAKE, p.to_json()));
+    const auto cfg = this->write_config(ic, core.create_device(MAKE, p.to_json()));
     EXPECT_EQ(this->configure(WRITE_TASK_TYPE, cfg.to_json()), nullptr);
     EXPECT_NE(this->error().find("listen only"), std::string::npos);
 }
 
 TEST_F(CANFactory, RejectsAnFDMessageOnAClassicBus) {
     auto m = can_message(0x20, 12);
-    std::get<synnax::library::CanIdentifier>(*binary(m).identifier).fd = true;
-    const auto lib = core.create_library({m});
+    std::get<synnax::icd::CanIdentifier>(*binary(m).identifier).fd = true;
+    const auto ic = core.create_icd({m});
     const auto cfg = this->write_config(
-        lib,
+        ic,
         core.create_device(MAKE, props().to_json())
     );
     EXPECT_EQ(this->configure(WRITE_TASK_TYPE, cfg.to_json()), nullptr);
@@ -168,9 +168,9 @@ TEST_F(CANFactory, RejectsALengthWithNoDataLengthCode) {
     auto p = props();
     p.fd = true;
     auto m = can_message(0x20, 9);
-    std::get<synnax::library::CanIdentifier>(*binary(m).identifier).fd = true;
-    const auto lib = core.create_library({m});
-    const auto cfg = this->write_config(lib, core.create_device(MAKE, p.to_json()));
+    std::get<synnax::icd::CanIdentifier>(*binary(m).identifier).fd = true;
+    const auto ic = core.create_icd({m});
+    const auto cfg = this->write_config(ic, core.create_device(MAKE, p.to_json()));
     EXPECT_EQ(this->configure(WRITE_TASK_TYPE, cfg.to_json()), nullptr);
     EXPECT_NE(
         this->error().find("length 9 is not a valid CAN FD length"),
@@ -179,9 +179,9 @@ TEST_F(CANFactory, RejectsALengthWithNoDataLengthCode) {
 }
 
 TEST_F(CANFactory, RejectsAMessageWithoutACANIdentifier) {
-    const auto lib = core.create_library({binary_message("m", {binary_field("v", 0)})});
+    const auto ic = core.create_icd({binary_message("m", {binary_field("v", 0)})});
     const auto cfg = this->write_config(
-        lib,
+        ic,
         core.create_device(MAKE, props().to_json())
     );
     EXPECT_EQ(this->configure(WRITE_TASK_TYPE, cfg.to_json()), nullptr);

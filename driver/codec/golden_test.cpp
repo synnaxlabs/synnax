@@ -22,8 +22,8 @@
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
-#include "client/cpp/library/json.gen.h"
-#include "client/cpp/library/types.gen.h"
+#include "client/cpp/icd/json.gen.h"
+#include "client/cpp/icd/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/test/test.h"
@@ -34,18 +34,18 @@
 
 namespace driver::codec {
 namespace {
-namespace library = synnax::library;
+namespace icd = synnax::icd;
 using json = nlohmann::json;
 
-/// @brief Golden is one DBC file: each message as the Core's importer writes it to a
-/// library, and the vectors cantools decodes and encodes for each message it can.
+/// @brief Golden is one DBC file: each message as the Core's importer writes it to an
+/// ICD, and the vectors cantools decodes and encodes for each message it can.
 struct Golden {
     std::string file;
-    std::vector<library::MessageEntry> messages;
+    std::vector<icd::MessageEntry> messages;
     /// @brief vectors holds the vectors of each message, or nullopt when cantools
     /// skipped it.
     std::vector<std::optional<json>> vectors;
-    /// @brief problems lists where the importer's library and cantools disagree.
+    /// @brief problems lists where the importer's ICD and cantools disagree.
     std::vector<std::string> problems;
 };
 
@@ -72,8 +72,8 @@ std::vector<std::uint8_t> from_hex(const std::string &hex) {
 
 /// @returns a signal that cantools decodes and the message has no field for, or an
 /// empty string.
-std::string unknown_signal(const library::MessageEntry &m, const json &vectors) {
-    const auto &fs = std::get<library::BinaryPayload>(m.payload).fields;
+std::string unknown_signal(const icd::MessageEntry &m, const json &vectors) {
+    const auto &fs = std::get<icd::BinaryPayload>(m.payload).fields;
     for (const auto &v: vectors)
         for (const auto &[name, _]: v["values"].items())
             if (std::ranges::none_of(fs, [&name](const auto &f) {
@@ -92,26 +92,26 @@ std::vector<Golden> load() {
     for (const auto &path: paths) {
         auto stem = path;
         stem.replace_extension();
-        auto lib_path = stem;
-        lib_path += ".library.json";
+        auto icd_path = stem;
+        icd_path += ".icd.json";
         auto vectors_path = stem;
         vectors_path += ".vectors.json";
         Golden g{.file = path.filename().string()};
-        if (!std::filesystem::exists(lib_path)) {
-            g.problems.emplace_back("the importer wrote no library");
+        if (!std::filesystem::exists(icd_path)) {
+            g.problems.emplace_back("the importer wrote no ICD");
             out.push_back(std::move(g));
             continue;
         }
-        x::json::Parser parser(read(lib_path));
-        const auto lib = library::Library::parse(parser);
+        x::json::Parser parser(read(icd_path));
+        const auto ic = icd::ICD::parse(parser);
         if (!parser.ok()) g.problems.push_back(parser.error().message());
         const auto vectors = read(vectors_path);
         const auto &skipped = vectors["skipped"];
         std::map<std::string, json> by_name;
         for (const auto &m: vectors["messages"])
             by_name[m["name"].get<std::string>()] = m["vectors"];
-        for (const auto &e: lib.entries) {
-            const auto *m = std::get_if<library::MessageEntry>(&e);
+        for (const auto &e: ic.entries) {
+            const auto *m = std::get_if<icd::MessageEntry>(&e);
             if (m == nullptr) continue;
             g.messages.push_back(*m);
             const auto it = by_name.find(m->name);
@@ -137,14 +137,14 @@ std::vector<Golden> load() {
                 g.problems.push_back("cantools has no message " + m->name);
         }
         for (const auto &[name, _]: by_name)
-            g.problems.push_back("the library has no message " + name);
+            g.problems.push_back("the ICD has no message " + name);
         out.push_back(std::move(g));
     }
     return out;
 }
 
-const std::vector<library::BinaryField> &fields(const library::MessageEntry &m) {
-    return std::get<library::BinaryPayload>(m.payload).fields;
+const std::vector<icd::BinaryField> &fields(const icd::MessageEntry &m) {
+    return std::get<icd::BinaryPayload>(m.payload).fields;
 }
 
 /// @returns how far two computations of raw * scale + offset can differ when one
@@ -154,7 +154,7 @@ double rounding(const double value, const double offset) {
            (std::abs(value) + 2 * std::abs(offset));
 }
 
-bool exact(const library::BinaryField &f) {
+bool exact(const icd::BinaryField &f) {
     return !f.float_ && f.scale == 1 && f.offset == 0;
 }
 
@@ -280,18 +280,18 @@ TEST(GoldenVectors, MatchEachMessageByItsCANIdentifier) {
         // CompileEveryMessageTheImporterAccepts reports the error.
         if (err) continue;
         for (std::size_t i = 0; i < g.messages.size(); i++) {
-            const auto &payload = std::get<library::BinaryPayload>(
+            const auto &payload = std::get<icd::BinaryPayload>(
                 g.messages[i].payload
             );
-            const auto &id = std::get<library::CanIdentifier>(*payload.identifier);
+            const auto &id = std::get<icd::CanIdentifier>(*payload.identifier);
             const auto match = matcher.match(id.id, id.extended);
             if (!match.has_value()) {
                 ADD_FAILURE() << g.file << " " << g.messages[i].name;
                 continue;
             }
             EXPECT_EQ(
-                std::get<library::CanIdentifier>(
-                    *std::get<library::BinaryPayload>(g.messages[*match].payload)
+                std::get<icd::CanIdentifier>(
+                    *std::get<icd::BinaryPayload>(g.messages[*match].payload)
                          .identifier
                 )
                     .id,

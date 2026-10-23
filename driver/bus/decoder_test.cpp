@@ -25,7 +25,7 @@ using namespace testutil;
 namespace {
 /// @returns a message whose field mux selects field a when it is 0 and field b when it
 /// is 1.
-synnax::library::MessageEntry multiplexed() {
+synnax::icd::MessageEntry multiplexed() {
     auto mux = binary_field("mux", 0);
     auto a = binary_field("a", 8);
     a.multiplexor = mux.key;
@@ -39,7 +39,7 @@ synnax::library::MessageEntry multiplexed() {
 /// @brief resolves a config that reads every field of message. Field i goes to channel
 /// i + 1, stamped on indexes[i], or on no index when that is zero.
 ReadConfig grouped(
-    const synnax::library::MessageEntry &message,
+    const synnax::icd::MessageEntry &message,
     const std::vector<synnax::channel::Key> &indexes
 ) {
     ::synnax::bus::ReadConfig cfg;
@@ -63,7 +63,7 @@ ReadConfig grouped(
         cfg,
         {},
         std::nullopt,
-        library({message}),
+        create_icd({message}),
         channels
     );
     EXPECT_TRUE(parser.ok()) << parser.error_json().dump();
@@ -208,10 +208,7 @@ TEST(Decoder, WarnsWhenFramesArriveButNoneMatch) {
         decoder.raw(std::vector<std::uint8_t>{9});
         clock.advance(x::telem::SECOND);
     }
-    EXPECT_EQ(
-        decoder.warning(),
-        "frames arrive, but none match a message in the library"
-    );
+    EXPECT_EQ(decoder.warning(), "frames arrive, but none match a message in the ICD");
     decoder.raw(std::vector<std::uint8_t>{1});
     decoder.decode(0, std::vector<std::uint8_t>{1}, T);
     EXPECT_EQ(decoder.warning(), "");
@@ -274,7 +271,7 @@ TEST(Decoder, ExpectsAPolledMessageEveryPollPeriod) {
 }
 
 TEST(Decoder, NamesAtMostThreeMessagesThatMissedPeriods) {
-    std::vector<synnax::library::MessageEntry> messages;
+    std::vector<synnax::icd::MessageEntry> messages;
     for (const auto *name: {"a", "b", "c", "d", "e"}) {
         auto m = text_message(name, {delimited_field("v", 1)}, std::string(name) + ",");
         m.period = x::telem::SECOND;

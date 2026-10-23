@@ -49,13 +49,13 @@ protected:
 }
 
 TEST_F(TCPFactory, ConfiguresAReadTaskThatStreamsDecodedValues) {
-    const auto lib = core.create_library(
+    const auto ic = core.create_icd(
         {text_message("status", {delimited_field("v", 0)})}
     );
     synnax::tcp::ReadConfig cfg;
     static_cast<::synnax::bus::ReadConfig &>(
         cfg
-    ) = core.read_config(lib, this->create_device());
+    ) = core.read_config(ic, this->create_device());
     const auto data = cfg.messages[0].fields[0].channel;
     auto [t, ok] = this->factory.configure_task(
         core.ctx,
@@ -75,14 +75,14 @@ TEST_F(TCPFactory, ConfiguresAReadTaskThatStreamsDecodedValues) {
 }
 
 TEST_F(TCPFactory, ConfiguresAWriteTask) {
-    const auto lib = core.create_library(
+    const auto ic = core.create_icd(
         {text_message("set", {tagged_field("v", "VOLT ")})}
     );
-    const auto &m = std::get<synnax::library::MessageEntry>(lib.entries[0]);
+    const auto &m = std::get<synnax::icd::MessageEntry>(ic.entries[0]);
     const auto cmd = create_virtual_channel(*core.client, x::telem::FLOAT64_T);
     synnax::tcp::WriteConfig cfg;
     cfg.device = this->create_device();
-    cfg.library = lib.key;
+    cfg.icd = ic.key;
     cfg.messages = {{
         .message = m.key,
         .fields = {{.field = field_key(m, 0), .channel = cmd.key}},
@@ -116,20 +116,20 @@ TEST_F(TCPFactory, ConfiguresAWriteTask) {
 }
 
 TEST_F(TCPFactory, SharesOneConnectionBetweenTheTasksOfADevice) {
-    const auto lib = core.create_library(
+    const auto ic = core.create_icd(
         {text_message("status", {delimited_field("v", 0)}),
          text_message("set", {tagged_field("v", "VOLT ")})}
     );
     const auto dev = this->create_device();
     synnax::tcp::ReadConfig read_cfg;
-    static_cast<::synnax::bus::ReadConfig &>(read_cfg) = core.read_config(lib, dev);
+    static_cast<::synnax::bus::ReadConfig &>(read_cfg) = core.read_config(ic, dev);
     read_cfg.messages.resize(1);
     const auto data = read_cfg.messages[0].fields[0].channel;
-    const auto &set = std::get<synnax::library::MessageEntry>(lib.entries[1]);
+    const auto &set = std::get<synnax::icd::MessageEntry>(ic.entries[1]);
     const auto cmd = create_virtual_channel(*core.client, x::telem::FLOAT64_T);
     synnax::tcp::WriteConfig write_cfg;
     write_cfg.device = dev;
-    write_cfg.library = lib.key;
+    write_cfg.icd = ic.key;
     write_cfg.messages = {{
         .message = set.key,
         .fields = {{.field = field_key(set, 0), .channel = cmd.key}},

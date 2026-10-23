@@ -3,7 +3,7 @@ Third-party DBC files
 The files below are copied from two MIT-licensed projects at pinned commits by
 ../corpus.sh, which names each <project>_<name>.dbc for its project. Git stores them
 with LF line endings and no other change. Each keeps the license of its project,
-reproduced below. layouts.dbc and the generated *.library.json and *.vectors.json files
+reproduced below. layouts.dbc and the generated *.icd.json and *.vectors.json files
 are Synnax's.
 
 opendbc: https://github.com/commaai/opendbc

@@ -35,7 +35,7 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//client/cpp/bus",
-        "//client/cpp/library",
+        "//client/cpp/icd",
         "//driver/codec",
         "//driver/codec/framing",
         "//driver/common",

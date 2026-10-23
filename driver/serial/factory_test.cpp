@@ -29,12 +29,12 @@ protected:
 }
 
 TEST_F(SerialFactory, ConfiguresAReadTaskThatStreamsDecodedValues) {
-    const auto lib = core.create_library(
+    const auto ic = core.create_icd(
         {text_message("env", {tagged_field("t", "T=")})}
     );
     const auto dev = core.create_device(MAKE, this->props().to_json());
     synnax::serial::ReadConfig cfg;
-    static_cast<::synnax::bus::ReadConfig &>(cfg) = core.read_config(lib, dev);
+    static_cast<::synnax::bus::ReadConfig &>(cfg) = core.read_config(ic, dev);
     const auto data = cfg.messages[0].fields[0].channel;
     const auto task = core.task(READ_TASK_TYPE, cfg.to_json());
     auto [t, ok] = this->factory.configure_task(core.ctx, task, "");
@@ -49,13 +49,13 @@ TEST_F(SerialFactory, ConfiguresAReadTaskThatStreamsDecodedValues) {
     ASSERT_NIL(streamer.close());
 }
 
-TEST_F(SerialFactory, RejectsAMessageThatIsNotInTheLibrary) {
-    const auto lib = core.create_library(
+TEST_F(SerialFactory, RejectsAMessageThatIsNotInTheICD) {
+    const auto ic = core.create_icd(
         {text_message("env", {tagged_field("t", "T=")})}
     );
     const auto dev = core.create_device(MAKE, this->props().to_json());
     synnax::serial::ReadConfig cfg;
-    static_cast<::synnax::bus::ReadConfig &>(cfg) = core.read_config(lib, dev);
+    static_cast<::synnax::bus::ReadConfig &>(cfg) = core.read_config(ic, dev);
     cfg.messages[0].message = x::uuid::create();
     auto [t, ok] = this->factory.configure_task(
         core.ctx,
@@ -68,19 +68,19 @@ TEST_F(SerialFactory, RejectsAMessageThatIsNotInTheLibrary) {
     const auto &status = core.ctx->statuses[0];
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.details.cmd, "configure");
-    EXPECT_NE(status.message.find("is not in library"), std::string::npos);
+    EXPECT_NE(status.message.find("is not in ICD"), std::string::npos);
 }
 
 TEST_F(SerialFactory, ConfiguresAWriteTask) {
-    const auto lib = core.create_library(
+    const auto ic = core.create_icd(
         {text_message("set", {tagged_field("v", "VOLT ")})}
     );
     const auto dev = core.create_device(MAKE, this->props().to_json());
-    const auto &m = std::get<synnax::library::MessageEntry>(lib.entries[0]);
+    const auto &m = std::get<synnax::icd::MessageEntry>(ic.entries[0]);
     const auto cmd = create_virtual_channel(*core.client, x::telem::FLOAT64_T);
     synnax::serial::WriteConfig cfg;
     cfg.device = dev;
-    cfg.library = lib.key;
+    cfg.icd = ic.key;
     cfg.messages = {{
         .message = m.key,
         .fields = {{.field = field_key(m, 0), .channel = cmd.key}},

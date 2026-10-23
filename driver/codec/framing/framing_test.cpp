@@ -152,7 +152,7 @@ const bus::SyncFraming MODBUS_STYLE{
     .sync = "01",
     .length_offset = 1,
     .length_size = 2,
-    .byte_order = synnax::library::BYTE_ORDER_BIG_ENDIAN,
+    .byte_order = synnax::icd::BYTE_ORDER_BIG_ENDIAN,
     .length_adjustment = 2,
     .checksum = bus::CHECKSUM_CRC_16_MODBUS,
 };
@@ -383,7 +383,7 @@ TEST(Sync, ResynchronizesAfterALengthBeyondTheMaximum) {
             .sync = "7E",
             .length_offset = 1,
             .length_size = 2,
-            .byte_order = synnax::library::BYTE_ORDER_BIG_ENDIAN,
+            .byte_order = synnax::icd::BYTE_ORDER_BIG_ENDIAN,
         }
     );
     Bytes stream = {0x7E, 0xFF, 0xFF, 0x01, 0x7E, 0x00, 0x01, 0x42};
@@ -409,10 +409,10 @@ TEST(Sync, RoundTripsABigEndianCRC32Frame) {
             .sync = "7e",
             .length_offset = 1,
             .length_size = 2,
-            .byte_order = synnax::library::BYTE_ORDER_BIG_ENDIAN,
+            .byte_order = synnax::icd::BYTE_ORDER_BIG_ENDIAN,
             .length_adjustment = 4,
             .checksum = bus::CHECKSUM_CRC_32,
-            .checksum_byte_order = synnax::library::BYTE_ORDER_BIG_ENDIAN,
+            .checksum_byte_order = synnax::icd::BYTE_ORDER_BIG_ENDIAN,
         }
     );
     const Bytes frame = {0x7E, 0x00, 0x03, 0x7E, 0x00, 0x42};
@@ -485,7 +485,7 @@ TEST(Sync, SplitsALengthPrefixedStreamWithNoSync) {
     const auto f = open(
         bus::SyncFraming{
             .length_size = 2,
-            .byte_order = synnax::library::BYTE_ORDER_BIG_ENDIAN,
+            .byte_order = synnax::icd::BYTE_ORDER_BIG_ENDIAN,
         }
     );
     const Bytes stream = {0x00, 0x02, 0xAA, 0xBB, 0x00, 0x01, 0xCC};
