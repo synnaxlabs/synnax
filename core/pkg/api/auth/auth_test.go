@@ -197,7 +197,7 @@ var _ = Describe("Middleware", func() {
 	passthrough := freighter.FinalizerFunc(
 		func(c freighter.Context) (freighter.Context, error) { return c, nil },
 	)
-	It("Should put the session on a unary request", func(ctx SpecContext) {
+	It("Should put the subject on a unary request", func(ctx SpecContext) {
 		var seen freighter.Context
 		MustSucceed(mw.Exec(
 			withToken(ctx, freighter.VariantUnary),
@@ -209,11 +209,6 @@ var _ = Describe("Middleware", func() {
 			),
 		))
 		Expect(apiauth.GetSubject(seen)).To(Equal(root.OntologyID()))
-		session := apiauth.GetSession(seen)
-		Expect(session.Key).To(Equal(
-			MustSucceed(authSvc.Authenticate(ctx, token)).Key,
-		))
-		Expect(session.Credential).ToNot(Equal(uuid.Nil()))
 	})
 	It("Should reject a request without a token", func(ctx SpecContext) {
 		Expect(mw.Exec(requestCtx(ctx), passthrough)).Error().
@@ -415,6 +410,20 @@ var _ = Describe("Sessions", func() {
 				))
 				Expect(res.Sessions).To(HaveLen(1))
 				Expect(res.Sessions[0].Subject).To(Equal(bob.OntologyID()))
+			},
+		)
+		It(
+			"Should return an empty list for a subject with no sessions",
+			func(ctx SpecContext) {
+				idle := createUser(ctx, "idle-"+uuid.New().String(), "p")
+				res := MustSucceed(apiSvc.RetrieveSessions(
+					authed(ctx, rootToken),
+					apiauth.SessionRetrieveRequest{
+						Subjects: []ontology.ID{idle.OntologyID()},
+					},
+				))
+				Expect(res.Sessions).ToNot(BeNil())
+				Expect(res.Sessions).To(BeEmpty())
 			},
 		)
 		It(

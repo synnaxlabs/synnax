@@ -34,9 +34,6 @@ const std::string HEADER_VALUE_PREFIX = "Bearer ";
 /// @brief the method of a username and password proof.
 const std::string METHOD_PASSWORD = "password";
 const std::string METHOD_API_KEY = "api_key";
-/// @brief how long a logout waits for the Core before giving up. The client's
-/// destructor logs out, so an unanswered request must not hang it.
-constexpr auto LOGOUT_TIMEOUT = std::chrono::seconds(5);
 
 /// @brief transport that opens a session from a proof.
 using SessionCreateClient = freighter::
@@ -209,6 +206,10 @@ struct Session {
 /// and attaches its token to every request. Middleware has no preference on order when
 /// provided to use. It is safe to use concurrently.
 class Middleware final : public freighter::PassthroughMiddleware {
+    /// @brief how long a logout waits for the Core before giving up. The client's
+    /// destructor logs out, so an unanswered request must not hang it.
+    static constexpr auto LOGOUT_TIMEOUT = std::chrono::seconds(5);
+
     /// @brief adds the token to the session requests the Middleware sends itself.
     class TokenHeader final : public freighter::PassthroughMiddleware {
         std::function<std::string()> token;
