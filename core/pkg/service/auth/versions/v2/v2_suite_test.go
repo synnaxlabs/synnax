@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package token_test
+package v2_test
 
 import (
 	"testing"
@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestToken(t *testing.T) {
+func TestAuthV2(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Auth Token Suite")
+	RunSpecs(t, "Service Auth v2 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

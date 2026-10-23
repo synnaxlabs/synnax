@@ -30,6 +30,7 @@ type Service struct {
 	access   *rbac.Service
 	internal *user.Service
 	password *password.Service
+	auth     *svcauth.Service
 }
 
 // NewService creates a new Service that allows for registering, updating, and removing
@@ -43,6 +44,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		access:   cfg.Service.RBAC,
 		internal: cfg.Service.User,
 		password: cfg.Service.Password,
+		auth:     cfg.Service.Auth,
 	}, nil
 }
 
@@ -220,6 +222,6 @@ func (s *Service) Delete(
 	if err := s.internal.NewWriter(tx).Delete(ctx, req.Keys...); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.password.NewWriter(tx).
+	return struct{}{}, s.auth.NewWriter(tx).
 		DeleteFor(ctx, user.OntologyIDsFromKeys(req.Keys)...)
 }
