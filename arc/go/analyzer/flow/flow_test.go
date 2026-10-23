@@ -565,6 +565,37 @@ src_chan -> demux() -> {
 			output := MustBeOk(sym.Type.Outputs.Get(ir.DefaultOutputParam))
 			Expect(output.Type).To(Equal(types.I64()))
 		})
+
+		It(
+			"Should accept the len builtin with its named input",
+			func(bCtx SpecContext) {
+				ctx := analyze(bCtx, `len(input=label) -> count`)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				expressionNode(ctx)
+			},
+		)
+
+		DescribeTable("Should reject bad arguments to the len builtin",
+			func(bCtx SpecContext, source, message string) {
+				ctx := analyze(bCtx, source)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("unknown named argument",
+				`len(unknown=label) -> count`,
+				"unknown parameter 'unknown' for func 'len'"),
+			Entry("too many positional arguments",
+				`len(label, label) -> count`,
+				"too many arguments for func 'len': expected at most 1"),
+			Entry("duplicate named argument",
+				`len(input=label, input=label) -> count`,
+				"duplicate argument for parameter 'input' of func 'len'"),
+			Entry("too many positional arguments in a func body",
+				`func f() {} i64 {
+    return len(label, label)
+}`,
+				"too many arguments for func 'len': expected at most 1"),
+		)
 	})
 
 	Describe("Channel to func Flows", func() {

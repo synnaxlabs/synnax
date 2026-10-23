@@ -484,16 +484,25 @@ func AnalyzeCallSite[T antlr.ParserRuleContext](
 		))
 		return
 	}
-	if funcName != "len" && funcName != "series.len" {
-		if hasMultipleNamedOutputs(fnType) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				site,
-				"cannot call function %s: functions with multiple named outputs are not callable",
-				funcName,
-			))
-		} else {
-			AnalyzeCall(ctx, funcName, fnType, args, callee.AnalyzeArguments, site, "")
-		}
+	if funcName == "len" || funcName == "series.len" {
+		// len dispatches on its argument type at compile time, so only the names
+		// and arity are checked here.
+		bindArguments(
+			ctx,
+			funcName,
+			fnType,
+			args,
+			ir.FormatFunctionSignature(funcName, fnType),
+			"",
+		)
+	} else if hasMultipleNamedOutputs(fnType) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			site,
+			"cannot call function %s: functions with multiple named outputs are not callable",
+			funcName,
+		))
+	} else {
+		AnalyzeCall(ctx, funcName, fnType, args, callee.AnalyzeArguments, site, "")
 	}
 	if callerFn == nil {
 		return
