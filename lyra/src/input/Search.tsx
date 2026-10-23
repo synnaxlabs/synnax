@@ -9,7 +9,6 @@
 
 import { type KeyboardEvent, type ReactElement } from "react";
 
-import { Dialog } from "@/dialog";
 import { Text, type TextProps } from "@/input/Text";
 
 /** Props for {@link Search}. */
@@ -17,14 +16,13 @@ export interface SearchProps extends TextProps {}
 
 /**
  * A field that filters the content of a dialog. It takes focus when it mounts. Escape
- * closes the enclosing {@link Dialog.Frame}, where a {@link Text} field only gives up
- * focus.
+ * goes on to the dialog, which closes, or first closes a dialog open inside it. A
+ * {@link Text} field keeps Escape and only gives up focus.
  */
 export const Search = ({ onKeyDown, ...rest }: SearchProps): ReactElement => {
-  const { close } = Dialog.useContext();
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
     onKeyDown?.(e);
-    if (e.key === "Escape") close();
+    if (e.key === "Escape") e.preventDefault();
   };
   return <Text autoFocus {...rest} onKeyDown={handleKeyDown} />;
 };
