@@ -130,6 +130,15 @@ class TestSeries:
         assert s.data_type == telem.DataType.BOOLEAN
         assert s.data == b"\x01\x00\x01"
 
+    @pytest.mark.parametrize("value", [np.True_, np.False_])
+    def test_construction_from_np_bool_scalar(self, value: np.bool_) -> None:
+        """Should infer BOOLEAN from a numpy bool_ scalar"""
+        s = telem.Series(value)
+        assert s.data_type == telem.DataType.BOOLEAN
+        assert len(s) == 1
+        assert s.data == bytes([int(value)])
+        assert s[0] == value
+
     def test_bool_normalizes_nonzero_numeric_inputs(self) -> None:
         """Should normalize nonzero numeric inputs to 0x01 when dtype is BOOLEAN"""
         s = telem.Series([0, 1, 42, -3, 0], data_type=telem.DataType.BOOLEAN)
