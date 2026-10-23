@@ -14,9 +14,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import synnax as sy
-from synnax.cli import default
-from synnax.cli.channel import select_channel
+from synnax.cli import channel, default
 from synnax.cli.connect import connect_client
+from x.telem import to_int
 
 
 @click.command()
@@ -35,7 +35,7 @@ def check_timing() -> None:
         return
 
     # Let user select the time channel
-    time_channel = select_channel(default.context(), time_channels)
+    time_channel = channel.select(default.context(), time_channels)
     if time_channel is None:
         return
 
@@ -85,7 +85,7 @@ def collect_samples(
             offsets.append(offset)
             diff = sy.TimeSpan(last - second_last)
             diffs.append(diff)
-            times.extend(data)  # type: ignore[arg-type]
+            times.extend(sy.TimeStamp(to_int(t)) for t in data)
 
     local_end = sy.TimeStamp.now()
     return offsets, diffs, times, local_start, local_end

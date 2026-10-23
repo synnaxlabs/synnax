@@ -35,7 +35,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   className,
   loading,
   useMargin = false,
-  offsetMultiplier = 2.5,
+  offsetMultiplier = 3,
   ...rest
 }: ItemProps<K, E>) => {
   const { index } = rest;

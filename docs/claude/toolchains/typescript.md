@@ -32,8 +32,8 @@ form shows placeholders but does NOT pre-fill — actually type the values.
 - Absolute imports: `@/components`, never `../../../components`.
 - Inline type imports: `import { type Foo } from "bar"`; simple-import-sort for
   import/export ordering.
-- JSX: no braces for string props, consistent boolean attributes, no constructed context
-  values.
+- JSX: no braces for string props, bare `true` boolean attributes, and `key` before
+  spread props.
 - `no-floating-promises`: await or `void` every promise. Unused vars must be
   underscore-prefixed.
 

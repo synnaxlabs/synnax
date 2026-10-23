@@ -15,7 +15,7 @@ import synnax as sy
 from synnax.cli.console.mock import MockConsole
 from synnax.cli.flow import Context
 from synnax.cli.ts_convert import pure_tsconvert
-from synnax.io import IO_FACTORY
+from synnax.io import FACTORY
 
 from .data import DATA_DIR
 
@@ -44,7 +44,7 @@ class TestTSConvert:
             input_precision="s",
             output_precision="ns",
         )
-        f = IO_FACTORY.new_reader(DATA_DIR / "tsconvert_out.csv")
+        f = FACTORY.new_reader(DATA_DIR / "tsconvert_out.csv")
         f.set_chunk_size(1)
         f.seek_first()
         df = f.read()
@@ -61,7 +61,7 @@ class TestTSConvert:
             input_precision="s",
             output_precision="ns",
         )
-        f = IO_FACTORY.new_reader(DATA_DIR / "tsconvert_out.csv")
+        f = FACTORY.new_reader(DATA_DIR / "tsconvert_out.csv")
         f.set_chunk_size(1)
         f.seek_first()
         df = f.read()
@@ -78,7 +78,7 @@ class TestTSConvert:
             input_precision="iso",
             output_precision="ns",
         )
-        f = IO_FACTORY.new_reader(DATA_DIR / "tsconvert_out.csv")
+        f = FACTORY.new_reader(DATA_DIR / "tsconvert_out.csv")
         f.set_chunk_size(1)
         f.seek_first()
         df = f.read()
