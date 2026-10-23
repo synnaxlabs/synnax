@@ -31,9 +31,6 @@ import { CSS } from "@/platform/css";
 
 const PRECISION_BOUNDS = { lower: 0, upper: 17 };
 
-// The numeric input shows an unset precision through a sentinel it renders empty.
-const AUTO_PRECISION = -1;
-
 const showsNumericFields = (dt: DataType | undefined): boolean =>
   dt != null && dt.isNumeric && !dt.equals(DataType.TIMESTAMP);
 
@@ -71,13 +68,7 @@ const ChannelRow = ({
     [channel, dispatch],
   );
   const handlePrecisionChange = useCallback(
-    (precision: number) =>
-      dispatch(
-        log.setChannelPrecision({
-          channel,
-          precision: precision === AUTO_PRECISION ? undefined : precision,
-        }),
-      ),
+    (precision?: number) => dispatch(log.setChannelPrecision({ channel, precision })),
     [channel, dispatch],
   );
   const handleFormatChange = useCallback(
@@ -147,10 +138,8 @@ const ChannelRow = ({
           <>
             <Notation.Select value={notation} onChange={handleNotationChange} />
             <Input.Numeric
-              value={precision ?? AUTO_PRECISION}
+              value={precision}
               onChange={handlePrecisionChange}
-              resetValue={AUTO_PRECISION}
-              emptyValue={AUTO_PRECISION}
               placeholder="Auto"
               bounds={PRECISION_BOUNDS}
               disabled={disabled}
@@ -164,7 +153,7 @@ const ChannelRow = ({
               <Button.Button
                 variant="outlined"
                 disabled={disabled || precision == null}
-                onClick={() => handlePrecisionChange(AUTO_PRECISION)}
+                onClick={() => handlePrecisionChange()}
                 tooltip={
                   precision == null
                     ? "Type a number to disable auto precision"

@@ -48,11 +48,6 @@ export interface NumericProps
   /** Clamps the committed value. */
   bounds?: bounds.Crude;
   onBlur?: () => void;
-  /**
-   * A stored sentinel the schema gives a meaning such as "auto". A value equal to it
-   * renders empty, and clearing the input commits it.
-   */
-  emptyValue?: number;
 }
 
 /**
@@ -81,16 +76,14 @@ export const Numeric = ({
   onBlur,
   size,
   color,
-  emptyValue,
   ...rest
 }: NumericProps): ReactElement => {
   // An absent value renders empty, so the placeholder reads as the unset state.
-  const isEmpty = value == null || (emptyValue != null && value === emptyValue);
   // We need to keep the actual value as a valid number, but we need to let the user
   // input an invalid value that may eventually be valid, so we need to keep the
   // internal value as a string in state.
   const [internalValue, setInternalValue, internalValueRef] = useCombinedStateAndRef(
-    isEmpty ? "" : value.toString(),
+    value == null ? "" : value.toString(),
   );
   const [isValueValid, setIsValueValid, isValueValidRef] =
     useCombinedStateAndRef<boolean>(true);
@@ -102,24 +95,16 @@ export const Numeric = ({
     if (isValueValidRef.current) return;
     setIsValueValid(true);
     const raw = internalValueRef.current.trim();
-    if (raw === "" && emptyValue != null) {
-      onChange?.(emptyValue);
-      return;
-    }
     if (raw === "" && valueRef.current == null) return;
     const commit = (v: number | null): void => {
       if (v != null) onChange?.(bounds.clamp(boundsRef.current, v));
       else
-        setInternalValue(
-          valueRef.current == null || valueRef.current === emptyValue
-            ? ""
-            : valueRef.current.toString(),
-        );
+        setInternalValue(valueRef.current == null ? "" : valueRef.current.toString());
     };
     const plain = parseNumber(raw);
     if (plain != null) return commit(plain);
     void evaluateExpression(raw).then(commit);
-  }, [onChange, setInternalValue, emptyValue]);
+  }, [onChange, setInternalValue]);
 
   const updateActualValueRef = useSyncedRef(updateActualValue);
 
@@ -141,7 +126,7 @@ export const Numeric = ({
   );
 
   // If the value is valid, use the actual value, otherwise use the internal value.
-  const value_ = isValueValid ? (isEmpty ? "" : value.toString()) : internalValue;
+  const value_ = isValueValid ? (value?.toString() ?? "") : internalValue;
 
   const onDragChange = useCallback(
     (value: number) => {
