@@ -60,10 +60,10 @@ export const iteratorConfigZ = z.object({
    */
   chunkSize: z.number().default(1e5),
   /**
-   * reduction reduces the samples of each channel read. A stride keeps every
-   * factor-th sample. A limit reduces each channel to about pointLimit points, and
-   * channels on one index reduce over the same groups, so their reduced series share
-   * alignments. Each reduced series carries its alignment multiple.
+   * reduction reduces the samples of each channel read. A stride keeps every factor-th
+   * sample. A limit reduces each channel to about pointLimit points, and channels on
+   * one index reduce over the same groups, so their reduced series share alignments.
+   * Each reduced series carries its alignment multiple.
    */
   reduction: reductionZ.optional(),
 });
