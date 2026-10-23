@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -49,8 +50,10 @@ func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
-	"key":  zyn.UUID(),
-	"name": zyn.String(),
+	"key":   zyn.UUID(),
+	"name":  zyn.String(),
+	"icon":  zyn.String().Optional(),
+	"color": color.Schema.Optional(),
 })
 
 func newResource(p Panel) ontology.Resource {
