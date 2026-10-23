@@ -29,7 +29,11 @@ export const TokenKeeper = (): null => {
     client != null &&
     core != null &&
     accountOf(core) ===
-      accountOf({ host: client.params.host, port: Number(client.params.port) });
+      accountOf({
+        host: client.params.host,
+        port: Number(client.params.port),
+        secure: client.params.secure,
+      });
   const rejected =
     current && status.variant === "error" && status.details.reason === "auth";
   const token = current && status.details.authenticated ? client.auth.token : undefined;
