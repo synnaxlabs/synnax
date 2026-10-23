@@ -29,26 +29,23 @@ export const colorFallbacks = {
   fillColor: Form.defaultFallback,
 } satisfies ColorFallbacks;
 
-const ClickModeSelect = Component.renderProp(
-  ({
-    value,
-    onChange,
-  }: {
-    value: boolean;
-    onChange: (v: boolean) => void;
-  }): ReactElement => {
-    const handleChange = useCallback(
-      (v: string) => onChange(v === "single"),
-      [onChange],
-    );
-    return (
-      <Select.Buttons value={value ? "single" : "double"} onChange={handleChange}>
-        <Select.Item itemKey="single">Single</Select.Item>
-        <Select.Item itemKey="double">Double</Select.Item>
-      </Select.Buttons>
-    );
-  },
-);
+const ClickMode = ({
+  value,
+  onChange,
+}: {
+  value: boolean;
+  onChange: (v: boolean) => void;
+}): ReactElement => {
+  const handleChange = useCallback((v: string) => onChange(v === "single"), [onChange]);
+  return (
+    <Select.Buttons value={value ? "single" : "double"} onChange={handleChange}>
+      <Select.Item itemKey="single">Single</Select.Item>
+      <Select.Item itemKey="double">Double</Select.Item>
+    </Select.Buttons>
+  );
+};
+
+const ClickModeSelect = Component.renderProp(ClickMode);
 
 interface Sibling extends record.KeyedNamed {
   icon: Icon.ReactElement;

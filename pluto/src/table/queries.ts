@@ -202,9 +202,9 @@ export const cellsInRegion = (rows: table.Row[], start: xy.XY, end: xy.XY): stri
     .map(({ x, y }) => rows[y]?.cells[x])
     .filter((cellKey) => cellKey != null);
 
-export const useCellPosition = Scope.bindHook(
-  ({ key, cellKey }: CellParams): xy.XY | null => {
-    const rows = useRows({ key });
-    return useMemo(() => findCellPosition(rows, cellKey), [rows, cellKey]);
-  },
-);
+const useCellPositionBase = ({ key, cellKey }: CellParams): xy.XY | null => {
+  const rows = useRows({ key });
+  return useMemo(() => findCellPosition(rows, cellKey), [rows, cellKey]);
+};
+
+export const useCellPosition = Scope.bindHook(useCellPositionBase);

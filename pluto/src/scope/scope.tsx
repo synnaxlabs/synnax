@@ -82,12 +82,15 @@ export const create = <K extends record.Key>(name: string): Instance<K> => {
 
   const useRequired = (override?: K): K => require(useOptional(override));
 
-  const bindHook =
-    <Args extends record.Keyed<K>, R>(hook: (args: Args) => R): Hook<K, Args, R> =>
-    (args?: optional.Optional<Args, "key">): R => {
+  const bindHook = <Args extends record.Keyed<K>, R>(
+    useHook: (args: Args) => R,
+  ): Hook<K, Args, R> => {
+    const useBound = (args?: optional.Optional<Args, "key">): R => {
       const key = useRequired(args?.key);
-      return hook({ ...args, key } as Args);
+      return useHook({ ...args, key } as Args);
     };
+    return useBound;
+  };
 
   return { Provider, useRequired, useOptional, require, bindHook };
 };

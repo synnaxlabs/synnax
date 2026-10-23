@@ -17,6 +17,8 @@ import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
 import { type Spec } from "@/schematic/edge/spec";
 
+const SYMBOL_COLOR = CSS.variable("symbol-color");
+
 const SYMBOL_INTERVAL = 40;
 const SYMBOL_SIZE = 10;
 
@@ -40,24 +42,26 @@ const HydraulicSymbol = ({ position, direction }: SymbolProps): ReactElement => 
   );
 };
 
-export const spec: Spec<"hydraulic", schematic.HydraulicEdgeConfig> =
-  Segmented.createSpec(
-    "hydraulic",
-    "Hydraulic",
-    ({ points, crossings, color: colorVal }) => {
-      const symbolStyle = useMemo(
-        () => ({ [CSS.variable("symbol-color")]: color.rgbaString(colorVal) }),
-        [colorVal],
-      );
-      return (
-        <g className={CSS.B("symbol-colored")} style={symbolStyle}>
-          <Base.Base path={Path.rounded(points, crossings)} color={colorVal} />
-          {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
-            ({ position, direction }, i) => (
-              <HydraulicSymbol key={i} position={position} direction={direction} />
-            ),
-          )}
-        </g>
-      );
-    },
+const Line = ({
+  points,
+  crossings,
+  color: colorVal,
+}: Segmented.PathProps): ReactElement => {
+  const symbolStyle = useMemo(
+    () => ({ [SYMBOL_COLOR]: color.rgbaString(colorVal) }),
+    [colorVal],
   );
+  return (
+    <g className={CSS.B("symbol-colored")} style={symbolStyle}>
+      <Base.Base path={Path.rounded(points, crossings)} color={colorVal} />
+      {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
+        ({ position, direction }, i) => (
+          <HydraulicSymbol key={i} position={position} direction={direction} />
+        ),
+      )}
+    </g>
+  );
+};
+
+export const spec: Spec<"hydraulic", schematic.HydraulicEdgeConfig> =
+  Segmented.createSpec("hydraulic", "Hydraulic", Line);

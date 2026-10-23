@@ -70,14 +70,15 @@ export interface KeyParams {
   key: panel.Key;
 }
 
+const useCanEditBase = ({ key }: KeyParams): boolean =>
+  Access.useUpdateGranted(panel.ontologyID(key));
+
 /**
  * Reports whether the subject may restructure the panel. Every mosaic gesture, from
  * closing a tab to resizing a split, reduces to one dispatch against the panel
  * document, so a single update grant answers all of them.
  */
-export const useCanEdit = Scope.bindHook(({ key }: KeyParams): boolean =>
-  Access.useUpdateGranted(panel.ontologyID(key)),
-);
+export const useCanEdit = Scope.bindHook(useCanEditBase);
 
 export interface TabContentParams {
   key: panel.Key;
@@ -99,13 +100,16 @@ type BoundTabHook<Args extends TabContentParams, R> = optional.Arg<
   R
 >;
 
-const bindTabHook =
-  <Args extends TabContentParams, R>(hook: (args: Args) => R): BoundTabHook<Args, R> =>
-  (args?: optional.Optional<Args, "key" | "tabKey">): R => {
+const bindTabHook = <Args extends TabContentParams, R>(
+  useHook: (args: Args) => R,
+): BoundTabHook<Args, R> => {
+  const useBound = (args?: optional.Optional<Args, "key" | "tabKey">): R => {
     const key = Scope.useRequired(args?.key);
     const tabKey = TabScope.useRequired(args?.tabKey);
-    return hook({ ...args, key, tabKey } as Args);
+    return useHook({ ...args, key, tabKey } as Args);
   };
+  return useBound;
+};
 
 export interface NodeParams extends KeyParams {
   nodeKey: number;
