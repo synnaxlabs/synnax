@@ -487,8 +487,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				map[string]any(imported.Config),
 			)
 
-			// A canonical config must pass through the legacy rewrite unchanged, so
-			// re-importing an unversioned copy of a current export never rewrites it.
+			// The rewrite and the ladder must leave their own output unchanged.
 			Expect(store.Normalize(ctx, 0, imported.Config)).
 				To(Equal(imported.Config))
 
