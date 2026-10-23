@@ -10,7 +10,6 @@
 from synnax.auth.client import (
     APIKey,
     Client,
-    ClusterInfo,
     SessionCreateRequest,
     SessionCreateResponse,
     SessionDeleteRequest,
@@ -33,7 +32,6 @@ __all__ = [
     "APIKeyCredentials",
     "ApiKeyProof",
     "Client",
-    "ClusterInfo",
     "Credentials",
     "Method",
     "PasswordProof",

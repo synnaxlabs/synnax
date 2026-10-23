@@ -26,14 +26,6 @@ from synnax.auth.types_gen import Proof, Session, SessionKey
 from synnax.exceptions import ExpiredToken, InvalidToken, SessionEnded
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
-from x.telem import TimeStamp
-
-
-class ClusterInfo(BaseModel):
-    cluster_key: str = ""
-    node_version: str = ""
-    node_key: int = 0
-    node_time: TimeStamp = TimeStamp(0)
 
 
 class SessionCreateRequest(BaseModel):
@@ -44,7 +36,6 @@ class SessionCreateResponse(BaseModel):
     token: str
     session: Session
     user: User | None = None
-    cluster_info: ClusterInfo = ClusterInfo()
 
 
 class SessionRenewResponse(BaseModel):

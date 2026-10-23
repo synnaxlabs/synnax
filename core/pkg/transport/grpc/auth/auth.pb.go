@@ -502,7 +502,6 @@ type SessionCreateResponse struct {
 	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
 	Session       *Session               `protobuf:"bytes,2,opt,name=session,proto3" json:"session,omitempty"`
 	User          *User                  `protobuf:"bytes,3,opt,name=user,proto3,oneof" json:"user,omitempty"`
-	ClusterInfo   *ClusterInfo           `protobuf:"bytes,4,opt,name=cluster_info,json=clusterInfo,proto3" json:"cluster_info,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -554,13 +553,6 @@ func (x *SessionCreateResponse) GetSession() *Session {
 func (x *SessionCreateResponse) GetUser() *User {
 	if x != nil {
 		return x.User
-	}
-	return nil
-}
-
-func (x *SessionCreateResponse) GetClusterInfo() *ClusterInfo {
-	if x != nil {
-		return x.ClusterInfo
 	}
 	return nil
 }
@@ -1091,13 +1083,12 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\vlast_active\x18\x04 \x01(\x03R\n" +
 	"lastActive\">\n" +
 	"\x14SessionCreateRequest\x12&\n" +
-	"\x05proof\x18\x01 \x01(\v2\x10.grpc.auth.ProofR\x05proof\"\xc9\x01\n" +
+	"\x05proof\x18\x01 \x01(\v2\x10.grpc.auth.ProofR\x05proof\"\x94\x01\n" +
 	"\x15SessionCreateResponse\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12,\n" +
 	"\asession\x18\x02 \x01(\v2\x12.grpc.auth.SessionR\asession\x12(\n" +
-	"\x04user\x18\x03 \x01(\v2\x0f.grpc.auth.UserH\x00R\x04user\x88\x01\x01\x129\n" +
-	"\fcluster_info\x18\x04 \x01(\v2\x16.grpc.auth.ClusterInfoR\vclusterInfoB\a\n" +
-	"\x05_user\"w\n" +
+	"\x04user\x18\x03 \x01(\v2\x0f.grpc.auth.UserH\x00R\x04user\x88\x01\x01B\a\n" +
+	"\x05_userJ\x04\b\x04\x10\x05\"w\n" +
 	"\x14SessionRenewResponse\x12,\n" +
 	"\asession\x18\x01 \x01(\v2\x12.grpc.auth.SessionR\asession\x12(\n" +
 	"\x04user\x18\x02 \x01(\v2\x0f.grpc.auth.UserH\x00R\x04user\x88\x01\x01B\a\n" +
@@ -1186,37 +1177,36 @@ var file_core_pkg_transport_grpc_auth_auth_proto_depIdxs = []int32{
 	4,  // 3: grpc.auth.SessionCreateRequest.proof:type_name -> grpc.auth.Proof
 	6,  // 4: grpc.auth.SessionCreateResponse.session:type_name -> grpc.auth.Session
 	3,  // 5: grpc.auth.SessionCreateResponse.user:type_name -> grpc.auth.User
-	0,  // 6: grpc.auth.SessionCreateResponse.cluster_info:type_name -> grpc.auth.ClusterInfo
-	6,  // 7: grpc.auth.SessionRenewResponse.session:type_name -> grpc.auth.Session
-	3,  // 8: grpc.auth.SessionRenewResponse.user:type_name -> grpc.auth.User
-	5,  // 9: grpc.auth.SessionRetrieveRequest.subjects:type_name -> grpc.auth.Subject
-	6,  // 10: grpc.auth.SessionRetrieveResponse.sessions:type_name -> grpc.auth.Session
-	5,  // 11: grpc.auth.APIKey.subject:type_name -> grpc.auth.Subject
-	5,  // 12: grpc.auth.KeyCreateRequest.subject:type_name -> grpc.auth.Subject
-	13, // 13: grpc.auth.KeyCreateResponse.key:type_name -> grpc.auth.APIKey
-	5,  // 14: grpc.auth.KeyRetrieveRequest.subjects:type_name -> grpc.auth.Subject
-	13, // 15: grpc.auth.KeyRetrieveResponse.keys:type_name -> grpc.auth.APIKey
-	1,  // 16: grpc.auth.AuthLoginService.Exec:input_type -> grpc.auth.LoginRequest
-	7,  // 17: grpc.auth.AuthSessionCreateService.Exec:input_type -> grpc.auth.SessionCreateRequest
-	19, // 18: grpc.auth.AuthSessionRenewService.Exec:input_type -> google.protobuf.Empty
-	10, // 19: grpc.auth.AuthSessionRetrieveService.Exec:input_type -> grpc.auth.SessionRetrieveRequest
-	12, // 20: grpc.auth.AuthSessionDeleteService.Exec:input_type -> grpc.auth.SessionDeleteRequest
-	14, // 21: grpc.auth.AuthKeyCreateService.Exec:input_type -> grpc.auth.KeyCreateRequest
-	16, // 22: grpc.auth.AuthKeyRetrieveService.Exec:input_type -> grpc.auth.KeyRetrieveRequest
-	18, // 23: grpc.auth.AuthKeyDeleteService.Exec:input_type -> grpc.auth.KeyDeleteRequest
-	2,  // 24: grpc.auth.AuthLoginService.Exec:output_type -> grpc.auth.LoginResponse
-	8,  // 25: grpc.auth.AuthSessionCreateService.Exec:output_type -> grpc.auth.SessionCreateResponse
-	9,  // 26: grpc.auth.AuthSessionRenewService.Exec:output_type -> grpc.auth.SessionRenewResponse
-	11, // 27: grpc.auth.AuthSessionRetrieveService.Exec:output_type -> grpc.auth.SessionRetrieveResponse
-	19, // 28: grpc.auth.AuthSessionDeleteService.Exec:output_type -> google.protobuf.Empty
-	15, // 29: grpc.auth.AuthKeyCreateService.Exec:output_type -> grpc.auth.KeyCreateResponse
-	17, // 30: grpc.auth.AuthKeyRetrieveService.Exec:output_type -> grpc.auth.KeyRetrieveResponse
-	19, // 31: grpc.auth.AuthKeyDeleteService.Exec:output_type -> google.protobuf.Empty
-	24, // [24:32] is the sub-list for method output_type
-	16, // [16:24] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	6,  // 6: grpc.auth.SessionRenewResponse.session:type_name -> grpc.auth.Session
+	3,  // 7: grpc.auth.SessionRenewResponse.user:type_name -> grpc.auth.User
+	5,  // 8: grpc.auth.SessionRetrieveRequest.subjects:type_name -> grpc.auth.Subject
+	6,  // 9: grpc.auth.SessionRetrieveResponse.sessions:type_name -> grpc.auth.Session
+	5,  // 10: grpc.auth.APIKey.subject:type_name -> grpc.auth.Subject
+	5,  // 11: grpc.auth.KeyCreateRequest.subject:type_name -> grpc.auth.Subject
+	13, // 12: grpc.auth.KeyCreateResponse.key:type_name -> grpc.auth.APIKey
+	5,  // 13: grpc.auth.KeyRetrieveRequest.subjects:type_name -> grpc.auth.Subject
+	13, // 14: grpc.auth.KeyRetrieveResponse.keys:type_name -> grpc.auth.APIKey
+	1,  // 15: grpc.auth.AuthLoginService.Exec:input_type -> grpc.auth.LoginRequest
+	7,  // 16: grpc.auth.AuthSessionCreateService.Exec:input_type -> grpc.auth.SessionCreateRequest
+	19, // 17: grpc.auth.AuthSessionRenewService.Exec:input_type -> google.protobuf.Empty
+	10, // 18: grpc.auth.AuthSessionRetrieveService.Exec:input_type -> grpc.auth.SessionRetrieveRequest
+	12, // 19: grpc.auth.AuthSessionDeleteService.Exec:input_type -> grpc.auth.SessionDeleteRequest
+	14, // 20: grpc.auth.AuthKeyCreateService.Exec:input_type -> grpc.auth.KeyCreateRequest
+	16, // 21: grpc.auth.AuthKeyRetrieveService.Exec:input_type -> grpc.auth.KeyRetrieveRequest
+	18, // 22: grpc.auth.AuthKeyDeleteService.Exec:input_type -> grpc.auth.KeyDeleteRequest
+	2,  // 23: grpc.auth.AuthLoginService.Exec:output_type -> grpc.auth.LoginResponse
+	8,  // 24: grpc.auth.AuthSessionCreateService.Exec:output_type -> grpc.auth.SessionCreateResponse
+	9,  // 25: grpc.auth.AuthSessionRenewService.Exec:output_type -> grpc.auth.SessionRenewResponse
+	11, // 26: grpc.auth.AuthSessionRetrieveService.Exec:output_type -> grpc.auth.SessionRetrieveResponse
+	19, // 27: grpc.auth.AuthSessionDeleteService.Exec:output_type -> google.protobuf.Empty
+	15, // 28: grpc.auth.AuthKeyCreateService.Exec:output_type -> grpc.auth.KeyCreateResponse
+	17, // 29: grpc.auth.AuthKeyRetrieveService.Exec:output_type -> grpc.auth.KeyRetrieveResponse
+	19, // 30: grpc.auth.AuthKeyDeleteService.Exec:output_type -> google.protobuf.Empty
+	23, // [23:31] is the sub-list for method output_type
+	15, // [15:23] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_auth_auth_proto_init() }

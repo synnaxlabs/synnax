@@ -13,7 +13,7 @@ import {
   type Next,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { errors, TimeStamp } from "@synnaxlabs/x";
+import { errors } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -34,19 +34,11 @@ import {
 import { ontology } from "@/ontology";
 import { user } from "@/user";
 
-const clusterInfoZ = z.object({
-  clusterKey: z.string(),
-  nodeVersion: z.string().optional(),
-  nodeKey: z.number().optional(),
-  nodeTime: TimeStamp.z,
-});
-
 const createReqZ = z.object({ proof: proofZ, cookie: z.boolean().optional() });
 const createResZ = z.object({
   token: z.string(),
   session: sessionZ,
   user: user.userZ.optional(),
-  clusterInfo: clusterInfoZ.optional(),
 });
 const renewResZ = z.object({ session: sessionZ, user: user.userZ.optional() });
 const retrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
