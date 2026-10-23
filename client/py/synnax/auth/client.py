@@ -26,6 +26,7 @@ from synnax.auth.types_gen import Proof, Session, SessionKey
 from synnax.exceptions import ExpiredToken, InvalidToken, SessionEnded
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
+from x.telem import TimeStamp
 
 
 class SessionCreateRequest(BaseModel):
