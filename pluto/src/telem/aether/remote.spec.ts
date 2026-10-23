@@ -2576,7 +2576,9 @@ describe("remote", () => {
         for (let i = 0; i < 5; i++) source.value();
         await sleep.sleep(TimeSpan.milliseconds(10));
         expect(c.tiles).toHaveLength(failed);
-        expect(statuses).toHaveLength(1);
+        expect(statuses.map((s) => [s.message, s.description])).toEqual([
+          ["Failed to read channel data", "transient"],
+        ]);
         // Once when the channel resolves, and once when the first tile read fails.
         expect(handleChange).toHaveBeenCalledTimes(2);
         source.cleanup();
@@ -2670,7 +2672,9 @@ describe("remote", () => {
         await sleep.sleep(TimeSpan.milliseconds(10));
         source.value();
         expect(calls).toBe(1);
-        expect(statuses).toHaveLength(1);
+        expect(statuses.map((s) => [s.message, s.description])).toEqual([
+          ["Failed to read channel data", "channel not found"],
+        ]);
         source.cleanup();
       });
 
