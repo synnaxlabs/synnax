@@ -836,6 +836,15 @@ export class TiledChannelData
   private rawLoaded = false;
   private stopStreaming?: destructor.Destructor;
   private readonly failures: FailureReporter;
+  private readonly retryNotifier = new sync.Notifier();
+  // breaker paces retries of the channel and live reads, and tileBreaker paces retries
+  // of failed tiles.
+  private readonly breaker: breaker.Breaker;
+  private readonly tileBreaker: breaker.Breaker;
+  // retrying holds the keys of failed tiles that wait for tileBreaker, and parked holds
+  // the keys of tiles a definitive rejection stopped.
+  private readonly retrying = new Set<string>();
+  private readonly parked = new Set<string>();
   private readonly levelSettle: TimeSpan;
   // viewLevel is the level of the last view drawn, and settleTimer runs until that
   // level has held for levelSettle.
@@ -848,6 +857,7 @@ export class TiledChannelData
     options?: CreateOptions,
     now: () => TimeStamp = client?.now ?? (() => TimeStamp.now()),
     levelSettle: TimeSpan = DEFAULT_LEVEL_SETTLE,
+    breakerConfig?: breaker.Config,
   ) {
     super(props);
     this.client = client;
@@ -855,6 +865,8 @@ export class TiledChannelData
     this.levelSettle = levelSettle;
     this.onStatusChange = options?.onStatusChange;
     this.failures = new FailureReporter(options?.onStatusChange);
+    this.breaker = newRetryBreaker(this.retryNotifier, breakerConfig);
+    this.tileBreaker = newRetryBreaker(this.retryNotifier, breakerConfig);
   }
 
   private get live(): boolean {
@@ -1034,11 +1046,21 @@ export class TiledChannelData
     return { lower: upper - Number(this.props.timeSpan!.valueOf()), upper };
   }
 
-  /** Never rejects: a failure reaches onStatusChange, and a later value() retries. */
+  /**
+   * Never rejects. A failed tile waits for tileBreaker before a later value() call
+   * requests it again, and a definitive rejection parks it until cleanup.
+   */
   private request(spec: framer.TileSpec): void {
     const key = tileKey(spec);
     const { client } = this;
-    if (client == null || this.held.has(key) || this.pending.has(key)) return;
+    if (
+      client == null ||
+      this.held.has(key) ||
+      this.pending.has(key) ||
+      this.retrying.has(key) ||
+      this.parked.has(key)
+    )
+      return;
     const generation = this.generation;
     this.pending.add(key);
     client.feed
@@ -1048,6 +1070,7 @@ export class TiledChannelData
         this.pending.delete(key);
         series.acquire();
         this.held.set(key, { spec, series });
+        this.tileBreaker.reset();
         this.failures.reset();
         this.notify();
       })
@@ -1055,10 +1078,28 @@ export class TiledChannelData
         if (generation !== this.generation) return;
         this.pending.delete(key);
         this.fail(e);
+        if (isDefinitive(e)) {
+          this.parked.add(key);
+          return;
+        }
+        const waiting = this.retrying.size > 0;
+        this.retrying.add(key);
+        if (!waiting) void this.retryTiles(generation);
       });
   }
 
-  /** Never rejects: a failure invalidates the source and reaches onStatusChange. */
+  // Waits out tileBreaker for the tiles that fail during the wait. The notify at its
+  // end makes the next value() call request them again.
+  private async retryTiles(generation: number): Promise<void> {
+    if (!(await this.tileBreaker.wait()) || generation !== this.generation) return;
+    this.retrying.clear();
+    this.notify();
+  }
+
+  /**
+   * Never rejects. A connectivity failure retries under the breaker, and a definitive
+   * rejection parks the source. Every distinct failure reaches onStatusChange.
+   */
   private async resolve(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
@@ -1067,23 +1108,31 @@ export class TiledChannelData
       this.onStatusChange?.(DISCONNECTED_STATUS);
       return;
     }
-    try {
-      const { channel, useIndexOfChannel, xChannel } = this.props;
-      const ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
-      const xy =
-        !primitive.isZero(xChannel) &&
-        !(await client.channels.retrieve(xChannel)).isIndex;
-      if (generation !== this.generation) return;
-      this.channel = ch;
-      this.xy = xy;
-      if (this.live) await this.stream(generation, client, ch);
-      if (generation !== this.generation) return;
-      this.notify();
-    } catch (e) {
-      if (generation !== this.generation) return;
-      this.valid = false;
-      this.fail(e);
-    }
+    while (generation === this.generation)
+      try {
+        await this.attempt(generation, client);
+        this.breaker.reset();
+        this.failures.reset();
+        return;
+      } catch (e) {
+        if (generation !== this.generation) return;
+        this.fail(e);
+        if (isDefinitive(e) || !(await this.breaker.wait())) return;
+      }
+  }
+
+  private async attempt(generation: number, client: Client): Promise<void> {
+    const { channel, useIndexOfChannel, xChannel } = this.props;
+    const ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
+    const xy =
+      !primitive.isZero(xChannel) &&
+      !(await client.channels.retrieve(xChannel)).isIndex;
+    if (generation !== this.generation) return;
+    this.channel = ch;
+    this.xy = xy;
+    if (this.live) await this.stream(generation, client, ch);
+    if (generation !== this.generation) return;
+    this.notify();
   }
 
   private async stream(
@@ -1145,6 +1194,7 @@ export class TiledChannelData
 
   cleanup(): void {
     this.generation++;
+    this.retryNotifier.notify();
     clearTimeout(this.settleTimer);
     this.settleTimer = undefined;
     this.viewLevel = undefined;
@@ -1153,6 +1203,8 @@ export class TiledChannelData
     this.held.forEach((tile) => tile.series.release());
     this.held.clear();
     this.pending.clear();
+    this.retrying.clear();
+    this.parked.clear();
     this.raw.release();
     this.raw.series.splice(0, this.raw.series.length);
     this.valid = false;
