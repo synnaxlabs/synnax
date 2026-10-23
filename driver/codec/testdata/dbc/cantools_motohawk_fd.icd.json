@@ -23,6 +23,8 @@
             "offset": 250,
             "units": "degK",
             "multiplex_values": [],
+            "min": 229.52,
+            "max": 270.47,
             "start_bit": 0,
             "bit_length": 12,
             "byte_order": "big_endian",
@@ -36,6 +38,8 @@
             "offset": 0,
             "units": "m",
             "multiplex_values": [],
+            "min": 0,
+            "max": 5,
             "start_bit": 6,
             "bit_length": 6,
             "byte_order": "big_endian",
@@ -74,5 +78,6 @@
         }
       ]
     }
-  ]
+  ],
+  "hash": ""
 }

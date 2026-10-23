@@ -24,17 +24,18 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// goldenDir holds the DBC files whose imported libraries the Driver codec tests decode
+// goldenDir holds the DBC files whose imported ICDs the Driver codec tests decode
 // against cantools. SYNNAX_GOLDEN_DIR replaces it, as for a downloaded corpus.
 func goldenDir() string {
 	if dir := os.Getenv("SYNNAX_GOLDEN_DIR"); dir != "" {
 		return dir
 	}
-	return filepath.FromSlash("../../../../../driver/codec/testdata/dbc")
+	return filepath.FromSlash("../../../../driver/codec/testdata/dbc")
 }
 
 func goldenEntries() []TableEntry {
 	paths := MustSucceed(filepath.Glob(filepath.Join(goldenDir(), "*.dbc")))
+	Expect(paths).ToNot(BeEmpty(), "no DBC files in %s", goldenDir())
 	entries := make([]TableEntry, 0, len(paths))
 	for _, p := range paths {
 		entries = append(entries, Entry(filepath.Base(p), p))

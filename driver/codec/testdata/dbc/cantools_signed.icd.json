@@ -354,6 +354,8 @@
             "offset": 0,
             "units": "",
             "multiplex_values": [],
+            "min": -9223372036854780000,
+            "max": 9223372036854780000,
             "start_bit": 0,
             "bit_length": 64,
             "byte_order": "little_endian",
@@ -384,6 +386,8 @@
             "offset": 0,
             "units": "",
             "multiplex_values": [],
+            "min": -4294967296,
+            "max": 4294967295,
             "start_bit": 0,
             "bit_length": 33,
             "byte_order": "little_endian",
@@ -423,5 +427,6 @@
         ]
       }
     }
-  ]
+  ],
+  "hash": ""
 }

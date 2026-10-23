@@ -13,7 +13,8 @@
           "type": "can",
           "id": 201522942,
           "extended": true,
-          "fd": false
+          "fd": false,
+          "mask": 67043328
         },
         "fields": [
           {
@@ -71,7 +72,8 @@
           "type": "can",
           "id": 201457406,
           "extended": true,
-          "fd": false
+          "fd": false,
+          "mask": 67043328
         },
         "fields": [
           {
@@ -129,7 +131,8 @@
           "type": "can",
           "id": 201391870,
           "extended": true,
-          "fd": false
+          "fd": false,
+          "mask": 67043328
         },
         "fields": [
           {
@@ -270,7 +273,8 @@
           "type": "can",
           "id": 201588478,
           "extended": true,
-          "fd": false
+          "fd": false,
+          "mask": 67043328
         },
         "fields": [
           {
@@ -281,6 +285,8 @@
             "units": "",
             "multiplexor": "00000000-0000-4000-8000-000000000017",
             "multiplex_values": [5],
+            "min": -1.34,
+            "max": 1235,
             "start_bit": 24,
             "bit_length": 32,
             "byte_order": "little_endian",
@@ -295,6 +301,8 @@
             "units": "",
             "multiplexor": "00000000-0000-4000-8000-000000000016",
             "multiplex_values": [0],
+            "min": -3.4e38,
+            "max": 3.4e38,
             "start_bit": 16,
             "bit_length": 32,
             "byte_order": "little_endian",
@@ -322,6 +330,8 @@
             "offset": 0,
             "units": "",
             "multiplex_values": [],
+            "min": 2,
+            "max": 6,
             "start_bit": 0,
             "bit_length": 5,
             "byte_order": "little_endian",
@@ -331,5 +341,6 @@
         ]
       }
     }
-  ]
+  ],
+  "hash": ""
 }

@@ -13,7 +13,8 @@
           "type": "can",
           "id": 1193046,
           "extended": true,
-          "fd": false
+          "fd": false,
+          "mask": 67043583
         },
         "fields": [
           {
@@ -199,7 +200,8 @@
           "type": "can",
           "id": 1193047,
           "extended": true,
-          "fd": false
+          "fd": false,
+          "mask": 67043583
         },
         "fields": [
           {
@@ -384,7 +386,8 @@
           "type": "can",
           "id": 1193048,
           "extended": true,
-          "fd": false
+          "fd": false,
+          "mask": 67043583
         },
         "fields": [
           {
@@ -516,5 +519,6 @@
         }
       ]
     }
-  ]
+  ],
+  "hash": ""
 }

@@ -24,6 +24,8 @@
             "units": "degK",
             "enumeration": "00000000-0000-4000-8000-000000000003",
             "multiplex_values": [],
+            "min": 4070,
+            "max": 4100,
             "start_bit": 3,
             "bit_length": 12,
             "byte_order": "big_endian",
@@ -48,5 +50,6 @@
         }
       ]
     }
-  ]
+  ],
+  "hash": ""
 }
