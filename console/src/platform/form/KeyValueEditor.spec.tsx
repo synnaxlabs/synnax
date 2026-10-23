@@ -216,7 +216,7 @@ describe("KeyValueEditor", () => {
     const Optional = (): ReactElement => {
       const methods = PForm.use<typeof schema>({ values: {}, schema, onChange });
       return (
-        <PForm.Form {...methods}>
+        <PForm.Form<typeof schema> {...methods}>
           <Form.KeyValueEditor path={PATH} label="Headers" keyField="name" />
         </PForm.Form>
       );
