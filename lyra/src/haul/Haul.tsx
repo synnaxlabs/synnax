@@ -10,7 +10,7 @@
 import "@/haul/Haul.css";
 
 import { type destructor, type optional, type record, xy } from "@synnaxlabs/x";
-import React, {
+import {
   type DragEvent,
   type DragEventHandler,
   memo,
@@ -28,7 +28,7 @@ import { z } from "zod";
 import { context } from "@/context";
 import { useSyncedRef } from "@/hooks/ref";
 import { compareDeps, useMemoCompare } from "@/memo";
-import { type state } from "@/state";
+import { state } from "@/state";
 
 /** Zod schema for a draggable/droppable {@link Item}. */
 export const itemZ = z.object({
@@ -152,8 +152,9 @@ const [StateContext, useStateContext] = context.create<DraggingState>({
 
 /** Props for {@link Provider}. */
 export interface ProviderProps extends PropsWithChildren {
-  /** State hook backing the drag; defaults to `React.useState`. */
-  useState?: state.PureUse<DraggingState>;
+  /** The drag state. Set it, with `onChange`, to let the caller own it. */
+  value?: DraggingState;
+  onChange?: (state: DraggingState) => void;
 }
 
 interface ProviderRef extends DraggingState {
@@ -167,11 +168,14 @@ const HAUL_REF: ProviderRef = {
 
 /** Provides haul drag-and-drop state to descendants. */
 export const Provider = memo(
-  ({ children, useState = React.useState }: ProviderProps): ReactNode => {
-    "use no memo"; // Calls the state hook its props inject, fixed for its life.
+  ({ children, value, onChange }: ProviderProps): ReactNode => {
     const ctx = useContext();
 
-    const [state, setState] = useState(ZERO_DRAGGING_STATE);
+    const [dragging, setDragging] = state.usePurePassthrough({
+      initialValue: ZERO_DRAGGING_STATE,
+      value,
+      onChange,
+    });
     const ref = useRef<ProviderRef>(HAUL_REF);
     const interceptors = useRef<Set<DragEndInterceptor>>(new Set());
     const watchers = useRef<Set<OnResolve>>(new Set());
@@ -186,9 +190,9 @@ export const Provider = memo(
     const start: ContextValue["start"] = useCallback(
       (source, items, onSuccessfulDrop) => {
         ref.current = { source, items, onSuccessfulDrop };
-        setState({ source, items });
+        setDragging({ source, items });
       },
-      [setState],
+      [setDragging],
     );
 
     const resolve = useCallback(
@@ -201,10 +205,10 @@ export const Provider = memo(
         const hauled = ref.current.items;
         ref.current.onSuccessfulDrop?.({ target, dropped, hauled });
         ref.current = HAUL_REF;
-        setState(ZERO_DRAGGING_STATE);
+        setDragging(ZERO_DRAGGING_STATE);
         resolve(true);
       },
-      [setState, resolve],
+      [setDragging, resolve],
     );
 
     const end: ContextValue["end"] = useCallback(
@@ -219,10 +223,10 @@ export const Provider = memo(
         });
         if (dropped != null) return drop(dropped);
         ref.current = HAUL_REF;
-        setState(ZERO_DRAGGING_STATE);
+        setDragging(ZERO_DRAGGING_STATE);
         if (active) resolve(false);
       },
-      [setState, drop, resolve],
+      [setDragging, drop, resolve],
     );
 
     const bind: ContextValue["bind"] = useCallback((interceptor) => {
@@ -244,7 +248,7 @@ export const Provider = memo(
     if (ctx != null) return children;
     return (
       <Context value={controls}>
-        <StateContext value={state}>{children}</StateContext>
+        <StateContext value={dragging}>{children}</StateContext>
       </Context>
     );
   },

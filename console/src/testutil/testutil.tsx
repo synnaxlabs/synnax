@@ -18,6 +18,7 @@ import {
   type SynnaxParams,
 } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, Synnax } from "@synnaxlabs/pluto";
@@ -160,6 +161,11 @@ export const CaptureStatuses = ({ onStatuses }: CaptureStatusesProps): null => {
   }, [onStatuses, statuses]);
   return null;
 };
+
+/** The haul provider the app mounts through `Pluto.Context`, kept in the session. */
+export const HaulProvider = ({ children }: PropsWithChildren): ReactElement => (
+  <Haul.Provider {...Session.Haul.useProviderProps()}>{children}</Haul.Provider>
+);
 
 export type ConsolePreloadedState = Partial<Session.State>;
 
