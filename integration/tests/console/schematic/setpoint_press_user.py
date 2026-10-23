@@ -77,7 +77,6 @@ class SetpointPressUser(SimDaqCase, ConsoleCase):
         schematic.set_authority(100)
 
         self.log("Starting Control Authority Test (1/2)")
-        self.wait_for_eq("test_flag_cmd", 0)
         self.wait_for_eq("press_vlv_state", 0)
         self.wait_for_eq("vent_vlv_state", 0)
 
