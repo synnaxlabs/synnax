@@ -14,6 +14,9 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";
 
+// A float64 holds the nanoseconds of this instant exactly.
+const EXACT = new Date(Date.UTC(2026, 0, 1));
+
 const DAY = Number(TimeSpan.DAY.valueOf());
 const HOUR = Number(TimeSpan.HOUR.valueOf());
 const MILLISECOND = Number(TimeSpan.MILLISECOND.valueOf());
@@ -117,6 +120,32 @@ describe("Ranger.Timeline", () => {
     );
     expect(screen.getByText("In progress")).toBeTruthy();
     await waitFor(() => expect(screen.getByText("Completed")).toBeTruthy());
+  });
+
+  it("should read in progress at the planned start", () => {
+    vi.useFakeTimers({ now: EXACT });
+    try {
+      const now = TimeStamp.now().nanoseconds;
+      render(
+        <Ranger.Timeline value={{ start: now, end: now + HOUR }} onChange={() => {}} />,
+      );
+      expect(screen.getByText("In progress")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("should read completed at the planned end", () => {
+    vi.useFakeTimers({ now: EXACT });
+    try {
+      const now = TimeStamp.now().nanoseconds;
+      render(
+        <Ranger.Timeline value={{ start: now - HOUR, end: now }} onChange={() => {}} />,
+      );
+      expect(screen.getByText("Completed")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("should never read an open range finer than the second", () => {

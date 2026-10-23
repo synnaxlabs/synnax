@@ -48,7 +48,7 @@ from synnax.telem import (
 )
 from x.color import Color
 from x.interop import ArrayOperators
-from x.lists import check_for_none, normalize, override
+from x.lists import all_none, normalize, override
 from x.params import require_named_params
 from x.uuid import NIL
 
@@ -718,7 +718,7 @@ class Client:
         is_single = key is not None or name is not None
         if key is not None and name is not None:
             raise ValueError("key and name cannot be combined; use keys or names")
-        if is_single and not check_for_none(
+        if is_single and not all_none(
             keys, names, search_term, overlaps_with, has_labels, limit, offset
         ):
             raise ValueError(

@@ -566,3 +566,20 @@ class TestAsyncStreamerKeepAlive:
         with pytest.raises(Unreachable):
             async with asyncio.timeout((DEADLINE + KEEP_ALIVE).seconds):
                 await s.read()
+
+
+@pytest.mark.framer
+@pytest.mark.streamer
+class TestAsyncStreamerClose:
+    @pytest.mark.asyncio
+    async def test_close_with_unread_frames(
+        self, virtual_channel: sy.Channel, client: sy.Synnax
+    ) -> None:
+        """Should close while frames the caller has not read are still queued."""
+        s = await client.open_async_streamer(virtual_channel.key)
+        write(client, virtual_channel, [1])
+        write(client, virtual_channel, [2])
+        async with asyncio.timeout(READ_TIMEOUT):
+            await s.read()
+        await asyncio.sleep(0.1)
+        await s.close()
