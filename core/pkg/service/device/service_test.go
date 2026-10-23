@@ -411,6 +411,7 @@ var _ = Describe("Service", func() {
 			Expect(changes).To(HaveLen(2))
 			Expect(changes[1].Variant).To(Equal(change.VariantDelete))
 			Expect(changes[1].Key).To(Equal(svc.OntologyID(m.Key).String()))
+			Expect(changes[1].Value).To(BeZero())
 		})
 	})
 

@@ -240,14 +240,15 @@ func (s *Service[D]) Update(
 		Where(gorp.MatchKeys[uuid.UUID, D](key)).
 		ChangeErr(func(_ gorp.Context, d D) (D, error) {
 			prev = d
+			var zero D
 			updated, err := change(d)
 			if err != nil {
-				return d, err
+				return zero, err
 			}
 			s.cfg.SetEntryKey(&updated, key)
 			if s.cfg.ValidateEntry != nil {
 				if err := s.cfg.ValidateEntry(&updated); err != nil {
-					return d, err
+					return zero, err
 				}
 			}
 			next = updated

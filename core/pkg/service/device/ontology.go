@@ -100,9 +100,10 @@ func (s *Service[D]) newResource(d D) ontology.Resource {
 }
 
 func (s *Service[D]) translateChange(c change.Change[uuid.UUID, D]) ontology.Change {
-	return ontology.Change{
-		Variant: c.Variant,
-		Key:     s.OntologyID(c.Key).String(),
-		Value:   s.newResource(c.Value),
+	out := ontology.Change{Variant: c.Variant, Key: s.OntologyID(c.Key).String()}
+	// A delete carries only its key, and the zero value may not pass the schema.
+	if c.Variant == change.VariantSet {
+		out.Value = s.newResource(c.Value)
 	}
+	return out
 }
