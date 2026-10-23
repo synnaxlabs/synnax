@@ -113,7 +113,6 @@ const useAxisDrop = <K extends lineplot.AxisKey>(
     ),
   });
 
-/** @returns a function that adds channels to the given Y axis. */
 const useAddChannels = (
   key: lineplot.Key,
   axisKey: lineplot.YAxisKey,
