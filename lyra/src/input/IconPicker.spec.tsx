@@ -184,18 +184,11 @@ describe("IconPicker", () => {
       fireEvent.keyDown(document.activeElement as Element, { key: "ArrowRight" });
       expect(focusedName()).toEqual(shown.at(-1));
     });
-
-    it("should return to the search field on Escape in the grid", () => {
-      const c = renderPicker();
-      fireEvent.keyDown(search(c), { key: "ArrowDown" });
-      fireEvent.keyDown(document.activeElement as Element, ESCAPE);
-      expect(document.activeElement).toBe(search(c));
-    });
   });
 
   describe("in a dialog", () => {
-    it("should close the dialog on an Escape from the search field", () => {
-      const c = render(
+    const renderInDialog = (): RenderResult =>
+      render(
         <Dialog.Frame initialVisible>
           <Dialog.Dialog>
             <Input.IconPicker value={undefined} onChange={vi.fn()} />
@@ -203,10 +196,17 @@ describe("IconPicker", () => {
         </Dialog.Frame>,
         { wrapper: Wrapper },
       );
+
+    it("should close the dialog on one Escape from the search field", () => {
+      const c = renderInDialog();
+      fireEvent.keyDown(search(c), ESCAPE);
+      expect(c.queryByLabelText("Search icons")).toBeNull();
+    });
+
+    it("should close the dialog on one Escape from the grid", () => {
+      const c = renderInDialog();
       fireEvent.keyDown(search(c), { key: "ArrowDown" });
       fireEvent.keyDown(document.activeElement as Element, ESCAPE);
-      expect(c.queryByLabelText("Search icons")).not.toBeNull();
-      fireEvent.keyDown(search(c), ESCAPE);
       expect(c.queryByLabelText("Search icons")).toBeNull();
     });
   });
