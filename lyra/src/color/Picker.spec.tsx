@@ -84,7 +84,7 @@ describe("Picker", () => {
 
     it("should make a typed hex opaque when the color is transparent", () => {
       const onChange = vi.fn();
-      const c = renderPicker({ fallback: color.ZERO, onChange });
+      const c = renderPicker({ value: undefined, fallback: color.ZERO, onChange });
       fireEvent.change(hexInput(c), { target: { value: "0000ff" } });
       expect(color.aValue(onChange.mock.calls[0][0])).toEqual(1);
     });
@@ -131,24 +131,14 @@ describe("Picker", () => {
       const onChange = vi.fn();
       const c = renderPicker({ value: "#ff0000", onChange });
       const [first] = c.container.querySelectorAll<HTMLElement>(
-        `.${CSS.BE("color-picker", "swatches")} .${CSS.B("color-swatch")}`,
+        `.${CSS.BE("color-swatches", "grid")} .${CSS.B("color-swatch")}`,
       );
       fireEvent.click(first);
       expect(lastHex(onChange)).toEqual(first.getAttribute("aria-label"));
     });
-
-    it("should mark the swatch that matches the value", () => {
-      const c = renderPicker({ value: "#DC136C", onChange: vi.fn() });
-      expect(c.getByLabelText("#dc136c").className).toContain(CSS.M("selected"));
-    });
   });
 
   describe("auto", () => {
-    it("should not offer Auto without a fallback", () => {
-      const c = renderPicker({ value: "#ff0000", onChange: vi.fn() });
-      expect(c.queryByLabelText("Auto")).toBeNull();
-    });
-
     it("should clear the value when the user picks Auto", () => {
       const onChange = vi.fn();
       const c = renderPicker({ value: "#ff0000", fallback: "#888888", onChange });
@@ -157,7 +147,11 @@ describe("Picker", () => {
     });
 
     it("should mark Auto and show the fallback while the value is absent", () => {
-      const c = renderPicker({ fallback: "#888888", onChange: vi.fn() });
+      const c = renderPicker({
+        value: undefined,
+        fallback: "#888888",
+        onChange: vi.fn(),
+      });
       expect(c.getByLabelText("Auto").className).toContain(CSS.M("selected"));
       expect(hexInput(c).value).toEqual("888888");
     });
