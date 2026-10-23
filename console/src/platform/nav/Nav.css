@@ -93,10 +93,25 @@
 }
 
 .console-nav__drawer {
-    overflow: hidden;
     box-shadow: var(--pluto-shadow-overlay);
     opacity: 1;
     flex-shrink: 0;
+
+    /* The content clips to the rounded corners instead of the drawer, so the resize
+       handle can sit outside the edge. Inside, it would cover the list scrollbars. */
+    > :not(.pluto-resize__handle) {
+        overflow: hidden;
+        border-radius: inherit;
+    }
+
+    &.pluto-resize.pluto--location-left > .pluto-resize__handle {
+        right: calc(-1 * var(--resize-panel-handle-size));
+
+        &::after {
+            right: auto;
+            left: 0;
+        }
+    }
 
     &.console--hover,
     &.pluto--hidden {
