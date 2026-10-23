@@ -54,11 +54,11 @@ class TestCSVWriter:
         writer.write(pd.DataFrame({"a": np.array([0.1, 1e-7], dtype=np.float32)}))
         assert (tmp_path / "out.csv").read_text() == "a\n0.1\n1e-7\n"
 
-    def test_write_nan_as_empty(self, tmp_path: pathlib.Path) -> None:
-        """Should leave a NaN cell empty and keep other columns as they are."""
+    def test_write_nan(self, tmp_path: pathlib.Path) -> None:
+        """Should write NaN as NaN and keep other columns as they are."""
         writer = CSVWriter(tmp_path / "out.csv")
         writer.write(pd.DataFrame({"a": [math.nan, 2.5], "b": [1, 2]}))
-        assert (tmp_path / "out.csv").read_text() == "a,b\n,1\n2.5,2\n"
+        assert (tmp_path / "out.csv").read_text() == "a,b\nNaN,1\n2.5,2\n"
 
     def test_write_floats_in_object_columns(self, tmp_path: pathlib.Path) -> None:
         """Should format the floats of a mixed object column."""

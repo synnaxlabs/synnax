@@ -161,10 +161,10 @@ def estimate_row_count(path: Path) -> int:
     return (file_size // row_size) - 1
 
 
-# Matches the float text of Arc and the Core: telem.AppendFloatText in Go.
+# Matches the float text that Arc and the Core write.
 def _float_text(v: np.floating) -> str:
     if np.isnan(v):
-        return ""
+        return "NaN"
     if np.isinf(v):
         return "Infinity" if v > 0 else "-Infinity"
     a = abs(v)
