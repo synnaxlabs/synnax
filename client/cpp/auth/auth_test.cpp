@@ -75,7 +75,7 @@ TEST(TestAuth, LoginSendsPasswordProof) {
     const auto mw = middleware_with(std::move(mock_create_client));
     ASSERT_NIL(mw->authenticate());
     ASSERT_EQ(create->requests.size(), 1);
-    ASSERT_EQ(create->requests[0].proof().method(), METHOD_PASSWORD);
+    ASSERT_EQ(create->requests[0].proof().method(), "password");
     ASSERT_EQ(create->requests[0].proof().username(), "synnax");
     ASSERT_EQ(create->requests[0].proof().password(), "seldon");
 }

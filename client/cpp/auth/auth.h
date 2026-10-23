@@ -31,11 +31,6 @@ namespace synnax::auth {
 const std::string HEADER_KEY = "authorization";
 /// @brief auth token prefix that will be parsed by the cluster.
 const std::string HEADER_VALUE_PREFIX = "Bearer ";
-/// @brief the method of a username and password proof.
-const std::string METHOD_PASSWORD = "password";
-/// @brief how long a logout waits for the Core before giving up. The client's
-/// destructor logs out, so an unanswered request must not hang it.
-constexpr auto LOGOUT_TIMEOUT = std::chrono::seconds(5);
 
 /// @brief transport that opens a session from a proof.
 using SessionCreateClient = freighter::
@@ -97,6 +92,10 @@ struct Session {
 /// and attaches its token to every request. Middleware has no preference on order when
 /// provided to use. It is safe to use concurrently.
 class Middleware final : public freighter::PassthroughMiddleware {
+    /// @brief how long a logout waits for the Core before giving up. The client's
+    /// destructor logs out, so an unanswered request must not hang it.
+    static constexpr auto LOGOUT_TIMEOUT = std::chrono::seconds(5);
+
     /// @brief adds the token to the session requests the Middleware sends itself.
     class TokenHeader final : public freighter::PassthroughMiddleware {
         std::function<std::string()> token;
@@ -187,7 +186,7 @@ public:
     x::errors::Error authenticate() {
         std::lock_guard lock(mu);
         grpc::auth::SessionCreateRequest req;
-        req.mutable_proof()->set_method(METHOD_PASSWORD);
+        req.mutable_proof()->set_method("password");
         req.mutable_proof()->set_username(this->username);
         req.mutable_proof()->set_password(this->password);
         auto [res, err] = create_client->send("/auth/session/create", req);
