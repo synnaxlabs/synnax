@@ -31,6 +31,9 @@ Session struct {
     }
     hash        bytes           {
         @doc value "is the SHA-256 hash of the secret in the session's token."
+        @go wire   omit
+        @py omit
+        @ts omit
     }
     subject     ontology.ID     {
         @doc value    "is the user or rack that logged in."
@@ -55,32 +58,7 @@ Session struct {
     """
     @go marshal
     @go migrate
-    @py omit
     @retrieve
-    @ts omit
-}
-
-APISession struct {
-    key         SessionKey      {
-        @doc value "is the unique identifier for this session."
-    }
-    subject     ontology.ID     {
-        @doc value "is the user or rack that logged in."
-    }
-    credential  uuid            {
-        @doc value "is the key of the credential record the login matched."
-    }
-    last_active telem.TimeStamp {
-        @doc value """
-            is the last time a request used the session, to the nearest quarter of the
-            idle timeout.
-        """
-    }
-
-    @doc value "is a session as the API returns it: the stored record without its hash."
-    @go omit
-    @py name   "Session"
-    @ts name   "Session"
 }
 
 Credentials struct {

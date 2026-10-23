@@ -13,7 +13,6 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Control } from "@/schematic/node/common/control";
 import { ActivationDelayField } from "@/schematic/node/common/form/ActivationDelay";
 import { ControlChipField } from "@/schematic/node/common/form/Control";
 import { Staleness } from "@/vis/staleness";
@@ -36,7 +35,6 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
     onChange({
       ...value,
       commandChannel: v ?? undefined,
-      control: Control.reveal(value.control),
     });
 
   return (
@@ -44,6 +42,7 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
       <Form.Section title="State">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
+            allowNone
             value={value.stateChannel ?? 0}
             onChange={handleSourceChange}
           />
@@ -52,6 +51,7 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
       <Form.Section title="Command">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
+            allowNone
             value={value.commandChannel ?? 0}
             onChange={handleSinkChange}
           />

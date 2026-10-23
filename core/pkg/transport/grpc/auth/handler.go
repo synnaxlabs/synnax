@@ -209,7 +209,7 @@ func subjectBackward(s *Subject) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceType(s.Type), Key: s.Key}
 }
 
-func sessionForward(s auth.Session) *Session {
+func sessionForward(s svcauth.Session) *Session {
 	return &Session{
 		Key:        s.Key.String(),
 		Subject:    subjectForward(s.Subject),
@@ -218,16 +218,16 @@ func sessionForward(s auth.Session) *Session {
 	}
 }
 
-func sessionBackward(s *Session) (auth.Session, error) {
+func sessionBackward(s *Session) (svcauth.Session, error) {
 	key, err := uuid.Parse(s.Key)
 	if err != nil {
-		return auth.Session{}, err
+		return svcauth.Session{}, err
 	}
 	credential, err := uuid.Parse(s.Credential)
 	if err != nil {
-		return auth.Session{}, err
+		return svcauth.Session{}, err
 	}
-	return auth.Session{
+	return svcauth.Session{
 		Key:        key,
 		Subject:    subjectBackward(s.Subject),
 		Credential: credential,
@@ -380,7 +380,7 @@ func (sessionRetrieveResponseTranslator) Forward(
 	r auth.SessionRetrieveResponse,
 ) (*SessionRetrieveResponse, error) {
 	return &SessionRetrieveResponse{
-		Sessions: lo.Map(r.Sessions, func(s auth.Session, _ int) *Session {
+		Sessions: lo.Map(r.Sessions, func(s svcauth.Session, _ int) *Session {
 			return sessionForward(s)
 		}),
 	}, nil
@@ -390,7 +390,7 @@ func (sessionRetrieveResponseTranslator) Backward(
 	_ context.Context,
 	r *SessionRetrieveResponse,
 ) (auth.SessionRetrieveResponse, error) {
-	sessions := make([]auth.Session, 0, len(r.Sessions))
+	sessions := make([]svcauth.Session, 0, len(r.Sessions))
 	for _, s := range r.Sessions {
 		session, err := sessionBackward(s)
 		if err != nil {

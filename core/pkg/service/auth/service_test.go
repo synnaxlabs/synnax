@@ -161,7 +161,7 @@ var _ = Describe("Service", func() {
 			"Should open a session for the identity the proof proves",
 			func(ctx SpecContext) {
 				session, token := login(ctx)
-				Expect(token).To(HavePrefix(auth.TokenPrefix))
+				Expect(token).To(HavePrefix("sys_"))
 				Expect(session.Subject).To(Equal(alice))
 				var stored auth.Session
 				Expect(
@@ -175,10 +175,16 @@ var _ = Describe("Service", func() {
 				Expect(session.Credential).To(Equal(p.Key))
 			},
 		)
-		It("Should never store the token", func(ctx SpecContext) {
+		It("Should store the token's hash, never the token", func(ctx SpecContext) {
 			session, token := login(ctx)
-			Expect(string(session.Hash)).ToNot(ContainSubstring(token))
-			Expect(session.Hash).To(HaveLen(32))
+			var stored auth.Session
+			Expect(
+				svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).Entry(&stored).
+					Exec(ctx, nil),
+			).To(Succeed())
+			Expect(stored.Hash).To(HaveLen(32))
+			Expect(stored.Hash).To(Equal(session.Hash))
+			Expect(string(stored.Hash)).ToNot(ContainSubstring(token))
 		})
 		It("Should return the authenticator's error", func(ctx SpecContext) {
 			Expect(svc.Login(ctx, proof(username, "wrong"))).Error().
@@ -217,7 +223,7 @@ var _ = Describe("Service", func() {
 			Entry("empty", func(string) string { return "" }),
 			Entry(
 				"no prefix",
-				func(t string) string { return t[len(auth.TokenPrefix):] },
+				func(t string) string { return t[len("sys_"):] },
 			),
 			Entry("not base64", func(t string) string { return t + "!" }),
 			Entry("too short", func(t string) string { return t[:len(t)-8] }),
