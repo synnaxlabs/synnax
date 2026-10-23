@@ -37,7 +37,9 @@ const listItemRenderProp = Component.renderProp(
       >
         <Text.Text align="center">
           <StatusIndicator status={status} />
-          {name}
+          <Text.Text el="span" overflow="fade">
+            {name}
+          </Text.Text>
         </Text.Text>
         <Text.Text level="small" color={9} weight={450} style={LOCATION_STYLE}>
           {location}
