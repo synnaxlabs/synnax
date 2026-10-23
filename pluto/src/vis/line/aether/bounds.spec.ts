@@ -108,6 +108,21 @@ describe("windowBounds", () => {
     });
   });
 
+  it("should pair series with equal time ranges shorter than the threshold", () => {
+    const timeRange = TimeStamp.seconds(1).spanRange(TimeSpan.NANOSECOND);
+    const x = new Series({
+      data: new BigInt64Array([TimeStamp.seconds(1).valueOf()]),
+      dataType: DataType.TIMESTAMP,
+      timeRange,
+    });
+    const y = new Series({
+      data: new Float32Array([42]),
+      dataType: DataType.FLOAT32,
+      timeRange,
+    });
+    expect(calc([x], [y], xWindow(0, 2))).toStrictEqual({ lower: 42, upper: 42 });
+  });
+
   it("should not pair series whose time ranges do not overlap", () => {
     const x = stamps(0, 5, 0n);
     const y = values(100, [1, 2, 3, 4, 5], 0n);

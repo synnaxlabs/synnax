@@ -62,7 +62,7 @@ func Not(f Filter) Filter {
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Table] {
+	return func(Retrieve) gorp.Filter[Key, Table] {
 		return gorp.MatchKeys[Key, Table](keys...)
 	}
 }

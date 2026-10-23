@@ -13,6 +13,7 @@ import (
 	"bufio"
 	"context"
 	"io"
+	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/channel"
@@ -32,12 +33,14 @@ type IteratorConfig struct {
 	// AutoChunkSize sets the maximum size of a chunk that will be returned by the
 	// iterator when using AutoSpan in calls ot Next or Prev.
 	AutoChunkSize int64
-	// Reduction reduces the samples the iterator reads. A stride skips samples
-	// without reading them. A limit reduces the samples in Bounds to about PointLimit
-	// points over groups counted on the channel's index and anchored at the start of
-	// each index domain, so every channel on one index reduces over the same groups.
-	// With AutoSpan, AutoChunkSize counts points and chunks end on group boundaries. A
-	// fixed span clips groups at the view edges. A limit reduces numeric channels only.
+	// Reduction reduces the samples the iterator reads. A stride keeps the samples
+	// whose alignment is a multiple of its factor, so every channel that shares an
+	// index keeps the same samples, and never reads the rest. A limit reduces the
+	// samples in Bounds to about PointLimit points over groups counted on the channel's
+	// index and anchored at the start of each index domain, so every channel on one
+	// index reduces over the same groups. With AutoSpan, AutoChunkSize counts points
+	// and chunks end on group boundaries. A fixed span clips groups at the view edges.
+	// A limit reduces numeric channels only.
 	Reduction telem.Reduction
 }
 
@@ -55,7 +58,8 @@ func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
 
 // Validate implements config.Config.
 func (i IteratorConfig) Validate() error {
-	v := validate.New("unary.iterator")
+	v := validate.New("unary.iterator_config")
+	v.Positive("auto_chunk_size", i.AutoChunkSize)
 	v.Exec(i.Reduction.Validate)
 	return v.Error()
 }
@@ -81,11 +85,14 @@ type Iterator struct {
 	resolver *offsetResolver
 	Channel  channel.Channel
 	frame    channel.Frame
+	// segments is scratch space for the index segments of a read.
+	segments []index.Segment
 	IteratorConfig
 	view   telem.TimeRange
 	bounds telem.TimeRange
 	closed bool
-	// stride keeps every stride-th sample. Values below 2 keep every sample.
+	// stride keeps the samples whose alignment is a multiple of stride. Values below 2
+	// keep every sample.
 	stride uint32
 	// limit is the point limit of the reduction, or nil when the read has none.
 	limit *telem.LimitReduction
@@ -242,26 +249,37 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 		return ok
 	}
 
+	// A domain that ends after the view can hold samples the next span needs, so the
+	// iterator stays on it.
 	i.accumulate(ctx)
-	if i.satisfied() || i.err != nil {
-		return ok
-	}
-
-	for i.internal.Next() &&
-		i.accumulate(ctx) &&
-		!i.satisfied() {
+	for i.err == nil &&
+		i.internal.TimeRange().End.Before(i.view.End) &&
+		i.internal.Next() &&
+		i.internal.TimeRange().Start.Before(i.view.End) {
+		i.accumulate(ctx)
 	}
 	return ok
 }
 
-// autoNext reads up to AutoChunkSize samples forward from the current view end. Each
-// domain resolves the chunk to a pair of sample positions, and both the samples read
-// and the time range reported come from that pair, so the two cannot disagree.
+// autoNext reads chunks forward from the current view end until one holds data. A
+// downsampled chunk can keep no samples, so an empty chunk does not end the read.
 func (i *Iterator) autoNext(ctx context.Context) bool {
 	if err := i.resolveGroupSize(ctx); err != nil {
 		i.err = err
 		return false
 	}
+	for {
+		if more := i.nextChunk(ctx); !more || i.partiallySatisfied() {
+			return i.partiallySatisfied()
+		}
+	}
+}
+
+// nextChunk reads up to AutoChunkSize samples forward from the current view end. Each
+// domain resolves the chunk to a pair of sample positions, and both the samples read
+// and the time range reported come from that pair, so the two cannot disagree.
+// nextChunk returns true if samples can follow the chunk.
+func (i *Iterator) nextChunk(ctx context.Context) bool {
 	// The chunk provisionally covers everything left in bounds. The sample that closes
 	// it replaces the end once the read reaches it.
 	i.reset(i.view.End.Range(i.bounds.End))
@@ -269,6 +287,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 		nRemaining = i.AutoChunkSize
 		end        = i.view.Start
 		closed     bool
+		more       bool
 	)
 	for {
 		domainTR := i.internal.TimeRange()
@@ -278,7 +297,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			}
 			continue
 		}
-		startApprox, alignment, err := i.approximateStart(ctx)
+		startApprox, err := i.approximateStart(ctx)
 		if err != nil {
 			i.err = err
 			return false
@@ -295,10 +314,15 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			endSample = min(startSample+nRemaining, limit)
 		)
 		if i.groupSize > 1 {
-			endSample = min(
-				startSample+i.forwardGroupSpan(alignment, nRemaining),
+			if endSample, err = i.groupEnd(
+				ctx,
+				startSample,
 				limit,
-			)
+				nRemaining,
+			); err != nil {
+				i.err = err
+				return false
+			}
 		}
 		end = domainTR.End
 		if closed = endSample < limit; closed {
@@ -311,49 +335,43 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			}
 			i.view.End = end
 		}
-		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
-		if err != nil {
-			i.err = err
-			return false
-		}
-		endOffset, err := i.resolver.byteOffset(ctx, i.internal, endSample)
-		if err != nil {
-			i.err = err
-			return false
-		}
-		series, srcLen, err := i.read(
-			ctx,
-			alignment,
-			startOffset,
-			endOffset-startOffset,
-		)
+		used, err := i.read(ctx, startSample, endSample)
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
 		}
-		nRemaining -= i.consumed(series, srcLen)
-		i.insert(series)
-		if closed || nRemaining <= 0 || !i.internal.Next() {
+		nRemaining -= used
+		if more = closed || nRemaining <= 0; more || !i.internal.Next() {
 			break
 		}
 	}
 	i.view.End = min(end, i.bounds.End)
-	return i.partiallySatisfied()
+	return more && !i.atEnd()
 }
 
-// autoPrev reads up to AutoChunkSize samples backward from the current view start. It
-// mirrors autoNext: the chunk resolves to sample positions first, and its time range
-// follows from them.
+// autoPrev mirrors autoNext, reading chunks backward from the current view start.
 func (i *Iterator) autoPrev(ctx context.Context) bool {
 	if err := i.resolveGroupSize(ctx); err != nil {
 		i.err = err
 		return false
 	}
+	for {
+		if more := i.prevChunk(ctx); !more || i.partiallySatisfied() {
+			return i.partiallySatisfied()
+		}
+	}
+}
+
+// prevChunk reads up to AutoChunkSize samples backward from the current view start. It
+// mirrors nextChunk: the chunk resolves to sample positions first, and its time range
+// follows from them.
+func (i *Iterator) prevChunk(ctx context.Context) bool {
 	i.reset(i.bounds.Start.Range(i.view.Start))
 	var (
 		nRemaining = i.AutoChunkSize
 		start      = i.view.End
 		closed     bool
+		more       bool
 	)
 	for {
 		domainTR := i.internal.TimeRange()
@@ -363,7 +381,7 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 			}
 			continue
 		}
-		startApprox, alignment, err := i.approximateStart(ctx)
+		startApprox, err := i.approximateStart(ctx)
 		if err != nil {
 			i.err = err
 			return false
@@ -380,9 +398,15 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 			startSample = max(endSample-nRemaining, first)
 		)
 		if i.groupSize > 1 {
-			// alignment sits at first, so the chunk's end sits endSample-first later.
-			end := alignment.AddSamples(uint32(endSample - first))
-			startSample = max(endSample-i.backwardGroupSpan(end, nRemaining), first)
+			if startSample, err = i.groupStart(
+				ctx,
+				first,
+				endSample,
+				nRemaining,
+			); err != nil {
+				i.err = err
+				return false
+			}
 		}
 		start = domainTR.Start
 		if closed = startSample > first; closed {
@@ -395,37 +419,18 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 			}
 			i.view.Start = start
 		}
-		// approximateStart stamps the alignment at the view start. This chunk may begin
-		// earlier in the domain, so move the alignment back with it.
-		alignment -= telem.Alignment(first - startSample)
-		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
-		if err != nil {
-			i.err = err
-			return false
-		}
-		endOffset, err := i.resolver.byteOffset(ctx, i.internal, endSample)
-		if err != nil {
-			i.err = err
-			return false
-		}
-		series, srcLen, err := i.read(
-			ctx,
-			alignment,
-			startOffset,
-			endOffset-startOffset,
-		)
+		used, err := i.read(ctx, startSample, endSample)
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
 		}
-		nRemaining -= i.consumed(series, srcLen)
-		i.insert(series)
-		if closed || nRemaining <= 0 || !i.internal.Prev() {
+		nRemaining -= used
+		if more = closed || nRemaining <= 0; more || !i.internal.Prev() {
 			break
 		}
 	}
 	i.view.Start = max(start, i.bounds.Start)
-	return i.partiallySatisfied()
+	return more && !i.atStart()
 }
 
 // stampSample returns the timestamp of the sample at position offset within the domain
@@ -466,14 +471,14 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 		return ok
 	}
 
+	// A domain that starts before the view can hold samples the next span needs, so the
+	// iterator stays on it.
 	i.accumulate(ctx)
-	if i.satisfied() || i.err != nil {
-		return ok
-	}
-
-	for i.internal.Prev() &&
-		i.accumulate(ctx) &&
-		!i.satisfied() {
+	for i.err == nil &&
+		i.internal.TimeRange().Start.After(i.view.Start) &&
+		i.internal.Prev() &&
+		i.internal.TimeRange().End.After(i.view.Start) {
+		i.accumulate(ctx)
 	}
 	return ok
 }
@@ -507,68 +512,136 @@ func (i *Iterator) Close() error {
 	return wrap(errors.Combine(i.err, i.internal.Close()))
 }
 
-// accumulate reads the underlying data contained in the view from OS and appends them
-// to the frame. accumulate returns false if iterator must stop moving.
-func (i *Iterator) accumulate(ctx context.Context) bool {
+// accumulate reads the samples of the current domain that lie in the view into the
+// frame.
+func (i *Iterator) accumulate(ctx context.Context) {
 	if err := i.resolveGroupSize(ctx); err != nil {
 		i.err = err
-		return false
+		return
 	}
 	domainTR := i.internal.TimeRange()
 	if domainTR.IsZero() || !domainTR.OverlapsWith(i.view) {
-		return false
-	}
-	offset, alignment, size, err := i.sliceDomain(ctx)
-	if err != nil {
-		i.err = err
-		return false
-	}
-	series, _, err := i.read(ctx, alignment, offset, size)
-	if err != nil && !errors.Is(err, io.EOF) {
-		i.err = err
-		return false
-	}
-	i.insert(series)
-	return true
-}
-
-func (i *Iterator) insert(series telem.Series) {
-	if series.Len() == 0 {
 		return
 	}
-	if i.frame.Empty() ||
-		i.frame.SeriesAt(-1).TimeRange.End.BeforeEq(series.TimeRange.Start) {
-		i.frame = i.frame.Append(i.Channel.Key, series)
-	} else {
-		i.frame = i.frame.Prepend(i.Channel.Key, series)
+	start, end, err := i.sliceDomain(ctx)
+	if err != nil {
+		i.err = err
+		return
+	}
+	if _, err = i.read(ctx, start, end); err != nil && !errors.Is(err, io.EOF) {
+		i.err = err
 	}
 }
 
-// read reads the slice [offset, offset+size) of the current domain into a series,
-// keeping every stride-th sample. It returns the series and the number of
-// source samples the slice held, which exceeds the series length when the read is
-// downsampled.
+// loadSegments loads the index segments of samples [start, end) of the current domain
+// into i.segments.
+func (i *Iterator) loadSegments(ctx context.Context, start, end int64) (err error) {
+	if i.Channel.IsIndex {
+		// An index channel timestamps itself, so the domain it reads is its segment.
+		i.segments = append(i.segments[:0], index.Segment{
+			TimeRange: i.internal.TimeRange(),
+			Alignment: telem.NewAlignment(i.internal.Position(), uint32(start)),
+			Len:       end - start,
+		})
+		return nil
+	}
+	i.segments, err = i.idx.AppendSegments(
+		ctx,
+		i.segments[:0],
+		i.internal.TimeRange().Start,
+		start,
+		end,
+	)
+	return err
+}
+
+// read reads samples [start, end) of the current domain into the frame in time order.
+// The samples become one series per index domain that holds their timestamps, so each
+// series carries the alignment of its own index samples. read returns how much of
+// AutoChunkSize the read used: points when the read is reduced, and source samples
+// otherwise.
 func (i *Iterator) read(
 	ctx context.Context,
-	alignment telem.Alignment,
-	offset telem.Size,
-	size telem.Size,
-) (series telem.Series, srcLen int64, err error) {
-	series.DataType = i.Channel.DataType
-	series.TimeRange = i.internal.TimeRange().BoundBy(i.view)
-	// set the first 32 bits to the domain index, and the last 32 bits to the alignment
-	series.Alignment = alignment
+	start, end int64,
+) (used int64, err error) {
+	if err = i.loadSegments(ctx, start, end); err != nil {
+		return 0, err
+	}
+	domainTR := i.internal.TimeRange()
 	r, err := i.internal.OpenReader(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { err = errors.Combine(err, r.Close()) }()
+	tr := domainTR.BoundBy(i.view)
+	// The frame holds either earlier domains or later ones, so a read that does not
+	// follow the frame goes in front of it, last segment first.
+	if i.frame.Empty() || i.frame.SeriesAt(-1).TimeRange.End.BeforeEq(tr.Start) {
+		for _, seg := range i.segments {
+			series, n, err := i.readSegment(ctx, r, seg, start, tr)
+			if err != nil {
+				return 0, err
+			}
+			if series.Len() > 0 {
+				i.frame = i.frame.Append(i.Channel.Key, series)
+			}
+			used += i.consumed(series, n)
+			start += seg.Len
+		}
+		return used, nil
+	}
+	for _, seg := range slices.Backward(i.segments) {
+		end -= seg.Len
+		series, n, err := i.readSegment(ctx, r, seg, end, tr)
+		if err != nil {
+			return 0, err
+		}
+		if series.Len() > 0 {
+			i.frame = i.frame.Prepend(i.Channel.Key, series)
+		}
+		used += i.consumed(series, n)
+	}
+	return used, nil
+}
+
+// readSegment reads the samples of seg, the first of which is sample start of the
+// current domain. tr is the time range of the whole read. It returns the series and the
+// number of source samples it read. A strided read keeps the samples whose alignment is
+// a multiple of the stride, so every channel that shares an index keeps the same
+// samples.
+func (i *Iterator) readSegment(
+	ctx context.Context,
+	r *domain.Reader,
+	seg index.Segment,
+	start int64,
+	tr telem.TimeRange,
+) (series telem.Series, srcLen int64, err error) {
+	offset, err := i.resolver.byteOffset(ctx, i.internal, start)
 	if err != nil {
 		return telem.Series{}, 0, err
 	}
-	defer func() { err = errors.Combine(err, r.Close()) }()
+	endOffset, err := i.resolver.byteOffset(ctx, i.internal, start+seg.Len)
+	if err != nil {
+		return telem.Series{}, 0, err
+	}
+	series = telem.Series{
+		DataType:  i.Channel.DataType,
+		TimeRange: tr.BoundBy(seg.TimeRange),
+		Alignment: seg.Alignment,
+	}
+	size := endOffset - offset
 	if i.groupSize > 1 {
 		return i.readReduced(r, series, offset, size)
 	}
-	if i.stride > 1 {
-		series.Data, srcLen, err = i.readStrided(r, offset, size)
-		if err != nil {
+	if factor := i.stride; factor > 1 {
+		skip := (factor - seg.Alignment.SampleIndex()%factor) % factor
+		series.Alignment = seg.Alignment.AddSamples(skip)
+		if series.Data, srcLen, err = i.readStrided(
+			r,
+			offset,
+			size,
+			int64(skip),
+		); err != nil {
 			return telem.Series{}, 0, err
 		}
 		return series, srcLen, nil
@@ -578,9 +651,7 @@ func (i *Iterator) read(
 	if err != nil && !errors.Is(err, io.EOF) {
 		return telem.Series{}, 0, err
 	}
-	if n < len(series.Data) {
-		series.Data = series.Data[:n]
-	}
+	series.Data = series.Data[:n]
 	return series, series.Len(), nil
 }
 
@@ -602,7 +673,7 @@ func (i *Iterator) resolveGroupSize(ctx context.Context) error {
 		i.groupSize = 1
 		return nil
 	}
-	approx, _, err := i.idx.Distance(ctx, i.bounds, index.AllowDiscontinuous)
+	approx, err := i.idx.Distance(ctx, i.bounds, index.AllowDiscontinuous)
 	if errors.Is(err, index.ErrDiscontinuous) {
 		i.groupSize = 1
 		return nil
@@ -625,6 +696,58 @@ func (i *Iterator) consumed(series telem.Series, srcLen int64) int64 {
 		return series.Len()
 	}
 	return srcLen
+}
+
+// groupEnd returns the end of a forward chunk of samples [start, limit) of the current
+// domain that holds whole groups giving up to points points. The chunk holds at least
+// the group of its first sample.
+func (i *Iterator) groupEnd(
+	ctx context.Context,
+	start, limit, points int64,
+) (int64, error) {
+	if err := i.loadSegments(ctx, start, limit); err != nil {
+		return 0, err
+	}
+	for _, seg := range i.segments {
+		if span := i.forwardGroupSpan(seg.Alignment, points); span < seg.Len {
+			return start + span, nil
+		}
+		start += seg.Len
+		if points -= i.points(seg); points <= 0 {
+			return start, nil
+		}
+	}
+	return limit, nil
+}
+
+// groupStart mirrors groupEnd for a backward chunk of samples [first, end).
+func (i *Iterator) groupStart(
+	ctx context.Context,
+	first, end, points int64,
+) (int64, error) {
+	if err := i.loadSegments(ctx, first, end); err != nil {
+		return 0, err
+	}
+	for _, seg := range slices.Backward(i.segments) {
+		upper := seg.Alignment.AddSamples(uint32(seg.Len))
+		if span := i.backwardGroupSpan(upper, points); span < seg.Len {
+			return end - span, nil
+		}
+		end -= seg.Len
+		if points -= i.points(seg); points <= 0 {
+			return end, nil
+		}
+	}
+	return first, nil
+}
+
+// points returns the number of points a reduced read of seg yields.
+func (i *Iterator) points(seg index.Segment) int64 {
+	var (
+		size  = int64(i.groupSize)
+		first = int64(seg.Alignment.SampleIndex()) % size
+	)
+	return (first + seg.Len + size - 1) / size * i.limit.Aggregation.PointsPerGroup()
 }
 
 // forwardGroupSpan returns the number of samples from start that covers enough whole
@@ -716,31 +839,34 @@ func (i *Iterator) readReduced(
 
 var errPrefixOverrunsSlice = errors.New("length prefix exceeds domain slice")
 
-// readStrided reads every stride-th sample of the slice [offset, offset+size)
-// in r, packing the kept samples into a buffer sized to them alone. It returns the
-// packed data and the number of source samples the slice held. A slice shorter than
-// size yields the samples that were available.
+// readStrided reads every stride-th sample of the slice [offset, offset+size) in r,
+// starting skip samples into the slice, and packs the kept samples into a buffer sized
+// to them alone. It returns the packed data and the number of source samples the slice
+// held. A slice shorter than size yields the samples that were available.
 func (i *Iterator) readStrided(
 	r io.ReaderAt,
 	offset telem.Size,
 	size telem.Size,
+	skip int64,
 ) ([]byte, int64, error) {
 	if i.Channel.DataType.IsVariable() {
-		return i.readStridedVariable(r, offset, size)
+		return i.readStridedVariable(r, offset, size, skip)
 	}
-	return i.readStridedFixed(r, offset, size)
+	return i.readStridedFixed(r, offset, size, skip)
 }
 
 func (i *Iterator) readStridedFixed(
 	r io.ReaderAt,
 	offset telem.Size,
 	size telem.Size,
+	skip int64,
 ) ([]byte, int64, error) {
 	var (
 		density    = i.Channel.DataType.Density()
 		factor     = int64(i.stride)
 		srcSamples = density.SampleCount(size)
-		kept       = srcSamples/factor + min(srcSamples%factor, 1)
+		strided    = max(srcSamples-skip, 0)
+		kept       = strided/factor + min(strided%factor, 1)
 		stride     = int64(density.Size(factor))
 		// batch is how many kept samples a single ReadAt covers. A stride wider than
 		// the buffer drops it to one, so the read skips the discarded samples instead
@@ -752,7 +878,7 @@ func (i *Iterator) readStridedFixed(
 	for read := int64(0); read < kept; {
 		n := min(batch, kept-read)
 		b := buf[:stride*(n-1)+int64(density)]
-		count, err := r.ReadAt(b, int64(offset+density.Size(read*factor)))
+		count, err := r.ReadAt(b, int64(offset+density.Size(skip+read*factor)))
 		if err != nil && !errors.Is(err, io.EOF) {
 			return nil, 0, err
 		}
@@ -761,7 +887,7 @@ func (i *Iterator) readStridedFixed(
 			out = append(out, b[j*stride:j*stride+int64(density)]...)
 		}
 		if count < len(b) {
-			return out, read*factor + avail, nil
+			return out, skip + read*factor + avail, nil
 		}
 		read += n
 	}
@@ -772,6 +898,7 @@ func (i *Iterator) readStridedVariable(
 	r io.ReaderAt,
 	offset telem.Size,
 	size telem.Size,
+	skip int64,
 ) ([]byte, int64, error) {
 	var (
 		factor = int64(i.stride)
@@ -800,7 +927,7 @@ func (i *Iterator) readStridedVariable(
 			return out, src, nil
 		}
 		pos += 4 + length
-		if src%factor != 0 {
+		if src < skip || (src-skip)%factor != 0 {
 			if _, err := br.Discard(int(length)); err != nil {
 				if errors.Is(err, io.EOF) {
 					i.logShortStride(offset, start, err)
@@ -838,31 +965,18 @@ func (i *Iterator) logShortStride(offset telem.Size, pos int64, cause error) {
 	)
 }
 
-func (i *Iterator) sliceDomain(ctx context.Context) (
-	telem.Size,
-	telem.Alignment,
-	telem.Size,
-	error,
-) {
-	startApprox, align, err := i.approximateStart(ctx)
+// sliceDomain returns the positions of the first sample of the current domain in the
+// view and of the sample after its last one.
+func (i *Iterator) sliceDomain(ctx context.Context) (start, end int64, err error) {
+	startApprox, err := i.approximateStart(ctx)
 	if err != nil {
-		return 0, 0, 0, err
-	}
-	startSample := pickSampleOffset(startApprox)
-	startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
-	if err != nil {
-		return 0, 0, 0, err
+		return 0, 0, err
 	}
 	endApprox, err := i.approximateEnd(ctx)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, 0, err
 	}
-	endSample := pickSampleOffset(endApprox)
-	endOffset, err := i.resolver.byteOffset(ctx, i.internal, endSample)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-	return startOffset, align, endOffset - startOffset, nil
+	return pickSampleOffset(startApprox), pickSampleOffset(endApprox), nil
 }
 
 // pickSampleOffset selects the appropriate sample index from an approximation
@@ -886,17 +1000,14 @@ func pickSampleOffset(approx index.DistanceApproximation) int64 {
 // approximateStart approximates the number of samples between the start of the current
 // domain and the start of the current iterator view. If the start of the current view
 // is before the start of the range, the returned value will be zero.
-func (i *Iterator) approximateStart(ctx context.Context) (
-	index.DistanceApproximation,
-	telem.Alignment,
-	error,
-) {
+func (i *Iterator) approximateStart(
+	ctx context.Context,
+) (index.DistanceApproximation, error) {
 	target := i.internal.TimeRange().Start.SpanRange(0)
 	if i.internal.TimeRange().Start.Before(i.view.Start) {
 		target.End = i.view.Start
 	}
-	startApprox, alignment, err := i.idx.Distance(ctx, target, index.MustBeContinuous)
-	return startApprox, alignment, err
+	return i.idx.Distance(ctx, target, index.MustBeContinuous)
 }
 
 // approximateEnd approximates the number of samples between the start of the current
@@ -913,21 +1024,9 @@ func (i *Iterator) approximateEnd(
 	endApprox.Approximation = index.Exactly(total)
 	if i.internal.TimeRange().End.After(i.view.End) {
 		target := i.internal.TimeRange().Start.Range(i.view.End)
-		endApprox, _, err = i.idx.Distance(ctx, target, index.MustBeContinuous)
+		endApprox, err = i.idx.Distance(ctx, target, index.MustBeContinuous)
 	}
 	return endApprox, err
-}
-
-// satisfied returns whether an iterator collected all telemetry in its view. An
-// iterator is said to be satisfied when its frame's start and end time range is
-// congruent to its view.
-func (i *Iterator) satisfied() bool {
-	if !i.partiallySatisfied() {
-		return false
-	}
-	start := i.frame.SeriesAt(0).TimeRange.Start
-	end := i.frame.SeriesAt(-1).TimeRange.End
-	return i.view == start.Range(end)
 }
 
 func (i *Iterator) partiallySatisfied() bool { return i.frame.HasData() }

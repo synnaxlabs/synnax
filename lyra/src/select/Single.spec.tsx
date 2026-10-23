@@ -19,6 +19,7 @@ import { List } from "@/list";
 import { Select } from "@/select";
 import { mockGeometry } from "@/testutil/dom";
 import { Text } from "@/text";
+import { Triggers } from "@/triggers";
 
 describe("Select.Single", () => {
   beforeAll(() => mockGeometry(100, 100));
@@ -85,6 +86,14 @@ describe("Select.Single", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);
     expect(c.getByText("Test Item")).toBeTruthy();
+  });
+
+  it("should close the selection dialog on one Escape from the search field", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle />, { wrapper: Triggers.Provider });
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.keyDown(c.getByRole("textbox"), { key: "Escape", code: "Escape" });
+    expect(c.queryByRole("option", { name: "First Item Option" })).toBeNull();
   });
 
   it("should open the selection dialog when the trigger is clicked", () => {

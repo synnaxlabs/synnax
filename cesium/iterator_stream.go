@@ -142,12 +142,12 @@ type IteratorConfig struct {
 	// the upper bound is exclusive.
 	Bounds telem.TimeRange
 	// AutoChunkSize sets the default chunk size to iterator over when sending a Next()
-	// or Prev() request it IteratorAutoSpan as the span.
+	// or Prev() request it IteratorAutoSpan as the span. It must not be negative.
 	AutoChunkSize int64
-	// Reduction reduces the samples of each channel the iterator reads. A stride skips
-	// samples without reading them. A limit reduces each channel in Bounds to about
-	// PointLimit points, and every channel on one index reduces over the same groups,
-	// so reduced index and data series share alignments.
+	// Reduction reduces the samples of each channel the iterator reads. A stride keeps
+	// the samples whose alignment is a multiple of its factor and never reads the rest.
+	// A limit reduces each channel in Bounds to about PointLimit points. Either way,
+	// every channel on one index keeps the same alignments.
 	Reduction telem.Reduction
 }
 

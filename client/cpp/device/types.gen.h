@@ -22,7 +22,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 
-#include "core/pkg/service/device/pb/device.pb.h"
+#include "core/pkg/service/legacy/device/pb/device.pb.h"
 
 namespace synnax::device {
 

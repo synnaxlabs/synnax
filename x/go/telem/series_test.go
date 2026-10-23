@@ -558,54 +558,6 @@ var _ = Describe("Series", func() {
 		})
 	})
 
-	Describe("DownsampleFrom", func() {
-		DescribeTable(
-			"keeps every factor-th sample from start",
-			func(
-				original telem.Series,
-				start int64,
-				factor uint32,
-				expected telem.Series,
-			) {
-				out := original.DownsampleFrom(start, factor)
-				Expect(out).To(telem.MatchSeriesData(expected))
-				if factor > 1 {
-					Expect(out.Alignment).To(
-						Equal(original.Alignment.AddSamples(uint32(start))),
-					)
-				}
-			},
-			Entry(
-				"fixed density",
-				telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7),
-				int64(2),
-				uint32(3),
-				telem.NewSeriesV[int64](3, 6),
-			),
-			Entry(
-				"variable density",
-				telem.NewSeriesV("a", "b", "c", "d"),
-				int64(1),
-				uint32(2),
-				telem.NewSeriesV("b", "d"),
-			),
-			Entry(
-				"a start past the end",
-				telem.NewSeriesV[int64](1, 2),
-				int64(2),
-				uint32(3),
-				telem.NewSeriesV[int64](),
-			),
-			Entry(
-				"a factor below 2",
-				telem.NewSeriesV[int64](1, 2),
-				int64(0),
-				uint32(1),
-				telem.NewSeriesV[int64](1, 2),
-			),
-		)
-	})
-
 	Describe("Downsample", func() {
 		Context("Fixed Length Data Types", func() {
 			It("Should correctly downsample a series with a factor of 2", func() {
@@ -654,12 +606,39 @@ var _ = Describe("Series", func() {
 				).To(Equal([]float64{1.1, 3.3, 5.5}))
 			})
 
-			It("Should preserve alignment information", func() {
-				original := telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6)
-				original.Alignment = telem.NewAlignment(1, 5)
+			It(
+				"Should keep the samples whose alignment is a multiple of the factor",
+				func() {
+					original := telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6)
+					original.Alignment = telem.NewAlignment(1, 5)
+					downsampled := original.Downsample(2)
+
+					Expect(downsampled).To(telem.MatchSeriesDataV[int64](2, 4, 6))
+					Expect(downsampled.Alignment).To(Equal(telem.NewAlignment(1, 6)))
+				},
+			)
+
+			It(
+				"Should keep the same samples of series that share an alignment space",
+				func() {
+					whole := telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7)
+					part := telem.NewSeriesV[int64](3, 4, 5, 6, 7)
+					part.Alignment = telem.NewAlignment(0, 3)
+
+					Expect(
+						whole.Downsample(3),
+					).To(telem.MatchSeriesDataV[int64](0, 3, 6))
+					Expect(part.Downsample(3)).To(telem.MatchSeriesDataV[int64](3, 6))
+				},
+			)
+
+			It("Should return an empty series when no sample lies on the grid", func() {
+				original := telem.NewSeriesV[int64](1)
+				original.Alignment = telem.NewAlignment(0, 1)
 				downsampled := original.Downsample(2)
 
-				Expect(downsampled.Alignment).To(Equal(original.Alignment))
+				Expect(downsampled.Len()).To(BeZero())
+				Expect(downsampled.Alignment).To(Equal(telem.NewAlignment(0, 2)))
 			})
 
 			It("Should preserve time range information", func() {
@@ -696,6 +675,20 @@ var _ = Describe("Series", func() {
 				result := downsampled.Unmarshal[[]byte]()
 				Expect(result).To(HaveLen(2))
 			})
+
+			It(
+				"Should keep variable samples whose alignment is a multiple",
+				func() {
+					original := telem.NewSeriesV("a", "b", "c", "d", "e", "f")
+					original.Alignment = telem.NewAlignment(0, 1)
+					downsampled := original.Downsample(2)
+
+					Expect(
+						downsampled.Unmarshal[string](),
+					).To(Equal([]string{"b", "d", "f"}))
+					Expect(downsampled.Alignment).To(Equal(telem.NewAlignment(0, 2)))
+				},
+			)
 
 			It("Should correctly down sample a bytes series", func() {
 				original := telem.NewSeriesV([]byte{1}, []byte{2}, []byte{3}, []byte{4})

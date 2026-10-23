@@ -59,13 +59,13 @@ func (s Series) Len() int64 {
 	if s.DataType.IsVariable() {
 		if s.cachedLength == nil {
 			var cl int64
-			offset := 0
-			for offset+variableLengthPrefixSize <= len(s.Data) {
-				length := int(ByteOrder.Uint32(s.Data[offset:]))
-				if offset+variableLengthPrefixSize+length > len(s.Data) {
+			data := s.Data
+			for {
+				_, n := UnmarshalVariableSample(data)
+				if n == 0 {
 					break
 				}
-				offset += variableLengthPrefixSize + length
+				data = data[n:]
 				cl++
 			}
 			s.cachedLength = &cl
@@ -104,22 +104,20 @@ func (s *Series) Validate() error {
 
 func (s *Series) validateVariable() error {
 	var (
-		offset int
-		count  int64
+		data  = s.Data
+		count int64
 	)
-	for offset+variableLengthPrefixSize <= len(s.Data) {
-		length := int(ByteOrder.Uint32(s.Data[offset:]))
-		offset += variableLengthPrefixSize
-		if offset+length > len(s.Data) {
+	for len(data) >= variableLengthPrefixSize {
+		sample, n := UnmarshalVariableSample(data)
+		if n == 0 {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"variable-density length prefix at byte %d claims %d bytes, but only %d remain",
-				offset-variableLengthPrefixSize,
-				length,
-				len(s.Data)-offset,
+				len(s.Data)-len(data),
+				ByteOrder.Uint32(data),
+				len(data)-variableLengthPrefixSize,
 			)
 		}
-		sample := s.Data[offset : offset+length]
 		if s.DataType == JSONT && !jsontext.Value(sample).IsValid() {
 			return errors.Wrapf(
 				validate.ErrValidation,
@@ -134,14 +132,14 @@ func (s *Series) validateVariable() error {
 				sample,
 			)
 		}
-		offset += length
+		data = data[n:]
 		count++
 	}
-	if offset != len(s.Data) {
+	if len(data) != 0 {
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"variable-density buffer has %d trailing bytes after last complete sample",
-			len(s.Data)-offset,
+			len(data),
 		)
 	}
 	s.cachedLength = &count
@@ -155,19 +153,14 @@ func (s Series) Size() Size { return Size(len(s.Data)) }
 func (s Series) Samples() iter.Seq[[]byte] {
 	return func(yield func([]byte) bool) {
 		if s.DataType.IsVariable() {
-			offset := 0
-			for offset+variableLengthPrefixSize <= len(s.Data) {
-				length := int(ByteOrder.Uint32(s.Data[offset:]))
-				offset += variableLengthPrefixSize
-				if offset+length > len(s.Data) {
+			data := s.Data
+			for {
+				sample, n := UnmarshalVariableSample(data)
+				if n == 0 || !yield(sample) {
 					return
 				}
-				if !yield(s.Data[offset : offset+length]) {
-					return
-				}
-				offset += length
+				data = data[n:]
 			}
-			return
 		}
 		den := int64(s.DataType.Density())
 		for i := int64(0); i < s.Len(); i++ {
@@ -183,18 +176,11 @@ func (s Series) Samples() iter.Seq[[]byte] {
 func (s Series) At(i int) []byte {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	if s.DataType.IsVariable() {
-		offset := 0
-		for offset+variableLengthPrefixSize <= len(s.Data) {
-			length := int(ByteOrder.Uint32(s.Data[offset:]))
-			offset += variableLengthPrefixSize
-			if offset+length > len(s.Data) {
-				break
-			}
+		for sample := range s.Samples() {
 			if i == 0 {
-				return s.Data[offset : offset+length]
+				return sample
 			}
 			i--
-			offset += length
 		}
 		panic(fmt.Sprintf(
 			"index %v out of bounds for series with length %v",
@@ -306,39 +292,38 @@ func (s Series) String() string {
 	return b.String()
 }
 
-// Downsample returns a copy of the Series with the data down sampled by the given
-// factor, i.e., 1 out of every factor samples is kept.
-func (s Series) Downsample(factor uint32) Series { return s.DownsampleFrom(0, factor) }
-
-// DownsampleFrom returns a copy of the Series that keeps every factor-th sample,
-// starting with the sample at index start. The result's alignment is that of the first
-// kept sample. A factor below 2 returns the series unchanged.
-func (s Series) DownsampleFrom(start int64, factor uint32) Series {
+// Downsample returns a copy of the series that keeps the samples whose alignment is a
+// multiple of factor, so series that share an alignment space keep the same samples.
+// The copy has the alignment of its first sample. A factor below 2 returns the series
+// unchanged.
+func (s Series) Downsample(factor uint32) Series {
 	if factor <= 1 || len(s.Data) == 0 {
 		return s
 	}
-	f := int64(factor)
-	var oData []byte
+	var (
+		f    = int64(factor)
+		skip = (f - int64(s.Alignment.SampleIndex())%f) % f
+		out  = Series{
+			TimeRange: s.TimeRange,
+			DataType:  s.DataType,
+			Alignment: s.Alignment.AddSamples(uint32(skip)),
+		}
+	)
 	if s.DataType.IsVariable() {
 		samples := unmarshalVariable[[]byte](s.Data)
-		downsampled := make([][]byte, 0, int64(len(samples))/f+1)
-		for i := start; i < int64(len(samples)); i += f {
-			downsampled = append(downsampled, samples[i])
+		kept := make([][]byte, 0, int64(len(samples))/f+1)
+		for i := skip; i < int64(len(samples)); i += f {
+			kept = append(kept, samples[i])
 		}
-		oData = marshalVariable(downsampled)
-	} else {
-		density := int64(s.DataType.Density())
-		oData = make([]byte, 0, (s.Len()/f+1)*density)
-		for i := start; i < s.Len(); i += f {
-			oData = append(oData, s.Data[i*density:(i+1)*density]...)
-		}
+		out.Data = marshalVariable(kept)
+		return out
 	}
-	return Series{
-		TimeRange: s.TimeRange,
-		DataType:  s.DataType,
-		Data:      oData,
-		Alignment: s.Alignment.AddSamples(uint32(start)),
+	density := int64(s.DataType.Density())
+	out.Data = make([]byte, 0, (s.Len()/f+1)*density)
+	for i := skip; i < s.Len(); i += f {
+		out.Data = append(out.Data, s.Data[i*density:(i+1)*density]...)
 	}
+	return out
 }
 
 const maxDisplayValues = 12

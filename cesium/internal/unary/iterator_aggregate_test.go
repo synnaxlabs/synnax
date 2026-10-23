@@ -360,6 +360,82 @@ var _ = Describe("Aggregated Iteration", func() {
 					To(Equal([]int64{21, 40, 41, 60}))
 			})
 
+			Describe("A data domain that spans two index domains", func() {
+				BeforeEach(func(ctx SpecContext) {
+					stamps := make([]telem.TimeStamp, 20)
+					values := make([]int64, 20)
+					for i := range stamps {
+						stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
+						values[i] = int64(i) + 1
+					}
+					Expect(unary.Write(
+						ctx,
+						indexDB,
+						stamps[0],
+						telem.NewSeries(stamps[:10]),
+					)).To(Succeed())
+					Expect(unary.Write(
+						ctx,
+						indexDB,
+						stamps[9]+1,
+						telem.NewSeries(stamps[10:]),
+					)).To(Succeed())
+					Expect(unary.Write(
+						ctx,
+						dataDB,
+						stamps[0],
+						telem.NewSeries(values),
+					)).To(Succeed())
+				})
+
+				config := func() unary.IteratorConfig {
+					cfg := aggregated(
+						telem.SecondTS.Range(21*telem.SecondTS),
+						telem.AggregationMinMax,
+						8,
+					)
+					cfg.AutoChunkSize = 2
+					return cfg
+				}
+
+				It("Should end forward auto spans on the groups of each domain", func(
+					ctx SpecContext,
+				) {
+					series, chunks := readAuto(ctx, dataDB, config())
+					Expect(chunks).To(Equal([]int64{2, 2, 2, 2}))
+					var values []int64
+					for _, s := range series {
+						values = append(values, s.Unmarshal[int64]()...)
+						Expect(s.Alignment.SampleIndex() % 6).To(BeZero())
+					}
+					Expect(values).To(Equal([]int64{1, 6, 7, 10, 11, 16, 17, 20}))
+					Expect(series[0].Alignment.DomainIndex()).
+						ToNot(Equal(series[2].Alignment.DomainIndex()))
+				})
+
+				It("Should fill backward auto spans across both domains", func(
+					ctx SpecContext,
+				) {
+					cfg := config()
+					cfg.AutoChunkSize = 6
+					iter := MustOpen(dataDB.OpenIterator(cfg))
+					Expect(iter.SeekLast(ctx)).To(BeTrue())
+					var chunks [][]int64
+					for iter.Prev(ctx, unary.AutoSpan) {
+						var values []int64
+						for _, s := range collect(iter.Value()) {
+							values = append(values, s.Unmarshal[int64]()...)
+						}
+						chunks = append(chunks, values)
+					}
+					Expect(iter.Error()).ToNot(HaveOccurred())
+					Expect(chunks).To(Equal([][]int64{
+						{7, 10, 11, 16, 17, 20},
+						{1, 6},
+					}))
+				})
+			})
+
 			It(
 				"Should reduce reads larger than one read buffer",
 				func(ctx SpecContext) {

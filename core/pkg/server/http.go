@@ -82,8 +82,9 @@ func (b *SecureHTTPBranch) maybeRouteDebugUtil(ctx BranchContext) {
 }
 
 var baseFiberConfig = fiber.Config{
-	ReadBufferSize: int(100 * telem.Kilobyte),
-	ReadTimeout:    5 * time.Second,
+	ReadBufferSize:  int(100 * telem.Kilobyte),
+	WriteBufferSize: int(64 * telem.Kilobyte),
+	ReadTimeout:     5 * time.Second,
 }
 
 func (*SecureHTTPBranch) getConfig(ctx BranchContext) fiber.Config {
