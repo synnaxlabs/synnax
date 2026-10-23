@@ -19,51 +19,14 @@
 
 #include "wasmtime.hh"
 
+#include "x/cpp/strings/strings.h"
+
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/strings/state.h"
 
 namespace arc::stl::strings {
 
 inline constexpr const char *MODULE_NAME = "strings";
-
-/// Formats v as the shortest text that parses back to v, matching Go's
-/// telem.AppendFloatText. The text is in exponent notation below 1e-6 or from 1e21,
-/// with an unpadded exponent (1e-7, 1e+21). Infinities are "Infinity" and
-/// "-Infinity".
-template<typename T>
-std::string format_float(T v) {
-    if (std::isnan(v)) return "NaN";
-    if (std::isinf(v)) return v > 0 ? "Infinity" : "-Infinity";
-    char buf[64];
-    const auto [end, ec] = std::to_chars(
-        buf,
-        buf + sizeof(buf),
-        v,
-        std::chars_format::scientific
-    );
-    if (ec != std::errc{}) return "";
-    // Fixed-mode to_chars writes every integer digit of a large value, not the
-    // shortest ones, so expand the shortest scientific digits by hand.
-    const std::string sci(buf, end);
-    const size_t e = sci.find('e');
-    const int exp = std::stoi(sci.substr(e + 1));
-    const bool neg = sci[0] == '-';
-    std::string digits;
-    for (size_t i = neg ? 1 : 0; i < e; ++i)
-        if (sci[i] != '.') digits += sci[i];
-    std::string out = neg ? "-" : "";
-    const double a = std::abs(static_cast<double>(v));
-    if (a != 0 && (a < 1e-6 || a >= 1e21)) {
-        out += digits[0];
-        if (digits.size() > 1) out += "." + digits.substr(1);
-        return out + (exp < 0 ? "e-" : "e+") + std::to_string(std::abs(exp));
-    }
-    if (exp < 0) return out + "0." + std::string(-exp - 1, '0') + digits;
-    const auto point = static_cast<size_t>(exp) + 1;
-    if (digits.size() <= point)
-        return out + digits + std::string(point - digits.size(), '0');
-    return out + digits.substr(0, point) + "." + digits.substr(point);
-}
 
 /// Formats v as the shortest round-trippable decimal, matching Go's
 /// strconv.FormatFloat(v, 'g', -1, bitSize). v must be finite.
@@ -374,7 +337,7 @@ format_int_value(const std::string &spec_str, int64_t value, bool is_signed) {
 /// values to snprintf. NaN uses Go's capitalization, and an infinity is written as
 /// Infinity, signed only when negative or when spec asks for a sign.
 inline std::string format_float_value(const std::string &spec_str, double v) {
-    if (spec_str.empty()) return format_float(v);
+    if (spec_str.empty()) return x::strings::format_float(v);
     const FormatSpec f = parse_format_spec(spec_str);
     if (std::isnan(v)) {
         FormatSpec g = f;
@@ -388,15 +351,13 @@ inline std::string format_float_value(const std::string &spec_str, double v) {
     }
     if (std::isinf(v)) {
         std::string sign;
-        if (v < 0)
-            sign = "-";
-        else if (f.plus)
+        if (v > 0 && f.plus)
             sign = "+";
-        else if (f.space)
+        else if (v > 0 && f.space)
             sign = " ";
         FormatSpec g = f;
         g.zero = false;
-        return apply_width(sign, "", "Infinity", g);
+        return apply_width(sign, "", x::strings::format_float(v), g);
     }
     // Go's %g/%G with default precision uses shortest roundtrip. C's snprintf
     // defaults to 6 significant digits, so route those cases through
@@ -674,14 +635,18 @@ public:
             .func_wrap(
                 MODULE_NAME,
                 "from_f32",
-                [ss](float v) -> uint32_t { return ss->create(format_float(v)); }
+                [ss](float v) -> uint32_t {
+                    return ss->create(x::strings::format_float(v));
+                }
             )
             .unwrap();
         linker
             .func_wrap(
                 MODULE_NAME,
                 "from_f64",
-                [ss](double v) -> uint32_t { return ss->create(format_float(v)); }
+                [ss](double v) -> uint32_t {
+                    return ss->create(x::strings::format_float(v));
+                }
             )
             .unwrap();
         linker
