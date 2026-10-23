@@ -110,7 +110,7 @@ class Series(ArrayOperators, BaseModel):
         data_type: CrudeDataType | None = None,
         time_range: TimeRange | None = None,
         alignment: CrudeAlignment | None = None,
-        alignment_multiple: int = 1,
+        alignment_multiple: int | None = None,
     ):
         if data_type is not None:
             data_type = DataType(data_type)
@@ -123,7 +123,8 @@ class Series(ArrayOperators, BaseModel):
             data_ = data.data
             time_range = data.time_range if time_range is None else time_range
             align = data.alignment if align is None else align
-            alignment_multiple = data.alignment_multiple
+            if alignment_multiple is None:
+                alignment_multiple = data.alignment_multiple
         elif isinstance(data, MultiSeries):
             if len(data.series) == 1:
                 data_type = data_type or data.series[0].data_type
@@ -132,7 +133,8 @@ class Series(ArrayOperators, BaseModel):
                     data.series[0].time_range if time_range is None else time_range
                 )
                 align = data.series[0].alignment if align is None else align
-                alignment_multiple = data.series[0].alignment_multiple
+                if alignment_multiple is None:
+                    alignment_multiple = data.series[0].alignment_multiple
             else:
                 raise ValueError(
                     "[Series] - MultiSeries with more than one series cannot be converted to a Series"
@@ -165,7 +167,7 @@ class Series(ArrayOperators, BaseModel):
             data=data_,
             time_range=time_range,
             alignment=Alignment(0) if align is None else align,
-            alignment_multiple=alignment_multiple,
+            alignment_multiple=1 if alignment_multiple is None else alignment_multiple,
         )
         self._len_cache = None
 
@@ -282,6 +284,7 @@ class Series(ArrayOperators, BaseModel):
             data_type=data_type,
             time_range=self.time_range,
             alignment=self.alignment,
+            alignment_multiple=self.alignment_multiple,
         )
 
     def to_datetime(self) -> list[datetime]:
