@@ -183,7 +183,7 @@ TEST(ModbusChannels, testMissingDataTypeDefaultsToUint8) {
 
 /// @brief it should take the device's byte and word order when the channel has no
 /// override.
-TEST(ModbusChannels, testRegisterInheritsDeviceOrder) {
+TEST(ModbusChannels, RegisterInheritsDeviceOrder) {
     auto parser = x::json::Parser(
         x::json::json{{"type", "holding_register"}, {"data_type", "float32"}}
     );
@@ -195,7 +195,7 @@ TEST(ModbusChannels, testRegisterInheritsDeviceOrder) {
 }
 
 /// @brief it should let a channel's override win over the device's order.
-TEST(ModbusChannels, testRegisterOverrideBeatsDevice) {
+TEST(ModbusChannels, RegisterOverrideBeatsDevice) {
     auto parser = x::json::Parser(
         x::json::json{
             {"type", "input_register"},
@@ -661,7 +661,7 @@ void expect_pi_from_word_swapped_device(
 }
 
 /// @brief it should decode a channel with no override using the device's word swap.
-TEST_F(ModbusReadTest, testChannelInheritsDeviceWordSwap) {
+TEST_F(ModbusReadTest, ChannelInheritsDeviceWordSwap) {
     // 0x40490FDB is pi as a float32. The device swaps words, so the high word comes
     // first.
     expect_pi_from_word_swapped_device(
@@ -677,7 +677,7 @@ TEST_F(ModbusReadTest, testChannelInheritsDeviceWordSwap) {
 
 /// @brief it should decode a channel with an override using the channel's word order,
 /// not the device's.
-TEST_F(ModbusReadTest, testChannelOverridesDeviceWordSwap) {
+TEST_F(ModbusReadTest, ChannelOverridesDeviceWordSwap) {
     expect_pi_from_word_swapped_device(
         client,
         ctx,

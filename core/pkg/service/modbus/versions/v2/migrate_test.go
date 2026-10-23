@@ -12,10 +12,51 @@ package v2_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v2"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("MigrateRegisterValue", func() {
+	DescribeTable(
+		"Should keep a stored true as an override and drop a stored false",
+		func(ctx SpecContext, old v1.RegisterValue, bytes, words types.GomegaMatcher) {
+			v := MustSucceed(v2.MigrateRegisterValue(ctx, old))
+			Expect(v.DataType).To(BeEquivalentTo(old.DataType))
+			Expect(v.BytesSwapped).To(bytes)
+			Expect(v.WordsSwapped).To(words)
+		},
+		Entry(
+			"neither swapped",
+			v1.RegisterValue{DataType: "float32"},
+			BeNil(),
+			BeNil(),
+		),
+		Entry(
+			"bytes swapped",
+			v1.RegisterValue{DataType: "int16", BytesSwapped: true},
+			HaveValue(BeTrue()),
+			BeNil(),
+		),
+		Entry(
+			"words swapped",
+			v1.RegisterValue{DataType: "uint32", WordsSwapped: true},
+			BeNil(),
+			HaveValue(BeTrue()),
+		),
+		Entry(
+			"both swapped",
+			v1.RegisterValue{
+				DataType:     "float64",
+				BytesSwapped: true,
+				WordsSwapped: true,
+			},
+			HaveValue(BeTrue()),
+			HaveValue(BeTrue()),
+		),
+	)
+})
 
 var _ = Describe("MigrateReadConfig", func() {
 	It("Should keep a stored true as an override and drop a stored false",

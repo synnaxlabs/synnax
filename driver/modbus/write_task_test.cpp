@@ -77,7 +77,7 @@ protected:
 
 /// @brief it should take the device's order for a register with no override and
 /// let an override win.
-TEST(ModbusChannels, testOutputRegisterResolvesDeviceOrder) {
+TEST(ModbusChannels, OutputRegisterResolvesDeviceOrder) {
     auto inherit = x::json::Parser(
         x::json::json{{"type", "holding_register"}, {"data_type", "float32"}}
     );

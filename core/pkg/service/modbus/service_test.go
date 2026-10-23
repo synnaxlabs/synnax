@@ -156,20 +156,23 @@ var _ = Describe("Service", func() {
 			Expect(ch).To(HaveKeyWithValue("words_swapped", true))
 		})
 
-		It("Should make a v1 false follow the device and keep a v1 true", func(
-			ctx SpecContext,
-		) {
-			for _, store := range []config.Store{svc.Read, svc.Write} {
-				ch := channel(MustSucceed(store.Normalize(ctx, 1, msgpack.EncodedJSON{
-					"channels": []any{register(map[string]any{
+		DescribeTable(
+			"Should make a v1 false follow the device and keep a v1 true",
+			func(ctx SpecContext, store func() config.Store) {
+				ch := channel(MustSucceed(store().Normalize(
+					ctx,
+					v1.Version,
+					msgpack.EncodedJSON{"channels": []any{register(map[string]any{
 						"bytes_swapped": false,
 						"words_swapped": true,
-					})},
-				})))
+					})}},
+				)))
 				Expect(ch).ToNot(HaveKey("bytes_swapped"))
 				Expect(ch).To(HaveKeyWithValue("words_swapped", true))
-			}
-		})
+			},
+			Entry("read", func() config.Store { return svc.Read }),
+			Entry("write", func() config.Store { return svc.Write }),
+		)
 
 		It("Should make a released Console's swap_bytes false follow the device", func(
 			ctx SpecContext,
