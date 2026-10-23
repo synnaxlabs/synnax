@@ -9,7 +9,7 @@
 
 from uuid import uuid4
 
-from synnax import bus, device, library, task
+from synnax import bus, device, icd, task
 from synnax.can.types_gen import (
     Backend,
     Properties,
@@ -23,12 +23,11 @@ MAKE = "CAN"
 class ReadTask(
     task.StarterStopperMixin, task.JSONConfigMixin[ReadConfig], task.Protocol
 ):
-    """A read task that decodes CAN messages described by a library into
-    channels.
+    """A read task that decodes CAN messages described by an ICD into channels.
 
     :param device: The key of the CAN device to read from.
     :param name: A human-readable name for the task.
-    :param library: The key of the library that describes the messages.
+    :param icd: The key of the ICD that describes the messages.
     :param messages: The messages to decode and the channels each field writes to.
     :param raw: The virtual bytes channel every received frame is written to. Zero
         when the task does not stream raw frames.
@@ -45,7 +44,7 @@ class ReadTask(
         *,
         device: device.Key = "",
         name: str = "",
-        library: library.Key | None = None,
+        icd: icd.Key | None = None,
         messages: list[bus.ReadMessage] | None = None,
         raw: int = 0,
         data_saving_disabled: bool = False,
@@ -55,12 +54,12 @@ class ReadTask(
             self._internal = internal
             self.config = ReadConfig.model_validate(internal.config)
             return
-        if library is None:
-            raise ValueError("library is required")
+        if icd is None:
+            raise ValueError("icd is required")
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = ReadConfig(
             device=device,
-            library=library,
+            icd=icd,
             messages=messages if messages is not None else [],
             raw=raw,
             data_saving_disabled=data_saving_disabled,
@@ -71,12 +70,12 @@ class ReadTask(
 class WriteTask(
     task.StarterStopperMixin, task.JSONConfigMixin[WriteConfig], task.Protocol
 ):
-    """A write task that encodes command channel values into CAN messages
-    described by a library.
+    """A write task that encodes command channel values into CAN messages described by
+    an ICD.
 
     :param device: The key of the CAN device to write to.
     :param name: A human-readable name for the task.
-    :param library: The key of the library that describes the messages.
+    :param icd: The key of the ICD that describes the messages.
     :param messages: The messages to send and the command channel of each field.
     :param auto_start: Whether to start the task when it is created.
     """
@@ -90,7 +89,7 @@ class WriteTask(
         *,
         device: device.Key = "",
         name: str = "",
-        library: library.Key | None = None,
+        icd: icd.Key | None = None,
         messages: list[bus.WriteMessage] | None = None,
         auto_start: bool = False,
     ) -> None:
@@ -98,12 +97,12 @@ class WriteTask(
             self._internal = internal
             self.config = WriteConfig.model_validate(internal.config)
             return
-        if library is None:
-            raise ValueError("library is required")
+        if icd is None:
+            raise ValueError("icd is required")
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = WriteConfig(
             device=device,
-            library=library,
+            icd=icd,
             messages=messages if messages is not None else [],
             auto_start=auto_start,
         )

@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.library.client import Client, ImportFormat
-from synnax.library.types_gen import (
+from synnax.icd.client import Client, ImportFormat, Problem
+from synnax.icd.types_gen import (
+    ICD,
     ONTOLOGY_TYPE,
     BaseEntry,
     BaseField,
@@ -25,7 +26,6 @@ from synnax.library.types_gen import (
     FieldKey,
     Identifier,
     Key,
-    Library,
     MessageEntry,
     Payload,
     Reference,
@@ -36,6 +36,7 @@ from synnax.library.types_gen import (
 )
 
 __all__ = [
+    "ICD",
     "ONTOLOGY_TYPE",
     "BaseEntry",
     "BaseField",
@@ -54,9 +55,9 @@ __all__ = [
     "Identifier",
     "ImportFormat",
     "Key",
-    "Library",
     "MessageEntry",
     "Payload",
+    "Problem",
     "Reference",
     "TaggedTextField",
     "TextField",

@@ -12,7 +12,7 @@ from examples.simulators import udp_telemetry
 from examples.simulators.udp_telemetry import UDPTelemetrySim
 
 import synnax as sy
-from synnax import library, udp
+from synnax import icd, udp
 from tests.driver.bus_task import (
     Bound,
     BusCase,
@@ -39,7 +39,7 @@ class UDPRead(BusCase):
     fast: Bound
     slow: Bound
 
-    def create_entries(self) -> list[library.Entry]:
+    def create_entries(self) -> list[icd.Entry]:
         return [
             typed_message(
                 "fast",
@@ -47,15 +47,15 @@ class UDPRead(BusCase):
                 type_start_bit=0,
                 length=13,
                 fields=[
-                    library.BinaryField(name="count", start_bit=8, bit_length=32),
-                    library.BinaryField(
+                    icd.BinaryField(name="count", start_bit=8, bit_length=32),
+                    icd.BinaryField(
                         name="sine",
                         start_bit=40,
                         bit_length=16,
                         signed=True,
                         scale=SINE_SCALE,
                     ),
-                    library.BinaryField(
+                    icd.BinaryField(
                         name="temperature",
                         start_bit=63,
                         bit_length=16,
@@ -64,7 +64,7 @@ class UDPRead(BusCase):
                         scale=TEMPERATURE_SCALE,
                         offset=TEMPERATURE_OFFSET,
                     ),
-                    library.BinaryField(
+                    icd.BinaryField(
                         name="ratio", start_bit=72, bit_length=32, float=True
                     ),
                 ],
@@ -75,14 +75,14 @@ class UDPRead(BusCase):
                 type_start_bit=0,
                 length=4,
                 fields=[
-                    library.BinaryField(name="count", start_bit=8, bit_length=16),
-                    library.BinaryField(name="mode", start_bit=24, bit_length=3),
-                    library.BinaryField(name="odd", start_bit=27, bit_length=1),
+                    icd.BinaryField(name="count", start_bit=8, bit_length=16),
+                    icd.BinaryField(name="mode", start_bit=24, bit_length=3),
+                    icd.BinaryField(name="odd", start_bit=27, bit_length=1),
                 ],
             ),
         ]
 
-    def create_task(self, device: sy.Device, library_key: library.Key) -> udp.ReadTask:
+    def create_task(self, device: sy.Device, icd_key: icd.Key) -> udp.ReadTask:
         fast_msg, self.fast = self.bind_read(
             "fast",
             ["count", "sine", "temperature", "ratio"],
@@ -100,7 +100,7 @@ class UDPRead(BusCase):
         return udp.ReadTask(
             name="UDP Read",
             device=device.key,
-            library=library_key,
+            icd=icd_key,
             messages=[fast_msg, slow_msg],
         )
 

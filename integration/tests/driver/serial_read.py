@@ -11,7 +11,7 @@ import numpy as np
 from examples.simulators import serial_frames
 
 import synnax as sy
-from synnax import library, serial
+from synnax import icd, serial
 from tests.driver.bus_task import (
     Bound,
     Collector,
@@ -38,7 +38,7 @@ class SerialRead(SerialCase):
     telemetry: Bound
     status: Bound
 
-    def create_entries(self) -> list[library.Entry]:
+    def create_entries(self) -> list[icd.Entry]:
         return [
             typed_message(
                 "telemetry",
@@ -46,8 +46,8 @@ class SerialRead(SerialCase):
                 type_start_bit=TYPE_START_BIT,
                 length=10,
                 fields=[
-                    library.BinaryField(name="count", start_bit=32, bit_length=16),
-                    library.BinaryField(
+                    icd.BinaryField(name="count", start_bit=32, bit_length=16),
+                    icd.BinaryField(
                         name="pressure",
                         start_bit=48,
                         bit_length=16,
@@ -55,7 +55,7 @@ class SerialRead(SerialCase):
                         scale=PRESSURE_SCALE,
                         offset=PRESSURE_OFFSET,
                     ),
-                    library.BinaryField(
+                    icd.BinaryField(
                         name="flow",
                         start_bit=71,
                         bit_length=16,
@@ -70,17 +70,15 @@ class SerialRead(SerialCase):
                 type_start_bit=TYPE_START_BIT,
                 length=6,
                 fields=[
-                    library.BinaryField(name="count", start_bit=32, bit_length=8),
-                    library.BinaryField(
+                    icd.BinaryField(name="count", start_bit=32, bit_length=8),
+                    icd.BinaryField(
                         name="trim", start_bit=40, bit_length=8, signed=True
                     ),
                 ],
             ),
         ]
 
-    def create_task(
-        self, device: sy.Device, library_key: library.Key
-    ) -> serial.ReadTask:
+    def create_task(self, device: sy.Device, icd_key: icd.Key) -> serial.ReadTask:
         telemetry_msg, self.telemetry = self.bind_read(
             "telemetry",
             ["count", "pressure", "flow"],
@@ -94,7 +92,7 @@ class SerialRead(SerialCase):
         return serial.ReadTask(
             name="Serial Read",
             device=device.key,
-            library=library_key,
+            icd=icd_key,
             messages=[telemetry_msg, status_msg],
             framing=self.framing(),
         )

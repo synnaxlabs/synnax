@@ -20,7 +20,7 @@ from synnax import (
     device,
     framer,
     group,
-    library,
+    icd,
     project,
     rack,
     ranger,
@@ -80,7 +80,7 @@ class Synnax(framer.Client):
     arcs: arc.Client
     groups: group.Client
     views: view.Client
-    libraries: library.Client
+    icds: icd.Client
     imex: ImexClient
     projects: project.Client
 
@@ -164,7 +164,7 @@ class Synnax(framer.Client):
         self.racks = rack.Client(client=self._transport.unary)
         self.devices = device.Client(client=self._transport.unary)
         self.views = view.Client(client=self._transport.unary)
-        self.libraries = library.Client(client=self._transport.unary)
+        self.icds = icd.Client(client=self._transport.unary)
         self.imex = ImexClient(file_transport=self._transport.file_transport)
         self.projects = project.Client(client=self._transport.unary)
         self.tasks = task.Client(

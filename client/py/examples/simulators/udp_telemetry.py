@@ -19,7 +19,7 @@ The simulator binds ``UDPTelemetrySim.port`` and sends datagrams from it to
 - Slow (``SLOW_TYPE``, 4 bytes, at a fifth of the rate): its own count as a
   little-endian uint16 at byte 1, the count modulo 8 in bits 24 to 26, and the count
   modulo 2 in bit 27.
-- Unknown (``UNKNOWN_DATAGRAM``, once per second): a type no library message has.
+- Unknown (``UNKNOWN_DATAGRAM``, once per second): a type no ICD message has.
 
 The simulator records every datagram it receives.
 """

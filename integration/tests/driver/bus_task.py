@@ -20,7 +20,7 @@ from examples.simulators.bus_sim import BusSim
 from pydantic import ValidationError
 
 import synnax as sy
-from synnax import bus, can, library, serial, tcp, udp
+from synnax import bus, can, icd, serial, tcp, udp
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import delete_channels
 
@@ -45,8 +45,8 @@ def typed_message(
     type_value: int,
     type_start_bit: int,
     length: int,
-    fields: list[library.BinaryField],
-) -> library.MessageEntry:
+    fields: list[icd.BinaryField],
+) -> icd.MessageEntry:
     """Returns a binary message identified by the value of a one-byte type field.
 
     :param type_value: The raw type value that selects this message.
@@ -54,11 +54,11 @@ def typed_message(
     :param length: The message length in bytes.
     :param fields: The fields after the type field.
     """
-    kind = library.BinaryField(name="type", start_bit=type_start_bit, bit_length=8)
-    return library.MessageEntry(
+    kind = icd.BinaryField(name="type", start_bit=type_start_bit, bit_length=8)
+    return icd.MessageEntry(
         name=name,
-        payload=library.BinaryPayload(
-            identifier=library.FieldIdentifier(field=kind.key, value=type_value),
+        payload=icd.BinaryPayload(
+            identifier=icd.FieldIdentifier(field=kind.key, value=type_value),
             length=length,
             fields=[kind, *fields],
         ),
@@ -171,29 +171,29 @@ def assert_indexed(name: str, bound: Bound, samples: Collector) -> None:
 class BusCase(SimulatorCase):
     """Runs one bus task against the simulator in sim_classes.
 
-    Setup creates a library from create_entries, then the task from create_task, and
+    Setup creates an ICD from create_entries, then the task from create_task, and
     configures the task. Teardown deletes the task, the channels made through
-    create_index and create_channel, and the library.
+    create_index and create_channel, and the ICD.
     """
 
     prefix: str
     tsk: Task | None = None
-    library_key: library.Key | None = None
+    icd_key: icd.Key | None = None
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._created_channels: list[int] = []
-        self._messages: dict[str, library.MessageEntry] = {}
+        self._messages: dict[str, icd.MessageEntry] = {}
 
     @abstractmethod
-    def create_entries(self) -> list[library.Entry]:
-        """Returns the library entries the task uses."""
+    def create_entries(self) -> list[icd.Entry]:
+        """Returns the ICD entries the task uses."""
 
     @abstractmethod
-    def create_task(self, device: sy.Device, library_key: library.Key) -> Task:
+    def create_task(self, device: sy.Device, icd_key: icd.Key) -> Task:
         """Returns the task to configure.
 
-        :param library_key: The key of the library made from create_entries.
+        :param icd_key: The key of the ICD made from create_entries.
         """
 
     def unsupported(self) -> str | None:
@@ -206,12 +206,12 @@ class BusCase(SimulatorCase):
             self.auto_pass(msg=reason)
             return
         super().setup()
-        created = self.client.libraries.create(
-            name=f"{type(self).__name__} Library", entries=self.create_entries()
+        created = self.client.icds.create(
+            name=f"{type(self).__name__} ICD", entries=self.create_entries()
         )
-        self.library_key = created.key
+        self.icd_key = created.key
         self._messages = {
-            e.name: e for e in created.entries if isinstance(e, library.MessageEntry)
+            e.name: e for e in created.entries if isinstance(e, icd.MessageEntry)
         }
         device = self.client.devices.retrieve(name=self.device_name)
         task = self.create_task(device, created.key)
@@ -225,9 +225,9 @@ class BusCase(SimulatorCase):
                     self.client.tasks.delete(self.tsk.key)
             with self._try_to("delete channels"):
                 delete_channels(self.client, self._created_channels)
-            if self.library_key is not None:
-                with self._try_to("delete library"):
-                    self.client.libraries.delete(self.library_key)
+            if self.icd_key is not None:
+                with self._try_to("delete ICD"):
+                    self.client.icds.delete(self.icd_key)
         finally:
             super().teardown()
 

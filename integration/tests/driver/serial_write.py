@@ -14,7 +14,7 @@ from examples.simulators import serial_frames
 from examples.simulators.serial_frames import SerialFrameSim
 
 import synnax as sy
-from synnax import library, serial
+from synnax import icd, serial
 from tests.driver.serial_task import SerialCase
 
 SETPOINT_SCALE = 0.25
@@ -34,20 +34,20 @@ class SerialWrite(SerialCase):
     prefix = "serial_write"
     commands: dict[str, int]
 
-    def create_entries(self) -> list[library.Entry]:
+    def create_entries(self) -> list[icd.Entry]:
         return [
-            library.MessageEntry(
+            icd.MessageEntry(
                 name="command",
-                payload=library.BinaryPayload(
+                payload=icd.BinaryPayload(
                     length=6,
                     fields=[
-                        library.BinaryField(
+                        icd.BinaryField(
                             name="setpoint",
                             start_bit=24,
                             bit_length=16,
                             scale=SETPOINT_SCALE,
                         ),
-                        library.BinaryField(
+                        icd.BinaryField(
                             name="trim", start_bit=40, bit_length=8, signed=True
                         ),
                     ],
@@ -55,14 +55,12 @@ class SerialWrite(SerialCase):
             )
         ]
 
-    def create_task(
-        self, device: sy.Device, library_key: library.Key
-    ) -> serial.WriteTask:
+    def create_task(self, device: sy.Device, icd_key: icd.Key) -> serial.WriteTask:
         message, self.commands = self.bind_write("command", ["setpoint", "trim"])
         return serial.WriteTask(
             name="Serial Write",
             device=device.key,
-            library=library_key,
+            icd=icd_key,
             messages=[message],
             framing=self.framing(),
         )
