@@ -56,8 +56,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx)
 }
 
-// DeleteFor removes the API keys of the given subjects.
-func (w Writer) DeleteFor(ctx context.Context, subjects ...ontology.ID) error {
+func (w Writer) deleteFor(ctx context.Context, subjects ...ontology.ID) error {
 	return w.svc.table.NewDelete().
 		Where(MatchSubjects(subjects...)(w.svc.NewRetrieve())).
 		Exec(ctx, w.tx)

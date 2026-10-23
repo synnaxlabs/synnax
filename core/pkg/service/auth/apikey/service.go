@@ -139,5 +139,5 @@ func (s *Service) DeleteFor(
 	tx gorp.Tx,
 	subjects ...ontology.ID,
 ) error {
-	return s.NewWriter(tx).DeleteFor(ctx, subjects...)
+	return s.NewWriter(tx).deleteFor(ctx, subjects...)
 }
