@@ -37,6 +37,10 @@ span.pluto-text {
         font-family: var(--pluto-code-font-family);
     }
 
+    &.pluto-text--numeric {
+        font-variant-numeric: tabular-nums;
+    }
+
     &.pluto-text--keyboard {
         line-height: 1;
 
