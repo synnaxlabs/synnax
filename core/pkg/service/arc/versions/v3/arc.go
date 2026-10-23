@@ -30,8 +30,8 @@ func (a Arc) OntologyID() ontology.ID {
 }
 
 // exportBody is the Arc's portable body. The text is the materialized source rather
-// than the operation log that reconstructs it, and the derived program and status are
-// left off: an importer recompiles the one and the runtime owns the other.
+// than the operation log that reconstructs it, and the derived program is left off for
+// the importer to recompile.
 type exportBody struct {
 	Name  string      `json:"name"`
 	Mode  Mode        `json:"mode"`
