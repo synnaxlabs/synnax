@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <ranges>
+#include <tuple>
 #include <utility>
 
 #include "absl/log/log.h"
@@ -30,6 +31,28 @@ std::string get_pdo_error_guidance(const std::string &error) {
         error.find("no PDO") != std::string::npos)
         return "Device reports no PDOs. Use manual channel configuration if needed.";
     return "Use manual channel configuration if automatic discovery is insufficient.";
+}
+
+/// @brief returns the status variant, message, and description of an enabled slave
+/// on a running bus.
+std::tuple<std::string, std::string, std::string>
+live_status(const slave::Health &health) {
+    if (health.operational())
+        return {synnax::status::VARIANT_SUCCESS, "Operational", ""};
+    if (health.lost)
+        return {
+            synnax::status::VARIANT_ERROR,
+            "Not responding",
+            "Check the power and cabling of the device."
+        };
+    const auto state = slave::slave_state_to_string(health.state);
+    if (health.faulted)
+        return {synnax::status::VARIANT_ERROR, "Error in " + state, health.al_status};
+    return {
+        synnax::status::VARIANT_WARNING,
+        "In " + state,
+        "The Driver is returning the device to OP."
+    };
 }
 }
 
@@ -94,9 +117,13 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 
         if (slaves.empty()) continue;
 
+        std::vector<slave::Health> health;
+        if (auto [engine, acquire_err] = this->pool->acquire(master_info.key);
+            !acquire_err)
+            health = engine->health();
         for (const auto &slave: slaves)
             devices.push_back(
-                this->create_slave_device(slave, master_info.key, scan_ctx)
+                this->create_slave_device(slave, health, master_info.key, scan_ctx)
             );
     }
 
@@ -117,6 +144,7 @@ bool Scanner::exec(
 
 synnax::device::Device Scanner::create_slave_device(
     const slave::DiscoveryResult &slave,
+    const std::vector<slave::Health> &health,
     const std::string &master_key,
     const common::ScannerContext &scan_ctx
 ) const {
@@ -133,10 +161,18 @@ synnax::device::Device Scanner::create_slave_device(
     const bool is_enabled = json_props["enabled"].get<bool>();
 
     std::string status_msg;
+    std::string status_desc;
     std::string status_variant;
+    const auto live = std::ranges::find(
+        health,
+        props.position,
+        &slave::Health::position
+    );
     if (!is_enabled) {
         status_msg = "Device disabled";
         status_variant = synnax::status::VARIANT_DISABLED;
+    } else if (live != health.end()) {
+        std::tie(status_variant, status_msg, status_desc) = live_status(*live);
     } else if (sts.pdos_discovered) {
         if (sts.pdo_discovery_error.empty()) {
             status_msg = "Discovered (" + std::to_string(props.input_pdos.size()) +
@@ -167,6 +203,7 @@ synnax::device::Device Scanner::create_slave_device(
         .name = dev.name,
         .variant = status_variant,
         .message = status_msg,
+        .description = status_desc,
         .time = x::telem::TimeStamp::now(),
         .details = {.rack = rack_key, .device = dev.key},
     };

@@ -87,9 +87,11 @@ private:
     std::shared_ptr<engine::Pool> pool;
     std::unordered_map<std::string, size_t> last_slave_counts;
 
-    /// @brief creates a slave device for the given slave.
+    /// @brief creates a slave device for the given slave. The status reflects the
+    /// slave's live state when health holds an entry for it.
     synnax::device::Device create_slave_device(
         const slave::DiscoveryResult &slave,
+        const std::vector<slave::Health> &health,
         const std::string &master_key,
         const common::ScannerContext &scan_ctx
     ) const;
