@@ -7,9 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type project, query, schematic } from "@synnaxlabs/client";
+import {
+  NotFoundError,
+  type ontology,
+  type project,
+  query,
+  schematic,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { array, compare, uuid, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
+import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
@@ -275,6 +283,67 @@ export const useAddNode = () => {
       );
     },
     [dispatch, client],
+  );
+};
+
+// The label a symbol takes on creation: a custom symbol's name, or its spec's label.
+const defaultLabel = (client: Client, config: Node.Config): string | undefined => {
+  if (!Node.isCustomConfig(config)) {
+    const spec = Node.resolveSpec(config.variant);
+    return spec.label ?? spec.name;
+  }
+  const sym = client.schematics.symbols.getCached(config.specKey);
+  return query.isLive(sym) ? sym.name : undefined;
+};
+
+const resolveSymbol = (client: Client, symbol: string): Node.Input<Node.Variant> => {
+  if (!z.validate(schematic.symbol.keyZ, symbol))
+    return { variant: Node.variantZ.parse(symbol) };
+  const sym = client.schematics.symbols.getCached(symbol);
+  if (!query.isLive(sym))
+    throw new NotFoundError(`Symbol with key ${symbol} not found`);
+  const input: Node.Input<Node.CustomVariant> = {
+    variant: Node.customVariant(sym),
+    specKey: symbol,
+  };
+  return input;
+};
+
+/**
+ * useChangeSymbol returns a callback that changes the given symbols to another
+ * symbol, dispatched as a single undoable step. The symbol is a variant for a built-in
+ * symbol, or the key of a custom symbol. A label that still reads the old symbol's
+ * name takes the new symbol's name.
+ * @throws {NotFoundError} if a custom symbol is not in the client cache.
+ */
+export const useChangeSymbol = (): ((
+  keys: readonly string[],
+  symbol: string,
+) => void) => {
+  const key = Scope.use();
+  const client = Synnax.use();
+  const dispatch = useSingleDispatch();
+  return useCallback(
+    (keys, symbol) => {
+      const s = client?.schematics.getCached({ key });
+      if (client == null || !query.isLive(s)) return;
+      const input = resolveSymbol(client, symbol);
+      const actions = keys.flatMap((k) => {
+        const config = s.configs[k];
+        if (!Node.isConfig(config)) throw new Error(`Element ${k} is not a symbol`);
+        if (Node.symbolKey(config) === symbol) return [];
+        const next = Node.changeConfig(config, input);
+        if (
+          "label" in config &&
+          "label" in next &&
+          config.label.label === defaultLabel(client, config)
+        )
+          next.label.label = defaultLabel(client, next) ?? next.label.label;
+        return [schematic.setConfig({ key: k, config: next })];
+      });
+      if (actions.length > 0) dispatch(actions);
+    },
+    [client, key, dispatch],
   );
 };
 

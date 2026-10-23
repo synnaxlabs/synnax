@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, schematic } from "@synnaxlabs/client";
+import { deep, record } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import {
@@ -103,6 +104,36 @@ export const isCustomVariant = (
 
 export const isCustomConfig = (config: Config): config is CustomConfig =>
   isCustomVariant(config.variant);
+
+/** @returns the variant that draws the custom symbol. */
+export const customVariant = (symbol: schematic.symbol.Symbol): CustomVariant =>
+  symbol.data.variant === "static" || symbol.data.states.length === 1
+    ? CUSTOM_STATIC_VARIANT
+    : CUSTOM_ACTUATOR_VARIANT;
+
+/**
+ * @returns the key of the symbol the config draws: the spec key of a custom symbol, or
+ * the variant of a built-in one.
+ */
+export const symbolKey = (config: Config): string =>
+  isCustomConfig(config) ? config.specKey : config.variant;
+
+/**
+ * Changes the config to the variant the input names. Each field the new variant
+ * accepts keeps its value, except the spec key and state overrides of a custom symbol.
+ * @param config - The config to change.
+ * @param input - The variant to change to, plus any fields to set on top.
+ * @throws {NotFoundError} if no spec is registered for the variant.
+ */
+export const changeConfig = <V extends Variant>(
+  config: Config,
+  input: Input<V>,
+): ConfigOf<V> =>
+  deep.overrideValidItems(
+    createConfig(input),
+    record.omit(config as record.Unknown, "specKey", "stateOverrides"),
+    schematic.NODE_CONFIG_SCHEMAS[input.variant],
+  );
 
 /// STATIC_SPECS lists every Spec in the registry that is NOT a custom-symbol
 /// variant. Used by the symbols toolbar to render the built-in catalog.
