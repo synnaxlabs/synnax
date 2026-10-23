@@ -416,7 +416,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			pbOutputPath := output.GetPBPath(td)
 			if pbOutputPath != "" {
 				pbName := cppnaming.PBName(td)
-				pbNamespace := cppnaming.PBNamespace(pbOutputPath)
+				pbNamespace := cppnaming.PBNamespace(pbOutputPath, td.Namespace)
 				tdd.HasProto = true
 				tdd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, pbName)
 				tdd.ProtoNamespace = pbNamespace
@@ -653,7 +653,7 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		pbOutputPath := output.GetPBPath(entry)
 		if pbOutputPath != "" {
 			pbName := cppnaming.PBName(entry)
-			pbNamespace := cppnaming.PBNamespace(pbOutputPath)
+			pbNamespace := cppnaming.PBNamespace(pbOutputPath, entry.Namespace)
 			sd.HasProto = true
 			sd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, pbName)
 			sd.ProtoNamespace = pbNamespace
