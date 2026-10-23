@@ -117,12 +117,12 @@ struct WriteTaskConfig : ::synnax::labjack::WriteConfig {
         return {WriteTaskConfig(client, parser), parser.error()};
     }
 
-    /// @brief returns the list of state channels used in the task.
-    [[nodiscard]] std::vector<synnax::channel::Channel> state_channels() const {
-        std::vector<synnax::channel::Channel> chs;
-        chs.reserve(this->outputs.size());
+    /// @brief returns the state channel of each output, keyed by its command channel.
+    [[nodiscard]] std::unordered_map<synnax::channel::Key, synnax::channel::Channel>
+    state_channels() const {
+        std::unordered_map<synnax::channel::Key, synnax::channel::Channel> chs;
         for (const auto &[_, ch]: this->outputs)
-            chs.push_back(ch->state_ch);
+            chs[ch->cfg.cmd_channel] = ch->state_ch;
         return chs;
     }
 

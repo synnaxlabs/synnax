@@ -76,14 +76,19 @@ public:
 
     /// @brief injects an error to be returned by receive().
     void inject_receive_error(const x::errors::Error &err) {
+        std::lock_guard lock(this->mu);
         this->inject_receive_err = err;
     }
 
     /// @brief injects an error to be returned by send().
-    void inject_send_error(const x::errors::Error &err) { this->inject_send_err = err; }
+    void inject_send_error(const x::errors::Error &err) {
+        std::lock_guard lock(this->mu);
+        this->inject_send_err = err;
+    }
 
     /// @brief clears all injected errors.
     void clear_injected_errors() {
+        std::lock_guard lock(this->mu);
         this->inject_init_err = x::errors::NIL;
         this->inject_activate_err = x::errors::NIL;
         this->inject_receive_err = x::errors::NIL;

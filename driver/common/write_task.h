@@ -33,7 +33,7 @@ struct BaseWriteTaskConfig : ::synnax::task::WriteConfig {
 class Sink : public pipeline::Sink, public pipeline::Source {
     /// @brief the vector of channels to stream for commands.
     const std::vector<synnax::channel::Key> cmd_channels;
-    /// @brief the vector of channels to write state updates for.
+    /// @brief the state channel of each output, keyed by its command channel.
     std::unordered_map<synnax::channel::Key, synnax::channel::Channel> state_channels;
     /// @brief the index keys of the state channels.
     const std::set<synnax::channel::Key> state_indexes;
@@ -58,23 +58,23 @@ public:
         data_saving_disabled(false),
         state_rate(0) {}
 
+    /// @param state_channels the state channel of each output, keyed by the output's
+    /// command channel.
     Sink(
         const x::telem::Rate state_rate,
         std::set<synnax::channel::Key> state_indexes,
-        const std::vector<synnax::channel::Channel> &state_channels,
+        std::unordered_map<synnax::channel::Key, synnax::channel::Channel>
+            state_channels,
         std::vector<synnax::channel::Key> cmd_channels,
         const bool data_saving_disabled
     ):
         cmd_channels(std::move(cmd_channels)),
+        state_channels(std::move(state_channels)),
         state_indexes(std::move(state_indexes)),
         data_saving_disabled(data_saving_disabled),
         state_rate(state_rate) {
-        auto idx = 0;
-        for (const auto &ch: state_channels) {
+        for (const auto &[_, ch]: this->state_channels)
             this->chan_state[ch.key] = ch.data_type.cast(0);
-            this->state_channels[this->cmd_channels[idx]] = ch;
-            idx++;
-        }
     }
 
     virtual x::errors::Error start() { return x::errors::NIL; }

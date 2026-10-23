@@ -79,6 +79,7 @@ TEST_F(SOEMMasterTest, InitializeInitFails) {
     this->add_default_slave();
     this->mock->init_return = 0;
     ASSERT_OCCURRED_AS(this->master->initialize(), errors::MASTER_INIT_ERROR);
+    EXPECT_TRUE(this->mock->close_called);
 }
 
 TEST_F(SOEMMasterTest, InitializeConfigInitFails) {
@@ -91,6 +92,38 @@ TEST_F(SOEMMasterTest, InitializeConfigInitFails) {
 TEST_F(SOEMMasterTest, InitializeIdempotent) {
     this->initialize_with_slave();
     ASSERT_NIL(this->master->initialize());
+}
+
+TEST_F(SOEMMasterTest, CoEDiscoveryUsesEntryNamesAndDataTypes) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.eep_man = 0x1234;
+    slave.eep_id = 0x5678;
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    this->add_slave(slave);
+    this->mock->sdo_objects = {
+        {{ECT_SDO_TXPDOASSIGN, 0}, 1},
+        {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
+        {{0x1A00, 0}, 2},
+        {{0x1A00, 1}, 0x60000110},
+        {{0x1A00, 2}, 0x60000220},
+        {{ECT_SDO_RXPDOASSIGN, 0}, 0},
+    };
+    this->mock->oe_entries = {
+        {{0x6000, 1}, {"Status", 0x0003}},
+        {{0x6000, 2}, {"Value", 0x0008}},
+    };
+
+    ASSERT_NIL(this->master->initialize());
+
+    const auto slaves = this->master->slaves();
+    ASSERT_EQ(slaves.size(), 1);
+    const auto &inputs = slaves[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 2);
+    EXPECT_EQ(inputs[0].name, "Status");
+    EXPECT_EQ(inputs[0].data_type, x::telem::INT16_T);
+    EXPECT_EQ(inputs[1].name, "Value");
+    EXPECT_EQ(inputs[1].data_type, x::telem::FLOAT32_T);
 }
 
 ////////////////////// Activation //////////////////////
@@ -121,7 +154,14 @@ TEST_F(SOEMMasterTest, ActivateSafeOpTransitionFails) {
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     this->mock->statecheck_overrides[EC_STATE_SAFE_OP] = EC_STATE_PRE_OP;
-    ASSERT_OCCURRED_AS(this->master->activate(), errors::STATE_CHANGE_ERROR);
+    this->mock->slave_infos[0].ALstatuscode = 0x001D;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "1 slaves failed to reach SAFE-OP: slave 1 (TestSlave) is in PRE-OP: Invalid "
+        "output configuration"
+    );
 }
 
 TEST_F(SOEMMasterTest, ActivateOpTransitionFails) {
@@ -130,6 +170,16 @@ TEST_F(SOEMMasterTest, ActivateOpTransitionFails) {
     this->mock->ibytes = 4;
     this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_SAFE_OP;
     ASSERT_OCCURRED_AS(this->master->activate(), errors::STATE_CHANGE_ERROR);
+}
+
+TEST_F(SOEMMasterTest, ActivateExchangesProcessDataUntilOperational) {
+    this->initialize_with_slave();
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    this->mock->statecheck_pending_polls[EC_STATE_OPERATIONAL] = 3;
+    ASSERT_NIL(this->master->activate());
+    EXPECT_EQ(this->mock->send_count, 4);
+    EXPECT_EQ(this->mock->receive_count, 4);
 }
 
 TEST_F(SOEMMasterTest, ActivateDisabledSlavesSetGroup) {
@@ -148,7 +198,35 @@ TEST_F(SOEMMasterTest, ActivateDisabledSlavesSetGroup) {
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->master->activate());
-    EXPECT_EQ(this->mock->slave_infos[1].group, 1);
+    EXPECT_EQ(this->mock->slave_infos[0].group, 1);
+    EXPECT_EQ(this->mock->slave_infos[1].group, 2);
+    EXPECT_EQ(this->mock->mapped_group, 1);
+}
+
+TEST_F(SOEMMasterTest, DisabledSlaveStaysOutOfStateTransitions) {
+    MockSlaveInfo slave1;
+    slave1.state = EC_STATE_PRE_OP;
+    this->add_slave(slave1);
+    MockSlaveInfo slave2;
+    slave2.state = EC_STATE_PRE_OP;
+    this->add_slave(slave2);
+
+    ASSERT_NIL(this->master->initialize());
+    this->master->set_slave_enabled(2, false);
+    this->mock->obytes = 2;
+    this->mock->ibytes = 4;
+    ASSERT_NIL(this->master->activate());
+    for (const auto &[pos, state]: this->mock->state_change_requests)
+        EXPECT_EQ(pos, 1);
+}
+
+TEST_F(SOEMMasterTest, CyclicExchangeUsesEnabledGroupOnly) {
+    this->initialize_with_slave();
+    this->activate_master();
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->receive());
+    for (const auto group: this->mock->processdata_groups)
+        EXPECT_EQ(group, 1);
 }
 
 ////////////////////// Receive //////////////////////
@@ -167,9 +245,10 @@ TEST_F(SOEMMasterTest, ReceiveNegativeWkc) {
 TEST_F(SOEMMasterTest, ReceiveWkcMismatch) {
     this->initialize_with_slave();
     this->activate_master();
-    this->mock->slave_infos[0].state = EC_STATE_SAFE_OP;
     this->mock->receive_return = 1;
-    ASSERT_OCCURRED_AS(this->master->receive(), errors::WORKING_COUNTER_ERROR);
+    const auto err = this->master->receive();
+    ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(err.data, "working counter mismatch: expected 3, got 1");
 }
 
 TEST_F(SOEMMasterTest, ReceiveWkcMatch) {
@@ -303,7 +382,7 @@ TEST_F(SOEMMasterTest, SetSlaveDisabledThenReEnabled) {
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->master->activate());
-    EXPECT_EQ(this->mock->slave_infos[0].group, 0);
+    EXPECT_EQ(this->mock->slave_infos[0].group, 1);
 }
 
 }

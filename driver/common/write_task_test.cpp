@@ -27,7 +27,8 @@ public:
     MockSink(
         const x::telem::Rate state_rate,
         const std::set<synnax::channel::Key> &state_indexes,
-        const std::vector<synnax::channel::Channel> &state_channels,
+        const std::unordered_map<synnax::channel::Key, synnax::channel::Channel>
+            &state_channels,
         const std::vector<synnax::channel::Key> &cmd_channels,
         const bool data_saving_disabled,
         const std::shared_ptr<x::sync::List<x::telem::Frame>> &writes,
@@ -82,7 +83,7 @@ TEST(TestCommonWriteTask, testSetStateUsesLastSample) {
     auto sink = std::make_unique<MockSink>(
         x::telem::HERTZ * 10,
         std::set<synnax::channel::Key>{2},
-        std::vector{state},
+        std::unordered_map<synnax::channel::Key, synnax::channel::Channel>{{1, state}},
         std::vector<synnax::channel::Key>{1},
         false,
         writes,
@@ -162,7 +163,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     auto sink = std::make_unique<MockSink>(
         x::telem::HERTZ * 10,
         std::set<synnax::channel::Key>{2},
-        std::vector{state},
+        std::unordered_map<synnax::channel::Key, synnax::channel::Channel>{{1, state}},
         std::vector<synnax::channel::Key>{1},
         false,
         writes,
@@ -265,7 +266,7 @@ TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
     auto sink = std::make_unique<MockSink>(
         x::telem::HERTZ * 10,
         std::set<synnax::channel::Key>{2},
-        std::vector{state},
+        std::unordered_map<synnax::channel::Key, synnax::channel::Channel>{{1, state}},
         std::vector<synnax::channel::Key>{1},
         false,
         writes,
@@ -314,7 +315,7 @@ TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
     auto sink = std::make_unique<MockSink>(
         x::telem::Rate(0),
         std::set<synnax::channel::Key>{},
-        std::vector<synnax::channel::Channel>{},
+        std::unordered_map<synnax::channel::Key, synnax::channel::Channel>{},
         std::vector<synnax::channel::Key>{1},
         false,
         std::make_shared<x::sync::List<x::telem::Frame>>(),

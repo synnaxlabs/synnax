@@ -46,6 +46,9 @@ public:
     int receive_return = 3;
     int writestate_return = 1;
     std::map<uint16_t, uint16_t> statecheck_overrides;
+    /// @brief per requested state, the number of statecheck polls that report the
+    /// slave's current state before it reaches the requested one.
+    std::map<uint16_t, int> statecheck_pending_polls;
     uint32_t ibytes = 0;
     uint32_t obytes = 0;
     uint16_t outputs_wkc = 1;
@@ -57,6 +60,13 @@ public:
     int send_count = 0;
     int receive_count = 0;
     std::vector<std::pair<uint16_t, uint16_t>> state_change_requests;
+    std::vector<uint8_t> processdata_groups;
+    int mapped_group = -1;
+    /// @brief CoE objects returned by SDOread, keyed by index and sub-index.
+    std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
+    /// @brief entry names and CoE data types returned by readOEsingle, keyed by index
+    /// and sub-index.
+    std::map<std::pair<uint16_t, uint8_t>, std::pair<std::string, uint16_t>> oe_entries;
 
 private:
     uint8_t *iomap_ptr = nullptr;
@@ -71,31 +81,51 @@ public:
 
     int config_init() override { return this->config_init_return; }
 
-    int config_map_group(void *iomap, uint8_t) override {
+    int config_map_group(void *iomap, uint8_t group) override {
         this->iomap_ptr = static_cast<uint8_t *>(iomap);
+        this->mapped_group = group;
         return this->config_map_return;
     }
 
-    int send_processdata() override {
+    int send_processdata(uint8_t group) override {
         this->send_count++;
+        this->processdata_groups.push_back(group);
         return this->send_return;
     }
 
-    int receive_processdata(int) override {
+    int receive_processdata(uint8_t group, int) override {
         this->receive_count++;
+        this->processdata_groups.push_back(group);
         return this->receive_return;
     }
 
     int writestate(uint16_t) override { return this->writestate_return; }
 
-    uint16_t statecheck(uint16_t, uint16_t reqstate, int) override {
+    uint16_t statecheck(uint16_t slave, uint16_t reqstate, int) override {
         auto it = this->statecheck_overrides.find(reqstate);
-        if (it != this->statecheck_overrides.end()) return it->second;
-        return reqstate;
+        uint16_t state = it != this->statecheck_overrides.end() ? it->second : reqstate;
+        if (auto &pending = this->statecheck_pending_polls[reqstate]; pending > 0) {
+            pending--;
+            state = this->slave_state(slave);
+        }
+        if (slave > 0 && slave <= this->slave_infos.size())
+            this->slave_infos[slave - 1].state = state;
+        return state;
     }
 
-    int SDOread(uint16_t, uint16_t, uint8_t, int, int *, void *, int) override {
-        return 0;
+    int SDOread(
+        uint16_t,
+        uint16_t index,
+        uint8_t sub_index,
+        int,
+        int *psize,
+        void *p,
+        int
+    ) override {
+        const auto it = this->sdo_objects.find({index, sub_index});
+        if (it == this->sdo_objects.end()) return 0;
+        std::memcpy(p, &it->second, *psize);
+        return 1;
     }
 
     int16_t siifind(uint16_t, uint16_t) override { return this->siifind_return; }
@@ -106,8 +136,18 @@ public:
 
     int readODlist(uint16_t, ec_ODlistt *) override { return this->readODlist_return; }
 
-    int readOEsingle(uint16_t, uint8_t, ec_ODlistt *, ec_OElistt *) override {
-        return 0;
+    int readOEsingle(
+        uint16_t item,
+        uint8_t sub_index,
+        ec_ODlistt *od_list,
+        ec_OElistt *oe_list
+    ) override {
+        const auto it = this->oe_entries.find({od_list->Index[item], sub_index});
+        if (it == this->oe_entries.end()) return 0;
+        oe_list->Entries++;
+        std::strncpy(oe_list->Name[sub_index], it->second.first.c_str(), EC_MAXNAME);
+        oe_list->DataType[sub_index] = it->second.second;
+        return 1;
     }
 
     int slave_count() const override {
@@ -121,7 +161,6 @@ public:
 
     void set_slave_state(uint16_t pos, uint16_t state) override {
         if (pos == 0 || pos > this->slave_infos.size()) return;
-        this->slave_infos[pos - 1].state = state;
         this->state_change_requests.emplace_back(pos, state);
     }
 

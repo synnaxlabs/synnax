@@ -37,11 +37,12 @@ public:
     /// @brief maps I/O buffer for process data exchange for a slave group.
     virtual int config_map_group(void *iomap, uint8_t group) = 0;
 
-    /// @brief sends process data to slaves.
-    virtual int send_processdata() = 0;
+    /// @brief sends the process data of a slave group.
+    virtual int send_processdata(uint8_t group) = 0;
 
-    /// @brief receives process data from slaves with timeout in microseconds.
-    virtual int receive_processdata(int timeout) = 0;
+    /// @brief receives the process data of a slave group with a timeout in
+    /// microseconds.
+    virtual int receive_processdata(uint8_t group, int timeout) = 0;
 
     /// @brief requests a state transition for the specified slave.
     virtual int writestate(uint16_t slave) = 0;
@@ -158,10 +159,12 @@ public:
         return ecx_config_map_group(&this->context, iomap, group);
     }
 
-    int send_processdata() override { return ecx_send_processdata(&this->context); }
+    int send_processdata(uint8_t group) override {
+        return ecx_send_processdata_group(&this->context, group);
+    }
 
-    int receive_processdata(int timeout) override {
-        return ecx_receive_processdata(&this->context, timeout);
+    int receive_processdata(uint8_t group, int timeout) override {
+        return ecx_receive_processdata_group(&this->context, group, timeout);
     }
 
     int writestate(uint16_t slave) override {

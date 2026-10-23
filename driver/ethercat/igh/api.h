@@ -47,7 +47,6 @@ class API {
         decltype(&ecrt_master_get_slave) master_get_slave;
         decltype(&ecrt_master_slave_config) master_slave_config;
         decltype(&ecrt_slave_config_state) slave_config_state;
-        decltype(&ecrt_slave_config_pdos) slave_config_pdos;
         decltype(&ecrt_slave_config_reg_pdo_entry) slave_config_reg_pdo_entry;
         decltype(&ecrt_master_get_sync_manager) master_get_sync_manager;
         decltype(&ecrt_master_get_pdo) master_get_pdo;
@@ -128,10 +127,6 @@ public:
         this->func_ptrs
             .slave_config_state = reinterpret_cast<decltype(&ecrt_slave_config_state)>(
             const_cast<void *>(this->lib->get_func_ptr("ecrt_slave_config_state"))
-        );
-        this->func_ptrs
-            .slave_config_pdos = reinterpret_cast<decltype(&ecrt_slave_config_pdos)>(
-            const_cast<void *>(this->lib->get_func_ptr("ecrt_slave_config_pdos"))
         );
         this->func_ptrs.slave_config_reg_pdo_entry = reinterpret_cast<
             decltype(&ecrt_slave_config_reg_pdo_entry)>(const_cast<void *>(
@@ -255,15 +250,6 @@ public:
         ec_slave_config_state_t *state
     ) const {
         return this->func_ptrs.slave_config_state(sc, state);
-    }
-
-    /// @brief configures PDOs using sync info structures.
-    [[nodiscard]] virtual int slave_config_pdos(
-        ec_slave_config_t *sc,
-        unsigned int n_syncs,
-        const ec_sync_info_t syncs[]
-    ) const {
-        return this->func_ptrs.slave_config_pdos(sc, n_syncs, syncs);
     }
 
     /// @brief registers a PDO entry for process data exchange.

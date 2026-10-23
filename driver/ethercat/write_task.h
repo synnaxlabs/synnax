@@ -30,9 +30,9 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
     std::string interface_name;
     /// @brief configured output channels.
     std::vector<std::unique_ptr<channel::Output>> outputs;
-    /// @brief state feedback channels.
+    /// @brief the state channel of each output, keyed by its command channel.
     /// Dynamically populated by querying the core.
-    std::vector<synnax::channel::Channel> state_channels;
+    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> state_channels;
     /// @brief index channel keys for state timestamps.
     /// Dynamically populated by querying the core.
     std::set<synnax::channel::Key> state_indexes;
@@ -107,9 +107,22 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
                 cfg.field_err("channels", err.message());
                 return;
             }
-            this->state_channels = std::move(state_chs);
-            for (const auto &ch: this->state_channels)
-                if (ch.index != 0) this->state_indexes.insert(ch.index);
+            std::unordered_map<synnax::channel::Key, synnax::channel::Channel> by_key;
+            for (auto &ch: state_chs)
+                by_key.emplace(ch.key, std::move(ch));
+            for (const auto &out: this->outputs) {
+                if (out->state_key == 0) continue;
+                const auto it = by_key.find(out->state_key);
+                if (it == by_key.end()) {
+                    cfg.field_err(
+                        "channels",
+                        "state channel " + std::to_string(out->state_key) + " not found"
+                    );
+                    return;
+                }
+                this->state_channels[out->command_key] = it->second;
+                if (it->second.index != 0) this->state_indexes.insert(it->second.index);
+            }
         }
     }
 
@@ -180,7 +193,7 @@ public:
         for (size_t i = 0; i < this->cfg.outputs.size(); ++i) {
             const auto &ch = this->cfg.outputs[i];
             if (!frame.contains(ch->command_key)) continue;
-            tx.write(i, frame.at(ch->command_key, -1));
+            if (auto err = tx.write(i, frame.at(ch->command_key, -1)); err) return err;
         }
         this->set_state(frame);
         return x::errors::NIL;

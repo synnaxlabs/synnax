@@ -83,24 +83,29 @@ x::errors::Error Engine::Reader::read(
 
     this->last_seen_epoch = observed_epoch;
 
+    if (!this->engine.inputs_valid.load(std::memory_order_acquire))
+        return this->engine.invalid_inputs_error();
+
     if (this->engine.config_gen.load(std::memory_order_acquire) != this->my_config_gen)
         this->refresh_pdos();
 
-    uint64_t s0 = 0, s1 = 0;
-    do {
-        s0 = this->engine.read_seq.seq.load(std::memory_order_acquire);
+    while (true) {
+        const uint64_t s0 = this->engine.read_seq.seq.load(std::memory_order_acquire);
         if (s0 & 1) continue;
         const uint8_t *ptr = this->engine.shared_input_ptr.load(
-            std::memory_order_acquire
+            std::memory_order_relaxed
         );
         const size_t sz = this->engine.shared_input_size.load(
-            std::memory_order_acquire
+            std::memory_order_relaxed
         );
-        const size_t copy_len = std::min(this->private_buffer.size(), sz);
-        std::memcpy(this->private_buffer.data(), ptr, copy_len);
+        std::memcpy(
+            this->private_buffer.data(),
+            ptr,
+            std::min(this->private_buffer.size(), sz)
+        );
         std::atomic_thread_fence(std::memory_order_acquire);
-        s1 = this->engine.read_seq.seq.load(std::memory_order_acquire);
-    } while (s0 != s1);
+        if (this->engine.read_seq.seq.load(std::memory_order_relaxed) == s0) break;
+    }
 
     if (this->engine.config_gen.load(std::memory_order_acquire) != this->my_config_gen)
         return x::errors::Error(errors::ENGINE_RESTARTING, "engine restarting");

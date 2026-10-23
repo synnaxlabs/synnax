@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <map>
-
 #include "absl/log/log.h"
 
 #include "driver/ethercat/esi/known_devices.h"
@@ -219,9 +217,12 @@ x::errors::Error Master::receive() {
 
     if (this->output_domain_state.wc_state == EC_WC_INCOMPLETE ||
         this->input_domain_state.wc_state == EC_WC_INCOMPLETE)
-        VLOG(1) << "[ethercat.igh] incomplete WC: output="
-                << this->output_domain_state.working_counter
-                << ", input=" << this->input_domain_state.working_counter;
+        return x::errors::Error(
+            errors::WORKING_COUNTER_ERROR,
+            "incomplete working counter: output " +
+                std::to_string(this->output_domain_state.working_counter) + ", input " +
+                std::to_string(this->input_domain_state.working_counter)
+        );
 
     return x::errors::NIL;
 }
@@ -323,8 +324,6 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
         return nullptr;
     }
 
-    this->configure_slave_pdos(sc, slave);
-
     size_t registered_outputs = 0;
     size_t registered_inputs = 0;
 
@@ -394,62 +393,6 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
 
     this->slave_configs[position] = sc;
     return sc;
-}
-
-void Master::configure_slave_pdos(
-    ec_slave_config_t *sc,
-    const slave::Properties &slave
-) {
-    std::map<uint16_t, std::vector<ec_pdo_entry_info_t>> output_pdo_entries;
-    std::map<uint16_t, std::vector<ec_pdo_entry_info_t>> input_pdo_entries;
-
-    for (const auto &pdo: slave.output_pdos)
-        output_pdo_entries[pdo.pdo_index].push_back(
-            {pdo.index, pdo.sub_index, pdo.bit_length}
-        );
-    for (const auto &pdo: slave.input_pdos)
-        input_pdo_entries[pdo.pdo_index].push_back(
-            {pdo.index, pdo.sub_index, pdo.bit_length}
-        );
-
-    std::vector<ec_pdo_info_t> output_pdos;
-    std::vector<ec_pdo_info_t> input_pdos;
-    output_pdos.reserve(output_pdo_entries.size());
-    input_pdos.reserve(input_pdo_entries.size());
-
-    for (auto &[pdo_index, entries]: output_pdo_entries)
-        output_pdos.push_back(
-            {pdo_index, static_cast<unsigned int>(entries.size()), entries.data()}
-        );
-    for (auto &[pdo_index, entries]: input_pdo_entries)
-        input_pdos.push_back(
-            {pdo_index, static_cast<unsigned int>(entries.size()), entries.data()}
-        );
-
-    ec_sync_info_t syncs[5] = {
-        {0, EC_DIR_OUTPUT, 0, nullptr, EC_WD_DISABLE},
-        {1, EC_DIR_INPUT, 0, nullptr, EC_WD_DISABLE},
-        {2,
-         EC_DIR_OUTPUT,
-         static_cast<unsigned int>(output_pdos.size()),
-         output_pdos.empty() ? nullptr : output_pdos.data(),
-         EC_WD_ENABLE},
-        {3,
-         EC_DIR_INPUT,
-         static_cast<unsigned int>(input_pdos.size()),
-         input_pdos.empty() ? nullptr : input_pdos.data(),
-         EC_WD_DISABLE},
-        {0xff, EC_DIR_INPUT, 0, nullptr, EC_WD_DISABLE}
-    };
-
-    if (this->api->slave_config_pdos(sc, 4, syncs) < 0) {
-        LOG(WARNING) << "[ethercat.igh] failed to configure PDOs for slave "
-                     << slave.position;
-    } else {
-        VLOG(1) << "[ethercat.igh] configured " << output_pdos.size()
-                << " output PDOs and " << input_pdos.size() << " input PDOs for slave "
-                << slave.position;
-    }
 }
 
 std::pair<size_t, x::errors::Error> Master::register_pdo(const pdo::Entry &entry) {

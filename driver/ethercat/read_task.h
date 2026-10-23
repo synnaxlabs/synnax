@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <memory>
 #include <set>
 #include <vector>
@@ -35,7 +36,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief configured input channels.
     std::vector<std::unique_ptr<channel::Input>> channels;
     /// @brief number of samples per channel per batch.
-    size_t samples_per_chan;
+    size_t samples_per_chan = 0;
     /// @brief cached device properties for topology validation.
     std::unordered_map<std::string, slave::Properties> device_cache;
 
@@ -54,15 +55,19 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         x::json::Parser &cfg
     ):
-        BaseReadTaskConfig(cfg), samples_per_chan(sample_rate / stream_rate) {
-        const auto sample_rate_int = static_cast<size_t>(sample_rate.hz());
-        const auto stream_rate_int = static_cast<size_t>(stream_rate.hz());
-        if (sample_rate_int % stream_rate_int != 0) {
-            cfg.field_err(
-                "stream_rate",
-                "sample_rate must be divisible by stream_rate"
-            );
-            return;
+        BaseReadTaskConfig(cfg) {
+        if (this->sample_rate > x::telem::Rate(0) &&
+            this->stream_rate > x::telem::Rate(0)) {
+            const double ratio = static_cast<double>(this->sample_rate.hz()) /
+                                 this->stream_rate.hz();
+            if (std::abs(ratio - std::round(ratio)) > 1e-6) {
+                cfg.field_err(
+                    "stream_rate",
+                    "sample_rate must be divisible by stream_rate"
+                );
+                return;
+            }
+            this->samples_per_chan = static_cast<size_t>(std::round(ratio));
         }
 
         std::unordered_map<std::string, slave::Properties> slave_cache;
@@ -205,9 +210,8 @@ public:
         for (auto &ser: *fr.series)
             ser.clear();
 
-        const auto engine_rate = this->engine->cycle_rate();
-        const size_t decimation = static_cast<size_t>(
-            engine_rate / this->cfg.sample_rate
+        const size_t decimation = std::lround(
+            this->engine->cycle_rate().hz() / this->cfg.sample_rate.hz()
         );
         const size_t epochs_per_batch = n_samples * decimation;
 

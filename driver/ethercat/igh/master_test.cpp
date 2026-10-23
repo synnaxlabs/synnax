@@ -196,14 +196,17 @@ TEST_F(IGHMasterTest, ReceiveWcZeroReturnsError) {
     ASSERT_OCCURRED_AS(this->master_instance->receive(), errors::WORKING_COUNTER_ERROR);
 }
 
-TEST_F(IGHMasterTest, ReceiveWcIncompleteReturnsNil) {
+TEST_F(IGHMasterTest, ReceiveWcIncompleteReturnsWorkingCounterError) {
     this->initialize_with_slave();
     this->activate_with_domains();
     ec_domain_state_t incomplete{};
     incomplete.wc_state = EC_WC_INCOMPLETE;
+    incomplete.working_counter = 1;
     this->mock_api->set_output_domain_state(incomplete);
     this->mock_api->set_input_domain_state(incomplete);
-    ASSERT_NIL(this->master_instance->receive());
+    const auto err = this->master_instance->receive();
+    ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(err.data, "incomplete working counter: output 1, input 1");
 }
 
 TEST_F(IGHMasterTest, ReceiveWcCompleteReturnsNil) {

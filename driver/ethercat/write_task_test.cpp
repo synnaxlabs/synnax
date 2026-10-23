@@ -240,6 +240,41 @@ TEST_F(EtherCATWriteTest, ParseConfigWithStateChannel) {
     EXPECT_EQ(task_cfg.state_channels.size(), 1);
 }
 
+TEST_F(EtherCATWriteTest, StateChannelPairsWithItsOwnCommandChannel) {
+    auto cmd_1 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("cmd_1"),
+        x::telem::INT16_T,
+        index_channel.key,
+        false
+    ));
+    auto cmd_2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("cmd_2"),
+        x::telem::INT32_T,
+        index_channel.key,
+        false
+    ));
+    auto state_2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("state_2"),
+        x::telem::INT32_T,
+        index_channel.key,
+        false
+    ));
+
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(
+        create_automatic_output_channel_config(cmd_1.key, "control_word")
+    );
+    cfg["channels"].push_back(
+        create_automatic_output_channel_config(cmd_2.key, "setpoint", state_2.key)
+    );
+
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(client, parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(task_cfg.state_channels.size(), 1);
+    EXPECT_EQ(task_cfg.state_channels.at(cmd_2.key).key, state_2.key);
+}
+
 TEST_F(EtherCATWriteTest, ParseConfigWithMultipleChannels) {
     auto ch1 = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("ch1"),

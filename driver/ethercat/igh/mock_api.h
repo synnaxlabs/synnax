@@ -44,8 +44,6 @@ class MockAPI final : public API {
     int activate_result = 0;
     /// @brief configurable return value for master_slave_config.
     bool slave_config_fails = false;
-    /// @brief configurable return value for slave_config_pdos.
-    int slave_config_pdos_result = 0;
 
     /// @brief running byte offset per domain for slave_config_reg_pdo_entry.
     size_t output_domain_offset = 0;
@@ -127,10 +125,6 @@ public:
     void set_activate_result(int result) { this->activate_result = result; }
 
     void set_slave_config_fails(bool fails) { this->slave_config_fails = fails; }
-
-    void set_slave_config_pdos_result(int result) {
-        this->slave_config_pdos_result = result;
-    }
 
     void set_output_domain_size(size_t sz) {
         this->output_domain_sz = sz;
@@ -279,14 +273,6 @@ public:
         }
         std::memset(state, 0, sizeof(*state));
         return 0;
-    }
-
-    int slave_config_pdos(
-        ec_slave_config_t *,
-        unsigned int,
-        const ec_sync_info_t[]
-    ) const override {
-        return this->slave_config_pdos_result;
     }
 
     int slave_config_reg_pdo_entry(

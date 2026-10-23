@@ -102,14 +102,13 @@ struct WriteTaskConfig : ::synnax::ni::WriteConfig {
         }
     }
 
-    /// @brief returns the configuration necessary for opening the writer
-    /// to communicate state values back to Synnax.
-    [[nodiscard]] std::vector<synnax::channel::Channel> state_channels() {
-        std::vector<synnax::channel::Channel> state_channels;
-        state_channels.reserve(this->channels.size());
+    /// @brief returns the state channel of each output, keyed by its command channel.
+    [[nodiscard]] std::unordered_map<synnax::channel::Key, synnax::channel::Channel>
+    state_channels() {
+        std::unordered_map<synnax::channel::Key, synnax::channel::Channel> chs;
         for (const auto &[_, ch]: this->channels)
-            state_channels.push_back(ch->state_ch);
-        return state_channels;
+            chs[ch->cmd_ch_key] = ch->state_ch;
+        return chs;
     }
 
     [[nodiscard]] std::vector<synnax::channel::Key> cmd_channels() {
