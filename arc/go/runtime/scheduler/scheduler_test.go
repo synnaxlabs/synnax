@@ -37,10 +37,10 @@ type MockNode struct {
 	// — out-of-range ordinals are treated as non-truthy.
 	OutputTruthy []bool
 	// SuppressAutoMark disables the default behavior of calling
-	// MarkChanged for every currently-truthy output on each Next. Tests
-	// that want to model a node whose output stays truthy across cycles
-	// but only announces a change on specific cycles should set this and
-	// drive MarkChanged manually from OnNext.
+	// MarkChanged for every currently-truthy output, and MarkDone, on each
+	// Next. Tests that want to model a node whose output stays truthy across
+	// cycles but only announces a change on specific cycles should set this
+	// and drive MarkChanged manually from OnNext.
 	SuppressAutoMark bool
 	OnNext           func(node.Context)
 	ElapsedValues    []telem.TimeSpan
@@ -69,6 +69,7 @@ func (m *MockNode) Next(ctx node.Context) {
 				ctx.MarkChanged(i)
 			}
 		}
+		ctx.MarkDone()
 	}
 	if m.OnNext != nil {
 		m.OnNext(ctx)
@@ -875,6 +876,315 @@ var _ = Describe("Scheduler", func() {
 				Expect(s3.NextCalled).To(Equal(1))
 			},
 		)
+	})
+
+	Describe("Done transitions", func() {
+		cycle := node.Cycle{Elapsed: telem.Microsecond, Reason: node.ReasonTimerTick}
+		triggered := []ir.Activation{{
+			On:   ir.Handle{Node: "trigger", Param: "output"},
+			Kind: ir.EdgeKindConditional,
+		}}
+		doneTransition := func(nodeKey string, target ir.Target) ir.Transition {
+			return ir.Transition{
+				On:     ir.Handle{Node: nodeKey, Param: ir.DoneParam},
+				Kind:   ir.EdgeKindContinuous,
+				Target: target,
+			}
+		}
+		readerNode := func(key string) ir.Node {
+			n := irNode(key)
+			n.Channels = types.Channels{Read: map[uint32]string{1: "ch"}}
+			return n
+		}
+		step := func(key, nodeKey string) ir.Scope {
+			return parallelScope(key, stratum(ir.NodeMember(nodeKey)))
+		}
+
+		It(
+			"Should advance the step in the cycle its node without outputs runs",
+			func(ctx SpecContext) {
+				mock("trigger", true)
+				first := mock("first_node")
+				second := mock("second_node")
+				second.OnNext = func(c node.Context) { c.MarkSelfChanged() }
+				firstStep := step("first", "first_node")
+				secondStep := step("second", "second_node")
+				main := sequentialScope("main",
+					[]ir.Member{{Scope: &firstStep}, {Scope: &secondStep}},
+					doneTransition("first_node", stepKeyTarget("second")),
+				)
+				main.Activations = triggered
+				s := build(programOf(
+					[]ir.Node{
+						irNode("trigger", "output"),
+						irNode("first_node"),
+						irNode("second_node"),
+					},
+					nil,
+					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+				))
+				s.Next(ctx, cycle)
+				Expect(first.NextCalled).To(Equal(1))
+				Expect(second.NextCalled).To(Equal(1))
+				Expect(second.ResetCalled).To(Equal(1))
+				s.Next(ctx, cycle)
+				Expect(first.NextCalled).To(Equal(1))
+				Expect(second.NextCalled).To(Equal(2))
+			},
+		)
+
+		It(
+			"Should exit the sequence when its terminal node without outputs runs",
+			func(ctx SpecContext) {
+				mock("trigger", true)
+				only := mock("only_node")
+				onlyStep := step("only", "only_node")
+				main := sequentialScope("main",
+					[]ir.Member{{Scope: &onlyStep}},
+					doneTransition("only_node", exitTarget()),
+				)
+				main.Activations = triggered
+				s := build(programOf(
+					[]ir.Node{irNode("trigger", "output"), readerNode("only_node")},
+					nil,
+					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+				))
+				s.Next(ctx, cycle)
+				Expect(only.NextCalled).To(Equal(1))
+				s.Next(ctx, cycle)
+				Expect(only.NextCalled).To(Equal(1))
+			},
+		)
+
+		It("Should complete the step once per activation", func(ctx SpecContext) {
+			trigger := mock("trigger", true)
+			trigger.SuppressAutoMark = true
+			trigger.OnNext = func(c node.Context) {
+				c.MarkSelfChanged()
+				if trigger.NextCalled == 1 || trigger.NextCalled == 3 {
+					c.MarkChanged(0)
+				}
+			}
+			only := mock("only_node")
+			onlyStep := step("only", "only_node")
+			main := sequentialScope("main",
+				[]ir.Member{{Scope: &onlyStep}},
+				doneTransition("only_node", exitTarget()),
+			)
+			main.Activations = triggered
+			s := build(programOf(
+				[]ir.Node{irNode("trigger", "output"), readerNode("only_node")},
+				nil,
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+			))
+			s.Next(ctx, cycle)
+			Expect(only.NextCalled).To(Equal(1))
+			s.Next(ctx, cycle)
+			Expect(only.NextCalled).To(Equal(1))
+			s.Next(ctx, cycle)
+			Expect(only.NextCalled).To(Equal(2))
+			s.Next(ctx, cycle)
+			Expect(only.NextCalled).To(Equal(2))
+		})
+
+		It(
+			"Should hold the step until its node without outputs runs",
+			func(ctx SpecContext) {
+				mock("trigger", true)
+				src := mock("src")
+				src.SuppressAutoMark = true
+				src.OnNext = func(c node.Context) {
+					c.MarkSelfChanged()
+					c.MarkChanged(0)
+				}
+				sink := mock("sink")
+				second := mock("second_node")
+				firstStep := parallelScope("first",
+					stratum(ir.NodeMember("src")),
+					stratum(ir.NodeMember("sink")),
+				)
+				secondStep := step("second", "second_node")
+				main := sequentialScope("main",
+					[]ir.Member{{Scope: &firstStep}, {Scope: &secondStep}},
+					doneTransition("sink", stepKeyTarget("second")),
+				)
+				main.Activations = triggered
+				s := build(programOf(
+					[]ir.Node{
+						irNode("trigger", "output"),
+						irNode("src", "output"),
+						irNode("sink"),
+						irNode("second_node"),
+					},
+					[]ir.Edge{conditionalEdge("src", "output", "sink", "input")},
+					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+				))
+				s.Next(ctx, cycle)
+				Expect(sink.NextCalled).To(Equal(0))
+				Expect(second.NextCalled).To(Equal(0))
+				src.SetTruthy(0)
+				s.Next(ctx, cycle)
+				Expect(sink.NextCalled).To(Equal(1))
+				Expect(second.NextCalled).To(Equal(1))
+			},
+		)
+
+		It(
+			"Should advance the parent when a nested sequence ends in a node without outputs",
+			func(ctx SpecContext) {
+				mock("trigger", true)
+				sink := mock("sink")
+				after := mock("after_node")
+				body := step("body", "sink")
+				inner := sequentialScope("inner", []ir.Member{{Scope: &body}})
+				afterStep := step("after", "after_node")
+				main := sequentialScope("main",
+					[]ir.Member{{Scope: &inner}, {Scope: &afterStep}},
+					doneTransition("sink", stepKeyTarget("after")),
+				)
+				main.Activations = triggered
+				s := build(programOf(
+					[]ir.Node{
+						irNode("trigger", "output"),
+						readerNode("sink"),
+						irNode("after_node"),
+					},
+					nil,
+					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+				))
+				s.Next(ctx, cycle)
+				Expect(sink.NextCalled).To(Equal(1))
+				Expect(after.NextCalled).To(Equal(1))
+				s.Next(ctx, cycle)
+				Expect(sink.NextCalled).To(Equal(1))
+			},
+		)
+
+		It(
+			"Should cascade through consecutive nodes without outputs in one cycle",
+			func(ctx SpecContext) {
+				mock("trigger", true)
+				a := mock("a_node")
+				b := mock("b_node")
+				c := mock("c_node")
+				aStep := step("a", "a_node")
+				bStep := step("b", "b_node")
+				cStep := step("c", "c_node")
+				main := sequentialScope("main",
+					[]ir.Member{{Scope: &aStep}, {Scope: &bStep}, {Scope: &cStep}},
+					doneTransition("a_node", stepKeyTarget("b")),
+					doneTransition("b_node", stepKeyTarget("c")),
+					doneTransition("c_node", exitTarget()),
+				)
+				main.Activations = triggered
+				s := build(programOf(
+					[]ir.Node{
+						irNode("trigger", "output"),
+						irNode("a_node"),
+						irNode("b_node"),
+						readerNode("c_node"),
+					},
+					nil,
+					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+				))
+				s.Next(ctx, cycle)
+				Expect(a.NextCalled).To(Equal(1))
+				Expect(b.NextCalled).To(Equal(1))
+				Expect(c.NextCalled).To(Equal(1))
+				s.Next(ctx, cycle)
+				Expect(c.NextCalled).To(Equal(1))
+			},
+		)
+
+		It(
+			"Should hold the step until its node without outputs marks done",
+			func(ctx SpecContext) {
+				mock("trigger", true)
+				first := mock("first_node")
+				first.SuppressAutoMark = true
+				first.OnNext = func(c node.Context) {
+					c.MarkSelfChanged()
+					if first.NextCalled == 2 {
+						c.MarkDone()
+					}
+				}
+				second := mock("second_node")
+				firstStep := step("first", "first_node")
+				secondStep := step("second", "second_node")
+				main := sequentialScope("main",
+					[]ir.Member{{Scope: &firstStep}, {Scope: &secondStep}},
+					doneTransition("first_node", stepKeyTarget("second")),
+				)
+				main.Activations = triggered
+				s := build(programOf(
+					[]ir.Node{
+						irNode("trigger", "output"),
+						irNode("first_node"),
+						irNode("second_node"),
+					},
+					nil,
+					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+				))
+				s.Next(ctx, cycle)
+				Expect(first.NextCalled).To(Equal(1))
+				Expect(second.NextCalled).To(Equal(0))
+				s.Next(ctx, cycle)
+				Expect(first.NextCalled).To(Equal(2))
+				Expect(second.NextCalled).To(Equal(1))
+			},
+		)
+
+		It("Should interleave done and output transitions", func(ctx SpecContext) {
+			mock("trigger", true)
+			first := mock("first_node")
+			waiter := mock("waiter")
+			waiter.SuppressAutoMark = true
+			waiter.OnNext = func(c node.Context) {
+				c.MarkSelfChanged()
+				c.MarkChanged(0)
+			}
+			last := mock("last_node")
+			firstStep := step("first", "first_node")
+			waitStep := step("wait", "waiter")
+			lastStep := step("last", "last_node")
+			main := sequentialScope(
+				"main",
+				[]ir.Member{
+					{Scope: &firstStep},
+					{Scope: &waitStep},
+					{Scope: &lastStep},
+				},
+				doneTransition("first_node", stepKeyTarget("wait")),
+				ir.Transition{
+					On:     ir.Handle{Node: "waiter", Param: "output"},
+					Kind:   ir.EdgeKindConditional,
+					Target: stepKeyTarget("last"),
+				},
+				doneTransition("last_node", exitTarget()),
+			)
+			main.Activations = triggered
+			s := build(programOf(
+				[]ir.Node{
+					irNode("trigger", "output"),
+					irNode("first_node"),
+					irNode("waiter", "output"),
+					irNode("last_node"),
+				},
+				nil,
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+			))
+			s.Next(ctx, cycle)
+			Expect(first.NextCalled).To(Equal(1))
+			Expect(waiter.NextCalled).To(Equal(1))
+			Expect(last.NextCalled).To(Equal(0))
+			waiter.SetTruthy(0)
+			s.Next(ctx, cycle)
+			Expect(waiter.NextCalled).To(Equal(2))
+			Expect(last.NextCalled).To(Equal(1))
+			s.Next(ctx, cycle)
+			Expect(waiter.NextCalled).To(Equal(2))
+			Expect(last.NextCalled).To(Equal(1))
+		})
 	})
 
 	Describe("Activation cascading & reset", func() {

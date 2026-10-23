@@ -154,6 +154,7 @@ func newBuilder(prog ir.IR, runtimeNodes map[string]rnode.Node) *builder {
 			key:     n.Key,
 			idx:     i,
 			entry:   n.IsEntryNode(prog.Edges),
+			done:    -1,
 			Node:    runtimeNodes[n.Key],
 			outputs: make([]outputResolved, 0, len(n.Outputs)),
 		}
@@ -223,6 +224,7 @@ func (b *builder) build(prog ir.IR) *Scheduler {
 	s.nodeCtx = rnode.Context{
 		MarkChanged:     s.markChanged,
 		MarkSelfChanged: s.markSelfChanged,
+		MarkDone:        s.markDone,
 		SetDeadline:     s.setDeadline,
 		ReserveStamps:   s.reserveStamps,
 		ReportError:     s.reportError,
@@ -327,6 +329,9 @@ func (b *builder) resolveTransitions(state *scope, transitions []ir.Transition) 
 		if on.outputs[oIdx].markHandleIdx == -1 {
 			on.outputs[oIdx].markHandleIdx = b.nextHandleIdx
 			b.nextHandleIdx++
+		}
+		if t.On.Param == ir.DoneParam {
+			on.done = on.outputs[oIdx].markHandleIdx
 		}
 		state.transitionOnNode[i] = on
 		state.transitionOnOutputIdx[i] = oIdx
