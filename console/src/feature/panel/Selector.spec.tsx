@@ -16,7 +16,7 @@ import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { fireDragEvent } from "@synnaxlabs/lyra/testutil";
 import { Mosaic, Panel as PPanel } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { color, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -60,14 +60,12 @@ const createProjectPanel = async (
     name = "panel",
     key = uuid.create(),
     tab = createTab(),
-    icon,
-    color,
+    ...rest
   }: CreateProjectPanelProps = {},
 ): Promise<panel.Panel> =>
   await client.panels.create({
     key,
-    icon,
-    color,
+    ...rest,
     name: uniqueName(name),
     parent: project.ontologyID(projectKey),
     root: { variant: "leaf", tabs: [tab] },
@@ -612,18 +610,51 @@ describe("Panel.Selector", () => {
       expect(Session.Panel.selectSelected(store.getState())).toEqual(row[0].key);
     });
 
-    it("should reset the icon and the color", async () => {
-      const pan = await openPicker({ icon: "valve", color: "#dc136c" });
+    it("should clear the icon and close the picker on Default", async () => {
+      const pan = await openPicker({ icon: "valve" });
       await act(async () => {
-        fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+        fireEvent.click(screen.getByLabelText("Default"));
       });
       await waitFor(() =>
         expect(pillIcon(pan).classList).toContain("pluto-icon--panel"),
       );
-      expect(pillIcon(pan).style.getPropertyValue("--pluto-symbol-color")).toEqual("");
+      expect(picker()).toBeNull();
       const stored = await client.panels.retrieve({ key: pan.key });
       expect(stored.icon).toBeUndefined();
+    });
+
+    it("should clear the color on Auto", async () => {
+      const pan = await openPicker({ color: "#dc136c" });
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText("Auto"));
+      });
+      await waitFor(() =>
+        expect(pillIcon(pan).style.getPropertyValue("--pluto-symbol-color")).toEqual(
+          "",
+        ),
+      );
+      const stored = await client.panels.retrieve({ key: pan.key });
       expect(stored.color).toBeUndefined();
+    });
+
+    it("should set a custom color once the custom picker closes", async () => {
+      const pan = await openPicker();
+      fireEvent.click(screen.getByLabelText("Custom color"));
+      fireEvent.change(await screen.findByLabelText("Hex"), {
+        target: { value: "123456" },
+      });
+      expect(pillIcon(pan).style.getPropertyValue("--pluto-symbol-color")).toEqual("");
+      await act(async () => {
+        fireEvent.keyDown(screen.getByLabelText("Hex"), { code: "Escape" });
+      });
+      await waitFor(() =>
+        expect(pillIcon(pan).style.getPropertyValue("--pluto-symbol-color")).toEqual(
+          "18, 52, 86",
+        ),
+      );
+      expect(picker()).not.toBeNull();
+      const stored = await client.panels.retrieve({ key: pan.key });
+      expect(stored.color).toEqual(color.construct("#123456"));
     });
 
     it("should hide the item from a user who cannot edit the panel", async () => {

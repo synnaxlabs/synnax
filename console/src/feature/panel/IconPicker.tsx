@@ -10,10 +10,10 @@
 import "@/feature/panel/IconPicker.css";
 
 import { panel } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Errors, Panel } from "@synnaxlabs/pluto";
@@ -46,42 +46,47 @@ const Content = ({ panel: key }: ContentProps): ReactElement => {
   const { close } = Dialog.useContext();
   const { dispatch } = Panel.useDispatch();
   const updateFrequent = Color.useFrequentUpdater();
-  const handleColorChange = useCallback(
+  // The custom picker counts its own picks as frequent.
+  const setColor = useCallback(
+    (next?: color.Color) => dispatch({ key, actions: panel.setColor({ color: next }) }),
+    [dispatch, key],
+  );
+  const handlePresetChange = useCallback(
     (next?: color.Color) => {
-      dispatch({ key, actions: panel.setColor({ color: next }) });
+      setColor(next);
       if (next != null) updateFrequent(next);
     },
-    [dispatch, key, updateFrequent],
+    [setColor, updateFrequent],
   );
   const handleIconChange = useCallback(
-    (next: string) => {
+    (next?: string) => {
       dispatch({ key, actions: panel.setIcon({ icon: next }) });
       close();
     },
     [dispatch, key, close],
   );
-  const handleReset = useCallback(() => {
-    dispatch({ key, actions: [panel.setIcon({}), panel.setColor({})] });
-    close();
-  }, [dispatch, key, close]);
   return (
     <Flex.Box y gap="large" className={CSS.BE("panel-icon-picker", "content")}>
       <Color.Swatches
         value={color}
-        onChange={handleColorChange}
+        onChange={handlePresetChange}
         fallback={colors.gray.l10}
+      >
+        <Color.Swatch
+          custom
+          value={color}
+          fallback={colors.gray.l10}
+          onChange={setColor}
+          onlyChangeOnBlur
+          size="tiny"
+        />
+      </Color.Swatches>
+      <Input.IconPicker
+        value={icon}
+        onChange={handleIconChange}
+        color={color}
+        fallback={Icon.Panel}
       />
-      <Input.IconPicker value={icon} onChange={handleIconChange} color={color} />
-      <Flex.Box x justify="end">
-        <Button.Button
-          variant="text"
-          size="small"
-          onClick={handleReset}
-          disabled={icon == null && color == null}
-        >
-          Reset
-        </Button.Button>
-      </Flex.Box>
     </Flex.Box>
   );
 };
