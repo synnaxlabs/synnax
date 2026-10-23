@@ -375,9 +375,9 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    v3 does (`core/pkg/service/task/versions/v3/migrate.go:128-155`). The legacy table
    holds no EtherCAT masters; each slave row carries the master key in `network` and its
    bus order in `position` (`console/src/feature/ethercat/device/types.ts:50-51`). Slave
-   rows grouped by `network` yield one `ethercat.Master` per group, `interface` set to
-   the network, `slaves` ordered by `position`, and each slave's `master` set to the new
-   key.
+   rows grouped by `rack` and `network` yield one `ethercat.Master` per group, `rack`
+   and `interface` from the group, `slaves` ordered by `position`, and each slave's
+   `master` set to the new key.
 3. Re-key statuses, ontology resources and edges, and policy object IDs.
 4. Each integration's task config migration rewrites its device references through the
    map.
