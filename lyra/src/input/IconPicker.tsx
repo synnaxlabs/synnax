@@ -68,7 +68,8 @@ export const IconPicker = ({
   const searchRef = useRef<HTMLInputElement>(null);
   const cellRefs = useRef(new Map<string, HTMLElement>());
   const indexOf = (key?: string): number => icons.findIndex((i) => i.key === key);
-  const active = Math.max(indexOf(focused), indexOf(value), 0);
+  const focusedIndex = indexOf(focused);
+  const active = focusedIndex >= 0 ? focusedIndex : Math.max(indexOf(value), 0);
   const focusCell = (index: number): void =>
     cellRefs.current.get(icons[index].key)?.focus();
 
