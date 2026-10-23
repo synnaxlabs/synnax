@@ -60,13 +60,12 @@ export const useMapData = <
     initialData.forEach((i) => data.set(i.key, i));
     return data;
   });
-  const listenersRef = useInitializerRef(() => new Map<() => void, K>());
+  const listenersRef = useInitializerRef(() => new Map<K, Set<() => void>>());
   const notifyListeners = useCallback(
     (keys: K[]) => {
-      const keysSet = new Set(keys);
-      listenersRef.current.forEach((key, listener) => {
-        if (keysSet.has(key)) listener();
-      });
+      const notified = new Set<() => void>();
+      keys.forEach((k) => listenersRef.current.get(k)?.forEach((l) => notified.add(l)));
+      notified.forEach((l) => l());
     },
     [listenersRef],
   );
@@ -90,9 +89,16 @@ export const useMapData = <
   const subscribe = useCallback(
     (listener: () => void, key?: K) => {
       if (key == null) return () => {};
-      listenersRef.current.set(listener, key);
+      const listeners = listenersRef.current;
+      let keyed = listeners.get(key);
+      if (keyed == null) {
+        keyed = new Set();
+        listeners.set(key, keyed);
+      }
+      keyed.add(listener);
       return () => {
-        listenersRef.current.delete(listener);
+        keyed.delete(listener);
+        if (keyed.size === 0 && listeners.get(key) === keyed) listeners.delete(key);
       };
     },
     [listenersRef],
