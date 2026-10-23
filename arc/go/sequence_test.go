@@ -122,7 +122,7 @@ var _ = Describe("Sequence", func() {
 	// steps maps every native function without outputs to a call that runs it.
 	Describe("Native steps without outputs", func() {
 		steps := map[string]string{
-			"control.set_authority": "control.set_authority{value=200}",
+			"control.set_authority": "control.set_authority(value=200)",
 		}
 		names := slices.Sorted(maps.Keys(steps))
 
