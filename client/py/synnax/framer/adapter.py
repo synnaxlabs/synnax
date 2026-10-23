@@ -58,26 +58,16 @@ class ReadFrameAdapter:
         if self._adapter is None:
             return fr
 
-        # In certain cases there can be a slight desync between the channels being sent
-        # by the server and the channels being received by the client. To handle this,
-        # we purge any channels that are not in the adapter.
-        to_purge: list[int] | None = None
-        for i, k in enumerate(fr.channels):
-            try:
-                if isinstance(k, channel.Key):
-                    fr.channels[i] = self._adapter[k]  # type: ignore[call-overload]
-            except KeyError:
-                if to_purge is None:
-                    to_purge = [i]
-                else:
-                    to_purge.append(i)
-        if to_purge is not None:
-            fr.channels = cast(
-                list[channel.Key] | list[str],
-                [k for i, k in enumerate(fr.channels) if i not in to_purge],
-            )
-            fr.series = [s for i, s in enumerate(fr.series) if i not in to_purge]
-
+        # The Core can send channels the client has not adapted yet, so purge them.
+        channels: list[channel.Key | str] = []
+        series: list[Series] = []
+        for k, s in fr.items():
+            name = k if isinstance(k, str) else self._adapter.get(k)
+            if name is not None:
+                channels.append(name)
+                series.append(s)
+        fr.channels = channels
+        fr.series = series
         return fr
 
 
@@ -235,9 +225,9 @@ class WriteFrameAdapter:
 
         if isinstance(channels_or_data, (Frame, DataFrame)):
             if isinstance(channels_or_data, Frame):
-                cols: list[channel.Key] | list[str] = channels_or_data.channels
+                cols: list[channel.Key | str] = channels_or_data.channels
             else:
-                cols = cast(list[str], list(channels_or_data.columns))
+                cols = list(channels_or_data.columns)
             if self._adapter is None:
                 return (
                     Frame(channels_or_data)
