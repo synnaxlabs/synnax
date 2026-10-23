@@ -10,6 +10,7 @@
 package task_test
 
 import (
+	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
@@ -430,25 +431,36 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	// fixture key reaches the stored record, catching one the rewrite drops, and the
 	// rewrite's output is a subset of the stored record, catching a key the new
 	// schema does not accept, a mis-renamed key, or a corrupted value.
+	// importFile imports raw as a task file named name and returns its envelope and the
+	// stored task.
+	importFile := func(ctx context.Context, raw []byte, name string) (
+		imex.Envelope,
+		task.Task,
+	) {
+		GinkgoHelper()
+		var env imex.Envelope
+		Expect(json.Unmarshal(raw, &env)).To(Succeed())
+		id := MustSucceed(imexSvc.Import(ctx, nil, env, imex.ImportOptions{
+			Parent:   ontology.RootID,
+			FileName: name + ".json",
+		}))
+		var imported task.Task
+		Expect(svc.NewRetrieve().
+			Where(task.MatchKeys(uuid.MustParse(id.Key))).
+			Entry(&imported).
+			Exec(ctx, nil)).To(Succeed())
+		return env, imported
+	}
+
 	DescribeTable("preserves every field of a released Console export",
 		func(ctx SpecContext, fixture string) {
 			raw := MustSucceed(os.ReadFile(
 				filepath.Join("testdata", "legacy", fixture+".json"),
 			))
-			var env imex.Envelope
-			Expect(json.Unmarshal(raw, &env)).To(Succeed())
+			env, imported := importFile(ctx, raw, fixture)
 			Expect(strings.HasPrefix(fixture, env.Type)).To(
 				BeTrue(), "fixture %q must be named for its type %q", fixture, env.Type,
 			)
-			id := MustSucceed(imexSvc.Import(ctx, nil, env, imex.ImportOptions{
-				Parent:   ontology.RootID,
-				FileName: fixture + ".json",
-			}))
-			var imported task.Task
-			Expect(svc.NewRetrieve().
-				Where(task.MatchKeys(uuid.MustParse(id.Key))).
-				Entry(&imported).
-				Exec(ctx, nil)).To(Succeed())
 			Expect(imported.Type).To(Equal(env.Type))
 			Expect(imported.Name).To(Equal(fixture))
 
@@ -542,5 +554,53 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		Entry(nil, "opc_read_array"),
 		Entry(nil, "opc_write"),
 		Entry(nil, "pagerduty_alert"),
+	)
+
+	// Each file in testdata/released/<release> is what that stable Core exported after
+	// importing the Console fixture of the same name. Importing it must store the same
+	// record as importing the fixture, which the fixture's golden freezes.
+	DescribeTable("stores a released Core export as its Console fixture",
+		func(ctx SpecContext, release, fixture string) {
+			raw := MustSucceed(os.ReadFile(
+				filepath.Join("testdata", "released", release, fixture+".json"),
+			))
+			_, imported := importFile(ctx, raw, fixture)
+			config := map[string]any(imported.Config)
+			delete(config, "key")
+			golden := MustSucceed(os.ReadFile(
+				filepath.Join("testdata", "legacy", "expected", fixture+".json"),
+			))
+			Expect(MustSucceed(json.Marshal(config))).To(MatchJSON(golden))
+		},
+		Entry(nil, "v0.58.2", "http_read"),
+		Entry(nil, "v0.58.2", "http_read_list"),
+		Entry(nil, "v0.58.2", "http_write"),
+		Entry(nil, "v0.59.0", "http_read"),
+		Entry(nil, "v0.59.0", "http_read_list"),
+		Entry(nil, "v0.59.2", "ethercat_read"),
+		Entry(nil, "v0.59.2", "ethercat_write"),
+		Entry(nil, "v0.59.2", "http_read"),
+		Entry(nil, "v0.59.2", "http_read_list"),
+		Entry(nil, "v0.59.2", "http_write"),
+		Entry(nil, "v0.59.2", "labjack_read"),
+		Entry(nil, "v0.59.2", "labjack_read_py_no_scale"),
+		Entry(nil, "v0.59.2", "labjack_write"),
+		Entry(nil, "v0.59.2", "labjack_write_cmd_key"),
+		Entry(nil, "v0.59.2", "modbus_read"),
+		Entry(nil, "v0.59.2", "modbus_write"),
+		Entry(nil, "v0.59.2", "ni_analog_read"),
+		Entry(nil, "v0.59.2", "ni_analog_read_config_device"),
+		Entry(nil, "v0.59.2", "ni_analog_read_py"),
+		Entry(nil, "v0.59.2", "ni_analog_write"),
+		Entry(nil, "v0.59.2", "ni_counter_read"),
+		Entry(nil, "v0.59.2", "ni_counter_read_py"),
+		Entry(nil, "v0.59.2", "ni_counter_read_py_ext_controlled"),
+		Entry(nil, "v0.59.2", "ni_counter_read_py_velocity"),
+		Entry(nil, "v0.59.2", "ni_digital_read"),
+		Entry(nil, "v0.59.2", "ni_digital_write"),
+		Entry(nil, "v0.59.2", "opc_read"),
+		Entry(nil, "v0.59.2", "opc_read_array"),
+		Entry(nil, "v0.59.2", "opc_write"),
+		Entry(nil, "v0.59.2", "pagerduty_alert"),
 	)
 })
