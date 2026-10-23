@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { group, type schematic } from "@synnaxlabs/client";
-import { Schematic as PSchematic } from "@synnaxlabs/pluto";
+import { Schematic } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -164,7 +164,7 @@ describe("Toolbar", () => {
   describe("changing symbols", () => {
     it("keeps the settings the new symbol accepts", async () => {
       const { key } = await renderSelected({
-        n1: PSchematic.Node.createConfig({
+        n1: Schematic.Node.createConfig({
           variant: "valve",
           label: { label: "OX-1" },
           orientation: "top",
@@ -183,7 +183,7 @@ describe("Toolbar", () => {
 
     it("opens the symbols tab to pick the new symbol", async () => {
       const { key, store } = await renderSelected({
-        n1: PSchematic.Node.createConfig({ variant: "valve" }),
+        n1: Schematic.Node.createConfig({ variant: "valve" }),
       });
       fireEvent.click(await screen.findByLabelText("Change symbol"));
       await waitFor(() =>
@@ -196,7 +196,7 @@ describe("Toolbar", () => {
     });
 
     it("marks the current symbol in the symbols tab", async () => {
-      await renderSelected({ n1: PSchematic.Node.createConfig({ variant: "valve" }) });
+      await renderSelected({ n1: Schematic.Node.createConfig({ variant: "valve" }) });
       fireEvent.click(await screen.findByLabelText("Change symbol"));
       const symbols = await waitFor(() => {
         const el = document.querySelector<HTMLElement>(".console-schematic__symbols");
@@ -214,7 +214,7 @@ describe("Toolbar", () => {
 
     it("changes the symbol without adding one", async () => {
       const { key } = await renderSelected({
-        n1: PSchematic.Node.createConfig({ variant: "valve" }),
+        n1: Schematic.Node.createConfig({ variant: "valve" }),
       });
       await pickSymbol("Solenoid");
       await waitFor(async () =>
@@ -225,7 +225,7 @@ describe("Toolbar", () => {
 
     it("leaves the symbols unchanged on cancel", async () => {
       const { key, store } = await renderSelected({
-        n1: PSchematic.Node.createConfig({ variant: "valve" }),
+        n1: Schematic.Node.createConfig({ variant: "valve" }),
       });
       fireEvent.click(await screen.findByLabelText("Change symbol"));
       fireEvent.click(await screen.findByLabelText("Cancel symbol change"));
@@ -239,7 +239,7 @@ describe("Toolbar", () => {
 
     it("renames a label that still reads the old symbol's name", async () => {
       const { key } = await renderSelected({
-        n1: PSchematic.Node.createConfig({ variant: "valve" }),
+        n1: Schematic.Node.createConfig({ variant: "valve" }),
       });
       await pickSymbol("Solenoid");
       await waitFor(async () =>
@@ -252,8 +252,8 @@ describe("Toolbar", () => {
 
     it("changes every selected symbol", async () => {
       const { key } = await renderSelected({
-        n1: PSchematic.Node.createConfig({ variant: "valve" }),
-        n2: PSchematic.Node.createConfig({ variant: "tank" }),
+        n1: Schematic.Node.createConfig({ variant: "valve" }),
+        n2: Schematic.Node.createConfig({ variant: "tank" }),
       });
       expect(await screen.findByText("Mixed")).toBeDefined();
       await pickSymbol("Ball");
@@ -273,7 +273,7 @@ describe("Toolbar", () => {
         parent: group.ontologyID(root.key),
       });
       const { key } = await renderSelected({
-        n1: PSchematic.Node.createConfig({ variant: "valve" }),
+        n1: Schematic.Node.createConfig({ variant: "valve" }),
       });
       await pickSymbol(symbol.name);
       await waitFor(async () =>
@@ -286,7 +286,7 @@ describe("Toolbar", () => {
     });
 
     it("shows the form of the new symbol", async () => {
-      await renderSelected({ n1: PSchematic.Node.createConfig({ variant: "valve" }) });
+      await renderSelected({ n1: Schematic.Node.createConfig({ variant: "valve" }) });
       await screen.findByText("Style");
       expect(screen.queryByText("Wrap width")).toBeNull();
       await pickSymbol("Text box");
@@ -295,7 +295,7 @@ describe("Toolbar", () => {
 
     it("shows no symbol picker when only a group box is selected", async () => {
       await renderSelected({
-        g1: PSchematic.Node.createConfig({ variant: "group_box" }),
+        g1: Schematic.Node.createConfig({ variant: "group_box" }),
       });
       await screen.findByText("Properties");
       expect(screen.queryByLabelText("Change symbol")).toBeNull();

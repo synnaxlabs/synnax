@@ -374,8 +374,7 @@ class Schematic(ConsolePage):
         Symbols must be selected first (see select). A click on the symbols tab
         ends the change, so this searches the tab that the change opens.
 
-        Args:
-            name: The name of the symbol in the symbols tab (e.g. "Solenoid").
+        :param name: The name of the symbol in the symbols tab (e.g. "Solenoid").
         """
         self.notifications.close_all()
         self.page.get_by_label("Change symbol", exact=True).click(timeout=5000)
