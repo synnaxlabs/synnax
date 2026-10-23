@@ -116,4 +116,16 @@ describe("Swatches", () => {
       expect(onChange).toHaveBeenCalledExactlyOnceWith(color.construct("#123456"));
     });
   });
+
+  describe("children", () => {
+    it("should render the children after the presets", () => {
+      const c = renderSwatches({
+        value: undefined,
+        onChange: vi.fn(),
+        children: <button aria-label="Extra" />,
+      });
+      const grid = c.container.querySelector(`.${CSS.BE("color-swatches", "grid")}`);
+      expect(grid?.lastElementChild).toBe(c.getByLabelText("Extra"));
+    });
+  });
 });
