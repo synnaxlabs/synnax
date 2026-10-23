@@ -24,13 +24,10 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Search } from "@/input/Search";
+import { type Control } from "@/input/types";
 import { Text } from "@/text";
 
-export interface IconPickerProps {
-  /** The key of the picked {@link Icon.Pickable}. */
-  value?: string;
-  /** Called with the key of the icon the user picks. */
-  onChange: (key: string) => void;
+export interface IconPickerProps extends Control<string | undefined, string> {
   /** Draws every icon in this color, through {@link Icon.tint}. */
   color?: color.Crude;
 }
@@ -51,8 +48,8 @@ const MOVES: Partial<Record<string, Move>> = {
 
 /**
  * A search field over a grid of the {@link Icon.PICKABLE} icons. The arrow keys move
- * between the field and the grid, Enter in the field picks the best match, and Escape in
- * the grid returns to the field.
+ * between the field and the grid, Enter in the field picks the best match, and Escape
+ * in the grid returns to the field.
  */
 export const IconPicker = ({
   value,
@@ -109,6 +106,7 @@ export const IconPicker = ({
         onKeyDown={handleSearchKeyDown}
         size="small"
         full="x"
+        startContent={<Icon.Search />}
         placeholder="Search icons"
         aria-label="Search icons"
       />
