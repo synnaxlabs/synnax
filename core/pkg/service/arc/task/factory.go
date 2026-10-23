@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -195,3 +196,8 @@ func (f *factory) setConfigStatus(
 }
 
 func (f *factory) Name() string { return "arc" }
+
+// InitialTasks implements driver.Factory. The Arc integration owns no internal tasks.
+func (f *factory) InitialTasks(context.Context, rack.Key) ([]task.Task, error) {
+	return nil, nil
+}

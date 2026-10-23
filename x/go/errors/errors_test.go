@@ -19,6 +19,12 @@ type customError struct{ msg string }
 
 func (e *customError) Error() string { return e.msg }
 
+var _ = Describe("ErrUnsupported", func() {
+	It("Should be the standard library sentinel", func() {
+		Expect(errors.ErrUnsupported).To(MatchError("unsupported operation"))
+	})
+})
+
 var _ = Describe("Is", func() {
 	Describe("Is", func() {
 		It("Should work with sub-errors", func() {

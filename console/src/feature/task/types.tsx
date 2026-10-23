@@ -12,6 +12,7 @@ import { caseconv } from "@synnaxlabs/x";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
@@ -21,6 +22,7 @@ import { PagerDuty } from "@/feature/pagerduty";
 const PREFIXES = [
   EtherCAT.Task.PREFIX,
   HTTP.Task.PREFIX,
+  Kafka.Task.PREFIX,
   LabJack.Task.PREFIX,
   Modbus.Task.PREFIX,
   NI.Task.PREFIX,
@@ -32,6 +34,7 @@ type Prefix = (typeof PREFIXES)[number];
 const ICONS: Record<Prefix, Icon.ReactElement> = {
   [EtherCAT.Task.PREFIX]: <Icon.Logo.EtherCAT />,
   [HTTP.Task.PREFIX]: <Icon.Logo.HTTP />,
+  [Kafka.Task.PREFIX]: <Icon.Logo.Kafka />,
   [LabJack.Task.PREFIX]: <Icon.Logo.LabJack />,
   [Modbus.Task.PREFIX]: <Icon.Logo.Modbus />,
   [NI.Task.PREFIX]: <Icon.Logo.NI />,
@@ -47,6 +50,7 @@ export const getIcon = (type: string): Icon.ReactElement => {
 const PREFIX_NAMES: Record<Prefix, string> = {
   [EtherCAT.Task.PREFIX]: "EtherCAT",
   [HTTP.Task.PREFIX]: "HTTP",
+  [Kafka.Task.PREFIX]: "Kafka",
   [LabJack.Task.PREFIX]: "LabJack",
   [Modbus.Task.PREFIX]: "Modbus",
   [NI.Task.PREFIX]: "NI",

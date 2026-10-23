@@ -29,6 +29,10 @@ const (
 	TypeRoach = "roach"
 )
 
+// ErrUnsupported is the standard library's sentinel for an operation a value does not
+// support, such as a custom JSON unmarshaler declining a value.
+var ErrUnsupported = stderrors.ErrUnsupported
+
 // Is determines whether one of the causes of the given error or any of its causes is
 // equivalent to some reference error.
 //

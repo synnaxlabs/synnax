@@ -201,6 +201,7 @@ import {
 } from "react-icons/ri";
 import { RxComponentBoolean, RxReset } from "react-icons/rx";
 import {
+  SiApachekafka,
   SiCplusplus,
   SiNpm,
   SiPagerduty,
@@ -380,6 +381,7 @@ export const Logo = {
   EtherCAT,
   // Crops the view box to the mark, which fills only a thin strip of the original.
   HTTP: wrapSVGIcon((props) => <MdHttp {...props} viewBox="1 9 22 6" />, "logo-http"),
+  Kafka: wrapSVGIcon(SiApachekafka, "logo-kafka"),
 };
 export const Arrow = {
   Right: wrapSVGIcon(TbArrowRight, "arrow-right"),

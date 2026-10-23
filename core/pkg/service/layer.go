@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -212,6 +213,8 @@ type Layer struct {
 	EtherCAT *ethercat.Service
 	// HTTP owns the stored configuration records of the HTTP task types.
 	HTTP *http.Service
+	// Kafka owns the stored configuration records of the Kafka task types.
+	Kafka *kafka.Service
 	// ArcTask owns the stored configuration records of the arc task type.
 	ArcTask *arctask.Service
 	// RackTask owns the stored configuration records of the rack_status task type.
@@ -653,6 +656,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.HTTP) {
 		return nil, err
 	}
+	if l.Kafka, err = kafka.OpenService(ctx, kafka.ServiceConfig{
+		Instrumentation: cfg.Child("kafka"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.Kafka) {
+		return nil, err
+	}
 	if l.ArcTask, err = arctask.OpenService(ctx, arctask.ServiceConfig{
 		Instrumentation: cfg.Child("arc_task"),
 		DB:              cfg.Distribution.DB,
@@ -673,7 +682,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	configStores := slices.Concat(
 		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
-		l.EtherCAT.Stores(), l.HTTP.Stores(), l.ArcTask.Stores(),
+		l.EtherCAT.Stores(), l.HTTP.Stores(), l.Kafka.Stores(), l.ArcTask.Stores(),
 		l.RackTask.Stores(), l.PagerDuty.Stores(),
 	)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
@@ -786,6 +795,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, nil) {
 		return nil, err
 	}
+	kafkaFactory, err := kafka.NewFactory(kafka.FactoryConfig{
+		Instrumentation: cfg.Child("kafka"),
+		DB:              cfg.Distribution.DB,
+		Device:          l.Device,
+		Channel:         l.Channel,
+		Framer:          l.Framer,
+		Status:          l.Status,
+	})
+	if !ok(err, nil) {
+		return nil, err
+	}
 	if l.Driver, err = driver.Open(ctx, driver.Config{
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,
@@ -794,7 +814,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Framer:          l.Framer,
 		Channel:         l.Channel,
 		Status:          l.Status,
-		Factories:       []driver.Factory{arcFactory, pdFactory},
+		Factories:       []driver.Factory{arcFactory, pdFactory, kafkaFactory},
 		Host:            cfg.Distribution.Cluster,
 	}); !ok(err, l.Driver) {
 		return nil, err
