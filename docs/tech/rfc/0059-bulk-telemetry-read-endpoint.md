@@ -107,13 +107,13 @@ field is not set.
 
 The handler enforces `access.ActionRetrieve` over `framer.OntologyIDs(keys)`, exactly as
 `openIterator` does (`core/pkg/api/framer/framer.go:194`), resolves the channel records,
-opens a service-layer iterator, and returns:
+and returns:
 
 ```go
 type ReadResponse struct {
-    Iterator *framer.Iterator
-    Channels []channel.Channel
-    Indexes  []channel.Channel
+    Channels     []channel.Channel
+    Indexes      []channel.Channel
+    OpenIterator func(context.Context, channel.Keys) (*framer.Iterator, error)
 }
 ```
 
@@ -121,11 +121,11 @@ type ReadResponse struct {
 set `timestamps_included`.
 
 `ReadResponse` is never serialized by a general codec. It is the handle the two
-registered encoders drive, and each encoder closes the iterator in a defer. Opening the
-iterator in the handler keeps Principle 4: a bad key or a denied subject is a 400 with a
-normal error body. `ReadResponse` implements `io.Closer`, and the unary server closes a
-response it does not encode, so a middleware that fails after the handler does not leak
-the iterator.
+registered encoders drive. Each encoder opens the service-layer iterators it needs
+through `OpenIterator` and closes them. The handler keeps Principle 4: a bad key or a
+denied subject is a 400 with a normal error body. An iterator that fails to open fails
+the encoder before its first write, which is also a 400 (§4.1). The response holds
+nothing open, so a middleware that fails after the handler leaks nothing.
 
 Calculated channels and downsampling come from the service-layer iterator, so `/read`
 inherits both without knowing they exist.
@@ -183,13 +183,13 @@ then its data columns, each headed by the channel name. Rows merge across groups
 timestamp, with empty cells where a group has no sample at that timestamp. Lines end in
 `\n`.
 
-The iterator advances each channel by sample count, not by time, so one frame covers a
-different time span for each group. The encoder keeps a lower bound on the timestamp of
-each group's next row: the pending index sample, or the last timestamp the group
-returned plus one, or no bound once a frame leaves the group out. It writes the earliest
-ready row only when every group that is not ready has a bound after that row. No later
-frame can then precede the row or add cells to it. Rows leave in 64 KiB writes, so the
-encoder holds one buffer however large the read is.
+An iterator advances each channel by sample count, not by time, so one iterator over
+every column reads ahead on the columns whose rows come later. Two groups in separate
+time ranges would hold the whole later group in memory. The encoder instead reads each
+column through its own iterator and asks for the next chunk only when the column runs
+out. It writes the row of the earliest pending index sample. Each column holds at most
+one chunk, and rows leave in 64 KiB writes, so memory is bounded however large the read
+is.
 
 Values are appended with `telem.AppendSampleText` into that buffer. A UUID takes its
 canonical form and bytes are base64. There is no string per sample and no record object

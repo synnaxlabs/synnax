@@ -43,14 +43,15 @@ var _ = Describe("Framer", func() {
 			Expect(channelWriter.Create(ctx, &data)).To(Succeed())
 		})
 
-		It("Should open an iterator over the requested channels", func(
+		It("Should open iterators over the requested channels", func(
 			ctx SpecContext,
 		) {
 			res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
 				Keys:   channel.Keys{data.Key()},
 				Bounds: telem.TimeRangeMax,
 			}))
-			DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })
+			iter := MustSucceed(res.OpenIterator(ctx, channel.Keys{data.Key()}))
+			Expect(iter.Close()).To(Succeed())
 			Expect(res.Channels).To(HaveLen(1))
 			Expect(res.Channels[0].Key()).To(Equal(data.Key()))
 			Expect(res.Indexes).To(BeEmpty())
@@ -64,7 +65,6 @@ var _ = Describe("Framer", func() {
 					Bounds:             telem.TimeRangeMax,
 					TimestampsIncluded: true,
 				}))
-				DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })
 				Expect(res.Indexes).To(HaveLen(1))
 				Expect(res.Indexes[0].Key()).To(Equal(index.Key()))
 			},
@@ -78,7 +78,6 @@ var _ = Describe("Framer", func() {
 				Bounds:             telem.TimeRangeMax,
 				TimestampsIncluded: true,
 			}))
-			DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })
 			Expect(res.Channels).To(HaveLen(2))
 			Expect(res.Indexes).To(BeEmpty())
 		})
@@ -89,18 +88,7 @@ var _ = Describe("Framer", func() {
 				Bounds:           telem.TimeRangeMax,
 				DownsampleFactor: 3,
 			}))
-			DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })
 			Expect(res.DownsampleFactor).To(BeEquivalentTo(3))
-		})
-
-		It("Should close its iterator when the response is closed", func(
-			ctx SpecContext,
-		) {
-			res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
-				Keys:   channel.Keys{data.Key()},
-				Bounds: telem.TimeRangeMax,
-			}))
-			Expect(res.Close()).To(Succeed())
 		})
 
 		It("Should return an error when a key has no channel", func(ctx SpecContext) {
@@ -144,7 +132,6 @@ var _ = Describe("Framer", func() {
 							Bounds: telem.TimeRangeMax,
 						},
 					))
-					DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })
 					Expect(res.Indexes).To(BeEmpty())
 				},
 			)
@@ -165,7 +152,6 @@ var _ = Describe("Framer", func() {
 						TimestampsIncluded: true,
 					},
 				))
-				DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })
 				Expect(res.Indexes).To(HaveLen(1))
 			})
 		})

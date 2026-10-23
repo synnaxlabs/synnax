@@ -11,6 +11,7 @@ package framer_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"uuid"
@@ -175,20 +176,12 @@ var _ = Describe("CSV", func() {
 				)
 				channels := append(first, second...)
 				indexes := []svcchannel.Channel{firstIndex, secondIndex}
-				iter := MustSucceed(framerSvc.OpenIterator(
-					ctx,
-					svcframer.IteratorConfig{
-						Keys: svcchannel.KeysFromChannels(
-							append(channels, indexes...),
-						),
-						Bounds: readBounds,
-					},
-				))
-				b := MustSucceed(framer.CSVEncoder.Encode(ctx, framer.ReadResponse{
-					Iterator: iter,
-					Channels: channels,
-					Indexes:  indexes,
-				}))
+				b := MustSucceed(
+					framer.CSVEncoder.Encode(
+						ctx,
+						response(channels, indexes, svcframer.IteratorConfig{}),
+					),
+				)
 				Expect(string(b)).To(Equal(fmt.Sprintf(
 					"%s,%s,%s,%s\n"+
 						"1000000000,1,,\n"+
@@ -213,17 +206,67 @@ var _ = Describe("CSV", func() {
 				channels,
 				telem.NewSeriesV[float32](1),
 			)
-			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
-				Keys:   svcchannel.KeysFromChannels(channels),
-				Bounds: readBounds,
-			}))
-			Expect(framer.CSVEncoder.Encode(ctx, framer.ReadResponse{
-				Iterator: iter,
-				Channels: channels,
-			})).Error().To(And(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(channels[0].Name)),
+			Expect(
+				framer.CSVEncoder.Encode(
+					ctx,
+					response(channels, nil, svcframer.IteratorConfig{}),
+				),
+			).Error().
+				To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(channels[0].Name)),
+				))
+		})
+
+		It("Should read each column through its own iterator", func(ctx SpecContext) {
+			firstIndex, first := createIndexed(ctx, telem.Float32T)
+			secondIndex, second := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				firstIndex,
+				telem.NewSeriesSecondsTSV(1, 2),
+				first,
+				telem.NewSeriesV[float32](1, 2),
+			)
+			write(
+				ctx,
+				secondIndex,
+				telem.NewSeriesSecondsTSV(10, 11),
+				second,
+				telem.NewSeriesV[float32](10, 11),
+			)
+			res := response(
+				append(first, second...),
+				[]svcchannel.Channel{firstIndex, secondIndex},
+				svcframer.IteratorConfig{ChunkSize: 1},
+			)
+			var opened []svcchannel.Keys
+			open := res.OpenIterator
+			res.OpenIterator = func(
+				ctx context.Context,
+				keys svcchannel.Keys,
+			) (*svcframer.Iterator, error) {
+				opened = append(opened, keys)
+				return open(ctx, keys)
+			}
+			b := MustSucceed(framer.CSVEncoder.Encode(ctx, res))
+			Expect(opened).To(ConsistOf(
+				svcchannel.Keys{firstIndex.Key()},
+				svcchannel.Keys{first[0].Key()},
+				svcchannel.Keys{secondIndex.Key()},
+				svcchannel.Keys{second[0].Key()},
 			))
+			Expect(string(b)).To(Equal(fmt.Sprintf(
+				"%s,%s,%s,%s\n"+
+					"1000000000,1,,\n"+
+					"2000000000,2,,\n"+
+					",,10000000000,10\n"+
+					",,11000000000,11\n",
+				firstIndex.Name,
+				first[0].Name,
+				secondIndex.Name,
+				second[0].Name,
+			)))
 		})
 
 		It("Should order the rows of groups that advance at different rates", func(
@@ -255,16 +298,12 @@ var _ = Describe("CSV", func() {
 				channels = append(channels, group...)
 				indexes = append(indexes, index)
 			}
-			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
-				Keys:      svcchannel.KeysFromChannels(append(channels, indexes...)),
-				Bounds:    readBounds,
-				ChunkSize: 2,
-			}))
-			b := MustSucceed(framer.CSVEncoder.Encode(ctx, framer.ReadResponse{
-				Iterator: iter,
-				Channels: channels,
-				Indexes:  indexes,
-			}))
+			b := MustSucceed(
+				framer.CSVEncoder.Encode(
+					ctx,
+					response(channels, indexes, svcframer.IteratorConfig{ChunkSize: 2}),
+				),
+			)
 			Expect(csvRows(b)).To(Equal([]string{
 				",,,,500000000,0.5",
 				"1000000000,1,,,,",
@@ -319,16 +358,16 @@ var _ = Describe("CSV", func() {
 				telem.SecondTS*5,
 				telem.NewSeriesV[float32](5, 6),
 			)
-			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
-				Keys:      svcchannel.KeysFromChannels(append(channels, index)),
-				Bounds:    readBounds,
-				ChunkSize: 2,
-			}))
-			b := MustSucceed(framer.CSVEncoder.Encode(ctx, framer.ReadResponse{
-				Iterator: iter,
-				Channels: channels,
-				Indexes:  []svcchannel.Channel{index},
-			}))
+			b := MustSucceed(
+				framer.CSVEncoder.Encode(
+					ctx,
+					response(
+						channels,
+						[]svcchannel.Channel{index},
+						svcframer.IteratorConfig{ChunkSize: 2},
+					),
+				),
+			)
 			Expect(csvRows(b)).To(Equal([]string{
 				"1000000000,1",
 				"2000000000,2",
@@ -381,16 +420,12 @@ var _ = Describe("CSV", func() {
 			writeData(ctx, second[0], telem.SecondTS*2, telem.NewSeriesV[float32](2))
 			channels := append(first, second...)
 			indexes := []svcchannel.Channel{firstIndex, secondIndex}
-			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
-				Keys:      svcchannel.KeysFromChannels(append(channels, indexes...)),
-				Bounds:    readBounds,
-				ChunkSize: 1,
-			}))
-			b := MustSucceed(framer.CSVEncoder.Encode(ctx, framer.ReadResponse{
-				Iterator: iter,
-				Channels: channels,
-				Indexes:  indexes,
-			}))
+			b := MustSucceed(
+				framer.CSVEncoder.Encode(
+					ctx,
+					response(channels, indexes, svcframer.IteratorConfig{ChunkSize: 1}),
+				),
+			)
 			Expect(csvRows(b)).To(Equal([]string{
 				"1000000000,,,",
 				",,2000000000,2",
@@ -412,17 +447,16 @@ var _ = Describe("CSV", func() {
 				telem.SecondTS*2,
 				telem.NewSeriesV[float32](2, 3, 4, 5, 6),
 			)
-			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
-				Keys:             svcchannel.KeysFromChannels(append(channels, index)),
-				Bounds:           readBounds,
-				DownsampleFactor: 2,
-			}))
-			b := MustSucceed(framer.CSVEncoder.Encode(ctx, framer.ReadResponse{
-				Iterator:         iter,
-				Channels:         channels,
-				Indexes:          []svcchannel.Channel{index},
-				DownsampleFactor: 2,
-			}))
+			b := MustSucceed(
+				framer.CSVEncoder.Encode(
+					ctx,
+					response(
+						channels,
+						[]svcchannel.Channel{index},
+						svcframer.IteratorConfig{DownsampleFactor: 2},
+					),
+				),
+			)
 			Expect(csvRows(b)).To(Equal([]string{
 				"1000000000,",
 				"3000000000,3",
@@ -480,18 +514,21 @@ var _ = Describe("CSV", func() {
 			)
 			misindexed := channels[0]
 			misindexed.LocalIndex = index.LocalKey
-			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
-				Keys:   svcchannel.Keys{misindexed.Key(), index.Key()},
-				Bounds: readBounds,
-			}))
-			Expect(framer.CSVEncoder.Encode(ctx, framer.ReadResponse{
-				Iterator: iter,
-				Channels: []svcchannel.Channel{misindexed},
-				Indexes:  []svcchannel.Channel{index},
-			})).Error().To(MatchError(fmt.Sprintf(
-				"[api.Read] channel %s has a sample at alignment 0-5 with no index sample",
-				misindexed.Name,
-			)))
+			Expect(
+				framer.CSVEncoder.Encode(
+					ctx,
+					response(
+						[]svcchannel.Channel{misindexed},
+						[]svcchannel.Channel{index},
+						svcframer.IteratorConfig{},
+					),
+				),
+			).Error().
+				To(MatchError(fmt.Sprintf(
+					"[api.Read] channel %s has a sample at alignment 0-5 with no index sample",
+					misindexed.Name,
+				),
+				))
 		})
 
 		It("Should write a large read in bounded pieces", func(ctx SpecContext) {
@@ -510,17 +547,18 @@ var _ = Describe("CSV", func() {
 				channels,
 				telem.NewSeriesV(values...),
 			)
-			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
-				Keys:      svcchannel.KeysFromChannels(append(channels, index)),
-				Bounds:    readBounds,
-				ChunkSize: 1000,
-			}))
 			var w writeSizes
-			Expect(framer.CSVEncoder.EncodeStream(ctx, &w, framer.ReadResponse{
-				Iterator: iter,
-				Channels: channels,
-				Indexes:  []svcchannel.Channel{index},
-			})).To(Succeed())
+			Expect(
+				framer.CSVEncoder.EncodeStream(
+					ctx,
+					&w,
+					response(
+						channels,
+						[]svcchannel.Channel{index},
+						svcframer.IteratorConfig{ChunkSize: 1000},
+					),
+				),
+			).To(Succeed())
 			Expect(len(w)).To(BeNumerically(">", 2))
 			Expect(w).To(HaveEach(BeNumerically("<", 70<<10)))
 		})
