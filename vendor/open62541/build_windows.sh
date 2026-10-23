@@ -14,7 +14,7 @@ rm -r ./open62541/build
 mkdir -p open62541/build && cd open62541/build
 
 # Define MBEDTLS_DIR and run cmake
-MBEDTLS_DIR="C:\\Program Files (x86)\\Mbed TLS"
+MBEDTLS_DIR='C:\Program Files (x86)\Mbed TLS'
 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DUA_NAMESPACE_ZERO=FULL \
     -DCMAKE_INSTALL_PREFIX="../out" \

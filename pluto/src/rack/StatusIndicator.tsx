@@ -10,12 +10,11 @@
 import "@/rack/StatusIndicator.css";
 
 import { type rack } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { useEffect, useMemo, useRef } from "react";
-
-import { CSS } from "@/css";
-import { Icon } from "@/icon";
-import { Status } from "@/status/base";
-import { Tooltip } from "@/tooltip";
 
 export interface StatusIndicatorProps {
   status?: rack.Status;

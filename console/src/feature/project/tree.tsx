@@ -16,15 +16,15 @@ import {
   schematic,
   table,
 } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
 import {
   Access,
-  Icon,
   LinePlot as PLinePlot,
   Log as PLog,
-  Menu,
   Project as Base,
   Schematic as PSchematic,
-  Status,
   Synnax,
   Table as PTable,
 } from "@synnaxlabs/pluto";

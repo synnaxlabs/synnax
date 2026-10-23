@@ -10,21 +10,23 @@
 import "@/schematic/node/common/custom/Overrides.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { caseconv, type color, deep } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { caseconv, deep } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 
-import { Button } from "@/button";
-import { Color } from "@/color";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Form } from "@/form";
-import { Icon } from "@/icon";
+import { Region } from "@/schematic/node/common/region";
 import { Symbol } from "@/schematic/symbol";
-import { Select } from "@/select";
-import { Text } from "@/text";
 
 interface RegionControlsProps {
   path: string;
+  svg: string;
   onReset: (path: string) => void;
   getOriginalRegion: (path: string) => schematic.symbol.Region | null;
 }
@@ -83,11 +85,17 @@ const syncStateOverrides = (
 
 const RegionControls = ({
   path,
+  svg,
   onReset,
   getOriginalRegion,
 }: RegionControlsProps): ReactElement => {
   const name = Form.useFieldValue<string>(`${path}.name`);
   const region = Form.useFieldValue<schematic.symbol.Region>(path);
+  const { set } = Form.useContext();
+  const paint = useMemo(
+    () => Region.paint(svg, region.selectors),
+    [svg, region.selectors],
+  );
   const originalRegion = getOriginalRegion(path);
   const canBeReset = !deep.equal(region, originalRegion);
   return (
@@ -101,20 +109,16 @@ const RegionControls = ({
         {caseconv.capitalize(name)}
       </Text.Text>
       <Flex.Box x align="stretch" key={path}>
-        <Form.Field<color.Color>
-          path={`${path}.strokeColor`}
-          showLabel={false}
-          padHelpText={false}
-        >
-          {({ value, onChange }) => <Color.Swatch value={value} onChange={onChange} />}
-        </Form.Field>
-        <Form.Field<color.Color>
-          path={`${path}.fillColor`}
-          showLabel={false}
-          padHelpText={false}
-        >
-          {({ value, onChange }) => <Color.Swatch value={value} onChange={onChange} />}
-        </Form.Field>
+        <Color.Swatch
+          value={region.strokeColor}
+          fallback={paint.stroke}
+          onChange={(c) => set(`${path}.strokeColor`, c)}
+        />
+        <Color.Swatch
+          value={region.fillColor}
+          fallback={paint.fill}
+          onChange={(c) => set(`${path}.fillColor`, c)}
+        />
         <Button.Button
           onClick={() => onReset(path)}
           variant="text"
@@ -129,12 +133,18 @@ const RegionControls = ({
 };
 
 interface RegionListProps {
+  svg: string;
   onReset: (path: string) => void;
   getOriginalRegion: (path: string) => schematic.symbol.Region | null;
   selectedState: string;
 }
 
-const RegionList = ({ selectedState, onReset, getOriginalRegion }: RegionListProps) => {
+const RegionList = ({
+  svg,
+  selectedState,
+  onReset,
+  getOriginalRegion,
+}: RegionListProps) => {
   const { data: regions } = Form.useFieldList<string, schematic.symbol.Region>(
     `stateOverrides.${selectedState}.regions`,
   );
@@ -143,6 +153,7 @@ const RegionList = ({ selectedState, onReset, getOriginalRegion }: RegionListPro
       {regions.map((region) => (
         <RegionControls
           key={region}
+          svg={svg}
           onReset={onReset}
           path={`stateOverrides.${selectedState}.regions.${region}`}
           getOriginalRegion={getOriginalRegion}
@@ -213,21 +224,17 @@ export const StateOverrideForm = (): ReactElement => {
   return (
     <Flex.Box y align="stretch">
       {states.length > 1 && (
-        <Select.Buttons
-          keys={states}
-          value={shownState}
-          onChange={setSelectedState}
-          full="x"
-        >
+        <Select.Buttons value={shownState} onChange={setSelectedState} full="x">
           {states.map((state) => (
-            <Select.Button key={state} itemKey={state} justify="center">
+            <Select.Item key={state} itemKey={state} justify="center">
               {caseconv.capitalize(state)}
-            </Select.Button>
+            </Select.Item>
           ))}
         </Select.Buttons>
       )}
       {shownState != null && (
         <RegionList
+          svg={symbol?.data?.svg ?? ""}
           selectedState={shownState}
           onReset={resetRegion}
           getOriginalRegion={getOriginalRegion}

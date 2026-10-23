@@ -14,6 +14,8 @@
 package api
 
 import (
+	"slices"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/alamos"
@@ -31,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
+	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
@@ -73,6 +76,10 @@ type Transport struct {
 	ChannelRetrieveGroup freighter.UnaryServer[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse]
 	// CONNECTIVITY
 	ConnectivityCheck freighter.UnaryServer[struct{}, connectivity.CheckResponse]
+	// LICENSE
+	LicenseRetrieve   freighter.UnaryServer[license.RetrieveRequest, license.RetrieveResponse]
+	LicenseActivate   freighter.UnaryServer[license.ActivateRequest, license.ActivateResponse]
+	LicenseDeactivate freighter.UnaryServer[license.DeactivateRequest, license.DeactivateResponse]
 	// FRAME
 	FrameWriter   freighter.StreamServer[framer.WriterRequest, framer.WriterResponse]
 	FrameIterator freighter.StreamServer[framer.IteratorRequest, framer.IteratorResponse]
@@ -107,13 +114,12 @@ type Transport struct {
 	GroupRename   freighter.UnaryServer[group.RenameRequest, struct{}]
 	GroupRetrieve freighter.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]
 	// PROJECT
-	ProjectCreate    freighter.UnaryServer[project.CreateRequest, project.CreateResponse]
-	ProjectRetrieve  freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
-	ProjectDelete    freighter.UnaryServer[project.DeleteRequest, struct{}]
-	ProjectRename    freighter.UnaryServer[project.RenameRequest, struct{}]
-	ProjectSetLayout freighter.UnaryServer[project.SetLayoutRequest, struct{}]
-	ProjectExport    freighter.UnaryServer[project.ExportRequest, project.ExportResponse]
-	ProjectImport    freighter.UnaryServer[project.ImportRequest, project.ImportResponse]
+	ProjectCreate   freighter.UnaryServer[project.CreateRequest, project.CreateResponse]
+	ProjectRetrieve freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
+	ProjectDelete   freighter.UnaryServer[project.DeleteRequest, struct{}]
+	ProjectRename   freighter.UnaryServer[project.RenameRequest, struct{}]
+	ProjectExport   freighter.UnaryServer[project.ExportRequest, project.ExportResponse]
+	ProjectImport   freighter.UnaryServer[project.ImportRequest, project.ImportResponse]
 	// SCHEMATIC
 	SchematicCreate   freighter.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]
 	SchematicRetrieve freighter.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]
@@ -159,15 +165,21 @@ type Transport struct {
 	RackCreate   freighter.UnaryServer[rack.CreateRequest, rack.CreateResponse]
 	RackRetrieve freighter.UnaryServer[rack.RetrieveRequest, rack.RetrieveResponse]
 	RackDelete   freighter.UnaryServer[rack.DeleteRequest, struct{}]
+	// RackRename renames a rack.
+	RackRename freighter.UnaryServer[rack.RenameRequest, struct{}]
 	// TASK
 	TaskCreate   freighter.UnaryServer[task.CreateRequest, task.CreateResponse]
 	TaskRetrieve freighter.UnaryServer[task.RetrieveRequest, task.RetrieveResponse]
 	TaskDelete   freighter.UnaryServer[task.DeleteRequest, struct{}]
 	TaskCopy     freighter.UnaryServer[task.CopyRequest, task.CopyResponse]
+	// TaskRename renames a task.
+	TaskRename freighter.UnaryServer[task.RenameRequest, struct{}]
 	// DEVICE
 	DeviceCreate   freighter.UnaryServer[device.CreateRequest, device.CreateResponse]
 	DeviceRetrieve freighter.UnaryServer[device.RetrieveRequest, device.RetrieveResponse]
 	DeviceDelete   freighter.UnaryServer[device.DeleteRequest, struct{}]
+	// DeviceRename renames a device.
+	DeviceRename freighter.UnaryServer[device.RenameRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[access.DeletePolicyRequest, struct{}]
@@ -178,21 +190,25 @@ type Transport struct {
 	AccessAssignRole     freighter.UnaryServer[access.AssignRoleRequest, struct{}]
 	AccessUnassignRole   freighter.UnaryServer[access.UnassignRoleRequest, struct{}]
 	// STATUS
-	StatusSet            freighter.UnaryServer[status.SetRequest, status.SetResponse]
-	StatusRetrieve       freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
-	StatusDelete         freighter.UnaryServer[status.DeleteRequest, struct{}]
+	StatusSet      freighter.UnaryServer[status.SetRequest, status.SetResponse]
+	StatusRetrieve freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
+	StatusDelete   freighter.UnaryServer[status.DeleteRequest, struct{}]
+	// StatusRename renames a status.
+	StatusRename         freighter.UnaryServer[status.RenameRequest, struct{}]
 	StatusSetByKeyOrName freighter.UnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse]
 	// ARC
-	ArcCreate   freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
-	ArcDelete   freighter.UnaryServer[arc.DeleteRequest, struct{}]
-	ArcRetrieve freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
-	ArcDispatch freighter.UnaryServer[arc.DispatchRequest, struct{}]
-	ArcSetRack  freighter.UnaryServer[arc.SetRackRequest, arc.SetRackResponse]
-	ArcLSP      freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
+	ArcCreate     freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
+	ArcDelete     freighter.UnaryServer[arc.DeleteRequest, struct{}]
+	ArcRetrieve   freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
+	ArcDispatch   freighter.UnaryServer[arc.DispatchRequest, struct{}]
+	ArcUpdateTask freighter.UnaryServer[arc.UpdateTaskRequest, arc.UpdateTaskResponse]
+	ArcLSP        freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
 	// VIEW
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
 	ViewDelete   freighter.UnaryServer[view.DeleteRequest, struct{}]
+	// ViewRename renames a view.
+	ViewRename freighter.UnaryServer[view.RenameRequest, struct{}]
 	// IMPORT/EXPORT
 	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
 	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]
@@ -208,6 +224,7 @@ type Layer struct {
 	Channel      *channel.Service
 	Control      *control.Service
 	Connectivity *connectivity.Service
+	License      *license.Service
 	Ontology     *ontology.Service
 	Range        *ranger.Service
 	KV           *kv.Service
@@ -239,13 +256,11 @@ func (l *Layer) BindTo(t Transport) {
 			alamos.Middleware(alamos.Config{Instrumentation: l.config.Instrumentation}),
 		)
 		rec                = recovery.Middleware(l.config.Instrumentation)
+		gate               = license.Middleware(l.config.Service.License)
 		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
-		secureMiddleware   = make(
-			[]freighter.Middleware, len(insecureMiddleware), len(insecureMiddleware)+1,
-		)
+		secureMiddleware   = append(slices.Clone(insecureMiddleware), tk)
+		gatedMiddleware    = append(slices.Clone(secureMiddleware), gate)
 	)
-	copy(secureMiddleware, insecureMiddleware)
-	secureMiddleware = append(secureMiddleware, tk)
 
 	freighter.UseOnAll(
 		insecureMiddleware,
@@ -253,8 +268,16 @@ func (l *Layer) BindTo(t Transport) {
 		t.ConnectivityCheck,
 	)
 
+	// The license endpoints skip the gate so an unlicensed Core can be activated.
 	freighter.UseOnAll(
 		secureMiddleware,
+		t.LicenseRetrieve,
+		t.LicenseActivate,
+		t.LicenseDeactivate,
+	)
+
+	freighter.UseOnAll(
+		gatedMiddleware,
 
 		// AUTH
 		t.AuthChangePassword,
@@ -318,7 +341,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.ProjectCreate,
 		t.ProjectRetrieve,
 		t.ProjectRename,
-		t.ProjectSetLayout,
 		t.ProjectExport,
 		t.ProjectImport,
 
@@ -374,17 +396,20 @@ func (l *Layer) BindTo(t Transport) {
 		t.RackCreate,
 		t.RackRetrieve,
 		t.RackDelete,
+		t.RackRename,
 
 		// TASK
 		t.TaskCreate,
 		t.TaskRetrieve,
 		t.TaskDelete,
 		t.TaskCopy,
+		t.TaskRename,
 
 		// DEVICE
 		t.DeviceCreate,
 		t.DeviceRetrieve,
 		t.DeviceDelete,
+		t.DeviceRename,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -400,19 +425,22 @@ func (l *Layer) BindTo(t Transport) {
 		t.StatusSet,
 		t.StatusRetrieve,
 		t.StatusDelete,
+		t.StatusRename,
 		t.StatusSetByKeyOrName,
 
 		// VIEW
 		t.ViewCreate,
 		t.ViewRetrieve,
 		t.ViewDelete,
+		t.ViewRename,
 
 		// ARC
 		t.ArcCreate,
 		t.ArcDelete,
 		t.ArcRetrieve,
 		t.ArcDispatch,
-		t.ArcSetRack,
+		t.ArcUpdateTask,
+		t.ArcLSP,
 
 		// IMPORT/EXPORT
 		t.ImExImport,
@@ -426,6 +454,11 @@ func (l *Layer) BindTo(t Transport) {
 	t.AuthChangePassword.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Auth.ChangePassword),
 	)
+
+	// LICENSE
+	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
+	t.LicenseActivate.BindHandler(l.License.Activate)
+	t.LicenseDeactivate.BindHandler(l.License.Deactivate)
 
 	// USER
 	t.UserRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Rename))
@@ -497,9 +530,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.ProjectRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Rename))
 	t.ProjectExport.BindHandler(l.Project.Export)
 	t.ProjectImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Import))
-	t.ProjectSetLayout.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Project.SetLayout),
-	)
 
 	// SCHEMATIC
 	t.SchematicCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Create))
@@ -567,17 +597,20 @@ func (l *Layer) BindTo(t Transport) {
 	t.RackCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Create))
 	t.RackRetrieve.BindHandler(l.Rack.Retrieve)
 	t.RackDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Delete))
+	t.RackRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Rename))
 
 	// TASK
 	t.TaskCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Create))
 	t.TaskRetrieve.BindHandler(l.Task.Retrieve)
 	t.TaskDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Delete))
 	t.TaskCopy.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Copy))
+	t.TaskRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Rename))
 
 	// DEVICE
 	t.DeviceCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Create))
 	t.DeviceRetrieve.BindHandler(l.Device.Retrieve)
 	t.DeviceDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Delete))
+	t.DeviceRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Rename))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(
@@ -605,6 +638,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.StatusSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Set))
 	t.StatusRetrieve.BindHandler(l.Status.Retrieve)
 	t.StatusDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Delete))
+	t.StatusRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Status.Rename))
 	t.StatusSetByKeyOrName.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Status.SetByKeyOrName),
 	)
@@ -613,13 +647,14 @@ func (l *Layer) BindTo(t Transport) {
 	t.ViewCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Create))
 	t.ViewRetrieve.BindHandler(l.View.Retrieve)
 	t.ViewDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Delete))
+	t.ViewRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Rename))
 
 	// ARC
 	t.ArcCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Create))
 	t.ArcDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Delete))
 	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
 	t.ArcDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Dispatch))
-	t.ArcSetRack.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.SetRack))
+	t.ArcUpdateTask.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.UpdateTask))
 	t.ArcLSP.BindHandler(l.Arc.LSP)
 
 	// IMPORT/EXPORT
@@ -654,6 +689,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Connectivity, err = connectivity.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.License, err = license.NewService(cfg); err != nil {
 		return nil, err
 	}
 	if l.Ontology, err = ontology.NewService(cfg); err != nil {

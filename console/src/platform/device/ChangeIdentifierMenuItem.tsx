@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { device } from "@synnaxlabs/client";
-import { Access, Device, Icon, Menu } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Access, Device } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 
 import { useChangeIdentifier } from "@/platform/device/useChangeIdentifier";

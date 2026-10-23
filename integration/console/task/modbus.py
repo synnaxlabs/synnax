@@ -64,7 +64,7 @@ class ModbusTask(TaskPage):
         :param data_type: Register data type, e.g. "float32". Registers only.
         """
         index = self._rows().count()
-        self.add_channel_row(index)
+        self.add_channel_row()
         self._rows().nth(index).wait_for(state="visible", timeout=5000)
         self.set_channel_type(index, type_name)
         self.set_address(index, address)

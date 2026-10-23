@@ -32,7 +32,7 @@ const mkValue = (units?: string): table.CellConfig =>
 describe("Table", () => {
   describe("create", () => {
     test("create one", async () => {
-      const proj = await client.projects.create({ name: "Table", layout: { one: 1 } });
+      const proj = await client.projects.create({ name: "Table" });
       const t = await client.tables.create(proj.key, {
         name: "Table",
       });
@@ -45,7 +45,7 @@ describe("Table", () => {
 
   describe("rename", () => {
     test("rename one", async () => {
-      const proj = await client.projects.create({ name: "Table", layout: { one: 1 } });
+      const proj = await client.projects.create({ name: "Table" });
       const t = await client.tables.create(proj.key, {
         name: "Table",
       });
@@ -57,7 +57,7 @@ describe("Table", () => {
 
   describe("delete", () => {
     test("delete one", async () => {
-      const proj = await client.projects.create({ name: "Table", layout: { one: 1 } });
+      const proj = await client.projects.create({ name: "Table" });
       const t = await client.tables.create(proj.key, {
         name: "Table",
       });
@@ -68,7 +68,7 @@ describe("Table", () => {
 
   describe("cell config round-trip", () => {
     test("round-trips a fully-populated value cell config", async () => {
-      const proj = await client.projects.create({ name: "ConfigTest", layout: {} });
+      const proj = await client.projects.create({ name: "ConfigTest" });
       const t = await client.tables.create(proj.key, {
         name: "ConfigTest",
         cells: {
@@ -79,9 +79,12 @@ describe("Table", () => {
             precision: 3,
             notation: "scientific",
             redline: {
-              bounds: { lower: 0, upper: 100 },
-              gradient: [],
+              bands: [
+                { key: "hi", threshold: 90, color: [255, 0, 0, 1], flashing: true },
+              ],
+              smooth: true,
             },
+            fillColor: [0, 255, 0, 1],
             units: "psi",
             stalenessTimeout: 5,
           },
@@ -95,13 +98,17 @@ describe("Table", () => {
       expect(cfg.rollingAverage).toEqual(5);
       expect(cfg.precision).toEqual(3);
       expect(cfg.notation).toEqual("scientific");
-      expect(cfg.redline?.bounds).toEqual({ lower: 0, upper: 100 });
+      expect(cfg.redline).toEqual({
+        bands: [{ key: "hi", threshold: 90, color: [255, 0, 0, 1], flashing: true }],
+        smooth: true,
+      });
+      expect(cfg.fillColor).toEqual([0, 255, 0, 1]);
       expect(cfg.units).toEqual("psi");
       expect(cfg.stalenessTimeout).toEqual(5);
     });
 
     test("rejects a cell config that matches no variant", async () => {
-      const proj = await client.projects.create({ name: "BadConfig", layout: {} });
+      const proj = await client.projects.create({ name: "BadConfig" });
       await expect(
         client.tables.create(proj.key, {
           name: "BadConfig",
@@ -115,7 +122,7 @@ describe("Table", () => {
 
   describe("dispatch", () => {
     const createTable = async () => {
-      const proj = await client.projects.create({ name: "Dispatch", layout: {} });
+      const proj = await client.projects.create({ name: "Dispatch" });
       return await client.tables.create(proj.key, {
         name: "Dispatch",
         rows: [{ size: 30, cells: ["a", "b"] }],

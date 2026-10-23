@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type location } from "@synnaxlabs/x";
 import {
   Handle,
@@ -14,8 +15,6 @@ import {
   Position,
   useUpdateNodeInternals,
 } from "@xyflow/react";
-
-import { CSS } from "@/css";
 
 export interface BaseProps extends Omit<HandleProps, "position"> {
   location: location.Outer;
@@ -28,7 +27,7 @@ const RF_POSITIONS: Record<location.Outer, Position> = {
   left: Position.Left,
 };
 
-export const locationToRFPosition = (location: location.Outer): Position =>
+const locationToRFPosition = (location: location.Outer): Position =>
   RF_POSITIONS[location];
 
 export const Base = ({ location, className, ...props }: BaseProps) => {

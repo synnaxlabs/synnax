@@ -8,14 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import {
-  Component,
-  Form,
-  type Input,
-  type position,
-  type Select,
-  Status,
-} from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Form } from "@synnaxlabs/lyra/form";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { type position } from "@synnaxlabs/lyra/position";
+import { type Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 

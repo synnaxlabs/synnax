@@ -7,27 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/channel/Select.css";
+
 import { type channel } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement } from "react";
 
 import { type ListQuery, useList } from "@/channel/queries";
 import { resolveIcon } from "@/channel/resolveIcon";
 import { HAUL_TYPE } from "@/channel/types";
-import { Component } from "@/component";
 import { type Flux } from "@/flux";
-import { Icon } from "@/icon";
-import { List } from "@/list";
-import { Select } from "@/select";
 
 const listItemRenderProp = Component.renderProp(
   ({ itemKey, ...rest }: List.ItemRenderProps<channel.Key>): ReactElement | null => {
     const item = List.useItem<channel.Key, channel.Channel>(itemKey);
     const Icon = resolveIcon(item?.payload);
     return (
-      <Select.ListItem itemKey={itemKey} {...rest}>
+      <Select.Item itemKey={itemKey} {...rest}>
         <Icon />
         {item?.name}
-      </Select.ListItem>
+      </Select.Item>
     );
   },
 );
@@ -39,6 +42,19 @@ export interface SelectMultipleProps
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
     Flux.UseListParams<ListQuery, channel.Key, channel.Channel> {}
+
+const isChannel = (entry: unknown): entry is channel.Channel =>
+  entry != null && typeof entry === "object" && "payload" in entry;
+
+const renderTriggerIcon = (entry: unknown): Icon.ReactElement | undefined => {
+  const Resolved = resolveIcon(isChannel(entry) ? entry.payload : undefined);
+  return <Resolved />;
+};
+
+const TRIGGER_PROPS = {
+  renderIcon: renderTriggerIcon,
+  className: CSS.BE("channel", "trigger"),
+};
 
 export const SelectMultiple = ({
   initialQuery,
@@ -57,7 +73,7 @@ export const SelectMultiple = ({
       onSearch={search}
       status={status}
       icon={<Icon.Channel />}
-      triggerProps={{ renderIcon: renderTriggerIcon }}
+      triggerProps={TRIGGER_PROPS}
       {...rest}
       resourceName="channel"
       data={data}
@@ -67,14 +83,6 @@ export const SelectMultiple = ({
       {listItemRenderProp}
     </Select.Multiple>
   );
-};
-
-const isChannel = (entry: unknown): entry is channel.Channel =>
-  entry != null && typeof entry === "object" && "payload" in entry;
-
-const renderTriggerIcon = (entry: unknown): Icon.ReactElement | undefined => {
-  const Resolved = resolveIcon(isChannel(entry) ? entry.payload : undefined);
-  return <Resolved />;
 };
 
 export interface SelectSingleProps
@@ -102,7 +110,7 @@ export const SelectSingle = ({
       status={status}
       haulType={HAUL_TYPE}
       icon={<Icon.Channel />}
-      triggerProps={{ renderIcon: renderTriggerIcon }}
+      triggerProps={TRIGGER_PROPS}
       {...rest}
       data={data}
       getItem={getItem}

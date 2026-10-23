@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
 
-import { Explorer } from "@/feature/status/explorer/Explorer";
 import { Panel } from "@/platform/panel";
-
-export { Explorer };
 
 export const TAB_TYPE = "status_explorer";
 
 const TAB: Panel.Tab = {
-  Content: Explorer,
+  Content: Panel.lazyComponent(
+    () => import("@/feature/status/explorer/Explorer"),
+    "Explorer",
+  ),
   Icon: Status.ExplorerIcon,
   Name: Panel.createStaticTabName({
     name: "Status explorer",
@@ -31,6 +31,5 @@ export const TABS: Panel.Tabs = {
 
 export const useOpenTab = (): (() => void) => {
   const openTab = Panel.useOpenTab();
-  return () =>
-    openTab({ variant: "view", type: TAB_TYPE, args: {} }, { singleton: true });
+  return () => openTab({ variant: "view", type: TAB_TYPE }, { singleton: true });
 };

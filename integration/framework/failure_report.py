@@ -10,14 +10,14 @@
 """Pre-rendered per-run failure report (``all-failures.md``).
 
 After the conductor finishes, this module reads each failing test's bundle
-(``trace.zip`` + sliced ``server.log`` + traceback) and emits one consolidated
-markdown file at the run-dir root. The format is shaped for autonomous LLM
-triage: stable headings, code fences, and concise sections so an agent reading
-the file once can decide what to drill into.
+(``trace.zip`` + sliced ``server.log`` + traceback) and emits one consolidated markdown
+file at the run-dir root. The format is shaped for autonomous LLM triage: stable
+headings, code fences, and concise sections so an agent reading the file once can decide
+what to drill into.
 
-Trace parsing reads ``trace.trace`` and ``trace.network`` JSONL streams from
-the zip directly. The ``npx playwright trace`` CLI is the *interactive* fallback
-documented in the skill; this module is the *batch* path that runs at exit.
+Trace parsing reads ``trace.trace`` and ``trace.network`` JSONL streams from the zip
+directly. The ``pnpm dlx playwright trace`` CLI is the *interactive* fallback documented
+in the skill; this module is the *batch* path that runs at exit.
 """
 
 import json
@@ -295,11 +295,11 @@ def _render_network(summary: TraceSummary) -> list[str]:
         return []
     out: list[str] = ["### Network failures", ""]
     out.append("```")
-    for f in summary.network_failures[:MAX_NETWORK_FAILURES]:
-        out.append(
-            f"{f['status']} {f['status_text']:<15} {f['method']} "
-            f"{_truncate(f['url'], 100)}".rstrip()
-        )
+    out.extend(
+        f"{f['status']} {f['status_text']:<15} {f['method']} "
+        f"{_truncate(f['url'], 100)}".rstrip()
+        for f in summary.network_failures[:MAX_NETWORK_FAILURES]
+    )
     if len(summary.network_failures) > MAX_NETWORK_FAILURES:
         out.append(f"... +{len(summary.network_failures) - MAX_NETWORK_FAILURES} more")
     out.append("```")

@@ -1,0 +1,9 @@
+{
+  "extends": "@synnaxlabs/tsconfig/base.json",
+  "compilerOptions": {
+    "composite": true,
+    "types": ["node", "pluralize", "react", "react-dom"],
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": ["src/**/*", "scripts/**/*", "eslint.config.ts"]
+}

@@ -9,8 +9,8 @@
 
 import "@/platform/shell/Shell.css";
 
-import { Logo } from "@synnaxlabs/media";
-import { Flex } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Logo } from "@synnaxlabs/lyra/logo";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -28,6 +28,6 @@ export const Mark = ({ children }: PropsWithChildren): ReactElement => (
     grow={false}
     className={CSS.BE("shell", "mark-ring")}
   >
-    {children ?? <Logo variant="icon" className={CSS.BE("shell", "mark")} />}
+    {children ?? <Logo.Logo variant="icon" className={CSS.BE("shell", "mark")} />}
   </Flex.Box>
 );

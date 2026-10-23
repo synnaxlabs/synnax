@@ -10,22 +10,18 @@
 import "@/feature/project/Selector.css";
 
 import { project, UnexpectedError } from "@synnaxlabs/client";
-import {
-  Access,
-  Component,
-  CSS as PCSS,
-  Dialog,
-  type Flux,
-  List,
-  Menu,
-  Project,
-  Select,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Avatar } from "@synnaxlabs/lyra/avatar";
+import { Component } from "@synnaxlabs/lyra/component";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, type Flux, Project } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { type MouseEvent, type ReactElement, useCallback, useState } from "react";
 
-import { Avatar } from "@/feature/project/Avatar";
 import { Button } from "@/platform/button";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -51,13 +47,13 @@ export const listItem = Component.renderProp(
     );
     if (proj == null) return null;
     return (
-      <Select.ListItem
+      <Select.Item
         {...props}
         className={Menu.CONTEXT_TARGET}
         data-menu-key={itemKey}
         onClickCapture={stopClicksWhileEditing}
       >
-        <Avatar name={proj.name} />
+        <Avatar.Avatar name={proj.name} size="small" />
         <Text.MaybeEditable
           id={PCSS.B(`project-${itemKey}`)}
           value={proj.name}
@@ -66,7 +62,7 @@ export const listItem = Component.renderProp(
           className={CSS.BE("project", "name")}
           overflow="ellipsis"
         />
-      </Select.ListItem>
+      </Select.Item>
     );
   },
 );
@@ -128,7 +124,7 @@ export const ContextMenu = ({
 const TriggerAvatar = ({ itemKey }: { itemKey: project.Key }): ReactElement | null => {
   const proj = List.useItem<project.Key, project.Project>(itemKey);
   if (proj == null) return null;
-  return <Avatar name={proj.name} />;
+  return <Avatar.Avatar name={proj.name} />;
 };
 
 export const Selector = (): ReactElement | null => {
@@ -179,20 +175,23 @@ export const Selector = (): ReactElement | null => {
           >
             <TriggerAvatar itemKey={activeKey} />
           </Dialog.Trigger>
-          <Select.Dialog<project.Key>
+          <Select.Dialog
             className={CSS.B("project-selector-dialog")}
-            resourceName="project"
-            onSearch={search}
             onContextMenu={menuProps.open}
-            footer={
-              hasCreatePermission && (
-                <Button.CreateListItem size="small" onClick={handleCreate}>
-                  New project
-                </Button.CreateListItem>
-              )
-            }
           >
-            {listItem}
+            <Select.Body<project.Key>
+              resourceName="project"
+              onSearch={search}
+              footer={
+                hasCreatePermission && (
+                  <Button.CreateListItem size="small" onClick={handleCreate}>
+                    New project
+                  </Button.CreateListItem>
+                )
+              }
+            >
+              {listItem}
+            </Select.Body>
           </Select.Dialog>
         </Select.Frame>
       </Dialog.Frame>

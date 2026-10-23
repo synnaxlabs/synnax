@@ -185,6 +185,7 @@ export const useList = Flux.createList<ListParams, device.Key, device.Device>({
   retrieveByKey: async ({ client, key }) =>
     await client.devices.retrieve({ ...BASE_QUERY, key }),
   onChange: ({ client, query }, handler) => client.devices.onChange(query, handler),
+  onChangeByKey: ({ client, key }, handler) => client.devices.onChange(key, handler),
   getCached: ({ client, query }) => client.devices.getCached(query),
 });
 

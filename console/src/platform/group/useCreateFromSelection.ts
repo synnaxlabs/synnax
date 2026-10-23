@@ -8,20 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology } from "@synnaxlabs/client";
-import { Flux, Group, List, Text, Tree as PTree } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { Flux, Group } from "@synnaxlabs/pluto";
 import { uuid, verbs } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { getResourcesToGroup } from "@/platform/group/getResourcesToGroup";
 import { type Tree } from "@/platform/tree";
 
-export interface CreateFromSelection {
-  (props: Tree.ContextMenuProps): void;
-}
-
 interface CreateParams extends Tree.ContextMenuProps {
   group: group.Group;
-  prevNodes?: PTree.Node<string>[];
 }
 
 const base = Flux.createUpdate<CreateParams>({
@@ -44,7 +42,10 @@ const base = Flux.createUpdate<CreateParams>({
   },
 });
 
-const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<CreateParams>) => {
+const beforeUpdate = async ({
+  data,
+  rollbacks,
+}: Flux.BeforeUpdateParams<CreateParams>) => {
   const {
     selection,
     state: { nodes, setNodes, setSelection, shape, setResource },
@@ -54,6 +55,7 @@ const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<CreateParams>) => 
   const newIDString = ontology.idToString(newID);
   const resourcesToGroup = getResourcesToGroup(selection.ids, shape);
   const prevNodes = PTree.deepCopy(nodes);
+  rollbacks.push(() => setNodes(prevNodes));
   const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
   setResource(res);
   const destination = ontology.idsEqual(selection.rootID, selection.parentID)
@@ -62,39 +64,22 @@ const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<CreateParams>) => 
   let nextNodes = PTree.setNode({
     tree: nodes,
     destination,
-    additions: { key: ontology.idToString(newID), children: [] },
+    additions: { key: newIDString, children: [] },
   });
   nextNodes = PTree.moveNode({
     tree: nextNodes,
-    destination: ontology.idToString(newID),
+    destination: newIDString,
     keys: resourcesToGroup.map((id) => ontology.idToString(id)),
   });
   setNodes([...nextNodes]);
-  setSelection([ontology.idToString(newID)]);
-  const [groupName, renamed] = await Text.asyncEdit(
-    List.itemNameID(ontology.idToString(newID)),
-  );
-  if (!renamed) {
-    setNodes(prevNodes);
-    return false;
-  }
-
-  return { ...data, prevNodes, group: { ...data.group, name: groupName } };
+  setSelection([newIDString]);
+  const [groupName, renamed] = await Text.asyncEdit(List.itemNameID(newIDString));
+  if (!renamed) return false;
+  return { ...data, group: { ...data.group, name: groupName } };
 };
 
-const afterFailure = async ({
-  status,
-  data: {
-    prevNodes,
-    addStatus,
-    state: { setNodes },
-  },
-}: Flux.AfterFailureParams<CreateParams>) => {
-  if (prevNodes != null) setNodes(prevNodes);
-  addStatus(status);
-};
 export const useCreateFromSelection = () => {
-  const { update } = base.useUpdate({ beforeUpdate, afterFailure });
+  const { update } = base.useUpdate({ beforeUpdate });
   return useCallback(
     (props: Tree.ContextMenuProps) =>
       update({ ...props, group: { key: uuid.create(), name: "" } }),

@@ -14,15 +14,17 @@
         align-items: baseline;
     }
 
-    .pluto-legend-entry__user {
+    .pluto-legend-entry__subject .pluto-legend-entry__user {
+        align-items: baseline;
         color: var(--pluto-gray-l10);
 
         &.pluto--self {
             color: var(--pluto-primary-z);
         }
 
+        /* The person glyph ends 4 units above the bottom of its 24-unit view box. */
         .pluto-icon {
-            transform: translateY(1px);
+            transform: translateY(16.667%);
         }
     }
 

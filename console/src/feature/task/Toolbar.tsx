@@ -10,28 +10,24 @@
 import "@/feature/task/Toolbar.css";
 
 import { task } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Flex,
-  type Flux,
-  Icon,
-  List,
-  Menu,
-  Select,
-  Status,
-  stopPropagation,
-  Synnax,
-  Task,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
+import { Access, type Flux, Synnax, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
 import { useOpenSelector } from "@/feature/task/Selector";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import { useSetDataSaving } from "@/feature/task/useSetDataSaving";
+import { Analytics } from "@/platform/analytics";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -96,7 +92,19 @@ const Content = () => {
     afterFailure: ({ status }) => addStatus(status),
   });
 
-  const { update: runCommand } = Task.useCommand();
+  const { capture } = Analytics.use();
+  const { update: runCommand } = Task.useCommand({
+    afterSuccess: useCallback(
+      ({ data }: Flux.AfterSuccessParams<Task.CommandParams>) =>
+        getItem(
+          array
+            .toArray(data)
+            .filter(({ type }) => type === "start")
+            .map(({ task }) => task),
+        ).forEach(({ type }) => capture("task_started", { type })),
+      [getItem, capture],
+    ),
+  });
   const handleCommand = useCallback(
     (keys: string[], type: string) => runCommand(keys.map((k) => ({ task: k, type }))),
     [runCommand],
@@ -180,21 +188,21 @@ const Content = () => {
             onFetchMore={fetchMore}
             replaceOnSingle
           >
-            <List.Items<task.Key, task.Task>
-              full="y"
-              emptyContent={answered && <EmptyContent />}
-              onContextMenu={menuProps.open}
-            >
-              {({ key, ...p }) => (
-                <TaskListItem
-                  key={key}
-                  {...p}
-                  onStopStart={handleListItemStopStart}
-                  onRename={rename}
-                  onEdit={handleEdit}
-                />
-              )}
-            </List.Items>
+            <List.Scroll full="y" onContextMenu={menuProps.open}>
+              <List.Items<task.Key, task.Task>
+                emptyContent={answered && <EmptyContent />}
+              >
+                {({ key, ...p }) => (
+                  <TaskListItem
+                    key={key}
+                    {...p}
+                    onStopStart={handleListItemStopStart}
+                    onRename={rename}
+                    onEdit={handleEdit}
+                  />
+                )}
+              </List.Items>
+            </List.Scroll>
           </Select.Frame>
         </Toolbar.Body>
       </Toolbar.Content>
@@ -247,7 +255,7 @@ const TaskListItem = ({
   );
   const handleDoubleClick = useCallback(() => onEdit(itemKey), [onEdit, itemKey]);
   return (
-    <Select.ListItem
+    <Select.Item
       {...rest}
       onDoubleClick={handleDoubleClick}
       justify="between"
@@ -295,7 +303,7 @@ const TaskListItem = ({
           {isRunning ? <Icon.Stop /> : <Icon.Play />}
         </Button.Button>
       )}
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

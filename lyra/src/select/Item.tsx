@@ -1,0 +1,184 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/select/Item.css";
+
+import { type record } from "@synnaxlabs/x";
+import {
+  type ReactNode,
+  type RefObject,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
+import { createPortal } from "react-dom";
+
+import { Button } from "@/button";
+import { CSS } from "@/css";
+import { List } from "@/list";
+import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
+import { useItemState, useReselectNoop, useSelectedAmong } from "@/select/Context";
+import { useIsHidden, useRegistryContext } from "@/select/registry";
+import { type ButtonsContextValue, useButtonsContext, useClosed } from "@/select/scope";
+
+/** Props for {@link Item}. */
+export type ItemProps<
+  K extends record.Key = record.Key,
+  E extends Button.ElementType = "div",
+> = List.ItemProps<K, E> & {
+  /**
+   * The item's name as plain text, for children that are not plain text. The search
+   * matches it, and a collapsed trigger shows it in its tooltip. Defaults to the
+   * children when they are a string.
+   */
+  textValue?: string;
+};
+
+const BlockItem = <K extends record.Key, E extends Button.ElementType>(
+  props: List.ItemProps<K, E>,
+): ReactNode => {
+  const { selected, hovered, onSelect, sole } = useItemState(props.itemKey);
+  const reselectNoop = useReselectNoop();
+  return (
+    <List.Item<K, E>
+      role="option"
+      selected={selected}
+      hovered={hovered}
+      onSelect={onSelect}
+      preventClick={reselectNoop && sole ? true : undefined}
+      {...props}
+    />
+  );
+};
+
+// The element is read after every commit, so the registry follows it without a render.
+const useRegister = (
+  key: record.Key,
+  ref: RefObject<HTMLElement | null> | null,
+  text?: string,
+): void => {
+  const registry = useRegistryContext("Select.Item");
+  useLayoutEffect(() => registry.setItem(key, ref?.current ?? null, text));
+  useLayoutEffect(() => () => registry.removeItem(key), [registry, key]);
+};
+
+interface ButtonItemProps<K extends record.Key>
+  extends Button.ExtensionProps, Pick<ItemProps<K>, "itemKey" | "className" | "style"> {
+  buttons: ButtonsContextValue;
+}
+
+const ButtonItem = <K extends record.Key>({
+  itemKey,
+  className,
+  buttons: { preview, variant },
+  ...rest
+}: ButtonItemProps<K>): ReactNode => {
+  const { selected, onSelect } = useItemState(itemKey);
+  const ref = useRef<HTMLButtonElement>(null);
+  useRegister(itemKey, ref);
+  if (preview && !selected) return null;
+  return (
+    <Button.Toggle
+      preview={preview}
+      variant={variant}
+      {...rest}
+      ref={ref}
+      id={itemKey.toString()}
+      onChange={onSelect}
+      value={selected}
+      className={CSS.cls(
+        className,
+        CSS.B("select-btn"),
+        CSS.selected(selected),
+        selected && CONTEXT_SELECTED,
+        CONTEXT_TARGET,
+      )}
+    />
+  );
+};
+
+// A closed item draws nothing but its label, so it skips the hooks an open item needs.
+const ClosedFixedItem = <K extends record.Key>({
+  itemKey,
+  children,
+}: Pick<ItemProps<K>, "itemKey" | "children">): ReactNode => {
+  const keys = useMemo(() => [itemKey], [itemKey]);
+  const selected = useSelectedAmong(keys) != null;
+  const registry = useRegistryContext("Select.Item");
+  if (!selected) return null;
+  return createPortal(children, registry.getLabel(itemKey));
+};
+
+const OpenFixedItem = <K extends record.Key, E extends Button.ElementType>(
+  props: List.ItemProps<K, E>,
+): ReactNode => {
+  const { itemKey, children } = props;
+  const { selected, hovered, onSelect, sole } = useItemState(itemKey);
+  const reselectNoop = useReselectNoop();
+  const registry = useRegistryContext("Select.Item");
+  const hidden = useIsHidden(itemKey);
+  const label = selected ? createPortal(children, registry.getLabel(itemKey)) : null;
+  return (
+    <>
+      <List.Item<K, E>
+        role="option"
+        selected={selected}
+        hovered={hovered}
+        onSelect={onSelect}
+        preventClick={reselectNoop && sole ? true : undefined}
+        hidden={hidden}
+        {...props}
+      />
+      {label}
+    </>
+  );
+};
+
+interface FixedItemProps<K extends record.Key, E extends Button.ElementType> {
+  item: List.ItemProps<K, E>;
+  text: string | undefined;
+}
+
+const FixedItem = <K extends record.Key, E extends Button.ElementType>({
+  item,
+  text,
+}: FixedItemProps<K, E>): ReactNode => {
+  const ref = useRef<HTMLElement>(null);
+  const { itemKey, children } = item;
+  useRegister(
+    itemKey,
+    ref,
+    text ?? (typeof children === "string" ? children : undefined),
+  );
+  return useClosed() ? (
+    <ClosedFixedItem itemKey={itemKey}>{children}</ClosedFixedItem>
+  ) : (
+    <OpenFixedItem {...item} ref={ref} />
+  );
+};
+
+/**
+ * One option of a selection. Rendered by an {@link Items} block, it is a row of the
+ * frame's data. Inside {@link Buttons} it is a toggle button. Anywhere else it is a
+ * fixed option: the arrow keys reach it in page order, the search filters it by its
+ * text, and a trigger shows its children when it is selected.
+ */
+export const Item = <
+  K extends record.Key = record.Key,
+  E extends Button.ElementType = "div",
+>(
+  props: ItemProps<K, E>,
+): ReactNode => {
+  const inItems = List.useInItems();
+  const buttons = useButtonsContext();
+  const { textValue, ...rest } = props;
+  if (inItems) return <BlockItem {...rest} />;
+  if (buttons != null) return <ButtonItem {...rest} buttons={buttons} />;
+  return <FixedItem item={rest} text={textValue} />;
+};

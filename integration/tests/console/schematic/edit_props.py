@@ -41,7 +41,6 @@ def assert_properties(
     assert props["show_control_legend"] == show_control_legend, (
         f"Show control state legend mismatch! Actual: {props['show_control_legend']}, Expected: {show_control_legend}"
     )
-    ...
 
 
 def assert_symbol_properties(symbol: Symbol, expected_props: PropertyDict) -> None:
@@ -140,7 +139,7 @@ class EditProps(ConsoleCase):
             "notation": "standard",
             "precision": 2,
             "averaging_window": 1,
-            "stale_color": "#B07207",  # pluto-warning-m1 (light theme)
+            "stale_color": "",
             "stale_timeout": 5,
         }
         assert_symbol_properties(value, default_props)

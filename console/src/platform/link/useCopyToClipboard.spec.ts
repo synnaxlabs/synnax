@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { act, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
 import { Link } from "@/platform/link";
-import { renderHookWithConsole, stubClipboardWriteText } from "@/testutil";
+import { renderHookWithConsole } from "@/testutil";
 
 describe("Link.useCopyToClipboard", () => {
   let writeText: Mock;

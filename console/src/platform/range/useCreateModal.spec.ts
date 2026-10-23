@@ -12,6 +12,8 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { type Analytics } from "@/platform/analytics";
+import { createTestSink } from "@/platform/analytics/testutil";
 import {
   findButton,
   type ModalOpenerHandle,
@@ -29,14 +31,16 @@ const client = createTestClient();
 
 interface OpenModalOptions {
   client?: Synnax | null;
+  analytics?: Analytics.Sink;
 }
 
 const openModal = async (
   params?: Range.CreateModalParams,
-  { client: c = null }: OpenModalOptions = {},
+  { client: c = null, analytics }: OpenModalOptions = {},
 ): Promise<ModalOpenerHandle<void>> => {
   const handle = await renderModalOpener(Range.useCreateModal, [params ?? {}], {
     client: c,
+    analytics,
   });
   await waitFor(() => expect(screen.getByText("Save locally")).toBeTruthy());
   return handle;
@@ -102,6 +106,28 @@ describe("Range.useCreateModal", () => {
     });
   });
 
+  it("should report the range it saved to the Core", async () => {
+    const analytics = createTestSink();
+    await openModal(
+      { name: uniqueRangeName("reported"), timeRange: { start: 1, end: 2 } },
+      { client, analytics },
+    );
+    await clickWhenEnabled("Save to Core");
+    await waitFor(() =>
+      expect(analytics.capture).toHaveBeenCalledWith("range_created", {}),
+    );
+  });
+
+  it("should not report an edited range as created", async () => {
+    const existing = await createTestRange(client);
+    const analytics = createTestSink();
+    await openModal({ rangeKey: existing.key }, { client, analytics });
+    await waitFor(() => expect(screen.getByDisplayValue(existing.name)).toBeTruthy());
+    await clickWhenEnabled("Save to Core");
+    await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
+    expect(analytics.capture).not.toHaveBeenCalled();
+  });
+
   it("should prefill from and update the existing range when rangeKey is provided", async () => {
     const existing = await createTestRange(client);
     await openModal({ rangeKey: existing.key }, { client });
@@ -128,24 +154,7 @@ describe("Range.useCreateModal", () => {
       },
       { client },
     );
-    // Clicking the selected range a second time in the list deselects it, but the list
-    // shows one page and this parent sorts past it, so only a search brings it in.
-    fireEvent.click(await screen.findByText(parent.name));
-    await screen.findByPlaceholderText("Search ranges...");
-    await waitFor(() =>
-      expect(screen.getAllByRole("option").length).toBeGreaterThan(0),
-    );
-    expect(screen.queryByRole("option", { name: new RegExp(parent.name) })).toBeNull();
-    fireEvent.change(screen.getByPlaceholderText("Search ranges..."), {
-      target: { value: parent.name },
-    });
-    fireEvent.click(
-      await screen.findByRole(
-        "option",
-        { name: new RegExp(parent.name) },
-        { timeout: 5000 },
-      ),
-    );
+    fireEvent.click(await screen.findByLabelText(`Clear ${parent.name}`));
     await waitFor(() => expect(screen.getByText("Parent range")).toBeTruthy());
     await clickWhenEnabled("Save locally");
     await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());

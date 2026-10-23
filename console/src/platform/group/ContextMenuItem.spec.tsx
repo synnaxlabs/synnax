@@ -9,7 +9,8 @@
 
 import { group, ontology, ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
+import { Tree } from "@synnaxlabs/lyra/tree";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";

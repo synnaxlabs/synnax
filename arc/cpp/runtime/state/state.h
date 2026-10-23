@@ -103,6 +103,9 @@ class Node {
     bool edge_fed = false;
     /// @brief rearm[i] selects when a consumed input i fires again.
     std::vector<Rearm> rearm;
+    /// @brief stale[i] marks an input whose series an earlier run consumed. It holds
+    /// only its last sample until new data arrives.
+    std::vector<bool> stale;
     /// @brief params holds the node's input params with their configured values.
     types::Params params;
 
@@ -131,6 +134,7 @@ class Node {
         is_reference(std::move(is_reference)),
         literal(std::move(literal)),
         rearm(std::move(rearm)),
+        stale(this->inputs.size(), false),
         params(std::move(params)) {
         for (size_t i = 0; i < this->literal.size(); i++)
             if (!this->literal[i] && !this->is_reference[i]) {
@@ -152,6 +156,12 @@ public:
 
     [[nodiscard]] const Series &input(const size_t param_index) const {
         return this->aligned_data[param_index];
+    }
+
+    /// @brief reports whether the input at param_index was consumed by an earlier
+    /// run.
+    [[nodiscard]] bool input_stale(const size_t param_index) const {
+        return param_index < this->stale.size() && this->stale[param_index];
     }
 
     [[nodiscard]] const Series &input_time(size_t param_index) const;

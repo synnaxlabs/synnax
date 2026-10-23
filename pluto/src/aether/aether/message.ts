@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type errors, type state } from "@synnaxlabs/x";
+import { type errors, type record } from "@synnaxlabs/x";
 
-/** Main → worker: create or update the component at `path` with `state`. */
+/** Main → worker: create or update the component at `path`. */
 export interface MainUpdateRequest {
   variant: "update";
   path: readonly string[];
   type: string;
-  state: state.State;
+  /** The full state when the message creates the component. Otherwise only the
+   * top-level fields that changed, merged over the worker's state. */
+  state: record.Unknown;
 }
 
 /** Main → worker: delete the component at `path`. */
@@ -40,11 +42,12 @@ export interface MainInvokeRequest {
   args: unknown[];
 }
 
-/** Worker → main: replace the state of the component at `path`. */
+/** Worker → main: update the state of the component at `path`. */
 export interface WorkerUpdateRequest {
   variant: "update";
   path: readonly string[];
-  state: state.State;
+  /** The top-level fields that changed, merged over the main thread's state. */
+  state: record.Unknown;
 }
 
 /** Worker → main: a worker-side error to surface on the main thread. */

@@ -8,23 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { Form, Icon, type Input, Select } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
 
 export interface SelectVariantProps extends Input.Control<string> {}
 
-const VARIANT_DATA: Select.StaticEntry<string>[] = [
-  { key: "static", name: "Static", icon: <Icon.Auto /> },
-  { key: "actuator", name: "Actuator", icon: <Icon.Channel /> },
-];
-
 const SelectVariant = ({ value, onChange }: SelectVariantProps) => (
-  <Select.Static
-    data={VARIANT_DATA}
-    onChange={onChange}
-    value={value}
-    resourceName="variant"
-  />
+  <Select.Buttons<string> onChange={onChange} value={value}>
+    <Select.Item itemKey="static">
+      <Icon.Auto />
+      Static
+    </Select.Item>
+    <Select.Item itemKey="actuator">
+      <Icon.Channel />
+      Actuator
+    </Select.Item>
+  </Select.Buttons>
 );
 
 export interface SelectVariantFieldProps {

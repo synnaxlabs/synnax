@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement, useMemo } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
@@ -15,7 +16,6 @@ import { Label } from "@/schematic/node/common/label";
 import { Telem } from "@/schematic/node/common/telem";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
-import { Theming } from "@/theming";
 import { Staleness } from "@/vis/staleness";
 import { StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
 
@@ -27,7 +27,7 @@ export const Symbol = ({
     label,
     channel,
     options,
-    color,
+    strokeColor,
     inlineSize,
     size,
     stalenessTimeout,
@@ -54,7 +54,7 @@ export const Symbol = ({
       <StateIndicator
         matchedOptionKey={optKey}
         options={options}
-        color={color}
+        strokeColor={strokeColor}
         inlineSize={inlineSize}
         size={size}
         staleColor={stale ? Staleness.resolveColor(stalenessColor, theme) : undefined}

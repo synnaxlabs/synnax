@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, id, primitive, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -16,7 +19,6 @@ import { useByKeys } from "@/feature/ni/device/queries";
 import * as Device from "@/feature/ni/device/types";
 import { CIChannelForm } from "@/feature/ni/task/CIChannelForm";
 import { createNextCIChannel } from "@/feature/ni/task/createChannel";
-import { SelectCIChannelTypeField } from "@/feature/ni/task/SelectCIChannelTypeField";
 import {
   CI_CHANNEL_TYPE_ICONS,
   CI_CHANNEL_TYPE_NAMES,
@@ -73,15 +75,22 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
 
 const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
   const type = PForm.useFieldValue<CIChannelType>(`${path}.type`);
-  return (
-    <>
-      <SelectCIChannelTypeField path={path} inputProps={{ allowNone: false }} />
-      <CIChannelForm type={type} prefix={path} />
-    </>
-  );
+  return <CIChannelForm type={type} prefix={path} />;
 };
 
 const channelDetails = Component.renderProp(ChannelDetails);
+
+const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
+  const { port, type } = PForm.useFieldValue<CIChannel>(path);
+  const Icon = CI_CHANNEL_TYPE_ICONS[type];
+  return (
+    <Task.Views.ItemLabel kind={CI_CHANNEL_TYPE_NAMES[type]} icon={<Icon />}>
+      Port {port}
+    </Task.Views.ItemLabel>
+  );
+};
+
+const detailsTitle = Component.renderProp(DetailsTitle);
 
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<CIChannel>();
@@ -104,6 +113,7 @@ const Form: FC = () => {
     <Task.Views.ListAndDetails<CIChannel>
       listItem={listItem}
       details={channelDetails}
+      detailsTitle={detailsTitle}
       createChannel={createNextCIChannel}
       onTare={handleTare}
       allowTare={allowTare}

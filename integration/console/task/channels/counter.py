@@ -66,16 +66,20 @@ class Counter:
 
         # Min/Max values (not all counter types have these)
         if min_val is not None:
-            layout.fill_input_field("Minimum value", str(min_val))
+            layout.page.get_by_label("Minimum value", exact=True).fill(str(min_val))
             values["Minimum value"] = str(min_val)
         elif self.has_min_max():
-            values["Minimum value"] = layout.get_input_field("Minimum value")
+            values["Minimum value"] = layout.page.get_by_label(
+                "Minimum value", exact=True
+            ).input_value()
 
         if max_val is not None:
-            layout.fill_input_field("Maximum value", str(max_val))
+            layout.page.get_by_label("Maximum value", exact=True).fill(str(max_val))
             values["Maximum value"] = str(max_val)
         elif self.has_min_max():
-            values["Maximum value"] = layout.get_input_field("Maximum value")
+            values["Maximum value"] = layout.page.get_by_label(
+                "Maximum value", exact=True
+            ).input_value()
 
         self.form_values = values
 
@@ -86,7 +90,10 @@ class Counter:
             if isinstance(expected_value, bool):
                 actual_value = self.layout.get_toggle(key)
             elif is_numeric_string(expected_value):
-                actual_value = self.layout.get_input_field(key)
+                # Match by accessible name: range inputs have no visible label.
+                actual_value = self.layout.page.get_by_label(
+                    key, exact=True
+                ).input_value()
             else:
                 actual_value = self.layout.get_dropdown_value(key)
 
@@ -96,16 +103,7 @@ class Counter:
 
     def has_min_max(self) -> bool:
         """Check if this channel type has min/max value fields."""
-        try:
-            count: int = (
-                self.layout.page.locator("text=Minimum Value")
-                .locator("..")
-                .locator("input")
-                .first.count()
-            )
-            return count > 0
-        except Exception:
-            return False
+        return self.layout.page.get_by_label("Minimum value", exact=True).count() > 0
 
     def _configure_dropdown(
         self,

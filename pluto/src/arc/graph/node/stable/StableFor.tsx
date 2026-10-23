@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 import { color, TimeSpan } from "@synnaxlabs/x";
 
 import { Base, type HandleSpec } from "@/arc/graph/node/Base";
 import { type Config } from "@/arc/graph/node/stable/config";
 import { type types } from "@/arc/graph/node/types";
-import { Icon } from "@/icon";
-import { Text } from "@/text";
 
 export type SymbolProps = types.SymbolProps<Config>;
 

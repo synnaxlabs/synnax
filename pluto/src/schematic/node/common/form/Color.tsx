@@ -7,34 +7,46 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/x";
+import { Color } from "@synnaxlabs/lyra/color";
+import { type theme } from "@synnaxlabs/lyra/theme";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Color } from "@/color";
-import { Form } from "@/form";
+import { type ColorFallback } from "@/schematic/node/spec";
 
-export interface ColorFieldProps extends Omit<
-  Form.FieldProps<color.Crude | undefined>,
-  "placeholder"
-> {
-  /** The color the symbol renders with while the field is unset. */
-  placeholder?: color.Crude;
+/** @returns the theme color a symbol paints while one of its colors is absent. */
+export const defaultFallback = (theme: theme.Theme): color.Color =>
+  theme.colors.gray.l11;
+
+/** @returns the fill interactive symbols paint while their fill color is absent. */
+export const primaryFallback = (theme: theme.Theme): color.Color =>
+  theme.colors.primary.z;
+
+export interface ColorFieldProps extends Omit<Color.FieldProps, "fallback"> {
+  /** The color the symbol paints while the field is absent. */
+  fallback?: ColorFallback;
 }
 
+/** Edits an optional symbol color. */
 export const ColorField = ({
-  placeholder,
-  ...props
-}: ColorFieldProps): ReactElement => (
-  <Form.Field label="Color" align="start" padHelpText={false} {...props}>
-    {({ value, onChange, ...rest }) => (
-      <Color.Swatch
-        value={value}
-        onChange={onChange}
-        onClear={() => onChange(undefined)}
-        placeholder={placeholder}
-        {...rest}
-        bordered
-      />
-    )}
-  </Form.Field>
+  fallback = defaultFallback,
+  ...rest
+}: ColorFieldProps): ReactElement => {
+  const theme = Theming.use();
+  return <Color.Field fallback={fallback(theme)} {...rest} />;
+};
+
+/** @returns no fill, the fill most symbols paint while their fill color is absent. */
+export const noFillFallback: ColorFallback = () => color.ZERO;
+
+export interface FillFieldProps extends Omit<ColorFieldProps, "path"> {}
+
+/** Edits the fill color of the symbol in the form. The fallback defaults to no fill. */
+export const FillField = ({
+  label = "Fill",
+  fallback = noFillFallback,
+  ...rest
+}: FillFieldProps): ReactElement => (
+  <ColorField path="fillColor" label={label} fallback={fallback} {...rest} />
 );

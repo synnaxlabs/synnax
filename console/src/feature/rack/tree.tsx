@@ -10,7 +10,12 @@
 import "@/feature/rack/tree.css";
 
 import { arc, rack, task } from "@synnaxlabs/client";
-import { Access, Icon, List, Menu, Rack, Text, Tree as PTree } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { Access, Rack } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { Arc } from "@/feature/arc";

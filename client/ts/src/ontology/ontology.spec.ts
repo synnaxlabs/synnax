@@ -52,9 +52,8 @@ describe("Ontology", () => {
       ]);
     });
 
-    it("should fail safeParse on an invalid resource type without throwing", () => {
-      const result = ontology.idZ.safeParse("nonsense:key");
-      expect(result.success).toBe(false);
+    it("should reject an invalid resource type without throwing", () => {
+      expect(ontology.idZ.validate("nonsense:key")).toBe(false);
     });
 
     it("should extract ID from a single Resource object", () => {

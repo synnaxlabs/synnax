@@ -8,15 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Form as Base } from "@/form";
 
 export const Form = (): ReactElement => (
   <Base.Field<channel.Key> path="channel">
     {({ value, onChange }) => (
-      <Channel.SelectSingle value={value} onChange={onChange} />
+      <Channel.SelectSingle
+        value={value}
+        onChange={(key: channel.Key | null) => onChange(key ?? 0)}
+        allowNone
+      />
     )}
   </Base.Field>
 );

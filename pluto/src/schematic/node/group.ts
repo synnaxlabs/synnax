@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type group } from "@synnaxlabs/client";
+import { type Icon } from "@synnaxlabs/lyra/icon";
 
-import { type Icon } from "@/icon";
 import { Fittings } from "@/schematic/node/fittings";
 import { Flowmeters } from "@/schematic/node/flowmeters";
 import { General } from "@/schematic/node/general";

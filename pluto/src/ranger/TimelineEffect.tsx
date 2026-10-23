@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type NumericTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Icon } from "@/icon";
-import { Input } from "@/input";
 import { UNSET } from "@/ranger/move";
 import { getStage, type Stage, STAGE_ICONS, STAGE_NAMES } from "@/ranger/stage";
-import { Text } from "@/text";
 
 /** One thing a commit would change about a range. */
 export type Change =

@@ -15,7 +15,8 @@ import {
   project,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { type Mosaic, Status, Synnax } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { type Mosaic, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { FS } from "@/platform/fs";

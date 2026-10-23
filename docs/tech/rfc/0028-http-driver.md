@@ -87,7 +87,7 @@ integration/tests/driver/http/    # Integration tests
 ├── write.py                      # Write task integration tests
 └── scan.py                       # Scan task integration tests
 
-docs/site/src/pages/reference/device-drivers/http/  # Documentation (NEW)
+site/docs/src/pages/reference/device-drivers/http/  # Documentation (NEW)
 ├── _nav.ts
 ├── get-started.mdx
 ├── connect-server.mdx
@@ -1048,7 +1048,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 **Scope**: HTTP driver overview and device connection docs
 
-- `docs/site/src/pages/reference/device-drivers/http/get-started.mdx`
+- `site/docs/src/pages/reference/device-drivers/http/get-started.mdx`
 - Overview, connection setup, authentication options, headers
 
 ---
@@ -1101,7 +1101,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 **Scope**: Read task documentation
 
-- `docs/site/src/pages/reference/device-drivers/http/read-task.mdx`
+- `site/docs/src/pages/reference/device-drivers/http/read-task.mdx`
 - Configuration reference, JSON Pointer syntax, type conversions, timestamp formats,
   examples
 
@@ -1153,7 +1153,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 **Scope**: Write task documentation
 
-- `docs/site/src/pages/reference/device-drivers/http/write-task.mdx`
+- `site/docs/src/pages/reference/device-drivers/http/write-task.mdx`
 - Configuration reference, field types, request body construction, examples
 
 ---
@@ -1197,7 +1197,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 **Scope**: Scan task documentation
 
-- `docs/site/src/pages/reference/device-drivers/http/scan-task.mdx`
+- `site/docs/src/pages/reference/device-drivers/http/scan-task.mdx`
 - Health check configuration, response validation, monitoring setup
 
 ---
@@ -1224,8 +1224,8 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 ### 11.2 Documentation patterns
 
-- `/docs/site/src/pages/reference/device-drivers/opc-ua/`: OPC UA docs structure
-- `/docs/site/src/pages/reference/device-drivers/`: Other driver docs
+- `/site/docs/src/pages/reference/device-drivers/opc-ua/`: OPC UA docs structure
+- `/site/docs/src/pages/reference/device-drivers/`: Other driver docs
 
 ---
 

@@ -9,6 +9,13 @@
 
 import "@/vis/canvas/Canvas.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import {
+  useCombinedRefs,
+  useResize,
+  type UseResizeHandler,
+  type UseResizeOpts,
+} from "@synnaxlabs/lyra/hooks";
 import { box, type CrudeTimeSpan, runtime, scale, TimeSpan, xy } from "@synnaxlabs/x";
 import {
   type CanvasHTMLAttributes,
@@ -21,13 +28,6 @@ import {
 } from "react";
 
 import { Aether } from "@/aether";
-import { CSS } from "@/css";
-import {
-  useCombinedRefs,
-  useResize,
-  type UseResizeHandler,
-  type UseResizeOpts,
-} from "@/hooks";
 import { canvas } from "@/vis/canvas/aether";
 
 type HTMLDivProps = DetailedHTMLProps<
@@ -111,9 +111,9 @@ export const Canvas = ({
         dpr: window.devicePixelRatio,
       }));
     };
-    window
-      .matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
-      .addEventListener("change", handleChange, { once: true });
+    const query = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    query.addEventListener("change", handleChange, { once: true });
+    return () => query.removeEventListener("change", handleChange);
   }, [dpr]);
 
   // We want to trigger a re-render when the window is focused or blurred to ensure
@@ -134,6 +134,10 @@ export const Canvas = ({
     };
     window.addEventListener("focus", handler);
     window.addEventListener("blur", handler);
+    return () => {
+      window.removeEventListener("focus", handler);
+      window.removeEventListener("blur", handler);
+    };
   }, [setState]);
 
   const refCallback = useCallback(

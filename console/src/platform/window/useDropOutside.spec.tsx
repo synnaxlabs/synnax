@@ -18,7 +18,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
-import { Haul } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import type { xy } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";

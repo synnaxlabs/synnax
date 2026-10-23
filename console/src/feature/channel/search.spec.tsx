@@ -16,7 +16,8 @@ import {
   project,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { List, Select } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
 import { uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
@@ -65,7 +66,6 @@ describe("channel/search", () => {
     const ch = await createChannel();
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const store = await renderSearchItem(
       createResource(channelClient.ontologyID(ch.key), ch.name),
@@ -84,7 +84,6 @@ describe("channel/search", () => {
     const ch = await createChannel();
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const plot = await client.lineplots.create(proj.key, { name: uniqueName("plot") });
     const store = await renderSearchItem(
@@ -121,7 +120,6 @@ describe("channel/search", () => {
     const ch = await createChannel({ isIndex: false, virtual: true });
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const store = await renderSearchItem(
       createResource(channelClient.ontologyID(ch.key), ch.name, {
@@ -143,7 +141,6 @@ describe("channel/search", () => {
     const ch = await createChannel({ isIndex: false, virtual: true });
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const doc = await client.logs.create(proj.key, { name: uniqueName("log") });
     const store = await renderSearchItem(
@@ -181,7 +178,6 @@ describe("channel/search", () => {
     const ch = await createChannel();
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const store = await renderSearchItem(
       createResource(channelClient.ontologyID(ch.key), ch.name, {

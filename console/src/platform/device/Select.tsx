@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Device, Form, type Icon, Status, Synnax } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
+import { type Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Device, Synnax } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type JSX, useCallback, useMemo } from "react";
 

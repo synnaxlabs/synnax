@@ -10,15 +10,12 @@
 import "@/feature/device/tree.css";
 
 import { device, type ontology, status } from "@synnaxlabs/client";
-import {
-  Access,
-  Device,
-  Flex,
-  List,
-  Menu,
-  Text,
-  Tree as PTree,
-} from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { Access, Device } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
 import { getContextMenuItems, getIcon, getMake } from "@/feature/device/make";

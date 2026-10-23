@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { type ReactElement } from "react";
 
-import { Icon } from "@/icon";
-import { Item, type ItemProps } from "@/menu/Item";
 import { useContext } from "@/telem/control/Controller";
 
 export interface ToggleItemProps extends Omit<
-  ItemProps,
+  Menu.ItemProps,
   "itemKey" | "onClick" | "children"
 > {}
 
@@ -23,13 +23,13 @@ export const ToggleItem = (props: ToggleItemProps): ReactElement | null => {
   if (key === "") return null;
   const acquired = status === "acquired";
   return (
-    <Item
+    <Menu.Item
       itemKey="control-toggle"
       onClick={() => (acquired ? release() : acquire())}
       {...props}
     >
       <Icon.Control />
       {acquired ? "Release control" : "Take control"}
-    </Item>
+    </Menu.Item>
   );
 };

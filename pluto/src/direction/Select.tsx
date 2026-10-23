@@ -7,26 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { direction } from "@synnaxlabs/x";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
+import { type direction } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Icon } from "@/icon";
-import { Select as BaseSelect } from "@/select";
-
-export interface SelectProps extends Omit<
-  BaseSelect.ButtonsProps<direction.Direction>,
-  "keys"
-> {
+export interface SelectProps extends BaseSelect.ButtonsProps<direction.Direction> {
   yDirection?: "up" | "down";
 }
 
 export const Select = ({ yDirection = "up", ...rest }: SelectProps): ReactElement => (
-  <BaseSelect.Buttons {...rest} keys={direction.DIRECTIONS}>
-    <BaseSelect.Button itemKey="x">
+  <BaseSelect.Buttons {...rest}>
+    <BaseSelect.Item itemKey="x">
       <Icon.Arrow.Right />
-    </BaseSelect.Button>
-    <BaseSelect.Button itemKey="y">
+    </BaseSelect.Item>
+    <BaseSelect.Item itemKey="y">
       {yDirection === "up" ? <Icon.Arrow.Up /> : <Icon.Arrow.Down />}
-    </BaseSelect.Button>
+    </BaseSelect.Item>
   </BaseSelect.Buttons>
 );

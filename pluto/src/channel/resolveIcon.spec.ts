@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { DataType } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { resolveIcon } from "@/channel/resolveIcon";
-import { Icon } from "@/icon";
 
 describe("resolveIcon", () => {
   it("should return Icon.Channel when no channel is provided", () => {

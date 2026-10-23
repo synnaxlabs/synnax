@@ -109,7 +109,7 @@ describe("CustomScaleForm", () => {
     expect(screen.queryByText("Slope")).toBeNull();
     await selectFromDropdown("None", "Linear");
     await waitFor(() => expect(screen.getByText("Slope")).toBeTruthy());
-    expect(screen.getByText("Y-Intercept")).toBeTruthy();
+    expect(screen.getByText("Y-intercept")).toBeTruthy();
     await selectFromDropdown("Linear", "Map");
     await waitFor(() => expect(screen.getByText("Pre-scaled min")).toBeTruthy());
     expect(screen.queryByText("Slope")).toBeNull();

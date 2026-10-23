@@ -8,81 +8,79 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type schematic } from "@synnaxlabs/client";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
-import { Input } from "@/input";
-import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { Tabs } from "@/tabs";
-import { Theming } from "@/theming";
+import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Button as BaseButton } from "@/vis/button";
+import { Properties } from "@/vis/properties";
 
 type ButtonTelemFormT = Pick<
   schematic.ButtonNodeConfig,
   "commandChannel" | "control" | "mode"
 >;
 
-export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
+export const colorFallbacks = {
+  fillColor: Form.primaryFallback,
+} satisfies ColorFallbacks;
+
+const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Base.useField<ButtonTelemFormT>(path);
-  const handleSinkChange = (v: channel.Key): void =>
+  const handleSinkChange = (v: channel.Key | null): void =>
     onChange({
       ...value,
-      commandChannel: v,
-      control: Control.reveal(value.control),
+      commandChannel: v ?? undefined,
     });
 
   return (
-    <Form.Wrapper y empty>
-      <Flex.Box x>
-        <Input.Item label="Channel" grow padHelpText={false}>
+    <Base.Sections x>
+      <Base.Section title="Command">
+        <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
+            allowNone
             value={value.commandChannel ?? 0}
             onChange={handleSinkChange}
           />
         </Input.Item>
+        <Form.ControlChipField />
+      </Base.Section>
+      <Base.Section title="Actuation">
+        <Base.Field<BaseButton.Mode> path="mode" label="Mode">
+          {({ value, onChange }) => (
+            <BaseButton.SelectMode value={value} onChange={onChange} />
+          )}
+        </Base.Field>
         {/* The delay gates single-shot actuation (fire, pulse). Momentary's
             hold is the actuation, so the field is hidden there. */}
         {value.mode !== "momentary" && <Form.ActivationDelayField />}
-        <Form.ControlChipField />
-      </Flex.Box>
-      <Base.Field<BaseButton.Mode> path="mode" label="Mode">
-        {({ value, onChange }) => (
-          <BaseButton.SelectMode value={value} onChange={onChange} />
-        )}
-      </Base.Field>
-    </Form.Wrapper>
+      </Base.Section>
+    </Base.Sections>
   );
 };
 
-export const ButtonForm = (): ReactElement => {
-  const theme = Theming.use();
-  return (
-    <Tabs.Frame initialValue="style">
-      <Tabs.Selector>
-        <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-        <Tabs.Tab itemKey="control">Control</Tabs.Tab>
-      </Tabs.Selector>
-      <Tabs.Content itemKey="style">
-        <Form.Wrapper x>
-          <Flex.Box y align="stretch" grow gap="small">
-            <Label.Form
-              path="label"
-              omit={["align", "maxInlineSize", "level", "direction"]}
-            />
-            <Flex.Box x>
-              <Form.ColorField path="color" placeholder={theme.colors.primary.z} />
-              <Form.SizeField />
-            </Flex.Box>
-          </Flex.Box>
-        </Form.Wrapper>
-      </Tabs.Content>
-      <Tabs.Content itemKey="control">
-        <ButtonTelemForm path="" />
-      </Tabs.Content>
-    </Tabs.Frame>
-  );
-};
+export const ButtonForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs tabs={["control", "style"]} tab={tab} onTabChange={onTabChange}>
+    <Tabs.Content itemKey="style">
+      <Base.Sections x>
+        <Base.Section title="Label">
+          <Label.Form
+            path="label"
+            omit={["align", "maxInlineSize", "level", "direction"]}
+          />
+        </Base.Section>
+        <Base.Section title="Appearance">
+          <Form.FillField fallback={colorFallbacks.fillColor} />
+          <Form.SizeField />
+        </Base.Section>
+      </Base.Sections>
+    </Tabs.Content>
+    <Tabs.Content itemKey="control">
+      <ButtonTelemForm path="" />
+    </Tabs.Content>
+  </Properties.Tabs>
+);

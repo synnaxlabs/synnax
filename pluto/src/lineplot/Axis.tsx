@@ -9,6 +9,12 @@
 
 import "@/lineplot/Axis.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { direction, type text } from "@synnaxlabs/x";
 import {
   type FC,
@@ -21,16 +27,10 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { lineplot } from "@/lineplot/aether";
 import { baseAxisStateZ, withinSizeThreshold } from "@/lineplot/aether/axis";
 import { useGridEntry } from "@/lineplot/Frame";
-import { useMemoDeepEqual } from "@/memo";
-import { Text } from "@/text";
 import { text as aetherText } from "@/text/aether";
-import { Theming } from "@/theming";
 
 export interface AxisProps
   extends

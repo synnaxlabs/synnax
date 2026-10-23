@@ -19,13 +19,15 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Errors, Flux, Icon, Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Errors, Flux, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ComponentType } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { Range } from "@/feature/range";
+import { Overview } from "@/feature/range/overview/Overview";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
@@ -75,13 +77,14 @@ const renderOverview = async (
       <PlutoPanel.TabScope.Provider value={tabKey}>
         <PlatformRange.SnapshotServicesProvider services={services}>
           <Errors.SuspenseBoundary FallbackComponent={FallbackComponent}>
-            <Range.Overview.Overview />
+            <Overview />
           </Errors.SuspenseBoundary>
           <Modals.Stack />
         </PlatformRange.SnapshotServicesProvider>
       </PlutoPanel.TabScope.Provider>
     </PlutoPanel.Scope.Provider>,
-    { wrapper },
+    // A spec that passes a fallback expects the boundary to catch.
+    { wrapper, onCaughtError: FallbackComponent == null ? undefined : () => {} },
   );
   const setTabResource = async (nextKey: string) =>
     await act(async () => {
@@ -107,7 +110,6 @@ const createChildRange = async (parent: ranger.Range): Promise<ranger.Range> => 
 const createSnapshot = async (rng: ranger.Range): Promise<ontology.ID> => {
   const project = await client.projects.create({
     name: uniqueName("proj"),
-    layout: {},
   });
   const sch = await client.schematics.create(project.key, {
     name: uniqueName("sch"),
@@ -218,7 +220,6 @@ describe("range/overview tab", () => {
 
     const project = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     await act(async () => {
       await restore({ client, project: project.key, resource: rng.ontologyID });
@@ -241,7 +242,6 @@ describe("range/overview tab", () => {
 
     const project = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     await restore({ client, project: project.key, resource: rng.ontologyID });
 

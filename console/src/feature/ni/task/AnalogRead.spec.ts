@@ -157,6 +157,21 @@ describe("AnalogRead", () => {
     }
   });
 
+  it("should hide the scale section for unscaled channel types", async () => {
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_thermocouple", 0, { name: "chan_unscaled" }),
+        createChannel("ai_voltage", 1, { name: "chan_scaled" }),
+      ],
+    });
+    fireEvent.click(await screen.findByText("chan_scaled"));
+    await waitFor(() => expect(screen.getByText("Custom scaling")).toBeTruthy());
+    fireEvent.click(screen.getByText("chan_unscaled"));
+    await waitFor(() => expect(screen.getByText("Thermocouple type")).toBeTruthy());
+    expect(screen.queryByText("Custom scaling")).toBeNull();
+  });
+
   it("should render the scale form matching each channel's custom scale", async () => {
     const cases = [
       ["linear", "Slope"],
@@ -219,6 +234,20 @@ describe("AnalogRead", () => {
     expect(screen.queryByText("Terminal configuration")).toBeNull();
     const port = screen.getByDisplayValue("3");
     expect(port).toBeTruthy();
+  });
+
+  it("should drop the scale section on a swap to an unscaled type and restore it", async () => {
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [createChannel("ai_voltage", 0)],
+    });
+    await screen.findByText("Custom scaling");
+    fireEvent.click(await findDialogTriggerByText("Voltage"));
+    fireEvent.click(await screen.findByText("Thermocouple"));
+    await waitFor(() => expect(screen.queryByText("Custom scaling")).toBeNull());
+    fireEvent.click(await findDialogTriggerByText("Thermocouple"));
+    fireEvent.click(await screen.findByText("Voltage"));
+    await screen.findByText("Custom scaling");
   });
 
   it("should create index and data channels, update the device, and save the task", async () => {

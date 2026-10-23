@@ -8,8 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import path from "path";
-import dts from "unplugin-dts/vite";
 import { type Plugin } from "vite";
+
+import { declarations } from "./declarations.js";
+import { checkExports } from "./modules.js";
+import { ENTRY, transpile } from "./transpile.js";
+
+export { type Layer, layers } from "./layers.js";
+export { discoverModules, moduleExports, packageExports } from "./modules.js";
 
 export interface Options {
   name: string;
@@ -21,18 +27,52 @@ export interface Options {
    * @default true
    */
   publishSourcemaps?: boolean;
+  /**
+   * Build the package as a subpath-only module set: every `src/<name>/index.ts` is an
+   * entry, `package.json` exports must match them, and each entry must only re-export.
+   * Implies `transpiled`.
+   * @default false
+   */
+  modules?: boolean;
+  /**
+   * Whether each source file is transpiled to its own output file instead of bundled,
+   * so a consumer's bundler can drop the modules and namespace members it does not
+   * use. The package must declare `sideEffects`.
+   * @default false
+   */
+  transpiled?: boolean;
 }
 
-export const lib = ({ name, publishSourcemaps = true }: Options): Plugin[] => {
-  const dtsPlugin = dts({});
+export const lib = ({
+  name,
+  publishSourcemaps = true,
+  modules = false,
+  transpiled = false,
+}: Options): Plugin[] => {
+  const prod = isProd();
+  console.log(`\x1b[34m Synnax - ${prod ? "Production" : "Development"} mode\x1b[0m`);
+  if (modules || transpiled)
+    return [
+      {
+        name: "vite-plugin-lib",
+        config: () => ({
+          resolve: { tsconfigPaths: true },
+          build: {
+            write: false,
+            lib: { name, formats: ["es"], entry: { [name]: ENTRY } },
+          },
+        }),
+        configResolved: (config) => {
+          if (modules) checkExports(config.root);
+        },
+      },
+      transpile(modules),
+    ];
   return [
     {
       name: "vite-plugin-lib",
       config: (config) => {
-        const prod = isProd();
-        console.log(
-          `\x1b[34m Synnax - ${prod ? "Production" : "Development"} mode\x1b[0m`,
-        );
+        const root = path.resolve(config.root ?? ".");
         return {
           resolve: { tsconfigPaths: true },
           build: {
@@ -43,14 +83,14 @@ export const lib = ({ name, publishSourcemaps = true }: Options): Plugin[] => {
               formats: ["es"],
               fileName: (_, entryName) =>
                 `${entryName === "index" ? name : entryName}.js`,
-              entry: path.resolve(config.root ?? ".", "src/index.ts"),
+              entry: path.join(root, "src/index.ts"),
               ...config.build?.lib,
             },
           },
         };
       },
     },
-    ...(Array.isArray(dtsPlugin) ? dtsPlugin : [dtsPlugin]),
+    declarations(),
   ];
 };
 

@@ -14,6 +14,7 @@
 node_modules/
 dist/
 coverage/
+oracle/lsp/extensions/vscode/out/
 *.log
 *.local
 *.tsbuildinfo
@@ -100,7 +101,7 @@ integration/integration
 core/synnax
 core/pkg/driver/assets/*
 !core/pkg/driver/assets/.gitkeep
-console/release.tauri.conf.json
+console/src-tauri/release.tauri.conf.json
 
 # |||| PROFILING ||||
 

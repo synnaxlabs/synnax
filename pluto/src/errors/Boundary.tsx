@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { context } from "@synnaxlabs/lyra/context";
 import {
   Component,
   type ComponentType,
@@ -16,7 +17,6 @@ import {
   type ReactNode,
 } from "react";
 
-import { context } from "@/context";
 import { Fallback, type FallbackProps } from "@/errors/Fallback";
 
 const [ResetContext] = context.create({ defaultValue: 0, displayName: "Errors.Reset" });

@@ -9,6 +9,8 @@
 
 import type * as monacoT from "@codingame/monaco-vscode-editor-api";
 import { type status } from "@synnaxlabs/client";
+import { context } from "@synnaxlabs/lyra/context";
+import { Status } from "@synnaxlabs/lyra/status";
 import { errors } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
@@ -22,8 +24,6 @@ import {
 
 import { type Language, registerLanguage } from "@/code/language";
 import { useLanguageServer } from "@/code/lsp";
-import { context } from "@/context";
-import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
 export type * as Monaco from "@codingame/monaco-vscode-editor-api";

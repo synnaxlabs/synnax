@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, query, rack, type Synnax, task } from "@synnaxlabs/client";
+import { type Form } from "@synnaxlabs/lyra/form";
 import { array, type optional, verbs, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { type Form } from "@/form";
 
 export const RESOURCE_NAME = "task";
 const PLURAL_RESOURCE_NAME = "tasks";

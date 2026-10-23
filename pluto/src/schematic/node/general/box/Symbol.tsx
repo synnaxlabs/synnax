@@ -10,9 +10,9 @@
 import "@/schematic/node/general/box/box.css";
 
 import { type schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type NodeProps } from "@/schematic/node/spec";
@@ -22,7 +22,7 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  config: { label, backgroundColor, borderRadius, color, dimensions, strokeWidth },
+  config: { label, fillColor, borderRadius, strokeColor, dimensions, strokeWidth },
 }: NodeProps<schematic.BoxNodeConfig>): ReactElement => (
   <Grid.Grid
     allowCenter
@@ -34,10 +34,10 @@ export const Symbol = ({
     <Label.Label config={label} onChange={onConfigChange} />
     <TankPrimitive
       className={CSS.B("box")}
-      color={color}
+      strokeColor={strokeColor}
       dimensions={dimensions}
       boxBorderRadius={borderRadius}
-      backgroundColor={backgroundColor}
+      fillColor={fillColor}
       strokeWidth={strokeWidth}
     />
     <svg className={CSS.B("box-frame")}>

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { screen } from "@testing-library/react";
-import { act, type ReactElement, use } from "react";
+import { act, screen } from "@testing-library/react";
+import { type ReactElement, use } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Toolbar } from "@/platform/toolbar";

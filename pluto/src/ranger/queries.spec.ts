@@ -9,7 +9,8 @@
 
 import { ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color, testutil, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import {
   createElement,
@@ -19,6 +20,7 @@ import {
 } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Flux } from "@/flux";
 import { Ranger } from "@/ranger";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -36,6 +38,29 @@ describe("queries", () => {
     controller.abort();
   });
   describe("useList", () => {
+    it("should update an item read by key when it changes", async () => {
+      const item = await client.ranges.create({
+        name: "original",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const { result } = renderHook(
+        () => {
+          const list = Ranger.useList({ useCachedList: false });
+          return Flux.useListItem({
+            subscribe: list.subscribe,
+            getItem: list.getItem,
+            key: item.key,
+          });
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current?.name).toEqual("original"));
+      await act(async () => {
+        await client.ranges.rename(item.key, "updated");
+      });
+      await waitFor(() => expect(result.current?.name).toEqual("updated"));
+    });
+
     it("should return a list of range keys", async () => {
       const range1 = await client.ranges.create({
         name: "range1",
@@ -911,6 +936,38 @@ describe("queries", () => {
       });
     });
 
+    it("should keep the form's label order after a save", async () => {
+      const [lo, hi] = (
+        await Promise.all(
+          ["orderLabel1", "orderLabel2"].map((name) =>
+            client.labels.create({ name, color: "#FF00FF" }),
+          ),
+        )
+      )
+        .map((l) => l.key)
+        .sort();
+      const rng = await client.ranges.create({
+        name: "labelOrderRange",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(5)),
+      });
+      const { result } = renderHook(() => Ranger.useForm({ query: { key: rng.key } }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      for (const labels of [[hi], [hi, lo]])
+        await act(async () => {
+          result.current.form.set("labels", labels);
+          await result.current.saveAsync({ signal: controller.signal });
+        });
+      await act(async () => {
+        await client.ranges.rename(rng.key, "renamedLabelOrderRange");
+      });
+      await waitFor(() =>
+        expect(result.current.form.value().name).toEqual("renamedLabelOrderRange"),
+      );
+      expect(result.current.form.value().labels).toEqual([hi, lo]);
+    });
+
     it("should retrieve range with existing labels", async () => {
       const label1 = await client.labels.create({
         name: "existingLabel1",
@@ -1235,7 +1292,7 @@ describe("queries", () => {
       await act(async () => {
         await rng.kv.delete("test_key");
       });
-      await testutil.expectAlways(async () => {
+      await expectAlways(async () => {
         expect(await rng.kv.list()).not.toHaveProperty("test_key");
       }, 800);
     });

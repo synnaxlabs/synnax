@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type project, table } from "@synnaxlabs/client";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { compare, grid, id, uuid, verbs, type xy } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Flux } from "@/flux";
-import { useSyncedRef } from "@/hooks/ref";
 import { Cell } from "@/table/cells";
 import { Scope } from "@/table/scope";
 

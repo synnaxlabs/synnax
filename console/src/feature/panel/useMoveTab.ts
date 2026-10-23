@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { panel, project, type Synnax as Client } from "@synnaxlabs/client";
-import { Panel, Status, Synnax } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Panel, Synnax } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";

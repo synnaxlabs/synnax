@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { text } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { useMemoDeepEqual } from "@/memo";
 import { Value } from "@/vis/value/aether/value";
 
 export const basePropsZ = Value.z

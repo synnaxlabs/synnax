@@ -73,6 +73,18 @@ var _ = Describe("Listener", func() {
 			Expect(configs[1].Advertise).To(BeFalse())
 		})
 
+		It("Should parse the loopback field, false when absent", func() {
+			loopback := listenerObj("localhost:9090", "file")
+			loopback["loopback"] = true
+			viper.Set(listener.FlagListen, []any{
+				loopback,
+				listenerObj("node01:9091", "file"),
+			})
+			configs := MustSucceed(listener.Parse())
+			Expect(configs[0].Loopback).To(BeTrue())
+			Expect(configs[1].Loopback).To(BeFalse())
+		})
+
 		It("Should reject a list combined with --auto-cert", func() {
 			viper.Set(cmdcert.FlagAutoCert, true)
 			viper.Set(listener.FlagListen, []any{listenerObj("core01:9090", "auto")})
@@ -172,6 +184,24 @@ var _ = Describe("Listener", func() {
 		It("Should reject an empty address", func() {
 			Expect(listener.Configs{{Address: ""}}.Validate()).
 				To(MatchError(ContainSubstring("address")))
+		})
+
+		DescribeTable("Should accept a loopback listener on a loopback host",
+			func(addr address.Address) {
+				Expect(listener.Configs{{Address: addr, Loopback: true}}.Validate()).
+					To(Succeed())
+			},
+			Entry("localhost", address.Address("localhost:9090")),
+			Entry("127.0.0.1", address.Address("127.0.0.1:9090")),
+		)
+
+		It("Should reject a loopback listener on any other host", func() {
+			Expect(
+				listener.Configs{{Address: "core01:9090", Loopback: true}}.Validate(),
+			).
+				To(MatchError(ContainSubstring(
+					`a loopback listener must use the host localhost or 127.0.0.1, not "core01"`,
+				)))
 		})
 
 		It("Should reject more than one advertised listener", func() {
@@ -300,6 +330,26 @@ var _ = Describe("Listener", func() {
 				KeySize: mock.SmallKeySize,
 			}
 		})
+
+		DescribeTable("Should carry the loopback field to the server listener",
+			func(insecure bool) {
+				listeners := MustSucceed(listener.Configs{
+					{
+						Address:  "localhost:9090",
+						Cert:     listener.CertConfig{Source: file.SourceType},
+						Loopback: true,
+					},
+					{
+						Address: "localhost:9091",
+						Cert:    listener.CertConfig{Source: file.SourceType},
+					},
+				}.Resolve(prov, coreFC, insecure, false, false))
+				Expect(listeners[0].Loopback).To(BeTrue())
+				Expect(listeners[1].Loopback).To(BeFalse())
+			},
+			Entry("secure", false),
+			Entry("insecure", true),
+		)
 
 		It("Should reject an unknown certificate source", func() {
 			Expect(listener.Configs{

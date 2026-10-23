@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Label } from "@/schematic/node/flowmeters/Label";
@@ -21,7 +21,7 @@ export const Nozzle = ({
   id,
   className,
   orientation = "right",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: Props): ReactElement => (
@@ -35,7 +35,7 @@ export const Nozzle = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
@@ -44,7 +44,7 @@ export const Nozzle = ({
       <Primitive.Path d="M24 12H34" strokeLinecap="round" />
       <Primitive.Path d="M24 23H29H34" strokeLinecap="round" />
       <Primitive.Path d="M24 33V23" strokeLinecap="round" />
-      <Label color={color} />
+      <Label strokeColor={strokeColor} />
     </Primitive.SVG>
   </Primitive.Div>
 );

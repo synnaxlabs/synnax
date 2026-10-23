@@ -151,6 +151,51 @@ var _ = Describe("Derived New from @create", func() {
 	)
 
 	It(
+		"Should import a details schema declared in another namespace",
+		func(ctx SpecContext) {
+			loader.Add("schemas/status", `
+			@ts output "client/ts/src/status"
+
+			Status struct<Details?> {
+				key     string = create { @key }
+				name    string = ""
+				details Details?
+				@ts concrete_types
+				@create
+			}
+		`)
+			loader.Add("schemas/rack", `
+			@ts output "client/ts/src/rack"
+
+			StatusDetails struct {
+				rack int64
+			}
+		`)
+			source := `
+			import "schemas/status"
+			import "schemas/rack"
+
+			@ts output "client/ts/src/device"
+
+			DeviceStatus = status.Status<rack.StatusDetails>
+
+			Device struct<Properties extends record = record> {
+				key        string = create { @key }
+				properties Properties
+				status     DeviceStatus?
+				@ts concrete_types
+				@create
+			}
+		`
+			resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").ToContain(
+				`import { rack } from "@/rack"`,
+				`status?: status.New<typeof rack.statusDetailsZ>;`,
+			)
+		},
+	)
+
+	It(
 		"Should project a nested @create field to its New with a generic details schema",
 		func(ctx SpecContext) {
 			loader.Add("schemas/status", `
@@ -202,7 +247,7 @@ var _ = Describe("Derived New from @create", func() {
 		"Should derive a z.input New<Name> alias for a @create union",
 		func(ctx SpecContext) {
 			source := `
-			@ts output "client/ts/src/tab"
+			@ts output "client/ts/src/panel"
 
 			TabBase struct {
 				key uuid = create { @key }
@@ -217,7 +262,7 @@ var _ = Describe("Derived New from @create", func() {
 				@create
 			}
 		`
-			resp := MustGenerate(ctx, source, "tab", loader, typesPlugin)
+			resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").ToContain(
 				"export const tabZ = z.discriminatedUnion(",
 				"export type NewTab = z.input<typeof tabZ>;",

@@ -44,6 +44,12 @@ export const DEMO_KEY = "DEMO";
  */
 export const SERVED_KEY = "SERVED";
 
+/**
+ * The Core that Synnax Desktop bundles and runs. Desktop supplies its address on each
+ * launch and its password never enters the store.
+ */
+export const EMBEDDED_KEY = "EMBEDDED";
+
 const LOCAL: Core = {
   key: LOCAL_KEY,
   name: "Local",

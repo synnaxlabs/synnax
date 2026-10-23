@@ -13,7 +13,12 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
-import { type record, TimeSpan, uuid } from "@synnaxlabs/x";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { TimeSpan, uuid } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -25,12 +30,8 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { assert, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
-import { Haul } from "@/haul";
 import { Panel } from "@/panel";
-import { Tabs } from "@/tabs";
-import { mockBoundingClientRect } from "@/testutil/dom";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
-import { Tooltip } from "@/tooltip";
 
 const client = createTestClient();
 // writer is a second connected client used to emit changes the wrapper client
@@ -57,14 +58,12 @@ const viewTab = (): panel.Tab => ({
   variant: "view",
   key: uuid.create(),
   type: "docs",
-  args: {},
 });
 
 const selectorTab = (): panel.Tab => ({
   variant: "view",
   key: uuid.create(),
   type: "selector",
-  args: {},
 });
 
 const createPanel = async (...tabs: panel.Tab[]): Promise<panel.Panel> => {
@@ -93,7 +92,6 @@ const contentText = (tab: panel.Tab): string => {
 interface Recorded {
   type: string;
   resource: ontology.ID | null;
-  args: record.Unknown | null;
 }
 
 // records captures what each tab's content probe resolved from the tab scope, so specs
@@ -106,24 +104,23 @@ const ResourceContentProbe = (): ReactElement => {
   const tabKey = Panel.useTabKey();
   const type = Panel.useTabType({});
   const resource = Panel.useTabResource({});
-  records.set(tabKey, { type, resource, args: null });
+  records.set(tabKey, { type, resource });
   return <div>{`${resource.type}:${resource.key}`}</div>;
 };
 
-// ViewContentProbe reads a view tab's args from the surrounding tab scope, records
-// them, and renders the visible content text.
+// ViewContentProbe reads a view tab's type from the surrounding tab scope, records it,
+// and renders the visible content text.
 const ViewContentProbe = (): ReactElement => {
   const tabKey = Panel.useTabKey();
   const type = Panel.useTabType({});
-  const args = Panel.useTabArgs({});
-  records.set(tabKey, { type, resource: null, args });
+  records.set(tabKey, { type, resource: null });
   const text = type === "selector" ? `empty:${tabKey}` : `${type}:${tabKey}`;
   return <div>{text}</div>;
 };
 
 // TabContentProbe dispatches on the tab's variant before touching variant-specific
 // selectors, mirroring how production renderers consume the tab scope: only a
-// resource renderer reads the resource, only a view renderer reads the args.
+// resource renderer reads the resource.
 const TabContentProbe = (): ReactElement => {
   const variant = Panel.useTabVariant({});
   if (variant === "resource") return <ResourceContentProbe />;
@@ -164,9 +161,11 @@ describe("Panel.Mosaic", () => {
 
   const renderMosaic = async ({
     panelKey,
+    reserved = [],
     ...props
   }: Omit<Panel.MosaicProps, "children"> & {
     panelKey: panel.Key;
+    reserved?: Triggers.Trigger[];
   }): Promise<RenderResult> => {
     let bootstrap!: RenderResult;
     await act(async () => {
@@ -185,9 +184,11 @@ describe("Panel.Mosaic", () => {
       utils = render(
         <Errors.SuspenseBoundary loading={<div>loading</div>}>
           <Panel.Suspended panelKey={panelKey}>
-            <Tooltip.Config delay={TimeSpan.milliseconds(1)}>
-              <Panel.Mosaic {...props}>{children}</Panel.Mosaic>
-            </Tooltip.Config>
+            <Triggers.Provider reserved={reserved}>
+              <Tooltip.Config delay={TimeSpan.milliseconds(1)}>
+                <Panel.Mosaic {...props}>{children}</Panel.Mosaic>
+              </Tooltip.Config>
+            </Triggers.Provider>
           </Panel.Suspended>
         </Errors.SuspenseBoundary>,
         { wrapper },
@@ -218,7 +219,6 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(resource))).toBeTruthy());
 
       expect(records.get(resource.key)?.type).toEqual("lineplot");
-      expect(records.get(resource.key)?.args).toBeNull();
       expect(records.get(view.key)?.type).toEqual("docs");
       expect(records.get(view.key)?.resource).toBeNull();
       expect(records.get(selector.key)?.type).toEqual("selector");
@@ -430,6 +430,29 @@ describe("Panel.Mosaic", () => {
       expect(tip.textContent?.toLowerCase()).toContain("t");
     });
 
+    it("should open no create tooltip when the host reserves the shortcut", async () => {
+      const tab = resourceTab();
+      const p = await createPanel(tab);
+      const utils = await renderMosaic({
+        panelKey: p.key,
+        selected: [tab.key],
+        reserved: [Panel.CREATE_TAB_TRIGGER],
+      });
+      await waitFor(() => expect(utils.getByText(contentText(tab))).toBeTruthy());
+      const [create] = createButtons(utils);
+      create.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 40);
+      fireEvent.pointerEnter(create);
+      await expect(
+        waitFor(
+          () => {
+            if (document.querySelector(".pluto-tooltip") == null)
+              throw new Error("no tooltip yet");
+          },
+          { timeout: 500 },
+        ),
+      ).rejects.toThrow();
+    });
+
     it("should advertise escape as the way out of focus mode", async () => {
       const tab = resourceTab();
       const p = await createPanel(tab);
@@ -611,7 +634,6 @@ describe("Panel.Mosaic", () => {
       const onCreateTab = (): panel.NewTab => ({
         variant: "view",
         type: "selector",
-        args: {},
       });
       const utils = await renderMosaic({ panelKey: p.key, onSelect, onCreateTab });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());

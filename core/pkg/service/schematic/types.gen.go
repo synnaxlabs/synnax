@@ -114,9 +114,6 @@ type DummyToggleSymbolConfig = versions.DummyToggleSymbolConfig
 // StateMapping maps a numeric channel value to a named, colored state.
 type StateMapping = versions.StateMapping
 
-// Redline maps a numeric range to a color gradient for limit visualization.
-type Redline = versions.Redline
-
 // NodeConfig is the per-node configuration stored in the schematic configs map. The
 // variant selects the symbol rendered for the node and the fields that accompany it.
 type NodeConfig = versions.NodeConfig
@@ -716,7 +713,7 @@ type DataElementConfig = versions.DataElementConfig
 // handles, and dynamic state visualization.
 type Schematic = versions.Schematic
 
-// ScaleIndicatorConfig is a live fill indicator driven by a channel, rendered by
+// ScaleIndicatorConfig is a live level indicator driven by a channel, extended by
 // symbols that show a level against a numeric range.
 type ScaleIndicatorConfig = versions.ScaleIndicatorConfig
 
@@ -740,3 +737,6 @@ type StalenessConfig = versions.StalenessConfig
 // NumericTelemConfig is the numeric read and formatting shared by symbols that display
 // a channel's value as a number.
 type NumericTelemConfig = versions.NumericTelemConfig
+
+// ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
+type ScaledConfig = versions.ScaledConfig

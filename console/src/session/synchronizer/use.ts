@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Action } from "@reduxjs/toolkit";
-import { Status, Synnax } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Synnax } from "@synnaxlabs/pluto";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "react-redux";
 

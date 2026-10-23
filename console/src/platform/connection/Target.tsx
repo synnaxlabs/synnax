@@ -9,7 +9,9 @@
 
 import "@/platform/connection/Target.css";
 
-import { Flex, Synnax, Text } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Indicator } from "@/platform/connection/Indicator";

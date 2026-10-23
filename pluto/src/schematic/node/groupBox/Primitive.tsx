@@ -9,10 +9,10 @@
 
 import "@/schematic/node/groupBox/groupBox.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { useStore } from "@xyflow/react";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { PADDING, TOP_PADDING } from "@/schematic/node/groupBox/config";
 
 export interface PrimitiveProps {

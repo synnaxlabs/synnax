@@ -38,7 +38,12 @@ const renderContent = async (
     </Errors.SuspenseBoundary>
   );
   TabContent.displayName = "TabContent";
-  await renderTaskFormTab(TabContent, { client, taskKey });
+  await renderTaskFormTab(TabContent, {
+    client,
+    taskKey,
+    // A spec that passes a fallback expects the boundary to catch.
+    onCaughtError: FallbackComponent == null ? undefined : () => {},
+  });
 };
 
 const TabName: FC<PTask.FormTabProps> = () => <Task.TAB.Name />;
@@ -51,7 +56,7 @@ describe("task tab", () => {
       config: HTTP.Task.READ_SCHEMAS.config.parse({}),
     });
     await renderContent(draft.key);
-    await screen.findByText("Add endpoint");
+    await screen.findByRole("button", { name: "Add endpoint" });
   });
 
   it("should show an error for a task type with no registered editor", async () => {
@@ -136,7 +141,6 @@ describe("task tab", () => {
 
     const project = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     await restore({ client, project: project.key, resource: created.ontologyID });
 

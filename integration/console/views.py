@@ -211,11 +211,11 @@ class ViewsClient(ResourceClient):
         The filter is a two-level dialog: the filter button opens the first dialog,
         the trigger opens the second dialog holding the option list.
 
-        :param trigger: Text of the dropdown trigger, e.g. "Select labels".
+        :param trigger: Accessible name of the dropdown trigger, e.g. "Labels".
         :param option: Display name of the option to select.
         """
         filter_dialog = self.open_filter()
-        filter_dialog.get_by_text(trigger).click()
+        filter_dialog.get_by_role("button", name=trigger, exact=True).click()
         item = self.layout.dialog.get_by_role("option").filter(has_text=option).first
         item.wait_for(state="visible", timeout=5000)
         item.click()

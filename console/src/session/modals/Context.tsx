@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { context, useInitializerRef } from "@synnaxlabs/pluto";
+import { context } from "@synnaxlabs/lyra/context";
+import { useInitializerRef } from "@synnaxlabs/lyra/hooks";
 import { id, type record } from "@synnaxlabs/x";
 import {
   type ComponentType,

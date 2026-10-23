@@ -12,6 +12,7 @@ import { NotFoundError, UnexpectedError, ValidationError } from "@synnaxlabs/cli
 import { deep, errors, type record, shallow, state, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { delta } from "@/aether/aether/delta";
 import {
   Batcher,
   type MainInvokeRequest,
@@ -446,7 +447,7 @@ export abstract class Node implements Component {
  * ```
  */
 export abstract class Leaf<
-  StateSchema extends z.ZodType<state.State>,
+  StateSchema extends z.ZodType<record.Unknown>,
   InternalState extends {} = {},
   Methods extends MethodsSchema = EmptyMethodsSchema,
 > extends Node {
@@ -492,14 +493,21 @@ export abstract class Leaf<
     return this.schema;
   }
 
-  /** Sets the state on the worker side and propagates the change to the corresponding
-   * component on the main thread. Accepts either the next state value or a pure
-   * function deriving it from the current state. */
+  /** Sets the state on the worker side and sends the changed top-level fields to the
+   * corresponding component on the main thread. Accepts either the next state value or
+   * a pure function deriving it from the current state. Each top-level field must have
+   * one writer, the main thread or the worker: a field both write can still swap
+   * values when their updates cross in flight. */
   setState(next: state.SetArg<z.infer<StateSchema>>): void {
-    const nextState = state.executeSetter(next, this.state);
+    const prev = this.state;
+    const nextState = state.executeSetter(next, prev);
     this._prevState = shallow.copy(this._state);
     this._state = zod.parse(this._schema, nextState, { label: this.toString() });
-    this.sender.send({ variant: "update", path: this.path, state: this._state });
+    this.sender.send({
+      variant: "update",
+      path: this.path,
+      state: delta(prev, this._state),
+    });
   }
 
   /** The component's current parsed state. Throws if read before the first update has
@@ -533,7 +541,8 @@ export abstract class Leaf<
       this.initializeMethods();
       const endSpan = this.instrumentation.T.debug(this.updateStateSpan);
       this.validatePath(path);
-      const state_ = zod.parse(this._schema, state, { label: this.toString() });
+      const merged = this._state == null ? state : { ...this._state, ...state };
+      const state_ = zod.parse(this._schema, merged, { label: this.toString() });
       if (this._state != null)
         this.instrumentation.L.debug("updating state", () => ({
           diff: deep.difference(this.state as record.Unknown, state_ as record.Unknown),
@@ -608,7 +617,7 @@ export abstract class Leaf<
  * children registry, descendant context propagation, and routing for
  * updates/deletes/invokes addressed at descendants. */
 export abstract class Composite<
-  StateSchema extends z.ZodType<state.State>,
+  StateSchema extends z.ZodType<record.Unknown>,
   InternalState extends {} = {},
   ChildComponents extends Component = Component,
   M extends MethodsSchema = EmptyMethodsSchema,

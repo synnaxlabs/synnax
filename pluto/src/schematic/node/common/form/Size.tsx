@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Component } from "@synnaxlabs/lyra/component";
+import { Form } from "@synnaxlabs/lyra/form";
 import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Component } from "@/component";
-import { Form } from "@/form";
 import { LEVEL_SIZES, SIZE_LEVELS } from "@/schematic/node/common/size";
 
 export const SizeField = (

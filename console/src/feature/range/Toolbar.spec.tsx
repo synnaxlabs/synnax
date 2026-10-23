@@ -17,13 +17,16 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Haul, Ranger } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Ranger } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
+import { Analytics } from "@/platform/analytics";
+import { createTestSink } from "@/platform/analytics/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
@@ -90,6 +93,7 @@ interface RenderToolbarOptions {
   as?: Client;
   /** Extra content rendered beside the toolbar, e.g. a drag source. */
   extra?: ReactElement;
+  analytics?: Analytics.Sink;
 }
 
 const renderToolbar = async ({
@@ -97,15 +101,18 @@ const renderToolbar = async ({
   active,
   as = client,
   extra,
+  analytics = Analytics.NOOP,
 }: RenderToolbarOptions = {}): Promise<{ store: TestStore }> => {
   const { wrapper, store } = await createConsoleWrapper({ client: as });
   await selectTestProject(store, client);
   render(
-    <Haul.Provider>
-      {Range.TOOLBAR.content}
-      <Modals.Stack />
-      {extra}
-    </Haul.Provider>,
+    <Analytics.Provider sink={analytics}>
+      <Haul.Provider>
+        {Range.TOOLBAR.content}
+        <Modals.Stack />
+        {extra}
+      </Haul.Provider>
+    </Analytics.Provider>,
     { wrapper },
   );
   if (ranges.length > 0) store.dispatch(Session.Range.add(ranges));
@@ -232,6 +239,17 @@ describe("range/Toolbar", () => {
       );
       await waitFor(async () =>
         expect((await client.ranges.retrieve(local.key)).name).toBe(local.name),
+      );
+    });
+
+    it("reports the range it saved to the Core", async () => {
+      const local = createLocalRangeState(uniqueRangeName("reported"));
+      const analytics = createTestSink();
+      await renderToolbar({ ranges: [local], analytics });
+      await openContextMenu(local.name);
+      fireEvent.click(await screen.findByText("Save to Core"));
+      await waitFor(() =>
+        expect(analytics.capture).toHaveBeenCalledWith("range_created", {}),
       );
     });
 

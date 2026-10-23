@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { text } from "@synnaxlabs/x";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { useMemoDeepEqual } from "@/memo";
 import { gauge } from "@/vis/gauge/aether";
 
-export const basePropsZ = gauge.Gauge.z
-  .partial({ color: true })
-  .extend({ level: text.levelZ.optional() });
+export const colorFallback = gauge.colorFallback;
 
-export interface UseProps extends z.input<typeof basePropsZ> {
+type State = z.input<typeof gauge.Gauge.z>;
+
+export interface UseProps extends Omit<State, "color">, Partial<Pick<State, "color">> {
   aetherKey: string;
 }
 

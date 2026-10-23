@@ -86,9 +86,9 @@ class CustomSymbol(Symbol):
         control_tab.click()
 
         if channel_name is not None:
-            self.set_channel(input_field="Command Channel", channel_name=channel_name)
+            self.set_channel(section="Command", channel_name=channel_name)
             applied_properties["command_channel"] = channel_name
-            self.set_channel(input_field="State Channel", channel_name=channel_name)
+            self.set_channel(section="State", channel_name=channel_name)
             applied_properties["state_channel"] = channel_name
 
         return applied_properties

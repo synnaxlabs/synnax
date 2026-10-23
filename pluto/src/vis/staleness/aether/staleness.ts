@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type theme } from "@synnaxlabs/lyra/theme";
 import { color, type destructor, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { type telem } from "@/telem/aether";
-import { type theming } from "@/theming/aether";
 
 const CONTEXT_KEY = "pluto-vis-staleness";
 
@@ -263,12 +263,14 @@ export const useInternalRegistration = (
 
 /**
  * Resolves the color that stale content renders in.
- * @param c - The configured staleness color. An absent color resolves to the theme's
- * warning shade.
+ * @param c - The configured staleness color. An absent or zero color resolves to the
+ * theme's warning shade: Consoles before v0.59 stored transparent black for an
+ * unchosen color, and a transparent stale symbol would vanish.
  */
 export const resolveColor = (
   c: color.Crude | undefined,
-  theme: theming.Theme,
-): color.Color => (c == null ? theme.colors.warning.m1 : color.construct(c));
+  theme: theme.Theme,
+): color.Color =>
+  c == null || color.isZero(c) ? theme.colors.warning.m1 : color.construct(c);
 
 export const REGISTRY: aether.ComponentRegistry = { [Provider.TYPE]: Provider };

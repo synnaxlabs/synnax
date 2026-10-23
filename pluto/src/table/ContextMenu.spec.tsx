@@ -9,12 +9,12 @@
 
 import { type table } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
-import { Menu } from "@/menu";
 import { Table } from "@/table";
 import {
   DefaultContextMenu,
@@ -54,7 +54,7 @@ describe("table DefaultContextMenu", () => {
 
   beforeEach(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
-    const project = await client.projects.create({ name: "menu_project", layout: {} });
+    const project = await client.projects.create({ name: "menu_project" });
     const created = await client.tables.create(project.key, {
       name: "menu_table",
       rows: [{ size: 36, cells: ["a"] }],

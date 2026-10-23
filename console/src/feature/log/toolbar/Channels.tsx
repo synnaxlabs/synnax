@@ -8,21 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, log } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Channel,
-  Color,
-  Flex,
-  Icon,
-  Input,
-  List,
-  Log,
-  Notation,
-  type Select,
-  Telem,
-  Theming,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { type Select } from "@synnaxlabs/lyra/select";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { Access, Channel, Log, Notation, Telem } from "@synnaxlabs/pluto";
 import {
   color,
   DataType,
@@ -86,18 +80,21 @@ const ChannelRow = ({
     (tz: TimeZone) => dispatch(log.setChannelTimestampTz({ channel, tz })),
     [channel, dispatch],
   );
+  // The log stores a zero color for a channel that follows the theme.
   const handleColorChange = useCallback(
-    (color: color.Color) => dispatch(log.setChannelColor({ channel, color })),
+    (c?: color.Color) =>
+      dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO })),
     [channel, dispatch],
   );
+  // Clearing the row's channel removes the row.
   const handleChannelChange = useCallback(
-    (to: channel.Key) => dispatch(log.swapChannel({ from: channel, to })),
-    [dispatch],
-  );
-
-  const handleRemove = useCallback(
-    () => dispatch(log.removeChannel({ channel })),
-    [dispatch],
+    (to: channel.Key | null) =>
+      dispatch(
+        to == null
+          ? log.removeChannel({ channel })
+          : log.swapChannel({ from: channel, to }),
+      ),
+    [channel, dispatch],
   );
   if (config == null) return null;
   const { alias, timestamp, precision, notation } = config;
@@ -112,12 +109,14 @@ const ChannelRow = ({
       justify="between"
       gap="large"
       className={CSS.BE("log", "channel-row")}
+      role="listitem"
       preventClick
     >
       <Flex.Box x align="center" grow>
         <Channel.SelectSingle
           value={channel}
           onChange={handleChannelChange}
+          allowNone
           initialQuery={SELECT_CHANNEL_INITIAL_QUERY}
           disabled={disabled}
           className={CSS.BE("log", "channel-select")}
@@ -182,20 +181,11 @@ const ChannelRow = ({
           </>
         )}
         <Color.Swatch
-          value={hasCustomColor ? config.color : defaultColor}
+          value={hasCustomColor ? config.color : undefined}
+          fallback={defaultColor}
           onChange={handleColorChange}
-          onDelete={hasCustomColor ? () => handleColorChange(color.ZERO) : undefined}
           size="small"
         />
-        <Button.Button
-          onClick={handleRemove}
-          size="small"
-          variant="text"
-          reveal
-          tooltip="Remove channel"
-        >
-          <Icon.Close />
-        </Button.Button>
       </Flex.Box>
     </List.Item>
   );
@@ -238,7 +228,13 @@ export const Channels = (): ReactElement => {
   const key = Log.useKey();
   const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(key));
   return (
-    <Flex.Box y full="y" className={CSS.BE("log", "toolbar", "channels")}>
+    <Flex.Box
+      y
+      full="y"
+      role="list"
+      aria-label="Log channels"
+      className={CSS.BE("log", "toolbar", "channels")}
+    >
       {channelKeys.map((ch, i) =>
         primitive.isZero(ch) ? null : (
           <ChannelRow key={ch} index={i} channel={ch} disabled={!hasUpdatePermission} />

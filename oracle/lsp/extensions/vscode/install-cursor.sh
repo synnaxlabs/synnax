@@ -24,18 +24,19 @@ cd "$ORACLE_ROOT"
 go build -o "$EXTENSION_DIR/bin/oracle" ./cmd/oracle
 echo "      Built: $EXTENSION_DIR/bin/oracle"
 
-# Step 2: Install npm dependencies
-echo "[2/5] Installing npm dependencies..."
+# Step 2: Install dependencies
+echo "[2/5] Installing dependencies..."
 cd "$EXTENSION_DIR"
-npm install
+pnpm install --filter oracle-language
 
 # Step 3: Compile TypeScript
 echo "[3/5] Compiling TypeScript..."
-npm run compile
+pnpm compile
 
 # Step 4: Package the extension
 echo "[4/5] Packaging extension..."
-npx @vscode/vsce package --allow-missing-repository -o oracle-language.vsix
+pnpm exec vsce package --allow-missing-repository --no-dependencies \
+    -o oracle-language.vsix
 
 # Step 5: Install into Cursor
 echo "[5/5] Installing into Cursor..."

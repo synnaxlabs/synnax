@@ -282,6 +282,29 @@ describe("Aether Worker", () => {
         update(leaf, ["test"], 2);
         expect(leaf.updatef).toHaveBeenCalledTimes(1);
       });
+
+      it("should keep the fields an update does not carry", () => {
+        update(leaf, ["test"], 2);
+        leaf._updateState({
+          path: ["test"],
+          state: {},
+          type: "example",
+          create: shouldNotCallCreate,
+        });
+        expect(leaf.state).toEqual({ x: 2 });
+      });
+
+      it("should reject a first update that lacks a required field", () => {
+        expect(() =>
+          leaf._updateState({
+            path: ["test"],
+            state: {},
+            type: "example",
+            create: shouldNotCallCreate,
+          }),
+        ).toThrow(/x/);
+        expect(leaf.updatef).toHaveBeenCalledTimes(0);
+      });
     });
 
     describe("internalDelete", () => {
@@ -292,14 +315,24 @@ describe("Aether Worker", () => {
     });
 
     describe("setState", () => {
-      it("should communicate the state call to the main thread Sender", () => {
+      it("should send the changed fields to the main thread Sender", () => {
         update(leaf, ["test"], 2);
-        leaf.setState((p) => ({ ...p }));
+        leaf.setState((p) => ({ ...p, x: 3 }));
         expect(MockSender.send).toHaveBeenCalledTimes(1);
         expect(MockSender.send).toHaveBeenCalledWith({
           variant: "update",
           path: ["test"],
-          state: { x: 2 },
+          state: { x: 3 },
+        });
+      });
+
+      it("should send no fields when the state did not change", () => {
+        update(leaf, ["test"], 2);
+        leaf.setState((p) => ({ ...p }));
+        expect(MockSender.send).toHaveBeenCalledWith({
+          variant: "update",
+          path: ["test"],
+          state: {},
         });
       });
     });

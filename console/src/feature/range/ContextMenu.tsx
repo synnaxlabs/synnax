@@ -9,10 +9,14 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { lineplot, ranger, type Synnax as Client } from "@synnaxlabs/client";
-import { Access, type Flux, Icon, Menu, Ranger, Synnax, Text } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, type Flux, Ranger, Synnax } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
+import { Analytics } from "@/platform/analytics";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";
@@ -75,6 +79,7 @@ const useDelete = () => {
 const usePersist = () => {
   const dispatch = Session.useDispatch();
   const ranges = Range.useResolveMultiple();
+  const { capture } = Analytics.use();
   const { update } = Ranger.useCreate({
     beforeUpdate: useCallback(
       ({ data, rollbacks }: Flux.BeforeUpdateParams<ranger.New>) => {
@@ -86,6 +91,7 @@ const usePersist = () => {
       },
       [dispatch, ranges],
     ),
+    afterSuccess: useCallback(() => capture("range_created", {}), [capture]),
   });
   return useCallback(
     (key: string) => {

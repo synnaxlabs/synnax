@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type Component,
-  Flex,
-  Form,
-  Icon,
-  List,
-  Menu,
-  Select,
-} from "@synnaxlabs/pluto";
+import { type Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
 import { array } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
@@ -131,6 +129,8 @@ export interface ChannelListProps<C extends Channel>
   resolve: BindChannelsProps<C>["resolve"] | null;
   emptyContent: ReactElement;
   header: ReactNode;
+  /** Pinned below the list; a create action in the list's own idiom. */
+  footer?: ReactNode;
   isDragging?: boolean;
   listItem: Component.RenderProp<ChannelListItemProps>;
   selected: string[];
@@ -140,6 +140,7 @@ export const ChannelList = <C extends Channel>({
   listItem,
   emptyContent,
   header,
+  footer,
   isDragging,
   onDragOver,
   onDrop,
@@ -174,18 +175,18 @@ export const ChannelList = <C extends Channel>({
           allowNone={false}
           autoSelectOnNone
         >
-          <List.Items<string, C>
+          <List.Scroll
             full="y"
             onDragOver={onDragOver}
             onDrop={onDrop}
             className={menuProps.className}
             onContextMenu={menuProps.open}
-            emptyContent={emptyContent}
           >
-            {listItem}
-          </List.Items>
+            <List.Items<string, C> emptyContent={emptyContent}>{listItem}</List.Items>
+          </List.Scroll>
         </Select.Frame>
       </Menu.ContextMenu>
+      {footer}
     </Flex.Box>
   );
 };

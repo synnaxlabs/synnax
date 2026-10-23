@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { type Flex, Form } from "@synnaxlabs/pluto";
+import { type Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
 import { useCallback } from "react";
 
 import { Framer } from "@/platform/framer";

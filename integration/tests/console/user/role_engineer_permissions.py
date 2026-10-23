@@ -70,10 +70,10 @@ class RoleEngineerPermissions(RoleCase):
         )
         table = self.console.pages.create(Table, TABLE_NAME)
         self._cleanup_pages.append(table.page_name)
-        # A fresh table starts editable, so the toolbar shows the cell form when
-        # a cell is selected and the selection prompt otherwise.
-        editing_surface = self.console.layout.get_by_text("Variant", exact=True).or_(
-            self.console.layout.get_by_text("No cell selected")
-        )
+        # A fresh table starts editable, so the toolbar offers the cell type picker
+        # when a cell is selected and the selection prompt otherwise.
+        editing_surface = self.console.layout.page.get_by_role(
+            "button", name="Change cell type", exact=True
+        ).or_(self.console.layout.get_by_text("No cell selected"))
         editing_surface.first.wait_for(state="visible", timeout=10000)
         self.console.layout.hide_visualization_toolbar()

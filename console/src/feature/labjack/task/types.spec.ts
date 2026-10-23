@@ -180,8 +180,9 @@ describe("readConfigZ", () => {
       streamRate: 200, // streamRate > sampleRate will violate the refinement
     };
 
-    const result = deployReadConfigZ.safeParse(configWithInvalidStreamRateRefinement);
-    expect(result.success).toBe(false);
+    expect(deployReadConfigZ.validate(configWithInvalidStreamRateRefinement)).toBe(
+      false,
+    );
   });
 
   it("should validate a configuration with linear scale", () => {
@@ -203,8 +204,7 @@ describe("readConfigZ", () => {
       streamRate: 500,
     };
 
-    const result = readConfigZ.safeParse(configWithLinearScale);
-    expect(result.success).toBe(true);
+    expect(readConfigZ.validate(configWithLinearScale)).toBe(true);
   });
 
   it("should validate a configuration with map scale", () => {
@@ -232,8 +232,7 @@ describe("readConfigZ", () => {
       streamRate: 500,
     };
 
-    const result = readConfigZ.safeParse(configWithMapScale);
-    expect(result.success).toBe(true);
+    expect(readConfigZ.validate(configWithMapScale)).toBe(true);
   });
 });
 
@@ -271,8 +270,7 @@ describe("writeConfigZ", () => {
       stateRate: 1000,
     };
 
-    const result = writeConfigZ.safeParse(validConfig);
-    expect(result.success).toBe(true);
+    expect(writeConfigZ.validate(validConfig)).toBe(true);
   });
 
   it("should reject a configuration with duplicate ports", () => {

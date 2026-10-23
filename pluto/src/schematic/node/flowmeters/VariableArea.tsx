@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/lyra/css";
+
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Label } from "@/schematic/node/flowmeters/Label";
@@ -19,7 +20,7 @@ export const VariableArea = ({
   id,
   className,
   orientation = "right",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: Props) => (
@@ -36,7 +37,7 @@ export const VariableArea = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
@@ -45,7 +46,7 @@ export const VariableArea = ({
       <Primitive.Path d="M23 13V22" />
       <Primitive.Path d="M23 13L46 10" />
       <Primitive.Path d="M23 22L46 25" />
-      <Label color={color} />
+      <Label strokeColor={strokeColor} />
     </Primitive.SVG>
   </Primitive.Div>
 );

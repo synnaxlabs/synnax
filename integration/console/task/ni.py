@@ -94,7 +94,7 @@ class NITask(TaskPage):
         layout = self.layout
 
         idx = len(self.channels)
-        self.add_channel_row(idx)
+        self.add_channel_row()
         layout.page.locator(".pluto-list__item").nth(idx).click()
 
         # Configure device
@@ -105,7 +105,8 @@ class NITask(TaskPage):
             dev_name = name[:12]
         # Handle device creation modal if it appears
         sy.sleep(0.2)  # Give modal time to appear
-        if layout.is_modal_open():
+        configured = layout.is_modal_open()
+        if configured:
             sy.sleep(0.2)
             layout.fill_input_field("Name", dev_name)
             layout.click_btn("Next")
@@ -116,6 +117,9 @@ class NITask(TaskPage):
 
         if layout.is_modal_open():
             raise RuntimeError("Blocking modal is still open")
+        # Configuring renames the device, and the field shows the new name late.
+        if configured:
+            layout.wait_for_dropdown_value("Device", dev_name)
 
         # Create channel using provided class
         channel = channel_class(layout=self.layout, name=name, device=device, **kwargs)

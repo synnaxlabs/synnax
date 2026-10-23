@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Input, Status } from "@synnaxlabs/pluto";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { Status } from "@synnaxlabs/lyra/status";
 import { type ReactElement } from "react";
 
 import { PickerRow, type PickerRowProps } from "@/platform/fs/PickerRow";

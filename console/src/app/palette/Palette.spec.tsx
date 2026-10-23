@@ -9,7 +9,7 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Palette } from "@/app/palette";
 import { Command as FeatureCommand } from "@/feature/command";
@@ -63,6 +63,10 @@ const pressChord = async (...codes: string[]): Promise<HTMLInputElement> => {
 };
 
 describe("Palette", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("should open in command mode from its keyboard trigger", async () => {
     await renderAppPalette();
     const input = await pressChord("ControlLeft", "ShiftLeft", "KeyP");
@@ -105,10 +109,33 @@ describe("Palette", () => {
       name: Docs.ReadCommand.commandName,
     });
     await act(async () => {
-      fireEvent.click(item, { detail: 1 });
+      fireEvent.click(item);
     });
     await waitFor(() => {
       expect(open).toHaveBeenCalledWith(Docs.URL, "_blank", "noopener,noreferrer");
+    });
+  });
+
+  it("should run the hovered command once on Enter and close the palette", async () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    await renderAppPalette();
+    fireEvent.change(await openPalette(), { target: { value: FeatureCommand.PREFIX } });
+    fireEvent.change(await paletteInput(), {
+      target: { value: `${FeatureCommand.PREFIX}${Docs.ReadCommand.commandName}` },
+    });
+    await screen.findByRole("option", { name: Docs.ReadCommand.commandName });
+    await act(async () => {
+      fireEvent.keyDown(window, { code: "Enter" });
+    });
+    await act(async () => {
+      fireEvent.keyUp(window, { code: "Enter" });
+    });
+    await waitFor(() => {
+      expect(open).toHaveBeenCalledWith(Docs.URL, "_blank", "noopener,noreferrer");
+    });
+    expect(open).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(document.querySelector(".console-palette__input")).toBeNull();
     });
   });
 });

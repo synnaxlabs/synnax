@@ -10,18 +10,16 @@
 import "@/platform/status/list/Item.css";
 
 import { status } from "@synnaxlabs/client";
-import {
-  Access,
-  Flex,
-  Icon,
-  Input,
-  List,
-  Select,
-  Status,
-  Tag,
-  Telem,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status as Base } from "@synnaxlabs/lyra/status";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Telem } from "@synnaxlabs/lyra/telem";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, Status } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Button } from "@/platform/button";
@@ -61,7 +59,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
           aria-label="Select"
         />
         <Text.Text level="p" weight={450}>
-          <Status.Indicator variant={variant} />
+          <Base.Indicator variant={variant} />
           <Text.MaybeEditable
             id={List.itemNameID(itemKey)}
             value={name}

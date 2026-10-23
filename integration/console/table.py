@@ -13,6 +13,7 @@ from playwright.sync_api import Locator
 
 import synnax as sy
 from console.layout import LayoutClient
+from console.multiedit import Colors
 from console.page import ConsolePage
 
 DATA_ROW_SELECTOR = ".pluto-table__row:not(.pluto-table__col-resizer)"
@@ -34,6 +35,7 @@ class Table(ConsolePage):
     ) -> None:
         """Initialize a Table page wrapper (see ConsolePage.__init__ for details)."""
         super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        self.colors = Colors(self.page)
 
     def set_cell_channel(self, channel_name: str, row: int = 0, col: int = 0) -> None:
         """Set a cell to display a channel's telemetry value.
@@ -45,7 +47,7 @@ class Table(ConsolePage):
         """
         self._get_cell(row, col).click()
         self.set_toolbar_variant("Value")
-        self.page.get_by_text("Telemetry").click()
+        self.page.get_by_role("tab", name="Telemetry", exact=True).click()
         self.layout.click_btn("Channel")
         self.layout.select_from_dropdown(channel_name)
 
@@ -60,7 +62,7 @@ class Table(ConsolePage):
             The channel name or empty string if not set
         """
         self._select_cell(row, col)
-        self.page.get_by_text("Telemetry").click()
+        self.page.get_by_role("tab", name="Telemetry", exact=True).click()
         channel_btn = (
             self.page.locator('text="Channel"').locator("..").locator("button").first
         )
@@ -139,37 +141,45 @@ class Table(ConsolePage):
         letter = chr(ord("A") + col)
         self.ctx_menu.action(cell, f"Delete column {letter}")
 
-    def set_redline(self, row: int, col: int, lower: float, upper: float) -> None:
-        """Configure redline bounds on a value cell.
+    def add_redline_band(self, row: int, col: int, threshold: float) -> None:
+        """Add a threshold band to the redline of a value cell.
 
         The cell must already be set to "Value" variant with a channel configured.
 
         Args:
             row: Row index (0-based)
             col: Column index (0-based)
-            lower: Lower redline bound
-            upper: Upper redline bound
+            threshold: Lowest value the band paints. It must exceed every existing
+                threshold, since a new band is added at the bottom of the list.
         """
-        self._select_cell(row, col)
-        self.page.get_by_text("Redline").click()
-        self.layout.fill_input_field("Lower", str(lower))
-        self.layout.fill_input_field("Upper", str(upper))
+        bands = self._open_redline_bands(row, col)
+        self.page.locator(".pluto-redline-form").get_by_text(
+            "Add band", exact=True
+        ).click()
+        threshold_input = bands.locator(".pluto-list__item input").last
+        threshold_input.fill(str(threshold))
+        threshold_input.press("Enter")
 
-    def get_redline(self, row: int, col: int) -> tuple[str, str]:
-        """Get the current redline bounds from a value cell.
+    def get_redline_thresholds(self, row: int, col: int) -> list[str]:
+        """Get the band thresholds of a value cell's redline, lowest first.
 
         Args:
             row: Row index (0-based)
             col: Column index (0-based)
 
         Returns:
-            Tuple of (lower_bound, upper_bound) as strings
+            The threshold of each band as shown in its input
         """
+        inputs = self._open_redline_bands(row, col).locator(".pluto-list__item input")
+        return [inputs.nth(i).input_value() for i in range(inputs.count())]
+
+    def _open_redline_bands(self, row: int, col: int) -> Locator:
+        """Open the redline tab of a cell and return its band list."""
         self._select_cell(row, col)
-        self.page.get_by_text("Redline").click()
-        lower = self.layout.get_input_field("Lower")
-        upper = self.layout.get_input_field("Upper")
-        return (lower, upper)
+        self.page.get_by_role("tab", name="Redline", exact=True).click()
+        bands = self.page.locator(".pluto-redline-form__bands")
+        bands.wait_for(state="visible", timeout=5000)
+        return bands
 
     def _select_cell(self, row: int, col: int) -> None:
         """Focus the tab, click a cell, and open the visualization toolbar."""
@@ -320,16 +330,17 @@ class Table(ConsolePage):
     SIZE_LABELS = ("XL", "L", "M", "S", "XS")
 
     def set_toolbar_variant(self, variant: str) -> None:
-        """Open the toolbar's Variant dropdown and pick the named option."""
+        """Open the toolbar header's cell type picker and pick the named option."""
         self.layout.show_visualization_toolbar()
-        self.layout.click_btn("Variant")
+        self.page.get_by_role("button", name="Change cell type", exact=True).click()
         self.layout.select_from_dropdown(variant)
 
     def get_toolbar_variant(self) -> str:
-        """Read the toolbar's Variant dropdown value. Empty string when the
-        selected cells disagree on variant."""
+        """Read the cell type from the toolbar header. "Mixed" when the selected
+        cells disagree on type."""
         self.layout.show_visualization_toolbar()
-        return self.layout.get_dropdown_value("Variant")
+        identity = self.page.locator(".console-table__variant > .pluto-text")
+        return identity.inner_text().strip()
 
     def set_toolbar_size(self, label: str) -> None:
         """Click one of the toolbar's Size buttons (XL/L/M/S/XS)."""
@@ -360,18 +371,3 @@ class Table(ConsolePage):
         if text.endswith("cells"):
             return int(text.split()[0])
         return 1
-
-    def get_color_swatch_count(self) -> int:
-        """Count the swatches in the toolbar's "Selection colors" group.
-
-        Each distinct color across the selection contributes one swatch,
-        so this is the number of color groups the multi-cell form is
-        rendering. Returns 0 when the group is absent (single cell or
-        no cells with a color prop).
-        """
-        self.layout.show_visualization_toolbar()
-        label = self.page.get_by_text("Selection colors", exact=True).first
-        if label.count() == 0:
-            return 0
-        group = label.locator("..")
-        return group.locator(".pluto-color-swatch").count()

@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type actions, type query, type Synnax as Client } from "@synnaxlabs/client";
+import { Status } from "@synnaxlabs/lyra/status";
 import { type record } from "@synnaxlabs/x";
 import { useCallback, useSyncExternalStore } from "react";
 
 import { errorResult } from "@/flux/result";
-import { useAdder } from "@/status/base/Aggregator";
 import { Synnax } from "@/synnax";
 
 /** One or more actions aimed at the document with the given key. */
@@ -110,7 +110,7 @@ export const createDispatch = <
 
   const useDispatch = () => {
     const client = Synnax.use();
-    const addStatus = useAdder();
+    const addStatus = Status.useAdder();
 
     const dispatchAsync = useCallback(
       async (input: DispatchInput<Key, Action>): Promise<boolean> => {
@@ -158,7 +158,7 @@ export const createDispatch = <
 
   const useUndo = ({ key }: { key: Key }) => {
     const client = Synnax.use();
-    const addStatus = useAdder();
+    const addStatus = Status.useAdder();
     const canUndo = useCanReverse({ key, side: "undo" });
     const undo = useCallback(() => {
       if (client == null) return;
@@ -171,7 +171,7 @@ export const createDispatch = <
 
   const useRedo = ({ key }: record.Keyed<Key>) => {
     const client = Synnax.use();
-    const addStatus = useAdder();
+    const addStatus = Status.useAdder();
     const canRedo = useCanReverse({ key, side: "redo" });
     const redo = useCallback(() => {
       if (client == null) return;

@@ -9,7 +9,9 @@
 
 import "@/platform/view/FilterMenu.css";
 
-import { Dialog, Icon, Menu } from "@synnaxlabs/pluto";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { location } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactNode } from "react";
 

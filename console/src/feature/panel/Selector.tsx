@@ -10,22 +10,15 @@
 import "@/feature/panel/Selector.css";
 
 import { panel, query } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Component,
-  CSS as PCSS,
-  Errors,
-  type Flux,
-  Haul,
-  Icon,
-  Menu,
-  Mosaic,
-  Panel,
-  Synnax,
-  Tabs,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, Errors, type Flux, Mosaic, Panel, Synnax } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";

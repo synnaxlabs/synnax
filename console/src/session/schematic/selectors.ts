@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Access, type Control, Schematic } from "@synnaxlabs/pluto";
+import { Access, type Control, type Properties, Schematic } from "@synnaxlabs/pluto";
 import { type control, type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
@@ -97,6 +97,12 @@ export const selectSelectedSymbolGroup = (params: KeyedSelectorParams): string =
 
 export const useSelectSelectedSymbolGroup = createSelector(selectSelectedSymbolGroup);
 
+const selectPropertiesTab = (
+  params: KeyedSelectorParams,
+): Properties.TabKey | undefined => selectToolbar(params).propertiesTab;
+
+export const useSelectPropertiesTab = createSelector(selectPropertiesTab);
+
 export const selectLegend = (params: KeyedSelectorParams): LegendState =>
   selectState(params).legend;
 
@@ -118,6 +124,11 @@ const selectFitViewOnResize = (params: KeyedSelectorParams): boolean =>
 
 export const useSelectFitViewOnResize = createSelector(selectFitViewOnResize);
 export const useGetFitViewOnResize = createGetter(selectFitViewOnResize);
+
+const selectTooltipsDisabled = (params: KeyedSelectorParams): boolean =>
+  selectState(params).tooltipsDisabled;
+
+export const useSelectTooltipsDisabled = createSelector(selectTooltipsDisabled);
 
 const selectViewport = (params: KeyedSelectorParams): Viewport =>
   selectState(params).viewport;

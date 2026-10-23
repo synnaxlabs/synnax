@@ -10,28 +10,30 @@
 import "@/feature/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
+import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import {
   Access,
-  Breadcrumb,
-  Color,
-  Flex,
-  Form,
-  Icon,
-  Input,
   Panel as PPanel,
-  Select,
+  type Properties,
+  Staleness,
   Table,
-  Text,
-  Theming,
 } from "@synnaxlabs/pluto";
-import { color, deep, type text } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { deep, type text } from "@synnaxlabs/x";
+import { type ReactElement, useCallback } from "react";
 import { type z } from "zod";
 
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
+import { MultiEdit } from "@/platform/multiedit";
 import { type Panel } from "@/platform/panel";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
@@ -48,6 +50,11 @@ const Internal = (): ReactElement => {
   const singleSelectedKey =
     liveCellCount === 1 ? (cellsByKey.keys().next().value ?? null) : null;
   const selectedCellPos = Table.useCellPosition({ cellKey: singleSelectedKey ?? "" });
+  const dispatch = Table.useSingleDispatch();
+  const variants = new Set(Array.from(cellsByKey.values(), ({ variant }) => variant));
+  const variant = variants.size === 1 ? variants.values().next().value : undefined;
+  const handleVariantChange = (next: Table.Cell.Variant): void =>
+    dispatch(buildVariantSwapActions(cellsByKey, next));
   return (
     <Base.Content>
       <Base.Header>
@@ -59,7 +66,7 @@ const Internal = (): ReactElement => {
             </Breadcrumb.Segment>
             {selectedCellPos != null && (
               <Breadcrumb.Segment color={9}>
-                {Table.getCellColumn(selectedCellPos.x)}
+                Cell {Table.getCellColumn(selectedCellPos.x)}
                 {selectedCellPos.y + 1}
               </Breadcrumb.Segment>
             )}
@@ -67,6 +74,9 @@ const Internal = (): ReactElement => {
               <Breadcrumb.Segment color={9}>{liveCellCount} cells</Breadcrumb.Segment>
             )}
           </Breadcrumb.Breadcrumb>
+          {canEdit && liveCellCount > 0 && (
+            <Variant value={variant} onChange={handleVariantChange} />
+          )}
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} gap="small">
           <Export.ToolbarButton id={table.ontologyID(key)} />
@@ -79,12 +89,41 @@ const Internal = (): ReactElement => {
         ) : liveCellCount === 0 ? (
           <EmptyContent />
         ) : singleSelectedKey != null ? (
-          <CellForm key={singleSelectedKey} cellKey={singleSelectedKey} />
+          // A variant's form holds that variant's config, so a swap remounts it.
+          <CellForm
+            key={`${singleSelectedKey}:${variant}`}
+            cellKey={singleSelectedKey}
+          />
         ) : (
           <MultiCellForm cellKeys={selectedCellKeys} />
         )}
       </Flex.Box>
     </Base.Content>
+  );
+};
+
+interface VariantProps {
+  /** The shared variant of the selected cells, or undefined when they disagree. */
+  value?: Table.Cell.Variant;
+  onChange: (variant: Table.Cell.Variant) => void;
+}
+
+const Variant = ({ value, onChange }: VariantProps): ReactElement => {
+  const spec = value == null ? null : Table.Cell.REGISTRY[value];
+  return (
+    <Flex.Box x align="center" gap="small" className={CSS.BE("table", "variant")}>
+      <Text.Text level="p" weight={500} color={10}>
+        {spec == null ? (
+          "Mixed"
+        ) : (
+          <>
+            <spec.Icon />
+            {spec.name}
+          </>
+        )}
+      </Text.Text>
+      <Table.Cell.ChangeVariant value={value} onChange={onChange} />
+    </Flex.Box>
   );
 };
 
@@ -123,46 +162,37 @@ interface CellFormProps {
 
 const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
   const cell = Table.useCell({ cellKey });
-  if (cell == null) return null;
-  // A swap changes the variant before the form values sync, so the new variant's form
-  // would bind paths the old config lacks. Keying on the variant remounts it fresh.
-  return <VariantCellForm key={cell.variant} cellKey={cellKey} cell={cell} />;
-};
-
-interface VariantCellFormProps extends CellFormProps {
-  cell: Table.Cell.Config;
-}
-
-const VariantCellForm = ({ cellKey, cell }: VariantCellFormProps): ReactElement => {
   const dispatch = Table.useSingleDispatch();
-
-  const handleVariantChange = useCallback(
-    (variant: Table.Cell.Variant) =>
-      dispatch(buildVariantSwapActions([[cellKey, cell]], variant)),
-    [cell, cellKey, dispatch],
-  );
+  const key = Table.useKey();
+  const sessionDispatch = Session.useDispatch();
+  const tab = Session.Table.useSelectPropertiesTab({ key });
+  const handleTabChange = (tab: Properties.TabKey) =>
+    sessionDispatch(Session.Table.setPropertiesTab({ key, tab }));
 
   const handleChange = useCallback(
-    ({ values }: Form.OnChangeParams<typeof Table.Cell.configZ>) =>
+    ({ values }: Form.OnChangeParams<typeof Table.Cell.configZ>) => {
+      if (cell == null) return;
       dispatch([
         table.setCell({
           cell: { key: cellKey, config: Table.Cell.configZ.parse(values) },
         }),
-      ]),
-    [cellKey, dispatch],
+      ]);
+    },
+    [cell, cellKey, dispatch],
   );
 
   const methods = Form.use<typeof Table.Cell.configZ>({
-    values: deep.copy(cell),
+    values: cell != null ? deep.copy(cell) : Table.Cell.defaultConfig("text"),
     schema: Table.Cell.configZ,
     onChange: handleChange,
     sync: true,
   });
 
+  if (cell == null) return null;
   const C = Table.Cell.REGISTRY[cell.variant];
   return (
     <Form.Form<typeof Table.Cell.configZ> {...methods}>
-      <C.Form onVariantChange={handleVariantChange} />
+      <C.Form tab={tab} onTabChange={handleTabChange} />
     </Form.Form>
   );
 };
@@ -190,28 +220,10 @@ const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => 
   );
 };
 
-// An unset color reads as the fallback the single-cell form shows, so uncolored cells
-// still get a swatch.
-const readCellColor = (cell: Table.Cell.Config, theme: Theming.Theme): color.Hex => {
-  switch (cell.variant) {
-    case "text":
-      return color.hex(cell.backgroundColor ?? color.ZERO);
-    case "value":
-      return color.hex(cell.color ?? theme.colors.gray.l11);
-  }
-};
+const FIELDS = MultiEdit.fieldsByVariant(table.CELL_CONFIG_SCHEMAS);
 
-const cellColorPatch = (
-  cell: Table.Cell.Config,
-  next: color.Color,
-): Partial<Table.Cell.Config> => {
-  switch (cell.variant) {
-    case "text":
-      return { backgroundColor: next };
-    case "value":
-      return { color: next };
-  }
-};
+// Every stored color field that Selection lists.
+const COLOR_FIELDS = ["textColor", "fillColor", "stalenessColor"] as const;
 
 interface MultiCellFormProps {
   cellKeys: string[];
@@ -220,107 +232,73 @@ interface MultiCellFormProps {
 const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
   const cellsByKey = Table.useCells({ cellKeys });
   const dispatch = Table.useSingleDispatch();
-
-  // Cells absent from the store are skipped (selection may include keys from
-  // a removed row). One dispatch per call so undo collapses to one step.
-  const applyPropPatch = useCallback(
-    (
-      keys: string[],
-      patch: (cell: Table.Cell.Config) => Partial<Table.Cell.Config> | null,
-    ) => {
-      const actions: table.Action[] = [];
-      for (const key of keys) {
-        const cell = cellsByKey.get(key);
-        if (cell == null) continue;
-        const next = patch(cell);
-        if (next == null) continue;
-        actions.push(
-          table.setCell({
-            cell: { key, config: Table.Cell.configZ.parse({ ...cell, ...next }) },
-          }),
-        );
-      }
-      dispatch(actions);
-    },
-    [cellsByKey, dispatch],
-  );
-
-  const variants = useMemo(() => {
-    const s = new Set<Table.Cell.Variant>();
-    cellsByKey.forEach((c) => s.add(c.variant));
-    return s;
-  }, [cellsByKey]);
-  const commonVariant =
-    variants.size === 1 ? (variants.values().next().value ?? null) : null;
-
-  const handleVariantChange = useCallback(
-    (variant: Table.Cell.Variant) => {
-      dispatch(buildVariantSwapActions(cellsByKey, variant));
-    },
-    [cellsByKey, dispatch],
-  );
-
   const theme = Theming.use();
-  const colorGroups = useMemo(() => {
-    const groups = new Map<color.Hex, string[]>();
-    cellsByKey.forEach((cell, key) => {
-      const hex = readCellColor(cell, theme);
-      const existing = groups.get(hex);
-      if (existing != null) existing.push(key);
-      else groups.set(hex, [key]);
-    });
-    return groups;
-  }, [cellsByKey, theme]);
 
-  const handleColorChange = useCallback(
-    (groupKeys: string[], next: color.Color) =>
-      applyPropPatch(groupKeys, (cell) => cellColorPatch(cell, next)),
-    [applyPropPatch],
+  // One dispatch per change so undo collapses to one step.
+  const selection = MultiEdit.selection({
+    configs: cellsByKey,
+    fields: FIELDS,
+    onChange: (updates) =>
+      dispatch(
+        updates.map(([key, config]) =>
+          table.setCell({ cell: { key, config: Table.Cell.configZ.parse(config) } }),
+        ),
+      ),
+  });
+
+  const selectionRefs = Array.from(cellsByKey).flatMap(([key, cell]) =>
+    MultiEdit.colorRefs(key, cell, COLOR_FIELDS),
   );
 
-  const commonLevel = useMemo((): text.Level | undefined => {
-    let result: text.Level | undefined;
-    for (const cell of cellsByKey.values())
-      if (result == null) result = cell.level;
-      else if (result !== cell.level) return undefined;
-
-    return result;
-  }, [cellsByKey]);
-
-  const handleLevelChange = useCallback(
-    (level: text.Level) => applyPropPatch(cellKeys, () => ({ level })),
-    [applyPropPatch, cellKeys],
-  );
+  const levels = new Set(Array.from(cellsByKey.values(), (cell) => cell.level));
+  const commonLevel = levels.size === 1 ? levels.values().next().value : undefined;
 
   return (
-    <Flex.Box
-      x
-      align="start"
-      gap="large"
-      className={CSS.BE("table", "multi-cell-form")}
-    >
-      <Input.Item label="Variant" padHelpText={false}>
-        <Table.Cell.SelectVariant
-          value={commonVariant ?? undefined}
-          onChange={handleVariantChange}
+    <Form.Sections x>
+      <MultiEdit.ColorsSection>
+        <MultiEdit.ColorField
+          label="Text"
+          values={selection.colors("textColor", () =>
+            Table.Cell.colorFallbacks.textColor(theme),
+          )}
+          onChange={(c) => selection.set("textColor", c)}
         />
-      </Input.Item>
-      {colorGroups.size > 0 && (
-        <Input.Item label="Selection colors" align="start" padHelpText={false}>
-          <Flex.Box x>
-            {Array.from(colorGroups.entries()).map(([hex, keys]) => (
-              <Color.Swatch
-                key={keys[0]}
-                value={hex}
-                onChange={(c: color.Color) => handleColorChange(keys, c)}
-              />
-            ))}
-          </Flex.Box>
+        <MultiEdit.ColorField
+          label="Fill"
+          values={selection.colors("fillColor", Table.Cell.colorFallbacks.fillColor)}
+          onChange={(c) => selection.set("fillColor", c)}
+        />
+        <MultiEdit.SelectionColors
+          refs={selectionRefs}
+          onChange={selection.setColors}
+        />
+      </MultiEdit.ColorsSection>
+      <Form.Section title="Text">
+        <Input.Item label="Size" padHelpText={false}>
+          <Select.Text.Level
+            value={commonLevel}
+            onChange={(level: text.Level) => selection.set("level", level)}
+          />
         </Input.Item>
+      </Form.Section>
+      {selection.has("stalenessTimeout") && (
+        <MultiEdit.StalenessSection
+          colors={selection.colors("stalenessColor", () =>
+            Staleness.resolveColor(undefined, theme),
+          )}
+          timeout={selection.first("stalenessTimeout")}
+          onColorChange={(c) => selection.set("stalenessColor", c)}
+          onTimeoutChange={(v) => selection.set("stalenessTimeout", v)}
+        />
       )}
-      <Input.Item label="Size" padHelpText={false}>
-        <Select.Text.Level value={commonLevel} onChange={handleLevelChange} />
-      </Input.Item>
-    </Flex.Box>
+      {selection.has("precision") && (
+        <MultiEdit.NumberFormatSection
+          notation={selection.first("notation")}
+          precision={selection.first("precision")}
+          onNotationChange={(v) => selection.set("notation", v)}
+          onPrecisionChange={(v) => selection.set("precision", v)}
+        />
+      )}
+    </Form.Sections>
   );
 };

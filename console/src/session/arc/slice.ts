@@ -19,16 +19,16 @@ import { Window } from "@/session/window";
 export const toolbarTabZ = z.enum(["stages", "properties"]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 
-export const toolbarStateZ = z.object({ selectedTab: toolbarTabZ.default("stages") });
+const toolbarStateZ = z.object({ selectedTab: toolbarTabZ.default("stages") });
 export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
 
-export const viewportStateZ = z.object({
+const viewportStateZ = z.object({
   position: xy.xyZ.default({ x: 0, y: 0 }),
   zoom: z.number().default(1),
   mode: Viewport.modeZ.default("select"),
 });
 
-export const graphStateZ = z.object({
+const graphStateZ = z.object({
   editable: z.boolean().default(true),
   fitViewOnResize: z.boolean().default(false),
   viewport: viewportStateZ.prefault({}),
@@ -45,7 +45,7 @@ export interface NewState extends z.input<typeof stateZ> {}
 
 export const ZERO_STATE = stateZ.parse({});
 
-export const windowStateZ = z.record(z.string(), stateZ).default({});
+const windowStateZ = z.record(z.string(), stateZ).default({});
 
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
@@ -163,7 +163,7 @@ export const purgeState = (state: State): State => {
   return state;
 };
 
-export const purgeSliceState = <S extends StoreState>(state: S): S => {
+const purgeSliceState = <S extends StoreState>(state: S): S => {
   Window.purgeDocuments(state[SLICE_NAME], purgeState);
   return state;
 };

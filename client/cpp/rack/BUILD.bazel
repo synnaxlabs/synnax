@@ -41,6 +41,7 @@ cc_library(
 cc_test(
     name = "rack_test",
     srcs = ["rack_test.cpp"],
+    tags = ["requires-core"],
     deps = [
         ":rack",
         "//client/cpp:synnax",

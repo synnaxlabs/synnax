@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Divider } from "@/divider";
-import { Flex } from "@/flex";
-import { Text } from "@/text";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { SubcategorySection } from "./SubcategorySection";
 
@@ -17,7 +17,7 @@ export const DividerShowcase = () => (
   <Flex.Box y pack empty>
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Vertical Dividers"
+        title="Vertical dividers"
         description="Vertical separators for dividing content horizontally within flex containers"
       >
         <Flex.Box y gap="medium">
@@ -56,7 +56,7 @@ export const DividerShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Horizontal Dividers"
+        title="Horizontal dividers"
         description="Horizontal separators for dividing content vertically within flex containers"
       >
         <Flex.Box y gap="medium">

@@ -1,0 +1,71 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* Frosted ring: the sharp fill sits inside a milky, translucent twin of the same
+   gradient. */
+.pluto-avatar {
+    --pluto-avatar-size: var(--pluto-height-medium);
+
+    display: flex;
+    flex-shrink: 0;
+    width: var(--pluto-avatar-size);
+    height: var(--pluto-avatar-size);
+    padding: 2px;
+    border-radius: var(--pluto-border-radius-small);
+    background: linear-gradient(
+        135deg,
+        oklch(80% 0.09 var(--pluto-avatar-hue) / 70%),
+        oklch(62% 0.08 calc(var(--pluto-avatar-hue) + 70) / 70%)
+    );
+    box-shadow: var(--pluto-shadow-lift);
+    user-select: none;
+
+    &.pluto--height-tiny {
+        --pluto-avatar-size: var(--pluto-height-tiny);
+    }
+
+    &.pluto--height-small {
+        --pluto-avatar-size: var(--pluto-height-small);
+    }
+
+    &.pluto--height-large {
+        --pluto-avatar-size: var(--pluto-height-large);
+    }
+
+    &.pluto--height-huge {
+        --pluto-avatar-size: var(--pluto-height-huge);
+    }
+}
+
+.pluto-avatar__fill {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: calc(var(--pluto-border-radius-small) - 2px);
+    background: linear-gradient(
+        135deg,
+        oklch(62% 0.17 var(--pluto-avatar-hue)),
+        oklch(42% 0.16 calc(var(--pluto-avatar-hue) + 70))
+    );
+    color: oklch(90% 0.08 calc(var(--pluto-avatar-hue) + 20));
+    font-size: round(calc(var(--pluto-avatar-size) * 0.48), 1px);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.03em;
+
+    & img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+}

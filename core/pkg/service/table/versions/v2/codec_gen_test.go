@@ -19,10 +19,9 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
-	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
@@ -44,11 +43,17 @@ var _ = Describe("Codec", func() {
 				Level:  text.Level("h1"),
 				Weight: 3.5,
 				Align:  v2.FlexAlignment("start"),
-				BackgroundColor: new(color.Color{
+				FillColor: new(color.Color{
 					R: 7,
 					G: 8,
 					B: 9,
 					A: 9.5,
+				}),
+				TextColor: new(color.Color{
+					R: 12,
+					G: 13,
+					B: 14,
+					A: 14.5,
 				}),
 			}}),
 			Entry("value variant", v2.CellConfig{Variant: v2.ValueCellConfig{
@@ -56,31 +61,37 @@ var _ = Describe("Codec", func() {
 				RollingAverage: 3,
 				Precision:      new(int32(4)),
 				Notation:       notation.Notation("standard"),
-				Redline: new(v2.Redline{
-					Bounds: spatial.Bounds{Lower: 7.5, Upper: 8.5},
-					Gradient: []color.Stop{
+				Redline: color.Scale{
+					Bands: []color.Band{
 						{
-							Key:      "test_10",
-							Color:    color.Color{},
-							Position: 12.5,
-							Switched: new(bool(true)),
+							Key:       "test_7",
+							Threshold: 8.5,
+							Color:     color.Color{},
+							Flashing:  false,
 						},
 					},
+					Smooth: true,
+				},
+				FillColor: new(color.Color{
+					R: 14,
+					G: 15,
+					B: 16,
+					A: 16.5,
 				}),
 				Level: text.Level("h1"),
-				Color: new(color.Color{
-					R: 17,
-					G: 18,
-					B: 19,
-					A: 19.5,
+				TextColor: new(color.Color{
+					R: 20,
+					G: 21,
+					B: 22,
+					A: 22.5,
 				}),
-				Units:            "test_20",
-				StalenessTimeout: 21.5,
+				Units:            "test_23",
+				StalenessTimeout: 24.5,
 				StalenessColor: new(color.Color{
-					R: 24,
-					G: 25,
-					B: 26,
-					A: 26.5,
+					R: 27,
+					G: 28,
+					B: 29,
+					A: 29.5,
 				}),
 			}}),
 		)
@@ -98,40 +109,6 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v2.Column{Size: 1.5}),
 			Entry("zero values", v2.Column{Size: 0}),
-		)
-	})
-	Describe("Redline", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v2.Redline) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v2.Redline
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v2.Redline{
-				Bounds: spatial.Bounds{Lower: 2.5, Upper: 3.5},
-				Gradient: []color.Stop{
-					{
-						Key: "test_5",
-						Color: color.Color{
-							R: 8,
-							G: 9,
-							B: 10,
-							A: 10.5,
-						},
-						Position: 11.5,
-						Switched: new(bool(false)),
-					},
-				},
-			}),
-			Entry("zero values", v2.Redline{Bounds: spatial.Bounds{Lower: 0, Upper: 0}, Gradient: []color.Stop{}}),
-			Entry("empty collections", v2.Redline{
-				Bounds:   spatial.Bounds{Lower: 2.5, Upper: 3.5},
-				Gradient: []color.Stop{},
-			}),
 		)
 	})
 	Describe("Row", func() {
@@ -172,11 +149,17 @@ var _ = Describe("Codec", func() {
 						Level:  text.Level("h1"),
 						Weight: 11.5,
 						Align:  v2.FlexAlignment("start"),
-						BackgroundColor: new(color.Color{
+						FillColor: new(color.Color{
 							R: 15,
 							G: 16,
 							B: 17,
 							A: 17.5,
+						}),
+						TextColor: new(color.Color{
+							R: 20,
+							G: 21,
+							B: 22,
+							A: 22.5,
 						}),
 					}},
 				},
@@ -205,11 +188,17 @@ func BenchmarkEncodeDecodeCellConfig(b *testing.B) {
 		Level:  text.Level("h1"),
 		Weight: 3.5,
 		Align:  v2.FlexAlignment("start"),
-		BackgroundColor: new(color.Color{
+		FillColor: new(color.Color{
 			R: 7,
 			G: 8,
 			B: 9,
 			A: 9.5,
+		}),
+		TextColor: new(color.Color{
+			R: 12,
+			G: 13,
+			B: 14,
+			A: 14.5,
 		}),
 	}}
 	w := orc.NewWriter(0)
@@ -237,38 +226,6 @@ func BenchmarkEncodeDecodeColumn(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v2.Column
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeRedline(b *testing.B) {
-	seed := v2.Redline{
-		Bounds: spatial.Bounds{Lower: 2.5, Upper: 3.5},
-		Gradient: []color.Stop{
-			{
-				Key: "test_5",
-				Color: color.Color{
-					R: 8,
-					G: 9,
-					B: 10,
-					A: 10.5,
-				},
-				Position: 11.5,
-				Switched: new(bool(false)),
-			},
-		},
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v2.Redline
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -305,11 +262,17 @@ func BenchmarkEncodeDecodeTable(b *testing.B) {
 				Level:  text.Level("h1"),
 				Weight: 11.5,
 				Align:  v2.FlexAlignment("start"),
-				BackgroundColor: new(color.Color{
+				FillColor: new(color.Color{
 					R: 15,
 					G: 16,
 					B: 17,
 					A: 17.5,
+				}),
+				TextColor: new(color.Color{
+					R: 20,
+					G: 21,
+					B: 22,
+					A: 22.5,
 				}),
 			}},
 		},
@@ -336,11 +299,17 @@ func FuzzDecodeCellConfig(f *testing.F) {
 			Level:  text.Level("h1"),
 			Weight: 3.5,
 			Align:  v2.FlexAlignment("start"),
-			BackgroundColor: new(color.Color{
+			FillColor: new(color.Color{
 				R: 7,
 				G: 8,
 				B: 9,
 				A: 9.5,
+			}),
+			TextColor: new(color.Color{
+				R: 12,
+				G: 13,
+				B: 14,
+				A: 14.5,
 			}),
 		}}
 		w := orc.NewWriter(0)
@@ -355,31 +324,37 @@ func FuzzDecodeCellConfig(f *testing.F) {
 			RollingAverage: 3,
 			Precision:      new(int32(4)),
 			Notation:       notation.Notation("standard"),
-			Redline: new(v2.Redline{
-				Bounds: spatial.Bounds{Lower: 7.5, Upper: 8.5},
-				Gradient: []color.Stop{
+			Redline: color.Scale{
+				Bands: []color.Band{
 					{
-						Key:      "test_10",
-						Color:    color.Color{},
-						Position: 12.5,
-						Switched: new(bool(true)),
+						Key:       "test_7",
+						Threshold: 8.5,
+						Color:     color.Color{},
+						Flashing:  false,
 					},
 				},
+				Smooth: true,
+			},
+			FillColor: new(color.Color{
+				R: 14,
+				G: 15,
+				B: 16,
+				A: 16.5,
 			}),
 			Level: text.Level("h1"),
-			Color: new(color.Color{
-				R: 17,
-				G: 18,
-				B: 19,
-				A: 19.5,
+			TextColor: new(color.Color{
+				R: 20,
+				G: 21,
+				B: 22,
+				A: 22.5,
 			}),
-			Units:            "test_20",
-			StalenessTimeout: 21.5,
+			Units:            "test_23",
+			StalenessTimeout: 24.5,
 			StalenessColor: new(color.Color{
-				R: 24,
-				G: 25,
-				B: 26,
-				A: 26.5,
+				R: 27,
+				G: 28,
+				B: 29,
+				A: 29.5,
 			}),
 		}}
 		w := orc.NewWriter(0)
@@ -439,71 +414,6 @@ func FuzzDecodeColumn(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v2.Column
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeRedline(f *testing.F) {
-	{
-		seed := v2.Redline{
-			Bounds: spatial.Bounds{Lower: 2.5, Upper: 3.5},
-			Gradient: []color.Stop{
-				{
-					Key: "test_5",
-					Color: color.Color{
-						R: 8,
-						G: 9,
-						B: 10,
-						A: 10.5,
-					},
-					Position: 11.5,
-					Switched: new(bool(false)),
-				},
-			},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.Redline{Bounds: spatial.Bounds{Lower: 0, Upper: 0}, Gradient: []color.Stop{}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.Redline{
-			Bounds:   spatial.Bounds{Lower: 2.5, Upper: 3.5},
-			Gradient: []color.Stop{},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v2.Redline
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v2.Redline
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -574,11 +484,17 @@ func FuzzDecodeTable(f *testing.F) {
 					Level:  text.Level("h1"),
 					Weight: 11.5,
 					Align:  v2.FlexAlignment("start"),
-					BackgroundColor: new(color.Color{
+					FillColor: new(color.Color{
 						R: 15,
 						G: 16,
 						B: 17,
 						A: 17.5,
+					}),
+					TextColor: new(color.Color{
+						R: 20,
+						G: 21,
+						B: 22,
+						A: 22.5,
 					}),
 				}},
 			},

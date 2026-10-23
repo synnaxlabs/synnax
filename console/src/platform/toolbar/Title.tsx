@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Header } from "@synnaxlabs/pluto";
+import { Header } from "@synnaxlabs/lyra/header";
 import { type ReactElement } from "react";
 
 export interface TitleProps extends Pick<Header.TitleProps, "children"> {}

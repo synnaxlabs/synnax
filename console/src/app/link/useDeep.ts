@@ -19,6 +19,7 @@ import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
+import { Session } from "@/session";
 
 const LINKS: Link.Registry = {
   ...Arc.LINKS,
@@ -33,9 +34,12 @@ const LINKS: Link.Registry = {
   ...Project.LINKS,
 };
 
-export const useDeep = () => {
+const useLinks = (): void => {
   const linkHandlers = Object.fromEntries(
     Object.entries(LINKS).map(([key, handler]) => [key, handler()]),
   );
   Link.useDeep(Core.useLink(), linkHandlers);
 };
+
+// Synnax Desktop takes one link, its login, and Account.Guard handles that one.
+export const useDeep: () => void = Session.Runtime.LINKS_DISABLED ? () => {} : useLinks;

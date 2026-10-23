@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/common/primitive/primitive.css";
+
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type ComponentPropsWithRef, type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { type OrientableProps } from "@/schematic/node/common/primitive/orientable";
 
 export interface DivProps

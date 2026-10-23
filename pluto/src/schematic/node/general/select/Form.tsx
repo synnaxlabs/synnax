@@ -8,16 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type schematic } from "@synnaxlabs/client";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
-import { Input } from "@/input";
-import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { Tabs } from "@/tabs";
+import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
+
+export const colorFallbacks = {
+  fillColor: Form.primaryFallback,
+} satisfies ColorFallbacks;
 
 const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } =
@@ -25,58 +29,60 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
       Pick<schematic.SelectNodeConfig, "commandChannel" | "control" | "disabled">
     >(path);
 
-  const handleSinkChange = (v: channel.Key): void =>
+  const handleSinkChange = (v: channel.Key | null): void => {
+    v ??= 0;
     onChange({
       ...value,
       commandChannel: v,
-      control: Control.reveal(value.control),
       disabled: v === 0,
     });
+  };
 
   return (
-    <Form.Wrapper x grow align="stretch">
-      <Input.Item label="Command channel" grow>
-        <Channel.SelectSingle
-          value={value.commandChannel ?? 0}
-          onChange={handleSinkChange}
-        />
-      </Input.Item>
-      <Form.ActivationDelayField />
-      <Form.ControlChipField />
-    </Form.Wrapper>
+    <Base.Sections x>
+      <Base.Section title="Command">
+        <Input.Item label="Channel" padHelpText={false}>
+          <Channel.SelectSingle
+            allowNone
+            value={value.commandChannel ?? 0}
+            onChange={handleSinkChange}
+          />
+        </Input.Item>
+        <Form.ActivationDelayField />
+        <Form.ControlChipField />
+      </Base.Section>
+    </Base.Sections>
   );
 };
 
-export const SelectForm = (): ReactElement => (
-  <Tabs.Frame initialValue="style" grow>
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-      <Tabs.Tab itemKey="control">Control</Tabs.Tab>
-      <Tabs.Tab itemKey="options">Options</Tabs.Tab>
-    </Tabs.Selector>
+export const SelectForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs
+    tabs={["control", "style", "options"]}
+    tab={tab}
+    onTabChange={onTabChange}
+  >
     <Tabs.Content itemKey="style">
-      <Form.Wrapper y align="stretch">
-        <Flex.Box y align="stretch" grow gap="small">
+      <Base.Sections x>
+        <Base.Section title="Label">
           <Label.Form path="label" />
-          <Flex.Box x>
-            <Form.ColorField path="color" />
-            <Form.SizeField />
-            <Base.NumericField
-              path="inlineSize"
-              label="Width"
-              inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
-            />
-          </Flex.Box>
-        </Flex.Box>
-      </Form.Wrapper>
-    </Tabs.Content>
-    <Tabs.Content itemKey="options">
-      <Form.Wrapper y align="stretch">
-        <Form.StateMappingForm path="options" />
-      </Form.Wrapper>
+        </Base.Section>
+        <Base.Section title="Appearance">
+          <Form.FillField fallback={colorFallbacks.fillColor} />
+          <Form.SizeField />
+          <Base.NumericField
+            path="inlineSize"
+            label="Width"
+            padHelpText={false}
+            inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
+          />
+        </Base.Section>
+      </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="control">
       <SelectTelemForm path="" />
     </Tabs.Content>
-  </Tabs.Frame>
+    <Tabs.Content itemKey="options">
+      <Form.StateMappingForm path="options" />
+    </Tabs.Content>
+  </Properties.Tabs>
 );

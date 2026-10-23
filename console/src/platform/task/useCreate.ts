@@ -15,7 +15,8 @@ import {
   type Synnax,
   task,
 } from "@synnaxlabs/client";
-import { Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Panel } from "@/platform/panel";
@@ -46,7 +47,7 @@ export interface UseCreate {
  * form and at deploy, not here.
  * @returns The created task.
  */
-export const create = async <S extends task.Schemas = task.Schemas>({
+const create = async <S extends task.Schemas = task.Schemas>({
   client,
   getInitialValues,
   deviceKey,

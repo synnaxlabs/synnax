@@ -40,7 +40,6 @@ cc_test(
     name = "common_test",
     srcs = [
         "common_test.cpp",
-        "factory_test.cpp",
         "read_task_test.cpp",
         "sample_clock_test.cpp",
         "scan_task_test.cpp",
@@ -51,6 +50,22 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/common",
         "//driver/pipeline/mock",
+        "//x/cpp/sync",
+        "//x/cpp/test",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "factory_test",
+    srcs = ["factory_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        "//client/cpp/testutil",
+        "//driver/common",
+        "//driver/pipeline/mock",
+        "//x/cpp/sync",
         "//x/cpp/test",
         "//x/cpp/uuid",
         "@googletest//:gtest_main",

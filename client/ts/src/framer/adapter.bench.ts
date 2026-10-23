@@ -9,7 +9,7 @@
 
 import { array, DataType, Series } from "@synnaxlabs/x";
 import { allocSuiteAsync } from "@synnaxlabs/x/bench";
-import { bench, describe } from "vitest";
+import { test } from "vitest";
 
 import { type channel } from "@/channel";
 import { payloadZ } from "@/channel/types.gen";
@@ -50,16 +50,18 @@ const keyedFrame = new Frame(
 
 // The writer calls adapt on every write; a name-keyed record is the common
 // ergonomic path in control code.
-describe("write adapt", () => {
-  bench("record by name", async () => {
-    await adapter.adapt(record);
-  });
-  bench("frame by key", async () => {
-    await adapter.adapt(keyedFrame);
-  });
-  bench("adapt + encode record", async () => {
-    adapter.encode(await adapter.adapt(record));
-  });
+test("write adapt", async ({ bench }) => {
+  await bench.compare(
+    bench("record by name", async () => {
+      await adapter.adapt(record);
+    }),
+    bench("frame by key", async () => {
+      await adapter.adapt(keyedFrame);
+    }),
+    bench("adapt + encode record", async () => {
+      adapter.encode(await adapter.adapt(record));
+    }),
+  );
 });
 
 await allocSuiteAsync("write adapt 10ch x 100smp", [

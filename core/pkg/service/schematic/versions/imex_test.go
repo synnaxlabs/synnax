@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("DecodeImExEnvelope", func() {
@@ -110,7 +111,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(sch.Nodes[0].ZIndex).To(Equal(int16(3)))
 		Expect(sch.Edges[0].Source).To(Equal(versions.Handle{Node: "n1", Param: "a"}))
 		Expect(sch.Edges[0].Target).To(Equal(versions.Handle{Node: "n2", Param: "b"}))
-		Expect(valveConfig(sch, "n1").Color).
+		Expect(valveConfig(sch, "n1").StrokeColor).
 			To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
 	})
 
@@ -187,6 +188,17 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		env.Name = "Renamed"
 		Expect(MustSucceed(versions.DecodeImExEnvelope(ctx, env)).Name).
 			To(Equal("Renamed"))
+	})
+
+	It("Should reject a v8 envelope holding a config the union rejects", func(
+		ctx SpecContext,
+	) {
+		Expect(versions.DecodeImExEnvelope(
+			ctx, LoadEnvelope("testdata/import_v8_rejected.json"),
+		)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("node n1")),
+		))
 	})
 
 	It("Should reject a version newer than Latest", func(ctx SpecContext) {

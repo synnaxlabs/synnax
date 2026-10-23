@@ -14,7 +14,7 @@ import { type Spec } from "@/arc/graph/node/types/spec";
 
 export { configZ } from "@/arc/graph/node/constant/config";
 
-export const SPEC: Spec<"constant", Config> = {
+const SPEC: Spec<"constant", Config> = {
   key: "constant",
   name: "Constant",
   zIndex: 100,

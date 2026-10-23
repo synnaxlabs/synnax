@@ -70,11 +70,11 @@ class OffPageReference(Symbol):
         self.open_properties_tab()
 
         if page_name is not None:
-            # Use specific CSS class selector — click_btn("Page") matches
-            # "Off page" text elsewhere on the page.
-            page_trigger = self.page.locator(
-                ".pluto-symbol-form__page-field button"
-            ).first
+            page_trigger = (
+                self.layout.form_section("Navigation")
+                .locator(".pluto-dialog__trigger")
+                .first
+            )
             page_trigger.wait_for(state="visible", timeout=5000)
             page_trigger.click()
             self.layout.select_from_dropdown(page_name)

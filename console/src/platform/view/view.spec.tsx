@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type channel,
-  channel as channelClient,
-  DataType,
-  type Synnax as Client,
-  view,
-} from "@synnaxlabs/client";
+import { ranger, type Synnax as Client, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Channel, Component, List, Menu } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Ranger } from "@synnaxlabs/pluto";
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
+import { uniqueRangeName } from "@/platform/range/testutil";
 import { View } from "@/platform/view";
 import { enableEditing } from "@/platform/view/testutil";
 import {
@@ -36,13 +35,13 @@ import {
   uniqueName,
 } from "@/testutil";
 
-const RenderItem = ({ itemKey }: List.ItemProps<channel.Key>): ReactElement => (
+const RenderItem = ({ itemKey }: List.ItemProps<ranger.Key>): ReactElement => (
   <span>{String(itemKey)}</span>
 );
 const item = Component.renderProp(RenderItem);
 
 const Inner = (): ReactElement => {
-  const listProps = Channel.useList({
+  const listProps = Ranger.useList({
     initialQuery: View.useContext().getInitialView().query,
   });
   return (
@@ -53,13 +52,13 @@ const Inner = (): ReactElement => {
         </View.FilterMenu>
         <View.Search />
       </View.Toolbar>
-      <View.Items<channel.Key>>{item}</View.Items>
+      <View.Items<ranger.Key>>{item}</View.Items>
     </View.Form>
   );
 };
 
 const Harness = (): ReactElement => (
-  <View.Frame resourceType="channel" icon="Channel">
+  <View.Frame resourceType="range" icon="Range">
     <Inner />
   </View.Frame>
 );
@@ -75,7 +74,7 @@ const selectedViewName = (): string | null =>
 const createView = async () =>
   await client.views.create({
     name: uniqueName("view"),
-    type: "channel",
+    type: "range",
     query: {},
   });
 
@@ -87,33 +86,33 @@ const renderHarness = async (as: Client = client): Promise<void> => {
 describe("View", () => {
   it("hides the search input until the view is made editable", async () => {
     await renderHarness();
-    await waitFor(() => expect(screen.getByText("All channels")).toBeTruthy());
-    expect(screen.queryByPlaceholderText("Search channels...")).toBeNull();
+    await waitFor(() => expect(screen.getByText("All ranges")).toBeTruthy());
+    expect(screen.queryByPlaceholderText("Search ranges...")).toBeNull();
   });
 
   it("renders the search input once editing is enabled", async () => {
     await renderHarness();
     await enableEditing();
     await waitFor(() =>
-      expect(screen.getByPlaceholderText("Search channels...")).toBeTruthy(),
+      expect(screen.getByPlaceholderText("Search ranges...")).toBeTruthy(),
     );
   });
 
   it("filters the listed items down to those matching the search term", async () => {
-    const alpha = await client.channels.create({
-      name: uniqueName("alpha"),
-      dataType: DataType.TIMESTAMP,
-      isIndex: true,
+    const start = TimeStamp.now();
+    const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
+    const alpha = await client.ranges.create({
+      name: uniqueRangeName("alpha"),
+      timeRange,
     });
-    const bravo = await client.channels.create({
-      name: uniqueName("bravo"),
-      dataType: DataType.TIMESTAMP,
-      isIndex: true,
+    const bravo = await client.ranges.create({
+      name: uniqueRangeName("bravo"),
+      timeRange,
     });
     await renderHarness();
     await enableEditing();
     const input = await waitFor(() =>
-      screen.getByPlaceholderText<HTMLInputElement>("Search channels..."),
+      screen.getByPlaceholderText<HTMLInputElement>("Search ranges..."),
     );
     fireEvent.change(input, { target: { value: alpha.name } });
     await waitFor(() => {
@@ -122,16 +121,16 @@ describe("View", () => {
     });
   });
 
-  it("shows the empty state when the search matches no channels", async () => {
+  it("shows the empty state when the search matches no ranges", async () => {
     await renderHarness();
     await enableEditing();
     const input = await waitFor(() =>
-      screen.getByPlaceholderText<HTMLInputElement>("Search channels..."),
+      screen.getByPlaceholderText<HTMLInputElement>("Search ranges..."),
     );
-    // Core search fuzzy-matches per token: dictionary-ish words ("no", "channel")
-    // hit real channels, so the term must be pure gibberish.
+    // Core search fuzzy-matches per token: dictionary-ish words ("no", "range") hit
+    // real ranges, so the term must be pure gibberish.
     fireEvent.change(input, { target: { value: uniqueName("zzqjxvwq") } });
-    await waitFor(() => expect(screen.getByText("No channels found")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("No ranges found")).toBeTruthy());
   });
 
   it("lays the views out as a tab strip", async () => {
@@ -139,7 +138,7 @@ describe("View", () => {
     await renderHarness();
     const tab = await screen.findByRole("tab", { name: saved.name });
     expect(screen.getByRole("tablist").contains(tab)).toBe(true);
-    expect(selectedViewName()).toBe("All channels");
+    expect(selectedViewName()).toBe("All ranges");
   });
 
   it("moves the selection to a view whose tab is clicked", async () => {
@@ -155,7 +154,7 @@ describe("View", () => {
     await renderHarness();
     await screen.findByText(saved.name);
     await waitFor(() => expect(countEditableText(List.itemNameID(saved.key))).toBe(1));
-    expect(screen.getByText("All channels").className).not.toContain(
+    expect(screen.getByText("All ranges").className).not.toContain(
       "pluto-text--editable",
     );
   });
@@ -176,7 +175,7 @@ describe("View", () => {
   it("withholds rename from a static view's context menu", async () => {
     await createView();
     await renderHarness();
-    fireEvent.contextMenu(await screen.findByText("All channels"));
+    fireEvent.contextMenu(await screen.findByText("All ranges"));
     expect(await screen.findByText("Reload Console")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
     expect(screen.queryByText("Delete")).toBeNull();
@@ -195,14 +194,14 @@ describe("View permissions", () => {
   const createSubject = async (grants: Grants) =>
     await createTestClientWithGrants(client, {
       ...grants,
-      retrieve: [channelClient.TYPE_ONTOLOGY_ID, view.TYPE_ONTOLOGY_ID],
+      retrieve: [ranger.TYPE_ONTOLOGY_ID, view.TYPE_ONTOLOGY_ID],
     });
 
   it("should leave the view read-only for a subject who cannot update views", async () => {
     await renderHarness(await createSubject({}));
     await enableEditing();
-    await screen.findByText("All channels");
-    expect(screen.queryByPlaceholderText("Search channels...")).toBeNull();
+    await screen.findByText("All ranges");
+    expect(screen.queryByPlaceholderText("Search ranges...")).toBeNull();
     expect(
       queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
     ).toBeNull();
@@ -211,7 +210,7 @@ describe("View permissions", () => {
   it("should withhold the view create button from a subject who cannot create views", async () => {
     await renderHarness(await createSubject({ update: [view.TYPE_ONTOLOGY_ID] }));
     await enableEditing();
-    await screen.findByPlaceholderText("Search channels...");
+    await screen.findByPlaceholderText("Search ranges...");
     expect(
       queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
     ).toBeNull();
@@ -247,7 +246,7 @@ describe("View permissions", () => {
     const createView = async (): Promise<string> => {
       const { name } = await client.views.create({
         name: uniqueName("view"),
-        type: "channel",
+        type: "range",
         query: {},
       });
       return name;

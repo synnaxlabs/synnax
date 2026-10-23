@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Note } from "@/note";
-import { Text } from "@/text";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { SubcategorySection } from "./SubcategorySection";
 
@@ -18,7 +18,7 @@ export const NoteShowcase = () => (
   <Flex.Box y pack empty>
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Basic Note Variants"
+        title="Basic note variants"
         description="Different note variants for displaying information, warnings, and errors"
       >
         <Flex.Box y gap="large">
@@ -61,7 +61,7 @@ export const NoteShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Note Content Variations"
+        title="Note content variations"
         description="Notes with different content structures and layouts"
       >
         <Flex.Box y gap="large">
@@ -113,7 +113,7 @@ export const NoteShowcase = () => (
 
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Note Sizing & Layout"
+        title="Note sizing and layout"
         description="Different note sizes and layout configurations"
       >
         <Flex.Box y gap="large">
@@ -163,7 +163,7 @@ export const NoteShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Note Composition"
+        title="Note composition"
         description="Notes combined with other components and complex layouts"
       >
         <Flex.Box y gap="large">
@@ -192,7 +192,7 @@ export const NoteShowcase = () => (
             </Text.Text>
             <Note.Note variant="warning">
               <Flex.Box y gap="small">
-                <Text.Text weight={500}>System Requirements</Text.Text>
+                <Text.Text weight={500}>System requirements</Text.Text>
                 <Flex.Box y gap="tiny" style={{ paddingLeft: "1rem" }}>
                   <Text.Text level="small">• Node.js 18 or higher</Text.Text>
                   <Text.Text level="small">• At least 4GB of RAM</Text.Text>

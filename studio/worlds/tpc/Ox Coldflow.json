@@ -1,0 +1,15 @@
+{
+  "graph": {
+    "functions": [],
+    "edges": [],
+    "nodes": [],
+    "inputs": {}
+  },
+  "mode": "text",
+  "name": "Ox Coldflow",
+  "text": {
+    "raw": "import time\n\nauthority 150\n\nstart_sim_cmd => main\n\nfunc control_tpc() {\n    if ox_pt_1 > 25 {\n        if ox_press_state == 1 {\n            ox_press_cmd = 0\n        }\n    } else if ox_pt_1 < 20 {\n        if ox_press_state == 0 {\n            ox_press_cmd = 1\n        }\n    }\n}\n\n\nsequence main {\n    stage initialize {\n        0 -> ox_press_cmd\n        0 -> ox_mpv_cmd\n        0 -> gas_booster_iso_cmd\n        1 -> ox_vent_cmd\n        ox_vent_state == 1 => next\n    }\n    stage press {\n        1 -> press_iso_cmd\n        1 -> ox_press_cmd\n        1 -> gas_booster_iso_cmd\n        ox_pt_1 > 50 => next\n    }\n    stage press_high {\n        0 -> ox_press_cmd\n        0 -> press_iso_cmd\n        1 -> gas_booster_iso_cmd\n        press_pt_1 > 150 => next\n    }\n    stage hold {\n        0 -> gas_booster_iso_cmd\n        time.wait{duration=2s} => next\n    }\n    stage tpc {\n        1 -> ox_mpv_cmd\n        1 -> press_iso_cmd\n        time.interval{period=100ms} -> control_tpc{}\n        ox_pt_1 < 15 => next\n    }\n    stage safe {\n        0 -> ox_press_cmd\n        0 -> ox_mpv_cmd\n        0 -> gas_booster_iso_cmd\n        0 -> ox_vent_cmd\n    }\n}\n"
+  },
+  "type": "arc",
+  "version": 3
+}

@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type Synnax } from "@synnaxlabs/client";
-import { type Status, type Tree } from "@synnaxlabs/pluto";
+import { type Status } from "@synnaxlabs/lyra/status";
+import { type Tree } from "@synnaxlabs/lyra/tree";
 import { type FC } from "react";
 
 import { type Panel } from "@/platform/panel";
@@ -48,18 +49,6 @@ export interface ContextMenuProps extends BaseProps {
 }
 
 export interface ContextMenu extends FC<ContextMenuProps> {}
-
-export interface HandleTreeRenameProps extends BaseProps {
-  id: ontology.ID;
-  name: string;
-  state: TreeState;
-}
-
-export interface HandleTreeRename {
-  eager?: (props: HandleTreeRenameProps) => void;
-  execute: (props: HandleTreeRenameProps) => Promise<void>;
-  rollback?: (props: HandleTreeRenameProps, prevName: string) => void;
-}
 
 export interface AllowRename {
   (resource: ontology.Resource): boolean;

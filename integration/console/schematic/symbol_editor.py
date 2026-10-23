@@ -12,6 +12,7 @@
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from console import color
 from console.layout import LayoutClient
 
 
@@ -67,7 +68,7 @@ class SymbolEditor:
         """
         import os
 
-        with open(svg_path, "r", encoding="utf-8") as f:
+        with open(svg_path, encoding="utf-8") as f:
             svg_content = f.read()
 
         filename = os.path.basename(svg_path)
@@ -115,24 +116,28 @@ class SymbolEditor:
         """Return the number of detected regions."""
         return self._region_rows().count()
 
-    def _set_region_color(
-        self, swatch_index: int, hex_color: str, region_index: int
-    ) -> None:
-        swatch = (
+    def region_rows_fit(self) -> bool:
+        """Return whether every region row fits its width without overflowing."""
+        return bool(
+            self._region_rows().evaluate_all(
+                "(rows) => rows.every((row) => row.scrollWidth <= row.clientWidth)"
+            )
+        )
+
+    def _region_swatch(self, swatch_index: int, region_index: int) -> Locator:
+        return (
             self._region_rows()
             .nth(region_index)
             .locator(".pluto-color-swatch")
             .nth(swatch_index)
         )
-        swatch.click()
-        color_picker = self.page.locator(".pluto-color-picker-container")
-        color_picker.wait_for(state="visible", timeout=2000)
-        hex_input = color_picker.locator(".sketch-picker input").first
-        hex_input.click(click_count=3)
-        hex_input.type(hex_color.replace("#", ""))
-        self.page.keyboard.press("Enter")
-        self.page.keyboard.press("Escape")
-        color_picker.wait_for(state="hidden", timeout=2000)
+
+    def _set_region_color(
+        self, swatch_index: int, hex_color: str, region_index: int
+    ) -> None:
+        color.pick(
+            self.page, self._region_swatch(swatch_index, region_index), hex_color
+        )
 
     def set_region_stroke_color(self, hex_color: str, region_index: int = 0) -> None:
         """Set the stroke color for a region (the first swatch in the row).
@@ -151,6 +156,25 @@ class SymbolEditor:
             region_index: Index of the region (0-based).
         """
         self._set_region_color(1, hex_color, region_index)
+
+    def clear_region_fill_color(self, region_index: int = 0) -> None:
+        """Set the fill color for a region back to Auto, so the SVG's own fill paints.
+
+        Args:
+            region_index: Index of the region (0-based).
+        """
+        color.pick_auto(self.page, self._region_swatch(1, region_index))
+
+    def get_region_fill_swatch_color(self, region_index: int = 0) -> str:
+        """Return the color a region's fill swatch shows, e.g. "rgba(255, 0, 0, 1)".
+
+        Args:
+            region_index: Index of the region (0-based).
+        """
+        swatch = self._region_swatch(1, region_index)
+        return str(
+            swatch.evaluate("(el) => el.style.getPropertyValue('--pluto-swatch-color')")
+        )
 
     def get_preview_fill(self, selector: str) -> str:
         """Return the computed fill (e.g. "rgb(255, 0, 0)") of a rendered preview shape.
@@ -220,10 +244,7 @@ class SymbolEditor:
         Args:
             state: The state type - "Static" or "Actuator"
         """
-        static_btn = self.modal.get_by_text("Static", exact=True)
-        static_btn.wait_for(state="visible", timeout=2000)
-        static_btn.click()
-        self.layout.select_from_dropdown(state, placeholder="variants")
+        self.modal.get_by_role("button", name=state, exact=True).click()
 
     def save(self) -> None:
         """Click Save/Create button to save the symbol."""

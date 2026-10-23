@@ -10,7 +10,10 @@
 import "@/platform/selector/Selector.css";
 
 import { type panel } from "@synnaxlabs/client";
-import { Eraser, Flex, type Icon, Panel as PPanel, Text } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { type Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Eraser, Panel as PPanel } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";

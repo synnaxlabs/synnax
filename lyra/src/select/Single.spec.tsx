@@ -1,0 +1,500 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { act, fireEvent, render } from "@testing-library/react";
+import { useState } from "react";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+
+import { renderProp } from "@/component/renderProp";
+import { Haul } from "@/haul";
+import { Icon } from "@/icon";
+import { Input } from "@/input";
+import { List } from "@/list";
+import { Select } from "@/select";
+import { mockGeometry } from "@/testutil/dom";
+import { Text } from "@/text";
+
+describe("Select.Single", () => {
+  beforeAll(() => mockGeometry(100, 100));
+
+  interface TestEntry {
+    key: string;
+    name: string;
+  }
+
+  const testData: TestEntry[] = [
+    { key: "1", name: "First Item" },
+    { key: "2", name: "Second Item" },
+    { key: "3", name: "Third Item" },
+  ];
+
+  const listItemRenderProp = renderProp((props: List.ItemProps<string>) => {
+    const { itemKey } = props;
+    const item = testData.find((i) => i.key === itemKey);
+    return (
+      <Select.Item {...props}>
+        <Text.Text>{item?.name} Option</Text.Text>
+      </Select.Item>
+    );
+  });
+
+  const createSelectSingle = () => {
+    const onChange = vi.fn();
+    const SelectSingle = (
+      props: Omit<
+        Select.SingleProps<string, TestEntry>,
+        "data" | "value" | "onChange" | "children" | "resourceName"
+      >,
+    ) => {
+      const { data, getItem, retrieve } = List.useStaticData<string, TestEntry>({
+        data: testData,
+      });
+      const { search } = List.usePager({ retrieve });
+      const [value, setValue] = useState<string | undefined>(undefined);
+      const handleChange = (key: string | undefined) => {
+        setValue(key);
+        onChange(key);
+      };
+      return (
+        <Select.Single<string, TestEntry>
+          getItem={getItem}
+          data={data}
+          value={value}
+          onChange={handleChange}
+          resourceName="Test Item"
+          onSearch={search}
+          {...props}
+        >
+          {listItemRenderProp}
+        </Select.Single>
+      );
+    };
+    return {
+      SelectSingle,
+      onChange,
+    };
+  };
+
+  it("should render a selection trigger", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle />);
+    expect(c.getByText("Test Item")).toBeTruthy();
+  });
+
+  it("should open the selection dialog when the trigger is clicked", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle />);
+    fireEvent.click(c.getByText("Test Item"));
+    expect(c.getByRole("option", { name: "First Item Option" })).toBeTruthy();
+    expect(c.getByRole("option", { name: "Second Item Option" })).toBeTruthy();
+    expect(c.getByRole("option", { name: "Third Item Option" })).toBeTruthy();
+  });
+
+  it("should close the selection dialog when the user clicks on the trigger", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("Test Item"));
+    expect(c.queryByText("First Item Option")).toBeNull();
+  });
+
+  it("should call onChange when an item is selected", () => {
+    const { SelectSingle, onChange } = createSelectSingle();
+    const c = render(<SelectSingle />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("First Item Option"));
+    expect(onChange).toHaveBeenCalledWith("1");
+  });
+
+  it("should close the dialog when an item is selected", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("First Item Option"));
+    expect(c.queryByText("First Item Option")).toBeNull();
+    expect(c.queryByText("Second Item Option")).toBeNull();
+    expect(c.queryByText("Third Item Option")).toBeNull();
+  });
+
+  it("should display the selected item name in the trigger", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("First Item Option"));
+    expect(c.getByRole("button", { name: "Test Item First Item" }).textContent).toBe(
+      "First Item",
+    );
+  });
+
+  it("should allow the user to change selection", () => {
+    const { SelectSingle, onChange } = createSelectSingle();
+    const c = render(<SelectSingle />);
+
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("First Item Option"));
+    expect(onChange).toHaveBeenCalledWith("1");
+
+    fireEvent.click(c.getByText("First Item"));
+    fireEvent.click(c.getByText("Second Item Option"));
+    expect(onChange).toHaveBeenCalledWith("2");
+    expect(c.getByText("Second Item")).toBeTruthy();
+    expect(c.queryByText("First Item")).toBeNull();
+  });
+
+  it("should keep the selection when the user picks it again with allowNone", () => {
+    const { SelectSingle, onChange } = createSelectSingle();
+    const c = render(<SelectSingle allowNone />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("First Item Option"));
+
+    fireEvent.click(c.getByText("First Item"));
+    fireEvent.click(c.getByText("First Item Option"));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(c.getByText("First Item")).toBeTruthy();
+  });
+
+  it("should not allow the user to deselect when allowNone is false", () => {
+    const { SelectSingle, onChange } = createSelectSingle();
+    const c = render(<SelectSingle allowNone={false} />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("First Item Option"));
+
+    fireEvent.click(c.getByText("First Item"));
+    fireEvent.click(c.getByText("First Item Option"));
+    expect(onChange).toHaveBeenLastCalledWith("1");
+    expect(c.getByText("First Item")).toBeTruthy();
+  });
+
+  it("should allow the caller to search for an item", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.change(c.getByPlaceholderText("Search Test Items..."), {
+      target: { value: "First" },
+    });
+    expect(c.getByText("First Item Option")).toBeTruthy();
+    expect(c.queryByText("Second Item Option")).toBeNull();
+    expect(c.queryByText("Third Item Option")).toBeNull();
+  });
+
+  it("should show every item again after a search and a close", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.change(c.getByPlaceholderText("Search Test Items..."), {
+      target: { value: "First" },
+    });
+    fireEvent.click(c.getByText("First Item Option"));
+    fireEvent.click(c.getByText("First Item"));
+    expect(c.getByText("Second Item Option")).toBeTruthy();
+    expect(c.getByText("Third Item Option")).toBeTruthy();
+  });
+
+  it("should work with initial value", () => {
+    const onChange = vi.fn();
+    const SelectSingle = () => {
+      const { data, getItem, retrieve } = List.useStaticData<string, TestEntry>({
+        data: testData,
+      });
+      const { search } = List.usePager({ retrieve });
+      return (
+        <Select.Single<string, TestEntry>
+          getItem={getItem}
+          data={data}
+          value="2"
+          onChange={onChange}
+          resourceName="Test Item"
+          onSearch={search}
+        >
+          {listItemRenderProp}
+        </Select.Single>
+      );
+    };
+    const c = render(<SelectSingle />);
+    expect(c.getByRole("button", { name: "Test Item Second Item" }).textContent).toBe(
+      "Second Item",
+    );
+  });
+
+  it("should name the trigger by its resource", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle />);
+    expect(c.getByRole("button", { name: "Test Item" })).toBeTruthy();
+  });
+
+  it("should prompt a selection when a visible label names the field", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(
+      <Input.Item label="Item">
+        <SelectSingle />
+      </Input.Item>,
+    );
+    expect(c.getByText("Select Test Item")).toBeTruthy();
+  });
+
+  it("should make the selected item inert when a re-select changes nothing", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle allowNone={false} closeDialogOnSelect={false} />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("First Item Option"));
+    expect(c.getByRole("option", { name: "First Item Option" }).classList).toContain(
+      "pluto-btn--prevent-click",
+    );
+  });
+
+  it("should keep the selected item clickable when a re-select closes", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle allowNone={false} />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("First Item Option"));
+    fireEvent.click(c.getByText("First Item"));
+    expect(
+      c.getByRole("option", { name: "First Item Option" }).classList,
+    ).not.toContain("pluto-btn--prevent-click");
+  });
+
+  describe("narrow layout", () => {
+    const select = (c: ReturnType<typeof render>): HTMLElement => {
+      fireEvent.click(c.getByText("Test Item"));
+      fireEvent.click(c.getByText("First Item Option"));
+      return c.getByRole("button", { name: "Test Item First Item" });
+    };
+
+    const hoverPastDelay = (el: HTMLElement): void => {
+      vi.useFakeTimers();
+      fireEvent.pointerOver(el, { pointerType: "mouse" });
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      vi.useRealTimers();
+    };
+
+    const getTooltip = (): HTMLElement | null =>
+      document.querySelector<HTMLElement>(".pluto-tooltip");
+
+    it("should show the selected name in a label that fades on overflow", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle />);
+      select(c);
+      const label = c.getByText("First Item");
+      expect(label.classList).toContain("pluto-select__label");
+      expect(label.classList).toContain("pluto-text--overflow-fade");
+    });
+
+    it("should mark a collapsible trigger", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle triggerProps={{ collapsible: true }} />);
+      expect(c.getByRole("button", { name: "Test Item" }).classList).toContain(
+        "pluto-select-single-trigger--collapsible",
+      );
+    });
+
+    it("should show the name in a tooltip once the collapsed trigger hides it", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle triggerProps={{ collapsible: true }} />);
+      const trigger = select(c);
+      c.getByText("First Item").style.display = "none";
+      hoverPastDelay(trigger);
+      expect(getTooltip()?.textContent).toBe("First Item");
+    });
+
+    it("should not show the name tooltip while the name is readable", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle triggerProps={{ collapsible: true }} />);
+      hoverPastDelay(select(c));
+      expect(getTooltip()).toBeNull();
+    });
+  });
+
+  describe("clear", () => {
+    const select = (c: ReturnType<typeof render>): void => {
+      fireEvent.click(c.getByText("Test Item"));
+      fireEvent.click(c.getByText("First Item Option"));
+    };
+
+    it("should clear the selection from the button on its icon", () => {
+      const { SelectSingle, onChange } = createSelectSingle();
+      const c = render(<SelectSingle allowNone icon={<Icon.Add />} />);
+      select(c);
+      fireEvent.click(c.getByLabelText("Clear First Item"));
+      expect(onChange).toHaveBeenLastCalledWith(null);
+      expect(c.getByText("Test Item")).toBeTruthy();
+      expect(c.queryByLabelText("Clear First Item")).toBeNull();
+    });
+
+    it("should not open the dialog when the selection is cleared", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle allowNone icon={<Icon.Add />} />);
+      select(c);
+      fireEvent.click(c.getByLabelText("Clear First Item"));
+      expect(c.queryByText("Second Item Option")).toBeNull();
+    });
+
+    it("should clear the selection with Delete on the focused trigger", () => {
+      const { SelectSingle, onChange } = createSelectSingle();
+      const c = render(<SelectSingle allowNone icon={<Icon.Add />} />);
+      select(c);
+      const trigger = c.getByText("First Item").closest("button");
+      if (trigger == null) throw new Error("the trigger did not render");
+      fireEvent.keyDown(trigger, { key: "Delete" });
+      expect(onChange).toHaveBeenLastCalledWith(null);
+    });
+
+    interface StoredProps {
+      value: string;
+      onChange?: (key: string | null) => void;
+    }
+
+    // Holds a fixed value, which may have no entry in the data.
+    const Stored = ({ value, onChange = vi.fn() }: StoredProps) => {
+      const { data, getItem } = List.useStaticData<string, TestEntry>({
+        data: testData,
+      });
+      return (
+        <Select.Single<string, TestEntry>
+          resourceName="Test Item"
+          data={data}
+          getItem={getItem}
+          value={value}
+          onChange={onChange}
+          allowNone
+          icon={<Icon.Add />}
+        >
+          {listItemRenderProp}
+        </Select.Single>
+      );
+    };
+
+    it("should clear a selected key that has no entry", () => {
+      const onChange = vi.fn();
+      const c = render(<Stored value="missing" onChange={onChange} />);
+      fireEvent.click(c.getByLabelText("Clear selection"));
+      expect(onChange).toHaveBeenLastCalledWith(null, { clicked: null });
+    });
+
+    it("should not show the button for an empty key", () => {
+      const c = render(<Stored value="" />);
+      expect(c.queryByLabelText(/^Clear/)).toBeNull();
+    });
+
+    it("should not show the button when the select requires a selection", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle allowNone={false} icon={<Icon.Add />} />);
+      select(c);
+      expect(c.queryByLabelText("Clear First Item")).toBeNull();
+    });
+
+    it("should clear the selection from the button on its caret without an icon", () => {
+      const { SelectSingle, onChange } = createSelectSingle();
+      const c = render(<SelectSingle allowNone />);
+      select(c);
+      fireEvent.click(c.getByLabelText("Clear First Item"));
+      expect(onChange).toHaveBeenLastCalledWith(null);
+      expect(c.getByText("Test Item")).toBeTruthy();
+    });
+
+    it("should not show the button without an icon or a caret", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle allowNone triggerProps={{ hideCaret: true }} />);
+      select(c);
+      expect(c.queryByLabelText("Clear First Item")).toBeNull();
+    });
+  });
+
+  describe("preview", () => {
+    it("should mark the trigger as a preview", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle preview />);
+      expect(c.getByText("None").closest("button")?.classList).toContain(
+        "pluto-btn--preview",
+      );
+    });
+
+    it("should render None instead of the placeholder while previewing", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle preview />);
+      expect(c.queryByText("Test Item")).toBeNull();
+      expect(c.getByText("None")).toBeTruthy();
+    });
+
+    it("should not open the dialog while previewing", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle preview />);
+      fireEvent.click(c.getByText("None"));
+      expect(c.queryByText("First Item Option")).toBeNull();
+    });
+  });
+
+  describe("drag", () => {
+    const HAUL_TYPE = "test-item";
+
+    const renderPair = (
+      singleProps: Partial<Select.SingleProps<string, TestEntry>> = {},
+    ) => {
+      const onSingleChange = vi.fn();
+      const onMultipleChange = vi.fn();
+      const Pair = () => {
+        const { data, getItem } = List.useStaticData<string, TestEntry>({
+          data: testData,
+        });
+        return (
+          <Haul.Provider>
+            <Select.Single<string, TestEntry>
+              getItem={getItem}
+              data={data}
+              value="2"
+              onChange={onSingleChange}
+              resourceName="Source"
+              haulType={HAUL_TYPE}
+              {...singleProps}
+            >
+              {listItemRenderProp}
+            </Select.Single>
+            <Select.Multiple<string, TestEntry>
+              getItem={getItem}
+              data={data}
+              value={[]}
+              onChange={onMultipleChange}
+              resourceName="Target"
+              haulType={HAUL_TYPE}
+            >
+              {listItemRenderProp}
+            </Select.Multiple>
+          </Haul.Provider>
+        );
+      };
+      const c = render(<Pair />);
+      const source = c.getByRole("button", { name: /^Source/ });
+      const target = c.getByRole("button", { name: "Targets" });
+      return { source, target, onSingleChange, onMultipleChange };
+    };
+
+    it("should copy the selection into a select it is dropped on", () => {
+      const { source, target, onSingleChange, onMultipleChange } = renderPair();
+      expect(source.draggable).toBe(true);
+      fireEvent.dragStart(source);
+      fireEvent.drop(target);
+      expect(onMultipleChange).toHaveBeenCalledWith(["2"], expect.anything());
+      expect(onSingleChange).not.toHaveBeenCalled();
+    });
+
+    it("should not be draggable while disabled", () => {
+      const { source } = renderPair({ disabled: true });
+      expect(source.draggable).toBe(false);
+    });
+
+    it("should not drag a selected key with no entry", () => {
+      const { source, target, onMultipleChange } = renderPair({ value: "0" });
+      expect(source.draggable).toBe(false);
+      fireEvent.dragStart(source);
+      fireEvent.drop(target);
+      expect(onMultipleChange).not.toHaveBeenCalled();
+    });
+  });
+});

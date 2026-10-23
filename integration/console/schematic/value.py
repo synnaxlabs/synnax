@@ -86,7 +86,7 @@ class Value(Symbol):
         self.page.get_by_text("Telemetry").click()
 
         if channel_name is not None:
-            self.set_channel(input_field="Channel", channel_name=channel_name)
+            self.set_channel(section="Source", channel_name=channel_name)
             applied_properties["channel"] = channel_name
 
         if notation is not None:
@@ -110,14 +110,12 @@ class Value(Symbol):
                 raise ValueError(
                     "stale_color must be a valid hex color (e.g., #FF5733)"
                 )
-            self.layout.click_btn("Color")
-            self.layout.fill_input_field("Hex", stale_color.replace("#", ""))
+            self.layout.fill_input_field("Color", stale_color.replace("#", ""))
             self.page.keyboard.press("Enter")
-            self.page.keyboard.press("Escape")
             applied_properties["stale_color"] = stale_color
 
         if stale_timeout is not None:
-            self.layout.fill_input_field("Stale timeout", str(stale_timeout))
+            self.layout.fill_input_field("Timeout", str(stale_timeout))
             self.page.keyboard.press("Enter")
 
             applied_properties["stale_timeout"] = stale_timeout
@@ -151,7 +149,7 @@ class Value(Symbol):
         props["averaging_window"] = int(self.layout.get_input_field("Averaging window"))
 
         # Staleness Timeout
-        props["stale_timeout"] = int(self.layout.get_input_field("Stale timeout"))
+        props["stale_timeout"] = int(self.layout.get_input_field("Timeout"))
 
         # Notation
         notation_options = ["Scientific", "Engineering", "Standard"]
@@ -159,14 +157,9 @@ class Value(Symbol):
         notation = self.layout.get_selected_button(notation_options)
         props["notation"] = notation.lower()
 
-        # Staleness Color - get hex value from color picker
-        self.layout.click_btn("Color")
-        hex_value = self.layout.get_input_field("Hex")
+        # The staleness color box is empty while the theme picks the color.
+        hex_value = self.layout.get_input_field("Color")
         if hex_value:
-            props["stale_color"] = (
-                f"#{hex_value}" if not hex_value.startswith("#") else hex_value
-            )
-        # Close color picker
-        self.page.keyboard.press("Escape")
+            props["stale_color"] = f"#{hex_value.upper()}"
 
         return props

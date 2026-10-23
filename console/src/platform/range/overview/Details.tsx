@@ -10,17 +10,14 @@
 import "@/platform/range/overview/Details.css";
 
 import { ranger } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Divider,
-  Flex,
-  Form,
-  Icon,
-  Ranger,
-  Status,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback } from "react";
 
@@ -91,13 +88,10 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     mode: canEdit ? "normal" : "preview",
   });
 
-  const handleLink = Core.useCopyLinkToClipboard();
   const handleError = Status.useErrorHandler();
   const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>("name", {
     ctx: form,
   });
-  const handleCopyLink = () =>
-    handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
 
   const getPythonCode = useCallback(
     () =>
@@ -187,15 +181,13 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Icon.CSV />
             </Button.Button>
             <Divider.Divider y />
-            <Button.Button
-              variant="text"
+            <Core.CopyLinkToolbarButton
+              name={name}
+              ontologyID={ranger.ontologyID(rangeKey)}
               tooltip={`Copy link to ${name}`}
               tooltipLocation="bottom"
-              onClick={handleCopyLink}
               textColor={9}
-            >
-              <Icon.Link />
-            </Button.Button>
+            />
             <FavoriteButton range={range} size="medium" />
           </Flex.Box>
         </Flex.Box>

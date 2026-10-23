@@ -10,19 +10,16 @@
 import "@/feature/project/Splash.css";
 
 import { project, UnexpectedError } from "@synnaxlabs/client";
-import {
-  Access,
-  Button as PButton,
-  Flex,
-  Header,
-  Icon,
-  Input,
-  List,
-  Menu,
-  Project as PProject,
-  Select,
-  Status,
-} from "@synnaxlabs/pluto";
+import { Button as PButton } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Access, Project as PProject } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { ContextMenu, listItem } from "@/feature/project/Selector";
@@ -78,7 +75,10 @@ export const Splash = (): ReactElement => {
   const awaitingProject = Session.Link.useSelectAwaitingProject();
 
   return (
-    <Shell.Frame className={CSS.B("project-splash")} connection={activeCore}>
+    <Shell.Frame
+      className={CSS.B("project-splash")}
+      connection={Session.Runtime.CORE_EMBEDDED ? null : activeCore}
+    >
       <Menu.ContextMenu menu={contextMenu} {...menuProps} />
       <Select.Frame
         data={data}
@@ -99,17 +99,19 @@ export const Splash = (): ReactElement => {
               <Icon.Project />
               Projects
             </Header.Title>
-            <Header.Actions>
-              <PButton.Button
-                variant="text"
-                textColor={9}
-                size="medium"
-                onClick={logout}
-              >
-                <Icon.Logout />
-                Log out
-              </PButton.Button>
-            </Header.Actions>
+            {!Session.Runtime.CORE_EMBEDDED && (
+              <Header.Actions>
+                <PButton.Button
+                  variant="text"
+                  textColor={9}
+                  size="medium"
+                  onClick={logout}
+                >
+                  <Icon.Logout />
+                  Log out
+                </PButton.Button>
+              </Header.Actions>
+            )}
           </Header.Header>
           {awaitingProject && (
             <Status.Summary
@@ -132,7 +134,7 @@ export const Splash = (): ReactElement => {
             />
           )}
           {hasRetrievePermission && data.length > 0 ? (
-            <List.Items
+            <List.Scroll
               grow
               className={CSS.cls(
                 CSS.BE("shell", "items"),
@@ -140,8 +142,8 @@ export const Splash = (): ReactElement => {
               )}
               onContextMenu={menuProps.open}
             >
-              {listItem}
-            </List.Items>
+              <List.Items>{listItem}</List.Items>
+            </List.Scroll>
           ) : answered ? (
             <Empty.Action
               grow

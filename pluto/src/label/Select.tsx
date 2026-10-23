@@ -8,17 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { type label } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Tag } from "@synnaxlabs/lyra/tag";
 import { type ReactElement } from "react";
 
-import { Component } from "@/component";
 import { type Flux } from "@/flux";
-import { Icon } from "@/icon";
 import { type ListQuery, useList } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
-import { List } from "@/list";
-import { Select } from "@/select";
-import { Tag } from "@/tag";
-import { Text } from "@/text";
 
 const ListItem = ({
   itemKey,
@@ -27,12 +26,10 @@ const ListItem = ({
   const item = List.useItem<label.Key, label.Label>(itemKey);
   if (item == null) return null;
   return (
-    <Select.ListItem itemKey={itemKey} {...rest}>
-      <Text.Text align="center">
-        <Icon.Circle color={item?.color} size="2.5em" />
-        {item?.name}
-      </Text.Text>
-    </Select.ListItem>
+    <Select.Item itemKey={itemKey} {...rest}>
+      <Icon.Circle color={item?.color} size="2.5em" />
+      {item?.name}
+    </Select.Item>
   );
 };
 

@@ -9,7 +9,7 @@
 
 import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Menu as PMenu } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -36,7 +36,6 @@ const renderItems = async () => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   const proj = await client.projects.create({
     name: uniqueName("proj"),
-    layout: {},
   });
   store.dispatch(Session.Project.select(proj.key));
   const dev = await createTestDevice(client, { name: uniqueName("lj_dev") });

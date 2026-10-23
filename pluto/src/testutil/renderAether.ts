@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { state } from "@synnaxlabs/x";
+import { type record, state } from "@synnaxlabs/x";
 import { afterEach } from "vitest";
 import { type z } from "zod";
 
@@ -23,7 +23,7 @@ import {
 /** Initial state for a child mounted under the component under test. */
 export interface MountChild {
   type: string;
-  state: state.State;
+  state: record.Unknown;
 }
 
 /** Constructor + static-schema shape every component passed to {@link renderAether} must
@@ -33,15 +33,15 @@ export interface MountChild {
 export type ComponentClass = {
   TYPE: string;
   new (props: aether.ComponentConstructorProps): aether.Component;
-} & ({ stateZ: z.ZodType<state.State> } | { z: z.ZodType<state.State> });
+} & ({ stateZ: z.ZodType<record.Unknown> } | { z: z.ZodType<record.Unknown> });
 
 /** The Zod state schema declared on a {@link ComponentClass}, read from either the `z`
  * or `stateZ` static. */
 export type SchemaOf<C extends ComponentClass> = C extends {
-  z: infer Z extends z.ZodType<state.State>;
+  z: infer Z extends z.ZodType<record.Unknown>;
 }
   ? Z
-  : C extends { stateZ: infer Z extends z.ZodType<state.State> }
+  : C extends { stateZ: infer Z extends z.ZodType<record.Unknown> }
     ? Z
     : never;
 
@@ -58,7 +58,7 @@ export interface Handle<C extends ComponentClass> {
    * result is parsed against the component's schema. */
   setState(next: state.SetArg<z.infer<SchemaOf<C>>>): void;
   /** Create or replace a child of the component under test. `type` must be registered. */
-  setChildState(key: string, type: string, childState: state.State): void;
+  setChildState(key: string, type: string, childState: record.Unknown): void;
   /** Delete a child of the component under test. */
   deleteChild(key: string): void;
   /** Look up a child instance by key. The `T` cast is unchecked; align it with the
@@ -123,7 +123,7 @@ export const renderAether = <C extends ComponentClass>(
   });
 
   const componentPath = [...stack.basePath, key];
-  stack.driver.update(componentPath, Component.TYPE, initialState as state.State);
+  stack.driver.update(componentPath, Component.TYPE, initialState as record.Unknown);
 
   for (const [childKey, child] of Object.entries(children))
     stack.driver.update([...componentPath, childKey], child.type, child.state);

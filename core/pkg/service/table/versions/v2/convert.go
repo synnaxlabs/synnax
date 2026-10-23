@@ -10,13 +10,16 @@
 package v2
 
 import (
+	"cmp"
 	"encoding/json/v2"
 	"math"
+	"slices"
 	"strings"
 	"unicode"
 
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -78,13 +81,77 @@ func camelToSnakeKey(s string) string {
 	return b.String()
 }
 
+// legacyStop is a gradient stop of a legacy redline, positioned in [0, 1] across the
+// redline's bounds.
+type legacyStop struct {
+	Key      string  `json:"key"`
+	Color    any     `json:"color"`
+	Position float64 `json:"position"`
+}
+
+// legacyRedline is the redline Consoles before v2 stored.
+type legacyRedline struct {
+	Bounds *struct {
+		Lower float64 `json:"lower"`
+		Upper float64 `json:"upper"`
+	} `json:"bounds"`
+	Gradient []legacyStop `json:"gradient"`
+}
+
+// bandRedline rewrites a value cell's legacy redline into threshold bands, in place on
+// the normalized wire map. Each stop becomes a band at its position scaled across the
+// bounds. The bands interpolate and the lowest stop's color becomes the background, so
+// every value keeps the fill the legacy renderer painted.
+func bandRedline(cfg map[string]any) error {
+	if cfg["variant"] != "value" {
+		return nil
+	}
+	raw, ok := cfg["redline"]
+	if !ok {
+		return nil
+	}
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return err
+	}
+	var old legacyRedline
+	if err = json.Unmarshal(b, &old); err != nil {
+		return errors.Wrap(err, "invalid redline")
+	}
+	lower, upper := 0.0, 1.0
+	if b := old.Bounds; b != nil {
+		// The legacy renderer swapped reversed bounds before it scaled.
+		lower, upper = min(b.Lower, b.Upper), max(b.Lower, b.Upper)
+	}
+	bands := make([]any, len(old.Gradient))
+	for i, stop := range old.Gradient {
+		bands[i] = map[string]any{
+			"key":       stop.Key,
+			"threshold": lower + stop.Position*(upper-lower),
+			"color":     stop.Color,
+		}
+	}
+	redline := map[string]any{"bands": bands}
+	if len(old.Gradient) > 0 {
+		redline["smooth"] = true
+		lowest := slices.MinFunc(old.Gradient, func(a, b legacyStop) int {
+			return cmp.Compare(a.Position, b.Position)
+		})
+		if !isZeroColor(lowest.Color) {
+			cfg["background_color"] = lowest.Color
+		}
+	}
+	cfg["redline"] = redline
+	return nil
+}
+
 // zeroColorOpaqueFields names fields whose colors are required and so must keep a zero
 // value, alongside the fields already excluded from normalization.
-var zeroColorOpaqueFields = set.New("gradient")
+var zeroColorOpaqueFields = set.New("bands")
 
 // stripZeroColors deletes every color-valued field holding the zero color. Consoles
 // before v2 stored transparent black for an unchosen color; v2 stores nothing, so the
-// theme picks the color instead. Gradient stops and opaque fields are left alone.
+// theme picks the color instead. Redline bands and opaque fields are left alone.
 func stripZeroColors(v any) {
 	switch t := v.(type) {
 	case map[string]any:
@@ -117,7 +184,7 @@ func isZeroColor(v any) bool {
 	if err := json.Unmarshal(b, &c); err != nil {
 		return false
 	}
-	return c.IsZero()
+	return c == color.Color{}
 }
 
 // legacyAligns maps the x-location alignment values the pre-typed text cell schema
@@ -148,7 +215,7 @@ func extractLegacyArgs(cfg map[string]any) {
 			cfg["channel"] = ch
 		}
 		if w, ok := segProp(cfg["telem"], "rollingAverage", "windowSize"); ok {
-			cfg["rolling_average"] = w
+			cfg["rolling_average"] = floorWindow(w)
 		}
 		if p, ok := segProp(cfg["telem"], "stringifier", "precision"); ok {
 			cfg["precision"] = truncPrecision(p)
@@ -171,15 +238,28 @@ func extractLegacyArgs(cfg map[string]any) {
 	}
 }
 
-// truncPrecision rounds a stored decimal-place count to a whole number. The pre-typed
-// schema held it as a float, so a fractional value would fail to decode into the typed
-// int and degrade the whole cell.
+// truncPrecision truncates a stored decimal-place count to a whole number, as the
+// Console's toFixed call did. The pre-typed schema held it as a float, so a fractional
+// value would fail to decode into the typed int and degrade the whole cell.
 func truncPrecision(v any) any {
 	switch t := v.(type) {
 	case float64:
-		return int64(math.Round(t))
+		return int64(math.Trunc(t))
 	case float32:
-		return int64(math.Round(float64(t)))
+		return int64(math.Trunc(float64(t)))
+	}
+	return v
+}
+
+// floorWindow rounds a stored averaging window down to a whole sample count. The
+// Console's numeric input stored a typed fraction unrounded, and its window held the
+// floor of that many samples.
+func floorWindow(v any) any {
+	switch t := v.(type) {
+	case float64:
+		return int64(math.Floor(t))
+	case float32:
+		return int64(math.Floor(float64(t)))
 	}
 	return v
 }
@@ -218,4 +298,23 @@ func segProp(spec any, segment, prop string) (any, bool) {
 		}
 	}
 	return v, true
+}
+
+// colorRenames maps each cell variant's legacy color fields to the fields named for the
+// part they paint.
+var colorRenames = map[string]map[string]string{
+	"text":  {"background_color": "fill_color"},
+	"value": {"background_color": "fill_color", "color": "text_color"},
+}
+
+// renameColors rewrites a cell's legacy color fields to the names of the parts they
+// paint, in place on the normalized wire map.
+func renameColors(cfg map[string]any) {
+	variant, _ := cfg["variant"].(string)
+	for from, to := range colorRenames[variant] {
+		if val, ok := cfg[from]; ok {
+			delete(cfg, from)
+			cfg[to] = val
+		}
+	}
 }

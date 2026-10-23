@@ -9,7 +9,7 @@
 
 import { type rack, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/pluto";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -107,7 +107,7 @@ describe("Write", () => {
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [createManualWriteChannel(slave.key, 0x7000, 4)],
     });
-    fireEvent.click(await screen.findByText("0x7000:4"));
+    fireEvent.click(await screen.findByRole("option", { name: /0x7000:4/ }));
     await waitFor(() => expect(screen.getByText("Index (hex)")).toBeTruthy());
     expect(screen.getByText("Subindex")).toBeTruthy();
     expect(screen.getByDisplayValue("4")).toBeTruthy();

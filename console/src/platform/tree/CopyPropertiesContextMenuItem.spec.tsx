@@ -9,7 +9,8 @@
 
 import { ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Menu as PMenu } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
@@ -20,7 +21,7 @@ import {
   createSelection,
   createState,
 } from "@/platform/tree/testutil";
-import { createTestStore, renderWithConsole, stubClipboardWriteText } from "@/testutil";
+import { createTestStore, renderWithConsole } from "@/testutil";
 
 const client = createTestClient();
 

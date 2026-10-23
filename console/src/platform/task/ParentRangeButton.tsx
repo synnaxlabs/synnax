@@ -10,7 +10,11 @@
 import "@/platform/task/ParentRangeButton.css";
 
 import { ranger, task } from "@synnaxlabs/client";
-import { Button, Flex, Icon, Ranger, Text } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Ranger } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";

@@ -30,11 +30,9 @@ describe("queries", () => {
     it("should return a list of project keys", async () => {
       const p1 = await client.projects.create({
         name: "project1",
-        layout: { type: "dashboard", panels: [] },
       });
       const p2 = await client.projects.create({
         name: "project2",
-        layout: { type: "schematic", nodes: [] },
       });
 
       const { result } = renderHook(() => Project.useList(), {
@@ -52,11 +50,6 @@ describe("queries", () => {
     it("should get individual projects using getItem", async () => {
       const testProject = await client.projects.create({
         name: "testProject",
-        layout: {
-          type: "dashboard",
-          settings: { theme: "dark" },
-          panels: [{ id: "panel1", type: "chart" }],
-        },
       });
 
       const { result } = renderHook(() => Project.useList(), {
@@ -70,8 +63,6 @@ describe("queries", () => {
       const retrievedProject = result.current.getItem(testProject.key);
       expect(retrievedProject?.key).toEqual(testProject.key);
       expect(retrievedProject?.name).toEqual("testProject");
-      expect((retrievedProject?.layout as any).type).toEqual("dashboard");
-      expect((retrievedProject?.layout as any).settings.theme).toEqual("dark");
     });
 
     it("should handle pagination with limit and offset", async () => {
@@ -82,7 +73,6 @@ describe("queries", () => {
       for (let i = 0; i < 5; i++) {
         const created = await client.projects.create({
           name: `paginationProject${i}`,
-          layout: { type: "dashboard", index: i },
         });
         keys.push(created.key);
       }
@@ -105,11 +95,9 @@ describe("queries", () => {
     it("should return all projects when no pagination params provided", async () => {
       const p1 = await client.projects.create({
         name: "allProjects1",
-        layout: { type: "dashboard" },
       });
       const p2 = await client.projects.create({
         name: "allProjects2",
-        layout: { type: "schematic" },
       });
 
       const { result } = renderHook(() => Project.useList(), { wrapper });
@@ -131,7 +119,6 @@ describe("queries", () => {
 
       const newProject = await client.projects.create({
         name: "newProject",
-        layout: { type: "dashboard", created: Date.now() },
       });
 
       await waitFor(() => {
@@ -143,7 +130,6 @@ describe("queries", () => {
     it("should update the list when a project is renamed", async () => {
       const testProject = await client.projects.create({
         name: "originalName",
-        layout: { type: "dashboard" },
       });
 
       const { result } = renderHook(() => Project.useList(), { wrapper });
@@ -160,35 +146,9 @@ describe("queries", () => {
       });
     });
 
-    it("should update the list when a project layout is changed", async () => {
-      const testProject = await client.projects.create({
-        name: "layoutProject",
-        layout: { type: "dashboard", version: 1 },
-      });
-
-      const { result } = renderHook(() => Project.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect((result.current.getItem(testProject.key)?.layout as any).version).toEqual(
-        1,
-      );
-
-      const newLayout = { type: "schematic", version: 2, nodes: [] };
-      await client.projects.setLayout(testProject.key, newLayout);
-
-      await waitFor(() => {
-        const updatedProject = result.current.getItem(testProject.key);
-        expect((updatedProject?.layout as any).type).toEqual("schematic");
-        expect((updatedProject?.layout as any).version).toEqual(2);
-      });
-    });
-
     it("should remove project from list when deleted", async () => {
       const testProject = await client.projects.create({
         name: "toDeleteProject",
-        layout: { type: "dashboard" },
       });
 
       const { result } = renderHook(() => Project.useList(), { wrapper });
@@ -208,11 +168,9 @@ describe("queries", () => {
     it("should handle multiple project updates simultaneously", async () => {
       const p1 = await client.projects.create({
         name: "multiUpdate1",
-        layout: { type: "dashboard" },
       });
       const p2 = await client.projects.create({
         name: "multiUpdate2",
-        layout: { type: "dashboard" },
       });
 
       const { result } = renderHook(() => Project.useList(), { wrapper });
@@ -235,7 +193,6 @@ describe("queries", () => {
     it("should maintain list consistency during rapid changes", async () => {
       const testProject = await client.projects.create({
         name: "rapidChanges",
-        layout: { counter: 0 },
       });
 
       const { result } = renderHook(() => Project.useList(), { wrapper });
@@ -246,12 +203,12 @@ describe("queries", () => {
 
       await act(async () => {
         for (let i = 1; i <= 3; i++)
-          await client.projects.setLayout(testProject.key, { counter: i });
+          await client.projects.rename(testProject.key, `rapidChanges${i}`);
       });
 
       await waitFor(() => {
         const project = result.current.getItem(testProject.key);
-        expect((project?.layout as any).counter).toEqual(3);
+        expect(project?.name).toEqual("rapidChanges3");
       });
     });
   });
@@ -260,14 +217,6 @@ describe("queries", () => {
     it("should retrieve a single project by key", async () => {
       const testProject = await client.projects.create({
         name: "singleProject",
-        layout: {
-          type: "dashboard",
-          title: "My Dashboard",
-          widgets: [
-            { id: "widget1", type: "chart", position: { x: 0, y: 0 } },
-            { id: "widget2", type: "table", position: { x: 1, y: 0 } },
-          ],
-        },
       });
 
       const { result } = await renderHookSuspended(
@@ -278,14 +227,11 @@ describe("queries", () => {
 
       expect(result.current?.key).toEqual(testProject.key);
       expect(result.current?.name).toEqual("singleProject");
-      expect(result.current?.layout.title).toEqual("My Dashboard");
-      expect(result.current?.layout.widgets).toHaveLength(2);
     });
 
     it("should handle retrieve with valid project key", async () => {
       const project = await client.projects.create({
         name: "validProject",
-        layout: { config: { setting1: "value1" } },
       });
 
       const { result } = await renderHookSuspended(
@@ -298,7 +244,6 @@ describe("queries", () => {
 
       expect(result.current).not.toBeNull();
       expect(result.current?.key).toEqual(project.key);
-      expect((result.current?.layout as any).config.setting1).toEqual("value1");
     });
   });
 
@@ -306,7 +251,6 @@ describe("queries", () => {
     it("should correctly rename a project", async () => {
       const proj = await client.projects.create({
         name: `testProject-${id.create()}`,
-        layout: { config: { setting1: "value1" } },
       });
 
       const newName = `newName-${id.create()}`;
@@ -326,7 +270,6 @@ describe("queries", () => {
     it("should apply the rename optimistically", async () => {
       const proj = await client.projects.create({
         name: `testProject-${id.create()}`,
-        layout: {},
       });
       const afterOptimistic = vi.fn();
       const { result } = renderHook(() => Project.useRename({ afterOptimistic }), {
@@ -358,7 +301,6 @@ describe("queries", () => {
     it("should correctly delete a project", async () => {
       const proj = await client.projects.create({
         name: "testProject",
-        layout: { config: { setting1: "value1" } },
       });
 
       const { result } = renderHook(() => Project.useDelete(), { wrapper });
@@ -371,47 +313,9 @@ describe("queries", () => {
     });
   });
 
-  describe("useSaveLayout", () => {
-    it("should correctly save a project layout", async () => {
-      const proj = await client.projects.create({
-        name: "testProject",
-        layout: { config: { setting1: "value1" } },
-      });
-
-      const { result } = await renderHookSuspended(
-        () => ({
-          saveLayout: Project.useSaveLayout(),
-          retrieve: Project.use({ key: proj.key }),
-        }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect(result.current.retrieve).not.toBeNull();
-        expect(result.current.retrieve?.key).toEqual(proj.key);
-        expect(result.current.retrieve?.layout).toEqual({
-          config: { setting1: "value1" },
-        });
-      });
-      await act(async () => {
-        await result.current.saveLayout.updateAsync({
-          key: proj.key,
-          layout: { config: { setting1: "value2" } },
-        });
-      });
-
-      await waitFor(() => {
-        expect(result.current.saveLayout.variant).toEqual("success");
-        expect(result.current.retrieve?.key).toEqual(proj.key);
-        expect(result.current.retrieve?.layout).toEqual({
-          config: { setting1: "value2" },
-        });
-      });
-    });
-  });
-
   describe("useChildren", () => {
     it("should return children filtered by a single type", async () => {
-      const proj = await client.projects.create({ name: "single_type_ws", layout: {} });
+      const proj = await client.projects.create({ name: "single_type_ws" });
       const s1 = await client.schematics.create(proj.key, {
         name: "A Schematic",
       });
@@ -428,7 +332,7 @@ describe("queries", () => {
     });
 
     it("should return children filtered by multiple types", async () => {
-      const proj = await client.projects.create({ name: "multi_type_ws", layout: {} });
+      const proj = await client.projects.create({ name: "multi_type_ws" });
       const s1 = await client.schematics.create(proj.key, {
         name: "Source Schematic",
       });
@@ -450,7 +354,6 @@ describe("queries", () => {
     it("should return all visualization types except the source type", async () => {
       const proj = await client.projects.create({
         name: "all_but_schematic_ws",
-        layout: {},
       });
       const s1 = await client.schematics.create(proj.key, {
         name: "Current Schematic",
@@ -475,7 +378,7 @@ describe("queries", () => {
     });
 
     it("should exclude the source resource from results", async () => {
-      const proj = await client.projects.create({ name: "exclude_ws", layout: {} });
+      const proj = await client.projects.create({ name: "exclude_ws" });
       const s1 = await client.schematics.create(proj.key, {
         name: "Self",
       });
@@ -498,7 +401,7 @@ describe("queries", () => {
       ));
 
     it("should find children inside groups", async () => {
-      const proj = await client.projects.create({ name: "grouped_ws", layout: {} });
+      const proj = await client.projects.create({ name: "grouped_ws" });
       const s1 = await client.schematics.create(proj.key, {
         name: "Top Level",
       });
@@ -525,7 +428,7 @@ describe("queries", () => {
     });
 
     it("should find children in deeply nested groups", async () => {
-      const proj = await client.projects.create({ name: "deep_nested_ws", layout: {} });
+      const proj = await client.projects.create({ name: "deep_nested_ws" });
       const s1 = await client.schematics.create(proj.key, {
         name: "Top Level",
       });
@@ -556,8 +459,8 @@ describe("queries", () => {
     });
 
     it("should scope results to the source resource's project", async () => {
-      const p1 = await client.projects.create({ name: "scope_p_1", layout: {} });
-      const p2 = await client.projects.create({ name: "scope_p_2", layout: {} });
+      const p1 = await client.projects.create({ name: "scope_p_1" });
+      const p2 = await client.projects.create({ name: "scope_p_2" });
       const s1 = await client.schematics.create(p1.key, {
         name: "P1 Schematic",
       });
@@ -609,7 +512,7 @@ describe("queries", () => {
         sEm: schematic.Schematic;
 
       beforeEach(async () => {
-        const proj = await client.projects.create({ name: "TestSpace", layout: {} });
+        const proj = await client.projects.create({ name: "TestSpace" });
         sA = await client.schematics.create(proj.key, {
           name: "Schematic A",
         });
@@ -663,7 +566,6 @@ describe("queries", () => {
 
         const mproj = await client.projects.create({
           name: "Mirrored TestSpace",
-          layout: {},
         });
         sAm = await client.schematics.create(mproj.key, {
           name: "Schematic A Mirrored",

@@ -22,5 +22,5 @@ import (
 var Migrations = slices.Concat(
 	[]migrate.Migration{v0.NormalizeKeys, v0.Migration},
 	v1.Migrations,
-	[]migrate.Migration{v3.Migration},
+	[]migrate.Migration{v3.Migration, v3.ModeMigration},
 )

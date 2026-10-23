@@ -30,7 +30,6 @@ describe("Arc Commands", () => {
   it("opens the arc explorer view from the open explorer command", async () => {
     const proj = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const { store, openCommandPalette } = await renderPalette({
       commands: Arc.COMMANDS,
@@ -50,7 +49,6 @@ describe("Arc Commands", () => {
   it("creates an arc through the create command's modal", async () => {
     const proj = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const { store, openCommandPalette } = await renderPalette({
       commands: Arc.COMMANDS,

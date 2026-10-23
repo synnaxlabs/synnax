@@ -41,9 +41,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     .filter({ hasText: "Test stand" })
     .first();
   await session.waitFor(group);
+  // The strip clips tabs past its end under the group actions.
+  await group.scrollIntoViewIfNeeded();
   await session.click(group, { text: true, zoom: false });
   await session.settle(600);
-  await session.moveTo({ x: 756, y: 480 });
+  await session.moveTo({ x: 540, y: 300 });
 
   session.startRecording();
   await session.hold(500);
@@ -77,9 +79,23 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     .first();
   await session.waitFor(symbol);
   await session.hold(600);
-  // Park the cursor clear of the new symbol, then frame the group tabs and the
+  // Park the cursor clear of the new symbol, then frame the group tab and the
   // symbol together: at full width the drawer entry is too small to read.
-  await session.moveTo({ x: 420, y: 900 });
-  await session.zoom({ x: 546, y: 830 }, 1.45);
+  const [tabBox, symbolBox] = await Promise.all([
+    group.boundingBox(),
+    symbol.boundingBox(),
+  ]);
+  const view = page.viewportSize();
+  if (tabBox == null || symbolBox == null || view == null)
+    throw new Error("group tab or symbol is hidden");
+  const left = Math.min(tabBox.x, symbolBox.x);
+  const right = Math.max(tabBox.x + tabBox.width, symbolBox.x + symbolBox.width);
+  const top = Math.min(tabBox.y, symbolBox.y);
+  const bottom = Math.max(tabBox.y + tabBox.height, symbolBox.y + symbolBox.height);
+  await session.moveTo({ x: symbolBox.x + symbolBox.width + 160, y: 300 });
+  await session.zoom(
+    { x: (left + right) / 2, y: (top + bottom) / 2 },
+    Math.min(1.45, view.width / (right - left + 96), view.height / (bottom - top + 96)),
+  );
   await session.hold(500);
 };

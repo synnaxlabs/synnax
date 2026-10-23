@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/lyra/css";
+
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Label } from "@/schematic/node/flowmeters/Label";
@@ -20,7 +21,7 @@ export const General = ({
   id,
   className,
   orientation = "right",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: Props) => (
@@ -34,12 +35,12 @@ export const General = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >
       <Primitive.Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Label position={LABELS} color={color} />
+      <Label position={LABELS} strokeColor={strokeColor} />
     </Primitive.SVG>
   </Primitive.Div>
 );

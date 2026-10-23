@@ -7,29 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bench, describe } from "vitest";
+import { test } from "vitest";
 
 import { DataType, Series } from "@/telem";
 
 // Streaming caches append small series into a large allocated buffer at high
 // rates, then read the partial view back on every render.
-describe("write", () => {
+test("write", async ({ bench }) => {
   // Wire-decoded series are ArrayBuffer-backed, matching the streaming path.
   const source = new Series({
     data: new Float32Array(10).buffer,
     dataType: DataType.FLOAT32,
   });
   let target = Series.alloc({ capacity: 1_000_000, dataType: DataType.FLOAT32 });
-  bench("10smp into allocated buffer", () => {
+  await bench("10smp into allocated buffer", () => {
     if (target.write(source) === 0)
       target = Series.alloc({ capacity: 1_000_000, dataType: DataType.FLOAT32 });
-  });
+  }).run();
 });
 
 // Rolling plots query y bounds over a moving sub-range every frame. The block
 // summaries should keep the warm query cost flat as the series grows, while a
 // naive scan grows linearly with the window.
-describe("boundsFor", () => {
+test("boundsFor", async ({ bench }) => {
   const makeSeries = (samples: number): Series => {
     const data = new Float32Array(samples);
     for (let i = 0; i < data.length; i++) data[i] = Math.sin(i);
@@ -41,26 +41,29 @@ describe("boundsFor", () => {
   // Warm the block summaries so the benchmarks measure steady-state queries.
   small.boundsFor(1, 10_000);
   large.boundsFor(1, 1_500_000);
-  bench("warm sub-range query 10k", () => {
-    sink.bounds += small.boundsFor(1, 9_999).lower;
-  });
-  bench("warm sub-range query 1.5m", () => {
-    sink.bounds += large.boundsFor(1, 1_499_999).lower;
-  });
   const raw = large.data as Float32Array;
-  bench("naive full scan 1.5m", () => {
-    let min = Infinity;
-    let max = -Infinity;
-    for (let i = 1; i < 1_499_999; i++) {
-      const v = raw[i];
-      if (v < min) min = v;
-      if (v > max) max = v;
-    }
-    sink.bounds += min + max;
-  });
+
+  await bench.compare(
+    bench("warm sub-range query 10k", () => {
+      sink.bounds += small.boundsFor(1, 9_999).lower;
+    }),
+    bench("warm sub-range query 1.5m", () => {
+      sink.bounds += large.boundsFor(1, 1_499_999).lower;
+    }),
+    bench("naive full scan 1.5m", () => {
+      let min = Infinity;
+      let max = -Infinity;
+      for (let i = 1; i < 1_499_999; i++) {
+        const v = raw[i];
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      sink.bounds += min + max;
+    }),
+  );
 });
 
-describe("data access", () => {
+test("data access", async ({ bench }) => {
   const partial = Series.alloc({ capacity: 1000, dataType: DataType.FLOAT32 });
   partial.write(new Series({ data: new Float32Array(500) }));
   const full = new Series({
@@ -70,10 +73,33 @@ describe("data access", () => {
   // Accumulating keeps the read observable, so the optimizer cannot drop the access
   // the benchmark is timing.
   const sink = { full: 0, partial: 0 };
-  bench("partial buffer", () => {
-    sink.partial += partial.data.length;
-  });
-  bench("full buffer", () => {
-    sink.full += full.data.length;
-  });
+
+  await bench.compare(
+    bench("partial buffer", () => {
+      sink.partial += partial.data.length;
+    }),
+    bench("full buffer", () => {
+      sink.full += full.data.length;
+    }),
+  );
+});
+
+// The first pass over new data computes the bounds, the non-finite ranges, and the
+// boundsFor block summaries. Later frames read the caches.
+test("first pass over 1M samples", async ({ bench }) => {
+  const finite = new Float32Array(1_000_000);
+  for (let i = 0; i < finite.length; i++) finite[i] = Math.sin(i);
+  // 5000 NaN bursts of 50 samples each.
+  const bursts = finite.map((v, i) => (i % 200 >= 150 ? NaN : v));
+  const sink = { value: 0 };
+  const firstPass = (data: Float32Array<ArrayBuffer>): void => {
+    const series = new Series({ data, dataType: DataType.FLOAT32 });
+    sink.value += series.bounds.upper;
+    sink.value += series.nonFiniteRanges.length;
+    sink.value += series.boundsFor(1, data.length - 1).upper;
+  };
+  await bench.compare(
+    bench("all finite", () => firstPass(finite)),
+    bench("NaN bursts", () => firstPass(bursts)),
+  );
 });

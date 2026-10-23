@@ -13,6 +13,7 @@ import {
   createDummyToggle,
   createStatic,
   createToggle,
+  withoutToggleConfig,
 } from "@/schematic/node/common/create";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { type Spec } from "@/schematic/node/spec";
@@ -163,7 +164,7 @@ const solenoidSpec: Spec<"solenoid_valve", SolenoidConfig> = {
   name: "Solenoid",
   Form: SolenoidForm,
   Node: Toggle.createToggle<SolenoidConfig>(Solenoid),
-  Preview: Solenoid,
+  Preview: withoutToggleConfig(Solenoid),
   zIndex: 4,
 };
 const springLoadedRelief = createDummyToggle({

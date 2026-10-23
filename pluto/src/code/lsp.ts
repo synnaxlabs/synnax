@@ -234,9 +234,9 @@ export const useLanguageServer = ({
     }
     const abortController = new AbortController();
     const { signal } = abortController;
-    const abortPromise = new Promise<void>((r) =>
-      signal.addEventListener("abort", () => r()),
-    );
+    const abortPromise = new Promise<void>((resolve) => {
+      signal.onabort = () => resolve();
+    });
     let currentHandle: LSPClientHandle | null = null;
     let currentStream: LSPStream | null = null;
     const run = async () => {

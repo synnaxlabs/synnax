@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
@@ -18,7 +18,7 @@ export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 const DIMENSIONS = { width: 99, height: 57 };
 
 export const Breather = ({
-  color: colorVal,
+  strokeColor: colorVal,
   className,
   orientation = "left",
   scale,
@@ -34,7 +34,7 @@ export const Breather = ({
     <Handle.Linear orientation={orientation} left={8.081} right={91.919} />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={colorVal}
+      strokeColor={colorVal}
       orientation={orientation}
       scale={scale}
     >

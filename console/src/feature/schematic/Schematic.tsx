@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Menu } from "@synnaxlabs/lyra/menu";
 import {
   Control,
   Diagram,
-  Menu,
   Panel as PlutoPanel,
   Schematic as Base,
   Viewport,
@@ -51,6 +51,7 @@ const Internal = (): ReactElement => {
   const viewport = Session.Schematic.useSelectViewport();
   const selected = Session.Schematic.useSelectSelected();
   const fitViewOnResize = Session.Schematic.useSelectFitViewOnResize();
+  const tooltipsDisabled = Session.Schematic.useSelectTooltipsDisabled();
   const visible = Session.Panel.useSelectIsTabVisible();
   const { isCurrentlyEditable, canEdit } = Session.Schematic.useSelectEditable();
 
@@ -130,6 +131,7 @@ const Internal = (): ReactElement => {
         onEditableChange={handleEditableChange}
         fitViewOnResize={fitViewOnResize}
         setFitViewOnResize={handleFitViewOnResizeChange}
+        tooltipsDisabled={tooltipsDisabled}
         triggers={triggers}
         onDoubleClick={handleDoubleClick}
         onNodeClick={handleNodeClick}

@@ -1,20 +1,15 @@
 {
   "name": "@synnaxlabs/arc",
   "private": true,
-  "version": "0.58.0",
   "type": "module",
-  "description": "TypeScript/JavaScript utilities for the Arc language",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
       "default": "./dist/arc.js"
     }
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build",
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {

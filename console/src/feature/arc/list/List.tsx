@@ -10,16 +10,13 @@
 import "@/feature/arc/list/List.css";
 
 import { type arc } from "@synnaxlabs/client";
-import {
-  Arc as PArc,
-  Flex,
-  type Flux,
-  Icon,
-  Input,
-  List as PList,
-  Menu,
-  Select,
-} from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List as PList } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Arc as PArc, type Flux } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
 import { Item, type ItemProps } from "@/feature/arc/list/Item";
@@ -96,16 +93,18 @@ export const List = ({
               />
             </Flex.Box>
           )}
-          <PList.Items<arc.Key> grow onContextMenu={menuProps.open}>
-            {({ key, ...rest }) => (
-              <Item
-                key={key}
-                {...rest}
-                textIdPrefix={textIdPrefix}
-                onRename={(name) => handleRename({ key, name })}
-              />
-            )}
-          </PList.Items>
+          <PList.Scroll grow onContextMenu={menuProps.open}>
+            <PList.Items<arc.Key>>
+              {({ key, ...rest }) => (
+                <Item
+                  key={key}
+                  {...rest}
+                  textIdPrefix={textIdPrefix}
+                  onRename={(name) => handleRename({ key, name })}
+                />
+              )}
+            </PList.Items>
+          </PList.Scroll>
         </Flex.Box>
       </Select.Frame>
     </Menu.ContextMenu>

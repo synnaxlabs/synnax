@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type DragEventHandler, type ReactElement, useCallback, useState } from "react";
-
-import { Flex } from "@/flex";
-import { Haul } from "@/haul";
-import { Tabs } from "@/tabs";
-import { Text } from "@/text";
 
 import { SubcategorySection } from "./SubcategorySection";
 
@@ -125,21 +124,21 @@ export const TabsShowcase = (): ReactElement => (
   <Flex.Box y pack empty>
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Drag to Reorder"
+        title="Drag to reorder"
         description="Grab a tab and drag it along the strip. The other tabs slide out of the way to open a gap where it will land, Chrome-style; drop to commit the new order."
       >
         <ReorderableTabs />
       </SubcategorySection>
 
       <SubcategorySection
-        title="Pill Variant"
+        title="Pill variant"
         description="The same reorder interaction on the pill variant, where tabs are separated rounded buttons."
       >
         <ReorderableTabs variant="pill" />
       </SubcategorySection>
 
       <SubcategorySection
-        title="Vertical Strip"
+        title="Vertical strip"
         description="Reordering along the vertical axis: tabs slide up and down to open the gap."
       >
         <ReorderableTabs vertical />

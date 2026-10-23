@@ -1,0 +1,23 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* A button's display overrides the user agent's rule for the hidden attribute. */
+.pluto-list__item[hidden] {
+    display: none;
+}
+
+/* A fixed item's content may set an icon beside its text, so it lays out as a row
+   inside the label, which stays a block for its fade. */
+.pluto-select__fixed-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+}

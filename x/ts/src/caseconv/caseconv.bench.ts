@@ -7,72 +7,70 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bench, describe } from "vitest";
+import { test } from "vitest";
 import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
 import { record } from "@/record";
 
-describe("caseconv string conversion", () => {
-  bench("snakeToCamel - no conversion needed", () => {
-    caseconv.snakeToCamel("alreadyCamelCase");
-  });
-
-  bench("camelToSnake - no conversion needed", () => {
-    caseconv.camelToSnake("already_snake_case");
-  });
-
-  bench("snakeToCamel - short string", () => {
-    caseconv.snakeToCamel("channel_key_name");
-  });
-
-  bench("camelToSnake - short string", () => {
-    caseconv.camelToSnake("channelKeyName");
-  });
-
+test("caseconv string conversion", async ({ bench }) => {
   const longSnake = Array.from({ length: 20 }, (_, i) => `segment_${i}`).join("_");
   const longCamel = Array.from({ length: 20 }, (_, i) => `Segment${i}`).join("");
 
-  bench("snakeToCamel - long string (20 segments)", () => {
-    caseconv.snakeToCamel(longSnake);
-  });
+  await bench.compare(
+    bench("snakeToCamel - no conversion needed", () => {
+      caseconv.snakeToCamel("alreadyCamelCase");
+    }),
 
-  bench("camelToSnake - long string (20 segments)", () => {
-    caseconv.camelToSnake(longCamel);
-  });
+    bench("camelToSnake - no conversion needed", () => {
+      caseconv.camelToSnake("already_snake_case");
+    }),
 
-  bench("snakeToCamel - OPC UA NodeId", () => {
-    caseconv.snakeToCamel("ns=2;s=Temperature.Sensor.Value");
-  });
+    bench("snakeToCamel - short string", () => {
+      caseconv.snakeToCamel("channel_key_name");
+    }),
 
-  bench("toKebab - from camelCase", () => {
-    caseconv.toKebab("channelKeyName");
-  });
+    bench("camelToSnake - short string", () => {
+      caseconv.camelToSnake("channelKeyName");
+    }),
 
-  bench("toKebab - from snake_case", () => {
-    caseconv.toKebab("channel_key_name");
-  });
+    bench("snakeToCamel - long string (20 segments)", () => {
+      caseconv.snakeToCamel(longSnake);
+    }),
 
-  bench("toProperNoun - from snake_case", () => {
-    caseconv.toProperNoun("temperature_sensor_value");
-  });
+    bench("camelToSnake - long string (20 segments)", () => {
+      caseconv.camelToSnake(longCamel);
+    }),
 
-  bench("toProperNoun - consecutive capitals", () => {
-    caseconv.toProperNoun("XMLParserDocument");
-  });
+    bench("snakeToCamel - OPC UA NodeId", () => {
+      caseconv.snakeToCamel("ns=2;s=Temperature.Sensor.Value");
+    }),
+
+    bench("toKebab - from camelCase", () => {
+      caseconv.toKebab("channelKeyName");
+    }),
+
+    bench("toKebab - from snake_case", () => {
+      caseconv.toKebab("channel_key_name");
+    }),
+
+    bench("toProperNoun - from snake_case", () => {
+      caseconv.toProperNoun("temperature_sensor_value");
+    }),
+
+    bench("toProperNoun - consecutive capitals", () => {
+      caseconv.toProperNoun("XMLParserDocument");
+    }),
+  );
 });
 
-describe("caseconv object conversion", () => {
+test("caseconv object conversion", async ({ bench }) => {
   const shallowObject = {
     channel_key: "test",
     data_type: "float32",
     is_index: false,
     sample_rate: 1000,
   };
-
-  bench("snakeToCamel - shallow object (4 keys)", () => {
-    caseconv.snakeToCamel(shallowObject);
-  });
 
   const nestedObject = {
     channel_config: {
@@ -81,26 +79,14 @@ describe("caseconv object conversion", () => {
     },
   };
 
-  bench("snakeToCamel - nested object (3 levels)", () => {
-    caseconv.snakeToCamel(nestedObject);
-  });
-
   const arrayOfObjects = Array.from({ length: 10 }, (_, i) => ({
     channel_key: `channel_${i}`,
     data_type: "float32",
     is_index: i === 0,
   }));
 
-  bench("snakeToCamel - array of 10 objects", () => {
-    caseconv.snakeToCamel(arrayOfObjects);
-  });
-
   const largeObject: Record<string, number> = {};
   for (let i = 0; i < 100; i++) largeObject[`property_name_${i}`] = i;
-
-  bench("snakeToCamel - large object (100 keys)", () => {
-    caseconv.snakeToCamel(largeObject);
-  });
 
   const objectWithPrimitiveArrays = {
     channel_key: "test",
@@ -108,21 +94,39 @@ describe("caseconv object conversion", () => {
     time_stamps: [100, 200, 300, 400, 500],
   };
 
-  bench("snakeToCamel - object with primitive arrays", () => {
-    caseconv.snakeToCamel(objectWithPrimitiveArrays);
-  });
-
   const objectWithUint8Array = {
     channel_key: "binary_data",
     raw_bytes: new Uint8Array([0x01, 0x02, 0x03, 0x04]),
   };
 
-  bench("snakeToCamel - object with Uint8Array", () => {
-    caseconv.snakeToCamel(objectWithUint8Array);
-  });
+  await bench.compare(
+    bench("snakeToCamel - shallow object (4 keys)", () => {
+      caseconv.snakeToCamel(shallowObject);
+    }),
+
+    bench("snakeToCamel - nested object (3 levels)", () => {
+      caseconv.snakeToCamel(nestedObject);
+    }),
+
+    bench("snakeToCamel - array of 10 objects", () => {
+      caseconv.snakeToCamel(arrayOfObjects);
+    }),
+
+    bench("snakeToCamel - large object (100 keys)", () => {
+      caseconv.snakeToCamel(largeObject);
+    }),
+
+    bench("snakeToCamel - object with primitive arrays", () => {
+      caseconv.snakeToCamel(objectWithPrimitiveArrays);
+    }),
+
+    bench("snakeToCamel - object with Uint8Array", () => {
+      caseconv.snakeToCamel(objectWithUint8Array);
+    }),
+  );
 });
 
-describe("caseconv schema-based conversion", () => {
+test("caseconv schema-based conversion", async ({ bench }) => {
   const schemaWithPreserve = z.object({
     task_config: z.object({
       channels: caseconv.preserveCase(z.record(z.string(), z.number())),
@@ -139,22 +143,10 @@ describe("caseconv schema-based conversion", () => {
     },
   };
 
-  bench("snakeToCamel - with preserveCase schema", () => {
-    caseconv.snakeToCamel(inputWithOpcKeys, { schema: schemaWithPreserve });
-  });
-
-  bench("snakeToCamel - same input without schema", () => {
-    caseconv.snakeToCamel(inputWithOpcKeys);
-  });
-
   const schemaWithoutPreserve = z.object({
     task_config: z.object({
       channels: z.record(z.string(), z.number()),
     }),
-  });
-
-  bench("snakeToCamel - schema without preserveCase", () => {
-    caseconv.snakeToCamel(inputWithOpcKeys, { schema: schemaWithoutPreserve });
   });
 
   const complexSchema = z.object({
@@ -173,10 +165,6 @@ describe("caseconv schema-based conversion", () => {
     write: { index: 1, channels: { "ns=2;s=Valve1": 3, "ns=2;s=Valve2": 4 } },
   };
 
-  bench("snakeToCamel - multiple preserveCase markers", () => {
-    caseconv.snakeToCamel(complexInput, { schema: complexSchema });
-  });
-
   const deepSchema = z.object({
     level1: z.object({
       level2: z.object({
@@ -191,16 +179,34 @@ describe("caseconv schema-based conversion", () => {
     level1: { level2: { level3: { data: { "ns=2;s=DeepValue": 42 } } } },
   };
 
-  bench("snakeToCamel - deeply nested schema", () => {
-    caseconv.snakeToCamel(deepInput, { schema: deepSchema });
-  });
+  await bench.compare(
+    bench("snakeToCamel - with preserveCase schema", () => {
+      caseconv.snakeToCamel(inputWithOpcKeys, { schema: schemaWithPreserve });
+    }),
 
-  bench("camelToSnake - with preserveCase schema", () => {
-    caseconv.camelToSnake(inputWithOpcKeys, { schema: schemaWithPreserve });
-  });
+    bench("snakeToCamel - same input without schema", () => {
+      caseconv.snakeToCamel(inputWithOpcKeys);
+    }),
+
+    bench("snakeToCamel - schema without preserveCase", () => {
+      caseconv.snakeToCamel(inputWithOpcKeys, { schema: schemaWithoutPreserve });
+    }),
+
+    bench("snakeToCamel - multiple preserveCase markers", () => {
+      caseconv.snakeToCamel(complexInput, { schema: complexSchema });
+    }),
+
+    bench("snakeToCamel - deeply nested schema", () => {
+      caseconv.snakeToCamel(deepInput, { schema: deepSchema });
+    }),
+
+    bench("camelToSnake - with preserveCase schema", () => {
+      caseconv.camelToSnake(inputWithOpcKeys, { schema: schemaWithPreserve });
+    }),
+  );
 });
 
-describe("caseconv wrapper traversal performance", () => {
+test("caseconv wrapper traversal performance", async ({ bench }) => {
   const directPreserve = z.object({
     data: caseconv.preserveCase(z.record(z.string(), z.number())),
   });
@@ -235,35 +241,37 @@ describe("caseconv wrapper traversal performance", () => {
 
   const dataInput = { data: { key_one: 1, key_two: 2 } };
 
-  bench("direct preserveCase (no traversal)", () => {
-    caseconv.snakeToCamel(dataInput, { schema: directPreserve });
-  });
+  await bench.compare(
+    bench("direct preserveCase (no traversal)", () => {
+      caseconv.snakeToCamel(dataInput, { schema: directPreserve });
+    }),
 
-  bench("optional wrapped (1 level)", () => {
-    caseconv.snakeToCamel(dataInput, { schema: optionalWrapped });
-  });
+    bench("optional wrapped (1 level)", () => {
+      caseconv.snakeToCamel(dataInput, { schema: optionalWrapped });
+    }),
 
-  bench("nullable wrapped (1 level)", () => {
-    caseconv.snakeToCamel(dataInput, { schema: nullableWrapped });
-  });
+    bench("nullable wrapped (1 level)", () => {
+      caseconv.snakeToCamel(dataInput, { schema: nullableWrapped });
+    }),
 
-  bench("default wrapped (1 level)", () => {
-    caseconv.snakeToCamel(dataInput, { schema: defaultWrapped });
-  });
+    bench("default wrapped (1 level)", () => {
+      caseconv.snakeToCamel(dataInput, { schema: defaultWrapped });
+    }),
 
-  bench("transform wrapped (1 level pipe)", () => {
-    caseconv.snakeToCamel(dataInput, { schema: transformWrapped });
-  });
+    bench("transform wrapped (1 level pipe)", () => {
+      caseconv.snakeToCamel(dataInput, { schema: transformWrapped });
+    }),
 
-  bench("deeply nested (4 levels)", () => {
-    caseconv.snakeToCamel(dataInput, { schema: deeplyNested });
-  });
+    bench("deeply nested (4 levels)", () => {
+      caseconv.snakeToCamel(dataInput, { schema: deeplyNested });
+    }),
 
-  bench("union (nullishToEmpty)", () => {
-    caseconv.snakeToCamel(dataInput, { schema: unionSchema });
-  });
+    bench("union (nullishToEmpty)", () => {
+      caseconv.snakeToCamel(dataInput, { schema: unionSchema });
+    }),
 
-  bench("no schema (baseline)", () => {
-    caseconv.snakeToCamel(dataInput);
-  });
+    bench("no schema (baseline)", () => {
+      caseconv.snakeToCamel(dataInput);
+    }),
+  );
 });

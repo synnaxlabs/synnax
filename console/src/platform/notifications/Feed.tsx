@@ -10,7 +10,9 @@
 import "@/platform/notifications/Feed.css";
 
 import { type status } from "@synnaxlabs/client";
-import { Button, Flex, Status } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Status } from "@synnaxlabs/lyra/status";
 import { type FC, type ReactElement, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 

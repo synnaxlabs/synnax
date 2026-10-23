@@ -35,7 +35,7 @@ needing broader context:
 - `docs/claude/integration-test.md` — writing integration tests (Arc gotchas)
 - `docs/claude/toolchains/{typescript,go,python,cpp}.md` — language rules
 - `scripts/CLAUDE.md` — repo scripts: formatting, copyright headers, codegen checks,
-  versioning; workflow-only scripts in `.github/scripts/` (also auto-loads)
+  versioning (also auto-loads)
 - `docs/tech/rfc/CLAUDE.md` — RFC file names, front matter, headings, definition lists,
   and citations (also auto-loads)
 - `core/CLAUDE.md`, `console/CLAUDE.md`, `driver/CLAUDE.md`, `pluto/CLAUDE.md`,
@@ -195,6 +195,8 @@ Red flags. If any of these appear, rewrite immediately:
 
 ### Doc comments
 
+- Doc comments are for the public surface. A private or unexported identifier gets one
+  only when its name cannot carry the meaning.
 - Write from the caller's perspective: what it does, arguments, returns, errors,
   preconditions, side effects. Never narrate implementation ("calls X, uses Y, stores in
   Z, then does W").

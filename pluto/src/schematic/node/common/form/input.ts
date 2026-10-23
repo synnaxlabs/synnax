@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Input } from "@/input";
+import { type Input } from "@synnaxlabs/lyra/input";
 
 export const DIMENSIONS_INPUT_PROPS: Partial<Input.NumericProps> = {
   dragScale: { y: 2, x: 0.25 },

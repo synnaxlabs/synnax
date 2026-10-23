@@ -10,19 +10,16 @@
 import "@/feature/opcua/device/Connect.css";
 
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
-import {
-  Button,
-  Component,
-  Device as PDevice,
-  Divider,
-  Flex,
-  type Flux,
-  Form,
-  Icon,
-  Nav,
-  Rack,
-  Status,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
@@ -37,6 +34,7 @@ import {
   ZERO_PROPERTIES,
 } from "@/feature/opcua/device/types";
 import { TEST_CONNECTION_COMMAND_TYPE } from "@/feature/opcua/task/types";
+import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { type Device as PlatformDevice } from "@/platform/device";
 import { FS } from "@/platform/fs";
@@ -97,6 +95,7 @@ const beforeSave = async ({
 
 export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
   ({ deviceKey, close }) => {
+    const { capture } = Analytics.use();
     const {
       form,
       save,
@@ -106,7 +105,10 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
       query: deviceKey == null ? null : { key: deviceKey },
       beforeValidate,
       beforeSave,
-      afterSave: useCallback(() => close(), [close]),
+      afterSave: useCallback(() => {
+        if (deviceKey == null) capture("device_connected", { integration: "opcua" });
+        close();
+      }, [capture, close, deviceKey]),
     });
 
     const hasSecurity =
@@ -116,9 +118,9 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
         PDevice.FormSchema<typeof SCHEMAS>
       >("properties.connection.securityMode", { ctx: form }) != NO_SECURITY_MODE;
     return (
-      <Modals.Frame className={CSS.B("opc-connect")}>
-        <Modals.Header icon={<Icon.Logo.OPCUA />}>Server.Connect</Modals.Header>
-        <Modals.Body gap="small">
+      <Modal.Frame className={CSS.B("opc-connect")}>
+        <Modal.Header icon={<Icon.Logo.OPCUA />}>Server.Connect</Modal.Header>
+        <Modal.Body gap="small">
           <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
             <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
             <Form.Field<rack.Key> path="rack" label="Connect from" required>
@@ -183,8 +185,8 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
               </>
             )}
           </Form.Form>
-        </Modals.Body>
-        <Modals.Footer>
+        </Modal.Body>
+        <Modal.Footer>
           <Nav.Bar.Start gap="small">
             {variant == "success" ? (
               <Triggers.SaveHelpText action="Connect" noBar />
@@ -202,8 +204,8 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
               Connect
             </Button.Button>
           </Nav.Bar.End>
-        </Modals.Footer>
-      </Modals.Frame>
+        </Modal.Footer>
+      </Modal.Frame>
     );
   },
 );

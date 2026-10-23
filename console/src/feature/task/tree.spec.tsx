@@ -9,7 +9,8 @@
 
 import { group, NotFoundError, ontology, type task } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { List, Text } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   act,

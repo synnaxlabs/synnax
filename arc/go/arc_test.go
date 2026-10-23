@@ -856,12 +856,14 @@ stage abort {
 					},
 				)
 
-				_ = findTopLevelScope(mod, "main")
+				main := findTopLevelScope(mod, "main")
 				abort := findTopLevelScope(mod, "abort")
 				Expect(abort.Mode).To(Equal(ir.ScopeModeParallel))
-				Expect(
-					abort.Activation,
-				).ToNot(BeNil(), "abort should carry activation from abort_btn => abort")
+				Expect(abort.Activations).To(BeEmpty())
+				Expect(main.Transitions).To(ContainElement(HaveField(
+					"Target.Variant",
+					Equal(ir.ScopeTarget{Key: "abort"}),
+				)))
 			},
 		)
 	})

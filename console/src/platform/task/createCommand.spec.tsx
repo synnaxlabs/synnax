@@ -9,7 +9,8 @@
 
 import { task } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Access } from "@synnaxlabs/pluto";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 

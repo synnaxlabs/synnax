@@ -8,6 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { connection, Synnax, type SynnaxParams } from "@synnaxlabs/client";
+import { context } from "@synnaxlabs/lyra/context";
+import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Status } from "@synnaxlabs/lyra/status";
 import { migrate } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
@@ -21,11 +25,7 @@ import {
 import z from "zod";
 
 import { Aether } from "@/aether";
-import { context } from "@/context";
 import { Errors } from "@/errors";
-import { useCombinedStateAndRef } from "@/hooks";
-import { useMemoDeepEqual } from "@/memo";
-import { Status } from "@/status/base";
 import { synnax } from "@/synnax/aether";
 
 export interface ContextValue extends synnax.ContextValue {

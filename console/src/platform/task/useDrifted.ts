@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type rack, task } from "@synnaxlabs/client";
-import { Form } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
 import { type z } from "zod";
 
 import { useStatus } from "@/platform/task/useStatus";

@@ -9,7 +9,9 @@
 
 import { type ontology, type panel, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Haul, Icon, Text } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 import { uuid } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -52,11 +54,10 @@ describe("Mosaic file drop", () => {
   it("imports a JSON file dropped on the mosaic", async () => {
     const existing = await createServerPanel(client, {
       variant: "leaf",
-      tabs: [{ variant: "view", key: uuid.create(), type: "seed", args: {} }],
+      tabs: [{ variant: "view", key: uuid.create(), type: "seed" }],
     });
     const proj = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const { wrapper: Console } = await createPanelWrapper({
       client,

@@ -1,0 +1,504 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Writes"
+heading: "Writing data"
+description: "Learn the process for writing data to a Synnax Core."
+next: "Streams"
+nextURL: "/reference/concepts/streams"
+prev: "Reads"
+prevURL: "/reference/concepts/reads"
+---
+
+import { Image } from "@/components/media/Media";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@synnaxlabs/lyra/note";
+import Diagram from "@/components/diagram/Diagram.astro";
+import Rule from "@/components/rule/Rule.astro";
+import { Table } from "@/components/table";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This page documents the high-level process of writing data to a Core, including
+transactions, streaming/persistence modes, and dynamic control handoff. This page is a
+theoretical introduction. For practical guides on writing data using a client library,
+see the [Python client](/reference/python-client/write-data) and
+[TypeScript client](/reference/typescript-client/write-data) pages.
+
+<Divider.Divider x />
+
+## Introduction
+
+Writing data to Synnax involves sending batches of telemetry samples to a Core. These
+batches are called [frames](/reference/concepts/overview#frames). The primary interface
+for writing these frames is, unsurprisingly, a **writer**. Writers are analogous to
+pipes that continuously feed a Core with frames of data for one or more channels.
+
+When ingesting historical data, it's common to quickly write many large frames of
+previously recorded values. These frames can contain tens of thousands to millions of
+samples. In real-time acquisition scenarios, frames are typically much smaller,
+containing one to a few dozen samples per channels. These small frames are repeatedly
+written over long periods of time.
+
+### How writers are used in Synnax
+
+There can be many writers open on a single Synnax Core at once. Each writer can serve a
+different purpose. For example, one writer might be responsible for sending incoming
+sensor values from a device. Another writer can send control commands to a device with
+actuators connected to it.
+
+<Diagram>
+  <Image id="concepts/writes/writer" extension="svg" themed={false} />
+</Diagram>
+
+Internally, [schematics](/reference/console/schematics) within the Synnax
+[console](/reference/console/get-started) use writers to send commands to actuators when
+a user clicks on a valve or other control element.
+
+<Divider.Divider x />
+
+## Transactions
+
+Each writer governs an atomic transaction against the Synnax Core. To begin a
+transaction, we open a new writer and start writing data frames using a file like
+interface. After we're done writing, we commit the writer to the database, making it
+available for reading. Synnax transactions are unique in that they can be committed
+**multiple** times, where each new commit extends the data written in the previous
+commit. After the final commit, the user closes the writer, at which point the Core
+releases all write-related resources and the transaction is complete.
+
+### Open phase
+
+To start a new transaction, we need to provide the following information.
+
+<table>
+  <thead>
+    <tr>
+      <th>Argument</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Channels</td>
+      <td>The channels we're interested in writing to.</td>
+    </tr>
+    <tr>
+      <td>Timestamp</td>
+      {/* prettier-ignore */}
+      <td>The timestamp marking the time at or just before the first written
+                sample was recorded.</td>
+    </tr>
+  </tbody>
+</table>
+
+Synnax will use these arguments to validate two things before opening the writer:
+
+1. That all channels exist in the Synnax Core.
+2. That no existing data overlaps with the provided timestamp.
+
+#### Optional arguments
+
+There are also a few optional arguments we can provide when opening a writer:
+
+<table>
+  <thead>
+    <tr>
+      <th>Argument</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <a href="#writer-modes">Mode</a>
+      </td>
+      {/* prettier-ignore */}
+      <td>The persistence/streaming mode of the writer. This can be persist only, stream only, or stream and persist. </td>
+      <td>stream and persist</td>
+    </tr>
+    <tr>
+      <td>
+        <a href="#dynamic-control---write-authorities">Authority</a>
+      </td>
+      {/* prettier-ignore */}
+      <td>The authority to set for the writer. This is used for dynamic control
+          handoff between multiple writers.</td>
+      <td>absolute (255)</td>
+    </tr>
+    <tr>
+      <td>
+        <a href="#auto-commit">Auto-Commit</a>
+      </td>
+      <td>Whether writes should be immediately committed to the Synnax Core.</td>
+      <td>true</td>
+    </tr>
+  </tbody>
+</table>
+
+### Write phase
+
+After all opening validation checks pass, the transaction enters the write phase. During
+this period, a user can write continuous frames of data to the transaction. These frames
+must be vertical (i.e. all channels must have a single series specified), and all series
+must have the same number of samples.
+
+To illustrate how a series of writes would work, imagine we write the following frame:
+
+| time                | my-precise-tc | strain-gauge-01 | pressure-transducer-05 |
+| ------------------- | ------------- | --------------- | ---------------------- |
+| 1677433720770863800 | 19.17         | 344.78          | 16.22                  |
+| 1677433720970863400 | 19.18         | 346.78          | 17.22                  |
+| 1677433721270868900 | 19.19         | 348.78          | 18.22                  |
+
+After this write, the stored data in the Synnax database transaction looks exactly like
+the first frame. Then we write the next frame:
+
+| time                | my-precise-tc | strain-gauge-01 | pressure-transducer-05 |
+| ------------------- | ------------- | --------------- | ---------------------- |
+| 1677433721470863800 | 19.21         | 350.78          | 19.22                  |
+| 1677433721870863400 | 19.22         | 352.78          | 20.22                  |
+| 1677433721970868900 | 19.23         | 354.78          | 21.22                  |
+
+Now, our transaction looks like this:
+
+| time                | my-precise-tc | strain-gauge-01 | pressure-transducer-05 |
+| ------------------- | ------------- | --------------- | ---------------------- |
+| 1677433720770863800 | 19.17         | 344.78          | 16.22                  |
+| 1677433720970863400 | 19.18         | 346.78          | 17.22                  |
+| 1677433721270868900 | 19.19         | 348.78          | 18.22                  |
+| 1677433721470863800 | 19.21         | 350.78          | 19.22                  |
+| 1677433721870863400 | 19.22         | 352.78          | 20.22                  |
+| 1677433721970868900 | 19.23         | 354.78          | 21.22                  |
+
+Throughout the write phase, the caller can continue extending the the transaction's data
+by adding frames. It's common for writers to be open for many hours or even days.
+
+### Commit phase
+
+Once we're ready to persist the transaction and make it available for reads, we call the
+`commit` method on our writer. During this phase, the Core identifies the time range of
+the writer based on the provided starting timestamp and the samples written. The commit
+process succeeds and the write is now available for reads. After this phase completes,
+the transaction is moved back into the write phase. At this point, we can either write
+more frames to the Core and commit again, or we can close the writer.
+
+#### Auto-commit
+
+By default, writers are configured with auto-commit enabled. When auto-commit is on,
+every write is immediately committed and available for reads. This method is useful for
+real-time data that does not need to be applied atomically. You can disable auto-commit
+if you need to apply writes atomically in batches.
+
+### Close phase
+
+Once done writing, the user can close the writer and release all of it's resources. All
+writes that have not been committed will be lost. Closing a writer will also release
+control of the channel to the next highest
+[authority](#dynamic-control---write-authorities) writer, if one exists.
+
+<Divider.Divider x />
+
+## Writer modes
+
+Synnax supports three modes for writing data: persist, stream, and stream-and-persist.
+
+### Persist
+
+When a writer is opened in **persist** mode, the data it writes will not be sent to
+streamers listening on the channel being written to. These writers can _not_ be used for
+real-time consumption or monitoring. Persist mode is commonly used when writing
+historical data to a Core that doesn't represent the current state of the hardware
+system.
+
+### Stream
+
+When opened in **stream** mode, the writer will not commit any written data to the Core,
+and calls to `commit` will have no effect. This is useful when operating in scenarios
+where data is only needed for real-time consumption, but does not need to be accessed
+historically.
+
+### Stream and persist
+
+When opened in **stream-and-persist** mode, the writer will both persist the samples and
+stream them to any streamers listening on the channel. This is the default mode for a
+writer.
+
+<Divider.Divider x />
+
+## Rules of writes
+
+### Rule 1
+
+<Rule title="Rule 1">
+  Index channels must be written to before or when writing to a data channel.
+</Rule>
+
+#### Example 1 - Writing to an index and data channel at the same time
+
+We've created two channels: `time` and `temperature`. The `temperature` channel is
+indexed by the `time` channel. Here's pseudocode for the fields of each channel:
+
+```json
+time = {
+  "key": 65536,
+  "data_type": "timestamp",
+  "is_index": true,
+}
+
+temperature = {
+  "key": 65537,
+  "data_type": "float32",
+  "is_index": false,
+  "index": 65536,
+}
+```
+
+{/* prettier-ignore-start */}
+
+When we write to both the `time` and `temperature` channels, we must provide timestamps
+for the time channel in the same frame as the temperature channel. This frame is
+<b style="color: var(--pluto-secondary-z);">valid</b>.
+
+{/* prettier-ignore-end */}
+
+```json
+{
+  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
+  "temperature": [19.17, 19.18, 19.19]
+}
+```
+
+{/* prettier-ignore-start */}
+
+If we try to write to the `temperature` channel without providing timestamps for the
+`time` channel, we violate Rule 1. This frame is
+<b style="color: var(--pluto-error-z);">invalid</b>.
+
+{/* prettier-ignore-end */}
+
+```json
+{
+  // The time channel is missing.
+  "temperature": [19.17, 19.18, 19.19]
+}
+```
+
+#### Example 2 - Writing to a data channel after an index channel
+
+Imagine we create the same channels as in the first example, but this time we only open
+a writer on the `time` channel. We write the following frame:
+
+```json
+{
+  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900]
+}
+```
+
+{/* prettier-ignore-start */}
+
+This frame is <b style="color: var(--pluto-secondary-z);">valid</b> because we're only
+writing to the `time` channel. Now, we open a writer on the `temperature` channel,
+marking its `start` timestamp as `1677433720770863800`. This frame would be
+<b style="color: var(--pluto-secondary-z);">valid</b> because we've already written
+timestamps to the `time` channel.
+
+{/* prettier-ignore-end */}
+
+```json
+{
+  // Timestamps already exist for each of the following readings.
+  "temperature": [19.17, 19.18, 19.19]
+}
+```
+
+<Note.Note variant="info">
+  This example is useful for understanding scenarios where you're interested in
+  calculating values from one or more data channels, and writing the results to a new
+  data channel indexed by the same timestamps.
+</Note.Note>
+
+#### Example 3 - Writing to a data channel before an index channel
+
+{/* prettier-ignore-start */}
+
+If we repeat example 2, but this time we write to the `temperature` channel before the
+`time` channel, we violate Rule 1. This frame is
+<b style="color: var(--pluto-error-z);">invalid</b> because no timestamps exist to
+associate with the temperature samples.
+
+{/* prettier-ignore-end */}
+
+```json
+{
+  // Synnax has no way of relating these samples to a timestamp!
+  "temperature": [19.17, 19.18, 19.19]
+}
+```
+
+### Rule 2
+
+<Rule title="Rule 2">
+  Data channels for an index must have the same number of samples.
+</Rule>
+
+#### Example 1
+
+We've created three channels: `time`, `temperature`, and `pressure`. Both `pressure` and
+`temperature` are indexed by the `time` channel. Here's pseudocode for the fields of
+each channel:
+
+```json
+time = {
+  "key": 65536,
+  "data_type": "timestamp",
+  "is_index": true,
+}
+
+temperature = {
+  "key": 65537,
+  "data_type": "float32",
+  "is_index": false,
+  "index": 65536,
+}
+
+pressure = {
+  "key": 65538,
+  "data_type": "float32",
+  "is_index": false,
+  "index": 65536,
+}
+```
+
+{/* prettier-ignore-start */}
+
+When we open a writer on all three channels, we must write frames that contain the same
+number of samples for each channel. For example, this frame is
+<b style="color: var(--pluto-secondary-z);">valid</b>.
+
+{/* prettier-ignore-end */}
+
+```json
+{
+  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
+  "temperature": [19.17, 19.18, 19.19],
+  "pressure": [16.22, 17.22]
+}
+```
+
+{/* prettier-ignore-start */}
+
+Omitting a sample from the `pressure` channel would violate Rule 2. This frame is
+<b style="color: var(--pluto-error-z);">invalid</b>.
+
+{/* prettier-ignore-end */}
+
+```json
+{
+  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
+  "temperature": [19.17, 19.18, 19.19],
+  // This series is missing a sample.
+  "pressure": [16.22, 17.22]
+}
+```
+
+{/* prettier-ignore-start */}
+
+Entirely omitting a channel from the frame would also violate Rule 2. This frame is
+<b style="color: var(--pluto-error-z);">invalid</b>.
+
+{/* prettier-ignore-end */}
+
+```json
+{
+  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
+  "temperature": [19.17, 19.18, 19.19]
+  // The pressure channel is missing.
+}
+```
+
+### Rule 3
+
+<Rule title="Rule 3">
+
+Rules 1 and 2 do not apply to virtual channels.
+
+</Rule>
+
+As [virtual channels](/reference/concepts/channels#virtual-channels) do not store data,
+they have far more flexibility in how they can be written to. They do not require
+timestamps, and as a result do not need to be associated with an index. Write to them
+whenever and however you like!
+
+<Divider.Divider x />
+
+## Rule implications
+
+While these rules are subtle, they have a few important implications.
+
+### Implication 1
+
+<Rule title="Implication 1">
+  All channels that share the same index must be sampled at the same rate.
+</Rule>
+
+If you have a temperature and pressure sensor that are recorded by different devices.
+The first device records temperature at 10Hz, while the second records pressure at 25Hz.
+Pressure and temperature samples will not always share the same timestamp, and by
+consequence cannot share the same index.
+
+### Implication 2
+
+<Rule>
+
+Command channels almost always require separate indexes.
+
+</Rule>
+
+Channels that are used to send commands to actuators are typically used quite
+differently to channels that record from sensors. It's common for a single device to
+sample from many different sensors at the same rate, meaning that these sensor channels
+can share an index.
+
+This is rarely the case for command channels. Command channels are typically written to
+independently of other command channels (i.e. open one valve, wait a few seconds, then
+open another valve). Commands (also considered samples) emitted by these channels almost
+never share the same timestamp, and cannot share the same index.
+
+It's almost always necessary to use a separate index for each command channel, or use a
+virtual channel that does not require an index.
+
+<Divider.Divider x />
+
+## Dynamic control - Write authorities
+
+Synnax supports multi-writer control transfer over a single channel. This enables
+patterns such as:
+
+- Handoff between a manual operator and automated system.
+- Handoff between multiple manual operators.
+- Handoff between multiple automated systems, such as nominal control loops and abort
+  sequences.
+
+The control handoff mechanism is based on numeric authorities between 0 and 255, where 0
+is the lowest authority and 255 is the highest. When a writer is opened, the user can
+specify an authority for all channels in the writer, or for each channel individually.
+
+When multiple writers are open on the same channel, the writer with a higher authority
+will have control. If a new writer is opened with a strictly higher authority, it will
+take control from the previous writer. After a higher authority writer is closed,
+control will be returned to the next highest authority writer.
+
+### Example - Manual operator and abort sequence
+
+To illustrate this, consider the following scenario:
+
+1. Writer A opens on channel `my-channel` with authority 100.
+2. Writer B, which listens for abort conditions, opens on channel `my-channel` with
+   authority 50. Writer A remains in control.
+3. Writer A writes a number of samples to the channel, which commands an actuator.
+4. Writer B detects an abort condition and sets its authority to 250. Writer B now takes
+   control of the channelData, and moves the system into a safe state.
+5. A manual operator (writer C) opens on channel `my-channel` with authority 255, taking
+   absolute control of the system to make adjustments.
+6. Writers B and C close, returning control to writer A.

@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Editor, type EditorHandle } from "@/code/Editor";
 import { BASE_THEMES, type EditorExtension, type Language } from "@/code/language";
-import { Menu } from "@/menu";
-import { Triggers } from "@/triggers";
 
 const ESCAPE: Triggers.Trigger = ["Escape"];
 

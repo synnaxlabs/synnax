@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
@@ -19,7 +19,7 @@ const DIMENSIONS = { width: 39, height: 21 };
 export const TJunction = ({
   className,
   orientation = "left",
-  color: colorVal,
+  strokeColor: colorVal,
   scale,
   ...rest
 }: Props): ReactElement => (
@@ -49,7 +49,7 @@ export const TJunction = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={colorVal}
+      strokeColor={colorVal}
       orientation={orientation}
       scale={scale}
     >

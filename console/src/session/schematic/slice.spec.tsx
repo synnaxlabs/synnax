@@ -208,6 +208,25 @@ describe("Schematic Slice", () => {
       store.dispatch(Schematic.setSelectedSymbolGroup({ key: KEY, group: "valves" }));
       expect(read(Schematic.useGet).toolbar.selectedSymbolGroup).toBe("valves");
     });
+
+    it("should leave the properties tab unset by default", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      expect(read(Schematic.useGet).toolbar.propertiesTab).toBeUndefined();
+    });
+
+    it("should set the properties tab", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setPropertiesTab({ key: KEY, tab: "style" }));
+      expect(read(Schematic.useGet).toolbar.propertiesTab).toBe("style");
+    });
+
+    it("should keep the properties tab when the selection changes", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setPropertiesTab({ key: KEY, tab: "style" }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["b"] }));
+      expect(read(Schematic.useGet).toolbar.propertiesTab).toBe("style");
+    });
   });
 
   describe("setEditable", () => {
@@ -237,6 +256,22 @@ describe("Schematic Slice", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setFitViewOnResize({ key: KEY, fitViewOnResize: true }));
       expect(read(Schematic.useGetFitViewOnResize)).toBe(true);
+    });
+  });
+
+  describe("setTooltipsDisabled", () => {
+    it("should disable and re-enable tooltips for only the keyed schematic", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.create({ key: "other" }));
+      store.dispatch(
+        Schematic.setTooltipsDisabled({ key: KEY, tooltipsDisabled: true }),
+      );
+      expect(read(Schematic.useGet).tooltipsDisabled).toBe(true);
+      expect(read(Schematic.useGet, "other").tooltipsDisabled).toBe(false);
+      store.dispatch(
+        Schematic.setTooltipsDisabled({ key: KEY, tooltipsDisabled: false }),
+      );
+      expect(read(Schematic.useGet).tooltipsDisabled).toBe(false);
     });
   });
 
@@ -299,6 +334,7 @@ describe("Schematic Slice", () => {
       expect(parsed.viewport.zoom).toBe(1);
       expect(parsed.editable).toBe(true);
       expect(parsed.fitViewOnResize).toBe(false);
+      expect(parsed.tooltipsDisabled).toBe(false);
       expect(parsed.selected).toEqual([]);
     });
   });

@@ -1,12 +1,12 @@
 # Docs Video Shot List
 
-Complete inventory of every `<Video id="..." />` under `docs/site/src/pages`.
+Complete inventory of every `<Video id="..." />` under `site/docs/src/pages`.
 
 **Total: 61 unique ids** under `reference/` (the docs-site tutorial set), plus the
 legacy clips under `releases/` (release-notes demos, listed in an addendum at the
 bottom). Shot descriptions marked "(inferred)" come from thin prose; the flow was
 reconstructed from the section heading and neighboring steps. Source paths are relative
-to `docs/site/src/pages/`.
+to `site/docs/src/pages/`.
 
 ## Prerequisites legend
 
@@ -30,8 +30,8 @@ to `docs/site/src/pages/`.
 - **Pre-seeded workspaces/visualizations**: `console/workspaces/load`,
   `console/schematics/snapshot`.
 - **Drag-and-drop**: `console/schematics/connections`, `console/schematics/align-items`,
-  `console/schematics/change-color` (drag select box), symbol placement in any schematic
-  shot.
+  `console/schematics/edit-several-elements` (drag select box), symbol placement in any
+  schematic shot.
 - **Context menus**: `console/channels/alias`, `console/calculated-channels/edit`,
   `console/users/modal-change-role`, `console/schematics/snapshot`,
   `device-drivers/task/toolbar`,
@@ -172,9 +172,10 @@ All shots require channels with data (live streaming for the rolling-range ones)
 - `console/schematics/align-items` (reference/console/schematics.mdx) -> drag a
   selection box around several symbols -> click the vertical or horizontal alignment
   button -> the symbols snap into alignment.
-- `console/schematics/change-color` (reference/console/schematics.mdx) -> drag a
-  selection box around multiple symbols -> open the color picker and choose a new color
-  -> all selected symbols recolor together.
+- `console/schematics/edit-several-elements` (reference/console/schematics.mdx) -> drag
+  a selection box around multiple symbols -> open the Stroke color picker and choose a
+  new color -> all selected symbols recolor together, and the Selection control shows
+  the new color.
 - `console/schematics/valve` (reference/console/schematics.mdx) -> switch the schematic
   to control mode -> click a valve (or other actuator) to acquire control and toggle it
   -> show the control indicator circle (blue/green/red) and the colored control legend

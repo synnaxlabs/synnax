@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@/flex";
-import { Tag } from "@/tag";
-import { Text } from "@/text";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { SubcategorySection } from "./SubcategorySection";
 
@@ -17,7 +17,7 @@ export const TagShowcase = () => (
   <Flex.Box y pack empty>
     <Flex.Box x pack grow sharp>
       <SubcategorySection
-        title="Tag Sizes"
+        title="Tag sizes"
         description="Tags in different sizes from huge to tiny, showing consistent scaling"
       >
         <Flex.Box y gap="small">
@@ -35,7 +35,7 @@ export const TagShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Custom Colors"
+        title="Custom colors"
         description="Tags with custom color overrides for branding or categorization"
       >
         <Flex.Box y gap="small">
@@ -63,7 +63,7 @@ export const TagShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Closeable Tags"
+        title="Closeable tags"
         description="Tags with close buttons for removable labels and filters"
       >
         <Flex.Box y gap="small">
@@ -91,7 +91,7 @@ export const TagShowcase = () => (
       </SubcategorySection>
 
       <SubcategorySection
-        title="Text Overflow"
+        title="Text overflow"
         description="Tags with long text content showing overflow and truncation behavior"
       >
         <Flex.Box y gap="small">

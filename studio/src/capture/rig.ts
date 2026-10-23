@@ -10,12 +10,14 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { TimeStamp } from "@synnaxlabs/client";
 import {
   type Browser,
   type CDPSession,
   chromium,
   type Locator,
   type Page,
+  type Worker,
 } from "playwright";
 
 import {
@@ -112,6 +114,30 @@ const PERFORMANCE_ENTRIES = `(() => {
 })();`;
 
 /**
+ * Replaces a worker's `Date` and `performance.now` with a clock the rig sets each tick.
+ * Playwright's page clock never reaches workers, and the Aether worker stamps and
+ * windows live telemetry with them.
+ */
+const workerClock = (origin: number): string => `(() => {
+  const RealDate = Date;
+  const perfBase = performance.now();
+  const clock = { now: ${origin}, app: 0 };
+  globalThis.Date = class extends RealDate {
+    constructor(...args) {
+      super(...(args.length === 0 ? [clock.now] : args));
+    }
+    static now() {
+      return clock.now;
+    }
+  };
+  performance.now = () => perfBase + clock.app;
+  globalThis.__studioSetClock = (now, app) => {
+    clock.now = now;
+    clock.app = app;
+  };
+})()`;
+
+/**
  * CaptureSession drives the Console under a stepped virtual clock, saving one
  * lossless PNG per tick while recording and logging every synthetic input event
  * to the timeline. Actions dispatch real Playwright input; the on-screen cursor
@@ -123,7 +149,13 @@ export class CaptureSession {
   private readonly cdp: CDPSession;
   private readonly opts: Required<CaptureOptions>;
   private readonly events: Event[] = [];
+  private readonly samplers = new Map<string, () => number>();
+  private readonly tracks: Record<string, number[]> = {};
   private frame = 0;
+  private appMs = 0;
+  /** Wall time in epoch milliseconds at which the virtual clock started. */
+  private readonly origin0: number;
+  private readonly workers: Set<Promise<Worker>>;
   private recording = false;
   private speed = 1;
   private cursor: Point;
@@ -143,7 +175,11 @@ export class CaptureSession {
     page: Page,
     cdp: CDPSession,
     opts: Required<CaptureOptions>,
+    origin: number,
+    workers: Set<Promise<Worker>>,
   ) {
+    this.origin0 = origin;
+    this.workers = workers;
     this.browser = browser;
     this.page = page;
     this.cdp = cdp;
@@ -181,7 +217,14 @@ export class CaptureSession {
       ignoreHTTPSErrors: opts.insecure,
     });
     const page = await context.newPage();
-    await page.clock.install();
+    const origin = Date.now();
+    await page.clock.install({ time: origin });
+    const workers = new Set<Promise<Worker>>();
+    page.on("worker", (worker) => {
+      const installed = worker.evaluate(workerClock(origin)).then(() => worker);
+      workers.add(installed);
+      worker.on("close", () => workers.delete(installed));
+    });
     await page.addInitScript(ANIMATION_STEPPER);
     await page.addInitScript(PERFORMANCE_ENTRIES);
     await page.addInitScript(
@@ -205,7 +248,26 @@ export class CaptureSession {
     await page.goto(opts.url, { timeout: 30_000 });
     const cdp = await context.newCDPSession(page);
     await mkdir(path.join(opts.outDir, "frames"), { recursive: true });
-    return new CaptureSession(browser, page, cdp, opts);
+    return new CaptureSession(browser, page, cdp, opts, origin, workers);
+  }
+
+  /** now returns the virtual clock's time, which the page and its workers read. */
+  now(): TimeStamp {
+    return TimeStamp.milliseconds(this.origin0 + this.appMs);
+  }
+
+  /** advance runs the virtual clock forward ms in the page and every worker. */
+  private async advance(ms: number): Promise<void> {
+    await this.page.clock.runFor(ms);
+    this.appMs += ms;
+    const now = this.origin0 + this.appMs;
+    const app = this.appMs;
+    await Promise.all(
+      [...this.workers].map(
+        async (w) =>
+          await (await w).evaluate(`globalThis.__studioSetClock(${now}, ${app})`),
+      ),
+    );
   }
 
   private get tickMs(): number {
@@ -232,7 +294,7 @@ export class CaptureSession {
 
   /** tick advances the virtual clock one frame and captures it if recording. */
   async tick(): Promise<void> {
-    await this.page.clock.runFor(this.stepMs);
+    await this.advance(this.stepMs);
     await this.page.evaluate(
       (dt) => (window as any).__studioStepAnimations?.(dt),
       this.stepMs,
@@ -254,6 +316,7 @@ export class CaptureSession {
         scale: this.opts.dsf,
       },
     });
+    for (const [track, sample] of this.samplers) this.tracks[track].push(sample());
     const name = String(this.frame).padStart(6, "0");
     await writeFile(
       path.join(this.opts.outDir, "frames", `${name}.png`),
@@ -266,7 +329,7 @@ export class CaptureSession {
   async settle(ms: number): Promise<void> {
     const ticks = Math.ceil(ms / this.tickMs);
     for (let i = 0; i < ticks; i++) {
-      await this.page.clock.runFor(this.tickMs);
+      await this.advance(this.tickMs);
       await this.page.evaluate(
         (dt) => (window as any).__studioStepAnimations?.(dt),
         this.tickMs,
@@ -292,6 +355,17 @@ export class CaptureSession {
     this.recording = true;
     this.origin = { ...this.cursor };
     this.events.length = 0;
+  }
+
+  /**
+   * track samples a value once per recorded frame under the given name, so a film can
+   * draw it. Tracks are set before recording, so every track spans every frame.
+   */
+  track(name: string, sample: () => number): void {
+    if (this.recording) throw new Error(`track "${name}" set after startRecording`);
+    if (this.samplers.has(name)) throw new Error(`track "${name}" is already set`);
+    this.samplers.set(name, sample);
+    this.tracks[name] = [];
   }
 
   /** hold captures ms of app time (scaled to video time by the current speed). */
@@ -537,6 +611,21 @@ export class CaptureSession {
     });
   }
 
+  /**
+   * mark names the current frame so a film's shots can cut to it. A locator or
+   * rect target records the region a shot framing the mark fits. Marks exist only
+   * while recording, and each name is used once per capture.
+   */
+  async mark(name: string, target?: Locator | Rect): Promise<void> {
+    if (!this.recording) throw new Error(`mark "${name}" set before startRecording`);
+    if (this.events.some((e) => e.type === "mark" && e.name === name))
+      throw new Error(`mark "${name}" is already set`);
+    let rect: Rect | undefined;
+    if (target != null)
+      rect = "width" in target ? target : (await this.resolve(target)).rect;
+    this.events.push({ type: "mark", tick: this.frame, name, rect });
+  }
+
   /** clampZoomEnds cuts any authored zoom hold that runs past the current frame. */
   private clampZoomEnds(): void {
     for (const e of this.events)
@@ -565,17 +654,21 @@ export class CaptureSession {
   }
 
   /**
-   * waitFor polls a locator while advancing virtual time, so app timers keep
-   * firing while the rig waits for the UI to settle.
+   * waitFor advances virtual time until the locator is visible or the condition holds,
+   * so app timers keep firing while the rig waits.
    */
-  async waitFor(locator: Locator, timeoutTicks = 600): Promise<void> {
+  async waitFor(target: Locator | (() => boolean), timeoutTicks = 600): Promise<void> {
+    const met = async (): Promise<boolean> =>
+      typeof target === "function"
+        ? target()
+        : await target.isVisible().catch(() => false);
     for (let i = 0; i < timeoutTicks; i++) {
-      if (await locator.isVisible().catch(() => false)) return;
+      if (await met()) return;
       await this.tick();
     }
     const shot = path.join(this.opts.outDir, "waitfor-timeout.png");
     await this.page.screenshot({ path: shot }).catch(() => {});
-    throw new Error(`timed out waiting for ${String(locator)}; state in ${shot}`);
+    throw new Error(`timed out waiting for ${String(target)}; state in ${shot}`);
   }
 
   /** waitForHidden polls until the locator disappears, advancing virtual time. */
@@ -608,6 +701,7 @@ export class CaptureSession {
       meta,
       events: this.events,
       origin: this.origin ?? this.cursor,
+      tracks: this.tracks,
     };
     await writeFile(
       path.join(this.opts.outDir, "timeline.json"),

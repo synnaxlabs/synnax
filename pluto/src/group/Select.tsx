@@ -8,15 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type group } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement } from "react";
 
-import { Component } from "@/component";
 import { type Flux } from "@/flux";
 import { type ListQuery, useList } from "@/group/queries";
-import { Icon } from "@/icon";
-import { List } from "@/list";
-import { Select } from "@/select";
-import { Text } from "@/text";
 
 const ListItem = ({
   itemKey,
@@ -25,12 +24,10 @@ const ListItem = ({
   const item = List.useItem<group.Key, group.Group>(itemKey);
   if (item == null) return null;
   return (
-    <Select.ListItem itemKey={itemKey} {...rest}>
-      <Text.Text align="center">
-        <Icon.Group />
-        {item.name}
-      </Text.Text>
-    </Select.ListItem>
+    <Select.Item itemKey={itemKey} {...rest}>
+      <Icon.Group />
+      {item.name}
+    </Select.Item>
   );
 };
 

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Arc as Base, Diagram, Menu, Viewport } from "@synnaxlabs/pluto";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Arc as Base, Diagram, Viewport } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { TaskControls } from "@/feature/arc/editor/TaskControls";

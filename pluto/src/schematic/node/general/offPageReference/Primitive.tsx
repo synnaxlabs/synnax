@@ -10,14 +10,14 @@
 import "@/schematic/node/general/offPageReference/offPageReference.css";
 
 import { type schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Text } from "@synnaxlabs/lyra/text";
 import { color, direction, type text } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
-import { Text } from "@/text";
 
 export const offPageReferenceTooltip = (
   page?: schematic.Page,
@@ -32,7 +32,7 @@ interface RenderProps extends Partial<
   Pick<schematic.OffPageReferenceNodeConfig, "orientation">
 > {
   level?: text.Level;
-  color?: color.Crude;
+  fillColor?: color.Crude;
   id?: string;
   label?: string;
   className?: string;
@@ -47,7 +47,7 @@ export const OffPageReference = ({
   className,
   orientation = "right",
   label = "text",
-  color: colorVal,
+  fillColor,
   level = "p",
   linked = false,
   pageType = "schematic",
@@ -59,8 +59,8 @@ export const OffPageReference = ({
 
   const swap = direction.construct(orientation) === "y";
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(colorVal) }),
-    [colorVal],
+    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(fillColor) }),
+    [fillColor],
   );
 
   return (

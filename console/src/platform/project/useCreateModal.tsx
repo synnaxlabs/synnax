@@ -8,17 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type panel, project, status, UnexpectedError } from "@synnaxlabs/client";
-import {
-  Button,
-  type Flux,
-  Form,
-  Icon,
-  Input,
-  Nav,
-  Panel,
-  Project,
-  Synnax,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Modal } from "@synnaxlabs/lyra/modal";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { type Flux, Panel, Project, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Modals } from "@/platform/modals";
@@ -41,7 +37,7 @@ export const useCreateModal = Modals.create(({ close }) => {
 
   const { form, save, variant } = Project.useForm({
     query: null,
-    initialValues: { name: "", layout: {} },
+    initialValues: { name: "" },
     afterSave: ({ value }) => {
       const { key } = value();
       if (key == null) throw new UnexpectedError("Project key is null");
@@ -56,9 +52,9 @@ export const useCreateModal = Modals.create(({ close }) => {
   });
 
   return (
-    <Modals.Frame>
-      <Modals.Header icon={<Icon.Project />}>Project.Create</Modals.Header>
-      <Modals.Body>
+    <Modal.Frame>
+      <Modal.Header icon={<Icon.Project />}>Project.Create</Modal.Header>
+      <Modal.Body>
         <Form.Form<typeof Project.formSchema> {...form}>
           <Form.Field<string> path="name">
             {(p) => (
@@ -72,8 +68,8 @@ export const useCreateModal = Modals.create(({ close }) => {
             )}
           </Form.Field>
         </Form.Form>
-      </Modals.Body>
-      <Modals.Footer>
+      </Modal.Body>
+      <Modal.Footer>
         <Triggers.SaveHelpText action="Create" />
         <Nav.Bar.End>
           <Button.Button
@@ -88,7 +84,7 @@ export const useCreateModal = Modals.create(({ close }) => {
             Create
           </Button.Button>
         </Nav.Bar.End>
-      </Modals.Footer>
-    </Modals.Frame>
+      </Modal.Footer>
+    </Modal.Frame>
   );
 });

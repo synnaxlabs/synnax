@@ -9,7 +9,7 @@
 
 import { type panel } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { type Triggers } from "@synnaxlabs/pluto";
+import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { id } from "@synnaxlabs/x";
 import { useCallback } from "react";
 

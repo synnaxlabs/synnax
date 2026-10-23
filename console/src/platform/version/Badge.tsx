@@ -9,7 +9,10 @@
 
 import "@/platform/version/Badge.css";
 
-import { Button, Icon, Synnax, Tooltip } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Synnax } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 

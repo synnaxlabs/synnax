@@ -33,6 +33,7 @@ Color struct {
     @go marshal
     @py hand
     @ts hand
+    @ts include  "x/ts/src/color/color"
 }
 
 Stop struct {
@@ -53,4 +54,43 @@ Stop struct {
     @go marshal
     @py omit
     @ts hand
+}
+
+Band struct {
+    key       string  {
+        @doc value "is the unique identifier for the band."
+    }
+    threshold float64 {
+        @doc value "is the lowest value, in the value's units, that the band paints."
+    }
+    color     Color   {
+        @doc value "is the fill painted while the value is in the band."
+    }
+    flashing  bool = false {
+        @doc value "is true when the fill blinks while the value is in the band."
+    }
+
+    @cpp omit
+    @doc value  "is a colored range of values starting at a threshold."
+    @go marshal
+    @pb omit
+    @py omit
+}
+
+Scale struct {
+    bands  Band[] = [] {
+        @doc value """
+            is the list of threshold bands. A band paints values at or above its
+            threshold and below the next higher threshold.
+        """
+    }
+    smooth bool = false {
+        @doc value "is true when the fill interpolates between band colors."
+    }
+
+    @cpp omit
+    @doc value  "maps a value to a color through threshold bands."
+    @go marshal
+    @pb omit
+    @py omit
 }

@@ -11,6 +11,6 @@ from x.crdt.types_gen import ID, Delete, Insert
 
 __all__ = [
     "ID",
-    "Insert",
     "Delete",
+    "Insert",
 ]

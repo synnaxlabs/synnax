@@ -10,10 +10,11 @@
 package start
 
 import (
-	"bufio"
 	"context"
 	"os"
 	"os/signal"
+	"strings"
+	"syscall"
 
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	"github.com/synnaxlabs/synnax/cmd/listener"
+	"github.com/synnaxlabs/synnax/cmd/start/internal/stdin"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
@@ -42,31 +44,29 @@ var Cmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, _ []string) { start(cmd) },
 }
 
-func scanForStopKeyword(interruptC chan os.Signal) {
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		if scanner.Text() == "stop" {
-			interruptC <- os.Interrupt
-		}
-	}
-}
-
-// start is the entrypoint for starting a Synnax Core. It handles signal interrupts and
-// delegates to startServer for the actual startup.
+// start is the entrypoint for starting a Synnax Core. It handles stop requests and
+// delegates to BootupCore for the actual startup.
 func start(cmd *cobra.Command) {
 	ctx := cmd.Context()
 	ins := instrumentation.Configure()
 	defer instrumentation.Cleanup(ctx, ins)
 
-	interruptC := make(chan os.Signal, 1)
-	signal.Notify(interruptC, os.Interrupt)
+	// sigC holds two signals, so a second signal sent right after the first is kept.
+	sigC := make(chan os.Signal, 2)
+	signal.Notify(sigC, os.Interrupt, syscall.SIGTERM)
 
 	sCtx, cancel := xsignal.WithCancel(ctx, xsignal.WithInstrumentation(ins))
 	defer cancel()
 
 	// Listen for a custom stop keyword that can be used in place of a Ctrl+C signal.
-	// It's fine to let this get garbage collected.
-	go scanForStopKeyword(interruptC)
+	// A read from stdin cannot be interrupted, so this goroutine runs until exit.
+	stdinC := make(chan struct{}, 1)
+	go stdin.Watch(os.Stdin, viper.GetBool(FlagStopOnStdinClose), func() {
+		select {
+		case stdinC <- struct{}{}:
+		default:
+		}
+	})
 
 	cfg, err := GetCoreConfigFromViper(ins)
 	if err != nil {
@@ -78,16 +78,44 @@ func start(cmd *cobra.Command) {
 		return BootupCore(ctx, nil, cfg)
 	}, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
 
-	select {
-	case <-interruptC:
+	forceCtx, forceCancel := xsignal.Isolated(xsignal.WithInstrumentation(ins))
+	forceExit := xsignal.NewHardShutdown(forceCtx, forceCancel)
+	// shutDown cancels the Core, then exits at once if signalsToForce more stop signals
+	// arrive before the shutdown completes. Stdin requests never count: the Desktop
+	// supervisor sends the stop keyword, then closes stdin.
+	shutDown := func(signalsToForce int) {
 		ins.L.Info(
-			"\033[33mSynnax is shutting down. This can take up to 5 seconds. Please be patient\033[0m",
+			"\033[33mSynnax is shutting down. Press Ctrl+C again to exit now.\033[0m",
 		)
 		cancel()
+		forceCtx.Go(func(ctx context.Context) error {
+			for range signalsToForce {
+				select {
+				case <-sigC:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+			ins.L.Fatal(
+				"received a second stop signal, exiting before shutdown completes",
+			)
+			return nil
+		}, xsignal.WithKey("force_exit"))
+	}
+
+	select {
+	case <-sigC:
+		shutDown(1)
+	case <-stdinC:
+		shutDown(2)
 	case <-sCtx.Stopped():
 	}
 
-	if err := sCtx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+	err = sCtx.Wait()
+	if fErr := forceExit.Close(); fErr != nil {
+		ins.L.Fatal("failed to stop the force exit routine", zap.Error(fErr))
+	}
+	if err != nil && !errors.Is(err, context.Canceled) {
 		ins.L.Zap().Sugar().Errorf(
 			"\033[31mSynnax has encountered an error and is shutting down: %v\033[0m",
 			err,
@@ -98,6 +126,23 @@ func start(cmd *cobra.Command) {
 }
 
 func init() { AddFlags(Cmd) }
+
+// readLicenseKey returns the trimmed license key from the key flag, or the trimmed
+// contents of the file the path flag names when the key flag is empty.
+func readLicenseKey() (string, error) {
+	if v := strings.TrimSpace(viper.GetString(FlagLicenseKey)); v != "" {
+		return v, nil
+	}
+	path := viper.GetString(FlagLicenseFile)
+	if path == "" {
+		return "", nil
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to read the --%s file", FlagLicenseFile)
+	}
+	return strings.TrimSpace(string(b)), nil
+}
 
 // GetCoreConfigFromViper builds a CoreConfig from the current viper configuration.
 // This is used by the Windows service to start the Core with the config loaded from
@@ -120,12 +165,17 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 			return l.Address
 		},
 	)
+	licenseKey, err := readLicenseKey()
+	if err != nil {
+		return CoreConfig{}, err
+	}
 	return CoreConfig{
 		Instrumentation:     ins,
 		insecure:            new(viper.GetBool(FlagInsecure)),
+		fips:                new(viper.GetBool(FlagFIPS)),
 		debug:               new(viper.GetBool(instrumentation.FlagDebug)),
 		autoCert:            new(viper.GetBool(cert.FlagAutoCert)),
-		verifier:            viper.GetString(FlagDecoded),
+		licenseKey:          licenseKey,
 		memBacked:           new(viper.GetBool(FlagMem)),
 		listeners:           listeners,
 		peers:               peers,

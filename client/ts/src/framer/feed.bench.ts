@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { bench, describe } from "vitest";
+import { test } from "vitest";
 
 import { type channel } from "@/channel";
 import { createTestClient } from "@/testutil";
@@ -67,16 +67,20 @@ for (const n of SIZES) {
 }
 
 const suite = (title: string, keysOf: Map<number, channel.Key[]>): void => {
-  describe(title, () => {
-    for (const n of SIZES) {
-      const keys = keysOf.get(n) ?? [];
-      bench(`batched ${n}`, async () => {
-        await Promise.all(keys.map(async (k) => await feed.readLatest(k)));
-      });
-      bench(`per key ${n}`, async () => {
-        await Promise.all(keys.map(async (k) => await client.readLatest(k, 1)));
-      });
-    }
+  test(title, async ({ bench }) => {
+    await bench.compare(
+      ...SIZES.flatMap((n) => {
+        const keys = keysOf.get(n) ?? [];
+        return [
+          bench(`batched ${n}`, async () => {
+            await Promise.all(keys.map(async (k) => await feed.readLatest(k)));
+          }),
+          bench(`per key ${n}`, async () => {
+            await Promise.all(keys.map(async (k) => await client.readLatest(k, 1)));
+          }),
+        ];
+      }),
+    );
   });
 };
 

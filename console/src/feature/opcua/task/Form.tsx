@@ -10,16 +10,14 @@
 import "@/feature/opcua/task/Task.css";
 
 import { type channel } from "@synnaxlabs/client";
-import {
-  type Component,
-  Flex,
-  Form as PForm,
-  Haul,
-  Header as PHeader,
-  Icon,
-  Select,
-  Text,
-} from "@synnaxlabs/pluto";
+import { type Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Header as PHeader } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type FC, useCallback, useState } from "react";
 
 import {
@@ -67,7 +65,7 @@ const ChannelListItem = <C extends Channel>({
   if (opcNode === "No node selected") opcNodeColor = "var(--pluto-warning-z)";
   const { key: channel, id } = getChannelKeyAndID(item);
   return (
-    <Select.ListItem {...rest} justify="between" align="center" rightAligned>
+    <Select.Item {...rest} justify="between" align="center" rightAligned>
       <Flex.Box
         direction="y"
         gap="small"
@@ -96,9 +94,9 @@ const ChannelListItem = <C extends Channel>({
       </Flex.Box>
       <Flex.Box direction="x" align="center">
         {children({ path })}
-        <Task.EnableDisableButton path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={`${path}.disabled`} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

@@ -10,24 +10,25 @@
 import "@/platform/version/Info.css";
 
 import { status } from "@synnaxlabs/client";
-import { Logo } from "@synnaxlabs/media";
-import {
-  Button,
-  Flex,
-  Icon,
-  Progress,
-  Status,
-  Text,
-  useAsyncEffect,
-} from "@synnaxlabs/pluto";
-import { Size } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Logo } from "@synnaxlabs/lyra/logo";
+import { Modal } from "@synnaxlabs/lyra/modal";
+import { Progress } from "@synnaxlabs/lyra/progress";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Size, sleep, TimeSpan } from "@synnaxlabs/x";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
 
 import { CSS } from "@/platform/css";
+import { License } from "@/platform/license";
 import { Modals } from "@/platform/modals";
 import { isDevBuild } from "@/platform/version/build";
+import { useInstallMiddleware } from "@/platform/version/Install";
 import { Session } from "@/session";
 
 type UpdateCheck =
@@ -41,7 +42,7 @@ const useUpdateCheck = (): UpdateCheck => {
     try {
       let update: Update | null = null;
       if (Session.Runtime.ENGINE === "tauri" && !(await isDevBuild())) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await sleep.sleep(TimeSpan.milliseconds(500));
         update = await check();
       }
       if (!signal.aborted) setResult({ variant: "success", update });
@@ -77,11 +78,12 @@ interface UseDownloadReturn {
 const useDownload = (): UseDownloadReturn => {
   const [download, setDownload] = useState<Download>(ZERO_DOWNLOAD);
   const addStatus = Status.useAdder();
+  const installMiddleware = useInstallMiddleware();
   const start = (update: Update): void =>
     void (async () => {
       setDownload({ ...ZERO_DOWNLOAD, variant: "loading" });
       try {
-        await update.downloadAndInstall((prog) => {
+        await update.download((prog) => {
           switch (prog.event) {
             case "Started":
               setDownload((p) => ({
@@ -100,6 +102,7 @@ const useDownload = (): UseDownloadReturn => {
               break;
           }
         });
+        await installMiddleware(async () => await update.install());
         if (Session.Runtime.ENGINE === "tauri") await relaunch();
       } catch (error) {
         const st = status.fromException(error, "Failed to update Console");
@@ -174,8 +177,8 @@ export const useInfoModal = Modals.create(() => {
       );
 
   return (
-    <Modals.Frame className={CSS.B("version-info")}>
-      <Modals.Header icon={<Icon.Info />}>About.Version</Modals.Header>
+    <Modal.Frame className={CSS.B("version-info")}>
+      <Modal.Header icon={<Icon.Info />}>About.Version</Modal.Header>
       <Flex.Box
         className={CSS.BE("version-info", "content")}
         align="center"
@@ -184,13 +187,14 @@ export const useInfoModal = Modals.create(() => {
       >
         <Flex.Box y gap="small" justify="center" align="center">
           <a href="https://synnaxlabs.com" target="_blank" rel="noreferrer">
-            <Logo variant="title" className={CSS.BE("version-info", "logo")} />
+            <Logo.Logo variant="title" className={CSS.BE("version-info", "logo")} />
           </a>
           <Text.Text level="h3" weight={350}>
             Console v{version}
           </Text.Text>
         </Flex.Box>
         {updateContent}
+        <License.Details />
         <Text.Text
           className={CSS.BE("version-info", "footer-note")}
           level="small"
@@ -200,6 +204,6 @@ export const useInfoModal = Modals.create(() => {
           © 2022-2026 Synnax Labs, Inc. All rights reserved
         </Text.Text>
       </Flex.Box>
-    </Modals.Frame>
+    </Modal.Frame>
   );
 });

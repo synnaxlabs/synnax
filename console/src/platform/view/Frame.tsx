@@ -9,21 +9,17 @@
 
 import "@/platform/view/View.css";
 
-import { type ontology, UnexpectedError, view } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Component,
-  Flex,
-  type Flux,
-  Icon,
-  List,
-  Menu,
-  Select,
-  Tabs,
-  Text,
-  View as PView,
-} from "@synnaxlabs/pluto";
+import { UnexpectedError, view } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, type Flux, View as PView } from "@synnaxlabs/pluto";
 import { caseconv, location, uuid } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import {
@@ -47,9 +43,16 @@ import {
 import { Vis } from "@/platform/vis";
 
 export interface FrameProps extends PropsWithChildren {
-  resourceType: ontology.ResourceType;
+  resourceType: view.ViewType;
   icon: string;
 }
+
+const ZERO_VARIANTS: {
+  [K in view.ViewType]: Omit<Extract<view.View, { type: K }>, keyof view.Base>;
+} = {
+  range: { type: "range", query: { hasLabels: [] } },
+  status: { type: "status", query: { hasLabels: [], variants: [] } },
+};
 
 export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElement => {
   const staticViewKey = useMemo(() => uuid.create(), []);
@@ -58,8 +61,7 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
       {
         key: staticViewKey,
         name: `All ${plural(resourceType)}`,
-        type: resourceType,
-        query: {},
+        ...ZERO_VARIANTS[resourceType],
         static: true,
       },
     ],
@@ -138,7 +140,7 @@ interface SelectorProps {
   showEditButton: boolean;
   editable: boolean;
   onEditableClick: () => void;
-  resourceType: ontology.ResourceType;
+  resourceType: view.ViewType;
   staticViews: StaticView[];
   onSelect: (key: view.Key) => void;
   selected: view.Key;

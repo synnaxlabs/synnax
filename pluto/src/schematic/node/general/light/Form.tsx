@@ -8,14 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type schematic } from "@synnaxlabs/client";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Form as Base } from "@/form";
-import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
+import { Label } from "@/schematic/node/common/label";
+import { Orientation } from "@/schematic/node/common/orientation";
 import { Telem } from "@/schematic/node/common/telem";
-import { Tabs } from "@/tabs";
+import { type FormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
 type LightTelemFormT = Pick<schematic.LightNodeConfig, "channel" | "threshold">;
@@ -31,41 +35,67 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
     onChange({ ...value, threshold: bounds });
 
   return (
-    <Form.Wrapper x align="stretch">
-      <Input.Item label="Channel" grow>
-        <Channel.SelectSingle
-          value={value.channel ?? 0}
-          onChange={handleSourceChange}
-        />
-      </Input.Item>
-      <Input.Item label="Lower threshold">
-        <Input.Numeric
-          value={threshold.lower}
-          onChange={(v) => handleThresholdChange({ ...threshold, lower: v })}
-        />
-      </Input.Item>
-      <Input.Item label="Upper threshold">
-        <Input.Numeric
-          value={threshold.upper}
-          onChange={(v) => handleThresholdChange({ ...threshold, upper: v })}
-        />
-      </Input.Item>
-      <Staleness.Fields />
-    </Form.Wrapper>
+    <Base.Sections x>
+      <Base.Section title="State">
+        <Input.Item label="Channel" padHelpText={false}>
+          <Channel.SelectSingle
+            allowNone
+            value={value.channel ?? 0}
+            onChange={handleSourceChange}
+          />
+        </Input.Item>
+        <Input.Item label="Lower threshold" padHelpText={false}>
+          <Input.Numeric
+            value={threshold.lower}
+            onChange={(v) => handleThresholdChange({ ...threshold, lower: v })}
+          />
+        </Input.Item>
+        <Input.Item label="Upper threshold" padHelpText={false}>
+          <Input.Numeric
+            value={threshold.upper}
+            onChange={(v) => handleThresholdChange({ ...threshold, upper: v })}
+          />
+        </Input.Item>
+      </Base.Section>
+      <Base.Section title="Staleness">
+        <Staleness.Fields />
+      </Base.Section>
+    </Base.Sections>
   );
 };
 
-export const LightForm = (): ReactElement => (
-  <Tabs.Frame initialValue="style">
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-      <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
-    </Tabs.Selector>
+const StyleForm = (): ReactElement => {
+  // An absent on color paints the stroke color.
+  const strokeColor = Base.useFieldValue<schematic.LightNodeConfig["strokeColor"]>(
+    "strokeColor",
+    { optional: true },
+  );
+  return (
+    <Base.Sections x>
+      <Base.Section title="Label">
+        <Label.Form path="label" />
+      </Base.Section>
+      <Base.Section title="Appearance">
+        <Form.ColorField path="strokeColor" label="Stroke" />
+        <Form.ColorField
+          path="onColor"
+          label="On"
+          fallback={(theme) => strokeColor ?? Form.defaultFallback(theme)}
+        />
+        <Form.ScaleField path="scale" />
+      </Base.Section>
+      <Orientation.Section path="" />
+    </Base.Sections>
+  );
+};
+
+export const LightForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs tabs={["telemetry", "style"]} tab={tab} onTabChange={onTabChange}>
     <Tabs.Content itemKey="style">
-      <Form.StyleForm />
+      <StyleForm />
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
       <LightTelemForm path="" />
     </Tabs.Content>
-  </Tabs.Frame>
+  </Properties.Tabs>
 );

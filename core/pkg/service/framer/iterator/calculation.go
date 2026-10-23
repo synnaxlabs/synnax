@@ -11,6 +11,8 @@ package iterator
 
 import (
 	"context"
+	"maps"
+	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -20,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type calculationTransform struct {
@@ -99,16 +102,22 @@ func (t *calculationTransform) processBufferedFrames(
 		t.Out.Inlet() <- ackRes
 		return
 	}
-	mergedFrame := frame.Merge(t.pendingFrames)
-	var err error
-	for _, c := range t.calculators {
-		mergedFrame, _, err = c.Next(ctx, mergedFrame, mergedFrame)
-		if err != nil {
-			t.accumulatedError = err
-			continue
+	var (
+		err     error
+		rounds  = splitByStart(frame.Merge(t.pendingFrames))
+		outputs = make([]framer.Frame, 0, len(rounds))
+	)
+	for _, round := range rounds {
+		for _, c := range t.calculators {
+			round, _, err = c.Next(ctx, round, round)
+			if err != nil {
+				t.accumulatedError = err
+				continue
+			}
 		}
+		outputs = append(outputs, round.KeepKeys(t.keepKeys))
 	}
-	mergedFrame = mergedFrame.KeepKeys(t.keepKeys)
+	mergedFrame := frame.Merge(outputs)
 	if mergedFrame.Count() > 0 {
 		t.Out.Inlet() <- Response{
 			Variant: ResponseVariantData,
@@ -121,4 +130,31 @@ func (t *calculationTransform) processBufferedFrames(
 		ackRes.Ack = false
 	}
 	t.Out.Inlet() <- ackRes
+}
+
+// splitByStart groups a frame's series by start time, in time order, so a channel
+// with a missing write does not shift against the others.
+func splitByStart(fr framer.Frame) []framer.Frame {
+	counts := make(map[telem.TimeStamp]int)
+	for i := range fr.RawKeys() {
+		if !fr.ShouldExcludeRaw(i) {
+			counts[fr.RawSeriesAt(i).TimeRange.Start]++
+		}
+	}
+	starts := slices.Sorted(maps.Keys(counts))
+	rounds := make([]framer.Frame, len(starts))
+	positions := make(map[telem.TimeStamp]int, len(starts))
+	for i, start := range starts {
+		rounds[i] = frame.Alloc(counts[start])
+		positions[start] = i
+	}
+	for i, key := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(i) {
+			continue
+		}
+		s := fr.RawSeriesAt(i)
+		pos := positions[s.TimeRange.Start]
+		rounds[pos] = rounds[pos].Append(key, s)
+	}
+	return rounds
 }

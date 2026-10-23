@@ -9,7 +9,11 @@
 
 import "@/platform/user/Info.css";
 
-import { Access, Flex, Icon, Tag, Text, User } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -32,7 +36,7 @@ const Roles = (): ReactElement | null => {
   );
 };
 
-/** The signed-in user's first name, falling back to their username. */
+/** The logged-in user's first name, falling back to their username. */
 export const useDisplayName = (): string => {
   const { data: remoteUsername } = User.useResultUsername({});
   const { data: firstName } = User.useResultFirstName({});
@@ -41,7 +45,7 @@ export const useDisplayName = (): string => {
   return firstName != null && firstName !== "" ? firstName : username;
 };
 
-/** The signed-in user's name, roles, and username, for embedding in a dialog. */
+/** The logged-in user's name, roles, and username, for embedding in a dialog. */
 export const Info = (): ReactElement => {
   const { data: remoteUsername } = User.useResultUsername({});
   const { data: firstName } = User.useResultFirstName({});

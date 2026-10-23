@@ -30,6 +30,9 @@ export interface CreateTestWrapperOptions {
   telemFactories?: telem.Factory[];
 }
 
+/** Tests assert on reported statuses, so their printed copies are noise. */
+const quiet = (): void => {};
+
 export const createTestWrapper = (
   options: CreateTestWrapperOptions,
 ): FC<PropsWithChildren> => {
@@ -55,7 +58,7 @@ export const createTestWrapper = (
 
   const TestWrapper: FC<PropsWithChildren> = ({ children }) => (
     <AetherProvider>
-      <Status.Aggregator>
+      <Status.Aggregator log={quiet}>
         <Alamos.Provider>
           <Synnax.TestProvider client={client}>
             <Telem.Provider>

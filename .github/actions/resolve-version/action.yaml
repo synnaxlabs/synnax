@@ -12,10 +12,10 @@ description: Resolves the next version of a product from its Git tags
 
 inputs:
   product:
-    description: console, core, or driver
+    description: console, core, driver, or desktop
     required: true
   bump:
-    description: patch or minor
+    description: patch, minor, or major (desktop only)
     required: true
   prerelease:
     description: Tag a release candidate (-rc.N)
@@ -33,7 +33,9 @@ outputs:
     description: The train the version belongs to, such as 0.59
     value: ${{ steps.resolve.outputs.minor }}
   previous_tag:
-    description: The previous stable product tag, the baseline for release notes
+    description:
+      The previous stable product tag, the baseline for release notes, or empty for the
+      first release
     value: ${{ steps.resolve.outputs.previous_tag }}
   latest:
     description: true when no stable tag of the product outranks the resolved version

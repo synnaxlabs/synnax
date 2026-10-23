@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { control, status } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 
-import { Icon } from "@/icon";
 import { type control as controlAether } from "@/telem/control/aether";
 import { tooltipMessage } from "@/telem/control/Chip";
 

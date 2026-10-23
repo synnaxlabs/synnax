@@ -7,49 +7,40 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
-import { render } from "@testing-library/react";
-import { type ReactElement } from "react";
-import { assert, describe, expect, it } from "vitest";
-import { z } from "zod";
+import { type channel, DataType, schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { id } from "@synnaxlabs/x";
+import { fireEvent, waitFor } from "@testing-library/react";
+import { type FC, type PropsWithChildren } from "react";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { CSS } from "@/css";
-import { Form as Base } from "@/form";
-import { Label } from "@/schematic/node/common/label";
 import { ButtonForm } from "@/schematic/node/general/button/Form";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
-import { Theming } from "@/theming";
+import { createConfig } from "@/schematic/node/registry";
+import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
-const schema = z.object({
-  label: Label.configZ,
-  color: color.crudeZ.optional(),
-  size: z.string(),
-});
-
-const SynnaxWrapper = createSynnaxWrapper({ client: null });
-
-const Host = (): ReactElement => {
-  const methods = Base.use({
-    values: { label: Label.configZ.parse({ label: "Fire" }), size: "medium" },
-    schema,
-  });
-  return (
-    <SynnaxWrapper>
-      <Base.Form<typeof schema> {...methods}>
-        <ButtonForm />
-      </Base.Form>
-    </SynnaxWrapper>
-  );
-};
+const client = createTestClient();
 
 describe("ButtonForm", () => {
-  it("should show the primary color on an unset color swatch", () => {
-    const c = render(<Host />);
-    const swatch = c.container.querySelector<HTMLElement>(`.${CSS.B("color-swatch")}`);
-    assert(swatch != null);
-    const primary = Theming.themeZ.parse(Theming.SYNNAX_LIGHT).colors.primary.z;
-    expect(swatch.style.getPropertyValue(CSS.variable("swatch", "color"))).toEqual(
-      color.cssString(primary),
+  let wrapper: FC<PropsWithChildren>;
+  let ch: channel.Channel;
+  beforeAll(async () => {
+    wrapper = await createAsyncSynnaxWrapper({ client });
+    ch = await client.channels.create({
+      name: id.create(),
+      dataType: DataType.UINT8,
+      virtual: true,
+    });
+  });
+
+  it("should unbind the command channel when it is cleared", async () => {
+    const config = createConfig({ variant: "button", commandChannel: ch.key });
+    const { findByLabelText, value } = renderForm(
+      <ButtonForm tab="control" onTabChange={vi.fn()} />,
+      config,
+      schematic.buttonNodeConfigZ,
+      wrapper,
     );
+    fireEvent.click(await findByLabelText(`Clear ${ch.name}`));
+    await waitFor(() => expect(value("commandChannel")).toBeUndefined());
   });
 });

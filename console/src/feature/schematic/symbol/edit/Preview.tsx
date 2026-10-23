@@ -10,17 +10,14 @@
 import "@/feature/schematic/symbol/edit/Edit.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import {
-  Button,
-  Flex,
-  Form,
-  Icon,
-  Schematic,
-  Text,
-  Theming,
-  TimeSpan,
-  Triggers,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming as Base } from "@synnaxlabs/lyra/theming";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { Schematic, Theming, TimeSpan } from "@synnaxlabs/pluto";
 import { box, id, type xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
@@ -89,7 +86,7 @@ export const Preview = ({
   const zoom = Form.useField<number>("data.previewViewport.zoom");
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const isDark = Theming.use().key === "synnaxDark";
+  const isDark = Base.use().key === "synnaxDark";
   const [isDarkMode, setIsDarkMode] = useState<boolean>(isDark);
   useEffect(() => setIsDarkMode(isDark), [isDark]);
 
@@ -285,7 +282,7 @@ export const Preview = ({
     >
       <Theming.Provider
         el={themeContainer}
-        theme={Theming.SYNNAX_THEMES[isDarkMode ? "synnaxDark" : "synnaxLight"]}
+        theme={Base.SYNNAX_THEMES[isDarkMode ? "synnaxDark" : "synnaxLight"]}
       >
         <Flex.Box
           ref={setThemeContainer}

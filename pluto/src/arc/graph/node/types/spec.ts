@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Theming } from "@synnaxlabs/lyra/theming";
 import { type xy } from "@synnaxlabs/x";
 import { type FC } from "react";
-
-import { type Theming } from "@/theming";
 
 // PreviewProps are the props passed to a function's Preview, the static rendering shown
 // in the stages palette. config holds the type's default parameter values.

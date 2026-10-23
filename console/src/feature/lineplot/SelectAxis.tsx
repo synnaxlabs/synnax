@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, lineplot } from "@synnaxlabs/client";
-import { Channel, Flex, Input, LinePlot } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Channel, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { CustomRangeInput } from "@/feature/lineplot/CustomRangeInput";

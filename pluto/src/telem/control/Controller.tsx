@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { context } from "@synnaxlabs/lyra/context";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { type PropsWithChildren, type ReactElement, useEffect, useMemo } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { context } from "@/context";
-import { useMemoDeepEqual } from "@/memo";
 import { control } from "@/telem/control/aether";
 
 export interface ControllerProps

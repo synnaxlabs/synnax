@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { allocSuite } from "@synnaxlabs/x/bench";
-import { bench, describe } from "vitest";
+import { test } from "vitest";
 
 import { createKeys, createPayload } from "@/framer/benchutil";
 import { Frame } from "@/framer/frame";
@@ -16,27 +16,33 @@ import { Frame } from "@/framer/frame";
 const CHANNEL_COUNTS = [10, 100, 1000];
 
 // Every streamed message constructs a Frame from the decoded payload.
-describe("from payload", () => {
-  for (const n of CHANNEL_COUNTS) {
-    const payload = createPayload(createKeys(n), 10);
-    bench(`${n}ch`, () => {
-      new Frame(payload);
-    });
-  }
+test("from payload", async ({ bench }) => {
+  await bench.compare(
+    ...CHANNEL_COUNTS.map((n) => {
+      const payload = createPayload(createKeys(n), 10);
+      return bench(`${n}ch`, () => {
+        new Frame(payload);
+      });
+    }),
+  );
 });
 
 // get() scans every column, so per-key lookups over a whole frame are quadratic.
-describe("get", () => {
-  for (const n of CHANNEL_COUNTS) {
-    const keys = createKeys(n);
-    const frame = new Frame(createPayload(keys, 10));
-    bench(`one key of ${n}ch`, () => {
-      frame.get(keys[n - 1]);
-    });
-    bench(`all keys of ${n}ch`, () => {
-      for (const k of keys) frame.get(k);
-    });
-  }
+test("get", async ({ bench }) => {
+  await bench.compare(
+    ...CHANNEL_COUNTS.flatMap((n) => {
+      const keys = createKeys(n);
+      const frame = new Frame(createPayload(keys, 10));
+      return [
+        bench(`one key of ${n}ch`, () => {
+          frame.get(keys[n - 1]);
+        }),
+        bench(`all keys of ${n}ch`, () => {
+          for (const k of keys) frame.get(k);
+        }),
+      ];
+    }),
+  );
 });
 
 {

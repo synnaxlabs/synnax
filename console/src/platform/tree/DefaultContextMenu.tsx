@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { group, type ontology } from "@synnaxlabs/client";
-import { Access, Icon, Menu } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";

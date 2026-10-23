@@ -10,6 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/errors/errors.h"
+#include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/test/test.h"
 
@@ -62,5 +63,15 @@ TEST(ErrorsTest, MultipleFoundErrorRanges) {
         err.message(),
         "[sy.query.multiple_results] Multiple ranges matching name experiment-1 not found."
     );
+}
+
+/// @brief it should match only the errors that clear without a restart.
+TEST(ErrorsTest, IsTemporarilyUnavailable) {
+    EXPECT_TRUE(is_temporarily_unavailable(freighter::UNREACHABLE));
+    EXPECT_TRUE(is_temporarily_unavailable(LICENSE_MISSING));
+    EXPECT_TRUE(is_temporarily_unavailable(LICENSE_EXPIRED));
+    EXPECT_FALSE(is_temporarily_unavailable(LICENSE));
+    EXPECT_FALSE(is_temporarily_unavailable(LICENSE.sub("invalid")));
+    EXPECT_FALSE(is_temporarily_unavailable(x::errors::UNKNOWN));
 }
 }

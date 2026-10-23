@@ -98,7 +98,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   // Set the color by hex, then close the picker so the swatch commits on blur.
   const swatch = modal.locator(".pluto-color-swatch").first();
   await session.click(swatch);
-  const hex = page.locator(".pluto-color-picker input").first();
+  const hex = page.locator(".pluto-color-picker").getByLabel("Hex");
   await session.waitFor(hex);
   await session.hold(200);
   await session.click(hex);

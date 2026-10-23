@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { query, type schematic, type Synnax as Client } from "@synnaxlabs/client";
-import { Status, Synnax } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Panel } from "@/platform/panel";

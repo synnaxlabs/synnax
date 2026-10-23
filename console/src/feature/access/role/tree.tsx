@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { access } from "@synnaxlabs/client";
-import { Access, Icon, Menu, User } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Access, User } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Tree } from "@/platform/tree";

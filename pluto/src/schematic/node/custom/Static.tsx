@@ -8,17 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Note } from "@synnaxlabs/lyra/note";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type location } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
-import { CSS } from "@/css";
-import { Icon } from "@/icon";
-import { Note } from "@/note";
 import { Custom } from "@/schematic/node/common/custom";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Symbol } from "@/schematic/symbol";
-import { Text } from "@/text";
 
 export interface StaticProps {
   specKey: string;
@@ -44,12 +44,16 @@ export const Static = ({
     spec,
     stateOverrides,
   });
-  if (missing)
+  const invalid = useMemo(
+    () => spec != null && !Custom.isValidSVG(spec.svg),
+    [spec?.svg],
+  );
+  if (missing || invalid)
     return (
       <Note.Note variant="warning" className={className}>
         <Text.Text level="p" status="warning">
           <Icon.Warning />
-          Missing custom symbol
+          {missing ? "Missing custom symbol" : "Invalid custom symbol"}
         </Text.Text>
       </Note.Note>
     );

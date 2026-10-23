@@ -1,0 +1,517 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The portal runs at a denser scale than Lyra's default. Modals portal to the document
+   root, so the scale sits on :root. */
+:root {
+    --pluto-h1-size: 5.5rem;
+    --pluto-h1-weight: 500;
+    --pluto-h1-line-height: 8.25rem;
+    --pluto-h1-letter-spacing: -0.01em;
+    --pluto-h2-size: 4.5rem;
+    --pluto-h2-weight: 500;
+    --pluto-h2-line-height: 6.75rem;
+    --pluto-h2-letter-spacing: 0;
+    --pluto-h3-size: 3.5rem;
+    --pluto-h3-weight: 500;
+    --pluto-h3-line-height: 5.25rem;
+    --pluto-h4-size: 2.6667rem;
+    --pluto-h4-weight: 500;
+    --pluto-h4-line-height: 4rem;
+    --pluto-h5-size: 2.3333rem;
+    --pluto-h5-weight: 450;
+    --pluto-h5-line-height: 3.5rem;
+    --pluto-p-size: 2.1667rem;
+    --pluto-p-weight: 400;
+    --pluto-p-line-height: 3rem;
+    --pluto-small-size: 1.9167rem;
+    --pluto-small-weight: 400;
+    --pluto-small-line-height: 2.8333rem;
+    --pluto-border-radius: 0.6667rem;
+    --pluto-height-huge: 8rem;
+    --pluto-height-large: 5.5rem;
+    --pluto-height-medium: 4.5rem;
+    --pluto-height-small: 4rem;
+}
+
+.portal-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3rem;
+    height: 10rem;
+    padding: 0 4rem;
+}
+
+.portal-bar__logo svg {
+    height: 3.5rem;
+    width: auto;
+}
+
+.portal-bar__start,
+.portal-bar__actions {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.portal-bar__start {
+    gap: 2rem;
+}
+
+.portal-bar__actions {
+    gap: 3rem;
+}
+
+.portal-bar__separator {
+    color: var(--pluto-gray-l7);
+    font-size: 3rem;
+    font-weight: 300;
+}
+
+.portal-bar__link {
+    color: var(--pluto-gray-l9);
+    font-size: var(--pluto-p-size);
+    text-decoration: none;
+
+    &:hover {
+        color: var(--pluto-gray-l11);
+    }
+}
+
+.portal-account__trigger .pluto-avatar {
+    --pluto-avatar-size: round(5.6667rem, 1px);
+}
+
+.pluto-btn.portal-account__trigger {
+    padding: 0;
+}
+
+.portal-scope {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    min-width: 0;
+}
+
+/* The left inset matches the space above and below the mark, so the hover fill rims it
+   evenly. */
+.pluto-btn.portal-scope {
+    padding: 1.5rem 2rem 1.5rem 1.5rem;
+}
+
+.portal-scope > .portal-scope__tag {
+    margin-left: 1rem;
+}
+
+.pluto-dialog__dialog.portal-scope__dialog {
+    /* Lyra's rounded rule ties this selector, so set the radius it reads. */
+    --pluto-border-radius: var(--pluto-border-radius-medium);
+
+    min-width: 48rem;
+    padding: 0.5rem;
+    border: var(--pluto-border);
+    box-shadow: var(--pluto-shadow-overlay);
+}
+
+/* Inset from the dialog's corner by its padding, so the corners stay concentric. */
+.pluto-list__item.portal-scope__item {
+    gap: 1.5rem;
+    padding: 1.5rem 2rem;
+    border-radius: calc(var(--pluto-border-radius-medium) - 0.5rem);
+
+    .portal-scope__tag {
+        margin-left: auto;
+    }
+
+    & + .portal-scope__item {
+        margin-top: 0.5rem;
+    }
+}
+
+/* A long name truncates before the tag shrinks. Lyra's tag rule outranks a single
+   class. */
+.pluto-btn.pluto-tag.portal-scope__tag {
+    flex-shrink: 0;
+    border-color: var(--portal-tag-z-50);
+    background: var(--portal-tag-z-20);
+    box-shadow: none;
+    color: var(--portal-tag-p1);
+}
+
+.portal-scope__tag--personal {
+    --portal-tag-z-50: var(--pluto-primary-z-50);
+    --portal-tag-z-20: var(--pluto-primary-z-20);
+    --portal-tag-p1: var(--pluto-primary-p1);
+}
+
+.portal-scope__tag--team {
+    --portal-tag-z-50: var(--pluto-secondary-z-50);
+    --portal-tag-z-20: var(--pluto-secondary-z-20);
+    --portal-tag-p1: var(--pluto-secondary-p1);
+}
+
+/* Phones scroll the tab row sideways instead of wrapping it. */
+.portal-tabs {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0 3rem 1.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-bottom: var(--pluto-border);
+}
+
+.portal-tab {
+    flex-shrink: 0;
+    color: var(--pluto-gray-l9);
+
+    &,
+    &:hover {
+        text-decoration: none;
+    }
+
+    /* Lyra's subtle selection tier, the one its tab strips use. */
+    &[aria-current="page"] {
+        --pluto-bg: var(--pluto-selected-subtle-bg);
+        --pluto-hover-bg: var(--pluto-selected-subtle-hover-bg);
+        --pluto-active-bg: var(--pluto-selected-subtle-active-bg);
+
+        box-shadow: inset 0 0 0 var(--pluto-border-width)
+            var(--pluto-selected-subtle-border-color);
+        color: var(--pluto-selected-subtle-color);
+    }
+}
+
+.portal-menu {
+    --pluto-shadow-v1: var(--pluto-shadow-overlay);
+
+    min-width: 24rem;
+    padding: 1rem;
+}
+
+.portal-menu__name {
+    padding: 1rem 2rem;
+}
+
+.portal-machine-menu {
+    padding: 1rem;
+}
+
+main {
+    display: flex;
+    min-width: 0;
+}
+
+section.portal {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 4rem 6rem 12rem;
+    gap: 5rem;
+    align-items: stretch;
+    min-width: 0;
+
+    & a:not(.pluto-btn):hover {
+        text-decoration: none;
+    }
+
+    & code {
+        font-size: var(--pluto-small-size);
+        line-height: var(--pluto-small-line-height);
+        padding: 0.25rem 0.75rem;
+        background: var(--pluto-gray-l2);
+        border: var(--pluto-border);
+        border-color: var(--pluto-gray-l4);
+        border-radius: var(--pluto-border-radius);
+    }
+}
+
+/* Rows in a portal list read as a table: the first column grows, the rest keep to
+   their content, and the header row uses the same grid as its rows. */
+.portal-list__row {
+    display: grid;
+    align-items: center;
+    gap: 4rem;
+    width: 100%;
+    min-height: 8rem;
+    padding: 2rem 3rem;
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
+
+    &.pluto-btn {
+        border-radius: 0;
+    }
+
+    &:last-child {
+        border-bottom-right-radius: inherit;
+        border-bottom-left-radius: inherit;
+    }
+}
+
+.portal-list__head {
+    min-height: 6rem;
+    border-top: none;
+}
+
+.portal-list__stack {
+    min-width: 0;
+}
+
+.portal-search {
+    max-width: 40rem;
+}
+
+.portal-activity__time {
+    min-width: 18rem;
+}
+
+.portal-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(24rem, 1fr));
+    gap: 3rem 4rem;
+    padding: 3.5rem 4rem;
+}
+
+.portal-empty {
+    padding: 8rem 4rem;
+}
+
+.portal-tile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 8rem;
+    height: 8rem;
+    margin-bottom: 1rem;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l5);
+    border-radius: var(--pluto-border-radius-large);
+    background: var(--pluto-gray-l3);
+    color: var(--pluto-gray-l10);
+
+    & svg {
+        width: 3.5rem;
+        height: 3.5rem;
+    }
+
+    &.portal-tile--success {
+        border-color: var(--pluto-success-z-40);
+        background: var(--pluto-success-z-10);
+        color: var(--pluto-success-z);
+    }
+
+    &.portal-tile--error {
+        border-color: var(--pluto-error-z-40);
+        background: var(--pluto-error-z-10);
+        color: var(--pluto-error-z);
+    }
+}
+
+.portal-empty__action {
+    margin-top: 2rem;
+}
+
+.portal-fact {
+    min-width: 0;
+}
+
+.portal-enterprise {
+    padding: 3.5rem 4rem;
+}
+
+.portal-enterprise__text {
+    flex: 1 1 40rem;
+}
+
+.portal-activate {
+    padding: 4rem;
+}
+
+section.portal-auth-page {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 8rem 4rem;
+}
+
+/* The Console's frosted glass, so surfaces read over the nebula. */
+.portal-frost {
+    background: color-mix(in srgb, var(--pluto-gray-l0) 45%, transparent);
+    backdrop-filter: blur(3.5rem) saturate(140%);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    box-shadow: var(--pluto-shadow-lift);
+}
+
+/* The Console's login rings: two faint outlines that echo the card's corners. */
+.portal-auth__stage {
+    position: relative;
+    width: 100%;
+    max-width: 60rem;
+
+    &::before,
+    &::after {
+        content: "";
+        position: absolute;
+        pointer-events: none;
+    }
+
+    &::before {
+        inset: -2.5rem;
+        border: var(--pluto-border-width) solid
+            color-mix(in srgb, var(--pluto-gray-l7) 45%, transparent);
+        border-radius: calc(var(--pluto-border-radius-huge) + 2.5rem);
+    }
+
+    &::after {
+        inset: -5.5rem;
+        border: var(--pluto-border-width) solid
+            color-mix(in srgb, var(--pluto-gray-l7) 20%, transparent);
+        border-radius: calc(var(--pluto-border-radius-huge) + 5.5rem);
+    }
+}
+
+.portal-auth {
+    padding: 5rem;
+    border-radius: var(--pluto-border-radius-huge);
+}
+
+.portal-auth__error {
+    padding: 1.5rem 2rem;
+    border: var(--pluto-border-width) solid var(--pluto-error-z-40);
+    border-radius: var(--pluto-border-radius-large);
+    background: var(--pluto-error-z-10);
+}
+
+.portal-auth__description {
+    text-align: center;
+    text-wrap: balance;
+}
+
+/* The account and machine a Desktop login is for, one per line. */
+.portal-summary {
+    & > * {
+        min-width: 0;
+        padding: 2rem 2.5rem;
+    }
+
+    & > * + * {
+        border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
+    }
+
+    & > * > svg {
+        flex-shrink: 0;
+        width: 2.5rem;
+        height: 2.5rem;
+        color: var(--pluto-gray-l9);
+    }
+}
+
+.portal-summary__text {
+    min-width: 0;
+}
+
+.portal-auth__islands {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    left: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.portal-auth__island {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    border-radius: var(--pluto-border-radius-large);
+
+    &.portal-auth__island--square {
+        justify-content: center;
+        width: 8rem;
+        height: 8rem;
+        padding: 0;
+    }
+
+    & svg {
+        height: 4rem;
+
+        --pluto-logo-color: var(--pluto-gray-l11);
+    }
+}
+
+.portal-auth__reset {
+    align-self: center;
+}
+
+.portal-auth__pending {
+    padding: 2rem;
+}
+
+.portal-step {
+    padding: 3.5rem 4rem;
+
+    & + & {
+        border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
+    }
+}
+
+.portal-step__text {
+    flex: 1 1 30rem;
+}
+
+.portal-step__number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 5rem;
+    height: 5rem;
+    flex-shrink: 0;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l5);
+    border-radius: 50%;
+    background: var(--pluto-gray-l3);
+}
+
+.portal-modal {
+    width: min(96rem, 100%);
+}
+
+@media (width <= 800px) {
+    .portal-bar {
+        padding: 0 2rem;
+    }
+
+    .portal-bar__actions {
+        gap: 2rem;
+    }
+
+    .portal-tabs {
+        padding: 0 1rem;
+    }
+
+    section.portal {
+        padding: 3rem 2rem 10rem;
+    }
+
+    .portal-list__row {
+        grid-template-columns: 1fr !important;
+        gap: 0.5rem;
+        padding: 1.5rem 0;
+    }
+
+    .portal-list__head {
+        display: none;
+    }
+}

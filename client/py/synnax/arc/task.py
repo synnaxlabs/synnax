@@ -7,14 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
 
 from synnax import task
-from x.deprecation import deprecated_getattr
 
 TASK_TYPE = "arc"
+
+Performance = Literal["auto", "low", "medium", "high"]
 
 
 class TaskConfig(BaseModel):
@@ -24,13 +26,14 @@ class TaskConfig(BaseModel):
     """The key of the Arc program to execute (UUID as string)."""
     auto_start: bool = False
     """Whether to start the task automatically when created."""
+    performance: Performance = "auto"
+    """How closely the task holds its timing deadlines. A higher level uses more CPU."""
 
 
-class Task(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class Task(task.StarterStopperMixin, task.JSONConfigMixin[TaskConfig], task.Protocol):
     """A task for executing Arc programs on a Synnax cluster."""
 
     TYPE = TASK_TYPE
-    config: TaskConfig
     _internal: task.Task
 
     def __init__(
@@ -40,6 +43,7 @@ class Task(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         name: str = "Arc Task",
         arc_key: UUID | str | None = None,
         auto_start: bool = False,
+        performance: Performance = "auto",
     ):
         """Initialize an Arc task.
 
@@ -47,20 +51,15 @@ class Task(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         :param name: Human-readable name for the task.
         :param arc_key: The key of the Arc program to execute.
         :param auto_start: Whether to start the task automatically.
+        :param performance: How closely the task holds its timing deadlines.
         """
         if internal is not None:
             self._internal = internal
             self.config = TaskConfig.model_validate(internal.config)
             return
         if arc_key is None:
-            raise ValueError("arc_key is required when creating a new ArcTask")
+            raise ValueError("arc_key is required when creating a new Arc task")
         self._internal = task.Task(name=name, type=self.TYPE)
-        self.config = TaskConfig(arc_key=str(arc_key), auto_start=auto_start)
-
-
-_DEPRECATED = {
-    "ArcTask": "Task",
-    "ArcTaskConfig": "TaskConfig",
-}
-
-__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
+        self.config = TaskConfig(
+            arc_key=str(arc_key), auto_start=auto_start, performance=performance
+        )

@@ -10,13 +10,17 @@
 import "@/platform/task/views/ListAndDetailsChannelItem.css";
 
 import { type channel } from "@synnaxlabs/client";
-import { Flex, type List, Select, Text, Tooltip } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { type List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { type direction, type record } from "@synnaxlabs/x";
 import { cloneElement, type CSSProperties, type JSX, useMemo } from "react";
 
 import { CSS } from "@/platform/css";
 import { ChannelName, type ChannelNameProps } from "@/platform/task/ChannelName";
-import { EnableDisableButton } from "@/platform/task/EnableDisableButton";
+import { EnabledCheckbox } from "@/platform/task/EnabledCheckbox";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
 import { TareButton } from "@/platform/task/TareButton";
 import { WriteChannelNames } from "@/platform/task/WriteChannelNames";
@@ -76,7 +80,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
     [portMaxChars],
   );
   return (
-    <Select.ListItem
+    <Select.Item
       {...rest}
       justify="between"
       align="center"
@@ -121,8 +125,8 @@ export const ListAndDetailsChannelItem = <K extends string>({
         {hasTareButton && (
           <TareButton disabled={!canTare} onTare={() => onTare?.(channel)} />
         )}
-        <EnableDisableButton path={`${path}.disabled`} />
+        <EnabledCheckbox path={`${path}.disabled`} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
@@ -17,7 +17,7 @@ export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 const DIMENSIONS = { width: 66, height: 30 };
 
 export const StaticMixer = ({
-  color,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -37,7 +37,7 @@ export const StaticMixer = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

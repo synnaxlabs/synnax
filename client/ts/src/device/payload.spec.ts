@@ -26,23 +26,19 @@ const VALID_DEVICE = {
 describe("deviceZ", () => {
   describe("default schemas", () => {
     it("should accept a valid device", () => {
-      const result = deviceZ().safeParse(VALID_DEVICE);
-      expect(result.success).toBe(true);
+      expect(deviceZ().validate(VALID_DEVICE)).toBe(true);
     });
 
     it("should reject a device with an empty name", () => {
-      const result = deviceZ().safeParse({ ...VALID_DEVICE, name: "" });
-      expect(result.success).toBe(false);
+      expect(deviceZ().validate({ ...VALID_DEVICE, name: "" })).toBe(false);
     });
 
     it("should reject a device with an empty make", () => {
-      const result = deviceZ().safeParse({ ...VALID_DEVICE, make: "" });
-      expect(result.success).toBe(false);
+      expect(deviceZ().validate({ ...VALID_DEVICE, make: "" })).toBe(false);
     });
 
     it("should reject a device with an empty model", () => {
-      const result = deviceZ().safeParse({ ...VALID_DEVICE, model: "" });
-      expect(result.success).toBe(false);
+      expect(deviceZ().validate({ ...VALID_DEVICE, model: "" })).toBe(false);
     });
 
     it("should accept properties as an object", () => {
@@ -55,8 +51,7 @@ describe("deviceZ", () => {
     const makeZ = z.enum(["ni", "labjack"]);
 
     it("should accept a valid make value", () => {
-      const result = deviceZ({ make: makeZ }).safeParse(VALID_DEVICE);
-      expect(result.success).toBe(true);
+      expect(deviceZ({ make: makeZ }).validate(VALID_DEVICE)).toBe(true);
     });
 
     it("should reject an invalid make value", () => {
@@ -72,8 +67,7 @@ describe("deviceZ", () => {
     const modelZ = z.literal("pxi-6281");
 
     it("should accept a matching model", () => {
-      const result = deviceZ({ model: modelZ }).safeParse(VALID_DEVICE);
-      expect(result.success).toBe(true);
+      expect(deviceZ({ model: modelZ }).validate(VALID_DEVICE)).toBe(true);
     });
 
     it("should reject a non-matching model", () => {
@@ -134,9 +128,9 @@ describe("validation", () => {
 
   it("should still validate make and model with custom schemas", () => {
     const makeZ = z.literal("ni");
-    const result = deviceZ({ make: makeZ }).safeParse(VALID_DEVICE);
-    expect(result.success).toBe(true);
-    const bad = deviceZ({ make: makeZ }).safeParse({ ...VALID_DEVICE, make: "opc" });
-    expect(bad.success).toBe(false);
+    expect(deviceZ({ make: makeZ }).validate(VALID_DEVICE)).toBe(true);
+    expect(deviceZ({ make: makeZ }).validate({ ...VALID_DEVICE, make: "opc" })).toBe(
+      false,
+    );
   });
 });

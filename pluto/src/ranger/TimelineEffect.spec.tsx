@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { firePointerDown, mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";
-import { firePointerDown, mockBoundingClientRect } from "@/testutil/dom";
 
 const NOW = TimeStamp.now().nanoseconds;
 const HOUR = Number(TimeSpan.HOUR.valueOf());

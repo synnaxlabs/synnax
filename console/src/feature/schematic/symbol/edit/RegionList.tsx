@@ -10,20 +10,19 @@
 import "@/feature/schematic/symbol/edit/Edit.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import {
-  Button,
-  Color,
-  Flex,
-  Form,
-  Header,
-  Icon,
-  type Input,
-  List,
-  Select,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
-import { type color } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Schematic } from "@synnaxlabs/pluto";
+import { useMemo } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -34,18 +33,24 @@ export interface RegionListProps extends Input.Control<string | undefined> {
 
 export interface RegionListItemProps extends List.ItemRenderProps<string> {
   selectedState: string;
+  svg: string;
 }
 
-export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps) => {
+const RegionListItem = ({ selectedState, svg, ...props }: RegionListItemProps) => {
   const { itemKey } = props;
   const path = `data.states.${selectedState}.regions.${itemKey}`;
   const region = Form.useFieldValue<schematic.symbol.Region>(path, { optional: true });
+  const { set } = Form.useContext();
+  const paint = useMemo(
+    () => Schematic.Node.Region.paint(svg, region?.selectors ?? []),
+    [svg, region?.selectors],
+  );
   const { remove } = Form.useFieldListUtils<string, schematic.symbol.Region>(
     `data.states.${selectedState}.regions`,
   );
   if (region == null) return null;
   return (
-    <Select.ListItem
+    <Select.Item
       {...props}
       justify="between"
       className={CSS.B("schematic-region-list-item")}
@@ -66,16 +71,18 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
         <Text.Text level="small" color={9}>
           {region?.selectors?.length || 0} elements
         </Text.Text>
-        <Form.Field<color.Color> path={`${path}.strokeColor`} showLabel={false}>
-          {({ onChange, value }) => (
-            <Color.Swatch value={value} onChange={onChange} size="small" />
-          )}
-        </Form.Field>
-        <Form.Field<color.Color> path={`${path}.fillColor`} showLabel={false}>
-          {({ onChange, value }) => (
-            <Color.Swatch value={value} onChange={onChange} size="small" />
-          )}
-        </Form.Field>
+        <Color.Swatch
+          value={region.strokeColor}
+          fallback={paint.stroke}
+          onChange={(c) => set(`${path}.strokeColor`, c)}
+          size="small"
+        />
+        <Color.Swatch
+          value={region.fillColor}
+          fallback={paint.fill}
+          onChange={(c) => set(`${path}.fillColor`, c)}
+          size="small"
+        />
         <Button.Button
           onClick={() => remove(itemKey)}
           size="small"
@@ -85,7 +92,7 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
           <Icon.Close />
         </Button.Button>
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
@@ -98,6 +105,7 @@ export const RegionList = ({
   const { data } = Form.useFieldList<string, schematic.symbol.Region>(
     `data.states.${selectedState}.regions`,
   );
+  const svg = Form.useFieldValue<string>("data.svg");
   return (
     <Flex.Box y gap={1} className={CSS.B("schematic-region-list")}>
       <Header.Header level="p" bordered={false}>
@@ -105,7 +113,7 @@ export const RegionList = ({
           Colors
         </Header.Title>
         <Header.Actions>
-          <Text.Text level="p" color={9} gap={3}>
+          <Text.Text el="div" level="p" color={9} gap={3}>
             <Tooltip.Dialog>
               <Text.Text level="small">Stroke color</Text.Text>
               <Flex.Box>
@@ -119,7 +127,7 @@ export const RegionList = ({
               </Flex.Box>
             </Tooltip.Dialog>
           </Text.Text>
-          <Button.Button onClick={onAddRegion} size="small" variant="filled">
+          <Button.Button onClick={onAddRegion} size="small" variant="text">
             <Icon.Add />
           </Button.Button>
         </Header.Actions>
@@ -130,11 +138,18 @@ export const RegionList = ({
         data={data}
         closeDialogOnSelect={false}
       >
-        <List.Items<string> y gap={1}>
-          {({ key, ...rest }) => (
-            <RegionListItem selectedState={selectedState} key={key} {...rest} />
-          )}
-        </List.Items>
+        <List.Scroll y gap={1}>
+          <List.Items<string>>
+            {({ key, ...rest }) => (
+              <RegionListItem
+                selectedState={selectedState}
+                svg={svg}
+                key={key}
+                {...rest}
+              />
+            )}
+          </List.Items>
+        </List.Scroll>
       </Select.Frame>
     </Flex.Box>
   );

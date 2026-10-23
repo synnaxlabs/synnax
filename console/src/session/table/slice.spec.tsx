@@ -214,6 +214,34 @@ describe("Table Slice", () => {
     });
   });
 
+  describe("setPropertiesTab", () => {
+    it("should leave the properties tab unset by default", () => {
+      const get = renderGetters(store);
+      act(() => void store.dispatch(Table.create({ key: KEY })));
+      expect(get.state().propertiesTab).toBeUndefined();
+    });
+
+    it("should set the properties tab", () => {
+      const get = renderGetters(store);
+      act(() => {
+        store.dispatch(Table.create({ key: KEY }));
+        store.dispatch(Table.setPropertiesTab({ key: KEY, tab: "redline" }));
+      });
+      expect(get.state().propertiesTab).toBe("redline");
+    });
+
+    it("should keep the properties tab when the selection changes", () => {
+      const get = renderGetters(store);
+      act(() => {
+        store.dispatch(Table.create({ key: KEY }));
+        store.dispatch(Table.setPropertiesTab({ key: KEY, tab: "style" }));
+        store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["a"] }));
+        store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["b"] }));
+      });
+      expect(get.state().propertiesTab).toBe("style");
+    });
+  });
+
   describe("remove", () => {
     it("should remove a table by key", () => {
       act(() => void store.dispatch(Table.create({ key: KEY })));

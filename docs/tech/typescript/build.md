@@ -6,8 +6,7 @@ Synnax is organized as a monorepo. Our front end software consists of eight diff
 libraries:
 
 - `@synnaxlabs/x` (`x/ts`): Common utilities and types used by all other packages.
-- `@synnaxlabs/media` (`x/media`): Synnax specific media, including logos and icons. The
-  smallest library.
+- `@synnaxlabs/lyra` (`lyra`): UI primitives, Synnax logos, and logo assets.
 - `@synnaxlabs/alamos` (`alamos/ts`): Distributed instrumentation - logs, traces, and
   metrics.
 - `@synnaxlabs/arc` (`arc/ts`): TypeScript utilities for the Arc language.
@@ -23,7 +22,7 @@ We have two main applications:
 
 - `@synnaxlabs/console` (`console`): The exploratory data analysis, cluster management,
   and control application.
-- `@synnaxlabs/docs` (`docs/site`): The Synnax documentation website.
+- `@synnaxlabs/docs` (`site/docs`): The Synnax documentation website.
 
 There are also a few packages that are specifically for defining configurations for
 various build/developments tools:
@@ -53,7 +52,7 @@ graph TD
     docs --> pluto
     pluto --> client
     pluto --> arc
-    pluto --> media
+    pluto --> lyra
     client --> freighter
     freighter --> alamos
     alamos --> x

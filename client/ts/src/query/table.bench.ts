@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bench, describe } from "vitest";
+import { test } from "vitest";
 
 import { query } from "@/query";
 
@@ -21,16 +21,19 @@ const makeTable = (keyedSubscribers: number): query.Table<string, Entry> => {
   return table;
 };
 
-describe("Table.notify", () => {
+test("Table.notify", async ({ bench }) => {
   const small = makeTable(10);
   let a = 0;
-  bench("one event, 10 keyed subscribers", () => {
-    small.set("key-0", { n: a++ });
-  });
 
   const large = makeTable(1000);
   let b = 0;
-  bench("one event, 1,000 keyed subscribers", () => {
-    large.set("key-0", { n: b++ });
-  });
+
+  await bench.compare(
+    bench("one event, 10 keyed subscribers", () => {
+      small.set("key-0", { n: a++ });
+    }),
+    bench("one event, 1,000 keyed subscribers", () => {
+      large.set("key-0", { n: b++ });
+    }),
+  );
 });

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
+import { type theme } from "@synnaxlabs/lyra/theme";
 import {
   bounds,
   box,
@@ -77,7 +78,7 @@ const DARK_PREFIX = { hue: 1, saturation: 0.8, lightness: 0.85, alpha: 0.95 };
 const LIGHT_PREFIX = { hue: 1, saturation: 0.8, lightness: 0.8, alpha: 0.8 };
 
 interface InternalState {
-  theme: theming.Theme;
+  theme: theme.Theme;
   render: render.Context;
   draw2d: Draw2D;
   telem: telem.MemoizedSource<LogEntry[], LogSource>;
@@ -116,7 +117,7 @@ const ZERO_SCROLLBACK: ScrollbackState = {
   awayFromEnd: false,
 };
 
-const muteColor = (c: color.Crude, theme: theming.Theme): color.Color => {
+const muteColor = (c: color.Crude, theme: theme.Theme): color.Color => {
   const p = theme.key === "synnaxDark" ? DARK_PREFIX : LIGHT_PREFIX;
   const [h, s, l, a] = color.hsla(c);
   return color.fromHSLA([
@@ -365,7 +366,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         { width: SCROLLBAR_WIDTH, height },
       ),
       bordered: false,
-      backgroundColor: (t: theming.Theme) => t.colors.gray.l6,
+      backgroundColor: (t: theme.Theme) => t.colors.gray.l6,
     });
   }
 

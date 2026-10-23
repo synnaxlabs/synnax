@@ -4,7 +4,8 @@
 - **Date**: 2026-09-22
 - **Related**:
   [RFC 0044 - Oracle optionality, defaults, and input/output types](0044-oracle-optionality-defaults-mutation.md),
-  [RFC 0061 - Theme-resolved color](0061-theme-resolved-color.md)
+  [RFC 0061 - Theme-resolved color](0061-theme-resolved-color.md),
+  [RFC 0070 - Color picker](0070-color-picker.md)
 
 ## 0 Summary
 
@@ -79,30 +80,29 @@ delegation rather than absence.
 absent value: numeric and date inputs render empty, text reads as empty, booleans as
 off, and selects highlight nothing.
 
-`Color.Swatch` gains an unset state that shows a placeholder color dimmed, plus a clear
-action that returns the field to unset. The picker opens on the placeholder, so the
-first pick starts from the color the symbol renders with. The placeholder is never
-stored. A stored fallback color cannot express a role, which is why the resolver lives
-in the theme (RFC 0061 §3.1) and not in the form.
+An absent color is the Auto state of RFC 0070: `Color.Field` takes the `fallback` the
+theme paints, and the Auto action returns the field to unset. The fallback is never
+stored.
 
-`Input.Numeric` keeps `emptyValue`. Its one use maps a stored sentinel the schema gives
-a meaning (`-1` for a log channel's precision), not absence.
+A value that means "inherit from elsewhere" is absence, not a sentinel. The log
+channel's precision stores `-1` for "use the log-level precision". It becomes optional,
+as the table's precision already is, and `Input.Numeric` loses `emptyValue`, its one
+user. That change migrates stored logs, so it ships in its own pull request.
 
 ### 3.3 An optional subtree is a unit
 
-`redline`, `fill`, `dimensions`, and `label` are optional objects whose leaves are
-required inside them. A form binds the leaves, so it edits at a finer grain than the
-schema gives meaning at.
+`control`, `dimensions`, and `threshold` are optional objects whose leaves are required
+inside them. A form binds the leaves, so it edits at a finer grain than the schema gives
+meaning at.
 
 The first write to any descendant builds the nearest absent ancestor from that
 ancestor's schema default, then applies the write. A read of an absent leaf shows what
 that write would build. One ancestor is enough: zod types a default as the full output,
 so a default is never partial. `deep.set` alone would leave a half-built parent, such as
-a redline with a lower bound and no upper bound.
+a threshold with a lower bound and no upper bound.
 
 Where the ancestor's defaults cannot build a complete value, the subtree gets an
-explicit control that adds or removes it, and its fields render beneath. A redline is on
-or off, which is what it means.
+explicit control that adds or removes it, and its fields render beneath.
 
 ### 3.4 What a field still takes
 
@@ -157,10 +157,13 @@ it silently read false, so property inspectors gain required markers.
    to resolve.
 4. **6.3 The hooks keep `optional`.** Removing every escape was rejected. A list row
    deleted a render early would crash rather than render nothing.
+5. **6.4 An inherited value is absent, not a sentinel.** Keeping `-1` for the log
+   channel's precision was rejected. Every reader must know the sentinel, and it is the
+   same problem as an unset color.
+6. **6.5 An unset color reads as Auto.** The swatch of RFC 0070 owns the unset look and
+   the way back.
 
 ## 7 Open questions
 
-1. **7.0 The unset register**: Whether an unset control reads as muted text, a dimmed
-   swatch, or a placeholder, and how the clear action is presented.
-2. **7.1 Required markers in a property inspector**: Whether an inspector shows the
+1. **7.0 Required markers in a property inspector**: Whether an inspector shows the
    asterisk the corrected lookup now makes available, or suppresses it.

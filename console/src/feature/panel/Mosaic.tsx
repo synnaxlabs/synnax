@@ -10,23 +10,17 @@
 import "@/feature/panel/Mosaic.css";
 
 import { NotFoundError, ontology, panel } from "@synnaxlabs/client";
-import { Logo } from "@synnaxlabs/media";
-import {
-  Access,
-  Button,
-  Component,
-  Errors,
-  Flex,
-  Flux,
-  Haul,
-  Icon,
-  Panel,
-  Portal,
-  Status,
-  Synnax,
-  Text,
-  Triggers,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Logo } from "@synnaxlabs/lyra/logo";
+import { Portal } from "@synnaxlabs/lyra/portal";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { Access, Errors, Flux, Panel, Synnax } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import {
   memo,
@@ -249,7 +243,7 @@ const EmptyTabContent = ({
   );
   return (
     <Flex.Box center gap={5} className={CSS.BE("mosaic", "empty-content")}>
-      <Logo className="synnax-logo-watermark" />
+      <Logo.Logo className="synnax-logo-watermark" />
       <Empty.Action
         className={CSS.BE("mosaic", "empty-action")}
         level="h5"
@@ -351,7 +345,7 @@ const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
       {...haulProps}
     >
       <Flex.Box center gap={5} className={CSS.BE("mosaic", "empty-content")}>
-        <Logo className="synnax-logo-watermark" />
+        <Logo.Logo className="synnax-logo-watermark" />
         <Empty.Action
           className={CSS.BE("mosaic", "empty-action")}
           level="h5"

@@ -8,51 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
-import { Input, LinePlot } from "@synnaxlabs/pluto";
+import { Input } from "@synnaxlabs/lyra/input";
+import { LinePlot } from "@synnaxlabs/pluto";
 import { TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 // SY-4816: Static range entry, when added, should stop at 1s, which also simplifies
 // its selector and UX.
-const SPAN_UNITS: Record<string, (value: number) => TimeSpan> = {
-  ns: (value) => TimeSpan.nanoseconds(value),
-  us: (value) => TimeSpan.microseconds(value),
-  µs: (value) => TimeSpan.microseconds(value),
-  ms: (value) => TimeSpan.milliseconds(value),
-  s: (value) => TimeSpan.seconds(value),
-  m: (value) => TimeSpan.minutes(value),
-  h: (value) => TimeSpan.hours(value),
-  d: (value) => TimeSpan.days(value),
-  w: (value) => TimeSpan.days(7 * value),
-  mo: (value) => TimeSpan.days(30 * value),
-  y: (value) => TimeSpan.days(365 * value),
-};
-
-// Two-letter units first so "ms" never parses as minutes then seconds.
-const UNIT = "mo|ms|ns|us|µs|[smhdwy]";
-const NUM = "(?:\\d+(?:\\.\\d+)?|\\.\\d+)";
-const SPAN_TOKEN = new RegExp(`(${NUM})(${UNIT})`, "g");
-const SPAN_VALID = new RegExp(`^\\s*(?:${NUM}(?:${UNIT})\\s*)+$`);
-
-/** Parses a duration like "45m" or "1h 30m" into nanoseconds. */
-export const parseSpan = (input: string): number | null => {
-  const text = input.toLowerCase();
-  if (!SPAN_VALID.test(text)) return null;
-  let total = 0;
-  for (const [, value, unit] of text.matchAll(SPAN_TOKEN))
-    total += Number(SPAN_UNITS[unit](parseFloat(value)));
-  return total > 0 ? total : null;
-};
-
 /** Edits the rolling window the plot's "custom" range key resolves to. */
 export const CustomRangeInput = (): ReactElement => {
   const custom = LinePlot.useCustomRange();
   const dispatch = LinePlot.useSingleDispatch();
   const handleChange = useCallback(
     (raw: string) => {
-      const span = parseSpan(raw);
-      if (span == null) return;
-      dispatch(lineplot.setCustomRange({ custom: { variant: "dynamic", span } }));
+      const span = TimeSpan.parse(raw);
+      if (span == null || span.isZero) return;
+      dispatch(
+        lineplot.setCustomRange({ custom: { variant: "dynamic", span: Number(span) } }),
+      );
     },
     [dispatch],
   );
@@ -65,7 +38,7 @@ export const CustomRangeInput = (): ReactElement => {
         onChange={handleChange}
         onlyChangeOnBlur
         resetOnBlurIfEmpty
-        placeholder="1h 30m"
+        placeholder="1h 30min"
         grow
       />
     </Input.Item>

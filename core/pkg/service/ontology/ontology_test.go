@@ -17,8 +17,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -205,6 +207,54 @@ var _ = Describe("Ontology", func() {
 					To(Succeed())
 				Expect(tx.Commit(ctx)).To(Succeed())
 				Expect(called).To(BeTrue())
+			},
+		)
+		It(
+			"Should only notify subscribers of replaced relationships that change",
+			func(ctx SpecContext) {
+				tx := db.OpenTx()
+				w := otg.NewWriter(tx)
+				from := newSampleType("replace-from")
+				kept := newSampleType("replace-kept")
+				removed := newSampleType("replace-removed")
+				added := newSampleType("replace-added")
+				Expect(w.DefineResources(ctx, from, kept, removed, added)).To(Succeed())
+				Expect(w.DefineRelationships(
+					ctx, from, ontology.RelationshipTypeParentOf, kept, removed,
+				)).To(Succeed())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				Expect(tx.Close()).To(Succeed())
+				var changes []change.Change[string, ontology.Relationship]
+				disconnect := otg.ObserveRelationships().OnChange(
+					func(_ context.Context, r gorp.TxReader[string, ontology.Relationship]) {
+						changes = append(changes, slices.Collect(r)...)
+					},
+				)
+				defer disconnect()
+				tx = db.OpenTx()
+				defer func() { Expect(tx.Close()).To(Succeed()) }()
+				Expect(otg.NewWriter(tx).ReplaceOutgoingRelationshipsOfType(
+					ctx, from, ontology.RelationshipTypeParentOf, kept, added,
+				)).To(Succeed())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				rel := func(to ontology.ID) string {
+					return ontology.Relationship{
+						From: from, Type: ontology.RelationshipTypeParentOf, To: to,
+					}.GorpKey()
+				}
+				type op struct {
+					variant change.Variant
+					key     string
+				}
+				Expect(lo.Map(
+					changes,
+					func(c change.Change[string, ontology.Relationship], _ int) op {
+						return op{variant: c.Variant, key: c.Key}
+					},
+				)).To(ConsistOf(
+					op{variant: change.VariantDelete, key: rel(removed)},
+					op{variant: change.VariantSet, key: rel(added)},
+				))
 			},
 		)
 	})

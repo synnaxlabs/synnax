@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { DataType } from "@synnaxlabs/x";
 
-import { Icon } from "@/icon";
 import { Telem } from "@/telem";
 
 export const resolveIcon = (ch?: channel.Payload): Icon.FC => {

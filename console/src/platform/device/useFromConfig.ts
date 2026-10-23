@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Device, type Flux, Form } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/lyra/form";
+import { type Device, type Flux } from "@synnaxlabs/pluto";
 import { primitive, type state } from "@synnaxlabs/x";
 
 /**

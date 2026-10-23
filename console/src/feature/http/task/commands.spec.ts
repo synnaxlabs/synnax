@@ -22,7 +22,6 @@ describe("HTTP.Task Commands", () => {
   it("should create a read draft and open its resource tab from the command", async () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: HTTP.Task.COMMANDS,
@@ -41,7 +40,6 @@ describe("HTTP.Task Commands", () => {
   it("should create a write draft and open its resource tab from the command", async () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: HTTP.Task.COMMANDS,

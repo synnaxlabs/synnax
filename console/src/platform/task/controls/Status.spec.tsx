@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Status } from "@/platform/task/controls/Status";
 import { createTaskStatus } from "@/platform/task/testutil";
-import { queryIcon, renderWithConsole, stubClipboardWriteText } from "@/testutil";
+import { queryIcon, renderWithConsole } from "@/testutil";
 
 describe("Controls.Status", () => {
   it("should invoke onToggle when clicked", async () => {

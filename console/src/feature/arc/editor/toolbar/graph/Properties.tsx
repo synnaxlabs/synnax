@@ -10,16 +10,13 @@
 import "@/feature/arc/editor/toolbar/graph/Properties.css";
 
 import { arc } from "@synnaxlabs/client";
-import {
-  Arc,
-  Button,
-  Diagram,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Status,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Arc, Diagram } from "@synnaxlabs/pluto";
 import { box, deep, type direction, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo } from "react";
 
@@ -64,7 +61,7 @@ const IndividualConfig = ({ nodeKey }: IndividualConfigProps): ReactElement | nu
   return (
     <Flex.Box className={CSS.BE("arc-properties", "individual")} y>
       <Form.Form<typeof Arc.Graph.Node.configZ> {...formMethods}>
-        <C.Form {...formMethods} key={nodeKey} />
+        <C.Form key={nodeKey} {...formMethods} />
       </Form.Form>
     </Flex.Box>
   );
@@ -77,6 +74,7 @@ interface MultiElementPropertiesProps {
 const MultiConfig = ({ nodes }: MultiElementPropertiesProps): ReactElement => {
   const dispatch = Arc.useSingleDispatch();
   const viewport = Session.Arc.useSelectViewport();
+  const handleError = Status.useErrorHandler();
 
   const getLayouts = () =>
     nodes
@@ -99,7 +97,7 @@ const MultiConfig = ({ nodes }: MultiElementPropertiesProps): ReactElement => {
           });
           return new Diagram.NodeLayout(node.key, nodeBox, handles);
         } catch (e) {
-          console.error(e);
+          handleError(e, "failed to calculate Arc node layout");
         }
         return null;
       })

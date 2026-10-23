@@ -1,0 +1,128 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Search as S } from "@/components/search/Search";
+---
+
+<div data-island="search">
+    <S />
+</div>
+
+<style is:global>
+    .search-box {
+        position: relative;
+        max-width: 280px !important;
+        width: 280px !important;
+
+        & button {
+            color: var(--pluto-gray-l8);
+            font-size: var(--pluto-small-size) !important;
+            font-weight: 400;
+
+            & * {
+                color: var(--pluto-gray-l8);
+                font-size: var(--pluto-small-size) !important;
+                font-weight: 400;
+            }
+
+            & .pluto-text--keyboard {
+                width: 3.5rem !important;
+                height: 3.5rem !important;
+                background: var(--pluto-gray-l0) !important;
+                border-color: var(--pluto-gray-l5) !important;
+            }
+        }
+    }
+
+    @media (max-width: 1100px) {
+        .search-box {
+            width: auto !important;
+            max-width: none !important;
+            & button {
+                width: auto !important;
+                min-width: unset !important;
+                justify-content: center !important;
+                font-size: 0 !important;
+                gap: 0 !important;
+                aspect-ratio: 1;
+                padding: 0 !important;
+            }
+            & button > .pluto-icon {
+                font-size: var(--pluto-small-size) !important;
+            }
+            .pluto-trigger-indicator {
+                display: none !important;
+            }
+        }
+    }
+
+    .search-results__content {
+        & .search-results__input {
+            --pluto-h2-size: 3.5rem;
+            --pluto-h2-line-height: 4.5rem;
+            flex-shrink: 0;
+            flex-grow: 0;
+        }
+        width: 800px;
+        max-width: 100%;
+        height: 400px;
+        min-width: 200px;
+
+        & a:hover {
+            text-decoration: none !important;
+        }
+
+        & .pluto-list__scroll {
+            flex: 1;
+        }
+    }
+
+    .search-results__content .pluto-list__item {
+        padding: 2rem;
+
+        &:hover {
+            background: var(--pluto-gray-l3);
+        }
+
+        b {
+            background: var(--pluto-primary-z-40);
+            color: var(--pluto-gray-l11);
+            font-weight: inherit;
+            border-radius: 0.25rem;
+        }
+
+        .pluto-text--h5 {
+            color: var(--pluto-gray-l10) !important;
+            display: block !important;
+        }
+
+        .pluto-breadcrumb {
+            gap: 0.25rem !important;
+            margin-left: 0.25rem;
+
+            * {
+                font-size: 2.3rem;
+                line-height: 150%;
+                color: var(--pluto-gray-l8) !important;
+            }
+
+            .pluto-icon {
+                transform: scale(0.8) translateY(0px) !important;
+            }
+        }
+
+        .pluto-text--small:not(.pluto-breadcrumb) {
+            color: var(--pluto-gray-l7) !important;
+            display: block !important;
+            white-space: normal !important;
+            word-wrap: break-word;
+        }
+    }
+</style>

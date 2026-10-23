@@ -17,19 +17,16 @@ import {
   type Synnax,
   task,
 } from "@synnaxlabs/client";
-import {
-  Access,
-  Flex,
-  Form as PForm,
-  Input,
-  Status,
-  Synnax as PSynnax,
-  Task as PTask,
-} from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
 import { primitive, TimeSpan } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { type z } from "zod";
 
+import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
 import { Controls } from "@/platform/task/controls";
@@ -101,8 +98,16 @@ interface HeaderProps {
 const Header = ({ isSnapshot }: HeaderProps) => (
   <>
     <Flex.Box x justify="between">
-      <PForm.Field<string> path="name">
-        {(p) => <Input.Text variant="text" level="h2" onlyChangeOnBlur {...p} />}
+      <PForm.Field<string> path="name" showLabel={false}>
+        {(p) => (
+          <Input.Text
+            variant="text"
+            level="h2"
+            onlyChangeOnBlur
+            aria-label="Name"
+            {...p}
+          />
+        )}
       </PForm.Field>
       <Flex.Box align="end" gap="small">
         <UtilityButtons />
@@ -139,6 +144,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   const Wrapped: FC<FormTabProps> = ({ taskKey }) => {
     const client = PSynnax.use();
     const handleError = Status.useErrorHandler();
+    const { capture } = Analytics.use();
     const { form, saveAsync } = useForm({
       query: { key: taskKey },
       autoSave: true,
@@ -171,8 +177,9 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
           if (!(await saveAsync())) return;
         }
         await client.tasks.executeCommand({ task: taskKey, type: "start" });
+        capture("task_started", { type });
       }, "Failed to start task");
-    }, [client, form, saveAsync, taskKey, handleError, canEdit]);
+    }, [client, form, saveAsync, taskKey, handleError, canEdit, capture]);
 
     const handleStop = useCallback(() => {
       handleError(async () => {

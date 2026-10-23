@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/listener"
-	"github.com/synnaxlabs/x/encoding/base64"
 )
 
 // Flag names used for starting a Synnax Core.
@@ -24,6 +23,7 @@ const (
 	FlagData                         = "data"
 	FlagMem                          = "mem"
 	FlagInsecure                     = "insecure"
+	FlagFIPS                         = "fips"
 	FlagUsername                     = "username"
 	FlagPassword                     = "password"
 	FlagNoDriver                     = "no-driver"
@@ -35,6 +35,7 @@ const (
 	FlagTaskShutdownTimeout          = "task-shutdown-timeout"
 	FlagTaskWorkerCount              = "task-worker-count"
 	FlagDisableChannelNameValidation = "disable-channel-name-validation"
+	FlagStopOnStdinClose             = "stop-on-stdin-close"
 )
 
 // AddFlags adds the start flags to the given command.
@@ -70,6 +71,11 @@ func AddFlags(cmd *cobra.Command) {
 		false,
 		"Disable encryption, authentication, and authorization",
 	)
+	cmd.Flags().Bool(
+		FlagFIPS,
+		false,
+		"Restrict password hashing to PBKDF2, the one password hash NIST approves",
+	)
 	cmd.Flags().String(FlagUsername, "synnax", "Username for the admin user")
 	cmd.Flags().String(FlagPassword, "seldon", "Password for the admin user")
 	cmd.Flags().Bool(
@@ -78,6 +84,11 @@ func AddFlags(cmd *cobra.Command) {
 		"Automatically generate self-signed certificates",
 	)
 	cmd.Flags().Bool(FlagNoDriver, false, "Disable the embedded Driver")
+	cmd.Flags().Bool(
+		FlagStopOnStdinClose,
+		false,
+		"Stop the Core when its standard input closes. For a parent process that manages the Core through a pipe",
+	)
 	cmd.Flags().Duration(
 		FlagSlowConsumerTimeout,
 		2500*time.Millisecond,
@@ -108,12 +119,15 @@ func AddFlags(cmd *cobra.Command) {
 		false,
 		"Disable channel name validation (allows special characters, spaces, etc.)",
 	)
-	cmd.Flags().String(FlagDecoded, "", usage)
+	cmd.Flags().String(FlagLicenseKey, "", "License key")
+	cmd.Flags().String(
+		FlagLicenseFile,
+		"",
+		"Path to a file containing the license key",
+	)
 }
 
-var (
-	FlagDecoded = base64.MustDecode("bGljZW5zZS1rZXk=")
-	usage       = base64.MustDecode(
-		"TGljZW5zZSBrZXkgaW4gZm9ybSAiIyMjIyMjLSMjIyMjIyMjLSMjIyMjIyMjIyMi",
-	)
+const (
+	FlagLicenseKey  = "license-key"
+	FlagLicenseFile = "license-file"
 )

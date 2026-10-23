@@ -9,12 +9,13 @@
 
 import "@/feature/shell/Shell.css";
 
-import { Flex } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Nebula } from "@synnaxlabs/lyra/nebula";
 import { type ReactElement, type ReactNode } from "react";
 
 import { Nav } from "@/feature/shell/Nav";
 import { CSS } from "@/platform/css";
-import { Shell } from "@/platform/shell";
+import { type Shell } from "@/platform/shell";
 
 export interface FrameProps {
   className?: string;
@@ -44,7 +45,7 @@ export const Frame = ({
       data-tauri-drag-region
       className={CSS.BE("shell", "content")}
     >
-      <Shell.Nebula />
+      <Nebula.Nebula />
       <Flex.Box className={CSS.BE("shell", "stage")} grow={false}>
         <Flex.Box
           y

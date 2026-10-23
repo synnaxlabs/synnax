@@ -8,15 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import {
-  Access,
-  Flex,
-  Input,
-  List,
-  Select,
-  stopPropagation,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
+import { Access } from "@synnaxlabs/pluto";
 
 export interface ItemProps extends List.ItemProps<arc.Key> {
   onRename?: (name: string) => void;

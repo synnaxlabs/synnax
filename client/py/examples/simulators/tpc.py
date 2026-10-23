@@ -46,6 +46,7 @@ from examples.control.tpc.common import (
     VALVES,
 )
 from examples.simulators.simdaq import SimDAQ
+from x.telem import CrudeSeries
 
 INITIAL_DAQ_STATE: dict[str, float] = {
     OX_VENT_CMD: 0,
@@ -118,7 +119,7 @@ class TPCSimDAQ(SimDAQ):
         now = sy.TimeStamp.now()
         # Sensors start at the simulation's real initial values: a 0.0 seed would
         # write a spurious spike that pollutes plot auto-bounds.
-        initial_state: dict[str, list] = {DAQ_TIME: [now]}
+        initial_state: dict[str, CrudeSeries] = {DAQ_TIME: [now]}
         for state_ch in VALVES.values():
             initial_state[state_ch] = [0]
         for sensor in SENSORS:
@@ -145,8 +146,10 @@ class TPCSimDAQ(SimDAQ):
                 )
             return state
 
-        def translate_valves(prev_state: dict[str, float]) -> dict[str, float]:
-            next_state = dict()
+        def translate_valves(
+            prev_state: dict[str, float],
+        ) -> dict[str, CrudeSeries]:
+            next_state: dict[str, CrudeSeries] = {}
             for sensor in SENSORS:
                 next_state[sensor] = prev_state[sensor]
             for cmd, state in VALVES.items():
@@ -158,10 +161,10 @@ class TPCSimDAQ(SimDAQ):
                 state[pt] = max(0, state[pt])
             return state
 
-        with self.client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
+        with self.client.open_streamer(list(VALVES.keys())) as streamer:
             with self.client.open_writer(
                 sy.TimeStamp.now(),
-                channels=[*SENSORS, *[state for state in VALVES.values()], DAQ_TIME],
+                channels=[*SENSORS, *list(VALVES.values()), DAQ_TIME],
                 name="TPC Sim DAQ",
             ) as writer:
                 while self._running and loop.wait():
@@ -170,8 +173,9 @@ class TPCSimDAQ(SimDAQ):
                         frame = streamer.read(0)
                         if frame is None:
                             break
-                        for ch in frame.channels:
-                            val = frame[ch][0]
+                        for ch, series in frame.items():
+                            assert isinstance(ch, str)
+                            val = float(series.to_numpy()[0])
                             daq_state[ch] = val
                             self.log(f"Received command: {ch}={val}")
 

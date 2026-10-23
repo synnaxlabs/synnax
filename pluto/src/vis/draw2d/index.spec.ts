@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color, scale, xy } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { text } from "@/text/aether";
-import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
 
-const THEME = theming.themeZ.parse(theming.SYNNAX_LIGHT);
+const THEME = theme.themeZ.parse(theme.SYNNAX_LIGHT);
 
 const METRICS: TextMetrics = {
   width: 24,

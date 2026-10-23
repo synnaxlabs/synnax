@@ -1,0 +1,67 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Publish updater manifest
+description:
+  Uploads the Tauri updater manifest (latest.json) for an app whose signed bundles are
+  already on the release
+
+inputs:
+  tag:
+    description: The release tag, such as console/v0.59.0
+    required: true
+  version:
+    description: The resolved version, such as 0.59.0 or 0.59.0-rc.2
+    required: true
+  app:
+    description: The app product name, such as Synnax or Synnax Desktop
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # The manifest carries the app version the build stamped (X.Y.Z-N for a candidate),
+    # so the updater compares like with like. Asset names replace the spaces in the app
+    # name with dashes.
+    - name: Write updater manifest
+      shell: bash
+      working-directory: ${{ runner.temp }}
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+        TAG: ${{ inputs.tag }}
+        VERSION: ${{ inputs.version }}
+        APP: ${{ inputs.app }}
+      run: |
+        APP_VERSION="${VERSION/-rc./-}"
+        NAME="${APP// /-}"
+        BASE="https://github.com/${GH_REPO}/releases/download/${TAG}"
+        MAC="${NAME}.app.tar.gz"
+        MSI="${NAME}_${APP_VERSION}_x64_en-US.msi"
+        gh release download "$TAG" --pattern "$MAC.sig" --pattern "$MSI.sig"
+        jq -n --arg version "v${APP_VERSION}" --arg notes "${APP} Update" \
+          --arg mac "$BASE/$MAC" --arg msi "$BASE/$MSI" \
+          --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          --rawfile darwin "$MAC.sig" \
+          --rawfile windows "$MSI.sig" \
+          '{
+            version: $version,
+            notes: $notes,
+            pub_date: $date,
+            platforms: {
+              "darwin-x86_64": {signature: $darwin, url: $mac},
+              "darwin-aarch64": {signature: $darwin, url: $mac},
+              "linux-x86_64": {
+                signature: "not_supported_and_tauri_requires_an_entry",
+                url: $mac
+              },
+              "windows-x86_64": {signature: $windows, url: $msi}
+            }
+          }' > latest.json
+        gh release upload --clobber "$TAG" latest.json

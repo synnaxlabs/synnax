@@ -10,7 +10,12 @@
 import "@/feature/schematic/symbol/edit/Edit.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { Button, Component, Form, type Input, List, Select } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Form } from "@synnaxlabs/lyra/form";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
 
 import { CSS } from "@/platform/css";
 
@@ -46,9 +51,9 @@ export const StateList = ({ value, onChange }: StateListProps) => {
       data={data}
       closeDialogOnSelect={false}
     >
-      <List.Items x gap={1}>
-        {stateListItem}
-      </List.Items>
+      <List.Scroll x gap={1}>
+        <List.Items>{stateListItem}</List.Items>
+      </List.Scroll>
     </Select.Frame>
   );
 };

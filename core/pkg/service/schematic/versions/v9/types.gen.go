@@ -20,7 +20,7 @@ import (
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	border "github.com/synnaxlabs/x/border/versions/v0"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -59,8 +59,8 @@ func (s Segment) Validate() error {
 
 // SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
 type SegmentedEdgeConfig struct {
-	// Color is the stroke color of the edge.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// StrokeColor is the stroke color of the edge.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Segments is the ordered list of orthogonal runs that trace the connector path
 	// from the source handle to the target handle.
 	Segments []Segment `json:"segments" msgpack:"segments"`
@@ -445,17 +445,12 @@ type LabeledConfig struct {
 	Label LabelConfig `json:"label" msgpack:"label"`
 	// Orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale float64 `json:"scale" msgpack:"scale"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LabeledConfig) ApplyDefaults() {
 	if l.Orientation == "" {
 		l.Orientation = spatial.OuterLocationLeft
-	}
-	if l.Scale == 0 {
-		l.Scale = 1
 	}
 	l.Label.ApplyDefaults()
 }
@@ -504,6 +499,7 @@ func (c ControlStateConfig) Validate() error {
 // telemetry pair.
 type ToggleConfig struct {
 	LabeledConfig
+	ScaledConfig
 	StalenessConfig
 	// StateChannel is the channel whose value drives the symbol's active state.
 	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
@@ -518,6 +514,7 @@ type ToggleConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *ToggleConfig) ApplyDefaults() {
 	t.LabeledConfig.ApplyDefaults()
+	t.ScaledConfig.ApplyDefaults()
 	t.StalenessConfig.ApplyDefaults()
 	if t.Control != nil {
 		t.Control.ApplyDefaults()
@@ -538,13 +535,15 @@ func (t ToggleConfig) Validate() error {
 // StaticSymbolConfig is the configuration for non-interactive labeled symbols.
 type StaticSymbolConfig struct {
 	LabeledConfig
-	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	ScaledConfig
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StaticSymbolConfig) ApplyDefaults() {
 	s.LabeledConfig.ApplyDefaults()
+	s.ScaledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -558,8 +557,9 @@ func (s StaticSymbolConfig) Validate() error {
 // ToggleSymbolConfig is the configuration for telemetry-actuated toggle symbols.
 type ToggleSymbolConfig struct {
 	ToggleConfig
-	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -579,17 +579,20 @@ func (t ToggleSymbolConfig) Validate() error {
 // from local state without binding to telemetry.
 type DummyToggleSymbolConfig struct {
 	LabeledConfig
+	ScaledConfig
 	// Enabled indicates whether the symbol renders in its active state.
 	Enabled bool `json:"enabled" msgpack:"enabled"`
 	// Clickable indicates whether clicking the symbol toggles its state.
 	Clickable bool `json:"clickable" msgpack:"clickable"`
-	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (d *DummyToggleSymbolConfig) ApplyDefaults() {
 	d.LabeledConfig.ApplyDefaults()
+	d.ScaledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -610,14 +613,6 @@ type StateMapping struct {
 	Value float64 `json:"value" msgpack:"value"`
 	// Color is the display color associated with this state.
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-}
-
-// Redline maps a numeric range to a color gradient for limit visualization.
-type Redline struct {
-	// Bounds is the numeric range mapped onto the gradient.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
-	// Gradient is the color gradient applied across the bounds.
-	Gradient []color.Stop `json:"gradient" msgpack:"gradient"`
 }
 
 type NodeConfigType string
@@ -1211,10 +1206,10 @@ func (f FlowmeterOrificeNodeConfig) Validate() error {
 // BoxNodeConfig is the configuration for box annotation symbols.
 type BoxNodeConfig struct {
 	LabeledConfig
-	// Color is the border color of the box.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the box.
-	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
+	// StrokeColor is the border color of the box.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the box.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Dimensions is the rendered size of the box in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the uniform corner radius of the box in pixels.
@@ -1263,8 +1258,8 @@ type ButtonNodeConfig struct {
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Mode is the actuation behavior of the button.
 	Mode ButtonMode `json:"mode" msgpack:"mode"`
-	// Color is the background color of the button.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// FillColor is the fill color of the button, which its border follows.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
 }
@@ -1303,10 +1298,10 @@ type CircleNodeConfig struct {
 	LabeledConfig
 	// Radius is the radius of the circle in pixels.
 	Radius float64 `json:"radius" msgpack:"radius"`
-	// Color is the border color of the circle.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the circle.
-	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
+	// StrokeColor is the border color of the circle.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the circle.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// StrokeWidth is the border stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 }
@@ -1339,8 +1334,8 @@ type GaugeNodeConfig struct {
 	StalenessConfig
 	// Position is the offset of the gauge contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
-	// Color is the accent color of the gauge arc.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// StrokeColor is the color of the gauge arc.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Bounds is the numeric range displayed by the gauge.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// BarWidth is the thickness of the gauge arc in pixels.
@@ -1400,8 +1395,8 @@ type InputNodeConfig struct {
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Dimensions is the rendered size of the input in pixels.
 	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
-	// Color is the accent color of the input.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// FillColor is the fill color of the send button, which the input border follows.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Disabled indicates whether the input rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
@@ -1438,13 +1433,16 @@ func (i InputNodeConfig) Validate() error {
 // LightNodeConfig is the configuration for indicator light symbols.
 type LightNodeConfig struct {
 	LabeledConfig
+	ScaledConfig
 	StalenessConfig
 	// Channel is the channel whose value drives the light's on state.
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// Threshold is the value range within which the light is considered on.
 	Threshold *spatial.Bounds `json:"threshold,omitzero" msgpack:"threshold,omitempty"`
-	// Color is the illuminated color of the light.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// StrokeColor is the outline color of the light.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// OnColor is the fill color of the light while it is on.
+	OnColor *color.Color `json:"on_color,omitzero" msgpack:"on_color,omitempty"`
 }
 
 func (LightNodeConfig) isNodeConfigVariant() {}
@@ -1452,6 +1450,7 @@ func (LightNodeConfig) isNodeConfigVariant() {}
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LightNodeConfig) ApplyDefaults() {
 	l.LabeledConfig.ApplyDefaults()
+	l.ScaledConfig.ApplyDefaults()
 	l.StalenessConfig.ApplyDefaults()
 }
 
@@ -1465,8 +1464,8 @@ func (l LightNodeConfig) Validate() error {
 
 // LineNodeConfig is the configuration for straight line symbols.
 type LineNodeConfig struct {
-	// Color is the stroke color of the line.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// StrokeColor is the stroke color of the line.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Start is the first endpoint, offset from the node position.
 	Start spatial.XY `json:"start" msgpack:"start"`
 	// End is the second endpoint, offset from the node position.
@@ -1489,12 +1488,10 @@ func (l *LineNodeConfig) ApplyDefaults() {
 
 // OffPageReferenceNodeConfig is the configuration for off-page reference symbols.
 type OffPageReferenceNodeConfig struct {
-	// Label is the symbol's label configuration.
-	Label LabelConfig `json:"label" msgpack:"label"`
-	// Orientation is the direction the reference arrow points.
-	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
-	// Color is the fill color of the reference.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	LabeledConfig
+	// FillColor is the fill color of a linked reference. An unlinked reference draws
+	// its outline in this color.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Page is the page this reference links to.
 	Page *Page `json:"page,omitzero" msgpack:"page,omitempty"`
 	// DblClickNavDisabled stops double-clicking from navigating to the linked page.
@@ -1508,7 +1505,7 @@ func (o *OffPageReferenceNodeConfig) ApplyDefaults() {
 	if o.Orientation == "" {
 		o.Orientation = spatial.OuterLocationRight
 	}
-	o.Label.ApplyDefaults()
+	o.LabeledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1516,7 +1513,7 @@ func (o *OffPageReferenceNodeConfig) ApplyDefaults() {
 func (o OffPageReferenceNodeConfig) Validate() error {
 	v := validate.New("OffPageReferenceNodeConfig")
 	v.Ternaryf("orientation", !o.Orientation.IsValid(), "invalid orientation: %v", o.Orientation)
-	v.Exec(func() error { return validate.PathedError(o.Label.Validate(), "label") })
+	v.Exec(o.LabeledConfig.Validate)
 	if o.Page != nil {
 		v.Exec(func() error { return validate.PathedError(o.Page.Validate(), "page") })
 	}
@@ -1534,10 +1531,10 @@ type PolygonNodeConfig struct {
 	Rotation float64 `json:"rotation" msgpack:"rotation"`
 	// CornerRounding is the corner rounding radius in pixels.
 	CornerRounding float64 `json:"corner_rounding" msgpack:"corner_rounding"`
-	// Color is the border color of the polygon.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the polygon.
-	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
+	// StrokeColor is the border color of the polygon.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the polygon.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// StrokeWidth is the border stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 }
@@ -1573,8 +1570,8 @@ type SelectNodeConfig struct {
 	Size ComponentSize `json:"size" msgpack:"size"`
 	// CommandChannel is the channel the selected value is written to.
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
-	// Color is the accent color of the select.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// FillColor is the fill color of the send button, which the select border follows.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// InlineSize is the inline size of the select in pixels.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of selectable states.
@@ -1618,16 +1615,12 @@ func (s SelectNodeConfig) Validate() error {
 // ScaleNodeConfig is the configuration for standalone scale symbols.
 type ScaleNodeConfig struct {
 	LabeledConfig
+	ScaleIndicatorConfig
 	// Position is the offset of the scale contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// Dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
 	// to the rendered size.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
-	// Color is the color of the fill, which is what the symbol reads as. The toolbar
-	// recolors a selection through this field.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// Indicator is the live indicator the scale renders.
-	Indicator ScaleIndicatorConfig `json:"indicator" msgpack:"indicator"`
 }
 
 func (ScaleNodeConfig) isNodeConfigVariant() {}
@@ -1644,7 +1637,7 @@ func (s *ScaleNodeConfig) ApplyDefaults() {
 		s.Dimensions.Height = 160
 	}
 	s.LabeledConfig.ApplyDefaults()
-	s.Indicator.ApplyDefaults()
+	s.ScaleIndicatorConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1653,7 +1646,7 @@ func (s ScaleNodeConfig) Validate() error {
 	v := validate.New("ScaleNodeConfig")
 	v.Ternaryf("orientation", !s.Orientation.IsValid(), "invalid orientation: %v", s.Orientation)
 	v.Exec(s.LabeledConfig.Validate)
-	v.Exec(func() error { return validate.PathedError(s.Indicator.Validate(), "indicator") })
+	v.Exec(s.ScaleIndicatorConfig.Validate)
 	return v.Error()
 }
 
@@ -1666,8 +1659,8 @@ type SetpointNodeConfig struct {
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Dimensions is the rendered size of the setpoint in pixels.
 	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
-	// Color is the accent color of the setpoint.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// FillColor is the fill color of the set button, which the setpoint border follows.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// Disabled indicates whether the setpoint rejects interaction.
@@ -1712,8 +1705,8 @@ type StateIndicatorNodeConfig struct {
 	StalenessConfig
 	// Channel is the channel whose value selects the displayed state.
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
-	// Color is the fallback color when no state matches.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// StrokeColor is the border color of the indicator.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// InlineSize is the inline size of the indicator in pixels.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
@@ -1749,8 +1742,8 @@ func (s StateIndicatorNodeConfig) Validate() error {
 type StringDisplayNodeConfig struct {
 	LabeledConfig
 	StalenessConfig
-	// Color is the background color of the display.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// StrokeColor is the border color of the display.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// TextColor is the color of the displayed text.
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
@@ -1808,8 +1801,8 @@ func (s SwitchNodeConfig) Validate() error {
 // TextBoxNodeConfig is the configuration for text box annotation symbols.
 type TextBoxNodeConfig struct {
 	LabeledConfig
-	// Color is the text color.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// TextColor is the text color.
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Width is the rendered width of the text box in pixels.
 	Width float64 `json:"width" msgpack:"width"`
 	// Align is the alignment of the text within the box.
@@ -1858,14 +1851,17 @@ type ValueNodeConfig struct {
 	StalenessConfig
 	// Position is the offset of the value contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
-	// Color is the background color of the value.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// TextColor is the color of the displayed text.
+	// StrokeColor is the color of the value's border and units divider.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// TextColor is the color of the displayed value and its units.
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// FillColor is the fill behind the value where no redline band paints. When absent
+	// the value paints no fill.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
-	// Redline is the bounds-to-gradient mapping applied to the background.
-	Redline Redline `json:"redline" msgpack:"redline"`
+	// Redline is the threshold band mapping applied to the background.
+	Redline color.Scale `json:"redline" msgpack:"redline"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// InlineSize is the inline size of the value in pixels.
@@ -1880,9 +1876,6 @@ func (ValueNodeConfig) isNodeConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (va *ValueNodeConfig) ApplyDefaults() {
-	if va.Redline.Bounds.Upper == 0 {
-		va.Redline.Bounds.Upper = 1
-	}
 	if va.Units == "" {
 		va.Units = "psi"
 	}
@@ -2984,14 +2977,15 @@ func (c CrossJunctionNodeConfig) Validate() error {
 // CylinderNodeConfig is the configuration for cylinder vessel symbols.
 type CylinderNodeConfig struct {
 	LabeledConfig
+	ScaledConfig
 	// Dimensions is the rendered size of the cylinder in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the corner radius of the cylinder.
 	BorderRadius *border.Radius `json:"border_radius,omitzero" msgpack:"border_radius,omitempty"`
-	// Color is the border color of the cylinder.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the cylinder.
-	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
+	// StrokeColor is the border color of the cylinder.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the cylinder.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 }
 
 func (CylinderNodeConfig) isNodeConfigVariant() {}
@@ -3005,6 +2999,7 @@ func (c *CylinderNodeConfig) ApplyDefaults() {
 		c.Dimensions.Height = 181
 	}
 	c.LabeledConfig.ApplyDefaults()
+	c.ScaledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3018,25 +3013,76 @@ func (c CylinderNodeConfig) Validate() error {
 // TankNodeConfig is the configuration for tank vessel symbols.
 type TankNodeConfig struct {
 	LabeledConfig
+	// Channel is the channel whose value the symbol displays.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// RollingAverage is the sample window for rolling-average smoothing.
+	RollingAverage *int32 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
+	// Precision is the number of decimal places shown.
+	Precision float64 `json:"precision" msgpack:"precision"`
+	// Notation is the numeric notation used to format the value.
+	Notation notation.Notation `json:"notation" msgpack:"notation"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// Bounds is the numeric range the indicator maps onto its extent.
+	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	// LevelColor is the color of the filled portion, the caret, and the value readout
+	// border.
+	LevelColor *color.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
+	// AxisColor is the color of the axis and its ticks.
+	AxisColor *color.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
+	// TextColor is the color of the tick labels.
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// Units is the unit suffix displayed after each tick label.
+	Units string `json:"units" msgpack:"units"`
+	// LevelHidden hides the filled portion.
+	LevelHidden bool `json:"level_hidden" msgpack:"level_hidden"`
+	// CaretSide is the edge the value readout sits on.
+	CaretSide spatial.OuterLocation `json:"caret_side" msgpack:"caret_side"`
+	// Level is the typography level of the tick labels.
+	Level text.Level `json:"level" msgpack:"level"`
 	// Position is the offset of the tank contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
-	// Color is the border color of the tank.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the tank.
-	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
+	// StrokeColor is the color of the tank's wall.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the tank body.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Dimensions is the rendered size of the tank in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the corner radius of the tank.
 	BorderRadius border.Radius `json:"border_radius" msgpack:"border_radius"`
-	// Fill is the live fill level drawn inside the tank. A tank without one renders its
-	// wall alone.
-	Fill ScaleIndicatorConfig `json:"fill" msgpack:"fill"`
+	// CaretVisible shows the caret marking the current level.
+	CaretVisible bool `json:"caret_visible" msgpack:"caret_visible"`
+	// ScaleVisible shows the axis and its tick labels.
+	ScaleVisible bool `json:"scale_visible" msgpack:"scale_visible"`
+	// Side is the edge the axis is drawn along.
+	Side spatial.OuterLocation `json:"side" msgpack:"side"`
 }
 
 func (TankNodeConfig) isNodeConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TankNodeConfig) ApplyDefaults() {
+	if t.Precision == 0 {
+		t.Precision = 2
+	}
+	if t.Notation == "" {
+		t.Notation = "standard"
+	}
+	if t.StalenessTimeout == 0 {
+		t.StalenessTimeout = 5
+	}
+	if t.Bounds.Upper == 0 {
+		t.Bounds.Upper = 100
+	}
+	if t.CaretSide == "" {
+		t.CaretSide = spatial.OuterLocationRight
+	}
+	if t.Level == "" {
+		t.Level = text.LevelSmall
+	}
 	if t.Dimensions.Width == 0 {
 		t.Dimensions.Width = 125
 	}
@@ -3067,19 +3113,21 @@ func (t *TankNodeConfig) ApplyDefaults() {
 	if t.BorderRadius.BottomRight.Y == 0 {
 		t.BorderRadius.BottomRight.Y = 10
 	}
-	if t.Fill.Side == "" {
-		t.Fill.Side = spatial.OuterLocationLeft
+	if t.Side == "" {
+		t.Side = spatial.OuterLocationLeft
 	}
 	t.LabeledConfig.ApplyDefaults()
-	t.Fill.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (t TankNodeConfig) Validate() error {
 	v := validate.New("TankNodeConfig")
+	v.Ternaryf("notation", !t.Notation.IsValid(), "invalid notation: %v", t.Notation)
+	v.Ternaryf("caret_side", !t.CaretSide.IsValid(), "invalid caret_side: %v", t.CaretSide)
+	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
+	v.Ternaryf("side", !t.Side.IsValid(), "invalid side: %v", t.Side)
 	v.Exec(t.LabeledConfig.Validate)
-	v.Exec(func() error { return validate.PathedError(t.Fill.Validate(), "fill") })
 	return v.Error()
 }
 
@@ -3107,8 +3155,6 @@ type CustomActuatorNodeConfig struct {
 	ToggleConfig
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
-	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// StateOverrides contains per-instance overrides of the spec's visual states,
 	// matched to the spec's states by key.
 	StateOverrides []symbol.State `json:"state_overrides" msgpack:"state_overrides"`
@@ -3132,10 +3178,9 @@ func (c CustomActuatorNodeConfig) Validate() error {
 // CustomStaticNodeConfig is the configuration for user-defined static symbols.
 type CustomStaticNodeConfig struct {
 	LabeledConfig
+	ScaledConfig
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
-	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// StateOverrides contains per-instance overrides of the spec's visual states,
 	// matched to the spec's states by key.
 	StateOverrides []symbol.State `json:"state_overrides" msgpack:"state_overrides"`
@@ -3146,6 +3191,7 @@ func (CustomStaticNodeConfig) isNodeConfigVariant() {}
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CustomStaticNodeConfig) ApplyDefaults() {
 	c.LabeledConfig.ApplyDefaults()
+	c.ScaledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5477,10 +5523,10 @@ func (f FlowmeterOrificeElementConfig) Validate() error {
 // BoxElementConfig is the configuration for box annotation symbols.
 type BoxElementConfig struct {
 	LabeledConfig
-	// Color is the border color of the box.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the box.
-	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
+	// StrokeColor is the border color of the box.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the box.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Dimensions is the rendered size of the box in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the uniform corner radius of the box in pixels.
@@ -5529,8 +5575,8 @@ type ButtonElementConfig struct {
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Mode is the actuation behavior of the button.
 	Mode ButtonMode `json:"mode" msgpack:"mode"`
-	// Color is the background color of the button.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// FillColor is the fill color of the button, which its border follows.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
 }
@@ -5569,10 +5615,10 @@ type CircleElementConfig struct {
 	LabeledConfig
 	// Radius is the radius of the circle in pixels.
 	Radius float64 `json:"radius" msgpack:"radius"`
-	// Color is the border color of the circle.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the circle.
-	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
+	// StrokeColor is the border color of the circle.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the circle.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// StrokeWidth is the border stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 }
@@ -5605,8 +5651,8 @@ type GaugeElementConfig struct {
 	StalenessConfig
 	// Position is the offset of the gauge contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
-	// Color is the accent color of the gauge arc.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// StrokeColor is the color of the gauge arc.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Bounds is the numeric range displayed by the gauge.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// BarWidth is the thickness of the gauge arc in pixels.
@@ -5666,8 +5712,8 @@ type InputElementConfig struct {
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Dimensions is the rendered size of the input in pixels.
 	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
-	// Color is the accent color of the input.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// FillColor is the fill color of the send button, which the input border follows.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Disabled indicates whether the input rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
@@ -5704,13 +5750,16 @@ func (i InputElementConfig) Validate() error {
 // LightElementConfig is the configuration for indicator light symbols.
 type LightElementConfig struct {
 	LabeledConfig
+	ScaledConfig
 	StalenessConfig
 	// Channel is the channel whose value drives the light's on state.
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// Threshold is the value range within which the light is considered on.
 	Threshold *spatial.Bounds `json:"threshold,omitzero" msgpack:"threshold,omitempty"`
-	// Color is the illuminated color of the light.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// StrokeColor is the outline color of the light.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// OnColor is the fill color of the light while it is on.
+	OnColor *color.Color `json:"on_color,omitzero" msgpack:"on_color,omitempty"`
 }
 
 func (LightElementConfig) isElementConfigVariant() {}
@@ -5718,6 +5767,7 @@ func (LightElementConfig) isElementConfigVariant() {}
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LightElementConfig) ApplyDefaults() {
 	l.LabeledConfig.ApplyDefaults()
+	l.ScaledConfig.ApplyDefaults()
 	l.StalenessConfig.ApplyDefaults()
 }
 
@@ -5731,8 +5781,8 @@ func (l LightElementConfig) Validate() error {
 
 // LineElementConfig is the configuration for straight line symbols.
 type LineElementConfig struct {
-	// Color is the stroke color of the line.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// StrokeColor is the stroke color of the line.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Start is the first endpoint, offset from the node position.
 	Start spatial.XY `json:"start" msgpack:"start"`
 	// End is the second endpoint, offset from the node position.
@@ -5755,12 +5805,10 @@ func (l *LineElementConfig) ApplyDefaults() {
 
 // OffPageReferenceElementConfig is the configuration for off-page reference symbols.
 type OffPageReferenceElementConfig struct {
-	// Label is the symbol's label configuration.
-	Label LabelConfig `json:"label" msgpack:"label"`
-	// Orientation is the direction the reference arrow points.
-	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
-	// Color is the fill color of the reference.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	LabeledConfig
+	// FillColor is the fill color of a linked reference. An unlinked reference draws
+	// its outline in this color.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Page is the page this reference links to.
 	Page *Page `json:"page,omitzero" msgpack:"page,omitempty"`
 	// DblClickNavDisabled stops double-clicking from navigating to the linked page.
@@ -5774,7 +5822,7 @@ func (o *OffPageReferenceElementConfig) ApplyDefaults() {
 	if o.Orientation == "" {
 		o.Orientation = spatial.OuterLocationRight
 	}
-	o.Label.ApplyDefaults()
+	o.LabeledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5782,7 +5830,7 @@ func (o *OffPageReferenceElementConfig) ApplyDefaults() {
 func (o OffPageReferenceElementConfig) Validate() error {
 	v := validate.New("OffPageReferenceElementConfig")
 	v.Ternaryf("orientation", !o.Orientation.IsValid(), "invalid orientation: %v", o.Orientation)
-	v.Exec(func() error { return validate.PathedError(o.Label.Validate(), "label") })
+	v.Exec(o.LabeledConfig.Validate)
 	if o.Page != nil {
 		v.Exec(func() error { return validate.PathedError(o.Page.Validate(), "page") })
 	}
@@ -5800,10 +5848,10 @@ type PolygonElementConfig struct {
 	Rotation float64 `json:"rotation" msgpack:"rotation"`
 	// CornerRounding is the corner rounding radius in pixels.
 	CornerRounding float64 `json:"corner_rounding" msgpack:"corner_rounding"`
-	// Color is the border color of the polygon.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the polygon.
-	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
+	// StrokeColor is the border color of the polygon.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the polygon.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// StrokeWidth is the border stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 }
@@ -5839,8 +5887,8 @@ type SelectElementConfig struct {
 	Size ComponentSize `json:"size" msgpack:"size"`
 	// CommandChannel is the channel the selected value is written to.
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
-	// Color is the accent color of the select.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// FillColor is the fill color of the send button, which the select border follows.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// InlineSize is the inline size of the select in pixels.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of selectable states.
@@ -5884,16 +5932,12 @@ func (s SelectElementConfig) Validate() error {
 // ScaleElementConfig is the configuration for standalone scale symbols.
 type ScaleElementConfig struct {
 	LabeledConfig
+	ScaleIndicatorConfig
 	// Position is the offset of the scale contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// Dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
 	// to the rendered size.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
-	// Color is the color of the fill, which is what the symbol reads as. The toolbar
-	// recolors a selection through this field.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// Indicator is the live indicator the scale renders.
-	Indicator ScaleIndicatorConfig `json:"indicator" msgpack:"indicator"`
 }
 
 func (ScaleElementConfig) isElementConfigVariant() {}
@@ -5910,7 +5954,7 @@ func (s *ScaleElementConfig) ApplyDefaults() {
 		s.Dimensions.Height = 160
 	}
 	s.LabeledConfig.ApplyDefaults()
-	s.Indicator.ApplyDefaults()
+	s.ScaleIndicatorConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5919,7 +5963,7 @@ func (s ScaleElementConfig) Validate() error {
 	v := validate.New("ScaleElementConfig")
 	v.Ternaryf("orientation", !s.Orientation.IsValid(), "invalid orientation: %v", s.Orientation)
 	v.Exec(s.LabeledConfig.Validate)
-	v.Exec(func() error { return validate.PathedError(s.Indicator.Validate(), "indicator") })
+	v.Exec(s.ScaleIndicatorConfig.Validate)
 	return v.Error()
 }
 
@@ -5932,8 +5976,8 @@ type SetpointElementConfig struct {
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Dimensions is the rendered size of the setpoint in pixels.
 	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
-	// Color is the accent color of the setpoint.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// FillColor is the fill color of the set button, which the setpoint border follows.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// Disabled indicates whether the setpoint rejects interaction.
@@ -5978,8 +6022,8 @@ type StateIndicatorElementConfig struct {
 	StalenessConfig
 	// Channel is the channel whose value selects the displayed state.
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
-	// Color is the fallback color when no state matches.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// StrokeColor is the border color of the indicator.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// InlineSize is the inline size of the indicator in pixels.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
@@ -6015,8 +6059,8 @@ func (s StateIndicatorElementConfig) Validate() error {
 type StringDisplayElementConfig struct {
 	LabeledConfig
 	StalenessConfig
-	// Color is the background color of the display.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// StrokeColor is the border color of the display.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// TextColor is the color of the displayed text.
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
@@ -6074,8 +6118,8 @@ func (s SwitchElementConfig) Validate() error {
 // TextBoxElementConfig is the configuration for text box annotation symbols.
 type TextBoxElementConfig struct {
 	LabeledConfig
-	// Color is the text color.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// TextColor is the text color.
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Width is the rendered width of the text box in pixels.
 	Width float64 `json:"width" msgpack:"width"`
 	// Align is the alignment of the text within the box.
@@ -6124,14 +6168,17 @@ type ValueElementConfig struct {
 	StalenessConfig
 	// Position is the offset of the value contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
-	// Color is the background color of the value.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// TextColor is the color of the displayed text.
+	// StrokeColor is the color of the value's border and units divider.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// TextColor is the color of the displayed value and its units.
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// FillColor is the fill behind the value where no redline band paints. When absent
+	// the value paints no fill.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
-	// Redline is the bounds-to-gradient mapping applied to the background.
-	Redline Redline `json:"redline" msgpack:"redline"`
+	// Redline is the threshold band mapping applied to the background.
+	Redline color.Scale `json:"redline" msgpack:"redline"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// InlineSize is the inline size of the value in pixels.
@@ -6146,9 +6193,6 @@ func (ValueElementConfig) isElementConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (va *ValueElementConfig) ApplyDefaults() {
-	if va.Redline.Bounds.Upper == 0 {
-		va.Redline.Bounds.Upper = 1
-	}
 	if va.Units == "" {
 		va.Units = "psi"
 	}
@@ -7250,14 +7294,15 @@ func (c CrossJunctionElementConfig) Validate() error {
 // CylinderElementConfig is the configuration for cylinder vessel symbols.
 type CylinderElementConfig struct {
 	LabeledConfig
+	ScaledConfig
 	// Dimensions is the rendered size of the cylinder in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the corner radius of the cylinder.
 	BorderRadius *border.Radius `json:"border_radius,omitzero" msgpack:"border_radius,omitempty"`
-	// Color is the border color of the cylinder.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the cylinder.
-	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
+	// StrokeColor is the border color of the cylinder.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the cylinder.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 }
 
 func (CylinderElementConfig) isElementConfigVariant() {}
@@ -7271,6 +7316,7 @@ func (c *CylinderElementConfig) ApplyDefaults() {
 		c.Dimensions.Height = 181
 	}
 	c.LabeledConfig.ApplyDefaults()
+	c.ScaledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -7284,25 +7330,76 @@ func (c CylinderElementConfig) Validate() error {
 // TankElementConfig is the configuration for tank vessel symbols.
 type TankElementConfig struct {
 	LabeledConfig
+	// Channel is the channel whose value the symbol displays.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// RollingAverage is the sample window for rolling-average smoothing.
+	RollingAverage *int32 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
+	// Precision is the number of decimal places shown.
+	Precision float64 `json:"precision" msgpack:"precision"`
+	// Notation is the numeric notation used to format the value.
+	Notation notation.Notation `json:"notation" msgpack:"notation"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// Bounds is the numeric range the indicator maps onto its extent.
+	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	// LevelColor is the color of the filled portion, the caret, and the value readout
+	// border.
+	LevelColor *color.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
+	// AxisColor is the color of the axis and its ticks.
+	AxisColor *color.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
+	// TextColor is the color of the tick labels.
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// Units is the unit suffix displayed after each tick label.
+	Units string `json:"units" msgpack:"units"`
+	// LevelHidden hides the filled portion.
+	LevelHidden bool `json:"level_hidden" msgpack:"level_hidden"`
+	// CaretSide is the edge the value readout sits on.
+	CaretSide spatial.OuterLocation `json:"caret_side" msgpack:"caret_side"`
+	// Level is the typography level of the tick labels.
+	Level text.Level `json:"level" msgpack:"level"`
 	// Position is the offset of the tank contents within the symbol.
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
-	// Color is the border color of the tank.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the tank.
-	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
+	// StrokeColor is the color of the tank's wall.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the tank body.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Dimensions is the rendered size of the tank in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the corner radius of the tank.
 	BorderRadius border.Radius `json:"border_radius" msgpack:"border_radius"`
-	// Fill is the live fill level drawn inside the tank. A tank without one renders its
-	// wall alone.
-	Fill ScaleIndicatorConfig `json:"fill" msgpack:"fill"`
+	// CaretVisible shows the caret marking the current level.
+	CaretVisible bool `json:"caret_visible" msgpack:"caret_visible"`
+	// ScaleVisible shows the axis and its tick labels.
+	ScaleVisible bool `json:"scale_visible" msgpack:"scale_visible"`
+	// Side is the edge the axis is drawn along.
+	Side spatial.OuterLocation `json:"side" msgpack:"side"`
 }
 
 func (TankElementConfig) isElementConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TankElementConfig) ApplyDefaults() {
+	if t.Precision == 0 {
+		t.Precision = 2
+	}
+	if t.Notation == "" {
+		t.Notation = "standard"
+	}
+	if t.StalenessTimeout == 0 {
+		t.StalenessTimeout = 5
+	}
+	if t.Bounds.Upper == 0 {
+		t.Bounds.Upper = 100
+	}
+	if t.CaretSide == "" {
+		t.CaretSide = spatial.OuterLocationRight
+	}
+	if t.Level == "" {
+		t.Level = text.LevelSmall
+	}
 	if t.Dimensions.Width == 0 {
 		t.Dimensions.Width = 125
 	}
@@ -7333,19 +7430,21 @@ func (t *TankElementConfig) ApplyDefaults() {
 	if t.BorderRadius.BottomRight.Y == 0 {
 		t.BorderRadius.BottomRight.Y = 10
 	}
-	if t.Fill.Side == "" {
-		t.Fill.Side = spatial.OuterLocationLeft
+	if t.Side == "" {
+		t.Side = spatial.OuterLocationLeft
 	}
 	t.LabeledConfig.ApplyDefaults()
-	t.Fill.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (t TankElementConfig) Validate() error {
 	v := validate.New("TankElementConfig")
+	v.Ternaryf("notation", !t.Notation.IsValid(), "invalid notation: %v", t.Notation)
+	v.Ternaryf("caret_side", !t.CaretSide.IsValid(), "invalid caret_side: %v", t.CaretSide)
+	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
+	v.Ternaryf("side", !t.Side.IsValid(), "invalid side: %v", t.Side)
 	v.Exec(t.LabeledConfig.Validate)
-	v.Exec(func() error { return validate.PathedError(t.Fill.Validate(), "fill") })
 	return v.Error()
 }
 
@@ -7373,8 +7472,6 @@ type CustomActuatorElementConfig struct {
 	ToggleConfig
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
-	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// StateOverrides contains per-instance overrides of the spec's visual states,
 	// matched to the spec's states by key.
 	StateOverrides []symbol.State `json:"state_overrides" msgpack:"state_overrides"`
@@ -7398,10 +7495,9 @@ func (c CustomActuatorElementConfig) Validate() error {
 // CustomStaticElementConfig is the configuration for user-defined static symbols.
 type CustomStaticElementConfig struct {
 	LabeledConfig
+	ScaledConfig
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
-	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// StateOverrides contains per-instance overrides of the spec's visual states,
 	// matched to the spec's states by key.
 	StateOverrides []symbol.State `json:"state_overrides" msgpack:"state_overrides"`
@@ -7412,6 +7508,7 @@ func (CustomStaticElementConfig) isElementConfigVariant() {}
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CustomStaticElementConfig) ApplyDefaults() {
 	c.LabeledConfig.ApplyDefaults()
+	c.ScaledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -9372,23 +9469,24 @@ func (s Schematic) Validate() error {
 	return v.Error()
 }
 
-// ScaleIndicatorConfig is a live fill indicator driven by a channel, rendered by
+// ScaleIndicatorConfig is a live level indicator driven by a channel, extended by
 // symbols that show a level against a numeric range.
 type ScaleIndicatorConfig struct {
 	NumericTelemConfig
 	StalenessConfig
 	// Bounds is the numeric range the indicator maps onto its extent.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
-	// Color is the color of the filled portion.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// AxisColor is the color of the scale axis and its ticks.
+	// LevelColor is the color of the filled portion, the caret, and the value readout
+	// border.
+	LevelColor *color.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
+	// AxisColor is the color of the axis and its ticks.
 	AxisColor *color.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
 	// TextColor is the color of the tick labels.
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after each tick label.
 	Units string `json:"units" msgpack:"units"`
-	// FillHidden hides the filled portion.
-	FillHidden bool `json:"fill_hidden" msgpack:"fill_hidden"`
+	// LevelHidden hides the filled portion.
+	LevelHidden bool `json:"level_hidden" msgpack:"level_hidden"`
 	// CaretHidden hides the caret marking the current value.
 	CaretHidden bool `json:"caret_hidden" msgpack:"caret_hidden"`
 	// ScaleHidden hides the axis and its tick labels.
@@ -9513,4 +9611,17 @@ func (n NumericTelemConfig) Validate() error {
 	v := validate.New("NumericTelemConfig")
 	v.Ternaryf("notation", !n.Notation.IsValid(), "invalid notation: %v", n.Notation)
 	return v.Error()
+}
+
+// ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
+type ScaledConfig struct {
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale float64 `json:"scale" msgpack:"scale"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *ScaledConfig) ApplyDefaults() {
+	if s.Scale == 0 {
+		s.Scale = 1
+	}
 }

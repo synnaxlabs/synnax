@@ -9,7 +9,8 @@
 
 import "@/feature/range/overview/Overview.css";
 
-import { Flex, Panel as PlutoPanel, Ranger } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Panel as PlutoPanel, Ranger } from "@synnaxlabs/pluto";
 
 import { ChildRanges } from "@/feature/range/overview/ChildRanges";
 import { Snapshots } from "@/feature/range/overview/Snapshots";

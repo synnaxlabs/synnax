@@ -10,17 +10,17 @@
 import "@/device/Select.css";
 
 import { type device } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { Component } from "@/component";
-import { CSS } from "@/css";
 import { type ListParams, useList } from "@/device/queries";
 import { StatusIndicator } from "@/device/StatusIndicator";
 import { type Flux } from "@/flux";
-import { Icon } from "@/icon";
-import { List } from "@/list";
-import { Select } from "@/select";
-import { Text } from "@/text";
 
 const listItemRenderProp = Component.renderProp(
   ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
@@ -28,7 +28,7 @@ const listItemRenderProp = Component.renderProp(
     if (item == null) return null;
     const { name, location, status } = item;
     return (
-      <Select.ListItem
+      <Select.Item
         itemKey={itemKey}
         {...rest}
         className={CSS.BE("device", "list-item")}
@@ -42,7 +42,7 @@ const listItemRenderProp = Component.renderProp(
         <Text.Text level="small" color={9} weight={450} style={LOCATION_STYLE}>
           {location}
         </Text.Text>
-      </Select.ListItem>
+      </Select.Item>
     );
   },
 );

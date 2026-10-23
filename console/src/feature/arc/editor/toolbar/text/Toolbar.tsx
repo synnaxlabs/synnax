@@ -10,7 +10,11 @@
 import "@/feature/arc/editor/toolbar/text/Toolbar.css";
 
 import { arc } from "@synnaxlabs/client";
-import { Arc, Breadcrumb, Flex, Icon, Text } from "@synnaxlabs/pluto";
+import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Arc } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Core } from "@/platform/core";

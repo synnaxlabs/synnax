@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import {
   type CrudeTimeRange,
   type NumericTimeRange,
@@ -15,8 +16,6 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-
-import { Icon } from "@/icon";
 
 export const STAGES = ["to_do", "in_progress", "completed"] as const;
 
@@ -32,7 +31,7 @@ export const getStage = (
 ): Stage => {
   const tr = new TimeRange(timeRange).makeValid();
   if (now.before(tr.start)) return "to_do";
-  if (now.after(tr.end)) return "completed";
+  if (now.afterEq(tr.end)) return "completed";
   return "in_progress";
 };
 
@@ -64,12 +63,12 @@ export const moveToStage = (
   const tr = new TimeRange(value).makeValid().numeric;
   switch (stage) {
     case "to_do":
-      if (tr.end < now) tr.end = TimeStamp.MAX.nanoseconds;
-      if (tr.start < now) tr.start = tr.end;
+      if (tr.end <= now) tr.end = TimeStamp.MAX.nanoseconds;
+      if (tr.start <= now) tr.start = tr.end;
       break;
     case "in_progress":
       if (tr.start > now) tr.start = now;
-      if (tr.end < now) tr.end = TimeStamp.MAX.nanoseconds;
+      if (tr.end <= now) tr.end = TimeStamp.MAX.nanoseconds;
       break;
     case "completed":
       if (tr.end > now) tr.end = now;

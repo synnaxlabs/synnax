@@ -9,7 +9,7 @@
 
 import { DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -55,7 +55,11 @@ const searchInput = (): HTMLInputElement => {
 describe("Search.List", () => {
   it("shows the empty state once the search answers with nothing", async () => {
     await renderSearch({});
-    fireEvent.change(searchInput(), { target: { value: uniqueName("no_such") } });
+    // One word with no separators: the Core matches each word of a term on its own, by
+    // prefix and edit distance, so a short word can hit another spec's fixture.
+    fireEvent.change(searchInput(), {
+      target: { value: uniqueName("nosuch").replace(/_/g, "") },
+    });
     expect(screen.queryByText("No resources found")).toBeNull();
     await screen.findByText("No resources found");
   });
@@ -85,10 +89,7 @@ describe("Search.List", () => {
     await renderSearch({ channel: TestItem });
     fireEvent.change(searchInput(), { target: { value: ch.name } });
     await waitFor(() => expect(screen.getByText(ch.name)).toBeTruthy());
-    // A real mouse click carries detail 1. Selection re-dispatches a synthetic
-    // click (detail 0) on the item, which is the only click allowed to fire
-    // onSelect; the item must not also fire it for the original click.
-    fireEvent.click(screen.getByText(ch.name), { detail: 1 });
+    fireEvent.click(screen.getByText(ch.name));
     await waitFor(() => expect(onSelect).toHaveBeenCalledTimes(1));
     expect(onSelect.mock.calls[0][0].name).toEqual(ch.name);
   });

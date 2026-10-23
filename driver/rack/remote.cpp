@@ -9,6 +9,7 @@
 
 #include "absl/log/log.h"
 
+#include "client/cpp/errors/errors.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/os/os.h"
 
@@ -49,8 +50,7 @@ x::errors::Error Config::load_remote(x::breaker::Breaker &breaker) {
         res = client.racks.create(host_name);
     }
     const x::errors::Error err = res.second;
-    // If we can't reach the cluster, keep trying according to the breaker retry logic.
-    if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
+    if (synnax::errors::is_temporarily_unavailable(err) && breaker.wait(err.message()))
         return this->load_remote(breaker);
 
     this->rack = res.first;

@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Status } from "@synnaxlabs/lyra/status";
 import { type ComponentType, type ReactElement, type ReactNode, Suspense } from "react";
 
 import { Boundary } from "@/errors/Boundary";
 import { type FallbackProps } from "@/errors/Fallback";
-import { Loading } from "@/status/base/Loading";
 
 export interface SuspenseBoundaryProps {
   /// Rendered while children are suspended. Defaults to a delayed
@@ -33,7 +33,7 @@ export interface SuspenseBoundaryProps {
 /// the panel is loading, `loading` shows; when a child throws, the fallback
 /// shows.
 export const SuspenseBoundary = ({
-  loading = <Loading />,
+  loading = <Status.Loading />,
   FallbackComponent,
   children,
 }: SuspenseBoundaryProps): ReactElement => (

@@ -19,14 +19,14 @@ on:
       - client/ts/**
       - configs/ts/**
       - configs/vite/**
-      - docs/site/**
+      - site/docs/**
       - freighter/ts/**
+      - lyra/**
       - package.json
       - pluto/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - turbo.json
-      - x/media/**
       - x/ts/**
   workflow_dispatch:
 
@@ -42,10 +42,8 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up pnpm and Node.js
-        uses: pnpm/setup@v3
-        with:
-          cache: true
+        uses: ./.github/actions/setup-pnpm
 
       - name: Update docs search index
-        working-directory: docs/site
+        working-directory: site/docs
         run: pnpm algolia

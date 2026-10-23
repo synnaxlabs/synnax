@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -20,7 +20,7 @@ const DIMENSIONS = { width: 36, height: 48 };
 export const ISOCap = ({
   className,
   orientation = "left",
-  color,
+  strokeColor,
   scale = 1,
   ...rest
 }: ISOCapProps): ReactElement => (
@@ -35,7 +35,7 @@ export const ISOCap = ({
       />
     </Handle.Boundary>
     <Primitive.SVG
-      color={color}
+      strokeColor={strokeColor}
       dimensions={DIMENSIONS}
       orientation={orientation}
       scale={scale * 0.6}

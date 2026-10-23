@@ -24,7 +24,7 @@ class KeyboardShortcuts(ConsoleCase):
         ("c", "channel", "Channels"),
         ("d", "device", "Devices"),
         ("r", "range", "Ranges"),
-        ("s", "notification", "Statuses"),
+        ("s", "status", "Statuses"),
         ("t", "task", "Tasks"),
         ("u", "user", "Users"),
         ("w", "project", "Projects"),

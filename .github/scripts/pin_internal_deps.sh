@@ -57,12 +57,12 @@ pyproject_for() {
 
 version_of() {
     local pyproject="$1" version
-    if [[ ! -f "$pyproject" ]]; then
+    if [[ ! -f $pyproject ]]; then
         echo "❌ File not found: $pyproject" >&2
         return 1
     fi
     version="$(grep -m1 '^version[[:space:]]*=' "$pyproject" | sed "s/.*=[[:space:]]*['\"]//;s/['\"].*//")"
-    if [[ -z "$version" ]]; then
+    if [[ -z $version ]]; then
         echo "❌ Could not read version from $pyproject" >&2
         return 1
     fi
@@ -104,7 +104,7 @@ done
 
 for d in "${PACKAGE_DIRS[@]}"; do
     pyproject="$d/pyproject.toml"
-    if [[ ! -f "$pyproject" ]]; then
+    if [[ ! -f $pyproject ]]; then
         echo "❌ File not found: $pyproject" >&2
         exit 1
     fi

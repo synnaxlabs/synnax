@@ -1,0 +1,46 @@
+{
+  "name": "Review",
+  "root": {
+    "variant": "split",
+    "direction": "x",
+    "size": 0.66,
+    "first": {
+      "variant": "split",
+      "direction": "y",
+      "size": 0.55,
+      "first": {
+        "variant": "leaf",
+        "tabs": [
+          {
+            "key": "01f1df7a-c501-4d6d-be4a-63682316ee2d",
+            "variant": "resource",
+            "resource": "Coldflow 11 Pressures.json"
+          }
+        ]
+      },
+      "last": {
+        "variant": "leaf",
+        "tabs": [
+          {
+            "key": "ee65b831-fd94-4556-bdb3-a2e6c2a82980",
+            "variant": "resource",
+            "resource": "Coldflow 11 Temperatures.json"
+          }
+        ]
+      }
+    },
+    "last": {
+      "variant": "leaf",
+      "tabs": [
+        {
+          "key": "1c078d87-5534-4da3-9a55-41fa754ca4bb",
+          "variant": "view",
+          "type": "range_explorer",
+          "args": {}
+        }
+      ]
+    }
+  },
+  "type": "panel",
+  "version": 0
+}

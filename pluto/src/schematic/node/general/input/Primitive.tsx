@@ -10,11 +10,11 @@
 import "@/schematic/node/general/input/input.css";
 
 import { type schematic } from "@synnaxlabs/client";
+import { Button as BaseButton } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Input as BaseInput } from "@synnaxlabs/lyra/input";
 import { type ReactElement, useState } from "react";
 
-import { Button as BaseButton } from "@/button";
-import { CSS } from "@/css";
-import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -30,7 +30,7 @@ export const Input = ({
   className,
   initialValue = "",
   orientation = "left",
-  color,
+  fillColor,
   size,
   onSend,
   disabled,
@@ -55,14 +55,14 @@ export const Input = ({
         size={size}
         borderWidth={1}
         disabled={disabled}
-        color={color}
+        color={fillColor}
       >
         <BaseButton.Button
           size={size}
           variant="filled"
           onClick={() => onSend?.(value)}
           onClickDelay={onClickDelay}
-          color={color}
+          color={fillColor}
         >
           Send
         </BaseButton.Button>

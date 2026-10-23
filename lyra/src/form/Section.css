@@ -1,0 +1,162 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* Stacked: one grid for every section, so every label shares the first column, which
+   fits the widest label, and every control fills the second. */
+.pluto-form-sections.pluto--direction-y {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 2.5rem 4rem;
+    align-items: start;
+    align-content: start;
+
+    & > .pluto-form-section,
+    .pluto-form-section__body,
+    .pluto-input__item {
+        display: contents;
+    }
+
+    & > .pluto-form-section + .pluto-form-section > .pluto-form-section__header {
+        margin-top: 5rem;
+    }
+
+    .pluto-form-section__header,
+    .pluto-form-section__body > :not(.pluto-input__item),
+    .pluto-input__item:not(:has(> .pluto-input-label)) > * {
+        grid-column: 1 / -1;
+    }
+}
+
+/* Side by side: each section is as wide as its content. Fields fill three rows, then
+   flow into a further label and control column pair, whatever the strip's height.
+   A control that declares --pluto-control-width is laid out at that width; any
+   other keeps its natural size. The strip scrolls when the sections outgrow it. */
+.pluto-form-sections.pluto--direction-x {
+    display: flex;
+    align-items: stretch;
+    /* WebKit leaves a percent height inside a stretched flex item unresolved, which
+       size containment turns into zero, so a flex parent's strip grows instead. */
+    flex-grow: 1;
+    height: 100%;
+    overflow-x: auto;
+    container-type: size;
+
+    & > .pluto-form-section {
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        padding: 1.5rem 2rem;
+        overflow-y: auto;
+    }
+
+    /* Dividers sit between sections only, never against the strip's own edge. */
+    & > * + * {
+        border-left: var(--pluto-border-l6);
+    }
+
+    .pluto-form-section__header {
+        margin-bottom: 1.5rem;
+        /* The body's negative margin overlaps the header; keep the header clickable. */
+        position: relative;
+        z-index: 1;
+
+        &::after {
+            display: none;
+        }
+    }
+
+    .pluto-form-section__body {
+        display: grid;
+        grid-auto-flow: column;
+        grid-template-rows: repeat(3, max-content);
+        grid-auto-columns: max-content;
+        /* Rows space by margin, not row-gap: a gap would also open between the empty
+           rows of a section with fewer than three fields. */
+        column-gap: 4rem;
+        margin-top: -2rem;
+        align-items: start;
+
+        /* A dissolved row's fields are grid items too. */
+        & > *,
+        & > .pluto-flex:not(.pluto-input__item):has(> .pluto-input__item) > * {
+            grid-column: span 2;
+            margin-top: 2rem;
+        }
+
+        & > .pluto-input__item,
+        & > .pluto-flex > .pluto-input__item {
+            display: grid;
+            grid-template-columns: subgrid;
+            /* A subgrid's own gap wins over the inherited one. */
+            column-gap: 3rem;
+            align-items: start;
+
+            & > .pluto-flex {
+                align-items: start;
+
+                & > * {
+                    width: var(--pluto-control-width, auto);
+                }
+            }
+        }
+    }
+}
+
+.pluto-form-section {
+    .pluto-input__switch {
+        justify-content: flex-start;
+    }
+
+    /* A row of fields inside a section dissolves; each field becomes a row. */
+    .pluto-form-section__body
+        > .pluto-flex:not(.pluto-input__item):has(> .pluto-input__item) {
+        display: contents;
+    }
+
+    /* The hairline runs between the title and the actions. */
+    .pluto-form-section__header {
+        margin-bottom: 1rem;
+
+        & > :first-child {
+            order: 0;
+        }
+
+        &::after {
+            content: "";
+            order: 1;
+            flex-grow: 1;
+            height: var(--pluto-border-width);
+            background: var(--pluto-gray-l6);
+        }
+
+        & > :not(:first-child) {
+            order: 2;
+        }
+    }
+
+    .pluto-input__item {
+        & > .pluto-input-label {
+            height: var(--pluto-height-medium);
+            display: flex;
+            align-items: center;
+        }
+
+        /* A table's first line (header row, or the add button when empty) is a
+           small-height band; the label centers against it, not a medium one. */
+        &:has(.pluto-input__table) > .pluto-input-label {
+            height: var(--pluto-height-small);
+        }
+
+        & .pluto-input-help-text:empty {
+            display: none;
+        }
+    }
+}

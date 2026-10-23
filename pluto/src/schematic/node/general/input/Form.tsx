@@ -8,19 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type schematic } from "@synnaxlabs/client";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
-import { Input } from "@/input";
-import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { Tabs } from "@/tabs";
+import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
+import { Properties } from "@/vis/properties";
 interface InputTelemFormProps {
   path: string;
 }
+
+export const colorFallbacks = {
+  fillColor: Form.primaryFallback,
+} satisfies ColorFallbacks;
 
 const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
   const { value, onChange } =
@@ -32,44 +36,42 @@ const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
     onChange({
       ...value,
       commandChannel: v,
-      control: Control.reveal(value.control),
       disabled: v === 0,
     });
   };
 
   return (
-    <Form.Wrapper x grow align="stretch">
-      <Input.Item label="Command channel" grow>
-        <Channel.SelectSingle
-          value={value.commandChannel ?? 0}
-          onChange={handleSinkChange}
-        />
-      </Input.Item>
-      <Form.ActivationDelayField />
-      <Form.ControlChipField />
-    </Form.Wrapper>
+    <Base.Sections x>
+      <Base.Section title="Command">
+        <Input.Item label="Channel" padHelpText={false}>
+          <Channel.SelectSingle
+            allowNone
+            value={value.commandChannel ?? 0}
+            onChange={handleSinkChange}
+          />
+        </Input.Item>
+        <Form.ActivationDelayField />
+        <Form.ControlChipField />
+      </Base.Section>
+    </Base.Sections>
   );
 };
 
-export const InputForm = (): ReactElement => (
-  <Tabs.Frame initialValue="style">
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-      <Tabs.Tab itemKey="control">Control</Tabs.Tab>
-    </Tabs.Selector>
+export const InputForm = ({ tab, onTabChange }: FormProps): ReactElement => (
+  <Properties.Tabs tabs={["control", "style"]} tab={tab} onTabChange={onTabChange}>
     <Tabs.Content itemKey="style">
-      <Form.Wrapper x>
-        <Flex.Box y align="stretch" grow gap="small">
+      <Base.Sections x>
+        <Base.Section title="Label">
           <Label.Form path="label" />
-          <Flex.Box x>
-            <Form.ColorField path="color" />
-            <Form.SizeField />
-          </Flex.Box>
-        </Flex.Box>
-      </Form.Wrapper>
+        </Base.Section>
+        <Base.Section title="Appearance">
+          <Form.FillField fallback={colorFallbacks.fillColor} />
+          <Form.SizeField />
+        </Base.Section>
+      </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="control">
       <InputTelemForm path="" />
     </Tabs.Content>
-  </Tabs.Frame>
+  </Properties.Tabs>
 );

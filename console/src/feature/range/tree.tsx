@@ -8,15 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, ranger } from "@synnaxlabs/client";
-import {
-  Access,
-  type Haul,
-  Icon,
-  Menu,
-  Ranger,
-  Status,
-  Synnax,
-} from "@synnaxlabs/pluto";
+import { type Haul } from "@synnaxlabs/lyra/haul";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Access, Ranger, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";

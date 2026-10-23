@@ -8,24 +8,26 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { ValueForm } from "@/schematic/node/general/value/Form";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { Symbol } from "@/schematic/node/general/value/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { Text } from "@/text";
 
 const PREVIEW_DIMENSIONS = { width: 60, height: 25 };
 
 const Preview = ({
-  color,
+  strokeColor,
+  textColor,
   orientation,
   units,
   inlineSize,
 }: schematic.ValueNodeConfig): ReactElement => (
   <Value
-    color={color}
+    strokeColor={strokeColor}
+    textColor={textColor}
     orientation={orientation}
     units={units}
     inlineSize={inlineSize}

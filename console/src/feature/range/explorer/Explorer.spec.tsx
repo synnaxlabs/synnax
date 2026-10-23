@@ -18,11 +18,11 @@ import {
   view,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { List } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/lyra/list";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Range } from "@/feature/range";
+import { Explorer } from "@/feature/range/explorer/Explorer";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
@@ -57,7 +57,7 @@ const renderExplorer = async (as: Client = client): Promise<{ store: TestStore }
   await selectTestProject(store, client);
   render(
     <>
-      <Range.Explorer.Explorer />
+      <Explorer />
       <Modals.Stack />
     </>,
     { wrapper },

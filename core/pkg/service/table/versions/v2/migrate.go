@@ -46,9 +46,18 @@ func migrateCell(c v1.Cell) CellConfig {
 		fields = msgpack.EncodedJSON{}
 	}
 	fields["variant"] = c.Variant
+	// No released value cell painted a fill, so a stored one was kept from a text cell.
+	if c.Variant == "value" {
+		delete(fields, "background_color")
+	}
+	err := bandRedline(fields)
+	renameColors(fields)
 	stripZeroColors(map[string]any(fields))
 	extractLegacyArgs(fields)
-	cfg, err := decodeCellConfig(fields)
+	var cfg CellConfig
+	if err == nil {
+		cfg, err = decodeCellConfig(fields)
+	}
 	if err != nil {
 		cfg = CellConfig{Variant: TextCellConfig{}}
 	}

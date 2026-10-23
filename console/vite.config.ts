@@ -9,13 +9,31 @@
 
 /// <reference types="vitest/config" />
 
+import { layers } from "@synnaxlabs/vite-plugin";
 import react from "@vitejs/plugin-react";
 import * as fs from "node:fs/promises";
 import * as path from "path";
 import { defineConfig, normalizePath, type Plugin } from "vite";
 
 const isDev = process.env.VITE_IS_DEV === "true";
+// Builds compile workspace packages from source, so code splitting reaches into them.
+// Specs run against the built packages.
+const fromSource = process.env.VITEST == null;
+// Builds Synnax Desktop, the app that bundles and manages its own Core.
+const desktop = process.env.VITE_DESKTOP === "true";
 const repoRoot = path.resolve(import.meta.dirname, "..");
+const DESKTOP_SPECS = "src/**/*.desktop.spec.{ts,tsx}";
+
+const under = (dir: string): RegExp =>
+  new RegExp(`^${RegExp.escape(normalizePath(path.join(repoRoot, dir)))}/`);
+
+// Lyra styles bare elements, so third-party CSS sits above it. Pluto overrides both,
+// and the Console's own CSS, left unlayered, overrides everything.
+const CSS_LAYERS = [
+  { name: "lyra", files: under("lyra") },
+  { name: "vendor", files: /\/node_modules\// },
+  { name: "pluto", files: under("pluto") },
+];
 
 // Rollup ignores the sourceMappingURL comment inside prebuilt workspace bundles, so
 // the Console's map would bottom out at pluto/dist/pluto.js and friends. Loading the
@@ -72,76 +90,27 @@ const stripSourcesContent = (): Plugin => ({
   },
 });
 
-// Pluto hard-codes its Monaco worker addresses as root-absolute "/pluto/assets/..."
-// paths and marks them @vite-ignore, so this build neither rewrites them nor emits the
-// files. Copying each referenced worker to the address it already names is what makes
-// it load, both in the desktop bundle and in the copy the Core serves.
-const plutoWorkers = (): Plugin => {
-  const PATTERN = /\/pluto\/assets\/([\w.-]+)/g;
-  /** Adds every address in code to seen, returning only the ones new to it. */
-  const scan = (code: string, seen: Set<string>): string[] => {
-    const fresh: string[] = [];
-    for (const [, name] of code.matchAll(PATTERN))
-      if (!seen.has(name)) {
-        seen.add(name);
-        fresh.push(name);
-      }
-    return fresh;
-  };
-  return {
-    name: "pluto-workers",
-    async writeBundle(options, bundle) {
-      const dir = options.dir;
-      if (dir == null) return;
-      const seen = new Set<string>();
-      const pending: string[] = [];
-      Object.values(bundle).forEach((chunk) => {
-        if (chunk.type !== "chunk") return;
-        pending.push(...scan(chunk.code, seen));
-      });
-      if (seen.size === 0)
-        throw new Error(
-          "no /pluto/assets worker addresses in the bundle. Pluto's worker URL " +
-            "format changed; update the pattern above.",
-        );
-      const out = path.join(dir, "pluto", "assets");
-      await fs.mkdir(out, { recursive: true });
-      // A worker imports its own chunks, which the Console's bundle never names.
-      for (let name = pending.pop(); name != null; name = pending.pop()) {
-        const from = path.resolve(repoRoot, "pluto/dist/assets", name);
-        let code: string;
-        try {
-          code = await fs.readFile(from, "utf-8");
-        } catch (err) {
-          throw new Error(`missing ${from}. Run pnpm build:pluto.`, { cause: err });
-        }
-        await fs.writeFile(path.join(out, name), code);
-        pending.push(...scan(code, seen));
-      }
-    },
-  };
-};
-
 export default defineConfig({
   clearScreen: false,
   server: { port: 5173, strictPort: true },
   resolve: {
     tsconfigPaths: true,
-    alias: isDev
+    alias: fromSource
       ? {
           "@synnaxlabs/pluto/dist": path.resolve(repoRoot, "pluto/dist"),
           "@synnaxlabs/pluto": path.resolve(repoRoot, "pluto/src"),
+          "@synnaxlabs/lyra/dist": path.resolve(repoRoot, "lyra/dist"),
+          "@synnaxlabs/lyra": path.resolve(repoRoot, "lyra/src"),
           "@synnaxlabs/x/dist": path.resolve(repoRoot, "x/ts/dist"),
           "@synnaxlabs/x": path.resolve(repoRoot, "x/ts/src"),
           "@synnaxlabs/drift/dist": path.resolve(repoRoot, "drift/dist"),
           "@synnaxlabs/drift": path.resolve(repoRoot, "drift/src"),
-          "@synnaxlabs/media/dist": path.resolve(repoRoot, "x/media/dist"),
-          "@synnaxlabs/media": path.resolve(repoRoot, "x/media/src"),
         }
       : {},
   },
   envPrefix: ["VITE_", "TAURI_"],
-  plugins: [react(), workspaceSourcemaps(), stripSourcesContent(), plutoWorkers()],
+  css: { postcss: { plugins: [layers(CSS_LAYERS)] } },
+  plugins: [react(), workspaceSourcemaps(), stripSourcesContent()],
   build: {
     target: process.env.TAURI_PLATFORM === "windows" ? "chrome111" : "safari16.4",
     minify: !isDev,
@@ -154,11 +123,11 @@ export default defineConfig({
     // to enforce the default Vite warning threshold.
     chunkSizeWarningLimit: 10000 /* kbs */,
   },
-  define: { IS_DEV: isDev },
+  define: { IS_DEV: isDev, DESKTOP: desktop },
   worker: {
     format: "es",
-    // The worker is a separate build and does not inherit `plugins`, so aether frames
-    // would otherwise stop at pluto/dist.
+    // The worker is a separate build and does not inherit `plugins`, so its frames
+    // would otherwise stop at client/ts/dist.
     plugins: () => [workspaceSourcemaps()],
   },
   test: {
@@ -166,7 +135,21 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["src/testutil/setuptests.ts"],
     testTimeout: 15_000,
-    exclude: ["**/node_modules/**", "**/dist/**"],
+    // DESKTOP is a build constant, so the specs of each build run as their own project.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "console",
+          exclude: ["**/node_modules/**", "**/dist/**", DESKTOP_SPECS],
+        },
+      },
+      {
+        extends: true,
+        define: { DESKTOP: true },
+        test: { name: "desktop", include: [DESKTOP_SPECS] },
+      },
+    ],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],
       exclude: ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/**/*.bench.ts"],

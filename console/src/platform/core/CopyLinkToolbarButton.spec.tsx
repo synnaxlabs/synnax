@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { act, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Core } from "@/platform/core";
 import { renderCoreUI } from "@/platform/core/testutil";
 import { createCore, createCoreState } from "@/session/core/testutil";
-import { stubClipboardWriteText } from "@/testutil";
 
 const CORE = createCore("Alpha", { clusterKey: "cluster-9" });
 

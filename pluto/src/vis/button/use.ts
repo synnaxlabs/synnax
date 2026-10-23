@@ -14,7 +14,6 @@ import { Aether } from "@/aether";
 import { button } from "@/vis/button/aether";
 
 export type Mode = button.Mode;
-export const MODES = button.MODES;
 
 export interface UseProps extends z.input<typeof button.buttonStateZ> {
   aetherKey: string;

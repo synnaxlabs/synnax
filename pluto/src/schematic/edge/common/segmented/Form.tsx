@@ -9,49 +9,43 @@
 
 import "@/schematic/edge/common/segmented/Segmented.css";
 
-import { type color, type record } from "@synnaxlabs/x";
+import { Color } from "@synnaxlabs/lyra/color";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { Color } from "@/color";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
 import { type Variant } from "@/schematic/edge/registry";
-import { Select } from "@/select";
-
-const SELECT_DATA: record.KeyedNamed<Variant>[] = [
-  { key: "pipe", name: "Pipe" },
-  { key: "electric", name: "Electrical" },
-  { key: "secondary", name: "Secondary" },
-  { key: "jacketed", name: "Jacketed" },
-  { key: "hydraulic", name: "Hydraulic" },
-  { key: "pneumatic", name: "Pneumatic" },
-  { key: "data", name: "Data" },
-];
 
 const SELECT_STYLE: CSSProperties = { width: "25rem" };
 
 interface SelectVariantProps extends Omit<
-  Select.StaticProps<Variant>,
-  "data" | "resourceName"
+  Select.SingleSimpleProps<Variant>,
+  "children" | "resourceName"
 > {}
 
 const SelectVariant = (props: SelectVariantProps): ReactElement => (
-  <Select.Static
-    {...props}
-    data={SELECT_DATA}
-    resourceName="edge type"
-    style={SELECT_STYLE}
-  />
+  <Select.Simple<Variant> {...props} resourceName="edge type" style={SELECT_STYLE}>
+    <Select.Item itemKey="pipe">Pipe</Select.Item>
+    <Select.Item itemKey="electric">Electrical</Select.Item>
+    <Select.Item itemKey="secondary">Secondary</Select.Item>
+    <Select.Item itemKey="jacketed">Jacketed</Select.Item>
+    <Select.Item itemKey="hydraulic">Hydraulic</Select.Item>
+    <Select.Item itemKey="pneumatic">Pneumatic</Select.Item>
+    <Select.Item itemKey="data">Data</Select.Item>
+  </Select.Simple>
 );
 
-export const Form = (): ReactElement => (
-  <Flex.Box className={CSS.B("schematic-edge-form")} align="start" x>
-    <Base.Field<color.Color> path="color" label="Color" padHelpText={false}>
-      {(p) => <Color.Swatch {...p} />}
-    </Base.Field>
-    <Base.Field<Variant> path="variant" label="Variant" padHelpText={false}>
-      {(p) => <SelectVariant {...p} />}
-    </Base.Field>
-  </Flex.Box>
-);
+export const Form = (): ReactElement => {
+  const theme = Theming.use();
+  return (
+    <Flex.Box className={CSS.B("schematic-edge-form")} align="start" x>
+      <Color.Field path="strokeColor" label="Stroke" fallback={theme.colors.gray.l11} />
+      <Base.Field<Variant> path="variant" label="Variant" padHelpText={false}>
+        {(p) => <SelectVariant {...p} />}
+      </Base.Field>
+    </Flex.Box>
+  );
+};

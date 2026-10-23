@@ -10,19 +10,16 @@
 import "@/platform/range/Select.css";
 
 import { ranger } from "@synnaxlabs/client";
-import {
-  Component,
-  Icon,
-  Input,
-  List,
-  Ranger,
-  Select,
-  Tag,
-  Telem,
-  Text,
-  TimeSpan,
-} from "@synnaxlabs/pluto";
-import { type ReactElement, useMemo } from "react";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Telem } from "@synnaxlabs/lyra/telem";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Ranger, TimeSpan } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import {
@@ -43,7 +40,7 @@ const DynamicListItem = Component.renderProp(
   (props: List.ItemProps<string> & { range: Session.Range.DynamicState }) => {
     const { range } = props;
     return (
-      <Select.ListItem {...props} justify="between">
+      <Select.Item {...props} justify="between">
         <Text.Text className={CSS.BE("range-select", "dynamic-name")}>
           {range.name}
         </Text.Text>
@@ -51,7 +48,7 @@ const DynamicListItem = Component.renderProp(
           {new TimeSpan(range.span).toString()}
           {dynamicIcon}
         </Text.Text>
-      </Select.ListItem>
+      </Select.Item>
     );
   },
 );
@@ -67,7 +64,7 @@ const StaticListItem = Component.renderProp(
       id: ranger.ontologyID(range.key),
     });
     return (
-      <Select.ListItem {...props} justify="between">
+      <Select.Item {...props} justify="between">
         <Ranger.Breadcrumb
           key={range.key}
           name={range.name}
@@ -75,7 +72,7 @@ const StaticListItem = Component.renderProp(
           timeRange={range.timeRange}
         />
         <Telem.Text.TimeRange level="small">{range.timeRange}</Telem.Text.TimeRange>
-      </Select.ListItem>
+      </Select.Item>
     );
   },
 );
@@ -83,25 +80,15 @@ const StaticListItem = Component.renderProp(
 /** Selecting this entry reveals the consumer's custom range controls. */
 export const CUSTOM_KEY = "custom";
 
-const CUSTOM_ENTRY: Session.Range.DynamicState = {
-  variant: "dynamic",
-  key: CUSTOM_KEY,
-  name: "Custom",
-  span: 0,
-};
+const customItem = (
+  <Select.Item itemKey={CUSTOM_KEY}>
+    <Icon.Add />
+    Custom
+  </Select.Item>
+);
 
 const listItem = Component.renderProp((props: List.ItemProps<string>) => {
-  const { itemKey } = props;
-  const range = useResolve(itemKey);
-  if (itemKey === CUSTOM_KEY)
-    return (
-      <Select.ListItem {...props}>
-        <Text.Text>
-          <Icon.Add />
-          Custom
-        </Text.Text>
-      </Select.ListItem>
-    );
+  const range = useResolve(props.itemKey);
   if (range == null) return null;
   if (range.variant === "dynamic") return <DynamicListItem {...props} range={range} />;
   return <StaticListItem {...props} range={range} />;
@@ -121,7 +108,7 @@ const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
       level="small"
       size="small"
     >
-      {range?.name ?? itemKey}
+      {range?.name ?? <Select.Label itemKey={itemKey}>{itemKey}</Select.Label>}
     </Tag.Tag>
   );
 };
@@ -130,8 +117,7 @@ const renderTag = Component.renderProp(RangeTag);
 
 const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement => {
   const entries = useResolveMultiple();
-  const withCustom = useMemo(() => [CUSTOM_ENTRY, ...entries], [entries]);
-  const { data, retrieve } = List.useStaticData<string>({ data: withCustom });
+  const { data, retrieve } = List.useStaticData<string>({ data: entries });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Multiple<string, Session.Range.State>
@@ -142,6 +128,7 @@ const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement =>
       {...props}
       resourceName="range"
       data={data}
+      fixedItems={customItem}
     >
       {listItem}
     </Select.Multiple>

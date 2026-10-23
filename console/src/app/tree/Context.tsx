@@ -30,7 +30,7 @@ import { User } from "@/feature/user";
 import { Tree } from "@/platform/tree";
 
 const TREE_ITEMS: Tree.Items = {
-  ...Access.TREE_ITEMS,
+  ...(DESKTOP ? {} : Access.TREE_ITEMS),
   ...Arc.TREE_ITEMS,
   ...Channel.TREE_ITEMS,
   ...Device.TREE_ITEMS,
@@ -47,7 +47,7 @@ const TREE_ITEMS: Tree.Items = {
   ...Status.TREE_ITEMS,
   ...Table.TREE_ITEMS,
   ...Task.TREE_ITEMS,
-  ...User.TREE_ITEMS,
+  ...(DESKTOP ? {} : User.TREE_ITEMS),
 };
 
 export interface ContextProps extends PropsWithChildren<{}> {}

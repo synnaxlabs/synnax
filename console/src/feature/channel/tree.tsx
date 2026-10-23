@@ -10,19 +10,19 @@
 import "@/feature/channel/tree.css";
 
 import { channel, isCalculated, ontology, ranger, status } from "@synnaxlabs/client";
+import { type Haul } from "@synnaxlabs/lyra/haul";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import {
   Access,
   Channel as PChannel,
   type Flux,
-  type Haul,
-  Icon,
-  List,
-  Menu,
   Schematic as PSchematic,
-  Status,
-  Text,
-  Tooltip,
-  Tree as PTree,
 } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
@@ -51,7 +51,7 @@ const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] =>
 
 const allowRename: Tree.AllowRename = ({ data }) => data?.internal !== true;
 
-export const useDelete = Tree.createUseDelete({
+const useDelete = Tree.createUseDelete({
   type: "Channel",
   query: PChannel.useDelete,
   convertKey: Number,
@@ -68,7 +68,7 @@ const beforeSetAlias = async ({
   return { ...data, alias };
 };
 
-export const useSetAlias = ({
+const useSetAlias = ({
   selection: {
     ids: [firstID],
   },
@@ -86,13 +86,13 @@ export const useSetAlias = ({
   );
 };
 
-export const useRename = Tree.createUseRename({
+const useRename = Tree.createUseRename({
   query: PChannel.useRename,
   ontologyID: channel.ontologyID,
   convertKey: Number,
 });
 
-export const useDeleteAlias = ({
+const useDeleteAlias = ({
   selection: { ids },
 }: Tree.ContextMenuProps): (() => void) => {
   const activeRange = Session.Range.useSelectSelectedKey();

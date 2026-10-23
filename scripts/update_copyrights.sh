@@ -81,10 +81,10 @@ HEADER_SEMI=$(generate_line_header ";" 1)
 declare -a IGNORE_PATTERNS
 if [ -f "$GIT_ROOT/.copyrightignore" ]; then
     while IFS= read -r pattern; do
-        [[ -z "$pattern" || "$pattern" =~ ^[[:space:]]*# ]] && continue
+        [[ -z $pattern || $pattern =~ ^[[:space:]]*# ]] && continue
         pattern="${pattern#"${pattern%%[![:space:]]*}"}"
         pattern="${pattern%"${pattern##*[![:space:]]}"}"
-        [[ -n "$pattern" ]] && IGNORE_PATTERNS+=("$pattern")
+        [[ -n $pattern ]] && IGNORE_PATTERNS+=("$pattern")
     done < "$GIT_ROOT/.copyrightignore"
 fi
 
@@ -243,7 +243,7 @@ locate_existing_header() {
     local cr_idx=-1
     local i
     for ((i = scan_start_idx; i <= scan_end_idx; i++)); do
-        if [[ "${LINES[i]}" == *"Copyright"*"Synnax Labs"* ]]; then
+        if [[ ${LINES[i]} == *"Copyright"*"Synnax Labs"* ]]; then
             cr_idx=$i
             break
         fi
@@ -257,7 +257,7 @@ locate_existing_header() {
     # Extract the year from the matched line (e.g. "Copyright 2025 Synnax Labs").
     local cr_line="${LINES[cr_idx]}"
     local year_re='Copyright[[:space:]]+([0-9]+)[[:space:]]+Synnax Labs'
-    if [[ "$cr_line" =~ $year_re ]]; then
+    if [[ $cr_line =~ $year_re ]]; then
         OLD_COPYRIGHT_YEAR="${BASH_REMATCH[1]}"
     fi
 
@@ -300,7 +300,7 @@ locate_existing_header() {
             local html_close_re='-->[[:space:]]*$'
             for ((i = OLD_HEADER_START + 1; i <= max_scan_idx; i++)); do
                 end_idx=$i
-                if [[ "${LINES[i]}" =~ $html_close_re ]]; then
+                if [[ ${LINES[i]} =~ $html_close_re ]]; then
                     break
                 fi
             done
@@ -353,7 +353,7 @@ process_file() {
     local has_leading=0
     local leading_line=""
     if [ -n "$LEADING_LINE_RE" ] && [ ${#LINES[@]} -gt 0 ]; then
-        if [[ "${LINES[0]}" =~ $LEADING_LINE_RE ]]; then
+        if [[ ${LINES[0]} =~ $LEADING_LINE_RE ]]; then
             has_leading=1
             leading_line="${LINES[0]}"
         fi
@@ -367,7 +367,7 @@ process_file() {
     if [ "$HOIST_LEADING" = "1" ] && [ "$has_leading" = "0" ]; then
         local i
         for ((i = 0; i < ${#LINES[@]}; i++)); do
-            if [[ "${LINES[i]}" =~ $LEADING_LINE_RE ]]; then
+            if [[ ${LINES[i]} =~ $LEADING_LINE_RE ]]; then
                 hoist_idx=$i
                 leading_line="${LINES[i]}"
                 break
@@ -391,7 +391,7 @@ process_file() {
         local i
         local has_nonblank=0
         for ((i = scan_start_idx; i < old_header_start; i++)); do
-            if [[ "${LINES[i]}" =~ [^[:space:]] ]]; then
+            if [[ ${LINES[i]} =~ [^[:space:]] ]]; then
                 has_nonblank=1
                 break
             fi
@@ -479,7 +479,7 @@ process_file() {
         for ((i = between_start; i <= between_end; i++)); do
             if [ "$i" = "$hoist_idx" ]; then continue; fi
             line="${LINES[i]}"
-            if [ "$first_nonblank_seen" = "0" ] && [[ ! "$line" =~ [^[:space:]] ]]; then
+            if [ "$first_nonblank_seen" = "0" ] && [[ ! $line =~ [^[:space:]] ]]; then
                 continue
             fi
             first_nonblank_seen=1
@@ -489,7 +489,7 @@ process_file() {
     for ((i = body_start_idx; i < ${#LINES[@]}; i++)); do
         if [ "$i" = "$hoist_idx" ]; then continue; fi
         line="${LINES[i]}"
-        if [ "$first_nonblank_seen" = "0" ] && [[ ! "$line" =~ [^[:space:]] ]]; then
+        if [ "$first_nonblank_seen" = "0" ] && [[ ! $line =~ [^[:space:]] ]]; then
             continue
         fi
         first_nonblank_seen=1
@@ -547,18 +547,18 @@ PATTERNS=()
 if [ $# -gt 0 ]; then
     for arg in "$@"; do
         if [ -f "$arg" ]; then
-            if [[ "$arg" = /* ]]; then
+            if [[ $arg == /* ]]; then
                 EXPLICIT_FILES+=("$arg")
             else
                 EXPLICIT_FILES+=("$GIT_ROOT/$arg")
             fi
         elif [ -d "$arg" ]; then
-            if [[ "$arg" = /* ]]; then
+            if [[ $arg == /* ]]; then
                 SEARCH_DIRS+=("$arg")
             else
                 SEARCH_DIRS+=("$GIT_ROOT/$arg")
             fi
-        elif [[ "$arg" == *"*"* ]] || [[ "$arg" == *"?"* ]] || [[ "$arg" == *"["* ]]; then
+        elif [[ $arg == *"*"* ]] || [[ $arg == *"?"* ]] || [[ $arg == *"["* ]]; then
             PATTERNS+=("$arg")
         else
             echo "Warning: '$arg' is not a file, directory, or pattern, skipping"
@@ -594,7 +594,7 @@ done
 for search_dir in ${SEARCH_DIRS[@]+"${SEARCH_DIRS[@]}"}; do
     while IFS= read -r file; do
         abs_file="$GIT_ROOT/$file"
-        if [[ "$abs_file" == "$search_dir"* ]]; then
+        if [[ $abs_file == "$search_dir"* ]]; then
             try_add_file "$abs_file"
         fi
     done < <(git ls-files)

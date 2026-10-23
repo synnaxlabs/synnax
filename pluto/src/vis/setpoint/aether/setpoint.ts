@@ -17,8 +17,6 @@ export const stateZ = z.object({
   sink: telem.numberSinkSpecZ.default(telem.noopNumericSinkSpec),
 });
 
-export type SetpointState = z.input<typeof stateZ>;
-
 export const methodsZ = {
   set: z.function({ input: z.tuple([z.number()]), output: z.void() }),
 };

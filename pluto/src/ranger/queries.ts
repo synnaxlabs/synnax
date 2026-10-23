@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { label, type ontology, query, ranger } from "@synnaxlabs/client";
+import { type List } from "@synnaxlabs/lyra/list";
 import { primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
-import { type List } from "@/list";
 import { listDefinition, type ListQuery } from "@/ranger/aether/queries";
 import { Synnax } from "@/synnax";
 
@@ -178,6 +178,7 @@ export { type ListQuery } from "@/ranger/aether/queries";
 export const useList = Flux.createList<ListQuery, ranger.Key, ranger.Range>({
   ...listDefinition,
   retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
+  onChangeByKey: ({ client, key }, handler) => client.ranges.onChange(key, handler),
 });
 
 export const metaDataFormSchema = z.object({

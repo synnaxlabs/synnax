@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
+import { Breadcrumb as Base } from "@synnaxlabs/lyra/breadcrumb";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type CrudeTimeRange } from "@synnaxlabs/x";
 
-import { Breadcrumb as Base } from "@/breadcrumb";
 import { StageIcon } from "@/ranger/StageIcon";
-import { Text } from "@/text";
 
 export interface BreadcrumbProps extends Omit<Base.BreadcrumbProps, "children"> {
   timeRange?: CrudeTimeRange;

@@ -8,6 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type query, type Synnax as Client } from "@synnaxlabs/client";
+import { Form } from "@synnaxlabs/lyra/form";
+import {
+  useDebouncedCallback,
+  useDestructors,
+  useSyncedRef,
+} from "@synnaxlabs/lyra/hooks";
+import { Status } from "@synnaxlabs/lyra/status";
 import { type CrudeTimeSpan, type destructor, state, TimeSpan } from "@synnaxlabs/x";
 import {
   useCallback,
@@ -30,15 +37,13 @@ import {
 import {
   type LocalCache,
   localFor,
+  readCached,
   type RetrieveParams,
   suspendOnFetch,
   useMemoQuery,
   usePendingFetch,
 } from "@/flux/suspend";
 import { type UpdateParams } from "@/flux/update";
-import { Form } from "@/form";
-import { useDebouncedCallback, useDestructors, useSyncedRef } from "@/hooks";
-import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 
 export interface FormUpdateParams<Schema extends z.ZodType<query.Data>>
@@ -189,7 +194,7 @@ export const createForm = <
     onHasTouched,
     mode,
   }) => {
-    const [result, setResult] = useState<Result<undefined>>(
+    const [result, setResult] = useState<Result<undefined>>(() =>
       successResult(`retrieved ${name}`, undefined),
     );
     const client = Synnax.use();
@@ -209,7 +214,8 @@ export const createForm = <
     // A replay resumes through the promise the suspended attempt holds. Reading the
     // answer from anywhere else would skip the `use` call React needs to find the
     // end of the recorded hook list, corrupting every hook below.
-    let retrieved = pending.promise == null ? cached : undefined;
+    let retrieved: z.infer<Schema> | undefined =
+      pending.promise == null && cached !== undefined ? readCached(cached) : undefined;
     if (retrieved == null && memoQuery != null && client != null && retrieve != null)
       retrieved = suspendOnFetch(
         { client, query: memoQuery },

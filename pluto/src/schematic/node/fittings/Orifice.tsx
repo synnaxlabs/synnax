@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -21,7 +21,7 @@ export const Orifice = ({
   className,
   orientation = "left",
   scale,
-  color,
+  strokeColor,
   ...rest
 }: OrificeProps): ReactElement => (
   <Primitive.Div className={CSS.cls(CSS.B("orifice"), className)} {...rest}>
@@ -29,7 +29,7 @@ export const Orifice = ({
     <Primitive.SVG
       dimensions={DIMENSIONS}
       orientation={orientation}
-      color={color}
+      strokeColor={strokeColor}
       scale={scale}
     >
       <Primitive.Path

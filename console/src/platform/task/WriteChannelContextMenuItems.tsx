@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { channel as clientChannel } from "@synnaxlabs/client";
-import { Access, Component, Icon, Menu, Text } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access } from "@synnaxlabs/pluto";
 
 import { type ContextMenuItemProps } from "@/platform/task/ChannelList";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";

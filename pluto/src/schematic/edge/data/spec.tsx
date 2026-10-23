@@ -11,7 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { color, type direction, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/lyra/css";
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";

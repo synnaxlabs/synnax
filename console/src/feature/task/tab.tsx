@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { query } from "@synnaxlabs/client";
-import { Access, Panel as PPanel, Status, Task as Base, Text } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, Panel as PPanel, Task as Base } from "@synnaxlabs/pluto";
 import { cloneElement } from "react";
 
 import { EtherCAT } from "@/feature/ethercat";
@@ -22,7 +24,7 @@ import { getIcon } from "@/feature/task/types";
 import { Panel } from "@/platform/panel";
 import { type Task } from "@/platform/task";
 
-export const FORMS: Task.Forms = {
+const FORMS: Task.Forms = {
   ...EtherCAT.Task.FORMS,
   ...HTTP.Task.FORMS,
   ...LabJack.Task.FORMS,
@@ -85,5 +87,6 @@ export const TAB: Panel.Tab = {
     // nothing running, so core seeds it as never deployed.
     await client.tasks.create({ ...corpse.payload, status: undefined });
   },
-  useTombstone: Panel.createTombstoneReader(Base),
+  // Only these hooks, so the bundler can drop the rest of the namespace.
+  useTombstone: Panel.createTombstoneReader({ useTombstone: Base.useTombstone }),
 };

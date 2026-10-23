@@ -35,9 +35,8 @@ const TRIGGER = ".console-project-selector__trigger";
 const openSelectorAt = async (term: string, as: Synnax = client) => {
   const active = await client.projects.create({
     name: `proj-active-${id.create()}`,
-    layout: {},
   });
-  const target = await client.projects.create({ name: term, layout: {} });
+  const target = await client.projects.create({ name: term });
   const { wrapper } = await createConsoleWrapper({
     client: as,
     preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(active) },
@@ -66,11 +65,9 @@ describe("Project.Selector", () => {
   it("switches the active project on selection", async () => {
     const active: project.Project = await client.projects.create({
       name: `proj-active-${id.create()}`,
-      layout: {},
     });
     const target: project.Project = await client.projects.create({
       name: `proj-target-${id.create()}`,
-      layout: {},
     });
     const { wrapper, store } = await createConsoleWrapper({
       client,
@@ -92,11 +89,10 @@ describe("Project.Selector", () => {
   it("gives numbered siblings different avatar initials", async () => {
     const active: project.Project = await client.projects.create({
       name: `proj-active-${id.create()}`,
-      layout: {},
     });
     const prefix = uniqueName("stand");
-    await client.projects.create({ name: `${prefix}_1`, layout: {} });
-    await client.projects.create({ name: `${prefix}_2`, layout: {} });
+    await client.projects.create({ name: `${prefix}_1` });
+    await client.projects.create({ name: `${prefix}_2` });
     const { wrapper } = await createConsoleWrapper({
       client,
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(active) },

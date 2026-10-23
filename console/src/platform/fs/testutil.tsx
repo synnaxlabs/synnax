@@ -10,7 +10,7 @@
 import { File as NodeFile } from "node:buffer";
 
 import { type UploadBody } from "@synnaxlabs/freighter";
-import { Haul } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { act, createEvent, fireEvent, screen } from "@testing-library/react";
 import { type DragEvent, type ReactElement } from "react";
 

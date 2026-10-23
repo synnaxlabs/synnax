@@ -13,12 +13,14 @@ import {
   control,
   DisconnectedError,
   type framer,
+  NotFoundError,
   status as cstatus,
   type Synnax,
   TimeStamp,
   ValidationError,
 } from "@synnaxlabs/client";
 import { StreamClosed, Unreachable } from "@synnaxlabs/freighter";
+import { type theme } from "@synnaxlabs/lyra/theme";
 import {
   color,
   compare,
@@ -30,7 +32,6 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { type theming } from "@/ether";
 import { flux } from "@/flux/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
@@ -76,7 +77,7 @@ interface InternalState {
   colors: Colors;
   addStatus: status.Adder;
   runAsync: status.ErrorHandler;
-  theme: theming.Theme;
+  theme: theme.Theme;
   telemCtx: telem.Context;
 }
 
@@ -141,23 +142,32 @@ export class Controller
     i.runAsync(() => this.doRelease(), "failed to release control");
   }
 
-  private async updateNeedsControlOf(): Promise<void> {
+  /**
+   * Collects the channels the registered telemetry writes. A channel deleted from the
+   * Core is left out, so one stale symbol does not block control of the rest.
+   * @returns The errors for the channels that no longer exist.
+   */
+  private async updateNeedsControlOf(): Promise<Error[]> {
     const { client } = this.internal;
-    if (client == null) return;
+    if (client == null) return [];
 
     const keys = new Set<channel.Key>([]);
-    for (const telem of this.registry.keys()) {
-      const telemKeys = await telem.needsControlOf(client);
-      telemKeys.forEach((k) => k !== 0 && keys.add(k));
-    }
+    const missing: Error[] = [];
+    for (const telem of this.registry.keys())
+      try {
+        const telemKeys = await telem.needsControlOf(client);
+        telemKeys.forEach((k) => k !== 0 && keys.add(k));
+      } catch (e) {
+        if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
+        missing.push(errors.fromUnknown(e));
+      }
     const nextKeys = Array.from(keys);
     if (
-      compare.unorderedPrimitiveArrays(this.state.needsControlOf, nextKeys) ===
+      compare.unorderedPrimitiveArrays(this.state.needsControlOf, nextKeys) !==
       compare.EQUAL
     )
-      return;
-
-    this.setState((p) => ({ ...p, needsControlOf: nextKeys }));
+      this.setState((p) => ({ ...p, needsControlOf: nextKeys }));
+    return missing;
   }
 
   acquire(): void {
@@ -189,7 +199,13 @@ export class Controller
       });
 
     try {
-      await this.updateNeedsControlOf();
+      const missing = await this.updateNeedsControlOf();
+      if (missing.length > 0)
+        addStatus({
+          message: `Some symbols on ${this.state.name} use channels that no longer exist`,
+          description: missing.map((e) => e.message).join("\n"),
+          variant: "warning",
+        });
       const needsControlOf = this.state.needsControlOf;
       if (needsControlOf.length === 0)
         return addStatus({

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement, useMemo } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
@@ -15,7 +16,6 @@ import { Label } from "@/schematic/node/common/label";
 import { Telem } from "@/schematic/node/common/telem";
 import { Light, WIDTH_PER_SCALE } from "@/schematic/node/general/light/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
-import { Theming } from "@/theming";
 import { Light as BaseLight } from "@/vis/light";
 import { Staleness } from "@/vis/staleness";
 
@@ -30,7 +30,8 @@ export const Symbol = ({
     orientation = "left",
     stalenessTimeout,
     stalenessColor,
-    color,
+    strokeColor,
+    onColor,
     ...rest
   },
 }: NodeProps<schematic.LightNodeConfig>): ReactElement => {
@@ -57,7 +58,10 @@ export const Symbol = ({
       <Light
         enabled={enabled}
         orientation={orientation}
-        color={stale ? Staleness.resolveColor(stalenessColor, theme) : color}
+        strokeColor={
+          stale ? Staleness.resolveColor(stalenessColor, theme) : strokeColor
+        }
+        onColor={stale ? undefined : onColor}
         {...rest}
       />
     </Grid.Grid>

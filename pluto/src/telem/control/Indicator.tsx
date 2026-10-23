@@ -9,16 +9,16 @@
 
 import "@/telem/control/Indicator.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { color, TimeStamp } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useEffect, useMemo } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { CSS } from "@/css";
-import { useMemoDeepEqual } from "@/memo";
 import { control } from "@/telem/control/aether";
-import { Text } from "@/text";
-import { Tooltip } from "@/tooltip";
 
 export interface IndicatorProps
   extends

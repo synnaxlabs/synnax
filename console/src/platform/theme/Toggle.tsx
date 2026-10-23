@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch } from "@reduxjs/toolkit";
-import { Button, Icon, Theming } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 

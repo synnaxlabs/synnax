@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, schematic } from "@synnaxlabs/client";
-import { direction } from "@synnaxlabs/x";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { direction, primitive } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
 import { Grid } from "@/schematic/node/common/grid";
 import { Telem } from "@/schematic/node/common/telem";
 import { Control } from "@/telem/control";
@@ -21,15 +21,9 @@ import { control } from "@/telem/control/aether";
 export const stateConfigZ = schematic.controlStateConfigZ;
 export type StateConfig = schematic.ControlStateConfig;
 
-/** reveal clears every hidden flag, so the control state shows once a command channel
- * is chosen. */
-export const reveal = (config?: StateConfig): StateConfig =>
-  stateConfigZ.parse({
-    ...config,
-    hidden: false,
-    chipHidden: false,
-    indicatorHidden: false,
-  });
+export const STATE_CLASS = CSS.B("control-state");
+
+const DEFAULT_CONFIG = stateConfigZ.parse({});
 
 export interface State {
   config?: StateConfig;
@@ -62,7 +56,7 @@ const Internal = ({
     <Flex.Box
       direction={direction.swap(orientation)}
       align="center"
-      className={CSS.cls(CSS.B("control-state"))}
+      className={STATE_CLASS}
       gap="small"
       {...rest}
     >
@@ -73,7 +67,10 @@ const Internal = ({
 };
 
 export const State = Grid.createItem<State>(({ config, channel, onChange }) => {
-  if (config == null) return null;
+  // The chip and the indicator report control of the channel, so with no channel
+  // there is nothing to show.
+  if (!primitive.isNonZero(channel)) return null;
+  config ??= DEFAULT_CONFIG;
   const orientation = config.orientation ?? "bottom";
   return (
     <Grid.Item

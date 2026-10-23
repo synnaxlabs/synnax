@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <array>
 #include <iostream>
 
 #include "gtest/gtest.h"
@@ -280,6 +281,34 @@ TEST(TestSeries, testAtVar) {
     ASSERT_EQ(v2, "world");
 }
 
+/// @brief it should return the last sample with its alignment advanced.
+TEST(TestSeries, testLastFixed) {
+    Series s{std::vector<int32_t>{1, 2, 3}};
+    s.alignment = Alignment(2, 5);
+    s.time_range = TimeRange(TimeStamp(10), TimeStamp(40));
+    const auto last = s.last();
+    ASSERT_EQ(last.data_type(), INT32_T);
+    ASSERT_EQ(last.size(), 1);
+    ASSERT_EQ(last.at<int32_t>(0), 3);
+    ASSERT_EQ(last.alignment, Alignment(2, 7));
+    ASSERT_EQ(last.time_range, s.time_range);
+}
+
+/// @brief it should return the last sample of a variable density series.
+TEST(TestSeries, testLastVar) {
+    const Series s{std::vector<std::string>{"a", "bc", "def"}};
+    const auto last = s.last();
+    ASSERT_EQ(last.data_type(), STRING_T);
+    ASSERT_EQ(last.size(), 1);
+    ASSERT_EQ(last.at<std::string>(0), "def");
+}
+
+/// @brief it should throw when the series is empty.
+TEST(TestSeries, testLastEmptyThrows) {
+    const Series s{INT32_T, 0};
+    ASSERT_THROW((void) s.last(), std::runtime_error);
+}
+
 /// @brief it should allocate a series with a fixed capacity.
 TEST(TestSeries, testAllocation) {
     const Series s{UINT32_T, 5};
@@ -335,6 +364,23 @@ TEST(TestSeries, testWriteVector) {
     ASSERT_EQ(s.at<float>(1), 2.0);
     for (size_t i = 0; i < values.size(); i++)
         ASSERT_EQ(v[i], values[i]);
+}
+
+/// @brief it should append a vector after the existing values, up to the capacity.
+TEST(TestSeries, testWriteVectorAppends) {
+    Series s{UINT32_T, 4};
+    s.write(std::uint32_t{1});
+    ASSERT_EQ(s.write(std::vector<std::uint32_t>{2, 3, 4, 5}), 3);
+    ASSERT_EQ(s.values<std::uint32_t>(), (std::vector<std::uint32_t>{1, 2, 3, 4}));
+}
+
+/// @brief it should append an array after the existing values, up to the capacity.
+TEST(TestSeries, testWritePointerAppends) {
+    Series s{UINT32_T, 4};
+    s.write(std::uint32_t{1});
+    constexpr std::array<std::uint32_t, 4> data{2, 3, 4, 5};
+    ASSERT_EQ(s.write(data.data(), data.size()), 3);
+    ASSERT_EQ(s.values<std::uint32_t>(), (std::vector<std::uint32_t>{1, 2, 3, 4}));
 }
 
 /// @brief it should correctly print out the series.
@@ -521,6 +567,7 @@ TEST(TestSeries, testDeepCopy) {
     s1.write(2);
     s1.write(3);
     s1.alignment = Alignment(5, 10);
+    s1.time_range = TimeRange(TimeStamp(10), TimeStamp(40));
 
     const Series s2 = s1.deep_copy();
     ASSERT_EQ(s2.size(), 3);
@@ -531,6 +578,28 @@ TEST(TestSeries, testDeepCopy) {
     ASSERT_EQ(s2.byte_size(), s1.byte_size());
     ASSERT_EQ(s2.cap(), s1.cap());
     ASSERT_EQ(s2.alignment.uint64(), s1.alignment.uint64());
+    ASSERT_EQ(s2.time_range, s1.time_range);
+}
+
+/// @brief it should allocate the spare capacity of the source in a deep copy. The
+/// capacity is large so that an overflow crashes without a sanitizer.
+TEST(TestSeries, testDeepCopyWriteIntoSpareCapacity) {
+    constexpr size_t cap = 1 << 22;
+    Series s1{UINT32_T, cap};
+    s1.write(std::uint32_t{1});
+    Series s2 = s1.deep_copy();
+    ASSERT_EQ(s2.cap(), cap);
+    ASSERT_EQ(s2.write(Series(std::vector<std::uint32_t>(cap - 1, 7))), cap - 1);
+    ASSERT_EQ(s2.size(), cap);
+    ASSERT_EQ(s2.at<std::uint32_t>(0), 1);
+    ASSERT_EQ(s2.at<std::uint32_t>(-1), 7);
+}
+
+/// @brief it should keep the spare byte capacity of a variable series in a deep copy.
+TEST(TestSeries, testDeepCopyVariableSpareCapacity) {
+    const Series s1{STRING_T, 64};
+    const Series s2 = s1.deep_copy();
+    ASSERT_EQ(s2.byte_cap(), 64);
 }
 
 /// @brief it should deep copy a variable data type series.

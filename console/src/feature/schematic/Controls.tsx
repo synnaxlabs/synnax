@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Control, Diagram, Flex, Icon, Schematic } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Control, Diagram, Schematic } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback } from "react";
 
@@ -36,6 +39,30 @@ const ControlToggleButton = (): ReactElement => {
   );
 };
 
+const TooltipsToggleButton = (): ReactElement => {
+  const key = Schematic.useKey();
+  const dispatch = Session.useDispatch();
+  const tooltipsDisabled = Session.Schematic.useSelectTooltipsDisabled();
+  const handleChange = useCallback(
+    (enabled: boolean) =>
+      dispatch(
+        Session.Schematic.setTooltipsDisabled({ key, tooltipsDisabled: !enabled }),
+      ),
+    [dispatch, key],
+  );
+  return (
+    <Button.Toggle
+      value={!tooltipsDisabled}
+      onChange={handleChange}
+      tooltipLocation={location.BOTTOM_LEFT}
+      size="small"
+      tooltip={`${tooltipsDisabled ? "Show" : "Hide"} tooltips`}
+    >
+      <Icon.Tooltip />
+    </Button.Toggle>
+  );
+};
+
 export const Controls = memo((): ReactElement => {
   const isSnapshot = Schematic.useIsSnapshot();
   const isAcquired = Session.Schematic.useSelectControlIsAcquired();
@@ -45,6 +72,7 @@ export const Controls = memo((): ReactElement => {
     <Vis.Controls x>
       {isCurrentlyEditable && <Diagram.Controls.SelectViewportMode />}
       <Diagram.Controls.FitView />
+      <TooltipsToggleButton />
       <Flex.Box x pack className={CSS.cls(isAcquired && Vis.CONTROLS_PINNED_CLASS)}>
         {canEdit && <Diagram.Controls.ToggleEdit disabled={isAcquired} />}
         {!isSnapshot && canControl && <ControlToggleButton />}

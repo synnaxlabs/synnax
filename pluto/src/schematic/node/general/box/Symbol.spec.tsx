@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Haul } from "@/haul";
 import { Symbol } from "@/schematic/node/general/box/Symbol";
 import { type NodeProps } from "@/schematic/node/spec";
 

@@ -33,7 +33,7 @@ export const cursorKindZ = z.enum(["default", "pointer", "text"]);
 export type CursorKind = z.infer<typeof cursorKindZ>;
 
 /** Cursor travels to (x, y), arriving at `tick`, departing `tick - duration`. */
-export const moveEventZ = z.object({
+const moveEventZ = z.object({
   type: z.literal("move"),
   tick: z.int().nonnegative(),
   x: z.number(),
@@ -58,7 +58,7 @@ export const pointerDownEventZ = z.object({
   zoom: z.boolean().optional(),
 });
 
-export const pointerUpEventZ = z.object({
+const pointerUpEventZ = z.object({
   type: z.literal("pointerup"),
   tick: z.int().nonnegative(),
   x: z.number(),
@@ -66,7 +66,7 @@ export const pointerUpEventZ = z.object({
   button: z.enum(["left", "right", "middle"]).default("left"),
 });
 
-export const keyEventZ = z.object({
+const keyEventZ = z.object({
   type: z.literal("key"),
   tick: z.int().nonnegative(),
   key: z.string(),
@@ -76,7 +76,7 @@ export const keyEventZ = z.object({
  * Authored camera override: forces the camera to the given focus and amount for
  * [tick, endTick], suppressing auto-zoom segments that overlap it.
  */
-export const zoomOverrideEventZ = z
+const zoomOverrideEventZ = z
   .object({
     type: z.literal("zoom"),
     tick: z.int().nonnegative(),
@@ -92,12 +92,25 @@ export const zoomOverrideEventZ = z
     message: "zoom override requires an amount, a rect, or both",
   });
 
+/**
+ * Named point in a capture that a film's shots cut between. `rect` is the region a
+ * shot frames when it targets the mark.
+ */
+export const markEventZ = z.object({
+  type: z.literal("mark"),
+  tick: z.int().nonnegative(),
+  name: z.string().min(1),
+  rect: rectZ.optional(),
+});
+export type Mark = z.infer<typeof markEventZ>;
+
 export const eventZ = z.discriminatedUnion("type", [
   moveEventZ,
   pointerDownEventZ,
   pointerUpEventZ,
   keyEventZ,
   zoomOverrideEventZ,
+  markEventZ,
 ]);
 export type Event = z.infer<typeof eventZ>;
 
@@ -120,6 +133,8 @@ export const timelineZ = z.object({
   events: eventZ.array(),
   /** Cursor position at tick 0. */
   origin: pointZ,
+  /** Values a capture sampled once per frame, by track name, indexed by tick. */
+  tracks: z.record(z.string(), z.number().array()).optional(),
 });
 export type Timeline = z.infer<typeof timelineZ>;
 
@@ -129,3 +144,10 @@ export const parse = (data: unknown): Timeline => timelineZ.parse(data);
 /** clicks returns pointerdown events in tick order. */
 export const clicks = (tl: Timeline): z.infer<typeof pointerDownEventZ>[] =>
   tl.events.filter((e) => e.type === "pointerdown").sort((a, b) => a.tick - b.tick);
+
+/** marks returns the capture's marks by name. */
+export const marks = (tl: Timeline): Map<string, Mark> => {
+  const byName = new Map<string, Mark>();
+  for (const e of tl.events) if (e.type === "mark") byName.set(e.name, e);
+  return byName;
+};

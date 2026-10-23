@@ -9,16 +9,14 @@
 
 import "@/feature/auth/Login.css";
 
-import {
-  Button,
-  Flex,
-  Form,
-  Icon,
-  type Input,
-  Status,
-  Synnax,
-  type Triggers,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { Status } from "@synnaxlabs/lyra/status";
+import { type Triggers } from "@synnaxlabs/lyra/triggers";
+import { Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 

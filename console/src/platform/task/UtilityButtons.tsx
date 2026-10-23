@@ -8,13 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Button, Divider, Flex, Form, Icon } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { binary, primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
 import { useKey } from "@/platform/task/useKey";
+import { Session } from "@/session";
 
 export const UtilityButtons = () => {
   const ctx = Form.useContext();
@@ -90,15 +95,17 @@ export const UtilityButtons = () => {
       {hasKey && (
         <>
           <Divider.Divider y />
-          <Button.Button
-            onClick={handleCopyLink}
-            tooltip="Copy link"
-            tooltipLocation="left"
-            variant="text"
-            textColor={9}
-          >
-            <Icon.Link />
-          </Button.Button>
+          {!Session.Runtime.LINKS_DISABLED && (
+            <Button.Button
+              onClick={handleCopyLink}
+              tooltip="Copy link"
+              tooltipLocation="left"
+              variant="text"
+              textColor={9}
+            >
+              <Icon.Link />
+            </Button.Button>
+          )}
           <Button.Button
             onClick={handleExport}
             tooltip="Export"

@@ -1,5 +1,5 @@
 <a href="https://synnaxlabs.com/" style="display: flex; justify-content: center;">
-    <img src="x/media/static/logo/icon-white-padded.png" width="20%"/>
+    <img src="lyra/static/logo/icon-white-padded.png" width="20%"/>
 </a>
 
 # Synnax
@@ -47,7 +47,9 @@ monorepo. The following is a summary of each:
   Python, and TypeScript.
 - [Console](console) - A data-visualization and graphical control application for macOS
   and Windows.
-- [Documentation Site](docs/site) - The code for the Synnax documentation website.
+- [Documentation Site](site/docs) - The code for the Synnax documentation website.
+- [Portal](site/portal) - The account site at portal.synnaxlabs.com, where users manage
+  licenses and Synnax Desktop machines.
 - [Technical Documentation](docs/tech) - Technical documentation such as RFCs and
   contribution guides.
 - [Drift](drift) - Redux state synchronization and declarative window management for
@@ -61,6 +63,8 @@ monorepo. The following is a summary of each:
   integration and stress testing across the Synnax server and its clients.
 - [Oracle](oracle) - A schema definition language, code generator, and migration CLI
   used to keep Synnax's data models consistent across Go, TypeScript, Python, and C++.
+- [Lyra](lyra) - The React UI primitives (buttons, inputs, forms, menus, theming) shared
+  by Pluto, the Console, and the documentation site.
 - [Pluto](pluto) - A React component library for building modular user interfaces on top
   of the Synnax telemetry engine.
 - [Core](core) - The core Synnax server, which integrates Aspen and Cesium to provide a
