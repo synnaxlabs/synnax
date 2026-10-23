@@ -31,12 +31,6 @@ namespace synnax::auth {
 const std::string HEADER_KEY = "authorization";
 /// @brief auth token prefix that will be parsed by the cluster.
 const std::string HEADER_VALUE_PREFIX = "Bearer ";
-/// @brief the method of a username and password proof.
-const std::string METHOD_PASSWORD = "password";
-const std::string METHOD_API_KEY = "api_key";
-/// @brief how long a logout waits for the Core before giving up. The client's
-/// destructor logs out, so an unanswered request must not hang it.
-constexpr auto LOGOUT_TIMEOUT = std::chrono::seconds(5);
 
 /// @brief transport that opens a session from a proof.
 using SessionCreateClient = freighter::
@@ -84,7 +78,7 @@ struct Subject {
 inline grpc::auth::Proof
 password_proof(const std::string &username, const std::string &password) {
     grpc::auth::Proof proof;
-    proof.set_method(METHOD_PASSWORD);
+    proof.set_method("password");
     proof.set_username(username);
     proof.set_password(password);
     return proof;
@@ -93,7 +87,7 @@ password_proof(const std::string &username, const std::string &password) {
 /// @brief returns a proof that logs in with an API key.
 inline grpc::auth::Proof api_key_proof(const std::string &key) {
     grpc::auth::Proof proof;
-    proof.set_method(METHOD_API_KEY);
+    proof.set_method("api_key");
     proof.set_key(key);
     return proof;
 }
@@ -209,6 +203,10 @@ struct Session {
 /// and attaches its token to every request. Middleware has no preference on order when
 /// provided to use. It is safe to use concurrently.
 class Middleware final : public freighter::PassthroughMiddleware {
+    /// @brief how long a logout waits for the Core before giving up. The client's
+    /// destructor logs out, so an unanswered request must not hang it.
+    static constexpr auto LOGOUT_TIMEOUT = std::chrono::seconds(5);
+
     /// @brief adds the token to the session requests the Middleware sends itself.
     class TokenHeader final : public freighter::PassthroughMiddleware {
         std::function<std::string()> token;

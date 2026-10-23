@@ -74,7 +74,7 @@ TEST(TestAuth, LoginSendsPasswordProof) {
     const auto mw = middleware_with(std::move(mock_create_client));
     ASSERT_NIL(mw->authenticate());
     ASSERT_EQ(create->requests.size(), 1);
-    ASSERT_EQ(create->requests[0].proof().method(), METHOD_PASSWORD);
+    ASSERT_EQ(create->requests[0].proof().method(), "password");
     ASSERT_EQ(create->requests[0].proof().username(), "synnax");
     ASSERT_EQ(create->requests[0].proof().password(), "seldon");
 }
@@ -94,7 +94,7 @@ TEST(TestAuth, LoginSendsAPIKeyProof) {
     );
     ASSERT_NIL(mw->authenticate());
     ASSERT_EQ(create->requests.size(), 1);
-    ASSERT_EQ(create->requests[0].proof().method(), METHOD_API_KEY);
+    ASSERT_EQ(create->requests[0].proof().method(), "api_key");
     ASSERT_EQ(create->requests[0].proof().key(), "syk_key");
     ASSERT_TRUE(create->requests[0].proof().username().empty());
 }

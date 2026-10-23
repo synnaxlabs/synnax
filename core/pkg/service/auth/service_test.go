@@ -38,17 +38,6 @@ func proof(username, pwd string) auth.Proof {
 	}}
 }
 
-var _ = Describe("Proof", func() {
-	Describe("Method", func() {
-		It("Should name the method of a password proof", func() {
-			Expect(proof("u", "p").Method()).To(Equal(auth.MethodPassword))
-		})
-		It("Should reject a proof with no variant", func() {
-			Expect(auth.Proof{}.Method()).Error().To(MatchError(validate.ErrValidation))
-		})
-	})
-})
-
 var _ = Describe("ServiceConfig", func() {
 	var (
 		cfg   auth.ServiceConfig

@@ -84,7 +84,7 @@ func (s *Service) RenewSession(
 	ctx context.Context,
 	_ struct{},
 ) (SessionRenewResponse, error) {
-	session := GetSession(ctx)
+	session := getSession(ctx)
 	u, err := s.userOf(ctx, session.Subject)
 	if err != nil {
 		return SessionRenewResponse{}, err
@@ -141,7 +141,7 @@ func (s *Service) RetrieveSessions(
 	); err != nil {
 		return SessionRetrieveResponse{}, err
 	}
-	var sessions []auth.Session
+	sessions := make([]auth.Session, 0)
 	if err := s.auth.NewRetrieve().
 		Where(auth.MatchSubjects(subjects...)).
 		Entries(&sessions).
@@ -183,7 +183,7 @@ func (s *Service) DeleteSessions(
 	); err != nil {
 		return struct{}{}, err
 	}
-	if lo.Contains(req.Keys, GetSession(ctx).Key) {
+	if lo.Contains(req.Keys, getSession(ctx).Key) {
 		freighter.MDFromContext(ctx).Set(SessionCookieParam, "")
 	}
 	return struct{}{}, s.auth.Logout(ctx, req.Keys...)

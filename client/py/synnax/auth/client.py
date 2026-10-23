@@ -29,30 +29,30 @@ from synnax.util.send_required import send_required
 from x.telem import TimeStamp
 
 
-class SessionCreateRequest(BaseModel):
+class _SessionCreateRequest(BaseModel):
     proof: Proof
 
 
-class SessionCreateResponse(BaseModel):
+class _SessionCreateResponse(BaseModel):
     token: str
     session: Session
     user: User | None = None
 
 
-class SessionRenewResponse(BaseModel):
+class _SessionRenewResponse(BaseModel):
     session: Session
     user: User | None = None
 
 
-class SessionRetrieveRequest(BaseModel):
+class _SessionRetrieveRequest(BaseModel):
     subjects: list[ontology.ID] = []
 
 
-class SessionRetrieveResponse(BaseModel):
+class _SessionRetrieveResponse(BaseModel):
     sessions: list[Session] = []
 
 
-class SessionDeleteRequest(BaseModel):
+class _SessionDeleteRequest(BaseModel):
     keys: list[SessionKey] = []
 
 
@@ -69,35 +69,35 @@ class APIKey(BaseModel):
     """When the key was created."""
 
 
-class KeyCreateRequest(BaseModel):
+class _KeyCreateRequest(BaseModel):
     subject: ontology.ID | None = None
     name: str
 
 
-class KeyCreateResponse(BaseModel):
+class _KeyCreateResponse(BaseModel):
     token: str
     key: APIKey
 
 
-class KeyRetrieveRequest(BaseModel):
+class _KeyRetrieveRequest(BaseModel):
     subjects: list[ontology.ID] = []
 
 
-class KeyRetrieveResponse(BaseModel):
+class _KeyRetrieveResponse(BaseModel):
     keys: list[APIKey] = []
 
 
-class KeyDeleteRequest(BaseModel):
+class _KeyDeleteRequest(BaseModel):
     keys: list[UUID] = []
 
 
-SESSION_CREATE_ENDPOINT = "/auth/session/create"
-SESSION_RENEW_ENDPOINT = "/auth/session/renew"
-SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve"
-SESSION_DELETE_ENDPOINT = "/auth/session/delete"
-KEY_CREATE_ENDPOINT = "/auth/key/create"
-KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve"
-KEY_DELETE_ENDPOINT = "/auth/key/delete"
+_SESSION_CREATE_ENDPOINT = "/auth/session/create"
+_SESSION_RENEW_ENDPOINT = "/auth/session/renew"
+_SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve"
+_SESSION_DELETE_ENDPOINT = "/auth/session/delete"
+_KEY_CREATE_ENDPOINT = "/auth/key/create"
+_KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve"
+_KEY_DELETE_ENDPOINT = "/auth/key/delete"
 
 AUTHORIZATION_HEADER = "Authorization"
 RETRY_ON_ERRORS = (InvalidToken, ExpiredToken, SessionEnded)
@@ -137,9 +137,9 @@ class Client:
         """Opens a session with the stored proof."""
         res = send_required(
             self.client,
-            SESSION_CREATE_ENDPOINT,
-            SessionCreateRequest(proof=self.proof),
-            SessionCreateResponse,
+            _SESSION_CREATE_ENDPOINT,
+            _SessionCreateRequest(proof=self.proof),
+            _SessionCreateResponse,
         )
         self.token = res.token
         self.session = res.session
@@ -156,7 +156,7 @@ class Client:
         session the Core sees.
         """
         res = send_required(
-            self.client, SESSION_RENEW_ENDPOINT, Empty(), SessionRenewResponse
+            self.client, _SESSION_RENEW_ENDPOINT, Empty(), _SessionRenewResponse
         )
         self.session = res.session
         self.user = res.user
@@ -170,9 +170,9 @@ class Client:
         """
         res = send_required(
             self.client,
-            SESSION_RETRIEVE_ENDPOINT,
-            SessionRetrieveRequest(subjects=subjects or []),
-            SessionRetrieveResponse,
+            _SESSION_RETRIEVE_ENDPOINT,
+            _SessionRetrieveRequest(subjects=subjects or []),
+            _SessionRetrieveResponse,
         )
         return res.sessions
 
@@ -180,8 +180,8 @@ class Client:
         """Ends the given sessions. Unknown keys are ignored."""
         send_required(
             self.client,
-            SESSION_DELETE_ENDPOINT,
-            SessionDeleteRequest(keys=list(keys)),
+            _SESSION_DELETE_ENDPOINT,
+            _SessionDeleteRequest(keys=list(keys)),
             Empty,
         )
 
@@ -196,9 +196,9 @@ class Client:
         """
         res = send_required(
             self.client,
-            KEY_CREATE_ENDPOINT,
-            KeyCreateRequest(subject=subject, name=name),
-            KeyCreateResponse,
+            _KEY_CREATE_ENDPOINT,
+            _KeyCreateRequest(subject=subject, name=name),
+            _KeyCreateResponse,
         )
         return res.token, res.key
 
@@ -208,16 +208,16 @@ class Client:
         """
         res = send_required(
             self.client,
-            KEY_RETRIEVE_ENDPOINT,
-            KeyRetrieveRequest(subjects=subjects or []),
-            KeyRetrieveResponse,
+            _KEY_RETRIEVE_ENDPOINT,
+            _KeyRetrieveRequest(subjects=subjects or []),
+            _KeyRetrieveResponse,
         )
         return res.keys
 
     def delete_keys(self, *keys: UUID) -> None:
         """Deletes API keys and ends their sessions. Unknown keys are ignored."""
         send_required(
-            self.client, KEY_DELETE_ENDPOINT, KeyDeleteRequest(keys=list(keys)), Empty
+            self.client, _KEY_DELETE_ENDPOINT, _KeyDeleteRequest(keys=list(keys)), Empty
         )
 
     def logout(self) -> None:
@@ -246,12 +246,12 @@ class Client:
         """Attaches the token and reports whether a rejected token may log in again."""
         target = ctx.target.rstrip("/")
         # The login request itself carries no token, and must not trigger a login.
-        if target.endswith(SESSION_CREATE_ENDPOINT):
+        if target.endswith(_SESSION_CREATE_ENDPOINT):
             return False
         # A logout ends the session its token belongs to; a dead one must not log in
         # again.
         logout_token = self._logout_token.get()
-        if logout_token is not None and target.endswith(SESSION_DELETE_ENDPOINT):
+        if logout_token is not None and target.endswith(_SESSION_DELETE_ENDPOINT):
             ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + logout_token)
             return False
         if not self.authenticated:
