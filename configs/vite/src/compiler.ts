@@ -71,25 +71,21 @@ const STRICT = { ...OPTIONS, panicThreshold: "all_errors" };
 // A workspace dependency's dist is already compiled.
 const DIST = /[/\\]dist[/\\]/;
 
-const preset = (build: boolean, exclude: RegExp[]): RolldownBabelPreset =>
+// Aether worker code, in `aether/` directories and Pluto's `vis/render/`, names its
+// functions like hooks. A compiled one throws "Invalid hook call" on the worker.
+const WORKER = /[/\\](aether|vis[/\\]render)[/\\].*\.ts$/;
+
+const preset = (build: boolean): RolldownBabelPreset =>
   defineRolldownBabelPreset({
     preset: () => ({
       plugins: [UNSHADOW_SYMBOL, UNWRAP_CASTS, [COMPILER, build ? STRICT : OPTIONS]],
     }),
     rolldown: {
-      filter: { id: { exclude: [DIST, ...exclude] } },
+      filter: { id: { exclude: [DIST, WORKER] } },
       optimizeDeps: { include: ["react/compiler-runtime"] },
       configResolvedHook: (config) => (config.command === "build") === build,
     },
   });
-
-export interface ReactCompilerOptions {
-  /**
-   * Modules the compiler leaves as written, such as code that runs outside React but
-   * names its functions like hooks.
-   */
-  exclude?: RegExp[];
-}
 
 /**
  * Compiles components and hooks with the React Compiler. Unlike the preset that
@@ -97,10 +93,8 @@ export interface ReactCompilerOptions {
  * compiled code that builds emit. A build fails on a component or hook that the
  * compiler cannot compile; a `"use no memo"` directive opts one out.
  */
-export const reactCompiler = ({
-  exclude = [],
-}: ReactCompilerOptions = {}): PluginOption => [
-  babel({ presets: [preset(true, exclude), preset(false, exclude)] }),
+export const reactCompiler = (): PluginOption => [
+  babel({ presets: [preset(true), preset(false)] }),
   {
     name: "synnax:react-compiler",
     // Vitest keys its module cache on plugin names, not on how they transform.
