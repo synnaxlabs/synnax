@@ -17,7 +17,8 @@ import synnax as sy
 @pytest.mark.access
 class TestAccessClient:
     @pytest.fixture(scope="class")
-    def two_policies(self, client: sy.Synnax) -> list[sy.Policy]:
+    @classmethod
+    def two_policies(cls, client: sy.Synnax) -> list[sy.Policy]:
         return client.access.policies.create(
             [
                 sy.Policy(
@@ -112,7 +113,8 @@ class TestAccessClient:
 @pytest.mark.role
 class TestRoleClient:
     @pytest.fixture(scope="class")
-    def two_roles(self, client: sy.Synnax) -> list[sy.Role]:
+    @classmethod
+    def two_roles(cls, client: sy.Synnax) -> list[sy.Role]:
         return client.access.roles.create(
             [
                 sy.Role(name="Admin", description="Administrator role"),

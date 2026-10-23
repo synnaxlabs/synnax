@@ -196,12 +196,12 @@ class SignedDimensions(BaseModel):
     values to express direction.
 
     Attributes:
-        signedWidth: Is the signed width.
-        signedHeight: Is the signed height.
+        signed_width: Is the signed width.
+        signed_height: Is the signed height.
     """
 
-    signedWidth: float
-    signedHeight: float
+    signed_width: float
+    signed_height: float
 
 
 class ClientXY(BaseModel):
@@ -209,12 +209,12 @@ class ClientXY(BaseModel):
     of DOM mouse events.
 
     Attributes:
-        clientX: Is the horizontal coordinate in client (viewport) space.
-        clientY: Is the vertical coordinate in client (viewport) space.
+        client_x: Is the horizontal coordinate in client (viewport) space.
+        client_y: Is the vertical coordinate in client (viewport) space.
     """
 
-    clientX: float
-    clientY: float
+    client_x: float
+    client_y: float
 
 
 class Bounds(BaseModel):

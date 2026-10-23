@@ -16,8 +16,9 @@ import string
 import sys
 import threading
 import time
+import traceback
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum, auto
 from typing import Any
 
@@ -84,7 +85,7 @@ class TestConductor:
         try:
             self.client = self.synnax_connection.create_client()
         except Exception as e:
-            raise RuntimeError(f"Failed to initialize client: {e}")
+            raise RuntimeError("Failed to initialize client") from e
 
         self.log_client = LogClient(
             name=self.name,
@@ -102,7 +103,7 @@ class TestConductor:
                 time_range=sy.TimeRange(start=sy.TimeStamp.now(), end=sy.TimeStamp.MAX),
             )
         except Exception as e:
-            raise RuntimeError(f"Failed to create range: {e}")
+            raise RuntimeError("Failed to create range") from e
 
         self.config_client = ConfigClient(log=self.log)
 
@@ -114,7 +115,7 @@ class TestConductor:
         self.tests: list[Test] = []
         self.tests_lock = threading.Lock()
         self.active_tests: list[
-            tuple[TestDefinition, TestCase, sy.Range, threading.Thread]
+            tuple[TestDefinition, TestCase, sy.Range | None, threading.Thread]
         ] = []
         self.active_tests_lock = threading.Lock()
 
@@ -267,24 +268,23 @@ class TestConductor:
     def _write_summary(self) -> None:
         ended_at = time.time()
         stats = self.report_client.get_statistics() if self.tests else {}
-        tests_json: list[dict[str, Any]] = []
-        for t in self.tests:
-            tests_json.append(
-                {
-                    "case": t.test_name,
-                    "name": t.name,
-                    "status": t.status.name,
-                    "started_at": _iso(t.started_at),
-                    "ended_at": _iso(t.ended_at),
-                    "duration_s": _duration(t.started_at, t.ended_at),
-                    "error_message": t.error_message,
-                    "bundle_dir": (
-                        os.path.relpath(t.bundle_dir, str(self.run_dir))
-                        if t.bundle_dir
-                        else None
-                    ),
-                }
-            )
+        tests_json: list[dict[str, Any]] = [
+            {
+                "case": t.test_name,
+                "name": t.name,
+                "status": t.status.name,
+                "started_at": _iso(t.started_at),
+                "ended_at": _iso(t.ended_at),
+                "duration_s": _duration(t.started_at, t.ended_at),
+                "error_message": t.error_message,
+                "bundle_dir": (
+                    os.path.relpath(t.bundle_dir, str(self.run_dir))
+                    if t.bundle_dir
+                    else None
+                ),
+            }
+            for t in self.tests
+        ]
         summary = {
             "run": {
                 "name": self.name,
@@ -317,7 +317,7 @@ class TestConductor:
 def _iso(ts: float | None) -> str | None:
     if ts is None:
         return None
-    return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.fromtimestamp(ts, tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _duration(start: float | None, end: float | None) -> float | None:
@@ -516,7 +516,8 @@ All matching is case-insensitive substring.
         conductor.log("Keyboard interrupt received. Shutting down gracefully...")
         conductor.shutdown()
     except Exception as e:
-        conductor.log(f"Error occurred: {e}")
+        # os._exit in finally skips Python's traceback, so log the chain here.
+        conductor.log("Error occurred:\n" + "".join(traceback.format_exception(e)))
         conductor.shutdown()
         raise
     finally:

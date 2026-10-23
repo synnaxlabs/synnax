@@ -21,7 +21,9 @@ import {
   scale,
   type Series,
   type SeriesDigest,
+  TimeRange,
   TimeSpan,
+  TimeStamp,
   xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -135,7 +137,8 @@ export class GLProgram extends render.GLProgram {
     const { x, y, downsample, xOffset, yOffset } = op;
     this.bindAttrBuffer("x", x.glBuffer, downsample, xOffset, xDataType);
     this.bindAttrBuffer("y", y.glBuffer, downsample, yOffset, yDataType);
-    gl.drawArraysInstanced(gl.LINE_STRIP, 0, vertexCount(op), instances);
+    for (const [first, count] of finiteRuns(op))
+      gl.drawArraysInstanced(gl.LINE_STRIP, first, count, instances);
   }
 
   /** Draws one segment per pair of vertices, given as interleaved float32 x and y. */
@@ -368,13 +371,14 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     if (index === -1 || series === -1 || !this.state.visible) return result;
 
     const xSeries = xData.series[series];
-    result.value.x = safelyGetDataValue(series, index, xData);
     let [, yData] = yTelem.value(valueProps);
     yData = this.internal.yDownsampler.transform(yData);
+    const xAlignment = xSeries.alignment + BigInt(index) * xSeries.alignmentMultiple;
     const ySeries = yData.series.find((ys) =>
-      bounds.contains(ys.alignmentBounds, xSeries.alignment + BigInt(index)),
+      bounds.contains(ys.alignmentBounds, xAlignment),
     );
     if (ySeries == null) return result;
+    result.value.x = safelyGetDataValue(series, index, xData);
 
     const op = buildDrawOperation(
       xSeries,
@@ -389,8 +393,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       result.value.x = safelyGetDataValue(series, index, xData);
     }
 
-    const alignmentDiff = Number(ySeries.alignment - xSeries.alignment);
-    result.value.y = Number(ySeries.at(index - alignmentDiff));
+    const offset = (ySeries.alignment - xSeries.alignment) / ySeries.alignmentMultiple;
+    result.value.y = Number(ySeries.at(index - Number(offset)));
 
     result.bounds = { ...ySeries.bounds };
 
@@ -439,12 +443,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       prog.draw(op, instances, xData.dataType, yData.dataType);
     });
     clearProg();
-    if (ops.length < 2) return;
+    const bridges = bridgeVertices(ops, dataToDecimalScale);
+    if (bridges.length === 0) return;
     const bridgeProg = ctx.getProgram(DataType.FLOAT32);
     const clearBridgeProg = bridgeProg.setAsActive();
     const bridgeInstances = bridgeProg.bindState(this.state);
     bridgeProg.bindScale(scale.XY.IDENTITY.transform, regionTransform);
-    bridgeProg.segments(bridgeVertices(ops, dataToDecimalScale), bridgeInstances);
+    bridgeProg.segments(bridges, bridgeInstances);
     clearBridgeProg();
   }
 }
@@ -580,20 +585,76 @@ export const nearestVertex = (op: DrawOperation, index: number): number => {
   return op.xOffset + clamped * op.downsample;
 };
 
-/** @returns interleaved decimal x and y of the segments joining each op to the next. */
-export const bridgeVertices = (ops: DrawOperation[], s: scale.XY): Float32Array => {
-  const vertices = new Float32Array((ops.length - 1) * 4);
-  for (let i = 1; i < ops.length; i++) {
-    const a = ops[i - 1];
-    const b = ops[i];
-    const last = lastVertex(a) * a.downsample;
-    const j = (i - 1) * 4;
-    vertices[j] = s.x.pos(Number(a.x.at(a.xOffset + last, true)));
-    vertices[j + 1] = s.y.pos(Number(a.y.at(a.yOffset + last, true)));
-    vertices[j + 2] = s.x.pos(Number(b.x.at(b.xOffset, true)));
-    vertices[j + 3] = s.y.pos(Number(b.y.at(b.yOffset, true)));
+/**
+ * @returns the [first, count] vertex ranges of op that hold only finite x and y
+ * samples. A range with one vertex draws no segment, so it is left out.
+ */
+const finiteRuns = (op: DrawOperation): Array<[number, number]> => {
+  const total = vertexCount(op);
+  const gaps = [
+    ...nonFiniteVertices(op.x, op.xOffset, op.downsample, total),
+    ...nonFiniteVertices(op.y, op.yOffset, op.downsample, total),
+  ].sort((a, b) => a.lower - b.lower);
+  const runs: Array<[number, number]> = [];
+  let first = 0;
+  for (const { lower, upper } of gaps) {
+    if (lower - first > 1) runs.push([first, lower - first]);
+    first = Math.max(first, upper);
+  }
+  if (total - first > 1) runs.push([first, total - first]);
+  return runs;
+};
+
+const nonFiniteVertices = (
+  series: Series,
+  offset: number,
+  downsample: number,
+  total: number,
+): bounds.Bounds[] => {
+  const vertices: bounds.Bounds[] = [];
+  for (const { lower, upper } of series.nonFiniteRanges) {
+    const v = {
+      lower: Math.max(0, Math.ceil((lower - offset) / downsample)),
+      upper: Math.min(total, Math.ceil((upper - offset) / downsample)),
+    };
+    if (v.lower >= total) break;
+    if (v.lower < v.upper) vertices.push(v);
   }
   return vertices;
+};
+
+/** @returns the time span an op draws: where its x and y series overlap. */
+const opSpan = ({ x, y }: DrawOperation): TimeRange =>
+  new TimeRange(
+    TimeStamp.max(x.timeRange.start, y.timeRange.start),
+    TimeStamp.min(x.timeRange.end, y.timeRange.end),
+  );
+
+/**
+ * @returns interleaved decimal x and y of the segments joining each op to the next in
+ * time, leaving out any segment with a non-finite end. Ops whose time spans overlap
+ * are not joined: they hold the same span twice, so a joining segment would run back in
+ * time.
+ */
+export const bridgeVertices = (ops: DrawOperation[], s: scale.XY): Float32Array => {
+  const vertices: number[] = [];
+  const spans = ops
+    .map((op) => ({ op, span: opSpan(op) }))
+    .sort((a, b) => TimeStamp.sort(a.span.start, b.span.start));
+  for (let i = 1; i < spans.length; i++) {
+    const { op: a, span: aSpan } = spans[i - 1];
+    const { op: b, span: bSpan } = spans[i];
+    if (bSpan.start.before(aSpan.end)) continue;
+    const last = lastVertex(a) * a.downsample;
+    const segment = [
+      s.x.pos(Number(a.x.at(a.xOffset + last, true))),
+      s.y.pos(Number(a.y.at(a.yOffset + last, true))),
+      s.x.pos(Number(b.x.at(b.xOffset, true))),
+      s.y.pos(Number(b.y.at(b.yOffset, true))),
+    ];
+    if (segment.every(Number.isFinite)) vertices.push(...segment);
+  }
+  return new Float32Array(vertices);
 };
 
 const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>

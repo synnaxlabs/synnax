@@ -15,40 +15,6 @@
         --console-list-width: 300px;
     }
 
-    .pluto-tree__item {
-        padding-right: 1.25rem;
-    }
-
-    /* The tree paints every icon in its rows one gray; the toggle's own color must win
-       so an enabled field still reads as on. */
-    .pluto-tree__item .pluto-btn .pluto-icon {
-        color: inherit;
-    }
-
-    /* The add button stays quiet until the endpoint is hovered or chosen, so a long
-       list reads as data rather than a column of buttons. */
-    .console-endpoint-item__add {
-        margin-left: auto;
-        opacity: 0;
-    }
-
-    .console-endpoint-item:is(:hover, :focus-within, .pluto--selected)
-        .console-endpoint-item__add {
-        opacity: 1;
-    }
-
-    .console-field-pointer {
-        min-width: 0;
-        flex-grow: 1;
-        font-family: var(--pluto-code-font-family);
-    }
-
-    .console-field-item.console--off .console-field-pointer {
-        color: var(--pluto-gray-l8);
-        text-decoration: line-through;
-        text-decoration-color: var(--pluto-gray-l6);
-    }
-
     .console-endpoint-details {
         overflow-y: auto;
 

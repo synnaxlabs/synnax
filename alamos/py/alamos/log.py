@@ -59,9 +59,9 @@ class Logger:
             self.base.error(msg, *args, **kwargs)
 
     def child_(self, /, meta: InstrumentationMeta) -> Logger:
-        l = Logger(noop=self.noop, base=self.base)
-        l.meta = meta
-        return l
+        logger = Logger(noop=self.noop, base=self.base)
+        logger.meta = meta
+        return logger
 
 
 NOOP_LOGGER = Logger()

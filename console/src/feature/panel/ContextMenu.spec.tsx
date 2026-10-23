@@ -71,7 +71,6 @@ const viewTab = (): panel.Tab => ({
   variant: "view",
   key: uuid.create(),
   type: "docs",
-  args: {},
 });
 
 interface Rendered {

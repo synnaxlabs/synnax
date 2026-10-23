@@ -75,12 +75,12 @@ def create_app(auth_type: str = "none", delay_ms: int = 0) -> Flask:
     start_time = time.time()
 
     # Shared mutable state — write endpoints modify, read endpoints reflect.
-    state: dict = {
+    state: dict[str, object] = {
         "setpoint": 22.5,
         "power": "Off",
         "mode": "AUTO",
-        "config": {},
     }
+    config: dict[str, object] = {}
     stats = {"in_flight": 0, "peak_in_flight": 0}
     stats_lock = threading.Lock()
 
@@ -240,17 +240,19 @@ def create_app(auth_type: str = "none", delay_ms: int = 0) -> Flask:
         scale = float(request.args.get("scale", 1.0))
         include = request.args.get("include", "").split(",")
         include_all = include == [""]
-        data: dict = {
+        data: dict[str, float | str | bool] = {
             "timestamp": time.time(),
         }
+        humidity = 50
         if include_all or "temperature" in include:
             data["temperature"] = round(math.sin(elapsed * 0.1) * 25 * scale + 20, 2)
         if include_all or "pressure" in include:
             data["pressure"] = round(math.cos(elapsed * 0.05) * 10 * scale + 1013, 2)
         if include_all or "humidity" in include:
-            data["humidity"] = int(math.sin(elapsed * 0.2) * 30 * scale + 50)
+            humidity = int(math.sin(elapsed * 0.2) * 30 * scale + 50)
+            data["humidity"] = humidity
         if include_all or "label" in include:
-            data["label"] = "normal" if data.get("humidity", 50) < 70 else "high"
+            data["label"] = "normal" if humidity < 70 else "high"
         if include_all or "active" in include:
             data["active"] = int(elapsed) % 60 < 50
         if include_all or "count" in include:
@@ -273,7 +275,7 @@ def create_app(auth_type: str = "none", delay_ms: int = 0) -> Flask:
                     "mode": state["mode"],
                     "temperature": round(math.sin(elapsed * 0.1) * 25 + 20, 2),
                     "setpoint": state["setpoint"],
-                    "config": state["config"],
+                    "config": config,
                 }
             ),
             200,
@@ -282,7 +284,7 @@ def create_app(auth_type: str = "none", delay_ms: int = 0) -> Flask:
     @app.route("/api/v1/headers", methods=["GET"])
     def api_headers() -> tuple[Response, int]:
         """Echoes back all request headers as JSON. Tests per-endpoint headers."""
-        headers = {k: v for k, v in request.headers}
+        headers = dict(request.headers)
         return jsonify({"headers": headers}), 200
 
     @app.route("/api/v1/query", methods=["GET"])
@@ -347,10 +349,10 @@ def create_app(auth_type: str = "none", delay_ms: int = 0) -> Flask:
         Readable via GET /api/v1/device → "config" field.
         """
         data = request.get_json(silent=True) or {}
-        state["config"].update(data)
-        app.logger.info(f"Config update: {data} → config: {state['config']}")
+        config.update(data)
+        app.logger.info(f"Config update: {data} → config: {config}")
         return (
-            jsonify({"status": "patched", "config": state["config"]}),
+            jsonify({"status": "patched", "config": config}),
             200,
         )
 
@@ -405,9 +407,9 @@ def _generate_self_signed_cert(cert_dir: str) -> tuple[str, str]:
         .issuer_name(issuer)
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
+        .not_valid_before(datetime.datetime.now(datetime.UTC))
         .not_valid_after(
-            datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365)
+            datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=365)
         )
         .add_extension(
             x509.SubjectAlternativeName(

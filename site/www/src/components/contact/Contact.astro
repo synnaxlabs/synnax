@@ -14,7 +14,7 @@ import { TopoCanvas } from "@/components/contact/TopoCanvas";
 ---
 
 <div id="contact" class="contact-outer">
-    <TopoCanvas client:load />
+    <TopoCanvas client:visible />
     <section class="contact">
         <Text.Text level="h5" variant="code" className="contact-label">
             8 -> Get In Touch
@@ -37,7 +37,7 @@ import { TopoCanvas } from "@/components/contact/TopoCanvas";
                 </Text.Text>
             </div>
             <div class="contact-form-wrapper">
-                <ContactForm client:load />
+                <ContactForm client:visible />
             </div>
         </div>
     </section>
@@ -139,6 +139,11 @@ import { TopoCanvas } from "@/components/contact/TopoCanvas";
         }
 
         &.success {
+            & form,
+            & .contact-success-message {
+                transition-delay: 0.5s;
+            }
+
             & form {
                 transform: translate(-1300px);
             }

@@ -13,8 +13,19 @@ import { describe, expect, it } from "vitest";
 
 import { configureStore, resetInitialState } from "@/configureStore";
 import { MockRuntime } from "@/mock";
-import { reducer, type SliceState, type StoreState, ZERO_SLICE_STATE } from "@/state";
-import { INITIAL_WINDOW_STATE, MAIN_WINDOW, type WindowState } from "@/window";
+import {
+  reducer,
+  setWindowProps,
+  type SliceState,
+  type StoreState,
+  ZERO_SLICE_STATE,
+} from "@/state";
+import {
+  INITIAL_PRERENDER_WINDOW_STATE,
+  INITIAL_WINDOW_STATE,
+  MAIN_WINDOW,
+  type WindowState,
+} from "@/window";
 
 const stored = (props: Partial<WindowState> = {}): StoreState => ({
   drift: {
@@ -38,9 +49,22 @@ const restored = (props: Partial<WindowState> = {}): WindowState => {
   return win;
 };
 
-const configure = async (state: StoreState) =>
+// The slice a close of the main window leaves: main gone, its pre-render kept.
+const storedWithoutMain = (): StoreState => ({
+  drift: {
+    ...deep.copy(ZERO_SLICE_STATE),
+    windows: { prerender: { ...INITIAL_PRERENDER_WINDOW_STATE } },
+    labelKeys: {},
+    keyLabels: {},
+  },
+});
+
+const configure = async (
+  state: StoreState,
+  runtime = new MockRuntime<StoreState>(true, { key: MAIN_WINDOW }),
+) =>
   await configureStore<StoreState>({
-    runtime: new MockRuntime(true, { key: MAIN_WINDOW }),
+    runtime,
     reducer: { drift: reducer as Reducer<SliceState> },
     preloadedState: state,
     enablePrerender: false,
@@ -63,6 +87,16 @@ describe("configureStore", () => {
     const win = store.getState().drift.windows[MAIN_WINDOW];
     expect(win.minimized).toBeUndefined();
     expect(Object.isFrozen(win)).toBe(true);
+  });
+
+  it("should show a main window missing from the preloaded state", async () => {
+    const runtime = new MockRuntime<StoreState>(true, {
+      key: MAIN_WINDOW,
+      visible: false,
+    });
+    const store = await configure(storedWithoutMain(), runtime);
+    store.dispatch(setWindowProps({ visible: true }));
+    await expect.poll(() => runtime.props.visible).toBe(true);
   });
 });
 
@@ -120,7 +154,17 @@ describe("resetInitialState", () => {
   });
 
   it("should drop windows that were never reserved", () => {
-    const state = resetInitialState(undefined, false, stored({ reserved: false }));
-    expect(state?.drift.windows[MAIN_WINDOW]).toBeUndefined();
+    const state = resetInitialState(undefined, false, storedWithoutMain());
+    expect(state?.drift.windows.prerender).toBeUndefined();
+  });
+
+  it("should restore a main window missing from the stored state", () => {
+    const state = resetInitialState(undefined, false, storedWithoutMain());
+    expect(state?.drift.windows[MAIN_WINDOW]).toMatchObject({
+      key: MAIN_WINDOW,
+      reserved: true,
+    });
+    expect(state?.drift.labelKeys[MAIN_WINDOW]).toEqual(MAIN_WINDOW);
+    expect(state?.drift.keyLabels[MAIN_WINDOW]).toEqual(MAIN_WINDOW);
   });
 });

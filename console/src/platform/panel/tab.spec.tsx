@@ -26,7 +26,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement, Suspense } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Panel } from "@/platform/panel";
@@ -54,7 +54,7 @@ describe("Panel tab", () => {
       const tabKey = uuid.create();
       const existing = await createServerPanel(client, {
         variant: "leaf",
-        tabs: [{ variant: "view", key: tabKey, type: "custom_view", args: {} }],
+        tabs: [{ variant: "view", key: tabKey, type: "custom_view" }],
       });
       const { wrapper: Base } = await createPanelWrapper({
         client,
@@ -81,7 +81,7 @@ describe("Panel tab", () => {
       const tabKey = uuid.create();
       const existing = await createServerPanel(client, {
         variant: "leaf",
-        tabs: [{ variant: "view", key: tabKey, type: "unregistered_view", args: {} }],
+        tabs: [{ variant: "view", key: tabKey, type: "unregistered_view" }],
       });
       const { wrapper: Base } = await createPanelWrapper({
         client,
@@ -276,6 +276,23 @@ describe("Panel tab", () => {
         }),
       );
       expect(rename).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("lazyComponent", () => {
+    it("loads the named export on first render and renders it", async () => {
+      const load = vi.fn(async () => ({ Content: () => <p>Loaded</p> }));
+      const Content = Panel.lazyComponent(load, "Content");
+      expect(load).not.toHaveBeenCalled();
+      await act(async () => {
+        render(
+          <Suspense fallback={<p>Loading</p>}>
+            <Content />
+          </Suspense>,
+        );
+      });
+      expect(await screen.findByText("Loaded")).toBeTruthy();
+      expect(load).toHaveBeenCalledTimes(1);
     });
   });
 });

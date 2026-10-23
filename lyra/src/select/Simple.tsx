@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { caseconv, type record } from "@synnaxlabs/x";
-import { plural } from "pluralize";
+import pluralize from "pluralize";
 import { type ReactElement, type ReactNode } from "react";
 
 import { Dialog } from "@/dialog";
@@ -115,7 +115,7 @@ export const Simple = <K extends record.Key>({
   ...rest
 }: SimpleProps<K>): ReactElement => {
   const placeholder = usePlaceholder(
-    multiple === true ? plural(resourceName) : resourceName,
+    multiple === true ? pluralize.plural(resourceName) : resourceName,
   );
   const triggerBase = {
     haulType,
@@ -124,7 +124,7 @@ export const Simple = <K extends record.Key>({
     disabled,
     preview,
     "aria-label": caseconv.capitalize(
-      multiple === true ? plural(resourceName) : resourceName,
+      multiple === true ? pluralize.plural(resourceName) : resourceName,
     ),
   };
   const selection = {
@@ -136,7 +136,7 @@ export const Simple = <K extends record.Key>({
   };
   const dialog = (
     <SelectDialog {...dialogProps}>
-      <Search placeholder={`Search ${plural(resourceName)}...`} />
+      <Search placeholder={`Search ${pluralize.plural(resourceName)}...`} />
       <List bordered borderColor={6} grow rounded full="x">
         {children}
         <Empty resourceName={resourceName} emptyContent={emptyContent} />
@@ -152,7 +152,7 @@ export const Simple = <K extends record.Key>({
         </Frame>
       ) : (
         <Frame<K, undefined> value={value} onChange={onChange} {...selection}>
-          <SingleTrigger {...triggerBase} {...triggerProps} />
+          <SingleTrigger {...triggerBase} clearable={allowNone} {...triggerProps} />
           {dialog}
         </Frame>
       )}

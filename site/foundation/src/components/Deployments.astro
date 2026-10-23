@@ -1,0 +1,39 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { DeploymentCarousel } from "@/components/DeploymentCarousel";
+import SolutionsBento from "@/components/SolutionsBento.astro";
+---
+
+<section
+    id="deployments"
+    class="deployments-section"
+    aria-labelledby="deployments-title"
+>
+    <div class="section deployments-inner">
+        <div class="deployments-heading">
+            <div>
+                <p class="editorial-index">USE CASES → IN THE FIELD</p>
+                <h2 id="deployments-title">Foundation in the field.</h2>
+            </div>
+            <p>
+                The same data plane, from a single facility to a distributed fleet.
+                Explore five ways Foundation fits into an operation.
+            </p>
+        </div>
+        <DeploymentCarousel client:visible={{ rootMargin: "600px" }} />
+        <noscript>
+            <p class="demo-noscript">
+                Enable JavaScript to explore all five infrastructure deployments.
+            </p>
+        </noscript>
+        <SolutionsBento />
+    </div>
+</section>

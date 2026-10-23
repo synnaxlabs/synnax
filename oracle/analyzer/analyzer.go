@@ -335,6 +335,7 @@ func analyze(c *analysisCtx) {
 	validateDeadOutputs(c, types)
 	validateNoVersionTag(c, types)
 	validateImex(c, types)
+	validateFieldOmits(c, types)
 	validateImportPlacement(c)
 	validateNoVersionFileActions(c)
 	for _, typ := range types {
@@ -1032,6 +1033,14 @@ func collectTypeRef(
 	return ref
 }
 
+// plainTypeRef reports whether tr names a type with no type arguments, array
+// modifier, or optionality marker.
+func plainTypeRef(tr parser.ITypeRefContext) bool {
+	normal, ok := tr.(*parser.TypeRefNormalContext)
+	return ok && normal.TypeArgs() == nil && normal.ArrayModifier() == nil &&
+		normal.TypeModifiers() == nil
+}
+
 func collectMapTypeRef(
 	mapCtx *parser.TypeRefMapContext,
 	typeParams []resolution.TypeParam,
@@ -1297,6 +1306,18 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 	}
 
 	form := resolution.UnionForm{Discriminator: discriminator}
+	if tr := def.TypeRef(); tr != nil {
+		if !plainTypeRef(tr) {
+			c.report(diagnostics.Errorf(
+				def,
+				"union %s: the discriminator type must be a plain enum reference, got %q",
+				name,
+				tr.GetText(),
+			))
+			return
+		}
+		form.Enum = collectTypeRef(tr, nil)
+	}
 
 	if def.EXTENDS() != nil {
 		if typeRefList := def.TypeRefList(); typeRefList != nil {
@@ -1644,6 +1665,9 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 		}
 		typ.Form = form
 	case resolution.UnionForm:
+		if form.BorrowsEnum() {
+			resolveTypeRef(c, typ, &form.Enum)
+		}
 		for i := range form.Extends {
 			resolveTypeRef(c, typ, &form.Extends[i])
 		}
@@ -2034,7 +2058,19 @@ func typeParamsOf(form resolution.TypeForm) []resolution.TypeParam {
 }
 
 func validateTypeParams(c *analysisCtx, typ resolution.Type) {
+	var omittable string
 	for _, tp := range typeParamsOf(typ.Form) {
+		if tp.Default != nil || tp.Optional {
+			omittable = tp.Name
+		} else if omittable != "" {
+			c.report(diagnostics.Errorf(
+				nil,
+				"required type parameter %s of %s cannot follow optional or defaulted type parameter %s",
+				tp.Name,
+				typ.Name,
+				omittable,
+			))
+		}
 		if tp.Constraint == nil {
 			continue
 		}
@@ -2064,6 +2100,64 @@ func validateTypeParams(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
+// ruleCtx returns the parser rule a type or variant was collected from, or nil when
+// the AST is not one.
+func ruleCtx(ast any) antlr.ParserRuleContext {
+	ctx, _ := ast.(antlr.ParserRuleContext)
+	return ctx
+}
+
+// validateUnionEnum checks the enum a union borrows as its discriminator: it must
+// resolve to a string enum whose members are exactly the union's variant names.
+func validateUnionEnum(c *analysisCtx, typ resolution.Type, form resolution.UnionForm) {
+	if !form.BorrowsEnum() {
+		return
+	}
+	enumType, ok := form.Enum.Resolve(c.table)
+	if !ok {
+		c.report(diagnostics.Errorf(ruleCtx(typ.AST),
+			"union %s borrows unresolved type %s as its discriminator",
+			typ.Name, form.Enum.Name))
+		return
+	}
+	enumForm, isEnum := enumType.Form.(resolution.EnumForm)
+	if !isEnum {
+		c.report(diagnostics.Errorf(ruleCtx(typ.AST),
+			"union %s borrows %s as its discriminator, which is not an enum",
+			typ.Name, enumType.Name))
+		return
+	}
+	if enumForm.IsIntEnum {
+		c.report(diagnostics.Errorf(
+			ruleCtx(typ.AST),
+			"union %s borrows int enum %s as its discriminator; the discriminator is a string",
+			typ.Name,
+			enumType.Name,
+		))
+		return
+	}
+	members := set.New[string]()
+	for _, v := range enumForm.Values {
+		members.Add(v.StringValue())
+	}
+	variants := set.New[string]()
+	for _, v := range form.Variants {
+		variants.Add(v.Name)
+		if !members.Contains(v.Name) {
+			c.report(diagnostics.Errorf(ruleCtx(v.AST),
+				"union %s declares variant %q, which enum %s has no member for",
+				typ.Name, v.Name, enumType.Name))
+		}
+	}
+	for _, v := range enumForm.Values {
+		if !variants.Contains(v.StringValue()) {
+			c.report(diagnostics.Errorf(ruleCtx(typ.AST),
+				"enum %s member %q has no variant in union %s",
+				enumType.Name, v.StringValue(), typ.Name))
+		}
+	}
+}
+
 // validateUnion checks the structural constraints on a discriminated union:
 //
 //   - At least one variant is declared.
@@ -2088,6 +2182,8 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 		c.report(d)
 		return
 	}
+
+	validateUnionEnum(c, typ, form)
 
 	seenValues := set.New[string]()
 	for _, variant := range form.Variants {

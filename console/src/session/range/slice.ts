@@ -68,25 +68,25 @@ export const BUILT_IN: DynamicState[] = [
   {
     variant: "dynamic",
     key: "rolling1m",
-    name: "Rolling 1m",
+    name: "Rolling 1min",
     span: Number(TimeSpan.minutes(1)),
   },
   {
     variant: "dynamic",
     key: "rolling5m",
-    name: "Rolling 5m",
+    name: "Rolling 5min",
     span: Number(TimeSpan.minutes(5)),
   },
   {
     variant: "dynamic",
     key: "rolling15m",
-    name: "Rolling 15m",
+    name: "Rolling 15min",
     span: Number(TimeSpan.minutes(15)),
   },
   {
     variant: "dynamic",
     key: "rolling30m",
-    name: "Rolling 30m",
+    name: "Rolling 30min",
     span: Number(TimeSpan.minutes(30)),
   },
   {

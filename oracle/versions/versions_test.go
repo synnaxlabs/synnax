@@ -748,6 +748,28 @@ Key = string
 			Expect(ok).To(BeFalse())
 		})
 
+		It("Should carry the enum a union borrows into the surface", func(
+			ctx SpecContext,
+		) {
+			r := resolverFor(map[string]string{
+				"schemas/synnax/versions/auth/v0.oracle": `
+Method enum {
+	password = "password"
+}
+Credentials struct { username string }
+Proof union on method Method {
+	password Credentials
+}
+`,
+			})
+			table := resolution.NewTable()
+			Expect(r.SurfaceInto(
+				ctx, table, "schemas/synnax/auth", 0, "auth@v0",
+			)).To(Succeed())
+			form := MustBeOk(table.Get("auth@v0.Proof")).Form.(resolution.UnionForm)
+			Expect(form.Enum.Name).To(Equal("auth@v0.Method"))
+		})
+
 		It("Should propagate resolution failures", func(ctx SpecContext) {
 			r := resolverFor(map[string]string{
 				"schemas/synnax/versions/channel/v0.oracle": "Key struct {{{\n",

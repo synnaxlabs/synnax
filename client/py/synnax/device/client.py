@@ -9,15 +9,16 @@
 
 from typing import Any, Literal, overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
+from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import rack as rack_
-from synnax.device.types_gen import Device
+from synnax.device.types_gen import Device, Key
 from synnax.exceptions import NotFoundError
 from synnax.ontology.payload import ID as OntologyID
-from x.lists import check_for_none, normalize, override
+from x.lists import all_none, normalize, override
 
 
 class _CreateRequest(BaseModel):
@@ -25,6 +26,11 @@ class _CreateRequest(BaseModel):
 
 
 _CreateResponse = _CreateRequest
+
+
+class _RenameRequest(BaseModel):
+    key: Key
+    name: str
 
 
 class _DeleteRequest(BaseModel):
@@ -37,7 +43,13 @@ class _RetrieveRequest(BaseModel):
     makes: list[str] | None = None
     models: list[str] | None = None
     locations: list[str] | None = None
+    racks: list[int] | None = None
+    search_term: str | None = None
+    limit: int | None = None
+    offset: int | None = None
     ignore_not_found: bool = False
+    include_status: bool = False
+    include_parent: bool = False
 
 
 class _RetrieveResponse(BaseModel):
@@ -98,10 +110,9 @@ class Client:
         properties: dict[str, Any] | None = None,
     ) -> Device | list[Device]:
         is_single = not isinstance(devices, list)
-        if properties is None:
-            properties = dict()
-        elif isinstance(properties, BaseModel):
-            properties = properties.model_dump()
+        json_properties: dict[str, JsonValue] = (
+            to_jsonable_python(properties) if properties is not None else {}
+        )
         if devices is None:
             devices = [
                 Device(
@@ -113,7 +124,7 @@ class Client:
                     model=model,
                     configured=configured,
                     parent=parent,
-                    properties=properties if properties is not None else {},
+                    properties=json_properties,
                 )
             ]
         req = _CreateRequest(devices=normalize(devices))
@@ -124,15 +135,112 @@ class Client:
         req = _DeleteRequest(keys=keys)
         self._client.send("/device/delete", req, Empty)
 
+    def rename(self, key: Key, name: str) -> None:
+        """Renames a device.
+
+        :param key: The key of the device to rename.
+        :param name: The new name for the device.
+        :raises NotFoundError: If no device has the given key.
+        """
+        self._client.send("/device/rename", _RenameRequest(key=key, name=name), Empty)
+
     @overload
     def retrieve(
         self,
         *,
-        key: str | None = None,
-        make: str | None = None,
-        name: str | None = None,
-        model: str | None = None,
-        location: str | None = None,
+        key: str,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: Literal[False] = False,
+    ) -> Device: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: str,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: Literal[True],
+    ) -> Device | None: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        name: str,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: Literal[False] = False,
+    ) -> Device: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        name: str,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: Literal[True],
+    ) -> Device | None: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        make: str,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: Literal[False] = False,
+    ) -> Device: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        make: str,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: Literal[True],
+    ) -> Device | None: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        model: str,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: Literal[False] = False,
+    ) -> Device: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        model: str,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: Literal[True],
+    ) -> Device | None: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        location: str,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: Literal[False] = False,
+    ) -> Device: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        location: str,
+        include_status: bool = False,
+        include_parent: bool = False,
         ignore_not_found: Literal[True],
     ) -> Device | None: ...
 
@@ -141,53 +249,67 @@ class Client:
         self,
         *,
         keys: list[str] | None = None,
+        names: list[str] | None = None,
         makes: list[str] | None = None,
         models: list[str] | None = None,
-        names: list[str] | None = None,
         locations: list[str] | None = None,
-        ignore_not_found: Literal[True],
-    ) -> list[Device]: ...
-
-    @overload
-    def retrieve(
-        self,
-        *,
-        key: str | None = None,
-        make: str | None = None,
-        name: str | None = None,
-        model: str | None = None,
-        location: str | None = None,
-        ignore_not_found: Literal[False] = ...,
-    ) -> Device: ...
-
-    @overload
-    def retrieve(
-        self,
-        *,
-        keys: list[str] | None = None,
-        makes: list[str] | None = None,
-        models: list[str] | None = None,
-        names: list[str] | None = None,
-        locations: list[str] | None = None,
-        ignore_not_found: Literal[False] = ...,
+        racks: list[int] | None = None,
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: bool = False,
     ) -> list[Device]: ...
 
     def retrieve(
         self,
         *,
         key: str | None = None,
+        name: str | None = None,
         make: str | None = None,
         model: str | None = None,
-        name: str | None = None,
         location: str | None = None,
         keys: list[str] | None = None,
+        names: list[str] | None = None,
         makes: list[str] | None = None,
         models: list[str] | None = None,
-        names: list[str] | None = None,
         locations: list[str] | None = None,
+        racks: list[int] | None = None,
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        include_status: bool = False,
+        include_parent: bool = False,
         ignore_not_found: bool = False,
     ) -> list[Device] | Device | None:
-        is_single = check_for_none(keys, makes, models, locations, names)
+        """Retrieves devices matching the given filters. Returns one device when a key,
+        name, make, model, or location is given, and a list otherwise.
+
+        :param racks: Only return devices on the racks with these keys.
+        :param search_term: A fuzzy search term matched against device names.
+        :param limit: The maximum number of devices to return.
+        :param offset: The number of devices to skip.
+        :param include_status: Whether to populate each device's status.
+        :param include_parent: Whether to populate each device's parent ontology ID.
+        :param ignore_not_found: Whether to return None instead of raising when a
+            single device is requested and none matches.
+        :raises ValueError: If two singular selectors are given, or one is
+            combined with a list filter.
+        :raises NotFoundError: If a single device is requested and none matches.
+        """
+        is_single = not all_none(key, name, make, model, location)
+        if sum(v is not None for v in (key, name, make, model, location)) > 1:
+            raise ValueError(
+                "only one of key, name, make, model, and location can be given"
+            )
+        if is_single and not all_none(
+            keys, names, makes, models, locations, racks, search_term, limit, offset
+        ):
+            raise ValueError(
+                "key, name, make, model, and location cannot be combined with list "
+                "filters; use their plural forms instead"
+            )
         res = self._client.send(
             "/device/retrieve",
             _RetrieveRequest(
@@ -196,7 +318,13 @@ class Client:
                 models=override(model, models),
                 locations=override(location, locations),
                 names=override(name, names),
+                racks=racks,
+                search_term=search_term,
+                limit=limit,
+                offset=offset,
                 ignore_not_found=ignore_not_found,
+                include_status=include_status,
+                include_parent=include_parent,
             ),
             _RetrieveResponse,
         )

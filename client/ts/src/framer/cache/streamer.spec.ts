@@ -12,11 +12,20 @@ import { type MultiSeries, Series, sleep, TimeSpan, TimeStamp } from "@synnaxlab
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type channel } from "@/channel";
-import { UnexpectedError } from "@/errors";
+import { NotFoundError, UnexpectedError } from "@/errors";
 import { type framer } from "@/framer";
 import { Cache } from "@/framer/cache/cache";
 import { MultiplexedStreamer, type StreamHooks } from "@/framer/cache/streamer";
 import { Frame } from "@/framer/frame";
+
+const createErrorSpy = () => {
+  const instrumentation = new alamos.Instrumentation({
+    key: "test",
+    logger: new alamos.Logger({ filters: [alamos.logThresholdFilter("error")] }),
+  });
+  const errorSpy = vi.spyOn(instrumentation.L, "error").mockImplementation(() => {});
+  return { instrumentation, errorSpy };
+};
 
 class MockStreamer implements framer.Streamer {
   private keysI: channel.Params[];
@@ -135,6 +144,146 @@ describe("MultiplexedStreamer", () => {
   });
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  describe("key rejections", () => {
+    const BAD = 3;
+    const channelsOf = (config: framer.StreamerConfig): channel.Key[] =>
+      (typeof config === "object" && "channels" in config
+        ? config.channels
+        : config) as channel.Key[];
+    const rejectingStreamer = (keys: channel.Key[]): MockStreamer => {
+      const ms = pendingStreamer(keys);
+      ms.update = async (next) => {
+        if ((next as channel.Key[]).includes(BAD))
+          throw new NotFoundError(`channel ${BAD} not found`);
+        ms.updateVi(next);
+      };
+      return ms;
+    };
+
+    it("should stream every other key when the open rejects one", async () => {
+      const opened: channel.Key[][] = [];
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: async (config) => {
+          const keys = channelsOf(config);
+          opened.push(keys);
+          if (keys.includes(BAD)) throw new NotFoundError(`channel ${BAD} not found`);
+          return rejectingStreamer(keys);
+        },
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const sub = streamer.stream(() => {}, [1, 2, BAD]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(sub.status(1).variant).toEqual("success");
+      expect(sub.status(2).variant).toEqual("success");
+      expect(sub.status(BAD).variant).toEqual("error");
+      const opens = opened.length;
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(opened).toHaveLength(opens);
+      await streamer.close();
+    });
+
+    it("should stream a key opened after a rejected one", async () => {
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: async (config) => {
+          const keys = channelsOf(config);
+          if (keys.includes(BAD)) throw new NotFoundError(`channel ${BAD} not found`);
+          return rejectingStreamer(keys);
+        },
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const sub = streamer.stream(() => {}, [BAD, 1]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(sub.status(1).variant).toEqual("success");
+      expect(sub.status(BAD).variant).toEqual("error");
+      await streamer.close();
+    });
+
+    it("should keep a rejected key's error when no other key is demanded", async () => {
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: async () => {
+          throw new NotFoundError(`channel ${BAD} not found`);
+        },
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const sub = streamer.stream(() => {}, [BAD]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(sub.status(BAD).variant).toEqual("error");
+      await streamer.close();
+    });
+
+    it("should give each opened stream its own abort signal", async () => {
+      const hooks: StreamHooks[] = [];
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener(
+          [pendingStreamer([1]), pendingStreamer([1])],
+          hooks,
+        ),
+        removalDelay: TimeSpan.milliseconds(10),
+      });
+      const first = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      first.close();
+      await vi.advanceTimersByTimeAsync(500);
+      streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(hooks).toHaveLength(2);
+      expect(hooks[0].signal).not.toBe(hooks[1].signal);
+      await streamer.close();
+      expect(hooks[0].signal.aborted).toBe(false);
+      expect(hooks[1].signal.aborted).toBe(true);
+    });
+
+    it("should keep streaming when an update adds a rejected key", async () => {
+      const ms = rejectingStreamer([1]);
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([ms]),
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const first = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      const second = streamer.stream(() => {}, [2, BAD]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(first.status(1).variant).toEqual("success");
+      expect(second.status(2).variant).toEqual("success");
+      expect(second.status(BAD).variant).toEqual("error");
+      expect(ms.updateVi).toHaveBeenLastCalledWith([1, 2]);
+      await streamer.close();
+    });
+
+    it("should retry a rejected key once its demand returns", async () => {
+      let attempts = 0;
+      const ms = rejectingStreamer([1]);
+      const update = ms.update.bind(ms);
+      ms.update = async (next) => {
+        if ((next as channel.Key[]).includes(BAD)) attempts++;
+        await update(next);
+      };
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([ms]),
+        removalDelay: TimeSpan.milliseconds(10),
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      const bad = streamer.stream(() => {}, [BAD]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(attempts).toBe(1);
+      bad.close();
+      await vi.advanceTimersByTimeAsync(1000);
+      const again = streamer.stream(() => {}, [BAD]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(attempts).toBe(2);
+      expect(again.status(BAD).variant).toEqual("error");
+      await streamer.close();
+    });
   });
 
   describe("construction", () => {
@@ -407,11 +556,7 @@ describe("MultiplexedStreamer", () => {
         if (updateCalls === 1) throw updateErr;
         ms1.updateVi(keys);
       });
-      const ins = new alamos.Instrumentation({
-        key: "test",
-        logger: new alamos.Logger(),
-      });
-      const errorSpy = vi.spyOn(ins.L, "error").mockImplementation(() => {});
+      const { instrumentation, errorSpy } = createErrorSpy();
       const rejections: unknown[] = [];
       const onRejection = (reason: unknown) => rejections.push(reason);
       process.on("unhandledRejection", onRejection);
@@ -419,7 +564,7 @@ describe("MultiplexedStreamer", () => {
       const streamer = new MultiplexedStreamer({
         cache: new Cache(),
         openStreamer: createStreamOpener([ms1]),
-        instrumentation: ins,
+        instrumentation,
       });
 
       try {
@@ -510,9 +655,11 @@ describe("MultiplexedStreamer", () => {
           };
         });
       };
+      const { instrumentation, errorSpy } = createErrorSpy();
       const streamer = new MultiplexedStreamer({
         cache: new Cache(),
         openStreamer: opener,
+        instrumentation,
       });
 
       let brokenCalls = 0;
@@ -531,12 +678,19 @@ describe("MultiplexedStreamer", () => {
       expect(brokenCalls).toBeGreaterThan(5);
       expect(responses.length).toBeGreaterThan(5);
       expect(openCalls).toBe(1);
+      expect(errorSpy).toHaveBeenCalledWith(
+        "stream handler failed",
+        { error: new Error("broken live handler") },
+        true,
+      );
     });
 
     it("should notify remaining status handlers when one throws", async () => {
+      const { instrumentation, errorSpy } = createErrorSpy();
       const streamer = new MultiplexedStreamer({
         cache: new Cache(),
         openStreamer: createStreamOpener([pendingStreamer([1])]),
+        instrumentation,
       });
 
       const broken = streamer.stream(() => {}, [1]);
@@ -551,6 +705,11 @@ describe("MultiplexedStreamer", () => {
       good.close();
 
       expect(statuses).toContain("success");
+      expect(errorSpy).toHaveBeenCalledWith(
+        "status handler failed",
+        { error: new Error("broken status handler") },
+        true,
+      );
     });
   });
 
@@ -801,11 +960,7 @@ describe("MultiplexedStreamer", () => {
       ms1.closeVi.mockImplementation(() => {
         throw closeErr;
       });
-      const ins = new alamos.Instrumentation({
-        key: "test",
-        logger: new alamos.Logger(),
-      });
-      const errorSpy = vi.spyOn(ins.L, "error").mockImplementation(() => {});
+      const { instrumentation, errorSpy } = createErrorSpy();
 
       let openCalls = 0;
       const opener = async (): Promise<framer.Streamer> => {
@@ -815,7 +970,7 @@ describe("MultiplexedStreamer", () => {
       const streamer = new MultiplexedStreamer({
         cache: new Cache(),
         openStreamer: opener,
-        instrumentation: ins,
+        instrumentation,
       });
 
       streamer.stream(() => {}, [1]);

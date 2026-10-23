@@ -13,6 +13,7 @@ import (
 	"context"
 
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -28,7 +29,7 @@ var Migration = gorp.NewEntryMigration(
 		if err != nil {
 			return Range{}, err
 		}
-		if !old.Color.IsZero() {
+		if old.Color != (color.Color{}) {
 			rng.Color = &old.Color
 		}
 		return rng, nil

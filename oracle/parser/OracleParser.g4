@@ -369,8 +369,14 @@ typeDefBody
 // The first IDENT after UNION is the soft keyword `on` (validated by the
 // analyzer); the second is the discriminator field name. `on` is intentionally
 // not a reserved lexer keyword so existing schemas may keep fields named `on`.
+// An optional typeRef after the field name borrows a declared enum as the
+// discriminator's type: its members are the variant names, and no per-union
+// discriminator type is generated.
+//   Proof union on method Method {
+//       password Credentials
+//   }
 unionDef
-    : IDENT UNION IDENT IDENT (EXTENDS typeRefList)? nl* LBRACE nl* unionBody RBRACE
+    : IDENT UNION IDENT IDENT typeRef? (EXTENDS typeRefList)? nl* LBRACE nl* unionBody RBRACE
     ;
 
 // Union body contains variants and/or union-level domains

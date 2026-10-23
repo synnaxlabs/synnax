@@ -1,0 +1,691 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Icon } from "@synnaxlabs/lyra/icon";
+import NI from "@synnaxlabs/site-common/integrations/NI.astro";
+import LabJack from "@synnaxlabs/site-common/integrations/LabJack.astro";
+import Dewesoft from "@synnaxlabs/site-common/integrations/Dewesoft.astro";
+import Wago from "@synnaxlabs/site-common/integrations/Wago.astro";
+import OPCUA from "@synnaxlabs/site-common/integrations/OPCUA.astro";
+import Modbus from "@synnaxlabs/site-common/integrations/Modbus.astro";
+import EtherCAT from "@synnaxlabs/site-common/integrations/EtherCAT.astro";
+import LabVIEW from "@/components/integrations/LabVIEW.astro";
+import MQTT from "@/components/integrations/MQTT.astro";
+import Kafka from "@/components/integrations/Kafka.astro";
+import InfluxDB from "@/components/integrations/InfluxDB.astro";
+import Rust from "@/components/integrations/Rust.astro";
+
+const integrations = [
+    {
+        name: "Ignition",
+        kind: "Operational software",
+        detail: "Connect through Ignition’s OPC UA or MQTT interfaces. Carry tag values and source-reported quality into downstream systems.",
+        // Official wordmark: https://inductiveautomation.com/ignition
+        image: "/integrations/ignition.png",
+        width: 123,
+        height: 53,
+        color: "#dcb17c",
+    },
+    {
+        name: "OPC UA",
+        kind: "Industrial protocol",
+        detail: "Subscribe to server data with its timestamps and source-reported quality. Use supported write interfaces for supervisory commands.",
+        Logo: OPCUA,
+        width: 120,
+        height: 32,
+        color: "#81a6d3",
+    },
+    {
+        name: "NI",
+        kind: "Data acquisition",
+        detail: "Bring NI measurements into Foundation channels, alongside the rest of your equipment and software.",
+        Logo: NI,
+        width: 58,
+        height: 42,
+        color: "#66bda1",
+    },
+    {
+        name: "CAN",
+        kind: "Industrial fieldbus",
+        detail: "Read CAN bus signals through a local interface and carry them into the same channels as the rest of your operation.",
+        width: 100,
+        height: 42,
+        color: "#9eb5cd",
+    },
+    {
+        name: "MQTT",
+        kind: "Messaging protocol",
+        detail: "Connect existing MQTT topics to Foundation channels. Keep your broker where it serves a purpose, or move the data path into Foundation.",
+        Logo: MQTT,
+        width: 48,
+        height: 45,
+        color: "#b5a1c2",
+    },
+    {
+        name: "HTTP",
+        kind: "Application protocol",
+        detail: "Connect application endpoints and HTTP-accessible services to your industrial data flow.",
+        width: 105,
+        height: 42,
+        color: "#9eb5cd",
+    },
+    {
+        name: "Modbus",
+        kind: "Industrial protocol",
+        detail: "Map registers and coils into named channels over Modbus TCP or RTU. Keep device addressing at the edge.",
+        Logo: Modbus,
+        width: 38,
+        height: 44,
+        color: "#aaa0c4",
+    },
+    {
+        name: "InfluxDB",
+        kind: "Time-series database",
+        detail: "Deliver measurements to your existing InfluxDB store while making the same live data available to other consumers.",
+        Logo: InfluxDB,
+        width: 43,
+        height: 43,
+        color: "#87b6d9",
+    },
+    {
+        name: "EtherCAT",
+        kind: "Industrial fieldbus",
+        detail: "Bring EtherCAT I/O into the data plane through an edge node or the controller that already owns the fieldbus.",
+        Logo: EtherCAT,
+        width: 87,
+        height: 48,
+        color: "#db838c",
+    },
+    {
+        name: "LabJack",
+        kind: "Data acquisition",
+        detail: "Connect local LabJack I/O and make its measurements available across your operation.",
+        Logo: LabJack,
+        width: 43,
+        height: 43,
+        color: "#d78183",
+    },
+    {
+        name: "Dewesoft",
+        kind: "Measurement systems",
+        detail: "Bring Dewesoft measurement streams into the same operation as your control and application data.",
+        Logo: Dewesoft,
+        width: 43,
+        height: 42,
+        color: "#df997a",
+    },
+    {
+        name: "WAGO",
+        kind: "Industrial controllers",
+        detail: "Connect WAGO controller and I/O data through exposed OPC UA or Modbus interfaces.",
+        Logo: Wago,
+        width: 110,
+        height: 42,
+        color: "#b1c886",
+    },
+    {
+        name: "TypeScript",
+        kind: "SDK",
+        detail: "Read live telemetry and send supervisory commands from web applications and Node.js services with the TypeScript SDK.",
+        Logo: Icon.TypeScript,
+        width: 44,
+        height: 44,
+        color: "#81a6d3",
+    },
+    {
+        name: "Python",
+        kind: "SDK",
+        detail: "Bring live operational data into analysis, automation, and machine intelligence with the Python SDK.",
+        Logo: Icon.Python,
+        width: 46,
+        height: 46,
+        color: "#d5bd78",
+    },
+    {
+        name: "C++",
+        kind: "SDK",
+        detail: "Integrate telemetry and supervisory commands directly into native applications with the C++ SDK.",
+        Logo: Icon.CPlusPlus,
+        width: 46,
+        height: 46,
+        color: "#87b6d9",
+    },
+    {
+        name: "Rust",
+        kind: "SDK",
+        detail: "Build native services and integrations with the Rust SDK. Read telemetry and send supervisory commands through Foundation.",
+        Logo: Rust,
+        width: 50,
+        height: 50,
+        color: "#cf9c84",
+    },
+    {
+        name: "LabVIEW",
+        kind: "Test software",
+        detail: "Keep your existing test software. Exchange live measurements with Foundation through interfaces exposed by your LabVIEW application.",
+        Logo: LabVIEW,
+        width: 84,
+        height: 72,
+        color: "#d5bd78",
+    },
+    {
+        name: "Kafka",
+        kind: "Streaming platform",
+        detail: "Deliver industrial telemetry into Kafka topics for your existing stream processing and data pipelines.",
+        Logo: Kafka,
+        width: 43,
+        height: 48,
+        color: "#d2d7df",
+    },
+];
+
+const initial = integrations[0];
+---
+
+<section
+    id="integrations"
+    class="section integration-section"
+    aria-labelledby="integration-heading"
+>
+    <svg
+        class="integration-filters"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+        focusable="false"
+    >
+        <defs>
+            <filter
+                id="foundation-integration-dither"
+                color-interpolation-filters="sRGB"
+                x="0"
+                y="0"
+                width="100%"
+                height="100%"
+            >
+                <!-- The main landing page's ordered texture, confined to each mark. -->
+                <feImage
+                    width="2"
+                    height="2"
+                    href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAASElEQVR42gXBgQAAIAxFwW8QwhBCCCGEIYQQQgghhBBCCEMYwutOkphzYmbsvdG9l9YaEYG7o1or5xxKKay1UGYyxuC9R++dD7yGJkTj6F0HAAAAAElFTkSuQmCC"
+                    result="grain"
+                />
+                <feTile in="grain" result="pattern" />
+                <feComposite
+                    in="SourceGraphic"
+                    in2="pattern"
+                    operator="arithmetic"
+                    k1="0"
+                    k2="1"
+                    k3="1"
+                    k4="-0.5"
+                />
+                <feComponentTransfer result="dithered">
+                    <feFuncR type="discrete" tableValues="0 1" />
+                    <feFuncG type="discrete" tableValues="0 1" />
+                    <feFuncB type="discrete" tableValues="0 1" />
+                </feComponentTransfer>
+                <feComposite
+                    in="dithered"
+                    in2="SourceGraphic"
+                    operator="arithmetic"
+                    k1="0"
+                    k2="0.4"
+                    k3="0.6"
+                    k4="0"
+                    result="textured"
+                />
+                <feComposite in="textured" in2="SourceAlpha" operator="in" />
+            </filter>
+        </defs>
+    </svg>
+    <div class="integration-heading">
+        <div>
+            <p class="integration-eyebrow">Integrations</p>
+            <h2 id="integration-heading">Fits the systems you already run.</h2>
+        </div>
+        <p class="integration-intro">
+            Connect equipment, existing operational software, and data platforms. Choose
+            the interfaces that fit your system.
+        </p>
+    </div>
+
+    <div class="integration-matrix">
+        <div
+            class="integration-logos"
+            role="group"
+            aria-label="Equipment, software, and interfaces"
+        >
+            {integrations.map(
+                ({ name, kind, detail, Logo, image, width, height, color }) => (
+                    <button
+                        type="button"
+                        class="integration-option"
+                        aria-label={`${name}: ${kind}`}
+                        aria-pressed={name === initial.name}
+                        aria-controls="integration-detail"
+                        data-name={name}
+                        data-kind={kind}
+                        data-detail={detail}
+                        style={`--mark-width: ${width}px; --mark-height: ${height}px; --mark-color: ${color};`}
+                    >
+                        <span class="integration-mark" aria-hidden="true">
+                            {Logo ? (
+                                <Logo />
+                            ) : image ? (
+                                <span
+                                    class="integration-image"
+                                    style={`--mark-image: url('${image}')`}
+                                />
+                            ) : (
+                                <span class="integration-protocol">{name}</span>
+                            )}
+                        </span>
+                        <span class="integration-name">{name}</span>
+                        <span class="integration-tick" aria-hidden="true" />
+                    </button>
+                ),
+            )}
+            <div
+                id="integration-detail"
+                class="integration-detail"
+                aria-live="polite"
+                aria-atomic="true"
+            >
+                <div class="integration-detail-heading">
+                    <span class="integration-detail-kind">{initial.kind}</span>
+                    <h3 class="integration-detail-name">{initial.name}</h3>
+                </div>
+                <p class="integration-detail-copy">{initial.detail}</p>
+                <a class="integration-contact" href="#contact">
+                    Discuss your stack <span aria-hidden="true">→</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    <p class="integration-note">
+        Connections use device drivers, standard protocols, SDKs, or the interfaces
+        exposed by your existing software.
+    </p>
+</section>
+
+<script>
+    const root = document.querySelector<HTMLElement>(".integration-section");
+    if (root) {
+        const options = Array.from(
+            root.querySelectorAll<HTMLButtonElement>(".integration-option"),
+        );
+        const name = root.querySelector<HTMLElement>(".integration-detail-name");
+        const kind = root.querySelector<HTMLElement>(".integration-detail-kind");
+        const detail = root.querySelector<HTMLElement>(".integration-detail-copy");
+        const grid = root.querySelector<HTMLElement>(".integration-logos");
+        const narrow = window.matchMedia("(width <= 1050px)");
+        let selectedIndex = options.findIndex(
+            (option) => option.getAttribute("aria-pressed") === "true",
+        );
+        const positionDetail = (): void => {
+            if (!grid) return;
+            const columns =
+                getComputedStyle(grid).gridTemplateColumns.split(" ").length;
+            const row = narrow.matches
+                ? Math.floor(selectedIndex / columns) + 2
+                : Math.ceil(options.length / columns) + 1;
+            grid.style.setProperty("--integration-detail-row", String(row));
+        };
+        const select = (option: HTMLButtonElement): void => {
+            if (option.getAttribute("aria-pressed") === "true") return;
+            selectedIndex = options.indexOf(option);
+            for (const candidate of options)
+                candidate.setAttribute("aria-pressed", String(candidate === option));
+            if (name) name.textContent = option.dataset.name ?? "";
+            if (kind) kind.textContent = option.dataset.kind ?? "";
+            if (detail) detail.textContent = option.dataset.detail ?? "";
+            positionDetail();
+        };
+        for (const option of options) {
+            option.addEventListener("pointerenter", (event) => {
+                // Inline detail changes the rows below the selection. Require an
+                // intentional selection there so reflow cannot retrigger hover.
+                if (event.pointerType === "mouse" && !narrow.matches) select(option);
+            });
+            option.addEventListener("focus", () => {
+                if (!narrow.matches) select(option);
+            });
+            option.addEventListener("click", () => select(option));
+        }
+        positionDetail();
+        window.addEventListener("resize", positionDetail);
+    }
+</script>
+
+<style>
+    .integration-filters {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    .integration-section {
+        padding-block: 16px 104px;
+        color: var(--foundation-ink);
+    }
+
+    .integration-heading {
+        display: grid;
+        grid-template-columns: 1.3fr 1fr;
+        align-items: end;
+        gap: 40px;
+        margin-bottom: 34px;
+    }
+
+    .integration-eyebrow {
+        margin: 0 0 16px;
+        color: #98a6b8;
+        font: 11px/1.5 var(--foundation-mono);
+        letter-spacing: 0.025em;
+    }
+
+    .integration-heading h2 {
+        margin: 0;
+        font-size: clamp(26px, 2.6vw, 38px);
+        font-weight: 400;
+        line-height: 1.2;
+        letter-spacing: -0.035em;
+        text-wrap: balance;
+    }
+
+    .integration-intro {
+        max-width: 450px;
+        margin: 0;
+        justify-self: end;
+        color: #9aa2ad;
+        font-size: 15px;
+        line-height: 1.65;
+    }
+
+    .integration-matrix {
+        overflow: hidden;
+        border: 1px solid #2a323d;
+        border-radius: 18px;
+        background: #0b1017;
+    }
+
+    .integration-logos {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 1px;
+        background: #262e39;
+    }
+
+    .integration-option {
+        position: relative;
+        display: flex;
+        min-width: 0;
+        min-height: 130px;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        padding: 21px 12px 17px;
+        border: 0;
+        border-radius: 0;
+        background: #0b1017;
+        color: #8e9ba9;
+        cursor: pointer;
+        appearance: none;
+        transition:
+            background 180ms ease,
+            color 180ms ease;
+    }
+
+    .integration-option:hover,
+    .integration-option:focus-visible,
+    .integration-option[aria-pressed="true"] {
+        background: #141d28;
+        color: var(--mark-color);
+    }
+
+    .integration-option:focus-visible {
+        z-index: 1;
+        outline: 2px solid #a6bedb;
+        outline-offset: -4px;
+    }
+
+    .integration-mark {
+        display: flex;
+        width: 100%;
+        height: 53px;
+        align-items: center;
+        justify-content: center;
+        filter: url(#foundation-integration-dither);
+        transition: filter 180ms ease;
+    }
+
+    .integration-option:hover .integration-mark,
+    .integration-option:focus-visible .integration-mark,
+    .integration-option[aria-pressed="true"] .integration-mark {
+        filter: none;
+    }
+
+    .integration-mark :global(svg),
+    .integration-image {
+        display: block;
+        width: var(--mark-width);
+        height: var(--mark-height);
+        max-width: 86%;
+        flex-shrink: 0;
+        object-fit: contain;
+    }
+
+    .integration-image {
+        background: currentColor;
+        mask: var(--mark-image) center / contain no-repeat;
+    }
+
+    .integration-protocol {
+        font: 500 29px/1 var(--foundation-mono);
+        letter-spacing: -0.06em;
+    }
+
+    .integration-name {
+        color: #a5aebc;
+        font: 11px/1.4 var(--foundation-mono);
+    }
+
+    .integration-tick {
+        position: absolute;
+        right: 11px;
+        bottom: 11px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+        opacity: 0;
+    }
+
+    .integration-option[aria-pressed="true"] .integration-tick {
+        opacity: 1;
+    }
+
+    .integration-detail {
+        display: grid;
+        min-height: 122px;
+        grid-column: 1 / -1;
+        grid-row: var(--integration-detail-row, 4);
+        grid-template-columns: minmax(150px, 0.7fr) 2fr auto;
+        align-items: center;
+        gap: 30px;
+        padding: 27px 32px;
+        background: linear-gradient(115deg, #141e2b, #101720 70%);
+    }
+
+    .integration-detail-kind {
+        display: block;
+        margin-bottom: 7px;
+        color: #9aa9bc;
+        font: 10px/1.45 var(--foundation-mono);
+    }
+
+    .integration-detail-name {
+        margin: 0;
+        color: #d5dce4;
+        font-size: 20px;
+        line-height: 1.2;
+        font-weight: 450;
+        letter-spacing: -0.02em;
+    }
+
+    .integration-detail-copy {
+        max-width: 620px;
+        margin: 0;
+        color: #b7c1cf;
+        font-size: 14px;
+        line-height: 1.65;
+    }
+
+    .integration-contact {
+        display: inline-flex;
+        gap: 10px;
+        align-items: center;
+        justify-self: end;
+        color: #c9d1dc;
+        font: 11px/1.5 var(--foundation-mono);
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .integration-contact:hover {
+        color: #fff;
+    }
+
+    .integration-contact span {
+        font-size: 17px;
+    }
+
+    .integration-note {
+        margin: 15px 0 0;
+        color: #9099a6;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+    @media (width <= 1050px) {
+        .integration-logos {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .integration-option {
+            min-height: 112px;
+            gap: 9px;
+            padding-block: 14px;
+        }
+
+        .integration-detail {
+            grid-row: var(--integration-detail-row, 2);
+            grid-template-columns: 0.8fr 2fr;
+            gap: 16px 28px;
+        }
+
+        .integration-contact {
+            grid-column: 2;
+            justify-self: start;
+        }
+    }
+
+    @media (width <= 600px) {
+        .integration-section {
+            padding-block: 8px 70px;
+        }
+
+        .integration-heading {
+            grid-template-columns: 1fr;
+            gap: 19px;
+            margin-bottom: 25px;
+        }
+
+        .integration-intro {
+            max-width: 100%;
+            justify-self: start;
+            font-size: 14px;
+        }
+
+        .integration-matrix {
+            border-radius: 14px;
+        }
+
+        .integration-option {
+            min-height: 106px;
+            padding-inline: 7px;
+        }
+
+        .integration-mark :global(svg),
+        .integration-image {
+            max-width: 84%;
+            max-height: 45px;
+        }
+
+        .integration-name {
+            font-size: 10px;
+        }
+
+        .integration-protocol {
+            font-size: 24px;
+        }
+
+        .integration-detail {
+            min-height: 226px;
+            grid-template-columns: 1fr;
+            align-content: start;
+            gap: 15px;
+            padding: 23px;
+        }
+
+        .integration-detail-heading {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 14px;
+        }
+
+        .integration-detail-kind {
+            order: 1;
+            margin: 0;
+            font-size: 9px;
+            text-align: right;
+        }
+
+        .integration-detail-copy {
+            min-height: 92px;
+            font-size: 13px;
+        }
+
+        .integration-contact {
+            grid-column: 1;
+        }
+
+        .integration-note {
+            font-size: 11px;
+        }
+    }
+
+    @media (width <= 350px) {
+        .integration-logos {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .integration-option,
+        .integration-mark {
+            transition: none;
+        }
+    }
+</style>

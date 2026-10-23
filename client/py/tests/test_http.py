@@ -10,6 +10,7 @@
 import pytest
 
 import synnax as sy
+from tests.json_value import arr, obj
 from x.strings import random_name
 
 
@@ -213,11 +214,11 @@ class TestHTTPReadTask:
             },
         ],
     )
-    def test_parse_http_read_task(self, test_data):
+    def test_parse_http_read_task(self, test_data: dict[str, object]) -> None:
         """Test that ReadConfig can parse various endpoint configurations."""
         sy.http.ReadConfig.model_validate(test_data["data"])
 
-    def test_read_task_auto_key_generation(self):
+    def test_read_task_auto_key_generation(self) -> None:
         """Test that the ReadTask assigns keys to endpoints and fields missing one."""
         task = sy.http.ReadTask(
             name="test",
@@ -235,7 +236,7 @@ class TestHTTPReadTask:
         assert ep.fields[0].key != ""
         assert len(ep.fields[0].key) > 0
 
-    def test_read_field_defaults(self):
+    def test_read_field_defaults(self) -> None:
         """Test that ReadField has correct defaults."""
         field = sy.http.ReadField(pointer="/value", channel=1234)
         assert field.disabled is False
@@ -244,7 +245,7 @@ class TestHTTPReadTask:
         assert field.time_format is None
         assert field.enum_values == []
 
-    def test_read_endpoint_defaults(self):
+    def test_read_endpoint_defaults(self) -> None:
         """Test that ReadEndpoint has correct defaults."""
         ep = sy.http.ReadEndpoint(path="/data", fields=[])
         assert ep.method == "GET"
@@ -253,7 +254,7 @@ class TestHTTPReadTask:
         assert ep.body == ""
         assert ep.index == ""
 
-    def test_read_config_defaults(self):
+    def test_read_config_defaults(self) -> None:
         """Test that ReadConfig has correct defaults."""
         config = sy.http.ReadConfig(
             device="dev-key",
@@ -262,8 +263,14 @@ class TestHTTPReadTask:
         )
         assert config.data_saving_disabled is False
         assert config.auto_start is False
+        assert config.nan_fill_enabled is False
 
-    def test_read_task_none_excluded_from_serialization(self):
+    def test_read_task_nan_fill_enabled(self) -> None:
+        """Test that the ReadTask carries nan_fill_enabled into its config."""
+        task = sy.http.ReadTask(device="dev-key", nan_fill_enabled=True)
+        assert task.config.nan_fill_enabled is True
+
+    def test_read_task_none_excluded_from_serialization(self) -> None:
         """Test that None values are excluded from serialized config."""
         task = sy.http.ReadTask(
             name="test",
@@ -277,15 +284,15 @@ class TestHTTPReadTask:
             ],
         )
         payload = task.to_payload()
-        ep = payload.config["endpoints"][0]
+        ep = obj(arr(payload.config, "endpoints")[0])
         assert ep["body"] == ""
         assert ep["headers"] == []
         assert ep["query_params"] == []
-        field = ep["fields"][0]
+        field = obj(arr(ep, "fields")[0])
         assert "timestamp_format" not in field
         assert field["enum_values"] == []
 
-    def test_create_and_retrieve_read_task(self, client: sy.Synnax):
+    def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.http.ReadTask(
             name="test-http-read-task",
@@ -301,7 +308,7 @@ class TestHTTPReadTask:
                             key="f-1",
                             pointer="/temperature",
                             channel=1234,
-                            data_type="float64",
+                            data_type=sy.DataType.FLOAT64,
                         ),
                     ],
                 ),
@@ -485,11 +492,11 @@ class TestHTTPWriteTask:
             },
         ],
     )
-    def test_parse_http_write_task(self, test_data):
+    def test_parse_http_write_task(self, test_data: dict[str, object]) -> None:
         """Test that WriteConfig can parse various endpoint configurations."""
         sy.http.WriteConfig.model_validate(test_data["data"])
 
-    def test_write_endpoint_auto_key_generation(self):
+    def test_write_endpoint_auto_key_generation(self) -> None:
         """Test that the WriteTask assigns keys to endpoints and fields missing one."""
         task = sy.http.WriteTask(
             name="test",
@@ -514,7 +521,7 @@ class TestHTTPWriteTask:
         assert ep.fields[0].key != ""
         assert len(ep.fields[0].key) > 0
 
-    def test_write_endpoint_defaults(self):
+    def test_write_endpoint_defaults(self) -> None:
         """Test that WriteEndpoint has correct defaults."""
         ep = sy.http.WriteEndpoint(
             path="/control",
@@ -526,7 +533,7 @@ class TestHTTPWriteTask:
         assert ep.query_params == []
         assert ep.fields == []
 
-    def test_channel_field_defaults(self):
+    def test_channel_field_defaults(self) -> None:
         """Test that ChannelField has correct defaults."""
         cf = sy.http.ChannelField(pointer="/value", channel=1234)
         assert cf.json_type == "number"
@@ -534,7 +541,7 @@ class TestHTTPWriteTask:
         assert cf.name == ""
         assert cf.time_format is None
 
-    def test_static_field_type(self):
+    def test_static_field_type(self) -> None:
         """Test that StaticWriteField carries the static discriminator."""
         sf = sy.http.StaticWriteField(
             type="static",
@@ -545,7 +552,7 @@ class TestHTTPWriteTask:
         assert sf.type == "static"
         assert sf.value == {"source": "test"}
 
-    def test_generated_field_type(self):
+    def test_generated_field_type(self) -> None:
         """Test that GeneratedWriteField carries the generated discriminator."""
         gf = sy.http.GeneratedWriteField(
             type="generated", pointer="/id", generator="uuid"
@@ -553,7 +560,7 @@ class TestHTTPWriteTask:
         assert gf.type == "generated"
         assert gf.generator == "uuid"
 
-    def test_write_task_none_excluded_from_serialization(self):
+    def test_write_task_none_excluded_from_serialization(self) -> None:
         """Test that None values are excluded from serialized config."""
         task = sy.http.WriteTask(
             name="test",
@@ -566,12 +573,12 @@ class TestHTTPWriteTask:
             ],
         )
         payload = task.to_payload()
-        ep = payload.config["endpoints"][0]
+        ep = obj(arr(payload.config, "endpoints")[0])
         assert ep["headers"] == []
         assert ep["query_params"] == []
-        assert "time_format" not in ep["channel"]
+        assert "time_format" not in obj(ep, "channel")
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax):
+    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.http.WriteTask(
             name="test-http-write-task",
@@ -596,7 +603,7 @@ class TestHTTPWriteTask:
         )
         sy.http.WriteTask(created)
 
-    def test_write_task_serialization_round_trip(self, client: sy.Synnax):
+    def test_write_task_serialization_round_trip(self, client: sy.Synnax) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original = sy.http.WriteTask(
             name="test-round-trip",
@@ -645,7 +652,7 @@ class TestHTTPWriteTask:
 class TestHTTPDevice:
     """Tests for HTTP Device configuration."""
 
-    def test_device_defaults(self):
+    def test_device_defaults(self) -> None:
         """Test that Device has correct defaults."""
         dev = sy.http.Device(host="127.0.0.1:8080")
         assert dev.location == "127.0.0.1:8080"
@@ -661,7 +668,7 @@ class TestHTTPDevice:
         assert props["auth"] == {"type": "none"}
         assert props["version"] == 1
 
-    def test_device_custom_config(self):
+    def test_device_custom_config(self) -> None:
         """Test that Device accepts custom configuration."""
         dev = sy.http.Device(
             host="192.168.1.100:9090",
@@ -679,27 +686,32 @@ class TestHTTPDevice:
         assert props["timeout_ms"] == 5000
         assert props["max_concurrent_requests"] == 2
         assert props["verify_ssl"] is False
-        assert props["auth"]["type"] == "bearer"
-        assert props["auth"]["token"] == "my-token"
+        auth = obj(props, "auth")
+        assert auth["type"] == "bearer"
+        assert auth["token"] == "my-token"
 
     @pytest.mark.parametrize("value", [0, -1])
-    def test_device_rejects_non_positive_max_concurrent_requests(self, value: int):
+    def test_device_rejects_non_positive_max_concurrent_requests(
+        self, value: int
+    ) -> None:
         """Test that Device rejects a max_concurrent_requests below 1."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match="max_concurrent_requests must be at least 1"
+        ):
             sy.http.Device(host="127.0.0.1:8080", max_concurrent_requests=value)
 
-    def test_device_basic_auth(self):
+    def test_device_basic_auth(self) -> None:
         """Test device with basic authentication."""
         dev = sy.http.Device(
             host="localhost:8080",
             auth={"type": "basic", "username": "admin", "password": "secret"},
         )
-        auth = dev.properties["auth"]
+        auth = obj(dev.properties, "auth")
         assert auth["type"] == "basic"
         assert auth["username"] == "admin"
         assert auth["password"] == "secret"
 
-    def test_device_api_key_header_auth(self):
+    def test_device_api_key_header_auth(self) -> None:
         """Test device with API key in header."""
         dev = sy.http.Device(
             host="localhost:8080",
@@ -710,13 +722,13 @@ class TestHTTPDevice:
                 "key": "abc123",
             },
         )
-        auth = dev.properties["auth"]
+        auth = obj(dev.properties, "auth")
         assert auth["type"] == "api_key"
         assert auth["send_as"] == "header"
         assert auth["header"] == "X-API-Key"
         assert auth["key"] == "abc123"
 
-    def test_device_api_key_query_param_auth(self):
+    def test_device_api_key_query_param_auth(self) -> None:
         """Test device with API key in query parameter."""
         dev = sy.http.Device(
             host="localhost:8080",
@@ -727,12 +739,12 @@ class TestHTTPDevice:
                 "key": "abc123",
             },
         )
-        auth = dev.properties["auth"]
+        auth = obj(dev.properties, "auth")
         assert auth["type"] == "api_key"
         assert auth["send_as"] == "query_param"
         assert auth["parameter"] == "api_key"
 
-    def test_device_auto_key_generation(self):
+    def test_device_auto_key_generation(self) -> None:
         """Test that Device auto-generates a key if not provided."""
         dev1 = sy.http.Device(host="localhost:8080")
         dev2 = sy.http.Device(host="localhost:8080")
@@ -745,7 +757,7 @@ class TestHTTPDevice:
 class TestHTTPHealthCheck:
     """Tests for HTTP HealthCheck configuration."""
 
-    def test_health_check_defaults(self):
+    def test_health_check_defaults(self) -> None:
         """Test that HealthCheck has correct defaults."""
         hc = sy.http.HealthCheck()
         assert hc.method == "GET"
@@ -755,12 +767,12 @@ class TestHTTPHealthCheck:
         assert hc.query_params is None
         assert hc.body is None
 
-    def test_health_check_custom_path(self):
+    def test_health_check_custom_path(self) -> None:
         """Test health check with custom path."""
         hc = sy.http.HealthCheck(path="/api/v1/status")
         assert hc.path == "/api/v1/status"
 
-    def test_health_check_post_with_body(self):
+    def test_health_check_post_with_body(self) -> None:
         """Test health check with POST method and body."""
         hc = sy.http.HealthCheck(
             method="POST",
@@ -770,7 +782,7 @@ class TestHTTPHealthCheck:
         assert hc.method == "POST"
         assert hc.body == '{"check": true}'
 
-    def test_health_check_with_response_validation(self):
+    def test_health_check_with_response_validation(self) -> None:
         """Test health check with response validation."""
         hc = sy.http.HealthCheck(
             path="/health",
@@ -784,16 +796,16 @@ class TestHTTPHealthCheck:
         assert hc.response.pointer == "/status"
         assert hc.response.expected_value == "ok"
 
-    def test_health_check_none_excluded_from_device_properties(self):
+    def test_health_check_none_excluded_from_device_properties(self) -> None:
         """Test that None values are excluded from health check in device properties."""
         dev = sy.http.Device(host="localhost:8080")
-        hc = dev.properties["health_check"]
+        hc = obj(dev.properties, "health_check")
         assert "headers" not in hc
         assert "query_params" not in hc
         assert "body" not in hc
         assert "response" not in hc
 
-    def test_health_check_in_device(self):
+    def test_health_check_in_device(self) -> None:
         """Test that health check is properly stored in device properties."""
         dev = sy.http.Device(
             host="localhost:8080",
@@ -802,15 +814,15 @@ class TestHTTPHealthCheck:
                 headers=[sy.http.Header(name="Accept", value="application/json")],
             ),
         )
-        hc = dev.properties["health_check"]
+        hc = obj(dev.properties, "health_check")
         assert hc["path"] == "/api/status"
         assert hc["method"] == "GET"
         assert hc["headers"] == [{"name": "Accept", "value": "application/json"}]
 
-    def test_health_check_validate_response_flag(self):
+    def test_health_check_validate_response_flag(self) -> None:
         """Test that validate_response mirrors whether a response is configured."""
         dev = sy.http.Device(host="localhost:8080")
-        assert dev.properties["health_check"]["validate_response"] is False
+        assert obj(dev.properties, "health_check")["validate_response"] is False
         dev = sy.http.Device(
             host="localhost:8080",
             health_check=sy.http.HealthCheck(
@@ -821,14 +833,14 @@ class TestHTTPHealthCheck:
                 ),
             ),
         )
-        assert dev.properties["health_check"]["validate_response"] is True
+        assert obj(dev.properties, "health_check")["validate_response"] is True
 
 
 @pytest.mark.http
 class TestHTTPDevicePropertyUpdates:
     """Tests that device properties are correctly updated with channel mappings."""
 
-    def test_max_concurrent_requests_round_trip(self, client: sy.Synnax):
+    def test_max_concurrent_requests_round_trip(self, client: sy.Synnax) -> None:
         """Test that max_concurrent_requests survives create and retrieve."""
         rack = client.racks.retrieve_embedded_rack()
         device = sy.http.Device(
@@ -842,7 +854,7 @@ class TestHTTPDevicePropertyUpdates:
         retrieved = client.devices.retrieve(key=device.key)
         assert retrieved.properties["max_concurrent_requests"] == 3
 
-    def test_read_task_updates_device_properties(self, client: sy.Synnax):
+    def test_read_task_updates_device_properties(self, client: sy.Synnax) -> None:
         """Test that configuring a ReadTask updates device properties."""
         rack = client.racks.retrieve_embedded_rack()
         device = sy.http.Device(
@@ -895,13 +907,14 @@ class TestHTTPDevicePropertyUpdates:
         updated = client.devices.retrieve(key=device.key)
         props = updated.properties
         assert "read" in props
-        assert "/api/v1/data" in props["read"]
-        ep_props = props["read"]["/api/v1/data"]
-        assert ep_props["channels"]["/temperature"] == temp_ch.key
-        assert ep_props["channels"]["/pressure"] == pres_ch.key
+        assert "/api/v1/data" in obj(props, "read")
+        ep_props = obj(props, "read", "/api/v1/data")
+        channels = obj(ep_props, "channels")
+        assert channels["/temperature"] == temp_ch.key
+        assert channels["/pressure"] == pres_ch.key
         assert ep_props["index"] == 0
 
-    def test_read_task_stores_index_channel_key(self, client: sy.Synnax):
+    def test_read_task_stores_index_channel_key(self, client: sy.Synnax) -> None:
         """A value-timed endpoint stores its index field's channel key."""
         rack = client.racks.retrieve_embedded_rack()
         device = sy.http.Device(
@@ -943,10 +956,10 @@ class TestHTTPDevicePropertyUpdates:
         )
         task.update_device_properties(client.devices)
 
-        ep_props = client.devices.retrieve(key=device.key).properties["read"]
-        assert ep_props["/api/v1/data"]["index"] == time_ch.key
+        props = client.devices.retrieve(key=device.key).properties
+        assert obj(props, "read", "/api/v1/data")["index"] == time_ch.key
 
-    def test_write_task_updates_device_properties(self, client: sy.Synnax):
+    def test_write_task_updates_device_properties(self, client: sy.Synnax) -> None:
         """Test that configuring a WriteTask updates device properties."""
         rack = client.racks.retrieve_embedded_rack()
         device = sy.http.Device(
@@ -988,5 +1001,5 @@ class TestHTTPDevicePropertyUpdates:
         updated = client.devices.retrieve(key=device.key)
         props = updated.properties
         assert "write" in props
-        assert "/api/v1/setpoint" in props["write"]
-        assert props["write"]["/api/v1/setpoint"] == cmd_ch.key
+        assert "/api/v1/setpoint" in obj(props, "write")
+        assert obj(props, "write")["/api/v1/setpoint"] == cmd_ch.key
