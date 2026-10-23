@@ -107,4 +107,5 @@ CA certificate in `NODE_EXTRA_CA_CERTS`:
 NODE_EXTRA_CA_CERTS=/path/to/synnax-ca.crt node app.js
 ```
 
-The Python client does not check the certificate of the Core, so it needs no setup.
+To make the Python client trust the CA certificate, give it the path in
+[`ca_cert`](/reference/client/connect#connect-with-tls).

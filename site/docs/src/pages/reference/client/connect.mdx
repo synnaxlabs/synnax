@@ -90,6 +90,10 @@ Password:
 Secure Connection? [y/n] (n):
 ```
 
+When you answer `y` to the secure prompt, the command also asks for the path to the CA
+certificate of the Core. Leave it empty when the Core has a certificate from a public
+authority.
+
 The command connects to the Core, then prints "Connection successful!". In your scripts,
 create the client with no arguments:
 
@@ -99,10 +103,10 @@ import synnax as sy
 client = sy.Synnax()
 ```
 
-The command stores the host, port, username, and TLS setting in `~/.synnax/config.json`.
-It stores the password in the keychain of your operating system, under the name
-`synnax`. When the login fails, the command saves nothing. Run `sy login` again to
-change the values.
+The command stores the host, port, username, TLS setting, and CA certificate path in
+`~/.synnax/config.json`. It stores the password in the keychain of your operating
+system, under the name `synnax`. When the login fails, the command saves nothing. Run
+`sy login` again to change the values.
 
 With no saved login, `sy.Synnax()` raises `sy.ValidationError`. When you give no host,
 the client ignores the other arguments and uses the saved login.
@@ -128,8 +132,22 @@ client = sy.Synnax(
 )
 ```
 
-The Python client encrypts the connection, but it does not check the certificate of the
-Core. There is no option to turn the check on.
+The Python client checks the certificate of the Core. A certificate from a public
+authority, such as Let's Encrypt, needs no setup. When the Core uses a self-signed
+certificate, give the path to its CA certificate in `ca_cert`:
+
+```python
+client = sy.Synnax(
+    host="core.example.com",
+    port=9090,
+    username="operator",
+    password="secret",
+    secure=True,
+    ca_cert="/path/to/ca.crt",
+)
+```
+
+The CA certificate is `ca.crt` in the certificate folder of the Core.
 
   </Fragment>
 
@@ -213,6 +231,11 @@ A Node.js script does not exit until you close the client.
 
 <Field.Item name="secure" id="python-secure" type="bool" default="False">
   Connect with TLS.
+</Field.Item>
+
+<Field.Item name="ca_cert" id="python-ca-cert" type="str">
+  The path to the CA certificate that signs the certificate of the Core. It requires
+  `secure`. With no path, the client trusts the CA certificates of the computer.
 </Field.Item>
 
 <Field.Item name="open_timeout" id="python-open-timeout" type="TimeSpan" default="5 s">

@@ -1070,6 +1070,24 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(err).To(MatchError(ContainSubstring("virtual")))
 					},
 				)
+				It("Should reject a negative auto chunk size", func(ctx SpecContext) {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, cesium.Channel{
+						Key:      key,
+						Name:     "Magellan",
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+					})).To(Succeed())
+					Expect(db.OpenIterator(cesium.IteratorConfig{
+						Bounds:        telem.TimeRangeMax,
+						Channels:      []cesium.ChannelKey{key},
+						AutoChunkSize: -1,
+					})).Error().To(
+						MatchError(
+							ContainSubstring("auto_chunk_size: must be positive"),
+						),
+					)
+				})
 			})
 
 			Describe("Close", func() {

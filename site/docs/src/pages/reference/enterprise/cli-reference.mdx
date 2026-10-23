@@ -167,6 +167,12 @@ development logging. Do not use it in production. For debug logs, use `--verbose
 
 </Field.Item>
 
+<Field.Item name="--session-idle-timeout" type="duration" default='"168h"' env="SYNNAX_SESSION_IDLE_TIMEOUT">
+
+Ends a login session after this long with no request from its client.
+
+</Field.Item>
+
 <Field.Item name="--slow-consumer-timeout" type="duration" default='"2.5s"' env="SYNNAX_SLOW_CONSUMER_TIMEOUT">
 
 The time after which the Core closes a telemetry streamer that stops receiving messages.
@@ -305,6 +311,7 @@ Example files:
   "password": "seldon",
   "license-file": "/usr/local/synnax/synnax.lic",
   "debug": false,
+  "session-idle-timeout": "168h",
   "slow-consumer-timeout": "2.5s",
   "no-driver": false,
   "disable-integrations": [],

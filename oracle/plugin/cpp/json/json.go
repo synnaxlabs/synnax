@@ -54,6 +54,7 @@ func (p *Plugin) Domains() []string { return []string{"cpp"} }
 func (p *Plugin) Requires() []string { return []string{"cpp/types"} }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("cpp")
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
 	c, err := collect(req)
