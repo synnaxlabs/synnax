@@ -104,14 +104,18 @@ export class Reader {
   }
 
   /**
-   * Reads every sample the given channels hold within tr as an NI TDMS file. Channels
-   * are grouped by the index channel that timestamps them, and each group holds its
-   * index channel followed by its other channels. Channels with no index are excluded.
+   * Reads every sample the given channels hold within tr as an NI TDMS file. Each index
+   * channel heads a group, followed by the float channels it timestamps, which hold NaN
+   * where they have no sample. Every other channel gets a group of its own, holding the
+   * timestamps of its samples, then the samples.
    *
    * @param tr - the time range to read.
    * @param channels - the channels to read, by key or by name.
    * @param opts - see {@link ReadOptions}.
    * @returns the TDMS file as a stream of bytes the caller pipes wherever it likes.
+   * @throws {NotFoundError} if a channel does not exist.
+   * @throws {AccessDeniedError} if the caller may not retrieve a channel or its index.
+   * @throws {ValidationError} if a channel has no index channel.
    */
   async readTDMS(
     tr: CrudeTimeRange,
