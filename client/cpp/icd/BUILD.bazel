@@ -10,11 +10,11 @@
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 cc_library(
-    name = "library",
-    srcs = ["library.cpp"],
+    name = "icd",
+    srcs = ["icd.cpp"],
     hdrs = [
+        "icd.h",
         "json.gen.h",
-        "library.h",
         "proto.gen.h",
         "types.gen.h",
     ],
@@ -33,11 +33,11 @@ cc_library(
 )
 
 cc_test(
-    name = "library_test",
-    srcs = ["library_test.cpp"],
+    name = "icd_test",
+    srcs = ["icd_test.cpp"],
     tags = ["requires-core"],
     deps = [
-        ":library",
+        ":icd",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/test",

@@ -26,8 +26,8 @@
 #include "core/pkg/transport/grpc/device/device.pb.h"
 #include "core/pkg/transport/grpc/framer/framer.grpc.pb.h"
 #include "core/pkg/transport/grpc/framer/framer.pb.h"
-#include "core/pkg/transport/grpc/library/library.grpc.pb.h"
-#include "core/pkg/transport/grpc/library/library.pb.h"
+#include "core/pkg/transport/grpc/icd/icd.grpc.pb.h"
+#include "core/pkg/transport/grpc/icd/icd.pb.h"
 #include "core/pkg/transport/grpc/rack/rack.grpc.pb.h"
 #include "core/pkg/transport/grpc/rack/rack.pb.h"
 #include "core/pkg/transport/grpc/ranger/kv/kv.grpc.pb.h"
@@ -155,18 +155,18 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::arc::DeleteRequest,
         google::protobuf::Empty,
         grpc::arc::ArcDeleteService>>(pool, base_target);
-    this->library_create = std::make_unique<freighter::grpc::UnaryClient<
-        grpc::library::CreateRequest,
-        grpc::library::CreateResponse,
-        grpc::library::LibraryCreateService>>(pool, base_target);
-    this->library_retrieve = std::make_unique<freighter::grpc::UnaryClient<
-        grpc::library::RetrieveRequest,
-        grpc::library::RetrieveResponse,
-        grpc::library::LibraryRetrieveService>>(pool, base_target);
-    this->library_delete = std::make_unique<freighter::grpc::UnaryClient<
-        grpc::library::DeleteRequest,
+    this->icd_create = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::icd::CreateRequest,
+        grpc::icd::CreateResponse,
+        grpc::icd::ICDCreateService>>(pool, base_target);
+    this->icd_retrieve = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::icd::RetrieveRequest,
+        grpc::icd::RetrieveResponse,
+        grpc::icd::ICDRetrieveService>>(pool, base_target);
+    this->icd_delete = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::icd::DeleteRequest,
         google::protobuf::Empty,
-        grpc::library::LibraryDeleteService>>(pool, base_target);
+        grpc::icd::ICDDeleteService>>(pool, base_target);
     this->connectivity_check = std::make_unique<freighter::grpc::UnaryClient<
         google::protobuf::Empty,
         grpc::connectivity::CheckResponse,
@@ -201,8 +201,8 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     arc_create->use(mw);
     arc_retrieve->use(mw);
     arc_delete->use(mw);
-    library_create->use(mw);
-    library_retrieve->use(mw);
-    library_delete->use(mw);
+    icd_create->use(mw);
+    icd_retrieve->use(mw);
+    icd_delete->use(mw);
 }
 }
