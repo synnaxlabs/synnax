@@ -51,6 +51,50 @@ Every consumer dispatches on `make` before it can act:
 `console/src/feature/device/tree.tsx:56,99`, and the Driver's scan cache
 (`driver/common/scan_task.h:140-147`). The abstraction hides nothing.
 
+### 1.1 Why the task shape does not transfer
+
+Tasks keep a generic row with a per-type config table (RFC 0051), and the obvious move
+is to shape devices the same way. The task row works because every field on it is true
+of every task. `rack`, `name`, `type`, `config_hash`, `internal`, `snapshot`, and a
+status with `running` and `cmd` describe a Modbus read task and an Arc task alike
+(`schemas/synnax/task.oracle:61-127`). Every task shares one lifecycle: the Driver
+starts, stops, and reconfigures each through the same commands, and the Console lists
+tasks of every type with the same columns. The config table holds only what differs.
+
+The device row has no such core. Three of its seven fields are true of every resource:
+`key`, `rack`, and `name`. The other four hold a different meaning per make, or none:
+
+| Resource       | `location`          | `model`                | `configured`     |
+| -------------- | ------------------- | ---------------------- | ---------------- |
+| NI device      | DAQmx alias         | product name           | user has set it  |
+| NI chassis     | DAQmx alias         | product name           | never meaningful |
+| LabJack device | `USB` or `TCP`      | `T4`, `T7`, `T8`       | user has set it  |
+| EtherCAT slave | `<master>.Slot <n>` | always `slave`         | user has set it  |
+| OPC UA server  | always `""`         | always `OPC UA server` | always `true`    |
+| Modbus server  | always `""`         | always `Modbus`        | always `true`    |
+| HTTP server    | always `""`         | always `HTTP server`   | always `true`    |
+
+`location` is `@validate required`, and three connect forms satisfy it with the empty
+string (`console/src/feature/opcua/device/useConnectModal.tsx:53`,
+`modbus/device/useConnectModal.tsx:45`, `http/device/useConnectModal.tsx:56`). `model`
+is a constant for four of the seven (`driver/ethercat/ethercat.h:36`). `configured`
+cannot be false for a server and means nothing for a chassis, which has no channels to
+name. `make` is a dispatch tag; no reader uses the row without switching on it first. A
+base row kept under the task shape would carry three real fields and four that each
+integration fills with a placeholder, and every reader would join two tables to render
+one thing.
+
+The remaining case for the row is listing devices across makes. Two screens do that
+today. The Devices group in the resource tree renders ontology resources and reads
+`make` off each to choose its icon and menu
+(`console/src/feature/device/tree.tsx:56,99`); under §4.4 it lists the rack's children
+and needs no device table. The device select always narrows to one make before it lists
+(`console/src/platform/device/Select.tsx:40,50`), so it is a per-resource select
+already. No screen shows a server beside a slave with a shared column set, because there
+is no shared column: a server has no location and a slave has no model. Status is the
+one shared behavior, and §4.2 keeps it generic through `device.Service[D]`, which is
+where the task precedent does transfer: shared machinery, not a shared row.
+
 ## 2 Vocabulary
 
 - **Resource**: One typed record for one piece of hardware or one server, in a table
@@ -407,9 +451,10 @@ reference, and policy carried forward. A client older than Phase 24 gets a not-f
 
 ## 8 Resolved decisions
 
-1. **No generic device table**: Every consumer already dispatches on `make`, and the
-   only shared behavior, status, differs per type too. The trade is real: eight ontology
-   types instead of one, eight client namespaces, and a custom policy migration.
+1. **No generic device table**: Only `key`, `rack`, and `name` mean the same thing for
+   every resource; the rest are placeholders for most makes, and every consumer
+   dispatches on `make` (§1.1). The trade is real: eight ontology types instead of one,
+   eight client namespaces, and a custom policy migration.
 2. **No `device.Base` struct**: `key`, `rack`, and `name` are cheap to repeat, and a
    base would force one `Status` shape on every type. The trade is real: three fields
    are declared eight times.
