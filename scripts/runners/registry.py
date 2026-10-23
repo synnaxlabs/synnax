@@ -18,12 +18,13 @@ STATE_FILE = Path(__file__).with_name("registry.json")
 
 
 class RunnerRegistry:
-    """Runner names seen so far, shared between the poll threads and persisted so other
-    scripts can read them with known_runners()."""
+    """Runner names seen so far, shared between the poll threads and persisted to path
+    so other scripts can read them with known_runners()."""
 
-    def __init__(self) -> None:
+    def __init__(self, path: Path = STATE_FILE) -> None:
+        self.path = path
         self.lock = threading.Lock()
-        self.names = known_runners()
+        self.names = known_runners(path)
 
     def snapshot(self) -> set[str]:
         with self.lock:
@@ -32,11 +33,14 @@ class RunnerRegistry:
     def add(self, names: set[str]) -> None:
         with self.lock:
             self.names |= names
-            STATE_FILE.write_text(json.dumps(sorted(self.names), indent=2))
+            # Replaced whole, so a stop mid-write leaves the previous file intact.
+            tmp = self.path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(sorted(self.names), indent=2))
+            tmp.replace(self.path)
 
 
-def known_runners() -> set[str]:
-    """Returns the runner names remembered in the state file, empty if none yet."""
-    if not STATE_FILE.exists():
+def known_runners(path: Path = STATE_FILE) -> set[str]:
+    """Returns the runner names remembered in path, empty if none yet."""
+    if not path.exists():
         return set()
-    return set(json.loads(STATE_FILE.read_text()))
+    return set(json.loads(path.read_text()))

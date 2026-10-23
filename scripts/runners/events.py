@@ -14,7 +14,7 @@ from collections.abc import Callable
 
 import synnax as sy
 
-from common import channel_name, create_channels, create_index, warn
+from common import Channels, channel_name, warn
 from publisher import Publisher
 
 SOURCE = "events"
@@ -29,10 +29,11 @@ class Events:
     def __init__(
         self,
         client: sy.Synnax,
+        channels: Channels,
         runners: set[str],
         report: Callable[[str, Exception], None] = warn,
     ) -> None:
-        self.client = client
+        self.channels = channels
         self.start = sy.TimeStamp.now()
         self.last: dict[str, sy.TimeStamp] = {}
         self.publisher = Publisher(client, f"runner_{SOURCE}", [], report=report)
@@ -44,9 +45,9 @@ class Events:
         names = []
         for r in sorted(runners):
             index_name = channel_name(f"{SOURCE}_time", r)
-            index = create_index(self.client, index_name)
+            index = self.channels.index(index_name)
             name = channel_name(SOURCE, r)
-            create_channels(self.client, index, {name: sy.DataType.STRING})
+            self.channels.data(index, {name: sy.DataType.STRING})
             names += [index_name, name]
         self.publisher.retarget(names)
 

@@ -17,7 +17,7 @@ from datetime import datetime
 
 import synnax as sy
 
-from github import queued_runs, run_jobs
+from github import GitHub
 from log import Log
 from scaler import Pool, pool_of
 
@@ -90,8 +90,8 @@ class Jobs:
     are driven by deliveries; the step poll doubles as the reconciler, finishing a job
     whose completed delivery never arrived."""
 
-    def __init__(self, token: str, log: Log) -> None:
-        self.token = token
+    def __init__(self, github: GitHub, log: Log) -> None:
+        self.github = github
         self.log = log
         self.active: dict[str, dict] = {}
         self.queued: dict[int, set[str]] = {}
@@ -143,7 +143,7 @@ class Jobs:
         events: dict[str, list[str]] = {}
         for run in chosen:
             try:
-                jobs = run_jobs(self.token, run)
+                jobs = self.github.run_jobs(run)
             except Exception as e:
                 self.log.error(f"run {run} jobs", e)
                 continue
@@ -182,8 +182,8 @@ class Jobs:
         self.synced = now
         try:
             queued: dict[int, set[str]] = {}
-            for run in queued_runs(self.token):
-                for job in run_jobs(self.token, run):
+            for run in self.github.unfinished_runs():
+                for job in self.github.run_jobs(run):
                     if job["status"] == "queued":
                         queued[job["id"]] = set(job.get("labels", []))
             self.queued = queued

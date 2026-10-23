@@ -21,10 +21,9 @@ from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any
 
-import boto3
 import synnax as sy
 
-from aws import AWS, REGIONS, TIMEOUTS
+from aws import AWS, REGIONS
 from common import channel_name, instance_for, instance_prefix, latest
 from log import Log
 
@@ -102,8 +101,8 @@ def month_end(day: dt.date) -> dt.datetime:
 class Prices:
     """On-demand list prices, one GetProducts per distinct lookup, cached."""
 
-    def __init__(self) -> None:
-        self.pricing = boto3.client("pricing", region_name="us-east-1", config=TIMEOUTS)
+    def __init__(self, aws: AWS) -> None:
+        self.pricing = aws.pricing
         self.cache: dict[tuple, float] = {}
 
     def usd(self, **filters: str) -> float:
@@ -216,15 +215,10 @@ class Cost:
     def __init__(self, log: Log, aws: AWS) -> None:
         self.log = log
         self.aws = aws
-        self.ce = boto3.client("ce", region_name="us-east-1", config=TIMEOUTS)
-        self.cloudwatch = {
-            r: boto3.client("cloudwatch", region_name=r, config=TIMEOUTS)
-            for r in REGIONS
-        }
-        self.prices = Prices()
+        self.prices = Prices(aws)
         # Runners with an instance behind them, as of the last step.
         self.known: list[str] = []
-        # Instance types seen, from the Core at seed and from every fetch.
+        # Instance types seen, from the Core at startup and from every fetch.
         self.types: set[str] = set()
         self.attempted: sy.TimeStamp | None = None
         # The fetch runs off the controller cycle; step() takes its result.
@@ -272,7 +266,7 @@ class Cost:
         )
         return out
 
-    def seed(self, client: sy.Synnax, known: set[str]) -> None:
+    def create_state(self, client: sy.Synnax, known: set[str]) -> None:
         """The types on the Core and the last fetch time, so the cadence holds across
         a restart."""
         self.known = sorted(r for r in known if instance_prefix(r) is not None)
@@ -282,7 +276,7 @@ class Cost:
                     self.types.add(m.group(1))
             found = latest(client, [QUERY_TIME])
         except Exception as e:
-            self.log.error("cost seed", e)
+            self.log.error("cost state", e)
             return
         if QUERY_TIME in found:
             self.attempted = sy.TimeStamp(int(found[QUERY_TIME]))
@@ -296,7 +290,7 @@ class Cost:
     def forecast(self, today: dt.date) -> float:
         """Usage from today to the end of the month, as AWS predicts it."""
         end = month_end(today).date()
-        page = self.ce.get_cost_forecast(
+        page = self.aws.ce.get_cost_forecast(
             TimePeriod={"Start": today.isoformat(), "End": end.isoformat()},
             Metric="UNBLENDED_COST",
             Granularity="MONTHLY",
@@ -311,7 +305,7 @@ class Cost:
         ran: dict[str, float] = dict.fromkeys(instances, 0.0)
         if start >= end:
             return ran
-        for region, cw in self.cloudwatch.items():
+        for region, cw in self.aws.cloudwatch.items():
             ids = [i for i, info in instances.items() if info["region"] == region]
             if not ids:
                 continue
@@ -396,7 +390,7 @@ class Cost:
             params["Filter"] = filter
         rows: list[Any] = []
         while True:
-            page = self.ce.get_cost_and_usage(**params)
+            page = self.aws.ce.get_cost_and_usage(**params)
             rows += page["ResultsByTime"]
             if not (token := page.get("NextPageToken")):
                 return rows

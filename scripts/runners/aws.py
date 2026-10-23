@@ -7,7 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""The EC2 instances behind the runners, and SSM to run commands on them."""
+"""The EC2 instances behind the runners, SSM to run commands on them, and the billing
+APIs cost.py reads."""
 
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -24,7 +25,8 @@ TIMEOUTS = Config(connect_timeout=10, read_timeout=30, retries={"max_attempts": 
 
 
 class AWS:
-    """Per-region EC2 and SSM clients, safe to share across threads."""
+    """Per-region EC2, SSM, and CloudWatch clients plus the global Cost Explorer and
+    Pricing clients, safe to share across threads."""
 
     def __init__(self) -> None:
         self.ec2 = {
@@ -33,6 +35,12 @@ class AWS:
         self.ssm = {
             r: boto3.client("ssm", region_name=r, config=TIMEOUTS) for r in REGIONS
         }
+        self.cloudwatch = {
+            r: boto3.client("cloudwatch", region_name=r, config=TIMEOUTS)
+            for r in REGIONS
+        }
+        self.ce = boto3.client("ce", region_name="us-east-1", config=TIMEOUTS)
+        self.pricing = boto3.client("pricing", region_name="us-east-1", config=TIMEOUTS)
 
     def instances(self) -> dict[str, dict]:
         """Maps instance id to its region, state, running flag, whether it runs
