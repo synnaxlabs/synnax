@@ -39,6 +39,7 @@ cc_library(
     deps = [
         "//x/cpp/date",
         "//x/cpp/errors",
+        "//x/cpp/strings",
         "//x/cpp/telem",
         "@nlohmann_json//:json",
     ],

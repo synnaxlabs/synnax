@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <cstdint>
+#include <limits>
 
 #include "gtest/gtest.h"
 
@@ -1407,6 +1408,23 @@ TEST(FromSampleValue, Float64WithLongDecimalToString) {
         )
     );
     ASSERT_EQ(result, json("1.2345689012"));
+}
+
+TEST(FromSampleValue, Float64InfinityToString) {
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(std::numeric_limits<double>::infinity()),
+            x::json::Type::String
+        )
+    );
+    ASSERT_EQ(result, json("Infinity"));
+}
+
+TEST(FromSampleValue, Float64ExponentToString) {
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(x::telem::SampleValue(1.5e-7), x::json::Type::String)
+    );
+    ASSERT_EQ(result, json("1.5e-7"));
 }
 
 TEST(FromSampleValue, Float64WithoutDecimalToString) {

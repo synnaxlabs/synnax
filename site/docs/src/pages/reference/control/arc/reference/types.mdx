@@ -238,9 +238,11 @@ state str := str(active) // bool to string: "true"
 | `bool` to numeric (e.g., `u8(b)`)   | `1` or `0`                                   |
 | `bool` to string (`str(b)`)         | `"true"` or `"false"`                        |
 
-Float values render without trailing zeros (`str(1.0)` returns `"1"`), and special
-values render as `"NaN"`, `"+Inf"`, `"-Inf"`. Casting from `str` back to a numeric or
-`bool` type is not supported.
+Float values render as the shortest text that converts back to the same value, without
+trailing zeros (`str(1.0)` returns `"1"`). Values below `1e-6` or from `1e21` use
+exponent notation (`"1.5e-7"`, `"1e+21"`). Special values render as `"NaN"`,
+`"Infinity"`, and `"-Infinity"`. Casting from `str` back to a numeric or `bool` type is
+not supported.
 
 <Note.Note variant="info">
   Arc requires explicit casts for mixed-type arithmetic. No implicit type promotion.

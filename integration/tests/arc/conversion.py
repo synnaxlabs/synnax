@@ -114,8 +114,8 @@ flow_trigger -> "v=" + str(in_u64) + "!" -> flow_concat_u64
 flow_trigger -> "v=" + str(in_f32) + "!" -> flow_concat_f32
 flow_trigger -> "v=" + str(in_f64) + "!" -> flow_concat_f64
 
-// Special f64 values: division by zero yields +Inf / -Inf / NaN. Exercises
-// strconv.FormatFloat's non-finite branch via from_f64.
+// Special f64 values: division by zero yields Infinity / -Infinity / NaN. Exercises
+// the non-finite branch of from_f64.
 flow_trigger -> str(f64(1)/f64(0)) -> flow_str_pos_inf
 flow_trigger -> str(f64(-1)/f64(0)) -> flow_str_neg_inf
 flow_trigger -> str(f64(0)/f64(0)) -> flow_str_nan
@@ -351,10 +351,9 @@ class Conversion(ArcCase):
         self.wait_for_eq("flow_concat_f32", "v=3.5!")
         self.wait_for_eq("flow_concat_f64", "v=3.5!")
 
-        # str(): special float values via division by zero. Go's
-        # strconv.FormatFloat emits "+Inf" / "-Inf" / "NaN".
-        self.wait_for_eq("flow_str_pos_inf", "+Inf")
-        self.wait_for_eq("flow_str_neg_inf", "-Inf")
+        # str(): special float values via division by zero.
+        self.wait_for_eq("flow_str_pos_inf", "Infinity")
+        self.wait_for_eq("flow_str_neg_inf", "-Infinity")
         self.wait_for_eq("flow_str_nan", "NaN")
 
         # Numeric: one representative per opcode family + one composed in a

@@ -225,12 +225,12 @@ var _ = Describe("Strings", func() {
 
 		It("Should format positive infinity", func(ctx SpecContext) {
 			h := callU32(ctx, "from_f32", testutil.F32(float32(math.Inf(1))))
-			Expect(MustBeOk(ss.Get(h))).To(Equal("+Inf"))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("Infinity"))
 		})
 
 		It("Should format negative infinity", func(ctx SpecContext) {
 			h := callU32(ctx, "from_f32", testutil.F32(float32(math.Inf(-1))))
-			Expect(MustBeOk(ss.Get(h))).To(Equal("-Inf"))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("-Infinity"))
 		})
 	})
 
@@ -278,7 +278,7 @@ var _ = Describe("Strings", func() {
 			Entry("-3.10 (negative trailing zero)", float64(-3.10), "-3.1"),
 			Entry("-1.0 (negative integer-valued)", float64(-1.0), "-1"),
 			Entry("5.000 (three trailing zeros)", float64(5.000), "5"),
-			Entry("1e10 integer-valued", float64(10000000000.0), "1e+10"),
+			Entry("1e10 integer-valued", float64(10000000000.0), "10000000000"),
 		)
 
 		It("Should format NaN", func(ctx SpecContext) {
@@ -288,12 +288,12 @@ var _ = Describe("Strings", func() {
 
 		It("Should format positive infinity", func(ctx SpecContext) {
 			h := callU32(ctx, "from_f64", testutil.F64(math.Inf(1)))
-			Expect(MustBeOk(ss.Get(h))).To(Equal("+Inf"))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("Infinity"))
 		})
 
 		It("Should format negative infinity", func(ctx SpecContext) {
 			h := callU32(ctx, "from_f64", testutil.F64(math.Inf(-1)))
-			Expect(MustBeOk(ss.Get(h))).To(Equal("-Inf"))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("-Infinity"))
 		})
 	})
 
@@ -331,6 +331,72 @@ var _ = Describe("Strings", func() {
 				)
 				Expect(MustBeOk(ss.Get(h))).To(Equal("3.14"))
 			},
+		)
+
+		DescribeTable(
+			"Should format an infinity as Infinity under the spec",
+			func(ctx SpecContext, fn string, value uint64, spec, expected string) {
+				ptr, length := writeSpec(spec)
+				h := callU32(ctx, fn, value, testutil.U32(ptr), testutil.U32(length))
+				Expect(MustBeOk(ss.Get(h))).To(Equal(expected))
+			},
+			Entry("no flags", "format_f64", testutil.F64(math.Inf(1)), "f", "Infinity"),
+			Entry(
+				"negative",
+				"format_f64",
+				testutil.F64(math.Inf(-1)),
+				"f",
+				"-Infinity",
+			),
+			Entry(
+				"plus flag",
+				"format_f64",
+				testutil.F64(math.Inf(1)),
+				"+f",
+				"+Infinity",
+			),
+			Entry(
+				"space flag",
+				"format_f64",
+				testutil.F64(math.Inf(1)),
+				" f",
+				" Infinity",
+			),
+			Entry(
+				"width",
+				"format_f64",
+				testutil.F64(math.Inf(1)),
+				"10f",
+				"  Infinity",
+			),
+			Entry(
+				"zero flag pads with spaces",
+				"format_f64",
+				testutil.F64(math.Inf(1)),
+				"010.2f",
+				"  Infinity",
+			),
+			Entry(
+				"left-justified",
+				"format_f64",
+				testutil.F64(math.Inf(-1)),
+				"-11e",
+				"-Infinity  ",
+			),
+			Entry(
+				"alternate flag",
+				"format_f64",
+				testutil.F64(math.Inf(1)),
+				"#g",
+				"Infinity",
+			),
+			Entry(
+				"f32",
+				"format_f32",
+				testutil.F32(float32(math.Inf(1))),
+				"g",
+				"Infinity",
+			),
 		)
 
 		DescribeTable("Should return handle 0 when the spec read is out-of-bounds",
