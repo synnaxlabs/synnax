@@ -12,6 +12,7 @@ import pluginReact from "@eslint-react/eslint-plugin";
 import stylistic from "@stylistic/eslint-plugin";
 import type { ESLint, Linter } from "eslint";
 import { includeIgnoreFile } from "eslint/config";
+import reactHooks from "eslint-plugin-react-hooks";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
 import path from "path";
@@ -54,6 +55,7 @@ const config: Linter.Config[] = [
     plugins: {
       "simple-import-sort": simpleImportSort,
       "@stylistic": stylistic,
+      "react-hooks": { rules: reactHooks.rules },
       synnax,
     },
     rules: {
@@ -68,11 +70,8 @@ const config: Linter.Config[] = [
       "arrow-body-style": "error",
       curly: ["error", "multi"],
       "dot-notation": "error",
-      "logical-assignment-operators": [
-        "error",
-        "always",
-        { enforceForIfStatements: true },
-      ],
+      // Allows the if-statement form: the React Compiler cannot compile ??= or ||=.
+      "logical-assignment-operators": ["error", "always"],
       "no-array-constructor": "error",
       "no-else-return": ["error", { allowElseIf: false }],
       "no-extra-boolean-cast": ["error", { enforceForInnerExpressions: true }],
@@ -128,9 +127,30 @@ const config: Linter.Config[] = [
       ],
       // Off until a SY-5149 hook audit: the fixes change render behavior.
       "@eslint-react/exhaustive-deps": "off",
-      "@eslint-react/rules-of-hooks": "off",
       "@eslint-react/set-state-in-effect": "off",
+      // Off: the react-hooks rules below check these with the React Compiler.
+      "@eslint-react/rules-of-hooks": "off",
       "@eslint-react/purity": "off",
+      // The React Compiler skips a component or hook that breaks one of these rules.
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/hooks": "error",
+      "react-hooks/use-memo": "error",
+      "react-hooks/void-use-memo": "error",
+      "react-hooks/preserve-manual-memoization": "error",
+      "react-hooks/memo-dependencies": "error",
+      "react-hooks/incompatible-library": "error",
+      "react-hooks/immutability": "error",
+      "react-hooks/globals": "error",
+      "react-hooks/refs": "error",
+      "react-hooks/purity": "error",
+      "react-hooks/set-state-in-render": "error",
+      "react-hooks/component-hook-factories": "error",
+      "react-hooks/unsupported-syntax": "error",
+      "react-hooks/todo": "error",
+      "react-hooks/syntax": "error",
+      "react-hooks/invariant": "error",
+      "react-hooks/config": "error",
+      "react-hooks/gating": "error",
       // Off: matches our own useContext hooks from context.create by name.
       "@eslint-react/no-use-context": "off",
       // Off: flags a call that returns a primitive key.

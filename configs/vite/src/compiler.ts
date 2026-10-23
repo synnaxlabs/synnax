@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { transformFileAsync } from "@babel/core";
-import babel, { defineRolldownBabelPreset } from "@rolldown/plugin-babel";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+
+import { transformFileAsync } from "@babel/core";
+import babel, {
+  defineRolldownBabelPreset,
+  type RolldownBabelPreset,
+} from "@rolldown/plugin-babel";
 import { type PluginOption } from "vite";
 
 const require = createRequire(import.meta.url);
@@ -19,24 +23,33 @@ const COMPILER = require.resolve("babel-plugin-react-compiler");
 const JSX = require.resolve("@babel/plugin-transform-react-jsx");
 const MAP_COMMENT = /\n\/\/# sourceMappingURL=\S*\s*$/;
 
+/** Fails on any component or hook that the compiler cannot compile. */
+const STRICT = { panicThreshold: "all_errors" };
+
+const preset = (build: boolean): RolldownBabelPreset =>
+  defineRolldownBabelPreset({
+    preset: () => ({ plugins: [[COMPILER, build ? STRICT : {}]] }),
+    rolldown: {
+      // A workspace dependency's dist is already compiled.
+      filter: { id: { exclude: /[/\\]dist[/\\]/ } },
+      optimizeDeps: { include: ["react/compiler-runtime"] },
+      configResolvedHook: (config) => (config.command === "build") === build,
+    },
+  });
+
 /**
  * Compiles components and hooks with the React Compiler. Unlike the preset that
  * `@vitejs/plugin-react` ships, it applies in every environment, so specs run the same
- * compiled code that builds emit.
+ * compiled code that builds emit. A build fails on a component or hook that the
+ * compiler cannot compile; a `"use no memo"` directive opts one out.
  */
 export const reactCompiler = (): PluginOption =>
-  babel({
-    presets: [
-      defineRolldownBabelPreset({
-        preset: () => ({ plugins: [COMPILER] }),
-        rolldown: { optimizeDeps: { include: ["react/compiler-runtime"] } },
-      }),
-    ],
-  });
+  babel({ presets: [preset(true), preset(false)] });
 
 /**
  * Compiles a JavaScript or JSX file that `tsc` emitted, in place, chaining its source
  * map. A JSX file is replaced by a `.js` file.
+ * @throws if the compiler cannot compile a component or hook in the file.
  */
 export const compileEmitted = async (file: string): Promise<void> => {
   const mapFile = `${file}.map`;
@@ -46,7 +59,7 @@ export const compileEmitted = async (file: string): Promise<void> => {
     configFile: false,
     sourceMaps: mapped,
     inputSourceMap: mapped ? JSON.parse(readFileSync(mapFile, "utf8")) : undefined,
-    plugins: [COMPILER, [JSX, { runtime: "automatic" }]],
+    plugins: [[COMPILER, STRICT], [JSX, { runtime: "automatic" }]],
   });
   if (result?.code == null)
     throw new Error(`${file}: the React Compiler emitted nothing`);

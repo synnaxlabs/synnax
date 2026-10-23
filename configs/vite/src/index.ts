@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import path from "path";
-import { type Plugin, type PluginOption } from "vite";
+import { type PluginOption } from "vite";
 
 import { reactCompiler } from "./compiler.js";
 import { declarations } from "./declarations.js";

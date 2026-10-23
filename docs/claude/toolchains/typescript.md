@@ -109,6 +109,24 @@ cross-references. Never put types in JSDoc; the signature carries them.
  */
 ```
 
+## React Compiler
+
+The React Compiler compiles the Console, Pluto, Lyra, and Drift
+(`configs/vite/src/compiler.ts`), in builds and in specs. A build fails on a component
+or hook that the compiler cannot compile, and the `react-hooks` lint rules flag the same
+code in the editor.
+
+- Name a hook `use` and a capital letter (`useClient`, `useRetrieve`), never bare `use`.
+  The compiler caches a call to a bare `use` like a plain function, and the lint rules
+  do not catch it.
+- Keep render pure. The compiler caches each computation on its inputs, so a clock, a
+  ref, a module cache, or an object changed in place goes stale in render without an
+  error. Pass the current time in as state, and copy an object instead of changing it.
+- Write `if (x == null) x = y;` in a component or hook. The compiler cannot compile
+  `??=`.
+- Use the `"use no memo"` directive only for an incompatible library or a fixed hook
+  list, with a one-line reason.
+
 ## Testing (Vitest — never Jest)
 
 `*.spec.ts` co-located with source. `describe`/`it` blocks, `vi.fn()` mocks,
