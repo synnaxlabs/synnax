@@ -211,8 +211,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 		return Session{}, ErrInvalidToken
 	}
 	now := s.now()
-	last := max(session.LastActive, s.see(key, now))
-	if time.Duration(now-last) > s.cfg.IdleTimeout {
+	if !s.see(key, session.LastActive, now) {
 		if err = s.Logout(ctx, key); err != nil {
 			return Session{}, err
 		}
@@ -233,13 +232,16 @@ func (s *Service) lastSeen(key SessionKey) telem.TimeStamp {
 	return s.seen[key]
 }
 
-// see marks key as active at and returns the previous mark.
-func (s *Service) see(key SessionKey, at telem.TimeStamp) telem.TimeStamp {
+// see marks key as active at now and returns true, or returns false without a mark
+// when the session has been idle for the idle timeout since stored or its last mark.
+func (s *Service) see(key SessionKey, stored, now telem.TimeStamp) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	prev := s.seen[key]
-	s.seen[key] = at
-	return prev
+	if time.Duration(now-max(stored, s.seen[key])) > s.cfg.IdleTimeout {
+		return false
+	}
+	s.seen[key] = now
+	return true
 }
 
 // forget also drops every session not in a non-nil keep.
