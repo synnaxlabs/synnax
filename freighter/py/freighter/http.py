@@ -128,7 +128,7 @@ class HTTPClient(MiddlewareCollector):
                 body=f,
                 content_type=_file_content_type(req),
                 res_t=res_t,
-                retries=False,
+                retries=Retry(total=0),
                 params={"params": json.dumps(all_params)},
             )
 
@@ -178,7 +178,7 @@ class HTTPClient(MiddlewareCollector):
         body: bytes | IO[bytes] | Iterable[bytes] | None,
         content_type: str,
         res_t: type[RS],
-        retries: Retry | bool | None = None,
+        retries: Retry | None = None,
         params: dict[str, str] | None = None,
     ) -> RS:
         url = self._build_url(target, params)
@@ -213,15 +213,15 @@ class HTTPClient(MiddlewareCollector):
         accept: str,
         body: bytes | IO[bytes] | Iterable[bytes] | None,
         preload_content: bool,
-        retries: Retry | bool | None = None,
+        retries: Retry | None = None,
     ) -> tuple[BaseHTTPResponse, Context]:
         """Issues a POST to url and returns the response alongside an outgoing context.
 
         Raises Unreachable on a transport failure and the decoded server error on a
         non-2xx status. On success the response body has not been consumed; when
         preload_content is False the caller owns release_conn. A retries value of None
-        defers to the pool default; pass False to disable retries (e.g. for an
-        unreplayable streaming body).
+        defers to the pool default; pass Retry(total=0) to disable retries. Never pass
+        False: urllib3 then raises the raw connection error instead of MaxRetryError.
         """
         out_ctx = Context(self._endpoint.protocol, url, "client")
         headers = {"Content-Type": content_type, "Accept": accept, **ctx.params}
