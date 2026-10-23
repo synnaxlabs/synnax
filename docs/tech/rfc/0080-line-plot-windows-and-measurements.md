@@ -169,7 +169,9 @@ timestamp `t` is read from the trigger channel's index at the crossing sample. T
 is the samples of the Y channel whose own index lies in
 `[t - pretrigger × span, t + (1 - pretrigger) × span]`, emitted once the end has
 arrived. When no crossing arrives within `timeout`, the source emits the last `span` of
-data so the plot never blanks, as a bench scope does in auto mode.
+data with a synthetic `t` of `latest - (1 - pretrigger) × span`, `latest` being the
+newest index timestamp, so the frame ends at the newest sample, `t` keeps the
+`pretrigger` position, and the plot never blanks, as a bench scope does in auto mode.
 
 The X series is derived: index timestamp minus `t`, in seconds, as `float64`. The X axis
 of a triggered window is `linear` with the label "s", so successive frames land on top
