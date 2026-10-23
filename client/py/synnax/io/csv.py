@@ -174,9 +174,13 @@ def _float_text(v: np.floating) -> str:
 
 
 def _float_texts(col: pd.Series) -> pd.Series:
-    if col.dtype.kind != "f":
-        return col
-    return pd.Series([_float_text(v) for v in col.to_numpy()], index=col.index)
+    if col.dtype.kind == "f":
+        return pd.Series([_float_text(v) for v in col.to_numpy()], index=col.index)
+    if col.dtype.kind == "O":
+        return col.map(
+            lambda v: _float_text(np.float64(v)) if isinstance(v, float) else v
+        )
+    return col
 
 
 class CSVWriter(ExtensionMatcher):

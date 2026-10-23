@@ -59,3 +59,10 @@ class TestCSVWriter:
         writer = CSVWriter(tmp_path / "out.csv")
         writer.write(pd.DataFrame({"a": [math.nan, 2.5], "b": [1, 2]}))
         assert (tmp_path / "out.csv").read_text() == "a,b\n,1\n2.5,2\n"
+
+    def test_write_floats_in_object_columns(self, tmp_path: pathlib.Path) -> None:
+        """Should format the floats of a mixed object column."""
+        writer = CSVWriter(tmp_path / "out.csv")
+        col = pd.Series([math.inf, 1e-7, "offline"], dtype=object)
+        writer.write(pd.DataFrame({"a": col}))
+        assert (tmp_path / "out.csv").read_text() == "a\nInfinity\n1e-7\noffline\n"
