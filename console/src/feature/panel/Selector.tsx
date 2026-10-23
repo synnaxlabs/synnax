@@ -28,6 +28,8 @@ import {
   isPillHaulItem,
   PILL_HAUL_TYPE,
 } from "@/feature/panel/haul";
+import { renderIcon } from "@/feature/panel/icon";
+import { useIconPicker } from "@/feature/panel/IconPicker";
 import { useCreate } from "@/feature/panel/useCreate";
 import { type Dwell, useDwell } from "@/feature/panel/useDwell";
 import {
@@ -49,6 +51,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
   const dispatch = useDispatch();
   const client = Synnax.use();
   const openWindow = useOpenWindow();
+  const openIconPicker = useIconPicker();
   const selected = Session.Panel.useSelectSelected();
   const { update: del } = Panel.useDelete({
     beforeUpdate: useCallback(
@@ -72,6 +75,12 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
     <CMenu.Menu>
       {hasUpdatePermission && keys.length === 1 && (
         <CMenu.RenameItem onClick={() => Text.edit(PCSS.B(`tab-${key}`))} />
+      )}
+      {hasUpdatePermission && keys.length === 1 && (
+        <Menu.Item itemKey="change-icon" onClick={() => openIconPicker({ panel: key })}>
+          <Icon.FillColor />
+          Change icon
+        </Menu.Item>
       )}
       <Menu.Divider />
       {keys.length === 1 && Session.Runtime.ENGINE === "tauri" && (
@@ -165,6 +174,8 @@ const Tab = ({ tabKey, dwell }: TabProps): ReactElement => (
 const TabContent = ({ tabKey, dwell }: TabProps): ReactElement => {
   Panel.useEnsure({ key: tabKey });
   const name = Panel.useName({ key: tabKey });
+  const icon = Panel.useIcon({ key: tabKey });
+  const color = Panel.useColor({ key: tabKey });
   const canEdit = Panel.useCanEdit({ key: tabKey });
   const { update: rename } = Panel.useRename();
   const handleChange = useCallback(
@@ -202,7 +213,7 @@ const TabContent = ({ tabKey, dwell }: TabProps): ReactElement => {
       onDragLeave={handleDragLeave}
       {...dropProps}
     >
-      <Icon.Panel />
+      {renderIcon({ icon, color })}
       <Text.MaybeEditable
         id={PCSS.B(`tab-${tabKey}`)}
         value={name}

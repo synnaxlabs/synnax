@@ -48,7 +48,7 @@ const createTab = (): panel.Tab => ({
   type: "t",
 });
 
-interface CreateProjectPanelProps {
+interface CreateProjectPanelProps extends Pick<panel.New, "icon" | "color"> {
   name?: string;
   key?: panel.Key;
   tab?: panel.Tab;
@@ -60,10 +60,14 @@ const createProjectPanel = async (
     name = "panel",
     key = uuid.create(),
     tab = createTab(),
+    icon,
+    color,
   }: CreateProjectPanelProps = {},
 ): Promise<panel.Panel> =>
   await client.panels.create({
     key,
+    icon,
+    color,
     name: uniqueName(name),
     parent: project.ontologyID(projectKey),
     root: { variant: "leaf", tabs: [tab] },
@@ -524,6 +528,104 @@ describe("Panel.Selector", () => {
       await waitFor(() => expect(screen.getByText(pan.name)).toBeTruthy());
       expect(screen.queryByRole("button")).toBeNull();
       expect(countEditableText(PCSS.B(`tab-${pan.key}`))).toBe(0);
+    });
+  });
+
+  describe("change icon", () => {
+    const PICKER_TITLE = "Panel icon";
+
+    const pillIcon = (pan: panel.Panel): SVGElement => {
+      const pill = screen
+        .getAllByRole("tab")
+        .find((tab) => tab.textContent?.includes(pan.name));
+      const svg = pill?.querySelector("svg");
+      if (svg == null) throw new Error(`pill for ${pan.name} draws no icon`);
+      return svg;
+    };
+
+    const openPicker = async (props: CreateProjectPanelProps = {}) => {
+      const { key: projectKey } = await client.projects.create({
+        name: uniqueName("project"),
+      });
+      const pan = await createProjectPanel(projectKey, props);
+      await renderStrip([pan], projectKey);
+      fireEvent.contextMenu(screen.getByText(pan.name));
+      fireEvent.click(await screen.findByText("Change icon"));
+      await screen.findByText(PICKER_TITLE);
+      return pan;
+    };
+
+    it("should draw the default panel icon on a pill with no icon", async () => {
+      const { key: projectKey } = await client.projects.create({
+        name: uniqueName("project"),
+      });
+      const pan = await createProjectPanel(projectKey);
+      await renderStrip([pan], projectKey);
+      expect(pillIcon(pan).classList).toContain("pluto-icon--panel");
+    });
+
+    it("should draw the picked icon on the pill and close the picker", async () => {
+      const pan = await openPicker();
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText("Valve"));
+      });
+      await waitFor(() =>
+        expect(pillIcon(pan).classList).toContain("pluto-icon--valve"),
+      );
+      expect(screen.queryByText(PICKER_TITLE)).toBeNull();
+    });
+
+    it("should tint the pill icon and keep the picker open on a color", async () => {
+      const pan = await openPicker();
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText("#dc136c"));
+      });
+      await waitFor(() =>
+        expect(pillIcon(pan).style.getPropertyValue("--pluto-symbol-color")).toEqual(
+          "220, 19, 108",
+        ),
+      );
+      expect(screen.getByText(PICKER_TITLE)).toBeTruthy();
+    });
+
+    it("should reset the icon and the color", async () => {
+      const pan = await openPicker({ icon: "valve", color: "#dc136c" });
+      await act(async () => {
+        fireEvent.click(findModalButton("Reset"));
+      });
+      await waitFor(() =>
+        expect(pillIcon(pan).classList).toContain("pluto-icon--panel"),
+      );
+      expect(pillIcon(pan).style.getPropertyValue("--pluto-symbol-color")).toEqual("");
+      const stored = await client.panels.retrieve({ key: pan.key });
+      expect(stored.icon).toBeUndefined();
+      expect(stored.color).toBeUndefined();
+    });
+
+    it("should hide the item from a user who cannot edit the panel", async () => {
+      const proj = await client.projects.create({ name: uniqueName("project") });
+      const pan = await createProjectPanel(proj.key);
+      const viewer = await createTestClientWithPolicy(client, {
+        name: uuid.create(),
+        objects: [
+          panel.TYPE_ONTOLOGY_ID,
+          project.TYPE_ONTOLOGY_ID,
+          user.TYPE_ONTOLOGY_ID,
+          access.role.TYPE_ONTOLOGY_ID,
+          access.policy.TYPE_ONTOLOGY_ID,
+        ],
+        actions: ["retrieve"],
+      });
+      const { wrapper } = await createPanelWrapper({
+        client: viewer,
+        project: proj.key,
+      });
+      await act(async () => {
+        render(<Selector />, { wrapper });
+      });
+      fireEvent.contextMenu(await screen.findByText(pan.name));
+      await screen.findByText("Reload Console");
+      expect(screen.queryByText("Change icon")).toBeNull();
     });
   });
 
