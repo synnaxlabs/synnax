@@ -51,6 +51,25 @@ var _ = Describe("Go PB Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should not translate a field omitted in pb", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key     string
+						hash    bytes { @pb omit }
+						subject string
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain("Subject").
+					ToNotContain("Hash")
+			})
+		})
+
 		Context("union translation", func() {
 			It(
 				"Should generate oneof translators for a discriminated union",

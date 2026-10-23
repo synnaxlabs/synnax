@@ -54,6 +54,48 @@ var _ = Describe("TS Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should leave out an inherited field the parent omits", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@ts output "out"
+
+					Parent struct {
+						name   string
+						secret bytes { @ts omit }
+					}
+
+					Child struct extends Parent {
+						secret?
+						extra  string
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("export const childZ", "extra: z.string()").
+					ToNotContain("secret")
+			})
+
+			It("Should leave out a field omitted in ts", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@ts output "out"
+
+					Session struct {
+						key     uuid
+						hash    bytes { @ts omit }
+						subject string
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`key: z.uuid()`, `subject: z.string()`).
+					ToNotContain("hash")
+			})
+		})
+
 		Context("basic struct generation", func() {
 			It("Should generate schema for simple struct", func(ctx SpecContext) {
 				source := `
