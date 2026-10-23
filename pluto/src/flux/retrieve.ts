@@ -49,6 +49,7 @@ import {
   fulfilled,
   type LocalCache,
   localFor,
+  notifyReaders,
   promiseFor,
   type RetrieveParams,
   setSettled,
@@ -112,6 +113,26 @@ const answersEqual = <Data>(prev: Data, next: Data): boolean =>
     ? compare.arraysEqual(prev, next)
     : Object.is(prev, next);
 
+/**
+ * Calls `notify` when the query's cached answer may have changed: on its change events,
+ * and when a fetch answers, since a fetch can fill the cache with no change event.
+ */
+const subscribeToCache = <Query extends query.Params, Data extends query.Data>(
+  locals: WeakMap<Client, LocalCache<Data>>,
+  client: Client,
+  memoQuery: Query,
+  onChange: CreateRetrieveParams<Query, Data>["onChange"],
+  notify: () => void,
+): destructor.Destructor => {
+  const { listeners } = localFor(locals, client);
+  listeners.add(notify);
+  const release = onChange?.({ client, query: memoQuery }, () => notify());
+  return () => {
+    listeners.delete(notify);
+    release?.();
+  };
+};
+
 interface UseCachedSnapshotParams<
   Query extends query.Params,
   Data extends query.Data,
@@ -123,6 +144,7 @@ interface UseCachedSnapshotParams<
  * the earlier reference. Returns undefined when there is no client or query.
  */
 const useCachedSnapshot = <Query extends query.Params, Data extends query.Data>(
+  locals: WeakMap<Client, LocalCache<Data>>,
   memoQuery: Query | null,
   client: Client | null,
   { onChange, getCached, equal = answersEqual }: UseCachedSnapshotParams<Query, Data>,
@@ -131,11 +153,10 @@ const useCachedSnapshot = <Query extends query.Params, Data extends query.Data>(
   return useSyncExternalStore(
     useCallback(
       (notify) => {
-        if (onChange == null || client == null || memoQuery == null)
-          return NOOP_SUBSCRIBE();
-        return onChange({ client, query: memoQuery }, () => notify());
+        if (client == null || memoQuery == null) return NOOP_SUBSCRIBE();
+        return subscribeToCache(locals, client, memoQuery, onChange, notify);
       },
-      [onChange, client, memoQuery],
+      [locals, onChange, client, memoQuery],
     ),
     useCallback(() => {
       if (client == null || memoQuery == null) return undefined;
@@ -397,6 +418,7 @@ const retryUnreachableFetch = <Query extends query.Params, Data extends query.Da
     try {
       const data = await retrieve(params);
       if (getCached?.(params) === undefined) setSettled(local, hash, { data });
+      else notifyReaders(local);
       local.inFlight.delete(hash);
       return data;
     } catch (cause) {
@@ -472,7 +494,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   // Every hook runs before the disconnected throw. Gating them on the client
   // would change this hook's count as the connection comes and goes, which
   // corrupts the caller's hook order.
-  const cached = useCachedSnapshot<Query, Data>(memoQuery, client, {
+  const cached = useCachedSnapshot<Query, Data>(locals, memoQuery, client, {
     onChange,
     getCached,
     equal,
@@ -527,7 +549,7 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
   const memoQuery = useMemoQuery(q, normalizeQuery);
   const client = Synnax.useClient();
 
-  const cached = useCachedSnapshot<Query, Data>(memoQuery, client, {
+  const cached = useCachedSnapshot<Query, Data>(locals, memoQuery, client, {
     onChange,
     getCached,
     equal,
@@ -644,12 +666,12 @@ const useInvalidate = <Query extends query.Params, Data extends query.Data>(
 };
 
 const useTombstone = <Query extends query.Params, Data extends query.Data>(
-  { onChange, getCached, equal, normalizeQuery }: Context<Query, Data>,
+  { locals, onChange, getCached, equal, normalizeQuery }: Context<Query, Data>,
   query: Query,
 ): Tombstone | null => {
   const memoQuery = useMemoQuery(query, normalizeQuery);
   const client = Synnax.useClient();
-  const cached = useCachedSnapshot<Query, Data>(memoQuery, client, {
+  const cached = useCachedSnapshot<Query, Data>(locals, memoQuery, client, {
     onChange,
     getCached,
     equal,
@@ -778,11 +800,10 @@ const createResultSelector = <
     const memoQuery = useMemoQuery<ExtendedQuery>(q, normalizeQuery);
     const client = Synnax.useClient();
     const held = useRef<{ query: Query; value: Data } | null>(null);
-    const subscribeToCache = useCallback(
+    const subscribe = useCallback(
       (notify: () => void) => {
-        if (onChange == null || client == null || memoQuery == null)
-          return NOOP_SUBSCRIBE();
-        return onChange({ client, query: memoQuery }, () => notify());
+        if (client == null || memoQuery == null) return NOOP_SUBSCRIBE();
+        return subscribeToCache(locals, client, memoQuery, onChange, notify);
       },
       [client, memoQuery],
     );
@@ -805,7 +826,7 @@ const createResultSelector = <
       [memoQuery],
     );
     const slice = useSyncExternalStoreWithSelector(
-      subscribeToCache,
+      subscribe,
       getSnapshot,
       undefined,
       selector,

@@ -46,7 +46,7 @@ export interface LocalCache<Data> {
   epoch: number;
   inFlight: Map<string, Promise<Data>>;
   settled: Map<string, Settled<Data>>;
-  /** Notified after each {@link setSettled}. */
+  /** Notified after each fetched answer and each {@link setSettled}. */
   listeners: Set<() => void>;
 }
 
@@ -70,8 +70,12 @@ export const setSettled = <Data>(
     const oldest = settled.keys().next().value;
     if (oldest != null) settled.delete(oldest);
   }
-  local.listeners.forEach((l) => l());
+  notifyReaders(local);
 };
+
+/** Tells the query's readers to re-read the domain cache and the settled entries. */
+export const notifyReaders = <Data>(local: LocalCache<Data>): void =>
+  local.listeners.forEach((l) => l());
 
 export const localFor = <Data>(
   locals: WeakMap<Client, LocalCache<Data>>,
@@ -137,9 +141,10 @@ export const ensureFetch = <Query extends query.Params, Data>(
     const epoch = local.epoch;
     promise = retrieve(params).then(
       (data) => {
-        // An answer the domain cache serves is read from there on the next
-        // render; one that never reaches it is kept locally instead.
+        // An answer the domain cache serves is read from there; one that never
+        // reaches it is kept locally instead.
         if (getCached?.(params) === undefined) setSettled(local, hash, { data });
+        else notifyReaders(local);
         local.inFlight.delete(hash);
         return data;
       },

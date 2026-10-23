@@ -1637,6 +1637,23 @@ describe("createResultSelector", () => {
     };
   };
 
+  it("should select an answer its fetch put in the cache with no change event", async () => {
+    let cached: Data | undefined;
+    const { createResultSelector } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve: async () => {
+        cached = { name: "fetched", value: 2 };
+        return cached;
+      },
+      onChange: () => () => {},
+      getCached: () => cached,
+    });
+    const useName = createResultSelector((data) => data.name);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.variant).toEqual("success"));
+    expect(result.current.data).toEqual("fetched");
+  });
+
   // Regression: mirrors the useResult contract — a settled failure must not
   // answer later mounts.
   it("retries a settled failure when a new mount reads the query", async () => {
@@ -1791,6 +1808,22 @@ describe("useResult", () => {
       },
     };
   };
+
+  it("should read an answer its fetch put in the cache with no change event", async () => {
+    let cached: Data | undefined;
+    const { useResult } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve: async () => {
+        cached = { name: "fetched", value: 2 };
+        return cached;
+      },
+      onChange: () => () => {},
+      getCached: () => cached,
+    });
+    const { result } = renderHook(() => useResult({ key: "a" }), { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.variant).toEqual("success"));
+    expect(result.current.data).toEqual({ name: "fetched", value: 2 });
+  });
 
   it("serves the cached answer without fetching", () => {
     const harness = createHarness({ name: "cached", value: 1 });
