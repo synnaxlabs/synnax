@@ -155,7 +155,7 @@ func (s *Service) Login(
 	ctx context.Context,
 	proof Proof,
 ) (Session, string, error) {
-	method, err := proof.Method()
+	method, err := proof.method()
 	if err != nil {
 		return Session{}, "", err
 	}

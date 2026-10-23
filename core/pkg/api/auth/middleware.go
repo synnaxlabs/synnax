@@ -106,8 +106,7 @@ func GetCredential(ctx context.Context) uuid.UUID {
 	return c.(uuid.UUID)
 }
 
-// GetSession returns the key of the request's session.
-func GetSession(ctx context.Context) auth.SessionKey {
+func getSession(ctx context.Context) auth.SessionKey {
 	s, ok := freighter.MDFromContext(ctx).Get(sessionKey)
 	if !ok {
 		zap.S().DPanic("[api] - no session found in context")
