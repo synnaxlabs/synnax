@@ -51,8 +51,10 @@ const rowNames = (): (string | null)[] =>
 const createPanel = async (
   projectKey: project.Key,
   tabs: panel.Tab[],
+  appearance: Pick<panel.New, "icon" | "color"> = {},
 ): Promise<panel.Panel> =>
   await client.panels.create({
+    ...appearance,
     key: uuid.create(),
     name: uniqueName("panel"),
     parent: project.ontologyID(projectKey),
@@ -65,7 +67,10 @@ const createHarness = async (): Promise<Harness> => {
   });
   const tab = createTab();
   const source = await createPanel(projectKey, [tab]);
-  const destination = await createPanel(projectKey, [createTab()]);
+  const destination = await createPanel(projectKey, [createTab()], {
+    icon: "valve",
+    color: "#dc136c",
+  });
   const other = await createPanel(projectKey, [createTab()]);
   const { wrapper, store } = await createPanelWrapper({ client, project: projectKey });
   store.dispatch(Session.Panel.select({ key: source.key }));
@@ -144,6 +149,17 @@ describe("Panel.MovePicker", () => {
       store.dispatch(Session.Panel.reorder({ key: other.key, index: 0 }));
     });
     expect(rowNames()).toEqual([other.name, destination.name, "New panel"]);
+  });
+
+  it("should draw each panel's icon in its color", async () => {
+    const { destination } = await createHarness();
+    const row = (await screen.findByText(destination.name)).closest(
+      ".console-panel-move-picker__row",
+    );
+    const icon = row?.querySelector<SVGElement>(".pluto-icon--valve");
+    expect(icon?.style.getPropertyValue("--pluto-symbol-color")).toEqual(
+      "220, 19, 108",
+    );
   });
 
   // Moving a tab to the panel it already sits in is not a move, so the panel it came
