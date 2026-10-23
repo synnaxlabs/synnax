@@ -264,7 +264,7 @@ describe("queries", () => {
 
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.form.get("key")).toBeDefined();
+        expect(result.current.form.get<string>("key").value).toBeDefined();
       });
 
       const createdKey = result.current.form.get<string>("key").value;

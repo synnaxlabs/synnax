@@ -74,7 +74,7 @@
       "project": ["src/**/*.{ts,tsx,astro}"]
     },
     "configs/eslint": {
-      "project": ["*.ts"]
+      "project": ["*.ts", "rules/**/*.ts"]
     },
     "configs/ts": {},
     "configs/vite": {

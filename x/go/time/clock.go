@@ -53,6 +53,9 @@ type Fake struct {
 
 var _ Clock = &Fake{}
 
+// NewFake returns a Fake whose clock reads start until Advance moves it.
+func NewFake(start time.Time) *Fake { return &Fake{now: start} }
+
 type fakeTimer struct {
 	at time.Time
 	ch chan time.Time
