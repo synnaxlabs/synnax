@@ -43,6 +43,13 @@ var _ = Describe("AppendSampleText", func() {
 		Entry("float64 smallest", telem.NewSeriesV(5e-324), "5e-324"),
 		Entry("negative zero", telem.NewSeriesV(math.Copysign(0, -1)), "-0"),
 		Entry("NaN", telem.NewSeriesV(math.NaN()), "NaN"),
+		Entry("infinity", telem.NewSeriesV(math.Inf(1)), "Infinity"),
+		Entry("negative infinity", telem.NewSeriesV(math.Inf(-1)), "-Infinity"),
+		Entry(
+			"float32 infinity",
+			telem.NewSeriesV(float32(math.Inf(1))),
+			"Infinity",
+		),
 		Entry("float32 with an exponent", telem.NewSeriesV[float32](1e30), "1e+30"),
 		Entry("float32 at its own precision", telem.NewSeriesV[float32](0.1), "0.1"),
 		Entry("int64", telem.NewSeriesV[int64](-9e18), "-9000000000000000000"),

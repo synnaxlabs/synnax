@@ -21,9 +21,9 @@ import (
 // AppendSampleText appends the text form of sample to dst and returns the extended
 // buffer. sample must hold exactly one sample of data type dt. A float takes the
 // shortest text that parses back to the same value, in exponent notation below 1e-6 or
-// from 1e21. Integers are decimal, booleans are 0 or 1, a UUID takes its canonical
-// form, and BytesT is base64. StringT and JSONT are appended as is. It returns an
-// error when dt has no text form.
+// from 1e21. Infinities are Infinity and -Infinity. Integers are decimal, booleans are
+// 0 or 1, a UUID takes its canonical form, and BytesT is base64. StringT and JSONT are
+// appended as is. It returns an error when dt has no text form.
 func AppendSampleText(dst []byte, dt DataType, sample []byte) ([]byte, error) {
 	switch dt {
 	case Float64T:
@@ -64,7 +64,13 @@ func AppendSampleText(dst []byte, dt DataType, sample []byte) ([]byte, error) {
 }
 
 func appendFloatText(dst []byte, v float64, bitSize int) []byte {
-	if a := math.Abs(v); a != 0 && !math.IsInf(v, 0) && (a < 1e-6 || a >= 1e21) {
+	if math.IsInf(v, 1) {
+		return append(dst, "Infinity"...)
+	}
+	if math.IsInf(v, -1) {
+		return append(dst, "-Infinity"...)
+	}
+	if a := math.Abs(v); a != 0 && (a < 1e-6 || a >= 1e21) {
 		dst = strconv.AppendFloat(dst, v, 'e', -1, bitSize)
 		// strconv pads a one-digit exponent with a zero.
 		if n := len(dst); dst[n-2] == '0' && (dst[n-3] == '+' || dst[n-3] == '-') {
