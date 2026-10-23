@@ -13,13 +13,13 @@ import csv
 from collections.abc import Iterator
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from pandas.io.parsers import TextFileReader
 
 from synnax.io.df_converter import convert_df
 from synnax.io.matcher import ExtensionMatcher
 from synnax.io.protocol import ChannelMeta, FileWriter, ReaderType, RowFileReader
+from x.strings import format_float
 
 
 class CSVReader(ExtensionMatcher):
@@ -161,25 +161,11 @@ def estimate_row_count(path: Path) -> int:
     return (file_size // row_size) - 1
 
 
-# Matches the float text that Arc and the Core write.
-def _float_text(v: np.floating) -> str:
-    if np.isnan(v):
-        return "NaN"
-    if np.isinf(v):
-        return "Infinity" if v > 0 else "-Infinity"
-    a = abs(v)
-    if a != 0 and (a < 1e-6 or a >= 1e21):
-        return np.format_float_scientific(v, unique=True, trim="-", exp_digits=1)
-    return np.format_float_positional(v, unique=True, trim="-")
-
-
 def _float_texts(col: pd.Series) -> pd.Series:
     if col.dtype.kind == "f":
-        return pd.Series([_float_text(v) for v in col.to_numpy()], index=col.index)
+        return pd.Series([format_float(v) for v in col.to_numpy()], index=col.index)
     if col.dtype.kind == "O":
-        return col.map(
-            lambda v: _float_text(np.float64(v)) if isinstance(v, float) else v
-        )
+        return col.map(lambda v: format_float(v) if isinstance(v, float) else v)
     return col
 
 
