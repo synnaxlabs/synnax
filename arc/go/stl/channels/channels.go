@@ -11,6 +11,7 @@ package channels
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -248,9 +249,23 @@ func (s *source) Next(ctx node.Context) {
 		} else {
 			// Match by alignment, not position: a shared index also buffers other
 			// channels' series, so position i no longer pairs to the right timestamp.
-			var found bool
-			if timeSeries, found = indexSlice(indexData.Series, ser); !found {
+			// A data series can cover only part of the index series that holds it.
+			i := slices.IndexFunc(indexData.Series, func(idx telem.Series) bool {
+				b := idx.AlignmentBounds()
+				return b.Lower <= ab.Lower && ab.Upper <= b.Upper
+			})
+			if i == -1 {
 				continue
+			}
+			timeSeries = indexData.Series[i]
+			if timeSeries.AlignmentBounds() != ab {
+				var (
+					density = int64(timeSeries.DataType.Density())
+					start   = int64(ser.Alignment-timeSeries.Alignment) * density
+				)
+				timeSeries.Data = timeSeries.Data[start : start+ser.Len()*density]
+				timeSeries.Alignment = ser.Alignment
+				timeSeries.TimeRange = ser.TimeRange
 			}
 		}
 		*s.Output(0) = ser
@@ -259,26 +274,6 @@ func (s *source) Next(ctx node.Context) {
 		s.Emit(ctx, 0)
 		return
 	}
-}
-
-// indexSlice returns the timestamps for data, cut from the index series that covers
-// data's alignment bounds. Data starts partway into an index series when its channel
-// was written after others on the index. It returns false when no series covers data.
-func indexSlice(index []telem.Series, data telem.Series) (telem.Series, bool) {
-	ab := data.AlignmentBounds()
-	for _, idx := range index {
-		ib := idx.AlignmentBounds()
-		if ab.Lower < ib.Lower || ab.Upper > ib.Upper {
-			continue
-		}
-		density := int64(idx.DataType.Density())
-		start, end := int64(ab.Lower-ib.Lower), int64(ab.Upper-ib.Lower)
-		idx.Data = idx.Data[start*density : end*density]
-		idx.Alignment = data.Alignment
-		idx.TimeRange = data.TimeRange
-		return idx, true
-	}
-	return telem.Series{}, false
 }
 
 type sink struct {

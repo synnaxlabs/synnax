@@ -20,10 +20,10 @@ import { type Transport } from "@/transport";
 export type UploadBody = ReadableStream<Uint8Array> | Blob | Uint8Array<ArrayBuffer>;
 
 /**
- * The wire encodings a FileTransport can transfer. ZIP carries a flat archive of named
- * files; JSON carries a single value.
+ * The wire encodings a FileTransport can name. ZIP carries a flat archive of named
+ * files; JSON carries a single value; CSV carries delimited text.
  */
-export type FileEncoding = "JSON" | "ZIP";
+export type FileEncoding = "JSON" | "ZIP" | "CSV";
 
 /**
  * Options shared by FileTransport.upload and FileTransport.download. Carries the wire
@@ -34,9 +34,10 @@ export interface FileOptions<P extends z.ZodType = z.ZodType> {
   /**
    * The wire encoding of the transferred bytes. On upload it describes the request body
    * and is sent as Content-Type; the body has a single representation, so pass a single
-   * encoding.
+   * encoding. An application-specific media type is given as a contentType and sent
+   * verbatim.
    */
-  encoding: FileEncoding;
+  encoding: FileEncoding | { contentType: string };
   /**
    * Request params carrying per-transfer metadata (e.g. the source file's name)
    * out-of-band, since the body is the raw file bytes. They are validated against

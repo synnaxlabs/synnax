@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -105,6 +106,115 @@ func (s *Service) Delete(
 	return struct{}{}, s.internal.DeleteTimeRange(ctx, keys, req.Bounds)
 }
 
+// ReadRequest requests every sample in Bounds for the given channels.
+type ReadRequest struct {
+	Keys             channel.Keys    `json:"keys"              msgpack:"keys"`
+	Bounds           telem.TimeRange `json:"bounds"            msgpack:"bounds"`
+	DownsampleFactor uint32          `json:"downsample_factor" msgpack:"downsample_factor"`
+	// TimestampsIncluded also reads the index channels that timestamp Keys, when Keys
+	// leaves them out. A CSV read fails without it unless Keys holds every index.
+	TimestampsIncluded bool `json:"timestamps_included" msgpack:"timestamps_included"`
+}
+
+// ReadResponse is the handle a read encoder drives to produce the response body. It is
+// never encoded by a general-purpose codec.
+type ReadResponse struct {
+	// Channels holds the records of the requested channels, in no particular order.
+	Channels []channel.Channel
+	// Indexes holds the records of the index channels pulled in to timestamp the
+	// requested channels, excluding any the caller already requested. It is empty
+	// unless the request set TimestampsIncluded.
+	Indexes []channel.Channel
+	// DownsampleFactor is the request's downsample factor. Sample i of a series sits at
+	// the series' alignment plus i times the factor. Values below 2 keep every sample.
+	DownsampleFactor uint32
+	// OpenIterator opens an iterator over keys within the read's bounds and at its
+	// downsample factor. The caller must close it.
+	OpenIterator func(ctx context.Context, keys channel.Keys) (*framer.Iterator, error)
+}
+
+// Read checks that the caller may read the channels in req, along with their index
+// channels when req sets TimestampsIncluded, and returns the response an encoder
+// reads them through.
+func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, error) {
+	if err := s.enforceRetrieve(ctx, req.Keys); err != nil {
+		return ReadResponse{}, err
+	}
+	var channels []channel.Channel
+	if err := s.channel.NewRetrieve().
+		Entries(&channels).
+		Where(channel.MatchKeys(req.Keys...)).
+		Exec(ctx, nil); err != nil {
+		return ReadResponse{}, err
+	}
+	var indexes []channel.Channel
+	if req.TimestampsIncluded {
+		var err error
+		if indexes, err = s.retrieveMissingIndexes(ctx, channels); err != nil {
+			return ReadResponse{}, err
+		}
+	}
+	indexKeys := channel.KeysFromChannels(indexes)
+	// An encoder writes every index it receives, so an index the caller never named
+	// still needs its own check.
+	if len(indexKeys) > 0 {
+		if err := s.enforceRetrieve(ctx, indexKeys); err != nil {
+			return ReadResponse{}, err
+		}
+	}
+	return ReadResponse{
+		Channels:         channels,
+		Indexes:          indexes,
+		DownsampleFactor: req.DownsampleFactor,
+		OpenIterator: func(
+			ctx context.Context,
+			keys channel.Keys,
+		) (*framer.Iterator, error) {
+			return s.internal.OpenIterator(ctx, framer.IteratorConfig{
+				Keys:   keys,
+				Bounds: req.Bounds,
+				Reduction: telem.Reduction{
+					Variant: telem.StrideReduction{Factor: req.DownsampleFactor},
+				},
+			})
+		},
+	}, nil
+}
+
+// enforceRetrieve reports whether the request's subject may retrieve every given
+// channel.
+func (s *Service) enforceRetrieve(ctx context.Context, keys channel.Keys) error {
+	return s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: framer.OntologyIDs(keys),
+	})
+}
+
+// retrieveMissingIndexes returns the records of every index channel the given channels
+// are indexed by that is not already among them.
+func (s *Service) retrieveMissingIndexes(
+	ctx context.Context,
+	channels []channel.Channel,
+) ([]channel.Channel, error) {
+	present := set.New(channel.KeysFromChannels(channels)...)
+	var missing channel.Keys
+	for _, ch := range channels {
+		if idx := ch.Index(); idx != 0 && !present.Contains(idx) {
+			missing = append(missing, idx)
+		}
+	}
+	if len(missing) == 0 {
+		return nil, nil
+	}
+	var indexes []channel.Channel
+	err := s.channel.NewRetrieve().
+		Entries(&indexes).
+		Where(channel.MatchKeys(missing.Unique()...)).
+		Exec(ctx, nil)
+	return indexes, err
+}
+
 type (
 	IteratorCommand         = framer.IteratorCommand
 	IteratorResponseVariant = framer.IteratorResponseVariant
@@ -125,6 +235,7 @@ const (
 	IteratorCommandValid        = framer.IteratorCommandValid
 	IteratorCommandError        = framer.IteratorCommandError
 	IteratorCommandSetBounds    = framer.IteratorCommandSetBounds
+	IteratorAutoSpan            = framer.IteratorAutoSpan
 )
 
 const (

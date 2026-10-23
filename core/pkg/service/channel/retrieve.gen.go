@@ -13,8 +13,8 @@ package channel
 
 import (
 	"context"
+	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -107,7 +107,7 @@ func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Channel] {
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.MatchKeys[Key, Channel](keys...)
 	}
 }
@@ -116,9 +116,9 @@ func MatchKeys(keys ...Key) Filter {
 // channels whose Leaseholder matches any of the
 // provided values.
 func MatchLeaseholders(vals ...node.Key) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Channel] {
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return lo.Contains(vals, e.Leaseholder), nil
+			return slices.Contains(vals, e.Leaseholder), nil
 		})
 	}
 }
@@ -127,9 +127,9 @@ func MatchLeaseholders(vals ...node.Key) Filter {
 // channels whose DataType matches any of the
 // provided values.
 func MatchDataTypes(vals ...telem.DataType) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Channel] {
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return lo.Contains(vals, e.DataType), nil
+			return slices.Contains(vals, e.DataType), nil
 		})
 	}
 }
@@ -137,7 +137,7 @@ func MatchDataTypes(vals ...telem.DataType) Filter {
 // MatchIsIndex returns a filter for channels by their
 // IsIndex field.
 func MatchIsIndex(v bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Channel] {
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
 			return e.IsIndex == v, nil
 		})
@@ -147,7 +147,7 @@ func MatchIsIndex(v bool) Filter {
 // MatchInternal returns a filter for channels by their
 // Internal field.
 func MatchInternal(v bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Channel] {
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
 			return e.Internal == v, nil
 		})
