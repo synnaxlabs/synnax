@@ -10,10 +10,10 @@
 from __future__ import annotations
 
 import csv
-import math
 from collections.abc import Iterator
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from pandas.io.parsers import TextFileReader
 
@@ -161,6 +161,24 @@ def estimate_row_count(path: Path) -> int:
     return (file_size // row_size) - 1
 
 
+# Matches the float text of Arc and the Core: telem.AppendFloatText in Go.
+def _float_text(v: np.floating) -> str:
+    if np.isnan(v):
+        return ""
+    if np.isinf(v):
+        return "Infinity" if v > 0 else "-Infinity"
+    a = abs(v)
+    if a != 0 and (a < 1e-6 or a >= 1e21):
+        return np.format_float_scientific(v, unique=True, trim="-", exp_digits=1)
+    return np.format_float_positional(v, unique=True, trim="-")
+
+
+def _float_texts(col: pd.Series) -> pd.Series:
+    if col.dtype.kind != "f":
+        return col
+    return pd.Series([_float_text(v) for v in col.to_numpy()], index=col.index)
+
+
 class CSVWriter(ExtensionMatcher):
     """A Writer implementation for CSV files."""
 
@@ -185,7 +203,7 @@ class CSVWriter(ExtensionMatcher):
         return self
 
     def write(self, df: pd.DataFrame) -> None:
-        df.replace({math.inf: "Infinity", -math.inf: "-Infinity"}).to_csv(
+        df.apply(_float_texts).to_csv(
             self._path, index=False, mode="a", header=self._header
         )
         self._header = False
