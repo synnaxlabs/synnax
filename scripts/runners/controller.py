@@ -228,7 +228,12 @@ class Controller:
         self.gate.step(self.known)
         # A closed gate would disconnect whatever the scaler started.
         self.scaler.step(
-            self.known, status, labels, queued if self.gate.enabled else {}, found
+            self.known,
+            status,
+            labels,
+            queued if self.gate.enabled else {},
+            found,
+            set(self.jobs.active),
         )
         self.log(
             f"busy={counts.get(BUSY, 0)} "

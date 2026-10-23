@@ -54,7 +54,7 @@ class TestScaler:
         s = scaler(client)
         found = {"i-0aaa": instance("stopped"), "i-0bbb": instance("stopped")}
         labels = {A: LABELS, B: LABELS}
-        s.step({A, B}, {A: OFFLINE, B: OFFLINE}, labels, {POOL: 1}, found)
+        s.step({A, B}, {A: OFFLINE, B: OFFLINE}, labels, {POOL: 1}, found, set())
         assert started(client) == [A]
 
     def test_should_count_a_commanded_instance_before_it_moves(
@@ -64,8 +64,8 @@ class TestScaler:
         found = {"i-0aaa": instance("stopped"), "i-0bbb": instance("stopped")}
         labels = {A: LABELS, B: LABELS}
         status = {A: OFFLINE, B: OFFLINE}
-        s.step({A, B}, status, labels, {POOL: 1}, found)
-        s.step({A, B}, status, labels, {POOL: 1}, found)
+        s.step({A, B}, status, labels, {POOL: 1}, found, set())
+        s.step({A, B}, status, labels, {POOL: 1}, found, set())
         assert started(client) == [A]
 
     def test_should_count_booting_instances_toward_demand(self, client: Client) -> None:
@@ -73,7 +73,7 @@ class TestScaler:
         booting = instance("running") | {"launched": sy.TimeStamp.now()}
         found = {"i-0aaa": booting, "i-0bbb": instance("stopped")}
         labels = {A: LABELS, B: LABELS}
-        s.step({A, B}, {A: OFFLINE, B: OFFLINE}, labels, {POOL: 1}, found)
+        s.step({A, B}, {A: OFFLINE, B: OFFLINE}, labels, {POOL: 1}, found, set())
         assert started(client) == []
 
     def test_should_stop_idle_runners_once_the_queue_is_empty(
@@ -81,7 +81,7 @@ class TestScaler:
     ) -> None:
         s = scaler(client)
         found = {"i-0aaa": instance("running")}
-        s.step({A}, {A: IDLE}, {A: LABELS}, {}, found)
+        s.step({A}, {A: IDLE}, {A: LABELS}, {}, found, set())
         assert client.written(channel_name("ec2_cmd", A)) == [False]
 
     def test_should_keep_idle_runners_while_their_pool_has_jobs(
@@ -89,5 +89,11 @@ class TestScaler:
     ) -> None:
         s = scaler(client)
         found = {"i-0aaa": instance("running")}
-        s.step({A}, {A: IDLE}, {A: LABELS}, {POOL: 1}, found)
+        s.step({A}, {A: IDLE}, {A: LABELS}, {POOL: 1}, found, set())
+        assert client.written(channel_name("ec2_cmd", A)) == []
+
+    def test_should_keep_runners_with_a_job_in_progress(self, client: Client) -> None:
+        s = scaler(client)
+        found = {"i-0aaa": instance("running")}
+        s.step({A}, {A: OFFLINE}, {A: LABELS}, {}, found, {A})
         assert client.written(channel_name("ec2_cmd", A)) == []
