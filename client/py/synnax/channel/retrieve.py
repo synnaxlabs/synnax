@@ -41,6 +41,7 @@ class Request(BaseModel):
     node_key: int | None = None
     limit: int | None = None
     offset: int | None = None
+    status_included: bool = Field(default=False, serialization_alias="include_status")
 
 
 class _Response(BaseModel):

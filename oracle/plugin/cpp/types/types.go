@@ -62,6 +62,7 @@ func (p *Plugin) Domains() []string { return []string{"cpp"} }
 func (p *Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("cpp")
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
 	typeDefCollector, err := framework.CollectDistinct("cpp", req)
@@ -415,7 +416,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			pbOutputPath := output.GetPBPath(td)
 			if pbOutputPath != "" {
 				pbName := cppnaming.PBName(td)
-				pbNamespace := cppnaming.PBNamespace(pbOutputPath)
+				pbNamespace := cppnaming.PBNamespace(pbOutputPath, td.Namespace)
 				tdd.HasProto = true
 				tdd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, pbName)
 				tdd.ProtoNamespace = pbNamespace
@@ -652,7 +653,7 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		pbOutputPath := output.GetPBPath(entry)
 		if pbOutputPath != "" {
 			pbName := cppnaming.PBName(entry)
-			pbNamespace := cppnaming.PBNamespace(pbOutputPath)
+			pbNamespace := cppnaming.PBNamespace(pbOutputPath, entry.Namespace)
 			sd.HasProto = true
 			sd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, pbName)
 			sd.ProtoNamespace = pbNamespace
