@@ -139,7 +139,7 @@ export const useNotifications = ({
   poll = DEFAULT_EXPIRATION_POLL,
 }: UseNotificationsProps = {}): UseNotificationsReturn => {
   const statuses = useContext();
-  const [silencedKeys, setSilencedKeys] = useState<Set<string>>(new Set());
+  const [silencedKeys, setSilencedKeys] = useState<Set<string>>(() => new Set());
   const [now, setNow] = useState(() => TimeStamp.now());
   const pollMs = new TimeSpan(poll).milliseconds;
 
