@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
-import { waitFor } from "@testing-library/react";
+import { act, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
@@ -19,6 +19,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 });
 
 import { Core } from "@/platform/core";
+import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { pinLocationOrigin, renderHookWithConsole } from "@/testutil";
 
@@ -100,7 +101,26 @@ describe("Core.useConnParams", () => {
     expect(result.current?.sessionCookie).toBeUndefined();
     expect(result.current?.sessionPersistent).toBe(true);
     expect(result.current).not.toHaveProperty("name");
-    expect(reads).toEqual([{ account: "example.com:9095" }]);
+    expect(reads).toEqual([{ account: "http://example.com:9095" }]);
+  });
+
+  it("should not resume over plain text from a token saved for TLS", async () => {
+    mocks.engine = "tauri";
+    let reads = 0;
+    mockIPC((cmd) => {
+      if (cmd !== "keychain_get") return undefined;
+      reads += 1;
+      return reads === 1 ? "sys_saved" : null;
+    });
+    onTestFinished(clearMocks);
+    const secure = { ...CORE, secure: true };
+    const { result, store } = await renderParams(secure);
+    await waitFor(() => expect(result.current?.token).toBe("sys_saved"));
+    act(() => {
+      store.dispatch(Session.Core.set({ ...secure, secure: false }));
+    });
+    await waitFor(() => expect(result.current?.secure).toBe(false));
+    expect(result.current?.token).toBeUndefined();
   });
 
   it("should connect without a token when the keychain holds none", async () => {

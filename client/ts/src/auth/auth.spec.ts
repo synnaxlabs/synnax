@@ -383,6 +383,30 @@ describe("auth", () => {
       expect(sessions.map((s) => s.key)).not.toContain(key);
     });
 
+    it("should end a session whose login is still in flight when released", async () => {
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      let key: string | undefined;
+      const client = new auth.Client(
+        transport.unary,
+        { credentials: TEST_CREDENTIALS },
+        { onSuccess: () => (key = client.session?.key) },
+      );
+      transport.use(client.middleware());
+      const logging = login(client);
+      await client.release();
+      await logging;
+      expect(client.authenticated).toBe(false);
+      expect(key).toBeDefined();
+      const observer = makeClient();
+      const sessions = await observer.retrieveSessions();
+      expect(sessions.map((s) => s.key)).not.toContain(key);
+    });
+
     it("should leave a persistent session open when released", async () => {
       const transport = new Transport(
         new url.URL({
