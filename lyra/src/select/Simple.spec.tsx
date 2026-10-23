@@ -118,6 +118,21 @@ describe("Select.Simple", () => {
     expect(c.getByText("No Test Items found")).toBeTruthy();
   });
 
+  it("should render string empty content as text", () => {
+    const c = render(
+      <Select.Simple<string>
+        value=""
+        onChange={vi.fn()}
+        resourceName="page"
+        emptyContent="No other pages"
+      >
+        {[]}
+      </Select.Simple>,
+    );
+    fireEvent.click(c.getByLabelText("Page"));
+    expect(c.getByText("No other pages").tagName).toBe("P");
+  });
+
   it("should clear the search when the dialog closes", () => {
     const c = render(<SelectSimple />);
     fireEvent.click(c.getByText("Test Item"));
