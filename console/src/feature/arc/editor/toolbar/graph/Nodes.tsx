@@ -100,7 +100,7 @@ const StaticStageList = ({ groupKey, onSelect }: StateListProps): ReactElement =
   );
 };
 
-const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
+const GroupItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
   const group = List.useItem<string, Arc.Graph.Node.Group>(itemKey);
   const { selected, onSelect } = Select.useItemState(itemKey);
@@ -119,7 +119,9 @@ const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
       {name}
     </Button.Toggle>
   );
-});
+};
+
+const groupListItem = Component.renderProp(GroupItem);
 
 export interface GroupListProps extends Input.Control<string> {}
 

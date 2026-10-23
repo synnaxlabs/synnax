@@ -73,7 +73,7 @@ const ArrayVariableIcon = Icon.createComposite(Icon.Variable, {
   bottomRight: Icon.Array,
 });
 
-const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>) => {
+const NodeItem = (props: Tree.ItemRenderProps<string>) => {
   const node = List.useItem<string, ScannedNode>(props.itemKey);
   const { getState } = Select.useContext<string>();
   const { getItem } = List.useUtilContext<string, ScannedNode>();
@@ -99,7 +99,9 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>
       </Text.Text>
     </Tree.Item>
   );
-});
+};
+
+const itemRenderProp = Component.renderProp(NodeItem);
 
 const BROWSE_TIMEOUT = TimeSpan.seconds(10);
 

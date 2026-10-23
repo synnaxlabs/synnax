@@ -421,21 +421,74 @@ const useZIndexFieldsDisabled = (prefix: string) => {
   return !zIndexEnabled;
 };
 
+const FrequencyForm: FC<FormProps> = ({ prefix }) => {
+  const { showMeasTime, showDivisor } = useMeasMethodVisibility(prefix);
+  return (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <EdgeField path={prefix} />
+      <UnitsField path={prefix} />
+      <TerminalField path={prefix} />
+      <MeasMethodField path={prefix} />
+      {showMeasTime && <MeasTimeField path={prefix} />}
+      {showDivisor && <DivisorField path={prefix} />}
+    </>
+  );
+};
+
+const PeriodForm: FC<FormProps> = ({ prefix }: FormProps) => {
+  const { showMeasTime, showDivisor } = useMeasMethodVisibility(prefix);
+  return (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <StartingEdgeField path={prefix} />
+      <PeriodUnitsField path={prefix} />
+      <TerminalField path={prefix} />
+      <MeasMethodField path={prefix} />
+      {showMeasTime && <MeasTimeField path={prefix} />}
+      {showDivisor && <DivisorField path={prefix} />}
+    </>
+  );
+};
+
+const LinearPositionForm: FC<FormProps> = ({ prefix }: FormProps) => {
+  const zIndexFieldsDisabled = useZIndexFieldsDisabled(prefix);
+  return (
+    <>
+      <InitialPosField path={prefix} />
+      <DistPerPulseField path={prefix} />
+      <LinearPositionUnitsField path={prefix} />
+      <TerminalAField path={prefix} />
+      <TerminalBField path={prefix} />
+      <DecodingTypeField path={prefix} />
+      <ZIndexEnabledField path={prefix} />
+      <ZIndexValField path={prefix} disabled={zIndexFieldsDisabled} />
+      <ZIndexPhaseField path={prefix} disabled={zIndexFieldsDisabled} />
+      <TerminalZField path={prefix} disabled={zIndexFieldsDisabled} />
+    </>
+  );
+};
+
+const AngularPositionForm: FC<FormProps> = ({ prefix }: FormProps) => {
+  const zIndexFieldsDisabled = useZIndexFieldsDisabled(prefix);
+  return (
+    <>
+      <PulsesPerRevField path={prefix} />
+      <InitialAngleField path={prefix} />
+      <AngularPositionUnitsField path={prefix} />
+      <TerminalAField path={prefix} />
+      <TerminalBField path={prefix} />
+      <DecodingTypeField path={prefix} />
+      <ZIndexEnabledField path={prefix} />
+      <ZIndexValField path={prefix} disabled={zIndexFieldsDisabled} />
+      <ZIndexPhaseField path={prefix} disabled={zIndexFieldsDisabled} />
+      <TerminalZField path={prefix} disabled={zIndexFieldsDisabled} />
+    </>
+  );
+};
+
 const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
-  ci_frequency: ({ prefix }) => {
-    const { showMeasTime, showDivisor } = useMeasMethodVisibility(prefix);
-    return (
-      <>
-        <MinMaxValueFields path={prefix} />
-        <EdgeField path={prefix} />
-        <UnitsField path={prefix} />
-        <TerminalField path={prefix} />
-        <MeasMethodField path={prefix} />
-        {showMeasTime && <MeasTimeField path={prefix} />}
-        {showDivisor && <DivisorField path={prefix} />}
-      </>
-    );
-  },
+  ci_frequency: FrequencyForm,
   ci_edge_count: ({ prefix }: FormProps) => (
     <>
       <ActiveEdgeField path={prefix} />
@@ -444,20 +497,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       <InitialCountField path={prefix} />
     </>
   ),
-  ci_period: ({ prefix }: FormProps) => {
-    const { showMeasTime, showDivisor } = useMeasMethodVisibility(prefix);
-    return (
-      <>
-        <MinMaxValueFields path={prefix} />
-        <StartingEdgeField path={prefix} />
-        <PeriodUnitsField path={prefix} />
-        <TerminalField path={prefix} />
-        <MeasMethodField path={prefix} />
-        {showMeasTime && <MeasTimeField path={prefix} />}
-        {showDivisor && <DivisorField path={prefix} />}
-      </>
-    );
-  },
+  ci_period: PeriodForm,
   ci_pulse_width: ({ prefix }: FormProps) => (
     <>
       <MinMaxValueFields path={prefix} />
@@ -500,40 +540,8 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       <TerminalBField path={prefix} />
     </>
   ),
-  ci_position_linear: ({ prefix }: FormProps) => {
-    const zIndexFieldsDisabled = useZIndexFieldsDisabled(prefix);
-    return (
-      <>
-        <InitialPosField path={prefix} />
-        <DistPerPulseField path={prefix} />
-        <LinearPositionUnitsField path={prefix} />
-        <TerminalAField path={prefix} />
-        <TerminalBField path={prefix} />
-        <DecodingTypeField path={prefix} />
-        <ZIndexEnabledField path={prefix} />
-        <ZIndexValField path={prefix} disabled={zIndexFieldsDisabled} />
-        <ZIndexPhaseField path={prefix} disabled={zIndexFieldsDisabled} />
-        <TerminalZField path={prefix} disabled={zIndexFieldsDisabled} />
-      </>
-    );
-  },
-  ci_position_angular: ({ prefix }: FormProps) => {
-    const zIndexFieldsDisabled = useZIndexFieldsDisabled(prefix);
-    return (
-      <>
-        <PulsesPerRevField path={prefix} />
-        <InitialAngleField path={prefix} />
-        <AngularPositionUnitsField path={prefix} />
-        <TerminalAField path={prefix} />
-        <TerminalBField path={prefix} />
-        <DecodingTypeField path={prefix} />
-        <ZIndexEnabledField path={prefix} />
-        <ZIndexValField path={prefix} disabled={zIndexFieldsDisabled} />
-        <ZIndexPhaseField path={prefix} disabled={zIndexFieldsDisabled} />
-        <TerminalZField path={prefix} disabled={zIndexFieldsDisabled} />
-      </>
-    );
-  },
+  ci_position_linear: LinearPositionForm,
+  ci_position_angular: AngularPositionForm,
   ci_duty_cycle: ({ prefix }: FormProps) => (
     <>
       <MinMaxValueFields path={prefix} />

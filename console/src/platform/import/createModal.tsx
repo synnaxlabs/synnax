@@ -42,8 +42,10 @@ export interface CreateModalArgs {
  * button for a directory picker. The Core owns the bundle format, so a folder's files
  * are zipped with their relative paths and uploaded untouched.
  */
-export const createModal = ({ header, resourceName, useOnImport }: CreateModalArgs) =>
-  Modals.create(({ close }): ReactElement => {
+export const createModal = ({ header, resourceName, useOnImport }: CreateModalArgs) => {
+  const Import = ({
+    close,
+  }: Modals.ContentProps<Record<never, never>, void>): ReactElement => {
     const onImport = useOnImport();
     const handleError = Status.useErrorHandler();
     const addStatus = Status.useAdder();
@@ -126,4 +128,6 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
         </Modal.Body>
       </Modal.Frame>
     );
-  });
+  };
+  return Modals.create(Import);
+};

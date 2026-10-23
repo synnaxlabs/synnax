@@ -22,7 +22,7 @@ import { Selector } from "@/platform/selector";
 import { Triggers } from "@/platform/triggers";
 import { Session } from "@/session";
 
-export const useCreateModal = Modals.create(({ close }) => {
+const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const client = Synnax.useClient();
   const dispatch = Session.useDispatch();
 
@@ -87,4 +87,6 @@ export const useCreateModal = Modals.create(({ close }) => {
       </Modal.Footer>
     </Modal.Frame>
   );
-});
+};
+
+export const useCreateModal = Modals.create(Create);

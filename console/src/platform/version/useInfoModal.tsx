@@ -113,7 +113,7 @@ const useDownload = (): UseDownloadReturn => {
   return { download, start };
 };
 
-export const useInfoModal = Modals.create(() => {
+const Info = () => {
   const version = Session.Version.useCurrent();
   const available = useUpdateCheck();
   const { download, start } = useDownload();
@@ -206,4 +206,6 @@ export const useInfoModal = Modals.create(() => {
       </Flex.Box>
     </Modal.Frame>
   );
-});
+};
+
+export const useInfoModal = Modals.create(Info);

@@ -25,40 +25,44 @@ export interface AssignRoleModalParams {
   title?: string | string[];
 }
 
-export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
-  ({ title, close, userKey }) => {
-    const client = Synnax.useClient();
-    const { form, save, variant } = Access.Role.useChangeRoleForm({
-      query: { key: userKey },
-      afterSave: useCallback(() => close(), [close]),
-    });
-    return (
-      <Form.Form<typeof Access.Role.changeRoleFormSchema> {...form}>
-        <Modal.Frame>
-          <Modal.Header icon={<Icon.User />}>{title ?? "Role.Assign"}</Modal.Header>
-          <Modal.Body>
-            <Form.Field<access.role.Key> path="role" label="Role">
-              {(props) => <Access.Role.Select {...props} />}
-            </Form.Field>
-          </Modal.Body>
-          <Modal.Footer>
-            <Triggers.SaveHelpText action="Assign" />
-            <Nav.Bar.End>
-              <Button.Button
-                onClick={() => save()}
-                variant="filled"
-                disabled={client == null}
-                status={status.keepVariants(variant, "loading")}
-                tooltip={client == null ? "No Core connected" : undefined}
-                tooltipLocation="bottom"
-                trigger={Triggers.SAVE}
-              >
-                Assign
-              </Button.Button>
-            </Nav.Bar.End>
-          </Modal.Footer>
-        </Modal.Frame>
-      </Form.Form>
-    );
-  },
-);
+const AssignRole = ({
+  title,
+  close,
+  userKey,
+}: Modals.ContentProps<AssignRoleModalParams, void>) => {
+  const client = Synnax.useClient();
+  const { form, save, variant } = Access.Role.useChangeRoleForm({
+    query: { key: userKey },
+    afterSave: useCallback(() => close(), [close]),
+  });
+  return (
+    <Form.Form<typeof Access.Role.changeRoleFormSchema> {...form}>
+      <Modal.Frame>
+        <Modal.Header icon={<Icon.User />}>{title ?? "Role.Assign"}</Modal.Header>
+        <Modal.Body>
+          <Form.Field<access.role.Key> path="role" label="Role">
+            {(props) => <Access.Role.Select {...props} />}
+          </Form.Field>
+        </Modal.Body>
+        <Modal.Footer>
+          <Triggers.SaveHelpText action="Assign" />
+          <Nav.Bar.End>
+            <Button.Button
+              onClick={() => save()}
+              variant="filled"
+              disabled={client == null}
+              status={status.keepVariants(variant, "loading")}
+              tooltip={client == null ? "No Core connected" : undefined}
+              tooltipLocation="bottom"
+              trigger={Triggers.SAVE}
+            >
+              Assign
+            </Button.Button>
+          </Nav.Bar.End>
+        </Modal.Footer>
+      </Modal.Frame>
+    </Form.Form>
+  );
+};
+
+export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(AssignRole);

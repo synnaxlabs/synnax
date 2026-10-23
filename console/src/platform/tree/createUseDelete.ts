@@ -26,23 +26,22 @@ export interface CreateUseDeleteParams<K extends record.Key> {
   afterSuccess?: (query: Flux.AfterSuccessParams<K | K[]> & ContextMenuProps) => void;
 }
 
-export const createUseDelete =
-  <K extends record.Key>({
-    type,
-    icon,
-    description,
-    query,
-    convertKey,
-    beforeUpdate,
-    afterSuccess,
-  }: CreateUseDeleteParams<K>): ((props: ContextMenuProps) => () => void) =>
-  (props: ContextMenuProps) => {
+export const createUseDelete = <K extends record.Key>({
+  type,
+  icon,
+  description,
+  query: useQuery,
+  convertKey,
+  beforeUpdate,
+  afterSuccess,
+}: CreateUseDeleteParams<K>): ((props: ContextMenuProps) => () => void) => {
+  const useDelete = (props: ContextMenuProps) => {
     const {
       selection: { ids },
       state: { getResource },
     } = props;
     const confirm = Modals.useConfirmDelete({ type, description, icon });
-    const { update } = query({
+    const { update } = useQuery({
       beforeUpdate: useCallback(
         async (query: Flux.BeforeUpdateParams<K | K[]>) => {
           const res = await confirm(getResource(ids));
@@ -50,7 +49,7 @@ export const createUseDelete =
           if (beforeUpdate != null) return await beforeUpdate({ ...query, ...props });
           return true;
         },
-        [props],
+        [confirm, getResource, ids, props],
       ),
       afterSuccess: useCallback(
         (query: Flux.AfterSuccessParams<K | K[]>) => {
@@ -61,6 +60,8 @@ export const createUseDelete =
     });
     return useCallback(
       () => update(ids.map((id) => convertKey(id.key))),
-      [update, ids, convertKey],
+      [update, ids],
     );
   };
+  return useDelete;
+};

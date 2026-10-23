@@ -14,19 +14,21 @@ import { useCallback } from "react";
 
 import { Import } from "@/platform/import";
 
+const useImport = () => {
+  const client = Synnax.useClient();
+  return useCallback(
+    async (bundle: UploadBody) => {
+      if (client == null) throw new DisconnectedError();
+      const imported = await client.schematics.symbols.importGroup(bundle);
+      return imported.name;
+    },
+    [client],
+  );
+};
+
 /** A modal that imports a symbol group from a .zip export or its extracted folder. */
 export const useImportGroup = Import.createModal({
   header: "Schematic.Symbols.Group.Import",
   resourceName: "symbol group",
-  useOnImport: () => {
-    const client = Synnax.useClient();
-    return useCallback(
-      async (bundle: UploadBody) => {
-        if (client == null) throw new DisconnectedError();
-        const imported = await client.schematics.symbols.importGroup(bundle);
-        return imported.name;
-      },
-      [client],
-    );
-  },
+  useOnImport: useImport,
 });

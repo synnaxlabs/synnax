@@ -75,69 +75,67 @@ const FallbackContextMenu = (): ReactElement => (
   </ContextMenu.Menu>
 );
 
-const itemRenderProp = Component.renderProp(
-  ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
-    const { itemKey } = rest;
-    const id = ontology.parseID(itemKey);
-    const resource = List.useItem<string, ontology.Resource>(itemKey);
-    const Item = useItems()[id.type] ?? DefaultItem;
-    const { onDrop, subscribeLoading, getLoading, onDragStart, onDragEnd } =
-      useContext("Tree.itemRenderProp");
-    const handleDragStart = useCallback(
-      () => onDragStart(itemKey),
-      [onDragStart, itemKey],
-    );
-    const loading = useSyncExternalStore(
-      subscribeLoading,
-      () => getLoading() === itemKey,
-    );
-    // A drop re-parents the dragged items, so the grant is read on them and not on the
-    // destination. The item itself carries the same grant to leave its parent.
-    const client = Synnax.useClient();
-    const canMove = Access.useUpdateGranted(id);
+const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
+  const { itemKey } = rest;
+  const id = ontology.parseID(itemKey);
+  const resource = List.useItem<string, ontology.Resource>(itemKey);
+  const Item = useItems()[id.type] ?? DefaultItem;
+  const { onDrop, subscribeLoading, getLoading, onDragStart, onDragEnd } =
+    useContext("Tree.itemRenderProp");
+  const handleDragStart = useCallback(
+    () => onDragStart(itemKey),
+    [onDragStart, itemKey],
+  );
+  const loading = useSyncExternalStore(
+    subscribeLoading,
+    () => getLoading() === itemKey,
+  );
+  // A drop re-parents the dragged items, so the grant is read on them and not on the
+  // destination. The item itself carries the same grant to leave its parent.
+  const client = Synnax.useClient();
+  const canMove = Access.useUpdateGranted(id);
 
-    const [draggingOver, setDraggingOver] = useState(false);
+  const [draggingOver, setDraggingOver] = useState(false);
 
-    const onDropDrops = Haul.useDrop({
-      type: Base.HAUL_TYPE,
-      key: itemKey,
-      canDrop: useCallback(
-        ({ items: entities, source }) => {
-          const keys = entities.map((item) => item.key);
-          setDraggingOver(false);
-          if (source.type !== Base.HAUL_TYPE || keys.includes(itemKey)) return false;
-          return Access.updateGranted({
-            client,
-            id: Base.filterHaulItems(entities).map(({ key }) =>
-              ontology.idZ.parse(key),
-            ),
-          });
-        },
-        [itemKey, client],
-      ),
-      onDrop: useCallback((props) => onDrop(itemKey, props) ?? [], [onDrop, itemKey]),
-      onDragOver: useCallback(() => setDraggingOver(true), []),
-    });
+  const onDropDrops = Haul.useDrop({
+    type: Base.HAUL_TYPE,
+    key: itemKey,
+    canDrop: useCallback(
+      ({ items: entities, source }) => {
+        const keys = entities.map((item) => item.key);
+        setDraggingOver(false);
+        if (source.type !== Base.HAUL_TYPE || keys.includes(itemKey)) return false;
+        return Access.updateGranted({
+          client,
+          id: Base.filterHaulItems(entities).map(({ key }) => ontology.idZ.parse(key)),
+        });
+      },
+      [itemKey, client],
+    ),
+    onDrop: useCallback((props) => onDrop(itemKey, props) ?? [], [onDrop, itemKey]),
+    onDragOver: useCallback(() => setDraggingOver(true), []),
+  });
 
-    // The virtualizer has already reserved this row's slot. Rendering nothing would
-    // leave a gap, so the row stays empty until the resource loads.
-    if (resource == null) return <Base.Item {...rest} />;
+  // The virtualizer has already reserved this row's slot. Rendering nothing would
+  // leave a gap, so the row stays empty until the resource loads.
+  if (resource == null) return <Base.Item {...rest} />;
 
-    return (
-      <Item
-        {...rest}
-        draggingOver={draggingOver}
-        onDragStart={handleDragStart}
-        draggable={canMove}
-        {...onDropDrops}
-        onDragLeave={() => setDraggingOver(false)}
-        onDragEnd={onDragEnd}
-        resource={resource}
-        loading={loading}
-      />
-    );
-  },
-);
+  return (
+    <Item
+      {...rest}
+      draggingOver={draggingOver}
+      onDragStart={handleDragStart}
+      draggable={canMove}
+      {...onDropDrops}
+      onDragLeave={() => setDraggingOver(false)}
+      onDragEnd={onDragEnd}
+      resource={resource}
+      loading={loading}
+    />
+  );
+};
+
+const itemRenderProp = Component.renderProp(TreeItem);
 
 // Returns the keys that sit inside another key in the same set. Depth cannot answer
 // this: two nodes at different depths are often unrelated.
@@ -580,7 +578,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         {...treeProps}
         showRules
         shape={shape}
-        subscribe={placeholders.subscribe}
+        subscribe={subscribeResource}
         // Not getResource: it throws, and a resource may not be cached before
         // the tree attempts to render it.
         getItem={getItem}
