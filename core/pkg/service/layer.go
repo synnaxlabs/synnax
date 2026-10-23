@@ -23,12 +23,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
-	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -37,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -68,6 +67,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -101,6 +101,10 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	FIPS *bool
+	// SessionIdleTimeout ends a session that no request has used for this long.
+	//
+	// [OPTIONAL] - Defaults to 7 days.
+	SessionIdleTimeout time.Duration
 	// License configures the license service. The layer supplies its DB and
 	// instrumentation.
 	//
@@ -134,6 +138,10 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	c.FIPS = override.Nil(c.FIPS, other.FIPS)
+	c.SessionIdleTimeout = override.Numeric(
+		c.SessionIdleTimeout,
+		other.SessionIdleTimeout,
+	)
 	c.License = c.License.Override(other.License)
 	c.ValidateChannelNames = override.Nil(
 		c.ValidateChannelNames, other.ValidateChannelNames,
@@ -167,8 +175,8 @@ type Layer struct {
 	RBAC *rbac.Service
 	// Password stores passwords and checks proofs of them.
 	Password *password.Service
-	// Token is for creating and validating authentication tokens.
-	Token *token.Service
+	// Auth logs subjects in and checks the session tokens their requests carry.
+	Auth *auth.Service
 	// Ranger is for working with ranges.
 	Ranger *ranger.Service
 	// Alias is for working with channel aliases on ranges.
@@ -250,6 +258,23 @@ type Layer struct {
 
 // Close shuts down the service layer, returning any error encountered.
 func (l *Layer) Close() error { return l.closer.Close() }
+
+func revokePasswordSessions(
+	ctx context.Context,
+	passwords *password.Service,
+	sessions *auth.Service,
+	subject ontology.ID,
+) error {
+	var p password.Password
+	if err := passwords.NewRetrieve().
+		Where(password.MatchSubjects(subject)).
+		Entry(&p).
+		Exec(ctx, nil); err != nil {
+		return errors.Wrap(err, "load the root password")
+	}
+	return sessions.NewWriter(nil).
+		RevokeCredential(ctx, nil, p.Key)
+}
 
 // OpenLayer opens the service layer using the provided configurations. Later
 // configurations override the fields set in previous ones. If the configuration is
@@ -434,9 +459,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Password) {
 		return nil, err
 	}
+	var (
+		root                user.User
+		rootPasswordChanged bool
+	)
 	if !cfg.RootCredentials.IsZero() {
-		var changed bool
-		if _, changed, err = user.ProvisionRoot(
+		if root, rootPasswordChanged, err = user.ProvisionRoot(
 			ctx,
 			l.User,
 			l.Password,
@@ -444,7 +472,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		); !ok(err, nil) {
 			return nil, err
 		}
-		if changed {
+		if rootPasswordChanged {
 			cfg.L.Info(
 				"rotated root user password to match the start settings",
 				zap.String("username", cfg.RootCredentials.Username),
@@ -462,12 +490,25 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.RBAC) {
 		return nil, err
 	}
-	if l.Token, err = token.NewService(token.ServiceConfig{
-		KeyProvider:      cfg.Security,
-		Expiration:       24 * time.Hour,
-		RefreshThreshold: 1 * time.Hour,
-	}); !ok(err, nil) {
+	if l.Auth, err = auth.OpenService(ctx, auth.ServiceConfig{
+		Instrumentation: cfg.Child("auth"),
+		DB:              cfg.Distribution.DB,
+		Authenticators: map[auth.Method]auth.Authenticator{
+			auth.MethodPassword: l.Password,
+		},
+		IdleTimeout: cfg.SessionIdleTimeout,
+	}); !ok(err, l.Auth) {
 		return nil, err
+	}
+	if rootPasswordChanged {
+		if err = revokePasswordSessions(
+			ctx,
+			l.Password,
+			l.Auth,
+			root.OntologyID(),
+		); !ok(err, nil) {
+			return nil, err
+		}
 	}
 	if l.Ranger, err = ranger.OpenService(ctx, ranger.ServiceConfig{
 		Instrumentation: cfg.Child("ranger"),

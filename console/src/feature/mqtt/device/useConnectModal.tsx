@@ -50,27 +50,18 @@ const INITIAL_VALUES: Device = {
   configured: true,
 };
 
-const useForm = PDevice.createForm(SCHEMAS);
+const useForm = PDevice.createForm(SCHEMAS, INITIAL_VALUES);
 
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
-
-// The form schema holds the properties as an open record, so it does not check them.
-const beforeValidate = ({
-  get,
-  setStatus,
-}: Flux.BeforeValidateParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
-  const result = SCHEMAS.properties.safeParse(get("properties").value);
-  result.error?.issues.forEach(({ path, message }) =>
-    setStatus(`properties.${path.join(".")}`, { variant: "error", message }),
-  );
-  return result.success;
-};
 
 const beforeSave = async ({
   client,
   get,
   set,
-}: Flux.FormBeforeSaveParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
+}: Flux.FormBeforeSaveParams<
+  PDevice.RetrieveQuery,
+  PDevice.FormSchema<typeof SCHEMAS>
+>) => {
   const scanTask = await retrieveScanTask(client, get<rack.Key>("rack").value);
   // Command arguments skip case conversion on the wire; the driver reads snake case.
   const properties = caseconv.camelToSnake(get<Properties>("properties").value, {
@@ -103,22 +94,21 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
       variant,
     } = useForm({
       query: deviceKey == null ? null : { key: deviceKey },
-      initialValues: INITIAL_VALUES,
-      beforeValidate,
       beforeSave,
       afterSave: useCallback(() => close(), [close]),
     });
 
-    const secure = Form.useFieldValue<boolean, boolean, typeof PDevice.formSchema>(
-      "properties.secure",
-      { ctx: form },
-    );
+    const secure = Form.useFieldValue<
+      boolean,
+      boolean,
+      PDevice.FormSchema<typeof SCHEMAS>
+    >("properties.secure", { ctx: form });
 
     return (
       <Modal.Frame className={CSS.B("mqtt-connect")}>
         <Modal.Header icon={<Icon.Logo.MQTT />}>Broker.Connect</Modal.Header>
         <Flex.Box className={CSS.B("content")} grow gap="large">
-          <Form.Form<typeof PDevice.formSchema> {...form}>
+          <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
             <Flex.Box gap="small">
               <Form.TextField path="name" inputProps={NAME_INPUT_PROPS} />
               <Form.Field<rack.Key> path="rack" label="Connect from" required>

@@ -10,7 +10,7 @@
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type FC, useEffect } from "react";
+import { type FC } from "react";
 
 import { type TimeFormat } from "@/feature/mqtt/task/types";
 
@@ -33,22 +33,10 @@ export interface TimeFormatFieldProps {
 
 /**
  * Selects the encoding of a timestamp carried as a JSON value. The caller decides when
- * a timestamp format applies; mounting writes ISO 8601 to `path` so the choice is
- * stored instead of silently absent.
+ * a timestamp format applies. An unset format is left absent until the user picks one.
  */
-export const TimeFormatField: FC<TimeFormatFieldProps> = ({ path, label }) => {
-  const { get, set } = PForm.useContext();
-  useEffect(() => {
-    if (get<TimeFormat>(path, { optional: true }) == null) set(path, "iso8601");
-  }, [path, get, set]);
-  return (
-    <PForm.Field<TimeFormat>
-      path={path}
-      label={label}
-      defaultValue="iso8601"
-      padHelpText={false}
-    >
-      {renderSelect}
-    </PForm.Field>
-  );
-};
+export const TimeFormatField: FC<TimeFormatFieldProps> = ({ path, label }) => (
+  <PForm.Field<TimeFormat> path={path} label={label} padHelpText={false}>
+    {renderSelect}
+  </PForm.Field>
+);

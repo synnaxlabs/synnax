@@ -13,8 +13,8 @@ package policy
 
 import (
 	"context"
+	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -56,7 +56,7 @@ func Not(f Filter) Filter {
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Policy] {
+	return func(Retrieve) gorp.Filter[Key, Policy] {
 		return gorp.MatchKeys[Key, Policy](keys...)
 	}
 }
@@ -65,9 +65,9 @@ func MatchKeys(keys ...Key) Filter {
 // policies whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Policy] {
+	return func(Retrieve) gorp.Filter[Key, Policy] {
 		return gorp.Match(func(_ gorp.Context, e *Policy) (bool, error) {
-			return lo.Contains(vals, e.Name), nil
+			return slices.Contains(vals, e.Name), nil
 		})
 	}
 }
@@ -75,7 +75,7 @@ func MatchNames(vals ...string) Filter {
 // MatchInternal returns a filter for policies by their
 // Internal field.
 func MatchInternal(v bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Policy] {
+	return func(Retrieve) gorp.Filter[Key, Policy] {
 		return gorp.Match(func(_ gorp.Context, e *Policy) (bool, error) {
 			return e.Internal == v, nil
 		})

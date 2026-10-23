@@ -217,23 +217,6 @@ describe("MQTT Write form", () => {
     await screen.findByText("Time format");
   });
 
-  it("should store ISO 8601 as the time format of a timestamp command channel", async () => {
-    const ch = await client.channels.create({
-      name: uniqueName("mqtt_cmd"),
-      dataType: "timestamp",
-      virtual: true,
-    });
-    const { draft } = await renderWrite([
-      createWriteTarget("t1", "plant/cmd", { channel: ch.key }),
-    ]);
-    await screen.findByText("Time format");
-    await waitFor(async () =>
-      expect(await retrieveTargets(draft.key)).toMatchObject([
-        { channel: { timeFormat: "iso8601" } },
-      ]),
-    );
-  });
-
   it("should bind plain and Sparkplug targets to the command channels the broker stores", async () => {
     const [plainCh, tagCh] = await Promise.all(
       ["mqtt_cmd", "mqtt_tag_cmd"].map(
