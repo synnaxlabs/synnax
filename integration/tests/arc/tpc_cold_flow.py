@@ -252,7 +252,7 @@ class TPCColdFlow(ArcCase):
                 current_status = str(new_status)
                 observed_statuses.add(current_status)
                 ox_pt = self.read_tlm("ox_pt_1")
-                self.log(f"Pressure status: {current_status} (ox_pt_1={ox_pt:.1f})")
+                self.log(f"Pressure status: {current_status} (ox_pt_1={ox_pt})")
 
         if not sequence_complete:
             self.fail(f"Test stopped unexpectedly in phase {current_phase}")

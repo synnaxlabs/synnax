@@ -145,13 +145,8 @@ class Abcd(Latency):
                 t_b = self.read_tlm("t_b")
                 t_c = self.read_tlm("t_c")
                 t_d = self.read_tlm("t_d")
-
-                assert (
-                    t_a is not None
-                    and t_b is not None
-                    and t_c is not None
-                    and t_d is not None
-                )
+                if t_a is None or t_b is None or t_c is None or t_d is None:
+                    continue
 
                 d_ab = (t_a - t_b) / 1e9
                 d_bc = (t_b - t_c) / 1e9
@@ -169,4 +164,6 @@ class Abcd(Latency):
 
                 idx += 1
 
+            if idx == 0:
+                self.fail("No samples arrived on t_a, t_b, t_c, and t_d")
             self.log("WARNING (⚠️): LatencyABC Report not implemented...")
