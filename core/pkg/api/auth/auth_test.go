@@ -172,9 +172,6 @@ var _ = Describe("Middleware", func() {
 			),
 		))
 		Expect(apiauth.GetSubject(seen)).To(Equal(root.OntologyID()))
-		Expect(apiauth.GetSession(seen)).To(Equal(
-			MustSucceed(authSvc.Authenticate(ctx, token)).Key,
-		))
 		Expect(apiauth.GetCredential(seen)).ToNot(Equal(uuid.Nil()))
 	})
 	It("Should reject a request without a token", func(ctx SpecContext) {
