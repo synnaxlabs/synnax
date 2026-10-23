@@ -61,7 +61,7 @@ const IndividualConfig = ({ nodeKey }: IndividualConfigProps): ReactElement | nu
   return (
     <Flex.Box className={CSS.BE("arc-properties", "individual")} y>
       <Form.Form<typeof Arc.Graph.Node.configZ> {...formMethods}>
-        <C.Form {...formMethods} key={nodeKey} />
+        <C.Form key={nodeKey} {...formMethods} />
       </Form.Form>
     </Flex.Box>
   );

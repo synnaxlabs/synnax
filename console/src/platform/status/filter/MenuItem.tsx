@@ -10,6 +10,7 @@
 import { type status } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
+import { type Input } from "@synnaxlabs/lyra/input";
 import { type position } from "@synnaxlabs/lyra/position";
 import { type Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/pluto";
@@ -27,21 +28,22 @@ const DIALOG_LOCATION: position.LocationPreference = {
 };
 
 export const MenuItem = (): ReactElement => (
-  <Form.Field<status.Variant[]>
+  <Form.Field<status.Variant[] | undefined, status.Variant[]>
     path="query.variants"
-    defaultValue={DEFAULT_VALUE}
     showLabel={false}
   >
     {selectVariantRenderProp}
   </Form.Field>
 );
 
-const DEFAULT_VALUE: status.Variant[] = [];
-
 const selectVariantRenderProp = Component.renderProp(
-  (props: Pick<Status.SelectMultipleVariantProps, "value" | "onChange">) => (
+  ({
+    value,
+    onChange,
+  }: Input.Control<status.Variant[] | undefined, status.Variant[]>) => (
     <Status.SelectMultipleVariants
-      {...props}
+      value={value ?? []}
+      onChange={onChange}
       location={DIALOG_LOCATION}
       triggerProps={TRIGGER_PROPS}
     />
