@@ -7,13 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import socket
 import ssl
 from pathlib import Path
+
+from keyring.errors import KeyringError
 
 from freighter.exceptions import Unreachable
 from synnax import Synnax
 from synnax.cli.flow import Context
-from synnax.config import load_options
+from synnax.config import ClusterConfig, ClustersConfig
 from synnax.exceptions import AuthError
 from synnax.options import Options
 
@@ -47,19 +50,52 @@ def prompt_client_options(ctx: Context) -> Options:
     )
 
 
-def connect_client(ctx: Context) -> Synnax | None:
+def connect_client(ctx: Context, clusters: ClustersConfig) -> Synnax | None:
     """Connects to a Synnax server. Prompts the user for the connection parameters if
-    no configuration file exists.
+    none are saved. A saved password is replaced with an API key after the connection
+    succeeds.
 
     :param ctx: The context of the current flow.
+    :param clusters: The saved connection parameters.
     :return: The connected Synnax py, or None if the connection failed.
     """
-    opts = load_options()
-    if opts is None:
-        opts = prompt_client_options(ctx)
-    else:
-        ctx.console.info("Using saved credentials.")
-    return connect_from_options(ctx, opts)
+    cluster = clusters.get()
+    if cluster is None:
+        return connect_from_options(ctx, prompt_client_options(ctx))
+    ctx.console.info("Using saved credentials.")
+    client = connect_from_options(ctx, cluster.options)
+    if client is not None and not cluster.options.api_key:
+        try:
+            save_api_key(client, cluster.options, clusters)
+        except (OSError, KeyringError, AuthError, Unreachable) as e:
+            ctx.console.warn(f"Cannot replace the saved password with an API key: {e}")
+    return client
+
+
+def save_api_key(client: Synnax, opts: Options, clusters: ClustersConfig) -> None:
+    """Creates an API key for the logged-in user and saves it with opts in place of
+    the username and password. Deletes the key when it is not saved.
+    """
+    token, key = client.auth.create_key(name=f"Python CLI on {socket.gethostname()}")
+    try:
+        clusters.set(
+            ClusterConfig(
+                options=Options(
+                    host=opts.host,
+                    port=opts.port,
+                    secure=opts.secure,
+                    ca_cert=opts.ca_cert,
+                    api_key=token,
+                )
+            )
+        )
+    except (OSError, KeyringError):
+        # a failure after the save, such as a stale password that cannot be deleted,
+        # leaves the key in use
+        saved = clusters.get()
+        if saved is None or saved.options.api_key != token:
+            client.auth.delete_keys(key.key)
+        raise
 
 
 def connect_from_options(ctx: Context, opts: Options) -> Synnax | None:
