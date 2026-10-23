@@ -106,6 +106,13 @@ describe("IconPicker", () => {
       fireEvent.keyDown(search(c), { key: "Enter" });
       expect(onChange).toHaveBeenCalledExactlyOnceWith("pressure");
     });
+
+    it("should not pick on Enter without a term", () => {
+      const onChange = vi.fn();
+      const c = renderPicker({ onChange, fallback: Icon.Panel });
+      fireEvent.keyDown(search(c), { key: "Enter" });
+      expect(onChange).not.toHaveBeenCalled();
+    });
   });
 
   describe("keyboard", () => {
@@ -183,6 +190,37 @@ describe("IconPicker", () => {
       fireEvent.keyDown(document.activeElement as Element, { key: "End" });
       fireEvent.keyDown(document.activeElement as Element, { key: "ArrowRight" });
       expect(focusedName()).toEqual(shown.at(-1));
+    });
+  });
+
+  describe("fallback", () => {
+    it("should offer the fallback first and mark it while the value is absent", () => {
+      const c = renderPicker({ fallback: Icon.Panel });
+      expect(names(c)[0]).toEqual("Default");
+      expect(options(c)[0].getAttribute("aria-selected")).toEqual("true");
+    });
+
+    it("should clear the value when the user picks the fallback", () => {
+      const onChange = vi.fn();
+      const c = renderPicker({ value: "valve", fallback: Icon.Panel, onChange });
+      fireEvent.click(c.getByLabelText("Default"));
+      expect(onChange).toHaveBeenCalledExactlyOnceWith(undefined);
+    });
+
+    it("should hide the fallback while the user searches", () => {
+      const c = renderPicker({ fallback: Icon.Panel });
+      fireEvent.change(search(c), { target: { value: "valve" } });
+      expect(names(c)).not.toContain("Default");
+    });
+
+    it("should move from the focused fallback, not from the picked icon", () => {
+      const c = renderPicker({ value: "valve", fallback: Icon.Panel });
+      fireEvent.keyDown(search(c), { key: "ArrowDown" });
+      fireEvent.keyDown(document.activeElement as Element, { key: "Home" });
+      fireEvent.keyDown(document.activeElement as Element, { key: "ArrowRight" });
+      expect(document.activeElement?.getAttribute("aria-label")).toEqual(
+        Icon.PICKABLE[0].name,
+      );
     });
   });
 
