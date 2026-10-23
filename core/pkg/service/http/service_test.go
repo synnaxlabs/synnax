@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
-	"github.com/synnaxlabs/synnax/pkg/service/http/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -65,10 +65,12 @@ var _ = Describe("Service", func() {
 			),
 		)
 
-		It("Should export read configs at the v3 shape's version", func() {
-			Expect(svc.Read.Version()).To(Equal(versions.Latest))
-			Expect(versions.Latest).To(BeEquivalentTo(3))
-		})
+		It(
+			"Should export read configs above every version released Cores stamped",
+			func() {
+				Expect(svc.Read.Version()).To(BeNumerically(">", legacy.LastVersion))
+			},
+		)
 	})
 
 	Describe("Write", func() {

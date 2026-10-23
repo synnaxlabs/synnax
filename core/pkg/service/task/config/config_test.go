@@ -10,6 +10,7 @@
 package config_test
 
 import (
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -236,10 +237,12 @@ var _ = Describe("Service", func() {
 		It("Should reject a version above the ladder's latest", func(ctx SpecContext) {
 			Expect(versioned.Normalize(
 				ctx, arcversions.Latest+1, msgpack.EncodedJSON{},
-			)).Error().To(MatchError(ContainSubstring(
-				"version: versioned_test version 5 is newer than this Core supports " +
-					"(latest: 4): validation error",
-			)))
+			)).Error().To(MatchError(ContainSubstring(fmt.Sprintf(
+				"version: versioned_test version %d is newer than this Core supports "+
+					"(latest: %d): validation error",
+				arcversions.Latest+1,
+				arcversions.Latest,
+			))))
 		})
 
 		It("Should decode current-version data into the current shape", func(
