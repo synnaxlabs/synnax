@@ -41,7 +41,7 @@ const renderWithFrequent = (props: Color.SwatchesProps): RenderResult =>
 describe("Swatches", () => {
   describe("presets", () => {
     it("should offer the theme colors and the visualization palette", () => {
-      const c = renderSwatches({ onChange: vi.fn() });
+      const c = renderSwatches({ value: undefined, onChange: vi.fn() });
       const swatches = c.container.querySelectorAll(`.${CSS.B("color-swatch")}`);
       expect(swatches).toHaveLength(18);
     });
@@ -74,7 +74,11 @@ describe("Swatches", () => {
     });
 
     it("should mark Auto while the value is absent", () => {
-      const c = renderSwatches({ fallback: "#888888", onChange: vi.fn() });
+      const c = renderSwatches({
+        value: undefined,
+        fallback: "#888888",
+        onChange: vi.fn(),
+      });
       expect(c.getByLabelText("Auto").className).toContain(CSS.M("selected"));
     });
 
@@ -90,14 +94,14 @@ describe("Swatches", () => {
 
   describe("frequent colors", () => {
     it("should not show frequent colors when the user has none", () => {
-      const c = renderSwatches({ onChange: vi.fn() });
+      const c = renderSwatches({ value: undefined, onChange: vi.fn() });
       expect(
         c.container.querySelectorAll(`.${CSS.BE("color-swatches", "grid")}`),
       ).toHaveLength(1);
     });
 
     it("should show the frequent colors after the presets", () => {
-      const c = renderWithFrequent({ onChange: vi.fn() });
+      const c = renderWithFrequent({ value: undefined, onChange: vi.fn() });
       const grids = c.container.querySelectorAll(
         `.${CSS.BE("color-swatches", "grid")}`,
       );
@@ -107,7 +111,7 @@ describe("Swatches", () => {
 
     it("should pick a frequent color with one click", () => {
       const onChange = vi.fn();
-      const c = renderWithFrequent({ onChange });
+      const c = renderWithFrequent({ value: undefined, onChange });
       fireEvent.click(c.getByLabelText("#123456"));
       expect(onChange).toHaveBeenCalledExactlyOnceWith(color.construct("#123456"));
     });

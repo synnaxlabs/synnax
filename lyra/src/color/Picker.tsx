@@ -26,14 +26,10 @@ import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Status } from "@/status";
 
-export interface PickerProps extends Omit<
-  ComponentPropsWithoutRef<"div">,
-  "onChange" | "defaultValue"
-> {
-  /** The picked color. Absent only when {@link PickerProps.fallback} is set. */
-  value?: color.Crude;
-  /** Called with the new color, or with undefined when the user picks Auto. */
-  onChange: (value?: color.Color) => void;
+export interface PickerProps
+  extends
+    Omit<ComponentPropsWithoutRef<"div">, "onChange" | "defaultValue">,
+    Input.Control<color.Crude | undefined, color.Color | undefined> {
   /**
    * The color the theme paints while the value is absent. Setting it makes the value
    * optional and adds an Auto button that clears it.
