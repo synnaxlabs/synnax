@@ -730,6 +730,23 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		)
 
 		It(
+			"Should accept an empty string for a zero minimum length",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					name string? {
+						@validate min_length 0
+					}
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToNotContain("Validate()")
+			},
+		)
+
+		It(
 			"Should recurse into a nested type that only has a constraint",
 			func(ctx SpecContext) {
 				source := `

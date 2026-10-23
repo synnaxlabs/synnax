@@ -36,6 +36,22 @@ var _ = Describe("Migration", func() {
 		Entry("Should keep a set precision", int32(4), new(int32(4))),
 	)
 
+	It("Should lift every channel entry of a log", func(ctx SpecContext) {
+		old := v2.Log{
+			Name: "log",
+			Channels: []v2.ChannelEntry{
+				{Channel: 1, Precision: -1},
+				{Channel: 2, Precision: 5},
+			},
+		}
+		got := MustSucceed(v3.MigrateLog(ctx, old))
+		Expect(got.Name).To(Equal("log"))
+		Expect(got.Channels).To(Equal([]v3.ChannelEntry{
+			{Channel: 1},
+			{Channel: 2, Precision: new(int32(5))},
+		}))
+	})
+
 	It("Should lift stored logs and keep every other field", func(ctx SpecContext) {
 		stored := v2.Log{
 			Key:                uuid.New(),
