@@ -11,7 +11,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, type Mock, vi } from "vitest";
-import { type z } from "zod";
+import { z } from "zod";
 
 import { Form } from "@/platform/form";
 import { getKVRows } from "@/platform/form/testutil";
@@ -206,5 +206,23 @@ describe("KeyValueEditor", () => {
     );
     await waitFor(() => expect(lastHeaders(onChange)).toEqual([]));
     expect(screen.queryByPlaceholderText("Key")).toBeNull();
+  });
+
+  it("should not write an absent optional value on mount", async () => {
+    const onChange = vi.fn();
+    const schema = z.object({
+      [PATH]: z.array(z.object({ name: z.string(), value: z.string() })).optional(),
+    });
+    const Optional = (): ReactElement => {
+      const methods = PForm.use<typeof schema>({ values: {}, schema, onChange });
+      return (
+        <PForm.Form {...methods}>
+          <Form.KeyValueEditor path={PATH} label="Headers" keyField="name" />
+        </PForm.Form>
+      );
+    };
+    await renderWithConsole(<Optional />);
+    expect(await screen.findByText("Headers")).toBeDefined();
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

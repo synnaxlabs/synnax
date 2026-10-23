@@ -48,7 +48,7 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
     // get the v0 object instead of the array. So we have to do this jank thing where we
     // set the value to an empty array as the previous values do not work.
     // https://linear.app/synnax/issue/SY-3943/strongly-type-tasks-and-devices-in-flux
-    if (!Array.isArray(value)) set(path, []);
+    if (value != null && !Array.isArray(value)) set(path, []);
   }, []);
   const entries = Array.isArray(value) ? value : [];
 
