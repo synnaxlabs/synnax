@@ -63,6 +63,9 @@ ts: &ts
   - pnpm-workspace.yaml
   - turbo.json
 
+eslint_config:
+  - *ts
+
 vite_plugin:
   - *ts
 

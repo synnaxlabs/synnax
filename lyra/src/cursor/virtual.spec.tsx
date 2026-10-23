@@ -73,9 +73,17 @@ describe("Cursor.useVirtualDrag", () => {
 
   const renderTarget = (
     props: VirtualProps,
-  ): { el: HTMLElement; unmount: () => void } => {
+  ): {
+    el: HTMLElement;
+    unmount: () => void;
+    rerender: (props: VirtualProps) => void;
+  } => {
     const c = render(<Harness {...props} />);
-    return { el: c.getByTestId("target"), unmount: c.unmount };
+    return {
+      el: c.getByTestId("target"),
+      unmount: c.unmount,
+      rerender: (next) => c.rerender(<Harness {...next} />),
+    };
   };
 
   const down = (el: HTMLElement, x: number, y: number, overrides?: object): void => {
@@ -191,6 +199,24 @@ describe("Cursor.useVirtualDrag", () => {
     up(el, 10, 0);
     up(el, 20, 0);
     expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it("should end an active gesture after the callbacks change", () => {
+    const onEnd = vi.fn();
+    const { el, rerender } = renderTarget({ onEnd: vi.fn() });
+    down(el, 0, 0);
+    rerender({ onEnd });
+    up(el, 10, 0);
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it("should detach the pointerup listener on unmount during a gesture", () => {
+    const onEnd = vi.fn();
+    const { el, unmount } = renderTarget({ onEnd });
+    down(el, 0, 0);
+    unmount();
+    up(el, 10, 0);
+    expect(onEnd).not.toHaveBeenCalled();
   });
 
   it("should detach the pointerdown listener on unmount", () => {
