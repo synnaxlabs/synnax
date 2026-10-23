@@ -835,7 +835,7 @@ export class TiledChannelData
   private readonly raw = new MultiSeries([]);
   private rawLoaded = false;
   private stopStreaming?: destructor.Destructor;
-  private lastFailure?: string;
+  private readonly failures: FailureReporter;
   private readonly levelSettle: TimeSpan;
   // viewLevel is the level of the last view drawn, and settleTimer runs until that
   // level has held for levelSettle.
@@ -854,6 +854,7 @@ export class TiledChannelData
     this.now = now;
     this.levelSettle = levelSettle;
     this.onStatusChange = options?.onStatusChange;
+    this.failures = new FailureReporter(options?.onStatusChange);
   }
 
   private get live(): boolean {
@@ -1047,7 +1048,7 @@ export class TiledChannelData
         this.pending.delete(key);
         series.acquire();
         this.held.set(key, { spec, series });
-        this.lastFailure = undefined;
+        this.failures.reset();
         this.notify();
       })
       .catch((e: unknown) => {
@@ -1136,12 +1137,7 @@ export class TiledChannelData
   // Declares the home view loaded on the first failure, so retries never hold loading
   // forever.
   private fail(e: unknown): void {
-    const failure = cstatus.fromException(e, "Failed to read channel data");
-    const key = `${failure.message}: ${failure.description}`;
-    if (this.lastFailure !== key) {
-      this.lastFailure = key;
-      this.onStatusChange?.(failure);
-    }
+    this.failures.report(e, "Failed to read channel data");
     if (this.homeLoaded) return;
     this.homeLoaded = true;
     this.notify();
@@ -1163,7 +1159,7 @@ export class TiledChannelData
     this.channel = null;
     this.homeLoaded = false;
     this.rawLoaded = false;
-    this.lastFailure = undefined;
+    this.failures.reset();
   }
 }
 
