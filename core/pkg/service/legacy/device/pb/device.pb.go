@@ -13,7 +13,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: core/pkg/service/device/pb/device.proto
+// source: core/pkg/service/legacy/device/pb/device.proto
 
 package pb
 
@@ -49,7 +49,7 @@ type StatusDetails struct {
 
 func (x *StatusDetails) Reset() {
 	*x = StatusDetails{}
-	mi := &file_core_pkg_service_device_pb_device_proto_msgTypes[0]
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -61,7 +61,7 @@ func (x *StatusDetails) String() string {
 func (*StatusDetails) ProtoMessage() {}
 
 func (x *StatusDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_device_pb_device_proto_msgTypes[0]
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -74,7 +74,7 @@ func (x *StatusDetails) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusDetails.ProtoReflect.Descriptor instead.
 func (*StatusDetails) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_device_pb_device_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *StatusDetails) GetRack() uint32 {
@@ -125,7 +125,7 @@ type Device struct {
 
 func (x *Device) Reset() {
 	*x = Device{}
-	mi := &file_core_pkg_service_device_pb_device_proto_msgTypes[1]
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -137,7 +137,7 @@ func (x *Device) String() string {
 func (*Device) ProtoMessage() {}
 
 func (x *Device) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_device_pb_device_proto_msgTypes[1]
+	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -150,7 +150,7 @@ func (x *Device) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Device.ProtoReflect.Descriptor instead.
 func (*Device) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_device_pb_device_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Device) GetKey() string {
@@ -223,11 +223,11 @@ func (x *Device) GetParent() *pb1.ID {
 	return nil
 }
 
-var File_core_pkg_service_device_pb_device_proto protoreflect.FileDescriptor
+var File_core_pkg_service_legacy_device_pb_device_proto protoreflect.FileDescriptor
 
-const file_core_pkg_service_device_pb_device_proto_rawDesc = "" +
+const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/service/device/pb/device.proto\x12\x11service.device.pb\x1a+core/pkg/service/ontology/pb/ontology.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\";\n" +
+	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a+core/pkg/service/ontology/pb/ontology.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\";\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x16\n" +
 	"\x06device\x18\x02 \x01(\tR\x06device\"\xe5\x02\n" +
@@ -248,30 +248,30 @@ const file_core_pkg_service_device_pb_device_proto_rawDesc = "" +
 	"\x06parent\x18\n" +
 	" \x01(\v2\x17.service.ontology.pb.IDH\x01R\x06parent\x88\x01\x01B\t\n" +
 	"\a_statusB\t\n" +
-	"\a_parentB\xbe\x01\n" +
-	"\x15com.service.device.pbB\vDeviceProtoP\x01Z2github.com/synnaxlabs/synnax/pkg/service/device/pb\xa2\x02\x03SDP\xaa\x02\x11Service.Device.Pb\xca\x02\x11Service\\Device\\Pb\xe2\x02\x1dService\\Device\\Pb\\GPBMetadata\xea\x02\x13Service::Device::Pbb\x06proto3"
+	"\a_parentB\xc5\x01\n" +
+	"\x15com.service.device.pbB\vDeviceProtoP\x01Z9github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb\xa2\x02\x03SDP\xaa\x02\x11Service.Device.Pb\xca\x02\x11Service\\Device\\Pb\xe2\x02\x1dService\\Device\\Pb\\GPBMetadata\xea\x02\x13Service::Device::Pbb\x06proto3"
 
 var (
-	file_core_pkg_service_device_pb_device_proto_rawDescOnce sync.Once
-	file_core_pkg_service_device_pb_device_proto_rawDescData []byte
+	file_core_pkg_service_legacy_device_pb_device_proto_rawDescOnce sync.Once
+	file_core_pkg_service_legacy_device_pb_device_proto_rawDescData []byte
 )
 
-func file_core_pkg_service_device_pb_device_proto_rawDescGZIP() []byte {
-	file_core_pkg_service_device_pb_device_proto_rawDescOnce.Do(func() {
-		file_core_pkg_service_device_pb_device_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_service_device_pb_device_proto_rawDesc), len(file_core_pkg_service_device_pb_device_proto_rawDesc)))
+func file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP() []byte {
+	file_core_pkg_service_legacy_device_pb_device_proto_rawDescOnce.Do(func() {
+		file_core_pkg_service_legacy_device_pb_device_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_service_legacy_device_pb_device_proto_rawDesc), len(file_core_pkg_service_legacy_device_pb_device_proto_rawDesc)))
 	})
-	return file_core_pkg_service_device_pb_device_proto_rawDescData
+	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescData
 }
 
-var file_core_pkg_service_device_pb_device_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_core_pkg_service_device_pb_device_proto_goTypes = []any{
+var file_core_pkg_service_legacy_device_pb_device_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_core_pkg_service_legacy_device_pb_device_proto_goTypes = []any{
 	(*StatusDetails)(nil),   // 0: service.device.pb.StatusDetails
 	(*Device)(nil),          // 1: service.device.pb.Device
 	(*structpb.Struct)(nil), // 2: google.protobuf.Struct
 	(*pb.Status)(nil),       // 3: service.status.pb.Status
 	(*pb1.ID)(nil),          // 4: service.ontology.pb.ID
 }
-var file_core_pkg_service_device_pb_device_proto_depIdxs = []int32{
+var file_core_pkg_service_legacy_device_pb_device_proto_depIdxs = []int32{
 	2, // 0: service.device.pb.Device.properties:type_name -> google.protobuf.Struct
 	3, // 1: service.device.pb.Device.status:type_name -> service.status.pb.Status
 	4, // 2: service.device.pb.Device.parent:type_name -> service.ontology.pb.ID
@@ -282,27 +282,27 @@ var file_core_pkg_service_device_pb_device_proto_depIdxs = []int32{
 	0, // [0:3] is the sub-list for field type_name
 }
 
-func init() { file_core_pkg_service_device_pb_device_proto_init() }
-func file_core_pkg_service_device_pb_device_proto_init() {
-	if File_core_pkg_service_device_pb_device_proto != nil {
+func init() { file_core_pkg_service_legacy_device_pb_device_proto_init() }
+func file_core_pkg_service_legacy_device_pb_device_proto_init() {
+	if File_core_pkg_service_legacy_device_pb_device_proto != nil {
 		return
 	}
-	file_core_pkg_service_device_pb_device_proto_msgTypes[1].OneofWrappers = []any{}
+	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_device_pb_device_proto_rawDesc), len(file_core_pkg_service_device_pb_device_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_legacy_device_pb_device_proto_rawDesc), len(file_core_pkg_service_legacy_device_pb_device_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_core_pkg_service_device_pb_device_proto_goTypes,
-		DependencyIndexes: file_core_pkg_service_device_pb_device_proto_depIdxs,
-		MessageInfos:      file_core_pkg_service_device_pb_device_proto_msgTypes,
+		GoTypes:           file_core_pkg_service_legacy_device_pb_device_proto_goTypes,
+		DependencyIndexes: file_core_pkg_service_legacy_device_pb_device_proto_depIdxs,
+		MessageInfos:      file_core_pkg_service_legacy_device_pb_device_proto_msgTypes,
 	}.Build()
-	File_core_pkg_service_device_pb_device_proto = out.File
-	file_core_pkg_service_device_pb_device_proto_goTypes = nil
-	file_core_pkg_service_device_pb_device_proto_depIdxs = nil
+	File_core_pkg_service_legacy_device_pb_device_proto = out.File
+	file_core_pkg_service_legacy_device_pb_device_proto_goTypes = nil
+	file_core_pkg_service_legacy_device_pb_device_proto_depIdxs = nil
 }

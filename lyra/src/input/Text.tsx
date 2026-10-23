@@ -266,7 +266,7 @@ export const Text = ({
         <Generic.Element<"textarea" | "input">
           el={area ? "textarea" : "input"}
           ref={combinedRef}
-          value={tempValue ?? value}
+          value={tempValue ?? value ?? ""}
           role="textbox"
           onChange={handleChange}
           autoCapitalize="off"

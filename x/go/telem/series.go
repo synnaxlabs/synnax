@@ -299,36 +299,38 @@ func (s Series) String() string {
 	return b.String()
 }
 
-// Downsample returns a copy of the Series with the data down sampled by the given
-// factor, i.e., 1 out of every factor samples is kept.
+// Downsample returns a copy of the series that keeps the samples whose alignment is a
+// multiple of factor, so series that share an alignment space keep the same samples.
+// The copy has the alignment of its first sample. A factor below 2 returns the series
+// unchanged.
 func (s Series) Downsample(factor uint32) Series {
 	if factor <= 1 || len(s.Data) == 0 {
 		return s
 	}
-	f := int(factor)
-	var oData []byte
+	var (
+		f    = int64(factor)
+		skip = (f - int64(s.Alignment.SampleIndex())%f) % f
+		out  = Series{
+			TimeRange: s.TimeRange,
+			DataType:  s.DataType,
+			Alignment: s.Alignment.AddSamples(uint32(skip)),
+		}
+	)
 	if s.DataType.IsVariable() {
 		samples := unmarshalVariable[[]byte](s.Data)
-		downsampled := make([][]byte, 0, len(samples)/f+1)
-		for i := 0; i < len(samples); i += f {
-			downsampled = append(downsampled, samples[i])
+		kept := make([][]byte, 0, int64(len(samples))/f+1)
+		for i := skip; i < int64(len(samples)); i += f {
+			kept = append(kept, samples[i])
 		}
-		oData = marshalVariable(downsampled)
-	} else {
-		seriesLength := len(s.Data) / f
-		oData = make([]byte, 0, seriesLength)
-		for i := int64(0); i < s.Len(); i += int64(f) {
-			start := i * int64(s.DataType.Density())
-			end := start + int64(s.DataType.Density())
-			oData = append(oData, s.Data[start:end]...)
-		}
+		out.Data = marshalVariable(kept)
+		return out
 	}
-	return Series{
-		TimeRange: s.TimeRange,
-		DataType:  s.DataType,
-		Data:      oData,
-		Alignment: s.Alignment,
+	density := int64(s.DataType.Density())
+	out.Data = make([]byte, 0, (s.Len()/f+1)*density)
+	for i := skip; i < s.Len(); i += f {
+		out.Data = append(out.Data, s.Data[i*density:(i+1)*density]...)
 	}
+	return out
 }
 
 const maxDisplayValues = 12
