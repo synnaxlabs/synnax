@@ -16,7 +16,6 @@
 #include <utility>
 
 #include "client/cpp/ontology/id.h"
-#include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
@@ -28,30 +27,12 @@
 
 namespace synnax::arc {
 
-struct StatusDetails;
 struct Arc;
 
 constexpr const char *MODE_TEXT = "text";
 constexpr const char *MODE_GRAPH = "graph";
 
 using Key = x::uuid::UUID;
-
-/// @brief StatusDetails contains Arc-specific status details for execution state.
-struct StatusDetails {
-    /// @brief running indicates whether the Arc module is currently executing.
-    bool running = false;
-
-    static StatusDetails parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::arc::pb::StatusDetails;
-    [[nodiscard]] std::pair<::service::arc::pb::StatusDetails, x::errors::Error>
-    to_proto() const;
-    static std::pair<StatusDetails, x::errors::Error>
-    from_proto(const ::service::arc::pb::StatusDetails &pb);
-};
-
-using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief Arc is an Arc module combining visual graph representation and text-based
 /// source code for reactive control systems. Compiles to WebAssembly for sandboxed
@@ -71,8 +52,6 @@ struct Arc {
     /// @brief program is the compiled module output including IR and WebAssembly
     /// bytecode.
     std::optional<::arc::program::Program> program;
-    /// @brief status is the current execution status of the module.
-    std::optional<Status> status;
 
     static Arc parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

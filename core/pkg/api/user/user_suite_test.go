@@ -57,6 +57,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db, Ontology: otg, Search: searchIdx,
 	}))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
+	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+		DB: db,
+		Authenticators: map[auth.Method]auth.Authenticator{
+			auth.MethodPassword: passwordSvc,
+		},
+	}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -85,6 +91,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			User:     userSvc,
 			RBAC:     rbacSvc,
 			Password: passwordSvc,
+			Auth:     authSvc,
 		},
 	}))
 	root = findRoot(ctx, userSvc, "api-user-suite-root")
