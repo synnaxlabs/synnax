@@ -100,7 +100,7 @@ class ModbusWriteWordOrder(ModbusWriteTaskCase):
     command_values = [[1.5, 1.5], [1.5, 1.5]]
 
     def create(self, *, device: sy.Device, **kwargs: Any) -> sy.modbus.WriteTask:
-        device.properties["connection"]["swap_words"] = True
+        sy.device.ensure_object(device.properties, "connection")["swap_words"] = True
         self.client.devices.create(device)
         return super().create(device=device, **kwargs)
 
@@ -116,7 +116,7 @@ class ModbusWriteWordOrder(ModbusWriteTaskCase):
                     index=idx.key,
                 ),
                 address=40 + i * 2,
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
                 words_swapped=words_swapped,
             )
             for i, words_swapped in enumerate([None, False])
