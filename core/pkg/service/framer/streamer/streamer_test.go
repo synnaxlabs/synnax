@@ -388,6 +388,49 @@ var _ = Describe("Streamer", Ordered, func() {
 		})
 
 		It(
+			"Should drop a frame whose samples all lie off the grid",
+			func(ctx SpecContext) {
+				ch := &channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Float32T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				keys := []channel.Key{ch.Key()}
+				w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: telem.Now(),
+					Keys:  keys,
+				}))
+				s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
+					Keys:             keys,
+					SendOpenAck:      true,
+					DownsampleFactor: 2,
+				}))
+				sCtx, cancel := signal.Isolated()
+				inlet, outlet := confluence.Attach(s)
+				defer cancel()
+				s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				Eventually(outlet.Outlet()).Should(Receive())
+				for _, v := range []float32{1, 2, 3} {
+					Expect(
+						w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV(v))),
+					).To(BeTrue())
+				}
+				var res streamer.Response
+				Eventually(outlet.Outlet()).Should(Receive(&res))
+				Expect(
+					res.Frame.Get(ch.Key()).Series[0],
+				).To(telem.MatchSeriesDataV[float32](1))
+				Eventually(outlet.Outlet()).Should(Receive(&res))
+				Expect(
+					res.Frame.Get(ch.Key()).Series[0],
+				).To(telem.MatchSeriesDataV[float32](3))
+				inlet.Close()
+				Eventually(outlet.Outlet()).Should(BeClosed())
+			},
+		)
+
+		It(
 			"Should correctly combine downsampling with calculations",
 			func(ctx SpecContext) {
 				indexCh := &channel.Channel{

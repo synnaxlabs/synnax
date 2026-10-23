@@ -17,13 +17,7 @@ import { LEVEL_SIZES, SIZE_LEVELS } from "@/schematic/node/common/size";
 export const SizeField = (
   props: Partial<Form.FieldProps<Component.Size>>,
 ): ReactElement => (
-  <Form.Field<Component.Size>
-    path="size"
-    label="Size"
-    hideIfNull
-    padHelpText={false}
-    {...props}
-  >
+  <Form.Field<Component.Size> path="size" label="Size" padHelpText={false} {...props}>
     {selectSize}
   </Form.Field>
 );
@@ -34,13 +28,7 @@ const selectSize = Component.renderProp(Component.SelectSize);
 export const LevelSizeField = (
   props: Partial<Form.FieldProps<text.Level>>,
 ): ReactElement => (
-  <Form.Field<text.Level>
-    path="level"
-    label="Size"
-    hideIfNull
-    padHelpText={false}
-    {...props}
-  >
+  <Form.Field<text.Level> path="level" label="Size" padHelpText={false} {...props}>
     {selectLevelSize}
   </Form.Field>
 );
