@@ -46,6 +46,10 @@ const (
 	// parameter group number of a PDU1 and a PDU2 group.
 	pdu1Mask = 0x03FF0000
 	pdu2Mask = 0x03FFFF00
+	// sourceMask and destinationMask keep the source address and the PDU1 destination
+	// address of a J1939 identifier.
+	sourceMask      = 0x000000FF
+	destinationMask = 0x0000FF00
 )
 
 // parseDBC parses a DBC file into one message entry per BO_ definition, with a CAN
@@ -54,7 +58,8 @@ const (
 // multiplexing (m<N>M markers and SG_MUL_VAL_ ranges) is supported. A message is CAN
 // FD when its VFrameFormat says so, when it is longer than 8 bytes, or, in a file with
 // no VFrameFormat, when the BusType is CAN FD. A J1939 group matches frames by its
-// parameter group number. A signal keeps its [min|max] range unless both are zero.
+// parameter group number, and also by its addresses when other messages share the
+// group. A signal keeps its [min|max] range unless both are zero.
 // Messages and signals take their long names when the file gives them.
 // Every entry and field gets a new key. Errors are scoped to the "data" path and name
 // the line.
@@ -145,6 +150,8 @@ type dbcFile struct {
 	choices       map[signalRef]*dbc.ValueDescriptionsDef
 	messageNames  map[dbc.MessageID]string
 	signalNames   map[signalRef]string
+	// groupMasks holds the identifier mask of each J1939 message.
+	groupMasks map[dbc.MessageID]uint32
 }
 
 func newDBCFile(defs []dbc.Def) (dbcFile, error) {
@@ -214,7 +221,42 @@ func newDBCFile(defs []dbc.Def) (dbcFile, error) {
 			f.mux[ref] = spec
 		}
 	}
+	f.groupMasks = f.maskGroups()
 	return f, nil
+}
+
+type maskedID struct{ id, mask uint32 }
+
+// maskGroups returns the identifier mask of each J1939 message. Messages that share a
+// parameter group match by their source address too, and PDU1 messages that also share
+// a sender match by their destination address.
+func (f dbcFile) maskGroups() map[dbc.MessageID]uint32 {
+	masks := make(map[dbc.MessageID]uint32)
+	for _, m := range f.messages {
+		if f.isJ1939(m.MessageID) {
+			masks[m.MessageID] = groupMask(m.MessageID.ToCAN())
+		}
+	}
+	for _, address := range []uint32{sourceMask, destinationMask} {
+		counts := make(map[maskedID]int, len(masks))
+		for id, mask := range masks {
+			counts[maskedID{id: id.ToCAN() & mask, mask: mask}]++
+		}
+		for id, mask := range masks {
+			if counts[maskedID{id: id.ToCAN() & mask, mask: mask}] > 1 {
+				masks[id] = mask | address
+			}
+		}
+	}
+	return masks
+}
+
+// isJ1939 returns true when the message is a J1939 parameter group, which always has
+// an extended identifier.
+func (f dbcFile) isJ1939(id dbc.MessageID) bool {
+	format := f.frameFormat(id)
+	return id.IsExtended() && (format == formatJ1939 ||
+		format == "" && f.networkString(attrProtocol) == protocolJ1939)
 }
 
 func (f dbcFile) entries() ([]versions.Entry, error) {
@@ -522,10 +564,8 @@ func (f dbcFile) identifier(m *dbc.MessageDef) versions.CanIdentifier {
 		Fd: strings.HasSuffix(format, formatFDSuffix) || m.Size > maxCANLength ||
 			format == "" && f.networkString(attrBusType) == busTypeFD,
 	}
-	// A J1939 parameter group always has an extended identifier.
-	if id.Extended && (format == formatJ1939 ||
-		format == "" && f.networkString(attrProtocol) == protocolJ1939) {
-		id.Mask = new(groupMask(id.ID))
+	if mask, ok := f.groupMasks[m.MessageID]; ok {
+		id.Mask = new(mask)
 	}
 	return id
 }

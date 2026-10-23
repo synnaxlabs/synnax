@@ -12,6 +12,7 @@ package icd_test
 import (
 	"bytes"
 	"encoding/json/v2"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -42,20 +43,20 @@ type expectedMessage struct {
 }
 
 type expectedField struct {
-	Name            string              `json:"name"`
-	StartBit        uint16              `json:"start_bit"`
-	BitLength       uint8               `json:"bit_length"`
+	Name            string          `json:"name"`
+	StartBit        uint16          `json:"start_bit"`
+	BitLength       uint8           `json:"bit_length"`
 	ByteOrder       icd.ByteOrder   `json:"byte_order"`
-	Signed          bool                `json:"signed"`
-	Float           bool                `json:"float"`
-	Scale           float64             `json:"scale"`
-	Offset          float64             `json:"offset"`
-	Units           string              `json:"units"`
+	Signed          bool            `json:"signed"`
+	Float           bool            `json:"float"`
+	Scale           float64         `json:"scale"`
+	Offset          float64         `json:"offset"`
+	Units           string          `json:"units"`
 	Choices         []icd.EnumValue `json:"choices"`
-	Multiplexor     *string             `json:"multiplexor"`
-	MultiplexValues []int32             `json:"multiplex_values"`
-	Min             *float64            `json:"min"`
-	Max             *float64            `json:"max"`
+	Multiplexor     *string         `json:"multiplexor"`
+	MultiplexValues []int32         `json:"multiplex_values"`
+	Min             *float64        `json:"min"`
+	Max             *float64        `json:"max"`
 }
 
 func messagesOf(entries []icd.Entry) []icd.MessageEntry {
@@ -390,6 +391,30 @@ BA_ "VFrameFormat" BO_ 2364539904 1;
 			Extended: true,
 		}))
 	})
+
+	DescribeTable("Should match J1939 messages that share a group by their addresses",
+		func(first, second, mask uint32) {
+			data := []byte(dbcHeader + fmt.Sprintf(`BO_ %d M1: 8 Ecu
+ SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
+
+BO_ %d M2: 8 Ecu
+ SG_ B : 0|8@1+ (1,0) [0|255] "" Ecu
+
+`, first|1<<31, second|1<<31) + j1939Formats)
+			entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
+			for name, id := range map[string]uint32{"M1": first, "M2": second} {
+				Expect(canIdentifier(messageNamed(entries, name))).To(Equal(
+					icd.CanIdentifier{ID: id, Extended: true, Mask: new(mask)},
+				))
+			}
+		},
+		Entry("by the source address of a PDU2 group from two senders",
+			uint32(0x0CF00400), uint32(0x0CF00401), uint32(0x03FFFFFF)),
+		Entry("by the source address of a PDU1 group from two senders",
+			uint32(0x0C000003), uint32(0x0C000004), uint32(0x03FF00FF)),
+		Entry("by both addresses of a PDU1 group one sender sends to two receivers",
+			uint32(0x0C000003), uint32(0x0C00FF03), uint32(0x03FFFFFF)),
+	)
 
 	It("Should keep the range of a signal unless both of its limits are zero", func() {
 		data := []byte(dbcHeader + `BO_ 256 M: 8 Ecu
