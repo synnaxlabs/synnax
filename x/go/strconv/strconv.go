@@ -7,18 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package telem
+// Package strconv extends the standard library's strconv with the float text form every
+// Synnax runtime writes.
+package strconv
 
 import (
 	"math"
 	"strconv"
 )
 
-// AppendFloatText appends the shortest text that parses back to v at bitSize (32 or
-// 64) and returns the extended buffer. The text is in exponent notation below 1e-6 or
-// from 1e21, with an unpadded exponent (1e-7, 1e+21). Infinities are Infinity and
-// -Infinity.
-func AppendFloatText(dst []byte, v float64, bitSize int) []byte {
+// AppendFloat appends the shortest text that parses back to v at bitSize (32 or 64) and
+// returns the extended buffer. The text is in exponent notation below 1e-6 or from
+// 1e21, with an unpadded exponent (1e-7, 1e+21). NaN is NaN, and infinities are
+// Infinity and -Infinity.
+func AppendFloat(dst []byte, v float64, bitSize int) []byte {
 	if math.IsInf(v, 1) {
 		return append(dst, "Infinity"...)
 	}
@@ -35,4 +37,12 @@ func AppendFloatText(dst []byte, v float64, bitSize int) []byte {
 		return dst
 	}
 	return strconv.AppendFloat(dst, v, 'f', -1, bitSize)
+}
+
+// FormatFloat returns the text that AppendFloat appends for v.
+func FormatFloat(
+	v float64,
+	bitSize int,
+) string {
+	return string(AppendFloat(nil, v, bitSize))
 }

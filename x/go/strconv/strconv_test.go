@@ -7,24 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package telem_test
+package strconv_test
 
 import (
 	"math"
 	"math/rand/v2"
-	"strconv"
+	stdstrconv "strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/strconv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("AppendFloatText", func() {
+var _ = Describe("AppendFloat", func() {
 	DescribeTable(
 		"Should append the shortest text of a float",
 		func(v float64, bitSize int, expected string) {
-			Expect(string(telem.AppendFloatText(nil, v, bitSize))).To(Equal(expected))
+			Expect(string(strconv.AppendFloat(nil, v, bitSize))).To(Equal(expected))
 		},
 		Entry("decimal", -1.5, 64, "-1.5"),
 		Entry("integer-valued", 1e10, 64, "10000000000"),
@@ -56,8 +56,12 @@ var _ = Describe("AppendFloatText", func() {
 		),
 	)
 
+	It("Should format the text it appends", func() {
+		Expect(strconv.FormatFloat(1.5e-7, 64)).To(Equal("1.5e-7"))
+	})
+
 	It("Should append after the existing content of dst", func() {
-		Expect(string(telem.AppendFloatText([]byte("x="), 2, 64))).To(Equal("x=2"))
+		Expect(string(strconv.AppendFloat([]byte("x="), 2, 64))).To(Equal("x=2"))
 	})
 
 	It("Should append text that parses back to the same bits", func() {
@@ -68,11 +72,11 @@ var _ = Describe("AppendFloatText", func() {
 			if math.IsNaN(v64) || math.IsNaN(float64(v32)) {
 				continue
 			}
-			text := string(telem.AppendFloatText(nil, v64, 64))
-			parsed := MustSucceed(strconv.ParseFloat(text, 64))
+			text := string(strconv.AppendFloat(nil, v64, 64))
+			parsed := MustSucceed(stdstrconv.ParseFloat(text, 64))
 			Expect(math.Float64bits(parsed)).To(Equal(math.Float64bits(v64)))
-			text = string(telem.AppendFloatText(nil, float64(v32), 32))
-			parsed = MustSucceed(strconv.ParseFloat(text, 32))
+			text = string(strconv.AppendFloat(nil, float64(v32), 32))
+			parsed = MustSucceed(stdstrconv.ParseFloat(text, 32))
 			Expect(math.Float32bits(float32(parsed))).To(Equal(math.Float32bits(v32)))
 		}
 	})

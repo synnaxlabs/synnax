@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/telem"
+	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 )
@@ -176,13 +176,11 @@ flags:
 	for ; i < len(spec) && spec[i] >= '0' && spec[i] <= '9'; i++ {
 		n = n*10 + int(spec[i]-'0')
 	}
-	text := "Infinity"
+	text := xstrconv.FormatFloat(v, 64)
 	switch {
-	case v < 0:
-		text = "-" + text
-	case plus:
+	case v > 0 && plus:
 		text = "+" + text
-	case space:
+	case v > 0 && space:
 		text = " " + text
 	}
 	if left {
@@ -284,13 +282,13 @@ func NewHost(
 		builder,
 		s,
 		"from_f32",
-		func(v float32) string { return string(telem.AppendFloatText(nil, float64(v), 32)) },
+		func(v float32) string { return xstrconv.FormatFloat(float64(v), 32) },
 	)
 	builder = registerFrom(
 		builder,
 		s,
 		"from_f64",
-		func(v float64) string { return string(telem.AppendFloatText(nil, v, 64)) },
+		func(v float64) string { return xstrconv.FormatFloat(v, 64) },
 	)
 	builder = registerFrom(builder, s, "from_bool", func(v int32) string {
 		if v != 0 {
