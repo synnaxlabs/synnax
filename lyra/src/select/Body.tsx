@@ -16,6 +16,7 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Items, type ItemsProps } from "@/select/Items";
 import { List as SelectList } from "@/select/List";
+import { searchPlaceholder } from "@/select/placeholder";
 import { Search, type SearchProps } from "@/select/Search";
 import { Status } from "@/status";
 import { Text } from "@/text";
@@ -82,7 +83,7 @@ export const Body = <K extends record.Key>({
       {hasSearch && (
         <Search
           onSearch={onSearch}
-          placeholder={`Search ${pluralize.plural(resourceName)}...`}
+          placeholder={searchPlaceholder(resourceName)}
           actions={actions}
           loading={loading}
         />

@@ -240,7 +240,12 @@ export const Frame = ({
     // Layout size, not the painted box: the entrance animation scales the dialog.
     const { offsetWidth, offsetHeight } = dialogRef.current;
     let dialog = box.construct(0, 0, offsetWidth, offsetHeight);
-    if (variant === "connected") dialog = box.resize(dialog, "x", box.width(target));
+    if (variant === "connected") {
+      // A CSS min-width widens a connected dialog past a narrow trigger.
+      const minWidth = parseFloat(getComputedStyle(dialogRef.current).minWidth);
+      const width = Math.max(box.width(target), Number.isNaN(minWidth) ? 0 : minWidth);
+      dialog = box.resize(dialog, "x", width);
+    }
     const windowBox = box.construct(0, 0, window.innerWidth, window.innerHeight);
     if (variant === "modal") {
       const modalPosition = selectModalPosition(

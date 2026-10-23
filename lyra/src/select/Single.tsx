@@ -15,7 +15,7 @@ import { type List } from "@/list";
 import { Body, type BodyProps } from "@/select/Body";
 import { Dialog as SelectDialog } from "@/select/Dialog";
 import { Frame, type SingleFrameProps } from "@/select/Frame";
-import { usePlaceholder } from "@/select/placeholder";
+import { searchWidthStyle, usePlaceholder } from "@/select/placeholder";
 import { SingleTrigger, type SingleTriggerProps } from "@/select/SingleTrigger";
 
 export interface SingleProps<
@@ -101,7 +101,10 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
           preview={preview}
           {...triggerProps}
         />
-        <SelectDialog {...dialogProps}>
+        <SelectDialog
+          {...dialogProps}
+          style={{ ...searchWidthStyle(resourceName), ...dialogProps?.style }}
+        >
           <Body<K>
             onSearch={onSearch}
             resourceName={resourceName}
