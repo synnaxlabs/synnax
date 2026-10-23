@@ -99,10 +99,11 @@ func BindTo(f *fiber.App) error {
 		streamEventuallyResponseWithMessage,
 	)
 
+	// Uncompressed, so the body leaves the server before the encoder fails.
 	unaryTruncatedServer := router.NewUnaryServer[Message, Message](
 		"/unary/truncated",
 		http.WithResponseEncoders(truncatingEncoder{}),
-		http.WithStreamingResponse(truncatingEncoder{}),
+		http.WithStreamingResponse(),
 	)
 	unaryTruncatedServer.BindHandler(
 		func(_ context.Context, req Message) (Message, error) { return req, nil },
