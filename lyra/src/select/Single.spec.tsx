@@ -13,6 +13,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { renderProp } from "@/component/renderProp";
 import { Haul } from "@/haul";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -146,7 +147,7 @@ describe("Select.Single", () => {
     expect(c.queryByText("First Item")).toBeNull();
   });
 
-  it("should allow the user to deselect an item when allowNone is true", () => {
+  it("should keep the selection when the user picks it again with allowNone", () => {
     const { SelectSingle, onChange } = createSelectSingle();
     const c = render(<SelectSingle allowNone />);
     fireEvent.click(c.getByText("Test Item"));
@@ -154,8 +155,8 @@ describe("Select.Single", () => {
 
     fireEvent.click(c.getByText("First Item"));
     fireEvent.click(c.getByText("First Item Option"));
-    expect(onChange).toHaveBeenLastCalledWith(null);
-    expect(c.getByText("Test Item")).toBeTruthy();
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(c.getByText("First Item")).toBeTruthy();
   });
 
   it("should not allow the user to deselect when allowNone is false", () => {
@@ -308,6 +309,101 @@ describe("Select.Single", () => {
       const c = render(<SelectSingle triggerProps={{ collapsible: true }} />);
       hoverPastDelay(select(c));
       expect(getTooltip()).toBeNull();
+    });
+  });
+
+  describe("clear", () => {
+    const select = (c: ReturnType<typeof render>): void => {
+      fireEvent.click(c.getByText("Test Item"));
+      fireEvent.click(c.getByText("First Item Option"));
+    };
+
+    it("should clear the selection from the button on its icon", () => {
+      const { SelectSingle, onChange } = createSelectSingle();
+      const c = render(<SelectSingle allowNone icon={<Icon.Add />} />);
+      select(c);
+      fireEvent.click(c.getByLabelText("Clear First Item"));
+      expect(onChange).toHaveBeenLastCalledWith(null);
+      expect(c.getByText("Test Item")).toBeTruthy();
+      expect(c.queryByLabelText("Clear First Item")).toBeNull();
+    });
+
+    it("should not open the dialog when the selection is cleared", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle allowNone icon={<Icon.Add />} />);
+      select(c);
+      fireEvent.click(c.getByLabelText("Clear First Item"));
+      expect(c.queryByText("Second Item Option")).toBeNull();
+    });
+
+    it("should clear the selection with Delete on the focused trigger", () => {
+      const { SelectSingle, onChange } = createSelectSingle();
+      const c = render(<SelectSingle allowNone icon={<Icon.Add />} />);
+      select(c);
+      const trigger = c.getByText("First Item").closest("button");
+      if (trigger == null) throw new Error("the trigger did not render");
+      fireEvent.keyDown(trigger, { key: "Delete" });
+      expect(onChange).toHaveBeenLastCalledWith(null);
+    });
+
+    interface StoredProps {
+      value: string;
+      onChange?: (key: string | null) => void;
+    }
+
+    // Holds a fixed value, which may have no entry in the data.
+    const Stored = ({ value, onChange = vi.fn() }: StoredProps) => {
+      const { data, getItem } = List.useStaticData<string, TestEntry>({
+        data: testData,
+      });
+      return (
+        <Select.Single<string, TestEntry>
+          resourceName="Test Item"
+          data={data}
+          getItem={getItem}
+          value={value}
+          onChange={onChange}
+          allowNone
+          icon={<Icon.Add />}
+        >
+          {listItemRenderProp}
+        </Select.Single>
+      );
+    };
+
+    it("should clear a selected key that has no entry", () => {
+      const onChange = vi.fn();
+      const c = render(<Stored value="missing" onChange={onChange} />);
+      fireEvent.click(c.getByLabelText("Clear selection"));
+      expect(onChange).toHaveBeenLastCalledWith(null, { clicked: null });
+    });
+
+    it("should not show the button for an empty key", () => {
+      const c = render(<Stored value="" />);
+      expect(c.queryByLabelText(/^Clear/)).toBeNull();
+    });
+
+    it("should not show the button when the select requires a selection", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle allowNone={false} icon={<Icon.Add />} />);
+      select(c);
+      expect(c.queryByLabelText("Clear First Item")).toBeNull();
+    });
+
+    it("should clear the selection from the button on its caret without an icon", () => {
+      const { SelectSingle, onChange } = createSelectSingle();
+      const c = render(<SelectSingle allowNone />);
+      select(c);
+      fireEvent.click(c.getByLabelText("Clear First Item"));
+      expect(onChange).toHaveBeenLastCalledWith(null);
+      expect(c.getByText("Test Item")).toBeTruthy();
+    });
+
+    it("should not show the button without an icon or a caret", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle allowNone triggerProps={{ hideCaret: true }} />);
+      select(c);
+      expect(c.queryByLabelText("Clear First Item")).toBeNull();
     });
   });
 

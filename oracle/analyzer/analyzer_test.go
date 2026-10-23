@@ -414,6 +414,132 @@ Entry struct {
 				Expect(diag.Ok()).To(BeTrue())
 			},
 		)
+
+		It("Should accept a field omitted in some of its languages", func(
+			ctx SpecContext,
+		) {
+			source := `
+				@go output "out"
+				@py output "py/out"
+				@ts output "ts/out"
+				Session struct {
+					key  uuid { @key }
+					hash bytes {
+						@go wire omit
+						@py omit
+						@ts omit
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			form := table.MustGet("test.Session").Form.(resolution.StructForm)
+			hash := MustBeOk(form.Field("hash"))
+			Expect(omit.IsField(hash, "ts")).To(BeTrue())
+			Expect(omit.IsField(hash, "py")).To(BeTrue())
+			Expect(omit.IsField(hash, "go")).To(BeFalse())
+		})
+
+		It("Should accept an override of a field its parent omits", func(
+			ctx SpecContext,
+		) {
+			source := `
+				@go output "out"
+				@ts output "ts/out"
+				Parent struct {
+					value int32 { @ts omit }
+				}
+				Child struct extends Parent {
+					value?
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		DescribeTable(
+			"Should reject an illegal field-level omit",
+			func(ctx SpecContext, source, msg string) {
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(msg))
+			},
+			Entry("a field omitted in go", `
+				@go output "out"
+				Entry struct {
+					key   uuid { @key }
+					value int32 { @go omit }
+				}
+			`, "test.Entry.value omits go; use @go marshal omit or @go wire omit"),
+			Entry("a key field omitted in a language", `
+				@go output "out"
+				@ts output "ts/out"
+				Entry struct {
+					key uuid {
+						@key
+						@ts omit
+					}
+				}
+			`, "test.Entry.key is a key and cannot omit ts"),
+			Entry("a key field omitted from the wire", `
+				@go output "out"
+				Entry struct {
+					key uuid {
+						@key
+						@go wire omit
+					}
+				}
+			`, "test.Entry.key is a key and cannot carry @go wire omit"),
+			Entry("an unknown @go wire value", `
+				@go output "out"
+				Entry struct {
+					value int32 { @go wire keep }
+				}
+			`, "test.Entry.value has @go wire keep; the only value is omit"),
+			Entry("a field omitted in a language its type does not generate in", `
+				@go output "out"
+				Entry struct {
+					value int32 { @py omit }
+				}
+			`, "test.Entry.value omits py, but test.Entry does not generate in py"),
+			Entry("a key field omitted in pb", `
+				@go output "out"
+				@pb
+				Entry struct {
+					key uuid {
+						@key
+						@pb omit
+					}
+				}
+			`, "test.Entry.key is a key and cannot omit pb"),
+			Entry("a field omitted in pb without a pb message", `
+				@go output "out"
+				Entry struct {
+					value int32 { @pb omit }
+				}
+			`, "test.Entry.value omits pb, but test.Entry does not generate in pb"),
+			Entry("an override omitting a language its parent field keeps", `
+				@go output "out"
+				@ts output "ts/out"
+				Parent struct {
+					value int32
+				}
+				Child struct extends Parent {
+					value int32 { @ts omit }
+				}
+			`, "test.Child.value overrides an inherited field and cannot omit ts"),
+			Entry("a field omitted in every language its type generates in", `
+				@py output "py/out"
+				@ts output "ts/out"
+				Entry struct {
+					key   uuid { @key }
+					value int32 {
+						@py omit
+						@ts omit
+					}
+				}
+			`, "test.Entry.value is omitted in every language test.Entry generates in"),
+		)
 	})
 
 	Describe("Imports", func() {

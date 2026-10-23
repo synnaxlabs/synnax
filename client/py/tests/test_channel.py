@@ -756,6 +756,38 @@ class TestChannelRetrieveFilters:
         )
         assert client.channels.retrieve(data.key).alias is None
 
+    def test_include_status(
+        self,
+        client: sy.Synnax,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
+    ) -> None:
+        """Should attach the status of a channel that has one"""
+        virt = create_channels[2]
+        client.statuses.set(
+            sy.Status(
+                key=str(virt.ontology_id),
+                name=virt.name,
+                variant=sy.status.VARIANT_SUCCESS,
+                message="ok",
+            )
+        )
+        res = client.channels.retrieve(virt.key, include_status=True)
+        assert res.status is not None
+        assert res.status.message == "ok"
+        assert res.status.details == {}
+        assert client.channels.retrieve(virt.key).status is None
+
+    def test_include_status_none(
+        self,
+        client: sy.Synnax,
+        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
+    ) -> None:
+        """Should leave the status empty for a channel that has none"""
+        idx = create_channels[0]
+        res = client.channels.retrieve([idx.key], include_status=True)
+        assert len(res) == 1
+        assert res[0].status is None
+
 
 class TestChannelRetriever:
     """Tests methods internal to the channel retriever that are not publicly availble
