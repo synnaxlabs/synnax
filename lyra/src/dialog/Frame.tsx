@@ -13,6 +13,7 @@ import {
   type ReactElement,
   type RefCallback,
   useCallback,
+  useEffect,
   useId,
   useMemo,
   useRef,
@@ -58,6 +59,11 @@ export interface FrameProps extends Omit<
   maxHeight?: Component.Size | number;
   zIndex?: number;
   modalPosition?: ModalPosition;
+  /**
+   * Places the dialog against this element instead of the frame's own box, for a dialog
+   * that opens on an element it does not wrap. The frame then takes no space.
+   */
+  anchor?: HTMLElement | null;
 }
 
 interface State {
@@ -115,6 +121,22 @@ const [InternalContext, useInternalContext] = context.create<InternalContextValu
 export { useInternalContext };
 
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
+
+const FRAME_CLASS = CSS.BE("dialog", "frame");
+const OPEN_EVENT_NAME = "open-dialog";
+
+/**
+ * Opens the {@link Frame} with the given id, for code that does not render it, such as
+ * a command or a context menu.
+ *
+ * @throws {Error} if no frame has the id.
+ */
+export const open = (id: string): void => {
+  const frame = document.getElementById(id);
+  if (frame == null || !frame.classList.contains(FRAME_CLASS))
+    throw new Error(`no dialog frame has the id ${id}`);
+  frame.dispatchEvent(new Event(OPEN_EVENT_NAME));
+};
 
 /** The gap in pixels a dialog keeps from the window edges. */
 const WINDOW_MARGIN = 6;
@@ -202,6 +224,7 @@ export const Frame = ({
   visible: propsVisible,
   onVisibleChange: propsOnVisibleChange,
   modalPosition: propsModalPosition = "base",
+  anchor,
   ...rest
 }: FrameProps): ReactElement => {
   const [visible, setVisible] = state.usePassthrough({
@@ -232,9 +255,9 @@ export const Frame = ({
     useState<State>({ ...ZERO_STATE, modalPosition: propsModalPosition });
 
   const calculatePosition = useCallback(() => {
-    if (targetRef.current == null || dialogRef.current == null || !visibleRef.current)
-      return;
-    const target = box.construct(targetRef.current);
+    const targetEl = anchor ?? targetRef.current;
+    if (targetEl == null || dialogRef.current == null || !visibleRef.current) return;
+    const target = box.construct(targetEl);
     if (box.areaIsZero(target) && variant !== "modal") return close();
 
     // Layout size, not the painted box: the entrance animation scales the dialog.
@@ -316,13 +339,23 @@ export const Frame = ({
       style[CSS.variable("dialog-max-height")] = `${maxHeight}px`;
     if (visible) style.zIndex = zIndex;
     setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
-  }, [propsLocation, variant, close]);
+  }, [propsLocation, variant, close, anchor]);
 
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
 
   const resizeTargetRef = useResize(calculatePosition, { enabled: visible });
   const combinedTargetRef = useCombinedRefs(targetRef, resizeTargetRef);
+
+  const resizeAnchorRef = useResize(calculatePosition, { enabled: visible });
+  useEffect(() => resizeAnchorRef(anchor ?? null), [anchor, resizeAnchorRef]);
+
+  useEffect(() => {
+    const frame = targetRef.current;
+    if (frame == null) return;
+    frame.addEventListener(OPEN_EVENT_NAME, open);
+    return () => frame.removeEventListener(OPEN_EVENT_NAME, open);
+  }, [open]);
 
   useWindowResize(calculatePosition);
 
@@ -419,7 +452,8 @@ export const Frame = ({
           ref={combinedTargetRef}
           className={CSS.cls(
             className,
-            CSS.BE("dialog", "frame"),
+            FRAME_CLASS,
+            anchor != null && CSS.M("anchored"),
             CSS.visible(visible),
             CSS.M(variant),
             CSS.loc(targetCorner.x),
