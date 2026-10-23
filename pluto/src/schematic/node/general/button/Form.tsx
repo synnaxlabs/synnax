@@ -50,7 +50,7 @@ const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
         <Form.ControlChipField />
       </Base.Section>
       <Base.Section title="Actuation">
-        <Base.Field<BaseButton.Mode> path="mode" label="Mode" optional>
+        <Base.Field<BaseButton.Mode> path="mode" label="Mode">
           {({ value, onChange }) => (
             <BaseButton.SelectMode value={value} onChange={onChange} />
           )}

@@ -20,7 +20,6 @@ import (
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/security"
-	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -57,7 +56,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := mock.NewNode(ctx)
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 		Insecure: new(true),
-		KeySize:  secmock.SmallKeySize,
 	}))
 	svc := MustOpen(service.OpenLayer(ctx, service.LayerConfig{
 		Distribution: node.Layer,

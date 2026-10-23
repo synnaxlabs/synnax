@@ -10,7 +10,6 @@
 package security
 
 import (
-	"crypto"
 	"crypto/tls"
 	"crypto/x509"
 	"os"
@@ -23,7 +22,6 @@ import (
 type secureProvider struct {
 	loader   *cert.Loader
 	tls      *tls.Certificate
-	tokenKey crypto.PrivateKey
 	certPool *x509.CertPool
 	ProviderConfig
 }
@@ -44,15 +42,6 @@ func newSecureProvider(cfg ProviderConfig) (Provider, error) {
 	p.tls, err = l.LoadNodeTLS()
 	if err != nil {
 		return nil, err
-	}
-	if p.tokenKey = p.tls.PrivateKey; !cert.SignsJWT(p.tokenKey) {
-		if p.tokenKey, err = l.LoadTokenKey(); err != nil {
-			return nil, errors.Wrapf(
-				err,
-				"node certificate uses %T, which cannot sign authentication tokens",
-				p.tls.PrivateKey,
-			)
-		}
 	}
 	return p, nil
 }
@@ -164,8 +153,6 @@ func (p *secureProvider) baseTLSConfig(
 		NextProtos:           []string{"http/1.1", "h2"},
 	}
 }
-
-func (p *secureProvider) TokenPrivate() crypto.PrivateKey { return p.tokenKey }
 
 func (p *secureProvider) getNodeCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return p.tls, nil

@@ -111,12 +111,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
     <Base.Sections x>
       <Base.Section title="Label">
         <Base.TextField path="label.label" label="Label" padHelpText={false} />
-        <Base.Field<text.Level>
-          hideIfNull
-          path="label.level"
-          label="Size"
-          padHelpText={false}
-        >
+        <Base.Field<text.Level> path="label.level" label="Size" padHelpText={false}>
           {Form.SelectTextLevel}
         </Base.Field>
       </Base.Section>
@@ -141,7 +136,6 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
           path="dblClickNavDisabled"
           label="Click mode"
           padHelpText={false}
-          hideIfNull={false}
         >
           {ClickModeSelect}
         </Base.Field>

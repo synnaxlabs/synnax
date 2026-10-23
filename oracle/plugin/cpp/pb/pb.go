@@ -413,7 +413,7 @@ func (p *Plugin) processUnionForTranslation(
 	data *templateData,
 ) unionTranslatorData {
 	cppName := domain.GetName(u, "cpp")
-	pbNamespace := naming.PBNamespace(output.GetPBPath(u))
+	pbNamespace := naming.PBNamespace(output.GetPBPath(u), u.Namespace)
 	ut := unionTranslatorData{
 		CppName:   cppName,
 		SnakeName: casing.FieldSnake(cppName),
@@ -521,7 +521,7 @@ func (p *Plugin) processStructForTranslation(
 
 	pbName := naming.PBName(s)
 	pbOutputPath := output.GetPBPath(s)
-	pbNamespace := naming.PBNamespace(pbOutputPath)
+	pbNamespace := naming.PBNamespace(pbOutputPath, s.Namespace)
 
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
@@ -1060,7 +1060,7 @@ func (p *Plugin) generateEnumConversion(
 	}
 
 	pbOutputPath := enum.FindPBOutputPath(resolved, data.table)
-	pbNamespace := naming.PBNamespace(pbOutputPath)
+	pbNamespace := naming.PBNamespace(pbOutputPath, resolved.Namespace)
 
 	if form.IsIntEnum {
 		forward = fmt.Sprintf(
@@ -1456,7 +1456,10 @@ func (p *Plugin) elementConversion(
 	}
 	pbEnumType := fmt.Sprintf(
 		"%s::%s",
-		naming.PBNamespace(enum.FindPBOutputPath(resolved, data.table)),
+		naming.PBNamespace(
+			enum.FindPBOutputPath(resolved, data.table),
+			resolved.Namespace,
+		),
 		resolved.Name,
 	)
 	if form.IsIntEnum {
@@ -1705,7 +1708,7 @@ func (p *Plugin) processEnumForTranslation(
 	}
 
 	pbOutputPath := enum.FindPBOutputPath(e, data.table)
-	pbNamespace := naming.PBNamespace(pbOutputPath)
+	pbNamespace := naming.PBNamespace(pbOutputPath, e.Namespace)
 
 	values := make([]enumValueTranslatorData, 0, len(form.Values))
 	for _, v := range form.Values {
@@ -1746,7 +1749,7 @@ func (p *Plugin) processArrayWrapperForTranslation(
 	cppName := domain.GetName(dt, "cpp")
 	pbName := naming.PBName(dt)
 	pbOutputPath := output.GetPBPath(dt)
-	pbNamespace := naming.PBNamespace(pbOutputPath)
+	pbNamespace := naming.PBNamespace(pbOutputPath, dt.Namespace)
 
 	elemType := form.Base.TypeArgs[0]
 	elemCppType := p.typeRefToCppForTranslator(elemType, data)
