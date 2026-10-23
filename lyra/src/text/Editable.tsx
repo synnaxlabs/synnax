@@ -12,6 +12,7 @@ import "@/text/Editable.css";
 import {
   type KeyboardEvent,
   type ReactElement,
+  useCallback,
   useLayoutEffect,
   useRef,
   useState,
@@ -231,9 +232,8 @@ export const Editable = ({
     }
   });
 
-  // A layout effect, so asyncEdit cannot find the element before it listens.
-  useLayoutEffect(() => {
-    const el = ref.current;
+  // A ref callback, so each element Text renders listens before asyncEdit can find it.
+  const listenForEdits = useCallback((el: HTMLElement | null) => {
     if (el == null) return;
     const handleStartEditing = (e: Event): void => {
       injectedValueRef.current = (e as StartEditingEvent).detail?.initialValue ?? null;
@@ -243,7 +243,7 @@ export const Editable = ({
     return () => el.removeEventListener(START_EDITING_EVENT_NAME, handleStartEditing);
   }, []);
 
-  const combinedRef = useCombinedRefs(propsRef, ref);
+  const combinedRef = useCombinedRefs(propsRef, ref, listenForEdits);
 
   return (
     <Text

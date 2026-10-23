@@ -64,7 +64,8 @@ export const useInitializerRef = <T>(initializer: () => T): RefObject<T> => {
 
 /**
  * Combines multiple refs into one. The returned callback keeps one identity, so a ref
- * that changes after mount takes effect only when the element mounts again.
+ * that changes after mount takes effect only when the element mounts again. A callback
+ * ref may return a cleanup, which runs when the element detaches.
  *
  * @returns - A callback ref that will set all of the provided refs.
  */
@@ -73,12 +74,20 @@ export const useCombinedRefs = <T>(
 ): RefCallback<T> => {
   const refsRef = useSyncedRef(refs);
   return useCallback(
-    (el) =>
-      refsRef.current.forEach((r) => {
-        if (r == null) return;
-        if (typeof r === "function") r(el);
-        else r.current = el;
-      }),
+    (el) => {
+      const cleanups = refsRef.current.map((r) => {
+        if (r == null) return null;
+        if (typeof r !== "function") {
+          r.current = el;
+          return () => {
+            r.current = null;
+          };
+        }
+        const cleanup = r(el);
+        return typeof cleanup === "function" ? cleanup : () => r(null);
+      });
+      return () => cleanups.forEach((cleanup) => cleanup?.());
+    },
     [refsRef],
   );
 };
