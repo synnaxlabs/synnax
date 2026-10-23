@@ -8,9 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type NumericTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";
+
+// A float64 holds the nanoseconds of this instant exactly.
+const EXACT = new Date(Date.UTC(2026, 0, 1));
 
 describe("getStage", () => {
   it("returns 'to_do' if now is before start", () => {
@@ -29,6 +32,20 @@ describe("getStage", () => {
     const now = TimeStamp.now();
     const tr = { start: now.sub(TimeSpan.HOUR), end: now.add(TimeSpan.HOUR) };
     expect(Ranger.getStage(tr)).toBe("in_progress");
+  });
+
+  it("returns 'in_progress' if now is at start", () => {
+    const now = TimeStamp.now();
+    expect(Ranger.getStage({ start: now, end: now.add(TimeSpan.HOUR) }, now)).toBe(
+      "in_progress",
+    );
+  });
+
+  it("returns 'completed' if now is at end", () => {
+    const now = TimeStamp.now();
+    expect(Ranger.getStage({ start: now.sub(TimeSpan.HOUR), end: now }, now)).toBe(
+      "completed",
+    );
   });
 });
 
@@ -103,6 +120,25 @@ describe("moveToStage", () => {
     });
     it("changes nothing when changing to 'completed'", () => {
       expect(Ranger.moveToStage(original, "completed")).toEqual(original);
+    });
+  });
+  describe("when now is at a bound", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ now: EXACT });
+      now = TimeStamp.now().sub(TimeSpan.MILLISECOND);
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+    it("moves a start at now to the end when changing to 'to_do'", () => {
+      original = { start: now.nanoseconds, end: now.add(TimeSpan.HOUR).nanoseconds };
+      const modified = Ranger.moveToStage(original, "to_do");
+      expect(Ranger.getStage(modified)).toBe("to_do");
+    });
+    it("clears an end at now when changing to 'in_progress'", () => {
+      original = { start: now.sub(TimeSpan.HOUR).nanoseconds, end: now.nanoseconds };
+      const modified = Ranger.moveToStage(original, "in_progress");
+      expect(modified.end).toEqual(TimeStamp.MAX.nanoseconds);
     });
   });
 });

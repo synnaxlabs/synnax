@@ -139,11 +139,12 @@ type IteratorConfig struct {
 	// the upper bound is exclusive.
 	Bounds telem.TimeRange
 	// AutoChunkSize sets the default chunk size to iterator over when sending a Next()
-	// or Prev() request it IteratorAutoSpan as the span.
+	// or Prev() request it IteratorAutoSpan as the span. It must not be negative.
 	AutoChunkSize int64
-	// DownsampleFactor keeps every n-th sample of each series the iterator reads. The
-	// read is strided at the source, so the discarded samples are never read into
-	// memory. Values below 2 keep every sample.
+	// DownsampleFactor keeps the samples whose alignment is a multiple of n, so every
+	// channel that shares an index keeps the same samples. The read is strided at the
+	// source, so the discarded samples are never read into memory. Values below 2 keep
+	// every sample.
 	DownsampleFactor uint32
 }
 

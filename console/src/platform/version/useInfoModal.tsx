@@ -19,7 +19,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Progress } from "@synnaxlabs/lyra/progress";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Size } from "@synnaxlabs/x";
+import { Size, sleep, TimeSpan } from "@synnaxlabs/x";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
@@ -42,7 +42,7 @@ const useUpdateCheck = (): UpdateCheck => {
     try {
       let update: Update | null = null;
       if (Session.Runtime.ENGINE === "tauri" && !(await isDevBuild())) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await sleep.sleep(TimeSpan.milliseconds(500));
         update = await check();
       }
       if (!signal.aborted) setResult({ variant: "success", update });

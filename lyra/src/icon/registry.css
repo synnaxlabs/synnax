@@ -76,7 +76,13 @@
 }
 
 .pluto-icon--logo-opcua {
-    transform: translateY(1px) scale(1.25);
+    --pluto-icon-aspect: 1.25;
+
+    transform: translateY(1px);
+}
+
+.pluto-icon--logo-ethercat {
+    --pluto-icon-aspect: 1.25;
 }
 
 .pluto-icon--csv {
@@ -122,7 +128,7 @@
 }
 
 .pluto-icon--logo-http {
-    transform: scale(1.5);
+    --pluto-icon-aspect: 1.375;
 }
 
 .pluto-icon--logo-pagerduty {

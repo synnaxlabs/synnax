@@ -39,6 +39,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
       <Base.Section title="State">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
+            allowNone
             value={value.channel ?? 0}
             onChange={handleSourceChange}
           />
