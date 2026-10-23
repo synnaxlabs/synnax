@@ -40,6 +40,10 @@
         );
     }
 
+    &.pluto--custom {
+        --pluto-swatch-fill: conic-gradient(#f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+    }
+
     /* A control: a button with the color as a smaller chip inside. */
     &.pluto-color-swatch--chip {
         position: relative;
