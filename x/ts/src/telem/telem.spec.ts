@@ -1820,6 +1820,52 @@ describe("TimeRange", () => {
       const one = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
       expect(tr.overlapsWith(one)).toBe(true);
     });
+    it("should overlap a range that contains it, in either direction", () => {
+      const outer = new TimeRange(TimeStamp.ZERO, TimeStamp.seconds(10));
+      const inner = new TimeRange(TimeStamp.seconds(2), TimeStamp.seconds(3));
+      expect(outer.overlapsWith(inner)).toBe(true);
+      expect(inner.overlapsWith(outer)).toBe(true);
+      expect(outer.overlapsWith(inner, TimeSpan.seconds(1))).toBe(true);
+      expect(inner.overlapsWith(outer, TimeSpan.seconds(2))).toBe(false);
+    });
+    it("should not overlap an equal range sharing less than delta", () => {
+      const tr = new TimeRange(TimeStamp.ZERO, TimeStamp.seconds(10));
+      const same = new TimeRange(TimeStamp.ZERO, TimeStamp.seconds(10));
+      expect(tr.overlapsWith(same, TimeSpan.seconds(10))).toBe(true);
+      expect(tr.overlapsWith(same, TimeSpan.seconds(11))).toBe(false);
+    });
+    it("should be symmetric when one range is inverted", () => {
+      const tr = new TimeRange(TimeStamp.ZERO, TimeStamp.seconds(10));
+      const swapped = tr.swap();
+      const delta = TimeSpan.seconds(20);
+      expect(tr.overlapsWith(swapped, delta)).toBe(false);
+      expect(swapped.overlapsWith(tr, delta)).toBe(false);
+      expect(tr.overlapsWith(swapped)).toBe(true);
+      expect(swapped.overlapsWith(tr)).toBe(true);
+    });
+    it("should be symmetric and match shared time for any two ranges", () => {
+      const stamps = [0, 1, 5, 10, 15, 20].map((s) => TimeStamp.seconds(s));
+      const ranges = stamps.flatMap((start) =>
+        stamps.map((end) => new TimeRange(start, end)),
+      );
+      const deltas = [0, 1, 5, 10, 25].map((s) => TimeSpan.seconds(s));
+      for (const a of ranges)
+        for (const b of ranges) {
+          const r1 = a.makeValid();
+          const r2 = b.makeValid();
+          const shared = TimeStamp.min(r1.end, r2.end).sub(
+            TimeStamp.max(r1.start, r2.start),
+          );
+          for (const delta of deltas) {
+            const overlaps = a.overlapsWith(b, delta);
+            expect(overlaps).toBe(b.overlapsWith(a, delta));
+            if (overlaps)
+              expect(shared.valueOf()).toBeGreaterThanOrEqual(delta.valueOf());
+          }
+          if (!r1.span.isZero && !r2.span.isZero)
+            expect(a.overlapsWith(b)).toBe(shared.valueOf() > 0n);
+        }
+    });
   });
 
   describe("boundBy", () => {

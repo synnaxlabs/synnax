@@ -67,7 +67,8 @@ The `-tags=console` build tag activates `core/pkg/console/enabled.go`
 
 JSON sequence files in `/integration/tests/`: `console_tests.json`, `driver_tests.json`,
 `arc_tests.json`, `client_tests.json`. Each defines sequences of cases running
-sequentially or async with configurable pool sizes.
+sequentially or async with configurable pool sizes. A case runs for at most its
+`timeout` seconds (default 300), then the conductor marks it TIMEOUT and moves on.
 
 Console test helpers in `/integration/console/`: `layout.py` (navigation, toolbars,
 keyboard), `context_menu.py`, `ranges.py` / `tasks.py` / `statuses.py` (resource

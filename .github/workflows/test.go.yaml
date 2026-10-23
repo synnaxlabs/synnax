@@ -273,6 +273,28 @@ jobs:
           --keep-going --trace --timeout=2h --github-output ${{ inputs.ginkgo_flags }}
         working-directory: ${{ inputs.directory }}
 
+      # Each save holds every entry it restored, so stale builds pile up until their
+      # extraction fills the disk. Go refreshes an entry's mtime when it uses it, so
+      # deleting the oldest files first keeps the ones this run read. One compile of
+      # the Core tests reads or writes about 16 GB.
+      - name: Trim the Go build cache
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        shell: bash
+        env:
+          BUDGET: 20000000000
+          BUILD: ${{ steps.key.outputs.build }}
+        run: |
+          cd "$BUILD"
+          du -sh .
+          if [ "$RUNNER_OS" = macOS ]; then
+            find . -type f -exec stat -f '%m %z %N' {} +
+          else
+            find . -type f -printf '%T@ %s %p\n'
+          fi |
+            sort -rn | awk -v budget="$BUDGET" '(total += $2) > budget { print $3 }' |
+            xargs -r rm -f
+          du -sh .
+
       - name: Save the Go caches
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@v6
