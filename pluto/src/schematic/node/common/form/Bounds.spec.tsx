@@ -30,7 +30,7 @@ interface HostProps {
 }
 
 const Host = ({ initial, ref }: HostProps): ReactElement => {
-  const methods = Base.use({ values: { bounds: initial }, schema });
+  const methods = Base.useState({ values: { bounds: initial }, schema });
   useImperativeHandle(ref, () => ({
     get: () => methods.get<bounds.Bounds>("bounds").value,
   }));

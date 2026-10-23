@@ -34,9 +34,9 @@ export const Symbol = ({
     stalenessColor,
   },
 }: NodeProps<schematic.StateIndicatorNodeConfig>): ReactElement => {
-  const theme = Theming.use();
+  const theme = Theming.useTheme();
   const source = useMemo(() => Telem.numberSource(channel), [channel]);
-  const { key: optKey, stale } = BaseStateIndicator.use({
+  const { key: optKey, stale } = BaseStateIndicator.useAether({
     aetherKey: nodeKey,
     source,
     options,

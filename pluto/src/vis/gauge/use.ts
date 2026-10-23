@@ -22,7 +22,7 @@ export interface UseProps extends Omit<State, "color">, Partial<Pick<State, "col
   aetherKey: string;
 }
 
-export const use = ({
+export const useAether = ({
   aetherKey,
   box,
   telem,
@@ -53,7 +53,7 @@ export const use = ({
     stalenessColor,
     stalenessTimeout,
   });
-  const [, , setState] = Aether.use({
+  const [, , setState] = Aether.useBidirectional({
     aetherKey,
     type: gauge.Gauge.TYPE,
     schema: gauge.Gauge.z,

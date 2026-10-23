@@ -66,7 +66,7 @@ const FocusItem = (): ReactElement => {
 const useOrigin = (): (() => TabOrigin | undefined) => {
   const key = Panel.useKey();
   const tabKey = Panel.useTabKey();
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   return useCallback(() => {
     const cached = client?.panels.getCached(key);
     if (!query.isLive(cached)) return undefined;

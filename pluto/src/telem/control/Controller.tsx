@@ -51,12 +51,13 @@ export const Controller = ({
   ...props
 }: ControllerProps): ReactElement => {
   const memoProps = useMemoDeepEqual({ ...props, disabled });
-  const [{ path }, { status, needsControlOf }, setState, methods] = Aether.use({
-    type: control.Controller.TYPE,
-    schema: control.controllerStateZ,
-    initialState: memoProps,
-    methods: control.controllerMethodsZ,
-  });
+  const [{ path }, { status, needsControlOf }, setState, methods] =
+    Aether.useBidirectional({
+      type: control.Controller.TYPE,
+      schema: control.controllerStateZ,
+      initialState: memoProps,
+      methods: control.controllerMethodsZ,
+    });
   useEffect(() => {
     if (status != null) onStatusChange?.(status);
   }, [status, onStatusChange]);

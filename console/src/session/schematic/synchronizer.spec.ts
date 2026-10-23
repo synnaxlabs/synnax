@@ -42,7 +42,7 @@ describe("Schematic.SYNCHRONIZERS", () => {
   it("prunes session state when its schematic is deleted while connected", async () => {
     const created = await createSchematic();
     const { store } = await renderHookWithConsole(
-      () => Session.Synchronizer.use(Session.Schematic.SYNCHRONIZERS),
+      () => Session.Synchronizer.useMount(Session.Schematic.SYNCHRONIZERS),
       { client, preloadedState: preloadWith(created.key) },
     );
     expect(documentIn(store.getState().schematic, created.key)).toBeDefined();
@@ -56,7 +56,7 @@ describe("Schematic.SYNCHRONIZERS", () => {
     const survivor = await createSchematic();
     const ghost = uuid.create();
     const { store } = await renderHookWithConsole(
-      () => Session.Synchronizer.use(Session.Schematic.SYNCHRONIZERS),
+      () => Session.Synchronizer.useMount(Session.Schematic.SYNCHRONIZERS),
       { client, preloadedState: preloadWith(survivor.key, ghost) },
     );
     await waitFor(() => {

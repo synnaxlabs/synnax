@@ -70,7 +70,7 @@ export interface DetailsProps {
 }
 
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
-  const range = Ranger.use({ key: rangeKey });
+  const range = Ranger.useRetrieve({ key: rangeKey });
   const now = TimeStamp.now().nanoseconds;
   // The form saves on every edit, so a subject who cannot write the range gets it
   // read-only rather than a field that reverts once the save is refused.

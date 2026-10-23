@@ -139,7 +139,7 @@ describe("queries", () => {
     });
   });
 
-  describe("use", () => {
+  describe("useRetrieve", () => {
     it("should retrieve a single policy by key", async () => {
       const testPolicy = await client.access.policies.create({
         name: "singlePolicy",
@@ -148,7 +148,7 @@ describe("queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Policy.use({ key: testPolicy.key }),
+        () => Policy.useRetrieve({ key: testPolicy.key }),
         {
           wrapper,
         },
@@ -168,7 +168,7 @@ describe("queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Policy.use({ key: policy.key }),
+        () => Policy.useRetrieve({ key: policy.key }),
         {
           wrapper,
         },
@@ -190,7 +190,7 @@ describe("queries", () => {
 
       const { result } = await renderHookSuspended(
         () => ({
-          retrieve: Policy.use({ key: policy.key }),
+          retrieve: Policy.useRetrieve({ key: policy.key }),
           rename: Policy.useRename(),
         }),
         { wrapper },

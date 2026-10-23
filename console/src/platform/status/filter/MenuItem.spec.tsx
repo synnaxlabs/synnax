@@ -22,7 +22,7 @@ const schema = z.object({
 });
 
 const Fixture = (): ReactElement => {
-  const methods = Form.use({ schema, values: { query: { variants: [] } } });
+  const methods = Form.useState({ schema, values: { query: { variants: [] } } });
   return (
     <Form.Form<typeof schema> {...methods}>
       <Status.Filter.MenuItem />

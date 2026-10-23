@@ -137,7 +137,7 @@ const D = box.construct(0, 0, 1, 1, location.TOP_LEFT);
 
 const DEFAULT_THRESHOLD = { width: 30, height: 50 };
 
-export const use = ({
+export const useMask = ({
   onChange,
   triggers: initialTriggers,
   initial = D,
@@ -347,7 +347,7 @@ export const use = ({
     [purgedTriggers, defaultMode, onChange],
   );
 
-  Triggers.use({
+  Triggers.useListen({
     triggers: reducedPurgedTriggers,
     callback: handleKeyTrigger,
     region: canvasRef,

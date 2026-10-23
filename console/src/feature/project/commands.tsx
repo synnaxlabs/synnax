@@ -34,7 +34,7 @@ const useImportModal = Import.createModal({
   header: "Project.Import",
   resourceName: "project",
   useOnImport: () => {
-    const client = Synnax.use();
+    const client = Synnax.useClient();
     const store = Session.useStore();
     return useCallback(
       async (bundle: UploadBody, fileName: string) => {
@@ -61,9 +61,9 @@ const ExportProjectCommand = Command.create({
   name: "Export current project",
   icon: <PProject.ExportIcon />,
   useOnSelect: () => {
-    const handleExport = Export.use();
+    const handleExport = Export.useAction();
     const getSelected = Session.Project.useGetSelected();
-    const client = Synnax.use();
+    const client = Synnax.useClient();
     const handleError = Status.useErrorHandler();
     return useCallback(() => {
       let name = "project";

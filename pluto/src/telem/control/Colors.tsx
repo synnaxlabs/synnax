@@ -15,7 +15,7 @@ import { control } from "@/telem/control/aether";
 export interface ColorsProps extends PropsWithChildren {}
 
 export const Colors = ({ children }: ColorsProps): ReactElement => {
-  const [{ path }] = Aether.use({
+  const [{ path }] = Aether.useBidirectional({
     type: control.Colors.TYPE,
     schema: control.colorsStateZ,
     initialState: {},

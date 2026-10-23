@@ -26,7 +26,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   const getActiveProject = Session.Project.useGetSelected();
   const getSelectedRange = Session.Range.useGetSelectedKey();
   const openTab = Panel.useOpenTab();
-  const { capture } = Analytics.use();
+  const { capture } = Analytics.useSink();
   const { update } = LinePlot.useCreate({
     afterOptimistic: ({ data: { key } }) =>
       openTab({ variant: "resource", resource: lineplot.ontologyID(key), key: tabKey }),

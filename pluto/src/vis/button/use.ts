@@ -25,7 +25,7 @@ export interface UseReturn {
   onMouseUp: () => void;
 }
 
-export const use = ({ aetherKey, sink, mode }: UseProps): UseReturn => {
+export const useAether = ({ aetherKey, sink, mode }: UseProps): UseReturn => {
   const {
     methods: { onMouseDown: mouseDown, onMouseUp: mouseUp },
   } = Aether.useUnidirectional({

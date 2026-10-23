@@ -114,7 +114,7 @@ export const ActivateDialog = ({
 );
 
 const Content = ({ licenseKey }: { licenseKey: string }): ReactElement => {
-  const methods = Form.use({ values: ZERO_ACTIVATE, schema: activateSchema });
+  const methods = Form.useState({ values: ZERO_ACTIVATE, schema: activateSchema });
   return (
     <Modal.Form
       methods={methods}

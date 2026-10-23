@@ -154,7 +154,7 @@ const useCachedSnapshot = <Query extends query.Params, Data extends query.Data>(
 /// Concurrent reads of the same query share one fetch via the domain client's
 /// query cache. Client-side listeners push new values into the cache, which
 /// notifies subscribed consumers without re-suspending.
-export interface Use<Query extends query.Params, Data extends state.State> {
+export interface UseRetrieve<Query extends query.Params, Data extends state.State> {
   (query: Query): Data;
 }
 
@@ -255,7 +255,7 @@ export interface CreateRetrieveReturn<
   Query extends query.Params,
   Data extends state.State,
 > {
-  use: Use<Query, Data>;
+  useRetrieve: UseRetrieve<Query, Data>;
   useEnsure: UseEnsure<Query>;
   useResult: UseResult<Query, Data>;
   useInvalidate: UseInvalidate<Query>;
@@ -438,7 +438,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   query: Query,
 ): Data => {
   const memoQuery = useMemoQuery(query, normalizeQuery);
-  const client = Synnax.use();
+  const client = Synnax.useClient();
 
   // Every hook runs before the disconnected throw. Gating them on the client
   // would change this hook's count as the connection comes and goes, which
@@ -521,7 +521,7 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
   // A retrieve whose answer never reaches the domain cache is served from the local
   // settled entry, which no subscription announces, so settling re-renders by hand.
   const [, bump] = useReducer((x: number) => x + 1, 0);
-  const client = Synnax.use();
+  const client = Synnax.useClient();
 
   const cached = useCachedSnapshot<Query, Data>(memoQuery, client, {
     onChange,
@@ -597,7 +597,7 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
   query: Query,
 ): void => {
   const memoQuery = useMemoQuery(query, normalizeQuery);
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const pending = usePendingFetch<Query, Data>(memoQuery);
 
   if (client == null)
@@ -637,7 +637,7 @@ const useInvalidate = <Query extends query.Params, Data extends query.Data>(
   locals: WeakMap<Client, LocalCache<Data>>,
   normalizeQuery?: <Q extends Query>(query: Q) => Q,
 ): ((q: Query) => void) => {
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   return useCallback(
     (q: Query) => {
       if (client == null) return;
@@ -653,7 +653,7 @@ const useTombstone = <Query extends query.Params, Data extends query.Data>(
   query: Query,
 ): Tombstone | null => {
   const memoQuery = useMemoQuery(query, normalizeQuery);
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const cached = useCachedSnapshot<Query, Data>(memoQuery, client, {
     onChange,
     getCached,
@@ -684,7 +684,7 @@ const createSelector = <
 ): UseSelect<ExtendedQuery, Selected> => {
   const useSelect = (q: ExtendedQuery): Selected => {
     const memoQuery = useMemoQuery<ExtendedQuery>(q, normalizeQuery);
-    const client = Synnax.use();
+    const client = Synnax.useClient();
     const held = useRef<{ query: Query; value: Data } | null>(null);
     const computed = useRef<{ raw: Data; query: Query; out: Selected } | null>(null);
     const subscribeToCache = useCallback(
@@ -782,7 +782,7 @@ const createResultSelector = <
   const useResultSelect = (q: ExtendedQuery | null): Result<Selected> => {
     const memoQuery = useMemoQuery<ExtendedQuery>(q, normalizeQuery);
     const [, bump] = useReducer((x: number) => x + 1, 0);
-    const client = Synnax.use();
+    const client = Synnax.useClient();
     const held = useRef<{ query: Query; value: Data } | null>(null);
     const subscribeToCache = useCallback(
       (notify: () => void) => {
@@ -881,7 +881,7 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
   const context: Context<Query, Data> = { ...createParams, locals: new WeakMap() };
   const { locals } = context;
   return {
-    use: (query: Query) => useSuspended(context, query),
+    useRetrieve: (query: Query) => useSuspended(context, query),
     useEnsure: (query: Query) => useEnsure(context, query),
     useResult: (query: Query | null) => useResultValue(context, query),
     useInvalidate: () =>

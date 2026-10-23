@@ -76,7 +76,7 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
   });
 };
 
-export const { use, useEnsure, useResult, useTombstone, createSelector } =
+export const { useRetrieve, useEnsure, useResult, useTombstone, createSelector } =
   createRetrieve();
 
 export interface KeyParams {

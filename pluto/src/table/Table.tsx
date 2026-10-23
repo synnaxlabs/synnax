@@ -284,7 +284,7 @@ export const Table = ({
 
   // Erase stays bound to the table's own region so Delete pressed elsewhere in the tab
   // cannot wipe cells. Undo and redo are tab-wide, matching the other visualizations.
-  Triggers.use({
+  Triggers.useListen({
     triggers: ERASE_TRIGGERS,
     region: tableElRef,
     enabled: enableTriggers,

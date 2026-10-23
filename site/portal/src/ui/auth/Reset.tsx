@@ -38,8 +38,8 @@ export interface ResetProps {
 export const Reset = ({ target }: ResetProps): ReactElement => {
   const clerk = useClerk();
   const [step, setStep] = useState<Step>("email");
-  const emailMethods = Form.use({ values: { email: "" }, schema: emailSchema });
-  const resetMethods = Form.use({
+  const emailMethods = Form.useState({ values: { email: "" }, schema: emailSchema });
+  const resetMethods = Form.useState({
     values: { code: "", password: "" },
     schema: resetSchema,
   });

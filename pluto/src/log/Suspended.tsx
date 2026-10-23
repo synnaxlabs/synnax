@@ -13,7 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { useEnsure } from "@/log/queries";
 import { Scope } from "@/log/scope";
 
-export const useKey = Scope.use;
+export const useKey = Scope.useRequired;
 
 export interface SuspendedProps extends PropsWithChildren {
   logKey: log.Key;

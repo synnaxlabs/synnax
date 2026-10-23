@@ -31,16 +31,16 @@ interface Mounted<S, A extends Action> extends Callbacks<S, A> {
  * false until the first pass finishes, reset on client change and on the epoch
  * returning to 0 (Core replacement).
  */
-export const use = <S, A extends Action>(
+export const useMount = <S, A extends Action>(
   synchronizers: Synchronizers<S, A>,
 ): boolean => {
   const store = useStore<S, A>();
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const handleError = Status.useErrorHandler();
   const [verified, setVerified] = useState(false);
-  const entries: Mounted<S, A>[] = synchronizers.map(({ name, use }) => ({
+  const entries: Mounted<S, A>[] = synchronizers.map(({ name, useCallbacks }) => ({
     name,
-    ...use(),
+    ...useCallbacks(),
   }));
   // Epoch-triggered reconciles read the ref so they always see the latest
   // hook closures.

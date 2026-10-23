@@ -31,4 +31,4 @@ export const Provider = ({ sink, children }: ProviderProps): ReactElement => (
  * Returns the analytics sink. It discards everything until a {@link Provider} supplies
  * one, which is how the Console build carries no analytics at all.
  */
-export const use = (): Sink => useContext(Context);
+export const useSink = (): Sink => useContext(Context);

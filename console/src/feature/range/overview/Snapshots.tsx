@@ -29,7 +29,7 @@ const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const entry = List.useItem<string, ontology.Resource>(itemKey);
   const services = Range.useSnapshotServices();
   const openTab = Panel.useOpenTab();
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const handleError = Status.useErrorHandler();
   const promptConfirm = Modals.useConfirmDelete({ type: "Snapshot" });
   if (entry == null) return null;

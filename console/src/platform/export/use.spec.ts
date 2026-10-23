@@ -32,7 +32,7 @@ afterEach(() => {
 describe("Export.use", () => {
   it("surfaces an error status and saves nothing when disconnected", async () => {
     const { result } = await renderHookWithConsole(() => ({
-      run: Export.use(),
+      run: Export.useAction(),
       notifications: Status.useNotifications(),
     }));
     const stream = vi.fn();

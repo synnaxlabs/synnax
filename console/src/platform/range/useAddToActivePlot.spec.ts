@@ -69,7 +69,7 @@ const renderAddToActivePlot = async (wrapper: FC<PropsWithChildren>, key: string
   const { result } = await renderHookSuspended(
     () => ({
       add: Range.useAddToActivePlot(),
-      panel: PPanel.use({ key }),
+      panel: PPanel.useRetrieve({ key }),
     }),
     { wrapper },
   );

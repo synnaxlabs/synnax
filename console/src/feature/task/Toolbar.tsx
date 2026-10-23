@@ -63,7 +63,7 @@ const filter = (task: task.Task) =>
   !task.internal && !task.snapshot && task.type !== "arc";
 
 const Content = () => {
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const [selected, setSelected] = useState<task.Key[]>([]);
   const addStatus = Status.useAdder();
   const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
@@ -92,7 +92,7 @@ const Content = () => {
     afterFailure: ({ status }) => addStatus(status),
   });
 
-  const { capture } = Analytics.use();
+  const { capture } = Analytics.useSink();
   const { update: runCommand } = Task.useCommand({
     afterSuccess: useCallback(
       ({ data }: Flux.AfterSuccessParams<Task.CommandParams>) =>

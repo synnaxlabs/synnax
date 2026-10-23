@@ -71,7 +71,7 @@ describe("StateOverrideForm", () => {
   const renderForm = (specKey: string) => {
     let form!: Form.UseReturn<typeof formSchema>;
     const Container = (): ReactElement => {
-      form = Form.use<typeof formSchema>({
+      form = Form.useState<typeof formSchema>({
         values: { specKey, stateOverrides: [] },
         schema: formSchema,
       });

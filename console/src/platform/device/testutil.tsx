@@ -118,7 +118,7 @@ const DeviceFormFixture = ({
   selectableKey,
   children,
 }: DeviceFormFixtureProps): ReactElement => {
-  const methods = Form.use({
+  const methods = Form.useState({
     schema: deviceFormSchema,
     values: { config: { device: deviceKey } },
   });

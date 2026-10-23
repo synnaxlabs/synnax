@@ -24,7 +24,7 @@ const CONFIG_Z = schematic.offPageReferenceNodeConfigZ;
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
-  const methods = Form.use<typeof CONFIG_Z>({
+  const methods = Form.useState<typeof CONFIG_Z>({
     values: Node.createConfig({ variant: "off_page_reference" }),
     schema: CONFIG_Z,
   });
@@ -96,7 +96,7 @@ describe("OffPageReferenceForm", () => {
     const initialColor = "#000000";
     let methods: Form.UseReturn<typeof CONFIG_Z> | undefined;
     const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
-      methods = Form.use<typeof CONFIG_Z>({
+      methods = Form.useState<typeof CONFIG_Z>({
         values: CONFIG_Z.parse({
           variant: "off_page_reference",
           label: { label: "Test Label" },

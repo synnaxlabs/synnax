@@ -41,7 +41,7 @@ export const Symbol = ({
     () => BaseScale.source({ channel, rollingAverage }),
     [channel, rollingAverage],
   );
-  VisScale.use({
+  VisScale.useAether({
     ...vis,
     telem,
     aetherKey: nodeKey,

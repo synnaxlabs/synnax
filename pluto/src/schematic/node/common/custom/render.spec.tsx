@@ -1372,7 +1372,7 @@ describe("custom symbol editor preview", () => {
   it("should recolor a region when its color is edited through the form", () => {
     let form!: Form.ContextValue<any>;
     const Harness = (): ReactElement => {
-      form = Form.use<any>({ values: editorInitialValues() });
+      form = Form.useState<any>({ values: editorInitialValues() });
       return (
         <Form.Form {...form}>
           <PreviewLike activeState="base" />

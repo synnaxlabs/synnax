@@ -51,7 +51,7 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
 
 export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalParams>(
   ({ timeRange, channels, name, channelNames, icon, close }) => {
-    const form = Form.use<typeof formSchema>({
+    const form = Form.useState<typeof formSchema>({
       schema: formSchema,
       values: {
         channels,
@@ -151,7 +151,7 @@ interface DownloadButtonProps {
 
 const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
   const handleError = Status.useErrorHandler();
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const download = Runtime.useDownload();
   const { get } = Form.useContext();
   const handleClick = () => {

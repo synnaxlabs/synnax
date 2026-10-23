@@ -378,7 +378,7 @@ export const Frame = ({
   );
 
   useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
-  Triggers.use({
+  Triggers.useListen({
     triggers: ESCAPE_TRIGGERS,
     callback: handleEscape,
     loose: true,

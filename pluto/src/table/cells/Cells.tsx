@@ -115,7 +115,7 @@ export const Value = ({
     () => BaseValue.backgroundTelem(t, redline, fillColor),
     [t, redline, fillColor],
   );
-  BaseValue.use({
+  BaseValue.useAether({
     aetherKey: cellKey,
     box: b,
     telem: t,

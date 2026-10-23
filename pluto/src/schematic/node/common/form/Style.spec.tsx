@@ -46,7 +46,7 @@ interface HostProps {
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
 const Host = ({ values, ref }: HostProps): ReactElement => {
-  const methods = Base.use({ values, schema });
+  const methods = Base.useState({ values, schema });
   useImperativeHandle(ref, () => ({
     get: () => methods.get<color.Crude>("strokeColor", { optional: true })?.value,
   }));

@@ -427,7 +427,7 @@ const GroupListContextMenu = ({
   const item = List.useItem<group.Key, group.Group>(firstKey);
   const canRename = Access.useUpdateGranted(group.ontologyID(firstKey));
   const canDelete = Access.useDeleteGranted(group.ontologyID(firstKey));
-  const exportGroup = Export.use();
+  const exportGroup = Export.useAction();
   const deleteSymbolGroup = Symbol.useDeleteGroup();
 
   if (!isRemoteGroup) return null;

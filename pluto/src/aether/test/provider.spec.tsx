@@ -54,7 +54,7 @@ describe("createProvider", () => {
     });
 
     const TestComponent: FC = () => {
-      const [, state] = Aether.use({
+      const [, state] = Aether.useBidirectional({
         type: TestLeaf.TYPE,
         aetherKey: "test-key",
         schema: testStateZ,
@@ -90,7 +90,7 @@ describe("createProvider", () => {
 
     const { result } = renderHook(
       () =>
-        Aether.use({
+        Aether.useBidirectional({
           type: TestLeaf.TYPE,
           aetherKey: "hook-test",
           schema: testStateZ,

@@ -78,8 +78,8 @@ interface TabProps extends Pick<MosaicProps, "tabName"> {
 
 const Tab = ({ tabKey, tabName, onClose, canEdit }: TabProps): ReactElement => {
   const { startDrag, onDragEnd } = Base.useDragTab();
-  const key = Scope.use();
-  const client = Synnax.use();
+  const key = Scope.useRequired();
+  const client = Synnax.useClient();
   const handleDragStart = useCallback<DragEventHandler<HTMLDivElement>>(
     (e) => {
       const cached = client?.panels.getCached(key);
@@ -281,7 +281,7 @@ export interface CloseTabMenuItemProps {
 export const CloseTabMenuItem = ({
   triggerIndicator = false,
 }: CloseTabMenuItemProps = {}): ReactElement | null => {
-  const tabKey = TabScope.use();
+  const tabKey = TabScope.useRequired();
   const dispatch = useSingleDispatch();
   const canEdit = useCanEdit({});
   const handleClose = useCallback(
@@ -305,7 +305,7 @@ export const CloseTabMenuItem = ({
  * Hidden when the tab cannot be split, or from a viewer who cannot write the panel.
  * Must render inside the tab context menu passed to {@link Mosaic}. */
 export const SplitTabMenuItems = (): ReactElement | null => {
-  const tabKey = TabScope.use();
+  const tabKey = TabScope.useRequired();
   const dispatch = useSingleDispatch();
   const root = useRoot({});
   const canEdit = useCanEdit({});
@@ -379,8 +379,8 @@ export const Mosaic = ({
   ...rest
 }: MosaicProps): ReactElement | null => {
   const dispatch = useSingleDispatch();
-  const key = Scope.use();
-  const client = Synnax.use();
+  const key = Scope.useRequired();
+  const client = Synnax.useClient();
   const canEdit = useCanEdit({});
 
   const moveToPanel = useMoveTabToPanel();

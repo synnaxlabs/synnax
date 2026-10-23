@@ -161,7 +161,7 @@ const useObservable = <
     afterSuccess,
     afterFailure,
   } = params;
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const addStatus = Status.useAdder();
   const runUpdate = useCallback(
     async (data: Input, opts: query.FetchOptions = {}): Promise<boolean> => {

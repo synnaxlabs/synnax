@@ -36,7 +36,7 @@ export const useLink = (deps: LinkDeps = Link.DEFAULT_DEPS): void => {
   const handleError = Status.useErrorHandler();
   const dispatch = Session.useDispatch();
   const store = Session.useStore();
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const api = deps.license ?? client?.license;
   const [received, setReceived] = useState<Linked | null>(null);
 

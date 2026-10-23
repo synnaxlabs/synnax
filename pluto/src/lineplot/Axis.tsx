@@ -85,7 +85,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
       autoBoundUpdateInterval,
     });
 
-    const [{ path }, { size, labelSize }, setState] = Aether.use({
+    const [{ path }, { size, labelSize }, setState] = Aether.useBidirectional({
       aetherKey: cKey,
       type: aetherType,
       schema: baseAxisStateZ,

@@ -245,7 +245,7 @@ describe("Symbol queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Symbol.use({ key: symbol.key }),
+        () => Symbol.useRetrieve({ key: symbol.key }),
         {
           wrapper,
         },

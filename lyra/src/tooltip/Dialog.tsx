@@ -181,7 +181,11 @@ export const Dialog = ({
     },
     [close],
   );
-  Triggers.use({ triggers: ESCAPE_TRIGGERS, callback: handleEscape, priority: 200 });
+  Triggers.useListen({
+    triggers: ESCAPE_TRIGGERS,
+    callback: handleEscape,
+    priority: 200,
+  });
 
   useEffect(() => {
     if (hide === true) close(true);

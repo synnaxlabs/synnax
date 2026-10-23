@@ -30,7 +30,7 @@ interface HarnessProps {
 }
 
 const Harness = ({ values, onChange }: HarnessProps): ReactElement => {
-  const methods = Form.use<typeof schema>({
+  const methods = Form.useState<typeof schema>({
     values,
     schema,
     onChange: ({ values }) => onChange(values),

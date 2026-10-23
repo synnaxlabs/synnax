@@ -33,12 +33,12 @@ export type RetrieveQuery = Pick<
 };
 
 export const useSetSynchronizer = (onSet: (range: ranger.Payload) => void): void => {
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   useEffect(() => client?.ranges.onSet((range) => onSet(range.payload)), [client]);
 };
 
 export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void => {
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   useEffect(() => client?.ranges.onDelete((key) => onDelete(key)), [client]);
 };
 
@@ -71,19 +71,17 @@ export type RetrieveParentQuery = {
   id: ontology.ID;
 };
 
-export const { use: useParent, useResult: useResultParent } = Flux.createRetrieve<
-  RetrieveParentQuery,
-  ranger.Range | null
->({
-  name: PARENT_RESOURCE_NAME,
-  retrieve: async ({ client, query: { id } }) =>
-    await client.ranges.parent.retrieve(id),
-  onChange: ({ client, query: { id } }, handler) =>
-    client.ranges.parent.onChange(id, handler),
-  getCached: ({ client, query: { id } }) => client.ranges.parent.getCached(id),
-});
+export const { useRetrieve: useParent, useResult: useResultParent } =
+  Flux.createRetrieve<RetrieveParentQuery, ranger.Range | null>({
+    name: PARENT_RESOURCE_NAME,
+    retrieve: async ({ client, query: { id } }) =>
+      await client.ranges.parent.retrieve(id),
+    onChange: ({ client, query: { id } }, handler) =>
+      client.ranges.parent.onChange(id, handler),
+    getCached: ({ client, query: { id } }) => client.ranges.parent.getCached(id),
+  });
 
-export const { use, useEnsure, useTombstone, createSelector, useResult } =
+export const { useRetrieve, useEnsure, useTombstone, createSelector, useResult } =
   Flux.createRetrieve<RetrieveQuery, ranger.Range>({
     name: RESOURCE_NAME,
     retrieve: async ({ client, query: { key } }) => await client.ranges.retrieve(key),
@@ -96,16 +94,14 @@ export type RetrieveMultipleQuery = {
   keys: ranger.Key[];
 };
 
-export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
-  RetrieveMultipleQuery,
-  ranger.Range[]
->({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { keys } }) => await client.ranges.retrieve(keys),
-  onChange: ({ client, query: { keys } }, handler) =>
-    client.ranges.onChange(keys, handler),
-  getCached: ({ client, query: { keys } }) => client.ranges.getCached(keys),
-});
+export const { useRetrieve: useMultiple, useResult: useResultMultiple } =
+  Flux.createRetrieve<RetrieveMultipleQuery, ranger.Range[]>({
+    name: PLURAL_RESOURCE_NAME,
+    retrieve: async ({ client, query: { keys } }) => await client.ranges.retrieve(keys),
+    onChange: ({ client, query: { keys } }, handler) =>
+      client.ranges.onChange(keys, handler),
+    getCached: ({ client, query: { keys } }) => client.ranges.getCached(keys),
+  });
 
 export const formSchema = z.object({
   ...ranger.payloadZ.omit({ timeRange: true }).partial({ key: true }).shape,

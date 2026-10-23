@@ -30,5 +30,5 @@ const syncRanges: Synchronizer.Callbacks<StoreState, Action> = {
 };
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
-  { name: "sync ranges", use: () => syncRanges },
+  { name: "sync ranges", useCallbacks: () => syncRanges },
 ];

@@ -90,7 +90,7 @@ export const renderTaskFormHook = async <R,>(
   useValue: (ctx: PForm.ContextValue<z.ZodType>) => R,
 ) =>
   await renderHookWithConsole(() => {
-    const ctx = PForm.use<z.ZodType>({ values });
+    const ctx = PForm.useState<z.ZodType>({ values });
     return { ctx, value: useValue(ctx) };
   });
 
@@ -112,7 +112,7 @@ export const TaskFormProvider = ({
   formRef,
   children,
 }: TaskFormProviderProps): ReactElement => {
-  const ctx = PForm.use<z.ZodType>({ values, mode });
+  const ctx = PForm.useState<z.ZodType>({ values, mode });
   if (formRef != null) formRef.current = ctx;
   return <PForm.Form {...ctx}>{children}</PForm.Form>;
 };

@@ -146,7 +146,7 @@ describe("User queries", () => {
     });
   });
 
-  describe("use", () => {
+  describe("useRetrieve", () => {
     it("should retrieve a user by key", async () => {
       const testUser = await client.users.create({
         username: `retrieve-test-${Date.now()}`,
@@ -156,7 +156,7 @@ describe("User queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => User.use({ key: testUser.key }),
+        () => User.useRetrieve({ key: testUser.key }),
         {
           wrapper,
         },
@@ -173,7 +173,7 @@ describe("User queries", () => {
     });
 
     it("should retrieve the current authenticated user when no key provided", async () => {
-      const { result } = await renderHookSuspended(() => User.use({}), {
+      const { result } = await renderHookSuspended(() => User.useRetrieve({}), {
         wrapper,
       });
 
@@ -195,13 +195,13 @@ describe("User queries", () => {
       });
 
       const { result: result1 } = await renderHookSuspended(
-        () => User.use({ key: testUser.key }),
+        () => User.useRetrieve({ key: testUser.key }),
         { wrapper },
       );
       await waitFor(() => expect(result1.current).not.toBeNull());
 
       const { result: result2 } = await renderHookSuspended(
-        () => User.use({ key: testUser.key }),
+        () => User.useRetrieve({ key: testUser.key }),
         { wrapper },
       );
       await waitFor(() => expect(result2.current).not.toBeNull());

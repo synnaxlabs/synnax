@@ -63,7 +63,7 @@ const Fill = ({ nodeKey, position, config }: FillProps): null => {
     () => Scale.source({ channel, rollingAverage }),
     [channel, rollingAverage],
   );
-  VisScale.use({
+  VisScale.useAether({
     ...Scale.visProps({
       ...config,
       caretHidden: !caretVisible,

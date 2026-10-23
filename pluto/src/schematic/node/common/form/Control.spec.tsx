@@ -27,7 +27,7 @@ const Stored = (): ReactElement => {
 
 const renderField = (control?: Control.StateConfig) => {
   const Harness = (): ReactElement => {
-    const methods = Form.use({ values: { control }, schema });
+    const methods = Form.useState({ values: { control }, schema });
     return (
       <Form.Form<typeof schema> {...methods}>
         <ControlChipField />

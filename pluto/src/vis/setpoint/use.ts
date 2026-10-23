@@ -22,9 +22,9 @@ export interface UseReturn {
   set: (value: number) => void;
 }
 
-export const use = ({ aetherKey, sink }: UseProps): UseReturn => {
+export const useAether = ({ aetherKey, sink }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({ sink });
-  const [, , setState, methods] = Aether.use({
+  const [, , setState, methods] = Aether.useBidirectional({
     aetherKey,
     type: setpoint.Setpoint.TYPE,
     schema: setpoint.stateZ,

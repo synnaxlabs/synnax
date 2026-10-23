@@ -26,9 +26,13 @@ export interface UseReturn extends Pick<
   "value" | "stale"
 > {}
 
-export const use = ({ aetherKey, telem, stalenessTimeout }: UseProps): UseReturn => {
+export const useAether = ({
+  aetherKey,
+  telem,
+  stalenessTimeout,
+}: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({ telem, stalenessTimeout });
-  const [, { value, stale }, setState] = Aether.use({
+  const [, { value, stale }, setState] = Aether.useBidirectional({
     aetherKey,
     type: stringValue.StringValue.TYPE,
     schema: stringValue.stateZ,

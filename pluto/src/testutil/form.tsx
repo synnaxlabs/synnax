@@ -29,7 +29,7 @@ export const renderForm = <Z extends z.ZodType>(
 ): RenderFormResult => {
   let read: (path: string) => unknown = () => undefined;
   const Harness = (): ReactElement => {
-    const methods = Form.use({ values, schema });
+    const methods = Form.useState({ values, schema });
     read = (path) => methods.get(path, { optional: true })?.value;
     return <Form.Form<Z> {...methods}>{ui}</Form.Form>;
   };

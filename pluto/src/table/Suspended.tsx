@@ -13,7 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { useEnsure } from "@/table/queries";
 import { Scope } from "@/table/scope";
 
-export const useKey = Scope.use;
+export const useKey = Scope.useRequired;
 
 export interface SuspendedProps extends PropsWithChildren {
   tableKey: table.Key;

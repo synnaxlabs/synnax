@@ -42,7 +42,7 @@ const PAGE_TARGETS: Record<schematic.PageType, PageTarget> = {
 type NodeClickHandler = (nodeId: string, dblClick: boolean) => void;
 
 export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler => {
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const getSchematic = Session.Schematic.useGet();
   const handleError = Status.useErrorHandler();
   const openTab = Panel.useOpenTab();

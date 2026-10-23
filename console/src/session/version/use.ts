@@ -14,7 +14,7 @@ import { useState } from "react";
 
 import { Runtime } from "@/session/runtime";
 
-export const use = (): string | undefined => {
+export const useCurrent = (): string | undefined => {
   const [tauriVersion, setTauriVersion] = useState<string>();
   useAsyncEffect(async (signal) => {
     if (Runtime.ENGINE !== "tauri") return;

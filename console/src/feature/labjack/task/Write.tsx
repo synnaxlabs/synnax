@@ -18,7 +18,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
-import { use } from "@/feature/labjack/device/queries";
+import { useRetrieve } from "@/feature/labjack/device/queries";
 import { Select } from "@/feature/labjack/device/Select";
 import { SelectPort } from "@/feature/labjack/device/SelectPort";
 import * as Device from "@/feature/labjack/device/types";
@@ -174,7 +174,7 @@ const ChannelList = ({ device }: ChannelListProps) => {
 };
 
 const Form: FC = PlatformDevice.wrapTaskForm({
-  use,
+  useRetrieve,
   useConfigure: useConfigureModal,
   Content: ChannelList,
 });

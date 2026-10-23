@@ -47,7 +47,7 @@ export const StateIndicator = ({
   const matched = options.find((o) => o.key === matchedOptionKey);
   const stateColor = matched?.color;
   const backgroundColor = stateColor != null ? color.cssString(stateColor) : undefined;
-  const theme = Theming.use();
+  const theme = Theming.useTheme();
   const textColor =
     staleColor != null
       ? color.cssString(staleColor)

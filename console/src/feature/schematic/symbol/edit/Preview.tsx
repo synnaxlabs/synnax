@@ -86,7 +86,7 @@ export const Preview = ({
   const zoom = Form.useField<number>("data.previewViewport.zoom");
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const isDark = Base.use().key === "synnaxDark";
+  const isDark = Base.useTheme().key === "synnaxDark";
   const [isDarkMode, setIsDarkMode] = useState<boolean>(isDark);
   useEffect(() => setIsDarkMode(isDark), [isDark]);
 
@@ -146,7 +146,7 @@ export const Preview = ({
   }, []);
   useEffect(() => stopRepeat, [stopRepeat]);
 
-  Triggers.use({
+  Triggers.useListen({
     triggers: FLATTENED_ZOOM_TRIGGERS,
     enabled: Boolean(spec.svg),
     callback: useCallback(

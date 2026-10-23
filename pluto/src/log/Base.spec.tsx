@@ -29,10 +29,10 @@ vi.mock("@/aether", async (importOriginal) => {
     ...actual,
     Aether: {
       ...realAether,
-      use: (...args: unknown[]) => {
+      useBidirectional: (...args: unknown[]) => {
         const opts = args[0] as { type?: string } | undefined;
         if (opts?.type === "log") return mockAetherUse(...args);
-        return (realAether.use as (...a: unknown[]) => unknown)(...args);
+        return (realAether.useBidirectional as (...a: unknown[]) => unknown)(...args);
       },
     },
   };

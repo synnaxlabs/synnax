@@ -63,7 +63,7 @@ const OPEN_WINDOW_TRIGGERS: Triggers.Trigger[] = [Panel.OPEN_WINDOW_TRIGGER];
 
 const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
 
-export const use = (): void => {
+export const useGlobal = (): void => {
   const sessionDispatch = Session.useDispatch();
   const modals = Modals.useStore("useTriggers");
   const getSelectedPanel = Session.Panel.useGetSelected();
@@ -75,7 +75,7 @@ export const use = (): void => {
   const createTabEnabled = useSelectorVisible();
   const canEditPanel = PlatformPanel.useCanEditActive();
   const openSelector = Selector.useOpenTab();
-  Triggers.use({
+  Triggers.useListen({
     triggers: OVERLAY_TRIGGERS,
     loose: true,
     callback: useCallback(
@@ -91,7 +91,7 @@ export const use = (): void => {
       [getIsOverlaid, getFocusedTab, sessionDispatch],
     ),
   });
-  Triggers.use({
+  Triggers.useListen({
     triggers: ESCAPE_TRIGGERS,
     double: true,
     callback: useCallback(
@@ -102,7 +102,7 @@ export const use = (): void => {
       [getIsOverlaid, sessionDispatch],
     ),
   });
-  Triggers.use({
+  Triggers.useListen({
     triggers: CLOSE_TRIGGERS,
     loose: true,
     callback: useCallback(
@@ -143,7 +143,7 @@ export const use = (): void => {
       ],
     ),
   });
-  Triggers.use({
+  Triggers.useListen({
     triggers: RENAME_TRIGGERS,
     loose: true,
     callback: useCallback(
@@ -156,7 +156,7 @@ export const use = (): void => {
       [getFocusedTab],
     ),
   });
-  Triggers.use({
+  Triggers.useListen({
     triggers: OPEN_WINDOW_TRIGGERS,
     loose: true,
     callback: useCallback(
@@ -167,7 +167,7 @@ export const use = (): void => {
       [openWindow, getSelectedPanel],
     ),
   });
-  Triggers.use({
+  Triggers.useListen({
     triggers: CREATE_TAB_TRIGGERS,
     loose: true,
     callback: useCallback(

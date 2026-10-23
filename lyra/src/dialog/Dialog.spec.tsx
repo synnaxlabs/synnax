@@ -79,7 +79,7 @@ describe("Dialog", () => {
 
   describe("escape propagation", () => {
     const EscapeListener = ({ onEscape }: { onEscape: () => void }): null => {
-      Triggers.use({
+      Triggers.useListen({
         triggers: [["Escape"]],
         callback: ({ stage }) => {
           if (stage === "start") onEscape();

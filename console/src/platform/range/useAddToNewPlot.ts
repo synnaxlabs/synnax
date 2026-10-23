@@ -17,7 +17,7 @@ import { Session } from "@/session";
 
 export const useAddToNewPlot = (): ((keys: string[]) => void) => {
   const handleError = Status.useErrorHandler();
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const create = LinePlot.useCreate();
   const dispatch = Session.useDispatch();
   return useCallback(

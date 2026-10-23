@@ -85,7 +85,7 @@ export const useDeep = (
   // A parked link outlives the handlers and client of the render that received it.
   // Synced refs resolve both at invoke time.
   const handlersRef = useSyncedRef(handlers);
-  const clientRef = useSyncedRef(Synnax.use());
+  const clientRef = useSyncedRef(Synnax.useClient());
   const urlHandler = async (urls: string[]) => {
     try {
       dispatch(Drift.focusWindow({}));

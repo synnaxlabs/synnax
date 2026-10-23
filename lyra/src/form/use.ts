@@ -55,10 +55,10 @@ export interface UseReturn<Z extends z.ZodType> extends ContextValue<Z> {}
  * value is stable, so a field hook re-renders only when its own path changes.
  *
  * @example
- * const form = Form.use({ values: initial, schema: rangeZ, onChange: save });
+ * const form = Form.useState({ values: initial, schema: rangeZ, onChange: save });
  * return <Form.Form {...form}><Form.TextField path="name" /></Form.Form>;
  */
-export const use = <Z extends z.ZodType>({
+export const useState = <Z extends z.ZodType>({
   values: initialValues,
   sync = false,
   schema,

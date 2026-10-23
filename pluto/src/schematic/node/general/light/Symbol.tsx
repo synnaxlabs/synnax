@@ -35,12 +35,12 @@ export const Symbol = ({
     ...rest
   },
 }: NodeProps<schematic.LightNodeConfig>): ReactElement => {
-  const theme = Theming.use();
+  const theme = Theming.useTheme();
   const source = useMemo(
     () => Telem.booleanSource(channel, threshold),
     [channel, threshold],
   );
-  const { enabled, stale } = BaseLight.use({
+  const { enabled, stale } = BaseLight.useAether({
     aetherKey: nodeKey,
     source,
     stalenessTimeout,

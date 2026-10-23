@@ -21,7 +21,7 @@ import { staleness } from "@/vis/staleness/aether";
  * color it resolves to until a pick writes one.
  */
 export const Fields = (): ReactElement => {
-  const theme = Theming.use();
+  const theme = Theming.useTheme();
   return (
     <>
       <Color.Field

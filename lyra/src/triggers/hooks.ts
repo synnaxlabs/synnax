@@ -72,9 +72,12 @@ export interface UseProps extends MatchOptions {
  * the active one.
  *
  * @example
- * Triggers.use({ triggers: [["Control", "S"]], callback: ({ stage }) => save(stage) });
+ * Triggers.useListen({
+ *   triggers: [["Control", "S"]],
+ *   callback: ({ stage }) => save(stage),
+ * });
  */
-export const use = ({
+export const useListen = ({
   triggers,
   callback: f,
   region,
@@ -174,7 +177,7 @@ export interface UseUndoRedoProps {
 
 /** useUndoRedo binds the standard undo and redo shortcuts to the given handlers. */
 export const useUndoRedo = ({ undo, redo, enabled }: UseUndoRedoProps): void => {
-  use({
+  useListen({
     triggers: UNDO_REDO_TRIGGERS,
     loose: true,
     enabled,
@@ -215,7 +218,7 @@ export const useHeldRef = ({
     triggers: [],
     held: false,
   });
-  use({
+  useListen({
     triggers,
     callback: useCallback((e: UseEvent) => {
       setRef((prev) => {
@@ -237,7 +240,7 @@ export const useHeldRef = ({
  */
 export const useHeld = ({ triggers, loose }: UseHeldProps): UseHeldReturn => {
   const [held, setHeld] = useState<UseHeldReturn>({ triggers: [], held: false });
-  use({
+  useListen({
     triggers,
     callback: useCallback((e: UseEvent) => {
       setHeld((prev) => {

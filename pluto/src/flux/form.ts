@@ -197,7 +197,7 @@ export const createForm = <
     const [result, setResult] = useState<Result<undefined>>(() =>
       successResult(`retrieved ${name}`, undefined),
     );
-    const client = Synnax.use();
+    const client = Synnax.useClient();
     const listeners = useDestructors();
     const addStatus = Status.useAdder();
     const memoQuery = useMemoQuery(query, normalizeQuery);
@@ -227,7 +227,7 @@ export const createForm = <
     const abortRef = useRef<AbortController>(null);
     abortRef.current ??= new AbortController();
     const values = retrieved ?? initialValues ?? baseInitialValues;
-    const form = Form.use<Schema>({
+    const form = Form.useState<Schema>({
       schema,
       values,
       onChange: ({ path }) => {

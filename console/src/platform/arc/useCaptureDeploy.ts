@@ -17,7 +17,7 @@ import { Analytics } from "@/platform/analytics";
 export const useCaptureDeploy = (): ((
   params: Flux.AfterSuccessParams<Task.CommandParams>,
 ) => void) => {
-  const { capture } = Analytics.use();
+  const { capture } = Analytics.useSink();
   return useCallback(
     ({ data }) =>
       array

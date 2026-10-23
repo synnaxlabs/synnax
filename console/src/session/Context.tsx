@@ -74,7 +74,9 @@ const ALL_SYNCHRONIZERS: Synchronizer.Synchronizers<State, Action> = [
  * @returns whether a full reconcile pass has completed since the last return-to-cold.
  */
 const useSynchronizers = (): boolean =>
-  Synchronizer.use(Runtime.isMainWindow() ? ALL_SYNCHRONIZERS : WINDOW_SYNCHRONIZERS);
+  Synchronizer.useMount(
+    Runtime.isMainWindow() ? ALL_SYNCHRONIZERS : WINDOW_SYNCHRONIZERS,
+  );
 
 const SettledContext = createContext(false);
 SettledContext.displayName = "Settled";

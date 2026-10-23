@@ -72,7 +72,7 @@ export const Activate = ({ choices, selected }: ActivateProps): ReactElement => 
 };
 
 const Inline = ({ licenseKey }: { licenseKey: string }): ReactElement => {
-  const methods = Form.use({ values: ZERO_ACTIVATE, schema: activateSchema });
+  const methods = Form.useState({ values: ZERO_ACTIVATE, schema: activateSchema });
   const action = useAction(async () => {
     if (!methods.validate()) return;
     await activate(licenseKey, methods.value());

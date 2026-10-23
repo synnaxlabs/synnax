@@ -53,10 +53,10 @@ export const createToggle = <C extends ToggleConfig>(
       strokeColor: symbolColor,
       ...rest
     } = config;
-    const theme = Theming.use();
+    const theme = Theming.useTheme();
     const source = useMemo(() => Telem.booleanSource(stateChannel), [stateChannel]);
     const sink = useMemo(() => Telem.booleanSink(commandChannel), [commandChannel]);
-    const { enabled, toggle, stale } = Base.use({
+    const { enabled, toggle, stale } = Base.useAether({
       aetherKey: nodeKey,
       source,
       sink,

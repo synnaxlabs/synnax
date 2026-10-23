@@ -142,9 +142,9 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
 }: WrapFormParams<S>): FC<FormTabProps> => {
   const useForm = PTask.createForm({ schemas, initialValues: getInitialValues({}) });
   const Wrapped: FC<FormTabProps> = ({ taskKey }) => {
-    const client = PSynnax.use();
+    const client = PSynnax.useClient();
     const handleError = Status.useErrorHandler();
-    const { capture } = Analytics.use();
+    const { capture } = Analytics.useSink();
     const { form, saveAsync } = useForm({
       query: { key: taskKey },
       autoSave: true,

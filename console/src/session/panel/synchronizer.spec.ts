@@ -53,7 +53,7 @@ const selectTab = (store: TestStore, key: panel.Key, tabKey: panel.TabKey): void
 const mount = async () =>
   await renderHookWithConsole(
     () =>
-      Session.Synchronizer.use(
+      Session.Synchronizer.useMount(
         pickSynchronizer(
           Session.Panel.WINDOW_SYNCHRONIZERS,
           "reconcile tab selections",
@@ -194,7 +194,7 @@ describe("reconcile panel order and selection", () => {
   const mountMembership = async (store: TestStore) =>
     await renderHookWithConsole(
       () =>
-        Session.Synchronizer.use(
+        Session.Synchronizer.useMount(
           pickSynchronizer(
             Session.Panel.WINDOW_SYNCHRONIZERS,
             "reconcile panel order and selection",
@@ -365,7 +365,7 @@ describe("useSyncWindowTitle", () => {
   const mountTitle = async (store?: TestStore) =>
     await renderHookWithConsole(
       () =>
-        Session.Synchronizer.use(
+        Session.Synchronizer.useMount(
           pickSynchronizer(Session.Panel.WINDOW_SYNCHRONIZERS, "sync window title"),
         ),
       { client, store },

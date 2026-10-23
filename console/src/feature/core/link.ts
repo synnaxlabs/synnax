@@ -82,7 +82,7 @@ export const connect = async (
 // useLink returns a connect function that resolves a cluster key to a connected client.
 // See connect for the resolution semantics.
 export const useLink = (): Link.Connect => {
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const clientRef = useSyncedRef(client);
   const dispatch = Session.useDispatch();
   const store = Session.useStore();

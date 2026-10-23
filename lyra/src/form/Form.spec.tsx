@@ -44,7 +44,7 @@ const initialFormValues: z.infer<typeof basicFormSchema> = {
 };
 
 const FormContainer = (props: PropsWithChildren): ReactElement => {
-  const methods = Form.use<typeof basicFormSchema>({
+  const methods = Form.useState<typeof basicFormSchema>({
     values: deep.copy(initialFormValues),
     schema: basicFormSchema,
   });
@@ -61,7 +61,7 @@ const verdictSchema = z.object({
 });
 
 const VerdictFormContainer = (props: PropsWithChildren): ReactElement => {
-  const methods = Form.use<typeof verdictSchema>({
+  const methods = Form.useState<typeof verdictSchema>({
     values: {} as z.infer<typeof verdictSchema>,
     schema: verdictSchema,
   });
@@ -73,11 +73,14 @@ const verdictWrapper = ({ children }: PropsWithChildren): ReactElement => (
 );
 
 describe("Form", () => {
-  describe("use", () => {
+  describe("useState", () => {
     describe("get", () => {
       it("should get a value from the form", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         const field = result.current.get("name");
         expect(field.value).toBe("John Doe");
@@ -86,7 +89,10 @@ describe("Form", () => {
 
       it("should return the correct nested values", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         const field = result.current.get("nested.ssn");
         expect(field.value).toBe("123-45-6789");
@@ -94,14 +100,20 @@ describe("Form", () => {
 
       it("should throw an error if optional is false and the field is null", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         expect(() => result.current.get("ssn")).toThrow();
       });
 
       it("should return null if optional is true and the field is null", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         const field = result.current.get("ssn", { optional: true });
         expect(field).toBeNull();
@@ -109,7 +121,10 @@ describe("Form", () => {
 
       it("should return true if a field is required in the schema", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         const field = result.current.get("age");
         expect(field.required).toBe(true);
@@ -119,7 +134,10 @@ describe("Form", () => {
     describe("set", () => {
       it("should set a value in the form", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         result.current.set("name", "Jane Doe");
         const field = result.current.get("name");
@@ -128,7 +146,10 @@ describe("Form", () => {
 
       it("should correctly set all values in the form at once", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         result.current.set("", {
           name: "Jane Doe",
@@ -146,7 +167,10 @@ describe("Form", () => {
     describe("bind", () => {
       it("should bind a listener for form changes", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         const onChange = vi.fn();
         result.current.bind(onChange);
@@ -157,7 +181,7 @@ describe("Form", () => {
     describe("validate", () => {
       it("should return false if a validation error occurs", () => {
         const { result } = renderHook(() =>
-          Form.use({
+          Form.useState({
             values: deep.copy({ ...initialFormValues, age: 3 }),
             schema: basicFormSchema,
           }),
@@ -167,7 +191,7 @@ describe("Form", () => {
       });
       it("should call a bound listener if a validation error occurs", () => {
         const { result } = renderHook(() =>
-          Form.use({
+          Form.useState({
             values: deep.copy({ ...initialFormValues, age: 3 }),
             schema: basicFormSchema,
           }),
@@ -179,7 +203,7 @@ describe("Form", () => {
       });
       it("should return true if all validation errors are just warnings", () => {
         const { result } = renderHook(() =>
-          Form.use({
+          Form.useState({
             values: deep.copy({ ...initialFormValues, name: "Billy Bob" }),
             schema: basicFormSchema,
           }),
@@ -657,7 +681,10 @@ describe("Form", () => {
     describe("reset()", () => {
       it("should reset all form values to initial values", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
 
         result.current.set("name", "Jane Doe");
@@ -680,7 +707,10 @@ describe("Form", () => {
 
       it("should reset form values to new provided values", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
 
         const newValues = {
@@ -704,7 +734,10 @@ describe("Form", () => {
 
       it("should clear all validation errors when resetting", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
 
         // Set invalid values to trigger validation errors
@@ -722,7 +755,10 @@ describe("Form", () => {
 
       it("should clear all touched states when resetting", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         result.current.set("name", "Jane Doe");
         result.current.set("age", 25);
@@ -739,7 +775,7 @@ describe("Form", () => {
       it("should call onChange handler when resetting", () => {
         const onChange = vi.fn();
         const { result } = renderHook(() =>
-          Form.use({
+          Form.useState({
             values: deep.copy(initialFormValues),
             schema: basicFormSchema,
             onChange,
@@ -757,7 +793,7 @@ describe("Form", () => {
       it("should call onHasTouched with false when resetting from touched state", () => {
         const onHasTouched = vi.fn();
         const { result } = renderHook(() =>
-          Form.use({
+          Form.useState({
             values: deep.copy(initialFormValues),
             schema: basicFormSchema,
             onHasTouched,
@@ -771,7 +807,10 @@ describe("Form", () => {
 
       it("should handle resetting nested objects correctly", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
 
         result.current.set("nested.ssn", "999-99-9999");
@@ -788,7 +827,10 @@ describe("Form", () => {
 
       it("should handle resetting array values correctly", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
 
         result.current.set("array", [
@@ -810,7 +852,10 @@ describe("Form", () => {
     describe("setCurrentStateAsInitialValues()", () => {
       it("should set current form state as new initial values", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
 
         result.current.set("name", "Jane Doe");
@@ -834,7 +879,7 @@ describe("Form", () => {
       it("should call onHasTouched with false when setting current state as initial", () => {
         const onHasTouched = vi.fn();
         const { result } = renderHook(() =>
-          Form.use({
+          Form.useState({
             values: deep.copy(initialFormValues),
             schema: basicFormSchema,
             onHasTouched,
@@ -851,7 +896,10 @@ describe("Form", () => {
 
       it("should handle nested and array values when setting current state as initial", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
 
         result.current.set("nested.ssn", "999-99-9999");
@@ -874,7 +922,10 @@ describe("Form", () => {
   describe("touched state", () => {
     it("should mark a field as touched when its value changes", () => {
       const { result } = renderHook(() =>
-        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        Form.useState({
+          values: deep.copy(initialFormValues),
+          schema: basicFormSchema,
+        }),
       );
       result.current.set("name", "Jane Doe");
       const field = result.current.get("name");
@@ -884,7 +935,10 @@ describe("Form", () => {
     describe("markTouched option", () => {
       it("should not mark field as touched when markTouched is false", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         result.current.set("name", "Jane Doe", { markTouched: false });
         const field = result.current.get("name");
@@ -893,7 +947,10 @@ describe("Form", () => {
 
       it("should explicitly mark field as touched when markTouched is true", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         result.current.set("name", "Jane Doe", { markTouched: true });
         const field = result.current.get("name");
@@ -903,7 +960,7 @@ describe("Form", () => {
       it("should not trigger onHasTouched when markTouched is false", () => {
         const onHasTouched = vi.fn();
         const { result } = renderHook(() =>
-          Form.use({
+          Form.useState({
             values: deep.copy(initialFormValues),
             schema: basicFormSchema,
             onHasTouched,
@@ -916,7 +973,7 @@ describe("Form", () => {
       it("should trigger onHasTouched when markTouched is true", () => {
         const onHasTouched = vi.fn();
         const { result } = renderHook(() =>
-          Form.use({
+          Form.useState({
             values: deep.copy(initialFormValues),
             schema: basicFormSchema,
             onHasTouched,
@@ -928,7 +985,10 @@ describe("Form", () => {
 
       it("should work with nested fields and markTouched option", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         result.current.set("nested.ssn", "999-99-9999", { markTouched: false });
         expect(result.current.get("nested.ssn").touched).toBe(false);
@@ -939,7 +999,10 @@ describe("Form", () => {
 
       it("should work with array fields and markTouched option", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         result.current.set("array.0.name", "Modified Name", { markTouched: false });
         expect(result.current.get("array.0.name").touched).toBe(false);
@@ -950,7 +1013,10 @@ describe("Form", () => {
 
       it("should still clear touched when value equals initial regardless of markTouched", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         result.current.set("name", "Jane Doe", { markTouched: true });
         expect(result.current.get("name").touched).toBe(true);
@@ -960,7 +1026,10 @@ describe("Form", () => {
 
       it("should affect validation when markTouched is false", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         result.current.set("age", 3, { markTouched: false });
         const isValid = result.current.validate();
@@ -970,7 +1039,10 @@ describe("Form", () => {
 
       it("should trigger validation when markTouched is true and value is invalid", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         result.current.set("age", 3, { markTouched: true });
         const isValid = result.current.validate();
@@ -980,7 +1052,10 @@ describe("Form", () => {
 
       it("should handle multiple fields with different markTouched settings", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         result.current.set("name", "Jane Doe", { markTouched: false });
         result.current.set("age", 30, { markTouched: true });
@@ -993,7 +1068,10 @@ describe("Form", () => {
 
       it("should preserve markTouched behavior through form operations", () => {
         const { result } = renderHook(() =>
-          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+          Form.useState({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
         );
         result.current.set("name", "Jane Doe", { markTouched: false });
         expect(result.current.get("name").touched).toBe(false);
@@ -1005,7 +1083,10 @@ describe("Form", () => {
 
     it("should not mark a field as touched when setting it to its initial value", () => {
       const { result } = renderHook(() =>
-        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        Form.useState({
+          values: deep.copy(initialFormValues),
+          schema: basicFormSchema,
+        }),
       );
       result.current.set("name", "John Doe");
       const field = result.current.get("name");
@@ -1014,7 +1095,10 @@ describe("Form", () => {
 
     it("should mark a field as untouched when resetting to initial value", () => {
       const { result } = renderHook(() =>
-        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        Form.useState({
+          values: deep.copy(initialFormValues),
+          schema: basicFormSchema,
+        }),
       );
       result.current.set("name", "Jane Doe");
       expect(result.current.get("name").touched).toBe(true);
@@ -1024,7 +1108,10 @@ describe("Form", () => {
 
     it("should clear all touched states when resetting the form", () => {
       const { result } = renderHook(() =>
-        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        Form.useState({
+          values: deep.copy(initialFormValues),
+          schema: basicFormSchema,
+        }),
       );
       result.current.set("name", "Jane Doe");
       result.current.set("age", 25);
@@ -1038,7 +1125,7 @@ describe("Form", () => {
     it("should call onHasTouched when form touched state changes", () => {
       const onHasTouched = vi.fn();
       const { result } = renderHook(() =>
-        Form.use({
+        Form.useState({
           values: deep.copy(initialFormValues),
           schema: basicFormSchema,
           onHasTouched,
@@ -1055,7 +1142,10 @@ describe("Form", () => {
 
     it("should snapshot touched state when requested", () => {
       const { result } = renderHook(() =>
-        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        Form.useState({
+          values: deep.copy(initialFormValues),
+          schema: basicFormSchema,
+        }),
       );
       result.current.set("name", "Jane Doe");
       result.current.set("age", 25);
@@ -1070,7 +1160,10 @@ describe("Form", () => {
 
     it("should properly track touched state through reset and setCurrentStateAsInitialValues", () => {
       const { result } = renderHook(() =>
-        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        Form.useState({
+          values: deep.copy(initialFormValues),
+          schema: basicFormSchema,
+        }),
       );
       result.current.set("name", "Jane Doe");
       expect(result.current.get("name").touched).toBe(true);

@@ -213,14 +213,14 @@ describe("queries", () => {
     });
   });
 
-  describe("use", () => {
+  describe("useRetrieve", () => {
     it("should retrieve a single project by key", async () => {
       const testProject = await client.projects.create({
         name: "singleProject",
       });
 
       const { result } = await renderHookSuspended(
-        () => Project.use({ key: testProject.key }),
+        () => Project.useRetrieve({ key: testProject.key }),
         { wrapper },
       );
       await waitFor(() => expect(result.current).not.toBeNull());
@@ -235,7 +235,7 @@ describe("queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Project.use({ key: project.key }),
+        () => Project.useRetrieve({ key: project.key }),
         {
           wrapper,
         },
@@ -256,7 +256,7 @@ describe("queries", () => {
       const newName = `newName-${id.create()}`;
       const { result } = await renderHookSuspended(
         () => ({
-          retrieve: Project.use({ key: proj.key }),
+          retrieve: Project.useRetrieve({ key: proj.key }),
           rename: Project.useRename(),
         }),
         { wrapper },

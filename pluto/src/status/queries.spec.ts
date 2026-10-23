@@ -624,7 +624,7 @@ describe("Status queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Status.use({ key: testStatus.key }),
+        () => Status.useRetrieve({ key: testStatus.key }),
         {
           wrapper,
         },
@@ -646,7 +646,7 @@ describe("Status queries", () => {
         time: TimeStamp.now(),
       });
 
-      const { result } = await renderHookSuspended(() => Status.use({ key }), {
+      const { result } = await renderHookSuspended(() => Status.useRetrieve({ key }), {
         wrapper,
       });
 
@@ -786,7 +786,7 @@ describe("Status queries", () => {
       const { result } = await renderHookSuspended(
         () => ({
           form: Status.useForm({ query: { key } }),
-          retrieve: Status.use({ key }),
+          retrieve: Status.useRetrieve({ key }),
         }),
         {
           wrapper,
@@ -860,7 +860,7 @@ describe("Status queries", () => {
         expect(result.current.variant).toEqual("success");
       });
       const q = await renderHookSuspended(
-        () => Status.use({ key: result.current.form.value().key }),
+        () => Status.useRetrieve({ key: result.current.form.value().key }),
         { wrapper },
       );
       await waitFor(() => expect(q.result.current?.labels).toEqual([label1, label2]));
@@ -1068,7 +1068,7 @@ describe("Status queries", () => {
       const { result } = await renderHookSuspended(
         () => ({
           form: Status.useForm({ query: { key } }),
-          retrieve: Status.use({ key }),
+          retrieve: Status.useRetrieve({ key }),
         }),
         {
           wrapper,

@@ -17,7 +17,7 @@ import { render } from "@/testutil/render";
 import { theming } from "@/theming/aether";
 
 const HookComponent = ({ initialValue }: { initialValue: number }) => {
-  Aether.use({
+  Aether.useBidirectional({
     type: aetherTest.Leaf.TYPE,
     schema: aetherTest.Leaf.stateZ,
     aetherKey: "consumer",

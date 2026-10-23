@@ -785,7 +785,7 @@ describe("queries", () => {
     });
   });
 
-  describe("use", () => {
+  describe("useRetrieve", () => {
     it("should retrieve a channel by key", async () => {
       const name = id.create();
       const ch = await client.channels.create({
@@ -793,9 +793,12 @@ describe("queries", () => {
         dataType: DataType.FLOAT32,
         virtual: true,
       });
-      const { result } = await renderHookSuspended(() => Channel.use({ key: ch.key }), {
-        wrapper,
-      });
+      const { result } = await renderHookSuspended(
+        () => Channel.useRetrieve({ key: ch.key }),
+        {
+          wrapper,
+        },
+      );
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.key).toEqual(ch.key);
       expect(result.current?.name).toEqual(name);
@@ -819,7 +822,7 @@ describe("queries", () => {
       await client.ranges.setAlias(range.key, ch.key, "custom_alias");
 
       const { result } = await renderHookSuspended(
-        () => Channel.use({ key: ch.key, rangeKey: range.key }),
+        () => Channel.useRetrieve({ key: ch.key, rangeKey: range.key }),
         { wrapper },
       );
       await waitFor(() => expect(result.current).not.toBeNull());
@@ -835,7 +838,7 @@ describe("queries", () => {
       });
       const { result } = await renderHookSuspended(
         () => {
-          const retrieve = Channel.use({ key: ch.key });
+          const retrieve = Channel.useRetrieve({ key: ch.key });
           const rename = Channel.useRename();
           return { retrieve, rename };
         },
@@ -881,7 +884,7 @@ describe("queries", () => {
         details: { channel: calc.key },
       });
       const { result } = await renderHookSuspended(
-        () => Channel.use({ key: calc.key }),
+        () => Channel.useRetrieve({ key: calc.key }),
         {
           wrapper,
         },
@@ -906,7 +909,7 @@ describe("queries", () => {
         expression: `return ${source.name} * 2`,
       });
       const { result } = await renderHookSuspended(
-        () => Channel.use({ key: calc.key }),
+        () => Channel.useRetrieve({ key: calc.key }),
         {
           wrapper,
         },
@@ -928,7 +931,7 @@ describe("queries", () => {
         expression: `return ${source.name} * 2`,
       });
       const { result } = await renderHookSuspended(
-        () => Channel.use({ key: calc.key }),
+        () => Channel.useRetrieve({ key: calc.key }),
         {
           wrapper,
         },
@@ -1173,7 +1176,7 @@ describe("queries", () => {
 
       const { result } = await renderHookSuspended(
         () => {
-          const retrieve = Channel.use({ key: ch.key, rangeKey: range.key });
+          const retrieve = Channel.useRetrieve({ key: ch.key, rangeKey: range.key });
           const updateAlias = Channel.useUpdateAlias();
           return { retrieve, updateAlias };
         },
@@ -1260,7 +1263,7 @@ describe("queries", () => {
 
       const { result } = await renderHookSuspended(
         () => {
-          const retrieve = Channel.use({ key: ch.key, rangeKey: range.key });
+          const retrieve = Channel.useRetrieve({ key: ch.key, rangeKey: range.key });
           const deleteAlias = Channel.useDeleteAlias();
           return { retrieve, deleteAlias };
         },

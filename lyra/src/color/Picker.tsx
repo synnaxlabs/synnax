@@ -148,7 +148,7 @@ interface SwatchesProps {
 }
 
 const Swatches = ({ value, fallback, onChange }: SwatchesProps): ReactElement => {
-  const { colors } = Theming.use();
+  const { colors } = Theming.useTheme();
   const presets = [
     colors.primary.z,
     colors.secondary.z,

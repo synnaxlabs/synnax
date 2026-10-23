@@ -125,7 +125,12 @@ describe("button/aether/Button", () => {
 
     it("should expose handlers with onClick aliasing mouse up", () => {
       const { result } = renderHook(
-        () => Button.use({ aetherKey: "btn", sink: noopBooleanSinkSpec, mode: "fire" }),
+        () =>
+          Button.useAether({
+            aetherKey: "btn",
+            sink: noopBooleanSinkSpec,
+            mode: "fire",
+          }),
         { wrapper: TestWrapper },
       );
       expect(result.current.onMouseDown).toBeDefined();

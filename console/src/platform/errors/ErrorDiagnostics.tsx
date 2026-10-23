@@ -40,7 +40,7 @@ export const ErrorDiagnostics = ({
   const target = Session.Core.useSelectSelected();
   const core =
     target != null ? `${target.name} (${target.host}:${target.port})` : "none";
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   if (isConnectionError(error)) return <Disconnected />;
   const message = [error.message, `Core: ${core}`, panelLine(client, panelKey)]
     .filter((line): line is string => line != null)

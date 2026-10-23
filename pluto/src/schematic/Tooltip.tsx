@@ -83,7 +83,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     return () => clearTimeout(timeout);
   }, []);
   useEffect(() => (visible ? markClosed : undefined), [visible]);
-  const theme = Theming.use();
+  const theme = Theming.useTheme();
   const values: Partial<Record<Field, primitive.Value>> = config;
   const keys = CHANNEL_ROWS.flatMap(({ field }) => {
     const key = values[field];

@@ -177,7 +177,7 @@ const InviteDialog = ({ name, team }: InviteDialogProps): ReactElement => (
 );
 
 const InviteContent = ({ team }: { team: Team }): ReactElement => {
-  const methods = Form.use({
+  const methods = Form.useState({
     values: { email: "", role: MEMBER_ROLE },
     schema: inviteSchema,
   });

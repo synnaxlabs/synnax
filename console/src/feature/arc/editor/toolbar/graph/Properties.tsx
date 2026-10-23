@@ -45,7 +45,7 @@ const IndividualConfig = ({ nodeKey }: IndividualConfigProps): ReactElement | nu
   const config = Arc.useNodeConfig({ nodeKey });
   const initialValues = useMemo(() => deep.copy(config), [config]);
   const dispatch = Arc.useSingleDispatch();
-  const formMethods = Form.use<typeof Arc.Graph.Node.configZ>({
+  const formMethods = Form.useState<typeof Arc.Graph.Node.configZ>({
     schema: Arc.Graph.Node.configZ,
     values: initialValues,
     sync: true,

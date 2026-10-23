@@ -194,7 +194,7 @@ export const Button = <E extends ElementType = "button">(
     hold.onMouseDown(e);
   };
 
-  Triggers.use({
+  Triggers.useListen({
     triggers: trigger,
     callback: useCallback<(e: Triggers.UseEvent) => void>(
       ({ stage }) => {
@@ -208,7 +208,7 @@ export const Button = <E extends ElementType = "button">(
   const res = color.colorZ.safeParse(colorVal);
   const hasCustomColor =
     res.success && (variant === "filled" || variant === "outlined");
-  const theme = Theming.use();
+  const theme = Theming.useTheme();
 
   const pStyle = useMemo(() => {
     let s = style;

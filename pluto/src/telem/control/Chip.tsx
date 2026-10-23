@@ -89,7 +89,7 @@ export const tooltipMessage = (
 
 export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElement => {
   const memoProps = useMemoDeepEqual({ source, sink });
-  const [, { status }, setState] = Aether.use({
+  const [, { status }, setState] = Aether.useBidirectional({
     type: control.Chip.TYPE,
     schema: control.chipStateZ,
     initialState: {

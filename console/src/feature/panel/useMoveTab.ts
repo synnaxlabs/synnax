@@ -47,7 +47,7 @@ export const useMintPanelForTab = (): MintPanelForTab => {
   const projectKey = Session.Project.useSelectSelected();
   const { updateAsync: create } = Panel.useCreate();
   const { dispatch } = Panel.useDispatch();
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   return useCallback(
     async ({ panel: source, tab }) => {
       const key = uuid.create();

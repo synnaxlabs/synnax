@@ -27,7 +27,7 @@ const INDEX_QUERY: Partial<Channel.RetrieveMultipleQuery> = { isIndex: true };
 
 export const useCreateModal = Modals.create(({ close }) => {
   const [createMore, setCreateMore] = useState(false);
-  const { capture } = Analytics.use();
+  const { capture } = Analytics.useSink();
   const { form, variant, save } = Channel.useForm({
     query: null,
     afterSave: ({ reset }) => {

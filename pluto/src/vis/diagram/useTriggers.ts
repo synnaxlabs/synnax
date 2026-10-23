@@ -69,7 +69,7 @@ export const useTriggers = ({
   enabled,
   editable = true,
 }: UseTriggersProps) => {
-  Triggers.use({
+  Triggers.useListen({
     triggers: FLATTENED_CONFIG,
     loose: true,
     enabled,

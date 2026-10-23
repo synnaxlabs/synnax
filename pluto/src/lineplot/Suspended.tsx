@@ -13,7 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { useEnsure } from "@/lineplot/queries";
 import { Scope } from "@/lineplot/scope";
 
-export const useKey = Scope.use;
+export const useKey = Scope.useRequired;
 
 export interface SuspendedProps extends PropsWithChildren {
   linePlotKey: lineplot.Key;

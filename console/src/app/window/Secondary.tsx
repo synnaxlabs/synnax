@@ -20,7 +20,7 @@ import { Panel } from "@/feature/panel";
 import { CSS } from "@/platform/css";
 
 const SideEffect = (): null => {
-  Triggers.use();
+  Triggers.useGlobal();
   return null;
 };
 

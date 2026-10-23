@@ -52,7 +52,7 @@ const Internal = <
   icon,
   initialProperties,
 }: InternalProps<Properties, Make, Model>) => {
-  const methods = Form.use<ConfigurablePropertiesZ>({
+  const methods = Form.useState<ConfigurablePropertiesZ>({
     values: { name, identifier: "" },
     schema: configurablePropertiesZ,
   });
@@ -61,7 +61,7 @@ const Internal = <
   const triggerAction = isNameStep ? "Next" : "Save";
   const [recommendedIds, setRecommendedIds] = useState<string[]>([]);
   const identifierRef = useRef<HTMLInputElement>(null);
-  const { capture } = Analytics.use();
+  const { capture } = Analytics.useSink();
   const deviceToCreate = () => ({
     ...device,
     configured: true,
@@ -186,6 +186,6 @@ export const Configure = <
   deviceKey,
   ...rest
 }: ConfigureProps<Properties, Make, Model>) => {
-  const device = Device.use({ key: deviceKey });
+  const device = Device.useRetrieve({ key: deviceKey });
   return <Internal device={device} {...rest} />;
 };

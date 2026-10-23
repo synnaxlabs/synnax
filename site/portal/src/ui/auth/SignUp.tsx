@@ -42,11 +42,11 @@ export const SignUp = ({ target }: SignUpProps): ReactElement => {
   const clerk = useClerk();
   const [step, setStep] = useState<Step>("details");
   const [oauthError, setOAuthError] = useState<string | null>(null);
-  const methods = Form.use({
+  const methods = Form.useState({
     values: { firstName: "", lastName: "", email: "", password: "" },
     schema,
   });
-  const codeMethods = Form.use({ values: { code: "" }, schema: codeSchema });
+  const codeMethods = Form.useState({ values: { code: "" }, schema: codeSchema });
 
   const create = useAction(async () => {
     if (clerk?.client == null || !methods.validate()) return;

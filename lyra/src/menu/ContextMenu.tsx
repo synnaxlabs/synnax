@@ -189,7 +189,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
   );
   // Outranks the dialog Escape handler (priority 100) so a menu opened inside a
   // dialog closes without also closing the dialog.
-  Triggers.use({
+  Triggers.useListen({
     triggers: ESCAPE_TRIGGERS,
     callback: handleEscape,
     loose: true,

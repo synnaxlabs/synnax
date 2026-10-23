@@ -102,7 +102,7 @@ const triggerFires: panel.TabKey[] = [];
 // which tabs the mosaic lets hear a keystroke.
 const TriggerProbeContent: Panel.Content = () => {
   const tabKey = PPanel.useTabKey();
-  Triggers.use({
+  Triggers.useListen({
     triggers: TRIGGER,
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {

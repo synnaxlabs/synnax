@@ -95,7 +95,7 @@ const beforeSave = async ({
 
 export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
   ({ deviceKey, close }) => {
-    const { capture } = Analytics.use();
+    const { capture } = Analytics.useSink();
     const {
       form,
       save,

@@ -45,7 +45,7 @@ export const ContextMenu = ({
   const someSelected = keys.length > 0;
   const isSingle = keys.length === 1;
 
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const canControl = Framer.useCanCommand();
   const captureDeploy = useCaptureDeploy();
   const { update: runCommand } = Task.useCommand({ afterSuccess: captureDeploy });

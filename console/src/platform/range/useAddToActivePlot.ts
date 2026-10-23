@@ -17,7 +17,7 @@ import { Session } from "@/session";
 export const useAddToActivePlot = (): ((keys: string[]) => void) => {
   const handleError = Status.useErrorHandler();
   const dispatch = Session.useDispatch();
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const getFocusedKey = Session.LinePlot.useGetFocusedKey();
   return useCallback(
     (keys: string[]) => {

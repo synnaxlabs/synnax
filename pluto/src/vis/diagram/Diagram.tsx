@@ -316,7 +316,7 @@ export const create = ({
     onContextMenu,
     ...rest
   }: DiagramProps): ReactElement => {
-    const [{ path }, , setState] = Aether.use({
+    const [{ path }, , setState] = Aether.useBidirectional({
       aetherKey,
       type: diagram.Diagram.TYPE,
       schema: diagram.diagramStateZ,
@@ -473,7 +473,7 @@ export const create = ({
     const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
 
     const triggerRef = useRef<HTMLDivElement>(null);
-    Triggers.use({
+    Triggers.useListen({
       triggers: triggers.modes.zoomReset,
       callback: useCallback(
         ({ stage, cursor, target }: Triggers.UseEvent) => {

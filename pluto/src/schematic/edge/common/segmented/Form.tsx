@@ -39,7 +39,7 @@ const SelectVariant = (props: SelectVariantProps): ReactElement => (
 );
 
 export const Form = (): ReactElement => {
-  const theme = Theming.use();
+  const theme = Theming.useTheme();
   return (
     <Flex.Box className={CSS.B("schematic-edge-form")} align="start" x>
       <Color.Field path="strokeColor" label="Stroke" fallback={theme.colors.gray.l11} />

@@ -49,7 +49,7 @@ const ChannelRow = ({
   disabled,
 }: ChannelRowProps): ReactElement | null => {
   const dispatch = Log.useSingleDispatch();
-  const theme = Theming.use();
+  const theme = Theming.useTheme();
   const defaultColor = theme.colors.gray.l11;
   const config = Log.useChannelEntry({ channel });
   const query = channel > 0 ? { key: channel } : null;

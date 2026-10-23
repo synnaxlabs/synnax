@@ -20,16 +20,14 @@ const RESOURCE_NAME = "line plot";
 
 export type RetrieveQuery = lineplot.RetrieveSingleParams;
 
-export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetrieve<
-  RetrieveQuery,
-  lineplot.LinePlot
->({
-  name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.lineplots.retrieve(query),
-  onChange: ({ client, query }, handler) => client.lineplots.onChange(query, handler),
-  getCached: ({ client, query }) => client.lineplots.getCached(query),
-  awaitCreation: true,
-});
+export const { useRetrieve, useEnsure, useTombstone, createSelector } =
+  Flux.createRetrieve<RetrieveQuery, lineplot.LinePlot>({
+    name: RESOURCE_NAME,
+    retrieve: async ({ client, query }) => await client.lineplots.retrieve(query),
+    onChange: ({ client, query }, handler) => client.lineplots.onChange(query, handler),
+    getCached: ({ client, query }) => client.lineplots.getCached(query),
+    awaitCreation: true,
+  });
 
 export interface KeyParams {
   key: lineplot.Key;
@@ -136,7 +134,7 @@ const useRawLines = (params: KeyParams): RawDerivedLine[] => {
 // eagerly by the reducer, so this is the complete set of plotted lines.
 export const useLines = Scope.bindHook((params: KeyParams): DerivedLine[] => {
   const lines = useRawLines(params);
-  const palette = Theming.use().colors.visualization.palettes.default;
+  const palette = Theming.useTheme().colors.visualization.palettes.default;
   return useMemo(
     () =>
       lines.map(({ color, ...line }, i) => ({
@@ -275,7 +273,7 @@ const useRawLine = createSelector<RawLine, LineParams>(
 export const useLine = Scope.bindHook(
   (params: LineParams): require.Require<DerivedLine, "label"> => {
     const raw = useRawLine(params);
-    const palette = Theming.use().colors.visualization.palettes.default;
+    const palette = Theming.useTheme().colors.visualization.palettes.default;
     const { yChannel } = lineplot.parseLineKey(raw.line.key);
     const { data: chanName } = Channel.useResultName(
       yChannel > 0 ? { key: yChannel } : null,
@@ -304,7 +302,7 @@ const useRawRules = createSelector(({ rules }) => rules);
 // position, the same way lines are).
 export const useRules = Scope.bindHook((params: KeyParams): DerivedRule[] => {
   const rules = useRawRules(params);
-  const palette = Theming.use().colors.visualization.palettes.default;
+  const palette = Theming.useTheme().colors.visualization.palettes.default;
   return useMemo(
     () =>
       rules.map(({ color, ...rule }, i) => ({
@@ -339,7 +337,7 @@ const useRawRule = createSelector<RawRule, RuleParams>(
 // exists, so callers must only request rules they know are present.
 export const useRule = Scope.bindHook((params: RuleParams): DerivedRule => {
   const raw = useRawRule(params);
-  const palette = Theming.use().colors.visualization.palettes.default;
+  const palette = Theming.useTheme().colors.visualization.palettes.default;
   return useMemo(
     () => ({
       ...raw.rule,

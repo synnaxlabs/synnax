@@ -79,7 +79,7 @@ const useDelete = () => {
 const usePersist = () => {
   const dispatch = Session.useDispatch();
   const ranges = Range.useResolveMultiple();
-  const { capture } = Analytics.use();
+  const { capture } = Analytics.useSink();
   const { update } = Ranger.useCreate({
     beforeUpdate: useCallback(
       ({ data, rollbacks }: Flux.BeforeUpdateParams<ranger.New>) => {
@@ -106,7 +106,7 @@ const usePersist = () => {
 
 export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const dispatch = Session.useDispatch();
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const ranges = Range.useResolveMultiple();
   const id = ranger.ontologyID(key ?? "");
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);

@@ -72,7 +72,7 @@ export interface UseReturn<K extends record.Key = string> {
 
 const SHIFT_TRIGGERS: Triggers.Trigger[] = [["Shift"]];
 
-export const use = <K extends record.Key = string>({
+export const useState = <K extends record.Key = string>({
   onExpand,
   nodes,
   initialExpanded = [],

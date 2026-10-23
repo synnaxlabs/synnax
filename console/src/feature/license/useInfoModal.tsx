@@ -133,7 +133,7 @@ export const useInfoModal = Modals.create(() => {
   const info = result.data;
   const { details } = Synnax.useConnectionStatus();
   const core = Session.Core.useSelectSelected();
-  const consoleVersion = Session.Version.use();
+  const consoleVersion = Session.Version.useCurrent();
   const fingerprint = info?.fingerprint ?? [];
   const lic = info?.license;
   const address = core == null ? null : `${core.host}:${core.port}`;

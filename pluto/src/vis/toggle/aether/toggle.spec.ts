@@ -199,7 +199,7 @@ describe("toggle/aether/Toggle", () => {
     it("should expose a toggle fn and the enabled state", () => {
       const { result } = renderHook(
         () =>
-          Toggle.use({
+          Toggle.useAether({
             aetherKey: "tgl",
             source: noopBooleanSourceSpec,
             sink: noopBooleanSinkSpec,

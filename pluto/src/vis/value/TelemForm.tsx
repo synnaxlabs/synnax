@@ -35,7 +35,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   const { set } = Form.useContext();
   const { value, onChange } = Form.useField<ValueTelemFormT>(path);
 
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const handleError = Status.useErrorHandler();
   const handleSourceChange = (key: channel.Key | null): void => {
     if (primitive.isNonZero(key) && client != null)

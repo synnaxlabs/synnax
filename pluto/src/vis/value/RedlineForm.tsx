@@ -189,7 +189,7 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
   const background =
     Form.useFieldValue<color.Color>("fillColor", { optional: true }) ?? undefined;
   const { push, remove } = Form.useFieldListUtils<string, color.Band>(bandsPath);
-  const theme = Theming.use();
+  const theme = Theming.useTheme();
   // The form edits values in place, so values read here keep their identity across
   // edits and cannot key a memo.
   const { bands, smooth } = redline;

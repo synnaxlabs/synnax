@@ -242,7 +242,7 @@ export const WINDOW_SYNCHRONIZERS: Synchronizer.Synchronizers<
   RequiredStoreState,
   RequiredAction
 > = [
-  { name: "reconcile panel order and selection", use: () => membership },
-  { name: "sync window title", use: () => windowTitle },
-  { name: "reconcile tab selections", use: useTabSelections },
+  { name: "reconcile panel order and selection", useCallbacks: () => membership },
+  { name: "sync window title", useCallbacks: () => windowTitle },
+  { name: "reconcile tab selections", useCallbacks: useTabSelections },
 ];

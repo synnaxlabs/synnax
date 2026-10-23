@@ -41,7 +41,7 @@ export const Drawer = ({
   children,
   ...rest
 }: DrawerProps): ReactElement => {
-  const { erase } = Eraser.use({ enabled: !hover });
+  const { erase } = Eraser.useAether({ enabled: !hover });
   const handleResize = useCallback(
     (_: number, { box }: Resize.HandlerExtra) => erase(box),
     [erase],

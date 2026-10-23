@@ -32,7 +32,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
     type: "diagram_elements",
     key: "stages",
   });
-  const theme = Theming.use();
+  const theme = Theming.useTheme();
   const handleDragStart = useCallback(() => {
     startDrag([Arc.createHaulItem(itemKey)]);
   }, [startDrag, itemKey]);

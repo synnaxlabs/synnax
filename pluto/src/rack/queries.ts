@@ -35,16 +35,14 @@ export const useList = Flux.createList<ListQuery, rack.Key, rack.Rack>({
   getCached: ({ client, query }) => client.racks.getCached(query),
 });
 
-export const { use, useResult, useEnsure, createSelector } = Flux.createRetrieve<
-  RetrieveQuery,
-  rack.Rack
->({
-  name: RESOURCE_NAME,
-  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
-  retrieve: async ({ client, query }) => await client.racks.retrieve(query),
-  onChange: ({ client, query }, handler) => client.racks.onChange(query, handler),
-  getCached: ({ client, query }) => client.racks.getCached(query),
-});
+export const { useRetrieve, useResult, useEnsure, createSelector } =
+  Flux.createRetrieve<RetrieveQuery, rack.Rack>({
+    name: RESOURCE_NAME,
+    normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
+    retrieve: async ({ client, query }) => await client.racks.retrieve(query),
+    onChange: ({ client, query }, handler) => client.racks.onChange(query, handler),
+    getCached: ({ client, query }) => client.racks.getCached(query),
+  });
 
 export const useName = createSelector(({ name }) => name);
 

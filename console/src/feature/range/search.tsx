@@ -23,7 +23,7 @@ import { Session } from "@/session";
 
 const SearchListItem: Search.ListItem = (props) => {
   const resource = List.useItem<string, ontology.Resource>(props.itemKey);
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const store = Session.useStore();
   const openTab = Panel.useOpenTab();
   const handleError = Status.useErrorHandler();

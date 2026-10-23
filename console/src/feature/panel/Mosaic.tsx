@@ -102,7 +102,7 @@ const DeletedContent = ({ name: corpse }: Flux.Tombstone): ReactElement => {
   const resource = Panel.useTabResource({});
   const closeTabs = Panel.useCloseResourceTabs();
   const { restore, Icon: TabIcon } = useTab();
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const project = Session.Project.useSelectSelected();
   const handleError = Status.useErrorHandler();
   const name = corpse ?? "This resource";

@@ -24,16 +24,15 @@ const RESOURCE_NAME = "schematic";
 export type RetrieveQuery = schematic.RetrieveSingleParams;
 
 // Prefers the cached copy: it may hold locally replayed edits ahead of the server.
-export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetrieve<
-  RetrieveQuery,
-  schematic.Schematic
->({
-  name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.schematics.retrieve(query),
-  onChange: ({ client, query }, handler) => client.schematics.onChange(query, handler),
-  getCached: ({ client, query }) => client.schematics.getCached(query),
-  awaitCreation: true,
-});
+export const { useRetrieve, useEnsure, useTombstone, createSelector } =
+  Flux.createRetrieve<RetrieveQuery, schematic.Schematic>({
+    name: RESOURCE_NAME,
+    retrieve: async ({ client, query }) => await client.schematics.retrieve(query),
+    onChange: ({ client, query }, handler) =>
+      client.schematics.onChange(query, handler),
+    getCached: ({ client, query }) => client.schematics.getCached(query),
+    awaitCreation: true,
+  });
 
 export interface KeyParams {
   key: schematic.Key;
@@ -260,7 +259,7 @@ export interface AddNodeProps<V extends Node.Variant = Node.Variant> {
 }
 
 export const useAddNode = () => {
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const dispatch = useSingleDispatch();
 
   return useCallback(
@@ -284,8 +283,8 @@ export const useAddNode = () => {
  * when the selection cannot be grouped.
  */
 export const useGroup = (): ((selected: readonly string[]) => string[] | null) => {
-  const key = Scope.use();
-  const client = Synnax.use();
+  const key = Scope.useRequired();
+  const client = Synnax.useClient();
   const dispatch = useSingleDispatch();
   return useCallback(
     (selected) => {
@@ -310,8 +309,8 @@ export const useGroup = (): ((selected: readonly string[]) => string[] | null) =
  * keys, or null when the selection touches no group.
  */
 export const useUngroup = (): ((selected: readonly string[]) => string[] | null) => {
-  const key = Scope.use();
-  const client = Synnax.use();
+  const key = Scope.useRequired();
+  const client = Synnax.useClient();
   const dispatch = useSingleDispatch();
   return useCallback(
     (selected) => {

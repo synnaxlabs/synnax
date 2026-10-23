@@ -52,7 +52,7 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
  * the active Core rejects auth, where submitting resumes its connection.
  */
 export const Login = (): ReactElement => {
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const connStatus = Synnax.useConnectionStatus();
   const servingCore = Core.detectConnection();
   const cores = Session.Core.useSelectMany();
@@ -65,7 +65,7 @@ export const Login = (): ReactElement => {
   );
   const target = servingCore ?? selectedCore;
 
-  const methods = Form.use<typeof credentialsZ>({
+  const methods = Form.useState<typeof credentialsZ>({
     schema: credentialsZ,
     values: { username: selectedCore?.username ?? "", password: "" },
   });

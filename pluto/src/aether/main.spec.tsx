@@ -242,7 +242,7 @@ describe("Aether Main", () => {
     it("should set the initial state correctly", async () => {
       const [Provider, root] = await newProvider();
       const ExampleLeafC = () => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -262,7 +262,7 @@ describe("Aether Main", () => {
     it("should update the state on a call to setState", async () => {
       const [Provider, root] = await newProvider();
       const ExampleLeafC = () => {
-        const [, , setState] = Aether.use({
+        const [, , setState] = Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -287,7 +287,7 @@ describe("Aether Main", () => {
     it("should trigger afterDelete on unmount", async () => {
       const [Provider, root] = await newProvider();
       const ExampleLeafC = () => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -310,7 +310,7 @@ describe("Aether Main", () => {
     it("should invoke fire-and-forget method on worker", async () => {
       const [Provider, root] = await newProvider();
       const InvokeLeafC = () => {
-        const [, , , methods] = Aether.use({
+        const [, , , methods] = Aether.useBidirectional({
           type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -336,7 +336,7 @@ describe("Aether Main", () => {
       const [Provider, root] = await newProvider();
       let result: number | null = null;
       const InvokeLeafC = () => {
-        const [, , , methods] = Aether.use({
+        const [, , , methods] = Aether.useBidirectional({
           type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -364,7 +364,7 @@ describe("Aether Main", () => {
       const [Provider, root] = await newProvider();
       const captured: { error: Error | null } = { error: null };
       const InvokeLeafC = () => {
-        const [, , , methods] = Aether.use({
+        const [, , , methods] = Aether.useBidirectional({
           type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -392,7 +392,7 @@ describe("Aether Main", () => {
       const [Provider, root] = await newProvider();
       const captured: { error: Error | null } = { error: null };
       const InvokeLeafC = () => {
-        const [, , , methods] = Aether.use({
+        const [, , , methods] = Aether.useBidirectional({
           type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -421,7 +421,7 @@ describe("Aether Main", () => {
       const [Provider, root] = await newProvider();
       const captured: { error: Error | null } = { error: null };
       const InvokeLeafC = () => {
-        const [, , , methods] = Aether.use({
+        const [, , , methods] = Aether.useBidirectional({
           type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -451,7 +451,7 @@ describe("Aether Main", () => {
       const [Provider, root] = await newProvider();
       const captured: { result: [number, string] | null } = { result: null };
       const C = () => {
-        const [, , , methods] = Aether.use({
+        const [, , , methods] = Aether.useBidirectional({
           type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -480,7 +480,7 @@ describe("Aether Main", () => {
       const [Provider, root] = await newProvider();
       const results: number[] = [];
       const C = () => {
-        const [, , , methods] = Aether.use({
+        const [, , , methods] = Aether.useBidirectional({
           type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -511,7 +511,7 @@ describe("Aether Main", () => {
     it("should invoke fire-and-forget methods in submission order", async () => {
       const [Provider, root] = await newProvider();
       const C = () => {
-        const [, , , methods] = Aether.use({
+        const [, , , methods] = Aether.useBidirectional({
           type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -539,7 +539,7 @@ describe("Aether Main", () => {
       const [Provider, root] = await newProvider();
       const onAetherChange = vi.fn();
       const InvokeLeafC = () => {
-        const [, , , methods] = Aether.use({
+        const [, , , methods] = Aether.useBidirectional({
           type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -565,7 +565,7 @@ describe("Aether Main", () => {
     it("should pass current state to functional setState", async () => {
       const [Provider, root] = await newProvider();
       const ExampleLeafC = () => {
-        const [, state, setState] = Aether.use({
+        const [, state, setState] = Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 10 },
@@ -590,7 +590,7 @@ describe("Aether Main", () => {
       const [Provider] = await newProvider();
       const observed: { x: number | null } = { x: null };
       const C = () => {
-        const [, state, , methods] = Aether.use({
+        const [, state, , methods] = Aether.useBidirectional({
           type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -615,7 +615,7 @@ describe("Aether Main", () => {
       const [Provider] = await newProvider();
       const observed: { x: number | null } = { x: null };
       const C = () => {
-        const [, state, , methods] = Aether.use({
+        const [, state, , methods] = Aether.useBidirectional({
           type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -642,7 +642,7 @@ describe("Aether Main", () => {
       const [Provider, root] = await newProvider();
       const captured: unknown[] = [];
       const C = ({ trigger }: { trigger: number }) => {
-        const [, , setState] = Aether.use({
+        const [, , setState] = Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -674,7 +674,7 @@ describe("Aether Main", () => {
       const [Provider, root] = await newProvider();
       const captured: unknown[] = [];
       const C = ({ trigger }: { trigger: number }) => {
-        const [{ path }] = Aether.use({
+        const [{ path }] = Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -705,7 +705,7 @@ describe("Aether Main", () => {
       const [Provider, root] = await newProvider();
       const captured: unknown[] = [];
       const C = ({ trigger }: { trigger: number }) => {
-        const [, , , methods] = Aether.use({
+        const [, , , methods] = Aether.useBidirectional({
           type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -736,7 +736,7 @@ describe("Aether Main", () => {
     it("should ignore changes to initialState after the first render", async () => {
       const [Provider, root] = await newProvider();
       const C = ({ x }: { x: number }) => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x },
@@ -766,7 +766,7 @@ describe("Aether Main", () => {
       // worker component", which is what unmount + remount is for.
       const [Provider, root] = await newProvider();
       const C = ({ type }: { type: string }) => {
-        Aether.use({
+        Aether.useBidirectional({
           type,
           schema: exampleProps,
           initialState: { x: 7 },
@@ -796,7 +796,7 @@ describe("Aether Main", () => {
     it("should ignore aetherKey changes after the first render", async () => {
       const [Provider, root] = await newProvider();
       const C = ({ k }: { k: string }) => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -826,7 +826,7 @@ describe("Aether Main", () => {
       const [Provider] = await newProvider();
       const captured: CapturedError = { current: null };
       const C = () => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           // @ts-expect-error — intentionally invalid for the test
@@ -850,7 +850,7 @@ describe("Aether Main", () => {
       const [Provider, root] = await newProvider();
       const captured: { error: Error | null } = { error: null };
       const C = () => {
-        const [, , setState] = Aether.use({
+        const [, , setState] = Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -880,7 +880,7 @@ describe("Aether Main", () => {
       const [Provider, root] = await newProvider();
       let observedX: number | null = null;
       const C = () => {
-        const [, state, , methods] = Aether.use({
+        const [, state, , methods] = Aether.useBidirectional({
           type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1215,7 +1215,7 @@ describe("Aether Main", () => {
     it("should nest children under parent path", async () => {
       const [Provider, root] = await newProvider();
       const Parent = () => {
-        const [{ path }] = Aether.use({
+        const [{ path }] = Aether.useBidirectional({
           type: ExampleComposite.TYPE,
           schema: exampleProps,
           initialState: { x: 1 },
@@ -1227,7 +1227,7 @@ describe("Aether Main", () => {
         );
       };
       const Child = () => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 2 },
@@ -1250,7 +1250,7 @@ describe("Aether Main", () => {
     it("should give two siblings under one Composite distinct paths", async () => {
       const [Provider, root] = await newProvider();
       const Parent = () => {
-        const [{ path }] = Aether.use({
+        const [{ path }] = Aether.useBidirectional({
           type: ExampleComposite.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1263,7 +1263,7 @@ describe("Aether Main", () => {
         );
       };
       const Child = ({ aetherKey, x }: { aetherKey: string; x: number }) => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x },
@@ -1290,7 +1290,7 @@ describe("Aether Main", () => {
     it("should support arbitrarily deep Composite > Composite > Leaf nesting", async () => {
       const [Provider, root] = await newProvider();
       const Outer = () => {
-        const [{ path }] = Aether.use({
+        const [{ path }] = Aether.useBidirectional({
           type: ExampleComposite.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1303,7 +1303,7 @@ describe("Aether Main", () => {
         );
       };
       const Inner = () => {
-        const [{ path }] = Aether.use({
+        const [{ path }] = Aether.useBidirectional({
           type: ExampleComposite.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1316,7 +1316,7 @@ describe("Aether Main", () => {
         );
       };
       const Leaf = () => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 9 },
@@ -1343,7 +1343,7 @@ describe("Aether Main", () => {
     it("should preserve child worker components across Composite re-renders", async () => {
       const [Provider, root] = await newProvider();
       const Parent = ({ trigger }: { trigger: number }) => {
-        const [{ path }] = Aether.use({
+        const [{ path }] = Aether.useBidirectional({
           type: ExampleComposite.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1356,7 +1356,7 @@ describe("Aether Main", () => {
         );
       };
       const Child = ({ trigger }: { trigger: number }) => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1392,7 +1392,7 @@ describe("Aether Main", () => {
       const [Provider, root] = await newProvider();
       const captured: unknown[] = [];
       const Parent = ({ trigger }: { trigger: number }) => {
-        const [{ path }] = Aether.use({
+        const [{ path }] = Aether.useBidirectional({
           type: ExampleComposite.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1405,7 +1405,7 @@ describe("Aether Main", () => {
         );
       };
       const Child = ({ trigger }: { trigger: number }) => {
-        const [{ path }] = Aether.use({
+        const [{ path }] = Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1439,7 +1439,7 @@ describe("Aether Main", () => {
       const [Provider] = await newProvider();
       const captured: CapturedError = { current: null };
       const C = () => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ErrorOnUpdateLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1463,7 +1463,7 @@ describe("Aether Main", () => {
     it("should render multiple independent children under one Provider", async () => {
       const [Provider, root] = await newProvider();
       const A = () => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 1 },
@@ -1472,7 +1472,7 @@ describe("Aether Main", () => {
         return null;
       };
       const B = () => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 2 },
@@ -1497,7 +1497,7 @@ describe("Aether Main", () => {
     it("should clean up all child worker components on Provider unmount", async () => {
       const [Provider, root] = await newProvider();
       const A = () => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1506,7 +1506,7 @@ describe("Aether Main", () => {
         return null;
       };
       const B = () => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1531,7 +1531,7 @@ describe("Aether Main", () => {
       const captured: CapturedError = { current: null };
       let renderedFine = false;
       const C = () => {
-        const [, , setState] = Aether.use({
+        const [, , setState] = Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1676,7 +1676,7 @@ describe("Aether Main", () => {
       // overwrites the first's handler. The refactor may make this an error.
       const [Provider, root] = await newProvider();
       const C = ({ x }: { x: number }) => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x },
@@ -1738,7 +1738,7 @@ describe("Aether Main", () => {
         return null;
       };
       const Leaf = () => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1795,7 +1795,7 @@ describe("Aether Main", () => {
         handle: (handler) => mainSide.handle(handler),
       };
       const Leaf = () => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1829,7 +1829,7 @@ describe("Aether Main", () => {
         handle: (handler) => mainSide.handle(handler),
       };
       const Leaf = () => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1837,7 +1837,7 @@ describe("Aether Main", () => {
         return null;
       };
       const Nested = () => {
-        const [{ path }] = Aether.use({
+        const [{ path }] = Aether.useBidirectional({
           type: ExampleComposite.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1873,7 +1873,7 @@ describe("Aether Main", () => {
       };
       const setters = new Map<number, (x: number) => void>();
       const Leaf = ({ index }: { index: number }) => {
-        const [, , , methods] = Aether.use({
+        const [, , , methods] = Aether.useBidirectional({
           type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1971,7 +1971,7 @@ describe("Aether Main", () => {
       // is the full path, not the leaf key, so neither plot evicts the other's line.
       const [Provider, root] = await newProvider();
       const Plot = ({ aetherKey, x }: { aetherKey: string; x: number }) => {
-        const [{ path }] = Aether.use({
+        const [{ path }] = Aether.useBidirectional({
           type: ExampleComposite.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -1984,7 +1984,7 @@ describe("Aether Main", () => {
         );
       };
       const Line = ({ x }: { x: number }) => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x },
@@ -2021,7 +2021,7 @@ describe("Aether Main", () => {
     it("should create a fresh worker component when an aetherKey is reused after unmount", async () => {
       const [Provider, root] = await newProvider();
       const C = () => {
-        Aether.use({
+        Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 5 },
@@ -2057,7 +2057,7 @@ describe("Aether Main", () => {
       const [Provider, root] = await newProvider();
       let observedX: number | null = null;
       const C = () => {
-        const [, state] = Aether.use({
+        const [, state] = Aether.useBidirectional({
           type: EchoOnUpdateLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -2080,7 +2080,7 @@ describe("Aether Main", () => {
       const [Provider, root] = await newProvider();
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const C = () => {
-        Aether.use({
+        Aether.useBidirectional({
           type: EchoOnUpdateLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -2137,7 +2137,7 @@ describe("Aether Main", () => {
       const [Provider, root] = await newProvider();
       let observedX: number | null = null;
       const Cell = () => {
-        const [, state] = Aether.use({
+        const [, state] = Aether.useBidirectional({
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 1 },

@@ -54,7 +54,7 @@ export const Symbol = ({
     () => BaseValue.backgroundTelem(t, redline, fillColor),
     [t, redline, fillColor],
   );
-  const { width: oWidth } = BaseValue.use({
+  const { width: oWidth } = BaseValue.useAether({
     aetherKey: nodeKey,
     color: textColor,
     level,

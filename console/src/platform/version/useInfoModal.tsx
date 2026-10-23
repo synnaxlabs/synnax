@@ -114,7 +114,7 @@ const useDownload = (): UseDownloadReturn => {
 };
 
 export const useInfoModal = Modals.create(() => {
-  const version = Session.Version.use();
+  const version = Session.Version.useCurrent();
   const available = useUpdateCheck();
   const { download, start } = useDownload();
   const total = download.total.valueOf();

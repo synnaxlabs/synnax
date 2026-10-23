@@ -34,7 +34,7 @@ interface InternalProps extends Pick<
 const Internal = ({ icon, deviceKey, handleError }: InternalProps) => {
   const rename = Modals.useRename();
   const { updateAsync } = useChangeIdentifier();
-  const { properties } = Device.use({ key: deviceKey });
+  const { properties } = Device.useRetrieve({ key: deviceKey });
   const identifier =
     typeof properties?.identifier === "string" ? properties.identifier : "";
   const handleClick = () =>

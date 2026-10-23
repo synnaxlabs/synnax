@@ -54,12 +54,12 @@ describe("Version.use", () => {
         client: null,
         connParams: TEST_CLIENT_PARAMS,
       });
-      const { result } = renderHook(() => Version.use(), { wrapper });
+      const { result } = renderHook(() => Version.useCurrent(), { wrapper });
       await waitFor(() => expect(result.current).toBe(nodeVersion));
     });
 
     it("should return undefined when no Core is connected", () => {
-      const { result } = renderHook(() => Version.use());
+      const { result } = renderHook(() => Version.useCurrent());
       expect(result.current).toBeUndefined();
     });
   });
@@ -68,7 +68,7 @@ describe("Version.use", () => {
     it("should resolve the app version via the tauri api", async () => {
       mocks.engine = "tauri";
       mocks.tauriVersion = "0.42.0";
-      const { result } = renderHook(() => Version.use());
+      const { result } = renderHook(() => Version.useCurrent());
       await waitFor(() => expect(result.current).toBe("0.42.0"));
     });
 
@@ -81,7 +81,10 @@ describe("Version.use", () => {
         connParams: TEST_CLIENT_PARAMS,
       });
       const { result } = renderHook(
-        () => ({ version: Version.use(), connection: Synnax.useConnectionStatus() }),
+        () => ({
+          version: Version.useCurrent(),
+          connection: Synnax.useConnectionStatus(),
+        }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.connection.variant).toBe("success"));

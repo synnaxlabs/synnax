@@ -87,7 +87,7 @@ const TelemForm = () => {
 };
 
 export const ValueForm = ({ tab, onTabChange }: FormProps) => {
-  const theme = Theming.use();
+  const theme = Theming.useTheme();
   return (
     <Properties.Tabs
       tabs={["telemetry", "style", "redline"]}
@@ -126,7 +126,7 @@ export const ValueForm = ({ tab, onTabChange }: FormProps) => {
 };
 
 export const TextForm = (): ReactElement => {
-  const theme = Theming.use();
+  const theme = Theming.useTheme();
   return (
     <Form.Sections x>
       <Form.Section title="Text">

@@ -35,7 +35,7 @@ const retrieveForUser = async (
   return await client.access.roles.retrieve({ keys: parents.map(({ id }) => id.key) });
 };
 
-export const { use } = Flux.createRetrieve<RetrieveQuery, access.role.Role>({
+export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, access.role.Role>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.access.roles.retrieve(query),
   onChange: ({ client, query }, handler) =>

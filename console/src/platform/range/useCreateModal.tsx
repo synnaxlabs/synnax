@@ -70,9 +70,9 @@ export const useCreateModal = Modals.create<CreateModalParams>(
   ({ close, rangeKey, ...params }) => {
     const now = useRef(Number(TimeStamp.now().valueOf())).current;
     const dispatch = Session.useDispatch();
-    const { capture } = Analytics.use();
+    const { capture } = Analytics.useSink();
 
-    const client = Synnax.use();
+    const client = Synnax.useClient();
     const clientExists = client != null;
     const { form, save, variant } = Ranger.useForm({
       query: rangeKey == null ? null : { key: rangeKey },

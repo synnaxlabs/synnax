@@ -20,7 +20,7 @@ export interface ToggleProps extends Omit<Button.ButtonProps, "onClick" | "child
 
 /** Icon-only button that flips the color theme opposite the effective one. */
 export const Toggle = (props: ToggleProps): ReactElement => {
-  const dark = Theming.use().key === Theming.SYNNAX_DARK.key;
+  const dark = Theming.useTheme().key === Theming.SYNNAX_DARK.key;
   const dispatch = useDispatch<Dispatch<Theme.Action>>();
   const next = dark ? "light" : "dark";
   return (

@@ -145,7 +145,7 @@ export const Frame = ({
 
   const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
 
-  const [{ path }, { grid, loading }, setState, methods] = Aether.use({
+  const [{ path }, { grid, loading }, setState, methods] = Aether.useBidirectional({
     aetherKey,
     type: lineplot.LinePlot.TYPE,
     schema: lineplot.linePlotStateZ,

@@ -73,7 +73,7 @@ export const Palette = (): ReactElement => {
 
   const triggers = useMemo(() => flattenedConfig, [flattenedConfig]);
 
-  Triggers.use({ triggers, callback: handleTrigger });
+  Triggers.useListen({ triggers, callback: handleTrigger });
 
   const List = value.startsWith(FeatureCommand.PREFIX) ? Command.List : Search.List;
 

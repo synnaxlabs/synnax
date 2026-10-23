@@ -32,12 +32,12 @@ const MappedPortCount = () => {
   );
 };
 
-describe("use", () => {
+describe("useRetrieve", () => {
   it("should retrieve the device with its typed properties", async () => {
     const dev = await createNIDevice(client);
     const wrapper = await createAsyncSynnaxWrapper({ client });
     const { result } = await renderHookSuspended(
-      () => NI.Device.use({ key: dev.key }),
+      () => NI.Device.useRetrieve({ key: dev.key }),
       { wrapper },
     );
     await waitFor(() =>

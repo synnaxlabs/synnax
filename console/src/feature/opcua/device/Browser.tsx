@@ -120,7 +120,7 @@ export const Browser = ({ device }: BrowserProps) => {
   );
   const opcNodesStore = List.useMapData<string, ScannedNode>();
   const [stat, setStat] = useState<status.Status | null>(null);
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const handleError = Status.useErrorHandler();
   const retrieveNodes = useCallback(
     (id: string, key: string | undefined) => {
@@ -171,7 +171,7 @@ export const Browser = ({ device }: BrowserProps) => {
     [retrieveNodes],
   );
 
-  const treeProps = Tree.use({ nodes: treeNodes, onExpand: expand });
+  const treeProps = Tree.useState({ nodes: treeNodes, onExpand: expand });
   const { shape, clearExpanded } = treeProps;
   const [initialLoading, setInitialLoading] = useState(false);
   const refresh = useCallback(() => {

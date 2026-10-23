@@ -266,7 +266,7 @@ export const useUnidirectional = <
 /** Bidirectional binding: registers the component, subscribes React to its state via
  * `useSyncExternalStore`, and returns the current state, a setter, and the methods
  * registry. */
-export const use = <
+export const useBidirectional = <
   StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
 >(

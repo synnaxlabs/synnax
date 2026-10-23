@@ -50,7 +50,7 @@ const EXTRA_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 export const useCalculatedModal = Modals.create<CalculatedModalParams>(
   ({ channelKey, close }) => {
     const isEdit = primitive.isNonZero(channelKey);
-    const { capture } = Analytics.use();
+    const { capture } = Analytics.useSink();
     const {
       form,
       variant,

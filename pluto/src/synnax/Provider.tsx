@@ -42,7 +42,7 @@ const [Context, useContext] = context.create({
   displayName: "Synnax.Context",
 });
 
-export const use = () => useContext().client;
+export const useClient = () => useContext().client;
 
 export const useConnectionStatus = () => useContext().status;
 

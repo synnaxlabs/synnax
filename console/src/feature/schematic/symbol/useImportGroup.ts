@@ -19,7 +19,7 @@ export const useImportGroup = Import.createModal({
   header: "Schematic.Symbols.Group.Import",
   resourceName: "symbol group",
   useOnImport: () => {
-    const client = Synnax.use();
+    const client = Synnax.useClient();
     return useCallback(
       async (bundle: UploadBody) => {
         if (client == null) throw new DisconnectedError();

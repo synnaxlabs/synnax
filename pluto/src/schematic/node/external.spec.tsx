@@ -25,7 +25,7 @@ const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
 const createFormWrapper = (variant: Variant) => {
   const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
-    const methods = Form.use<typeof schematic.nodeConfigZ>({
+    const methods = Form.useState<typeof schematic.nodeConfigZ>({
       values: createConfig({ variant }),
       schema: schematic.nodeConfigZ,
     });

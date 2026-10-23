@@ -54,13 +54,13 @@ describe("useCloseOnCoreChange", () => {
 
   const useSyncWithModals = () => {
     const modals = Session.Modals.useStore("useCloseOnCoreChange spec");
-    Synchronizer.use(SYNCHRONIZERS);
+    Synchronizer.useMount(SYNCHRONIZERS);
     return { modals, status: Synnax.useConnectionStatus() };
   };
 
   const useCloseSync = () => {
     const modals = Session.Modals.useStore("useCloseOnCoreChange spec");
-    const verified = Synchronizer.use(
+    const verified = Synchronizer.useMount(
       pickSynchronizer(SYNCHRONIZERS, "close windows on Core change"),
     );
     return { modals, verified };
@@ -137,7 +137,7 @@ describe("useCacheClusterKey", () => {
   const CLUSTER_B = "cluster-b";
 
   const useCacheSync = () =>
-    Synchronizer.use(
+    Synchronizer.useMount(
       pickSynchronizer(SYNCHRONIZERS, "cache the connected cluster's key"),
     );
 

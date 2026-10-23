@@ -46,7 +46,7 @@ export interface ConnectionProps {
  * otherwise a one-shot check reports reachability.
  */
 export const Connection = ({ core }: ConnectionProps): ReactElement | null => {
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const live = Synnax.useConnectionStatus();
   const isActive =
     client != null &&

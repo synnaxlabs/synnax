@@ -32,8 +32,8 @@ export interface Params {
  * Returns a callback that exports something to a file, streaming the Core-serialized
  * data to a file the user picks.
  */
-export const use = (): ((params: Params) => void) => {
-  const client = Synnax.use();
+export const useAction = (): ((params: Params) => void) => {
+  const client = Synnax.useClient();
   const handleError = Status.useErrorHandler();
   const download = Runtime.useDownload();
   return useCallback(
@@ -52,8 +52,8 @@ export const use = (): ((params: Params) => void) => {
  * streaming its Core-serialized JSON envelope to a file named after the resource.
  */
 export const useResource = (): ((id: ontology.ID) => void) => {
-  const client = Synnax.use();
-  const export_ = use();
+  const client = Synnax.useClient();
+  const export_ = useAction();
   const handleError = Status.useErrorHandler();
   return useCallback(
     (id: ontology.ID) => {

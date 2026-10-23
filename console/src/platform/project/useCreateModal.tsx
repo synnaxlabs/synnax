@@ -23,7 +23,7 @@ import { Triggers } from "@/platform/triggers";
 import { Session } from "@/session";
 
 export const useCreateModal = Modals.create(({ close }) => {
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const dispatch = Session.useDispatch();
 
   const { update: createPanel } = Panel.useCreate({

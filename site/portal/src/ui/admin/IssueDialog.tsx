@@ -45,7 +45,7 @@ export const IssueDialog = ({ teams }: IssueDialogProps): ReactElement => (
 );
 
 const Content = ({ teams }: IssueDialogProps): ReactElement => {
-  const methods = Form.use({
+  const methods = Form.useState({
     values: { ...Licenses.ZERO_TERMS, organization: "" },
     schema,
   });

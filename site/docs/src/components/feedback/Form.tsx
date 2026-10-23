@@ -56,7 +56,7 @@ export const Form = (): ReactElement => {
   const [loading, setLoading] = useState(false);
   const [softSuccess, setSuccess] = useState(false);
 
-  const methods = Base.use<typeof formSchema>({
+  const methods = Base.useState<typeof formSchema>({
     schema: formSchema,
     values: {
       name: "",

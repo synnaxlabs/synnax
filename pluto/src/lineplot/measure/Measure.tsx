@@ -41,7 +41,7 @@ export const Measure = ({
   onModeChange,
 }: MeasureProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
-  const [, state, setState] = Aether.use({
+  const [, state, setState] = Aether.useBidirectional({
     aetherKey: cKey,
     type: measure.Measure.TYPE,
     schema: measure.measureStateZ,
@@ -52,7 +52,7 @@ export const Measure = ({
 
   const ref = useRef<HTMLSpanElement>(null);
 
-  Triggers.use({
+  Triggers.useListen({
     triggers: REDUCED_MEASURE_TRIGGERS,
     loose: true,
     callback: useCallback(

@@ -29,7 +29,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   const maybeChangeProject = useMaybeChange();
   const openTab = Panel.useOpenTab();
   const dispatch = useDispatch();
-  const { capture } = Analytics.use();
+  const { capture } = Analytics.useSink();
   const { update } = Schematic.useCreate({
     afterOptimistic: ({ data: { key } }) => {
       project ??= getActiveProject();

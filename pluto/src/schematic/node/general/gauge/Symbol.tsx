@@ -58,7 +58,7 @@ export const Symbol = ({
     () => Value.stringSource({ channel, rollingAverage, precision, notation }),
     [channel, rollingAverage, precision, notation],
   );
-  BaseGauge.use({
+  BaseGauge.useAether({
     aetherKey: nodeKey,
     box: box.construct(position ?? xy.ZERO, dims),
     telem,

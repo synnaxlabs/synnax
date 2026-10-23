@@ -10,7 +10,7 @@
 import { box, xy } from "@synnaxlabs/x";
 import { type RefObject, useCallback, useRef } from "react";
 
-import { use, type UseEvent } from "@/triggers/hooks";
+import { type UseEvent, useListen } from "@/triggers/hooks";
 import { type Stage, type Trigger } from "@/triggers/triggers";
 
 /** The event {@link useDrag} hands its callback. */
@@ -78,5 +78,5 @@ export const useDrag = ({
     },
     [onDrag],
   );
-  use({ triggers, callback: handleTrigger, region: bound, loose });
+  useListen({ triggers, callback: handleTrigger, region: bound, loose });
 };

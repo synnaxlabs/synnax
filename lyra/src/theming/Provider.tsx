@@ -124,7 +124,7 @@ export const useProvider = ({
   };
 };
 
-export const use = (): baseTheme.Theme => useContext().theme;
+export const useTheme = (): baseTheme.Theme => useContext().theme;
 
 export interface ProviderProps extends PropsWithChildren<unknown>, UseProviderProps {
   applyCSSVars?: boolean;

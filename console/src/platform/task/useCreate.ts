@@ -70,7 +70,7 @@ export const createUseCreate =
     getInitialValues,
   }: CreateUseCreateParams<S>): UseCreate =>
   ({ tabKey }: UseCreateProps = {}) => {
-    const client = PSynnax.use();
+    const client = PSynnax.useClient();
     const openTab = Panel.useOpenTab();
     const handleError = Status.useErrorHandler();
     return useCallback(

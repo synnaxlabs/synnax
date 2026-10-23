@@ -27,7 +27,7 @@ export interface AssignRoleModalParams {
 
 export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
   ({ title, close, userKey }) => {
-    const client = Synnax.use();
+    const client = Synnax.useClient();
     const { form, save, variant } = Access.Role.useChangeRoleForm({
       query: { key: userKey },
       afterSave: useCallback(() => close(), [close]),

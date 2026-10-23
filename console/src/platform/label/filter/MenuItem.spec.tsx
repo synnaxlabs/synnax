@@ -24,7 +24,7 @@ const schema = z.object({
 });
 
 const Fixture = ({ onValue }: { onValue?: (v: label.Key[]) => void }): ReactElement => {
-  const methods = Form.use({ schema, values: { query: { hasLabels: [] } } });
+  const methods = Form.useState({ schema, values: { query: { hasLabels: [] } } });
   return (
     <Form.Form<typeof schema> {...methods}>
       <Label.Filter.MenuItem />

@@ -17,7 +17,7 @@ import { afterEach, assert, describe, expect, it, type Mock, vi } from "vitest";
 import {
   PAN_DEFAULT_TRIGGERS,
   SELECT_DEFAULT_TRIGGERS,
-  use,
+  useMask,
   type UseEvent,
   type UseHandler,
   type UseProps,
@@ -71,7 +71,7 @@ const setup = (props: UseProps = {}, canvasBox: box.Box = CANVAS): Handle => {
   document.body.appendChild(canvas);
   canvases.push(canvas);
   const { result, rerender } = renderHook(
-    (p: UseProps) => use({ onChange, ref, ...p }),
+    (p: UseProps) => useMask({ onChange, ref, ...p }),
     { wrapper: Wrapper, initialProps: props },
   );
   result.current.ref.current = canvas;
@@ -568,7 +568,7 @@ describe("viewport/use", () => {
     detached.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
     document.body.appendChild(detached);
     canvases.push(detached);
-    renderHook(() => use({ onChange }), { wrapper: Wrapper });
+    renderHook(() => useMask({ onChange }), { wrapper: Wrapper });
     drag(detached, { x: 20, y: 20 }, { x: 80, y: 80 });
     expect(onChange).not.toHaveBeenCalled();
   });

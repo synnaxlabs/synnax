@@ -23,7 +23,7 @@ import {
   isHaulItem,
   type ToggleOn,
   Tree,
-  use,
+  useState,
 } from "@/tree/Tree";
 
 const KEY = "node-1";
@@ -87,7 +87,7 @@ describe("Tree", () => {
   }
 
   const Component = ({ pinned }: ComponentProps) => {
-    const props = use({ nodes: NODES });
+    const props = useState({ nodes: NODES });
     return (
       <Tree {...props} getItem={getItem} pinned={pinned}>
         {({ key, ...rest }) => (
@@ -146,7 +146,7 @@ describe("Tree toggling", () => {
   );
 
   const Component = ({ toggleOn }: { toggleOn?: ToggleOn }) => {
-    const props = use({ nodes: NODES, toggleOn });
+    const props = useState({ nodes: NODES, toggleOn });
     return (
       <Tree {...props} getItem={getItem}>
         {({ key, ...rest }) => (

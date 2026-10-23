@@ -98,7 +98,7 @@ export const Polygon = ({
   cornerRounding,
   strokeWidth,
 }: RenderProps): ReactElement => {
-  const theme = Theming.use();
+  const theme = Theming.useTheme();
   const padding = useMemo(() => 2 * ((strokeWidth ?? 2) + 1), [strokeWidth]);
   const vertices = useMemo(
     () => calculatePolygonVertices(numSides, sideLength, rotation, padding),

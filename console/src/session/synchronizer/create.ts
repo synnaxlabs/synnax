@@ -52,12 +52,12 @@ export interface Callbacks<S, A extends Action> {
  * Builds a synchronizer's callbacks. The hook body only captures context (flux
  * handles, adders); execution timing belongs to the host.
  */
-export type Use<S, A extends Action> = () => Callbacks<S, A>;
+export type UseCallbacks<S, A extends Action> = () => Callbacks<S, A>;
 
 /** A synchronizer hook under the human-readable name the host reports it by. */
 export interface Synchronizer<S, A extends Action> {
   name: string;
-  use: Use<S, A>;
+  useCallbacks: UseCallbacks<S, A>;
 }
 
 /**
@@ -116,5 +116,5 @@ export const createRemover = <S, A extends Action, K extends record.Key = string
         store.dispatch(remove([key]));
       }),
   };
-  return { name, use: () => callbacks };
+  return { name, useCallbacks: () => callbacks };
 };

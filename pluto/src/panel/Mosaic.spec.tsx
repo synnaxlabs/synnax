@@ -137,7 +137,7 @@ const TabNameProbe = (): ReactElement => {
 // TabKeyNameProbe renders a per-tab clickable name from the tab key in scope, so gesture
 // specs can target an individual tab's handle by its visible text.
 const TabKeyNameProbe = (): ReactElement => {
-  const tabKey = Panel.TabScope.use();
+  const tabKey = Panel.TabScope.useRequired();
   return <span>{`name:${tabKey}`}</span>;
 };
 
@@ -470,7 +470,7 @@ describe("Panel.Mosaic", () => {
     // assert that a selection change re-renders only the leaves it touches.
     const tabRenders = new Map<string, number>();
     const TabNameCounter = (): ReactElement => {
-      const tabKey = Panel.TabScope.use();
+      const tabKey = Panel.TabScope.useRequired();
       tabRenders.set(tabKey, (tabRenders.get(tabKey) ?? 0) + 1);
       return <span>{`name:${tabKey}`}</span>;
     };

@@ -27,7 +27,7 @@ import {
   type HaulItem,
   isHaulItem,
 } from "@/feature/opcua/device/Browser";
-import { use } from "@/feature/opcua/device/queries";
+import { useRetrieve } from "@/feature/opcua/device/queries";
 import type * as Device from "@/feature/opcua/device/types";
 import { useConnectModal } from "@/feature/opcua/device/useConnectModal";
 import { type Channel } from "@/feature/opcua/task/types";
@@ -245,7 +245,7 @@ export const createForm = <C extends Channel>(props: FormProps<C>): FC<{}> => {
   );
   Content.displayName = "OPCTaskForm";
   return PlatformDevice.wrapTaskForm({
-    use,
+    useRetrieve,
     useConfigure: useConnectModal,
     Content,
   });

@@ -17,7 +17,7 @@ const WORKER_HISTORY = 50;
 
 const WorkerBridge = ({ children }: PropsWithChildren): ReactElement => {
   const add = Base.useAdder();
-  const [{ path }, { statuses }, setState] = Aether.use({
+  const [{ path }, { statuses }, setState] = Aether.useBidirectional({
     type: status.Aggregator.TYPE,
     schema: status.aggregatorStateZ,
     initialState: { statuses: [] },

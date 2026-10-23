@@ -52,7 +52,7 @@ export interface ActivateProps {
  * license applies from anywhere.
  */
 export const Activate = ({ onBack }: ActivateProps): ReactElement => {
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const target = Session.Core.useSelectSelected();
   const logout = Session.useLogout();
   const handleError = Status.useErrorHandler();

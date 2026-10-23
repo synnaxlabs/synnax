@@ -1307,13 +1307,16 @@ describe("queries", () => {
 
       // Warm the flux store (range + labels + parent relationship) through the
       // async retrieve path so the composed cache fast-path can resolve.
-      const warm = await renderHookSuspended(() => Ranger.use({ key: rng.key }), {
-        wrapper,
-      });
+      const warm = await renderHookSuspended(
+        () => Ranger.useRetrieve({ key: rng.key }),
+        {
+          wrapper,
+        },
+      );
       await waitFor(() => expect(warm.result.current).toBeDefined());
 
       const Display = (): ReactElement => {
-        const range = Ranger.use({ key: rng.key });
+        const range = Ranger.useRetrieve({ key: rng.key });
         return createElement("span", { "data-testid": "name" }, range.name);
       };
 

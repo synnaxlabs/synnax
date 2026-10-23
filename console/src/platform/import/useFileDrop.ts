@@ -71,7 +71,7 @@ export type FileDrop = (props: Mosaic.OnFileDropProps) => void;
  * the drop landed on. A file that fails is reported on its own.
  */
 export const useFileDrop = ({ importBundle }: UseFileDropParams): FileDrop => {
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();
   const importBatch = useImportBatch();

@@ -54,7 +54,7 @@ export const Row = memo(
     onCellSelect,
   }: RowProps): ReactElement => {
     let xCursor = x;
-    const theme = Theming.use();
+    const theme = Theming.useTheme();
     // Table.css rounds the table's outer corners on the corner <td> by
     // --pluto-border-radius-small, but a cell that paints its background on the canvas
     // squares them off unless it knows the radius, so both sides read the same theme

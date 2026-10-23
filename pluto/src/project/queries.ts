@@ -20,7 +20,7 @@ export type RetrieveQuery = {
   key: project.Key;
 };
 
-export const { use } = Flux.createRetrieve<RetrieveQuery, project.Project>({
+export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, project.Project>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.projects.retrieve(query),
   onChange: ({ client, query }, handler) => client.projects.onChange(query, handler),
@@ -74,7 +74,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
 
 export type RetrieveGroupQuery = Record<string, never>;
 
-export const { use: useGroupID } = Flux.createRetrieve<
+export const { useRetrieve: useGroupID } = Flux.createRetrieve<
   RetrieveGroupQuery,
   ontology.ID | undefined
 >({

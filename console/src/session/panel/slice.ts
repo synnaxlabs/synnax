@@ -334,7 +334,7 @@ export const PERSIST_EXCLUDE = [purgeSliceState];
 
 export const useSelectTab = (panelKey?: panel.Key) => {
   const scopedPanelKey = Panel.useOptionalKey(panelKey);
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const dispatch = useDispatch<Dispatch<Action>>();
   return useCallback(
     (key: panel.TabKey, overridePanelKey?: panel.Key) => {

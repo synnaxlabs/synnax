@@ -53,7 +53,7 @@ const DEFAULT_REGION_KEY = "default";
 export const useModal = Modals.create<ModalParams>(
   ({ symbolKey, parent, createKey, close }): ReactElement => {
     const isCreate = symbolKey == null;
-    const theme = Theming.use();
+    const theme = Theming.useTheme();
     const { form, save } = Schematic.Symbol.useForm({
       query: symbolKey == null ? null : { key: symbolKey },
       initialValues: {

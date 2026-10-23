@@ -37,7 +37,7 @@ describe("Status.SYNCHRONIZERS", () => {
   it("should remove a favorite when its status is deleted while connected", async () => {
     const created = await createStatus();
     const { store } = await renderHookWithConsole(
-      () => Session.Synchronizer.use(Session.Status.SYNCHRONIZERS),
+      () => Session.Synchronizer.useMount(Session.Status.SYNCHRONIZERS),
       { client, preloadedState: preloadWith(created.key) },
     );
     expect(Session.Status.selectFavorites(store.getState())).toContain(created.key);
@@ -53,7 +53,7 @@ describe("Status.SYNCHRONIZERS", () => {
     const survivor = await createStatus();
     const ghost = uuid.create();
     const { store } = await renderHookWithConsole(
-      () => Session.Synchronizer.use(Session.Status.SYNCHRONIZERS),
+      () => Session.Synchronizer.useMount(Session.Status.SYNCHRONIZERS),
       { client, preloadedState: preloadWith(survivor.key, ghost) },
     );
     await waitFor(() => {
@@ -67,7 +67,7 @@ describe("Status.SYNCHRONIZERS", () => {
     // which could answer as of before this write and drop the favorite.
     const fresh = await createStatus();
     const { result, store } = await renderHookWithConsole(
-      () => Session.Synchronizer.use(Session.Status.SYNCHRONIZERS),
+      () => Session.Synchronizer.useMount(Session.Status.SYNCHRONIZERS),
       { client, preloadedState: preloadWith(fresh.key) },
     );
     await waitFor(() => expect(result.current).toBe(true));

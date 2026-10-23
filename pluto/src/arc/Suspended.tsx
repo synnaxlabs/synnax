@@ -13,7 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { useEnsure } from "@/arc/queries";
 import { Scope } from "@/arc/scope";
 
-export const useKey = Scope.use;
+export const useKey = Scope.useRequired;
 
 export interface SuspendedProps extends PropsWithChildren {
   arcKey: arc.Key;

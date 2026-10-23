@@ -58,7 +58,7 @@ const selectKey = (page?: schematic.Page | null): string =>
   page == null || page.key.length === 0 ? "" : ontology.idToString(page);
 
 const useHandlePageChange = (): ((v: string | null) => void) => {
-  const theme = Theming.use();
+  const theme = Theming.useTheme();
   const ctx = Base.useContext();
   return useCallback(
     (v: string | null) => {
@@ -78,7 +78,7 @@ const useHandlePageChange = (): ((v: string | null) => void) => {
 };
 
 export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement => {
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const handleError = Status.useErrorHandler();
   const [siblings, setSiblings] = useState<Sibling[]>([]);
   useEffect(() => {

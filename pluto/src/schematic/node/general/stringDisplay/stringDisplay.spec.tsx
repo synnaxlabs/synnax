@@ -26,7 +26,7 @@ const SynnaxWrapper = createSynnaxWrapper({ client: null });
 const CONFIG_Z = schematic.stringDisplayNodeConfigZ;
 
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
-  const methods = Form.use<typeof CONFIG_Z>({
+  const methods = Form.useState<typeof CONFIG_Z>({
     values: Node.createConfig({ variant: "string_display" }),
     schema: CONFIG_Z,
   });

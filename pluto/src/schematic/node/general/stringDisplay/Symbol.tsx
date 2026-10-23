@@ -37,7 +37,7 @@ export const Symbol = ({
     () => telem.streamChannelStringValue({ channel: channel ?? 0 }),
     [channel],
   );
-  const { value, stale } = BaseStringValue.use({
+  const { value, stale } = BaseStringValue.useAether({
     aetherKey: nodeKey,
     telem: source,
     stalenessTimeout,

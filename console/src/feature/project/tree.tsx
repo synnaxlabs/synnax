@@ -78,9 +78,9 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   const createTable = Table.useCreate({ project: projectKey });
   const firstID = selection.ids[0];
   const createSchematic = Schematic.useCreate({ project: projectKey });
-  const importComponent = Import.use();
+  const importComponent = Import.useAction();
   const handleLink = Core.useCopyLinkToClipboard();
-  const handleExport = Export.use();
+  const handleExport = Export.useAction();
   const handleRename = useRename(props);
   const resources = getResource(ids);
   const first = resources[0];
@@ -168,7 +168,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
 };
 
 const useOnSelect = (): ((resource: ontology.Resource) => void) => {
-  const client = Synnax.use();
+  const client = Synnax.useClient();
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();
   return useCallback(

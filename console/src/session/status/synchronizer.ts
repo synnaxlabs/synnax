@@ -15,7 +15,7 @@ import { Synchronizer } from "@/session/synchronizer";
 
 // Statuses the Core raises while connected surface as notifications. Nothing is
 // repaired at a boundary: a notification missed during a gap has no state behind it.
-const useForwardStatuses: Synchronizer.Use<StoreState, Action> = () => {
+const useForwardStatuses: Synchronizer.UseCallbacks<StoreState, Action> = () => {
   const addStatus = Status.useAdder();
   return useMemo(
     () => ({ listen: ({ client }) => client.statuses.onSet(addStatus) }),
@@ -30,5 +30,5 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
     selectKeys: (state: StoreState) => state.status.favorites,
     remove: (keys) => removeFavorites(keys),
   }),
-  { name: "forward statuses to notifications", use: useForwardStatuses },
+  { name: "forward statuses to notifications", useCallbacks: useForwardStatuses },
 ];
