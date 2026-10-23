@@ -12,7 +12,7 @@ import { type Locator } from "playwright";
 import { simulator, type SimulatorOptions } from "@/fixtures/simulator";
 import { capture } from "@/index";
 
-export const DRIVER = "Node 1 Embedded Driver";
+import { DRIVER, fieldItem, recordTask, type TaskShot } from "./task";
 
 /** A simulated server and how to connect it from the Console. */
 export interface Server {
@@ -27,10 +27,6 @@ export interface Server {
   /** Fills the fields of the protocol, under "Connect from". */
   fill: (session: capture.CaptureSession, modal: Locator) => Promise<void>;
 }
-
-/** fieldItem returns the form field with the given label. */
-const fieldItem = (modal: Locator, label: string): Locator =>
-  modal.locator(".pluto-input__item").filter({ hasText: label }).first();
 
 /** switchField returns the switch with the given label. */
 const switchField = (modal: Locator, label: string): Locator =>
@@ -118,54 +114,22 @@ export const connect = async (
 };
 
 /**
- * openTaskForm connects a server off camera and opens the devices toolbar on it, then
- * starts the recording, right-clicks the server, and selects `item`. It returns the
- * task form that opens.
+ * serverTaskScript returns a script that connects a simulated server off camera and
+ * records a task shot on it. The script module must export `driver = true`.
  */
-export const openTaskForm = async (
-  session: capture.CaptureSession,
-  server: Server,
-  item: string,
-): Promise<Locator> => {
-  const { page } = session;
-  await capture.login(session);
-  await capture.clearPanel(session);
-  await connect(session, server);
-  await capture.openToolbar(session, "device");
-  await capture.resizeToolbar(session, 400);
-  const driver = capture.treeItem(page, "rack:", DRIVER);
-  await session.waitFor(driver);
-  await session.click(driver, { text: true });
-  const device = capture.treeItem(page, "device:", server.name);
-  await session.waitFor(device);
-  await session.moveTo({ x: 800, y: 450 });
-
-  session.startRecording();
-  await session.hold(1500);
-
-  await session.rightClick(device, { text: true });
-  const menu = page.locator(".pluto-menu-context").first();
-  await session.waitFor(menu);
-  await session.hold(500);
-  await session.click(menu.getByText(item, { exact: true }).first(), { text: true });
-  const form = page.locator(".console-task-configure").first();
-  await session.waitFor(form);
-  await session.hold(1000);
-  return form;
-};
-
-/** setNumber replaces the value of the numeric field with the given label. */
-export const setNumber = async (
-  session: capture.CaptureSession,
-  form: Locator,
-  label: string,
-  value: string,
-): Promise<void> => {
-  await session.click(fieldItem(form, label).locator("input").first());
-  await session.press("ControlOrMeta+a");
-  await session.type(value);
-  await session.press("Enter");
-};
+export const serverTaskScript =
+  (server: Server, shot: Omit<TaskShot, "device">) =>
+  async (session: capture.CaptureSession): Promise<void> => {
+    const sim = await simulator(server.server);
+    try {
+      await capture.login(session);
+      await capture.clearPanel(session);
+      await connect(session, server);
+      await recordTask(session, { device: server.name, ...shot });
+    } finally {
+      await sim.stop();
+    }
+  };
 
 /**
  * connectServerScript returns a script that connects a simulated server on camera. The

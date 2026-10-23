@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { simulator } from "@/fixtures/simulator";
-import { type capture } from "@/index";
+import { type Locator } from "playwright";
 
-import { OPCUA, openTaskForm, setNumber } from "./common/server";
+import { OPCUA, serverTaskScript } from "./common/server";
 
 export const driver = true;
 
@@ -21,36 +20,23 @@ const NODES = ["my_float_0", "my_float_1"];
  * read task from a simulated OPC UA server, set the rates, drag two variables from the
  * browser into the channels, and start the task.
  */
-export default async (session: capture.CaptureSession): Promise<void> => {
-  const sim = await simulator(OPCUA.server);
-  try {
-    const form = await openTaskForm(session, OPCUA, "Create read task");
-
-    await session.zoom(form);
-    await setNumber(session, form, "Sample rate", "100");
-    await setNumber(session, form, "Stream rate", "20");
-    await session.hold(500);
-
+export default serverTaskScript(OPCUA, {
+  item: "Create read task",
+  rates: { "Sample rate": "100", "Stream rate": "20" },
+  channels: async (session, form) => {
     const browser = form.locator(".console-opc-browser").first();
-    const node = (name: string) =>
+    const node = (name: string): Locator =>
       browser.getByRole("treeitem").filter({ hasText: new RegExp(`^${name}$`) });
     await session.waitFor(node("MyObject"));
     await session.click(node("MyObject"), { text: true });
     const list = form.locator(".console-channel-list").first();
     for (const name of NODES) {
       await session.waitFor(node(name));
+      await node(name).scrollIntoViewIfNeeded();
       await session.hold(400);
       await session.drag(node(name), list);
       await session.waitFor(list.getByRole("option").filter({ hasText: name }));
       await session.hold(500);
     }
-
-    await session.click(form.locator("button:has(svg.pluto-icon--play)").first());
-    session.endZoom();
-    await session.waitFor(form.getByText("Task started successfully").first());
-    await session.moveTo({ x: 1100, y: 120 });
-    await session.hold(3000);
-  } finally {
-    await sim.stop();
-  }
-};
+  },
+});

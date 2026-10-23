@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { addChannel, LABJACK, setNumber, taskScript } from "./common/task";
+import { addChannel, LABJACK, taskScript } from "./common/task";
 
 /**
  * Docs `reference/hardware/labjack/write-task` (Create a write task): set the state
@@ -16,8 +16,8 @@ import { addChannel, LABJACK, setNumber, taskScript } from "./common/task";
 export default taskScript({
   device: LABJACK,
   item: "Create write task",
-  fill: async (session, form) => {
-    await setNumber(session, form, "State update rate", "20");
+  rates: { "State update rate": "20" },
+  channels: async (session, form) => {
     await addChannel(session, form);
     await addChannel(session, form);
   },

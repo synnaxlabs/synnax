@@ -43,40 +43,6 @@ export const fieldItem = (scope: Locator, label: string): Locator =>
     })
     .first();
 
-/**
- * openTaskForm opens the devices toolbar on the Driver off camera, then starts the
- * recording, right-clicks the device, and selects `item`. It returns the task form that
- * opens.
- */
-export const openTaskForm = async (
-  session: capture.CaptureSession,
-  device: string,
-  item: string,
-): Promise<Locator> => {
-  const { page } = session;
-  await capture.openToolbar(session, "device");
-  await capture.resizeToolbar(session, 400);
-  const driver = capture.treeItem(page, "rack:", DRIVER);
-  await session.waitFor(driver);
-  await session.click(driver, { text: true });
-  const node = capture.treeItem(page, "device:", device);
-  await session.waitFor(node);
-  await session.moveTo({ x: 800, y: 450 });
-
-  session.startRecording();
-  await session.hold(1500);
-
-  await session.rightClick(node, { text: true });
-  const menu = page.locator(".pluto-menu-context").first();
-  await session.waitFor(menu);
-  await session.hold(500);
-  await session.click(menu.getByText(item, { exact: true }).first(), { text: true });
-  const form = page.locator(".console-task-configure").first();
-  await session.waitFor(form);
-  await session.hold(1000);
-  return form;
-};
-
 /** setNumber replaces the value of the numeric field with the given label. */
 export const setNumber = async (
   session: capture.CaptureSession,
@@ -128,15 +94,70 @@ export const addChannel = async (
   await session.hold(600);
 };
 
+export interface TaskShot {
+  /** The name of the device in the devices toolbar. */
+  device: string;
+  /** The context menu item that creates the task. */
+  item: string;
+  /** The value of each rate field, by label. */
+  rates?: Record<string, string>;
+  /** Adds and sets the channels of the task. */
+  channels: (session: capture.CaptureSession, form: Locator) => Promise<void>;
+}
+
 /**
- * startTask clicks Start, ends the zoom, and holds on the status that the Driver
- * reports.
+ * recordTask opens the devices toolbar on the Driver, starts the recording, and creates
+ * a task from the device. It zooms on each area of work in turn: the device and its
+ * context menu, the rates, and the channels. It then starts the task and holds the
+ * whole Console on the status that the Driver reports. The device must be on the
+ * Driver.
  */
-export const startTask = async (
+export const recordTask = async (
   session: capture.CaptureSession,
-  form: Locator,
+  { device, item, rates = {}, channels }: TaskShot,
 ): Promise<void> => {
+  const { page } = session;
+  await capture.openToolbar(session, "device");
+  await capture.resizeToolbar(session, 400);
+  const driver = capture.treeItem(page, "rack:", DRIVER);
+  await session.waitFor(driver);
+  await session.click(driver, { text: true });
+  const node = capture.treeItem(page, "device:", device);
+  await session.waitFor(node);
+  await session.moveTo({ x: 800, y: 450 });
+
+  session.startRecording();
+  await session.hold(1500);
+
+  await session.zoom(node, 1.6);
+  await session.hold(600);
+  await session.rightClick(node, { text: true });
+  const menu = page.locator(".pluto-menu-context").first();
+  await session.waitFor(menu);
   await session.hold(500);
+  await session.click(menu.getByText(item, { exact: true }).first(), { text: true });
+  session.endZoom();
+  const form = page.locator(".console-task-configure").first();
+  await session.waitFor(form);
+  await session.hold(1200);
+
+  if (Object.keys(rates).length > 0) {
+    await session.zoom(form.locator(".console-task-properties").first());
+    await session.hold(400);
+    for (const [label, value] of Object.entries(rates))
+      await setNumber(session, form, label, value);
+    await session.hold(300);
+  }
+
+  // New channels show at the top of the area and "Add channel" sits at its bottom, so
+  // the zoom stays shallow enough to frame both.
+  const area = await form.locator(".console-task-channel-form-container").boundingBox();
+  if (area == null) throw new Error("the channel area of the task is not on screen");
+  await session.zoom({ x: area.x + area.width / 2, y: area.y + area.height / 2 }, 1.35);
+  await session.hold(400);
+  await channels(session, form);
+  await session.hold(500);
+
   await session.click(form.locator("button:has(svg.pluto-icon--play)").first());
   session.endZoom();
   await session.waitFor(form.getByText("Task started successfully").first());
@@ -144,31 +165,18 @@ export const startTask = async (
   await session.hold(3000);
 };
 
-export interface TaskShot {
-  /** A configured device on the simulated Driver. */
-  device: SimulatedDevice;
-  /** The context menu item that creates the task. */
-  item: string;
-  /** Sets the fields of the task and adds its channels, under the zoom. */
-  fill: (session: capture.CaptureSession, form: Locator) => Promise<void>;
-}
-
 /**
- * taskScript returns a script that creates a task from a device on the simulated
- * Driver, fills it, and starts it. Nothing reads or writes hardware, so the task
- * produces no samples.
+ * taskScript returns a script that records a task shot on a device of the simulated
+ * Driver. Nothing reads or writes hardware, so the task produces no samples.
  */
 export const taskScript =
-  ({ device, item, fill }: TaskShot) =>
+  ({ device, ...shot }: Omit<TaskShot, "device"> & { device: SimulatedDevice }) =>
   async (session: capture.CaptureSession): Promise<void> => {
     const driver = await simulatedDriver({ devices: [device] });
     try {
       await capture.login(session);
       await capture.clearPanel(session);
-      const form = await openTaskForm(session, device.name, item);
-      await session.zoom(form);
-      await fill(session, form);
-      await startTask(session, form);
+      await recordTask(session, { device: device.name, ...shot });
     } finally {
       await driver.stop();
     }

@@ -189,23 +189,14 @@ export default manifest.define([
     id: "device-drivers/opc-ua/connect-server/connect-server",
     script: "scripts/opcua-connect-server.ts",
   },
-  {
-    id: "device-drivers/opc-ua/read-task/read",
-    script: "scripts/opcua-read-task.ts",
-  },
-  {
-    id: "device-drivers/opc-ua/write-task/write",
-    script: "scripts/opcua-write-task.ts",
-  },
+  { id: "hardware/opc-ua/read-task", script: "scripts/opcua-read-task.ts" },
+  { id: "hardware/opc-ua/write-task", script: "scripts/opcua-write-task.ts" },
   {
     id: "device-drivers/http/connect-server/connect-server",
     script: "scripts/http-connect-server.ts",
   },
-  { id: "device-drivers/http/read-task/read", script: "scripts/http-read-task.ts" },
-  {
-    id: "device-drivers/http/write-task/write",
-    script: "scripts/http-write-task.ts",
-  },
+  { id: "hardware/http/read-task", script: "scripts/http-read-task.ts" },
+  { id: "hardware/http/write-task", script: "scripts/http-write-task.ts" },
   { id: "hardware/modbus/read-task", script: "scripts/modbus-read-task.ts" },
   { id: "hardware/modbus/write-task", script: "scripts/modbus-write-task.ts" },
   {

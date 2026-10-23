@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  addChannel,
-  choose,
-  setNumber,
-  taskScript,
-  VALVE_OUTPUTS,
-} from "./common/task";
+import { addChannel, choose, taskScript, VALVE_OUTPUTS } from "./common/task";
 
 /**
  * Docs `reference/hardware/ethercat/write-task` (Create a write task): set the state
@@ -22,8 +16,8 @@ import {
 export default taskScript({
   device: VALVE_OUTPUTS,
   item: "Create write task",
-  fill: async (session, form) => {
-    await setNumber(session, form, "State update rate", "50");
+  rates: { "State update rate": "50" },
+  channels: async (session, form) => {
     await addChannel(session, form);
     await choose(session, form, "Slave device", VALVE_OUTPUTS.name);
     await choose(session, form, "PDO", "Output");

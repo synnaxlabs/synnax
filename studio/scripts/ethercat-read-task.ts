@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  addChannel,
-  choose,
-  setNumber,
-  TANK_PRESSURES,
-  taskScript,
-} from "./common/task";
+import { addChannel, choose, TANK_PRESSURES, taskScript } from "./common/task";
 
 /**
  * Docs `reference/hardware/ethercat/read-task` (Create a read task): set the rates, add
@@ -22,9 +16,8 @@ import {
 export default taskScript({
   device: TANK_PRESSURES,
   item: "Create read task",
-  fill: async (session, form) => {
-    await setNumber(session, form, "Sample rate", "1000");
-    await setNumber(session, form, "Stream rate", "25");
+  rates: { "Sample rate": "1000", "Stream rate": "25" },
+  channels: async (session, form) => {
     await addChannel(session, form);
     await choose(session, form, "Slave device", TANK_PRESSURES.name);
     await choose(session, form, "PDO", "Channel 1", { search: true });

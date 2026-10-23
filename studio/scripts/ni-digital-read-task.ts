@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { addChannel, NI_DAQ, setNumber, taskScript } from "./common/task";
+import { addChannel, NI_DAQ, taskScript } from "./common/task";
 
 /**
  * Docs `reference/hardware/ni/digital-read-task` (Create a digital read task): set the
@@ -16,9 +16,8 @@ import { addChannel, NI_DAQ, setNumber, taskScript } from "./common/task";
 export default taskScript({
   device: NI_DAQ,
   item: "Create digital read task",
-  fill: async (session, form) => {
-    await setNumber(session, form, "Sample rate", "100");
-    await setNumber(session, form, "Stream rate", "25");
+  rates: { "Sample rate": "100", "Stream rate": "25" },
+  channels: async (session, form) => {
     await addChannel(session, form);
     await addChannel(session, form);
   },
