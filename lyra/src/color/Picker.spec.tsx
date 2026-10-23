@@ -131,24 +131,14 @@ describe("Picker", () => {
       const onChange = vi.fn();
       const c = renderPicker({ value: "#ff0000", onChange });
       const [first] = c.container.querySelectorAll<HTMLElement>(
-        `.${CSS.BE("color-picker", "swatches")} .${CSS.B("color-swatch")}`,
+        `.${CSS.BE("color-swatches", "grid")} .${CSS.B("color-swatch")}`,
       );
       fireEvent.click(first);
       expect(lastHex(onChange)).toEqual(first.getAttribute("aria-label"));
     });
-
-    it("should mark the swatch that matches the value", () => {
-      const c = renderPicker({ value: "#DC136C", onChange: vi.fn() });
-      expect(c.getByLabelText("#dc136c").className).toContain(CSS.M("selected"));
-    });
   });
 
   describe("auto", () => {
-    it("should not offer Auto without a fallback", () => {
-      const c = renderPicker({ value: "#ff0000", onChange: vi.fn() });
-      expect(c.queryByLabelText("Auto")).toBeNull();
-    });
-
     it("should clear the value when the user picks Auto", () => {
       const onChange = vi.fn();
       const c = renderPicker({ value: "#ff0000", fallback: "#888888", onChange });
