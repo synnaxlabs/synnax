@@ -1,0 +1,105 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Test - Soak
+
+# Runs integration/tests/driver/bus_soak.py for three hours. It runs in its own run after
+# the nightly CI, so it reuses the Ubuntu build of that run when it can.
+on:
+  schedule:
+    - cron: "0 7 * * *" # 7am UTC
+  workflow_dispatch:
+
+concurrency:
+  group: soak-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: write
+  packages: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      SKIP_BUILD: ${{ steps.check-cache.outputs.SKIP_BUILD }}
+      REF_RUN_ID: ${{ steps.check-cache.outputs.REF_RUN_ID }}
+      DRIVER_REF_RUN_ID: ${{ steps.check-cache.outputs.DRIVER_REF_RUN_ID }}
+      CONSOLE_REF_RUN_ID: ${{ steps.check-cache.outputs.CONSOLE_REF_RUN_ID }}
+      CORE_REF_RUN_ID: ${{ steps.check-cache.outputs.CORE_REF_RUN_ID }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Check for cached artifacts
+        id: check-cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_HEAD_SHA: ${{ github.sha }}
+        run: .github/scripts/check_artifact_cache.sh linux
+
+  # The flags match the integration build, so either run can reuse the other's build.
+  build:
+    needs: setup
+    if: needs.setup.outputs.SKIP_BUILD == 'false'
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    uses: ./.github/workflows/build.synnax.yaml
+    with:
+      windows: false
+      ubuntu: true
+      docker: false
+      driver: true
+      console: true
+      core: true
+      use_simple_artifact_names: true
+      driver_ref_run_id: ${{ needs.setup.outputs.DRIVER_REF_RUN_ID }}
+      console_ref_run_id: ${{ needs.setup.outputs.CONSOLE_REF_RUN_ID }}
+      core_ref_run_id: ${{ needs.setup.outputs.CORE_REF_RUN_ID }}
+    secrets: inherit
+
+  soak:
+    name: Soak
+    needs: [setup, build]
+    if:
+      ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
+      'success' || needs.build.result == 'skipped') }}
+    uses: ./.github/workflows/test.integration.worker.yaml
+    with:
+      test_matrix: '{"include":[{"name":"soak","target":"soak"}]}'
+      ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
+      os: ubuntu-test-bot
+      # Three hours of soak, plus setup and the final report.
+      timeout_minutes: 210
+    secrets: inherit
+
+  notify:
+    name: Notify Slack
+    needs: [setup, build, soak]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Post the failure to Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
+        run: |
+          curl --fail --silent --show-error \
+            --header "Content-Type: application/json" \
+            --data "{\"text\": \"Nightly soak failed: $RUN_URL\"}" \
+            "$SLACK_WEBHOOK_URL"

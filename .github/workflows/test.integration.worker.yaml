@@ -29,11 +29,16 @@ on:
         type: string
         required: false
         default: ""
+      timeout_minutes:
+        description: "Timeout of the test conductor and of each job"
+        type: number
+        required: false
+        default: 30
 
 jobs:
   run:
     name: ${{ matrix.name }}
-    timeout-minutes: 30
+    timeout-minutes: ${{ inputs.timeout_minutes }}
     runs-on:
       - self-hosted
       - ${{ inputs.os }}
@@ -127,7 +132,7 @@ jobs:
       - name: Test conductor (Windows)
         if: runner.os == 'Windows'
         id: test-conductor-win
-        timeout-minutes: 30
+        timeout-minutes: ${{ inputs.timeout_minutes }}
         shell: cmd
         working-directory: integration
         env:
@@ -140,7 +145,7 @@ jobs:
       - name: Test conductor (Ubuntu)
         if: runner.os == 'Linux'
         id: test-conductor-unix
-        timeout-minutes: 30
+        timeout-minutes: ${{ inputs.timeout_minutes }}
         working-directory: integration
         env:
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}

@@ -1,0 +1,10 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "Bus Soak",
+      "sequence_order": "asynchronous",
+      "tests": [{ "case": "driver/bus_soak" }]
+    }
+  ]
+}
