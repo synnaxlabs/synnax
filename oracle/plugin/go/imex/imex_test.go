@@ -498,6 +498,19 @@ ScanConfig struct {
 			})
 
 			It(
+				"Should delete the Export a bare marker generated for the package",
+				func(ctx SpecContext) {
+					req := configRequest(ctx, GinkgoT().TempDir(), map[int]string{
+						1: configChain("\n\t@go imex body"),
+					})
+					resp := MustSucceed(p.Generate(req))
+					Expect(resp.Deletions).To(ConsistOf(
+						"core/pkg/service/modbus/imex.gen.go",
+					))
+				},
+			)
+
+			It(
 				"Should migrate each type from its own first exported version",
 				func(ctx SpecContext) {
 					tmpDir := GinkgoT().TempDir()
