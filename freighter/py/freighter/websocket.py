@@ -118,7 +118,10 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         if server_closed is not None:
             raise server_closed
 
-        data = await self._internal.recv()
+        try:
+            data = await self._internal.recv()
+        except ConnectionClosedOK as e:
+            raise handle_close_err(e) from e
         assert isinstance(data, bytes)
         msg = self._encoder.decode(data, self._res_msg_t)
 
@@ -144,20 +147,26 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         try:
             await self._internal.send(encoded)
         except ConnectionClosedOK as e:
-            raise EOF() from e
+            raise handle_close_err(e) from e
 
     async def receive_open_ack(self) -> None:
-        msg = await self._internal.recv()
-        assert isinstance(msg, bytes)
-        decoded_msg = self._encoder.decode(msg, Message)
-        if decoded_msg.type == "open":
-            return
-        exc = decode_exception(decoded_msg.error)
-        if exc is not None:
-            raise exc
-        raise RuntimeError(
-            f"expected 'open' ack from server, got message type {decoded_msg.type!r}"
-        )
+        """Waits for the server to ack the open. Closes the connection on failure."""
+        try:
+            msg = await self._internal.recv()
+            assert isinstance(msg, bytes)
+            decoded_msg = self._encoder.decode(msg, Message)
+            if decoded_msg.type == "open":
+                return
+            exc = decode_exception(decoded_msg.error)
+            if exc is not None:
+                raise exc
+            raise RuntimeError(
+                f"expected 'open' ack from server, got message type "
+                f"{decoded_msg.type!r}"
+            )
+        except BaseException:
+            await self._internal.close()
+            raise
 
     async def close_send(self) -> None:
         """Implements the AsyncStream protocol."""
@@ -167,6 +176,8 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         msg = Message[RQ](type="close", payload=None, error=None)
         try:
             await self._internal.send(self._encoder.encode(msg))
+        except ConnectionClosedOK as e:
+            raise handle_close_err(e) from e
         finally:
             self._send_closed = True
 
@@ -226,17 +237,23 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         return self._internal.recv_bufsize > 0
 
     def receive_open_ack(self) -> None:
-        msg = self._internal.recv()
-        assert isinstance(msg, bytes)
-        decoded_msg = self._encoder.decode(msg, self._res_msg_t)
-        if decoded_msg.type == "open":
-            return
-        exc = decode_exception(decoded_msg.error)
-        if exc is not None:
-            raise exc
-        raise RuntimeError(
-            f"expected 'open' ack from server, got message type {decoded_msg.type!r}"
-        )
+        """Waits for the server to ack the open. Closes the connection on failure."""
+        try:
+            msg = self._internal.recv()
+            assert isinstance(msg, bytes)
+            decoded_msg = self._encoder.decode(msg, self._res_msg_t)
+            if decoded_msg.type == "open":
+                return
+            exc = decode_exception(decoded_msg.error)
+            if exc is not None:
+                raise exc
+            raise RuntimeError(
+                f"expected 'open' ack from server, got message type "
+                f"{decoded_msg.type!r}"
+            )
+        except BaseException:
+            self._connection.close()
+            raise
 
     def send(self, payload: RQ) -> None:
         if self._server_closed is not None:
@@ -359,6 +376,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         client = AsyncWebsocketClient(
             encoder=codec,
             base_url=self._endpoint,
+            max_message_size=self._max_message_size,
             ssl_context=self._ssl_context,
             **self._kwargs,
         )

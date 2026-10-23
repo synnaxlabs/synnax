@@ -174,7 +174,7 @@ export const FORMS: Record<ReadChannelType, FC<FormProps> | null> = {
       <ThermocoupleTypeField path={path} />
       <TemperatureUnitsField path={path} />
       <PForm.NumericField fieldKey="negChan" path={path} label="Negative channel" />
-      <PForm.Field<string> path={`${path}.cjcSource`} hideIfNull label="CJC source">
+      <PForm.Field<string> path={`${path}.cjcSource`} label="CJC source">
         {({ value, onChange, preview }) => (
           <SelectCJCSourceField
             value={value}
