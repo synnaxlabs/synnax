@@ -7,14 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.auth.client import (
-    Client,
-    SessionCreateRequest,
-    SessionCreateResponse,
-    SessionDeleteRequest,
-    SessionRetrieveRequest,
-    SessionRetrieveResponse,
-)
+from synnax.auth.client import Client
 from synnax.auth.types_gen import (
     Credentials,
     Method,
@@ -31,10 +24,5 @@ __all__ = [
     "PasswordProof",
     "Proof",
     "Session",
-    "SessionCreateRequest",
-    "SessionCreateResponse",
-    "SessionDeleteRequest",
     "SessionKey",
-    "SessionRetrieveRequest",
-    "SessionRetrieveResponse",
 ]

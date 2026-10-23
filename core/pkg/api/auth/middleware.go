@@ -126,8 +126,7 @@ func GetSubject(ctx context.Context) ontology.ID {
 	return s.(ontology.ID)
 }
 
-// GetSession returns the request's session, as the middleware authenticated it.
-func GetSession(ctx context.Context) auth.Session {
+func getSession(ctx context.Context) auth.Session {
 	s, ok := freighter.MDFromContext(ctx).Get(sessionKey)
 	if !ok {
 		zap.S().DPanic("[api] - no session found in context")

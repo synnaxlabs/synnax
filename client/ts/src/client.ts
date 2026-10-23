@@ -345,7 +345,7 @@ export default class Synnax extends framer.Client {
    * Closes the client: stops the connection check loop, tears down the query cache and
    * its change stream, then lets go of the session. A session this client logged in
    * with ends; one resumed from a saved token or cookie stays open. Waits at most
-   * LOGOUT_DEADLINE for the Core to end it. When the Core cannot be reached or does not
+   * 3 seconds for the Core to end it. When the Core cannot be reached or does not
    * answer in time, the session is left to idle out.
    * @throws {AggregateError} carrying every underlying close failure.
    */
@@ -365,8 +365,7 @@ export default class Synnax extends framer.Client {
   }
 }
 
-/** The longest close waits for the Core to end the client's session. */
-export const LOGOUT_DEADLINE = TimeSpan.seconds(3);
+const LOGOUT_DEADLINE = TimeSpan.seconds(3);
 
 export interface ConnectOptions {
   /**
