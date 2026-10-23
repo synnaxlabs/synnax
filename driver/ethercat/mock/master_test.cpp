@@ -277,52 +277,88 @@ TEST(MasterSendReceive, ReceiveWithInjectedError) {
     ASSERT_OCCURRED_AS(master.receive(), errors::MASTER_INIT_ERROR);
 }
 
-TEST(MasterPdoRegistration, RegisterPdosLogsCall) {
+TEST(MasterPdoOffset, ReturnsOffsetsOfEveryMappedEntry) {
     Master master;
-    ASSERT_NIL(master.register_pdos({}));
-    EXPECT_TRUE(master.was_called("register_pdos"));
-}
-
-TEST(MasterPdoRegistration, PdoOffsetReturnsCorrectOffset) {
-    Master master;
-    std::vector<pdo::Entry> entries = {
-        pdo::Entry(0, 0x6000, 1, 16, true, x::telem::INT16_T),
-        pdo::Entry(0, 0x6000, 2, 32, true, x::telem::INT32_T),
-    };
-    ASSERT_NIL(master.register_pdos(entries));
+    master.add_slave(
+        slave::Properties{
+            .position = 0,
+            .input_pdos = {
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 1,
+                 .bit_length = 16,
+                 .is_input = true,
+                 .data_type = x::telem::INT16_T},
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 2,
+                 .bit_length = 32,
+                 .is_input = true,
+                 .data_type = x::telem::INT32_T},
+            }
+        }
+    );
     ASSERT_NIL(master.initialize());
     ASSERT_NIL(master.activate());
-
-    auto offset1 = master.pdo_offset(entries[0]);
-    auto offset2 = master.pdo_offset(entries[1]);
-    EXPECT_EQ(offset1.byte, 0);
-    EXPECT_EQ(offset2.byte, 2);
+    const auto first = master.pdo_offset(
+        pdo::Entry(0, 0x6000, 1, 16, true, x::telem::INT16_T)
+    );
+    const auto second = master.pdo_offset(
+        pdo::Entry(0, 0x6000, 2, 32, true, x::telem::INT32_T)
+    );
+    ASSERT_TRUE(first.has_value());
+    ASSERT_TRUE(second.has_value());
+    EXPECT_EQ(first->byte, 0);
+    EXPECT_EQ(second->byte, 2);
 }
 
-TEST(MasterPdoRegistration, PdoOffsetReturnsEmptyForUnregistered) {
+TEST(MasterPdoOffset, ReturnsNulloptForUnmappedEntry) {
     Master master;
     ASSERT_NIL(master.initialize());
     ASSERT_NIL(master.activate());
-    pdo::Entry unknown(0, 0x9999, 1, 16, true, x::telem::INT16_T);
-    auto offset = master.pdo_offset(unknown);
-    EXPECT_EQ(offset.byte, 0);
-    EXPECT_EQ(offset.bit, 0);
+    EXPECT_FALSE(master
+                     .pdo_offset(pdo::Entry(0, 0x9999, 1, 16, true, x::telem::INT16_T))
+                     .has_value());
 }
 
-TEST(MasterIoMap, SetInputWritesToInputMap) {
+TEST(MasterPdoOffset, SkipsDisabledSlave) {
+    Master master;
+    master.add_slave(
+        slave::Properties{
+            .position = 0,
+            .input_pdos = {
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 1,
+                 .bit_length = 16,
+                 .is_input = true,
+                 .data_type = x::telem::INT16_T}
+            }
+        }
+    );
+    master.set_slave_enabled(0, false);
+    ASSERT_NIL(master.initialize());
+    ASSERT_NIL(master.activate());
+    EXPECT_FALSE(master
+                     .pdo_offset(pdo::Entry(0, 0x6000, 1, 16, true, x::telem::INT16_T))
+                     .has_value());
+}
+
+TEST(MasterIoMap, SetInputReachesImageOnReceive) {
     Master master;
     master.add_slave(slave::Properties{.position = 0});
     ASSERT_NIL(master.initialize());
     ASSERT_NIL(master.activate());
     master.set_input<int16_t>(0, 0x1234);
-    auto data = master.input_data();
-    ASSERT_GE(data.size(), 2);
     int16_t value;
-    std::memcpy(&value, data.data(), sizeof(value));
+    std::memcpy(&value, master.input_data().data(), sizeof(value));
+    EXPECT_EQ(value, 0);
+    ASSERT_NIL(master.receive());
+    std::memcpy(&value, master.input_data().data(), sizeof(value));
     EXPECT_EQ(value, 0x1234);
 }
 
-TEST(MasterIoMap, GetOutputReadsFromOutputMap) {
+TEST(MasterIoMap, GetOutputReadsSentOutputs) {
     Master master;
     master.add_slave(slave::Properties{.position = 0});
     ASSERT_NIL(master.initialize());
@@ -331,6 +367,8 @@ TEST(MasterIoMap, GetOutputReadsFromOutputMap) {
     ASSERT_GE(data.size(), 4);
     int32_t write_val = 0xDEADBEEF;
     std::memcpy(data.data(), &write_val, sizeof(write_val));
+    EXPECT_EQ(master.get_output<int32_t>(0), 0);
+    ASSERT_NIL(master.send());
     EXPECT_EQ(master.get_output<int32_t>(0), 0xDEADBEEF);
 }
 
@@ -344,28 +382,49 @@ TEST(MasterIoMap, OutputDataReturnsEmptyBeforeActivation) {
     EXPECT_TRUE(master.output_data().empty());
 }
 
-TEST(MasterAllSlavesOperational, ReturnsFalseWhenEmpty) {
-    Master master;
-    EXPECT_FALSE(master.all_slaves_operational());
-}
-
-TEST(MasterAllSlavesOperational, ReturnsFalseWhenNotAllOp) {
+TEST(MasterCheck, ReportsEachEnabledSlave) {
     Master master;
     master.add_slave(slave::Properties{.position = 0});
     master.add_slave(slave::Properties{.position = 1});
-    master.set_slave_transition_failure(1, slave::State::OP);
+    master.set_slave_enabled(1, false);
     ASSERT_NIL(master.initialize());
     ASSERT_NIL(master.activate());
-    EXPECT_FALSE(master.all_slaves_operational());
+    EXPECT_EQ(
+        master.check(),
+        (std::vector<slave::Health>{{.position = 0, .state = slave::State::OP}})
+    );
 }
 
-TEST(MasterAllSlavesOperational, ReturnsTrueWhenAllOp) {
+TEST(MasterCheck, ReportsFaultThenRecoversSlave) {
     Master master;
     master.add_slave(slave::Properties{.position = 0});
-    master.add_slave(slave::Properties{.position = 1});
     ASSERT_NIL(master.initialize());
     ASSERT_NIL(master.activate());
-    EXPECT_TRUE(master.all_slaves_operational());
+    master.fault_slave(0, slave::State::SAFE_OP, "Sync manager watchdog");
+    EXPECT_EQ(
+        master.check(),
+        (std::vector<slave::Health>{
+            {.position = 0,
+             .state = slave::State::SAFE_OP,
+             .faulted = true,
+             .al_status = "Sync manager watchdog"}
+        })
+    );
+    EXPECT_EQ(master.slave_state(0), slave::State::OP);
+    EXPECT_TRUE(master.check()[0].operational());
+}
+
+TEST(MasterCheck, KeepsBlockedSlaveOutOfOp) {
+    Master master;
+    master.add_slave(slave::Properties{.position = 0});
+    master.set_slave_transition_failure(0, slave::State::OP);
+    ASSERT_NIL(master.initialize());
+    ASSERT_NIL(master.activate());
+    EXPECT_EQ(master.check()[0].state, slave::State::SAFE_OP);
+    EXPECT_EQ(master.check()[0].state, slave::State::SAFE_OP);
+    master.clear_transition_failures();
+    master.check();
+    EXPECT_EQ(master.slave_state(0), slave::State::OP);
 }
 
 TEST(MasterCallLog, WasCalledReturnsTrueForCalledMethod) {

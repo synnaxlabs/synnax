@@ -155,6 +155,12 @@ public:
             state.al_state = al_state;
     }
 
+    void set_slave_error_flag(uint16_t position, uint8_t flag) {
+        this->mock_slaves[position].error_flag = flag;
+    }
+
+    size_t slave_config_count() const { return this->created_slave_configs.size(); }
+
     bool release_master_called() const { return this->release_master_called_val; }
 
     bool master_deactivate_called() const { return this->master_deactivate_called_val; }

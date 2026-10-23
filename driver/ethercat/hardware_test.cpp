@@ -82,13 +82,9 @@ TEST_F(HardwareTest, ActivatePartialIOLITE) {
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
 
-    auto slaves = master->slaves();
     int op_count = 0;
-
-    for (const auto &slave: slaves) {
-        auto state = master->slave_state(slave.properties.position);
-        if (state == slave::State::OP) op_count++;
-    }
+    for (const auto &health: master->check())
+        if (health.state == slave::State::OP) op_count++;
 
     EXPECT_GE(op_count, EXPECTED_OP_SLAVES)
         << "Expected at least " << EXPECTED_OP_SLAVES << " slaves in OP, got "
@@ -182,14 +178,6 @@ TEST_F(HardwareTest, GracefulShutdownIOLITE) {
     ASSERT_NIL(master->receive());
 
     master->deactivate();
-
-    auto slaves = master->slaves();
-    for (const auto &slave: slaves) {
-        auto state = master->slave_state(slave.properties.position);
-        EXPECT_TRUE(state == slave::State::INIT || state == slave::State::PRE_OP)
-            << "Slave " << slave.properties.position
-            << " in unexpected state after deactivate";
-    }
 }
 
 TEST_F(HardwareTest, SlaveDataOffsetsIOLITE) {

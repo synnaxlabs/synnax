@@ -57,6 +57,8 @@ protected:
         this->mock->inputs_wkc = 1;
         this->mock->receive_return = 3;
         ASSERT_NIL(this->master->activate());
+        this->mock->state_change_requests.clear();
+        this->mock->written_slaves.clear();
     }
 };
 
@@ -332,41 +334,108 @@ TEST_F(SOEMMasterTest, InputDataAfterActivation) {
 
 ////////////////////// Slave State //////////////////////
 
-TEST_F(SOEMMasterTest, SlaveStateInvalidPosition) {
+TEST_F(SOEMMasterTest, CheckReportsOperationalSlave) {
     this->initialize_with_slave();
-    EXPECT_EQ(this->master->slave_state(0), slave::State::UNKNOWN);
-    EXPECT_EQ(this->master->slave_state(999), slave::State::UNKNOWN);
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
+    EXPECT_EQ(
+        this->master->check(),
+        (std::vector<slave::Health>{{.position = 1, .state = slave::State::OP}})
+    );
+    EXPECT_EQ(this->mock->readstate_count, 1);
+    EXPECT_TRUE(this->mock->written_slaves.empty());
 }
 
-TEST_F(SOEMMasterTest, SlaveStateCorrectConversion) {
+TEST_F(SOEMMasterTest, CheckReportsStateBeforeRecovery) {
     this->initialize_with_slave();
-    this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
-    EXPECT_EQ(this->master->slave_state(1), slave::State::OP);
-    this->mock->slave_infos[0].state = EC_STATE_SAFE_OP;
-    EXPECT_EQ(this->master->slave_state(1), slave::State::SAFE_OP);
+    this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
-    EXPECT_EQ(this->master->slave_state(1), slave::State::PRE_OP);
-    this->mock->slave_infos[0].state = EC_STATE_INIT;
-    EXPECT_EQ(this->master->slave_state(1), slave::State::INIT);
+    EXPECT_EQ(this->master->check()[0].state, slave::State::PRE_OP);
+    EXPECT_EQ(this->master->check()[0].state, slave::State::PRE_OP);
 }
 
-TEST_F(SOEMMasterTest, AllSlavesOperationalTrue) {
+TEST_F(SOEMMasterTest, CheckAcknowledgesSafeOpError) {
     this->initialize_with_slave();
     this->activate_master();
-    this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
-    EXPECT_TRUE(this->master->all_slaves_operational());
+    this->mock->slave_infos[0].state = EC_STATE_SAFE_OP + EC_STATE_ERROR;
+    this->mock->slave_infos[0].ALstatuscode = 0x001B;
+    const auto health = this->master->check();
+    ASSERT_EQ(health.size(), 1);
+    EXPECT_EQ(health[0].state, slave::State::SAFE_OP);
+    EXPECT_TRUE(health[0].faulted);
+    EXPECT_EQ(health[0].al_status, ec_ALstatuscode2string(0x001B));
+    EXPECT_EQ(
+        this->mock->state_change_requests,
+        (std::vector<std::pair<uint16_t, uint16_t>>{
+            {1, EC_STATE_SAFE_OP + EC_STATE_ACK}
+        })
+    );
+    EXPECT_EQ(this->mock->written_slaves, std::vector<uint16_t>{1});
 }
 
-TEST_F(SOEMMasterTest, AllSlavesOperationalFalse) {
+TEST_F(SOEMMasterTest, CheckRequestsOpFromSafeOp) {
     this->initialize_with_slave();
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_SAFE_OP;
-    EXPECT_FALSE(this->master->all_slaves_operational());
+    this->master->check();
+    EXPECT_EQ(
+        this->mock->state_change_requests,
+        (std::vector<std::pair<uint16_t, uint16_t>>{{1, EC_STATE_OPERATIONAL}})
+    );
+    EXPECT_EQ(this->mock->written_slaves, std::vector<uint16_t>{1});
 }
 
-TEST_F(SOEMMasterTest, AllSlavesOperationalNotActivated) {
+TEST_F(SOEMMasterTest, CheckReconfiguresSlaveBelowSafeOp) {
     this->initialize_with_slave();
-    EXPECT_FALSE(this->master->all_slaves_operational());
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->master->check();
+    EXPECT_EQ(this->mock->reconfigured_slaves, std::vector<uint16_t>{1});
+}
+
+TEST_F(SOEMMasterTest, CheckMarksSilentSlaveLost) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_NONE;
+    this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_NONE;
+    this->mock->recover_return = 0;
+    EXPECT_FALSE(this->master->check()[0].lost);
+    EXPECT_TRUE(this->mock->slave_infos[0].lost);
+    EXPECT_TRUE(this->master->check()[0].lost);
+    EXPECT_EQ(this->mock->recovered_slaves, (std::vector<uint16_t>{1, 1}));
+}
+
+TEST_F(SOEMMasterTest, CheckRecoversLostSlave) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_NONE;
+    this->mock->slave_infos[0].lost = true;
+    this->master->check();
+    EXPECT_EQ(this->mock->recovered_slaves, std::vector<uint16_t>{1});
+    EXPECT_FALSE(this->mock->slave_infos[0].lost);
+}
+
+TEST_F(SOEMMasterTest, CheckFindsLostSlaveThatAnswers) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
+    this->mock->slave_infos[0].lost = true;
+    this->master->check();
+    EXPECT_TRUE(this->mock->recovered_slaves.empty());
+    EXPECT_FALSE(this->mock->slave_infos[0].lost);
+}
+
+TEST_F(SOEMMasterTest, CheckSkipsDisabledSlave) {
+    this->add_default_slave();
+    this->add_default_slave();
+    this->master->set_slave_enabled(2, false);
+    ASSERT_NIL(this->master->initialize());
+    this->activate_master();
+    this->mock->slave_infos[1].state = EC_STATE_SAFE_OP;
+    const auto health = this->master->check();
+    ASSERT_EQ(health.size(), 1);
+    EXPECT_EQ(health[0].position, 1);
+    EXPECT_TRUE(this->mock->written_slaves.empty());
 }
 
 ////////////////////// Deactivation //////////////////////

@@ -83,8 +83,6 @@ public:
 
     x::errors::Error initialize() override;
 
-    x::errors::Error register_pdos(const std::vector<pdo::Entry> &entries) override;
-
     void set_slave_enabled(uint16_t position, bool enabled) override;
 
     x::errors::Error activate() override;
@@ -99,23 +97,21 @@ public:
 
     std::span<uint8_t> output_data() override;
 
-    pdo::Offset pdo_offset(const pdo::Entry &entry) const override;
+    std::optional<pdo::Offset> pdo_offset(const pdo::Entry &entry) const override;
 
     std::vector<slave::DiscoveryResult> slaves() const override;
 
-    slave::State slave_state(uint16_t position) const override;
-
-    bool all_slaves_operational() const override;
+    /// @brief reports each configured slave. The IgH master returns slaves that leave
+    /// OP to it on its own, so this takes no recovery step.
+    std::vector<slave::Health> check() override;
 
     std::string interface_name() const override;
 
-    /// @brief returns or creates a slave configuration for the given position.
+private:
+    /// @brief returns or creates the configuration of the slave at a position,
+    /// registering every PDO entry the slave maps.
     ec_slave_config_t *get_or_create_slave_config(uint16_t position);
 
-    /// @brief registers a PDO entry for cyclic exchange.
-    std::pair<size_t, x::errors::Error> register_pdo(const pdo::Entry &entry);
-
-private:
     /// @brief discovers PDO entries for a slave and populates its PDO lists.
     void discover_slave_pdos(slave::DiscoveryResult &slave);
 

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -38,15 +39,12 @@ public:
     /// @brief initializes the master and scans the EtherCAT network for slaves.
     [[nodiscard]] virtual x::errors::Error initialize() = 0;
 
-    /// @brief registers PDO entries for process data exchange.
-    [[nodiscard]] virtual x::errors::Error
-    register_pdos(const std::vector<pdo::Entry> &entries) = 0;
-
-    /// @brief sets whether a slave is enabled for cyclic exchange.
-    /// Must be called after initialize() and before activate().
+    /// @brief sets whether a slave joins cyclic exchange. Takes effect at the next
+    /// activate().
     virtual void set_slave_enabled(uint16_t position, bool enabled) = 0;
 
-    /// @brief activates the master and transitions slaves to OPERATIONAL state.
+    /// @brief maps the process data of every enabled slave and transitions the enabled
+    /// slaves to OP.
     [[nodiscard]] virtual x::errors::Error activate() = 0;
 
     /// @brief deactivates the master and stops cyclic communication.
@@ -64,21 +62,20 @@ public:
     /// @brief returns the output data buffer (RxPDO, master→slave).
     [[nodiscard]] virtual std::span<uint8_t> output_data() = 0;
 
-    /// @brief returns the byte and bit offset for a PDO entry.
-    [[nodiscard]] virtual pdo::Offset pdo_offset(const pdo::Entry &entry) const = 0;
+    /// @brief returns the byte and bit offset of a PDO entry in its process image, or
+    /// nullopt when the entry is not mapped. Valid between activate() and
+    /// deactivate().
+    [[nodiscard]] virtual std::optional<pdo::Offset>
+    pdo_offset(const pdo::Entry &entry) const = 0;
 
     /// @brief returns information about all slaves discovered during initialization.
     [[nodiscard]] virtual std::vector<slave::DiscoveryResult> slaves() const = 0;
 
-    /// @brief returns the current state of a specific slave.
-    /// @note Not safe to call while receive()/send() are actively cycling. Use only
-    /// for pre-activation verification or post-deactivation diagnostics.
-    [[nodiscard]] virtual slave::State slave_state(uint16_t position) const = 0;
-
-    /// @brief checks if all configured slaves are in OPERATIONAL state.
-    /// @note Not safe to call while receive()/send() are actively cycling. Use only
-    /// for pre-activation verification or post-deactivation diagnostics.
-    [[nodiscard]] virtual bool all_slaves_operational() const = 0;
+    /// @brief reads the condition of each enabled slave and asks each slave that left
+    /// OP to return to it. Safe to call from one thread while another runs receive()
+    /// and send(). Valid between activate() and deactivate().
+    /// @returns the condition of each enabled slave before any recovery step.
+    [[nodiscard]] virtual std::vector<slave::Health> check() = 0;
 
     /// @brief returns the name of the network interface this master is bound to.
     [[nodiscard]] virtual std::string interface_name() const = 0;

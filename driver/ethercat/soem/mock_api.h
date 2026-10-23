@@ -9,8 +9,10 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstring>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -33,6 +35,9 @@ struct MockSlaveInfo {
     size_t input_offset = 0;
     uint16_t mbx_proto = 0;
     uint16_t ALstatuscode = 0;
+    bool lost = false;
+    /// @brief the state readstate() reports, or nullopt to report the current state.
+    std::optional<uint16_t> bus_state;
 };
 
 /// @brief mock implementation of soem::API for unit testing.
@@ -70,6 +75,15 @@ public:
     /// @brief entry names and CoE data types returned by readOEsingle, keyed by index
     /// and sub-index.
     std::map<std::pair<uint16_t, uint8_t>, std::pair<std::string, uint16_t>> oe_entries;
+    int readstate_count = 0;
+    /// @brief the state reconfig_slave returns.
+    int reconfig_return = EC_STATE_SAFE_OP;
+    std::vector<uint16_t> reconfigured_slaves;
+    /// @brief the value recover_slave returns.
+    int recover_return = 1;
+    std::vector<uint16_t> recovered_slaves;
+    /// @brief slaves passed to writestate, in call order.
+    std::vector<uint16_t> written_slaves;
 
 private:
     uint8_t *iomap_ptr = nullptr;
@@ -102,7 +116,30 @@ public:
         return this->receive_return;
     }
 
-    int writestate(uint16_t) override { return this->writestate_return; }
+    int writestate(uint16_t slave) override {
+        this->written_slaves.push_back(slave);
+        return this->writestate_return;
+    }
+
+    int readstate() override {
+        this->readstate_count++;
+        uint16_t lowest = 0xFF;
+        for (auto &info: this->slave_infos) {
+            if (info.bus_state) info.state = *info.bus_state;
+            lowest = std::min<uint16_t>(lowest, info.state & 0x0F);
+        }
+        return lowest;
+    }
+
+    int reconfig_slave(uint16_t slave, int) override {
+        this->reconfigured_slaves.push_back(slave);
+        return this->reconfig_return;
+    }
+
+    int recover_slave(uint16_t slave, int) override {
+        this->recovered_slaves.push_back(slave);
+        return this->recover_return;
+    }
 
     uint16_t statecheck(uint16_t slave, uint16_t reqstate, int) override {
         auto it = this->statecheck_overrides.find(reqstate);
@@ -238,6 +275,16 @@ public:
     uint16_t slave_ALstatuscode(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return 0;
         return this->slave_infos[pos - 1].ALstatuscode;
+    }
+
+    bool slave_lost(uint16_t pos) const override {
+        if (pos == 0 || pos > this->slave_infos.size()) return false;
+        return this->slave_infos[pos - 1].lost;
+    }
+
+    void set_slave_lost(uint16_t pos, bool lost) override {
+        if (pos == 0 || pos > this->slave_infos.size()) return;
+        this->slave_infos[pos - 1].lost = lost;
     }
 
     uint32_t group_Ibytes(uint8_t group) const override {

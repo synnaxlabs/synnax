@@ -25,6 +25,10 @@ const int STATE_CHANGE_TIMEOUT = static_cast<int>(
 const int PROCESSDATA_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
 /// Time to poll one slave's state between process data exchanges in microseconds.
 const int OP_POLL_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
+/// Timeout for one recovery step on a slave in microseconds.
+const int RECOVERY_TIMEOUT = static_cast<int>(
+    (x::telem::MILLISECOND * 500).microseconds()
+);
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
 constexpr uint8_t ENABLED_GROUP = 1;
 constexpr uint8_t DISABLED_GROUP = 2;
@@ -84,10 +88,6 @@ x::errors::Error Master::initialize() {
 
     this->populate_slaves();
     this->initialized = true;
-    return x::errors::NIL;
-}
-
-x::errors::Error Master::register_pdos(const std::vector<pdo::Entry> &) {
     return x::errors::NIL;
 }
 
@@ -210,7 +210,7 @@ std::span<uint8_t> Master::output_data() {
     return {this->iomap.data(), this->output_sz};
 }
 
-pdo::Offset Master::pdo_offset(const pdo::Entry &entry) const {
+std::optional<pdo::Offset> Master::pdo_offset(const pdo::Entry &entry) const {
     std::lock_guard lock(this->mu);
     return pdo::find_offset(this->pdo_offsets, entry);
 }
@@ -220,23 +220,47 @@ std::vector<slave::DiscoveryResult> Master::slaves() const {
     return this->slave_list;
 }
 
-slave::State Master::slave_state(const uint16_t position) const {
-    std::lock_guard lock(this->mu);
-
-    if (position == 0 || position > static_cast<uint16_t>(this->api->slave_count()))
-        return slave::State::UNKNOWN;
-
-    return slave::from_al_state(this->api->slave_state(position));
+std::vector<slave::Health> Master::check() {
+    this->api->readstate();
+    std::vector<slave::Health> health;
+    for (int i = 1; i <= this->api->slave_count(); ++i) {
+        if (this->api->slave_group(i) != ENABLED_GROUP) continue;
+        const uint16_t state = this->api->slave_state(i);
+        auto &h = health.emplace_back(
+            slave::Health{
+                .position = static_cast<uint16_t>(i),
+                .state = slave::from_al_state(state),
+                .faulted = (state & EC_STATE_ERROR) != 0,
+                .lost = this->api->slave_lost(i),
+            }
+        );
+        if (const auto code = this->api->slave_ALstatuscode(i); h.faulted && code != 0)
+            h.al_status = ec_ALstatuscode2string(code);
+        this->recover(static_cast<uint16_t>(i));
+    }
+    return health;
 }
 
-bool Master::all_slaves_operational() const {
-    std::lock_guard lock(this->mu);
-
-    if (!this->activated) return false;
-
-    for (int i = 1; i <= this->api->slave_count(); ++i)
-        if ((this->api->slave_state(i) & EC_STATE_OPERATIONAL) == 0) return false;
-    return true;
+void Master::recover(const uint16_t pos) {
+    const uint16_t state = this->api->slave_state(pos);
+    if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
+        this->api->set_slave_state(pos, EC_STATE_SAFE_OP + EC_STATE_ACK);
+        this->api->writestate(pos);
+    } else if (state == EC_STATE_SAFE_OP) {
+        this->api->set_slave_state(pos, EC_STATE_OPERATIONAL);
+        this->api->writestate(pos);
+    } else if (state > EC_STATE_NONE && state != EC_STATE_OPERATIONAL) {
+        if (this->api->reconfig_slave(pos, RECOVERY_TIMEOUT) >= EC_STATE_PRE_OP)
+            this->api->set_slave_lost(pos, false);
+    } else if (state == EC_STATE_NONE && !this->api->slave_lost(pos)) {
+        this->api->statecheck(pos, EC_STATE_OPERATIONAL, EC_TIMEOUTRET);
+        if (this->api->slave_state(pos) == EC_STATE_NONE)
+            this->api->set_slave_lost(pos, true);
+    }
+    if (!this->api->slave_lost(pos)) return;
+    if (this->api->slave_state(pos) != EC_STATE_NONE ||
+        this->api->recover_slave(pos, RECOVERY_TIMEOUT) > 0)
+        this->api->set_slave_lost(pos, false);
 }
 
 std::string Master::interface_name() const {
