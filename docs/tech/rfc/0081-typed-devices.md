@@ -70,13 +70,14 @@ The device row has no such core. Three of its seven fields are true of every res
 | NI chassis     | DAQmx alias         | product name           | never meaningful |
 | LabJack device | `USB` or `TCP`      | `T4`, `T7`, `T8`       | user has set it  |
 | EtherCAT slave | `<master>.Slot <n>` | always `slave`         | user has set it  |
-| OPC UA server  | always `""`         | always `OPC UA server` | always `true`    |
-| Modbus server  | always `""`         | always `Modbus`        | always `true`    |
-| HTTP server    | always `""`         | always `HTTP server`   | always `true`    |
+| OPC UA server  | endpoint URL        | always `OPC UA server` | always `true`    |
+| Modbus server  | `host:port`         | always `Modbus`        | always `true`    |
+| HTTP server    | host                | always `HTTP server`   | always `true`    |
 
-`location` is `@validate required`, and three connect forms satisfy it with the empty
-string (`console/src/feature/opcua/device/useConnectModal.tsx:53`,
-`modbus/device/useConnectModal.tsx:45`, `http/device/useConnectModal.tsx:56`). `model`
+`location` holds six different things, and only NI's matches its doc string, "the
+physical location or address of the device"; the three connect forms copy a connection
+field into it (`console/src/feature/opcua/device/useConnectModal.tsx:63`,
+`modbus/device/useConnectModal.tsx:57`, `http/device/useConnectModal.tsx:80`). `model`
 is a constant for four of the seven (`driver/ethercat/ethercat.h:36`). `configured`
 cannot be false for a server and means nothing for a chassis, which has no channels to
 name. `make` is a dispatch tag; no reader uses the row without switching on it first. A
@@ -288,7 +289,9 @@ path is `Update` over the configuration group. The shallow merge in
 Each scan matches found hardware to stored rows by a per-resource rule:
 
 - **NI chassis, NI device, LabJack device**: `serial` through the lookup index. A vendor
-  serial is unique within its make.
+  serial is unique within its make. A simulated NI resource has no serial, so the
+  scanner stores its NI-MAX resource name in `serial`, as it does for the key today
+  (`driver/ni/scan_task.cpp:49-64,106`).
 - **EtherCAT slave**: `serial` through the lookup index, then `vendor_id` and
   `product_code` must match; today's key already carries all three
   (`driver/ethercat/scan_task.cpp:190-201`). A slave with serial zero matches by
@@ -369,11 +372,19 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
 2. Write each typed row under a fresh UUID. Persist the old-key-to-UUID map in KV. A row
    with an unknown make or undecodable properties is quarantined under
    `sy_device_quarantine/<key>` with a warning, never dropped and never fatal, as task
-   v3 does (`core/pkg/service/task/versions/v3/migrate.go:128-155`).
-3. Each integration's task config migration rewrites its device references through the
+   v3 does (`core/pkg/service/task/versions/v3/migrate.go:128-155`). The legacy table
+   holds no EtherCAT masters; each slave row carries the master key in `network` and its
+   bus order in `position` (`console/src/feature/ethercat/device/types.ts:50-51`). Slave
+   rows grouped by `network` yield one `ethercat.Master` per group, `interface` set to
+   the network, `slaves` ordered by `position`, and each slave's `master` set to the new
+   key.
+3. Re-key statuses, ontology resources and edges, and policy object IDs.
+4. Each integration's task config migration rewrites its device references through the
    map.
-4. Re-key statuses, ontology resources and edges, and policy object IDs.
 5. Delete the legacy table and the map.
+
+Steps 1 to 3 are one migration, step 4 is one per integration, and step 5 runs last.
+They are ordered by version, so a 0.59 Core runs all of them on its first start.
 
 Between the typed services landing and this migration landing, a development Core with
 0.59 rows shows them only through the legacy path. Writes through that path in the
@@ -428,16 +439,17 @@ green at every step. The migration brings 0.59 data forward near the end.
 - **Phases 16 to 21: Console, one integration each.** Forms, tree items, menus, links,
   and palette commands on the typed client. Each phase removes its make from `make.tsx`;
   Phase 21 deletes the file.
-- **Phase 22: Task config references.** Typed device keys on every config, with the
-  config migrations of §4.8 step 3 reading the map.
-- **Phase 23: Migration.** §4.8 steps 1, 2, 4, and 5, and the policy rewrite.
-- **Phase 24: Delete the legacy path.** The legacy service, `/device/*` routes,
-  `client.devices`, `sy.Device`, `synnax::device::Client`, `pluto/src/device`, and the
-  Console's generic device layer.
+- **Phase 22: Migration.** §4.8 steps 1 to 3, and the policy rewrite. The map now exists
+  for the next phase.
+- **Phase 23: Task config references.** Typed device keys on every config, with the
+  config migrations of §4.8 step 4 reading the map.
+- **Phase 24: Delete the legacy path.** §4.8 step 5, the legacy service, `/device/*`
+  routes, `client.devices`, `sy.Device`, `synnax::device::Client`, `pluto/src/device`,
+  and the Console's generic device layer.
 - **Phase 25: Documentation.** Device pages per integration and the Python and
   TypeScript examples.
 
-Compatibility: a 0.59 Core upgrades through Phase 23 with every device, status,
+Compatibility: a 0.59 Core upgrades through Phase 24 with every device, status,
 reference, and policy carried forward. A client older than Phase 24 gets a not-found on
 `/device/*` from a Core at Phase 24; clients and the Core ship in one train.
 
