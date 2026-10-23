@@ -124,7 +124,7 @@ export const createMembership = (name: string): Membership => {
         subscribe,
         getValue,
       }),
-      [getValue, subscribe],
+      [actionsRef, getValue, subscribe],
     );
     useLayoutEffect(() => {
       const changed = new Set(array.toArray(valueRef.current)).symmetricDifference(

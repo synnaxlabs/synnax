@@ -10,7 +10,7 @@
 import "@/input/time/Time.css";
 
 import { TimeSpan as XTimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
 import { type BaseProps, Editor } from "@/input/time/Editor";
@@ -37,14 +37,15 @@ export const formatTimeSpan = (span: XTimeSpan): string =>
 // The clock always reads to the second, whatever the row's labels resolve to: a
 // coarser cut would show 0s for the first minute of a long range.
 const useElapsed = (since: number | undefined): string | null => {
-  const [, setTick] = useState(0);
+  const [now, setNow] = useState(() => TimeStamp.now());
   useEffect(() => {
     if (since == null) return;
-    const i = setInterval(() => setTick((p) => p + 1), 1000);
+    setNow(TimeStamp.now());
+    const i = setInterval(() => setNow(TimeStamp.now()), 1000);
     return () => clearInterval(i);
   }, [since]);
   if (since == null) return null;
-  return formatTimeSpan(TimeStamp.now().span(since).truncate(XTimeSpan.SECOND));
+  return formatTimeSpan(now.span(since).truncate(XTimeSpan.SECOND));
 };
 
 /**
@@ -69,11 +70,8 @@ export const TimeSpan = ({
     resolution == null ? formatted : formatTimeSpan(exact.truncate(resolution));
   const exactTooltip = elapsed == null && shown !== formatted ? formatted : undefined;
 
-  const languageReady = useLanguage();
-  const suggest = useCallback(
-    (text: string) => suggestTimeSpans(text),
-    [languageReady],
-  );
+  const language = useLanguage();
+  const suggest = (text: string) => suggestTimeSpans(text, language);
 
   const handleCommit = (span: XTimeSpan): void => {
     const next = Number(span.valueOf());

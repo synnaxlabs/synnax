@@ -26,15 +26,14 @@ export type TimeSpanSinceProps<E extends Generic.ElementType = "p"> = Omit<
   format?: TimeSpanStringFormat;
 };
 
+/** @returns the time elapsed since the stamp, refreshed every second. */
 export const useTimeSpanSince = (stamp: CrudeTimeStamp): XTimeSpan => {
-  const [, setCounter] = useState(0);
+  const [now, setNow] = useState(() => XTimeStamp.now());
   useEffect(() => {
-    const i = setInterval(() => {
-      setCounter((p) => p + 1);
-    }, 1000);
+    const i = setInterval(() => setNow(XTimeStamp.now()), 1000);
     return () => clearInterval(i);
   }, []);
-  return XTimeStamp.since(stamp);
+  return now.span(stamp);
 };
 
 export const TimeSpanSince = <E extends Generic.ElementType = "p">({

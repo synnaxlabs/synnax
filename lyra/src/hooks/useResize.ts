@@ -12,6 +12,7 @@ import {
   type CrudeTimeSpan,
   debounce as xDebounce,
   type direction,
+  TimeSpan,
 } from "@synnaxlabs/x";
 import { type RefCallback, useCallback, useEffect, useRef } from "react";
 
@@ -47,6 +48,7 @@ export const useResize = <E extends HTMLElement>(
   opts: UseResizeOpts = {},
 ): RefCallback<E> => {
   const { triggers = [], debounce = 0, enabled = true } = opts;
+  const debounceSpan = new TimeSpan(debounce).valueOf();
   const prev = useRef<box.Box>(box.ZERO);
   const ref = useRef<E | null>(null);
   const obs = useRef<ResizeObserver | null>(null);
@@ -57,18 +59,17 @@ export const useResize = <E extends HTMLElement>(
   const startObserving = useCallback(
     (el: HTMLElement) => {
       if (obs.current != null) obs.current.disconnect();
-      prev.current ??= box.ZERO;
       const deb = xDebounce.debounce(() => {
         const next = box.construct(el);
         if (shouldResize(memoTriggers, prev.current, next)) {
           prev.current = next;
           onResize(next, ref.current as E);
         }
-      }, debounce);
+      }, debounceSpan);
       obs.current = new ResizeObserver(deb);
       obs.current.observe(el);
     },
-    [memoTriggers, onResize, debounce.valueOf()],
+    [memoTriggers, onResize, debounceSpan],
   );
 
   useEffect(() => {
@@ -81,7 +82,7 @@ export const useResize = <E extends HTMLElement>(
       ref.current = el;
       if (el != null && enabled) startObserving(el);
     },
-    [startObserving],
+    [startObserving, enabled],
   );
 };
 

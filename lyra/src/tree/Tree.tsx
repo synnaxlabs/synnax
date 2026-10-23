@@ -109,7 +109,7 @@ export const useState = <K extends record.Key = string>({
       setExpanded(nextExpanded);
       onExpand?.({ current: nextExpanded, action, clicked: key });
     },
-    [onExpand, setExpanded],
+    [shapeRef, expandedRef, setExpanded, onExpand],
   );
 
   const handleSelect: Select.UseMultipleProps<K>["onChange"] = useCallback(
@@ -121,26 +121,24 @@ export const useState = <K extends record.Key = string>({
       if (toggleOn === "caret" || clicked == null || shiftRef.current.held) return;
       handleToggle(clicked);
     },
-    [toggleOn, handleToggle, setSelected],
+    [setSelected, toggleOn, shiftRef, handleToggle],
   );
 
   const handleExpand = useCallback(
     (key: K): void => {
       setExpanded((expanded) => unique.unique([...expanded, key]));
-      onExpand?.({ current: expanded, action: "expand", clicked: key });
+      onExpand?.({ current: expandedRef.current, action: "expand", clicked: key });
     },
-    [setExpanded],
+    [setExpanded, onExpand, expandedRef],
   );
 
   const handleContract = useCallback(
     (...keys: K[]): void => {
       setExpanded((expanded) => expanded.filter((k) => !keys.includes(k)));
-      // Call onExpand for each contracted key
-      keys.forEach((key) => {
-        onExpand?.({ current: expanded, action: "contract", clicked: key });
-      });
+      const current = expandedRef.current;
+      keys.forEach((key) => onExpand?.({ current, action: "contract", clicked: key }));
     },
-    [setExpanded],
+    [setExpanded, onExpand, expandedRef],
   );
 
   const clearExpanded = useCallback(() => setExpanded([]), [setExpanded]);

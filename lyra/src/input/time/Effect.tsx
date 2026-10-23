@@ -9,7 +9,7 @@
 
 import "@/input/time/Time.css";
 
-import { type ReactElement, type ReactNode, useLayoutEffect, useRef } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -26,10 +26,8 @@ export interface EffectProps {
  */
 export const Effect = ({ children, className }: EffectProps): ReactElement => {
   const visible = children != null;
-  const last = useRef<ReactNode>(children);
-  useLayoutEffect(() => {
-    if (visible) last.current = children;
-  });
+  const [last, setLast] = useState<ReactNode>(children);
+  if (visible && children !== last) setLast(children);
   return (
     <div
       // Not CSS.visible: Dialog.Frame reads that class as an open child dialog and
@@ -49,7 +47,7 @@ export const Effect = ({ children, className }: EffectProps): ReactElement => {
           gap="small"
           className={CSS.BE("time-effect", "content")}
         >
-          {visible ? children : last.current}
+          {visible ? children : last}
         </Flex.Box>
       </div>
     </div>

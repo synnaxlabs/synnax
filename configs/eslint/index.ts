@@ -131,26 +131,6 @@ const config: Linter.Config[] = [
       // Off: the react-hooks rules below check these with the React Compiler.
       "@eslint-react/rules-of-hooks": "off",
       "@eslint-react/purity": "off",
-      // The React Compiler skips a component or hook that breaks one of these rules.
-      "react-hooks/rules-of-hooks": "error",
-      "react-hooks/hooks": "error",
-      "react-hooks/use-memo": "error",
-      "react-hooks/void-use-memo": "error",
-      "react-hooks/preserve-manual-memoization": "error",
-      "react-hooks/memo-dependencies": "error",
-      "react-hooks/incompatible-library": "error",
-      "react-hooks/immutability": "error",
-      "react-hooks/globals": "error",
-      "react-hooks/refs": "error",
-      "react-hooks/purity": "error",
-      "react-hooks/set-state-in-render": "error",
-      "react-hooks/component-hook-factories": "error",
-      "react-hooks/unsupported-syntax": "error",
-      "react-hooks/todo": "error",
-      "react-hooks/syntax": "error",
-      "react-hooks/invariant": "error",
-      "react-hooks/config": "error",
-      "react-hooks/gating": "error",
       // Off: matches our own useContext hooks from context.create by name.
       "@eslint-react/no-use-context": "off",
       // Off: flags a call that returns a primitive key.
@@ -233,6 +213,32 @@ const config: Linter.Config[] = [
         typescript: {}, // this loads <rootdir>/tsconfig.json to eslint
         node: { extensions: [".js", ".jsx", ".ts", ".tsx"] },
       },
+    },
+  },
+  {
+    // The React Compiler skips a component or hook that breaks one of these rules.
+    // Specs do not ship, so their harnesses may break them.
+    ignores: ["**/*.spec.ts", "**/*.spec.tsx"],
+    rules: {
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/hooks": "error",
+      "react-hooks/use-memo": "error",
+      "react-hooks/void-use-memo": "error",
+      "react-hooks/preserve-manual-memoization": "error",
+      "react-hooks/memo-dependencies": "error",
+      "react-hooks/incompatible-library": "error",
+      "react-hooks/immutability": "error",
+      "react-hooks/globals": "error",
+      "react-hooks/refs": "error",
+      "react-hooks/purity": "error",
+      "react-hooks/set-state-in-render": "error",
+      "react-hooks/component-hook-factories": "error",
+      "react-hooks/unsupported-syntax": "error",
+      "react-hooks/todo": "error",
+      "react-hooks/syntax": "error",
+      "react-hooks/invariant": "error",
+      "react-hooks/config": "error",
+      "react-hooks/gating": "error",
     },
   },
   {

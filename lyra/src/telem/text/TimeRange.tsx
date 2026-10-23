@@ -14,7 +14,7 @@ import {
   TimeStamp,
   type TimeZone,
 } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
@@ -28,17 +28,36 @@ export interface TimeRangeProps
   displayTimeZone?: TimeZone;
 }
 
+const REFRESH_INTERVAL = TimeSpan.MINUTE;
+
+/**
+ * @returns the current time, refreshed every minute and at the given instant, so a
+ * label that reads the clock catches up when the day turns or a range starts.
+ */
+const useNow = (next: TimeStamp): TimeStamp => {
+  const [now, setNow] = useState(() => TimeStamp.now());
+  const nextValue = next.valueOf();
+  useEffect(() => {
+    const until = new TimeStamp(nextValue);
+    let delay = REFRESH_INTERVAL;
+    if (until.after(now) && until.span(now).lessThan(delay)) delay = until.span(now);
+    const t = setTimeout(() => setNow(TimeStamp.now()), Math.ceil(delay.milliseconds));
+    return () => clearTimeout(t);
+  }, [now, nextValue]);
+  return now;
+};
+
 const formatTime = (
-  timeRange: CrudeTimeRange,
+  tr: XTimeRange,
+  now: TimeStamp,
   displayTimeZone: TimeZone,
 ): null | string | [string, string] => {
-  const tr = new XTimeRange(timeRange).makeValid();
   if (tr.start.equals(TimeStamp.MAX)) return null;
-  const today = tr.start.isSameDay(TimeStamp.now(), displayTimeZone);
+  const today = tr.start.isSameDay(now, displayTimeZone);
   const startFormat = today ? "time" : "dateTime";
   const startTime = new TimeStamp(tr.start).toString(startFormat, displayTimeZone);
   if (tr.end.equals(TimeStamp.MAX)) {
-    const verb = tr.start.before(TimeStamp.now()) ? "Started" : "Starts";
+    const verb = tr.start.before(now) ? "Started" : "Starts";
     return today ? `${verb} today ${startTime}` : `${verb} ${startTime}`;
   }
   const endFormat = tr.end.span(tr.start) < TimeSpan.DAY ? "time" : "dateTime";
@@ -54,7 +73,9 @@ export const TimeRange = ({
   weight = 450,
   ...rest
 }: TimeRangeProps): ReactElement | null => {
-  const formattedTime = formatTime(children, displayTimeZone);
+  const tr = new XTimeRange(children).makeValid();
+  const now = useNow(tr.start);
+  const formattedTime = formatTime(tr, now, displayTimeZone);
   if (formattedTime == null) return null;
   return (
     <Flex.Box x gap="small" align="center" {...rest}>

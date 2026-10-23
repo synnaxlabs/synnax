@@ -316,7 +316,7 @@ export const Frame = ({
       style[CSS.variable("dialog-max-height")] = `${maxHeight}px`;
     if (visible) style.zIndex = zIndex;
     setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
-  }, [propsLocation, variant, close]);
+  }, [visibleRef, variant, close, propsLocation, maxHeight, visible, zIndex]);
 
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
@@ -349,7 +349,7 @@ export const Frame = ({
         dialog = dialog.children[0] as HTMLElement;
       return dialog !== dialogRef.current;
     },
-    [zIndex, visibleRef],
+    [visibleRef, variant],
   );
 
   const handleEscape = useCallback(
@@ -374,7 +374,7 @@ export const Frame = ({
         stopPropagation();
       }
     },
-    [close, variant],
+    [visibleRef, close, variant],
   );
 
   useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
@@ -407,7 +407,7 @@ export const Frame = ({
       variant,
       location: targetCorner,
     }),
-    [close, open, toggle, visible, targetCorner],
+    [close, open, toggle, visible, onPointerEnter, variant, targetCorner],
   );
 
   return (

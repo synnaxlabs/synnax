@@ -27,6 +27,7 @@ import { z } from "zod";
 
 import { context } from "@/context";
 import { useSyncedRef } from "@/hooks/ref";
+import { compareDeps, useMemoCompare } from "@/memo";
 import { type state } from "@/state";
 
 /** Zod schema for a draggable/droppable {@link Item}. */
@@ -167,6 +168,7 @@ const HAUL_REF: ProviderRef = {
 /** Provides haul drag-and-drop state to descendants. */
 export const Provider = memo(
   ({ children, useState = React.useState }: ProviderProps): ReactNode => {
+    "use no memo"; // Calls the state hook its props inject, fixed for its life.
     const ctx = useContext();
 
     const [state, setState] = useState(ZERO_DRAGGING_STATE);
@@ -295,32 +297,27 @@ export interface UseDragReturn {
 /** Wires an element up as a drag source of `type`. */
 export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
   const generatedKey = useId();
-  key ??= generatedKey;
-  const source: Item = useMemo(() => ({ key, type }), [key, type]);
+  const source: Item = { key: key ?? generatedKey, type };
   const ctx = useContext();
-  if (ctx == null) return { startDrag: () => {}, onDragEnd: () => {} };
-  const { start, end, stateRef } = ctx;
-  return {
-    startDrag: useCallback(
-      (items, f) => {
-        start(source, items, f);
-        // A source that unmounts mid-drag fires `dragend` on a detached node, which
-        // never reaches here. Mouse events resume only once a drag is over, so the
-        // first one ends a drag its own source cannot.
-        document.addEventListener(
-          "mousemove",
-          (e) => {
-            if (stateRef.current.items.length === 0) return;
-            end(xy.construct({ x: e.screenX, y: e.screenY }));
-          },
-          { once: true },
-        );
+  const startDrag: UseDragReturn["startDrag"] = (items, f) => {
+    if (ctx == null) return;
+    const { start, end, stateRef } = ctx;
+    start(source, items, f);
+    // A source that unmounts mid-drag fires `dragend` on a detached node, which never
+    // reaches here. Mouse events resume only once a drag is over, so the first one ends
+    // a drag its own source cannot.
+    document.addEventListener(
+      "mousemove",
+      (e) => {
+        if (stateRef.current.items.length === 0) return;
+        end(xy.construct({ x: e.screenX, y: e.screenY }));
       },
-      [start, end, stateRef, source],
-    ),
-    onDragEnd: (e: DragEvent | MouseEvent) =>
-      end(xy.construct({ x: e.screenX, y: e.screenY })),
+      { once: true },
+    );
   };
+  const onDragEnd = (e: DragEvent | MouseEvent) =>
+    ctx?.end(xy.construct({ x: e.screenX, y: e.screenY }));
+  return { startDrag, onDragEnd };
 };
 
 /** Predicate deciding whether a drop target accepts the current drag. */
@@ -364,37 +361,28 @@ export const useDrop = ({
 }: UseDropProps): UseDropReturn => {
   const ref = useDraggingRef();
   const ctx = useContext();
-  if (ctx == null) return { onDragOver: () => {}, onDrop: () => {} };
-  const { drop, claimDragEvent } = ctx;
-
   const generatedKey = useId();
-  key ??= generatedKey;
-  const target: Item = useMemo(() => ({ key, type }), [key, type]);
-
+  const target: Item = { key: key ?? generatedKey, type };
   const prevDragOver = useRef<xy.XY>({ x: -1, y: -1 });
 
-  const handleDragOver = useCallback(
-    (event: DragEvent) => {
-      event.preventDefault();
-      const cursor = xy.construct({ x: event.screenX, y: event.screenY });
-      if (xy.equals(cursor, prevDragOver.current)) return;
-      prevDragOver.current = cursor;
-      if (!canDrop(ref.current)) return;
-      if (!claimDragEvent(event.nativeEvent)) return;
-      onDragOver?.({ event, ...ref.current });
-    },
-    [ref, canDrop, claimDragEvent],
-  );
+  const handleDragOver = (event: DragEvent) => {
+    if (ctx == null) return;
+    event.preventDefault();
+    const cursor = xy.construct({ x: event.screenX, y: event.screenY });
+    if (xy.equals(cursor, prevDragOver.current)) return;
+    prevDragOver.current = cursor;
+    if (!canDrop(ref.current)) return;
+    if (!ctx.claimDragEvent(event.nativeEvent)) return;
+    onDragOver?.({ event, ...ref.current });
+  };
 
-  const handleDrop = useCallback(
-    (event: DragEvent) => {
-      if (!canDrop(ref.current)) return;
-      if (!claimDragEvent(event.nativeEvent)) return;
-      event.preventDefault();
-      drop({ target, dropped: onDrop({ ...ref.current, event }) });
-    },
-    [ref, onDrop, canDrop, drop, claimDragEvent, target],
-  );
+  const handleDrop = (event: DragEvent) => {
+    if (ctx == null) return;
+    if (!canDrop(ref.current)) return;
+    if (!ctx.claimDragEvent(event.nativeEvent)) return;
+    event.preventDefault();
+    ctx.drop({ target, dropped: onDrop({ ...ref.current, event }) });
+  };
 
   return { onDragOver: handleDragOver, onDrop: handleDrop };
 };
@@ -416,8 +404,7 @@ export const useDragAndDrop = ({
   ...rest
 }: UseDragAndDropProps): UseDragAndDropReturn => {
   const generatedKey = useId();
-  key ??= generatedKey;
-  const sourceAndTarget: Item = useMemo(() => ({ key, type }), [key, type]);
+  const sourceAndTarget: Item = { key: key ?? generatedKey, type };
   const dragProps = useDrag(sourceAndTarget);
   const dropProps = useDrop({ ...rest, ...sourceAndTarget });
   return { ...dragProps, ...dropProps };
@@ -439,9 +426,10 @@ export const useFilterByTypeCallback = (
   fn: OnDrop,
   deps: unknown[],
 ): OnDrop =>
-  useCallback(
-    (props) => fn({ ...props, items: filterByType(type, props.items) }),
-    deps,
+  useMemoCompare(
+    (): OnDrop => (props) => fn({ ...props, items: filterByType(type, props.items) }),
+    compareDeps,
+    [type, ...deps],
   );
 
 /** Props for a drop handled outside the normal tree; `onDrop` also gets the cursor. */

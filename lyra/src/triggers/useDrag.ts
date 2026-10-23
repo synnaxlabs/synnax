@@ -76,7 +76,7 @@ export const useDrag = ({
         startLoc.current = xy.ZERO;
       }
     },
-    [onDrag],
+    [onDrag, onMove],
   );
   useListen({ triggers, callback: handleTrigger, region: bound, loose });
 };

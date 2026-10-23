@@ -80,6 +80,7 @@ export const Provider = ({
   useState = React.useState,
   children,
 }: ProviderProps): ReactElement => {
+  "use no memo"; // Calls the state hook its props inject, fixed for its life.
   const [value, setValue] = useState(ZERO_CONTEXT_STATE);
 
   const valueRef = useSyncedRef(value);
@@ -100,7 +101,7 @@ export const Provider = ({
       const nextFreq = recalculate(10, next);
       setValue({ ...prev, frequent: nextFreq });
     },
-    [setValue],
+    [valueRef, setValue],
   );
 
   const memoValue = useMemo(

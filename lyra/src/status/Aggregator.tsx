@@ -174,24 +174,27 @@ export const useNotifications = ({
 
   const statusesRef = useSyncedRef(statuses);
 
-  const silence = useCallback((key: string) => {
-    setSilencedKeys((prev) => {
-      const next = new Set<string>();
-      const existing = statusesRef.current.find(({ key: k }) => k === key);
-      if (!prev.has(key)) next.add(key);
-      if (existing != null) {
-        const silenced = statusesRef.current.filter(
-          ({ message, variant, name }) =>
-            message === existing.message &&
-            variant === existing.variant &&
-            name === existing.name,
-        );
-        silenced.forEach((status) => next.add(status.key));
-      }
-      if (next.size == 0) return prev;
-      return new Set([...next, ...prev]);
-    });
-  }, []);
+  const silence = useCallback(
+    (key: string) => {
+      setSilencedKeys((prev) => {
+        const next = new Set<string>();
+        const existing = statusesRef.current.find(({ key: k }) => k === key);
+        if (!prev.has(key)) next.add(key);
+        if (existing != null) {
+          const silenced = statusesRef.current.filter(
+            ({ message, variant, name }) =>
+              message === existing.message &&
+              variant === existing.variant &&
+              name === existing.name,
+          );
+          silenced.forEach((status) => next.add(status.key));
+        }
+        if (next.size == 0) return prev;
+        return new Set([...next, ...prev]);
+      });
+    },
+    [statusesRef],
+  );
 
   const silenceAll = useCallback(() => {
     setSilencedKeys((prev) => {
@@ -199,7 +202,7 @@ export const useNotifications = ({
       statusesRef.current.forEach(({ key }) => next.add(key));
       return next;
     });
-  }, []);
+  }, [statusesRef]);
 
   return { statuses: filtered, silence, silenceAll };
 };

@@ -13,6 +13,8 @@ import {
   type RefCallback,
   type RefObject,
   useCallback,
+  useEffect,
+  useInsertionEffect,
   useRef,
   useState as reactUseState,
 } from "react";
@@ -34,53 +36,52 @@ export const useStateRef = <T extends state.State>(
 };
 
 /**
- * Use synced ref keeps the provided value in sync with the returned ref. This is useful
- * when you want access to a piece of state but don't want it's changes to trigger a
- * re-render.
+ * Keeps the returned ref in sync with the provided value. Use it to read the latest
+ * value from an effect or a handler without re-running or re-creating it. The ref
+ * updates when a render commits, before any effect runs, so never read it in render.
  * @returns a ref that is kept in sync with the provided value.
  */
 export const useSyncedRef = <T>(value: T): RefObject<T> => {
   const ref = useRef<T>(value);
-  ref.current = value;
+  useInsertionEffect(() => {
+    ref.current = value;
+  });
   return ref;
 };
 
 /**
  * Holds a ref whose value is built on the first render and kept for the component's
  * life. Use it in place of `useRef(expensive())`, which builds a fresh value on every
- * render and throws it away.
+ * render and throws it away. The initializer must not return null or undefined.
  *
  * @example const store = useInitializerRef(() => new Store());
  */
 export const useInitializerRef = <T>(initializer: () => T): RefObject<T> => {
-  const initializedRef = useRef<boolean>(false);
   const ref = useRef<T | null>(null);
-  if (!initializedRef.current) {
-    ref.current = initializer();
-    initializedRef.current = true;
-  }
+  if (ref.current == null) ref.current = initializer();
   return ref as RefObject<T>;
 };
 
 /**
- * Combines multiple refs into one. Note that the returned ref callback will not be
- * updated when the provided refs changes. These refs are only set once, and are assumed
- * to be static throughout the lifetime of the component.
+ * Combines multiple refs into one. The returned callback keeps one identity, so a ref
+ * that changes after mount takes effect only when the element mounts again.
  *
  * @returns - A callback ref that will set all of the provided refs.
  */
 export const useCombinedRefs = <T>(
   ...refs: Array<Ref<T> | null | undefined>
-): RefCallback<T> =>
-  useCallback(
+): RefCallback<T> => {
+  const refsRef = useSyncedRef(refs);
+  return useCallback(
     (el) =>
-      refs.forEach((r) => {
+      refsRef.current.forEach((r) => {
         if (r == null) return;
         if (typeof r === "function") r(el);
         else r.current = el;
-      }, el),
-    [],
+      }),
+    [refsRef],
   );
+};
 
 /**
  * Keeps a piece of state and a ref to it. The ref is assigned by the setter itself, so
@@ -91,8 +92,8 @@ export const useCombinedRefs = <T>(
 export const useCombinedStateAndRef = <T extends primitive.Value | object>(
   initialState: state.Initial<T>,
 ): [T, state.Setter<T>, RefObject<T>] => {
-  const ref = useInitializerRef<T>(() => state.executeInitialSetter<T>(initialState));
-  const [s, setS] = reactUseState<T>(() => ref.current);
+  const [s, setS] = reactUseState<T>(() => state.executeInitialSetter<T>(initialState));
+  const ref = useRef<T>(s);
 
   const setStateAndRef: state.Setter<T> = useCallback((nextState): void => {
     ref.current = state.executeSetter<T>(nextState, ref.current);
@@ -103,12 +104,12 @@ export const useCombinedStateAndRef = <T extends primitive.Value | object>(
 };
 
 /**
- * @returns the value this hook was given on the previous render, or undefined on the
- * first. Compare against it to react to a change without storing it in state.
+ * @returns the value this hook was given on the previous committed render, or undefined
+ * before the first commit. Compare against it to react to a change. A change costs one
+ * extra render, in which the hook catches up to the new value.
  */
 export const usePrevious = <T>(value: T): T | undefined => {
-  const ref = useRef<T>(undefined);
-  const prev = ref.current;
-  ref.current = value;
+  const [prev, setPrev] = reactUseState<T>();
+  useEffect(() => setPrev(() => value), [value]);
   return prev;
 };

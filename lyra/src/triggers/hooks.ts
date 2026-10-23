@@ -220,15 +220,18 @@ export const useHeldRef = ({
   });
   useListen({
     triggers,
-    callback: useCallback((e: UseEvent) => {
-      setRef((prev) => {
-        let next: Trigger[];
-        if (e.stage === "start")
-          next = unique.unique([...prev.triggers, ...e.triggers]);
-        else next = purge(prev.triggers, e.triggers);
-        return { triggers: next, held: next.length > 0 };
-      });
-    }, []),
+    callback: useCallback(
+      (e: UseEvent) => {
+        setRef((prev) => {
+          let next: Trigger[];
+          if (e.stage === "start")
+            next = unique.unique([...prev.triggers, ...e.triggers]);
+          else next = purge(prev.triggers, e.triggers);
+          return { triggers: next, held: next.length > 0 };
+        });
+      },
+      [setRef],
+    ),
     loose,
   });
   return ref;

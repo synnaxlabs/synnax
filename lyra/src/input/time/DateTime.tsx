@@ -14,7 +14,7 @@ import {
   type TimeSpan as XTimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useCallback } from "react";
+import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
@@ -86,6 +86,19 @@ const resolveAnchors = (
   return anchors;
 };
 
+/** @returns the current time, refreshed when the local day turns. */
+const useToday = (): TimeStamp => {
+  const [now, setNow] = useState(() => TimeStamp.now());
+  useEffect(() => {
+    const date = now.date();
+    const midnight = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+    const delay = midnight.getTime() - date.getTime();
+    const t = setTimeout(() => setNow(TimeStamp.now()), delay);
+    return () => clearTimeout(t);
+  }, [now]);
+  return now;
+};
+
 const describeOffset = (value: TimeStamp, from: TimeStamp): string => {
   const span = value.span(from);
   if (span.isZero) return "";
@@ -127,19 +140,18 @@ export const DateTime = ({
   const stamp = isEmpty ? null : fromNumeric(value);
   const formatted = stamp?.toPreciseString("local") ?? "";
   const parentStart = parent?.start;
-  const languageReady = useLanguage();
+  const language = useLanguage();
+  const today = useToday();
 
   // Editor memoizes the readings on this function. Anchors resolve on each call, so
   // `now` inside a reading is the moment of the edit.
-  const suggest = useCallback(
-    (text: string) =>
-      suggestTimeStamps(text, {
-        anchors: resolveAnchors(start, end, parentStart),
-        current: isEmpty ? undefined : fromNumeric(value),
-        bound,
-      }),
-    [start, end, parentStart, isEmpty, value, bound, languageReady],
-  );
+  const suggest = (text: string) =>
+    suggestTimeStamps(text, {
+      anchors: resolveAnchors(start, end, parentStart),
+      language,
+      current: isEmpty ? undefined : fromNumeric(value),
+      bound,
+    });
 
   // Digits in the fixed layout nudge; a phrase walks its readings.
   const nudgeText = (text: string, caret: number, steps: number): string | null => {
@@ -192,7 +204,7 @@ export const DateTime = ({
       <>
         {showDay && (
           <span className={CSS.BE("datetime", "day")}>
-            {TelemText.describeDay(stamp, TimeStamp.now())}
+            {TelemText.describeDay(stamp, today)}
           </span>
         )}
         <span>{TelemText.formatTime(stamp, resolution)}</span>

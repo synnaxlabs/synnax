@@ -20,6 +20,7 @@ import {
   type RefCallback,
   type RefObject,
   useCallback,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -28,8 +29,7 @@ import {
 
 import { memo } from "@/component/memo";
 import { context } from "@/context";
-import { Dialog } from "@/dialog";
-import { useCombinedRefs, useInitializerRef, usePrevious, useSyncedRef } from "@/hooks";
+import { useCombinedRefs, useInitializerRef, useSyncedRef } from "@/hooks";
 import { type Elements, ElementsContext, ItemsContext } from "@/list/scope";
 
 /** Function interface for getting items from a list by key(s). */
@@ -75,8 +75,10 @@ export interface ItemSpec<K extends record.Key = record.Key> {
 
 export interface DataContextValue<K extends record.Key = record.Key> {
   data: K[];
-  getItems: () => ItemSpec<K>[];
-  getTotalSize: () => number | undefined;
+  /** The items to render: all of them, or the visible window when virtualized. */
+  items: ItemSpec<K>[];
+  /** The height of all items together when virtualized, and undefined otherwise. */
+  totalSize?: number;
   sentinelRef?: RefCallback<HTMLDivElement>;
 }
 
@@ -182,7 +184,7 @@ export const useData = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >(): DataContextValue<K> & UtilContextValue<K, E> => {
-  const { data, getItems, getTotalSize, sentinelRef } = useDataContext(
+  const { data, items, totalSize, sentinelRef } = useDataContext(
     "List.useData",
   ) as DataContextValue<K>;
   const { ref, itemsRef, getItem, scrollToIndex, subscribe, itemHeight } = useUtilCtx(
@@ -191,8 +193,8 @@ export const useData = <
   return useMemo(
     () => ({
       data,
-      getItems,
-      getTotalSize,
+      items,
+      totalSize,
       ref,
       itemsRef,
       getItem,
@@ -203,8 +205,8 @@ export const useData = <
     }),
     [
       data,
-      getItems,
-      getTotalSize,
+      items,
+      totalSize,
       ref,
       itemsRef,
       getItem,
@@ -216,22 +218,21 @@ export const useData = <
   );
 };
 
+/** @returns a ref for the scroll container that fetches once when it first mounts. */
 const useFetchMoreRefCallback = (
   elRef: RefObject<HTMLDivElement | null>,
-  hasData: boolean,
   onFetchMore?: () => void,
 ) => {
   const onFetchMoreRef = useSyncedRef(onFetchMore);
-  const { visible } = Dialog.useContext();
   const initialFetchCalledRef = useRef(false);
   return useCallback(
-    (el: HTMLDivElement) => {
+    (el: HTMLDivElement | null) => {
       elRef.current = el;
-      if (elRef.current == null || initialFetchCalledRef.current) return;
+      if (el == null || initialFetchCalledRef.current) return;
       initialFetchCalledRef.current = true;
       onFetchMoreRef.current?.();
     },
-    [onFetchMoreRef, visible, hasData],
+    [elRef, onFetchMoreRef],
   );
 };
 
@@ -252,9 +253,11 @@ const useIntersectionFetchMore = (
   const containerElRef = useRef<HTMLDivElement | null>(null);
   const sentinelElRef = useRef<HTMLDivElement | null>(null);
 
-  const prevDataLength = usePrevious(dataLength);
-  if (prevDataLength !== undefined && dataLength !== prevDataLength)
+  // New data ends the fetch in flight. A layout effect, so no intersection reported
+  // after the commit reads the old flag.
+  useLayoutEffect(() => {
     isFetchingRef.current = false;
+  }, [dataLength]);
 
   const setupObserver = useCallback(() => {
     observerRef.current?.disconnect();
@@ -301,13 +304,16 @@ const useIntersectionFetchMore = (
 
 const useElements = (pin: Elements["pin"]): Elements => {
   const elementsRef = useInitializerRef(() => new Map<record.Key, HTMLElement>());
-  const setElement = useCallback((key: record.Key, element: HTMLElement | null) => {
-    if (element == null) elementsRef.current.delete(key);
-    else elementsRef.current.set(key, element);
-  }, []);
+  const setElement = useCallback(
+    (key: record.Key, element: HTMLElement | null) => {
+      if (element == null) elementsRef.current.delete(key);
+      else elementsRef.current.set(key, element);
+    },
+    [elementsRef],
+  );
   const click = useCallback(
     (key: record.Key) => elementsRef.current.get(key)?.click(),
-    [],
+    [elementsRef],
   );
   return useMemo(() => ({ setElement, click, pin }), [setElement, click, pin]);
 };
@@ -332,6 +338,7 @@ const VirtualFrame = <
   itemHeight = 33,
   pinned,
 }: FrameProps<K, E>): ReactElement => {
+  "use no memo"; // useVirtualizer returns one instance whose reads change in place.
   const ref = useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
   // Content above the items in the scroll container shifts them down. The container is
@@ -359,34 +366,37 @@ const VirtualFrame = <
       mutation.disconnect();
     };
   }, []);
-  const hasData = data.length > 0;
-  const refCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
+  const refCallback = useFetchMoreRefCallback(ref, onFetchMore);
   const dataRef = useSyncedRef(data);
   const pinnedRef = useRef<record.Key | null>(null);
   // The indexes of the rows that are mounted only because they are pinned.
   const pinnedOutsideRef = useRef<ReadonlySet<number>>(NO_INDEXES);
   const indexesRef = useRef<number[]>([]);
-  const extract = useCallback((range: Range, pinned?: readonly record.Key[]) => {
-    let indexes = defaultRangeExtractor(range);
-    const keys: readonly record.Key[] = dataRef.current;
-    let outside: Set<number> | undefined;
-    const addPinned = (key: record.Key): void => {
-      const index = keys.indexOf(key);
-      if (index !== -1 && !indexes.includes(index)) (outside ??= new Set()).add(index);
-    };
-    if (pinnedRef.current != null) addPinned(pinnedRef.current);
-    pinned?.forEach(addPinned);
-    if (outside != null) indexes = [...indexes, ...outside].sort((a, b) => a - b);
-    pinnedOutsideRef.current = outside ?? NO_INDEXES;
-    indexesRef.current = indexes;
-    return indexes;
-  }, []);
+  const extract = useCallback(
+    (range: Range, keys: readonly record.Key[], pinned?: readonly record.Key[]) => {
+      let indexes = defaultRangeExtractor(range);
+      let outside: Set<number> | undefined;
+      const addPinned = (key: record.Key): void => {
+        const index = keys.indexOf(key);
+        if (index === -1 || indexes.includes(index)) return;
+        if (outside == null) outside = new Set();
+        outside.add(index);
+      };
+      if (pinnedRef.current != null) addPinned(pinnedRef.current);
+      pinned?.forEach(addPinned);
+      if (outside != null) indexes = [...indexes, ...outside].sort((a, b) => a - b);
+      pinnedOutsideRef.current = outside ?? NO_INDEXES;
+      indexesRef.current = indexes;
+      return indexes;
+    },
+    [],
+  );
   // The virtualizer extracts the range again only when an input changes, so a new
   // extractor mounts a pinned row that is out of view.
   const [pinExtractor, setRangeExtractor] = useState(() => extract);
   const rangeExtractor = useMemo(
-    () => (range: Range) => pinExtractor(range, pinned),
-    [pinExtractor, pinned],
+    () => (range: Range) => pinExtractor(range, data, pinned),
+    [pinExtractor, data, pinned],
   );
   const pin = useCallback(
     (key: record.Key | null) => {
@@ -396,12 +406,18 @@ const VirtualFrame = <
       const index = keys.indexOf(key);
       if (index !== -1 && !indexesRef.current.includes(index))
         setRangeExtractor(
-          () => (range: Range, pinned?: readonly record.Key[]) =>
-            extract(range, pinned),
+          () =>
+            (
+              range: Range,
+              keys: readonly record.Key[],
+              pinned?: readonly record.Key[],
+            ) =>
+              extract(range, keys, pinned),
         );
     },
     [extract],
   );
+  // eslint-disable-next-line react-hooks/incompatible-library -- see "use no memo" above
   const virtualizer = useVirtualizer({
     count: data.length,
     getScrollElement: () => ref.current,
@@ -429,21 +445,19 @@ const VirtualFrame = <
     [virtualizer],
   );
   const elements = useElements(pin);
-  const items = virtualizer.getVirtualItems();
+  const virtualItems = virtualizer.getVirtualItems();
+  const totalSize = virtualizer.getTotalSize();
   const dataCtxValue = useMemo<DataContextValue<K>>(
     () => ({
-      getItem,
       data,
-      subscribe,
-      getTotalSize: () => virtualizer.getTotalSize(),
-      getItems: () =>
-        items.map(({ index, start }) => ({
-          key: data[index],
-          index,
-          translate: start - scrollMargin,
-        })),
+      totalSize,
+      items: virtualItems.map(({ index, start }) => ({
+        key: data[index],
+        index,
+        translate: start - scrollMargin,
+      })),
     }),
-    [virtualizer, data, getItem, subscribe, items, scrollMargin],
+    [data, totalSize, virtualItems, scrollMargin],
   );
 
   const utilCtxValue = useMemo<UtilContextValue<K, E>>(
@@ -483,7 +497,6 @@ const StaticFrame = <
   const itemsRef = useCallback((el: HTMLDivElement | null) => {
     itemsElRef.current = el;
   }, []);
-  const hasData = data.length > 0;
   const scrollToIndex = useCallback((index: number, direction?: location.Y) => {
     const container = itemsElRef.current;
     if (container == null) return;
@@ -499,22 +512,14 @@ const StaticFrame = <
   }, []);
   const elements = useElements(NO_PIN);
 
-  const initialFetchCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
+  const initialFetchCallback = useFetchMoreRefCallback(ref, onFetchMore);
   const { containerRef: intersectionContainerRef, sentinelRef } =
     useIntersectionFetchMore(onFetchMore, data.length);
   const refCallback = useCombinedRefs(initialFetchCallback, intersectionContainerRef);
 
-  const items = useMemo(() => data.map((key, index) => ({ key, index })), [data]);
   const dataCtxValue = useMemo<DataContextValue<K>>(
-    () => ({
-      getItem,
-      data,
-      subscribe,
-      getTotalSize: () => undefined,
-      getItems: () => items,
-      sentinelRef,
-    }),
-    [data, getItem, subscribe, sentinelRef, items],
+    () => ({ data, items: data.map((key, index) => ({ key, index })), sentinelRef }),
+    [data, sentinelRef],
   );
   const utilCtxValue = useMemo<UtilContextValue<K, E>>(
     () => ({

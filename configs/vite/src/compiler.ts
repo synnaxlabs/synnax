@@ -49,6 +49,22 @@ const UNSHADOW_SYMBOL: PluginObj = {
   },
 };
 
+/**
+ * Removes a TypeScript cast around a function, which hides a component or hook from the
+ * compiler. `tsc` output has no casts, so source and emitted builds compile alike.
+ */
+const UNWRAP_CASTS: PluginObj = {
+  visitor: {
+    Program: (program) =>
+      program.traverse({
+        "TSAsExpression|TSSatisfiesExpression": (cast: NodePath) => {
+          const inner = cast.get("expression") as NodePath;
+          if (inner.isFunction()) cast.replaceWith(inner.node);
+        },
+      }),
+  },
+};
+
 /** Fails on any component or hook that the compiler cannot compile. */
 const STRICT = { ...OPTIONS, panicThreshold: "all_errors" };
 
@@ -58,7 +74,7 @@ const DIST = /[/\\]dist[/\\]/;
 const preset = (build: boolean, exclude: RegExp[]): RolldownBabelPreset =>
   defineRolldownBabelPreset({
     preset: () => ({
-      plugins: [UNSHADOW_SYMBOL, [COMPILER, build ? STRICT : OPTIONS]],
+      plugins: [UNSHADOW_SYMBOL, UNWRAP_CASTS, [COMPILER, build ? STRICT : OPTIONS]],
     }),
     rolldown: {
       filter: { id: { exclude: [DIST, ...exclude] } },

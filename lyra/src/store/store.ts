@@ -21,21 +21,27 @@ export const useKeyedListeners = <
   K extends record.Key,
 >(): UseKeyedListenersReturn<K> => {
   const listenersRef = useInitializerRef(() => new Map<() => void, K | undefined>());
-  const notifyListeners = useCallback((keys: K | K[]) => {
-    const keySet = new Set(array.toArray(keys));
-    listenersRef.current.forEach((key, listener) => {
-      if (key == null || keySet.has(key)) listener();
-    });
-  }, []);
-  const subscribe = useCallback((listener: () => void, key?: K) => {
-    if (listenersRef.current.has(listener)) {
-      const prevKey = listenersRef.current.get(listener);
-      console.warn(
-        `[store] attempted to subscribe listener with key ${prevKey} to key ${key} without being unsubscribed first`,
-      );
-    }
-    listenersRef.current.set(listener, key);
-    return () => listenersRef.current.delete(listener);
-  }, []);
+  const notifyListeners = useCallback(
+    (keys: K | K[]) => {
+      const keySet = new Set(array.toArray(keys));
+      listenersRef.current.forEach((key, listener) => {
+        if (key == null || keySet.has(key)) listener();
+      });
+    },
+    [listenersRef],
+  );
+  const subscribe = useCallback(
+    (listener: () => void, key?: K) => {
+      if (listenersRef.current.has(listener)) {
+        const prevKey = listenersRef.current.get(listener);
+        console.warn(
+          `[store] attempted to subscribe listener with key ${prevKey} to key ${key} without being unsubscribed first`,
+        );
+      }
+      listenersRef.current.set(listener, key);
+      return () => listenersRef.current.delete(listener);
+    },
+    [listenersRef],
+  );
   return { notifyListeners, subscribe };
 };

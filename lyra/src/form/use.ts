@@ -74,100 +74,123 @@ export const useState = <Z extends z.ZodType>({
   const setCurrentStateAsInitialValues = useCallback(() => {
     ref.current.setCurrentStateAsInitialValues();
     onHasTouchedRef.current?.(false);
-  }, []);
+  }, [ref, onHasTouchedRef]);
 
   const bind: BindFunc = useCallback(
     (handleChange: Listener): destructor.Destructor =>
       ref.current.onChange(handleChange),
-    [],
+    [ref],
   );
 
   const get: typeof State.prototype.getState = useCallback(
     <V = unknown>(path: string, opts?: GetOptions): FieldState<V> | null =>
       ref.current.getState(path, opts),
-    [],
+    [ref],
   ) as typeof State.prototype.getState;
 
-  const remove = useCallback((path: string) => {
-    ref.current.remove(path);
-    ref.current.notify();
-  }, []);
+  const remove = useCallback(
+    (path: string) => {
+      ref.current.remove(path);
+      ref.current.notify();
+    },
+    [ref],
+  );
 
-  const reset = useCallback((values?: z.infer<Z>) => {
-    const prevValues = ref.current.values;
-    const prevHasTouched = ref.current.hasBeenTouched;
-    ref.current.reset(values);
-    const valuesChanged = prevValues !== ref.current.values;
-    if (valuesChanged)
-      onChangeRef.current?.({
-        values: ref.current.values,
-        path: "",
-        prev: prevValues,
-        valid: true,
-      });
-    ref.current.notify();
-    const hasTouched = ref.current.hasBeenTouched;
-    if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
-  }, []);
-
-  const validateAsync = useCallback(async (path?: string): Promise<boolean> => {
-    const valid = await ref.current.validateAsync(true, path);
-    ref.current.notify();
-    return valid;
-  }, []);
-
-  const validate = useCallback((path?: string): boolean => {
-    const valid = ref.current.validate(true, path);
-    ref.current.notify();
-    return valid;
-  }, []);
-
-  const set: SetFunc = useCallback((path, value, options): void => {
-    const { notifyOnChange = true, markTouched = true } = options ?? {};
-    const prev = deep.get(ref.current.values, path, { optional: true });
-    const prevHasTouched = ref.current.hasBeenTouched;
-    ref.current.setValue(path, value, { markTouched });
-    const finish = () => {
-      if (notifyOnChange)
-        onChangeRef.current?.({ values: ref.current.values, path, prev, valid: true });
+  const reset = useCallback(
+    (values?: z.infer<Z>) => {
+      const prevValues = ref.current.values;
+      const prevHasTouched = ref.current.hasBeenTouched;
+      ref.current.reset(values);
+      const valuesChanged = prevValues !== ref.current.values;
+      if (valuesChanged)
+        onChangeRef.current?.({
+          values: ref.current.values,
+          path: "",
+          prev: prevValues,
+          valid: true,
+        });
       ref.current.notify();
       const hasTouched = ref.current.hasBeenTouched;
       if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
-    };
-    try {
-      ref.current.validate();
-    } catch (_) {
-      return handleError(async () => {
-        await ref.current.validateAsync();
-        finish();
-      }, "Failed to validate form");
-    }
-    finish();
-  }, []);
+    },
+    [ref, onChangeRef, onHasTouchedRef],
+  );
+
+  const validateAsync = useCallback(
+    async (path?: string): Promise<boolean> => {
+      const valid = await ref.current.validateAsync(true, path);
+      ref.current.notify();
+      return valid;
+    },
+    [ref],
+  );
+
+  const validate = useCallback(
+    (path?: string): boolean => {
+      const valid = ref.current.validate(true, path);
+      ref.current.notify();
+      return valid;
+    },
+    [ref],
+  );
+
+  const set: SetFunc = useCallback(
+    (path, value, options): void => {
+      const { notifyOnChange = true, markTouched = true } = options ?? {};
+      const prev = deep.get(ref.current.values, path, { optional: true });
+      const prevHasTouched = ref.current.hasBeenTouched;
+      ref.current.setValue(path, value, { markTouched });
+      const finish = () => {
+        if (notifyOnChange)
+          onChangeRef.current?.({
+            values: ref.current.values,
+            path,
+            prev,
+            valid: true,
+          });
+        ref.current.notify();
+        const hasTouched = ref.current.hasBeenTouched;
+        if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
+      };
+      try {
+        ref.current.validate();
+      } catch (_) {
+        return handleError(async () => {
+          await ref.current.validateAsync();
+          finish();
+        }, "Failed to validate form");
+      }
+      finish();
+    },
+    [ref, onChangeRef, onHasTouchedRef, handleError],
+  );
 
   const has = useCallback(
     (path: string): boolean => deep.has(ref.current.values, path),
-    [],
+    [ref],
   );
 
-  const setStatus = useCallback((path: string, status: Status.Crude): void => {
-    const prevHasTouched = ref.current.hasBeenTouched;
-    ref.current.setStatus(path, status);
-    ref.current.notify();
-    const hasTouched = ref.current.hasBeenTouched;
-    if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
-  }, []);
+  const setStatus = useCallback(
+    (path: string, status: Status.Crude): void => {
+      const prevHasTouched = ref.current.hasBeenTouched;
+      ref.current.setStatus(path, status);
+      ref.current.notify();
+      const hasTouched = ref.current.hasBeenTouched;
+      if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
+    },
+    [ref, onHasTouchedRef],
+  );
 
   const clearStatuses = useCallback(() => {
     ref.current.clearStatus();
     ref.current.notify();
-  }, []);
+  }, [ref]);
 
   useEffect(() => {
     if (!sync) return;
     ref.current.reset(initialValues);
     ref.current.notify();
-  }, [sync, initialValues]);
+  }, [ref, sync, initialValues]);
 
   return useMemo(
     (): ContextValue<Z> => ({
@@ -187,6 +210,7 @@ export const useState = <Z extends z.ZodType>({
       getStatuses: () => ref.current.getStatuses(),
     }),
     [
+      ref,
       bind,
       set,
       get,
