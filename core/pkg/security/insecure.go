@@ -10,21 +10,15 @@
 package security
 
 import (
-	"crypto"
-	"crypto/rsa"
 	"crypto/tls"
 
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 )
 
-type insecureProvider struct{ key *rsa.PrivateKey }
+type insecureProvider struct{}
 
-func newInsecureProvider(cfg ProviderConfig) (Provider, error) {
-	key, err := rsa.GenerateKey(nil, cfg.KeySize)
-	if err != nil {
-		return nil, err
-	}
-	return &insecureProvider{key: key}, nil
+func newInsecureProvider(ProviderConfig) (Provider, error) {
+	return &insecureProvider{}, nil
 }
 
 func (*insecureProvider) TLSConfigFor(cert.Source) *tls.Config { return nil }
@@ -36,5 +30,3 @@ func (*insecureProvider) VerifyCertHost(cert.Source, string) error { return nil 
 func (*insecureProvider) VerifyCertCoreCA(cert.Source) error { return nil }
 
 func (*insecureProvider) VerifyCertTrustAnchors(cert.Source) error { return nil }
-
-func (p *insecureProvider) TokenPrivate() crypto.PrivateKey { return p.key }

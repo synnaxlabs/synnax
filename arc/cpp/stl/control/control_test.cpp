@@ -69,6 +69,7 @@ runtime::node::Context make_context() {
     return runtime::node::Context{
         .cycle = {.elapsed = x::telem::SECOND},
         .mark_changed = [](size_t) {},
+        .mark_done = [] {},
         .report_error = [](const x::errors::Error &) {},
     };
 }
@@ -216,6 +217,22 @@ TEST_P(SetAuthorityInputsTest, FiresOnlyOnceBeforeReset) {
     const auto changes = this->auth->flush_authority_changes();
     ASSERT_EQ(changes.size(), 1);
     EXPECT_EQ(changes[0].authority, 200);
+}
+
+TEST_P(SetAuthorityInputsTest, MarksDoneOnlyOnTheRunThatSetsAuthority) {
+    auto f = this->config(200, 42);
+    control::Module module(this->auth);
+    auto n = ASSERT_NIL_P(module.create(f.make_config()));
+    int done = 0;
+    auto ctx = make_context();
+    ctx.mark_done = [&done] { done++; };
+    ASSERT_NIL(n->next(ctx));
+    EXPECT_EQ(done, 1);
+    ASSERT_NIL(n->next(ctx));
+    EXPECT_EQ(done, 1);
+    n->reset(ctx);
+    ASSERT_NIL(n->next(ctx));
+    EXPECT_EQ(done, 2);
 }
 
 TEST_P(SetAuthorityInputsTest, DoesNotCallMarkChanged) {
