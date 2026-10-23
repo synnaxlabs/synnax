@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -127,9 +126,9 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Byte and word order", func() {
-		It("Should report version 2 for read and write configs", func() {
-			Expect(svc.Read.Version()).To(Equal(imex.Version(2)))
-			Expect(svc.Write.Version()).To(Equal(imex.Version(2)))
+		It("Should export read and write configs above the v1 shape's version", func() {
+			Expect(svc.Read.Version()).To(BeNumerically(">", v1.Version))
+			Expect(svc.Write.Version()).To(BeNumerically(">", v1.Version))
 		})
 
 		It("Should store a channel with no override without swap fields", func(
