@@ -12,25 +12,29 @@ package framer
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"math"
 	"math/bits"
 	"slices"
 	"strings"
 
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/errors"
 	xhttp "github.com/synnaxlabs/x/http"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // TDMSEncoder encodes a read as an NI TDMS file. Each index channel heads a group named
 // after it, followed by the float channels it timestamps. A float channel holds NaN,
 // which NI tools read as no value, where it has no sample. TDMS has no missing value
 // for other types, so each other channel gets its own group: the timestamps of its
-// samples, then the samples. Each group sets wf_xcolumns to mark its first channel as
-// its time channel. UUID, bytes, and JSON samples become TDMS strings in their text
-// form. A read of a channel whose index it does not include fails before the first
-// byte. A read that fails after the first byte truncates the body.
+// samples, then the samples. A channel whose name another channel of the read shares
+// takes its name and key, such as "temp (1048577)". Each group sets wf_xcolumns to mark
+// its first channel as its time channel. UUID, bytes, and JSON samples become TDMS
+// strings in their text form. A read of a channel whose index it does not include fails
+// before the first byte. A read that fails after the first byte truncates the body.
 var TDMSEncoder tdmsEncoder
 
 type tdmsEncoder struct{}
@@ -153,17 +157,22 @@ func newTDMSFile(res ReadResponse) (*tdmsFile, error) {
 	if err != nil {
 		return nil, err
 	}
+	names, err := tdmsNames(indexGroups)
+	if err != nil {
+		return nil, err
+	}
 	var (
 		stride = max(res.DownsampleFactor, 1)
 		f      = &tdmsFile{groups: make([]tdmsGroup, len(indexGroups))}
 	)
 	for i, channels := range indexGroups {
-		index := channels[0]
+		indexName := names[channels[0].Key()]
 		g := &f.groups[i]
-		g.index, g.path = newColumn(index, stride), tdmsPath(index.Name)
-		g.indexPath = tdmsPath(index.Name, index.Name)
+		g.index, g.path = newColumn(channels[0], stride), tdmsPath(indexName)
+		g.indexPath = tdmsPath(indexName, indexName)
 		var own []tdmsChannel
 		for _, ch := range channels[1:] {
+			name := names[ch.Key()]
 			t, err := newTDMSDataType(ch.DataType)
 			if err != nil {
 				return nil, err
@@ -174,17 +183,52 @@ func newTDMSFile(res ReadResponse) (*tdmsFile, error) {
 				nan:      tdmsNaN(t),
 			}
 			if c.nan != nil {
-				c.path = tdmsPath(index.Name, ch.Name)
+				c.path = tdmsPath(indexName, name)
 				g.channels = append(g.channels, c)
 				continue
 			}
-			c.groupPath, c.path = tdmsPath(ch.Name), tdmsPath(ch.Name, ch.Name)
-			c.timePath = tdmsPath(ch.Name, index.Name)
+			c.groupPath, c.path = tdmsPath(name), tdmsPath(name, name)
+			c.timePath = tdmsPath(name, indexName)
 			own = append(own, c)
 		}
 		g.channels = append(g.channels, own...)
 	}
 	return f, nil
+}
+
+// tdmsNames returns the name each channel of groups takes in the file: its own name, or
+// its name and key when another channel shares the name. It returns a validation error
+// when two channels still take the same name.
+func tdmsNames(groups [][]channel.Channel) (map[channel.Key]string, error) {
+	counts := make(map[string]int)
+	for _, group := range groups {
+		for _, ch := range group {
+			counts[ch.Name]++
+		}
+	}
+	var (
+		names = make(map[channel.Key]string, len(counts))
+		taken = make(map[string]channel.Key, len(counts))
+	)
+	for _, group := range groups {
+		for _, ch := range group {
+			name := ch.Name
+			if counts[name] > 1 {
+				name = fmt.Sprintf("%s (%s)", name, ch.Key())
+			}
+			if other, ok := taken[name]; ok {
+				return nil, errors.Wrapf(
+					validate.ErrValidation,
+					"channels %s and %s both take the name %s in a TDMS file",
+					other,
+					ch.Key(),
+					name,
+				)
+			}
+			names[ch.Key()], taken[name] = name, ch.Key()
+		}
+	}
+	return names, nil
 }
 
 // columns returns a pointer to every column of the file.

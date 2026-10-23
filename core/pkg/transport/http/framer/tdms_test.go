@@ -842,6 +842,95 @@ var _ = Describe("TDMS", func() {
 				To(Equal(tdmsPath(index.Name, "it''s é")))
 		})
 
+		It("Should tell apart channels that share a name", func(ctx SpecContext) {
+			index, channels := createIndexed(
+				ctx,
+				telem.Float32T,
+				telem.Float32T,
+				telem.Int64T,
+			)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2),
+				channels,
+				telem.NewSeriesV[float32](1, 2),
+				telem.NewSeriesV[float32](3, 4),
+				telem.NewSeriesV[int64](5, 6),
+			)
+			channels[1].Name = channels[0].Name
+			channels[2].Name = index.Name
+			named := func(ch svcchannel.Channel) string {
+				return fmt.Sprintf("%s (%s)", ch.Name, ch.Key())
+			}
+			var (
+				indexGroup = named(index)
+				ownGroup   = named(channels[2])
+			)
+			segments := parseTDMS(MustSucceed(framer.TDMSEncoder.Encode(
+				ctx,
+				response(
+					channels,
+					[]svcchannel.Channel{index},
+					svcframer.IteratorConfig{},
+				),
+			)))
+			Expect(segments[0].objects).To(Equal([]tdmsObject{
+				{path: "/"},
+				tdmsGroup(indexGroup),
+				tdmsGroup(ownGroup),
+				{path: tdmsPath(indexGroup, named(index))},
+				{path: tdmsPath(indexGroup, named(channels[0]))},
+				{path: tdmsPath(indexGroup, named(channels[1]))},
+				{path: tdmsPath(ownGroup, named(index))},
+				{path: tdmsPath(ownGroup, named(channels[2]))},
+			}))
+			for i, data := range [][]byte{
+				telem.NewSeriesV[float32](1, 2).Data,
+				telem.NewSeriesV[float32](3, 4).Data,
+			} {
+				path := tdmsPath(indexGroup, named(channels[i]))
+				Expect(tdmsChannelData(segments, path).data).To(Equal(data))
+			}
+			Expect(tdmsChannelData(
+				segments,
+				tdmsPath(ownGroup, named(channels[2])),
+			).data).To(Equal(telem.NewSeriesV[int64](5, 6).Data))
+		})
+
+		It("Should fail a read where two channels still take the same name", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(
+				ctx,
+				telem.Float32T,
+				telem.Float32T,
+				telem.Float32T,
+			)
+			channels[1].Name = channels[0].Name
+			channels[2].Name = fmt.Sprintf(
+				"%s (%s)",
+				channels[0].Name,
+				channels[0].Key(),
+			)
+			Expect(framer.TDMSEncoder.Encode(
+				ctx,
+				response(
+					channels,
+					[]svcchannel.Channel{index},
+					svcframer.IteratorConfig{},
+				),
+			)).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(fmt.Sprintf(
+					"channels %s and %s both take the name %s in a TDMS file",
+					channels[0].Key(),
+					channels[2].Key(),
+					channels[2].Name,
+				))),
+			))
+		})
+
 		It("Should fail a read that leaves out the index of a channel", func(
 			ctx SpecContext,
 		) {
