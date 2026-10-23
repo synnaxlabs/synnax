@@ -16,13 +16,14 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // Latest is the portable schema version stamped on exported bodies of every type in
 // this package and the highest version import accepts. It equals the current schema
 // version.
-const Latest = v1.Version
+const Latest = v2.Version
 
 // ReadConfigLadder decodes ReadConfig bodies stamped at any exported version and
 // migrates them to the current shape.
@@ -39,6 +40,16 @@ func decodeReadConfig(
 ) (ReadConfig, error) {
 	switch version {
 	case v1.Version:
+		t1, err := imex.DecodeBlob[v1.ReadConfig](data, "modbus.ReadConfig", version)
+		if err != nil {
+			return ReadConfig{}, err
+		}
+		t2, err := v2.MigrateReadConfig(ctx, t1)
+		if err != nil {
+			return ReadConfig{}, err
+		}
+		return t2, nil
+	case v2.Version:
 		return imex.DecodeBlob[ReadConfig](data, "modbus.ReadConfig", version)
 	}
 	return ReadConfig{}, imex.NewErrUnsupportedVersion("modbus.ReadConfig", version, Latest)
@@ -59,6 +70,16 @@ func decodeWriteConfig(
 ) (WriteConfig, error) {
 	switch version {
 	case v1.Version:
+		t1, err := imex.DecodeBlob[v1.WriteConfig](data, "modbus.WriteConfig", version)
+		if err != nil {
+			return WriteConfig{}, err
+		}
+		t2, err := v2.MigrateWriteConfig(ctx, t1)
+		if err != nil {
+			return WriteConfig{}, err
+		}
+		return t2, nil
+	case v2.Version:
 		return imex.DecodeBlob[WriteConfig](data, "modbus.WriteConfig", version)
 	}
 	return WriteConfig{}, imex.NewErrUnsupportedVersion("modbus.WriteConfig", version, Latest)
@@ -79,6 +100,12 @@ func decodeScanConfig(
 ) (ScanConfig, error) {
 	switch version {
 	case v1.Version:
+		t1, err := imex.DecodeBlob[v1.ScanConfig](data, "modbus.ScanConfig", version)
+		if err != nil {
+			return ScanConfig{}, err
+		}
+		return t1, nil
+	case v2.Version:
 		return imex.DecodeBlob[ScanConfig](data, "modbus.ScanConfig", version)
 	}
 	return ScanConfig{}, imex.NewErrUnsupportedVersion("modbus.ScanConfig", version, Latest)
