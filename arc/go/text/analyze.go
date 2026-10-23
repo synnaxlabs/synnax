@@ -215,16 +215,15 @@ func (s *shellBuilder) addTransitionTo(f *seqFrame, t ir.Transition) {
 	f.transitions = append(f.transitions, t)
 }
 
-// addCompletion wires a terminal step's completion: the nearest enclosing
-// frame with a next member advances past its current step; a frame that does
-// not escalate its completion takes the exit instead.
-func (s *shellBuilder) addCompletion(on ir.Handle) {
+// addCompletion wires a terminal step's completion with the given kind to the nearest
+// frame that can take it.
+func (s *shellBuilder) addCompletion(on ir.Handle, kind ir.EdgeKind) {
 	for i := len(s.stack) - 1; ; i-- {
 		f := s.stack[i]
 		if next := f.nextMember(); next != "" {
 			s.addTransitionTo(f, ir.Transition{
 				On:     on,
-				Kind:   ir.EdgeKindConditional,
+				Kind:   kind,
 				Target: ir.Target{Variant: ir.StepTarget{Key: next}},
 			})
 			return
@@ -232,7 +231,7 @@ func (s *shellBuilder) addCompletion(on ir.Handle) {
 		if !f.escalatesCompletion || i == 0 {
 			s.addTransitionTo(f, ir.Transition{
 				On:     on,
-				Kind:   ir.EdgeKindConditional,
+				Kind:   kind,
 				Target: ir.Target{Variant: ir.ExitTarget{}},
 			})
 			return
@@ -2252,24 +2251,22 @@ func addInlineMembers(scope *ir.Scope, members []ir.Member) {
 	scope.Strata[0] = append(scope.Strata[0], members...)
 }
 
-// autoWireTransition appends an auto-wired transition for a flow-step in a
-// sequence: when the step's last node fires, advance to the next step, or
-// complete the enclosing sequence chain if the step is terminal.
+// autoWireTransition advances past a step, or completes a terminal one, when its
+// last node emits a truthy output, or ran without error if it has no outputs.
 func autoWireTransition(shell *shellBuilder, lastNode ir.Node, nextMemberKey string) {
-	if len(lastNode.Outputs) == 0 {
-		return
-	}
-	on := ir.Handle{
-		Node:  lastNode.Key,
-		Param: firstOutputParam(lastNode.Outputs),
+	on := ir.Handle{Node: lastNode.Key, Param: ir.DoneParam}
+	kind := ir.EdgeKindContinuous
+	if len(lastNode.Outputs) > 0 {
+		on.Param = firstOutputParam(lastNode.Outputs)
+		kind = ir.EdgeKindConditional
 	}
 	if nextMemberKey == "" {
-		shell.addCompletion(on)
+		shell.addCompletion(on, kind)
 		return
 	}
 	shell.addTransition(ir.Transition{
 		On:     on,
-		Kind:   ir.EdgeKindConditional,
+		Kind:   kind,
 		Target: ir.Target{Variant: ir.StepTarget{Key: nextMemberKey}},
 	})
 }

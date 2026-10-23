@@ -12,6 +12,7 @@ package test
 import (
 	"context"
 	"net"
+	"sync/atomic"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -107,6 +108,32 @@ func UnarySuite(
 				ip := net.ParseIP(host)
 				gomega.Expect(ip).ToNot(gomega.BeNil())
 				gomega.Expect(ip.IsLoopback()).To(gomega.BeTrue())
+			},
+		)
+		ginkgo.It(
+			"Should return the error when a middleware rejects with a zero context",
+			func(ctx ginkgo.SpecContext) {
+				server, client, addr := deps()
+				server.BindHandler(
+					func(ctx context.Context, req Request) (Response, error) {
+						return Response{}, nil
+					},
+				)
+				// the server outlives this spec, so the middleware must stop rejecting
+				var rejecting atomic.Bool
+				rejecting.Store(true)
+				ginkgo.DeferCleanup(func() { rejecting.Store(false) })
+				server.Use(freighter.MiddlewareFunc(func(
+					ctx freighter.Context,
+					next freighter.Next,
+				) (freighter.Context, error) {
+					if !rejecting.Load() {
+						return next(ctx)
+					}
+					return freighter.Context{}, ErrCustom
+				}))
+				gomega.Expect(client.Send(ctx, addr, Request{ID: 1})).Error().
+					To(gomega.MatchError(ErrCustom))
 			},
 		)
 	})
