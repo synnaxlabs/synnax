@@ -103,7 +103,7 @@ func (s *Service) RetrieveSessions(
 	); err != nil {
 		return SessionRetrieveResponse{}, err
 	}
-	var sessions []auth.Session
+	sessions := make([]auth.Session, 0)
 	if err := s.auth.NewRetrieve().
 		Where(auth.MatchSubjects(subjects...)).
 		Entries(&sessions).

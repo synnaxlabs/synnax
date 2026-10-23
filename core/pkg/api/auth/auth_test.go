@@ -350,6 +350,20 @@ var _ = Describe("Sessions", func() {
 			},
 		)
 		It(
+			"Should return an empty list for a subject with no sessions",
+			func(ctx SpecContext) {
+				idle := createUser(ctx, "idle-"+uuid.New().String(), "p")
+				res := MustSucceed(apiSvc.RetrieveSessions(
+					authed(ctx, rootToken),
+					apiauth.SessionRetrieveRequest{
+						Subjects: []ontology.ID{idle.OntologyID()},
+					},
+				))
+				Expect(res.Sessions).ToNot(BeNil())
+				Expect(res.Sessions).To(BeEmpty())
+			},
+		)
+		It(
 			"Should deny a user listing another subject's sessions",
 			func(ctx SpecContext) {
 				Expect(apiSvc.RetrieveSessions(
