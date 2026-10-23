@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import ssl
 import uuid
 import warnings
 from pathlib import Path
@@ -30,6 +31,11 @@ def client(endpoint: URL) -> HTTPClient:
 
 
 class TestConstruction:
+    def test_url_unchanged(self, endpoint: URL) -> None:
+        """Should not change the protocol of the URL passed by the caller."""
+        HTTPClient(endpoint, JSONCodec(), ssl_context=ssl.create_default_context())
+        assert endpoint.protocol == ""
+
     def test_warning_filters_unchanged(self, endpoint: URL) -> None:
         """Should not change the process warning filters."""
         before = list(warnings.filters)

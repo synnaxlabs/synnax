@@ -83,8 +83,9 @@ class HTTPClient(MiddlewareCollector):
             HTTPS when set and plain HTTP when None.
         """
         super().__init__()
-        self._endpoint = url
-        self._endpoint.protocol = "http" if ssl_context is None else "https"
+        self._endpoint = url.replace(
+            protocol="http" if ssl_context is None else "https"
+        )
         self._codec = codec
         self._pool = PoolManager(ssl_context=ssl_context, **kwargs)
 
