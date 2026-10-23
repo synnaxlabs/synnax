@@ -102,12 +102,6 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 		return t, errors.Wrap(err, path)
 	}
 	if ch.DataType == telem.TimestampT {
-		if target.Channel.TimeFormat == nil {
-			return t, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: a timestamp channel requires a time format", path,
-			)
-		}
 		if t.format, err = parseTimeFormat(target.Channel.TimeFormat); err != nil {
 			return t, errors.Wrap(err, path)
 		}

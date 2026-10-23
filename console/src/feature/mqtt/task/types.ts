@@ -194,13 +194,6 @@ const validateChannelField = (ctx: z.core.ParsePayload<ChannelField>) => {
       message: "Enum values require the string JSON type",
       path: ["jsonType"],
     });
-  if (DataType.TIMESTAMP.equals(value.dataType) && value.timeFormat == null)
-    ctx.issues.push({
-      code: "custom",
-      input: value,
-      message: "A timestamp channel requires a time format",
-      path: ["timeFormat"],
-    });
   const seen = new Set<number>();
   value.enumValues.forEach((entry, i) => {
     if (seen.has(entry.value))

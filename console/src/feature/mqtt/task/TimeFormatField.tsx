@@ -33,7 +33,7 @@ export interface TimeFormatFieldProps {
 
 /**
  * Selects the encoding of a timestamp carried as a JSON value. The caller decides when
- * a timestamp format applies. An unset format is left absent until the user picks one.
+ * a timestamp format applies. An unset format is left absent.
  */
 export const TimeFormatField: FC<TimeFormatFieldProps> = ({ path, label }) => (
   <PForm.Field<TimeFormat> path={path} label={label} padHelpText={false}>

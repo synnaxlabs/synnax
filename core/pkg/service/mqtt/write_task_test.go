@@ -167,6 +167,19 @@ var _ = Describe("Write task", func() {
 			},
 		)
 
+		It("Should publish a timestamp as ISO 8601 when no time format is set",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx, telem.TimestampT)
+				start(ctx, writeConfig(dev, plainTarget(
+					"plant/clock/set", ch, "/t", "string",
+				)))
+				command(ctx, ch, telem.NewSeriesSecondsTSV(1), func(g Gomega) {
+					g.Expect(payloads("plant/clock/set")).
+						To(ContainElement(`{"t":"1970-01-01T00:00:01Z"}`))
+				})
+			},
+		)
+
 		It("Should publish the label of an enum value", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.Uint8T)
 			target := plainTarget("plant/valve3/set", ch, "/state", "string")
@@ -421,16 +434,6 @@ var _ = Describe("Write task", func() {
 					)),
 					"target plant/x: cannot set /unit/value: "+
 						"a scalar value blocks the path",
-				)
-			},
-		)
-
-		It("Should reject a timestamp channel with no time format",
-			func(ctx SpecContext) {
-				ch := createVirtual(ctx, telem.TimestampT)
-				expectRejected(
-					ctx, writeConfig(dev, plainTarget("plant/x", ch, "/t", "number")),
-					"target plant/x: a timestamp channel requires a time format",
 				)
 			},
 		)

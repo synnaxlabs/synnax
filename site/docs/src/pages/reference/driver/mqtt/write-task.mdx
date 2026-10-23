@@ -61,7 +61,7 @@ disabled. A topic may not hold the wildcards `+` or `#`.
 | `pointer`     | string  | Yes      | -           | JSON Pointer where the value goes (e.g., `/position`). `""` is the whole payload    |
 | `json_type`   | string  | No       | `"number"`  | JSON type of the value: `"number"`, `"string"`, or `"boolean"`                      |
 | `data_type`   | string  | No       | `"float64"` | Data type of the command channel                                                    |
-| `time_format` | string  | No       | -           | Timestamp format. Required when the command channel holds timestamps                |
+| `time_format` | string  | No       | `"iso8601"` | Format of the value when the command channel holds timestamps                       |
 | `enum_values` | array   | No       | `[]`        | Maps numbers to string labels (e.g., `1` to `"OPEN"`). Needs `json_type` `"string"` |
 
 With an empty pointer, the value is the whole payload and the target allows no extra

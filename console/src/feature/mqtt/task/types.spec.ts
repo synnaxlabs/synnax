@@ -605,19 +605,14 @@ describe("MQTT Task Types", () => {
       ]);
     });
 
-    it("should reject a timestamp channel with no time format", () => {
+    it("should accept a timestamp channel with no time format", () => {
       const result = MQTT.Task.deployWriteConfigZ.safeParse(
         writeConfig({
           ...target,
           channel: { ...target.channel, dataType: "timestamp" },
         }),
       );
-      expect(issuesOf(result)).toEqual([
-        {
-          message: "A timestamp channel requires a time format",
-          path: "targets.0.channel.timeFormat",
-        },
-      ]);
+      expect(issuesOf(result)).toEqual([]);
     });
 
     it("should reject a static value that is not a JSON primitive", () => {
