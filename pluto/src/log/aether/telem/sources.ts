@@ -138,6 +138,7 @@ export class MultiChannelLog
       this.stopStreaming = undefined;
       this.entries = [];
       this.channelMeta.clear();
+      this.loading_ = false;
     }
     this.notify();
   }
@@ -170,6 +171,7 @@ export class MultiChannelLog
       unread = this.updateChannelMeta(channels);
       if (range.variant === "dynamic") this.stream(client);
     } catch (e) {
+      if (generation !== this.readGeneration) return;
       this.valid = false;
       this.onStatusChange?.(cstatus.fromException(e, "Failed to stream log channels"));
       this.declareLoaded();
@@ -198,6 +200,7 @@ export class MultiChannelLog
       if (entries.length > 0) this.entries = [...this.entries, ...entries].sort(byTime);
       this.gcEntries();
     } catch (e) {
+      if (generation !== this.readGeneration) return;
       this.onStatusChange?.(cstatus.fromException(e, "Failed to read log channels"));
     }
     this.loading_ = false;
@@ -252,24 +255,20 @@ export class MultiChannelLog
     const handler: framer.StreamHandler = (res) => {
       let pushed = 0;
       for (const meta of this.channelMeta.values()) {
-        if (meta.index !== 0) {
-          const index = res.get(meta.index);
-          if (index != null) meta.indexBuffers.push(...index.series);
-          meta.indexBuffers.splice(0, meta.indexBuffers.length - MAX_INDEX_BUFFERS);
-        }
+        const index = meta.index === 0 ? undefined : res.get(meta.index);
+        if (index != null) meta.indexBuffers.push(...index.series);
         const allocated = res.get(meta.key);
-        if (allocated != null && allocated.series.length > 0) {
+        if (allocated != null && allocated.series.length > 0)
           // First callback after channel change: skip buffered data.
           if (meta.skipInitialBatch) {
             const last = allocated.series[allocated.series.length - 1];
             [meta.pending, meta.readCursor] = [[last], last.length];
             meta.skipInitialBatch = false;
-            continue;
-          }
-          meta.pending.push(...allocated.series);
-        }
+          } else meta.pending.push(...allocated.series);
         pushed += this.drain(meta);
         this.trimPending(meta);
+        // After the drain, so every index buffer of this callback times its data.
+        meta.indexBuffers.splice(0, meta.indexBuffers.length - MAX_INDEX_BUFFERS);
       }
       this.gcEntries();
       if (pushed > 0) this.notify();

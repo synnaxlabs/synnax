@@ -926,6 +926,19 @@ describe("MultiChannelLog", () => {
       expect(log.value().map((e) => e.value)).toEqual(["c", "d", "e"]);
     });
 
+    it("should time every sample when one callback carries many index buffers", async () => {
+      const { log } = create();
+      await waitForResolve(log);
+      const values = ["a", "b", "c", "d", "e", "f"];
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries(values.map((_, i) => times([90 + i], BigInt(i))))],
+          [DATA, new MultiSeries([strings(values, 0n)])],
+        ]),
+      );
+      expect(log.value().map((e) => e.value)).toEqual(values);
+    });
+
     it("should keep samples 1 ns apart", async () => {
       const { log } = create();
       await waitForResolve(log);
@@ -1036,6 +1049,38 @@ describe("MultiChannelLog", () => {
       // A macrotask runs after every microtask of the pending read.
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(log.value()).toEqual([]);
+    });
+
+    it("should stop loading when all channels are removed mid-read", async () => {
+      let release = (): void => {};
+      c.readGate = new Promise((resolve) => (release = resolve));
+      const { log } = create();
+      log.value();
+      await expect.poll(() => c.readF.mock.calls.length).toBe(1);
+      log.setChannels([]);
+      expect(log.loading()).toBe(false);
+      release();
+    });
+
+    it("should not report the failure of a read a channel change replaced", async () => {
+      let reject = (_: Error): void => {};
+      c.readGate = new Promise((_, rej) => (reject = rej));
+      c.readGate.catch(() => {});
+      const { log, statuses } = create();
+      log.value();
+      await expect.poll(() => c.readF.mock.calls.length).toBe(1);
+      let release = (): void => {};
+      c.readGate = new Promise((resolve) => (release = resolve));
+      log.setChannels([DATA, DATA_2]);
+      log.value();
+      await expect.poll(() => c.readF.mock.calls.length).toBe(3);
+      reject(new Error("read failed"));
+      // A macrotask runs after every microtask of the rejected read.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(statuses).toEqual([]);
+      expect(log.loading()).toBe(true);
+      release();
+      await expect.poll(() => log.loading()).toBe(false);
     });
 
     it("should read a kept channel's history when the channels change mid-read", async () => {
