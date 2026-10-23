@@ -29,7 +29,7 @@ from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.task.types_gen import Command, Key, Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
-from x.lists import check_for_none, override
+from x.lists import all_none, override
 from x.timing import Timer
 
 
@@ -513,10 +513,10 @@ class Client:
         :raises ValueError: If two singular selectors are given, or one is
             combined with a list filter.
         """
-        is_single = not check_for_none(key, name, type)
+        is_single = not all_none(key, name, type)
         if sum(v is not None for v in (key, name, type)) > 1:
             raise ValueError("only one of key, name, and type can be given")
-        if is_single and not check_for_none(
+        if is_single and not all_none(
             keys, names, types, search_term, rack, internal, snapshot, limit, offset
         ):
             raise ValueError(

@@ -88,6 +88,25 @@ var _ = Describe("C++ Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should leave out a field omitted in cpp", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@cpp output "client/cpp/auth"
+
+					Session struct {
+						key     uint32
+						hash    bytes { @cpp omit }
+						subject string
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, cppPlugin)
+				ExpectContent(resp, "types.gen.h").
+					ToContain("std::string subject;").
+					ToNotContain("hash")
+			})
+		})
+
 		Context("basic struct generation", func() {
 			It("Should generate struct for simple types", func(ctx SpecContext) {
 				source := `
