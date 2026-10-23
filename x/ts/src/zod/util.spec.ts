@@ -43,23 +43,6 @@ describe("zod", () => {
     });
   });
 
-  describe("getFieldSchemaPath", () => {
-    interface Spec {
-      path: string;
-      expected: string;
-    }
-    const spec: Spec[] = [
-      { path: "a.b.c", expected: "a.shape.b.shape.c" },
-      { path: "a.0.c", expected: "a.element.shape.c" },
-      { path: "a.0.1", expected: "a.element.element" },
-      { path: "a.0.1.2", expected: "a.element.element.element" },
-    ];
-    spec.forEach(({ path, expected }) => {
-      it(`should return ${expected} for ${path}`, () => {
-        expect(zod.getFieldSchemaPath(path)).toBe(expected);
-      });
-    });
-  });
   describe("getFieldSchema", () => {
     const schema = z.object({
       a: z.object({
@@ -90,6 +73,137 @@ describe("zod", () => {
     it("should return null for invalid path and optional is true", () => {
       expect(zod.getFieldSchema(schema, "a.b.c.d", { optional: true })).toBeNull();
     });
+    describe("wrappers", () => {
+      const schema = z.object({
+        a: z.object({ b: z.number() }).optional(),
+        c: z.object({ d: z.string() }).default({ d: "x" }),
+        e: z.object({ f: z.boolean() }).prefault({ f: true }),
+        g: z.object({ h: z.number() }).nullable(),
+        i: z.object({ j: z.number() }).transform((v) => v.j),
+        k: z.lazy(() => z.object({ l: z.string() })),
+        m: z.preprocess((v) => v, z.object({ n: z.number() })),
+      });
+      const spec = [
+        ["a.b", z.ZodNumber],
+        ["c.d", z.ZodString],
+        ["e.f", z.ZodBoolean],
+        ["g.h", z.ZodNumber],
+        ["i.j", z.ZodNumber],
+        ["k.l", z.ZodString],
+        ["m.n", z.ZodNumber],
+      ] as const;
+      spec.forEach(([path, type]) =>
+        it(`should descend through the wrapper on ${path}`, () =>
+          expect(zod.getFieldSchema(schema, path)).toBeInstanceOf(type)),
+      );
+    });
+
+    describe("discriminated unions", () => {
+      const schema = z.object({
+        config: z.discriminatedUnion("type", [
+          z.object({ type: z.literal("a"), value: z.number() }),
+          z.object({ type: z.literal("b"), value: z.string().optional() }),
+        ]),
+      });
+      it("should select the member the values name", () => {
+        const values = { config: { type: "b", value: "x" } };
+        const v = zod.getFieldSchema(schema, "config.value", { values });
+        expect(v).toBeInstanceOf(z.ZodOptional);
+        expect(z.validate(v, undefined)).toBe(true);
+      });
+      it("should select the member at the root of the schema", () => {
+        const root = z.discriminatedUnion("variant", [
+          z.object({ variant: z.literal("x"), count: z.number() }),
+          z.object({ variant: z.literal("y"), name: z.string() }),
+        ]);
+        const v = zod.getFieldSchema(root, "count", { values: { variant: "x" } });
+        expect(v).toBeInstanceOf(z.ZodNumber);
+      });
+      it("should not contain a path of a member the values do not name", () => {
+        const values = { config: { type: "a" } };
+        expect(() => zod.getFieldSchema(schema, "config.value.x", { values })).toThrow(
+          "Schema does not contain the path config.value.x",
+        );
+      });
+      it("should not contain any path when the discriminator is absent", () => {
+        expect(
+          zod.getFieldSchema(schema, "config.value", { optional: true }),
+        ).toBeNull();
+        expect(() => zod.getFieldSchema(schema, "config.value")).toThrow(
+          "Schema does not contain the path config.value",
+        );
+      });
+    });
+
+    describe("plain unions", () => {
+      const schema = z.object({
+        props: z.union([
+          z.object({ version: z.literal(1), count: z.number() }),
+          z.object({ version: z.literal(0), name: z.string() }).transform((v) => v),
+        ]),
+      });
+      it("should serve a path from the first member that contains it", () => {
+        expect(zod.getFieldSchema(schema, "props.count")).toBeInstanceOf(z.ZodNumber);
+        expect(zod.getFieldSchema(schema, "props.name")).toBeInstanceOf(z.ZodString);
+      });
+      it("should not contain a path no member holds", () => {
+        expect(
+          zod.getFieldSchema(schema, "props.other", { optional: true }),
+        ).toBeNull();
+      });
+    });
+
+    describe("keyed arrays", () => {
+      const schema = z.object({
+        channels: z.array(z.object({ key: z.string(), port: z.number() })),
+      });
+      it("should map a key segment to the element", () => {
+        expect(zod.getFieldSchema(schema, "channels.ch-1.port")).toBeInstanceOf(
+          z.ZodNumber,
+        );
+      });
+      it("should map an index segment to the element", () => {
+        expect(zod.getFieldSchema(schema, "channels.0.port")).toBeInstanceOf(
+          z.ZodNumber,
+        );
+      });
+    });
+
+    describe("records and delegation", () => {
+      const schema = z.object({
+        props: z.record(z.string(), z.object({ v: z.number() })),
+        extra: z.unknown(),
+        loose: z.any(),
+      });
+      it("should map a record segment to the value type", () => {
+        expect(zod.getFieldSchema(schema, "props.any-key.v")).toBeInstanceOf(
+          z.ZodNumber,
+        );
+      });
+      it("should stop at an unknown and report it as optional", () => {
+        const v = zod.getFieldSchema(schema, "extra.deep.path");
+        expect(v).toBeInstanceOf(z.ZodUnknown);
+        expect(z.validate(v, undefined)).toBe(true);
+      });
+      it("should stop at an any", () => {
+        expect(zod.getFieldSchema(schema, "loose.x")).toBeInstanceOf(z.ZodAny);
+      });
+    });
+
+    describe("dotted keys", () => {
+      const schema = z.object({ "a.b": z.object({ c: z.number() }) });
+      it("should match the longest key", () => {
+        expect(zod.getFieldSchema(schema, "a.b.c")).toBeInstanceOf(z.ZodNumber);
+      });
+    });
+
+    it("should throw for a path the schema does not contain", () => {
+      const schema = z.object({ a: z.number() });
+      expect(() => zod.getFieldSchema(schema, "b")).toThrow(
+        "Schema does not contain the path b",
+      );
+    });
+
     describe("with a refinement", () => {
       const schema = z.object({
         a: z

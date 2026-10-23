@@ -194,7 +194,7 @@ export const createForm = <
     onHasTouched,
     mode,
   }) => {
-    const [result, setResult] = useState<Result<undefined>>(
+    const [result, setResult] = useState<Result<undefined>>(() =>
       successResult(`retrieved ${name}`, undefined),
     );
     const client = Synnax.use();

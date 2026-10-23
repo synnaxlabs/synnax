@@ -11,7 +11,6 @@ import "schemas/arc/graph"
 import "schemas/arc/ir"
 import "schemas/arc/program"
 import "schemas/arc/text"
-import "schemas/synnax/status"
 import "schemas/x/crdt"
 import "schemas/x/spatial"
 
@@ -32,18 +31,6 @@ Mode enum {
     @doc value """
         specifies whether an Arc module uses text-based or graph-based representation.
     """
-}
-
-StatusDetails struct {
-    running bool {
-        @doc value "indicates whether the Arc module is currently executing."
-    }
-
-    @doc value "contains Arc-specific status details for execution state."
-}
-
-Status = status.Status<StatusDetails> {
-    @doc value "is the status of an Arc module including execution state."
 }
 
 Arc struct {
@@ -72,10 +59,6 @@ Arc struct {
         @doc value  """
             is the compiled module output including IR and WebAssembly bytecode.
         """
-        @go marshal omit
-    }
-    status  Status?          {
-        @doc value  "is the current execution status of the module."
         @go marshal omit
     }
 

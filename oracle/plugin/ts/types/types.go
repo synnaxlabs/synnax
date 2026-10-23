@@ -61,6 +61,7 @@ func (*Plugin) Domains() []string { return nil }
 func (*Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("ts")
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
 	typeDefCollector := framework.NewCollector("ts", req)

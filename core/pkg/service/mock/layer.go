@@ -19,7 +19,6 @@ import (
 	"github.com/samber/lo"
 	distmock "github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/security"
-	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 )
@@ -69,7 +68,6 @@ func OpenLayer(
 ) (*service.Layer, error) {
 	sec, err := security.NewProvider(security.ProviderConfig{
 		Insecure: new(true),
-		KeySize:  secmock.SmallKeySize,
 	})
 	if err != nil {
 		return nil, err

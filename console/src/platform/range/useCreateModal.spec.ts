@@ -154,24 +154,7 @@ describe("Range.useCreateModal", () => {
       },
       { client },
     );
-    // Clicking the selected range a second time in the list deselects it, but the list
-    // shows one page and this parent sorts past it, so only a search brings it in.
-    fireEvent.click(await screen.findByText(parent.name));
-    await screen.findByPlaceholderText("Search ranges...");
-    await waitFor(() =>
-      expect(screen.getAllByRole("option").length).toBeGreaterThan(0),
-    );
-    expect(screen.queryByRole("option", { name: new RegExp(parent.name) })).toBeNull();
-    fireEvent.change(screen.getByPlaceholderText("Search ranges..."), {
-      target: { value: parent.name },
-    });
-    fireEvent.click(
-      await screen.findByRole(
-        "option",
-        { name: new RegExp(parent.name) },
-        { timeout: 5000 },
-      ),
-    );
+    fireEvent.click(await screen.findByLabelText(`Clear ${parent.name}`));
     await waitFor(() => expect(screen.getByText("Parent range")).toBeTruthy());
     await clickWhenEnabled("Save locally");
     await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
