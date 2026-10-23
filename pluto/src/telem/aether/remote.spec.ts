@@ -11,6 +11,7 @@ import {
   channel,
   DataType,
   framer,
+  NotFoundError,
   type status as cstatus,
   TimeRange,
   ValidationError,
@@ -18,6 +19,7 @@ import {
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import {
   bounds,
+  type breaker,
   id,
   MultiSeries,
   Series,
@@ -2329,6 +2331,7 @@ describe("remote", () => {
       now: () => TimeStamp = () => TimeStamp.seconds(100),
       options?: CreateOptions,
       levelSettle: TimeSpan = TimeSpan.ZERO,
+      breakerConfig?: breaker.Config,
     ): TiledChannelData =>
       new TiledChannelData(
         c,
@@ -2336,6 +2339,7 @@ describe("remote", () => {
         options,
         now,
         levelSettle,
+        breakerConfig,
       );
 
     // Waits for the source to settle after a value call that starts reads.
@@ -2540,34 +2544,150 @@ describe("remote", () => {
       expect(c.tiles.length).toBe(before);
     });
 
-    it("should report a failed tile read once, clear loading, and retry", async () => {
-      const statuses: cstatus.Crude[] = [];
-      const source = create({}, undefined, {
-        onStatusChange: (s) => statuses.push(s),
-      });
-      const handleChange = vi.fn();
-      source.onChange(handleChange);
-      c.feed.readTile = async (spec) => {
-        c.tiles.push(spec);
-        throw new ValidationError("tile read failed");
+    describe("failures", () => {
+      const NO_WAIT: breaker.Config = { sleepFn: async () => {} };
+      const FAST: breaker.Config = {
+        baseInterval: TimeSpan.milliseconds(1),
+        scale: 1,
+        jitter: 0,
       };
-      await expect
-        .poll(() => {
-          source.value();
-          return statuses.length;
-        })
-        .toBe(1);
-      const failed = c.tiles.length;
-      await expect
-        .poll(() => {
-          source.value();
-          return c.tiles.length;
-        })
-        .toBeGreaterThan(failed);
-      expect(statuses).toHaveLength(1);
-      expect(source.loading()).toBe(false);
-      // Once when the channel resolves, and once when the tile read fails.
-      expect(handleChange).toHaveBeenCalledTimes(2);
+
+      const failTiles = (error: Error): void => {
+        c.feed.readTile = async (spec) => {
+          c.tiles.push(spec);
+          throw error;
+        };
+      };
+
+      it("should not request a failed tile again while it backs off", async () => {
+        const statuses: cstatus.Crude[] = [];
+        failTiles(new Error("transient"));
+        const source = create(
+          {},
+          undefined,
+          { onStatusChange: (s) => statuses.push(s) },
+          undefined,
+          { sleepFn: async () => await new Promise(() => {}) },
+        );
+        const handleChange = vi.fn();
+        source.onChange(handleChange);
+        await settle(source);
+        const failed = c.tiles.length;
+        for (let i = 0; i < 5; i++) source.value();
+        await sleep.sleep(TimeSpan.milliseconds(10));
+        expect(c.tiles).toHaveLength(failed);
+        expect(statuses).toHaveLength(1);
+        // Once when the channel resolves, and once when the first tile read fails.
+        expect(handleChange).toHaveBeenCalledTimes(2);
+        source.cleanup();
+      });
+
+      it("should request a failed tile again once the backoff ends", async () => {
+        let failing = true;
+        c.feed.readTile = async (spec) => {
+          c.tiles.push(spec);
+          if (failing) throw new Error("transient");
+          return tileSeries(spec);
+        };
+        let wake = (): void => {};
+        const source = create({}, undefined, undefined, undefined, {
+          sleepFn: async () =>
+            await new Promise<void>((resolve) => {
+              wake = resolve;
+            }),
+        });
+        await settle(source);
+        failing = false;
+        wake();
+        await expect
+          .poll(() => positions(source.value()[1]))
+          .toEqual([
+            [13, 0],
+            [13, 1],
+          ]);
+        source.cleanup();
+      });
+
+      it("should park a tile on a definitive rejection", async () => {
+        failTiles(new ValidationError("bad tile"));
+        const source = create({}, undefined, undefined, undefined, NO_WAIT);
+        await settle(source);
+        const failed = c.tiles.length;
+        await sleep.sleep(TimeSpan.milliseconds(10));
+        source.value();
+        expect(c.tiles).toHaveLength(failed);
+        source.cleanup();
+      });
+
+      it("should stop retrying tiles at cleanup", async () => {
+        failTiles(new Error("boom"));
+        const source = create({}, undefined, undefined, undefined, FAST);
+        // The notify at the end of each backoff stands in for the render it starts.
+        source.onChange(() => source.value());
+        source.value();
+        await expect.poll(() => c.tiles.length >= 6).toBe(true);
+        source.cleanup();
+        const settled = c.tiles.length;
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(c.tiles).toHaveLength(settled);
+      });
+
+      it("should retry a failed channel retrieval until it lands", async () => {
+        const { retrieve } = c.channels;
+        let calls = 0;
+        c.channels.retrieve = async (key) => {
+          calls++;
+          if (calls === 1) throw new Error("transient");
+          return await retrieve(key);
+        };
+        const source = create({}, undefined, undefined, undefined, NO_WAIT);
+        source.value();
+        await expect
+          .poll(() => positions(source.value()[1]))
+          .toEqual([
+            [13, 0],
+            [13, 1],
+          ]);
+        expect(calls).toBe(2);
+        source.cleanup();
+      });
+
+      it("should park on a definitive rejection of the channel retrieval", async () => {
+        const statuses: cstatus.Crude[] = [];
+        let calls = 0;
+        c.channels.retrieve = async () => {
+          calls++;
+          throw new NotFoundError("channel not found");
+        };
+        const source = create(
+          {},
+          undefined,
+          { onStatusChange: (s) => statuses.push(s) },
+          undefined,
+          NO_WAIT,
+        );
+        await settle(source);
+        await sleep.sleep(TimeSpan.milliseconds(10));
+        source.value();
+        expect(calls).toBe(1);
+        expect(statuses).toHaveLength(1);
+        source.cleanup();
+      });
+
+      it("should stop retrying a channel retrieval at cleanup", async () => {
+        let calls = 0;
+        c.channels.retrieve = async () => {
+          calls++;
+          throw new Error("boom");
+        };
+        const source = create({}, undefined, undefined, undefined, FAST);
+        source.value();
+        await expect.poll(() => calls >= 3).toBe(true);
+        source.cleanup();
+        const settled = calls;
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(calls).toBe(settled);
+      });
     });
 
     it("should release every tile on cleanup", async () => {
