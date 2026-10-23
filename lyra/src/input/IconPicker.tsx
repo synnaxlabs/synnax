@@ -102,6 +102,7 @@ export const IconPicker = ({
         onKeyDown={handleSearchKeyDown}
         autoFocus
         size="small"
+        full="x"
         startContent={<Icon.Search />}
         placeholder="Search icons"
         aria-label="Search icons"
