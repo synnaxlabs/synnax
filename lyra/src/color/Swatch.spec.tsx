@@ -168,6 +168,22 @@ describe("Swatch", () => {
     });
   });
 
+  describe("custom", () => {
+    it("should show a color wheel in place of the value", () => {
+      const c = render(<Color.Swatch custom value={RED} onChange={vi.fn()} />, {
+        wrapper: Wrapper,
+      });
+      expect(c.getByLabelText("Custom color").className).toContain(CSS.M("custom"));
+    });
+
+    it("should not mark an absent value as auto", () => {
+      const c = render(<Color.Swatch custom fallback={RED} onChange={vi.fn()} />, {
+        wrapper: Wrapper,
+      });
+      expect(swatchOf(c).className).not.toContain(CSS.M("auto"));
+    });
+  });
+
   describe("onlyChangeOnBlur", () => {
     it("should not call onChange while the picker is open", () => {
       const onChange = vi.fn();
