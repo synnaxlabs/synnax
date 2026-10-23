@@ -11,6 +11,7 @@ package msgpack_test
 
 import (
 	"bytes"
+	"encoding/hex"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -162,6 +163,31 @@ var _ = Describe("EncodedJSON", func() {
 			Name:   "test",
 			Schema: xmsgpack.EncodedJSON{},
 		}))
+	})
+	It("Should replace a lone surrogate in a stored record with U+FFFD", func() {
+		// A workspace as a 0.49.5 Core stored it, with a JSON string layout.
+		b := MustSucceed(hex.DecodeString(
+			"84a36b6579c41060b8f07d72ec4200b8b4d7acbfd9d3aca46e616d65a9737572726f" +
+				"67617465a6617574686f72c41091232286a84b472497b6f871dbbddb58a66c61796f" +
+				"7574bc7b226e6f7465223a2254616e6b205c7564383364206c6576656c227d",
+		))
+		var result struct {
+			Layout xmsgpack.EncodedJSON `msgpack:"layout"`
+		}
+		Expect(msgpack.Unmarshal(b, &result)).To(Succeed())
+		Expect(result.Layout).To(Equal(xmsgpack.EncodedJSON{"note": "Tank � level"}))
+	})
+	It("Should replace invalid UTF-8 in a JSON string with U+FFFD", func() {
+		b := MustSucceed(msgpack.Marshal("{\"note\":\"Tank \xff level\"}"))
+		var result xmsgpack.EncodedJSON
+		Expect(msgpack.Unmarshal(b, &result)).To(Succeed())
+		Expect(result).To(Equal(xmsgpack.EncodedJSON{"note": "Tank � level"}))
+	})
+	It("Should keep the last value of a duplicate key in a JSON string", func() {
+		b := MustSucceed(msgpack.Marshal(`{"note":"first","note":"last"}`))
+		var result xmsgpack.EncodedJSON
+		Expect(msgpack.Unmarshal(b, &result)).To(Succeed())
+		Expect(result).To(Equal(xmsgpack.EncodedJSON{"note": "last"}))
 	})
 	It("Should return an error for an invalid JSON string", func() {
 		b := MustSucceed(msgpack.Marshal("not valid json"))

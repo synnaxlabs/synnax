@@ -23,7 +23,11 @@ import {
 } from "@/framer/codec";
 import { Frame } from "@/framer/frame";
 import { type IteratorResponse } from "@/framer/iterator";
-import { IteratorResponseVariant, WriterCommand } from "@/framer/types.gen";
+import {
+  IteratorCommand,
+  IteratorResponseVariant,
+  WriterCommand,
+} from "@/framer/types.gen";
 import { type WriteRequest } from "@/framer/writer";
 
 describe("encoder", () => {
@@ -513,7 +517,7 @@ describe("encoder", () => {
         payload: {
           variant: IteratorResponseVariant.Ack,
           ack: true,
-          command: 1,
+          command: IteratorCommand.Next,
         },
       };
       // Simulate what the server sends: LOW_PERF_SPECIAL_CHAR + JSON-encoded message.

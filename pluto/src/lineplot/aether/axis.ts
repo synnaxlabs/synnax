@@ -112,9 +112,10 @@ export class BaseAxis<
     const { location, autoBoundUpdateInterval } = this.state;
     i.render = render.Context.use(ctx);
     const theme = theming.use(ctx);
-    const dir = direction.construct(location);
     this.state.autoBoundPadding ??=
-      dir === "x" ? DEFAULT_Y_BOUND_PADDING : DEFAULT_X_BOUND_PADDING;
+      direction.swap(location) === "x"
+        ? DEFAULT_X_BOUND_PADDING
+        : DEFAULT_Y_BOUND_PADDING;
     i.base = axis.newCanvas(location, i.render, {
       color: theme.colors.gray.l10,
       font: baseTheme.fontString(theme, { level: "small", code: true }),

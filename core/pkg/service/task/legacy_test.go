@@ -134,7 +134,6 @@ var legacyRenames = map[string]string{
 	"use_as_index":            "is_index",
 	"use_excit_for_scaling":   "scaled_by_excitation",
 	"z_index_enable":          "z_index_enabled",
-	"lock_memory":             "memory_locked",
 	"treat_error_as_critical": "errors_critical",
 }
 
@@ -533,6 +532,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		Entry(nil, "ni_analog_write"),
 		Entry(nil, "ni_counter_read"),
 		Entry(nil, "ni_counter_read_py"),
+		Entry(nil, "ni_counter_read_py_ext_controlled"),
+		Entry(nil, "ni_counter_read_py_velocity"),
 		Entry(nil, "ni_digital_read"),
 		Entry(nil, "ni_digital_write"),
 		Entry(nil, "opc_read"),

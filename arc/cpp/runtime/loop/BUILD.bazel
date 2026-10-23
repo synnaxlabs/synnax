@@ -23,7 +23,12 @@ cc_library(
         "@platforms//os:windows": ["loop_windows.cpp"],
         "//conditions:default": ["loop_polling.cpp"],
     }),
-    hdrs = ["loop.h"],
+    hdrs = ["loop.h"] + select({
+        "@platforms//os:linux": ["loop_linux.h"],
+        "@platforms//os:macos": ["loop_darwin.h"],
+        "@platforms//os:windows": ["loop_windows.h"],
+        "//conditions:default": [],
+    }),
     copts = select({
         "@platforms//os:windows": [
             "/D_WIN32_WINNT=0x0601",
@@ -63,6 +68,26 @@ cc_test(
         "//x/cpp/breaker",
         "//x/cpp/notify",
         "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "timing_bench",
+    timeout = "long",
+    srcs = ["timing_bench.cpp"],
+    # Measures wait timing with every core busy, so it only runs when named.
+    tags = [
+        "manual",
+        "no-asan",
+    ],
+    deps = [
+        ":loop",
+        "//arc/cpp/runtime/testutil",
+        "//x/cpp/breaker",
+        "//x/cpp/errors",
+        "//x/cpp/queue",
+        "//x/cpp/telem",
         "@googletest//:gtest_main",
     ],
 )

@@ -178,6 +178,19 @@ export const usePendingFetch = <Query extends query.Params, Data>(
   };
 };
 
+/**
+ * Returns a value the cache already holds through `use`. A component that suspended on
+ * mount must call `use` again when it finishes, or React flags the read as a
+ * conditional `use`.
+ */
+export const readCached = <Data>(value: Data): Data =>
+  use(
+    Object.assign(new Promise<Data>((resolve) => resolve(value)), {
+      status: "fulfilled" as const,
+      value,
+    }),
+  );
+
 export const suspendOnFetch = <Query extends query.Params, Data>(
   params: RetrieveParams<Query>,
   fetchParams: EnsureFetchParams<Query, Data>,
@@ -187,7 +200,7 @@ export const suspendOnFetch = <Query extends query.Params, Data>(
   const settled = fetchParams.local.settled.get(query.hash(params.query));
   if (settled != null) {
     if ("error" in settled) throw settled.error;
-    return settled.data;
+    return readCached(settled.data);
   }
   const promise = ensureFetch(params, fetchParams);
   pending.set(promise);

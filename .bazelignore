@@ -26,5 +26,4 @@ site/docs/node_modules
 site/portal/node_modules
 site/www/node_modules
 studio/node_modules
-x/media/node_modules
 x/ts/node_modules

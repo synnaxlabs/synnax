@@ -20,6 +20,7 @@ export default defineConfig({
     },
   },
   test: {
+    setupFiles: ["src/testutil/setup.ts"],
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],

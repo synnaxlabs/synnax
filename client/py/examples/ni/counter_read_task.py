@@ -97,7 +97,7 @@ tsk = sy.ni.CounterReadTask(
             port=1,
             # Edge to count on (Rising or Falling)
             active_edge="Rising",
-            # Count direction (CountUp, CountDown, or ExtControlled)
+            # Count direction (CountUp, CountDown, or ExternallyControlled)
             count_direction="CountUp",
             # Initial count value
             initial_count=0,
@@ -121,7 +121,7 @@ frame = sy.Frame()
 with tsk.run():
     # Open a streamer on the counter input channels.
     with client.open_streamer(["ci_0_freq", "ci_1_count"]) as streamer:
-        for i in range(total_reads):
+        for _ in range(total_reads):
             frame.append(streamer.read())
 
 # Clean up by deleting the task

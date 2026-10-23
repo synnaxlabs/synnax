@@ -22,9 +22,6 @@ import (
 	"github.com/vmihailenco/msgpack/v5/msgpcode"
 )
 
-// IsZero returns true if the color is the zero value for its type.
-func (c Color) IsZero() bool { return c.R == 0 && c.G == 0 && c.B == 0 && c.A == 0 }
-
 // FromHex parses a hex color string into a Color. Supports 6 or 8 character hex strings
 // with or without a leading '#'.
 func FromHex(s string) (Color, error) {
@@ -196,8 +193,8 @@ func (c *Color) unmarshalObject(data jsontext.Value) error {
 }
 
 // DecodeMsgpack supports backwards-compatible decoding from MessagePack. Old data
-// stored as a string (hex) in Pebble will be decoded correctly. Also handles map
-// (struct) and array formats.
+// stored as a hex string decodes to its color, and any other string decodes to the zero
+// color. Also handles map (struct) and array formats.
 func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
 	code, err := dec.PeekCode()
 	if err != nil {
@@ -217,13 +214,11 @@ func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
 		if err != nil {
 			return err
 		}
-		if s == "" {
-			*c = Color{}
-			return nil
-		}
+		// Before v0.52 a color was a free string, and Consoles drew only 6 or 8 digit
+		// hex. Any other string meant no color.
 		parsed, err := FromHex(s)
 		if err != nil {
-			return err
+			parsed = Color{}
 		}
 		*c = parsed
 		return nil

@@ -11,7 +11,11 @@
 
 package v0
 
-import "uuid"
+import (
+	"uuid"
+
+	"github.com/synnaxlabs/x/validate"
+)
 
 // Key is a unique identifier for a role, represented as a UUID.
 type Key = uuid.UUID
@@ -29,4 +33,12 @@ type Role struct {
 	Description string `json:"description" msgpack:"description"`
 	// Internal is true if this is a built-in system role that cannot be deleted.
 	Internal bool `json:"internal" msgpack:"internal"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r Role) Validate() error {
+	v := validate.New("Role")
+	v.NotEmptyString("name", r.Name)
+	return v.Error()
 }

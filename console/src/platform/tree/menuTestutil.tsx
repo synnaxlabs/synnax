@@ -9,7 +9,7 @@
 
 import { type ontology, type Synnax as Client } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, type RenderOptions, screen, within } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 
 import { Errors } from "@/platform/errors";
@@ -27,7 +27,10 @@ import {
   type TestStore,
 } from "@/testutil";
 
-export interface RenderTreeContextMenuOptions {
+export interface RenderTreeContextMenuOptions extends Pick<
+  RenderOptions,
+  "onCaughtError"
+> {
   client: Client;
   /** Resources backing the tree state. */
   resources: ontology.Resource[];
@@ -60,6 +63,7 @@ export const renderTreeContextMenu = async (
     store,
     baseOverrides = {},
     stateOverrides = {},
+    onCaughtError,
   }: RenderTreeContextMenuOptions,
 ): Promise<TreeContextMenuHandle> => {
   const resolvedStore = store ?? (await createTestStore());
@@ -83,12 +87,12 @@ export const renderTreeContextMenu = async (
       </Errors.SuspenseBoundary>
       <Modals.Stack />
     </>,
-    { wrapper },
+    { wrapper, onCaughtError },
   );
   return { store: resolvedStore, props };
 };
 
-export interface RenderToolbarOptions {
+export interface RenderToolbarOptions extends Pick<RenderOptions, "onCaughtError"> {
   client: Client;
   /** Real tree items keyed by resource type; other types fall back to Tree.DefaultItem. */
   items?: Tree.Items;
@@ -105,7 +109,7 @@ export interface ToolbarHandle {
  */
 export const renderToolbar = async (
   content: ReactNode,
-  { client, items }: RenderToolbarOptions,
+  { client, items, onCaughtError }: RenderToolbarOptions,
 ): Promise<ToolbarHandle> => {
   const { wrapper: Console, store } = await createConsoleWrapper({ client });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
@@ -121,7 +125,7 @@ export const renderToolbar = async (
       {content}
       <Modals.Stack />
     </>,
-    { wrapper: Wrapper },
+    { wrapper: Wrapper, onCaughtError },
   );
   return { store };
 };

@@ -19,15 +19,16 @@ alongside its protocol-specific ReadTaskCase and only needs to define:
 """
 
 import platform
+from collections.abc import Callable
 
 import synnax as sy
 from console.case import ConsoleCase
 from console.task_page import TaskPage
 from framework.test_case import TestCase
-from tests.driver.task import ReadTaskCase
+from tests.driver.task import ReadTaskCase, ReadTaskT
 
 
-class ReadTaskMigrationVerify(ReadTaskCase):
+class ReadTaskMigrationVerify(ReadTaskCase[ReadTaskT]):
     """Verify phase: retrieve existing task, assert config, re-run.
 
     Subclasses must set:
@@ -39,7 +40,7 @@ class ReadTaskMigrationVerify(ReadTaskCase):
     """
 
     task_type: str
-    task_class: type
+    task_class: Callable[[sy.Task], ReadTaskT]
     channel_prefix: str
     num_channels: int
     pre_start_sleep: float = 0
@@ -51,7 +52,7 @@ class ReadTaskMigrationVerify(ReadTaskCase):
         task_name: str,
         sample_rate: sy.Rate,
         stream_rate: sy.Rate,
-    ) -> sy.Task:
+    ) -> ReadTaskT:
         """Retrieve the existing task instead of creating a new one."""
         tasks = self.client.tasks.retrieve(names=[self.task_name])
         assert len(tasks) == 1, (
@@ -85,9 +86,9 @@ class ReadTaskMigrationVerify(ReadTaskCase):
         assert self.tsk.config.data_saving_disabled is False, (
             "data saving should stay enabled"
         )
-        assert len(self.tsk.config.channels) == self.num_channels, (
-            f"Expected {self.num_channels} channels, "
-            f"got {len(self.tsk.config.channels)}"
+        channel_keys = self._channel_keys(self.tsk)
+        assert len(channel_keys) == self.num_channels, (
+            f"Expected {self.num_channels} channels, got {len(channel_keys)}"
         )
 
     def test_data(self) -> None:
@@ -96,8 +97,9 @@ class ReadTaskMigrationVerify(ReadTaskCase):
             self.log(f"Sleeping {self.pre_start_sleep}s before start/stop")
             sy.sleep(self.pre_start_sleep)
 
-        self.log(f"Task key: {self.tsk.key if self.tsk else 'None'}")
-        self.log(f"Task type: {self.tsk._internal.type if self.tsk else 'None'}")
+        assert self.tsk is not None
+        self.log(f"Task key: {self.tsk.key}")
+        self.log(f"Task type: {self.tsk._internal.type}")
         channel_keys = self._channel_keys(self.tsk)
         self.log(f"Channel keys: {channel_keys}")
         self.test_start_and_stop()

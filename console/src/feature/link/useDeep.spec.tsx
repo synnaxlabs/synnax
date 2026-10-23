@@ -540,7 +540,7 @@ describe("useDeep", () => {
     act(() => {
       h.store.dispatch(Session.Persist.beginSwap());
     });
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     h.openURL(["synnax://cluster/c1/range/r1"]);
     await act(async () => {});
     expect(h.connect).toHaveBeenCalledWith("c1");
@@ -563,7 +563,7 @@ describe("useDeep", () => {
     act(() => {
       h.store.dispatch(Session.Persist.beginSwap());
     });
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     h.openURL(["synnax://cluster/c1/range/r1"]);
     await act(async () => {});
     expect(h.connect).toHaveBeenCalledWith("c1");
@@ -583,7 +583,7 @@ describe("useDeep", () => {
     act(() => {
       h.store.dispatch(Session.Persist.beginSwap());
     });
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     h.openURL(["synnax://cluster/c1/range/r1"]);
     await act(async () => {});
     expect(h.connect).toHaveBeenCalledWith("c1");

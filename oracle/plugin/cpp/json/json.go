@@ -54,6 +54,7 @@ func (p *Plugin) Domains() []string { return []string{"cpp"} }
 func (p *Plugin) Requires() []string { return []string{"cpp/types"} }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("cpp")
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
 	c, err := collect(req)
@@ -917,6 +918,24 @@ func (p *Plugin) toJSONExprForField(
                 arr.push_back(item.to_json());
         j["%s"] = arr;
     }`, fieldName, typeName, typeName, jsonName)
+		}
+
+		// UUIDs serialize through their to_json member, which nlohmann_json cannot
+		// reach inside a vector.
+		if elemType.Name == "uuid" || p.resolvesToUUID(elemType, data) {
+			src := "this->" + fieldName
+			if field.Optional {
+				src = "*" + src
+			}
+			body := fmt.Sprintf(`{
+        auto arr = x::json::json::array();
+        for (const auto& item : %s) arr.push_back(item.to_json());
+        j["%s"] = arr;
+    }`, src, jsonName)
+			if field.Optional {
+				return fmt.Sprintf(`if (this->%s.has_value()) %s`, fieldName, body)
+			}
+			return body
 		}
 
 		if elemResolved, ok := elemType.Resolve(data.table); ok {

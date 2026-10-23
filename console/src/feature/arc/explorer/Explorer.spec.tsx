@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Arc } from "@/feature/arc";
+import { Explorer } from "@/feature/arc/explorer/Explorer";
 import {
   awaitTextEditing,
   commitTextEdit,
@@ -33,7 +33,7 @@ const createArc = async () =>
 
 const renderExplorer = async (as: Synnax = client) => {
   const { wrapper, store } = await createConsoleWrapper({ client: as });
-  render(<Arc.Explorer.Explorer />, { wrapper });
+  render(<Explorer />, { wrapper });
   return { store };
 };
 

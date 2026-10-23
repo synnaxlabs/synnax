@@ -31,9 +31,6 @@ const FRONTMATTER = import.meta.glob<Frontmatter>("/src/pages/**/*.mdx", {
   eager: true,
 });
 
-// Each version's notes render inside /releases, never on their own.
-const RELEASE_NOTES = /^\/releases\/.+/;
-
 const toRoute = (file: string): string =>
   normalizeRoute(
     file
@@ -45,9 +42,7 @@ const toRoute = (file: string): string =>
 /** Every published MDX page. A page behind a flag is published while the flag is on. */
 export const PAGES: Page[] = Object.entries(FRONTMATTER)
   .map(([file, frontmatter]) => ({ route: toRoute(file), ...frontmatter }))
-  .filter(
-    ({ route, flag }) => !RELEASE_NOTES.test(route) && (flag == null || enabled(flag)),
-  )
+  .filter(({ flag }) => flag == null || enabled(flag))
   .map(({ route, title, heading, description, published }) => ({
     route,
     title: (heading ?? title).replace(/`/g, ""),

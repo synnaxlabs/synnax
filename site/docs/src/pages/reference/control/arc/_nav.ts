@@ -33,6 +33,11 @@ export const ARC_NAV: PageNavNode = {
       href: "/reference/control/arc/effective-arc",
       name: "Effective Arc",
     },
+    {
+      key: "/reference/control/arc/timing",
+      href: "/reference/control/arc/timing",
+      name: "Timing and performance",
+    },
     REFERENCE_NAV,
   ],
 };

@@ -41,6 +41,7 @@ export default defineConfig({
     globals: true,
     testTimeout: 15_000,
     expect: { poll: { timeout: 5000 } },
+    setupFiles: ["src/testutil/setup.ts"],
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],

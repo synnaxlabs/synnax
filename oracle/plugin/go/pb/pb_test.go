@@ -51,6 +51,25 @@ var _ = Describe("Go PB Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should not translate a field omitted in pb", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key     string
+						hash    bytes { @pb omit }
+						subject string
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain("Subject").
+					ToNotContain("Hash")
+			})
+		})
+
 		Context("union translation", func() {
 			It(
 				"Should generate oneof translators for a discriminated union",
@@ -493,6 +512,55 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain("Keys: lo.Map(r.Keys").
 					ToContain("r.Keys, err = func() ([]uuid.UUID, error)")
 			})
+
+			It(
+				"Should handle an array of a distinct type over uuid",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/test"
+					@pb
+
+					Key uuid
+
+					Test struct {
+						keys Key[]
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+					ExpectContent(resp, "translator.gen.go").
+						ToContain(
+							"Keys: lo.Map(r.Keys, func(u test.Key, _ int) string { return uuid.UUID(u).String() })",
+							"r.Keys, err = func() ([]test.Key, error)",
+							"result[i] = test.Key(parsed)",
+						)
+				},
+			)
+
+			It(
+				"Should translate an enum array element by element",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/test"
+					@pb
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Test struct {
+						variants Variant[]
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+					ExpectContent(resp, "translator.gen.go").
+						ToContain(
+							"lo.MapErr(r.Variants, func(v test.Variant, _ int) (Variant, error) { return VariantToPB(v) })",
+							"lo.MapErr(pb.Variants, func(v Variant, _ int) (test.Variant, error) { return VariantFromPB(v) })",
+							"func VariantToPB(",
+						)
+				},
+			)
 
 			It("Should handle string array passthrough", func(ctx SpecContext) {
 				source := `

@@ -259,6 +259,22 @@ describe("Schematic Slice", () => {
     });
   });
 
+  describe("setTooltipsDisabled", () => {
+    it("should disable and re-enable tooltips for only the keyed schematic", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.create({ key: "other" }));
+      store.dispatch(
+        Schematic.setTooltipsDisabled({ key: KEY, tooltipsDisabled: true }),
+      );
+      expect(read(Schematic.useGet).tooltipsDisabled).toBe(true);
+      expect(read(Schematic.useGet, "other").tooltipsDisabled).toBe(false);
+      store.dispatch(
+        Schematic.setTooltipsDisabled({ key: KEY, tooltipsDisabled: false }),
+      );
+      expect(read(Schematic.useGet).tooltipsDisabled).toBe(false);
+    });
+  });
+
   describe("viewport", () => {
     it("should merge the viewport over the existing one", () => {
       store.dispatch(Schematic.create({ key: KEY }));
@@ -318,6 +334,7 @@ describe("Schematic Slice", () => {
       expect(parsed.viewport.zoom).toBe(1);
       expect(parsed.editable).toBe(true);
       expect(parsed.fitViewOnResize).toBe(false);
+      expect(parsed.tooltipsDisabled).toBe(false);
       expect(parsed.selected).toEqual([]);
     });
   });

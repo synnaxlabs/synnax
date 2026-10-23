@@ -41,17 +41,25 @@ struct Cycle {
     RunReason reason;
 };
 
+/// @brief a time at which a timer node must run.
+struct Deadline {
+    /// @brief the elapsed time at which the node must run.
+    x::telem::TimeSpan at = x::telem::TimeSpan::max();
+    /// @brief the period of the timer that set the deadline.
+    x::telem::TimeSpan span = x::telem::TimeSpan::max();
+};
+
 struct Context {
     /// @brief the timing of the scheduler pass the node runs in.
     Cycle cycle;
-    x::telem::TimeSpan tolerance;
     /// @brief records that one of the current node's outputs has a new
     /// value for the current cycle. The ordinal is the output's 0-based
     /// position in the owning ir::Node's outputs slice. Zero hash
     /// lookups on the hot path.
     std::function<void(size_t output_idx)> mark_changed;
     std::function<void()> mark_self_changed;
-    std::function<void(x::telem::TimeSpan)> set_deadline;
+    /// @brief requests a run at the elapsed time at, for a timer with the period span.
+    std::function<void(x::telem::TimeSpan at, x::telem::TimeSpan span)> set_deadline;
     std::function<void(const x::errors::Error &)> report_error;
     /// @brief takes n distinct timestamps from the cycle and returns the first; the
     /// rest follow 1 ns apart. Reservations in one pass never overlap, and the

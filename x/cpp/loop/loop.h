@@ -12,12 +12,13 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <memory>
 #include <thread>
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/telem/telem.h"
 
-using hs_clock = std::chrono::high_resolution_clock;
+using hs_clock = std::chrono::steady_clock;
 using nanos = std::chrono::nanoseconds;
 
 namespace x::loop {
@@ -25,7 +26,7 @@ namespace x::loop {
 const telem::TimeSpan HIGH_RES_THRESHOLD = telem::Rate(200).period();
 /// @brief Threshold below which medium-resolution timing is used.
 const telem::TimeSpan MEDIUM_RES_THRESHOLD = telem::Rate(20).period();
-/// @brief Base resolution for sleep calibration.
+/// @brief Span of one sleep step of a precise sleep.
 const telem::TimeSpan RESOLUTION = (100 * telem::MICROSECOND);
 
 class Timer {
@@ -33,12 +34,12 @@ public:
     Timer() = default;
 
     explicit Timer(const telem::TimeSpan &interval):
-        interval(interval), last(std::chrono::high_resolution_clock::now()) {}
+        interval(interval), last(hs_clock::now()) {}
 
     explicit Timer(const telem::Rate &rate):
-        interval(rate.period()), last(std::chrono::high_resolution_clock::now()) {}
+        interval(rate.period()), last(hs_clock::now()) {}
 
-    telem::TimeSpan elapsed(const std::chrono::high_resolution_clock::time_point now) {
+    telem::TimeSpan elapsed(const hs_clock::time_point now) {
         if (!last_set) {
             last_set = true;
             return telem::TimeSpan::ZERO();
@@ -85,18 +86,28 @@ public:
         return {telem::TimeSpan(elapsed), true};
     }
 
+    /// @brief Fine-grained sleep that ends early when the breaker stops.
+    /// @returns false if the breaker stopped before or during the sleep.
+    bool precise_sleep(const telem::TimeSpan &dur, const breaker::Breaker &breaker) {
+        this->sleep_while(dur, [&breaker] { return breaker.running(); });
+        return breaker.running();
+    }
+
 private:
-    [[nodiscard]] bool high_rate() const { return interval < HIGH_RES_THRESHOLD; }
-
-    [[nodiscard]] bool medium_rate() const { return interval < MEDIUM_RES_THRESHOLD; }
-
     /// @brief Fine-grained sleep using Welford's online algorithm for calibration.
     void precise_sleep(const telem::TimeSpan &dur) {
+        this->sleep_while(dur, [] { return true; });
+    }
+
+    /// @brief sleeps precisely for dur, and ends early once running returns false.
+    template<typename Running>
+    void sleep_while(const telem::TimeSpan &dur, const Running &running) {
         const auto end = hs_clock::now() + dur.chrono();
-        while (dur > sleep_estimate_) {
-            auto start = hs_clock::now();
-            if (start >= end) break;
-            std::this_thread::sleep_for(RESOLUTION.chrono());
+        while (true) {
+            if (!running()) return;
+            const auto start = hs_clock::now();
+            if (telem::TimeSpan(end - start) <= sleep_estimate_) break;
+            this->step();
             const auto curr_end = hs_clock::now();
             const auto elapsed_ns = std::chrono::duration_cast<nanos>(curr_end - start)
                                         .count();
@@ -108,17 +119,38 @@ private:
             sleep_count_++;
         }
         while (end > hs_clock::now())
-            ;
+            if (!running()) return;
     }
+
+    [[nodiscard]] bool high_rate() const { return interval < HIGH_RES_THRESHOLD; }
+
+    [[nodiscard]] bool medium_rate() const { return interval < MEDIUM_RES_THRESHOLD; }
+
+    /// @brief the OS state of a sleep step, defined in the source file of each OS.
+    struct Impl;
+    /// @brief owns an Impl. The deleter is defined with Impl, so Timer needs no
+    /// special members defined out of line.
+    using ImplPtr = std::unique_ptr<Impl, void (*)(Impl *)>;
+
+    /// @brief creates the OS state of a sleep step.
+    static ImplPtr make_impl();
+
+    /// @brief blocks for one step of a precise sleep. On Windows 10 1803 and later,
+    /// the step waits on a high-resolution timer, so it does not round up to the
+    /// system tick.
+    void step();
 
     telem::TimeSpan interval{};
     bool last_set = false;
-    std::chrono::time_point<std::chrono::high_resolution_clock> last;
+    hs_clock::time_point last;
+    /// @brief the OS state of a sleep step.
+    ImplPtr impl_ = make_impl();
 
-    /// @brief Welford's algorithm state: estimated sleep overhead.
-    telem::TimeSpan sleep_estimate_ = RESOLUTION * 10;
-    /// @brief Welford's algorithm state: running mean of sleep durations.
-    telem::TimeSpan sleep_mean_ = RESOLUTION * 10;
+    /// @brief Welford's algorithm state: the most one step is expected to take. It
+    /// starts at one step, so a sleep longer than one step measures a step.
+    telem::TimeSpan sleep_estimate_ = RESOLUTION;
+    /// @brief Welford's algorithm state: running mean of step durations.
+    telem::TimeSpan sleep_mean_ = RESOLUTION;
     /// @brief Welford's algorithm state: sum of squared deviations.
     telem::TimeSpan sleep_M2_ = telem::TimeSpan::ZERO();
     /// @brief Welford's algorithm state: sample count.

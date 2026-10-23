@@ -139,15 +139,21 @@ func (s *Service) Retrieve(
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
 
 	if req.IncludeStatus {
+		ids := device.OntologyIDsFromDevices(res.Devices)
 		statuses := make([]device.Status, 0, len(res.Devices))
-		if err := s.status.NewRetrieve[device.StatusDetails]().
-			Where(status.MatchKeys[device.StatusDetails](ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...)).
+		// A status row can be missing, so the resource keeps a nil status.
+		if err := errors.Skip(s.status.NewRetrieve[device.StatusDetails]().
+			Where(status.MatchKeys[device.StatusDetails](ontology.IDsToKeys(ids)...)).
 			Entries(&statuses).
-			Exec(ctx, nil); err != nil {
+			Exec(ctx, nil), query.ErrNotFound); err != nil {
 			return RetrieveResponse{}, err
 		}
-		for i, stat := range statuses {
-			res.Devices[i].Status = &stat
+		statusByKey := make(map[status.Key]*device.Status, len(statuses))
+		for i := range statuses {
+			statusByKey[statuses[i].Key] = &statuses[i]
+		}
+		for i, id := range ids {
+			res.Devices[i].Status = statusByKey[id.String()]
 		}
 	}
 
@@ -185,6 +191,30 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, retErr
 	}
 	return res, nil
+}
+
+// RenameRequest names the device to rename and the name to give it.
+type RenameRequest struct {
+	// Name is the new name. It must not be empty.
+	Name string `json:"name" msgpack:"name"`
+	// Key selects the device to rename.
+	Key device.Key `json:"key" msgpack:"key"`
+}
+
+// Rename renames the device. It requires update access on it.
+func (s *Service) Rename(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RenameRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{device.OntologyID(req.Key)},
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.device.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 type DeleteRequest struct {

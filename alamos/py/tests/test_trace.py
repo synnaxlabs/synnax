@@ -9,6 +9,7 @@
 
 from typing import Any
 
+import pytest
 from opentelemetry.propagate import get_global_textmap
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
@@ -33,7 +34,6 @@ class TestTrace:
         """Should not raise an exception."""
         with instrumentation.T.prod("test") as span:
             assert span.key == "dev.test"
-            pass
 
     def test_trace_decorator(self, instrumentation: Instrumentation) -> None:
         """Should not raise an exception"""
@@ -55,8 +55,11 @@ class TestTrace:
 
 
 class TestPropagate:
-    def test_propagate_depropagate(self, instrumentation: Instrumentation) -> None:
-        """Should correctly inject the span context into the carrier."""
+    def test_propagate_depropagate(
+        self, instrumentation: Instrumentation, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Should inject the span context into the carrier without writing to
+        stdout."""
 
         class Carrier(dict[Any, Any]):
             def set(self, key: Any, value: Any) -> None:
@@ -68,3 +71,4 @@ class TestPropagate:
             instrumentation.T.propagate(carrier)
 
         assert "traceparent" in carrier
+        assert capsys.readouterr().out == ""

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Unreachable } from "@synnaxlabs/freighter";
 import {
   DataType,
   id,
@@ -44,18 +45,14 @@ const createClock = (): (() => TimeStamp) => {
   };
 };
 
-/**
- * Asserts a read returned every value written so far and nothing else. A span crossing
- * the live boundary can come back in both its streamed and its fetched representation,
- * so a value may appear twice, but never more.
- */
+/** Asserts a read returned every value written so far, each exactly once. */
 const expectWrittenValues = (values: number[], writeCount: number): void => {
   const counts = new Map<number, number>();
   values.forEach((v) => counts.set(v, (counts.get(v) ?? 0) + 1));
   expect([...counts.keys()].sort((a, b) => a - b)).toEqual(
     Array.from({ length: writeCount }, (_, i) => i),
   );
-  expect([...counts.entries()].filter(([, count]) => count > 2)).toEqual([]);
+  expect([...counts.entries()].filter(([, count]) => count > 1)).toEqual([]);
 };
 
 const createChannels = async () => {
@@ -198,7 +195,7 @@ describe("feed", () => {
     sub.close();
   });
 
-  it("should include the same series object in reads that the stream delivers", async () => {
+  it("should return only the fetched form of a span the live buffer holds", async () => {
     const { time, data } = await createChannels();
     const received: Series[] = [];
     const sub = feed.stream(
@@ -226,9 +223,8 @@ describe("feed", () => {
     }
     const tr = new TimeRange(start, TimeStamp.now().add(TimeSpan.seconds(1)));
     const res = await feed.read(tr, data.key);
-    // Identity equality lets consumers that both read and stream deduplicate the
-    // live buffer.
-    expect(received.some((s) => res.series.includes(s))).toBe(true);
+    expect(res.length).toBeGreaterThan(0);
+    expect(received.some((s) => res.series.includes(s))).toBe(false);
     sub.close();
   });
 
@@ -463,6 +459,44 @@ describe("feed", () => {
     await direct.read(tr, 1);
     expect(calls).toBe(2);
     await direct.close();
+  });
+
+  it("should forward fetchTimeout to the reader", async () => {
+    const direct = new Feed({
+      fetchTimeout: TimeSpan.milliseconds(20),
+      readRemote: async () => await new Promise<Frame>(() => {}),
+      openStreamer: async () => {
+        throw new UnexpectedError("streamer unused");
+      },
+      readLatest: async () => new Frame([], []),
+      readTileRemote: async () => {
+        throw new UnexpectedError("tile reader unused");
+      },
+    });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    await expect(direct.read(tr, 1)).rejects.toThrow(Unreachable);
+    await direct.close();
+  });
+
+  it("should close while a stream open is still retrying", async () => {
+    let opens = 0;
+    const direct = new Feed({
+      readRemote: async () => new Frame([], []),
+      openStreamer: async () => {
+        opens++;
+        throw new Unreachable();
+      },
+      readLatest: async () => new Frame([], []),
+      readTileRemote: async () => {
+        throw new UnexpectedError("tile reader unused");
+      },
+      onRetry: () => {},
+    });
+    direct.stream(() => {}, [1]);
+    await expect.poll(() => opens).toBeGreaterThan(0);
+    const closed = direct.close().then(() => true);
+    const timedOut = sleep.sleep(TimeSpan.seconds(1)).then(() => false);
+    expect(await Promise.race([closed, timedOut])).toBe(true);
   });
 
   describe("readTile", () => {
