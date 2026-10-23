@@ -180,7 +180,7 @@ describe("Reader", () => {
       const stream = await client.readCSV(
         { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
         [data.key],
-        { downsampleFactor: 2 },
+        { reduction: { variant: "stride", factor: 2 } },
       );
       const records = await streamToRecords(stream);
       expect(records).toEqual([

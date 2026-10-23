@@ -19,7 +19,7 @@ from synnax.channel.retrieve import Retriever
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.frame import Frame
-from synnax.telem import TimeRange
+from synnax.telem import Reduction, StrideReduction, TimeRange
 from x.exceptions import ExceptionPayload, decode_exception
 from x.fs import FilePath
 
@@ -33,7 +33,7 @@ _TRUNCATED = "The Core cut the read short before it finished."
 class _Request(BaseModel):
     keys: list[channel.Key]
     bounds: TimeRange
-    downsample_factor: int
+    reduction: Reduction | None = None
     timestamps_included: bool = False
 
 
@@ -51,22 +51,20 @@ class Reader:
         self,
         tr: TimeRange,
         channels: channel.Params,
-        downsample_factor: int = 1,
+        reduction: Reduction | None = None,
     ) -> Frame:
         """Reads every sample the given channels hold within tr.
 
         :param tr: the time range to read.
         :param channels: the channels to read, by key or by name. A frame read by name
             is keyed by name.
-        :param downsample_factor: keeps one sample in every downsample_factor. A factor
-            of 1, the default, keeps every sample.
+        :param reduction: how the Core reduces the samples of each channel. Defaults to
+            keeping every sample.
         :returns: the samples as a frame.
         """
         adapter = ReadFrameAdapter(self._retriever)
         adapter.update(channels)
-        req = _Request(
-            keys=adapter.keys, bounds=tr, downsample_factor=downsample_factor
-        )
+        req = _Request(keys=adapter.keys, bounds=tr, reduction=reduction)
         frame = Frame()
         with self._file.stream(_ENDPOINT, req, _FRAME_CONTENT_TYPE) as body:
             for record in _records(body):
@@ -79,7 +77,7 @@ class Reader:
         tr: TimeRange,
         channels: channel.Params,
         dest: FilePath,
-        downsample_factor: int = 1,
+        reduction: StrideReduction | None = None,
     ) -> None:
         """Reads every sample the given channels hold within tr into a CSV file.
 
@@ -90,15 +88,15 @@ class Reader:
         :param tr: the time range to read.
         :param channels: the channels to read, by key or by name.
         :param dest: the path of the CSV file to write. It must end in .csv.
-        :param downsample_factor: keeps one sample in every downsample_factor. A factor
-            of 1, the default, keeps every sample.
+        :param reduction: keeps every factor-th sample of each channel. Defaults to
+            keeping every sample.
         """
         adapter = ReadFrameAdapter(self._retriever)
         adapter.update(channels)
         req = _Request(
             keys=adapter.keys,
             bounds=tr,
-            downsample_factor=downsample_factor,
+            reduction=reduction,
             timestamps_included=True,
         )
         self._file.download(_ENDPOINT, req, dest)
