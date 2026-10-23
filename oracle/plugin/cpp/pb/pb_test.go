@@ -62,6 +62,31 @@ var _ = Describe("C++ PB Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			DescribeTable(
+				"Should leave out a field omitted in cpp or pb",
+				func(ctx SpecContext, lang string) {
+					source := `
+					@go output "core/pkg/service/auth"
+					@cpp output "client/cpp/auth"
+					@pb output "core/pkg/service/auth/pb"
+
+					Session struct {
+						key     uint32
+						hash    bytes { @` + lang + ` omit }
+						subject string
+					}
+				`
+					resp := MustGenerate(ctx, source, "auth", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain("subject").
+						ToNotContain("hash")
+				},
+				Entry("cpp", "cpp"),
+				Entry("pb", "pb"),
+			)
+		})
+
 		Context("array alias fields (e.g., Params -> Param[])", func() {
 			It(
 				"Should use add_* for repeated fields in forward conversion",

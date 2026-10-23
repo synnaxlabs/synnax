@@ -10,6 +10,9 @@
 package analyzer
 
 import (
+	"slices"
+
+	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -30,10 +33,13 @@ var generatedLangs = []string{"go", "ts", "py", "cpp"}
 //  2. A file-level @lang output where every declared type omits the language —
 //     with no hand-written anchors or actions — generates nothing and should
 //     be removed.
+//  3. A field that overrides an inherited field cannot omit a language the parent
+//     field keeps.
 func validateDomainOmits(table *resolution.Table, diag *diagnostics.Files) {
 	for _, lang := range generatedLangs {
 		validateOmitRefs(table, lang, diag)
 	}
+	validateOmitOverrides(table, diag)
 }
 
 func validateOmitRefs(
@@ -198,6 +204,137 @@ func validateDeadOutputs(c *analysisCtx, types []resolution.Type) {
 			c.report(d)
 		}
 	}
+}
+
+// validateFieldOmits errors on an illegal field-level omit. A field may omit any
+// generated language but Go, which has @go marshal omit and @go wire omit instead. A
+// key field may not leave any language or the wire, a field may not omit a language its
+// type does not generate in, and a field must stay in at least one language.
+func validateFieldOmits(c *analysisCtx, types []resolution.Type) {
+	for _, t := range types {
+		form, ok := t.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		for _, f := range form.Fields {
+			name := t.QualifiedName + "." + f.Name
+			if omit.IsField(f, "go") {
+				c.report(diagnostics.Errorf(nil,
+					"%s omits go; use @go marshal omit or @go wire omit instead", name,
+				))
+			}
+			if wire := getFieldString(f, "go", "wire"); wire != "" && wire != "omit" {
+				c.report(diagnostics.Errorf(nil,
+					"%s has @go wire %s; the only value is omit", name, wire,
+				))
+			}
+			isKey := key.HasKey(f)
+			if isKey && getFieldString(f, "go", "wire") == "omit" {
+				c.report(diagnostics.Errorf(nil,
+					"%s is a key and cannot carry @go wire omit", name,
+				))
+			}
+			var generating, omitted int
+			for _, lang := range fieldOmitLangs {
+				generates := generatesIn(t, lang)
+				if generates {
+					generating++
+				}
+				if lang == "go" || !omit.IsField(f, lang) {
+					continue
+				}
+				omitted++
+				if isKey {
+					c.report(diagnostics.Errorf(nil,
+						"%s is a key and cannot omit %s", name, lang,
+					))
+				}
+				if !generates {
+					c.report(diagnostics.Errorf(nil,
+						"%s omits %s, but %s does not generate in %s",
+						name, lang, t.QualifiedName, lang,
+					))
+				}
+			}
+			if omitted > 0 && omitted == generating {
+				c.report(diagnostics.Errorf(nil,
+					"%s is omitted in every language %s generates in; remove the field",
+					name, t.QualifiedName,
+				))
+			}
+		}
+	}
+}
+
+// fieldOmitLangs are the languages a field-level omit can name: the generated
+// languages plus pb, whose messages hold the field too.
+var fieldOmitLangs = append(slices.Clone(generatedLangs), "pb")
+
+// generatesIn reports whether t generates a declaration in lang. A pb message needs a
+// pb domain and a Go output, which sets its package.
+func generatesIn(t resolution.Type, lang string) bool {
+	if omit.IsSkipped(t, lang) {
+		return false
+	}
+	if lang != "pb" {
+		return getPath(t, lang) != ""
+	}
+	_, hasPB := t.Domains["pb"]
+	return hasPB && getPath(t, "go") != ""
+}
+
+// validateOmitOverrides errors when a field overrides an inherited field and omits a
+// language the parent field keeps. The parent would still contribute the field, so the
+// omit would not take effect.
+func validateOmitOverrides(table *resolution.Table, diag *diagnostics.Files) {
+	for _, t := range table.Types {
+		form, ok := t.Form.(resolution.StructForm)
+		if !ok || len(form.Extends) == 0 {
+			continue
+		}
+		inherited := make(map[string]resolution.Field)
+		for _, ext := range form.Extends {
+			parent, ok := ext.Resolve(table)
+			if !ok {
+				continue
+			}
+			for _, pf := range resolution.UnifiedFields(parent, table) {
+				if _, seen := inherited[pf.Name]; !seen {
+					inherited[pf.Name] = pf
+				}
+			}
+		}
+		for _, f := range form.Fields {
+			pf, ok := inherited[f.Name]
+			if !ok {
+				continue
+			}
+			for _, lang := range fieldOmitLangs {
+				if omit.IsField(f, lang) && !omit.IsField(pf, lang) {
+					diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+						"%s.%s overrides an inherited field and cannot omit %s; "+
+							"omit it on the parent field or drop it with -%s",
+						t.QualifiedName, f.Name, lang, f.Name,
+					))
+				}
+			}
+		}
+	}
+}
+
+func getFieldString(f resolution.Field, lang, expr string) string {
+	dom, ok := f.Domains[lang]
+	if !ok {
+		return ""
+	}
+	e, ok := dom.Expressions.Find(expr)
+	if !ok || len(e.Values) == 0 {
+		return ""
+	}
+	if v := e.Values[0].StringValue; v != "" {
+		return v
+	}
+	return e.Values[0].IdentValue
 }
 
 // getPath returns the type's output path for the language, or "".

@@ -11,6 +11,7 @@ import socket
 import threading
 
 _CHUNK_SIZE = 65536
+_UPGRADED = b"HTTP/1.1 101"
 _KEEP_ALIVE = (
     b'\xfe{"payload":{"frame":{"keys":[],"series":[]},"group":0,"keep_alive":true},'
     b'"error":{"type":"","data":""},"type":"data"}'
@@ -71,6 +72,8 @@ class _Pair:
         self.upstream = upstream
         self.injector = injector
         self.blackholed = False
+        self.head = b""
+        self.upgraded: bool | None = None
 
 
 class Proxy:
@@ -120,6 +123,10 @@ class Proxy:
     def _forward(self, pair: _Pair, src: socket.socket, dst: socket.socket) -> None:
         try:
             while data := src.recv(_CHUNK_SIZE):
+                if src is pair.upstream and pair.upgraded is None:
+                    pair.head += data
+                    if len(pair.head) >= len(_UPGRADED):
+                        pair.upgraded = pair.head.startswith(_UPGRADED)
                 if src is pair.upstream and pair.injector is not None:
                     data = pair.injector.feed(data)
                 # A blackholed client's writes are read and dropped so backpressure
@@ -140,6 +147,12 @@ class Proxy:
             except OSError:
                 pass
             s.close()
+
+    @property
+    def websockets(self) -> int:
+        """The number of live WebSocket connections."""
+        with self._lock:
+            return sum(1 for p in self._pairs if p.upgraded)
 
     def blackhole(self) -> int:
         """Kills the Core side of every live connection and holds the client side open

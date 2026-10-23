@@ -66,6 +66,7 @@ func (*Plugin) Requires() []string { return []string{"go/types", "pb/types"} }
 
 // Generate produces translator functions for structs with @pb flag.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("pb")
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
 	outputStructs := make(map[string][]resolution.Type)
