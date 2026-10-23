@@ -273,5 +273,12 @@ public:
     /// @brief sets whether a slave joins cyclic exchange. Takes effect the next time
     /// the bus starts.
     void set_slave_enabled(uint16_t position, bool enabled);
+
+    /// @brief sets the CoE objects written to a slave before each move to SAFE-OP.
+    /// Takes effect the next time the bus starts.
+    void set_startup_parameters(
+        uint16_t position,
+        std::vector<slave::StartupParameter> parameters
+    );
 };
 }

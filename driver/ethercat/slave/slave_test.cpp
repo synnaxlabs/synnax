@@ -9,6 +9,8 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/test/test.h"
+
 #include "driver/ethercat/slave/slave.h"
 
 namespace driver::ethercat::slave {
@@ -289,5 +291,137 @@ TEST(PropertiesToJson, OmitsPaddingEntries) {
     const auto j = props.to_json();
     ASSERT_EQ(j["pdos"]["inputs"].size(), 2);
     EXPECT_EQ(j["pdos"]["inputs"][1]["sub_index"], 17);
+}
+
+/// @brief parses a startup parameter and returns it with the first field error, or an
+/// empty path and message when parsing succeeds.
+std::tuple<StartupParameter, std::string, std::string>
+parse_parameter(const x::json::json &json) {
+    x::json::Parser parser(json);
+    const auto param = StartupParameter::parse(parser);
+    if (parser.ok()) return {param, "", ""};
+    const auto err = parser.error_json()["errors"][0];
+    return {param, err["path"], err["message"]};
+}
+
+TEST(StartupParameter, ParsesEachField) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000},
+         {"sub_index", 0x15},
+         {"data_type", "uint16"},
+         {"value", 3},
+         {"name", "Filter"}}
+    );
+    EXPECT_EQ(path, "");
+    EXPECT_EQ(
+        param,
+        (StartupParameter{
+            .index = 0x8000,
+            .sub_index = 0x15,
+            .data_type = x::telem::UINT16_T,
+            .value = 3,
+            .name = "Filter",
+        })
+    );
+}
+
+TEST(StartupParameter, RejectsAnIndexAboveSixteenBits) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x10000}, {"sub_index", 1}, {"data_type", "uint8"}, {"value", 1}}
+    );
+    EXPECT_EQ(path, "index");
+    EXPECT_EQ(message, "must be between 0x0000 and 0xFFFF");
+}
+
+TEST(StartupParameter, RejectsASubIndexAboveEightBits) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 256}, {"data_type", "uint8"}, {"value", 1}}
+    );
+    EXPECT_EQ(path, "sub_index");
+    EXPECT_EQ(message, "must be between 0 and 255");
+}
+
+TEST(StartupParameter, RejectsANonNumericDataType) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "string"}, {"value", 1}}
+    );
+    EXPECT_EQ(path, "data_type");
+    EXPECT_EQ(message, "unsupported data type string");
+}
+
+TEST(StartupParameter, RejectsAValueOutsideTheDataType) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "uint8"}, {"value", 300}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "300 does not fit in uint8");
+}
+
+TEST(StartupParameter, RejectsAFractionForAnIntegerType) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "int16"}, {"value", 1.5}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "1.5 does not fit in int16");
+}
+
+TEST(StartupParameter, EncodesLittleEndianBytesOfItsType) {
+    EXPECT_EQ(
+        (StartupParameter{.data_type = x::telem::UINT16_T, .value = 0x1234}).bytes(),
+        (std::vector<uint8_t>{0x34, 0x12})
+    );
+    EXPECT_EQ(
+        (StartupParameter{.data_type = x::telem::INT32_T, .value = -2}).bytes(),
+        (std::vector<uint8_t>{0xFE, 0xFF, 0xFF, 0xFF})
+    );
+    EXPECT_EQ(
+        (StartupParameter{.data_type = x::telem::FLOAT32_T, .value = 1}).bytes(),
+        (std::vector<uint8_t>{0x00, 0x00, 0x80, 0x3F})
+    );
+}
+
+TEST(Properties, ParsesStartupParameters) {
+    x::json::Parser parser(
+        x::json::json{
+            {"serial", 1},
+            {"vendor_id", 2},
+            {"product_code", 3},
+            {"revision", 4},
+            {"name", "EL3102"},
+            {"position", 0},
+            {"enabled", true},
+            {"pdos",
+             {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
+            {"startup_parameters",
+             {{{"index", 0x8000},
+               {"sub_index", 0x15},
+               {"data_type", "uint16"},
+               {"value", 3}}}},
+        }
+    );
+    const auto props = Properties::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(props.startup_parameters.size(), 1);
+    EXPECT_EQ(props.startup_parameters[0].index, 0x8000);
+    EXPECT_FALSE(props.to_json().contains("startup_parameters"));
+}
+
+TEST(Properties, ParsesWithoutStartupParameters) {
+    x::json::Parser parser(
+        x::json::json{
+            {"serial", 1},
+            {"vendor_id", 2},
+            {"product_code", 3},
+            {"revision", 4},
+            {"name", "EL3102"},
+            {"position", 0},
+            {"enabled", true},
+            {"pdos",
+             {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
+        }
+    );
+    const auto props = Properties::parse(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_TRUE(props.startup_parameters.empty());
 }
 }

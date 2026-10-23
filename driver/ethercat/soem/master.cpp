@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <chrono>
 #include <format>
+#include <ranges>
 #include <thread>
 
 #include "absl/log/log.h"
@@ -33,6 +35,8 @@ const auto OP_POLL_INTERVAL = x::telem::MILLISECOND;
 const int RECOVERY_TIMEOUT = static_cast<int>(
     (x::telem::MILLISECOND * 500).microseconds()
 );
+/// Timeout for one SDO (Service Data Object) read or write in microseconds.
+const int SDO_TIMEOUT = static_cast<int>((x::telem::MILLISECOND * 700).microseconds());
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
 constexpr uint8_t ENABLED_GROUP = 1;
 constexpr uint8_t DISABLED_GROUP = 2;
@@ -103,6 +107,42 @@ void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
         this->disabled_slaves.erase(position);
 }
 
+void Master::set_startup_parameters(
+    const uint16_t position,
+    std::vector<slave::StartupParameter> parameters
+) {
+    std::lock_guard lock(this->mu);
+    this->startup_parameters[position] = std::move(parameters);
+}
+
+void Master::write_startup_parameters(
+    const uint16_t pos,
+    const std::vector<slave::StartupParameter> &parameters
+) {
+    std::string failure;
+    for (const auto &param: parameters) {
+        const auto data = param.bytes();
+        if (this->api->SDOwrite(
+                pos,
+                param.index,
+                param.sub_index,
+                false,
+                static_cast<int>(data.size()),
+                data.data(),
+                SDO_TIMEOUT
+            ) > 0)
+            continue;
+        failure = "rejected startup parameter " + param.to_string() + ": " +
+                  errors::sdo_abort_reason(this->api->pop_sdo_abort());
+        break;
+    }
+    std::lock_guard lock(this->mu);
+    if (failure.empty())
+        this->startup_failures.erase(pos);
+    else
+        this->startup_failures[pos] = failure;
+}
+
 x::errors::Error Master::activate() {
     if (!this->initialized)
         return x::errors::Error(errors::ACTIVATION_ERROR, "master not initialized");
@@ -111,11 +151,21 @@ x::errors::Error Master::activate() {
 
     {
         std::lock_guard lock(this->mu);
-        for (int i = 1; i <= this->api->slave_count(); ++i)
+        this->startup_failures.clear();
+        for (int i = 1; i <= this->api->slave_count(); ++i) {
             this->api->set_slave_group(
                 i,
                 this->disabled_slaves.contains(i) ? DISABLED_GROUP : ENABLED_GROUP
             );
+            const auto it = this->startup_parameters.find(i);
+            if (it == this->startup_parameters.end() || it->second.empty()) {
+                this->api->set_PO2SOconfig(i, nullptr);
+                continue;
+            }
+            this->api->set_PO2SOconfig(i, [this, params = it->second](uint16_t pos) {
+                this->write_startup_parameters(pos, params);
+            });
+        }
     }
 
     const int iomap_size = this->api->config_map_group(
@@ -128,6 +178,20 @@ x::errors::Error Master::activate() {
             errors::ACTIVATION_ERROR,
             "failed to configure PDO mapping"
         );
+
+    {
+        std::lock_guard lock(this->mu);
+        std::vector<uint16_t> rejected;
+        for (const auto &pos: this->startup_failures | std::views::keys)
+            rejected.push_back(pos);
+        std::ranges::sort(rejected);
+        std::string msg;
+        for (const auto pos: rejected)
+            msg += (msg.empty() ? "" : "; ") + std::string("slave ") +
+                   std::to_string(pos) + " (" + this->api->slave_name(pos) + ") " +
+                   this->startup_failures.at(pos);
+        if (!msg.empty()) return x::errors::Error(errors::STARTUP_PARAMETER_ERROR, msg);
+    }
 
     this->input_sz = this->api->group_Ibytes(ENABLED_GROUP);
     this->output_sz = this->api->group_Obytes(ENABLED_GROUP);
@@ -245,6 +309,14 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
         );
         if (const auto code = this->api->slave_ALstatuscode(i); h.faulted && code != 0)
             h.al_status = ec_ALstatuscode2string(code);
+        {
+            std::lock_guard lock(this->mu);
+            if (const auto it = this->startup_failures.find(i);
+                it != this->startup_failures.end()) {
+                h.faulted = true;
+                h.al_status = it->second;
+            }
+        }
         if (breaker.running()) this->recover(static_cast<uint16_t>(i));
     }
     return health;
@@ -261,6 +333,11 @@ void Master::recover(const uint16_t pos) {
     } else if (state > EC_STATE_NONE && state != EC_STATE_OPERATIONAL) {
         if (this->api->reconfig_slave(pos, RECOVERY_TIMEOUT) >= EC_STATE_PRE_OP)
             this->api->set_slave_lost(pos, false);
+        std::lock_guard lock(this->mu);
+        if (this->startup_failures.contains(pos)) {
+            this->api->set_slave_state(pos, EC_STATE_PRE_OP);
+            this->api->writestate(pos);
+        }
     } else if (state == EC_STATE_NONE && !this->api->slave_lost(pos)) {
         this->api->statecheck(pos, EC_STATE_OPERATIONAL, EC_TIMEOUTRET);
         if (this->api->slave_state(pos) == EC_STATE_NONE)
@@ -372,8 +449,6 @@ void Master::cache_pdo_offsets() {
     }
 }
 
-/// Timeout for SDO (Service Data Object) reads during PDO discovery in microseconds.
-const int SDO_TIMEOUT = static_cast<int>((x::telem::MILLISECOND * 700).microseconds());
 constexpr int MAX_SDO_FAILURES = 3;
 
 void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {

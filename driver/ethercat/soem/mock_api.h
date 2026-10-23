@@ -11,9 +11,11 @@
 
 #include <algorithm>
 #include <cstring>
+#include <functional>
 #include <map>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "driver/ethercat/soem/api.h"
@@ -90,9 +92,32 @@ public:
     std::vector<uint16_t> recovered_slaves;
     /// @brief slaves passed to writestate, in call order.
     std::vector<uint16_t> written_slaves;
+    /// @brief one SDO write: slave, index, sub-index, and bytes.
+    struct SDOWrite {
+        uint16_t slave;
+        uint16_t index;
+        uint8_t sub_index;
+        std::vector<uint8_t> data;
+
+        bool operator==(const SDOWrite &) const = default;
+    };
+    /// @brief SDO writes in call order.
+    std::vector<SDOWrite> sdo_writes;
+    /// @brief abort codes for objects that reject SDO writes, keyed by index and
+    /// sub-index. A code of 0 makes the write time out.
+    std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_write_aborts;
+    /// @brief PO2SOconfig hooks keyed by slave.
+    std::map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
 
 private:
     uint8_t *iomap_ptr = nullptr;
+    uint32_t sdo_abort = 0;
+
+    void run_PO2SOconfig(const uint16_t slave) {
+        if (const auto it = this->po2so_configs.find(slave);
+            it != this->po2so_configs.end())
+            it->second(slave);
+    }
 
 public:
     int init(const char *) override {
@@ -107,6 +132,8 @@ public:
     int config_map_group(void *iomap, uint8_t group) override {
         this->iomap_ptr = static_cast<uint8_t *>(iomap);
         this->mapped_group = group;
+        for (uint16_t i = 1; i <= this->slave_infos.size(); ++i)
+            if (this->slave_infos[i - 1].group == group) this->run_PO2SOconfig(i);
         return this->config_map_return;
     }
 
@@ -146,6 +173,7 @@ public:
 
     int reconfig_slave(uint16_t slave, int) override {
         this->reconfigured_slaves.push_back(slave);
+        this->run_PO2SOconfig(slave);
         return this->reconfig_return;
     }
 
@@ -187,6 +215,35 @@ public:
         if (it == this->sdo_objects.end()) return 0;
         std::memcpy(p, &it->second, *psize);
         return 1;
+    }
+
+    int SDOwrite(
+        uint16_t slave,
+        uint16_t index,
+        uint8_t sub_index,
+        bool,
+        int psize,
+        const void *p,
+        int
+    ) override {
+        const auto *bytes = static_cast<const uint8_t *>(p);
+        this->sdo_writes.push_back(
+            {slave, index, sub_index, std::vector(bytes, bytes + psize)}
+        );
+        const auto it = this->sdo_write_aborts.find({index, sub_index});
+        if (it == this->sdo_write_aborts.end()) return 1;
+        this->sdo_abort = it->second;
+        return 0;
+    }
+
+    uint32_t pop_sdo_abort() override { return std::exchange(this->sdo_abort, 0); }
+
+    void
+    set_PO2SOconfig(uint16_t slave, std::function<void(uint16_t)> config) override {
+        if (config == nullptr)
+            this->po2so_configs.erase(slave);
+        else
+            this->po2so_configs[slave] = std::move(config);
     }
 
     int16_t siifind(uint16_t, uint16_t category) override {

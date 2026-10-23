@@ -31,6 +31,8 @@ class Master final : public master::Master {
     /// @brief the AL status text of each faulted slave.
     std::unordered_map<uint16_t, std::string> faults;
     std::set<uint16_t> disabled_slaves;
+    std::unordered_map<uint16_t, std::vector<slave::StartupParameter>>
+        startup_parameters_by_slave;
     pdo::Offsets pdo_offset_cache;
     bool initialized;
     bool activated;
@@ -188,6 +190,23 @@ public:
             this->disabled_slaves.erase(position);
         else
             this->disabled_slaves.insert(position);
+    }
+
+    void set_startup_parameters(
+        const uint16_t position,
+        std::vector<slave::StartupParameter> parameters
+    ) override {
+        std::lock_guard lock(this->mu);
+        this->startup_parameters_by_slave[position] = std::move(parameters);
+    }
+
+    /// @brief returns the startup parameters set for a slave.
+    std::vector<slave::StartupParameter>
+    startup_parameters(const uint16_t position) const {
+        std::lock_guard lock(this->mu);
+        const auto it = this->startup_parameters_by_slave.find(position);
+        if (it == this->startup_parameters_by_slave.end()) return {};
+        return it->second;
     }
 
     x::errors::Error activate() override {

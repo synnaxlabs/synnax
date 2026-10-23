@@ -44,6 +44,13 @@ public:
     /// activate().
     virtual void set_slave_enabled(uint16_t position, bool enabled) = 0;
 
+    /// @brief sets the CoE objects the master writes to a slave in PRE-OP each time
+    /// it moves the slave to SAFE-OP. Takes effect at the next activate().
+    virtual void set_startup_parameters(
+        uint16_t position,
+        std::vector<slave::StartupParameter> parameters
+    ) = 0;
+
     /// @brief maps the process data of every enabled slave and transitions the enabled
     /// slaves to OP.
     [[nodiscard]] virtual x::errors::Error activate() = 0;

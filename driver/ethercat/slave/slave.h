@@ -9,14 +9,21 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstdint>
+#include <cstring>
+#include <format>
+#include <limits>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/ethercat/pdo/pdo.h"
+#include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::slave {
 
@@ -68,6 +75,113 @@ inline State from_al_state(const uint16_t al_state) {
     }
 }
 
+/// @brief a CoE object the master writes to a slave in PRE-OP each time it moves the
+/// slave to SAFE-OP, including recovery after a fault.
+struct StartupParameter {
+    /// @brief object dictionary index.
+    uint16_t index = 0;
+    /// @brief object dictionary sub-index.
+    uint8_t sub_index = 0;
+    /// @brief the type the slave expects, which sets the size of the write.
+    x::telem::DataType data_type = x::telem::UINT8_T;
+    /// @brief the value to write.
+    double value = 0;
+    /// @brief what the parameter sets, for display.
+    std::string name;
+
+    bool operator==(const StartupParameter &) const = default;
+
+    /// @brief parses a startup parameter, adding a field error for an index,
+    /// sub-index, data type, or value the slave cannot take.
+    static StartupParameter parse(x::json::Parser &parser) {
+        StartupParameter param;
+        const auto index = parser.field<int64_t>("index");
+        const auto sub_index = parser.field<int64_t>("sub_index");
+        param.value = parser.field<double>("value");
+        param.name = parser.field<std::string>("name", "");
+        const auto data_type = parser.field<std::string>("data_type");
+        if (parser.error()) return param;
+        if (index < 0 || index > std::numeric_limits<uint16_t>::max())
+            parser.field_err("index", "must be between 0x0000 and 0xFFFF");
+        if (sub_index < 0 || sub_index > std::numeric_limits<uint8_t>::max())
+            parser.field_err("sub_index", "must be between 0 and 255");
+        param.index = static_cast<uint16_t>(index);
+        param.sub_index = static_cast<uint8_t>(sub_index);
+        param.data_type = x::telem::DataType(data_type);
+        bool fits = false;
+        if (!visit(param.data_type, [&]<typename T>() {
+                fits = fits_in<T>(param.value);
+            }))
+            parser.field_err("data_type", "unsupported data type " + data_type);
+        else if (!fits)
+            parser.field_err(
+                "value",
+                std::format("{} does not fit in {}", param.value, data_type)
+            );
+        return param;
+    }
+
+    /// @brief returns the object address and name, e.g. "0x8000:15 (Filter)".
+    [[nodiscard]] std::string to_string() const {
+        const auto address = telem::format_index_sub_index(
+            this->index,
+            this->sub_index
+        );
+        return this->name.empty() ? address : address + " (" + this->name + ")";
+    }
+
+    /// @brief returns the little-endian bytes of the value in data_type.
+    [[nodiscard]] std::vector<uint8_t> bytes() const {
+        std::vector<uint8_t> out;
+        visit(this->data_type, [&]<typename T>() {
+            const auto v = static_cast<T>(this->value);
+            out.resize(sizeof(T));
+            std::memcpy(out.data(), &v, sizeof(T));
+        });
+        return out;
+    }
+
+private:
+    /// @brief calls f with the C++ type of a numeric data type, returning false for
+    /// any other data type.
+    template<typename F>
+    static bool visit(const x::telem::DataType &dt, F &&f) {
+        if (dt == x::telem::INT8_T)
+            f.template operator()<int8_t>();
+        else if (dt == x::telem::INT16_T)
+            f.template operator()<int16_t>();
+        else if (dt == x::telem::INT32_T)
+            f.template operator()<int32_t>();
+        else if (dt == x::telem::INT64_T)
+            f.template operator()<int64_t>();
+        else if (dt == x::telem::UINT8_T)
+            f.template operator()<uint8_t>();
+        else if (dt == x::telem::UINT16_T)
+            f.template operator()<uint16_t>();
+        else if (dt == x::telem::UINT32_T)
+            f.template operator()<uint32_t>();
+        else if (dt == x::telem::UINT64_T)
+            f.template operator()<uint64_t>();
+        else if (dt == x::telem::FLOAT32_T)
+            f.template operator()<float>();
+        else if (dt == x::telem::FLOAT64_T)
+            f.template operator()<double>();
+        else
+            return false;
+        return true;
+    }
+
+    template<typename T>
+    static bool fits_in(const double v) {
+        if constexpr (std::is_floating_point_v<T>)
+            return std::isfinite(v);
+        else
+            return v == std::trunc(v) &&
+                   v >= static_cast<double>(std::numeric_limits<T>::min()) &&
+                   v <= static_cast<double>(std::numeric_limits<T>::max());
+    }
+};
+
 /// @brief static properties of an EtherCAT slave device stored in device.properties.
 struct Properties {
     /// @brief network interface the slave is connected to.
@@ -96,6 +210,9 @@ struct Properties {
     bool coe_pdo_order_reliable;
     /// @brief whether the device is enabled or not.
     bool enabled = true;
+    /// @brief CoE objects written to the slave before each move to SAFE-OP. Set by the
+    /// user, so to_json leaves them out and a scan keeps them.
+    std::vector<StartupParameter> startup_parameters;
 
     /// @brief returns the total number of discovered PDO entries.
     [[nodiscard]] size_t pdo_count() const {
@@ -129,6 +246,10 @@ struct Properties {
         props.network = parser.field<std::string>("network", "");
         props.position = static_cast<uint16_t>(parser.field<int>("position"));
         props.enabled = parser.field<bool>("enabled");
+        if (parser.has("startup_parameters"))
+            parser.iter("startup_parameters", [&props](x::json::Parser &param) {
+                props.startup_parameters.push_back(StartupParameter::parse(param));
+            });
         const auto pdos_parser = parser.child("pdos");
         if (!pdos_parser.error()) {
             pdos_parser.iter("inputs", [&props](x::json::Parser &pdo) {

@@ -45,6 +45,12 @@ class Master final : public master::Master {
     std::vector<slave::DiscoveryResult> slave_list;
     /// @brief slave positions that are disabled (excluded from cyclic exchange).
     std::set<uint16_t> disabled_slaves;
+    /// @brief CoE objects written to each slave before SAFE-OP, keyed by position.
+    std::unordered_map<uint16_t, std::vector<slave::StartupParameter>>
+        startup_parameters;
+    /// @brief why each slave rejected a startup parameter at its latest move to
+    /// SAFE-OP, keyed by position.
+    std::unordered_map<uint16_t, std::string> startup_failures;
     /// @brief protects slave state queries.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -66,6 +72,11 @@ public:
     x::errors::Error initialize() override;
 
     void set_slave_enabled(uint16_t position, bool enabled) override;
+
+    void set_startup_parameters(
+        uint16_t position,
+        std::vector<slave::StartupParameter> parameters
+    ) override;
 
     x::errors::Error activate() override;
 
@@ -89,6 +100,13 @@ public:
     std::string interface_name() const override;
 
 private:
+    /// @brief writes a slave's startup parameters in order, recording why the slave
+    /// rejected the first one that fails.
+    void write_startup_parameters(
+        uint16_t pos,
+        const std::vector<slave::StartupParameter> &parameters
+    );
+
     /// @brief populates the cached slave list from SOEM's slavelist.
     void populate_slaves();
 

@@ -654,4 +654,122 @@ TEST_F(SOEMMasterTest, SlaveWhoseLayoutDisagreesWithMappingHasNoOffsets) {
     );
 }
 
+////////////////////// Startup Parameters //////////////////////
+
+const slave::StartupParameter FILTER{
+    .index = 0x8000,
+    .sub_index = 0x15,
+    .data_type = x::telem::UINT16_T,
+    .value = 3,
+    .name = "Filter",
+};
+
+const slave::StartupParameter RANGE{
+    .index = 0x8000,
+    .sub_index = 0x19,
+    .data_type = x::telem::UINT8_T,
+    .value = 2,
+};
+
+TEST_F(SOEMMasterTest, ActivateWritesStartupParametersInOrder) {
+    this->initialize_with_slave();
+    this->master->set_startup_parameters(1, {FILTER, RANGE});
+    this->activate_master();
+    EXPECT_EQ(
+        this->mock->sdo_writes,
+        (std::vector<MockAPI::SDOWrite>{
+            {1, 0x8000, 0x15, {0x03, 0x00}},
+            {1, 0x8000, 0x19, {0x02}},
+        })
+    );
+}
+
+TEST_F(SOEMMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
+    this->initialize_with_slave();
+    this->master->set_startup_parameters(1, {FILTER, RANGE});
+    this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
+        "parameter written too high"
+    );
+    EXPECT_EQ(this->mock->sdo_writes.size(), 1);
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
+TEST_F(SOEMMasterTest, ActivateFailsWhenStartupParameterGetsNoResponse) {
+    this->initialize_with_slave();
+    this->master->set_startup_parameters(1, {RANGE});
+    this->mock->sdo_write_aborts[{0x8000, 0x19}] = 0;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (TestSlave) rejected startup parameter 0x8000:19: no response"
+    );
+}
+
+TEST_F(SOEMMasterTest, ActivateWritesNothingAfterStartupParametersAreCleared) {
+    this->initialize_with_slave();
+    this->master->set_startup_parameters(1, {FILTER});
+    this->master->set_startup_parameters(1, {});
+    this->activate_master();
+    EXPECT_TRUE(this->mock->sdo_writes.empty());
+}
+
+TEST_F(SOEMMasterTest, ActivateSkipsStartupParametersOfDisabledSlave) {
+    this->initialize_with_slave();
+    this->master->set_startup_parameters(1, {FILTER});
+    this->master->set_slave_enabled(1, false);
+    this->activate_master();
+    EXPECT_TRUE(this->mock->sdo_writes.empty());
+}
+
+TEST_F(SOEMMasterTest, CheckWritesStartupParametersAgainOnReconfig) {
+    this->initialize_with_slave();
+    this->master->set_startup_parameters(1, {FILTER});
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->master->check(this->brk);
+    EXPECT_EQ(this->mock->sdo_writes.size(), 2);
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
+TEST_F(SOEMMasterTest, CheckHoldsSlaveInPreOpWhenReconfigWriteFails) {
+    this->initialize_with_slave();
+    this->master->set_startup_parameters(1, {FILTER});
+    this->activate_master();
+    this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->master->check(this->brk);
+    EXPECT_EQ(
+        this->mock->state_change_requests,
+        (std::vector<std::pair<uint16_t, uint16_t>>{{1, EC_STATE_PRE_OP}})
+    );
+    this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
+    const auto health = this->master->check(this->brk);
+    ASSERT_EQ(health.size(), 1);
+    EXPECT_TRUE(health[0].faulted);
+    EXPECT_EQ(
+        health[0].al_status,
+        "rejected startup parameter 0x8000:15 (Filter): Value of parameter written "
+        "too high"
+    );
+}
+
+TEST_F(SOEMMasterTest, CheckClearsStartupFailureOnceWriteSucceeds) {
+    this->initialize_with_slave();
+    this->master->set_startup_parameters(1, {FILTER});
+    this->activate_master();
+    this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->master->check(this->brk);
+    this->mock->sdo_write_aborts.clear();
+    this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
+    this->master->check(this->brk);
+    this->mock->slave_infos[0].state = EC_STATE_SAFE_OP;
+    EXPECT_FALSE(this->master->check(this->brk)[0].faulted);
+}
 }

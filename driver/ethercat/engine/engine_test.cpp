@@ -341,6 +341,17 @@ TEST_F(EngineTest, DisabledSlaveIsNotMapped) {
     );
 }
 
+TEST_F(EngineTest, StartupParametersReachTheMaster) {
+    const std::vector<slave::StartupParameter> params{
+        {.index = 0x8000,
+         .sub_index = 0x15,
+         .data_type = x::telem::UINT16_T,
+         .value = 3}
+    };
+    this->engine->set_startup_parameters(0, params);
+    EXPECT_EQ(this->master->startup_parameters(0), params);
+}
+
 TEST_F(EngineTest, InitializeErrorPropagates) {
     this->master->inject_init_error(
         x::errors::Error(errors::MASTER_INIT_ERROR, "init failed")

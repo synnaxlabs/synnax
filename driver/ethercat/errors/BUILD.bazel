@@ -11,10 +11,12 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
     name = "errors",
+    srcs = ["sdo.cpp"],
     hdrs = ["errors.h"],
     visibility = ["//visibility:public"],
     deps = [
         "//driver/errors",
+        "//vendor/soem",
         "//x/cpp/errors",
     ],
 )

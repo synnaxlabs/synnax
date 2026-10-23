@@ -142,6 +142,45 @@ TEST_F(IGHMasterTest, ActivateSlaveConfigFails) {
     EXPECT_EQ(err.data, "failed to configure slave 0 (TestSlave)");
 }
 
+const slave::StartupParameter FILTER{
+    .index = 0x8000,
+    .sub_index = 0x15,
+    .data_type = x::telem::UINT16_T,
+    .value = 3,
+    .name = "Filter",
+};
+
+TEST_F(IGHMasterTest, ActivateWritesAndConfiguresStartupParameters) {
+    this->initialize_with_slave();
+    this->master_instance->set_startup_parameters(0, {FILTER});
+    this->activate_with_domains();
+    const std::vector<MockAPI::SDOWrite> expected{{0, 0x8000, 0x15, {0x03, 0x00}}};
+    EXPECT_EQ(this->mock_api->sdo_downloads, expected);
+    EXPECT_EQ(this->mock_api->config_sdos, expected);
+}
+
+TEST_F(IGHMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
+    this->initialize_with_slave();
+    this->master_instance->set_startup_parameters(0, {FILTER});
+    this->mock_api->set_sdo_download_abort(0x8000, 0x15, 0x06090031);
+    const auto err = this->master_instance->activate();
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 0 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
+        "parameter written too high"
+    );
+    EXPECT_TRUE(this->mock_api->config_sdos.empty());
+}
+
+TEST_F(IGHMasterTest, ActivateSkipsStartupParametersOfDisabledSlave) {
+    this->initialize_with_slave();
+    this->master_instance->set_startup_parameters(0, {FILTER});
+    this->master_instance->set_slave_enabled(0, false);
+    this->activate_with_domains();
+    EXPECT_TRUE(this->mock_api->sdo_downloads.empty());
+}
+
 TEST_F(IGHMasterTest, ActivateHappyPath) {
     this->initialize_with_slave();
     this->mock_api->set_output_domain_size(8);

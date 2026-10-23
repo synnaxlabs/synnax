@@ -88,6 +88,9 @@ private:
     std::unordered_map<std::string, size_t> last_slave_counts;
 
     /// @brief creates a slave device for the given slave.
+    /// @brief passes a slave's enabled flag and startup parameters to its engine.
+    x::errors::Error configure_slave(const slave::Properties &props) const;
+
     synnax::device::Device create_slave_device(
         const slave::DiscoveryResult &slave,
         const std::string &master_key,

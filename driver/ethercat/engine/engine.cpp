@@ -577,4 +577,11 @@ std::string Engine::interface_name() const {
 void Engine::set_slave_enabled(const uint16_t position, const bool enabled) {
     this->master->set_slave_enabled(position, enabled);
 }
+
+void Engine::set_startup_parameters(
+    const uint16_t position,
+    std::vector<slave::StartupParameter> parameters
+) {
+    this->master->set_startup_parameters(position, std::move(parameters));
+}
 }

@@ -35,6 +35,16 @@ const pdosZ = z.object({
 });
 export interface PDOs extends z.infer<typeof pdosZ> {}
 
+/** A CoE object the Driver writes to the slave before each move to SAFE-OP. */
+export const startupParameterZ = z.object({
+  index: z.number(),
+  subIndex: z.number(),
+  dataType: z.string(),
+  value: z.number(),
+  name: z.string().default(""),
+});
+export interface StartupParameter extends z.infer<typeof startupParameterZ> {}
+
 const ZERO_PDOS: PDOs = {
   inputs: [],
   outputs: [],
@@ -60,6 +70,7 @@ export const slavePropertiesZ = z.object({
     .object({ channels: z.record(z.string(), z.number()).default(() => ({})) })
     .default(() => ({ channels: {} })),
   enabled: z.boolean().optional().default(true),
+  startupParameters: z.array(startupParameterZ).default(() => []),
 });
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}
 
@@ -78,6 +89,7 @@ export const ZERO_SLAVE_PROPERTIES: SlaveProperties = {
   read: { channels: {} },
   write: { channels: {} },
   enabled: true,
+  startupParameters: [],
 };
 
 export interface SlaveDevice extends device.Device<
