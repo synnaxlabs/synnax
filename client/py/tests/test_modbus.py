@@ -543,7 +543,9 @@ class TestModbusWriteTask:
                 assert retr_ch.bytes_swapped == orig_ch.bytes_swapped
                 assert retr_ch.words_swapped == orig_ch.words_swapped
 
-    def test_register_channel_without_override_follows_device(self, client: sy.Synnax):
+    def test_register_channel_without_override_follows_device(
+        self, client: sy.Synnax
+    ) -> None:
         """A register channel left unset keeps no swap fields, so the device's order
         applies, while an explicit False survives as an override."""
         task = sy.modbus.WriteTask(
@@ -551,13 +553,16 @@ class TestModbusWriteTask:
             device="some-device-key",
             channels=[
                 sy.modbus.HoldingRegisterWriteChannel(
-                    key="inherit", address=0, channel=1234, data_type="float32"
+                    key="inherit",
+                    address=0,
+                    channel=1234,
+                    data_type=sy.DataType.FLOAT32,
                 ),
                 sy.modbus.HoldingRegisterWriteChannel(
                     key="override",
                     address=2,
                     channel=5678,
-                    data_type="float32",
+                    data_type=sy.DataType.FLOAT32,
                     bytes_swapped=False,
                 ),
             ],
