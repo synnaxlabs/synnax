@@ -10,7 +10,7 @@
 import "@/color/Swatches.css";
 
 import { color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { Button } from "@/button";
 import { BaseSwatch } from "@/color/BaseSwatch";
@@ -31,6 +31,8 @@ export interface SwatchesProps extends Input.Control<
    * button that clears the value.
    */
   fallback?: color.Crude;
+  /** Cells after the presets, such as a `Swatch` with `custom` set. */
+  children?: ReactNode;
 }
 
 /**
@@ -41,6 +43,7 @@ export const Swatches = ({
   value,
   onChange,
   fallback,
+  children,
 }: SwatchesProps): ReactElement => {
   const { colors } = Theming.use();
   const frequent = useFrequent();
@@ -58,6 +61,7 @@ export const Swatches = ({
           <Button.Button
             variant="outlined"
             size="tiny"
+            square
             className={CSS.cls(
               CSS.BE("color-swatches", "auto"),
               CSS.selected(value == null),
@@ -67,7 +71,6 @@ export const Swatches = ({
             aria-label="Auto"
           >
             <Icon.Auto />
-            Auto
           </Button.Button>
         )}
         {presets.map((c) => (
@@ -78,6 +81,7 @@ export const Swatches = ({
             onChange={onChange}
           />
         ))}
+        {children}
       </div>
       {frequent.length > 0 && (
         <>
