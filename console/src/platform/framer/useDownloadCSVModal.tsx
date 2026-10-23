@@ -35,7 +35,6 @@ import { Runtime } from "@/platform/runtime";
 import { Triggers } from "@/platform/triggers";
 
 export interface DownloadCSVModalParams {
-  channelNames?: Record<channel.Key, string>;
   timeRange: CrudeTimeRange;
   channels: channel.Key[];
   name: string;
@@ -53,7 +52,6 @@ const DownloadCSV = ({
   timeRange,
   channels,
   name,
-  channelNames,
   icon,
   close,
 }: Modals.ContentProps<DownloadCSVModalParams, void>) => {
@@ -65,7 +63,6 @@ const DownloadCSV = ({
       timeRange: initialRange,
       downsampleFactor: 1,
       name,
-      channelNames,
     },
   });
   const range = Form.useFieldValue<
@@ -162,19 +159,10 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
     const timeRange = get<TimeRange>("timeRange").value;
     const channels = get<channel.Key[]>("channels").value;
     const downsampleFactor = get<number>("downsampleFactor").value;
-    const channelNames = get<Record<channel.Key, string>>("channelNames", {
-      optional: true,
-    })?.value;
     const name = get<string>("name").value;
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
-      const stream = await client.read({
-        timeRange,
-        channels,
-        channelNames,
-        iteratorConfig: { downsampleFactor },
-        responseType: "csv",
-      });
+      const stream = await client.readCSV(timeRange, channels, { downsampleFactor });
       await download({
         stream,
         name,
@@ -200,7 +188,6 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
 
 const formSchema = z.object({
   name: z.string(),
-  channelNames: z.record(channel.keyZ, z.string()).optional(),
   channels: channel.keyZ.array(),
   timeRange: numericTimeRangeZ.refine(({ start, end }) => end >= start, {
     error: "End time must be after start time",
