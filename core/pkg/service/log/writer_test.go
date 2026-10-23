@@ -48,6 +48,19 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
+		DescribeTable("Should return a validation error for an out-of-range precision",
+			func(ctx SpecContext, precision int32, msg string) {
+				l := log.Log{
+					Name:     "test",
+					Channels: []log.ChannelEntry{{Channel: 5, Precision: &precision}},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).
+					To(MatchError(ContainSubstring(msg)))
+			},
+			Entry("below minimum", int32(-1), "channels.0.precision: must be greater"),
+			Entry("above maximum", int32(18), "channels.0.precision: must be less"),
+		)
+
 		It(
 			"Should establish a ParentOf relationship to the project",
 			func(ctx SpecContext) {
