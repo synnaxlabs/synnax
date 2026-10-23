@@ -11,6 +11,7 @@ package device_test
 
 import (
 	"context"
+	"iter"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,10 +24,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -90,11 +93,12 @@ var _ = Describe("Service", func() {
 		stat       *status.Service
 		rackSvc    *rack.Service
 		svc        *device.Service[module]
-		referenced map[uuid.UUID]bool
+		referenced set.Set[uuid.UUID]
 		deleted    []uuid.UUID
 		tx         gorp.Tx
 	)
 	newConfig := func() device.ServiceConfig[module] {
+		GinkgoHelper()
 		return device.ServiceConfig[module]{
 			DB:          db,
 			Ontology:    otg,
@@ -136,7 +140,7 @@ var _ = Describe("Service", func() {
 			Status:       stat,
 			Search:       searchIdx,
 		}))
-		referenced = map[uuid.UUID]bool{}
+		referenced = set.New[uuid.UUID]()
 		deleted = nil
 		cfg := newConfig()
 		cfg.Search = searchIdx
@@ -153,17 +157,14 @@ var _ = Describe("Service", func() {
 			_ gorp.Tx,
 			key uuid.UUID,
 		) (bool, error) {
-			return referenced[key], nil
+			return referenced.Contains(key), nil
 		}
 		cfg.DeleteChildren = func(_ context.Context, _ gorp.Tx, key uuid.UUID) error {
 			deleted = append(deleted, key)
 			return nil
 		}
 		svc = MustOpen(device.OpenService(ctx, cfg))
-		tx = db.OpenTx()
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
+		tx = DeferClose(db.OpenTx())
 	})
 
 	retrieve := func(ctx context.Context, key uuid.UUID) module {
@@ -360,7 +361,7 @@ var _ = Describe("Service", func() {
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 		It("Should refuse while a task references the resource", func(ctx SpecContext) {
-			referenced[m.Key] = true
+			referenced.Add(m.Key)
 			Expect(svc.Delete(ctx, tx, m.Key)).To(MatchError(validate.ErrValidation))
 			Expect(retrieve(ctx, m.Key)).To(Equal(m))
 		})
@@ -371,6 +372,60 @@ var _ = Describe("Service", func() {
 		It("Should be idempotent", func(ctx SpecContext) {
 			Expect(svc.Delete(ctx, tx, m.Key)).To(Succeed())
 			Expect(svc.Delete(ctx, tx, m.Key)).To(Succeed())
+		})
+		It("Should leave every resource when one is referenced", func(ctx SpecContext) {
+			other := module{Rack: rackSvc.EmbeddedKey, Name: "Other"}
+			Expect(svc.Create(ctx, tx, &other)).To(Succeed())
+			referenced.Add(other.Key)
+			Expect(svc.Delete(ctx, tx, m.Key, other.Key)).
+				To(MatchError(validate.ErrValidation))
+			Expect(deleted).To(BeEmpty())
+			Expect(retrieveStatus(ctx, m.Key).Name).To(Equal("Module"))
+			Expect(parents(ctx, m.Key)).To(ConsistOf(rackSvc.EmbeddedKey.OntologyID()))
+		})
+	})
+
+	Describe("OnChange", func() {
+		It("Should translate committed writes into ontology changes", func(
+			ctx SpecContext,
+		) {
+			var changes []ontology.Change
+			disconnect := svc.OnChange(
+				func(_ context.Context, seq iter.Seq[ontology.Change]) {
+					for c := range seq {
+						changes = append(changes, c)
+					}
+				},
+			)
+			defer disconnect()
+			m := module{Rack: rackSvc.EmbeddedKey, Name: "Module"}
+			Expect(svc.Create(ctx, tx, &m)).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(changes).To(HaveLen(1))
+			Expect(changes[0].Variant).To(Equal(change.VariantSet))
+			Expect(changes[0].Key).To(Equal(svc.OntologyID(m.Key).String()))
+			Expect(changes[0].Value.Name).To(Equal("Module"))
+			deleteTx := DeferClose(db.OpenTx())
+			Expect(svc.Delete(ctx, deleteTx, m.Key)).To(Succeed())
+			Expect(deleteTx.Commit(ctx)).To(Succeed())
+			Expect(changes).To(HaveLen(2))
+			Expect(changes[1].Variant).To(Equal(change.VariantDelete))
+			Expect(changes[1].Key).To(Equal(svc.OntologyID(m.Key).String()))
+		})
+	})
+
+	Describe("OpenNexter", func() {
+		It("Should iterate the stored resources", func(ctx SpecContext) {
+			m := module{Rack: rackSvc.EmbeddedKey, Name: "Module"}
+			Expect(svc.Create(ctx, tx, &m)).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			next, closer := MustSucceed2(svc.OpenNexter(ctx))
+			var ids []ontology.ID
+			for r := range next {
+				ids = append(ids, r.ID)
+			}
+			Expect(closer.Close()).To(Succeed())
+			Expect(ids).To(ContainElement(svc.OntologyID(m.Key)))
 		})
 	})
 })

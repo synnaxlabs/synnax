@@ -274,10 +274,8 @@ func (s *Service[D]) Update(
 // task still references one of them. Delete is idempotent.
 func (s *Service[D]) Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
-	otg := s.cfg.Ontology.NewWriter(tx)
-	stat := s.cfg.Status.NewWriter(tx)
-	for _, key := range keys {
-		if s.cfg.Referenced != nil {
+	if s.cfg.Referenced != nil {
+		for _, key := range keys {
 			referenced, err := s.cfg.Referenced(ctx, tx, key)
 			if err != nil {
 				return err
@@ -291,6 +289,10 @@ func (s *Service[D]) Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) 
 				)
 			}
 		}
+	}
+	otg := s.cfg.Ontology.NewWriter(tx)
+	stat := s.cfg.Status.NewWriter(tx)
+	for _, key := range keys {
 		if s.cfg.DeleteChildren != nil {
 			if err := s.cfg.DeleteChildren(ctx, tx, key); err != nil {
 				return err
