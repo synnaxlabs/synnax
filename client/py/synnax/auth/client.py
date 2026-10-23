@@ -69,25 +69,25 @@ class APIKey(BaseModel):
     """When the key was created."""
 
 
-class KeyCreateRequest(BaseModel):
+class _KeyCreateRequest(BaseModel):
     subject: ontology.ID | None = None
     name: str
 
 
-class KeyCreateResponse(BaseModel):
+class _KeyCreateResponse(BaseModel):
     token: str
     key: APIKey
 
 
-class KeyRetrieveRequest(BaseModel):
+class _KeyRetrieveRequest(BaseModel):
     subjects: list[ontology.ID] = []
 
 
-class KeyRetrieveResponse(BaseModel):
+class _KeyRetrieveResponse(BaseModel):
     keys: list[APIKey] = []
 
 
-class KeyDeleteRequest(BaseModel):
+class _KeyDeleteRequest(BaseModel):
     keys: list[UUID] = []
 
 
@@ -95,9 +95,9 @@ _SESSION_CREATE_ENDPOINT = "/auth/session/create"
 _SESSION_RENEW_ENDPOINT = "/auth/session/renew"
 _SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve"
 _SESSION_DELETE_ENDPOINT = "/auth/session/delete"
-KEY_CREATE_ENDPOINT = "/auth/key/create"
-KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve"
-KEY_DELETE_ENDPOINT = "/auth/key/delete"
+_KEY_CREATE_ENDPOINT = "/auth/key/create"
+_KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve"
+_KEY_DELETE_ENDPOINT = "/auth/key/delete"
 
 AUTHORIZATION_HEADER = "Authorization"
 RETRY_ON_ERRORS = (InvalidToken, ExpiredToken, SessionEnded)
@@ -196,9 +196,9 @@ class Client:
         """
         res = send_required(
             self.client,
-            KEY_CREATE_ENDPOINT,
-            KeyCreateRequest(subject=subject, name=name),
-            KeyCreateResponse,
+            _KEY_CREATE_ENDPOINT,
+            _KeyCreateRequest(subject=subject, name=name),
+            _KeyCreateResponse,
         )
         return res.token, res.key
 
@@ -208,16 +208,16 @@ class Client:
         """
         res = send_required(
             self.client,
-            KEY_RETRIEVE_ENDPOINT,
-            KeyRetrieveRequest(subjects=subjects or []),
-            KeyRetrieveResponse,
+            _KEY_RETRIEVE_ENDPOINT,
+            _KeyRetrieveRequest(subjects=subjects or []),
+            _KeyRetrieveResponse,
         )
         return res.keys
 
     def delete_keys(self, *keys: UUID) -> None:
         """Deletes API keys and ends their sessions. Unknown keys are ignored."""
         send_required(
-            self.client, KEY_DELETE_ENDPOINT, KeyDeleteRequest(keys=list(keys)), Empty
+            self.client, _KEY_DELETE_ENDPOINT, _KeyDeleteRequest(keys=list(keys)), Empty
         )
 
     def logout(self) -> None:

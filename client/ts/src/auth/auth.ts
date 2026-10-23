@@ -46,11 +46,10 @@ const retrieveResZ = z.object({ sessions: sessionZ.array() });
 const deleteReqZ = z.object({ keys: sessionKeyZ.array() });
 const emptyResZ = z.object({});
 
-export const apiKeyKeyZ = z.uuid();
+const apiKeyKeyZ = z.uuid();
 export type APIKeyKey = z.infer<typeof apiKeyKeyZ>;
 
-/** APIKey is an API key as the API returns it: the stored record without its hash. */
-export const apiKeyZ = z.object({
+const apiKeyZ = z.object({
   /** key is the unique identifier for this API key. */
   key: apiKeyKeyZ,
   /** subject is the user or rack the key logs in as. */
@@ -60,6 +59,7 @@ export const apiKeyZ = z.object({
   /** created is when the key was created. */
   created: TimeStamp.z,
 });
+/** APIKey is an API key as the API returns it: the stored record without its hash. */
 export interface APIKey extends z.infer<typeof apiKeyZ> {}
 
 export interface NewAPIKey {

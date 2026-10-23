@@ -31,9 +31,6 @@ namespace synnax::auth {
 const std::string HEADER_KEY = "authorization";
 /// @brief auth token prefix that will be parsed by the cluster.
 const std::string HEADER_VALUE_PREFIX = "Bearer ";
-/// @brief the method of a username and password proof.
-const std::string METHOD_PASSWORD = "password";
-const std::string METHOD_API_KEY = "api_key";
 
 /// @brief transport that opens a session from a proof.
 using SessionCreateClient = freighter::
@@ -81,7 +78,7 @@ struct Subject {
 inline grpc::auth::Proof
 password_proof(const std::string &username, const std::string &password) {
     grpc::auth::Proof proof;
-    proof.set_method(METHOD_PASSWORD);
+    proof.set_method("password");
     proof.set_username(username);
     proof.set_password(password);
     return proof;
@@ -90,7 +87,7 @@ password_proof(const std::string &username, const std::string &password) {
 /// @brief returns a proof that logs in with an API key.
 inline grpc::auth::Proof api_key_proof(const std::string &key) {
     grpc::auth::Proof proof;
-    proof.set_method(METHOD_API_KEY);
+    proof.set_method("api_key");
     proof.set_key(key);
     return proof;
 }
