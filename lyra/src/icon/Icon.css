@@ -11,7 +11,9 @@
 
 .pluto-icon {
     color: inherit;
-    width: 1em;
+
+    /* A wide mark sets --pluto-icon-aspect to widen its box rather than overflow it. */
+    width: calc(var(--pluto-icon-aspect, 1) * 1em);
     height: 1em;
     flex-shrink: 0;
 
@@ -52,8 +54,4 @@
 
 .pluto--clickable:active .pluto-icon .pluto-sub {
     background: var(--pluto-active-bg);
-}
-
-.pluto-icon--logo-ethercat {
-    transform: scale(1.25);
 }

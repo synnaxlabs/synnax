@@ -28,7 +28,7 @@ type Session struct {
 	// Key is the unique identifier for this session.
 	Key SessionKey `json:"key" msgpack:"key"`
 	// Hash is the SHA-256 hash of the secret in the session's token.
-	Hash []byte `json:"hash" msgpack:"hash"`
+	Hash []byte `json:"-" msgpack:"-"`
 	// Subject is the user or rack that logged in.
 	Subject ontology.ID `json:"subject" msgpack:"subject"`
 	// Credential is the key of the credential record the login matched.

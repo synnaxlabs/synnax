@@ -30,8 +30,8 @@ var _ = Describe("Token", func() {
 	})
 	It("Should make a different secret every time", func() {
 		key := uuid.New()
-		a, aHash := MustSucceed2(auth.NewToken(auth.TokenPrefix, key))
-		b, bHash := MustSucceed2(auth.NewToken(auth.TokenPrefix, key))
+		a, aHash := MustSucceed2(auth.NewToken("sys_", key))
+		b, bHash := MustSucceed2(auth.NewToken("sys_", key))
 		Expect(a).ToNot(Equal(b))
 		Expect(aHash).ToNot(Equal(bHash))
 	})
@@ -40,7 +40,7 @@ var _ = Describe("Token", func() {
 			To(MatchError(auth.ErrInvalidToken))
 	},
 		Entry("wrong prefix", func() string {
-			token, _ := MustSucceed2(auth.NewToken(auth.TokenPrefix, uuid.New()))
+			token, _ := MustSucceed2(auth.NewToken("sys_", uuid.New()))
 			return token
 		}()),
 		Entry("invalid encoding", "syk_!!!"),
