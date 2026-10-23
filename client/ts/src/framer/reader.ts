@@ -11,8 +11,7 @@ import { type FileOptions, type FileTransport } from "@synnaxlabs/freighter";
 import { type CrudeTimeRange, errors, TimeRange } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type channel } from "@/channel";
-import { keyZ } from "@/channel/types.gen";
+import { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { Frame } from "@/framer/frame";
@@ -21,7 +20,7 @@ const READ_ENDPOINT = "/frame/read";
 const FRAME_ENCODING = { contentType: "application/vnd.synnax.frame" };
 
 const reqZ = z.object({
-  keys: keyZ.array(),
+  keys: channel.keyZ.array(),
   bounds: TimeRange.z,
   downsampleFactor: z.uint32(),
   timestampsIncluded: z.boolean(),
@@ -60,6 +59,9 @@ export class Reader {
    * keyed by name.
    * @param opts - see {@link ReadOptions}.
    * @returns the samples as a frame.
+   * @throws {NotFoundError} if a channel does not exist.
+   * @throws {AccessDeniedError} if the caller may not retrieve a channel.
+   * @throws {UnexpectedError} if the response ends before the read completes.
    */
   async read(
     tr: CrudeTimeRange,
@@ -83,13 +85,15 @@ export class Reader {
   /**
    * Reads every sample the given channels hold within tr as CSV text. Channels are
    * grouped by the index channel that timestamps them, and each group contributes its
-   * index column followed by one column per channel. Channels with no index are
-   * excluded.
+   * index column followed by one column per channel.
    *
    * @param tr - the time range to read.
    * @param channels - the channels to read, by key or by name.
    * @param opts - see {@link ReadCSVOptions}.
    * @returns the CSV as a stream of bytes the caller pipes wherever it likes.
+   * @throws {NotFoundError} if a channel does not exist.
+   * @throws {AccessDeniedError} if the caller may not retrieve a channel or its index.
+   * @throws {ValidationError} if a channel has no index channel.
    */
   async readCSV(
     tr: CrudeTimeRange,

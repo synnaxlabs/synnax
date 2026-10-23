@@ -216,6 +216,9 @@ export class Client {
    * @param channels - the channels to read, by key or by name.
    * @param opts - see {@link ReadCSVOptions}.
    * @returns the CSV as a stream of bytes.
+   * @throws {NotFoundError} if a channel does not exist.
+   * @throws {AccessDeniedError} if the caller may not retrieve a channel or its index.
+   * @throws {ValidationError} if a channel has no index channel.
    */
   async readCSV(
     tr: CrudeTimeRange,
