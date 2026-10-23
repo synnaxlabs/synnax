@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type FileOptions, type FileTransport } from "@synnaxlabs/freighter";
-import { type CrudeTimeRange, errors, TimeRange } from "@synnaxlabs/x";
+import {
+  type CrudeTimeRange,
+  errors,
+  type Reduction,
+  reductionZ,
+  type StrideReduction,
+  TimeRange,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
@@ -22,21 +29,21 @@ const FRAME_ENCODING = { contentType: "application/vnd.synnax.frame" };
 const reqZ = z.object({
   keys: channel.keyZ.array(),
   bounds: TimeRange.z,
-  downsampleFactor: z.uint32(),
+  reduction: reductionZ.optional(),
   timestampsIncluded: z.boolean(),
 });
 
 /** Options controlling how the Core resolves a read. */
 export interface ReadOptions {
-  /**
-   * Keeps one sample in every downsampleFactor. A factor of 1, the default, keeps
-   * every sample.
-   */
-  downsampleFactor?: number;
+  /** Reduces the samples of each channel. A read without one keeps every sample. */
+  reduction?: Reduction;
 }
 
 /** Options controlling how the Core resolves and formats a CSV read. */
-export interface ReadCSVOptions extends ReadOptions {}
+export interface ReadCSVOptions {
+  /** Keeps every factor-th sample of each channel. */
+  reduction?: StrideReduction;
+}
 
 /**
  * Reader pulls historical telemetry from the Core in a single request per read, letting
@@ -122,7 +129,7 @@ export class Reader {
       {
         keys,
         bounds: new TimeRange(tr),
-        downsampleFactor: opts.downsampleFactor ?? 1,
+        reduction: opts.reduction,
         timestampsIncluded,
       },
       reqZ,

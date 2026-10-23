@@ -107,14 +107,10 @@ func response(
 	channels, indexes []svcchannel.Channel,
 	cfg svcframer.IteratorConfig,
 ) framer.ReadResponse {
-	var factor uint32
-	if stride, ok := cfg.Reduction.Variant.(telem.StrideReduction); ok {
-		factor = stride.Factor
-	}
 	return framer.ReadResponse{
-		Channels:         channels,
-		Indexes:          indexes,
-		DownsampleFactor: factor,
+		Channels:  channels,
+		Indexes:   indexes,
+		Reduction: cfg.Reduction,
 		OpenIterator: func(
 			ctx context.Context,
 			keys svcchannel.Keys,
@@ -176,6 +172,38 @@ var _ = Describe("Read", func() {
 			Expect(fr.Count()).To(Equal(1))
 			Expect(fr.Get(channels[0].Key()).Series[0]).
 				To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2, 3)))
+		})
+
+		It("Should encode the alignment multiples of a limited read", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
+				channels,
+				telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8),
+			)
+			res := response(channels, nil, svcframer.IteratorConfig{
+				Reduction: telem.Reduction{Variant: telem.LimitReduction{
+					Aggregation: telem.AggregationMinMax,
+					PointLimit:  4,
+				}},
+			})
+			data, terminator := splitRecords(
+				MustSucceed(framer.FrameEncoder.Encode(ctx, res)),
+			)
+			Expect(terminator).To(BeEmpty())
+			Expect(data).To(HaveLen(1))
+			c := codec.NewStatic(
+				svcchannel.KeysFromChannels(channels),
+				[]telem.DataType{telem.Float32T},
+			)
+			series := MustSucceed(c.Decode(data[0])).Get(channels[0].Key()).Series
+			Expect(series).To(HaveLen(1))
+			Expect(series[0].AlignmentMultiple).To(BeEquivalentTo(2))
+			Expect(series[0]).To(telem.MatchSeriesDataV[float32](1, 4, 5, 8))
 		})
 
 		It("Should encode a read with no data as a single terminator", func(

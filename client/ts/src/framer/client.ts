@@ -116,16 +116,8 @@ export class Client {
       readRemote: async (tr, keys) => await this.read(tr, keys),
       openStreamer: async (config) => await this.openStreamer(config),
       readLatest: async (keys) => await this.readLatest(keys, 1),
-      readTileRemote: async (tr, keys, reduction) => {
-        const iter = await this.openIterator(tr, keys, { reduction });
-        try {
-          if (!(await iter.seekFirst())) return new Frame();
-          await iter.next(tr.span);
-          return iter.value;
-        } finally {
-          await iter.close();
-        }
-      },
+      readTileRemote: async (tr, keys, reduction) =>
+        await this.read(tr, keys, { reduction }),
     });
   }
 
