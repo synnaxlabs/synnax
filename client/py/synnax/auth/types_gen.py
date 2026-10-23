@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal, TypeAlias
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
@@ -52,7 +52,8 @@ class APIKeyCredentials(BaseModel):
 
 
 class Session(BaseModel):
-    """Is a session as the API returns it: the stored record without its hash.
+    """Is a logged-in subject. It ends when it is revoked or when no request has used it
+    for the idle timeout.
 
     Attributes:
         key: Is the unique identifier for this session.
@@ -62,12 +63,15 @@ class Session(BaseModel):
             of the idle timeout.
     """
 
-    key: SessionKey
+    key: SessionKey = Field(default_factory=uuid4)
     subject: ontology.ID
     credential: UUID
     last_active: telem.TimeStamp = Field(
         ge=-9223372036854775808, le=9223372036854775807
     )
+
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class PasswordProof(Credentials):

@@ -82,7 +82,7 @@ var _ = Describe("Service", func() {
 		})
 		It("Should reject a malformed key", func(ctx SpecContext) {
 			_, token := MustSucceed2(svc.NewWriter(nil).Create(ctx, subject(), ""))
-			session := strings.Replace(token, "syk_", auth.TokenPrefix, 1)
+			session := strings.Replace(token, "syk_", "sys_", 1)
 			Expect(svc.Authenticate(ctx, proof(session))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
 		})

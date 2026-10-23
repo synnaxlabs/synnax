@@ -21,6 +21,7 @@ Session struct {
     }
     hash        bytes           {
         @doc value "is the SHA-256 hash of the secret in the session's token."
+        @go wire   omit
     }
     subject     ontology.ID     {
         @doc value "is the user or rack that logged in."

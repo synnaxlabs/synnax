@@ -67,10 +67,11 @@ const renderMultiple = (
 interface SingleOptions {
   allowNone?: boolean;
   autoSelectOnNone?: boolean;
+  closeDialogOnSelect?: boolean;
 }
 
 const renderSingle = (
-  { allowNone = true, autoSelectOnNone }: SingleOptions = {},
+  { allowNone = true, autoSelectOnNone, closeDialogOnSelect }: SingleOptions = {},
   initial: string | null | undefined = undefined,
   getData: () => string[] = () => DATA,
 ) =>
@@ -82,6 +83,7 @@ const renderSingle = (
         onChange={onChange}
         allowNone
         autoSelectOnNone={autoSelectOnNone}
+        closeDialogOnSelect={closeDialogOnSelect}
       >
         {children}
       </Select.Frame>
@@ -207,6 +209,13 @@ describe("useSelect", () => {
       act(() => result.current.onSelect("1"));
       act(() => result.current.onSelect("1"));
       expect(result.current.value).toEqual(null);
+    });
+
+    it("should keep an item when you click it again in a closing dialog", () => {
+      const { result } = renderSingle({ closeDialogOnSelect: true });
+      act(() => result.current.onSelect("1"));
+      act(() => result.current.onSelect("1"));
+      expect(result.current.value).toEqual("1");
     });
 
     describe("not allow none", () => {

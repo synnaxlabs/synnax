@@ -17,8 +17,7 @@ import (
 	"uuid"
 )
 
-// TokenPrefix starts every session token.
-const TokenPrefix = "sys_"
+const tokenPrefix = "sys_"
 
 const secretLen = 32
 
