@@ -102,6 +102,12 @@ var _ = Describe("PBNamespace", func() {
 			"device",
 			"::service::device::pb",
 		),
+		Entry(
+			"namespace differs from the output directory",
+			"core/pkg/service/legacy/pb",
+			"device",
+			"::service::device::pb",
+		),
 		Entry("x/go path", "x/go/telem/pb", "telem", "::x::telem::pb"),
 		Entry(
 			"two-segment path",
