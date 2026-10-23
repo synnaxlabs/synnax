@@ -16,6 +16,7 @@ import "schemas/x/telem"
 
 Method enum {
     password = "password"
+    api_key  = "api_key"
 
     @doc value "names an authentication method."
 }
@@ -74,9 +75,21 @@ Credentials struct {
     @doc value "is a plaintext username and password pair presented at login."
 }
 
+APIKeyCredentials struct {
+    key string {
+        @doc value         "is the full API key, as it was shown at creation."
+        @validate required
+    }
+
+    @doc value "is an API key presented at login."
+}
+
 Proof union on method Method {
     password Credentials {
         @doc value "proves a password."
+    }
+    api_key  APIKeyCredentials {
+        @doc value "proves an API key."
     }
 
     @doc value """

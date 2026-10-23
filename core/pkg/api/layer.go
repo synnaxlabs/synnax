@@ -66,6 +66,9 @@ type Transport struct {
 	AuthSessionRenew    freighter.UnaryServer[struct{}, auth.SessionRenewResponse]
 	AuthSessionRetrieve freighter.UnaryServer[auth.SessionRetrieveRequest, auth.SessionRetrieveResponse]
 	AuthSessionDelete   freighter.UnaryServer[auth.SessionDeleteRequest, struct{}]
+	AuthKeyCreate       freighter.UnaryServer[auth.KeyCreateRequest, auth.KeyCreateResponse]
+	AuthKeyRetrieve     freighter.UnaryServer[auth.KeyRetrieveRequest, auth.KeyRetrieveResponse]
+	AuthKeyDelete       freighter.UnaryServer[auth.KeyDeleteRequest, struct{}]
 	// USER
 	UserRename         freighter.UnaryServer[user.RenameRequest, struct{}]
 	UserChangeUsername freighter.UnaryServer[user.ChangeUsernameRequest, struct{}]
@@ -295,6 +298,9 @@ func (l *Layer) BindTo(t Transport) {
 
 		// AUTH
 		t.AuthChangePassword,
+		t.AuthKeyCreate,
+		t.AuthKeyRetrieve,
+		t.AuthKeyDelete,
 
 		// USER
 		t.UserRename,
@@ -472,6 +478,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.AuthSessionRenew.BindHandler(l.Auth.RenewSession)
 	t.AuthSessionRetrieve.BindHandler(l.Auth.RetrieveSessions)
 	t.AuthSessionDelete.BindHandler(l.Auth.DeleteSessions)
+	t.AuthKeyCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.CreateKey))
+	t.AuthKeyRetrieve.BindHandler(l.Auth.RetrieveKeys)
+	t.AuthKeyDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.DeleteKeys))
 
 	// LICENSE
 	t.LicenseRetrieve.BindHandler(l.License.Retrieve)

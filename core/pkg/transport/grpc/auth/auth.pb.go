@@ -269,6 +269,7 @@ type Proof struct {
 	Method        string                 `protobuf:"bytes,1,opt,name=method,proto3" json:"method,omitempty"`
 	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
 	Password      string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
+	Key           string                 `protobuf:"bytes,4,opt,name=key,proto3" json:"key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -320,6 +321,13 @@ func (x *Proof) GetUsername() string {
 func (x *Proof) GetPassword() string {
 	if x != nil {
 		return x.Password
+	}
+	return ""
+}
+
+func (x *Proof) GetKey() string {
+	if x != nil {
+		return x.Key
 	}
 	return ""
 }
@@ -733,6 +741,310 @@ func (x *SessionDeleteRequest) GetKeys() []string {
 	return nil
 }
 
+type APIKey struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Subject       *Subject               `protobuf:"bytes,2,opt,name=subject,proto3" json:"subject,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Created       int64                  `protobuf:"varint,4,opt,name=created,proto3" json:"created,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *APIKey) Reset() {
+	*x = APIKey{}
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *APIKey) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*APIKey) ProtoMessage() {}
+
+func (x *APIKey) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use APIKey.ProtoReflect.Descriptor instead.
+func (*APIKey) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *APIKey) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *APIKey) GetSubject() *Subject {
+	if x != nil {
+		return x.Subject
+	}
+	return nil
+}
+
+func (x *APIKey) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *APIKey) GetCreated() int64 {
+	if x != nil {
+		return x.Created
+	}
+	return 0
+}
+
+type KeyCreateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Subject       *Subject               `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KeyCreateRequest) Reset() {
+	*x = KeyCreateRequest{}
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KeyCreateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KeyCreateRequest) ProtoMessage() {}
+
+func (x *KeyCreateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KeyCreateRequest.ProtoReflect.Descriptor instead.
+func (*KeyCreateRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *KeyCreateRequest) GetSubject() *Subject {
+	if x != nil {
+		return x.Subject
+	}
+	return nil
+}
+
+func (x *KeyCreateRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type KeyCreateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	Key           *APIKey                `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KeyCreateResponse) Reset() {
+	*x = KeyCreateResponse{}
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KeyCreateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KeyCreateResponse) ProtoMessage() {}
+
+func (x *KeyCreateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KeyCreateResponse.ProtoReflect.Descriptor instead.
+func (*KeyCreateResponse) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *KeyCreateResponse) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *KeyCreateResponse) GetKey() *APIKey {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+type KeyRetrieveRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Subjects      []*Subject             `protobuf:"bytes,1,rep,name=subjects,proto3" json:"subjects,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KeyRetrieveRequest) Reset() {
+	*x = KeyRetrieveRequest{}
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KeyRetrieveRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KeyRetrieveRequest) ProtoMessage() {}
+
+func (x *KeyRetrieveRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KeyRetrieveRequest.ProtoReflect.Descriptor instead.
+func (*KeyRetrieveRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *KeyRetrieveRequest) GetSubjects() []*Subject {
+	if x != nil {
+		return x.Subjects
+	}
+	return nil
+}
+
+type KeyRetrieveResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Keys          []*APIKey              `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KeyRetrieveResponse) Reset() {
+	*x = KeyRetrieveResponse{}
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KeyRetrieveResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KeyRetrieveResponse) ProtoMessage() {}
+
+func (x *KeyRetrieveResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KeyRetrieveResponse.ProtoReflect.Descriptor instead.
+func (*KeyRetrieveResponse) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *KeyRetrieveResponse) GetKeys() []*APIKey {
+	if x != nil {
+		return x.Keys
+	}
+	return nil
+}
+
+type KeyDeleteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Keys          []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KeyDeleteRequest) Reset() {
+	*x = KeyDeleteRequest{}
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KeyDeleteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KeyDeleteRequest) ProtoMessage() {}
+
+func (x *KeyDeleteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KeyDeleteRequest.ProtoReflect.Descriptor instead.
+func (*KeyDeleteRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *KeyDeleteRequest) GetKeys() []string {
+	if x != nil {
+		return x.Keys
+	}
+	return nil
+}
+
 var File_core_pkg_transport_grpc_auth_auth_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
@@ -753,11 +1065,12 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\fcluster_info\x18\x03 \x01(\v2\x16.grpc.auth.ClusterInfoR\vclusterInfo\"4\n" +
 	"\x04User\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x1a\n" +
-	"\busername\x18\x02 \x01(\tR\busername\"W\n" +
+	"\busername\x18\x02 \x01(\tR\busername\"i\n" +
 	"\x05Proof\x12\x16\n" +
 	"\x06method\x18\x01 \x01(\tR\x06method\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x03 \x01(\tR\bpassword\"/\n" +
+	"\bpassword\x18\x03 \x01(\tR\bpassword\x12\x10\n" +
+	"\x03key\x18\x04 \x01(\tR\x03key\"/\n" +
 	"\aSubject\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\"\x8a\x01\n" +
@@ -785,6 +1098,23 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\x17SessionRetrieveResponse\x12.\n" +
 	"\bsessions\x18\x01 \x03(\v2\x12.grpc.auth.SessionR\bsessions\"*\n" +
 	"\x14SessionDeleteRequest\x12\x12\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys\"v\n" +
+	"\x06APIKey\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
+	"\asubject\x18\x02 \x01(\v2\x12.grpc.auth.SubjectR\asubject\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x18\n" +
+	"\acreated\x18\x04 \x01(\x03R\acreated\"T\n" +
+	"\x10KeyCreateRequest\x12,\n" +
+	"\asubject\x18\x01 \x01(\v2\x12.grpc.auth.SubjectR\asubject\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"N\n" +
+	"\x11KeyCreateResponse\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12#\n" +
+	"\x03key\x18\x02 \x01(\v2\x11.grpc.auth.APIKeyR\x03key\"D\n" +
+	"\x12KeyRetrieveRequest\x12.\n" +
+	"\bsubjects\x18\x01 \x03(\v2\x12.grpc.auth.SubjectR\bsubjects\"<\n" +
+	"\x13KeyRetrieveResponse\x12%\n" +
+	"\x04keys\x18\x01 \x03(\v2\x11.grpc.auth.APIKeyR\x04keys\"&\n" +
+	"\x10KeyDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys2M\n" +
 	"\x10AuthLoginService\x129\n" +
 	"\x04Exec\x12\x17.grpc.auth.LoginRequest\x1a\x18.grpc.auth.LoginResponse2e\n" +
@@ -795,7 +1125,13 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\x1aAuthSessionRetrieveService\x12M\n" +
 	"\x04Exec\x12!.grpc.auth.SessionRetrieveRequest\x1a\".grpc.auth.SessionRetrieveResponse2[\n" +
 	"\x18AuthSessionDeleteService\x12?\n" +
-	"\x04Exec\x12\x1f.grpc.auth.SessionDeleteRequest\x1a\x16.google.protobuf.EmptyB\x95\x01\n" +
+	"\x04Exec\x12\x1f.grpc.auth.SessionDeleteRequest\x1a\x16.google.protobuf.Empty2Y\n" +
+	"\x14AuthKeyCreateService\x12A\n" +
+	"\x04Exec\x12\x1b.grpc.auth.KeyCreateRequest\x1a\x1c.grpc.auth.KeyCreateResponse2_\n" +
+	"\x16AuthKeyRetrieveService\x12E\n" +
+	"\x04Exec\x12\x1d.grpc.auth.KeyRetrieveRequest\x1a\x1e.grpc.auth.KeyRetrieveResponse2S\n" +
+	"\x14AuthKeyDeleteService\x12;\n" +
+	"\x04Exec\x12\x1b.grpc.auth.KeyDeleteRequest\x1a\x16.google.protobuf.EmptyB\x95\x01\n" +
 	"\rcom.grpc.authB\tAuthProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/transport/grpc/auth\xa2\x02\x03GAX\xaa\x02\tGrpc.Auth\xca\x02\tGrpc\\Auth\xe2\x02\x15Grpc\\Auth\\GPBMetadata\xea\x02\n" +
 	"Grpc::Authb\x06proto3"
 
@@ -811,7 +1147,7 @@ func file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP() []byte {
 	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_core_pkg_transport_grpc_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_core_pkg_transport_grpc_auth_auth_proto_goTypes = []any{
 	(*ClusterInfo)(nil),             // 0: grpc.auth.ClusterInfo
 	(*LoginRequest)(nil),            // 1: grpc.auth.LoginRequest
@@ -826,7 +1162,13 @@ var file_core_pkg_transport_grpc_auth_auth_proto_goTypes = []any{
 	(*SessionRetrieveRequest)(nil),  // 10: grpc.auth.SessionRetrieveRequest
 	(*SessionRetrieveResponse)(nil), // 11: grpc.auth.SessionRetrieveResponse
 	(*SessionDeleteRequest)(nil),    // 12: grpc.auth.SessionDeleteRequest
-	(*emptypb.Empty)(nil),           // 13: google.protobuf.Empty
+	(*APIKey)(nil),                  // 13: grpc.auth.APIKey
+	(*KeyCreateRequest)(nil),        // 14: grpc.auth.KeyCreateRequest
+	(*KeyCreateResponse)(nil),       // 15: grpc.auth.KeyCreateResponse
+	(*KeyRetrieveRequest)(nil),      // 16: grpc.auth.KeyRetrieveRequest
+	(*KeyRetrieveResponse)(nil),     // 17: grpc.auth.KeyRetrieveResponse
+	(*KeyDeleteRequest)(nil),        // 18: grpc.auth.KeyDeleteRequest
+	(*emptypb.Empty)(nil),           // 19: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_auth_auth_proto_depIdxs = []int32{
 	3,  // 0: grpc.auth.LoginResponse.user:type_name -> grpc.auth.User
@@ -839,21 +1181,32 @@ var file_core_pkg_transport_grpc_auth_auth_proto_depIdxs = []int32{
 	3,  // 7: grpc.auth.SessionRenewResponse.user:type_name -> grpc.auth.User
 	5,  // 8: grpc.auth.SessionRetrieveRequest.subjects:type_name -> grpc.auth.Subject
 	6,  // 9: grpc.auth.SessionRetrieveResponse.sessions:type_name -> grpc.auth.Session
-	1,  // 10: grpc.auth.AuthLoginService.Exec:input_type -> grpc.auth.LoginRequest
-	7,  // 11: grpc.auth.AuthSessionCreateService.Exec:input_type -> grpc.auth.SessionCreateRequest
-	13, // 12: grpc.auth.AuthSessionRenewService.Exec:input_type -> google.protobuf.Empty
-	10, // 13: grpc.auth.AuthSessionRetrieveService.Exec:input_type -> grpc.auth.SessionRetrieveRequest
-	12, // 14: grpc.auth.AuthSessionDeleteService.Exec:input_type -> grpc.auth.SessionDeleteRequest
-	2,  // 15: grpc.auth.AuthLoginService.Exec:output_type -> grpc.auth.LoginResponse
-	8,  // 16: grpc.auth.AuthSessionCreateService.Exec:output_type -> grpc.auth.SessionCreateResponse
-	9,  // 17: grpc.auth.AuthSessionRenewService.Exec:output_type -> grpc.auth.SessionRenewResponse
-	11, // 18: grpc.auth.AuthSessionRetrieveService.Exec:output_type -> grpc.auth.SessionRetrieveResponse
-	13, // 19: grpc.auth.AuthSessionDeleteService.Exec:output_type -> google.protobuf.Empty
-	15, // [15:20] is the sub-list for method output_type
-	10, // [10:15] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	5,  // 10: grpc.auth.APIKey.subject:type_name -> grpc.auth.Subject
+	5,  // 11: grpc.auth.KeyCreateRequest.subject:type_name -> grpc.auth.Subject
+	13, // 12: grpc.auth.KeyCreateResponse.key:type_name -> grpc.auth.APIKey
+	5,  // 13: grpc.auth.KeyRetrieveRequest.subjects:type_name -> grpc.auth.Subject
+	13, // 14: grpc.auth.KeyRetrieveResponse.keys:type_name -> grpc.auth.APIKey
+	1,  // 15: grpc.auth.AuthLoginService.Exec:input_type -> grpc.auth.LoginRequest
+	7,  // 16: grpc.auth.AuthSessionCreateService.Exec:input_type -> grpc.auth.SessionCreateRequest
+	19, // 17: grpc.auth.AuthSessionRenewService.Exec:input_type -> google.protobuf.Empty
+	10, // 18: grpc.auth.AuthSessionRetrieveService.Exec:input_type -> grpc.auth.SessionRetrieveRequest
+	12, // 19: grpc.auth.AuthSessionDeleteService.Exec:input_type -> grpc.auth.SessionDeleteRequest
+	14, // 20: grpc.auth.AuthKeyCreateService.Exec:input_type -> grpc.auth.KeyCreateRequest
+	16, // 21: grpc.auth.AuthKeyRetrieveService.Exec:input_type -> grpc.auth.KeyRetrieveRequest
+	18, // 22: grpc.auth.AuthKeyDeleteService.Exec:input_type -> grpc.auth.KeyDeleteRequest
+	2,  // 23: grpc.auth.AuthLoginService.Exec:output_type -> grpc.auth.LoginResponse
+	8,  // 24: grpc.auth.AuthSessionCreateService.Exec:output_type -> grpc.auth.SessionCreateResponse
+	9,  // 25: grpc.auth.AuthSessionRenewService.Exec:output_type -> grpc.auth.SessionRenewResponse
+	11, // 26: grpc.auth.AuthSessionRetrieveService.Exec:output_type -> grpc.auth.SessionRetrieveResponse
+	19, // 27: grpc.auth.AuthSessionDeleteService.Exec:output_type -> google.protobuf.Empty
+	15, // 28: grpc.auth.AuthKeyCreateService.Exec:output_type -> grpc.auth.KeyCreateResponse
+	17, // 29: grpc.auth.AuthKeyRetrieveService.Exec:output_type -> grpc.auth.KeyRetrieveResponse
+	19, // 30: grpc.auth.AuthKeyDeleteService.Exec:output_type -> google.protobuf.Empty
+	23, // [23:31] is the sub-list for method output_type
+	15, // [15:23] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_auth_auth_proto_init() }
@@ -869,9 +1222,9 @@ func file_core_pkg_transport_grpc_auth_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_auth_auth_proto_rawDesc), len(file_core_pkg_transport_grpc_auth_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   19,
 			NumExtensions: 0,
-			NumServices:   5,
+			NumServices:   8,
 		},
 		GoTypes:           file_core_pkg_transport_grpc_auth_auth_proto_goTypes,
 		DependencyIndexes: file_core_pkg_transport_grpc_auth_auth_proto_depIdxs,
