@@ -42,6 +42,9 @@ func parseServerContext(
 		)
 		return oCtx
 	}
+	if p.Addr != nil {
+		oCtx.Remote = address.Address(p.Addr.String())
+	}
 	if tlsAuth, ok := p.AuthInfo.(credentials.TLSInfo); ok {
 		oCtx.Sec.TLS.Used = true
 		oCtx.Sec.TLS.ConnectionState = tlsAuth.State
