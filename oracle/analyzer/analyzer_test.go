@@ -270,6 +270,35 @@ Entry struct {
 			Expect(diag.Ok()).To(BeTrue())
 		})
 
+		It("Should accept @go imex body", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go imex body
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		It("Should error when @go imex carries an unknown argument", func(
+			ctx SpecContext,
+		) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go imex bodies
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				"malformed @go imex; the marker takes no argument or body",
+			))
+		})
+
 		It("Should error when @go imex carries arguments", func(ctx SpecContext) {
 			source := `
 				@go output "out"

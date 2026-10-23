@@ -14,7 +14,9 @@
 // the service package gains the Service.Export half of imex.ImportExporter. Latest
 // keeps the wire envelope version and the storage schema version a single sequence per
 // resource, and the ladder extends itself on every version bump. Import stays
-// hand-written: every resource parents and persists differently.
+// hand-written: every resource parents and persists differently. A type another
+// resource exports declares `@go imex body` and gets an exported <Type>Ladder over body
+// blobs instead of the envelope ladder and Export.
 package imex
 
 import (
@@ -24,6 +26,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -36,6 +39,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -74,13 +78,15 @@ func (*Plugin) Name() string       { return "go/imex" }
 func (*Plugin) Domains() []string  { return []string{"go"} }
 func (*Plugin) Requires() []string { return []string{"go/types"} }
 
-// Generate emits imex machinery for every output package whose type declares @go imex:
-// one Version constant per versions/vK package the Core has exported, Latest plus the
-// autoDecodeEnvelope ladder in the versions package root, and Service.Export in the
-// service package. Versions below the floor predate Core export, so their constant is
-// deleted instead. It errors when a marked type has no version chain, when two types at
-// the same path both carry the marker, or when a version package on disk does not
-// parse.
+// Generate emits imex machinery for every output package whose types declare @go imex:
+// one Version constant per versions/vK package the Core has exported and Latest in the
+// versions package root. A bare marker adds the autoDecodeEnvelope ladder and
+// Service.Export. `@go imex body` marks a type another resource exports, such as a task
+// config, and adds an exported <Type>Ladder instead. Versions below the floor predate
+// Core export, so their constant is deleted instead. It errors when a marked type has
+// no version chain, when a bare marker shares its package with another marked type,
+// when a version redeclares a type without its Migrate<Type> step, or when a version
+// package on disk does not parse.
 //
 // The emitted Export calls the service's NewRetrieve, MatchKeys, and Type, and parses
 // id.Key as a UUID. A resource missing any of them, or keyed by something else, fails
@@ -95,8 +101,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, errors.New("go/imex requires Options.OntologyImportPath")
 	}
 	ctx := context.Background()
-	resp := &plugin.Response{}
-	declared := make(map[string]string)
+	var (
+		paths    []string
+		packages = make(map[string][]target)
+	)
 	for _, typ := range req.Resolutions.TypesWithDomain("go") {
 		if !domain.HasExprFromType(typ, "go", "imex") {
 			continue
@@ -105,121 +113,237 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if outputPath == "" {
 			continue
 		}
-		livePathForChain := strings.TrimSuffix(typ.FilePath, ".oracle")
-		var chains map[string]versions.Chain
-		if req.Versions != nil {
-			chains = req.Versions.Chains()
-		}
-		chain, ok := chains[livePathForChain]
-		if !ok {
-			return nil, errors.Newf(
-				"%s declares @go imex without a version chain", typ.QualifiedName,
-			)
-		}
-		if ended, err := req.Versions.Ended(
-			ctx, livePathForChain,
-		); err != nil {
-			return nil, err
-		} else if ended {
-			return nil, errors.Newf(
-				"%s declares @go imex, but its version chain ended",
-				typ.QualifiedName,
-			)
-		}
-		version := chain.Current()
-		if prev, dup := declared[outputPath]; dup {
-			return nil, errors.Newf(
-				"duplicate @go imex declarations for %s: %s and %s",
-				outputPath, prev, typ.QualifiedName,
-			)
-		}
-		declared[outputPath] = typ.QualifiedName
-		goName := naming.GetGoName(typ)
-		livePath := strings.TrimSuffix(typ.FilePath, ".oracle")
-		floor, err := firstImexVersion(ctx, req, livePath, typ.Name, version)
+		t, err := newTarget(ctx, req, typ)
 		if err != nil {
 			return nil, err
 		}
-		exported := exportedVersions(req, livePath, floor, version)
-		for _, k := range exported {
-			path := versioning.VersionedPath(outputPath, k)
-			var buf bytes.Buffer
-			if err := versionTemplate.Execute(&buf, &versionData{
-				Package: naming.DerivePackageName(path),
-				Type:    goName,
-				Version: k,
-				Runtime: p.options.RuntimeImportPath,
-			}); err != nil {
-				return nil, err
-			}
-			resp.Files = append(resp.Files, plugin.File{
-				Path:    path + "/" + p.options.FileNamePattern,
-				Content: buf.Bytes(),
-			})
-		}
-		stale, err := versioning.VersionDirs(req.RepoRoot, outputPath)
-		if err != nil {
-			return nil, err
-		}
-		for _, k := range stale {
-			if k < floor {
-				resp.Deletions = append(
-					resp.Deletions,
-					versioning.VersionedPath(
-						outputPath,
-						k,
-					)+"/"+p.options.FileNamePattern,
+		if prev := packages[outputPath]; len(prev) > 0 {
+			if !prev[0].body || !t.body {
+				return nil, errors.Newf(
+					"duplicate @go imex declarations for %s: %s and %s",
+					outputPath, prev[0].typ.QualifiedName, typ.QualifiedName,
 				)
 			}
+			if prev[0].livePath != t.livePath {
+				return nil, errors.Newf(
+					"@go imex body types for %s span version chains %s and %s",
+					outputPath, prev[0].livePath, t.livePath,
+				)
+			}
+		} else {
+			paths = append(paths, outputPath)
 		}
-		arms, err := chainArms(req.RepoRoot, outputPath, goName, exported)
-		if err != nil {
+		packages[outputPath] = append(packages[outputPath], t)
+	}
+	resp := &plugin.Response{}
+	for _, outputPath := range paths {
+		if err := p.generatePackage(
+			req, resp, outputPath, packages[outputPath],
+		); err != nil {
 			return nil, err
 		}
-		data := &chainData{
-			Type:       goName,
-			CurrentPkg: versioning.Dir(version),
-			Arms:       arms,
-			Runtime:    p.options.RuntimeImportPath,
-		}
-		for _, k := range exported {
-			data.Imports = append(data.Imports, gomod.ResolveImportPath(
-				versioning.VersionedPath(
-					outputPath,
-					k,
-				),
-				req.RepoRoot,
-				gomod.DefaultModulePrefix,
-			))
-		}
-		var buf bytes.Buffer
-		if err := chainTemplate.Execute(&buf, data); err != nil {
-			return nil, err
-		}
-		resp.Files = append(resp.Files, plugin.File{
-			Path:    outputPath + "/versions/" + p.options.FileNamePattern,
-			Content: buf.Bytes(),
-		})
-		// A fresh buffer: plugin.File.Content aliases the backing array, so reusing buf
-		// would overwrite the chain file appended above.
-		var exportBuf bytes.Buffer
-		if err := exportTemplate.Execute(&exportBuf, &exportData{
-			Package: naming.DerivePackageName(outputPath),
-			Type:    goName,
-			Versions: gomod.ResolveImportPath(
-				outputPath+"/versions", req.RepoRoot, gomod.DefaultModulePrefix,
-			),
-			Runtime:  p.options.RuntimeImportPath,
-			Ontology: p.options.OntologyImportPath,
-		}); err != nil {
-			return nil, err
-		}
-		resp.Files = append(resp.Files, plugin.File{
-			Path:    outputPath + "/" + p.options.FileNamePattern,
-			Content: exportBuf.Bytes(),
-		})
 	}
 	return resp, nil
+}
+
+// target is one type that declares @go imex.
+type target struct {
+	typ    resolution.Type
+	goName string
+	// body is true for `@go imex body`: another resource exports the type.
+	body     bool
+	livePath string
+	current  int
+	floor    int
+	// exported holds the versions the Core has exported the type at, oldest first.
+	exported []int
+}
+
+func newTarget(
+	ctx context.Context,
+	req *plugin.Request,
+	typ resolution.Type,
+) (target, error) {
+	livePath := strings.TrimSuffix(typ.FilePath, ".oracle")
+	var chains map[string]versions.Chain
+	if req.Versions != nil {
+		chains = req.Versions.Chains()
+	}
+	chain, ok := chains[livePath]
+	if !ok {
+		return target{}, errors.Newf(
+			"%s declares @go imex without a version chain", typ.QualifiedName,
+		)
+	}
+	if ended, err := req.Versions.Ended(ctx, livePath); err != nil {
+		return target{}, err
+	} else if ended {
+		return target{}, errors.Newf(
+			"%s declares @go imex, but its version chain ended", typ.QualifiedName,
+		)
+	}
+	current := chain.Current()
+	floor, err := firstImexVersion(ctx, req, livePath, typ.Name, current)
+	if err != nil {
+		return target{}, err
+	}
+	exported := exportedVersions(req, livePath, floor, current)
+	if err := requireMigrateSteps(ctx, req, typ, livePath, exported); err != nil {
+		return target{}, err
+	}
+	return target{
+		typ:      typ,
+		goName:   naming.GetGoName(typ),
+		body:     domain.GetStringFromType(typ, "go", "imex") == bodyMarker,
+		livePath: livePath,
+		current:  current,
+		floor:    floor,
+		exported: exported,
+	}, nil
+}
+
+// bodyMarker is the @go imex argument that marks a type another resource exports.
+const bodyMarker = "body"
+
+func (p *Plugin) generatePackage(
+	req *plugin.Request,
+	resp *plugin.Response,
+	outputPath string,
+	targets []target,
+) error {
+	var (
+		exported = make(set.Set[int])
+		names    = make([]string, 0, len(targets))
+		floor    = targets[0].floor
+	)
+	for _, t := range targets {
+		exported.Add(t.exported...)
+		names = append(names, t.goName)
+		floor = min(floor, t.floor)
+	}
+	subject := "the shapes"
+	if len(names) == 1 {
+		subject = "the " + names[0] + " shape"
+	}
+	versionNums := slices.Sorted(maps.Keys(exported))
+	for _, k := range versionNums {
+		path := versioning.VersionedPath(outputPath, k)
+		var buf bytes.Buffer
+		if err := versionTemplate.Execute(&buf, &versionData{
+			Package: naming.DerivePackageName(path),
+			Subject: subject,
+			Version: k,
+			Runtime: p.options.RuntimeImportPath,
+		}); err != nil {
+			return err
+		}
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    path + "/" + p.options.FileNamePattern,
+			Content: buf.Bytes(),
+		})
+	}
+	stale, err := versioning.VersionDirs(req.RepoRoot, outputPath)
+	if err != nil {
+		return err
+	}
+	for _, k := range stale {
+		if k < floor {
+			resp.Deletions = append(
+				resp.Deletions,
+				versioning.VersionedPath(outputPath, k)+"/"+p.options.FileNamePattern,
+			)
+		}
+	}
+	imports := make([]string, 0, len(versionNums))
+	for _, k := range versionNums {
+		imports = append(imports, gomod.ResolveImportPath(
+			versioning.VersionedPath(outputPath, k),
+			req.RepoRoot,
+			gomod.DefaultModulePrefix,
+		))
+	}
+	var buf bytes.Buffer
+	if targets[0].body {
+		err = p.executeBody(&buf, req.RepoRoot, outputPath, targets, imports)
+	} else {
+		err = p.executeChain(&buf, req.RepoRoot, outputPath, targets[0], imports)
+	}
+	if err != nil {
+		return err
+	}
+	resp.Files = append(resp.Files, plugin.File{
+		Path:    outputPath + "/versions/" + p.options.FileNamePattern,
+		Content: buf.Bytes(),
+	})
+	if targets[0].body {
+		return nil
+	}
+	// A fresh buffer: plugin.File.Content aliases the backing array, so reusing buf
+	// would overwrite the chain file appended above.
+	var exportBuf bytes.Buffer
+	if err := exportTemplate.Execute(&exportBuf, &exportData{
+		Package: naming.DerivePackageName(outputPath),
+		Type:    targets[0].goName,
+		Versions: gomod.ResolveImportPath(
+			outputPath+"/versions", req.RepoRoot, gomod.DefaultModulePrefix,
+		),
+		Runtime:  p.options.RuntimeImportPath,
+		Ontology: p.options.OntologyImportPath,
+	}); err != nil {
+		return err
+	}
+	resp.Files = append(resp.Files, plugin.File{
+		Path:    outputPath + "/" + p.options.FileNamePattern,
+		Content: exportBuf.Bytes(),
+	})
+	return nil
+}
+
+func (p *Plugin) executeChain(
+	buf *bytes.Buffer,
+	repoRoot, outputPath string,
+	t target,
+	imports []string,
+) error {
+	arms, err := chainArms(repoRoot, outputPath, t.goName, t.exported, envelopeDecode)
+	if err != nil {
+		return err
+	}
+	return chainTemplate.Execute(buf, &chainData{
+		Type:       t.goName,
+		CurrentPkg: versioning.Dir(t.current),
+		Arms:       arms,
+		Imports:    imports,
+		Runtime:    p.options.RuntimeImportPath,
+	})
+}
+
+func (p *Plugin) executeBody(
+	buf *bytes.Buffer,
+	repoRoot, outputPath string,
+	targets []target,
+	imports []string,
+) error {
+	data := &bodyData{
+		CurrentPkg: versioning.Dir(targets[0].current),
+		Imports:    imports,
+		Runtime:    p.options.RuntimeImportPath,
+	}
+	for _, t := range targets {
+		arms, err := chainArms(
+			repoRoot, outputPath, t.goName, t.exported, blobDecode(t.typ.QualifiedName),
+		)
+		if err != nil {
+			return err
+		}
+		data.Ladders = append(data.Ladders, ladderData{
+			Type:     t.goName,
+			Name:     t.typ.QualifiedName,
+			FirstPkg: versioning.Dir(t.floor),
+			Arms:     arms,
+		})
+	}
+	return bodyTemplate.Execute(buf, data)
 }
 
 type exportData struct {
@@ -271,7 +395,8 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 
 type versionData struct {
 	Package string
-	Type    string
+	// Subject names the shapes the package defines, e.g. "the Log shape".
+	Subject string
 	Version int
 	Runtime string
 }
@@ -283,7 +408,7 @@ package {{.Package}}
 
 import "{{.Runtime}}"
 
-// Version is the portable schema version of the {{.Type}} shape this package defines.
+// Version is the portable schema version of {{.Subject}} this package defines.
 const Version imex.Version = {{.Version}}
 `),
 )
@@ -347,6 +472,26 @@ func exportedVersions(req *plugin.Request, livePath string, floor, current int) 
 	return out
 }
 
+// decodeExpr returns the expression that decodes the stamped body as pkg.goName.
+type decodeExpr func(pkg, goName string) string
+
+// envelopeDecode decodes a resource's envelope.
+func envelopeDecode(pkg, goName string) string {
+	return fmt.Sprintf("env.Decode[%s.%s](ctx)", pkg, goName)
+}
+
+// blobDecode decodes a body blob, naming it name in errors.
+func blobDecode(name string) decodeExpr {
+	return func(pkg, goName string) string {
+		return fmt.Sprintf(
+			"imex.DecodeBlob[%s.%s](data, %q, version)",
+			pkg,
+			goName,
+			name,
+		)
+	}
+}
+
 // chainArms builds one ladder arm per exported version below current: each decodes the
 // stamped vK shape and lifts it through every later bump's exported Migrate<Type> step.
 // Alias-only bumps (no step on disk) pass the value through unchanged. nums holds the
@@ -355,6 +500,7 @@ func exportedVersions(req *plugin.Request, livePath string, floor, current int) 
 func chainArms(
 	repoRoot, outputPath, goName string,
 	nums []int,
+	decode decodeExpr,
 ) ([]chainArm, error) {
 	if len(nums) < 2 {
 		return nil, nil
@@ -375,10 +521,7 @@ func chainArms(
 	for i, k := range nums[:len(nums)-1] {
 		var b strings.Builder
 		cur := fmt.Sprintf("t%d", k)
-		fmt.Fprintf(
-			&b, "\t\t%s, err := env.Decode[%s.%s](ctx)\n",
-			cur, versioning.Dir(k), goName,
-		)
+		fmt.Fprintf(&b, "\t\t%s, err := %s\n", cur, decode(versioning.Dir(k), goName))
 		fmt.Fprintf(&b, "\t\tif err != nil {\n\t\t\treturn %s{}, err\n\t\t}\n", goName)
 		for _, j := range nums[i+1:] {
 			if !steps.Contains(j) {
@@ -398,6 +541,44 @@ func chainArms(
 		arms = append(arms, chainArm{Pkg: versioning.Dir(k), Body: b.String()})
 	}
 	return arms, nil
+}
+
+// requireMigrateSteps errors when a version in exported redeclares typ without an
+// exported Migrate<Type> step, since the ladder would pass the old shape through
+// unchanged. A version that only aliases typ keeps its shape and needs no step.
+func requireMigrateSteps(
+	ctx context.Context,
+	req *plugin.Request,
+	typ resolution.Type,
+	livePath string,
+	exported []int,
+) error {
+	if len(exported) < 2 {
+		return nil
+	}
+	goName := naming.GetGoName(typ)
+	outputPath := output.GetPath(typ, "go")
+	for _, k := range exported[1:] {
+		surf, err := req.Versions.Surface(ctx, livePath, k)
+		if err != nil {
+			return err
+		}
+		if def, ok := surf[typ.Name]; !ok || def.Version != k {
+			continue
+		}
+		dir := versioning.VersionedPath(outputPath, k)
+		hasStep, err := migrateStepExists(filepath.Join(req.RepoRoot, dir), goName)
+		if err != nil {
+			return err
+		}
+		if !hasStep {
+			return errors.Newf(
+				"%s redeclares %s without the Migrate%s step its import ladder needs",
+				dir, typ.QualifiedName, goName,
+			)
+		}
+	}
+	return nil
 }
 
 // migrateStepExists reports whether the version package at dir declares the scaffolded
@@ -479,5 +660,66 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) ({{.Type}}, erro
 	}
 	return {{.Type}}{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }
+`),
+)
+
+type ladderData struct {
+	Type     string
+	Name     string
+	FirstPkg string
+	Arms     []chainArm
+}
+
+type bodyData struct {
+	CurrentPkg string
+	Imports    []string
+	Ladders    []ladderData
+	Runtime    string
+}
+
+var bodyTemplate = template.Must(
+	template.New("go-imex-body").Parse(`// Code generated by oracle. DO NOT EDIT.
+
+package versions
+
+import (
+	"context"
+
+	"{{.Runtime}}"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+{{- range .Imports}}
+	"{{.}}"
+{{- end}}
+)
+
+// Latest is the portable schema version stamped on exported bodies of every type in
+// this package and the highest version import accepts. It equals the current schema
+// version.
+const Latest = {{.CurrentPkg}}.Version
+{{range .Ladders}}
+// {{.Type}}Ladder decodes {{.Type}} bodies stamped at any exported version and
+// migrates them to the current shape.
+var {{.Type}}Ladder = imex.Ladder[{{.Type}}]{
+	First:  {{.FirstPkg}}.Version,
+	Latest: Latest,
+	Decode: decode{{.Type}},
+}
+
+func decode{{.Type}}(
+	ctx context.Context,
+	version imex.Version,
+	data msgpack.EncodedJSON,
+) ({{.Type}}, error) {
+	switch version {
+{{- range .Arms}}
+	case {{.Pkg}}.Version:
+{{.Body}}
+{{- end}}
+	case {{$.CurrentPkg}}.Version:
+		return imex.DecodeBlob[{{.Type}}](data, "{{.Name}}", version)
+	}
+	return {{.Type}}{}, imex.NewErrUnsupportedVersion("{{.Name}}", version, Latest)
+}
+{{end -}}
 `),
 )
