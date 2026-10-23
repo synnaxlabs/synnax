@@ -659,6 +659,28 @@ class TestDataType:
         }
         assert len(sy.DataType.ALL) == len(set(sy.DataType.ALL))
 
+    @pytest.mark.parametrize("name", ["float65", "datetime", "f8", "FLOAT64"])
+    def test_unknown_name(self, name: str) -> None:
+        """Should raise a ValueError for a name that is not a data type."""
+        with pytest.raises(ValueError, match="not a valid data type"):
+            sy.DataType(name)
+
+    @pytest.mark.parametrize("data_type", sy.DataType.ALL)
+    def test_known_name(self, data_type: sy.DataType) -> None:
+        """Should construct every data type from its name."""
+        assert sy.DataType(str(data_type)) == data_type
+
+
+@pytest.mark.telem
+class TestBounds:
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [(-1, False), (0, True), (5, True), (9.5, True), (10, False), (11, False)],
+    )
+    def test_contains(self, value: float, expected: bool) -> None:
+        """Should include the lower bound and exclude the upper bound."""
+        assert sy.Bounds(0, 10).contains(value) is expected
+
 
 @pytest.mark.telem
 class TestSize:
