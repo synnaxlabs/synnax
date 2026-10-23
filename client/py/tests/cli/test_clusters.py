@@ -20,7 +20,6 @@ from synnax.cli.console.mock import MockConsole
 from synnax.cli.flow import Context
 from synnax.cli.login import run as login
 from synnax.config import ClusterConfig, ClustersConfig, ConfigFile
-from synnax.config.clusters import API_KEY_SERVICE, PASSWORD_SERVICE, api_key_entry
 from synnax.options import Options
 
 
@@ -59,7 +58,7 @@ def save_legacy_password(
         "clusters.default",
         {"options": opts.model_dump(exclude={"password", "api_key"})},
     )
-    keyring.set_password(PASSWORD_SERVICE, "default", opts.password)
+    keyring.set_password("synnax", "default", opts.password)
 
 
 @pytest.mark.cli
@@ -71,9 +70,7 @@ class TestClustersConfig:
         clusters.set(
             ClusterConfig(options=Options(host="h", port=1, api_key="syk_secret"))
         )
-        assert keyring.values == {
-            (API_KEY_SERVICE, api_key_entry("default", "h", 1)): "syk_secret"
-        }
+        assert keyring.values == {("synnax.api_key", "default@h:1"): "syk_secret"}
         assert "api_key" not in clusters.internal.get("clusters.default.options")
         got = clusters.get()
         assert got is not None
@@ -89,7 +86,7 @@ class TestClustersConfig:
             Options(host="h", port=1, username="u", password="p"),
         )
         clusters.set(ClusterConfig(options=Options(host="h", port=1, api_key="k")))
-        assert (PASSWORD_SERVICE, "default") not in keyring.values
+        assert ("synnax", "default") not in keyring.values
         assert "username" not in clusters.internal.get("clusters.default.options")
 
     def test_get_after_interrupted_migration(
@@ -103,9 +100,7 @@ class TestClustersConfig:
             keyring,
             Options(host="h", port=1, username="u", password="p"),
         )
-        keyring.set_password(
-            API_KEY_SERVICE, api_key_entry("default", "h", 1), "syk_secret"
-        )
+        keyring.set_password("synnax.api_key", "default@h:1", "syk_secret")
         got = clusters.get()
         assert got is not None
         assert got.options == Options(host="h", port=1, api_key="syk_secret")
@@ -116,9 +111,7 @@ class TestClustersConfig:
         """Should delete the key of the old address once the new one is saved."""
         clusters.set(ClusterConfig(options=Options(host="a", port=1, api_key="ka")))
         clusters.set(ClusterConfig(options=Options(host="b", port=1, api_key="kb")))
-        assert keyring.values == {
-            (API_KEY_SERVICE, api_key_entry("default", "b", 1)): "kb"
-        }
+        assert keyring.values == {("synnax.api_key", "default@b:1"): "kb"}
 
     def test_set_failed_write_keeps_old_pair(
         self,
@@ -174,7 +167,7 @@ class TestLogin:
         assert saved is not None
         assert saved.options.api_key.startswith("syk_")
         assert saved.options.username == ""
-        assert (PASSWORD_SERVICE, "default") not in keyring.values
+        assert ("synnax", "default") not in keyring.values
         delete_new_keys(client, before)
 
 
@@ -206,7 +199,7 @@ class TestConnectClient:
         )
         connected = connect_client(Context(console=MockConsole()), clusters)
         assert connected is not None
-        assert (PASSWORD_SERVICE, "default") not in keyring.values
+        assert ("synnax", "default") not in keyring.values
         saved = clusters.get()
         assert saved is not None
         assert saved.options.api_key.startswith("syk_")

@@ -19,14 +19,12 @@ class ClusterConfig(BaseModel):
     options: Options
 
 
-PASSWORD_SERVICE = "synnax"
-API_KEY_SERVICE = "synnax.api_key"
+_PASSWORD_SERVICE = "synnax"
+_API_KEY_SERVICE = "synnax.api_key"
 
 
-def api_key_entry(key: str, host: str, port: int) -> str:
-    """Returns the keyring entry of a cluster's API key. The entry holds the address,
-    so a key never reaches another Core.
-    """
+# the entry holds the address, so a key never reaches another Core
+def _api_key_entry(key: str, host: str, port: int) -> str:
     return f"{key}@{host}:{port}"
 
 
@@ -49,7 +47,7 @@ class ClustersConfig:
             return None
         opts = c["options"]
         api_key = self.keyring.get_password(
-            API_KEY_SERVICE, api_key_entry(key, opts["host"], opts["port"])
+            _API_KEY_SERVICE, _api_key_entry(key, opts["host"], opts["port"])
         )
         if api_key:
             # A saved key wins over a username left by an interrupted migration.
@@ -61,7 +59,7 @@ class ClustersConfig:
                     api_key=api_key,
                 )
             )
-        pwd = self.keyring.get_password(PASSWORD_SERVICE, key) or ""
+        pwd = self.keyring.get_password(_PASSWORD_SERVICE, key) or ""
         return ClusterConfig(options=Options(**opts, password=pwd))
 
     def set(self, c: ClusterConfig, key: str = "default") -> None:
@@ -70,14 +68,14 @@ class ClustersConfig:
         """
         prev = self.internal.get(f"clusters.{key}.options")
         p = c.model_dump(exclude={"options": {"username", "password"}})
-        entry = api_key_entry(key, c.options.host, c.options.port)
-        self.keyring.set_password(API_KEY_SERVICE, entry, p["options"].pop("api_key"))
+        entry = _api_key_entry(key, c.options.host, c.options.port)
+        self.keyring.set_password(_API_KEY_SERVICE, entry, p["options"].pop("api_key"))
         self.internal.set(f"clusters.{key}", p)
-        stale = [(PASSWORD_SERVICE, key)]
+        stale = [(_PASSWORD_SERVICE, key)]
         if prev is not None:
-            prev_entry = api_key_entry(key, prev["host"], prev["port"])
+            prev_entry = _api_key_entry(key, prev["host"], prev["port"])
             if prev_entry != entry:
-                stale.append((API_KEY_SERVICE, prev_entry))
+                stale.append((_API_KEY_SERVICE, prev_entry))
         for service, username in stale:
             try:
                 self.keyring.delete_password(service, username)
