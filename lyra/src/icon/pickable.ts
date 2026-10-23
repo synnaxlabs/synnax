@@ -11,7 +11,6 @@ import {
   MdAcUnit,
   MdAir,
   MdApartment,
-  MdAreaChart,
   MdBarChart,
   MdBiotech,
   MdBuild,
@@ -59,6 +58,7 @@ import { Device } from "@/icon/Device";
 import { type FC, wrapSVGIcon } from "@/icon/Icon";
 import { Pump } from "@/icon/Pump";
 import { Rack } from "@/icon/Rack";
+import { Arc, LinePlot, Range, Schematic, Task } from "@/icon/registry";
 import { Tank } from "@/icon/Tank";
 import { Units } from "@/icon/Units";
 import { Valve } from "@/icon/Valve";
@@ -77,10 +77,40 @@ export interface Pickable {
 /** The icons a user can pick, in display order. */
 export const PICKABLE: readonly Pickable[] = [
   {
-    key: "chart",
-    name: "Chart",
-    tags: ["line plot", "graph", "trend", "time series"],
-    icon: wrapSVGIcon(MdAreaChart, "chart"),
+    key: "line-plot",
+    name: "Line plot",
+    tags: ["chart", "graph", "trend", "time series"],
+    icon: LinePlot,
+  },
+  {
+    key: "schematic",
+    name: "Schematic",
+    tags: ["diagram", "P&ID", "piping", "process", "synoptic"],
+    icon: Schematic,
+  },
+  {
+    key: "task",
+    name: "Task",
+    tags: ["acquisition", "daq", "read", "write", "driver"],
+    icon: Task,
+  },
+  {
+    key: "arc",
+    name: "Arc",
+    tags: ["automation", "sequence", "control", "script", "program"],
+    icon: Arc,
+  },
+  {
+    key: "device",
+    name: "Device",
+    tags: ["hardware", "module", "daq", "chip"],
+    icon: Device,
+  },
+  {
+    key: "range",
+    name: "Range",
+    tags: ["test", "run", "time range", "event", "period"],
+    icon: Range,
   },
   {
     key: "bar-chart",
@@ -171,12 +201,6 @@ export const PICKABLE: readonly Pickable[] = [
     name: "Air",
     tags: ["wind", "flow", "ventilation", "hvac", "purge"],
     icon: wrapSVGIcon(MdAir, "air"),
-  },
-  {
-    key: "device",
-    name: "Device",
-    tags: ["hardware", "module", "daq", "chip"],
-    icon: Device,
   },
   {
     key: "rack",

@@ -12,7 +12,12 @@ import { describe, expect, it } from "vitest";
 import { Icon } from "@/icon";
 
 const SHIPPED_KEYS = [
-  "chart",
+  "line-plot",
+  "schematic",
+  "task",
+  "arc",
+  "device",
+  "range",
   "bar-chart",
   "pie-chart",
   "table",
@@ -28,7 +33,6 @@ const SHIPPED_KEYS = [
   "barrel",
   "gas-cylinder",
   "air",
-  "device",
   "rack",
   "power",
   "cable",
