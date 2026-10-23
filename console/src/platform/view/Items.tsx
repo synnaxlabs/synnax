@@ -12,7 +12,6 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type record } from "@synnaxlabs/x";
-import { plural } from "pluralize";
 import { type ReactElement } from "react";
 
 import { useContext, useFormContext } from "@/platform/view/context";
@@ -46,7 +45,7 @@ const DefaultEmptyContent = (): ReactElement => {
   const { resourceType } = useContext("View.Items");
   return (
     <Flex.Box center>
-      <Text.Text status="disabled">No {plural(resourceType)} found</Text.Text>
+      <Text.Text status="disabled">No {Text.plural(resourceType)} found</Text.Text>
     </Flex.Box>
   );
 };

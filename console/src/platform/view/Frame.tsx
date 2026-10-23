@@ -21,7 +21,6 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, View as PView } from "@synnaxlabs/pluto";
 import { caseconv, location, uuid } from "@synnaxlabs/x";
-import { plural } from "pluralize";
 import {
   Fragment,
   type PropsWithChildren,
@@ -60,7 +59,7 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
     () => [
       {
         key: staticViewKey,
-        name: `All ${plural(resourceType)}`,
+        name: `All ${Text.plural(resourceType)}`,
         ...ZERO_VARIANTS[resourceType],
         static: true,
       },
@@ -169,7 +168,7 @@ const Selector = ({
     beforeUpdate: useCallback(
       async ({ data, rollbacks }: Flux.BeforeUpdateParams<view.New>) => {
         const name = await renameModal({
-          initialValue: `View for ${plural(resourceType)}`,
+          initialValue: `View for ${Text.plural(resourceType)}`,
           title: "View.Create",
           icon: Icon.resolve(icon),
         });

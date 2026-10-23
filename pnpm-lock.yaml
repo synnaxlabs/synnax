@@ -872,9 +872,6 @@ importers:
       fflate:
         specifier: 'catalog:'
         version: 0.8.3
-      pluralize:
-        specifier: 'catalog:'
-        version: 8.0.0
       posthog-js:
         specifier: 'catalog:'
         version: 1.438.12(@types/react@19.3.0)(react@19.3.1)
@@ -915,9 +912,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
-      '@types/pluralize':
-        specifier: 'catalog:'
-        version: 0.0.33
       '@types/react':
         specifier: 'catalog:'
         version: 19.3.0

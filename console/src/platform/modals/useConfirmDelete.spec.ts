@@ -100,4 +100,9 @@ describe("useConfirmDelete", () => {
     await openConfirm({ items: [{ name: "a" }, { name: "b" }], type: "Policy" });
     await screen.findByText("Are you sure you want to delete 2 policies?");
   });
+
+  it("should keep the capitals of an acronym resource type", async () => {
+    await openConfirm({ items: [{ name: "a" }, { name: "b" }], type: "ICD" });
+    await screen.findByText("Are you sure you want to delete 2 ICDs?");
+  });
 });

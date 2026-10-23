@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type record } from "@synnaxlabs/x";
-import pluralize from "pluralize";
 import { type ReactElement, type ReactNode, useMemo } from "react";
 import { type z } from "zod";
 
@@ -35,7 +34,7 @@ export interface BodyProps<K extends record.Key>
 
 export const DefaultEmptyContent = ({ resourceName }: { resourceName: string }) => (
   <Text.Text center status="disabled">
-    No {pluralize.plural(resourceName)} found
+    No {Text.plural(resourceName)} found
   </Text.Text>
 );
 
@@ -82,7 +81,7 @@ export const Body = <K extends record.Key>({
       {hasSearch && (
         <Search
           onSearch={onSearch}
-          placeholder={`Search ${pluralize.plural(resourceName)}...`}
+          placeholder={`Search ${Text.plural(resourceName)}...`}
           actions={actions}
           loading={loading}
         />

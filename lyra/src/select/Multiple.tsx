@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { caseconv, type record } from "@synnaxlabs/x";
-import pluralize from "pluralize";
 import { type ReactElement } from "react";
 
 import { Dialog as BaseDialog } from "@/dialog";
@@ -18,6 +17,7 @@ import { Dialog } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps } from "@/select/Frame";
 import { MultipleTrigger, type MultipleTriggerProps } from "@/select/MultipleTrigger";
 import { usePlaceholder } from "@/select/placeholder";
+import { Text } from "@/text";
 
 export interface MultipleProps<
   K extends record.Key,
@@ -78,7 +78,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   preview,
   ...rest
 }: MultipleProps<K, E>): ReactElement => {
-  const placeholder = usePlaceholder(pluralize.plural(resourceName));
+  const placeholder = usePlaceholder(Text.plural(resourceName));
   return (
     <BaseDialog.Frame variant={variant} {...rest}>
       <Frame<K, E>
@@ -98,7 +98,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
           createHaulItem={createHaulItem}
           icon={icon}
           placeholder={placeholder}
-          aria-label={caseconv.capitalize(pluralize.plural(resourceName))}
+          aria-label={caseconv.capitalize(Text.plural(resourceName))}
           disabled={disabled}
           preview={preview}
           {...triggerProps}

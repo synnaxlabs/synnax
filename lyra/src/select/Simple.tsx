@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { caseconv, type record } from "@synnaxlabs/x";
-import pluralize from "pluralize";
 import { type ReactElement, type ReactNode } from "react";
 
 import { Dialog } from "@/dialog";
@@ -22,6 +21,7 @@ import { useVisibleCount } from "@/select/registry";
 import { useClosed } from "@/select/scope";
 import { Search } from "@/select/Search";
 import { SingleTrigger, type SingleTriggerProps } from "@/select/SingleTrigger";
+import { Text } from "@/text";
 
 type FrameOmitted =
   | "multiple"
@@ -115,7 +115,7 @@ export const Simple = <K extends record.Key>({
   ...rest
 }: SimpleProps<K>): ReactElement => {
   const placeholder = usePlaceholder(
-    multiple === true ? pluralize.plural(resourceName) : resourceName,
+    multiple === true ? Text.plural(resourceName) : resourceName,
   );
   const triggerBase = {
     haulType,
@@ -124,7 +124,7 @@ export const Simple = <K extends record.Key>({
     disabled,
     preview,
     "aria-label": caseconv.capitalize(
-      multiple === true ? pluralize.plural(resourceName) : resourceName,
+      multiple === true ? Text.plural(resourceName) : resourceName,
     ),
   };
   const selection = {
@@ -136,7 +136,7 @@ export const Simple = <K extends record.Key>({
   };
   const dialog = (
     <SelectDialog {...dialogProps}>
-      <Search placeholder={`Search ${pluralize.plural(resourceName)}...`} />
+      <Search placeholder={`Search ${Text.plural(resourceName)}...`} />
       <List bordered borderColor={6} grow rounded full="x">
         {children}
         <Empty resourceName={resourceName} emptyContent={emptyContent} />
