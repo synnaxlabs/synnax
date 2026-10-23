@@ -451,6 +451,85 @@ and ends here.";
 			To(HaveLen(1))
 	})
 
+	It("Should name messages, signals, and their enums by their long names", func() {
+		data := []byte(dbcHeader + `BO_ 256 Engine_Stat: 8 Ecu
+ SG_ Mode : 0|8@1+ (1,0) [0|0] "" Ecu
+ SG_ Rpm : 8|8@1+ (1,0) [0|0] "" Ecu
+ SG_ Gear : 16|8@1+ (1,0) [0|0] "" Ecu
+ SG_ T M : 24|8@1+ (1,0) [0|0] "" Ecu
+ SG_ U m0 : 32|8@1+ (1,0) [0|0] "" Ecu
+
+BA_DEF_ SG_ "SystemSignalLongSymbol" STRING ;
+BA_DEF_ BO_ "SystemMessageLongSymbol" STRING ;
+BA_DEF_DEF_ "SystemSignalLongSymbol" "";
+BA_DEF_DEF_ "SystemMessageLongSymbol" "";
+BA_ "SystemMessageLongSymbol" BO_ 256 "Engine_Status_From_The_Engine_Control_Unit";
+BA_ "SystemSignalLongSymbol" SG_ 256 Mode "Operating_Mode_Of_The_Engine_Control_Unit";
+BA_ "SystemSignalLongSymbol" SG_ 256 Gear "";
+BA_ "SystemSignalLongSymbol" SG_ 256 T "Multiplexor_Of_The_Engine_Status_Message";
+VAL_ 256 Mode 0 "Off" 1 "On" ;
+`)
+		entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
+		m := messageNamed(entries, "Engine_Status_From_The_Engine_Control_Unit")
+		mode := fieldNamed(m, "Operating_Mode_Of_The_Engine_Control_Unit")
+		fieldNamed(m, "Rpm")
+		fieldNamed(m, "Gear")
+		t := fieldNamed(m, "Multiplexor_Of_The_Engine_Status_Message")
+		Expect(fieldNamed(m, "U").Multiplexor).To(Equal(new(t.Key)))
+		e := enumNamed(
+			entries,
+			"Engine_Status_From_The_Engine_Control_Unit."+
+				"Operating_Mode_Of_The_Engine_Control_Unit",
+		)
+		Expect(mode.Enumeration).To(Equal(new(e.Key)))
+	})
+
+	It("Should accept signals that end at the last bit of the message", func() {
+		data := []byte(dbcHeader + `BO_ 256 M: 2 Ecu
+ SG_ A : 8|8@1+ (1,0) [0|0] "" Ecu
+ SG_ B : 7|8@0+ (1,0) [0|0] "" Ecu
+ SG_ C : 7|16@0+ (1,0) [0|0] "" Ecu
+`)
+		Expect(binaryFields(messageNamed(
+			MustSucceed(icd.Parse(icd.FormatDBC, data)),
+			"M",
+		))).To(HaveLen(3))
+	})
+
+	It("Should multiplex a switch that an SG_MUL_VAL_ line names", func() {
+		data := []byte(dbcHeader + `BO_ 2147483904 M: 8 Ecu
+ SG_ A m1 : 16|8@1+ (1,0) [0|0] "" Ecu
+ SG_ T M : 8|8@1+ (1,0) [0|0] "" Ecu
+ SG_ S M : 0|8@1+ (1,0) [0|0] "" Ecu
+
+SG_MUL_VAL_ 2147483904 A T 1-1;
+SG_MUL_VAL_ 2147483904 T S 0-0;
+`)
+		m := messageNamed(MustSucceed(icd.Parse(icd.FormatDBC, data)), "M")
+		a, t, s := fieldNamed(m, "A"), fieldNamed(m, "T"), fieldNamed(m, "S")
+		Expect(a.Multiplexor).To(Equal(new(t.Key)))
+		Expect(a.MultiplexValues).To(Equal([]int32{1}))
+		Expect(t.Multiplexor).To(Equal(new(s.Key)))
+		Expect(t.MultiplexValues).To(Equal([]int32{0}))
+		Expect(s.Multiplexor).To(BeNil())
+	})
+
+	DescribeTable("Should skip the message of independent signals, whatever its ID",
+		func(id string) {
+			data := []byte(dbcHeader + "BO_ " + id + ` VECTOR__INDEPENDENT_SIG_MSG: 0 X
+ SG_ A : 0|8@1+ (1,0) [0|0] "" X
+
+BO_ 256 M: 8 Ecu
+ SG_ B : 0|8@1+ (1,0) [0|0] "" Ecu
+`)
+			messages := messagesOf(MustSucceed(icd.Parse(icd.FormatDBC, data)))
+			Expect(messages).To(HaveLen(1))
+			Expect(messages[0].Name).To(Equal("M"))
+		},
+		Entry("with the extended flag", "3221225472"),
+		Entry("without the extended flag", "1073741824"),
+	)
+
 	DescribeTable("Should reject an invalid file", func(body, message string) {
 		err := MatchError(SatisfyAll(
 			HavePrefix("data: "+message),
@@ -466,12 +545,26 @@ and ends here.";
 SG_MUL_VAL_ 256 A S 0-0;
 BO_ x
 `, "line 13, column 5"),
+		Entry("a standard ID past 11 bits", `BO_ 2048 Engine: 8 Ecu
+`, "line 9: standard ID 0x800 has more than 11 bits in message Engine"),
+		Entry("an extended ID past 29 bits", `BO_ 4294967295 Engine: 8 Ecu
+`, "line 9: extended ID 0x7FFFFFFF has more than 29 bits in message Engine"),
+		Entry("a little-endian signal past the message", `BO_ 256 Engine: 2 Ecu
+ SG_ A : 8|9@1+ (1,0) [0|0] "" Ecu
+`, "line 10: signal A extends past the 2-byte message Engine"),
+		Entry("a big-endian signal past the message", `BO_ 256 Engine: 2 Ecu
+ SG_ A : 7|17@0+ (1,0) [0|0] "" Ecu
+`, "line 10: signal A extends past the 2-byte message Engine"),
+		Entry("a multiplexed signal past the message", `BO_ 256 Engine: 1 Ecu
+ SG_ S M : 0|4@1+ (1,0) [0|0] "" Ecu
+ SG_ A m1 : 4|8@1+ (1,0) [0|0] "" Ecu
+`, "line 11: signal A extends past the 1-byte message Engine"),
 		Entry("a message with two signals of the same name", `BO_ 256 Engine: 8 Ecu
  SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
  SG_ A : 8|8@1+ (1,0) [0|255] "" Ecu
 `, "line 11: message Engine has more than one signal named A"),
 		Entry("a malformed SG_MUL_VAL_ line", `SG_MUL_VAL_ 256 A;
-`, "line 9, column 18: expected ident"),
+`, "line 9, column 18: expected a name"),
 		Entry("an inverted multiplexor range", `SG_MUL_VAL_ 256 A S 3-1;
 `, `line 9: invalid multiplexor range "3-1"`),
 		Entry("a multiplexor range past int32", `SG_MUL_VAL_ 256 A S 0-4294967296;

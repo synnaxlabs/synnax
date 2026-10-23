@@ -32,6 +32,9 @@ const (
 	protocolJ1939   = "J1939"
 	formatJ1939     = "J1939PG"
 	formatFDSuffix  = "CAN_FD"
+	// The long name attributes hold names past the 32 characters a DBC name allows.
+	attrMessageLongName = "SystemMessageLongSymbol"
+	attrSignalLongName  = "SystemSignalLongSymbol"
 	// independentSignals names the pseudo-message that holds unassigned signals.
 	independentSignals = "VECTOR__INDEPENDENT_SIG_MSG"
 	// maxMultiplexValues bounds the values the ranges of one SG_MUL_VAL_ line hold.
@@ -54,6 +57,7 @@ const (
 // FD when its VFrameFormat says so, when it is longer than 8 bytes, or, in a file with
 // no VFrameFormat, when the BusType is CAN FD. A J1939 group matches frames by its
 // parameter group number. A signal keeps its [min|max] range unless both are zero.
+// Messages and signals take their long names when the file gives them.
 // Every entry and field gets a new key. Errors are scoped to the "data" path and name
 // the line.
 func parseDBC(data []byte) ([]versions.Entry, error) {
@@ -141,6 +145,8 @@ type dbcFile struct {
 	networkValues map[dbc.Identifier]*dbc.AttributeValueForObjectDef
 	valueTypes    map[signalRef]*dbc.SignalValueTypeDef
 	choices       map[signalRef]*dbc.ValueDescriptionsDef
+	messageNames  map[dbc.MessageID]string
+	signalNames   map[signalRef]string
 }
 
 func newDBCFile(defs []dbc.Def) (dbcFile, error) {
@@ -153,6 +159,8 @@ func newDBCFile(defs []dbc.Def) (dbcFile, error) {
 		networkValues: make(map[dbc.Identifier]*dbc.AttributeValueForObjectDef),
 		valueTypes:    make(map[signalRef]*dbc.SignalValueTypeDef),
 		choices:       make(map[signalRef]*dbc.ValueDescriptionsDef),
+		messageNames:  make(map[dbc.MessageID]string),
+		signalNames:   make(map[signalRef]string),
 	}
 	for _, def := range defs {
 		switch d := def.(type) {
@@ -175,6 +183,14 @@ func newDBCFile(defs []dbc.Def) (dbcFile, error) {
 			switch d.ObjectType {
 			case dbc.ObjectTypeMessage:
 				f.values[attrRef{name: d.AttributeName, message: d.MessageID}] = d
+				if d.AttributeName == attrMessageLongName && d.StringValue != "" {
+					f.messageNames[d.MessageID] = d.StringValue
+				}
+			case dbc.ObjectTypeSignal:
+				if d.AttributeName == attrSignalLongName && d.StringValue != "" {
+					ref := signalRef{message: d.MessageID, signal: string(d.SignalName)}
+					f.signalNames[ref] = d.StringValue
+				}
 			case dbc.ObjectTypeUnspecified:
 				f.networkValues[d.AttributeName] = d
 			}
@@ -255,6 +271,14 @@ func (f dbcFile) message(
 	tables []versions.EnumEntry,
 	used set.Set[signalRef],
 ) (versions.MessageEntry, []versions.Entry, error) {
+	if err := m.MessageID.Validate(); err != nil {
+		return versions.MessageEntry{}, nil, dataErrorf(
+			"line %d: %s in message %s",
+			m.Pos.Line,
+			err,
+			m.Name,
+		)
+	}
 	if m.Size > math.MaxUint16 {
 		return versions.MessageEntry{}, nil, dataErrorf(
 			"line %d: message %s is longer than %d bytes",
@@ -271,6 +295,10 @@ func (f dbcFile) message(
 		Identifier: &versions.Identifier{Variant: f.identifier(m)},
 		Length:     new(uint16(m.Size)),
 		Fields:     make([]versions.BinaryField, 0, len(m.Signals)),
+	}
+	name := string(m.Name)
+	if long, ok := f.messageNames[m.MessageID]; ok {
+		name = long
 	}
 	keys := make(map[string]versions.FieldKey, len(m.Signals))
 	var switches []string
@@ -291,7 +319,7 @@ func (f dbcFile) message(
 	var enums []versions.Entry
 	for _, s := range m.Signals {
 		ref := signalRef{message: m.MessageID, signal: string(s.Name)}
-		field, err := f.field(s, ref, keys[ref.signal])
+		field, err := f.field(m, s, ref, keys[ref.signal])
 		if err != nil {
 			return versions.MessageEntry{}, nil, err
 		}
@@ -304,7 +332,7 @@ func (f dbcFile) message(
 			if !ok {
 				e := versions.EnumEntry{
 					Key:    uuid.New(),
-					Name:   string(m.Name) + "." + ref.signal,
+					Name:   name + "." + field.Name,
 					Values: values,
 				}
 				enums = append(enums, versions.Entry{Variant: e})
@@ -312,7 +340,10 @@ func (f dbcFile) message(
 			}
 			field.Enumeration = &key
 		}
-		if s.IsMultiplexed {
+		// Some tools mark a multiplexed switch with M alone and name its multiplexor
+		// in an SG_MUL_VAL_ line.
+		_, named := f.mux[ref]
+		if s.IsMultiplexed || (s.IsMultiplexerSwitch && named) {
 			mux, values, err := f.multiplexor(m, s, switches, keys, used)
 			if err != nil {
 				return versions.MessageEntry{}, nil, err
@@ -324,13 +355,14 @@ func (f dbcFile) message(
 	}
 	return versions.MessageEntry{
 		Key:     uuid.New(),
-		Name:    string(m.Name),
+		Name:    name,
 		Payload: versions.Payload{Variant: payload},
 		Period:  period,
 	}, enums, nil
 }
 
 func (f dbcFile) field(
+	m *dbc.MessageDef,
 	s dbc.SignalDef,
 	ref signalRef,
 	key versions.FieldKey,
@@ -340,6 +372,15 @@ func (f dbcFile) field(
 			"line %d: signal %s does not fit a message",
 			s.Pos.Line,
 			s.Name,
+		)
+	}
+	if lastByte(s) >= int(m.Size) {
+		return versions.BinaryField{}, dataErrorf(
+			"line %d: signal %s extends past the %d-byte message %s",
+			s.Pos.Line,
+			s.Name,
+			m.Size,
+			m.Name,
 		)
 	}
 	isFloat := false
@@ -366,9 +407,13 @@ func (f dbcFile) field(
 	if s.IsBigEndian {
 		byteOrder = versions.ByteOrderBigEndian
 	}
+	name := string(s.Name)
+	if long, ok := f.signalNames[ref]; ok {
+		name = long
+	}
 	field := versions.BinaryField{
 		Key:       key,
-		Name:      string(s.Name),
+		Name:      name,
 		Scale:     s.Factor,
 		Offset:    s.Offset,
 		Units:     s.Unit,
@@ -383,6 +428,17 @@ func (f dbcFile) field(
 		field.Min, field.Max = new(s.Minimum), new(s.Maximum)
 	}
 	return field, nil
+}
+
+// lastByte returns the index of the last payload byte a signal touches. The start bit
+// of a big-endian signal is its most significant bit, and the signal continues toward
+// higher byte indices.
+func lastByte(s dbc.SignalDef) int {
+	start, size := int(s.StartBit), int(s.Size)
+	if s.IsBigEndian {
+		start = 8*(start/8) + 7 - start%8
+	}
+	return (start + size - 1) / 8
 }
 
 // multiplexor returns the name of the signal that multiplexes s and the switch values
