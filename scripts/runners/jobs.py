@@ -123,9 +123,11 @@ class Jobs:
                 lines.append(started_line(current))
                 lines.extend(step_events(current, [], job["steps"]))
             elif action == "completed":
-                last = self.active.pop(runner, None)
+                last = self.active.get(runner)
                 lines = events.setdefault(runner, [])
+                # A late completion of an earlier job leaves the current one active.
                 if last is not None and last["id"] == job["id"]:
+                    del self.active[runner]
                     lines.extend(step_events(current, last["steps"], job["steps"]))
                 lines.append(completed_line(job))
         return {r: lines for r, lines in events.items() if lines}

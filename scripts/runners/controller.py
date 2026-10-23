@@ -106,7 +106,14 @@ from common import (
 )
 from cost import QUERY_TIME, Cost
 from events import Events
-from gate import GATE_CMD, GATE_ENABLED, GATE_ENABLED_INDEX, GATE_LOG, Gate
+from gate import (
+    DRAIN_TIMEOUT,
+    GATE_CMD,
+    GATE_ENABLED,
+    GATE_ENABLED_INDEX,
+    GATE_LOG,
+    Gate,
+)
 from github import GitHub, github_token, webhook_secret
 from heartbeat import Heartbeat
 from jobs import Jobs
@@ -296,12 +303,16 @@ def wait_for_cmds(
     commands: Subscription, remaining: sy.TimeSpan, toggles: dict[str, Toggle]
 ) -> None:
     """Sleeps out the rest of the poll interval reading the switch subscription,
-    applying toggle writes as they arrive. Short reads keep Ctrl+C responsive on
-    Windows."""
+    applying toggle writes as they arrive. Drains pending writes even when no time
+    remains, so slow polls cannot lock out the switches. Short reads keep Ctrl+C
+    responsive on Windows."""
     timer = sy.Timer()
-    while (left := remaining - timer.elapsed()) > sy.TimeSpan(0):
-        frame = commands.read(min(left, sy.TimeSpan.SECOND))
+    while True:
+        left = remaining - timer.elapsed()
+        frame = commands.read(max(min(left, sy.TimeSpan.SECOND), DRAIN_TIMEOUT))
         if frame is None:
+            if left <= DRAIN_TIMEOUT:
+                return
             continue
         for channel, (target, enabled, name) in toggles.items():
             series = frame.get(channel)

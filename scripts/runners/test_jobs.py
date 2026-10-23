@@ -37,6 +37,23 @@ def job(id: int, status: str) -> dict:
     return {"id": id, "status": status, "labels": LABELS}
 
 
+def delivery(action: str, id: int) -> dict:
+    return {
+        "action": action,
+        "workflow_job": {
+            "id": id,
+            "run_id": 7,
+            "name": "test",
+            "html_url": "https://github.com",
+            "head_branch": "main",
+            "workflow_name": "CI",
+            "steps": [],
+            "runner_name": "runner",
+            "conclusion": "success",
+        },
+    }
+
+
 def jobs(github: GitHub, client: Client) -> Jobs:
     return Jobs(github, Log(core(client), Channels(core(client), False), "log"))
 
@@ -68,3 +85,10 @@ class TestJobs:
         j.resync(sy.TimeStamp.now())
         assert j.queued == {2: set(LABELS)}
         assert j.counts() == {"ubuntu-test-bot": 1}
+
+    def test_should_keep_the_current_job_on_a_late_completion(
+        self, client: Client
+    ) -> None:
+        j = jobs(Responses({}), client)
+        j.apply([delivery("in_progress", 2), delivery("completed", 1)])
+        assert j.active["runner"]["id"] == 2
