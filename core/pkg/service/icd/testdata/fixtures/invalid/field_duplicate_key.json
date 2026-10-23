@@ -1,6 +1,6 @@
 {
   "description": "Two fields of a message share a key.",
-  "codec_rejects": false,
+  "codec_rejects": true,
   "problems": [
     {
       "path": "entries.0.payload.fields.1.key",

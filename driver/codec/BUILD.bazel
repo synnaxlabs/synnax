@@ -36,12 +36,13 @@ cc_test(
     name = "codec_test",
     srcs = [
         "bits_test.cpp",
+        "fixture_test.cpp",
         "golden_test.cpp",
         "matcher_test.cpp",
         "plan_test.cpp",
         "property_test.cpp",
     ],
-    data = glob(["testdata/dbc/*"]),
+    data = glob(["testdata/dbc/*"]) + ["//core/pkg/service/icd:check_fixtures"],
     deps = [
         ":codec",
         "//x/cpp/json",

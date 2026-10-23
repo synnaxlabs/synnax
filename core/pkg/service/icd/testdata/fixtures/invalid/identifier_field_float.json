@@ -1,6 +1,6 @@
 {
   "description": "A message is identified by a float field.",
-  "codec_rejects": false,
+  "codec_rejects": true,
   "problems": [
     {
       "path": "entries.0.payload.identifier.field",

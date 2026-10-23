@@ -22,3 +22,9 @@ cpp_grpc_library(
     protos = [":icd_proto"],
     visibility = ["//visibility:public"],
 )
+
+filegroup(
+    name = "check_fixtures",
+    srcs = glob(["testdata/fixtures/**/*.json"]),
+    visibility = ["//driver/codec:__pkg__"],
+)
