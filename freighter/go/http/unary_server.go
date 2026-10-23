@@ -248,10 +248,10 @@ func (s *unaryServer[RQ, RS]) resolveResponseEncoder(
 }
 
 // streamAndWrite writes v as a chunked body, gzipping it when the route names the
-// resolved encoder as compressed and the request accepts that encoding. It waits for
-// the encoder's first write before it commits the status, so an encoder that fails
-// first gets a 400. The writer can outlive the handler, which recycles c on return, so
-// the closure only captures values read here.
+// resolved encoder as compressed and the request accepts that encoding. It commits the
+// status when the first bytes reach the body, so an encoder that fails before then gets
+// a 400. The writer can outlive the handler, which recycles c on return, so the closure
+// only captures values read here.
 func (s *unaryServer[RQ, RS]) streamAndWrite(
 	c fiber.Ctx,
 	encoder http.Encoder,
@@ -273,13 +273,13 @@ func (s *unaryServer[RQ, RS]) streamAndWrite(
 		done    = make(chan error, 1)
 	)
 	go func() {
-		w := bufio.NewWriter(pw)
+		w := bufio.NewWriter(&startWriter{Writer: pw, started: started})
 		var dst io.Writer = w
 		if gz != nil {
 			gz.Reset(w)
 			dst = gz
 		}
-		err := encoder.EncodeStream(ctx, &startWriter{Writer: dst, started: started}, v)
+		err := encoder.EncodeStream(ctx, dst, v)
 		if gz != nil && err == nil {
 			err = gz.Close()
 		}
@@ -295,9 +295,9 @@ func (s *unaryServer[RQ, RS]) streamAndWrite(
 			}
 		}
 		done <- err
-		// Once the encoder writes, the status is committed. A pipe closed with an error
-		// makes the server drop the connection before the chunk that ends the body, so
-		// the client sees the body cut short instead of complete.
+		// Once bytes reach the body, the status is committed. A pipe closed with an
+		// error makes the server drop the connection before the chunk that ends the
+		// body, so the client sees the body cut short instead of complete.
 		if cErr := pw.CloseWithError(err); cErr != nil {
 			s.L.Error("failed to close streamed response", zap.Error(cErr))
 		}
