@@ -170,7 +170,6 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 			return oCtx, err
 		}),
 	)
-	setResponseCtx(fCtx, oMD)
 	// A middleware can fail after the handler succeeds. No encoder then receives res,
 	// so nothing else releases what it holds.
 	if closer, ok := any(res).(io.Closer); ok && handled && err != nil {
@@ -178,6 +177,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 	}
 	fErr := errors.Encode(fCtx.RequestCtx(), err, false)
 	if fErr.Type == errors.TypeNil {
+		setResponseCtx(fCtx, oMD)
 		if s.streaming {
 			return s.streamAndWrite(fCtx, encoder, res)
 		}
