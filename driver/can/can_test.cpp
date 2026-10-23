@@ -100,13 +100,112 @@ TEST(Validate, RejectsABusErrorFrame) {
     EXPECT_EQ(err.data, "a bus error frame cannot be sent");
 }
 
-TEST(Counter, ExtendsAcrossAWrap) {
-    Counter counter;
-    EXPECT_EQ(counter.extend(0xFFFFFFF0), 0xFFFFFFF0);
-    EXPECT_EQ(counter.extend(0xFFFFFFFF), 0xFFFFFFFF);
-    EXPECT_EQ(counter.extend(0x00000005), 0x100000005);
-    EXPECT_EQ(counter.extend(0x00000010), 0x100000010);
-    EXPECT_EQ(counter.extend(0x00000001), 0x200000001);
+TEST(BusError, DescribesEachClassItReports) {
+    auto frame = bus_error::make(
+        bus_error::NO_ACK | bus_error::CONTROLLER | bus_error::COUNTERS,
+        bus_error::CONTROLLER_RX_OVERFLOW | bus_error::CONTROLLER_TX_WARNING,
+        x::telem::TimeStamp::now()
+    );
+    frame.data[6] = 97;
+    frame.data[7] = 3;
+    EXPECT_EQ(
+        bus_error::describe(frame),
+        "the adapter reported no acknowledgement, receive overflow, frames lost, "
+        "transmit error warning, 97 transmit and 3 receive errors"
+    );
+}
+
+TEST(BusError, DescribesTheKindOfAProtocolViolation) {
+    auto frame = bus_error::make(bus_error::PROTOCOL, 0, x::telem::TimeStamp::now());
+    EXPECT_EQ(bus_error::describe(frame), "the adapter reported protocol violation");
+    frame.data[2] = bus_error::PROTOCOL_STUFF | bus_error::PROTOCOL_FORM;
+    EXPECT_EQ(
+        bus_error::describe(frame),
+        "the adapter reported form error, stuff error"
+    );
+}
+
+TEST(BusError, DescribesAControllerFaultWithoutDetails) {
+    const auto frame = bus_error::make(
+        bus_error::CONTROLLER,
+        0,
+        x::telem::TimeStamp::now()
+    );
+    EXPECT_EQ(bus_error::describe(frame), "the adapter reported controller fault");
+}
+
+TEST(BusError, ReportsNoFaultForAReturnToErrorActive) {
+    auto frame = bus_error::make(
+        bus_error::CONTROLLER | bus_error::COUNTERS,
+        bus_error::CONTROLLER_ACTIVE,
+        x::telem::TimeStamp::now()
+    );
+    EXPECT_EQ(bus_error::describe(frame), std::nullopt);
+    frame.id |= bus_error::RESTARTED;
+    EXPECT_EQ(
+        bus_error::describe(frame),
+        "the adapter reported controller restarted, 0 transmit and 0 receive errors"
+    );
+}
+
+TEST(BusError, DescribesAFrameWithNoClass) {
+    const auto frame = bus_error::make(0, 0, x::telem::TimeStamp::now());
+    EXPECT_EQ(bus_error::describe(frame), "the adapter reported an unknown bus error");
+}
+
+namespace {
+const auto US = x::telem::MICROSECOND;
+const std::uint64_t WRAP = 1ULL << 32;
+const x::telem::TimeStamp START(1000 * x::telem::SECOND);
+
+/// @returns the host time at which a counter with a tick of US reads count.
+x::telem::TimeStamp at(const std::uint64_t count) {
+    return START + US * static_cast<std::int64_t>(count);
+}
+}
+
+TEST(Counter, ExtendsAcrossWrapsItSees) {
+    Counter counter(US);
+    for (const std::uint64_t count:
+         {0xFFFFFFF0ULL, 0xFFFFFFFFULL, WRAP + 5, WRAP + 0x10, 2 * WRAP + 1})
+        EXPECT_EQ(counter.extend(static_cast<std::uint32_t>(count), at(count)), count);
+}
+
+TEST(Counter, CountsAWrapMissedWhileTheBusWasQuiet) {
+    Counter counter(US);
+    EXPECT_EQ(counter.extend(100, at(100)), 100);
+    const auto count = 100 + WRAP + 1000;
+    EXPECT_EQ(counter.extend(static_cast<std::uint32_t>(count), at(count)), count);
+}
+
+TEST(Counter, CountsSeveralMissedWraps) {
+    Counter counter(US);
+    EXPECT_EQ(counter.extend(100, at(100)), 100);
+    const auto count = 100 + 3 * WRAP - 50;
+    EXPECT_EQ(counter.extend(static_cast<std::uint32_t>(count), at(count)), count);
+}
+
+TEST(Counter, IgnoresHostDelayShorterThanHalfAWrap) {
+    Counter counter(US);
+    EXPECT_EQ(counter.extend(100, at(100)), 100);
+    const auto late = at(200) + WRAP / 2 * US - x::telem::SECOND;
+    EXPECT_EQ(counter.extend(200, late), 200);
+    EXPECT_EQ(counter.extend(150, at(WRAP + 150)), WRAP + 150);
+}
+
+TEST(Counter, NeverCountsWrapsWhenTheHostClockRunsBackward) {
+    Counter counter(US);
+    EXPECT_EQ(counter.extend(1000, at(1000)), 1000);
+    EXPECT_EQ(counter.extend(2000, START - x::telem::SECOND), 2000);
+}
+
+TEST(Counter, ScalesHostTimeByTheTick) {
+    const auto tick = 10 * US;
+    Counter counter(tick);
+    EXPECT_EQ(counter.extend(7, START), 7);
+    const auto count = 7 + WRAP + 3;
+    const auto host = START + tick * static_cast<std::int64_t>(WRAP + 3);
+    EXPECT_EQ(counter.extend(static_cast<std::uint32_t>(count), host), count);
 }
 
 TEST(Aligner, FollowsAnAdapterClockThatDrifts) {

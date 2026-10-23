@@ -16,10 +16,14 @@
 #include "x/cpp/lib/lib.h"
 
 #include "driver/can/pcan/api.h"
+#include "driver/can/vendor.h"
 
 namespace driver::can::pcan {
-/// @brief the PCAN-Basic library, PCANBasic.dll on Windows and MacCAN's
-/// libPCBUSB.dylib on macOS, loaded at runtime.
+/// @returns the PCAN-Basic library for the platform the build targets.
+[[nodiscard]] vendor::Library library();
+
+/// @brief the PCAN-Basic library, PCANBasic.dll on Windows and MacCAN's libPCBUSB.dylib
+/// on macOS, loaded at runtime.
 class ProdAPI final : public API {
     std::unique_ptr<x::lib::Shared> lib;
     CAN_Initialize_t initialize = nullptr;
@@ -29,6 +33,7 @@ class ProdAPI final : public API {
     CAN_ReadFD_t read_fd = nullptr;
     CAN_Write_t write = nullptr;
     CAN_WriteFD_t write_fd = nullptr;
+    CAN_GetStatus_t get_status = nullptr;
     CAN_GetValue_t get_value = nullptr;
     CAN_SetValue_t set_value = nullptr;
     CAN_GetErrorText_t get_error_text = nullptr;
@@ -57,6 +62,7 @@ public:
     ReadFD(TPCANHandle channel, TPCANMsgFD *msg, TPCANTimestampFD *timestamp) override;
     TPCANStatus Write(TPCANHandle channel, TPCANMsg *msg) override;
     TPCANStatus WriteFD(TPCANHandle channel, TPCANMsgFD *msg) override;
+    TPCANStatus GetStatus(TPCANHandle channel) override;
     TPCANStatus GetValue(
         TPCANHandle channel,
         TPCANParameter parameter,

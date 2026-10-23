@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "x/cpp/breaker/breaker.h"
@@ -31,7 +32,8 @@ constexpr std::size_t MAX_BATCH = 1024;
 /// messages' channels. Each raw sample is the frame's identifier as a 4-byte
 /// little-endian integer, with bit 31 set for an extended identifier, followed by the
 /// payload. Frames stamped with the adapter's clock move to the host clock through an
-/// Aligner that starts over each time the bus opens.
+/// Aligner that starts over each time the link reopens. While the bus cannot open, the
+/// source waits for it with a warning and never fails.
 class Source final : public common::Source {
 public:
     /// @param cfg the resolved read config.
@@ -44,8 +46,9 @@ public:
 
     /// @brief acquires the link and opens the bus.
     /// @returns CONFIG_ERROR when the backend cannot open the channel with the device's
-    /// properties, and transport::CONFIG_ERROR when another task has the device open
-    /// with other properties. A hardware fault is not an error here: read retries it.
+    /// properties, CRITICAL_HARDWARE_ERROR on an adapter fault, and
+    /// transport::CONFIG_ERROR when another task has the device open with other
+    /// properties. An unreachable channel is not an error here: read waits for it.
     x::errors::Error start() override;
 
     /// @brief releases the link. The bus closes when no other task uses it.
@@ -53,8 +56,9 @@ public:
 
     /// @brief receives frames for at most bus::READ_TIMEOUT, or until MAX_BATCH
     /// frames arrive, and decodes them into fr.
-    /// @returns the bus's hardware error on a fault, after which the next read
-    /// reopens the bus. Short payloads and adapter bus errors come back as warnings.
+    /// @returns CRITICAL_HARDWARE_ERROR or CONFIG_ERROR when the bus fails in a way
+    /// that reopening does not fix. An unreachable bus, short payloads, and adapter bus
+    /// errors come back as warnings.
     common::ReadResult read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override;
 
 private:
@@ -62,11 +66,15 @@ private:
     bus::Decoder decoder;
     Acquire acquire;
     std::shared_ptr<Link> link;
-    std::shared_ptr<Bus> last;
+    /// @brief the link's open count when the aligner started.
+    std::uint64_t opens = 0;
     /// @brief moves adapter times of the open bus onto the host clock.
     Aligner aligner;
     std::vector<std::uint8_t> raw;
 
+    /// @returns the warning for an unreachable bus: "reconnecting to <device>:
+    /// <reason>".
+    [[nodiscard]] std::string reconnecting(const x::errors::Error &err) const;
     void handle(const Frame &frame);
     x::telem::TimeStamp stamp(const Frame &frame);
 };

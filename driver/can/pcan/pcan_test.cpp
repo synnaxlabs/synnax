@@ -29,10 +29,20 @@ synnax::can::Properties props(const bool fd = false, const bool listen_only = fa
     return p;
 }
 
+MockAPI::Received data(const std::uint32_t id) {
+    MockAPI::Received read;
+    read.msg.ID = id;
+    return read;
+}
+
 class PCANTest : public ::testing::Test {
 protected:
     std::shared_ptr<MockAPI> api = std::make_shared<MockAPI>();
     Backend backend{api};
+
+    void SetUp() override {
+        this->api->add(PCAN_USBBUS1, {.hardware_name = "PCAN-USB"});
+    }
 
     std::unique_ptr<can::Bus> open(const synnax::can::Properties &p = props()) {
         auto [bus, err] = this->backend.open(p);
@@ -77,21 +87,73 @@ TEST(PCANFDBitrate, BuildsTheBitrateStringOfA500kBusWithA2MDataPhase) {
     );
 }
 
+TEST(PCANTranslate, WaitsForAnAbsentOrBusyChannel) {
+    MockAPI api;
+    for (const auto status:
+         {PCAN_ERROR_ILLHW,
+          PCAN_ERROR_ILLCLIENT,
+          PCAN_ERROR_HWINUSE,
+          PCAN_ERROR_NETINUSE,
+          PCAN_ERROR_INITIALIZE,
+          PCAN_ERROR_REGTEST,
+          PCAN_ERROR_BUSOFF,
+          PCAN_ERROR_CAUTION}) {
+        const auto err = translate(api, status, "PCAN_USBBUS1");
+        ASSERT_MATCHES(err, UNREACHABLE_ERROR);
+        EXPECT_EQ(err.data, std::format("PCAN_USBBUS1: PCAN status 0x{:X}", status));
+    }
+}
+
+TEST(PCANTranslate, ReportsAMissingDriverOrAWrongParameterAsAConfigurationError) {
+    MockAPI api;
+    for (const auto status:
+         {PCAN_ERROR_NODRIVER, PCAN_ERROR_ILLPARAMTYPE, PCAN_ERROR_ILLPARAMVAL})
+        ASSERT_MATCHES(translate(api, status, "PCAN_USBBUS1"), CONFIG_ERROR);
+}
+
+TEST(PCANTranslate, ReportsAFullTransmitQueueAsATemporaryHardwareError) {
+    MockAPI api;
+    for (const auto status: {PCAN_ERROR_XMTFULL, PCAN_ERROR_QXMTFULL})
+        ASSERT_MATCHES(
+            translate(api, status, "PCAN_USBBUS1"),
+            TEMPORARY_HARDWARE_ERROR
+        );
+}
+
+TEST(PCANTranslate, ReportsAnyOtherStatusAsACriticalHardwareError) {
+    MockAPI api;
+    for (const auto status:
+         {PCAN_ERROR_ILLNET,
+          PCAN_ERROR_RESOURCE,
+          PCAN_ERROR_UNKNOWN,
+          PCAN_ERROR_ILLDATA,
+          PCAN_ERROR_ILLMODE,
+          PCAN_ERROR_ILLOPERATION}) {
+        const auto err = translate(api, status, "PCAN_USBBUS1");
+        ASSERT_MATCHES(err, CRITICAL_HARDWARE_ERROR);
+        EXPECT_FALSE(err.matches(TEMPORARY_HARDWARE_ERROR));
+    }
+}
+
 TEST_F(PCANTest, InitializesAClassicChannelWithItsBaudCode) {
     auto bus = this->open();
-    EXPECT_EQ(this->api->btr0btr1, PCAN_BAUD_500K);
-    EXPECT_TRUE(this->api->listen_only.empty());
+    const auto ch = this->api->channel(PCAN_USBBUS1);
+    EXPECT_TRUE(ch.initialized);
+    EXPECT_EQ(ch.bitrate, "0x001C");
+    EXPECT_FALSE(ch.listen_only);
 }
 
 TEST_F(PCANTest, InitializesAnFDChannelWithItsBitrateString) {
     auto bus = this->open(props(true));
-    EXPECT_EQ(this->api->fd_bitrate.substr(0, 16), "f_clock=80000000");
+    EXPECT_EQ(
+        this->api->channel(PCAN_USBBUS1).bitrate.substr(0, 16),
+        "f_clock=80000000"
+    );
 }
 
 TEST_F(PCANTest, PutsAListenOnlyChannelInListenOnlyModeBeforeInitializing) {
     auto bus = this->open(props(false, true));
-    ASSERT_EQ(this->api->listen_only.size(), 1);
-    EXPECT_EQ(this->api->listen_only[0], PCAN_USBBUS1);
+    EXPECT_TRUE(this->api->channel(PCAN_USBBUS1).listen_only);
 }
 
 TEST_F(PCANTest, RejectsAnUnknownChannel) {
@@ -105,11 +167,45 @@ TEST_F(PCANTest, RejectsAnUnknownChannel) {
     );
 }
 
-TEST_F(PCANTest, ReportsAnInitializeFailureAsATemporaryHardwareError) {
-    this->api->initialize_status = 0x00400;
+TEST_F(PCANTest, WaitsForAChannelWithNoAdapterAttached) {
+    this->api->unplug(PCAN_USBBUS1);
     auto [bus, err] = this->backend.open(props());
-    ASSERT_MATCHES(err, TEMPORARY_HARDWARE_ERROR);
-    EXPECT_EQ(err.data, "PCAN_USBBUS1: mock status 1024");
+    ASSERT_MATCHES(err, UNREACHABLE_ERROR);
+    EXPECT_EQ(err.data, "PCAN_USBBUS1: no adapter is attached");
+}
+
+TEST_F(PCANTest, WaitsForAChannelAnotherApplicationHolds) {
+    this->api->claim(PCAN_USBBUS1, true);
+    auto [bus, err] = this->backend.open(props());
+    ASSERT_MATCHES(err, UNREACHABLE_ERROR);
+    EXPECT_EQ(err.data, "PCAN_USBBUS1: another task or application holds the channel");
+    this->api->claim(PCAN_USBBUS1, false);
+    this->open();
+}
+
+TEST_F(PCANTest, WaitsForPCANViewToReleaseAChannelItRunsAtAnotherBitrate) {
+    this->api->monitor(PCAN_USBBUS1, "0x0014");
+    auto [bus, err] = this->backend.open(props());
+    ASSERT_MATCHES(err, UNREACHABLE_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "PCAN_USBBUS1: another application runs the channel at a different bitrate"
+    );
+    EXPECT_FALSE(this->api->channel(PCAN_USBBUS1).initialized);
+    this->api->monitor(PCAN_USBBUS1, std::nullopt);
+    this->open();
+}
+
+TEST_F(PCANTest, SharesAChannelPCANViewRunsAtTheSameBitrate) {
+    this->api->monitor(PCAN_USBBUS1, "0x001C");
+    this->open();
+}
+
+TEST_F(PCANTest, ReportsAMissingDriverAsAConfigurationError) {
+    this->api->initialize_status = PCAN_ERROR_NODRIVER;
+    auto [bus, err] = this->backend.open(props());
+    ASSERT_MATCHES(err, CONFIG_ERROR);
+    EXPECT_EQ(err.data, "PCAN_USBBUS1: PCAN status 0x200");
 }
 
 TEST_F(PCANTest, ReportsAnIllegalParameterAsAConfigurationError) {
@@ -127,7 +223,7 @@ TEST_F(PCANTest, ReceivesAClassicExtendedFrameWithItsHardwareTime) {
     read.msg.DATA[0] = 0x01;
     read.msg.DATA[2] = 0x03;
     read.timestamp_us = 0x100000000ULL * 1000 + 1234567;
-    this->api->reads.push_back(read);
+    this->api->receive(PCAN_USBBUS1, read);
     Frame frame;
     ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::SECOND)));
     EXPECT_EQ(frame.id, 0x18FEF100);
@@ -152,7 +248,7 @@ TEST_F(PCANTest, ReceivesAnFDFrameThroughItsDataLengthCode) {
     read.msg.DLC = 13;
     read.msg.DATA[31] = 0xEE;
     read.timestamp_us = 42;
-    this->api->reads.push_back(read);
+    this->api->receive(PCAN_USBBUS1, read);
     Frame frame;
     ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::SECOND)));
     EXPECT_TRUE(frame.fd);
@@ -167,10 +263,8 @@ TEST_F(PCANTest, SkipsStatusMessages) {
     auto bus = this->open();
     MockAPI::Received status;
     status.msg.MSGTYPE = PCAN_MESSAGE_STATUS;
-    MockAPI::Received data;
-    data.msg.ID = 0x7;
-    this->api->reads.push_back(status);
-    this->api->reads.push_back(data);
+    this->api->receive(PCAN_USBBUS1, status);
+    this->api->receive(PCAN_USBBUS1, data(0x7));
     Frame frame;
     ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::SECOND)));
     EXPECT_EQ(frame.id, 0x7);
@@ -182,7 +276,7 @@ TEST_F(PCANTest, ReceivesARemoteFrame) {
     read.msg.ID = 0x10;
     read.msg.MSGTYPE = PCAN_MESSAGE_RTR;
     read.msg.DLC = 4;
-    this->api->reads.push_back(read);
+    this->api->receive(PCAN_USBBUS1, read);
     Frame frame;
     ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::SECOND)));
     EXPECT_EQ(frame.type, Type::REMOTE);
@@ -191,8 +285,8 @@ TEST_F(PCANTest, ReceivesARemoteFrame) {
 
 TEST_F(PCANTest, RegistersAReceiveEventOnTheChannel) {
     auto bus = this->open();
-    EXPECT_EQ(this->api->receive_events, std::vector<TPCANHandle>{PCAN_USBBUS1});
-    EXPECT_TRUE(this->api->released.empty());
+    EXPECT_EQ(this->api->receive_events(), std::vector<TPCANHandle>{PCAN_USBBUS1});
+    EXPECT_TRUE(this->api->released().empty());
 }
 
 TEST_F(PCANTest, UninitializesTheChannelWhenTheReceiveEventFails) {
@@ -206,7 +300,7 @@ TEST_F(PCANTest, UninitializesTheChannelWhenTheReceiveEventFails) {
         err.data,
         "PCAN_USBBUS1: cannot register the receive event: mock status 1"
     );
-    EXPECT_EQ(this->api->uninitialized, std::vector<TPCANHandle>{PCAN_USBBUS1});
+    EXPECT_EQ(this->api->uninitialized(), std::vector<TPCANHandle>{PCAN_USBBUS1});
 }
 
 TEST_F(PCANTest, WaitsOnTheReceiveEventWhenTheTimeoutElapses) {
@@ -215,16 +309,14 @@ TEST_F(PCANTest, WaitsOnTheReceiveEventWhenTheTimeoutElapses) {
     const auto start = x::telem::TimeStamp::now();
     EXPECT_FALSE(ASSERT_NIL_P(bus->receive(frame, x::telem::MILLISECOND * 20)));
     EXPECT_GE(x::telem::TimeStamp::now() - start, x::telem::MILLISECOND * 20);
-    EXPECT_GE(this->api->waits, 1);
+    EXPECT_GE(this->api->waits(), 1);
 }
 
 TEST_F(PCANTest, WakesOnTheReceiveEventWhenAFrameArrives) {
     auto bus = this->open();
     std::thread producer([this] {
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
-        MockAPI::Received read;
-        read.msg.ID = 0x55;
-        this->api->receive(read);
+        this->api->receive(PCAN_USBBUS1, data(0x55));
     });
     Frame frame;
     const auto start = x::telem::TimeStamp::now();
@@ -236,18 +328,14 @@ TEST_F(PCANTest, WakesOnTheReceiveEventWhenAFrameArrives) {
 
 TEST_F(PCANTest, DrainsTheQueuedFramesBeforeWaiting) {
     auto bus = this->open();
-    MockAPI::Received first;
-    first.msg.ID = 0x1;
-    MockAPI::Received second;
-    second.msg.ID = 0x2;
-    this->api->receive(first);
-    this->api->receive(second);
+    this->api->receive(PCAN_USBBUS1, data(0x1));
+    this->api->receive(PCAN_USBBUS1, data(0x2));
     Frame frame;
     ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::SECOND)));
     EXPECT_EQ(frame.id, 0x1);
     ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::SECOND)));
     EXPECT_EQ(frame.id, 0x2);
-    EXPECT_EQ(this->api->waits, 0);
+    EXPECT_EQ(this->api->waits(), 0);
 }
 
 TEST_F(PCANTest, ReportsAFailedWaitAsACriticalHardwareError) {
@@ -266,15 +354,92 @@ TEST_F(PCANTest, ReportsAFailedWaitAsACriticalHardwareError) {
     EXPECT_FALSE(received);
 }
 
-TEST_F(PCANTest, ReportsBusOffAsATemporaryHardwareError) {
+TEST_F(PCANTest, ReportsAnUnpluggedAdapterAsUnreachableOnReceive) {
     auto bus = this->open();
-    MockAPI::Received read;
-    read.status = PCAN_ERROR_BUSOFF;
-    this->api->reads.push_back(read);
+    this->api->unplug(PCAN_USBBUS1);
     Frame frame;
-    auto [received, err] = bus->receive(frame, x::telem::SECOND);
-    ASSERT_MATCHES(err, TEMPORARY_HARDWARE_ERROR);
+    auto [received, err] = bus->receive(frame, x::telem::MILLISECOND * 20);
+    ASSERT_MATCHES(err, UNREACHABLE_ERROR);
+    EXPECT_EQ(err.data, "PCAN_USBBUS1: the adapter was unplugged");
+    EXPECT_FALSE(received);
+}
+
+TEST_F(PCANTest, ReportsAnUnpluggedAdapterAsUnreachableOnSend) {
+    auto bus = this->open();
+    this->api->unplug(PCAN_USBBUS1);
+    const auto err = bus->send(Frame{.id = 1});
+    ASSERT_MATCHES(err, UNREACHABLE_ERROR);
+    EXPECT_EQ(err.data, "PCAN_USBBUS1: the adapter was unplugged");
+}
+
+TEST_F(PCANTest, ReopensAChannelAfterAReplug) {
+    auto bus = this->open();
+    this->api->unplug(PCAN_USBBUS1);
+    Frame frame;
+    ASSERT_MATCHES(
+        bus->receive(frame, x::telem::MILLISECOND * 20).second,
+        UNREACHABLE_ERROR
+    );
+    ASSERT_NIL(bus->close());
+    auto [absent, err] = this->backend.open(props());
+    ASSERT_MATCHES(err, UNREACHABLE_ERROR);
+    this->api->plug(PCAN_USBBUS1);
+    bus = this->open();
+    this->api->receive(PCAN_USBBUS1, data(0x9));
+    ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::SECOND)));
+    EXPECT_EQ(frame.id, 0x9);
+}
+
+TEST_F(PCANTest, ReportsEachBusStateChangeAsABusErrorFrame) {
+    auto bus = this->open();
+    Frame frame;
+    this->api->set_bus(PCAN_USBBUS1, PCAN_ERROR_BUSHEAVY);
+    ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::MILLISECOND * 20)));
+    EXPECT_EQ(frame.type, Type::BUS_ERROR);
+    EXPECT_EQ(
+        bus_error::describe(frame),
+        "the adapter reported receive error warning, transmit error warning"
+    );
+    EXPECT_FALSE(ASSERT_NIL_P(bus->receive(frame, x::telem::MILLISECOND * 20)));
+    this->api->set_bus(PCAN_USBBUS1, PCAN_ERROR_BUSPASSIVE | PCAN_ERROR_BUSHEAVY);
+    ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::MILLISECOND * 20)));
+    EXPECT_EQ(
+        bus_error::describe(frame),
+        "the adapter reported receive error passive, transmit error passive"
+    );
+    this->api->set_bus(PCAN_USBBUS1, PCAN_ERROR_OK);
+    ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::MILLISECOND * 20)));
+    EXPECT_EQ(frame.type, Type::BUS_ERROR);
+    EXPECT_FALSE(bus_error::describe(frame).has_value());
+}
+
+TEST_F(PCANTest, ReportsBusOffAsUnreachableSoTheChannelResets) {
+    auto bus = this->open();
+    this->api->set_bus(PCAN_USBBUS1, PCAN_ERROR_BUSOFF);
+    Frame frame;
+    auto [received, err] = bus->receive(frame, x::telem::MILLISECOND * 20);
+    ASSERT_MATCHES(err, UNREACHABLE_ERROR);
     EXPECT_EQ(err.data, "PCAN_USBBUS1: bus off");
+    const auto send_err = bus->send(Frame{.id = 1});
+    ASSERT_MATCHES(send_err, UNREACHABLE_ERROR);
+    EXPECT_EQ(send_err.data, "PCAN_USBBUS1: bus off");
+}
+
+TEST_F(PCANTest, ReportsAReceiveQueueOverrunBeforeTheNextFrame) {
+    auto bus = this->open();
+    MockAPI::Received overrun;
+    overrun.status = PCAN_ERROR_QOVERRUN;
+    this->api->receive(PCAN_USBBUS1, overrun);
+    this->api->receive(PCAN_USBBUS1, data(0x3));
+    Frame frame;
+    ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::SECOND)));
+    EXPECT_EQ(frame.type, Type::BUS_ERROR);
+    EXPECT_EQ(
+        bus_error::describe(frame),
+        "the adapter reported receive overflow, frames lost"
+    );
+    ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::SECOND)));
+    EXPECT_EQ(frame.id, 0x3);
 }
 
 TEST_F(PCANTest, SendsAClassicFrame) {
@@ -282,12 +447,12 @@ TEST_F(PCANTest, SendsAClassicFrame) {
     Frame frame{.id = 0x1ABCDE, .extended = true, .length = 2};
     frame.data[1] = 0x99;
     ASSERT_NIL(bus->send(frame));
-    ASSERT_EQ(this->api->written.size(), 1);
-    const auto &msg = this->api->written[0];
-    EXPECT_EQ(msg.ID, 0x1ABCDE);
-    EXPECT_EQ(msg.MSGTYPE, PCAN_MESSAGE_EXTENDED);
-    EXPECT_EQ(msg.LEN, 2);
-    EXPECT_EQ(msg.DATA[1], 0x99);
+    const auto written = this->api->channel(PCAN_USBBUS1).written;
+    ASSERT_EQ(written.size(), 1);
+    EXPECT_EQ(written[0].ID, 0x1ABCDE);
+    EXPECT_EQ(written[0].MSGTYPE, PCAN_MESSAGE_EXTENDED);
+    EXPECT_EQ(written[0].LEN, 2);
+    EXPECT_EQ(written[0].DATA[1], 0x99);
 }
 
 TEST_F(PCANTest, SendsAnFDFrameWithItsDataLengthCode) {
@@ -295,11 +460,18 @@ TEST_F(PCANTest, SendsAnFDFrameWithItsDataLengthCode) {
     Frame frame{.id = 0x100, .fd = true, .bitrate_switched = true, .length = 48};
     frame.data[47] = 0x31;
     ASSERT_NIL(bus->send(frame));
-    ASSERT_EQ(this->api->written_fd.size(), 1);
-    const auto &msg = this->api->written_fd[0];
-    EXPECT_EQ(msg.MSGTYPE, PCAN_MESSAGE_FD | PCAN_MESSAGE_BRS);
-    EXPECT_EQ(msg.DLC, 14);
-    EXPECT_EQ(msg.DATA[47], 0x31);
+    const auto written = this->api->channel(PCAN_USBBUS1).written_fd;
+    ASSERT_EQ(written.size(), 1);
+    EXPECT_EQ(written[0].MSGTYPE, PCAN_MESSAGE_FD | PCAN_MESSAGE_BRS);
+    EXPECT_EQ(written[0].DLC, 14);
+    EXPECT_EQ(written[0].DATA[47], 0x31);
+}
+
+TEST_F(PCANTest, SendsWhileTheBusIsErrorPassive) {
+    auto bus = this->open();
+    this->api->set_bus(PCAN_USBBUS1, PCAN_ERROR_BUSPASSIVE);
+    ASSERT_NIL(bus->send(Frame{.id = 1}));
+    EXPECT_EQ(this->api->channel(PCAN_USBBUS1).written.size(), 1);
 }
 
 TEST_F(PCANTest, RefusesToSendOnAListenOnlyChannel) {
@@ -307,7 +479,7 @@ TEST_F(PCANTest, RefusesToSendOnAListenOnlyChannel) {
     const auto err = bus->send(Frame{.id = 1});
     ASSERT_MATCHES(err, LISTEN_ONLY_ERROR);
     EXPECT_EQ(err.data, "channel PCAN_USBBUS1 is listen only");
-    EXPECT_TRUE(this->api->written.empty());
+    EXPECT_TRUE(this->api->channel(PCAN_USBBUS1).written.empty());
 }
 
 TEST_F(PCANTest, RejectsAnFDFrameOnAClassicChannel) {
@@ -317,9 +489,10 @@ TEST_F(PCANTest, RejectsAnFDFrameOnAClassicChannel) {
 
 TEST_F(PCANTest, ReportsAFullTransmitQueueAsATemporaryHardwareError) {
     auto bus = this->open();
-    this->api->write_status = PCAN_ERROR_QXMTFULL;
+    this->api->set_write_status(PCAN_USBBUS1, PCAN_ERROR_QXMTFULL);
     const auto err = bus->send(Frame{.id = 1});
     ASSERT_MATCHES(err, TEMPORARY_HARDWARE_ERROR);
+    EXPECT_FALSE(err.matches(UNREACHABLE_ERROR));
     EXPECT_EQ(err.data, "PCAN_USBBUS1: transmit queue is full");
 }
 
@@ -328,35 +501,37 @@ TEST_F(PCANTest, UninitializesTheChannelOnceOnClose) {
     ASSERT_NIL(bus->close());
     ASSERT_NIL(bus->close());
     bus.reset();
-    ASSERT_EQ(this->api->uninitialized.size(), 1);
-    EXPECT_EQ(this->api->uninitialized[0], PCAN_USBBUS1);
+    EXPECT_EQ(this->api->uninitialized(), std::vector<TPCANHandle>{PCAN_USBBUS1});
 }
 
 TEST_F(PCANTest, ReleasesTheReceiveEventAfterUninitializingOnClose) {
     auto bus = this->open();
     ASSERT_NIL(bus->close());
-    ASSERT_EQ(this->api->released.size(), 1);
-    EXPECT_EQ(this->api->released[0].channel, PCAN_USBBUS1);
-    EXPECT_TRUE(this->api->released[0].after_uninitialize);
+    const auto released = this->api->released();
+    ASSERT_EQ(released.size(), 1);
+    EXPECT_EQ(released[0].channel, PCAN_USBBUS1);
+    EXPECT_TRUE(released[0].after_uninitialize);
 }
 
 TEST_F(PCANTest, ScansTheChannelsThatAreAttached) {
-    this->api->channels[PCAN_USBBUS1] = {
-        .condition = PCAN_CHANNEL_AVAILABLE,
-        .hardware_name = "PCAN-USB FD",
-        .features = FEATURE_FD_CAPABLE,
-    };
-    this->api->channels[0x52] = {
-        .condition = PCAN_CHANNEL_OCCUPIED,
-        .hardware_name = "PCAN-USB",
-    };
-    this->api->channels[0x53] = {.condition = PCAN_CHANNEL_UNAVAILABLE};
+    this->api->add(
+        PCAN_USBBUS1,
+        {.hardware_name = "PCAN-USB FD", .features = FEATURE_FD_CAPABLE}
+    );
+    this->api->add(0x52, {.hardware_name = "PCAN-USB"});
+    this->api->claim(0x52, true);
+    this->api->add(0x53, {.hardware_name = "PCAN-USB"});
+    this->api->unplug(0x53);
+    this->api->add(0x54, {.hardware_name = "PCAN-USB Pro"});
+    this->api->monitor(0x54, "0x001C");
     const auto channels = ASSERT_NIL_P(this->backend.scan());
-    ASSERT_EQ(channels.size(), 2);
+    ASSERT_EQ(channels.size(), 3);
     EXPECT_EQ(channels[0].backend, "pcan");
     EXPECT_EQ(channels[0].name, "PCAN_USBBUS1");
     EXPECT_EQ(channels[0].description, "PCAN-USB FD, CAN FD");
     EXPECT_EQ(channels[1].name, "PCAN_USBBUS2");
     EXPECT_EQ(channels[1].description, "PCAN-USB, in use");
+    EXPECT_EQ(channels[2].name, "PCAN_USBBUS4");
+    EXPECT_EQ(channels[2].description, "PCAN-USB Pro, in use");
 }
 }

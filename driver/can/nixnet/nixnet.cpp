@@ -29,10 +29,56 @@ std::string describe(API &api, const nxStatus_t status) {
     return {text.data()};
 }
 
-/// @returns the error for a failed call on an interface.
-x::errors::Error
-hardware_error(API &api, const std::string &name, const nxStatus_t status) {
-    return {TEMPORARY_HARDWARE_ERROR, "NI-XNET " + name + ": " + describe(api, status)};
+/// @returns the bus error frame of an NI-XNET bus error frame, whose payload holds the
+/// communication state, the transmit and receive error counters, the last error, and a
+/// transceiver error flag.
+Frame bus_error_frame(const std::array<std::uint8_t, MAX_FD_LENGTH> &payload) {
+    const auto state = payload[0];
+    const auto tx_errors = payload[1];
+    const auto rx_errors = payload[2];
+    const auto last = payload[3];
+    std::uint32_t classes = bus_error::COUNTERS;
+    std::uint8_t kinds = 0;
+    switch (last) {
+        case nxCANLastErr_Stuff:
+            kinds = bus_error::PROTOCOL_STUFF;
+            break;
+        case nxCANLastErr_Form:
+            kinds = bus_error::PROTOCOL_FORM;
+            break;
+        case nxCANLastErr_Bit1:
+            kinds = bus_error::PROTOCOL_BIT1;
+            break;
+        case nxCANLastErr_Bit0:
+            kinds = bus_error::PROTOCOL_BIT0;
+            break;
+        case nxCANLastErr_Ack:
+            classes |= bus_error::NO_ACK;
+            break;
+        default:
+            break;
+    }
+    if (last != nxCANLastErr_None) classes |= bus_error::BUS;
+    if (last != nxCANLastErr_None && last != nxCANLastErr_Ack)
+        classes |= bus_error::PROTOCOL;
+    if (payload[4] != 0) classes |= bus_error::TRANSCEIVER;
+    // CAN error states: passive above 127 errors, warning from 96.
+    std::uint8_t controller = 0;
+    if (state == nxCANCommState_BusOff) classes |= bus_error::BUS_OFF;
+    if (state == nxCANCommState_ErrorPassive) {
+        if (tx_errors > 127) controller |= bus_error::CONTROLLER_TX_PASSIVE;
+        if (rx_errors > 127) controller |= bus_error::CONTROLLER_RX_PASSIVE;
+    }
+    if (state == nxCANCommState_ErrorActive) {
+        if (tx_errors >= 96) controller |= bus_error::CONTROLLER_TX_WARNING;
+        if (rx_errors >= 96) controller |= bus_error::CONTROLLER_RX_WARNING;
+    }
+    if (controller != 0) classes |= bus_error::CONTROLLER;
+    auto frame = bus_error::make(classes, controller, x::telem::TimeStamp::now());
+    frame.data[2] = kinds;
+    frame.data[6] = tx_errors;
+    frame.data[7] = rx_errors;
+    return frame;
 }
 
 /// @brief reads a string property of a system object.
@@ -44,6 +90,35 @@ std::string string_property(API &api, const nxSessionRef_t ref, const u32 id) {
     value.resize(std::strlen(value.c_str()));
     return value;
 }
+}
+
+x::errors::Error
+translate(API &api, const nxStatus_t status, const std::string &context) {
+    const auto message = context + ": " + describe(api, status);
+    switch (status) {
+        // NI ties nxErrInvalidInterface to a removed module or chassis as well as to a
+        // misspelled name.
+        case nxErrInvalidInterface:
+        case nxErrCommunicationLost:
+        case nxErrLowLevelCommunicationTimeout:
+        case nxErrDongleCommunicationLost:
+        case nxErrCdaqConnectionLost:
+        case nxErrCdaqTransferAborted:
+        case nxErrFirmwareNoResponse:
+        case nxErrPowerSuspended:
+        case nxErrMissingBusPower:
+        case nxErrDifferentClusterOpen:
+            return {UNREACHABLE_ERROR, message};
+        case nxErrInvalidBaudRate:
+        case nxErrBaudRateXcvrMismatch:
+        case nxErrInvalidBitTimings:
+        case nxErrPayloadTooLarge:
+            return {CONFIG_ERROR, message};
+        case nxErrOutputQueueOverflow:
+            return {TEMPORARY_HARDWARE_ERROR, message};
+        default:
+            return {CRITICAL_HARDWARE_ERROR, message};
+    }
 }
 
 std::size_t raw_size(const std::uint8_t length) {
@@ -90,11 +165,14 @@ decode(const std::span<const std::uint8_t> bytes, Frame &frame) {
     frame.fd = type == nxFrameType_CANFD_Data || type == nxFrameType_CANFDBRS_Data;
     frame.bitrate_switched = type == nxFrameType_CANFDBRS_Data;
     frame.error_passive = false;
-    frame.type = Type::DATA;
-    if (type == nxFrameType_CAN_Remote) frame.type = Type::REMOTE;
-    if (type == nxFrameType_CAN_BusError) frame.type = Type::BUS_ERROR;
+    frame.type = type == nxFrameType_CAN_Remote ? Type::REMOTE : Type::DATA;
     frame.length = length;
+    frame.data = {};
     std::memcpy(frame.data.data(), bytes.data() + HEADER_SIZE, length);
+    if (type == nxFrameType_CAN_BusError) {
+        frame = bus_error_frame(frame.data);
+        return {size, x::errors::NIL};
+    }
     frame.time = x::telem::TimeStamp(
         (static_cast<std::int64_t>(ticks) -
          static_cast<std::int64_t>(UNIX_EPOCH_TICKS)) *
@@ -151,8 +229,19 @@ std::optional<std::pair<bool, x::errors::Error>> Bus::take(Frame &frame) {
             0,
             &returned
         );
+        if (status == nxErrInputQueueOverflow) {
+            frame = bus_error::make(
+                bus_error::CONTROLLER,
+                bus_error::CONTROLLER_RX_OVERFLOW,
+                x::telem::TimeStamp::now()
+            );
+            return std::pair{true, x::errors::NIL};
+        }
         if (status < nxSuccess)
-            return std::pair{false, hardware_error(*this->api, this->name, status)};
+            return std::pair{
+                false,
+                translate(*this->api, status, "NI-XNET " + this->name)
+            };
         this->offset = 0;
         this->size = returned;
         if (returned == 0) return std::nullopt;
@@ -167,7 +256,13 @@ x::errors::Error Bus::transmit(const Frame &frame) {
         static_cast<u32>(raw.size()),
         0
     );
-    if (status < nxSuccess) return hardware_error(*this->api, this->name, status);
+    if (status == nxErrOutputQueueOverflow)
+        return {
+            TEMPORARY_HARDWARE_ERROR,
+            "NI-XNET " + this->name + ": transmit queue is full"
+        };
+    if (status < nxSuccess)
+        return translate(*this->api, status, "NI-XNET " + this->name);
     return x::errors::NIL;
 }
 
@@ -180,17 +275,14 @@ x::errors::Error Bus::close() {
         if (status >= nxSuccess) status = out_status;
     }
     if (status >= nxSuccess) return x::errors::NIL;
-    return {
-        CRITICAL_HARDWARE_ERROR,
-        "NI-XNET " + this->name + ": " + describe(*this->api, status)
-    };
+    return translate(*this->api, status, "NI-XNET " + this->name);
 }
 
 std::pair<std::vector<Channel>, x::errors::Error> Backend::scan() {
     auto &api = *this->api;
     nxSessionRef_t system = 0;
     if (const auto status = api.SystemOpen(&system); status < nxSuccess)
-        return {{}, hardware_error(api, "system", status)};
+        return {{}, translate(api, status, "NI-XNET system")};
     std::vector<Channel> found;
     u32 size = 0;
     auto status = api.GetPropertySize(system, nxPropSys_IntfRefsCAN, &size);
@@ -204,7 +296,7 @@ std::pair<std::vector<Channel>, x::errors::Error> Backend::scan() {
         );
     if (status < nxSuccess) {
         api.SystemClose(system);
-        return {{}, hardware_error(api, "system", status)};
+        return {{}, translate(api, status, "NI-XNET system")};
     }
     for (const auto intf: interfaces) {
         const auto name = string_property(api, intf, nxPropIntf_Name);
@@ -240,18 +332,32 @@ Backend::open(const synnax::can::Properties &props) {
             )
         };
     auto &api = *this->api;
+    const auto context = "NI-XNET " + props.channel;
     std::vector<nxSessionRef_t> sessions;
     const auto fail = [&](const nxStatus_t status) {
-        for (const auto s: sessions)
-            api.Clear(s);
+        for (const auto session: sessions)
+            api.Clear(session);
+        if (status == nxErrInvalidInterface)
+            return std::pair<std::unique_ptr<can::Bus>, x::errors::Error>{
+                nullptr,
+                x::errors::Error(
+                    UNREACHABLE_ERROR,
+                    "NI-XNET has no interface named " + props.channel
+                )
+            };
         return std::pair<std::unique_ptr<can::Bus>, x::errors::Error>{
             nullptr,
-            hardware_error(api, props.channel, status)
+            translate(api, status, context)
         };
+    };
+    const auto set = [&](const u32 id, const u32 size, void *value) {
+        return api.SetProperty(sessions.back(), id, size, value);
     };
     // A session takes its read-only I/O mode from the database cluster, so an FD bus
     // opens the in-memory database whose cluster is in CAN FD+BRS mode.
     const auto database = props.fd ? ":can_fd_brs:" : ":memory:";
+    // NI-XNET refuses a session on an interface that runs, so every session exists
+    // before any starts.
     const auto create = [&](const u32 mode) -> nxStatus_t {
         nxSessionRef_t session = 0;
         auto status = api.CreateSession(
@@ -265,43 +371,34 @@ Backend::open(const synnax::can::Properties &props) {
         if (status < nxSuccess) return status;
         sessions.push_back(session);
         u64 bitrate = props.bitrate;
-        status = api.SetProperty(
-            session,
-            nxPropSession_IntfBaudRate64,
-            sizeof(bitrate),
-            &bitrate
+        status = set(nxPropSession_IntfBaudRate64, sizeof(bitrate), &bitrate);
+        if (status < nxSuccess || !props.fd) return status;
+        u64 data_bitrate = props.data_bitrate;
+        return set(
+            nxPropSession_IntfCanFdBaudRate64,
+            sizeof(data_bitrate),
+            &data_bitrate
         );
-        if (status < nxSuccess) return status;
-        if (props.fd) {
-            u64 data_bitrate = props.data_bitrate;
-            status = api.SetProperty(
-                session,
-                nxPropSession_IntfCanFdBaudRate64,
-                sizeof(data_bitrate),
-                &data_bitrate
-            );
-            if (status < nxSuccess) return status;
-        }
-        if (props.listen_only) {
-            u8 on = 1;
-            status = api.SetProperty(
-                session,
-                nxPropSession_IntfCANLstnOnly,
-                sizeof(on),
-                &on
-            );
-            if (status < nxSuccess) return status;
-        }
-        return api.Start(session, nxStartStop_Normal);
     };
     if (const auto status = create(nxMode_FrameInStream); status < nxSuccess)
         return fail(status);
-    std::optional<nxSessionRef_t> out;
-    if (!props.listen_only) {
+    u8 on = 1;
+    if (const auto status = set(nxPropSession_IntfBusErrToInStrm, sizeof(on), &on);
+        status < nxSuccess)
+        return fail(status);
+    if (props.listen_only)
+        if (const auto status = set(nxPropSession_IntfCANLstnOnly, sizeof(on), &on);
+            status < nxSuccess)
+            return fail(status);
+    if (!props.listen_only)
         if (const auto status = create(nxMode_FrameOutStream); status < nxSuccess)
             return fail(status);
-        out = sessions.back();
-    }
+    for (const auto session: sessions)
+        if (const auto status = api.Start(session, nxStartStop_Normal);
+            status < nxSuccess)
+            return fail(status);
+    std::optional<nxSessionRef_t> out;
+    if (!props.listen_only) out = sessions.back();
     return {
         std::make_unique<Bus>(this->api, sessions[0], out, props.channel, props.fd),
         x::errors::NIL

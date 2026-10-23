@@ -28,19 +28,24 @@ namespace driver::can {
 frames(const x::json::Parser &parser, const bus::WriteConfig &cfg, bool fd);
 
 /// @brief sends each message as a frame with the message's CAN identifier on the
-/// device's shared bus. A critical hardware error closes the bus, so the next send
-/// reopens it.
+/// device's shared bus. An unreachable or critical fault drops the bus, and a later
+/// send reopens it once the link's wait between opens passes.
 class Transmitter final : public bus::Transmitter {
 public:
     /// @param frames the frame of each message, from frames.
     /// @param acquire acquires the device's link on start.
     Transmitter(std::vector<Frame> frames, Acquire acquire);
 
+    /// @brief acquires the link and opens the bus.
+    /// @returns CONFIG_ERROR or CRITICAL_HARDWARE_ERROR when the bus cannot open, and
+    /// transport::CONFIG_ERROR when another task has the device open with other
+    /// properties. An unreachable channel is not an error here.
     x::errors::Error acquire() override;
     void release() override;
 
-    /// @returns FRAME_ERROR when the payload does not fit a frame on the bus, and the
-    /// bus's error when it cannot queue the frame.
+    /// @returns FRAME_ERROR when the payload does not fit a frame on the bus,
+    /// UNREACHABLE_ERROR while the bus cannot open, and otherwise the bus's error when
+    /// it cannot queue the frame.
     x::errors::Error
     send(std::size_t message, std::span<const std::uint8_t> payload) override;
 

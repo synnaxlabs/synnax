@@ -15,7 +15,10 @@ cc_library(
     srcs = [
         "canlib.cpp",
         "prod.cpp",
-    ],
+    ] + select({
+        "@platforms//os:windows": ["library_windows.cpp"],
+        "//conditions:default": ["library_unsupported.cpp"],
+    }),
     hdrs = [
         "abi.h",
         "api.h",
@@ -25,10 +28,10 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//driver/can",
+        "//driver/can:vendor",
         "//driver/errors",
         "//x/cpp/errors",
         "//x/cpp/lib",
-        "@abseil-cpp//absl/log",
     ],
 )
 

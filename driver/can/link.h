@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -17,6 +18,8 @@
 
 #include "client/cpp/can/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/telem/mono_clock.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/bus/registry.h"
 #include "driver/can/can.h"
@@ -25,25 +28,54 @@ namespace driver::can {
 /// @brief opens a CAN bus.
 using Opener = std::function<std::pair<std::unique_ptr<Bus>, x::errors::Error>()>;
 
-/// @brief the CAN bus of one device, shared by every task on the device. Its bus
-/// opens on first use and reopens after a fault. Safe for concurrent use: a read task
-/// may receive while a write task sends.
+/// @brief the wait after the first failed open of a link's bus. Each failed open
+/// doubles the wait, up to MAX_REOPEN_WAIT.
+inline const x::telem::TimeSpan MIN_REOPEN_WAIT = 250 * x::telem::MILLISECOND;
+/// @brief the longest wait between two opens of a link's bus.
+inline const x::telem::TimeSpan MAX_REOPEN_WAIT = 5 * x::telem::SECOND;
+
+/// @brief a bus that a Link opened.
+struct Opened {
+    /// @brief the open bus. Hold it only for the length of a call on it.
+    std::shared_ptr<Bus> bus;
+    /// @brief the number of times the link has opened a bus, counting this one. A
+    /// change means the link reopened.
+    std::uint64_t opens = 0;
+};
+
+/// @brief the CAN bus of one device, shared by every task on the device. It opens the
+/// bus on first use, drops it on an unreachable or critical fault, and opens it again
+/// with one wait between attempts that every task on the device shares. Safe for
+/// concurrent use: a read task may receive while a write task sends.
 class Link {
 public:
-    explicit Link(Opener open): open(std::move(open)) {}
+    /// @param open opens the bus.
+    /// @param now the clock that spaces open attempts.
+    explicit Link(Opener open, x::telem::NowFunc now = steady_now);
 
-    /// @returns the open bus, opened first when it is closed. The error of the Opener
-    /// when the bus cannot open.
-    std::pair<std::shared_ptr<Bus>, x::errors::Error> bus();
+    /// @returns the open bus, opening it first when the link holds none and the wait
+    /// after the last failed open has passed. While the bus cannot open, the error of
+    /// the last attempt: UNREACHABLE_ERROR, CONFIG_ERROR, or CRITICAL_HARDWARE_ERROR.
+    std::pair<Opened, x::errors::Error> bus();
 
-    /// @brief closes bus when it is still the open bus, so the next call to bus
-    /// reopens it. The bus closes once no caller still uses it.
-    void close(const std::shared_ptr<Bus> &bus);
+    /// @brief takes the error of a call on an opened bus. An unreachable or critical
+    /// error drops the bus when it is still the open one, and the next call to bus
+    /// opens it again at once. The dropped bus closes once no caller still uses it.
+    /// @returns err.
+    x::errors::Error report(const Opened &opened, const x::errors::Error &err);
 
 private:
-    Opener open;
+    const Opener open;
+    const x::telem::NowFunc now;
     std::mutex mu;
     std::shared_ptr<Bus> current;
+    std::uint64_t opens = 0;
+    /// @brief the error of the last failed open, while the link holds no bus.
+    x::errors::Error failure;
+    /// @brief when the link may next try to open.
+    x::telem::TimeStamp next_attempt;
+    /// @brief the wait after the next failed open.
+    x::telem::TimeSpan wait = MIN_REOPEN_WAIT;
 };
 
 /// @brief the links of the CAN integration, one per device.

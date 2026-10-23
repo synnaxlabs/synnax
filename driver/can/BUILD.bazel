@@ -30,6 +30,29 @@ cc_library(
 )
 
 cc_library(
+    name = "vendor",
+    srcs = ["vendor.cpp"],
+    hdrs = ["vendor.h"],
+    visibility = ["//driver/can:__subpackages__"],
+    deps = [
+        ":can",
+        "//driver/errors",
+        "//x/cpp/errors",
+        "//x/cpp/lib",
+    ],
+)
+
+cc_test(
+    name = "vendor_test",
+    srcs = ["vendor_test.cpp"],
+    deps = [
+        ":vendor",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
     name = "task",
     srcs = [
         "factory.cpp",
@@ -56,6 +79,35 @@ cc_library(
     ],
 )
 
+# The cases of the can::Bus contract. A test that links them instantiates
+# BusContract with its rigs.
+cc_library(
+    name = "contract",
+    testonly = True,
+    srcs = ["contract.cpp"],
+    hdrs = ["contract.h"],
+    visibility = ["//driver/can:__subpackages__"],
+    deps = [
+        ":can",
+        "//x/cpp/test",
+        "@googletest//:gtest",
+    ],
+    alwayslink = True,
+)
+
+# Runs the contract on the loopback model, and on an adapter when
+# SYNNAX_TEST_CAN_BENCH names one. socketcan_test runs it on vcan0.
+cc_test(
+    name = "contract_test",
+    srcs = ["contract_test.cpp"],
+    deps = [
+        ":contract",
+        "//driver/can/backends",
+        "//driver/can/loopback",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_test(
     name = "can_test",
     srcs = [
@@ -73,7 +125,10 @@ cc_test(
 cc_test(
     name = "task_test",
     size = "small",
-    srcs = ["task_test.cpp"],
+    srcs = [
+        "link_test.cpp",
+        "task_test.cpp",
+    ],
     deps = [
         ":task",
         "//driver/bus",

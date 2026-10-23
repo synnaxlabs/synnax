@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <utility>
 
 #include "client/cpp/can/json.gen.h"
@@ -14,19 +15,36 @@
 #include "driver/can/link.h"
 
 namespace driver::can {
-std::pair<std::shared_ptr<Bus>, x::errors::Error> Link::bus() {
+Link::Link(Opener open, x::telem::NowFunc now):
+    open(std::move(open)), now(std::move(now)) {}
+
+std::pair<Opened, x::errors::Error> Link::bus() {
     std::lock_guard lock(this->mu);
-    if (this->current == nullptr) {
-        auto [bus, err] = this->open();
-        if (err) return {nullptr, err};
-        this->current = std::move(bus);
+    if (this->current != nullptr)
+        return {{.bus = this->current, .opens = this->opens}, x::errors::NIL};
+    const auto now = this->now();
+    if (this->failure && now < this->next_attempt)
+        return {{}, this->failure};
+    auto [bus, err] = this->open();
+    if (err) {
+        this->failure = err;
+        this->next_attempt = now + this->wait;
+        this->wait = std::min(this->wait * 2, MAX_REOPEN_WAIT);
+        return {{}, err};
     }
-    return {this->current, x::errors::NIL};
+    this->current = std::move(bus);
+    this->opens++;
+    this->failure = x::errors::NIL;
+    this->wait = MIN_REOPEN_WAIT;
+    return {{.bus = this->current, .opens = this->opens}, x::errors::NIL};
 }
 
-void Link::close(const std::shared_ptr<Bus> &bus) {
+x::errors::Error Link::report(const Opened &opened, const x::errors::Error &err) {
+    if (!err.matches(UNREACHABLE_ERROR) && !err.matches(CRITICAL_HARDWARE_ERROR))
+        return err;
     std::lock_guard lock(this->mu);
-    if (this->current == bus) this->current.reset();
+    if (this->current == opened.bus) this->current.reset();
+    return err;
 }
 
 Acquire acquirer(

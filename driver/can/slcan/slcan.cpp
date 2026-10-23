@@ -10,6 +10,7 @@
 #include "absl/log/log.h"
 
 #include "driver/can/slcan/slcan.h"
+#include "driver/transport/errors.h"
 
 namespace driver::can::slcan {
 namespace {
@@ -25,6 +26,21 @@ std::span<const std::uint8_t> bytes(const std::string_view data) {
 std::string printable(const std::string_view command) {
     return std::string(command.substr(0, command.size() - 1));
 }
+
+bool is_answer(const Message &msg) {
+    return msg.reply == Reply::ACCEPTED || msg.reply == Reply::REJECTED;
+}
+
+bool is_line(const Message &msg) {
+    return msg.reply == Reply::OTHER || msg.reply == Reply::MALFORMED;
+}
+}
+
+x::errors::Error translate(const x::errors::Error &err) {
+    if (!err) return err;
+    if (err.matches(transport::UNREACHABLE_ERROR)) return {UNREACHABLE_ERROR, err.data};
+    if (err.matches(transport::CONFIG_ERROR)) return {CONFIG_ERROR, err.data};
+    return {CRITICAL_HARDWARE_ERROR, err.data};
 }
 
 Bus::Bus(std::unique_ptr<serial::Port> port, const synnax::can::Properties &props):
@@ -34,35 +50,22 @@ Bus::~Bus() {
     this->close();
 }
 
-std::pair<std::optional<Reply>, x::errors::Error>
+std::pair<std::vector<Message>, x::errors::Error>
 Bus::read(const x::telem::TimeSpan timeout) {
     auto [chunk, err] = this->port->read(timeout);
-    if (err) return {std::nullopt, err};
-    std::optional<Reply> result;
+    if (err) return {{}, translate(err)};
+    std::vector<Message> messages;
     std::vector<Frame> frames;
     for (const auto byte: chunk.data) {
-        Frame frame;
-        const auto reply = this->decoder.push(static_cast<char>(byte), frame);
-        if (!reply.has_value()) continue;
-        switch (*reply) {
-            case Reply::FRAME:
-                frame.time = chunk.time;
-                frame.clock = Clock::HOST;
-                frames.push_back(frame);
-                break;
-            case Reply::MALFORMED:
-                LOG(WARNING) << "[can] " << this->name
-                             << ": the adapter sent a malformed line";
-                break;
-            case Reply::ACCEPTED:
-                if (!result.has_value()) result = Reply::ACCEPTED;
-                break;
-            case Reply::REJECTED:
-                result = Reply::REJECTED;
-                break;
-            case Reply::OTHER:
-                break;
+        auto msg = this->decoder.push(static_cast<char>(byte));
+        if (!msg.has_value()) continue;
+        if (msg->reply != Reply::FRAME) {
+            messages.push_back(std::move(*msg));
+            continue;
         }
+        msg->frame.time = chunk.time;
+        msg->frame.clock = Clock::HOST;
+        frames.push_back(msg->frame);
     }
     if (!frames.empty()) {
         {
@@ -82,57 +85,84 @@ Bus::read(const x::telem::TimeSpan timeout) {
         }
         this->cv.notify_all();
     }
-    return {result, x::errors::NIL};
+    return {std::move(messages), x::errors::NIL};
 }
 
-std::pair<Reply, x::errors::Error> Bus::command(const std::string_view command) {
-    if (auto err = this->port->write(bytes(command), WRITE_TIMEOUT))
-        return {Reply::REJECTED, err};
+x::errors::Error Bus::write(const std::string_view line) {
+    return translate(this->port->write(bytes(line), WRITE_TIMEOUT));
+}
+
+std::pair<std::optional<Message>, x::errors::Error>
+Bus::await(bool (*matches)(const Message &)) {
     const auto deadline = x::telem::TimeStamp::now() + REPLY_TIMEOUT;
     for (auto now = x::telem::TimeStamp::now(); now < deadline;
          now = x::telem::TimeStamp::now()) {
-        auto [reply, err] = this->read(deadline - now);
-        if (err) return {Reply::REJECTED, err};
-        if (reply.has_value()) return {*reply, x::errors::NIL};
+        auto [messages, err] = this->read(deadline - now);
+        if (err) return {std::nullopt, err};
+        for (auto &msg: messages)
+            if (matches(msg)) return {std::move(msg), x::errors::NIL};
     }
-    return {
-        Reply::REJECTED,
-        {TEMPORARY_HARDWARE_ERROR,
-         "the device at " + this->name + " did not answer the slcan command '" +
-             printable(command) + "'. Check that it is an slcan adapter"}
-    };
+    return {std::nullopt, x::errors::NIL};
+}
+
+std::pair<std::string, x::errors::Error> Bus::version() {
+    if (auto err = this->write(VERSION_COMMAND)) return {"", err};
+    // LAWICEL firmware answers C before V, so the version is the first other line.
+    auto [msg, err] = this->await(is_line);
+    if (err) return {"", err};
+    if (!msg.has_value())
+        return {
+            "",
+            {UNREACHABLE_ERROR,
+             "the device at " + this->name + " did not answer the slcan command '" +
+                 printable(VERSION_COMMAND) + "'. Check that it is an slcan adapter"}
+        };
+    return {msg->text, x::errors::NIL};
+}
+
+x::errors::Error Bus::configure(const std::string_view command) {
+    if (auto err = this->write(command)) return err;
+    if (!answers(this->firmware)) return x::errors::NIL;
+    auto [msg, err] = this->await(is_answer);
+    if (err) return err;
+    if (!msg.has_value())
+        return {
+            UNREACHABLE_ERROR,
+            "the slcan adapter at " + this->name + " did not answer the command '" +
+                printable(command) + "'"
+        };
+    if (msg->reply == Reply::REJECTED)
+        return {
+            CONFIG_ERROR,
+            "the slcan adapter at " + this->name + " rejected the command '" +
+                printable(command) + "'"
+        };
+    return x::errors::NIL;
 }
 
 std::pair<std::unique_ptr<Bus>, x::errors::Error>
 Bus::open(std::unique_ptr<serial::Port> port, const synnax::can::Properties &props) {
-    auto [bitrate, bitrate_err] = bitrate_command(props.bitrate);
+    std::unique_ptr<Bus> bus(new Bus(std::move(port), props));
+    // CANable firmware ignores settings while on the bus, so the adapter leaves it
+    // first.
+    if (auto err = bus->write(CLOSE_COMMAND)) return {nullptr, err};
+    auto [version, version_err] = bus->version();
+    if (version_err) return {nullptr, version_err};
+    bus->firmware = identify(version);
+    bus->inbox.clear();
+    auto [bitrate, bitrate_err] = bitrate_command(bus->firmware, props.bitrate);
     if (bitrate_err) return {nullptr, bitrate_err};
-    std::string data_bitrate;
+    std::vector<std::string> commands{bitrate};
     if (props.fd) {
         auto [command, err] = data_bitrate_command(props.data_bitrate);
         if (err) return {nullptr, err};
-        data_bitrate = command;
+        commands.push_back(command);
     }
-    std::unique_ptr<Bus> bus(new Bus(std::move(port), props));
-    // An adapter that is already closed rejects C, and C also clears a partial command
-    // that an earlier session left in the adapter.
-    if (auto [_, err] = bus->command(CLOSE_COMMAND); err) return {nullptr, err};
-    bus->inbox.clear();
-    for (const auto &command:
-         {bitrate, data_bitrate, open_command(props.listen_only)}) {
-        if (command.empty()) continue;
-        auto [reply, err] = bus->command(command);
-        if (err) return {nullptr, err};
-        if (reply == Reply::REJECTED)
-            return {
-                nullptr,
-                x::errors::Error(
-                    CONFIG_ERROR,
-                    "the slcan adapter at " + props.channel +
-                        " rejected the command '" + printable(command) + "'"
-                )
-            };
-    }
+    auto [opening, open_err] = open_commands(bus->firmware, props.listen_only);
+    if (open_err) return {nullptr, open_err};
+    commands.insert(commands.end(), opening.begin(), opening.end());
+    for (const auto &command: commands)
+        if (auto err = bus->configure(command)) return {nullptr, err};
     bus->running = true;
     bus->thread = std::thread([raw = bus.get()] { raw->run(); });
     return {std::move(bus), x::errors::NIL};
@@ -145,11 +175,16 @@ x::errors::Error Bus::exchange() {
         lines.swap(this->outbox);
     }
     for (const auto &line: lines)
-        if (auto err = this->port->write(bytes(line), WRITE_TIMEOUT)) return err;
-    auto [reply, err] = this->read(READ_SLICE);
+        if (auto err = this->write(line)) return err;
+    auto [messages, err] = this->read(READ_SLICE);
     if (err) return err;
-    if (reply == Reply::REJECTED)
-        LOG(WARNING) << "[can] " << this->name << ": the adapter rejected a frame";
+    for (const auto &msg: messages) {
+        if (msg.reply == Reply::REJECTED)
+            LOG(WARNING) << "[can] " << this->name << ": the adapter rejected a frame";
+        if (msg.reply == Reply::MALFORMED)
+            LOG(WARNING) << "[can] " << this->name
+                         << ": the adapter sent a malformed line";
+    }
     return x::errors::NIL;
 }
 
@@ -198,7 +233,7 @@ x::errors::Error Bus::close() {
     x::errors::Error err = this->failure;
     for (const auto &line: lines) {
         if (err) break;
-        err = this->port->write(bytes(line), WRITE_TIMEOUT);
+        err = this->write(line);
     }
     this->port->close(WRITE_TIMEOUT);
     return err;
@@ -214,7 +249,7 @@ Backend::open(const synnax::can::Properties &props) {
     serial.port = props.channel;
     serial.baud_rate = BAUD_RATE;
     auto [port, err] = serial::Port::open(serial);
-    if (err) return {nullptr, err};
+    if (err) return {nullptr, translate(err)};
     auto [bus, open_err] = Bus::open(std::move(port), props);
     return {std::move(bus), open_err};
 }

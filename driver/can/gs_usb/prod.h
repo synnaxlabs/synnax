@@ -16,8 +16,12 @@
 #include "x/cpp/lib/lib.h"
 
 #include "driver/can/gs_usb/api.h"
+#include "driver/can/vendor.h"
 
 namespace driver::can::gs_usb {
+/// @returns the libusb library for the platform the build targets.
+[[nodiscard]] vendor::Library library();
+
 /// @brief the libusb shared library, loaded at runtime, and one context it owns.
 class ProdAPI final : public API {
     std::unique_ptr<x::lib::Shared> lib;

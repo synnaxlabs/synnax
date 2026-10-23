@@ -21,7 +21,6 @@ public:
     virtual canHandle OpenChannel(int channel, int flags) = 0;
     virtual canStatus Close(canHandle hnd) = 0;
     virtual canStatus BusOn(canHandle hnd) = 0;
-    virtual canStatus BusOff(canHandle hnd) = 0;
     virtual canStatus SetBusParams(
         canHandle hnd,
         long freq,
@@ -52,7 +51,7 @@ public:
     ) = 0;
     virtual canStatus
     Write(canHandle hnd, long id, void *msg, unsigned int dlc, unsigned int flag) = 0;
-    virtual canStatus GetNumberOfChannels(int *count) = 0;
+    virtual canStatus EnumHardwareEx(int *count) = 0;
     virtual canStatus
     GetChannelData(int channel, int item, void *buffer, std::size_t size) = 0;
     virtual canStatus GetErrorText(canStatus err, char *buf, unsigned int size) = 0;

@@ -9,12 +9,31 @@
 
 #include <array>
 #include <format>
+#include <stdexcept>
 
 #include "driver/can/slcan/protocol.h"
 
 namespace driver::can::slcan {
 namespace {
-constexpr std::array<std::pair<std::uint32_t, std::string_view>, 10> BITRATES = {{
+/// @brief a bitrate and the command that sets it.
+using Command = std::pair<std::uint32_t, std::string_view>;
+
+// Section 2.0 of the LAWICEL CAN232 manual.
+constexpr std::array<Command, 9> LAWICEL_BITRATES = {{
+    {10000, "S0\r"},
+    {20000, "S1\r"},
+    {50000, "S2\r"},
+    {100000, "S3\r"},
+    {125000, "S4\r"},
+    {250000, "S5\r"},
+    {500000, "S6\r"},
+    {800000, "S7\r"},
+    {1000000, "S8\r"},
+}};
+
+// enum can_bitrate in canable2-fw inc/can.h. canable-fw, for the first CANable, lacks
+// S9 and ignores it without an answer.
+constexpr std::array<Command, 10> CANABLE_BITRATES = {{
     {10000, "S0\r"},
     {20000, "S1\r"},
     {50000, "S2\r"},
@@ -27,7 +46,21 @@ constexpr std::array<std::pair<std::uint32_t, std::string_view>, 10> BITRATES = 
     {83333, "S9\r"},
 }};
 
-constexpr std::array<std::pair<std::uint32_t, std::string_view>, 2> DATA_BITRATES = {{
+// The S commands in the CANable 2.5 firmware manual.
+constexpr std::array<Command, 10> CANABLE_2_5_BITRATES = {{
+    {10000, "S0\r"},
+    {20000, "S1\r"},
+    {50000, "S2\r"},
+    {100000, "S3\r"},
+    {125000, "S4\r"},
+    {250000, "S5\r"},
+    {500000, "S6\r"},
+    {800000, "S7\r"},
+    {1000000, "S8\r"},
+    {83333, "S9\r"},
+}};
+
+constexpr std::array<Command, 2> DATA_BITRATES = {{
     {2000000, "Y2\r"},
     {5000000, "Y5\r"},
 }};
@@ -49,6 +82,18 @@ std::optional<std::uint32_t> hex(const std::string_view digits) {
     return value;
 }
 
+std::string name(const Firmware firmware) {
+    switch (firmware) {
+        case Firmware::LAWICEL:
+            return "LAWICEL slcan firmware";
+        case Firmware::CANABLE:
+            return "CANable firmware";
+        case Firmware::CANABLE_2_5:
+            return "CANable 2.5 firmware";
+    }
+    throw std::invalid_argument("unknown slcan firmware");
+}
+
 x::errors::Error malformed(const std::string_view line, const std::string &reason) {
     return {
         FRAME_ERROR,
@@ -57,13 +102,33 @@ x::errors::Error malformed(const std::string_view line, const std::string &reaso
 }
 }
 
-std::pair<std::string, x::errors::Error> bitrate_command(const std::uint32_t bitrate) {
-    auto [command, err] = find_bitrate(
-        BITRATES,
-        bitrate,
-        "slcan cannot run a classic CAN bus"
-    );
-    return {std::string(command), err};
+Firmware identify(const std::string_view version) {
+    // CANable 2.5 answers start with '+', and a LAWICEL version is V and four digits.
+    if (version.starts_with('+')) return Firmware::CANABLE_2_5;
+    if (version.size() == 5 && version.starts_with('V')) return Firmware::LAWICEL;
+    return Firmware::CANABLE;
+}
+
+bool answers(const Firmware firmware) {
+    return firmware != Firmware::CANABLE;
+}
+
+std::pair<std::string, x::errors::Error>
+bitrate_command(const Firmware firmware, const std::uint32_t bitrate) {
+    const auto what = name(firmware) + " cannot run a classic CAN bus";
+    std::pair<std::string_view, x::errors::Error> found;
+    switch (firmware) {
+        case Firmware::LAWICEL:
+            found = find_bitrate(LAWICEL_BITRATES, bitrate, what);
+            break;
+        case Firmware::CANABLE:
+            found = find_bitrate(CANABLE_BITRATES, bitrate, what);
+            break;
+        case Firmware::CANABLE_2_5:
+            found = find_bitrate(CANABLE_2_5_BITRATES, bitrate, what);
+            break;
+    }
+    return {std::string(found.first), found.second};
 }
 
 std::pair<std::string, x::errors::Error>
@@ -76,8 +141,24 @@ data_bitrate_command(const std::uint32_t bitrate) {
     return {std::string(command), err};
 }
 
-std::string open_command(const bool listen_only) {
-    return listen_only ? "L\r" : "O\r";
+std::pair<std::vector<std::string>, x::errors::Error>
+open_commands(const Firmware firmware, const bool listen_only) {
+    if (!listen_only) return {{"O\r"}, x::errors::NIL};
+    switch (firmware) {
+        case Firmware::LAWICEL:
+            return {{"L\r"}, x::errors::NIL};
+        case Firmware::CANABLE_2_5:
+            return {{"M1\r", "O\r"}, x::errors::NIL};
+        case Firmware::CANABLE:
+            // can_enable in src/can.c sets the normal mode, which discards M1.
+            return {
+                {},
+                {CONFIG_ERROR,
+                 "CANable firmware cannot open the bus listen only. Flash the CANable "
+                 "2.5 or candleLight firmware to listen only"}
+            };
+    }
+    throw std::invalid_argument("unknown slcan firmware");
 }
 
 std::string encode(const Frame &frame) {
@@ -153,11 +234,11 @@ std::pair<Frame, x::errors::Error> decode(const std::string_view line) {
     return {frame, x::errors::NIL};
 }
 
-std::optional<Reply> Decoder::push(const char c, Frame &frame) {
+std::optional<Message> Decoder::push(const char c) {
     if (c == '\a') {
         this->line.clear();
         this->overflowed = false;
-        return Reply::REJECTED;
+        return Message{.reply = Reply::REJECTED};
     }
     if (c != '\r') {
         if (this->line.size() < MAX_LINE_LENGTH)
@@ -166,13 +247,19 @@ std::optional<Reply> Decoder::push(const char c, Frame &frame) {
             this->overflowed = true;
         return std::nullopt;
     }
-    const std::string line = std::move(this->line);
+    Message msg{.text = std::move(this->line)};
     const bool overflowed = this->overflowed;
     this->line.clear();
     this->overflowed = false;
-    if (overflowed) return Reply::MALFORMED;
-    if (line.empty()) return Reply::ACCEPTED;
-    switch (line[0]) {
+    if (overflowed) {
+        msg.reply = Reply::MALFORMED;
+        return msg;
+    }
+    if (msg.text.empty()) {
+        msg.reply = Reply::ACCEPTED;
+        return msg;
+    }
+    switch (msg.text[0]) {
         case 't':
         case 'T':
         case 'r':
@@ -181,13 +268,15 @@ std::optional<Reply> Decoder::push(const char c, Frame &frame) {
         case 'D':
         case 'b':
         case 'B': {
-            auto [decoded, err] = decode(line);
-            if (err) return Reply::MALFORMED;
-            frame = decoded;
-            return Reply::FRAME;
+            auto [decoded, err] = decode(msg.text);
+            if (err) {
+                msg.reply = Reply::MALFORMED;
+                return msg;
+            }
+            return Message{.reply = Reply::FRAME, .frame = decoded};
         }
         default:
-            return Reply::OTHER;
+            return msg;
     }
 }
 }

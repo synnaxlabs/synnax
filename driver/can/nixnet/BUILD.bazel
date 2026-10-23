@@ -21,7 +21,11 @@ cc_library(
     srcs = [
         "nixnet.cpp",
         "prod.cpp",
-    ],
+    ] + select({
+        "@platforms//os:windows": ["library_windows.cpp"],
+        "@platforms//os:linux": ["library_linux.cpp"],
+        "//conditions:default": ["library_unsupported.cpp"],
+    }),
     hdrs = [
         "api.h",
         "nixnet.h",
@@ -31,6 +35,7 @@ cc_library(
     deps = [
         ":nixnet_official",
         "//driver/can",
+        "//driver/can:vendor",
         "//driver/errors",
         "//x/cpp/binary",
         "//x/cpp/errors",

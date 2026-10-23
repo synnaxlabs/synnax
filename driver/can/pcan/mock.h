@@ -13,64 +13,24 @@
 #include <condition_variable>
 #include <cstring>
 #include <deque>
+#include <format>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "driver/can/pcan/api.h"
 
 namespace driver::can::pcan {
-/// @brief a simulated PCAN-Basic library. Tests queue the messages and statuses reads
-/// return, and inspect the messages writes send.
+/// @brief a model of PCAN-Basic with PEAK channels, written from the PCAN-Basic
+/// documentation and PEAK's support forum. Each channel keeps its own state: a channel
+/// initialized once per process, a receive queue, a bus status, and whether its
+/// hardware is attached. An unplugged channel stays occupied, reads empty, and takes
+/// writes, and only CAN_GetStatus reports the unplug, as PCAN_ERROR_ILLHW
+/// (forum.peak-system.com/viewtopic.php?p=20202). Safe for concurrent use.
 class MockAPI final : public API {
-    /// @brief an auto-reset receive event that receive signals.
-    class Event final : public ReceiveEvent {
-        MockAPI &api;
-        TPCANHandle channel;
-
-    public:
-        Event(MockAPI &api, const TPCANHandle channel): api(api), channel(channel) {}
-
-        ~Event() override {
-            std::lock_guard lock(this->api.mu);
-            const auto &uninitialized = this->api.uninitialized;
-            this->api.released.push_back({
-                .channel = this->channel,
-                .after_uninitialize = std::ranges::find(uninitialized, this->channel) !=
-                                      uninitialized.end(),
-            });
-        }
-
-        x::errors::Error wait(const x::telem::TimeSpan timeout) override {
-            std::unique_lock lock(this->api.mu);
-            this->api.waits++;
-            this->api.cv.wait_for(lock, timeout.chrono(), [this] {
-                return this->api.signaled;
-            });
-            this->api.signaled = false;
-            return this->api.wait_error;
-        }
-    };
-
-    std::condition_variable cv;
-    bool signaled = false;
-
 public:
-    /// @brief a receive event the backend destroyed.
-    struct Release {
-        TPCANHandle channel;
-        /// @brief true when Uninitialize released the channel before the event.
-        bool after_uninitialize;
-    };
-
-    /// @brief a channel the mock reports to scans.
-    struct Channel {
-        std::uint32_t condition = PCAN_CHANNEL_AVAILABLE;
-        std::string hardware_name;
-        std::uint32_t features = 0;
-    };
-
     /// @brief one result of Read or ReadFD.
     struct Received {
         TPCANStatus status = PCAN_ERROR_OK;
@@ -78,77 +38,165 @@ public:
         std::uint64_t timestamp_us = 0;
     };
 
-    std::mutex mu;
-    /// @brief the channels scans find, by handle.
-    std::map<TPCANHandle, Channel> channels;
-    /// @brief the results reads return in order. An empty queue reads as
-    /// PCAN_ERROR_QRCVEMPTY.
-    std::deque<Received> reads;
-    /// @brief every classic message Write sent.
-    std::vector<TPCANMsg> written;
-    /// @brief every message WriteFD sent.
-    std::vector<TPCANMsgFD> written_fd;
-    /// @brief the status Initialize and InitializeFD return.
-    TPCANStatus initialize_status = PCAN_ERROR_OK;
-    /// @brief the status Write and WriteFD return.
-    TPCANStatus write_status = PCAN_ERROR_OK;
-    /// @brief the BTR0BTR1 code of the last Initialize.
-    TPCANBaudrate btr0btr1 = 0;
-    /// @brief the bitrate string of the last InitializeFD.
-    std::string fd_bitrate;
-    /// @brief the handles SetValue put in listen only mode.
-    std::vector<TPCANHandle> listen_only;
-    /// @brief the handles Uninitialize released.
-    std::vector<TPCANHandle> uninitialized;
+    /// @brief a channel the backend can find.
+    struct Channel {
+        std::string hardware_name;
+        std::uint32_t features = 0;
+        bool attached = true;
+        /// @brief true while another PCAN-Basic application holds the channel.
+        bool claimed = false;
+        /// @brief the bitrate PCAN-View runs the channel at while it shares it.
+        std::optional<std::string> monitor;
+        bool initialized = false;
+        /// @brief the bitrate this process initialized the channel at.
+        std::string bitrate;
+        bool listen_only = false;
+        /// @brief the bus status bits CAN_GetStatus reports.
+        TPCANStatus bus = PCAN_ERROR_OK;
+        /// @brief the status Write and WriteFD return while the bus takes frames.
+        TPCANStatus write_status = PCAN_ERROR_OK;
+        std::deque<Received> reads;
+        bool signaled = false;
+        std::vector<TPCANMsg> written;
+        std::vector<TPCANMsgFD> written_fd;
+    };
+
+    /// @brief a receive event the backend destroyed.
+    struct Release {
+        TPCANHandle channel;
+        /// @brief true when Uninitialize released the channel before the event.
+        bool after_uninitialize;
+    };
+
+    /// @brief the status Initialize and InitializeFD return in place of the model's,
+    /// such as PCAN_ERROR_NODRIVER.
+    std::optional<TPCANStatus> initialize_status;
     /// @brief the error OpenReceiveEvent returns.
     x::errors::Error receive_event_error = x::errors::NIL;
-    /// @brief the handles OpenReceiveEvent registered an event on.
-    std::vector<TPCANHandle> receive_events;
-    /// @brief the receive events the backend destroyed, in order.
-    std::vector<Release> released;
-    /// @brief the number of times a receive event waited.
-    std::size_t waits = 0;
     /// @brief the error a receive event's wait returns.
     x::errors::Error wait_error = x::errors::NIL;
 
-    /// @brief queues a read result and signals the receive event, as PCAN-Basic does
-    /// when a frame reaches the receive queue.
-    void receive(const Received &read) {
+    /// @brief adds a channel the backend can find.
+    void add(const TPCANHandle handle, Channel channel) {
         std::lock_guard lock(this->mu);
-        this->reads.push_back(read);
-        this->signaled = true;
+        this->channels[handle] = std::move(channel);
+    }
+
+    /// @brief unplugs the hardware of a channel.
+    void unplug(const TPCANHandle handle) {
+        std::lock_guard lock(this->mu);
+        this->channels.at(handle).attached = false;
+    }
+
+    /// @brief plugs the hardware of a channel back in with an empty bus.
+    void plug(const TPCANHandle handle) {
+        std::lock_guard lock(this->mu);
+        auto &ch = this->channels.at(handle);
+        ch.attached = true;
+        ch.bus = PCAN_ERROR_OK;
+        ch.reads.clear();
+    }
+
+    /// @brief makes another PCAN-Basic application hold the channel, or let it go.
+    void claim(const TPCANHandle handle, const bool claimed) {
+        std::lock_guard lock(this->mu);
+        this->channels.at(handle).claimed = claimed;
+    }
+
+    /// @brief makes PCAN-View share the channel at a bitrate, or let it go.
+    void monitor(const TPCANHandle handle, std::optional<std::string> bitrate) {
+        std::lock_guard lock(this->mu);
+        this->channels.at(handle).monitor = std::move(bitrate);
+    }
+
+    /// @brief sets the bus status bits of a channel, such as PCAN_ERROR_BUSPASSIVE.
+    void set_bus(const TPCANHandle handle, const TPCANStatus bus) {
+        std::lock_guard lock(this->mu);
+        this->channels.at(handle).bus = bus;
+    }
+
+    /// @brief sets the status writes to a channel return while its bus takes frames.
+    void set_write_status(const TPCANHandle handle, const TPCANStatus status) {
+        std::lock_guard lock(this->mu);
+        this->channels.at(handle).write_status = status;
+    }
+
+    /// @brief queues a read result on a channel and signals its receive event, as
+    /// PCAN-Basic does when a frame reaches the receive queue.
+    void receive(const TPCANHandle handle, const Received &read) {
+        std::lock_guard lock(this->mu);
+        auto &ch = this->channels.at(handle);
+        if (!ch.attached) return;
+        ch.reads.push_back(read);
+        ch.signaled = true;
         this->cv.notify_all();
     }
 
+    /// @returns a copy of a channel's state.
+    Channel channel(const TPCANHandle handle) {
+        std::lock_guard lock(this->mu);
+        return this->channels.at(handle);
+    }
+
+    /// @returns the handles Uninitialize released, in order.
+    std::vector<TPCANHandle> uninitialized() {
+        std::lock_guard lock(this->mu);
+        return this->released_handles;
+    }
+
+    /// @returns the handles OpenReceiveEvent registered an event on.
+    std::vector<TPCANHandle> receive_events() {
+        std::lock_guard lock(this->mu);
+        return this->events;
+    }
+
+    /// @returns the receive events the backend destroyed, in order.
+    std::vector<Release> released() {
+        std::lock_guard lock(this->mu);
+        return this->releases;
+    }
+
+    /// @returns the number of times a receive event waited.
+    std::size_t waits() {
+        std::lock_guard lock(this->mu);
+        return this->wait_count;
+    }
+
     TPCANStatus Initialize(
-        TPCANHandle,
+        const TPCANHandle handle,
         const TPCANBaudrate btr0btr1,
         TPCANType,
         std::uint32_t,
         std::uint16_t
     ) override {
         std::lock_guard lock(this->mu);
-        this->btr0btr1 = btr0btr1;
-        return this->initialize_status;
+        return this->initialize(handle, std::format("0x{:04X}", btr0btr1));
     }
 
-    TPCANStatus InitializeFD(TPCANHandle, TPCANBitrateFD bitrate) override {
+    TPCANStatus
+    InitializeFD(const TPCANHandle handle, TPCANBitrateFD bitrate) override {
         std::lock_guard lock(this->mu);
-        this->fd_bitrate = bitrate;
-        return this->initialize_status;
+        return this->initialize(handle, bitrate);
     }
 
-    TPCANStatus Uninitialize(const TPCANHandle channel) override {
+    TPCANStatus Uninitialize(const TPCANHandle handle) override {
         std::lock_guard lock(this->mu);
-        this->uninitialized.push_back(channel);
+        const auto it = this->channels.find(handle);
+        if (it == this->channels.end() || !it->second.initialized)
+            return PCAN_ERROR_INITIALIZE;
+        it->second.initialized = false;
+        it->second.listen_only = false;
+        it->second.reads.clear();
+        this->released_handles.push_back(handle);
         return PCAN_ERROR_OK;
     }
 
-    TPCANStatus Read(TPCANHandle, TPCANMsg *msg, TPCANTimestamp *timestamp) override {
+    TPCANStatus
+    Read(const TPCANHandle handle, TPCANMsg *msg, TPCANTimestamp *timestamp) override {
         std::lock_guard lock(this->mu);
-        if (this->reads.empty()) return PCAN_ERROR_QRCVEMPTY;
-        const auto read = this->reads.front();
-        this->reads.pop_front();
+        Received read;
+        if (const auto status = this->take(handle, read); status != PCAN_ERROR_OK)
+            return status;
         msg->ID = read.msg.ID;
         msg->MSGTYPE = read.msg.MSGTYPE;
         msg->LEN = read.msg.DLC;
@@ -160,45 +208,68 @@ public:
         return read.status;
     }
 
-    TPCANStatus
-    ReadFD(TPCANHandle, TPCANMsgFD *msg, TPCANTimestampFD *timestamp) override {
+    TPCANStatus ReadFD(
+        const TPCANHandle handle,
+        TPCANMsgFD *msg,
+        TPCANTimestampFD *timestamp
+    ) override {
         std::lock_guard lock(this->mu);
-        if (this->reads.empty()) return PCAN_ERROR_QRCVEMPTY;
-        const auto read = this->reads.front();
-        this->reads.pop_front();
+        Received read;
+        if (const auto status = this->take(handle, read); status != PCAN_ERROR_OK)
+            return status;
         *msg = read.msg;
         *timestamp = read.timestamp_us;
         return read.status;
     }
 
-    TPCANStatus Write(TPCANHandle, TPCANMsg *msg) override {
+    TPCANStatus Write(const TPCANHandle handle, TPCANMsg *msg) override {
         std::lock_guard lock(this->mu);
-        if (this->write_status == PCAN_ERROR_OK) this->written.push_back(*msg);
-        return this->write_status;
+        auto [status, ch] = this->writable(handle);
+        if (status == PCAN_ERROR_OK && ch->attached) ch->written.push_back(*msg);
+        return status;
     }
 
-    TPCANStatus WriteFD(TPCANHandle, TPCANMsgFD *msg) override {
+    TPCANStatus WriteFD(const TPCANHandle handle, TPCANMsgFD *msg) override {
         std::lock_guard lock(this->mu);
-        if (this->write_status == PCAN_ERROR_OK) this->written_fd.push_back(*msg);
-        return this->write_status;
+        auto [status, ch] = this->writable(handle);
+        if (status == PCAN_ERROR_OK && ch->attached) ch->written_fd.push_back(*msg);
+        return status;
+    }
+
+    TPCANStatus GetStatus(const TPCANHandle handle) override {
+        std::lock_guard lock(this->mu);
+        const auto it = this->channels.find(handle);
+        if (it == this->channels.end() || !it->second.initialized)
+            return PCAN_ERROR_INITIALIZE;
+        if (!it->second.attached) return PCAN_ERROR_ILLHW;
+        return it->second.bus;
     }
 
     TPCANStatus GetValue(
-        const TPCANHandle channel,
+        const TPCANHandle handle,
         const TPCANParameter parameter,
         void *buffer,
         const std::uint32_t length
     ) override {
         std::lock_guard lock(this->mu);
-        const auto it = this->channels.find(channel);
+        const auto it = this->channels.find(handle);
         if (parameter == PCAN_CHANNEL_CONDITION) {
-            const std::uint32_t condition = it == this->channels.end()
-                                              ? PCAN_CHANNEL_UNAVAILABLE
-                                              : it->second.condition;
+            std::uint32_t condition = PCAN_CHANNEL_UNAVAILABLE;
+            if (it != this->channels.end()) {
+                const auto &ch = it->second;
+                if (ch.initialized || ch.claimed)
+                    condition = PCAN_CHANNEL_OCCUPIED;
+                else if (!ch.attached)
+                    condition = PCAN_CHANNEL_UNAVAILABLE;
+                else if (ch.monitor.has_value())
+                    condition = PCAN_CHANNEL_PCANVIEW;
+                else
+                    condition = PCAN_CHANNEL_AVAILABLE;
+            }
             std::memcpy(buffer, &condition, sizeof(condition));
             return PCAN_ERROR_OK;
         }
-        if (it == this->channels.end()) return PCAN_ERROR_ILLPARAMVAL;
+        if (it == this->channels.end()) return PCAN_ERROR_ILLHW;
         if (parameter == PCAN_HARDWARE_NAME) {
             std::strncpy(
                 static_cast<char *>(buffer),
@@ -215,31 +286,111 @@ public:
     }
 
     TPCANStatus SetValue(
-        const TPCANHandle channel,
+        const TPCANHandle handle,
         const TPCANParameter parameter,
         void *buffer,
         std::uint32_t
     ) override {
         std::lock_guard lock(this->mu);
         if (parameter != PCAN_LISTEN_ONLY) return PCAN_ERROR_ILLPARAMTYPE;
-        if (*static_cast<std::uint32_t *>(buffer) == PCAN_PARAMETER_ON)
-            this->listen_only.push_back(channel);
+        const auto it = this->channels.find(handle);
+        if (it == this->channels.end()) return PCAN_ERROR_ILLHW;
+        it->second.listen_only = *static_cast<std::uint32_t *>(buffer) ==
+                                 PCAN_PARAMETER_ON;
         return PCAN_ERROR_OK;
     }
 
     TPCANStatus
     GetErrorText(const TPCANStatus error, std::uint16_t, char *buffer) override {
-        const auto text = "mock status " + std::to_string(error);
+        const auto text = std::format("PCAN status 0x{:X}", error);
         std::strncpy(buffer, text.c_str(), 255);
         return PCAN_ERROR_OK;
     }
 
     std::pair<std::unique_ptr<ReceiveEvent>, x::errors::Error>
-    OpenReceiveEvent(const TPCANHandle channel) override {
+    OpenReceiveEvent(const TPCANHandle handle) override {
         std::lock_guard lock(this->mu);
         if (this->receive_event_error) return {nullptr, this->receive_event_error};
-        this->receive_events.push_back(channel);
-        return {std::make_unique<Event>(*this, channel), x::errors::NIL};
+        this->events.push_back(handle);
+        return {std::make_unique<Event>(*this, handle), x::errors::NIL};
+    }
+
+private:
+    /// @brief an auto-reset receive event that a frame reaching the queue signals.
+    class Event final : public ReceiveEvent {
+        MockAPI &api;
+        TPCANHandle handle;
+
+    public:
+        Event(MockAPI &api, const TPCANHandle handle): api(api), handle(handle) {}
+
+        ~Event() override {
+            std::lock_guard lock(this->api.mu);
+            const auto &released = this->api.released_handles;
+            this->api.releases.push_back({
+                .channel = this->handle,
+                .after_uninitialize = std::ranges::find(released, this->handle) !=
+                                      released.end(),
+            });
+        }
+
+        x::errors::Error wait(const x::telem::TimeSpan timeout) override {
+            std::unique_lock lock(this->api.mu);
+            this->api.wait_count++;
+            auto &ch = this->api.channels.at(this->handle);
+            this->api.cv.wait_for(lock, timeout.chrono(), [&] { return ch.signaled; });
+            ch.signaled = false;
+            return this->api.wait_error;
+        }
+    };
+
+    std::mutex mu;
+    std::condition_variable cv;
+    std::map<TPCANHandle, Channel> channels;
+    std::vector<TPCANHandle> released_handles;
+    std::vector<TPCANHandle> events;
+    std::vector<Release> releases;
+    std::size_t wait_count = 0;
+
+    /// @brief connects this process to a channel. A channel that this or another
+    /// PCAN-Basic process holds refuses, and a channel PCAN-View runs at another
+    /// bitrate connects with PCAN_ERROR_CAUTION (PCAN-Basic documentation,
+    /// CAN_Initialize).
+    TPCANStatus initialize(const TPCANHandle handle, const std::string &bitrate) {
+        if (this->initialize_status.has_value()) return *this->initialize_status;
+        const auto it = this->channels.find(handle);
+        if (it == this->channels.end() || !it->second.attached) return PCAN_ERROR_ILLHW;
+        auto &ch = it->second;
+        if (ch.initialized || ch.claimed) return PCAN_ERROR_INITIALIZE;
+        ch.initialized = true;
+        ch.bitrate = bitrate;
+        if (ch.monitor.has_value() && *ch.monitor != bitrate) return PCAN_ERROR_CAUTION;
+        return PCAN_ERROR_OK;
+    }
+
+    /// @brief takes the next read result of a channel. An unplugged channel reads
+    /// empty.
+    TPCANStatus take(const TPCANHandle handle, Received &read) {
+        const auto it = this->channels.find(handle);
+        if (it == this->channels.end() || !it->second.initialized)
+            return PCAN_ERROR_INITIALIZE;
+        auto &ch = it->second;
+        if (!ch.attached || ch.reads.empty()) return PCAN_ERROR_QRCVEMPTY;
+        read = ch.reads.front();
+        ch.reads.pop_front();
+        return PCAN_ERROR_OK;
+    }
+
+    /// @returns the status a write to a channel gets. An unplugged channel takes the
+    /// write and drops it.
+    std::pair<TPCANStatus, Channel *> writable(const TPCANHandle handle) {
+        const auto it = this->channels.find(handle);
+        if (it == this->channels.end() || !it->second.initialized)
+            return {PCAN_ERROR_INITIALIZE, nullptr};
+        auto &ch = it->second;
+        if (!ch.attached) return {PCAN_ERROR_OK, &ch};
+        if ((ch.bus & PCAN_ERROR_BUSOFF) != 0) return {PCAN_ERROR_BUSOFF, &ch};
+        return {ch.write_status, &ch};
     }
 };
 }

@@ -39,10 +39,14 @@ const x::errors::Error UNSUPPORTED_ERROR = CONFIG_ERROR.sub("unsupported");
 const x::errors::Error LISTEN_ONLY_ERROR = CONFIG_ERROR.sub("listen_only");
 /// @brief a frame whose identifier, length, or flags the bus cannot send.
 const x::errors::Error FRAME_ERROR = CONFIG_ERROR.sub("frame");
-/// @brief a bus fault that can clear, such as bus off or a full transmit queue.
+/// @brief a frame the adapter cannot take now, such as one sent while its transmit
+/// queue is full. The bus stays open.
 const x::errors::Error
     TEMPORARY_HARDWARE_ERROR = driver::errors::TEMPORARY_HARDWARE_ERROR.sub("can");
-/// @brief an adapter fault that retrying does not clear.
+/// @brief a channel that is absent, in use, or gone, such as an unplugged adapter. The
+/// bus must close and open again.
+const x::errors::Error UNREACHABLE_ERROR = TEMPORARY_HARDWARE_ERROR.sub("unreachable");
+/// @brief an adapter fault that reopening does not clear.
 const x::errors::Error CRITICAL_HARDWARE_ERROR = driver::errors::CRITICAL_HARDWARE_ERROR
                                                      .sub("can");
 
@@ -61,8 +65,8 @@ enum class Type : std::uint8_t {
     DATA,
     /// @brief a remote transmission request. length holds the requested length.
     REMOTE,
-    /// @brief a bus error the adapter reports. id and data hold the backend's error
-    /// class and details.
+    /// @brief a bus error the adapter reports. id holds bus_error classes, and data
+    /// their details.
     BUS_ERROR,
 };
 
@@ -104,6 +108,48 @@ struct Frame {
     }
 };
 
+/// @brief the classes and details of a BUS_ERROR frame, in the layout of Linux's
+/// include/uapi/linux/can/error.h, which every backend reports in.
+namespace bus_error {
+constexpr std::uint32_t TX_TIMEOUT = 0x001;
+constexpr std::uint32_t LOST_ARBITRATION = 0x002;
+/// @brief a controller problem, with CONTROLLER_* details in data[1].
+constexpr std::uint32_t CONTROLLER = 0x004;
+/// @brief a protocol violation, with PROTOCOL_* kinds in data[2].
+constexpr std::uint32_t PROTOCOL = 0x008;
+constexpr std::uint32_t TRANSCEIVER = 0x010;
+constexpr std::uint32_t NO_ACK = 0x020;
+constexpr std::uint32_t BUS_OFF = 0x040;
+constexpr std::uint32_t BUS = 0x080;
+constexpr std::uint32_t RESTARTED = 0x100;
+/// @brief the transmit and receive error counters, in data[6] and data[7].
+constexpr std::uint32_t COUNTERS = 0x200;
+
+constexpr std::uint8_t CONTROLLER_RX_OVERFLOW = 0x01;
+constexpr std::uint8_t CONTROLLER_TX_OVERFLOW = 0x02;
+constexpr std::uint8_t CONTROLLER_RX_WARNING = 0x04;
+constexpr std::uint8_t CONTROLLER_TX_WARNING = 0x08;
+constexpr std::uint8_t CONTROLLER_RX_PASSIVE = 0x10;
+constexpr std::uint8_t CONTROLLER_TX_PASSIVE = 0x20;
+/// @brief the controller is back to error active.
+constexpr std::uint8_t CONTROLLER_ACTIVE = 0x40;
+
+constexpr std::uint8_t PROTOCOL_BIT = 0x01;
+constexpr std::uint8_t PROTOCOL_FORM = 0x02;
+constexpr std::uint8_t PROTOCOL_STUFF = 0x04;
+constexpr std::uint8_t PROTOCOL_BIT0 = 0x08;
+constexpr std::uint8_t PROTOCOL_BIT1 = 0x10;
+constexpr std::uint8_t PROTOCOL_OVERLOAD = 0x20;
+
+/// @returns a BUS_ERROR frame of classes, with controller details, at a host time.
+[[nodiscard]] Frame
+make(std::uint32_t classes, std::uint8_t controller, x::telem::TimeStamp time);
+
+/// @returns the faults a BUS_ERROR frame reports, such as "the adapter reported bus
+/// off", or nullopt when it reports only a return to error active.
+[[nodiscard]] std::optional<std::string> describe(const Frame &frame);
+}
+
 /// @returns the payload length a data length code stands for. Codes above 8 stand for
 /// 8 bytes on classic CAN and for the CAN FD lengths 12 to 64 on CAN FD.
 /// @param dlc the data length code, 0 to 15.
@@ -144,16 +190,32 @@ find_bitrate(const Table &table, const std::uint32_t bitrate, const std::string 
     };
 }
 
-/// @brief extends a wrapping 32-bit hardware counter into a 64-bit count that never
-/// wraps, provided it is read at least once per wrap period.
+/// @returns the time of a steady clock, which never steps when the wall clock does.
+[[nodiscard]] x::telem::TimeStamp steady_now();
+
+/// @brief extends a wrapping 32-bit adapter counter into a 64-bit count. It counts the
+/// wraps between two readings from the host time between them, so a quiet bus that
+/// outlasts a wrap never shifts the count by a wrap.
 class Counter {
-    std::uint32_t last = 0;
-    std::uint64_t high = 0;
-    bool started = false;
+    /// @brief a reading of the counter.
+    struct Reading {
+        std::uint32_t raw;
+        std::uint64_t count;
+        x::telem::TimeStamp host;
+    };
+
+    x::telem::TimeSpan tick;
+    std::optional<Reading> last;
 
 public:
-    /// @returns raw extended to 64 bits.
-    std::uint64_t extend(std::uint32_t raw);
+    /// @param tick the time between two counts of the adapter.
+    explicit Counter(x::telem::TimeSpan tick);
+
+    /// @returns raw extended to 64 bits. The first reading returns raw.
+    /// @param raw the counter's value.
+    /// @param host a steady host time at which the value arrived. An error of up to
+    /// half a wrap period is harmless.
+    std::uint64_t extend(std::uint32_t raw, x::telem::TimeStamp host);
 };
 
 /// @brief moves adapter times onto the host clock. Each frame measures the host time
@@ -207,7 +269,7 @@ public:
     /// @param frame receives the frame when one arrived.
     /// @param timeout the longest time to wait.
     /// @returns true when a frame arrived, and false when the timeout elapsed.
-    /// TEMPORARY_HARDWARE_ERROR or CRITICAL_HARDWARE_ERROR on a fault.
+    /// UNREACHABLE_ERROR or CRITICAL_HARDWARE_ERROR on a fault.
     [[nodiscard]] virtual std::pair<bool, x::errors::Error>
     receive(Frame &frame, x::telem::TimeSpan timeout) = 0;
 
@@ -229,8 +291,9 @@ protected:
     const bool listen_only;
 
     /// @brief queues a frame that send checked.
-    /// @returns TEMPORARY_HARDWARE_ERROR when the transmit queue is full or the bus is
-    /// off.
+    /// @returns TEMPORARY_HARDWARE_ERROR when the transmit queue is full,
+    /// UNREACHABLE_ERROR when the channel is gone, and CRITICAL_HARDWARE_ERROR on
+    /// another fault.
     [[nodiscard]] virtual x::errors::Error transmit(const Frame &frame) = 0;
 };
 
@@ -267,8 +330,9 @@ public:
     [[nodiscard]] virtual std::pair<std::vector<Channel>, x::errors::Error> scan() = 0;
 
     /// @brief opens the channel the properties name and puts it on the bus.
-    /// @returns CONFIG_ERROR when the channel does not exist or the adapter cannot run
-    /// the bitrates or modes the properties ask for.
+    /// @returns CONFIG_ERROR when the properties are invalid or the adapter cannot run
+    /// the bitrates or modes they ask for, UNREACHABLE_ERROR when the channel is absent
+    /// or in use, and CRITICAL_HARDWARE_ERROR on another fault.
     [[nodiscard]] virtual std::pair<std::unique_ptr<Bus>, x::errors::Error>
     open(const synnax::can::Properties &props) = 0;
 };

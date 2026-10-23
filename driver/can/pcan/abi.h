@@ -66,9 +66,25 @@ constexpr TPCANStatus PCAN_ERROR_BUSOFF = 0x00010;
 constexpr TPCANStatus PCAN_ERROR_QRCVEMPTY = 0x00020;
 constexpr TPCANStatus PCAN_ERROR_QOVERRUN = 0x00040;
 constexpr TPCANStatus PCAN_ERROR_QXMTFULL = 0x00080;
+constexpr TPCANStatus PCAN_ERROR_REGTEST = 0x00100;
+constexpr TPCANStatus PCAN_ERROR_NODRIVER = 0x00200;
+constexpr TPCANStatus PCAN_ERROR_HWINUSE = 0x00400;
+constexpr TPCANStatus PCAN_ERROR_NETINUSE = 0x00800;
+constexpr TPCANStatus PCAN_ERROR_ILLHW = 0x01400;
+constexpr TPCANStatus PCAN_ERROR_ILLNET = 0x01800;
+constexpr TPCANStatus PCAN_ERROR_ILLCLIENT = 0x01C00;
+/// @brief the bits that hold the handle errors from HWINUSE to ILLCLIENT.
+constexpr TPCANStatus PCAN_ERROR_ILLHANDLE = 0x01C00;
+constexpr TPCANStatus PCAN_ERROR_RESOURCE = 0x02000;
 constexpr TPCANStatus PCAN_ERROR_ILLPARAMTYPE = 0x04000;
 constexpr TPCANStatus PCAN_ERROR_ILLPARAMVAL = 0x08000;
+constexpr TPCANStatus PCAN_ERROR_UNKNOWN = 0x10000;
+constexpr TPCANStatus PCAN_ERROR_ILLDATA = 0x20000;
 constexpr TPCANStatus PCAN_ERROR_BUSPASSIVE = 0x40000;
+constexpr TPCANStatus PCAN_ERROR_ILLMODE = 0x80000;
+constexpr TPCANStatus PCAN_ERROR_CAUTION = 0x2000000;
+constexpr TPCANStatus PCAN_ERROR_INITIALIZE = 0x4000000;
+constexpr TPCANStatus PCAN_ERROR_ILLOPERATION = 0x8000000;
 
 constexpr TPCANMessageType PCAN_MESSAGE_STANDARD = 0x00;
 constexpr TPCANMessageType PCAN_MESSAGE_RTR = 0x01;
@@ -91,6 +107,7 @@ constexpr std::uint32_t PCAN_PARAMETER_ON = 0x01;
 constexpr std::uint32_t PCAN_CHANNEL_UNAVAILABLE = 0x00;
 constexpr std::uint32_t PCAN_CHANNEL_AVAILABLE = 0x01;
 constexpr std::uint32_t PCAN_CHANNEL_OCCUPIED = 0x02;
+constexpr std::uint32_t PCAN_CHANNEL_PCANVIEW = 0x03;
 constexpr std::uint32_t FEATURE_FD_CAPABLE = 0x01;
 constexpr std::uint32_t MAX_LENGTH_HARDWARE_NAME = 33;
 
@@ -148,6 +165,7 @@ using CAN_SetValue_t = TPCANStatus(PCAN_API *)(
     void *Buffer,
     std::uint32_t BufferLength
 );
+using CAN_GetStatus_t = TPCANStatus(PCAN_API *)(TPCANHandle Channel);
 using CAN_GetErrorText_t =
     TPCANStatus(PCAN_API *)(TPCANStatus Error, std::uint16_t Language, char *Buffer);
 }

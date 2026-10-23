@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <utility>
@@ -38,7 +39,9 @@ class Bus final : public can::Bus {
     std::shared_ptr<API> api;
     canHandle rx;
     std::optional<canHandle> tx;
-    Counter counter;
+    Counter counter{TIMER_SCALE};
+    /// @brief a received frame that receive returns after the overrun it followed.
+    std::optional<Frame> pending;
     bool closed = false;
 
     [[nodiscard]] x::errors::Error transmit(const Frame &frame) override;
@@ -57,19 +60,44 @@ public:
     x::errors::Error close() override;
 };
 
-/// @brief finds and opens Kvaser channels through CANlib. A channel's name is its
-/// CANlib channel number, such as 0.
+/// @brief finds and opens Kvaser channels through CANlib. A channel's name is the EAN
+/// and serial number of its card and its place on the card, such as
+/// 73-30130-00685-0:12345:1, because CANlib renumbers channels when it enumerates the
+/// cards. Safe for concurrent use.
 class Backend final : public can::Backend {
     std::shared_ptr<API> api;
+    /// @brief held from an enumeration to the opens that use its channel numbers.
+    std::mutex mu;
+
+    /// @brief a channel of the last enumeration.
+    struct Found {
+        int number;
+        std::string name;
+        std::string description;
+        bool is_virtual;
+    };
+
+    /// @brief enumerates the cards and lists their channels.
+    std::pair<std::vector<Found>, x::errors::Error> enumerate();
 
 public:
     explicit Backend(std::shared_ptr<API> api): api(std::move(api)) {}
 
     [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error> scan() override;
 
+    /// @returns CONFIG_ERROR when the name is not of a card and a channel on it, and
+    /// UNREACHABLE_ERROR when no card has the channel or another program holds it.
     [[nodiscard]] std::pair<std::unique_ptr<can::Bus>, x::errors::Error>
     open(const synnax::can::Properties &props) override;
 };
+
+/// @returns an error whose message is context followed by CANlib's text for status. Its
+/// type is UNREACHABLE_ERROR when the card is absent, removed, or held by another
+/// program, CONFIG_ERROR when the driver is missing or a parameter is wrong,
+/// TEMPORARY_HARDWARE_ERROR when the transmit buffer is full, and
+/// CRITICAL_HARDWARE_ERROR otherwise.
+[[nodiscard]] x::errors::Error
+translate(API &api, canStatus status, const std::string &context);
 
 /// @returns the backend over the installed CANlib, or an Unavailable backend holding
 /// the reason CANlib did not load.

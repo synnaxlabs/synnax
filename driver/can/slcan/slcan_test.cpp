@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <atomic>
 #include <cerrno>
 #include <chrono>
 #include <cstdlib>
 #include <format>
+#include <memory>
 #include <mutex>
-#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -30,15 +31,56 @@
 
 namespace driver::can::slcan {
 namespace {
-/// @brief plays an slcan adapter on the controller side of a pseudo-terminal. It
-/// records each command and answers it with a carriage return, or with a bell when the
-/// command is in rejected.
+/// @brief the firmware an Adapter plays.
+enum class Profile {
+    /// @brief LAWICEL CAN232, from section 2.0 of its manual: every command gets a
+    /// carriage return or a bell, and each command works only in the state it lists.
+    LAWICEL,
+    /// @brief stock canable2-fw, from src/slcan.c and src/can.c: only V gets an answer,
+    /// settings change only off the bus, O always opens in normal mode, and L is
+    /// unknown.
+    CANABLE,
+    /// @brief the CANable 2.5 firmware, from Firmware/Slcan/control.c: every command
+    /// but C gets a carriage return or a bell, M1 makes the next O open in bus
+    /// monitoring mode, and L sets bus load reports.
+    CANABLE_2_5,
+    /// @brief a serial device that is not an slcan adapter and never answers.
+    MUTE,
+};
+
+constexpr auto OK = "\r";
+constexpr auto ERR = "\a";
+
+bool is_frame(const std::string &line) {
+    return !line.empty() && std::string_view("tTrRdDbB").contains(line[0]);
+}
+
+/// @brief plays an slcan adapter on the controller side of a pseudo-terminal.
 class Adapter {
+public:
+    /// @brief what the adapter's controller is doing.
+    struct State {
+        bool open = false;
+        bool silent = false;
+        std::string bitrate;
+        std::string data_bitrate;
+        /// @brief the frame commands the adapter took.
+        std::vector<std::string> sent;
+    };
+
+    std::string terminal;
+
+private:
+    const Profile profile;
     int controller = -1;
     std::atomic<bool> running = true;
     std::thread thread;
     std::mutex mu;
     std::vector<std::string> lines;
+    State state;
+    std::string previous;
+    /// @brief true when the CANable 2.5 firmware opens in bus monitoring mode next.
+    bool monitor = false;
 
     void run() {
         std::string line;
@@ -53,27 +95,133 @@ class Adapter {
                     line += buf[i];
                     continue;
                 }
+                std::string answer;
                 {
                     std::lock_guard lock(this->mu);
                     this->lines.push_back(line);
+                    answer = this->handle(line);
                 }
-                if (!this->silent) this->reply(this->rejected.contains(line));
+                this->reply(answer);
                 line.clear();
             }
         }
     }
 
-public:
-    std::string terminal;
-    std::set<std::string> rejected;
-    bool silent = false;
+    std::string handle(const std::string &line) {
+        switch (this->profile) {
+            case Profile::LAWICEL:
+                return this->lawicel(line);
+            case Profile::CANABLE:
+                return this->canable(line);
+            case Profile::CANABLE_2_5:
+                return this->canable_2_5(line);
+            case Profile::MUTE:
+                return "";
+        }
+        return "";
+    }
 
-    Adapter() {
+    std::string lawicel(const std::string &line) {
+        if (line == "V") return "V1013\r";
+        if (line.size() == 2 && line[0] == 'S' && line[1] >= '0' && line[1] <= '8') {
+            if (this->state.open) return ERR;
+            this->state.bitrate = line;
+            return OK;
+        }
+        if (line == "O" || line == "L") {
+            if (this->state.open || this->state.bitrate.empty()) return ERR;
+            this->state.open = true;
+            this->state.silent = line == "L";
+            return OK;
+        }
+        if (line == "C") {
+            if (!this->state.open) return ERR;
+            this->state.open = false;
+            return OK;
+        }
+        if (line.starts_with('t') || line.starts_with('T') || line.starts_with('r') ||
+            line.starts_with('R')) {
+            if (!this->state.open || this->state.silent) return ERR;
+            this->state.sent.push_back(line);
+            return OK;
+        }
+        return ERR;
+    }
+
+    std::string canable(std::string line) {
+        // An empty line runs the previous command again, as slcan.c's FIXME says.
+        if (line.empty()) line = this->previous;
+        this->previous = line;
+        if (is_frame(line)) {
+            this->state.sent.push_back(line);
+            return "";
+        }
+        if (line == "V")
+            return "b1ff43c5 https://github.com/normaldotcom/canable2-fw\r";
+        if (line == "C") this->state.open = false;
+        if (this->state.open) return "";
+        if (line == "O") {
+            // can_enable sets FDCAN_MODE_NORMAL, which discards the mode M1 set.
+            this->state.open = true;
+            this->state.silent = false;
+        }
+        if (line.size() == 2 && line[0] == 'S' && line[1] >= '0' && line[1] <= '9')
+            this->state.bitrate = line;
+        if (line == "Y2" || line == "Y5") this->state.data_bitrate = line;
+        return "";
+    }
+
+    std::string canable_2_5(const std::string &line) {
+        if (line.empty()) return OK;
+        if (line == "V") return "+Board: MultiBoard\tMCU: STM32G431\tSlcan: 105\r";
+        if (line == "C") {
+            this->state.open = false;
+            this->monitor = false;
+            return "";
+        }
+        if (line.starts_with('L')) return OK;
+        if (is_frame(line)) {
+            if (!this->state.open || this->state.silent) return ERR;
+            this->state.sent.push_back(line);
+            return OK;
+        }
+        if (this->state.open) return ERR;
+        if (line.size() == 2 && line[0] == 'S' && line[1] >= '0' && line[1] <= '9') {
+            this->state.bitrate = line;
+            return OK;
+        }
+        if (line == "Y2" || line == "Y5") {
+            this->state.data_bitrate = line;
+            return OK;
+        }
+        if (line == "M0" || line == "M1") {
+            this->monitor = line == "M1";
+            return OK;
+        }
+        if (line == "O") {
+            this->state.open = true;
+            this->state.silent = this->monitor;
+            return OK;
+        }
+        return ERR;
+    }
+
+    /// @brief writes an answer. The host may close its end first, as it does after
+    /// sending the close command.
+    void reply(const std::string &answer) const {
+        if (answer.empty()) return;
+        const auto n = ::write(this->controller, answer.data(), answer.size());
+        if (n != static_cast<ssize_t>(answer.size())) { EXPECT_EQ(errno, EIO); }
+    }
+
+public:
+    explicit Adapter(const Profile profile): profile(profile) {
         this->controller = ::posix_openpt(O_RDWR | O_NOCTTY);
         EXPECT_GE(this->controller, 0);
         EXPECT_EQ(::grantpt(this->controller), 0);
         EXPECT_EQ(::unlockpt(this->controller), 0);
         this->terminal = ::ptsname(this->controller);
+        this->thread = std::thread([this] { this->run(); });
     }
 
     ~Adapter() { this->unplug(); }
@@ -84,17 +232,6 @@ public:
         if (this->thread.joinable()) this->thread.join();
         if (this->controller >= 0) ::close(this->controller);
         this->controller = -1;
-    }
-
-    void start() {
-        this->thread = std::thread([this] { this->run(); });
-    }
-
-    /// @brief answers a command. The host may close its end before the answer, as it
-    /// does after sending the close command.
-    void reply(const bool rejected) const {
-        const char answer = rejected ? '\a' : '\r';
-        if (::write(this->controller, &answer, 1) != 1) { EXPECT_EQ(errno, EIO); }
     }
 
     void write(const std::string &data) const {
@@ -139,32 +276,28 @@ public:
         std::lock_guard lock(this->mu);
         return this->lines;
     }
-};
 
-class SlcanTest : public ::testing::Test {
-protected:
-    Adapter adapter;
-    Backend backend;
-
-    [[nodiscard]] synnax::can::Properties
-    props(const bool fd = false, const bool listen_only = false) const {
-        synnax::can::Properties p;
-        p.backend = synnax::can::BACKEND_SLCAN;
-        p.channel = this->adapter.terminal;
-        p.bitrate = 500000;
-        p.fd = fd;
-        p.data_bitrate = 2000000;
-        p.listen_only = listen_only;
-        return p;
-    }
-
-    std::unique_ptr<can::Bus> open(const synnax::can::Properties &p) {
-        this->adapter.start();
-        auto [bus, err] = this->backend.open(p);
-        EXPECT_FALSE(err) << err;
-        return std::move(bus);
+    /// @returns the controller's state once the adapter has received n commands.
+    State after(const std::size_t n) {
+        this->received(n);
+        std::lock_guard lock(this->mu);
+        return this->state;
     }
 };
+
+std::string profile_name(const ::testing::TestParamInfo<Profile> &info) {
+    switch (info.param) {
+        case Profile::LAWICEL:
+            return "LAWICEL";
+        case Profile::CANABLE:
+            return "CANable";
+        case Profile::CANABLE_2_5:
+            return "CANable25";
+        case Profile::MUTE:
+            return "Mute";
+    }
+    return "";
+}
 
 Frame data_frame(const std::uint32_t id, const std::vector<std::uint8_t> &data) {
     Frame f;
@@ -175,70 +308,75 @@ Frame data_frame(const std::uint32_t id, const std::vector<std::uint8_t> &data) 
 }
 }
 
-TEST_F(SlcanTest, OpensTheAdapterAtTheBitrate) {
-    auto bus = this->open(this->props());
+class SlcanTest : public ::testing::Test {
+protected:
+    std::unique_ptr<Adapter> adapter;
+    Backend backend;
+
+    void play(const Profile profile) {
+        this->adapter = std::make_unique<Adapter>(profile);
+    }
+
+    [[nodiscard]] synnax::can::Properties props(
+        const bool fd = false,
+        const bool listen_only = false,
+        const std::uint32_t bitrate = 500000
+    ) const {
+        synnax::can::Properties p;
+        p.backend = synnax::can::BACKEND_SLCAN;
+        p.channel = this->adapter->terminal;
+        p.bitrate = bitrate;
+        p.fd = fd;
+        p.data_bitrate = 2000000;
+        p.listen_only = listen_only;
+        return p;
+    }
+
+    std::unique_ptr<can::Bus> open(const synnax::can::Properties &p) {
+        auto [bus, err] = this->backend.open(p);
+        EXPECT_FALSE(err) << err;
+        return std::move(bus);
+    }
+
+    std::unique_ptr<can::Bus> open() { return this->open(this->props()); }
+};
+
+class SlcanFirmwareTest : public SlcanTest,
+                          public ::testing::WithParamInterface<Profile> {
+protected:
+    void SetUp() override { this->play(this->GetParam()); }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    Firmware,
+    SlcanFirmwareTest,
+    ::testing::Values(Profile::LAWICEL, Profile::CANABLE, Profile::CANABLE_2_5),
+    profile_name
+);
+
+TEST_P(SlcanFirmwareTest, OpensTheAdapterAtTheBitrate) {
+    auto bus = this->open();
     ASSERT_NE(bus, nullptr);
-    EXPECT_EQ(this->adapter.received(3), std::vector<std::string>({"C", "S6", "O"}));
+    const auto state = this->adapter->after(4);
+    EXPECT_TRUE(state.open);
+    EXPECT_FALSE(state.silent);
+    EXPECT_EQ(state.bitrate, "S6");
 }
 
-TEST_F(SlcanTest, SetsTheDataBitrateAndListenOnlyMode) {
-    auto bus = this->open(this->props(true, true));
+TEST_P(SlcanFirmwareTest, SendsFrames) {
+    auto bus = this->open();
     ASSERT_NE(bus, nullptr);
-    EXPECT_EQ(
-        this->adapter.received(4),
-        std::vector<std::string>({"C", "S6", "Y2", "L"})
-    );
-    const auto err = bus->send(data_frame(0x123, {1}));
-    ASSERT_MATCHES(err, LISTEN_ONLY_ERROR);
-    EXPECT_EQ(err.data, "channel " + this->adapter.terminal + " is listen only");
+    ASSERT_NIL(bus->send(data_frame(0x123, {0x11, 0x22})));
+    EXPECT_EQ(this->adapter->after(5).sent, std::vector<std::string>({"t12321122"}));
 }
 
-TEST_F(SlcanTest, OpensAnAdapterThatRejectsTheCloseCommand) {
-    this->adapter.rejected = {"C"};
-    auto bus = this->open(this->props());
-    EXPECT_NE(bus, nullptr);
-}
-
-TEST_F(SlcanTest, ReportsARejectedCommand) {
-    this->adapter.rejected = {"S6"};
-    this->adapter.start();
-    const auto [bus, err] = this->backend.open(this->props());
-    ASSERT_MATCHES(err, CONFIG_ERROR);
-    EXPECT_EQ(
-        err.data,
-        "the slcan adapter at " + this->adapter.terminal + " rejected the command 'S6'"
-    );
-    EXPECT_EQ(bus, nullptr);
-}
-
-TEST_F(SlcanTest, ReportsADeviceThatDoesNotAnswer) {
-    this->adapter.silent = true;
-    this->adapter.start();
-    const auto [bus, err] = this->backend.open(this->props());
-    ASSERT_MATCHES(err, TEMPORARY_HARDWARE_ERROR);
-    EXPECT_EQ(
-        err.data,
-        "the device at " + this->adapter.terminal +
-            " did not answer the slcan command 'C'. Check that it is an slcan adapter"
-    );
-}
-
-TEST_F(SlcanTest, RejectsAnUnsupportedBitrateBeforeTalkingToTheAdapter) {
-    auto p = this->props();
-    p.bitrate = 333;
-    this->adapter.start();
-    const auto [bus, err] = this->backend.open(p);
-    ASSERT_MATCHES(err, CONFIG_ERROR);
-    EXPECT_TRUE(this->adapter.received(1).empty());
-}
-
-TEST_F(SlcanTest, ReceivesFramesSplitAcrossReads) {
-    auto bus = this->open(this->props(true));
+TEST_P(SlcanFirmwareTest, ReceivesFramesSplitAcrossReads) {
+    auto bus = this->open();
     ASSERT_NE(bus, nullptr);
-    this->adapter.received(4);
+    this->adapter->received(4);
     const auto before = x::telem::TimeStamp::now();
-    this->adapter.write("z\rt1232AB");
-    this->adapter.write("CD\rb0109000102030405060708090A0B\r");
+    this->adapter->write("z\rt1232AB");
+    this->adapter->write("CD\rb0109000102030405060708090A0B\r");
     Frame frame;
     ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::SECOND)));
     EXPECT_EQ(frame.id, 0x123);
@@ -255,15 +393,185 @@ TEST_F(SlcanTest, ReceivesFramesSplitAcrossReads) {
     EXPECT_EQ(frame.data[11], 0x0B);
 }
 
-TEST_F(SlcanTest, DropsTheOldestFramesWhenTheInboxIsFull) {
-    auto bus = this->open(this->props());
+TEST_P(SlcanFirmwareTest, ClosesTheAdapter) {
+    auto bus = this->open();
     ASSERT_NE(bus, nullptr);
-    this->adapter.received(3);
+    this->adapter->received(4);
+    ASSERT_NIL(bus->close());
+    ASSERT_NIL(bus->close());
+    EXPECT_FALSE(this->adapter->after(5).open);
+}
+
+TEST_P(SlcanFirmwareTest, WaitsForAnUnpluggedAdapter) {
+    auto bus = this->open();
+    ASSERT_NE(bus, nullptr);
+    this->adapter->received(4);
+    this->adapter->unplug();
+    Frame frame;
+    const auto [received, err] = bus->receive(frame, x::telem::SECOND);
+    EXPECT_FALSE(received);
+    ASSERT_MATCHES(err, UNREACHABLE_ERROR);
+    ASSERT_MATCHES(bus->send(data_frame(0x1, {})), UNREACHABLE_ERROR);
+}
+
+TEST_F(SlcanTest, OpensCANableFirmwareWithoutWaitingForAnswers) {
+    this->play(Profile::CANABLE);
+    const auto start = std::chrono::steady_clock::now();
+    auto bus = this->open();
+    ASSERT_NE(bus, nullptr);
+    EXPECT_LT(std::chrono::steady_clock::now() - start, REPLY_TIMEOUT.chrono());
+    EXPECT_EQ(
+        this->adapter->received(4),
+        std::vector<std::string>({"C", "V", "S6", "O"})
+    );
+}
+
+TEST_F(SlcanTest, RefusesListenOnlyOnCANableFirmware) {
+    this->play(Profile::CANABLE);
+    const auto [bus, err] = this->backend.open(this->props(false, true));
+    ASSERT_MATCHES(err, CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "CANable firmware cannot open the bus listen only. Flash the CANable 2.5 or "
+        "candleLight firmware to listen only"
+    );
+    EXPECT_EQ(bus, nullptr);
+    EXPECT_EQ(this->adapter->received(3), std::vector<std::string>({"C", "V", "C"}));
+}
+
+TEST_F(SlcanTest, RunsCANableFirmwareAt750kWithS7) {
+    this->play(Profile::CANABLE);
+    auto bus = this->open(this->props(false, false, 750000));
+    ASSERT_NE(bus, nullptr);
+    EXPECT_EQ(this->adapter->after(4).bitrate, "S7");
+}
+
+TEST_F(SlcanTest, RefusesABitrateThatCANableFirmwareLacks) {
+    this->play(Profile::CANABLE);
+    const auto [bus, err] = this->backend.open(this->props(false, false, 800000));
+    ASSERT_MATCHES(err, CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "CANable firmware cannot run a classic CAN bus at 800000 bit/s. Supported "
+        "bitrates: 10000, 20000, 50000, 100000, 125000, 250000, 500000, 750000, "
+        "1000000, 83333"
+    );
+    EXPECT_EQ(this->adapter->received(3), std::vector<std::string>({"C", "V", "C"}));
+}
+
+TEST_F(SlcanTest, SetsTheCANFDDataBitrate) {
+    this->play(Profile::CANABLE);
+    auto bus = this->open(this->props(true));
+    ASSERT_NE(bus, nullptr);
+    EXPECT_EQ(
+        this->adapter->received(5),
+        std::vector<std::string>({"C", "V", "S6", "Y2", "O"})
+    );
+    EXPECT_EQ(this->adapter->after(5).data_bitrate, "Y2");
+}
+
+TEST_F(SlcanTest, OpensLAWICELFirmwareListenOnlyWithL) {
+    this->play(Profile::LAWICEL);
+    auto bus = this->open(this->props(false, true));
+    ASSERT_NE(bus, nullptr);
+    const auto state = this->adapter->after(4);
+    EXPECT_TRUE(state.open);
+    EXPECT_TRUE(state.silent);
+    const auto err = bus->send(data_frame(0x123, {1}));
+    ASSERT_MATCHES(err, LISTEN_ONLY_ERROR);
+    EXPECT_EQ(err.data, "channel " + this->adapter->terminal + " is listen only");
+}
+
+TEST_F(SlcanTest, RunsLAWICELFirmwareAt800kWithS7) {
+    this->play(Profile::LAWICEL);
+    auto bus = this->open(this->props(false, false, 800000));
+    ASSERT_NE(bus, nullptr);
+    EXPECT_EQ(this->adapter->after(4).bitrate, "S7");
+}
+
+TEST_F(SlcanTest, RefusesABitrateThatLAWICELFirmwareLacks) {
+    this->play(Profile::LAWICEL);
+    const auto [bus, err] = this->backend.open(this->props(false, false, 750000));
+    ASSERT_MATCHES(err, CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "LAWICEL slcan firmware cannot run a classic CAN bus at 750000 bit/s. "
+        "Supported bitrates: 10000, 20000, 50000, 100000, 125000, 250000, 500000, "
+        "800000, 1000000"
+    );
+    EXPECT_TRUE(this->adapter->after(3).bitrate.empty());
+}
+
+TEST_F(SlcanTest, ReportsARejectedCommand) {
+    this->play(Profile::LAWICEL);
+    const auto [bus, err] = this->backend.open(this->props(true));
+    ASSERT_MATCHES(err, CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "the slcan adapter at " + this->adapter->terminal + " rejected the command 'Y2'"
+    );
+    EXPECT_EQ(bus, nullptr);
+    EXPECT_FALSE(this->adapter->after(5).open);
+}
+
+TEST_F(SlcanTest, OpensCANable25FirmwareListenOnlyWithM1) {
+    this->play(Profile::CANABLE_2_5);
+    auto bus = this->open(this->props(false, true));
+    ASSERT_NE(bus, nullptr);
+    EXPECT_EQ(
+        this->adapter->received(5),
+        std::vector<std::string>({"C", "V", "S6", "M1", "O"})
+    );
+    const auto state = this->adapter->after(5);
+    EXPECT_TRUE(state.open);
+    EXPECT_TRUE(state.silent);
+}
+
+TEST_F(SlcanTest, RunsCANable25FirmwareAt800kWithS7) {
+    this->play(Profile::CANABLE_2_5);
+    auto bus = this->open(this->props(false, false, 800000));
+    ASSERT_NE(bus, nullptr);
+    EXPECT_EQ(this->adapter->after(4).bitrate, "S7");
+}
+
+TEST_F(SlcanTest, WaitsForADeviceThatDoesNotAnswer) {
+    this->play(Profile::MUTE);
+    const auto [bus, err] = this->backend.open(this->props());
+    ASSERT_MATCHES(err, UNREACHABLE_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "the device at " + this->adapter->terminal +
+            " did not answer the slcan command 'V'. Check that it is an slcan adapter"
+    );
+}
+
+TEST_F(SlcanTest, WaitsForAMissingPort) {
+    synnax::can::Properties p;
+    p.backend = synnax::can::BACKEND_SLCAN;
+    p.channel = "/dev/synnax-no-such-port";
+    p.bitrate = 500000;
+    const auto [bus, err] = this->backend.open(p);
+    ASSERT_MATCHES(err, UNREACHABLE_ERROR);
+    EXPECT_TRUE(err.data.starts_with("failed to open serial port " + p.channel));
+}
+
+TEST_F(SlcanTest, RejectsAnUnsupportedBitrateBeforeConfiguringTheAdapter) {
+    this->play(Profile::LAWICEL);
+    const auto [bus, err] = this->backend.open(this->props(false, false, 333));
+    ASSERT_MATCHES(err, CONFIG_ERROR);
+    EXPECT_EQ(this->adapter->received(3), std::vector<std::string>({"C", "V", "C"}));
+}
+
+TEST_F(SlcanTest, DropsTheOldestFramesWhenTheInboxIsFull) {
+    this->play(Profile::CANABLE);
+    auto bus = this->open();
+    ASSERT_NE(bus, nullptr);
+    this->adapter->received(4);
     std::string lines;
     for (std::size_t id = 0; id <= MAX_QUEUED; id++)
         lines += std::format("t{:03X}0\r", id);
-    this->adapter.write(lines);
-    this->adapter.drained();
+    this->adapter->write(lines);
+    this->adapter->drained();
     Frame frame;
     ASSERT_TRUE(ASSERT_NIL_P(bus->receive(frame, x::telem::SECOND)));
     EXPECT_EQ(frame.id, 1);
@@ -275,21 +583,16 @@ TEST_F(SlcanTest, DropsTheOldestFramesWhenTheInboxIsFull) {
 }
 
 TEST_F(SlcanTest, ReturnsFalseWhenNoFrameArrives) {
-    auto bus = this->open(this->props());
+    this->play(Profile::LAWICEL);
+    auto bus = this->open();
     ASSERT_NE(bus, nullptr);
     Frame frame;
     EXPECT_FALSE(ASSERT_NIL_P(bus->receive(frame, 20 * x::telem::MILLISECOND)));
 }
 
-TEST_F(SlcanTest, SendsFrames) {
-    auto bus = this->open(this->props());
-    ASSERT_NE(bus, nullptr);
-    ASSERT_NIL(bus->send(data_frame(0x123, {0x11, 0x22})));
-    EXPECT_EQ(this->adapter.received(4).back(), "t12321122");
-}
-
 TEST_F(SlcanTest, RefusesAnFDFrameOnAClassicBus) {
-    auto bus = this->open(this->props());
+    this->play(Profile::LAWICEL);
+    auto bus = this->open();
     ASSERT_NE(bus, nullptr);
     auto frame = data_frame(0x123, {1});
     frame.fd = true;
@@ -299,7 +602,8 @@ TEST_F(SlcanTest, RefusesAnFDFrameOnAClassicBus) {
 }
 
 TEST_F(SlcanTest, SendsAndReceivesAtTheSameTime) {
-    auto bus = this->open(this->props());
+    this->play(Profile::LAWICEL);
+    auto bus = this->open();
     ASSERT_NE(bus, nullptr);
     std::thread receiver([&] {
         Frame frame;
@@ -308,35 +612,12 @@ TEST_F(SlcanTest, SendsAndReceivesAtTheSameTime) {
     });
     for (std::uint32_t i = 0; i < 10; i++)
         ASSERT_NIL(bus->send(data_frame(i, {})));
-    this->adapter.write("t0420\r");
+    this->adapter->write("t0420\r");
     receiver.join();
-    EXPECT_EQ(this->adapter.received(13).size(), 13);
-}
-
-TEST_F(SlcanTest, ClosesTheAdapter) {
-    auto bus = this->open(this->props());
-    ASSERT_NE(bus, nullptr);
-    ASSERT_NIL(bus->close());
-    ASSERT_NIL(bus->close());
-    EXPECT_EQ(this->adapter.received(4).back(), "C");
+    EXPECT_EQ(this->adapter->after(14).sent.size(), 10);
 }
 
 TEST_F(SlcanTest, ListsNoChannelsWhileASerialPortIsPresent) {
     EXPECT_TRUE(ASSERT_NIL_P(this->backend.scan()).empty());
-}
-
-TEST_F(SlcanTest, ReportsAnUnpluggedAdapter) {
-    auto bus = this->open(this->props());
-    ASSERT_NE(bus, nullptr);
-    this->adapter.received(3);
-    this->adapter.unplug();
-    Frame frame;
-    const auto [received, err] = bus->receive(frame, x::telem::SECOND);
-    EXPECT_FALSE(received);
-    ASSERT_MATCHES(err, driver::errors::TEMPORARY_HARDWARE_ERROR);
-    ASSERT_MATCHES(
-        bus->send(data_frame(0x1, {})),
-        driver::errors::TEMPORARY_HARDWARE_ERROR
-    );
 }
 }

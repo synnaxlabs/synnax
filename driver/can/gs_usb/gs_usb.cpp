@@ -14,7 +14,9 @@
 #include <deque>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "absl/log/log.h"
@@ -26,6 +28,9 @@ namespace driver::can::gs_usb {
 namespace {
 const auto USB_TIMEOUT_MS = static_cast<unsigned int>(
     (USB_TIMEOUT / x::telem::MILLISECOND).nanoseconds()
+);
+const auto READ_SLICE_MS = static_cast<unsigned int>(
+    (READ_SLICE / x::telem::MILLISECOND).nanoseconds()
 );
 
 bool is_gs_usb(const libusb_device_descriptor &desc) {
@@ -96,22 +101,61 @@ int control_in(
     );
 }
 
+/// @brief where an adapter sits on the host's USB buses.
+struct Location {
+    std::uint8_t bus = 0;
+    std::uint8_t address = 0;
+
+    bool operator==(const Location &) const = default;
+};
+
+Location locate(API &api, libusb_device *dev) {
+    return {.bus = api.GetBusNumber(dev), .address = api.GetDeviceAddress(dev)};
+}
+
+/// @brief what the backend reads from an adapter to name its channels.
+struct Identity {
+    std::string serial;
+    std::string product;
+    std::uint32_t channels = 1;
+};
+
+/// @returns the identity of an adapter on an open handle.
+Identity
+identify(API &api, libusb_device_handle *handle, const libusb_device_descriptor &desc) {
+    Identity id{
+        .serial = read_string(api, handle, desc.iSerialNumber),
+        .product = read_string(api, handle, desc.iProduct),
+    };
+    if (id.product.empty()) id.product = "gs_usb adapter";
+    std::array<std::uint8_t, 12> reply{};
+    const int n = control_in(api, handle, Request::DEVICE_CONFIG, 0, reply);
+    if (n > 0) {
+        const auto [config, err] = decode_device_config(
+            std::span(reply.data(), static_cast<std::size_t>(n))
+        );
+        if (!err) id.channels = config.channels;
+    }
+    return id;
+}
+
 /// @brief an open adapter found by serial number.
 struct Found {
     libusb_device_handle *handle = nullptr;
     std::string product;
+    Location location;
 };
 
 /// @brief opens the gs_usb adapter with a serial number.
-/// @returns a null handle when no attached adapter has the serial number.
+/// @returns a null handle when no attached adapter has the serial number, and the error
+/// of an adapter that would not open when no other adapter matched.
 std::pair<Found, x::errors::Error> find(API &api, const std::string &serial) {
     libusb_device **list = nullptr;
     const auto count = api.GetDeviceList(&list);
     if (count < 0)
         return {
             {},
-            {TEMPORARY_HARDWARE_ERROR,
-             "libusb cannot list devices: " + describe(api, static_cast<int>(count))}
+            translate(api, static_cast<int>(count), "libusb cannot list devices")
         };
     Found found;
     x::errors::Error err = x::errors::NIL;
@@ -122,17 +166,18 @@ std::pair<Found, x::errors::Error> find(API &api, const std::string &serial) {
             continue;
         libusb_device_handle *handle = nullptr;
         if (const int rc = api.Open(list[i], &handle); rc != LIBUSB_SUCCESS) {
-            err = {
-                TEMPORARY_HARDWARE_ERROR,
-                "cannot open a gs_usb adapter: " + describe(api, rc)
-            };
+            err = translate(api, rc, "cannot open a gs_usb adapter");
             continue;
         }
         if (read_string(api, handle, desc.iSerialNumber) != serial) {
             api.Close(handle);
             continue;
         }
-        found = {.handle = handle, .product = read_string(api, handle, desc.iProduct)};
+        found = {
+            .handle = handle,
+            .product = read_string(api, handle, desc.iProduct),
+            .location = locate(api, list[i]),
+        };
     }
     api.FreeDeviceList(list, 1);
     if (found.handle == nullptr && err) return {found, err};
@@ -156,11 +201,7 @@ std::pair<BtConst, x::errors::Error> read_bt_const(
         std::span(reply.data(), size)
     );
     if (n < 0)
-        return {
-            {},
-            {TEMPORARY_HARDWARE_ERROR,
-             "gs_usb adapter did not report its bit timing: " + describe(api, n)}
-        };
+        return {{}, translate(api, n, "gs_usb adapter did not report its bit timing")};
     return decode_bt_const(
         std::span(reply.data(), static_cast<std::size_t>(n)),
         extended
@@ -168,36 +209,72 @@ std::pair<BtConst, x::errors::Error> read_bt_const(
 }
 }
 
+x::errors::Error translate(API &api, const int rc, const std::string &context) {
+    const auto message = context + ": " + describe(api, rc);
+    switch (rc) {
+        // libusb reports an adapter that another program holds as BUSY on Linux and
+        // ACCESS on Windows, and an unplug mid-transfer as IO or NO_DEVICE.
+        case LIBUSB_ERROR_NO_DEVICE:
+        case LIBUSB_ERROR_NOT_FOUND:
+        case LIBUSB_ERROR_BUSY:
+        case LIBUSB_ERROR_ACCESS:
+        case LIBUSB_ERROR_IO:
+        case LIBUSB_ERROR_TIMEOUT:
+        case LIBUSB_ERROR_INTERRUPTED:
+            return {UNREACHABLE_ERROR, message};
+        case LIBUSB_ERROR_NOT_SUPPORTED:
+            return {CONFIG_ERROR, message};
+        default:
+            return {CRITICAL_HARDWARE_ERROR, message};
+    }
+}
+
 /// @brief an open gs_usb adapter with its USB interface claimed, shared by the buses of
-/// its channels. The adapter sends the frames of every channel on one endpoint, so one
-/// receiving bus at a time reads it and queues each frame for the bus of its channel.
-/// Releases the interface and closes the handle on destruction.
+/// its channels. The adapter sends the frames of every channel on one endpoint, which a
+/// thread reads from construction to destruction. The thread drops echoes and queues
+/// each received frame for the bus of its channel. Releases the interface and closes
+/// the handle on destruction.
 class Adapter {
 public:
+    /// @brief a frame the adapter sent to the host.
+    struct Received {
+        std::vector<std::uint8_t> bytes;
+        /// @brief the host time at which the frame arrived.
+        x::telem::TimeStamp time;
+        /// @brief the steady host time at which the frame arrived.
+        x::telem::TimeStamp steady;
+        /// @brief the frames of the channel dropped just before this one.
+        std::size_t dropped = 0;
+    };
+
     /// @brief the libusb calls to make.
     const std::shared_ptr<API> api;
     /// @brief the open handle, with the interface claimed.
     libusb_device_handle *const handle;
-    /// @brief the adapter's USB serial number.
-    const std::string serial;
-    /// @brief the number of CAN channels the adapter has.
-    const std::uint32_t channels;
+    /// @brief the adapter's USB serial number and product name, and its number of CAN
+    /// channels.
+    const Identity identity;
+    /// @brief where the adapter sits on the host's USB buses.
+    const Location location;
 
     Adapter(
         std::shared_ptr<API> api,
         libusb_device_handle *handle,
-        std::string serial,
-        const std::uint32_t channels
+        Identity identity,
+        const Location location
     ):
         api(std::move(api)),
         handle(handle),
-        serial(std::move(serial)),
-        channels(channels) {}
+        identity(std::move(identity)),
+        location(location),
+        thread([this] { this->run(); }) {}
 
     Adapter(const Adapter &) = delete;
     Adapter &operator=(const Adapter &) = delete;
 
     ~Adapter() {
+        this->running = false;
+        this->thread.join();
         this->api->ReleaseInterface(this->handle, INTERFACE);
         this->api->Close(this->handle);
     }
@@ -215,111 +292,94 @@ public:
         this->queues.erase(channel);
     }
 
-    /// @brief waits for a host frame of an attached channel.
-    /// @returns false once the deadline passes, and TEMPORARY_HARDWARE_ERROR when the
-    /// adapter is unplugged or the read fails.
-    std::pair<bool, x::errors::Error> receive(
+    /// @returns true once a read of the adapter failed.
+    bool failed() {
+        std::lock_guard lock(this->mu);
+        return !this->failure.ok();
+    }
+
+    /// @brief waits for a frame of an attached channel.
+    /// @returns nullopt once the deadline passes, and the error of the failed read once
+    /// the channel's queued frames run out.
+    std::pair<std::optional<Received>, x::errors::Error> receive(
         const std::uint8_t channel,
-        std::vector<std::uint8_t> &bytes,
         const std::chrono::steady_clock::time_point deadline
     ) {
         std::unique_lock lock(this->mu);
-        while (true) {
-            auto &queue = this->queues.at(channel);
-            if (!queue.frames.empty()) {
-                bytes = std::move(queue.frames.front());
-                queue.frames.pop_front();
-                return {true, x::errors::NIL};
-            }
-            if (std::chrono::steady_clock::now() >= deadline)
-                return {false, x::errors::NIL};
-            if (this->reading) {
-                this->cv.wait_until(lock, deadline);
-                continue;
-            }
-            this->reading = true;
-            lock.unlock();
-            auto [read, err] = this->read(deadline);
-            lock.lock();
-            this->reading = false;
-            this->cv.notify_all();
-            if (err) return {false, err};
-            if (read.empty()) continue;
-            if (auto route_err = this->route(std::move(read)))
-                return {false, route_err};
-        }
+        auto &queue = this->queues.at(channel);
+        this->cv.wait_until(lock, deadline, [&] {
+            return !queue.empty() || !this->failure.ok();
+        });
+        if (queue.empty()) return {std::nullopt, this->failure};
+        auto received = std::move(queue.front());
+        queue.pop_front();
+        return {std::move(received), x::errors::NIL};
     }
 
 private:
-    /// @brief the frames the adapter received for one channel.
-    struct Queue {
-        std::deque<std::vector<std::uint8_t>> frames;
-        /// @brief true from the first frame the queue drops until it empties.
-        bool overflowed = false;
-    };
-
     std::mutex mu;
     std::condition_variable cv;
-    /// @brief true while a bus reads the adapter's endpoint.
-    bool reading = false;
-    std::unordered_map<std::uint8_t, Queue> queues;
+    /// @brief the frames the adapter received, by channel.
+    std::unordered_map<std::uint8_t, std::deque<Received>> queues;
+    x::errors::Error failure = x::errors::NIL;
+    std::atomic<bool> running = true;
+    std::thread thread;
 
-    /// @brief reads one host frame from the adapter.
-    /// @returns no bytes when the deadline passes first.
-    std::pair<std::vector<std::uint8_t>, x::errors::Error>
-    read(const std::chrono::steady_clock::time_point deadline) {
-        const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(
-            deadline - std::chrono::steady_clock::now()
-        );
-        const auto ms = static_cast<unsigned int>(
-            std::max<std::int64_t>(remaining.count(), 1)
-        );
+    void run() {
         std::vector<std::uint8_t> bytes(MAX_FRAME_SIZE);
-        int transferred = 0;
-        const int rc = this->api->BulkTransfer(
-            this->handle,
-            ENDPOINT_IN,
-            bytes.data(),
-            static_cast<int>(bytes.size()),
-            &transferred,
-            ms
-        );
-        bytes.resize(static_cast<std::size_t>(transferred));
-        if (rc == LIBUSB_SUCCESS || rc == LIBUSB_ERROR_TIMEOUT)
-            return {std::move(bytes), x::errors::NIL};
-        if (rc == LIBUSB_ERROR_NO_DEVICE)
-            return {
-                {},
-                {TEMPORARY_HARDWARE_ERROR,
-                 "gs_usb adapter " + this->serial + " unplugged"}
-            };
-        return {
-            {},
-            {TEMPORARY_HARDWARE_ERROR,
-             "gs_usb adapter " + this->serial + ": " + describe(*this->api, rc)}
-        };
+        while (this->running) {
+            int transferred = 0;
+            const int rc = this->api->BulkTransfer(
+                this->handle,
+                ENDPOINT_IN,
+                bytes.data(),
+                static_cast<int>(bytes.size()),
+                &transferred,
+                READ_SLICE_MS
+            );
+            if (rc == LIBUSB_ERROR_TIMEOUT) continue;
+            x::errors::Error err = x::errors::NIL;
+            if (rc != LIBUSB_SUCCESS)
+                err = translate(
+                    *this->api,
+                    rc,
+                    "gs_usb adapter " + this->identity.serial
+                );
+            {
+                std::lock_guard lock(this->mu);
+                if (!err)
+                    err = this->route({
+                        .bytes = {bytes.begin(), bytes.begin() + transferred},
+                        .time = x::telem::TimeStamp::now(),
+                        .steady = steady_now(),
+                    });
+                if (err) this->failure = err;
+            }
+            this->cv.notify_all();
+            if (err) return;
+        }
     }
 
-    /// @brief queues a host frame for the bus of its channel, and drops it when no bus
-    /// holds the channel or the frame echoes a sent one. Requires mu.
+    /// @brief queues a frame for the bus of its channel, and drops it when no bus holds
+    /// the channel or the frame echoes a sent one. Requires mu.
     /// @returns CRITICAL_HARDWARE_ERROR when the frame is shorter than a header.
-    x::errors::Error route(std::vector<std::uint8_t> bytes) {
-        const auto [channel, err] = decode_channel(bytes);
+    x::errors::Error route(Received received) {
+        const auto [channel, err] = decode_channel(received.bytes);
         if (err) return err;
         if (!channel.has_value()) return x::errors::NIL;
         const auto it = this->queues.find(*channel);
         if (it == this->queues.end()) return x::errors::NIL;
         auto &queue = it->second;
-        if (queue.frames.empty()) queue.overflowed = false;
-        if (queue.frames.size() >= MAX_QUEUED) {
-            queue.frames.pop_front();
-            if (!queue.overflowed)
-                LOG(WARNING) << "[can] gs_usb adapter " << this->serial << " channel "
-                             << static_cast<int>(*channel)
-                             << " is not being read, dropping its oldest frames";
-            queue.overflowed = true;
+        std::size_t dropped = 0;
+        if (queue.size() >= MAX_QUEUED) {
+            dropped = 1 + queue.front().dropped;
+            queue.pop_front();
         }
-        queue.frames.push_back(std::move(bytes));
+        if (queue.empty())
+            received.dropped = dropped;
+        else
+            queue.front().dropped += dropped;
+        queue.push_back(std::move(received));
         return x::errors::NIL;
     }
 };
@@ -343,24 +403,35 @@ Bus::~Bus() {
 
 std::pair<bool, x::errors::Error>
 Bus::receive(Frame &frame, const x::telem::TimeSpan timeout) {
-    const auto deadline = std::chrono::steady_clock::now() + timeout.chrono();
-    std::vector<std::uint8_t> bytes;
-    auto [got, err] = this->adapter->receive(this->channel, bytes, deadline);
-    if (!got) return {false, err};
-    auto [hf, decode_err] = decode_frame(bytes, this->timestamped);
-    if (decode_err) return {false, decode_err};
-    if (hf.overflowed)
-        LOG(WARNING) << "[can] gs_usb adapter " << this->name
-                     << " overran and frames were lost";
-    frame = hf.frame;
-    if (hf.timestamp_us.has_value()) {
-        const auto us = this->counter.extend(*hf.timestamp_us);
-        frame.time = x::telem::TimeStamp(static_cast<std::int64_t>(us) * 1000);
-        frame.clock = Clock::HARDWARE;
-    } else {
-        frame.time = x::telem::TimeStamp::now();
-        frame.clock = Clock::HOST;
+    if (this->pending.has_value()) {
+        frame = *this->pending;
+        this->pending.reset();
+        return {true, x::errors::NIL};
     }
+    const auto deadline = std::chrono::steady_clock::now() + timeout.chrono();
+    auto [received, err] = this->adapter->receive(this->channel, deadline);
+    if (!received.has_value()) return {false, err};
+    auto [hf, decode_err] = decode_frame(received->bytes, this->timestamped);
+    if (decode_err) return {false, decode_err};
+    auto next = hf.frame;
+    if (hf.timestamp_us.has_value()) {
+        const auto us = this->counter.extend(*hf.timestamp_us, received->steady);
+        next.time = x::telem::TimeStamp(static_cast<std::int64_t>(us) * 1000);
+        next.clock = Clock::HARDWARE;
+    } else {
+        next.time = received->time;
+        next.clock = Clock::HOST;
+    }
+    if (received->dropped == 0 && !hf.overflowed) {
+        frame = next;
+        return {true, x::errors::NIL};
+    }
+    this->pending = next;
+    frame = bus_error::make(
+        bus_error::CONTROLLER,
+        bus_error::CONTROLLER_RX_OVERFLOW,
+        received->time
+    );
     return {true, x::errors::NIL};
 }
 
@@ -377,15 +448,14 @@ x::errors::Error Bus::transmit(const Frame &frame) {
         USB_TIMEOUT_MS
     );
     if (rc == LIBUSB_SUCCESS) return x::errors::NIL;
+    // candleLight refuses OUT transfers while every frame object waits for the bus or
+    // the host (src/usbd_gs_can.c, USBD_GS_CAN_DataOut).
     if (rc == LIBUSB_ERROR_TIMEOUT)
         return {
             TEMPORARY_HARDWARE_ERROR,
             "gs_usb adapter " + this->name + ": transmit queue is full"
         };
-    return {
-        TEMPORARY_HARDWARE_ERROR,
-        "gs_usb adapter " + this->name + ": " + describe(*this->adapter->api, rc)
-    };
+    return translate(*this->adapter->api, rc, "gs_usb adapter " + this->name);
 }
 
 x::errors::Error Bus::close() {
@@ -401,10 +471,7 @@ x::errors::Error Bus::close() {
     );
     x::errors::Error err = x::errors::NIL;
     if (rc < 0 && rc != LIBUSB_ERROR_NO_DEVICE)
-        err = {
-            CRITICAL_HARDWARE_ERROR,
-            "gs_usb adapter " + this->name + ": " + describe(*this->adapter->api, rc)
-        };
+        err = translate(*this->adapter->api, rc, "gs_usb adapter " + this->name);
     this->adapter->detach(this->channel);
     this->adapter.reset();
     return err;
@@ -412,13 +479,16 @@ x::errors::Error Bus::close() {
 
 std::pair<std::vector<Channel>, x::errors::Error> Backend::scan() {
     auto &api = *this->api;
+    std::lock_guard lock(this->mu);
+    std::vector<std::shared_ptr<Adapter>> open;
+    for (const auto &[_, weak]: this->adapters)
+        if (auto adapter = weak.lock()) open.push_back(std::move(adapter));
     libusb_device **list = nullptr;
     const auto count = api.GetDeviceList(&list);
     if (count < 0)
         return {
             {},
-            {TEMPORARY_HARDWARE_ERROR,
-             "libusb cannot list devices: " + describe(api, static_cast<int>(count))}
+            translate(api, static_cast<int>(count), "libusb cannot list devices")
         };
     std::vector<Channel> found;
     for (std::ptrdiff_t i = 0; i < count; i++) {
@@ -426,36 +496,34 @@ std::pair<std::vector<Channel>, x::errors::Error> Backend::scan() {
         if (api.GetDeviceDescriptor(list[i], &desc) != LIBUSB_SUCCESS ||
             !is_gs_usb(desc))
             continue;
-        libusb_device_handle *handle = nullptr;
-        if (const int rc = api.Open(list[i], &handle); rc != LIBUSB_SUCCESS) {
-            LOG(WARNING) << "[can] cannot open the gs_usb adapter at USB bus "
-                         << static_cast<int>(api.GetBusNumber(list[i])) << " address "
-                         << static_cast<int>(api.GetDeviceAddress(list[i])) << ": "
-                         << describe(api, rc);
-            continue;
+        const auto location = locate(api, list[i]);
+        Identity id;
+        const auto held = std::ranges::find_if(open, [&](const auto &adapter) {
+            return adapter->location == location;
+        });
+        if (held != open.end())
+            id = (*held)->identity;
+        else {
+            libusb_device_handle *handle = nullptr;
+            if (const int rc = api.Open(list[i], &handle); rc != LIBUSB_SUCCESS) {
+                LOG(WARNING) << "[can] cannot open the gs_usb adapter at USB bus "
+                             << static_cast<int>(location.bus) << " address "
+                             << static_cast<int>(location.address) << ": "
+                             << describe(api, rc);
+                continue;
+            }
+            id = identify(api, handle, desc);
+            api.Close(handle);
         }
-        const auto serial = read_string(api, handle, desc.iSerialNumber);
-        auto product = read_string(api, handle, desc.iProduct);
-        if (product.empty()) product = "gs_usb adapter";
-        std::uint32_t channels = 1;
-        std::array<std::uint8_t, 12> reply{};
-        const int n = control_in(api, handle, Request::DEVICE_CONFIG, 0, reply);
-        if (n > 0) {
-            const auto [config, err] = decode_device_config(
-                std::span(reply.data(), static_cast<std::size_t>(n))
-            );
-            if (!err) channels = config.channels;
-        }
-        api.Close(handle);
-        if (serial.empty()) {
+        if (id.serial.empty()) {
             LOG(WARNING) << "[can] skipping a gs_usb adapter with no serial number";
             continue;
         }
-        for (std::uint32_t c = 0; c < channels; c++)
+        for (std::uint32_t c = 0; c < id.channels; c++)
             found.push_back({
                 .backend = synnax::can::BACKEND_GS_USB,
-                .name = serial + ":" + std::to_string(c),
-                .description = product + " channel " + std::to_string(c),
+                .name = id.serial + ":" + std::to_string(c),
+                .description = id.product + " channel " + std::to_string(c),
             });
     }
     api.FreeDeviceList(list, 1);
@@ -464,7 +532,8 @@ std::pair<std::vector<Channel>, x::errors::Error> Backend::scan() {
 
 std::pair<std::shared_ptr<Adapter>, x::errors::Error>
 Backend::adapter(const std::string &serial, const std::string &channel) {
-    if (auto open = this->adapters[serial].lock()) return {open, x::errors::NIL};
+    if (auto open = this->adapters[serial].lock(); open != nullptr && !open->failed())
+        return {open, x::errors::NIL};
     auto &api = *this->api;
     auto [found, find_err] = find(api, serial);
     if (find_err) return {nullptr, find_err};
@@ -472,7 +541,7 @@ Backend::adapter(const std::string &serial, const std::string &channel) {
         return {
             nullptr,
             x::errors::Error(
-                CONFIG_ERROR,
+                UNREACHABLE_ERROR,
                 "no gs_usb adapter with serial number " + serial + " is attached"
             )
         };
@@ -481,13 +550,7 @@ Backend::adapter(const std::string &serial, const std::string &channel) {
         api.Close(handle);
         const auto what = rc == LIBUSB_ERROR_BUSY ? "the adapter is in use"
                                                   : "cannot claim the adapter";
-        return {
-            nullptr,
-            x::errors::Error(
-                TEMPORARY_HARDWARE_ERROR,
-                channel + ": " + what + ": " + describe(api, rc)
-            )
-        };
+        return {nullptr, translate(api, rc, channel + ": " + what)};
     }
     const auto release = [&](x::errors::Error err) {
         api.ReleaseInterface(handle, INTERFACE);
@@ -498,15 +561,22 @@ Backend::adapter(const std::string &serial, const std::string &channel) {
     const int n = control_in(api, handle, Request::DEVICE_CONFIG, 0, reply);
     if (n < 0)
         return release(
-            {TEMPORARY_HARDWARE_ERROR,
-             channel + ": cannot read the adapter configuration: " + describe(api, n)}
+            translate(api, n, channel + ": cannot read the adapter configuration")
         );
     auto [config, config_err] = decode_device_config(
         std::span(reply.data(), static_cast<std::size_t>(n))
     );
     if (config_err) return release(config_err);
-    auto
-        adapter = std::make_shared<Adapter>(this->api, handle, serial, config.channels);
+    auto adapter = std::make_shared<Adapter>(
+        this->api,
+        handle,
+        Identity{
+            .serial = serial,
+            .product = found.product.empty() ? "gs_usb adapter" : found.product,
+            .channels = config.channels,
+        },
+        found.location
+    );
     this->adapters[serial] = adapter;
     return {adapter, x::errors::NIL};
 }
@@ -538,13 +608,13 @@ Backend::open(const synnax::can::Properties &props) {
     if (adapter_err) return {nullptr, adapter_err};
     auto &api = *this->api;
     auto *handle = adapter->handle;
-    if (index >= adapter->channels)
+    if (index >= adapter->identity.channels)
         return {
             nullptr,
             x::errors::Error(
                 CONFIG_ERROR,
                 props.channel + ": the adapter has " +
-                    std::to_string(adapter->channels) + " channel(s)"
+                    std::to_string(adapter->identity.channels) + " channel(s)"
             )
         };
     const auto channel = static_cast<std::uint8_t>(index);
@@ -552,7 +622,7 @@ Backend::open(const synnax::can::Properties &props) {
         return {
             nullptr,
             x::errors::Error(
-                TEMPORARY_HARDWARE_ERROR,
+                UNREACHABLE_ERROR,
                 props.channel + ": the channel is in use"
             )
         };
@@ -561,10 +631,7 @@ Backend::open(const synnax::can::Properties &props) {
         return std::pair<std::unique_ptr<can::Bus>, x::errors::Error>{nullptr, err};
     };
     const auto usb_error = [&](const std::string &what, const int rc) {
-        return fail(
-            {TEMPORARY_HARDWARE_ERROR,
-             props.channel + ": " + what + ": " + describe(api, rc)}
-        );
+        return fail(translate(api, rc, props.channel + ": " + what));
     };
     auto [bt, bt_err] = read_bt_const(api, handle, channel, false);
     if (bt_err) return fail(bt_err);

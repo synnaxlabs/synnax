@@ -37,17 +37,30 @@ baud_code(std::uint32_t bitrate);
 [[nodiscard]] std::pair<std::string, x::errors::Error>
 fd_bitrate(std::uint32_t nominal, std::uint32_t data);
 
-/// @brief an initialized PCAN-Basic channel. receive drains the receive queue and waits
-/// on the channel's receive event while the queue is empty.
+/// @brief an initialized PCAN-Basic channel. receive drains the receive queue, then
+/// reads the channel status, then waits on the channel's receive event. A change of bus
+/// state arrives as a BUS_ERROR frame. An unplugged adapter only shows in the status,
+/// so send reads it too.
 class Bus final : public can::Bus {
     std::shared_ptr<API> api;
     TPCANHandle handle;
     std::unique_ptr<ReceiveEvent> event;
+    /// @brief the bus light, bus heavy, and bus passive bits of the last status.
+    TPCANStatus state = PCAN_ERROR_OK;
     bool closed = false;
 
     /// @brief takes the next frame from the receive queue.
     /// @returns nullopt when the queue is empty.
     std::optional<std::pair<bool, x::errors::Error>> take(Frame &frame);
+
+    /// @brief applies a status from Read or GetStatus.
+    /// @returns a BUS_ERROR frame when the bus state changed, the error of a fault in
+    /// status, or nullopt.
+    std::optional<std::pair<bool, x::errors::Error>>
+    apply(TPCANStatus status, Frame &frame);
+
+    /// @returns the error of a fault in status, or NIL for a bus state.
+    [[nodiscard]] x::errors::Error fault(TPCANStatus status);
 
     [[nodiscard]] x::errors::Error transmit(const Frame &frame) override;
 
@@ -78,6 +91,14 @@ public:
     [[nodiscard]] std::pair<std::unique_ptr<can::Bus>, x::errors::Error>
     open(const synnax::can::Properties &props) override;
 };
+
+/// @returns an error whose message is context followed by PCAN-Basic's text for status.
+/// Its type is UNREACHABLE_ERROR when the adapter is absent or busy or the bus is off,
+/// CONFIG_ERROR when the driver is missing or a parameter is wrong,
+/// TEMPORARY_HARDWARE_ERROR when the transmit queue is full, and
+/// CRITICAL_HARDWARE_ERROR otherwise.
+[[nodiscard]] x::errors::Error
+translate(API &api, TPCANStatus status, const std::string &context);
 
 /// @returns the backend over the installed PCAN-Basic library, or an Unavailable
 /// backend holding the reason the library did not load.

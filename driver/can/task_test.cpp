@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <atomic>
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <mutex>
 #include <numbers>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -48,6 +50,10 @@ constexpr std::uint32_t UNKNOWN_ID = 0x7FF;
 constexpr std::uint32_t COMMAND_ID = 0x200;
 constexpr std::uint32_t HEARTBEAT_ID = 0x201;
 const double SINE_SCALE = std::ldexp(1.0, -14);
+/// @brief how long a test waits for a task to reconnect.
+constexpr std::chrono::milliseconds SLOW = std::chrono::seconds(5);
+/// @brief how often a test checks a task that reconnects.
+constexpr std::chrono::milliseconds POLL{10};
 
 /// @returns the raw sine of the fast frame with count n.
 int sine(const int n) {
@@ -129,55 +135,34 @@ std::vector<Frame> message_frames(const bus::WriteConfig &cfg, const bool fd) {
     return out;
 }
 
-/// @brief a bus that fails its next receive on request.
-class FaultyBus final : public Bus {
-    std::unique_ptr<Bus> inner;
-    std::shared_ptr<std::atomic<bool>> fault;
+/// @returns a command frame for channels 7 to 10: setpoint, trim, enabled, and beat.
+x::telem::Frame command(const std::vector<double> &values) {
+    x::telem::Frame fr(values.size());
+    for (std::size_t i = 0; i < values.size(); i++)
+        fr.emplace(
+            static_cast<synnax::channel::Key>(7 + i),
+            x::telem::Series(values[i], x::telem::FLOAT64_T)
+        );
+    return fr;
+}
+
+/// @brief a task context that records the statuses a task sends. Safe for concurrent
+/// use.
+class Statuses final : public task::Context {
+    std::mutex mu;
+    std::vector<synnax::task::Status> sent;
 
 public:
-    FaultyBus(
-        std::unique_ptr<Bus> inner,
-        const synnax::can::Properties &props,
-        std::shared_ptr<std::atomic<bool>> fault
-    ):
-        Bus(props.channel, props.fd, props.listen_only),
-        inner(std::move(inner)),
-        fault(std::move(fault)) {}
-
-    std::pair<bool, x::errors::Error>
-    receive(Frame &frame, const x::telem::TimeSpan timeout) override {
-        if (this->fault->exchange(false)) return {false, TEMPORARY_HARDWARE_ERROR};
-        return this->inner->receive(frame, timeout);
+    void set_status(synnax::task::Status &status) override {
+        std::lock_guard lock(this->mu);
+        this->sent.push_back(status);
     }
 
-    x::errors::Error close() override { return this->inner->close(); }
-
-private:
-    x::errors::Error transmit(const Frame &frame) override {
-        return this->inner->send(frame);
-    }
-};
-
-/// @brief a loopback backend that counts the buses it opens and can fault them.
-class Counting final : public Backend {
-public:
-    std::shared_ptr<loopback::Backend> inner;
-    std::atomic<int> opens = 0;
-    std::shared_ptr<std::atomic<bool>> fault = std::make_shared<std::atomic<bool>>();
-
-    explicit Counting(std::vector<std::string> channels = {}):
-        inner(std::make_shared<loopback::Backend>(std::move(channels))) {}
-
-    std::pair<std::vector<Channel>, x::errors::Error> scan() override {
-        return this->inner->scan();
-    }
-
-    std::pair<std::unique_ptr<Bus>, x::errors::Error>
-    open(const synnax::can::Properties &props) override {
-        auto [bus, err] = this->inner->open(props);
-        if (err) return {nullptr, err};
-        ++this->opens;
-        return {std::make_unique<FaultyBus>(std::move(bus), props, this->fault), err};
+    /// @returns the last status the task sent, or an empty one before the first.
+    synnax::task::Status last() {
+        std::lock_guard lock(this->mu);
+        if (this->sent.empty()) return {};
+        return this->sent.back();
     }
 };
 
@@ -225,52 +210,87 @@ public:
     }
 };
 
-/// @brief runs CAN tasks on a loopback bus. The test plays the other node on the
-/// bus through peer.
+/// @brief runs CAN tasks on a loopback channel that, like most USB adapters, refuses a
+/// second open. The test plays another node on the bus through peer.
 class CANTask : public ::testing::Test {
 protected:
-    std::shared_ptr<Counting> backend = std::make_shared<Counting>();
+    std::shared_ptr<loopback::Backend> backend = std::make_shared<loopback::Backend>(
+        std::vector<std::string>{},
+        true
+    );
     std::shared_ptr<const Backends> backends = std::make_shared<const Backends>(
         Backends{{loopback::BACKEND, backend}}
     );
     std::shared_ptr<Links> links = std::make_shared<Links>();
     synnax::can::Properties props;
     std::unique_ptr<Bus> peer;
-    std::shared_ptr<task::MockContext> ctx = std::make_shared<task::MockContext>(
-        nullptr
-    );
+    std::shared_ptr<Statuses> ctx = std::make_shared<Statuses>();
     synnax::task::Task task{.key = x::uuid::create(), .name = "can"};
     std::shared_ptr<x::sync::List<x::telem::Frame>>
         writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    std::mutex warning_mu;
+    std::string warning;
 
     void SetUp() override {
         this->props.backend = loopback::BACKEND;
         this->props.channel = "can0";
-        this->peer = ASSERT_NIL_P(this->backend->inner->open(this->props));
+        this->peer = this->backend->node(this->props);
     }
 
     [[nodiscard]] Acquire acquire() const {
         return acquirer(this->links, "dev", this->backends, this->props);
     }
 
-    std::unique_ptr<common::ReadTask> read_task(bus::ReadConfig cfg) {
+    std::unique_ptr<common::ReadTask> read_task(
+        bus::ReadConfig cfg,
+        const x::breaker::Config &breaker = x::breaker::default_config("can")
+    ) {
         return std::make_unique<common::ReadTask>(
             this->task,
             this->ctx,
-            x::breaker::default_config(this->task.name),
+            breaker,
             std::make_unique<Source>(std::move(cfg), this->acquire()),
             std::make_shared<pipeline::mock::WriterFactory>(this->writes)
         );
     }
 
+    /// @returns a write sink whose warnings go to sink_warning.
     std::unique_ptr<bus::Sink> sink(bus::WriteConfig cfg) {
         auto transmitter = std::make_unique<Transmitter>(
             message_frames(cfg, this->props.fd),
             this->acquire()
         );
         auto s = std::make_unique<bus::Sink>(std::move(cfg), std::move(transmitter));
-        s->set_warning = [](const x::errors::Error &) {};
+        s->set_warning = [this](const x::errors::Error &err) {
+            std::lock_guard lock(this->warning_mu);
+            this->warning = err.data;
+        };
         return s;
+    }
+
+    /// @returns the last warning a write sink set, or an empty string once it cleared.
+    std::string sink_warning() {
+        std::lock_guard lock(this->warning_mu);
+        return this->warning;
+    }
+
+    /// @brief sends the status frame with value v until the read task writes v.
+    /// @returns false when the read task never writes v.
+    bool eventually_reads(const std::uint8_t v) {
+        const auto deadline = x::telem::TimeStamp::now() + x::telem::TimeSpan(SLOW);
+        while (x::telem::TimeStamp::now() < deadline) {
+            this->send(0x10, false, {v});
+            const auto got = values(*this->writes, 1);
+            if (std::ranges::find(got, v) != got.end()) return true;
+            std::this_thread::sleep_for(POLL);
+        }
+        return false;
+    }
+
+    /// @brief writes one command value to a sink.
+    static x::errors::Error write(bus::Sink &sink, const double value) {
+        auto fr = command({value});
+        return sink.write(fr);
     }
 
     void send(const std::uint32_t id, const bool extended, const Bytes &data) const {
@@ -377,7 +397,7 @@ write_config(const std::vector<synnax::library::MessageEntry> &messages) {
         cfg.messages.push_back(wm);
     }
     x::json::Parser parser(x::json::json::object());
-    auto out = bus::WriteConfig::resolve(
+    auto [out, err] = bus::WriteConfig::resolve(
         parser,
         cfg,
         std::nullopt,
@@ -386,7 +406,9 @@ write_config(const std::vector<synnax::library::MessageEntry> &messages) {
         bus::Medium::CAN
     );
     EXPECT_TRUE(parser.ok()) << parser.error_json().dump();
-    return out;
+    EXPECT_FALSE(err) << err;
+    out.device = "dev";
+    return std::move(out);
 }
 
 /// @returns the command and heartbeat messages of the vcan write case.
@@ -411,15 +433,30 @@ std::vector<synnax::library::MessageEntry> write_messages() {
     return {command, heartbeat};
 }
 
-/// @returns a command frame for channels 7 to 10: setpoint, trim, enabled, and beat.
-x::telem::Frame command(const std::vector<double> &values) {
-    x::telem::Frame fr(values.size());
-    for (std::size_t i = 0; i < values.size(); i++)
-        fr.emplace(
-            static_cast<synnax::channel::Key>(7 + i),
-            x::telem::Series(values[i], x::telem::FLOAT64_T)
-        );
-    return fr;
+/// @returns a read config with one message, status, whose first byte v goes to channel
+/// 1.
+bus::ReadConfig status_read_config() {
+    return read_config(
+        {binary_message(
+            "status",
+            {binary_field("v", 0)},
+            synnax::library::CanIdentifier{.id = 0x10}
+        )},
+        std::nullopt,
+        nullptr,
+        {},
+        {},
+        bus::Medium::CAN
+    );
+}
+
+/// @returns a message, cmd, whose first byte v comes from channel 7.
+synnax::library::MessageEntry command_message() {
+    return binary_message(
+        "cmd",
+        {binary_field("v", 0)},
+        synnax::library::CanIdentifier{.id = 0x20}
+    );
 }
 }
 
@@ -434,7 +471,7 @@ TEST_F(CANTask, DecodesStandardAndMaskedExtendedFramesAndIgnoresUnknownOnes) {
         bus::Medium::CAN
     ));
     t->start("start");
-    ASSERT_EVENTUALLY_EQ(this->backend->opens.load(), 1);
+    ASSERT_EVENTUALLY_EQ(this->backend->opens("can0"), 1);
     constexpr int FRAMES = 50;
     for (int n = 0; n < FRAMES; n++) {
         this->send(FAST_ID, false, fast(n));
@@ -521,27 +558,11 @@ TEST_F(CANTask, SendsNoHeartbeatUntilItsChannelHasAValue) {
 }
 
 TEST_F(CANTask, SharesOneBusBetweenAReadAndAWriteTaskOnADevice) {
-    auto reader = this->read_task(read_config(
-        {binary_message(
-            "status",
-            {binary_field("v", 0)},
-            synnax::library::CanIdentifier{.id = 0x10}
-        )},
-        std::nullopt,
-        nullptr,
-        {},
-        {},
-        bus::Medium::CAN
-    ));
-    auto cmd = binary_message(
-        "cmd",
-        {binary_field("v", 0)},
-        synnax::library::CanIdentifier{.id = 0x20}
-    );
-    auto writer = this->sink(write_config({cmd}));
+    auto reader = this->read_task(status_read_config());
+    auto writer = this->sink(write_config({command_message()}));
     reader->start("start");
     ASSERT_NIL(writer->start());
-    ASSERT_EVENTUALLY_EQ(this->backend->opens.load(), 1);
+    ASSERT_EVENTUALLY_EQ(this->backend->opens("can0"), 1);
     x::telem::Frame fr(7, x::telem::Series(5.0, x::telem::FLOAT64_T));
     ASSERT_NIL(writer->write(fr));
     ASSERT_TRUE(this->wait_for(0x20, {5}, 1).has_value());
@@ -549,42 +570,151 @@ TEST_F(CANTask, SharesOneBusBetweenAReadAndAWriteTaskOnADevice) {
     ASSERT_EVENTUALLY_EQ(values(*this->writes, 1).size(), 1);
     ASSERT_NIL(writer->stop());
     reader->stop("stop", true);
-    EXPECT_EQ(this->backend->opens.load(), 1);
+    EXPECT_EQ(this->backend->opens("can0"), 1);
     EXPECT_EQ(values(*this->writes, 1)[0], 42);
     auto [link, err] = this->acquire()();
     ASSERT_NIL(err);
     ASSERT_NIL(link->bus().second);
-    EXPECT_EQ(this->backend->opens.load(), 2);
+    EXPECT_EQ(this->backend->opens("can0"), 2);
 }
 
-TEST_F(CANTask, ReopensTheBusAfterAReceiveFault) {
-    auto t = this->read_task(read_config(
-        {binary_message(
-            "status",
-            {binary_field("v", 0)},
-            synnax::library::CanIdentifier{.id = 0x10}
-        )},
-        std::nullopt,
-        nullptr,
-        {},
-        {},
-        bus::Medium::CAN
-    ));
+TEST_F(CANTask, ReopensAChannelThatRefusesASecondOpenAfterAReceiveFault) {
+    auto t = this->read_task(status_read_config());
     t->start("start");
-    ASSERT_EVENTUALLY_EQ(this->backend->opens.load(), 1);
-    this->backend->fault->store(true);
-    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
-        this->backend->opens.load(),
-        2,
-        std::chrono::seconds(5),
-        std::chrono::milliseconds(10)
+    ASSERT_EVENTUALLY_EQ(this->backend->opens("can0"), 1);
+    this->backend->fail(
+        loopback::Call::RECEIVE,
+        {UNREACHABLE_ERROR, "the adapter stopped answering"}
     );
-    ASSERT_EVENTUALLY_TRUE([&] {
-        this->send(0x10, false, {9});
-        return !values(*this->writes, 1).empty();
-    }());
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(this->backend->opens("can0"), 2, SLOW, POLL);
+    ASSERT_TRUE(this->eventually_reads(9));
     t->stop("stop", true);
-    EXPECT_EQ(values(*this->writes, 1)[0], 9);
+}
+
+TEST_F(CANTask, WaitsForAChannelThatIsAbsentAtStart) {
+    this->backend->unplug("can0");
+    auto t = this->read_task(status_read_config());
+    t->start("start");
+    ASSERT_EVENTUALLY_EQ(
+        this->ctx->last().message,
+        "reconnecting to dev: channel can0 is not attached"
+    );
+    EXPECT_EQ(this->ctx->last().variant, synnax::status::VARIANT_WARNING);
+    EXPECT_TRUE(this->ctx->last().details.running);
+    this->backend->plug("can0");
+    ASSERT_TRUE(this->eventually_reads(3));
+    ASSERT_EVENTUALLY_EQ(this->ctx->last().variant, synnax::status::VARIANT_SUCCESS);
+    t->stop("stop", true);
+}
+
+TEST_F(CANTask, ReconnectsAReadTaskAfterAnUnplug) {
+    auto t = this->read_task(status_read_config());
+    t->start("start");
+    ASSERT_TRUE(this->eventually_reads(1));
+    this->backend->unplug("can0");
+    ASSERT_EVENTUALLY_EQ(
+        this->ctx->last().message,
+        "reconnecting to dev: channel can0 is not attached"
+    );
+    EXPECT_EQ(this->ctx->last().variant, synnax::status::VARIANT_WARNING);
+    EXPECT_TRUE(this->ctx->last().details.running);
+    this->backend->plug("can0");
+    ASSERT_TRUE(this->eventually_reads(2));
+    EXPECT_EQ(this->backend->opens("can0"), 2);
+    ASSERT_EVENTUALLY_EQ(this->ctx->last().variant, synnax::status::VARIANT_SUCCESS);
+    t->stop("stop", true);
+}
+
+TEST_F(CANTask, WaitsForAnUnpluggedChannelLongerThanTheBreakerAllows) {
+    auto breaker = x::breaker::default_config("can");
+    breaker.max_retries = 1;
+    breaker.base_interval = x::telem::MILLISECOND;
+    auto t = this->read_task(status_read_config(), breaker);
+    t->start("start");
+    ASSERT_TRUE(this->eventually_reads(1));
+    this->backend->unplug("can0");
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(this->backend->attempts("can0"), 4, SLOW, POLL);
+    this->backend->plug("can0");
+    ASSERT_TRUE(this->eventually_reads(2));
+    EXPECT_TRUE(this->ctx->last().details.running);
+    t->stop("stop", true);
+}
+
+TEST_F(CANTask, WarnsWithTheFaultsABusErrorFrameReports) {
+    auto t = this->read_task(status_read_config());
+    t->start("start");
+    ASSERT_TRUE(this->eventually_reads(1));
+    auto error = bus_error::make(
+        bus_error::BUS_OFF | bus_error::CONTROLLER,
+        bus_error::CONTROLLER_TX_PASSIVE,
+        x::telem::TimeStamp::now()
+    );
+    this->backend->raise("can0", error);
+    ASSERT_EVENTUALLY_EQ(
+        this->ctx->last().message,
+        "the adapter reported bus off, transmit error passive"
+    );
+    EXPECT_EQ(this->ctx->last().variant, synnax::status::VARIANT_WARNING);
+    EXPECT_TRUE(this->ctx->last().details.running);
+    t->stop("stop", true);
+}
+
+TEST_F(CANTask, StopsAReadTaskOnACriticalFault) {
+    auto t = this->read_task(status_read_config());
+    t->start("start");
+    ASSERT_EVENTUALLY_EQ(this->backend->opens("can0"), 1);
+    this->backend->fail(
+        loopback::Call::RECEIVE,
+        {CRITICAL_HARDWARE_ERROR, "the adapter failed"}
+    );
+    ASSERT_EVENTUALLY_EQ(this->ctx->last().variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(this->ctx->last().message, "the adapter failed");
+    EXPECT_FALSE(this->ctx->last().details.running);
+    t->stop("stop", true);
+    EXPECT_EQ(this->backend->in_use("can0"), 0);
+}
+
+TEST_F(CANTask, ReconnectsAWriteTaskAfterAnUnplug) {
+    auto s = this->sink(write_config({command_message()}));
+    ASSERT_NIL(s->start());
+    ASSERT_NIL(write(*s, 5));
+    ASSERT_TRUE(this->wait_for(0x20, {5}, 1).has_value());
+    this->backend->unplug("can0");
+    ASSERT_NIL(write(*s, 6));
+    ASSERT_EVENTUALLY_EQ(
+        this->sink_warning(),
+        "reconnecting to dev: channel can0 is not attached"
+    );
+    this->backend->plug("can0");
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        [&] {
+            const auto err = write(*s, 7);
+            EXPECT_FALSE(err) << err;
+            return this->wait_for(0x20, {7}, 1, 50 * x::telem::MILLISECOND).has_value();
+        }(),
+        SLOW,
+        POLL
+    );
+    EXPECT_EQ(this->sink_warning(), "");
+    ASSERT_NIL(s->stop());
+}
+
+TEST_F(CANTask, SpacesReopenAttemptsWithOneWaitSharedByTheTasksOnADevice) {
+    this->backend->unplug("can0");
+    auto reader = this->read_task(status_read_config());
+    auto writer = this->sink(write_config({command_message()}));
+    reader->start("start");
+    ASSERT_NIL(writer->start());
+    const auto deadline = x::telem::TimeStamp::now() + x::telem::SECOND;
+    for (int n = 0; x::telem::TimeStamp::now() < deadline; n++) {
+        ASSERT_NIL(write(*writer, n % 200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    // Waits of 250 ms, 500 ms, and 1 s allow at most four attempts in a second.
+    EXPECT_LE(this->backend->attempts("can0"), 4);
+    EXPECT_GE(this->backend->attempts("can0"), 2);
+    ASSERT_NIL(writer->stop());
+    reader->stop("stop", true);
 }
 
 TEST_F(CANTask, MovesAdapterTimesOntoTheHostClock) {
@@ -594,18 +724,7 @@ TEST_F(CANTask, MovesAdapterTimesOntoTheHostClock) {
     );
     const auto peer = ASSERT_NIL_P(adapter->inner->open(this->props));
     Source source(
-        read_config(
-            {binary_message(
-                "status",
-                {binary_field("v", 0)},
-                synnax::library::CanIdentifier{.id = 0x10}
-            )},
-            std::nullopt,
-            nullptr,
-            {},
-            {},
-            bus::Medium::CAN
-        ),
+        status_read_config(),
         acquirer(this->links, "dev", backends, this->props)
     );
     ASSERT_NIL(source.start());
@@ -636,18 +755,7 @@ TEST_F(CANTask, SlewsAdapterTimesTowardTheHostClock) {
     );
     const auto peer = ASSERT_NIL_P(adapter->inner->open(this->props));
     Source source(
-        read_config(
-            {binary_message(
-                "status",
-                {binary_field("v", 0)},
-                synnax::library::CanIdentifier{.id = 0x10}
-            )},
-            std::nullopt,
-            nullptr,
-            {},
-            {},
-            bus::Medium::CAN
-        ),
+        status_read_config(),
         acquirer(this->links, "dev", backends, this->props)
     );
     ASSERT_NIL(source.start());
