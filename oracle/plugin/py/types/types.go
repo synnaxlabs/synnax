@@ -56,6 +56,7 @@ func (p *Plugin) Domains() []string { return nil }
 func (p *Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("py")
 	gen := &framework.Generator{
 		Domain:          "py",
 		FilePattern:     p.Options.FileNamePattern,
@@ -1531,10 +1532,10 @@ func typeToPython(
 			modulePath := toPythonModulePath(outputPath)
 			pyName = addCrossNamespaceImport(modulePath, pyName, data)
 		}
-		if len(typeRef.TypeArgs) > 0 {
+		if typeArgs := trimNilTypeArgs(typeRef.TypeArgs); len(typeArgs) > 0 {
 			structForm := resolved.Form.(resolution.StructForm)
 			var args []string
-			for i, arg := range typeRef.TypeArgs {
+			for i, arg := range typeArgs {
 				if i < len(structForm.TypeParams) &&
 					structForm.TypeParams[i].HasDefault() {
 					continue
@@ -1642,16 +1643,26 @@ func typeRefToPythonAlias(
 	}
 
 	// If no type arguments, just return the base name
-	if len(typeRef.TypeArgs) == 0 {
+	args := trimNilTypeArgs(typeRef.TypeArgs)
+	if len(args) == 0 {
 		return baseName
 	}
 
 	// Build type arguments for generic: Status[Details] or Status[Details, Data]
 	var typeArgs []string
-	for _, arg := range typeRef.TypeArgs {
+	for _, arg := range args {
 		typeArgs = append(typeArgs, typeToPython(arg, table, data))
 	}
 	return fmt.Sprintf("%s[%s]", baseName, strings.Join(typeArgs, ", "))
+}
+
+// trimNilTypeArgs drops trailing nil type arguments, so the generic uses its type
+// parameter defaults. Go sends a nil argument as an empty struct, which None rejects.
+func trimNilTypeArgs(args []resolution.TypeRef) []resolution.TypeRef {
+	for len(args) > 0 && args[len(args)-1].Name == "nil" {
+		args = args[:len(args)-1]
+	}
+	return args
 }
 
 func toPythonModulePath(repoPath string) string {

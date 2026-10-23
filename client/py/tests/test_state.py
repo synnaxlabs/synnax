@@ -70,6 +70,21 @@ class TestState:
         with pytest.raises(KeyError):
             self.state()["humidity"]
 
+    def test_missing_attribute(self) -> None:
+        """Should raise AttributeError for a name that is not a channel."""
+        state = self.state()
+        assert not hasattr(state, "humidity")
+        with pytest.raises(AttributeError):
+            _ = state.humidity
+
+    def test_update_by_name(self) -> None:
+        """Should store a frame entry keyed by name under the channel's key."""
+        state = State([PRESSURE])
+        state.update(
+            sy.Frame([PRESSURE.name], [sy.Series([2.5], data_type=sy.DataType.FLOAT32)])
+        )
+        assert state[12].to_numpy().tolist() == [2.5]
+
 
 class TestLatestState:
     """Tests reading the latest sample of each channel from LatestState."""
@@ -91,6 +106,13 @@ class TestLatestState:
     def test_by_attribute(self) -> None:
         """Should return the last sample for a channel name read as an attribute."""
         assert self.latest().pressure == 2.5
+
+    def test_missing_attribute(self) -> None:
+        """Should raise AttributeError for a name that is not a channel."""
+        latest = self.latest()
+        assert not hasattr(latest, "humidity")
+        with pytest.raises(AttributeError):
+            _ = latest.humidity
 
     def test_follows_updates(self) -> None:
         """Should read from the state's latest frame."""

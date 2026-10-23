@@ -357,7 +357,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
 
   const listItem = useCallback(
     ({ key, ...p }: List.ItemProps<string>) => (
-      <FieldListItem {...p} key={key} epKey={epKey} />
+      <FieldListItem key={key} {...p} epKey={epKey} />
     ),
     [epKey],
   );

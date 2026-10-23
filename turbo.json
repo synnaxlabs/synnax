@@ -3,7 +3,7 @@
   "globalDependencies": [
     "configs/vite/src/index.ts",
     "configs/ts/*.json",
-    "configs/eslint/*.ts",
+    "configs/eslint/**/*.ts",
     "configs/eslint/package.json",
     "configs/stylelint/*.js",
     "configs/stylelint/package.json",

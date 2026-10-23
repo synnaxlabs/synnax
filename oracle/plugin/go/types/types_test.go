@@ -94,6 +94,30 @@ var _ = Describe("Go Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should keep a wire-omitted field out of JSON and msgpack", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@go output "core/pkg/service/auth"
+
+					Session struct {
+						key     uuid
+						hash    bytes { @go wire omit }
+						subject string?
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"Hash []byte `json:\"-\" msgpack:\"-\"`",
+						"`json:\"subject,omitzero\" msgpack:\"subject,omitempty\"`",
+						"`json:\"key\" msgpack:\"key\"`",
+					)
+			})
+		})
+
 		Context("basic struct generation", func() {
 			It("Should generate struct for simple types", func(ctx SpecContext) {
 				source := `
