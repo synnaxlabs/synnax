@@ -1065,7 +1065,7 @@ describe("connection", () => {
       await client.close();
     });
 
-    it("should exempt the check and login endpoints so the connection can heal", async () => {
+    it("should exempt the check and session endpoints so the connection can heal", async () => {
       const unary = createScriptedUnary({ failing: true });
       const client = createClient(unary, { escalateAfter: 1 });
       await waitForStatus(client, (s) => s.variant === "error");
@@ -1073,6 +1073,27 @@ describe("connection", () => {
       const next = vi.fn(async (ctx: Context) => ctx);
       await mw(createUnaryContext("/api/v1/connectivity/check"), next);
       await mw(createUnaryContext("/api/v1/auth/login"), next);
+      await mw(createUnaryContext("/api/v1/auth/session/create"), next);
+      await mw(createUnaryContext("/api/v1/auth/session/renew"), next);
+      await mw(createUnaryContext("/api/v1/auth/session/retrieve"), next);
+      await mw(createUnaryContext("/api/v1/auth/session/delete"), next);
+      expect(next).toHaveBeenCalledTimes(6);
+      await client.close();
+    });
+
+    it("should let session upkeep through while the Core is unlicensed", async () => {
+      const client = createClient(createScriptedUnary({ license: "expired" }));
+      await waitForStatus(
+        client,
+        (s) => s.variant === "error" && s.details.reason === "unlicensed",
+      );
+      const mw = client.middleware();
+      const next = vi.fn(async (ctx: Context) => ctx);
+      await mw(createUnaryContext("/api/v1/auth/session/renew"), next);
+      await mw(createUnaryContext("/api/v1/auth/session/retrieve"), next);
+      await expect(mw(createUnaryContext("/channel/retrieve"), next)).rejects.toThrow(
+        ExpiredLicenseError,
+      );
       expect(next).toHaveBeenCalledTimes(2);
       await client.close();
     });

@@ -41,10 +41,22 @@ namespace synnax::details {
 Transport::Transport(const uint16_t port, const std::string &ip, const bool secure) {
     auto base_target = x::url::URL(ip, port, "").to_string();
     auto pool = std::make_shared<freighter::grpc::Pool>(secure);
-    this->auth_login = std::make_unique<freighter::grpc::UnaryClient<
-        grpc::auth::LoginRequest,
-        grpc::auth::LoginResponse,
-        grpc::auth::AuthLoginService>>(pool, base_target);
+    this->auth_session_create = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse,
+        grpc::auth::AuthSessionCreateService>>(pool, base_target);
+    this->auth_session_renew = std::make_unique<freighter::grpc::UnaryClient<
+        google::protobuf::Empty,
+        google::protobuf::Empty,
+        grpc::auth::AuthSessionRenewService>>(pool, base_target);
+    this->auth_session_retrieve = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::auth::SessionRetrieveRequest,
+        grpc::auth::SessionRetrieveResponse,
+        grpc::auth::AuthSessionRetrieveService>>(pool, base_target);
+    this->auth_session_delete = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::auth::SessionDeleteRequest,
+        google::protobuf::Empty,
+        grpc::auth::AuthSessionDeleteService>>(pool, base_target);
     this->frame_stream = std::make_unique<freighter::grpc::StreamClient<
         grpc::framer::StreamerRequest,
         grpc::framer::StreamerResponse,

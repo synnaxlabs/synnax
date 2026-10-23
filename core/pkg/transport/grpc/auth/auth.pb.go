@@ -18,6 +18,7 @@ package auth
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -262,11 +263,429 @@ func (x *User) GetUsername() string {
 	return ""
 }
 
+// Proof is what a subject presents to log in. The method selects which fields apply.
+type Proof struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Method        string                 `protobuf:"bytes,1,opt,name=method,proto3" json:"method,omitempty"`
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Password      string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Proof) Reset() {
+	*x = Proof{}
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Proof) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Proof) ProtoMessage() {}
+
+func (x *Proof) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Proof.ProtoReflect.Descriptor instead.
+func (*Proof) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Proof) GetMethod() string {
+	if x != nil {
+		return x.Method
+	}
+	return ""
+}
+
+func (x *Proof) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *Proof) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+// Subject names the user or rack a session belongs to.
+type Subject struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Subject) Reset() {
+	*x = Subject{}
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Subject) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Subject) ProtoMessage() {}
+
+func (x *Subject) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Subject.ProtoReflect.Descriptor instead.
+func (*Subject) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *Subject) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *Subject) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+type Session struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Subject       *Subject               `protobuf:"bytes,2,opt,name=subject,proto3" json:"subject,omitempty"`
+	Credential    string                 `protobuf:"bytes,3,opt,name=credential,proto3" json:"credential,omitempty"`
+	LastActive    int64                  `protobuf:"varint,4,opt,name=last_active,json=lastActive,proto3" json:"last_active,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Session) Reset() {
+	*x = Session{}
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Session) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Session) ProtoMessage() {}
+
+func (x *Session) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Session.ProtoReflect.Descriptor instead.
+func (*Session) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Session) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *Session) GetSubject() *Subject {
+	if x != nil {
+		return x.Subject
+	}
+	return nil
+}
+
+func (x *Session) GetCredential() string {
+	if x != nil {
+		return x.Credential
+	}
+	return ""
+}
+
+func (x *Session) GetLastActive() int64 {
+	if x != nil {
+		return x.LastActive
+	}
+	return 0
+}
+
+type SessionCreateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Proof         *Proof                 `protobuf:"bytes,1,opt,name=proof,proto3" json:"proof,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionCreateRequest) Reset() {
+	*x = SessionCreateRequest{}
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionCreateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionCreateRequest) ProtoMessage() {}
+
+func (x *SessionCreateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionCreateRequest.ProtoReflect.Descriptor instead.
+func (*SessionCreateRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *SessionCreateRequest) GetProof() *Proof {
+	if x != nil {
+		return x.Proof
+	}
+	return nil
+}
+
+type SessionCreateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	Session       *Session               `protobuf:"bytes,2,opt,name=session,proto3" json:"session,omitempty"`
+	User          *User                  `protobuf:"bytes,3,opt,name=user,proto3,oneof" json:"user,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionCreateResponse) Reset() {
+	*x = SessionCreateResponse{}
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionCreateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionCreateResponse) ProtoMessage() {}
+
+func (x *SessionCreateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionCreateResponse.ProtoReflect.Descriptor instead.
+func (*SessionCreateResponse) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *SessionCreateResponse) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *SessionCreateResponse) GetSession() *Session {
+	if x != nil {
+		return x.Session
+	}
+	return nil
+}
+
+func (x *SessionCreateResponse) GetUser() *User {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+type SessionRetrieveRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Subjects      []*Subject             `protobuf:"bytes,1,rep,name=subjects,proto3" json:"subjects,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionRetrieveRequest) Reset() {
+	*x = SessionRetrieveRequest{}
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionRetrieveRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionRetrieveRequest) ProtoMessage() {}
+
+func (x *SessionRetrieveRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionRetrieveRequest.ProtoReflect.Descriptor instead.
+func (*SessionRetrieveRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *SessionRetrieveRequest) GetSubjects() []*Subject {
+	if x != nil {
+		return x.Subjects
+	}
+	return nil
+}
+
+type SessionRetrieveResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Sessions      []*Session             `protobuf:"bytes,1,rep,name=sessions,proto3" json:"sessions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionRetrieveResponse) Reset() {
+	*x = SessionRetrieveResponse{}
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionRetrieveResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionRetrieveResponse) ProtoMessage() {}
+
+func (x *SessionRetrieveResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionRetrieveResponse.ProtoReflect.Descriptor instead.
+func (*SessionRetrieveResponse) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *SessionRetrieveResponse) GetSessions() []*Session {
+	if x != nil {
+		return x.Sessions
+	}
+	return nil
+}
+
+type SessionDeleteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Keys          []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SessionDeleteRequest) Reset() {
+	*x = SessionDeleteRequest{}
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionDeleteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionDeleteRequest) ProtoMessage() {}
+
+func (x *SessionDeleteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SessionDeleteRequest.ProtoReflect.Descriptor instead.
+func (*SessionDeleteRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *SessionDeleteRequest) GetKeys() []string {
+	if x != nil {
+		return x.Keys
+	}
+	return nil
+}
+
 var File_core_pkg_transport_grpc_auth_auth_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/transport/grpc/auth/auth.proto\x12\tgrpc.auth\"\x89\x01\n" +
+	"'core/pkg/transport/grpc/auth/auth.proto\x12\tgrpc.auth\x1a\x1bgoogle/protobuf/empty.proto\"\x89\x01\n" +
 	"\vClusterInfo\x12\x1f\n" +
 	"\vcluster_key\x18\x01 \x01(\tR\n" +
 	"clusterKey\x12!\n" +
@@ -282,9 +701,45 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\fcluster_info\x18\x03 \x01(\v2\x16.grpc.auth.ClusterInfoR\vclusterInfo\"4\n" +
 	"\x04User\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x1a\n" +
-	"\busername\x18\x02 \x01(\tR\busername2M\n" +
+	"\busername\x18\x02 \x01(\tR\busername\"W\n" +
+	"\x05Proof\x12\x16\n" +
+	"\x06method\x18\x01 \x01(\tR\x06method\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
+	"\bpassword\x18\x03 \x01(\tR\bpassword\"/\n" +
+	"\aSubject\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12\x10\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\"\x8a\x01\n" +
+	"\aSession\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
+	"\asubject\x18\x02 \x01(\v2\x12.grpc.auth.SubjectR\asubject\x12\x1e\n" +
+	"\n" +
+	"credential\x18\x03 \x01(\tR\n" +
+	"credential\x12\x1f\n" +
+	"\vlast_active\x18\x04 \x01(\x03R\n" +
+	"lastActive\">\n" +
+	"\x14SessionCreateRequest\x12&\n" +
+	"\x05proof\x18\x01 \x01(\v2\x10.grpc.auth.ProofR\x05proof\"\x94\x01\n" +
+	"\x15SessionCreateResponse\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12,\n" +
+	"\asession\x18\x02 \x01(\v2\x12.grpc.auth.SessionR\asession\x12(\n" +
+	"\x04user\x18\x03 \x01(\v2\x0f.grpc.auth.UserH\x00R\x04user\x88\x01\x01B\a\n" +
+	"\x05_userJ\x04\b\x04\x10\x05\"H\n" +
+	"\x16SessionRetrieveRequest\x12.\n" +
+	"\bsubjects\x18\x01 \x03(\v2\x12.grpc.auth.SubjectR\bsubjects\"I\n" +
+	"\x17SessionRetrieveResponse\x12.\n" +
+	"\bsessions\x18\x01 \x03(\v2\x12.grpc.auth.SessionR\bsessions\"*\n" +
+	"\x14SessionDeleteRequest\x12\x12\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys2M\n" +
 	"\x10AuthLoginService\x129\n" +
-	"\x04Exec\x12\x17.grpc.auth.LoginRequest\x1a\x18.grpc.auth.LoginResponseB\x95\x01\n" +
+	"\x04Exec\x12\x17.grpc.auth.LoginRequest\x1a\x18.grpc.auth.LoginResponse2e\n" +
+	"\x18AuthSessionCreateService\x12I\n" +
+	"\x04Exec\x12\x1f.grpc.auth.SessionCreateRequest\x1a .grpc.auth.SessionCreateResponse2Q\n" +
+	"\x17AuthSessionRenewService\x126\n" +
+	"\x04Exec\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty2k\n" +
+	"\x1aAuthSessionRetrieveService\x12M\n" +
+	"\x04Exec\x12!.grpc.auth.SessionRetrieveRequest\x1a\".grpc.auth.SessionRetrieveResponse2[\n" +
+	"\x18AuthSessionDeleteService\x12?\n" +
+	"\x04Exec\x12\x1f.grpc.auth.SessionDeleteRequest\x1a\x16.google.protobuf.EmptyB\x95\x01\n" +
 	"\rcom.grpc.authB\tAuthProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/transport/grpc/auth\xa2\x02\x03GAX\xaa\x02\tGrpc.Auth\xca\x02\tGrpc\\Auth\xe2\x02\x15Grpc\\Auth\\GPBMetadata\xea\x02\n" +
 	"Grpc::Authb\x06proto3"
 
@@ -300,23 +755,46 @@ func file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP() []byte {
 	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_core_pkg_transport_grpc_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_core_pkg_transport_grpc_auth_auth_proto_goTypes = []any{
-	(*ClusterInfo)(nil),   // 0: grpc.auth.ClusterInfo
-	(*LoginRequest)(nil),  // 1: grpc.auth.LoginRequest
-	(*LoginResponse)(nil), // 2: grpc.auth.LoginResponse
-	(*User)(nil),          // 3: grpc.auth.User
+	(*ClusterInfo)(nil),             // 0: grpc.auth.ClusterInfo
+	(*LoginRequest)(nil),            // 1: grpc.auth.LoginRequest
+	(*LoginResponse)(nil),           // 2: grpc.auth.LoginResponse
+	(*User)(nil),                    // 3: grpc.auth.User
+	(*Proof)(nil),                   // 4: grpc.auth.Proof
+	(*Subject)(nil),                 // 5: grpc.auth.Subject
+	(*Session)(nil),                 // 6: grpc.auth.Session
+	(*SessionCreateRequest)(nil),    // 7: grpc.auth.SessionCreateRequest
+	(*SessionCreateResponse)(nil),   // 8: grpc.auth.SessionCreateResponse
+	(*SessionRetrieveRequest)(nil),  // 9: grpc.auth.SessionRetrieveRequest
+	(*SessionRetrieveResponse)(nil), // 10: grpc.auth.SessionRetrieveResponse
+	(*SessionDeleteRequest)(nil),    // 11: grpc.auth.SessionDeleteRequest
+	(*emptypb.Empty)(nil),           // 12: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_auth_auth_proto_depIdxs = []int32{
-	3, // 0: grpc.auth.LoginResponse.user:type_name -> grpc.auth.User
-	0, // 1: grpc.auth.LoginResponse.cluster_info:type_name -> grpc.auth.ClusterInfo
-	1, // 2: grpc.auth.AuthLoginService.Exec:input_type -> grpc.auth.LoginRequest
-	2, // 3: grpc.auth.AuthLoginService.Exec:output_type -> grpc.auth.LoginResponse
-	3, // [3:4] is the sub-list for method output_type
-	2, // [2:3] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	3,  // 0: grpc.auth.LoginResponse.user:type_name -> grpc.auth.User
+	0,  // 1: grpc.auth.LoginResponse.cluster_info:type_name -> grpc.auth.ClusterInfo
+	5,  // 2: grpc.auth.Session.subject:type_name -> grpc.auth.Subject
+	4,  // 3: grpc.auth.SessionCreateRequest.proof:type_name -> grpc.auth.Proof
+	6,  // 4: grpc.auth.SessionCreateResponse.session:type_name -> grpc.auth.Session
+	3,  // 5: grpc.auth.SessionCreateResponse.user:type_name -> grpc.auth.User
+	5,  // 6: grpc.auth.SessionRetrieveRequest.subjects:type_name -> grpc.auth.Subject
+	6,  // 7: grpc.auth.SessionRetrieveResponse.sessions:type_name -> grpc.auth.Session
+	1,  // 8: grpc.auth.AuthLoginService.Exec:input_type -> grpc.auth.LoginRequest
+	7,  // 9: grpc.auth.AuthSessionCreateService.Exec:input_type -> grpc.auth.SessionCreateRequest
+	12, // 10: grpc.auth.AuthSessionRenewService.Exec:input_type -> google.protobuf.Empty
+	9,  // 11: grpc.auth.AuthSessionRetrieveService.Exec:input_type -> grpc.auth.SessionRetrieveRequest
+	11, // 12: grpc.auth.AuthSessionDeleteService.Exec:input_type -> grpc.auth.SessionDeleteRequest
+	2,  // 13: grpc.auth.AuthLoginService.Exec:output_type -> grpc.auth.LoginResponse
+	8,  // 14: grpc.auth.AuthSessionCreateService.Exec:output_type -> grpc.auth.SessionCreateResponse
+	12, // 15: grpc.auth.AuthSessionRenewService.Exec:output_type -> google.protobuf.Empty
+	10, // 16: grpc.auth.AuthSessionRetrieveService.Exec:output_type -> grpc.auth.SessionRetrieveResponse
+	12, // 17: grpc.auth.AuthSessionDeleteService.Exec:output_type -> google.protobuf.Empty
+	13, // [13:18] is the sub-list for method output_type
+	8,  // [8:13] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_auth_auth_proto_init() }
@@ -324,15 +802,16 @@ func file_core_pkg_transport_grpc_auth_auth_proto_init() {
 	if File_core_pkg_transport_grpc_auth_auth_proto != nil {
 		return
 	}
+	file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_auth_auth_proto_rawDesc), len(file_core_pkg_transport_grpc_auth_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   12,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   5,
 		},
 		GoTypes:           file_core_pkg_transport_grpc_auth_auth_proto_goTypes,
 		DependencyIndexes: file_core_pkg_transport_grpc_auth_auth_proto_depIdxs,

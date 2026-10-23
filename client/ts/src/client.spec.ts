@@ -10,7 +10,7 @@
 import { TimeSpan } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
-import type Synnax from "@/client";
+import { type default as Synnax } from "@/client";
 import { type connection } from "@/connection";
 import { AuthError, DisconnectedError } from "@/errors";
 import { label } from "@/label";
@@ -156,6 +156,15 @@ describe("close", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
+
+  it("should not wait past the deadline for a logout the Core never answers", async () => {
+    const client = createTestClient();
+    await client.connect();
+    vi.spyOn(client.auth, "logout").mockReturnValue(new Promise(() => {}));
+    const start = performance.now();
+    await client.close();
+    expect(performance.now() - start).toBeLessThan(5000);
+  }, 10_000);
 
   it("should settle the connection status on disabled", async () => {
     const client = createTestClient();
