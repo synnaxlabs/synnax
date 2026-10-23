@@ -189,6 +189,7 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 	nodeCtx := node.Context{
 		Context:       ctx,
 		ReserveStamps: testutil.ReserveStamps(0),
+		MarkDone:      func() {},
 		MarkChanged:   func(int) {},
 	}
 
@@ -353,6 +354,7 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 	nodeCtx := node.Context{
 		Context:       ctx,
 		ReserveStamps: testutil.ReserveStamps(0),
+		MarkDone:      func() {},
 		MarkChanged:   func(int) {},
 		ReportError:   func(err error) {},
 	}
