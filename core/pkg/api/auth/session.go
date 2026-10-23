@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/telem"
 )
 
 // SessionCreateRequest logs a subject in with a proof.
@@ -37,8 +36,6 @@ type SessionCreateResponse struct {
 	Session auth.Session `json:"session" msgpack:"session"`
 	// User is the user record of the subject, when the subject is a user.
 	User *user.User `json:"user,omitempty" msgpack:"user,omitempty"`
-	// ClusterInfo is the information about the cluster.
-	ClusterInfo ClusterInfo `json:"cluster_info" msgpack:"cluster_info"`
 }
 
 // CreateSession logs the subject in with the proof in req and returns the session, its
@@ -47,7 +44,6 @@ func (s *Service) CreateSession(
 	ctx context.Context,
 	req SessionCreateRequest,
 ) (SessionCreateResponse, error) {
-	start := telem.Now()
 	session, tk, err := s.auth.Login(ctx, req.Proof)
 	if err != nil {
 		return SessionCreateResponse{}, err
@@ -67,7 +63,6 @@ func (s *Service) CreateSession(
 		}
 		res.User = &u
 	}
-	res.ClusterInfo = s.clusterInfo(start)
 	return res, nil
 }
 

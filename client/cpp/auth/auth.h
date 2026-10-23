@@ -22,7 +22,6 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/transport/grpc/auth/auth.pb.h"
 
@@ -64,27 +63,6 @@ const std::vector ENDED_ERRORS = {
     ERR_INVALID_TOKEN,
     ERR_EXPIRED_TOKEN,
     ERR_SESSION_ENDED
-};
-
-/// @brief diagnostic information about the Synnax Core.
-struct ClusterInfo {
-    /// @brief a unique UUID key for the cluster.
-    x::uuid::UUID cluster_key;
-    /// @brief the version string of the Synnax node. Follows the semver format.
-    std::string node_version;
-    /// @brief the key of the node within the cluster.
-    std::uint32_t node_key = 0;
-    /// @brief the time of the node at the midpoint of the server processing the
-    /// request.
-    x::telem::TimeStamp node_time = x::telem::TimeStamp(0);
-
-    ClusterInfo() = default;
-
-    explicit ClusterInfo(const grpc::auth::ClusterInfo &info):
-        cluster_key(x::uuid::UUID::parse(info.cluster_key()).first),
-        node_version(info.node_version()),
-        node_key(info.node_key()),
-        node_time(info.node_time()) {}
 };
 
 /// @brief the subject a session belongs to: a user or a rack.
@@ -160,7 +138,7 @@ class Middleware final : public freighter::PassthroughMiddleware {
     std::string username;
     /// Password to be used for authentication.
     std::string password;
-    /// Guards token, session, and cluster_info.
+    /// Guards token and session.
     std::mutex mu;
 
     std::string current_token() {
@@ -179,9 +157,6 @@ class Middleware final : public freighter::PassthroughMiddleware {
     }
 
 public:
-    /// Cluster information.
-    ClusterInfo cluster_info = ClusterInfo();
-
     Middleware(
         std::unique_ptr<SessionCreateClient> create_client,
         std::unique_ptr<SessionRenewClient> renew_client,
@@ -219,7 +194,6 @@ public:
         if (err) return err;
         this->token = res.token();
         this->session = Session(res.session());
-        this->cluster_info = ClusterInfo(res.cluster_info());
         this->authenticated = true;
         return x::errors::NIL;
     }

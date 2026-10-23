@@ -16,14 +16,26 @@
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
+namespace {
+std::pair<x::uuid::UUID, x::errors::Error>
+retrieve_cluster_key(const synnax::Synnax &client) {
+    const auto state = client.connectivity->check();
+    if (state.status != synnax::connection::Status::CONNECTED)
+        return {x::uuid::UUID(), state.error};
+    return x::uuid::UUID::parse(state.cluster_key);
+}
+}
+
 x::errors::Error Config::load_remote(x::breaker::Breaker &breaker) {
     std::pair<synnax::rack::Rack, x::errors::Error> res;
     const auto client = synnax::Synnax(this->connection);
     if (const auto err = client.auth->authenticate()) return err;
-    if (this->remote_info.cluster_key != client.auth->cluster_info.cluster_key &&
+    const auto [cluster_key, key_err] = retrieve_cluster_key(client);
+    if (key_err) return key_err;
+    if (this->remote_info.cluster_key != cluster_key &&
         this->remote_info.rack_key != 0) {
         this->remote_info.rack_key = 0;
-        this->remote_info.cluster_key = client.auth->cluster_info.cluster_key;
+        this->remote_info.cluster_key = cluster_key;
         LOG(INFO) << "cluster identity changed. Creating a new rack";
     }
     if (this->remote_info.rack_key != 0) {
@@ -55,7 +67,7 @@ x::errors::Error Config::load_remote(x::breaker::Breaker &breaker) {
 
     this->rack = res.first;
     this->remote_info.rack_key = res.first.key;
-    this->remote_info.cluster_key = client.auth->cluster_info.cluster_key;
+    this->remote_info.cluster_key = cluster_key;
     if (err) return err;
 
     this->rack.integrations = this->supported_integrations();

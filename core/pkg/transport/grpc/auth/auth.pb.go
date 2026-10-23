@@ -494,7 +494,6 @@ type SessionCreateResponse struct {
 	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
 	Session       *Session               `protobuf:"bytes,2,opt,name=session,proto3" json:"session,omitempty"`
 	User          *User                  `protobuf:"bytes,3,opt,name=user,proto3,oneof" json:"user,omitempty"`
-	ClusterInfo   *ClusterInfo           `protobuf:"bytes,4,opt,name=cluster_info,json=clusterInfo,proto3" json:"cluster_info,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -546,13 +545,6 @@ func (x *SessionCreateResponse) GetSession() *Session {
 func (x *SessionCreateResponse) GetUser() *User {
 	if x != nil {
 		return x.User
-	}
-	return nil
-}
-
-func (x *SessionCreateResponse) GetClusterInfo() *ClusterInfo {
-	if x != nil {
-		return x.ClusterInfo
 	}
 	return nil
 }
@@ -726,13 +718,12 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\vlast_active\x18\x04 \x01(\x03R\n" +
 	"lastActive\">\n" +
 	"\x14SessionCreateRequest\x12&\n" +
-	"\x05proof\x18\x01 \x01(\v2\x10.grpc.auth.ProofR\x05proof\"\xc9\x01\n" +
+	"\x05proof\x18\x01 \x01(\v2\x10.grpc.auth.ProofR\x05proof\"\x94\x01\n" +
 	"\x15SessionCreateResponse\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12,\n" +
 	"\asession\x18\x02 \x01(\v2\x12.grpc.auth.SessionR\asession\x12(\n" +
-	"\x04user\x18\x03 \x01(\v2\x0f.grpc.auth.UserH\x00R\x04user\x88\x01\x01\x129\n" +
-	"\fcluster_info\x18\x04 \x01(\v2\x16.grpc.auth.ClusterInfoR\vclusterInfoB\a\n" +
-	"\x05_user\"H\n" +
+	"\x04user\x18\x03 \x01(\v2\x0f.grpc.auth.UserH\x00R\x04user\x88\x01\x01B\a\n" +
+	"\x05_userJ\x04\b\x04\x10\x05\"H\n" +
 	"\x16SessionRetrieveRequest\x12.\n" +
 	"\bsubjects\x18\x01 \x03(\v2\x12.grpc.auth.SubjectR\bsubjects\"I\n" +
 	"\x17SessionRetrieveResponse\x12.\n" +
@@ -787,24 +778,23 @@ var file_core_pkg_transport_grpc_auth_auth_proto_depIdxs = []int32{
 	4,  // 3: grpc.auth.SessionCreateRequest.proof:type_name -> grpc.auth.Proof
 	6,  // 4: grpc.auth.SessionCreateResponse.session:type_name -> grpc.auth.Session
 	3,  // 5: grpc.auth.SessionCreateResponse.user:type_name -> grpc.auth.User
-	0,  // 6: grpc.auth.SessionCreateResponse.cluster_info:type_name -> grpc.auth.ClusterInfo
-	5,  // 7: grpc.auth.SessionRetrieveRequest.subjects:type_name -> grpc.auth.Subject
-	6,  // 8: grpc.auth.SessionRetrieveResponse.sessions:type_name -> grpc.auth.Session
-	1,  // 9: grpc.auth.AuthLoginService.Exec:input_type -> grpc.auth.LoginRequest
-	7,  // 10: grpc.auth.AuthSessionCreateService.Exec:input_type -> grpc.auth.SessionCreateRequest
-	12, // 11: grpc.auth.AuthSessionRenewService.Exec:input_type -> google.protobuf.Empty
-	9,  // 12: grpc.auth.AuthSessionRetrieveService.Exec:input_type -> grpc.auth.SessionRetrieveRequest
-	11, // 13: grpc.auth.AuthSessionDeleteService.Exec:input_type -> grpc.auth.SessionDeleteRequest
-	2,  // 14: grpc.auth.AuthLoginService.Exec:output_type -> grpc.auth.LoginResponse
-	8,  // 15: grpc.auth.AuthSessionCreateService.Exec:output_type -> grpc.auth.SessionCreateResponse
-	12, // 16: grpc.auth.AuthSessionRenewService.Exec:output_type -> google.protobuf.Empty
-	10, // 17: grpc.auth.AuthSessionRetrieveService.Exec:output_type -> grpc.auth.SessionRetrieveResponse
-	12, // 18: grpc.auth.AuthSessionDeleteService.Exec:output_type -> google.protobuf.Empty
-	14, // [14:19] is the sub-list for method output_type
-	9,  // [9:14] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	5,  // 6: grpc.auth.SessionRetrieveRequest.subjects:type_name -> grpc.auth.Subject
+	6,  // 7: grpc.auth.SessionRetrieveResponse.sessions:type_name -> grpc.auth.Session
+	1,  // 8: grpc.auth.AuthLoginService.Exec:input_type -> grpc.auth.LoginRequest
+	7,  // 9: grpc.auth.AuthSessionCreateService.Exec:input_type -> grpc.auth.SessionCreateRequest
+	12, // 10: grpc.auth.AuthSessionRenewService.Exec:input_type -> google.protobuf.Empty
+	9,  // 11: grpc.auth.AuthSessionRetrieveService.Exec:input_type -> grpc.auth.SessionRetrieveRequest
+	11, // 12: grpc.auth.AuthSessionDeleteService.Exec:input_type -> grpc.auth.SessionDeleteRequest
+	2,  // 13: grpc.auth.AuthLoginService.Exec:output_type -> grpc.auth.LoginResponse
+	8,  // 14: grpc.auth.AuthSessionCreateService.Exec:output_type -> grpc.auth.SessionCreateResponse
+	12, // 15: grpc.auth.AuthSessionRenewService.Exec:output_type -> google.protobuf.Empty
+	10, // 16: grpc.auth.AuthSessionRetrieveService.Exec:output_type -> grpc.auth.SessionRetrieveResponse
+	12, // 17: grpc.auth.AuthSessionDeleteService.Exec:output_type -> google.protobuf.Empty
+	13, // [13:18] is the sub-list for method output_type
+	8,  // [8:13] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_auth_auth_proto_init() }
