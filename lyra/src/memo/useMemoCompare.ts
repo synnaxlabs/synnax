@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { compare, deep, type primitive } from "@synnaxlabs/x";
-import { type DependencyList, useState } from "react";
+import { type DependencyList, useRef } from "react";
 
 /** @returns whether two lists hold the same elements, as React compares deps. */
 export const compareDeps = <T>(a: readonly T[], b: readonly T[]): boolean => {
@@ -18,14 +18,21 @@ export const compareDeps = <T>(a: readonly T[], b: readonly T[]): boolean => {
 };
 
 /**
- * Keeps one value until the comparison rejects a change, then stores the next one.
- * Storing it during render re-runs the caller's render at once, before any commit.
+ * Keeps the value made for a key until `areEqual` rejects the next key. Never sets
+ * state, so a caller that builds a fresh key on every call cannot loop its render.
  */
-const useStable = <T>(value: T, areEqual: (prev: T, next: T) => boolean): T => {
-  const [stored, setStored] = useState<T>(() => value);
-  if (Object.is(stored, value) || areEqual(stored, value)) return stored;
-  setStored(() => value);
-  return value;
+const useCache = <K, V>(
+  key: K,
+  areEqual: (prev: K, next: K) => boolean,
+  create: () => V,
+): V => {
+  "use no memo"; // Reads a ref in render. An entry is valid for any render with its key.
+  const ref = useRef<{ key: K; value: V }>(null);
+  /* eslint-disable react-hooks/refs -- see "use no memo" above */
+  if (ref.current == null || !areEqual(ref.current.key, key))
+    ref.current = { key, value: create() };
+  return ref.current.value;
+  /* eslint-enable react-hooks/refs */
 };
 
 /**
@@ -36,13 +43,7 @@ export const useMemoCompare = <V, D extends DependencyList>(
   factory: () => V,
   areEqual: (prevDeps: D, nextDeps: D) => boolean,
   deps: D,
-): V => {
-  const [memo, setMemo] = useState(() => ({ deps, value: factory() }));
-  if (areEqual(memo.deps, deps)) return memo.value;
-  const next = { deps, value: factory() };
-  setMemo(next);
-  return next.value;
-};
+): V => useCache(deps, areEqual, factory);
 
 export const compareArrayDeps = <T extends primitive.Value>(
   [a]: readonly [T[]] | [T[]],
@@ -53,7 +54,8 @@ export const compareArrayDeps = <T extends primitive.Value>(
  * @returns the first value it was given for as long as each new value is deeply equal
  * to it, so the result can serve as an effect or memo dependency.
  */
-export const useMemoDeepEqual = <T>(value: T): T => useStable(value, deep.equal);
+export const useMemoDeepEqual = <T>(value: T): T =>
+  useCache(value, deep.equal, () => value);
 
 /**
  * Returns a referentially stable array as long as its contents are element-wise equal
@@ -62,4 +64,4 @@ export const useMemoDeepEqual = <T>(value: T): T => useStable(value, deep.equal)
  * and avoids structural traversal.
  */
 export const useMemoArray = <T>(value: readonly T[]): readonly T[] =>
-  useStable(value, compareDeps);
+  useCache(value, compareDeps, () => value);
