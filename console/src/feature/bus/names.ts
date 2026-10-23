@@ -7,21 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type library } from "@synnaxlabs/client";
+import { channel, type icd } from "@synnaxlabs/client";
 
 import { fieldOf } from "@/feature/bus/types";
 
 const safe = (name: string): string => channel.escapeInvalidName(name, true);
 
 interface Selector {
-  multiplexor: library.BaseField;
+  multiplexor: icd.BaseField;
   values: number[];
 }
 
 /** @returns the multiplexors that select a field, outermost first. */
 const selectorsOf = (
-  entry: library.MessageEntry,
-  field: library.BaseField,
+  entry: icd.MessageEntry,
+  field: icd.BaseField,
 ): Selector[] => {
   if (field.multiplexor == null) return [];
   const multiplexor = fieldOf(entry, field.multiplexor);
@@ -38,8 +38,8 @@ const selectorsOf = (
  */
 export const indexName = (
   device: string,
-  entry: library.MessageEntry,
-  field: library.FieldKey,
+  entry: icd.MessageEntry,
+  field: icd.FieldKey,
 ): string => {
   const base = `${safe(device)}_${safe(entry.name)}`;
   const selectors = selectorsOf(entry, fieldOf(entry, field));

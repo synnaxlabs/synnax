@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bus, type channel, type library } from "@synnaxlabs/client";
+import { bus, type channel, type icd } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -51,17 +51,17 @@ const ChannelLabel = ({ channel, planned }: ChannelLabelProps): ReactElement => 
 };
 
 interface FieldListProps<B extends bus.WriteField> {
-  entry: library.MessageEntry;
+  entry: icd.MessageEntry;
   value: B[];
   onChange: (value: B[]) => void;
   /** Creates the binding of a newly checked field. */
-  create: (field: library.FieldKey) => B;
+  create: (field: icd.FieldKey) => B;
   /** Renders how an included field binds to its channel. */
-  binding: (field: library.BaseField, bound: B, update: (next: B) => void) => ReactNode;
+  binding: (field: icd.BaseField, bound: B, update: (next: B) => void) => ReactNode;
 }
 
 /**
- * Checks the fields of a message a task binds, in library order. A newly checked field
+ * Checks the fields of a message a task binds, in ICD order. A newly checked field
  * has no channel until configure creates one.
  */
 const FieldList = <B extends bus.WriteField>({
@@ -73,7 +73,7 @@ const FieldList = <B extends bus.WriteField>({
 }: FieldListProps<B>): ReactElement => {
   const isPreview = Task.useIsPreview();
   const byField = new Map(value.map((f) => [f.field, f]));
-  const toggle = (key: library.FieldKey, included: boolean) => {
+  const toggle = (key: icd.FieldKey, included: boolean) => {
     const next = new Map(byField);
     if (included) next.set(key, create(key));
     else next.delete(key);

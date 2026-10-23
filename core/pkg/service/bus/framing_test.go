@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/bus"
-	"github.com/synnaxlabs/synnax/pkg/service/library"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 )
 
 func syncFraming(edit func(*bus.SyncFraming)) bus.Framing {
@@ -73,14 +73,14 @@ var _ = Describe("Framing", func() {
 	Describe("Resolver", func() {
 		var (
 			resolver bus.Resolver
-			lib      library.Library
+			ic       icd.ICD
 			task     uuid.UUID
 		)
 		BeforeEach(func(ctx SpecContext) {
-			resolver = bus.Resolver{Stamper: library.Stamper{DB: db, Ontology: otg}}
-			lib = library.Library{Name: "Bench"}
+			resolver = bus.Resolver{Stamper: icd.Stamper{DB: db, Ontology: otg}}
+			ic = icd.ICD{Name: "Bench"}
 			task = uuid.New()
-			createLibrary(ctx, &lib, task)
+			createICD(ctx, &ic, task)
 		})
 
 		It(
@@ -88,7 +88,7 @@ var _ = Describe("Framing", func() {
 			func(ctx SpecContext) {
 				cfg := bus.StreamReadConfig{
 					ReadConfig: bus.ReadConfig{
-						Reference: library.Reference{Library: &lib.Key},
+						Reference: icd.Reference{ICD: &ic.Key},
 					},
 					Framing: syncFraming(func(*bus.SyncFraming) {}),
 				}
@@ -101,7 +101,7 @@ var _ = Describe("Framing", func() {
 			func(ctx SpecContext) {
 				cfg := bus.StreamReadConfig{
 					ReadConfig: bus.ReadConfig{
-						Reference: library.Reference{Library: &lib.Key},
+						Reference: icd.Reference{ICD: &ic.Key},
 					},
 					Framing: syncFraming(func(s *bus.SyncFraming) { s.LengthSize = 3 }),
 				}
@@ -115,7 +115,7 @@ var _ = Describe("Framing", func() {
 			func(ctx SpecContext) {
 				cfg := bus.StreamWriteConfig{
 					WriteConfig: bus.WriteConfig{
-						Reference: library.Reference{Library: &lib.Key},
+						Reference: icd.Reference{ICD: &ic.Key},
 					},
 					Framing: syncFraming(func(s *bus.SyncFraming) { s.Sync = "ZZ" }),
 				}
@@ -129,7 +129,7 @@ var _ = Describe("Framing", func() {
 			func(ctx SpecContext) {
 				cfg := bus.StreamWriteConfig{
 					WriteConfig: bus.WriteConfig{
-						Reference: library.Reference{Library: &lib.Key},
+						Reference: icd.Reference{ICD: &ic.Key},
 					},
 					Framing: bus.Framing{Variant: bus.SlipFraming{}},
 				}

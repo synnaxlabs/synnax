@@ -59,6 +59,7 @@ from synnax.exceptions import (
     PathError,
     QueryError,
     RouteError,
+    StaleError,
     UnauthorizedError,
     UnexpectedError,
     ValidationError,
@@ -71,7 +72,7 @@ from synnax.framer import (
     Writer,
     WriterMode,
 )
-from synnax.library import Library
+from synnax.icd import ICD
 from synnax.options import Options
 from synnax.project import Project
 from synnax.rack import Rack
@@ -115,6 +116,7 @@ __version__ = _version("synnax")
 
 __all__ = [
     "AUTO_SPAN",
+    "ICD",
     "AccessDenied",
     "Alignment",
     "Arc",
@@ -148,7 +150,6 @@ __all__ = [
     "InvalidLicense",
     "InvalidToken",
     "Iterator",
-    "Library",
     "LicenseError",
     "LicenseFingerprintMismatch",
     "LicenseLimitExceeded",
@@ -170,6 +171,7 @@ __all__ = [
     "RouteError",
     "Series",
     "Size",
+    "StaleError",
     "Status",
     "Streamer",
     "Synnax",

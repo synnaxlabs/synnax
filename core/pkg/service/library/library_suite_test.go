@@ -11,27 +11,22 @@ package library_test
 
 import (
 	"context"
+	"io"
+	"iter"
+	"slices"
 	"testing"
-	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/library"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
-	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
-	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 func TestLibrary(t *testing.T) {
@@ -41,121 +36,64 @@ func TestLibrary(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// testTaskType is the type of the task config the suite stores. Its config embeds a
-// library reference, as a bus integration's config does.
-const testTaskType = "library_test"
-
-type testTaskConfig struct {
-	Key uuid.UUID `json:"key" msgpack:"key"`
-	library.Reference
+// namedService serves resources of one type that carry only a name.
+type namedService struct {
+	observe.Noop[iter.Seq[ontology.Change]]
+	t     ontology.ResourceType
+	names map[string]string
 }
 
-var _ gorp.Entry[uuid.UUID] = testTaskConfig{}
+var _ ontology.Service = (*namedService)(nil)
 
-func (c testTaskConfig) GorpKey() uuid.UUID { return c.Key }
+var nameSchema = zyn.Object(map[string]zyn.Schema{"name": zyn.String()})
 
-func (testTaskConfig) SetOptions() []any { return nil }
+func (s *namedService) Type() ontology.ResourceType { return s.t }
 
-func (c testTaskConfig) EncodeOrc(w *orc.Writer) error {
-	w.Write(c.Key[:])
-	return c.Reference.EncodeOrc(w)
-}
-
-func (c *testTaskConfig) DecodeOrc(r *orc.Reader) error {
-	if _, err := r.Read(c.Key[:]); err != nil {
-		return err
+func (s *namedService) RetrieveResource(
+	_ context.Context,
+	key string,
+	_ gorp.Tx,
+) (ontology.Resource, error) {
+	name, ok := s.names[key]
+	if !ok {
+		return ontology.Resource{}, query.ErrNotFound
 	}
-	return c.Reference.DecodeOrc(r)
+	return ontology.NewResource(
+		nameSchema,
+		ontology.ID{Type: s.t, Key: key},
+		name,
+		map[string]any{"name": name},
+	), nil
+}
+
+func (s *namedService) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
+	resources := lo.Map(
+		lo.Keys(s.names),
+		func(key string, _ int) ontology.Resource {
+			return lo.Must(s.RetrieveResource(ctx, key, nil))
+		},
+	)
+	return slices.Values(resources), xio.NopCloser, nil
 }
 
 var (
-	db       *gorp.DB
-	otg      *ontology.Ontology
-	svc      *library.Service
-	taskSvc  *task.Service
-	imexSvc  *imex.Service
-	testRack *rack.Rack
-	tx       gorp.Tx
-	// stamps counts the task configs the suite's config store has stamped.
-	stamps int
+	db    *gorp.DB
+	otg   *ontology.Ontology
+	tasks *namedService
+	docs  *namedService
+	tx    gorp.Tx
 )
 
-var (
-	_ = BeforeSuite(func(ctx SpecContext) {
-		ShouldNotLeakGoroutines()
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Search:   searchIdx,
-		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Search:   searchIdx,
-		}))
-		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Label:    labelSvc,
-			Search:   searchIdx,
-		}))
-		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:                  db,
-			Ontology:            otg,
-			Group:               groupSvc,
-			HostProvider:        mock.NewStaticHostProvider(1),
-			Status:              statusSvc,
-			HealthCheckInterval: 10 * telem.Millisecond,
-			Search:              searchIdx,
-		}))
-		stamper := library.Stamper{DB: db, Ontology: otg}
-		store := MustOpen(taskconfig.OpenService(
-			ctx,
-			taskconfig.ServiceConfig[testTaskConfig]{
-				DB:   db,
-				Type: testTaskType,
-				SetEntryKey: func(c *testTaskConfig, key uuid.UUID) {
-					c.Key = key
-				},
-				ResolveEntry: func(
-					ctx context.Context,
-					tx gorp.Tx,
-					key uuid.UUID,
-					c *testTaskConfig,
-				) error {
-					stamps++
-					_, err := stamper.Stamp(ctx, tx, key, &c.Reference)
-					return err
-				},
-			},
-		))
-		configs := MustSucceed(taskconfig.NewRegistry(store))
-		imexSvc = imex.NewService()
-		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Rack:     rackSvc,
-			Status:   statusSvc,
-			Search:   searchIdx,
-			ImEx:     imexSvc,
-			Configs:  configs,
-		}))
-		testRack = &rack.Rack{Name: "Test Rack"}
-		Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
-		svc = MustOpen(library.OpenService(ctx, library.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Task:     taskSvc,
-			Search:   searchIdx,
-			ImEx:     imexSvc,
-		}))
-		Expect(searchIdx.Initialize(ctx)).To(Succeed())
-	})
-	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
-)
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	tasks = &namedService{t: ontology.ResourceTypeTask, names: map[string]string{}}
+	docs = &namedService{t: ontology.ResourceTypeICD, names: map[string]string{}}
+	otg.RegisterService(tasks)
+	otg.RegisterService(docs)
+})
+
+var _ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })

@@ -43,6 +43,7 @@ export {
   PathError,
   QueryError,
   RouteError,
+  StaleError,
   UnexpectedError,
   ValidationError,
 } from "@/errors";
@@ -51,6 +52,7 @@ export { framer } from "@/framer";
 export { Frame } from "@/framer/frame";
 export { group } from "@/group";
 export { http } from "@/http";
+export { icd } from "@/icd";
 export { imex } from "@/imex";
 export { label } from "@/label";
 export { labjack } from "@/labjack";

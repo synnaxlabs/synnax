@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type library } from "@synnaxlabs/client";
+import { type icd } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -16,7 +16,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Library } from "@synnaxlabs/pluto";
+import { ICD } from "@synnaxlabs/pluto";
 import {
   type ReactElement,
   type ReactNode,
@@ -33,21 +33,21 @@ import { Task } from "@/platform/task";
 const MESSAGES_PATH = "config.messages";
 
 /**
- * @returns the message entries of the library the form's config names, keyed by entry
+ * @returns the message entries of the ICD the form's config names, keyed by entry
  * key, and the error that kept them from loading.
  */
-const useLibraryMessages = (): {
-  messages: Map<library.EntryKey, library.MessageEntry>;
+const useICDMessages = (): {
+  messages: Map<icd.EntryKey, icd.MessageEntry>;
   error?: string;
 } => {
-  const key = Form.useFieldValue<library.Key>("config.library", { optional: true });
-  const { data, variant, status } = Library.useResult(key == null ? null : { key });
+  const key = Form.useFieldValue<icd.Key>("config.icd", { optional: true });
+  const { data, variant, status } = ICD.useResult(key == null ? null : { key });
   const messages = useMemo(() => messagesOf(data), [data]);
   return { messages, error: variant === "error" ? status.message : undefined };
 };
 
 /** @returns a short label for how a message is matched on its transport. */
-const describeMatch = ({ payload }: library.MessageEntry): string => {
+const describeMatch = ({ payload }: icd.MessageEntry): string => {
   if (payload.format === "text") return payload.prefix;
   const id = payload.identifier;
   if (id == null) return "";
@@ -59,9 +59,9 @@ const describeMatch = ({ payload }: library.MessageEntry): string => {
   }
 };
 
-interface MessageItemProps extends List.ItemRenderProps<library.EntryKey> {
-  entries: Map<library.EntryKey, library.MessageEntry>;
-  onRemove: (key: library.EntryKey) => void;
+interface MessageItemProps extends List.ItemRenderProps<icd.EntryKey> {
+  entries: Map<icd.EntryKey, icd.MessageEntry>;
+  onRemove: (key: icd.EntryKey) => void;
 }
 
 const MessageItem = ({ entries, onRemove, ...props }: MessageItemProps) => {
@@ -100,13 +100,13 @@ const MessageItem = ({ entries, onRemove, ...props }: MessageItemProps) => {
 };
 
 interface AddMessageProps {
-  entries: library.MessageEntry[];
-  onAdd: (entry: library.MessageEntry) => void;
+  entries: icd.MessageEntry[];
+  onAdd: (entry: icd.MessageEntry) => void;
 }
 
 const ADD_TRIGGER_PROPS = { placeholder: "Add message", icon: <Icon.Add /> } as const;
 
-/** Picks a library message to add. Carries the status of the messages list. */
+/** Picks an ICD message to add. Carries the status of the messages list. */
 const AddMessage = ({ entries, onAdd }: AddMessageProps) => {
   const byKey = useMemo(() => new Map(entries.map((e) => [e.key, e])), [entries]);
   return (
@@ -118,17 +118,17 @@ const AddMessage = ({ entries, onAdd }: AddMessageProps) => {
     >
       {({ preview }) =>
         preview === true ? null : (
-          <Select.Simple<library.EntryKey>
+          <Select.Simple<icd.EntryKey>
             resourceName="message"
             triggerProps={ADD_TRIGGER_PROPS}
-            onChange={(key: library.EntryKey) => {
+            onChange={(key: icd.EntryKey) => {
               const entry = byKey.get(key);
               if (entry != null) onAdd(entry);
             }}
             emptyContent={<Empty.Action message="No messages to add" />}
           >
             {entries.map((e) => (
-              <Select.Item<library.EntryKey> key={e.key} itemKey={e.key}>
+              <Select.Item<icd.EntryKey> key={e.key} itemKey={e.key}>
                 {e.name}
               </Select.Item>
             ))}
@@ -143,15 +143,15 @@ const AddMessage = ({ entries, onAdd }: AddMessageProps) => {
 export interface DetailsProps {
   /** The form path of the message in the task's config. */
   path: string;
-  /** The library entry of the message. */
-  entry: library.MessageEntry;
+  /** The ICD entry of the message. */
+  entry: icd.MessageEntry;
 }
 
 export interface MessagesProps {
-  /** Whether the task's integration can carry a library message. */
+  /** Whether the task's integration can carry an ICD message. */
   accepts: Accepts;
-  /** Creates the config entry for a library message the user adds. */
-  create: (entry: library.MessageEntry) => Message;
+  /** Creates the config entry for an ICD message the user adds. */
+  create: (entry: icd.MessageEntry) => Message;
   /** Renders the fields of the selected message. */
   details: Component.RenderProp<DetailsProps>;
 }
@@ -159,21 +159,21 @@ export interface MessagesProps {
 const EMPTY_CONTENT = <Empty.Action message="No messages" />;
 
 /**
- * Lists the library messages a task binds beside the details of the selected one. The
- * picker offers the library's messages the integration can carry.
+ * Lists the ICD messages a task binds beside the details of the selected one. The
+ * picker offers the ICD's messages the integration can carry.
  */
 export const Messages = ({ accepts, create, details }: MessagesProps): ReactElement => {
-  const { messages: entries, error } = useLibraryMessages();
+  const { messages: entries, error } = useICDMessages();
   const ctx = Form.useContext();
   const messages = Form.useFieldValue<Message[]>(MESSAGES_PATH);
   const keys = useMemo(() => messages.map((m) => m.message), [messages]);
-  const [selected, setSelected] = useState<library.EntryKey | undefined>(keys[0]);
+  const [selected, setSelected] = useState<icd.EntryKey | undefined>(keys[0]);
   const addable = useMemo(
     () => [...entries.values()].filter((e) => accepts(e) && !keys.includes(e.key)),
     [entries, keys, accepts],
   );
   const handleAdd = useCallback(
-    (entry: library.MessageEntry) => {
+    (entry: icd.MessageEntry) => {
       ctx.set(MESSAGES_PATH, [
         ...ctx.get<Message[]>(MESSAGES_PATH).value,
         create(entry),
@@ -183,7 +183,7 @@ export const Messages = ({ accepts, create, details }: MessagesProps): ReactElem
     [ctx, create],
   );
   const handleRemove = useCallback(
-    (key: library.EntryKey) => {
+    (key: icd.EntryKey) => {
       const next = ctx
         .get<Message[]>(MESSAGES_PATH)
         .value.filter((m) => m.message !== key);
@@ -194,7 +194,7 @@ export const Messages = ({ accepts, create, details }: MessagesProps): ReactElem
   );
   const renderItem = useMemo(
     () =>
-      Component.renderProp((p: List.ItemRenderProps<library.EntryKey>) => (
+      Component.renderProp((p: List.ItemRenderProps<icd.EntryKey>) => (
         <MessageItem {...p} entries={entries} onRemove={handleRemove} />
       )),
     [entries, handleRemove],
@@ -213,7 +213,7 @@ export const Messages = ({ accepts, create, details }: MessagesProps): ReactElem
       listTitle="Messages"
       list={
         <Flex.Box y empty grow className={CSS.B("bus-messages")}>
-          <Select.Frame<library.EntryKey, undefined>
+          <Select.Frame<icd.EntryKey, undefined>
             data={keys}
             value={selected}
             onChange={setSelected}
@@ -221,7 +221,7 @@ export const Messages = ({ accepts, create, details }: MessagesProps): ReactElem
             autoSelectOnNone
           >
             <List.Scroll full="y">
-              <List.Items<library.EntryKey> emptyContent={EMPTY_CONTENT}>
+              <List.Items<icd.EntryKey> emptyContent={EMPTY_CONTENT}>
                 {renderItem}
               </List.Items>
             </List.Scroll>

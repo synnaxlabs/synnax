@@ -41,7 +41,7 @@ var allObjects = []ontology.ID{
 	{Type: ontology.ResourceTypePolicy},
 	{Type: ontology.ResourceTypeBuiltin},
 	{Type: ontology.ResourceTypeView},
-	{Type: ontology.ResourceTypeLibrary},
+	{Type: ontology.ResourceTypeICD},
 }
 
 var (
@@ -90,7 +90,7 @@ var (
 				{Type: ontology.ResourceTypeSchematicSymbol},
 				{Type: ontology.ResourceTypeStatus},
 				{Type: ontology.ResourceTypeView},
-				{Type: ontology.ResourceTypeLibrary},
+				{Type: ontology.ResourceTypeICD},
 			},
 			Actions:  access.AllActions,
 			Internal: true,
@@ -137,8 +137,8 @@ var (
 			Internal: true,
 		},
 		{
-			Name:     "Host Library View Access",
-			Objects:  []ontology.ID{{Type: ontology.ResourceTypeLibrary}},
+			Name:     "Host ICD View Access",
+			Objects:  []ontology.ID{{Type: ontology.ResourceTypeICD}},
 			Actions:  []access.Action{access.ActionRetrieve},
 			Internal: true,
 		},

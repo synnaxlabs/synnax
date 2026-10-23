@@ -11,7 +11,7 @@ import numpy as np
 from examples.simulators.scpi import INITIAL_VOLTAGE, STATUS, SCPISim, reading
 
 import synnax as sy
-from synnax import bus, library, tcp
+from synnax import bus, icd, tcp
 from tests.driver.bus_task import (
     Bound,
     BusCase,
@@ -33,20 +33,20 @@ KELVIN_OFFSET = 273.15
 PRESSURE_SCALE = 1000.0
 
 
-def reading_entry() -> library.MessageEntry:
-    return library.MessageEntry(
+def reading_entry() -> icd.MessageEntry:
+    return icd.MessageEntry(
         name="reading",
         query="READ?",
-        payload=library.TextPayload(
+        payload=icd.TextPayload(
             fields=[
-                library.DelimitedTextField(name="count", position=0),
-                library.DelimitedTextField(
+                icd.DelimitedTextField(name="count", position=0),
+                icd.DelimitedTextField(
                     name="voltage",
                     position=1,
                     scale=VOLTAGE_SCALE,
                     offset=VOLTAGE_OFFSET,
                 ),
-                library.DelimitedTextField(
+                icd.DelimitedTextField(
                     name="current", position=2, scale=CURRENT_SCALE, units="mA"
                 ),
             ]
@@ -54,12 +54,12 @@ def reading_entry() -> library.MessageEntry:
     )
 
 
-def output_entry() -> library.MessageEntry:
-    return library.MessageEntry(
+def output_entry() -> icd.MessageEntry:
+    return icd.MessageEntry(
         name="output",
         query="MEAS:VOLT?",
-        payload=library.TextPayload(
-            fields=[library.DelimitedTextField(name="voltage", position=0)]
+        payload=icd.TextPayload(
+            fields=[icd.DelimitedTextField(name="voltage", position=0)]
         ),
     )
 
@@ -104,21 +104,21 @@ class TCPRead(BusCase):
     status: Bound
     output: Bound
 
-    def create_entries(self) -> list[library.Entry]:
+    def create_entries(self) -> list[icd.Entry]:
         return [
             reading_entry(),
-            library.MessageEntry(
+            icd.MessageEntry(
                 name="status",
                 query="STAT?",
-                payload=library.TextPayload(
+                payload=icd.TextPayload(
                     fields=[
-                        library.TaggedTextField(
+                        icd.TaggedTextField(
                             name="temperature",
                             tag="T=",
                             offset=KELVIN_OFFSET,
                             units="K",
                         ),
-                        library.TaggedTextField(
+                        icd.TaggedTextField(
                             name="pressure", tag="P=", scale=PRESSURE_SCALE, units="Pa"
                         ),
                     ]
@@ -127,7 +127,7 @@ class TCPRead(BusCase):
             output_entry(),
         ]
 
-    def create_task(self, device: sy.Device, library_key: library.Key) -> tcp.ReadTask:
+    def create_task(self, device: sy.Device, icd_key: icd.Key) -> tcp.ReadTask:
         reading_msg, self.reading = self.bind_read(
             "reading",
             ["count", "voltage", "current"],
@@ -138,7 +138,7 @@ class TCPRead(BusCase):
         return tcp.ReadTask(
             name="TCP Read",
             device=device.key,
-            library=library_key,
+            icd=icd_key,
             messages=[reading_msg, status_msg, output_msg],
             rate=20 * sy.Rate.HZ,
             timeout=500 * sy.TimeSpan.MILLISECOND,
@@ -183,17 +183,17 @@ class TCPReadTimeout(BusCase):
     prefix = "tcp_read_timeout"
     reading: Bound
 
-    def create_entries(self) -> list[library.Entry]:
+    def create_entries(self) -> list[icd.Entry]:
         return [reading_entry()]
 
-    def create_task(self, device: sy.Device, library_key: library.Key) -> tcp.ReadTask:
+    def create_task(self, device: sy.Device, icd_key: icd.Key) -> tcp.ReadTask:
         reading_msg, self.reading = self.bind_read(
             "reading", ["count"], {"count": sy.DataType.UINT32}
         )
         return tcp.ReadTask(
             name="TCP Read Timeout",
             device=device.key,
-            library=library_key,
+            icd=icd_key,
             messages=[reading_msg],
             rate=10 * sy.Rate.HZ,
             timeout=200 * sy.TimeSpan.MILLISECOND,
@@ -234,10 +234,10 @@ class TCPReadLateReply(BusCase):
     reading: Bound
     output: Bound
 
-    def create_entries(self) -> list[library.Entry]:
+    def create_entries(self) -> list[icd.Entry]:
         return [reading_entry(), output_entry()]
 
-    def create_task(self, device: sy.Device, library_key: library.Key) -> tcp.ReadTask:
+    def create_task(self, device: sy.Device, icd_key: icd.Key) -> tcp.ReadTask:
         reading_msg, self.reading = self.bind_read(
             "reading",
             ["count", "voltage", "current"],
@@ -247,7 +247,7 @@ class TCPReadLateReply(BusCase):
         return tcp.ReadTask(
             name="TCP Read Late Reply",
             device=device.key,
-            library=library_key,
+            icd=icd_key,
             messages=[reading_msg, output_msg],
             rate=10 * sy.Rate.HZ,
             timeout=POLL_TIMEOUT,
@@ -284,10 +284,10 @@ class TCPReadSilentPeer(BusCase):
     prefix = "tcp_read_silent"
     reading: Bound
 
-    def create_entries(self) -> list[library.Entry]:
+    def create_entries(self) -> list[icd.Entry]:
         return [reading_entry()]
 
-    def create_task(self, device: sy.Device, library_key: library.Key) -> tcp.ReadTask:
+    def create_task(self, device: sy.Device, icd_key: icd.Key) -> tcp.ReadTask:
         reading_msg, self.reading = self.bind_read(
             "reading",
             ["count", "voltage", "current"],
@@ -296,7 +296,7 @@ class TCPReadSilentPeer(BusCase):
         return tcp.ReadTask(
             name="TCP Read Silent Peer",
             device=device.key,
-            library=library_key,
+            icd=icd_key,
             messages=[reading_msg],
             rate=10 * sy.Rate.HZ,
             timeout=POLL_TIMEOUT,

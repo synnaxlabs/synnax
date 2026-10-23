@@ -16,16 +16,16 @@ import "github.com/synnaxlabs/synnax/pkg/service/bus/versions"
 // ReadField maps one decoded message field to a channel.
 type ReadField = versions.ReadField
 
-// ReadMessage is one library message a read task decodes. Fields share an index only
-// when the same multiplexor values select them.
+// ReadMessage is one ICD message a read task decodes. Fields share an index only when
+// the same multiplexor values select them.
 type ReadMessage = versions.ReadMessage
 
 // WriteField maps one command channel to a message field. A field with no mapping is
 // sent as zero.
 type WriteField = versions.WriteField
 
-// WriteMessage is one library message a write task encodes. A message with a period is
-// sent on that period, and one without is sent when a command channel changes.
+// WriteMessage is one ICD message a write task encodes. A message with a period is sent
+// on that period, and one without is sent when a command channel changes.
 type WriteMessage = versions.WriteMessage
 
 // ReadConfig carries the settings every bus read task shares.

@@ -18,7 +18,7 @@ only).
 - Slow (``SLOW_ID``, extended, 8 bytes, at a fifth of the rate): its own count as a
   little-endian uint32 in bytes 0 to 3 and the count times 0.25 as a little-endian
   float32 in bytes 4 to 7.
-- Unknown (``UNKNOWN_ID``, once per second): an identifier no library message has.
+- Unknown (``UNKNOWN_ID``, once per second): an identifier no ICD message has.
 
 The simulator records every frame it receives from other sockets on the bus.
 """

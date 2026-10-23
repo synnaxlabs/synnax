@@ -9,7 +9,7 @@
 
 from uuid import uuid4
 
-from synnax import bus, device, library, task
+from synnax import bus, device, icd, task
 from synnax.serial.types_gen import (
     FlowControl,
     Parity,
@@ -26,12 +26,11 @@ MAKE = "Serial"
 class ReadTask(
     task.StarterStopperMixin, task.JSONConfigMixin[ReadConfig], task.Protocol
 ):
-    """A read task that decodes serial messages described by a library into
-    channels.
+    """A read task that decodes serial messages described by an ICD into channels.
 
     :param device: The key of the serial device to read from.
     :param name: A human-readable name for the task.
-    :param library: The key of the library that describes the messages.
+    :param icd: The key of the ICD that describes the messages.
     :param messages: The messages to decode and the channels each field writes to.
     :param raw: The virtual bytes channel every received frame is written to. Zero
         when the task does not stream raw frames.
@@ -53,7 +52,7 @@ class ReadTask(
         *,
         device: device.Key = "",
         name: str = "",
-        library: library.Key | None = None,
+        icd: icd.Key | None = None,
         messages: list[bus.ReadMessage] | None = None,
         raw: int = 0,
         rate: CrudeRate = 1,
@@ -66,12 +65,12 @@ class ReadTask(
             self._internal = internal
             self.config = ReadConfig.model_validate(internal.config)
             return
-        if library is None:
-            raise ValueError("library is required")
+        if icd is None:
+            raise ValueError("icd is required")
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = ReadConfig(
             device=device,
-            library=library,
+            icd=icd,
             messages=messages if messages is not None else [],
             raw=raw,
             rate=Rate(rate),
@@ -85,12 +84,12 @@ class ReadTask(
 class WriteTask(
     task.StarterStopperMixin, task.JSONConfigMixin[WriteConfig], task.Protocol
 ):
-    """A write task that encodes command channel values into serial messages
-    described by a library.
+    """A write task that encodes command channel values into serial messages described
+    by an ICD.
 
     :param device: The key of the serial device to write to.
     :param name: A human-readable name for the task.
-    :param library: The key of the library that describes the messages.
+    :param icd: The key of the ICD that describes the messages.
     :param messages: The messages to send and the command channel of each field.
     :param framing: How the byte stream is split into frames. Defaults to
         newline-delimited frames.
@@ -106,7 +105,7 @@ class WriteTask(
         *,
         device: device.Key = "",
         name: str = "",
-        library: library.Key | None = None,
+        icd: icd.Key | None = None,
         messages: list[bus.WriteMessage] | None = None,
         framing: bus.Framing | None = None,
         auto_start: bool = False,
@@ -115,12 +114,12 @@ class WriteTask(
             self._internal = internal
             self.config = WriteConfig.model_validate(internal.config)
             return
-        if library is None:
-            raise ValueError("library is required")
+        if icd is None:
+            raise ValueError("icd is required")
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = WriteConfig(
             device=device,
-            library=library,
+            icd=icd,
             messages=messages if messages is not None else [],
             framing=framing if framing is not None else bus.DelimiterFraming(),
             auto_start=auto_start,

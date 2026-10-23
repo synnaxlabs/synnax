@@ -19,7 +19,7 @@
 #include "client/cpp/control/control.h"
 #include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
-#include "client/cpp/library/library.h"
+#include "client/cpp/icd/icd.h"
 #include "client/cpp/rack/rack.h"
 #include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
@@ -130,8 +130,8 @@ public:
     status::Client statuses;
     /// @brief Client for managing Arc automation programs.
     arc::Client arcs;
-    /// @brief Client for managing libraries.
-    library::Client libraries;
+    /// @brief Client for managing interface control documents.
+    icd::Client icds;
     /// @brief Client for reading the control state of channels.
     control::Client control;
 
@@ -191,10 +191,10 @@ public:
             this->t.status_set_by_key_or_name
         ),
         arcs(this->t.arc_retrieve, this->t.arc_create, this->t.arc_delete),
-        libraries(
-            std::move(this->t.library_create),
-            std::move(this->t.library_retrieve),
-            std::move(this->t.library_delete)
+        icds(
+            std::move(this->t.icd_create),
+            std::move(this->t.icd_retrieve),
+            std::move(this->t.icd_delete)
         ),
         control(this->t.control_retrieve) {
         details::check_little_endian();

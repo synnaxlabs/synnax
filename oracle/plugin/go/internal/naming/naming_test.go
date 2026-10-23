@@ -63,6 +63,7 @@ var _ = Describe("ToPascalCase", func() {
 		Entry("plural acronym", "ids", "IDs"),
 		Entry("iso acronym", "iso", "ISO"),
 		Entry("utc acronym", "utc", "UTC"),
+		Entry("icd acronym", "icd_hash", "ICDHash"),
 		Entry("screaming case passthrough", "WASM", "WASM"),
 	)
 })

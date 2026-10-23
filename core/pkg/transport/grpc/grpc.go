@@ -19,9 +19,9 @@ import (
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	apiicd "github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
-	apilibrary "github.com/synnaxlabs/synnax/pkg/api/library"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -43,7 +43,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/control"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
-	"github.com/synnaxlabs/synnax/pkg/transport/grpc/library"
+	"github.com/synnaxlabs/synnax/pkg/transport/grpc/icd"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/rack"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger/alias"
@@ -71,7 +71,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		device.New(&t),
 		status.New(&t),
 		arc.New(&t),
-		library.New(&t),
+		icd.New(&t),
 		control.New(&t),
 	}
 
@@ -188,9 +188,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ImExImport = noop.UnaryServer[imex.ImportRequest, imex.ImportResponse]{}
 	t.ImExExport = noop.UnaryServer[imex.ExportRequest, imex.ExportResponse]{}
 
-	// LIBRARY
-	t.LibraryRename = noop.UnaryServer[apilibrary.RenameRequest, struct{}]{}
-	t.LibraryImport = noop.UnaryServer[apilibrary.ImportRequest, apilibrary.ImportResponse]{}
+	// ICD
+	t.ICDCheck = noop.UnaryServer[apiicd.CheckRequest, apiicd.CheckResponse]{}
+	t.ICDRename = noop.UnaryServer[apiicd.RenameRequest, struct{}]{}
+	t.ICDImport = noop.UnaryServer[apiicd.ImportRequest, apiicd.ImportResponse]{}
 
 	// ARC
 	t.ArcDispatch = noop.UnaryServer[apiarc.DispatchRequest, struct{}]{}

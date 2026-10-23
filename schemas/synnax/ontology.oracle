@@ -37,7 +37,7 @@ ResourceType enum {
     task             = "task"
     user             = "user"
     view             = "view"
-    library          = "library"
+    icd              = "icd"
 
     @doc value "is the type of the resource."
 }

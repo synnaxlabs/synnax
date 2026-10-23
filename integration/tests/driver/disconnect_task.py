@@ -30,7 +30,7 @@ the warnings the task reports while its device is gone.
 from abc import ABC
 
 import synnax as sy
-from synnax import library
+from synnax import icd
 from tests.driver.bus_task import BusCase
 from tests.driver.can_read import CANRead
 from tests.driver.modbus_read import ModbusReadMixed
@@ -130,12 +130,12 @@ class DisconnectModbus(DisconnectTask[sy.modbus.ReadTask], ModbusReadMixed):
     """
 
 
-def with_period(entries: list[library.Entry]) -> list[library.Entry]:
+def with_period(entries: list[icd.Entry]) -> list[icd.Entry]:
     """Returns entries with PERIOD on every message, so a task warns once a message
     stops arriving."""
     return [
         e.model_copy(update={"period": PERIOD})
-        if isinstance(e, library.MessageEntry)
+        if isinstance(e, icd.MessageEntry)
         else e
         for e in entries
     ]
@@ -209,7 +209,7 @@ class DisconnectUDP(BusDisconnect, UDPRead):
     unplugged = MISSED
     absent = NOTHING_RECEIVED
 
-    def create_entries(self) -> list[library.Entry]:
+    def create_entries(self) -> list[icd.Entry]:
         return with_period(super().create_entries())
 
 
@@ -220,5 +220,5 @@ class DisconnectCAN(BusDisconnect, CANRead):
     unplugged = MISSED
     absent = NOTHING_RECEIVED
 
-    def create_entries(self) -> list[library.Entry]:
+    def create_entries(self) -> list[icd.Entry]:
         return with_period(super().create_entries())

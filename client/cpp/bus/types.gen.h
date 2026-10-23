@@ -18,7 +18,7 @@
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/device/key.h"
-#include "client/cpp/library/types.gen.h"
+#include "client/cpp/icd/types.gen.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
@@ -43,7 +43,7 @@ constexpr const char *CHECKSUM_CRC_32 = "crc32";
 /// @brief ReadField maps one decoded message field to a channel.
 struct ReadField {
     /// @brief field is the key of the field within its message.
-    ::synnax::library::FieldKey field;
+    ::synnax::icd::FieldKey field;
     /// @brief channel is the channel the field's decoded values are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief index is the index channel stamped with the time the field arrives.
@@ -57,7 +57,7 @@ struct ReadField {
 /// mapping is sent as zero.
 struct WriteField {
     /// @brief field is the key of the field within its message.
-    ::synnax::library::FieldKey field;
+    ::synnax::icd::FieldKey field;
     /// @brief channel is the command channel whose values are encoded into the field.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
 
@@ -78,11 +78,11 @@ struct PollConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief ReadMessage is one library message a read task decodes. Fields share an index
+/// @brief ReadMessage is one ICD message a read task decodes. Fields share an index
 /// only when the same multiplexor values select them.
 struct ReadMessage {
-    /// @brief message is the key of the message entry in the task's library.
-    ::synnax::library::EntryKey message;
+    /// @brief message is the key of the message entry in the task's ICD.
+    ::synnax::icd::EntryKey message;
     /// @brief disabled is true when the task ignores the message.
     bool disabled = false;
     /// @brief fields are the fields of the message the task writes to channels.
@@ -92,12 +92,11 @@ struct ReadMessage {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief WriteMessage is one library message a write task encodes. A message with a
-/// period is sent on that period, and one without is sent when a command channel
-/// changes.
+/// @brief WriteMessage is one ICD message a write task encodes. A message with a period
+/// is sent on that period, and one without is sent when a command channel changes.
 struct WriteMessage {
-    /// @brief message is the key of the message entry in the task's library.
-    ::synnax::library::EntryKey message;
+    /// @brief message is the key of the message entry in the task's ICD.
+    ::synnax::icd::EntryKey message;
     /// @brief disabled is true when the task does not send the message.
     bool disabled = false;
     /// @brief fields are the fields of the message driven by command channels.
@@ -139,14 +138,14 @@ struct SyncFraming {
     /// @brief length_size is the size of the length field in bytes: 1, 2, or 4.
     std::uint8_t length_size = 1;
     /// @brief byte_order is the byte order of the length field.
-    std::string byte_order = ::synnax::library::BYTE_ORDER_LITTLE_ENDIAN;
+    std::string byte_order = ::synnax::icd::BYTE_ORDER_LITTLE_ENDIAN;
     /// @brief length_adjustment is added to the length field to get the number of bytes
     /// that follow the length field, checksum included.
     std::int32_t length_adjustment = 0;
     /// @brief checksum is the checksum that ends each frame.
     std::string checksum = CHECKSUM_NONE;
     /// @brief checksum_byte_order is the byte order of the checksum.
-    std::string checksum_byte_order = ::synnax::library::BYTE_ORDER_LITTLE_ENDIAN;
+    std::string checksum_byte_order = ::synnax::icd::BYTE_ORDER_LITTLE_ENDIAN;
     /// @brief max_length is the size in bytes of the largest frame, sync sequence and
     /// checksum included. A length field that gives a larger frame marks a corrupt
     /// frame. Zero allows the largest frame the Driver can hold.
@@ -181,7 +180,7 @@ Framing parse_framing(x::json::Parser parser);
 
 /// @brief ReadConfig carries the settings every bus read task shares.
 struct ReadConfig : public ::synnax::task::PersistConfig,
-                    public ::synnax::library::Reference {
+                    public ::synnax::icd::Reference {
     /// @brief device is the key of the device the task reads from.
     ::synnax::device::Key device = "";
     /// @brief raw is the virtual bytes channel every received frame is written to,
@@ -197,7 +196,7 @@ struct ReadConfig : public ::synnax::task::PersistConfig,
 
 /// @brief WriteConfig carries the settings every bus write task shares.
 struct WriteConfig : public ::synnax::task::WriteConfig,
-                     public ::synnax::library::Reference {
+                     public ::synnax::icd::Reference {
     /// @brief messages are the messages the task sends.
     std::vector<WriteMessage> messages;
 

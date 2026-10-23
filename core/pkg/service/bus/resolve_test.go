@@ -15,45 +15,45 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/bus"
-	"github.com/synnaxlabs/synnax/pkg/service/library"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Resolver", func() {
 	var (
 		resolver bus.Resolver
-		lib      library.Library
-		status   library.MessageEntry
-		command  library.MessageEntry
-		rpm      library.BinaryField
-		temp     library.BinaryField
-		throttle library.BinaryField
+		ic       icd.ICD
+		status   icd.MessageEntry
+		command  icd.MessageEntry
+		rpm      icd.BinaryField
+		temp     icd.BinaryField
+		throttle icd.BinaryField
 		task     uuid.UUID
 	)
 	BeforeEach(func(ctx SpecContext) {
-		resolver = bus.Resolver{Stamper: library.Stamper{DB: db, Ontology: otg}}
+		resolver = bus.Resolver{Stamper: icd.Stamper{DB: db, Ontology: otg}}
 		rpm = binaryField("rpm", 0)
 		temp = binaryField("temp", 8)
 		throttle = binaryField("throttle", 0)
 		status = canMessage("Status", 0x100, rpm, temp)
 		command = canMessage("Command", 0x200, throttle)
-		lib = library.Library{
+		ic = icd.ICD{
 			Name: "Engine",
-			Entries: []library.Entry{
+			Entries: []icd.Entry{
 				{Variant: status},
 				{Variant: command},
-				{Variant: library.EnumEntry{
-					BaseEntry: library.BaseEntry{Key: uuid.New(), Name: "Mode"},
+				{Variant: icd.EnumEntry{
+					BaseEntry: icd.BaseEntry{Key: uuid.New(), Name: "Mode"},
 				}},
 			},
 		}
 		task = uuid.New()
-		createLibrary(ctx, &lib, task)
+		createICD(ctx, &ic, task)
 	})
 
 	readConfig := func(messages ...bus.ReadMessage) bus.ReadConfig {
 		return bus.ReadConfig{
-			Library:  &lib.Key,
+			ICD:      &ic.Key,
 			Messages: messages,
 		}
 	}
@@ -75,30 +75,35 @@ var _ = Describe("Resolver", func() {
 
 		It("Should reject a resolver missing the database", func() {
 			Expect(bus.Resolver{
-				Stamper: library.Stamper{Ontology: otg},
+				Stamper: icd.Stamper{Ontology: otg},
 			}.Validate()).To(MatchError("stamper.db: must be non-nil"))
 		})
 
 		It("Should reject a resolver missing the ontology", func() {
 			Expect(bus.Resolver{
-				Stamper: library.Stamper{DB: db},
+				Stamper: icd.Stamper{DB: db},
 			}.Validate()).To(MatchError("stamper.ontology: must be non-nil"))
 		})
 	})
 
 	Describe("Read", func() {
-		It("Should stamp the library hash into the config", func(ctx SpecContext) {
-			cfg := readConfig(bus.ReadMessage{
-				Message: status.Key,
-				Fields: []bus.ReadField{
-					{Field: temp.Key, Channel: 2},
-				},
-			})
-			Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
-			Expect(cfg.LibraryHash).To(Equal(MustSucceed(library.Hash(lib))))
-		})
+		It(
+			"Should stamp the hash of the messages the config reads",
+			func(ctx SpecContext) {
+				cfg := readConfig(bus.ReadMessage{
+					Message: status.Key,
+					Fields: []bus.ReadField{
+						{Field: temp.Key, Channel: 2},
+					},
+				})
+				Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+				Expect(cfg.ICDHash).To(Equal(MustSucceed(
+					icd.TaskHash(ic, []icd.EntryKey{status.Key}),
+				)))
+			},
+		)
 
-		It("Should reject a message that is not in the library", func(ctx SpecContext) {
+		It("Should reject a message that is not in the ICD", func(ctx SpecContext) {
 			missing := uuid.New()
 			cfg := readConfig(
 				bus.ReadMessage{Message: status.Key},
@@ -106,12 +111,12 @@ var _ = Describe("Resolver", func() {
 			)
 			Expect(resolver.Read(ctx, tx, task, &cfg)).To(MatchError(ContainSubstring(
 				"messages.1.message: message " + missing.String() +
-					" is not in the library: validation error",
+					" is not in the ICD: validation error",
 			)))
 		})
 
 		It("Should reject an enum entry used as a message", func(ctx SpecContext) {
-			enum := lib.Entries[2].Variant.(library.EnumEntry)
+			enum := ic.Entries[2].Variant.(icd.EnumEntry)
 			cfg := readConfig(bus.ReadMessage{Message: enum.Key})
 			Expect(resolver.Read(ctx, tx, task, &cfg)).
 				To(MatchError(ContainSubstring("messages.0.message")))
@@ -133,33 +138,29 @@ var _ = Describe("Resolver", func() {
 		})
 
 		It(
-			"Should reject a config whose library does not exist",
+			"Should reject a config whose ICD does not exist",
 			func(ctx SpecContext) {
 				missing := uuid.New()
-				cfg := bus.ReadConfig{
-					Library: &missing,
-				}
+				cfg := bus.ReadConfig{ICD: &missing}
 				Expect(
 					resolver.Read(ctx, tx, task, &cfg),
 				).To(MatchError(ContainSubstring(
-					"library: library " + missing.String() + " does not exist",
+					"icd: ICD " + missing.String() + " does not exist",
 				)))
 			},
 		)
 
 		It(
-			"Should accept a config with no library and no messages",
+			"Should accept a config with no ICD and no messages",
 			func(ctx SpecContext) {
-				cfg := bus.ReadConfig{
-					LibraryHash: "stale",
-				}
+				cfg := bus.ReadConfig{ICDHash: "stale"}
 				Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
-				Expect(cfg.LibraryHash).To(BeEmpty())
+				Expect(cfg.ICDHash).To(BeEmpty())
 			},
 		)
 
 		It(
-			"Should reject a config with messages but no library",
+			"Should reject a config with messages but no ICD",
 			func(ctx SpecContext) {
 				cfg := bus.ReadConfig{
 					Messages: []bus.ReadMessage{{Message: status.Key}},
@@ -167,7 +168,7 @@ var _ = Describe("Resolver", func() {
 				Expect(
 					resolver.Read(ctx, tx, task, &cfg),
 				).To(MatchError(ContainSubstring(
-					"library: select a library before choosing messages",
+					"icd: select an ICD before choosing messages",
 				)))
 			},
 		)
@@ -175,9 +176,9 @@ var _ = Describe("Resolver", func() {
 
 	Describe("Read indexes", func() {
 		var (
-			battery             library.MessageEntry
-			mode, volt, current library.BinaryField
-			temp1, temp2, humid library.BinaryField
+			battery             icd.MessageEntry
+			mode, volt, current icd.BinaryField
+			temp1, temp2, humid icd.BinaryField
 		)
 		BeforeEach(func(ctx SpecContext) {
 			mode = binaryField("mode", 0)
@@ -189,9 +190,9 @@ var _ = Describe("Resolver", func() {
 			battery = canMessage(
 				"Battery", 0x300, mode, volt, current, temp1, temp2, humid,
 			)
-			lib.Entries = append(lib.Entries, library.Entry{Variant: battery})
+			ic.Entries = append(ic.Entries, icd.Entry{Variant: battery})
 			task = uuid.New()
-			createLibrary(ctx, &lib, task)
+			createICD(ctx, &ic, task)
 		})
 
 		It("Should accept a plain message on one index", func(ctx SpecContext) {
@@ -318,11 +319,11 @@ var _ = Describe("Resolver", func() {
 
 	Describe("Read replies", func() {
 		var (
-			reading library.MessageEntry
-			labeled library.MessageEntry
-			line    library.MessageEntry
-			value   library.BinaryField
-			level   library.BinaryField
+			reading icd.MessageEntry
+			labeled icd.MessageEntry
+			line    icd.MessageEntry
+			value   icd.BinaryField
+			level   icd.BinaryField
 		)
 		BeforeEach(func(ctx SpecContext) {
 			value = binaryField("value", 0)
@@ -332,21 +333,21 @@ var _ = Describe("Resolver", func() {
 			query := "LEVEL?"
 			labeled.Query = &query
 			lineQuery := "MEAS?"
-			line = library.MessageEntry{
+			line = icd.MessageEntry{
 				Key: uuid.New(), Name: "Line",
-				Payload: library.Payload{Variant: library.TextPayload{
+				Payload: icd.Payload{Variant: icd.TextPayload{
 					Delimiter: ",",
 				}},
 				Query: &lineQuery,
 			}
-			lib.Entries = append(
-				lib.Entries,
-				library.Entry{Variant: reading},
-				library.Entry{Variant: labeled},
-				library.Entry{Variant: line},
+			ic.Entries = append(
+				ic.Entries,
+				icd.Entry{Variant: reading},
+				icd.Entry{Variant: labeled},
+				icd.Entry{Variant: line},
 			)
 			task = uuid.New()
-			createLibrary(ctx, &lib, task)
+			createICD(ctx, &ic, task)
 		})
 
 		It(
@@ -415,24 +416,29 @@ var _ = Describe("Resolver", func() {
 	})
 
 	Describe("Write", func() {
-		It("Should stamp the library hash into the config", func(ctx SpecContext) {
-			cfg := bus.WriteConfig{
-				Library: &lib.Key,
-				Messages: []bus.WriteMessage{{
-					Message: command.Key,
-					Fields: []bus.WriteField{
-						{Field: throttle.Key, Channel: 3},
-					},
-				}},
-			}
-			Expect(resolver.Write(ctx, tx, task, &cfg)).To(Succeed())
-			Expect(cfg.LibraryHash).To(Equal(MustSucceed(library.Hash(lib))))
-		})
+		It(
+			"Should stamp the hash of the messages the config sends",
+			func(ctx SpecContext) {
+				cfg := bus.WriteConfig{
+					ICD: &ic.Key,
+					Messages: []bus.WriteMessage{{
+						Message: command.Key,
+						Fields: []bus.WriteField{
+							{Field: throttle.Key, Channel: 3},
+						},
+					}},
+				}
+				Expect(resolver.Write(ctx, tx, task, &cfg)).To(Succeed())
+				Expect(cfg.ICDHash).To(Equal(MustSucceed(
+					icd.TaskHash(ic, []icd.EntryKey{command.Key}),
+				)))
+			},
+		)
 
 		It("Should reject a field that is not in the message", func(ctx SpecContext) {
 			missing := uuid.New()
 			cfg := bus.WriteConfig{
-				Library: &lib.Key,
+				ICD: &ic.Key,
 				Messages: []bus.WriteMessage{{
 					Message: command.Key,
 					Fields:  []bus.WriteField{{Field: missing}},
@@ -445,16 +451,16 @@ var _ = Describe("Resolver", func() {
 		})
 
 		It(
-			"Should accept a config with no library and no messages",
+			"Should accept a config with no ICD and no messages",
 			func(ctx SpecContext) {
 				cfg := bus.WriteConfig{}
 				Expect(resolver.Write(ctx, tx, task, &cfg)).To(Succeed())
-				Expect(cfg.LibraryHash).To(BeEmpty())
+				Expect(cfg.ICDHash).To(BeEmpty())
 			},
 		)
 
 		It(
-			"Should reject a config with messages but no library",
+			"Should reject a config with messages but no ICD",
 			func(ctx SpecContext) {
 				cfg := bus.WriteConfig{
 					Messages: []bus.WriteMessage{{Message: command.Key}},
@@ -462,7 +468,7 @@ var _ = Describe("Resolver", func() {
 				Expect(
 					resolver.Write(ctx, tx, task, &cfg),
 				).To(MatchError(ContainSubstring(
-					"library: select a library before choosing messages",
+					"icd: select an ICD before choosing messages",
 				)))
 			},
 		)

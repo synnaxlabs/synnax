@@ -130,6 +130,14 @@ class MultipleFoundError(QueryError):
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "query.multiple_results"
 
 
+class StaleError(Exception):
+    """Raised when a save sends a hash that no longer matches the stored resource,
+    because the resource changed since the caller read it.
+    """
+
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "library.stale"
+
+
 class RouteError(Exception):
     """Raised when an API routing error occurs, such as a 404."""
 
@@ -203,6 +211,9 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
         if encoded.type.startswith(MultipleFoundError.TYPE):
             return MultipleFoundError(encoded.data)
         return QueryError(encoded.data)
+
+    if encoded.type.startswith(StaleError.TYPE):
+        return StaleError(encoded.data)
 
     if encoded.type.startswith(RouteError.TYPE):
         if encoded.data is None:

@@ -10,8 +10,6 @@
 package library_test
 
 import (
-	"uuid"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/library"
@@ -19,31 +17,34 @@ import (
 )
 
 var _ = Describe("Hash", func() {
-	base := func() library.Library {
-		return library.Library{
-			Key:  uuid.New(),
-			Name: "A",
-			Entries: []library.Entry{
-				enumEntry("State", library.EnumValue{Value: 1, Name: "On"}),
-			},
-		}
-	}
-
 	It("Should return 16 lowercase hex characters", func() {
-		Expect(MustSucceed(library.Hash(base()))).To(MatchRegexp("^[0-9a-f]{16}$"))
+		Expect(MustSucceed(library.Hash("a"))).To(MatchRegexp("^[0-9a-f]{16}$"))
 	})
 
-	It("Should hash equal entries equally regardless of key and name", func() {
-		a, b := base(), base()
-		b.Name = "B"
+	It("Should hash equal values equally", func() {
+		Expect(MustSucceed(library.Hash([]int{1, 2}))).
+			To(Equal(MustSucceed(library.Hash([]int{1, 2}))))
+	})
+
+	It("Should hash a map the same whatever its iteration order", func() {
+		a := map[string]int{}
+		b := map[string]int{}
+		for i, k := range []string{"a", "b", "c", "d", "e", "f", "g", "h"} {
+			a[k] = i
+		}
+		for i, k := range []string{"h", "g", "f", "e", "d", "c", "b", "a"} {
+			b[k] = 7 - i
+		}
 		Expect(MustSucceed(library.Hash(a))).To(Equal(MustSucceed(library.Hash(b))))
 	})
 
-	It("Should change when an entry changes", func() {
-		a, b := base(), base()
-		b.Entries = []library.Entry{
-			enumEntry("State", library.EnumValue{Value: 2, Name: "On"}),
-		}
-		Expect(MustSucceed(library.Hash(a))).ToNot(Equal(MustSucceed(library.Hash(b))))
+	It("Should hash different values differently", func() {
+		Expect(MustSucceed(library.Hash([]int{1, 2}))).
+			ToNot(Equal(MustSucceed(library.Hash([]int{2, 1}))))
+	})
+
+	It("Should return an error for a value JSON cannot encode", func() {
+		Expect(library.Hash(make(chan int))).Error().
+			To(MatchError(ContainSubstring("failed to hash library content")))
 	})
 })

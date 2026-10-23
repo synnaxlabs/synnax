@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bus, can, type library } from "@synnaxlabs/client";
+import { type bus, can, type icd } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createBusDevice,
-  createBusLibrary,
+  createBusICD,
   createBusTask,
   createMessage,
   findOpenDialog,
@@ -51,7 +51,7 @@ const retrieveRead = async (key: string) =>
  */
 const expectBound = async (
   m: bus.ReadMessage,
-  entry: library.MessageEntry,
+  entry: icd.MessageEntry,
   prefix: string,
   indexes: Record<string, string>,
 ) => {
@@ -76,14 +76,14 @@ const expectBound = async (
 };
 
 /**
- * Creates a library with two multiplexed CAN messages. In Mux, Mode selects A and B on
+ * Creates an ICD with two multiplexed CAN messages. In Mux, Mode selects A and B on
  * 0 and C and D on 1 or 2. In Ext, Mode selects Sub and F on 3, and Sub selects E on 5.
  * Mode and Speed are always present.
  */
-const createMuxLibrary = async () => {
+const createMuxICD = async () => {
   const [muxMode, extMode, sub] = [uuid.create(), uuid.create(), uuid.create()];
-  const lib = await client.libraries.create({
-    name: uniqueName("mux_library"),
+  const ic = await client.icds.create({
+    name: uniqueName("mux_icd"),
     entries: [
       {
         kind: "message",
@@ -126,18 +126,18 @@ const createMuxLibrary = async () => {
     ],
   });
   const find = (name: string) => {
-    const entry = lib.entries.find((e) => e.name === name);
+    const entry = ic.entries.find((e) => e.name === name);
     if (entry?.kind !== "message") throw new Error(`message ${name} not found`);
     return entry;
   };
-  return { library: lib, mux: find("Mux"), ext: find("Ext") };
+  return { icd: ic, mux: find("Mux"), ext: find("Ext") };
 };
 
 describe("bus read task", () => {
   it("should put every field of a plain message on one index on deploy", async () => {
-    const { library, engine } = await createBusLibrary(client);
+    const { icd: ic, engine } = await createBusICD(client);
     const dev = await createCANDevice();
-    const draft = await createDraft({ library: library.key, device: dev.key });
+    const draft = await createDraft({ icd: ic.key, device: dev.key });
     const { container } = await renderBusTask(CAN.Task.Read, client, draft.key);
     await selectFromDropdown("Add message", "Engine");
     await screen.findByRole("checkbox", { name: "Rpm" });
@@ -171,10 +171,10 @@ describe("bus read task", () => {
   });
 
   it("should bind the fields of each message to the index of that message", async () => {
-    const { library, engine, brake } = await createBusLibrary(client);
+    const { icd: ic, engine, brake } = await createBusICD(client);
     const dev = await createCANDevice();
     const draft = await createDraft({
-      library: library.key,
+      icd: ic.key,
       device: dev.key,
       messages: [createMessage(engine), createMessage(brake)],
     });
@@ -197,10 +197,10 @@ describe("bus read task", () => {
   });
 
   it("should create one index per set of multiplexor values on deploy", async () => {
-    const { library, mux } = await createMuxLibrary();
+    const { icd: ic, mux } = await createMuxICD();
     const dev = await createCANDevice();
     const draft = await createDraft({
-      library: library.key,
+      icd: ic.key,
       device: dev.key,
       messages: [createMessage(mux)],
     });
@@ -224,10 +224,10 @@ describe("bus read task", () => {
   });
 
   it("should create one index per link of an extended multiplexor chain", async () => {
-    const { library, ext } = await createMuxLibrary();
+    const { icd: ic, ext } = await createMuxICD();
     const dev = await createCANDevice();
     const draft = await createDraft({
-      library: library.key,
+      icd: ic.key,
       device: dev.key,
       messages: [createMessage(ext)],
     });
@@ -248,10 +248,10 @@ describe("bus read task", () => {
     });
   });
 
-  it("should only offer the library messages the integration can carry", async () => {
-    const { library } = await createBusLibrary(client);
+  it("should only offer the ICD messages the integration can carry", async () => {
+    const { icd: ic } = await createBusICD(client);
     const dev = await createCANDevice();
-    const draft = await createDraft({ library: library.key, device: dev.key });
+    const draft = await createDraft({ icd: ic.key, device: dev.key });
     await renderBusTask(CAN.Task.Read, client, draft.key);
     fireEvent.click(await findDialogTriggerByText("Add message"));
     const dialog = await findOpenDialog();
@@ -260,9 +260,9 @@ describe("bus read task", () => {
   });
 
   it("should bind only the checked fields of a message", async () => {
-    const { library, engine } = await createBusLibrary(client);
+    const { icd: ic, engine } = await createBusICD(client);
     const dev = await createCANDevice();
-    const draft = await createDraft({ library: library.key, device: dev.key });
+    const draft = await createDraft({ icd: ic.key, device: dev.key });
     const { container } = await renderBusTask(CAN.Task.Read, client, draft.key);
     await selectFromDropdown("Add message", "Engine");
     fireEvent.click(await screen.findByRole("checkbox", { name: "Temp" }));
@@ -279,10 +279,10 @@ describe("bus read task", () => {
   });
 
   it("should reuse the channels of an earlier deploy", async () => {
-    const { library, engine } = await createBusLibrary(client);
+    const { icd: ic, engine } = await createBusICD(client);
     const dev = await createCANDevice();
     const first = await createDraft({
-      library: library.key,
+      icd: ic.key,
       device: dev.key,
       messages: [
         { message: engine.key, fields: [{ field: engine.payload.fields[0].key }] },
@@ -297,7 +297,7 @@ describe("bus read task", () => {
     );
     firstForm.unmount();
     const second = await createDraft({
-      library: library.key,
+      icd: ic.key,
       device: dev.key,
       messages: [
         { message: engine.key, fields: [{ field: engine.payload.fields[0].key }] },
@@ -319,48 +319,48 @@ describe("bus read task", () => {
     expect(redeployed.config.raw).toBe(deployed.config.raw);
   });
 
-  it("should remove the messages of the old library when the library changes", async () => {
-    const first = await createBusLibrary(client);
-    const second = await createBusLibrary(client);
+  it("should remove the messages of the old ICD when the ICD changes", async () => {
+    const first = await createBusICD(client);
+    const second = await createBusICD(client);
     const dev = await createCANDevice();
     const draft = await createDraft({
-      library: first.library.key,
+      icd: first.icd.key,
       device: dev.key,
       messages: [{ message: first.engine.key }],
     });
     await renderBusTask(CAN.Task.Read, client, draft.key);
     await screen.findByText("0x100");
-    fireEvent.click(await findDialogTriggerByText(first.library.name));
-    fireEvent.change(await screen.findByPlaceholderText("Search libraries..."), {
-      target: { value: second.library.name },
+    fireEvent.click(await findDialogTriggerByText(first.icd.name));
+    fireEvent.change(await screen.findByPlaceholderText("Search ICDS..."), {
+      target: { value: second.icd.name },
     });
-    fireEvent.click(await screen.findByText(second.library.name));
+    fireEvent.click(await screen.findByText(second.icd.name));
     await waitFor(async () => {
       const saved = await retrieveRead(draft.key);
-      expect(saved.config.library).toBe(second.library.key);
+      expect(saved.config.icd).toBe(second.icd.key);
       expect(saved.config.messages).toEqual([]);
     });
   });
 
-  it("should save the library chosen for a task with none", async () => {
-    const { library } = await createBusLibrary(client);
+  it("should save the ICD chosen for a task with none", async () => {
+    const { icd: ic } = await createBusICD(client);
     const draft = await createDraft({});
     await renderBusTask(CAN.Task.Read, client, draft.key);
-    fireEvent.click(await findDialogTriggerByText("Select library"));
-    fireEvent.change(await screen.findByPlaceholderText("Search libraries..."), {
-      target: { value: library.name },
+    fireEvent.click(await findDialogTriggerByText("Select ICD"));
+    fireEvent.change(await screen.findByPlaceholderText("Search ICDS..."), {
+      target: { value: ic.name },
     });
-    fireEvent.click(await screen.findByText(library.name));
+    fireEvent.click(await screen.findByText(ic.name));
     await waitFor(async () =>
-      expect((await retrieveRead(draft.key)).config.library).toBe(library.key),
+      expect((await retrieveRead(draft.key)).config.icd).toBe(ic.key),
     );
   });
 
   it("should remove a message from the task", async () => {
-    const { library, engine } = await createBusLibrary(client);
+    const { icd: ic, engine } = await createBusICD(client);
     const dev = await createCANDevice();
     const draft = await createDraft({
-      library: library.key,
+      icd: ic.key,
       device: dev.key,
       messages: [{ message: engine.key }],
     });
@@ -372,39 +372,39 @@ describe("bus read task", () => {
   });
 
   describe("validation", () => {
-    it("should show a missing library on the library field", async () => {
+    it("should show a missing ICD on the ICD field", async () => {
       const dev = await createCANDevice();
       const draft = await createDraft({ device: dev.key });
       const { container } = await renderBusTask(CAN.Task.Read, client, draft.key);
       await clickDeploy(container);
-      const help = await screen.findByText("Select a library");
+      const help = await screen.findByText("Select an ICD");
       const item = help.closest<HTMLElement>(".pluto-input__item");
       assertDefined(item);
-      expect(within(item).getByText("Library")).toBeDefined();
+      expect(within(item).getByText("ICD")).toBeDefined();
     });
 
     it("should show a missing device on the device field", async () => {
-      const { library } = await createBusLibrary(client);
-      const draft = await createDraft({ library: library.key });
+      const { icd: ic } = await createBusICD(client);
+      const draft = await createDraft({ icd: ic.key });
       const { container } = await renderBusTask(CAN.Task.Read, client, draft.key);
       await clickDeploy(container);
       await screen.findByText("Device is required");
     });
 
     it("should show a task with no messages on the message picker", async () => {
-      const { library } = await createBusLibrary(client);
+      const { icd: ic } = await createBusICD(client);
       const dev = await createCANDevice();
-      const draft = await createDraft({ library: library.key, device: dev.key });
+      const draft = await createDraft({ icd: ic.key, device: dev.key });
       const { container } = await renderBusTask(CAN.Task.Read, client, draft.key);
       await clickDeploy(container);
       await screen.findByText("Add at least one enabled message");
     });
 
     it("should show a message with no fields on its field list", async () => {
-      const { library, engine } = await createBusLibrary(client);
+      const { icd: ic, engine } = await createBusICD(client);
       const dev = await createCANDevice();
       const draft = await createDraft({
-        library: library.key,
+        icd: ic.key,
         device: dev.key,
         messages: [{ message: engine.key }],
       });

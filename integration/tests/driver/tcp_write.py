@@ -12,7 +12,7 @@ from functools import partial
 from examples.simulators.scpi import SCPISim
 
 import synnax as sy
-from synnax import bus, library, tcp
+from synnax import bus, icd, tcp
 from tests.driver.bus_task import BusCase
 
 CURRENT_SCALE = 0.5
@@ -39,17 +39,17 @@ class SetpointsCase(BusCase):
     sim_classes = [SCPISim]
     commands: dict[str, int]
 
-    def create_entries(self) -> list[library.Entry]:
+    def create_entries(self) -> list[icd.Entry]:
         return [
-            library.MessageEntry(
+            icd.MessageEntry(
                 name="setpoints",
-                payload=library.TextPayload(
+                payload=icd.TextPayload(
                     delimiter=";",
                     fields=[
-                        library.TaggedTextField(
+                        icd.TaggedTextField(
                             name="voltage", tag="VOLT ", min=0, max=MAX_VOLTAGE
                         ),
-                        library.TaggedTextField(
+                        icd.TaggedTextField(
                             name="current", tag="CURR ", scale=CURRENT_SCALE
                         ),
                     ],
@@ -57,12 +57,12 @@ class SetpointsCase(BusCase):
             )
         ]
 
-    def create_task(self, device: sy.Device, library_key: library.Key) -> tcp.WriteTask:
+    def create_task(self, device: sy.Device, icd_key: icd.Key) -> tcp.WriteTask:
         message, self.commands = self.bind_write("setpoints", ["voltage", "current"])
         return tcp.WriteTask(
             name=type(self).__name__,
             device=device.key,
-            library=library_key,
+            icd=icd_key,
             messages=[message],
             framing=bus.DelimiterFraming(delimiter="\n"),
         )

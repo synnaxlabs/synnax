@@ -36,7 +36,7 @@ export const RESOURCE_TYPES = [
   "task",
   "user",
   "view",
-  "library",
+  "icd",
 ] as const;
 export const resourceTypeZ = z.enum(RESOURCE_TYPES);
 export type ResourceType = z.infer<typeof resourceTypeZ>;

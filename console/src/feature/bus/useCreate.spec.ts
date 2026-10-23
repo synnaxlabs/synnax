@@ -13,7 +13,7 @@ import { renderHook } from "@testing-library/react";
 import { act } from "react";
 import { describe, expect, it } from "vitest";
 
-import { createBusDevice, createBusLibrary } from "@/feature/bus/testutil";
+import { createBusDevice, createBusICD } from "@/feature/bus/testutil";
 import { CAN } from "@/feature/can";
 import { awaitTaskResourceTab, createSelectedPanel } from "@/platform/task/testutil";
 import { createConsoleWrapper, createTestStore } from "@/testutil";
@@ -29,7 +29,7 @@ const setup = async () => {
 };
 
 describe("bus task create", () => {
-  it("should create a draft with no library and open it", async () => {
+  it("should create a draft with no ICD and open it", async () => {
     const dev = await createBusDevice(
       client,
       CAN.Device.MAKE,
@@ -41,15 +41,15 @@ describe("bus task create", () => {
     const tsk = await client.tasks.retrieve({ key, schemas: CAN.Task.READ_SCHEMAS });
     expect(tsk.name).toBe("CAN read task");
     expect(tsk.config.device).toBe(dev.key);
-    expect(tsk.config.library).toBeUndefined();
+    expect(tsk.config.icd).toBeUndefined();
   });
 
-  it("should create a draft on the library the caller names", async () => {
-    const { library } = await createBusLibrary(client);
+  it("should create a draft on the ICD the caller names", async () => {
+    const { icd: ic } = await createBusICD(client);
     const { created, result } = await setup();
-    act(() => result.current({ config: { library: library.key } }));
+    act(() => result.current({ config: { icd: ic.key } }));
     const key = await awaitTaskResourceTab(created);
     const tsk = await client.tasks.retrieve({ key, schemas: CAN.Task.READ_SCHEMAS });
-    expect(tsk.config.library).toBe(library.key);
+    expect(tsk.config.icd).toBe(ic.key);
   });
 });

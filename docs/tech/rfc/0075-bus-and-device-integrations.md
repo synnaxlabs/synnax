@@ -313,7 +313,7 @@ The Core imports files into an ICD, adding `message` and `enum` entries:
 
 - **DBC**: messages, signals, value tables, `GenMsgCycleTime` as the period, and
   multiplexing, as binary payloads. The parser is a copy of
-  `go.einride.tech/can/pkg/dbc` in `core/pkg/service/library/icd/internal/dbc`, kept
+  `go.einride.tech/can/pkg/dbc` in `core/pkg/service/icd/internal/dbc`, kept
   under its MIT license. The copy adds extended multiplexing (`m0M`, `SG_MUL_VAL_`),
   which the upstream parser rejects, and fixes an upstream bug that skips the line after
   an unknown definition. `cantools` output is the test oracle for the import specs.

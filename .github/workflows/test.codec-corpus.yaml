@@ -52,12 +52,12 @@ jobs:
 
       # The steps below run after a failed one, so that one run reports every DBC file
       # that the Core's importer, cantools, or the Driver's codec disagree on.
-      - name: Import each DBC file into a library
+      - name: Import each DBC file into an ICD
         working-directory: core
         env:
           SYNNAX_UPDATE_GOLDEN: "1"
         run: >-
-          SYNNAX_GOLDEN_DIR="$RUNNER_TEMP/dbc" go test ./pkg/service/library/icd/ -run
+          SYNNAX_GOLDEN_DIR="$RUNNER_TEMP/dbc" go test ./pkg/service/icd/ -run
           TestICD -args -ginkgo.focus=Golden
 
       - name: Generate vectors with cantools

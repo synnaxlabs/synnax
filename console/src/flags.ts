@@ -18,7 +18,7 @@
  */
 export const FLAGS = {
   // Owner: Emiliano Bonilla. Removed in 0.60.
-  library: IS_DEV || import.meta.env.VITE_FLAG_LIBRARY === "true",
+  icd: IS_DEV || import.meta.env.VITE_FLAG_ICD === "true",
   // Owner: Emiliano Bonilla. Removed in 0.60.
   can: IS_DEV || import.meta.env.VITE_FLAG_CAN === "true",
 } as const satisfies Record<string, boolean>;

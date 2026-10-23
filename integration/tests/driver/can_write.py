@@ -12,7 +12,7 @@ from functools import partial
 from examples.simulators.can_frames import CANFrameSim, Frame
 
 import synnax as sy
-from synnax import can, library
+from synnax import can, icd
 from tests.driver.can_task import CANCase
 
 COMMAND_ID = 0x200
@@ -42,38 +42,36 @@ class CANWrite(CANCase):
     commands: dict[str, int]
     beat: dict[str, int]
 
-    def create_entries(self) -> list[library.Entry]:
+    def create_entries(self) -> list[icd.Entry]:
         return [
-            library.MessageEntry(
+            icd.MessageEntry(
                 name="command",
-                payload=library.BinaryPayload(
-                    identifier=library.CanIdentifier(id=COMMAND_ID),
+                payload=icd.BinaryPayload(
+                    identifier=icd.CanIdentifier(id=COMMAND_ID),
                     length=8,
                     fields=[
-                        library.BinaryField(
+                        icd.BinaryField(
                             name="setpoint", start_bit=0, bit_length=16, scale=0.5
                         ),
-                        library.BinaryField(
+                        icd.BinaryField(
                             name="trim", start_bit=16, bit_length=8, signed=True
                         ),
-                        library.BinaryField(name="enabled", start_bit=24, bit_length=1),
+                        icd.BinaryField(name="enabled", start_bit=24, bit_length=1),
                     ],
                 ),
             ),
-            library.MessageEntry(
+            icd.MessageEntry(
                 name="heartbeat",
                 period=HEARTBEAT_PERIOD,
-                payload=library.BinaryPayload(
-                    identifier=library.CanIdentifier(id=HEARTBEAT_ID),
+                payload=icd.BinaryPayload(
+                    identifier=icd.CanIdentifier(id=HEARTBEAT_ID),
                     length=2,
-                    fields=[
-                        library.BinaryField(name="beat", start_bit=0, bit_length=16)
-                    ],
+                    fields=[icd.BinaryField(name="beat", start_bit=0, bit_length=16)],
                 ),
             ),
         ]
 
-    def create_task(self, device: sy.Device, library_key: library.Key) -> can.WriteTask:
+    def create_task(self, device: sy.Device, icd_key: icd.Key) -> can.WriteTask:
         command, self.commands = self.bind_write(
             "command", ["setpoint", "trim", "enabled"]
         )
@@ -81,7 +79,7 @@ class CANWrite(CANCase):
         return can.WriteTask(
             name="CAN Write",
             device=device.key,
-            library=library_key,
+            icd=icd_key,
             messages=[command, heartbeat],
         )
 

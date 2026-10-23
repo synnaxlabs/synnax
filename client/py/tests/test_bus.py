@@ -19,16 +19,16 @@ FRAMED = [sy.serial, sy.tcp]
 POLLED = [sy.serial, sy.tcp, sy.udp]
 
 
-def create_library(client: sy.Synnax) -> sy.Library:
-    return client.libraries.create(
+def create_icd(client: sy.Synnax) -> sy.ICD:
+    return client.icds.create(
         name="Bus",
         entries=[
-            sy.library.MessageEntry(
+            sy.icd.MessageEntry(
                 name="Status",
-                payload=sy.library.BinaryPayload(
-                    identifier=sy.library.CanIdentifier(id=0x100),
+                payload=sy.icd.BinaryPayload(
+                    identifier=sy.icd.CanIdentifier(id=0x100),
                     length=8,
-                    fields=[sy.library.BinaryField(name="rpm", bit_length=16)],
+                    fields=[sy.icd.BinaryField(name="rpm", bit_length=16)],
                 ),
             )
         ],
@@ -42,7 +42,7 @@ class TestBusTasks:
     @pytest.mark.parametrize("integration", INTEGRATIONS)
     def test_read_task_type(self, integration: ModuleType) -> None:
         """Should name the read task type after the integration."""
-        t = integration.ReadTask(library=uuid.uuid4())
+        t = integration.ReadTask(icd=uuid.uuid4())
         assert f"{integration.__name__.split('.')[-1]}_read" == t.TYPE
 
     @pytest.mark.parametrize("integration", INTEGRATIONS)
@@ -52,7 +52,7 @@ class TestBusTasks:
         t = integration.ReadTask(
             device="dev",
             name="Reader",
-            library=uuid.uuid4(),
+            icd=uuid.uuid4(),
             raw=9,
             messages=[
                 sy.bus.ReadMessage(
@@ -73,9 +73,9 @@ class TestBusTasks:
     @pytest.mark.parametrize("integration", FRAMED)
     def test_framing_defaults_to_newline(self, integration: ModuleType) -> None:
         """Should default a byte stream task to newline framing."""
-        t = integration.ReadTask(library=uuid.uuid4())
+        t = integration.ReadTask(icd=uuid.uuid4())
         assert t.config.framing == sy.bus.DelimiterFraming(delimiter="\n")
-        w = integration.WriteTask(library=uuid.uuid4())
+        w = integration.WriteTask(icd=uuid.uuid4())
         assert w.config.framing == sy.bus.DelimiterFraming(delimiter="\n")
 
     @pytest.mark.parametrize("integration", FRAMED)
@@ -84,7 +84,7 @@ class TestBusTasks:
         framing = sy.bus.SyncFraming(
             sync="AA55", length_offset=2, length_size=2, checksum="crc16_modbus"
         )
-        t = integration.ReadTask(library=uuid.uuid4(), framing=framing)
+        t = integration.ReadTask(icd=uuid.uuid4(), framing=framing)
         dumped = t.config.model_dump(mode="json")["framing"]
         assert dumped["type"] == "sync"
         assert dumped["checksum"] == "crc16_modbus"
@@ -93,7 +93,7 @@ class TestBusTasks:
     def test_poll_settings(self, integration: ModuleType) -> None:
         """Should store the poll rate and reply timeout."""
         t = integration.ReadTask(
-            library=uuid.uuid4(), rate=5, timeout=250 * sy.TimeSpan.MILLISECOND
+            icd=uuid.uuid4(), rate=5, timeout=250 * sy.TimeSpan.MILLISECOND
         )
         assert t.config.rate == 5
         assert t.config.timeout == 250 * sy.TimeSpan.MILLISECOND
@@ -126,16 +126,16 @@ class TestBusTasks:
             sy.serial.Device(port="/dev/ttyUSB0", data_bits=300)
 
     @pytest.mark.parametrize("integration", INTEGRATIONS)
-    def test_create_stamps_library_hash(
+    def test_create_stamps_icd_hash(
         self, client: sy.Synnax, integration: ModuleType
     ) -> None:
-        """Should stamp the library hash into a task config on create."""
-        lib = create_library(client)
-        message = lib.entries[0]
-        assert isinstance(message, sy.library.MessageEntry)
+        """Should stamp the hash of the ICD entries a task uses into its config."""
+        ic = create_icd(client)
+        message = ic.entries[0]
+        assert isinstance(message, sy.icd.MessageEntry)
         t = integration.ReadTask(
             name="Reader",
-            library=lib.key,
+            icd=ic.key,
             messages=[
                 sy.bus.ReadMessage(
                     message=message.key,
@@ -144,15 +144,18 @@ class TestBusTasks:
             ],
         )
         created = client.tasks.create(name="Reader", type=t.TYPE, config=t.config)
-        assert integration.ReadTask(created).config.library_hash != ""
+        assert integration.ReadTask(created).config.icd_hash != ""
 
     def test_create_rejects_unknown_message(self, client: sy.Synnax) -> None:
-        """Should reject a read task whose message is not in its library."""
-        lib = create_library(client)
+        """Should reject a read task whose message is not in its ICD."""
+        ic = create_icd(client)
+        missing = uuid.uuid4()
         t = sy.can.ReadTask(
             name="Reader",
-            library=lib.key,
-            messages=[sy.bus.ReadMessage(message=uuid.uuid4())],
+            icd=ic.key,
+            messages=[sy.bus.ReadMessage(message=missing)],
         )
-        with pytest.raises(sy.ValidationError, match="is not in the library"):
+        with pytest.raises(
+            sy.ValidationError, match=f"message {missing} is not in the ICD"
+        ):
             client.tasks.create(name="Reader", type=t.TYPE, config=t.config)

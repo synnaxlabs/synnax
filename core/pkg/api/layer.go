@@ -31,9 +31,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
-	"github.com/synnaxlabs/synnax/pkg/api/library"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -210,12 +210,13 @@ type Transport struct {
 	ViewDelete   freighter.UnaryServer[view.DeleteRequest, struct{}]
 	// ViewRename renames a view.
 	ViewRename freighter.UnaryServer[view.RenameRequest, struct{}]
-	// LIBRARY
-	LibraryCreate   freighter.UnaryServer[library.CreateRequest, library.CreateResponse]
-	LibraryRetrieve freighter.UnaryServer[library.RetrieveRequest, library.RetrieveResponse]
-	LibraryRename   freighter.UnaryServer[library.RenameRequest, struct{}]
-	LibraryDelete   freighter.UnaryServer[library.DeleteRequest, struct{}]
-	LibraryImport   freighter.UnaryServer[library.ImportRequest, library.ImportResponse]
+	// ICD
+	ICDCreate   freighter.UnaryServer[icd.CreateRequest, icd.CreateResponse]
+	ICDRetrieve freighter.UnaryServer[icd.RetrieveRequest, icd.RetrieveResponse]
+	ICDCheck    freighter.UnaryServer[icd.CheckRequest, icd.CheckResponse]
+	ICDRename   freighter.UnaryServer[icd.RenameRequest, struct{}]
+	ICDDelete   freighter.UnaryServer[icd.DeleteRequest, struct{}]
+	ICDImport   freighter.UnaryServer[icd.ImportRequest, icd.ImportResponse]
 	// IMPORT/EXPORT
 	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
 	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]
@@ -242,7 +243,7 @@ type Layer struct {
 	Schematic    *schematic.Service
 	Symbol       *symbol.Service
 	View         *view.Service
-	Library      *library.Service
+	ICD          *icd.Service
 	Table        *table.Service
 	Panel        *panel.Service
 	Label        *label.Service
@@ -442,12 +443,13 @@ func (l *Layer) BindTo(t Transport) {
 		t.ViewDelete,
 		t.ViewRename,
 
-		// LIBRARY
-		t.LibraryCreate,
-		t.LibraryRetrieve,
-		t.LibraryRename,
-		t.LibraryDelete,
-		t.LibraryImport,
+		// ICD
+		t.ICDCreate,
+		t.ICDRetrieve,
+		t.ICDCheck,
+		t.ICDRename,
+		t.ICDDelete,
+		t.ICDImport,
 
 		// ARC
 		t.ArcCreate,
@@ -664,12 +666,13 @@ func (l *Layer) BindTo(t Transport) {
 	t.ViewDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Delete))
 	t.ViewRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.View.Rename))
 
-	// LIBRARY
-	t.LibraryCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Library.Create))
-	t.LibraryRetrieve.BindHandler(l.Library.Retrieve)
-	t.LibraryRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Library.Rename))
-	t.LibraryDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Library.Delete))
-	t.LibraryImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Library.Import))
+	// ICD
+	t.ICDCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.ICD.Create))
+	t.ICDRetrieve.BindHandler(l.ICD.Retrieve)
+	t.ICDCheck.BindHandler(l.ICD.Check)
+	t.ICDRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.ICD.Rename))
+	t.ICDDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.ICD.Delete))
+	t.ICDImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.ICD.Import))
 
 	// ARC
 	t.ArcCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Create))
@@ -773,7 +776,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.View, err = view.NewService(cfg); err != nil {
 		return nil, err
 	}
-	if l.Library, err = library.NewService(cfg); err != nil {
+	if l.ICD, err = icd.NewService(cfg); err != nil {
 		return nil, err
 	}
 	if l.ImEx, err = imex.NewService(cfg); err != nil {

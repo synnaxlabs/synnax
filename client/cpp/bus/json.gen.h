@@ -19,7 +19,7 @@
 #include "client/cpp/bus/types.gen.h"
 #include "client/cpp/channel/json.gen.h"
 #include "client/cpp/device/key.h"
-#include "client/cpp/library/json.gen.h"
+#include "client/cpp/icd/json.gen.h"
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
@@ -28,7 +28,7 @@ namespace synnax::bus {
 
 inline ReadField ReadField::parse(x::json::Parser parser) {
     return ReadField{
-        .field = parser.field<::synnax::library::FieldKey>("field"),
+        .field = parser.field<::synnax::icd::FieldKey>("field"),
         .channel = parser.field<::synnax::channel::Key>(
             "channel",
             ::synnax::channel::Key(0)
@@ -48,7 +48,7 @@ inline x::json::json ReadField::to_json() const {
 
 inline ReadMessage ReadMessage::parse(x::json::Parser parser) {
     return ReadMessage{
-        .message = parser.field<::synnax::library::EntryKey>("message"),
+        .message = parser.field<::synnax::icd::EntryKey>("message"),
         .disabled = parser.field<bool>("disabled", false),
         .fields = parser.field<std::vector<ReadField>>(
             "fields",
@@ -67,7 +67,7 @@ inline x::json::json ReadMessage::to_json() const {
 
 inline WriteField WriteField::parse(x::json::Parser parser) {
     return WriteField{
-        .field = parser.field<::synnax::library::FieldKey>("field"),
+        .field = parser.field<::synnax::icd::FieldKey>("field"),
         .channel = parser.field<::synnax::channel::Key>(
             "channel",
             ::synnax::channel::Key(0)
@@ -84,7 +84,7 @@ inline x::json::json WriteField::to_json() const {
 
 inline WriteMessage WriteMessage::parse(x::json::Parser parser) {
     return WriteMessage{
-        .message = parser.field<::synnax::library::EntryKey>("message"),
+        .message = parser.field<::synnax::icd::EntryKey>("message"),
         .disabled = parser.field<bool>("disabled", false),
         .fields = parser.field<std::vector<WriteField>>(
             "fields",
@@ -106,9 +106,9 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     static_cast<::synnax::task::PersistConfig &>(
         result
     ) = ::synnax::task::PersistConfig::parse(parser);
-    static_cast<::synnax::library::Reference &>(
-        result
-    ) = ::synnax::library::Reference::parse(parser);
+    static_cast<::synnax::icd::Reference &>(result) = ::synnax::icd::Reference::parse(
+        parser
+    );
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.raw = parser.field<::synnax::channel::Key>("raw", ::synnax::channel::Key(0));
     result.messages = parser.field<std::vector<ReadMessage>>(
@@ -123,7 +123,7 @@ inline x::json::json ReadConfig::to_json() const {
     for (const auto base = ::synnax::task::PersistConfig::to_json();
          const auto &[k, v]: base.items())
         j[k] = v;
-    for (const auto base = ::synnax::library::Reference::to_json();
+    for (const auto base = ::synnax::icd::Reference::to_json();
          const auto &[k, v]: base.items())
         j[k] = v;
     j["device"] = this->device;
@@ -137,9 +137,9 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     static_cast<::synnax::task::WriteConfig &>(
         result
     ) = ::synnax::task::WriteConfig::parse(parser);
-    static_cast<::synnax::library::Reference &>(
-        result
-    ) = ::synnax::library::Reference::parse(parser);
+    static_cast<::synnax::icd::Reference &>(result) = ::synnax::icd::Reference::parse(
+        parser
+    );
     result.messages = parser.field<std::vector<WriteMessage>>(
         "messages",
         std::vector<WriteMessage>{}
@@ -152,7 +152,7 @@ inline x::json::json WriteConfig::to_json() const {
     for (const auto base = ::synnax::task::WriteConfig::to_json();
          const auto &[k, v]: base.items())
         j[k] = v;
-    for (const auto base = ::synnax::library::Reference::to_json();
+    for (const auto base = ::synnax::icd::Reference::to_json();
          const auto &[k, v]: base.items())
         j[k] = v;
     j["messages"] = x::json::to_array(this->messages);

@@ -9,12 +9,12 @@
 
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
-import "schemas/synnax/versions/library/v0"
+import "schemas/synnax/versions/icd/v0"
 import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/telem/v0"
 
 ReadField struct {
-    field   library.FieldKey {
+    field   icd.FieldKey {
         @doc value "is the key of the field within its message."
     }
     channel channel.Key = 0 {
@@ -29,8 +29,8 @@ ReadField struct {
 }
 
 ReadMessage struct {
-    message  library.EntryKey {
-        @doc value "is the key of the message entry in the task's library."
+    message  icd.EntryKey {
+        @doc value "is the key of the message entry in the task's ICD."
     }
     disabled bool = false {
         @doc value "is true when the task ignores the message."
@@ -40,14 +40,14 @@ ReadMessage struct {
     }
 
     @doc value  """
-        is one library message a read task decodes. Fields share an index only when the
+        is one ICD message a read task decodes. Fields share an index only when the
         same multiplexor values select them.
     """
     @go marshal
 }
 
 WriteField struct {
-    field   library.FieldKey {
+    field   icd.FieldKey {
         @doc value "is the key of the field within its message."
     }
     channel channel.Key = 0 {
@@ -62,24 +62,24 @@ WriteField struct {
 }
 
 WriteMessage struct {
-    message  library.EntryKey {
-        @doc value "is the key of the message entry in the task's library."
+    message  icd.EntryKey {
+        @doc value "is the key of the message entry in the task's ICD."
     }
     disabled bool = false {
         @doc value "is true when the task does not send the message."
     }
-    fields   WriteField[]     {
+    fields   WriteField[] {
         @doc value "are the fields of the message driven by command channels."
     }
 
     @doc value  """
-        is one library message a write task encodes. A message with a period is sent on
-        that period, and one without is sent when a command channel changes.
+        is one ICD message a write task encodes. A message with a period is sent on that
+        period, and one without is sent when a command channel changes.
     """
     @go marshal
 }
 
-ReadConfig struct extends task.PersistConfig, library.Reference {
+ReadConfig struct extends task.PersistConfig, icd.Reference {
     device   device.Key = "" {
         @doc value "is the key of the device the task reads from."
     }
@@ -97,7 +97,7 @@ ReadConfig struct extends task.PersistConfig, library.Reference {
     @go marshal
 }
 
-WriteConfig struct extends task.WriteConfig, library.Reference {
+WriteConfig struct extends task.WriteConfig, icd.Reference {
     messages WriteMessage[] {
         @doc value "are the messages the task sends."
     }
@@ -156,7 +156,7 @@ Framing union on type {
         length_size         uint8 = 1 {
             @doc value "is the size of the length field in bytes: 1, 2, or 4."
         }
-        byte_order          library.ByteOrder = little_endian {
+        byte_order          icd.ByteOrder = little_endian {
             @doc value "is the byte order of the length field."
         }
         length_adjustment   int32 = 0 {
@@ -168,7 +168,7 @@ Framing union on type {
         checksum            Checksum = none {
             @doc value "is the checksum that ends each frame."
         }
-        checksum_byte_order library.ByteOrder = little_endian {
+        checksum_byte_order icd.ByteOrder = little_endian {
             @doc value "is the byte order of the checksum."
         }
         max_length          uint32 = 0 {

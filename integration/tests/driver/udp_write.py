@@ -12,7 +12,7 @@ from functools import partial
 from examples.simulators.udp_telemetry import UDPTelemetrySim
 
 import synnax as sy
-from synnax import library, udp
+from synnax import icd, udp
 from tests.driver.bus_task import BusCase
 
 # Setpoint, trim, and mode commands, and the datagram each round must send. The
@@ -31,38 +31,38 @@ class UDPWrite(BusCase):
     prefix = "udp_write"
     commands: dict[str, int]
 
-    def create_entries(self) -> list[library.Entry]:
+    def create_entries(self) -> list[icd.Entry]:
         return [
-            library.MessageEntry(
+            icd.MessageEntry(
                 name="command",
-                payload=library.BinaryPayload(
+                payload=icd.BinaryPayload(
                     length=6,
                     fields=[
-                        library.BinaryField(
+                        icd.BinaryField(
                             name="setpoint", start_bit=0, bit_length=16, scale=0.5
                         ),
-                        library.BinaryField(
+                        icd.BinaryField(
                             name="trim",
                             start_bit=23,
                             bit_length=16,
                             byte_order="big_endian",
                             signed=True,
                         ),
-                        library.BinaryField(name="mode", start_bit=32, bit_length=8),
-                        library.BinaryField(name="spare", start_bit=40, bit_length=8),
+                        icd.BinaryField(name="mode", start_bit=32, bit_length=8),
+                        icd.BinaryField(name="spare", start_bit=40, bit_length=8),
                     ],
                 ),
             )
         ]
 
-    def create_task(self, device: sy.Device, library_key: library.Key) -> udp.WriteTask:
+    def create_task(self, device: sy.Device, icd_key: icd.Key) -> udp.WriteTask:
         message, self.commands = self.bind_write(
             "command", ["setpoint", "trim", "mode"]
         )
         return udp.WriteTask(
             name="UDP Write",
             device=device.key,
-            library=library_key,
+            icd=icd_key,
             messages=[message],
         )
 

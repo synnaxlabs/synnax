@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bus, type library } from "@synnaxlabs/client";
+import { type bus, type icd } from "@synnaxlabs/client";
 import { type z } from "zod";
 
 /** A message entry of a task's config: the fields a read or write task binds. */
 export type Message = bus.ReadMessage | bus.WriteMessage;
 
-/** Whether an integration can carry a library message. */
+/** Whether an integration can carry an ICD message. */
 export interface Accepts {
-  (message: library.MessageEntry): boolean;
+  (message: icd.MessageEntry): boolean;
 }
 
 /**
@@ -27,12 +27,12 @@ export const acceptsStream: Accepts = ({ payload }) =>
   payload.identifier == null ||
   payload.identifier.type === "field";
 
-/** @returns the message entries of a library, keyed by entry key. */
+/** @returns the message entries of an ICD, keyed by entry key. */
 export const messagesOf = (
-  lib: library.Library | undefined,
-): Map<library.EntryKey, library.MessageEntry> => {
-  const out = new Map<library.EntryKey, library.MessageEntry>();
-  lib?.entries.forEach((e) => {
+  ic: icd.ICD | undefined,
+): Map<icd.EntryKey, icd.MessageEntry> => {
+  const out = new Map<icd.EntryKey, icd.MessageEntry>();
+  ic?.entries.forEach((e) => {
     if (e.kind === "message") out.set(e.key, e);
   });
   return out;
@@ -43,9 +43,9 @@ export const messagesOf = (
  * @throws {Error} if the message has no such field.
  */
 export const fieldOf = (
-  entry: library.MessageEntry,
-  key: library.FieldKey,
-): library.BaseField => {
+  entry: icd.MessageEntry,
+  key: icd.FieldKey,
+): icd.BaseField => {
   const field = entry.payload.fields.find((f) => f.key === key);
   if (field == null) throw new Error(`Field ${key} is not in message ${entry.name}`);
   return field;
@@ -60,8 +60,8 @@ const validateDevice = (issues: Issues, input: unknown, device: string) => {
   if (device === "") push(issues, input, ["device"], "Device is required");
 };
 
-const validateLibrary = (issues: Issues, input: unknown, key?: library.Key) => {
-  if (key == null) push(issues, input, ["library"], "Select a library");
+const validateICD = (issues: Issues, input: unknown, key?: icd.Key) => {
+  if (key == null) push(issues, input, ["icd"], "Select an ICD");
 };
 
 const validateMessages = (issues: Issues, input: unknown, messages: Message[]) => {
@@ -75,7 +75,7 @@ export const validateRead = ({
   issues,
 }: z.core.ParsePayload<bus.ReadConfig>) => {
   validateDevice(issues, value, value.device);
-  validateLibrary(issues, value, value.library);
+  validateICD(issues, value, value.icd);
   validateMessages(issues, value, value.messages);
   value.messages.forEach((m, i) => {
     if (!m.disabled && m.fields.length === 0)
@@ -89,7 +89,7 @@ export const validateWrite = ({
   issues,
 }: z.core.ParsePayload<bus.WriteConfig>) => {
   validateDevice(issues, value, value.device);
-  validateLibrary(issues, value, value.library);
+  validateICD(issues, value, value.icd);
   validateMessages(issues, value, value.messages);
 };
 

@@ -11,7 +11,7 @@ import numpy as np
 from examples.simulators import can_frames
 
 import synnax as sy
-from synnax import can, library
+from synnax import can, icd
 from tests.driver.bus_task import (
     Bound,
     Collector,
@@ -39,23 +39,23 @@ class CANRead(CANCase):
     fast: Bound
     slow: Bound
 
-    def create_entries(self) -> list[library.Entry]:
+    def create_entries(self) -> list[icd.Entry]:
         return [
-            library.MessageEntry(
+            icd.MessageEntry(
                 name="fast",
-                payload=library.BinaryPayload(
-                    identifier=library.CanIdentifier(id=can_frames.FAST_ID),
+                payload=icd.BinaryPayload(
+                    identifier=icd.CanIdentifier(id=can_frames.FAST_ID),
                     length=8,
                     fields=[
-                        library.BinaryField(name="count", start_bit=0, bit_length=16),
-                        library.BinaryField(
+                        icd.BinaryField(name="count", start_bit=0, bit_length=16),
+                        icd.BinaryField(
                             name="sine",
                             start_bit=16,
                             bit_length=16,
                             signed=True,
                             scale=SINE_SCALE,
                         ),
-                        library.BinaryField(
+                        icd.BinaryField(
                             name="temperature",
                             start_bit=32,
                             bit_length=12,
@@ -63,8 +63,8 @@ class CANRead(CANCase):
                             scale=TEMPERATURE_SCALE,
                             offset=TEMPERATURE_OFFSET,
                         ),
-                        library.BinaryField(name="state", start_bit=44, bit_length=4),
-                        library.BinaryField(
+                        icd.BinaryField(name="state", start_bit=44, bit_length=4),
+                        icd.BinaryField(
                             name="speed",
                             start_bit=55,
                             bit_length=16,
@@ -73,16 +73,16 @@ class CANRead(CANCase):
                     ],
                 ),
             ),
-            library.MessageEntry(
+            icd.MessageEntry(
                 name="slow",
-                payload=library.BinaryPayload(
-                    identifier=library.CanIdentifier(
+                payload=icd.BinaryPayload(
+                    identifier=icd.CanIdentifier(
                         id=can_frames.SLOW_ID & SLOW_MASK, extended=True, mask=SLOW_MASK
                     ),
                     length=8,
                     fields=[
-                        library.BinaryField(name="count", start_bit=0, bit_length=32),
-                        library.BinaryField(
+                        icd.BinaryField(name="count", start_bit=0, bit_length=32),
+                        icd.BinaryField(
                             name="ratio", start_bit=32, bit_length=32, float=True
                         ),
                     ],
@@ -90,7 +90,7 @@ class CANRead(CANCase):
             ),
         ]
 
-    def create_task(self, device: sy.Device, library_key: library.Key) -> can.ReadTask:
+    def create_task(self, device: sy.Device, icd_key: icd.Key) -> can.ReadTask:
         fast_msg, self.fast = self.bind_read(
             "fast",
             ["count", "sine", "temperature", "state", "speed"],
@@ -106,7 +106,7 @@ class CANRead(CANCase):
         return can.ReadTask(
             name="CAN Read",
             device=device.key,
-            library=library_key,
+            icd=icd_key,
             messages=[fast_msg, slow_msg],
         )
 
