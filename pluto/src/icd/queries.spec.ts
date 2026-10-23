@@ -7,21 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, library, NotFoundError, ontology } from "@synnaxlabs/client";
+import { group, icd, NotFoundError, ontology, StaleError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
-import { Library } from "@/library";
+import { ICD } from "@/icd";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
-const createLibrary = async (name: string = `library-${id.create()}`) =>
-  await client.libraries.create({
+const createICD = async (name: string = `icd-${id.create()}`) =>
+  await client.icds.create({
     name,
     entries: [
       {
@@ -35,117 +35,112 @@ const createLibrary = async (name: string = `library-${id.create()}`) =>
     ],
   });
 
-describe("Library queries", () => {
+describe("ICD queries", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeEach(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
   describe("use", () => {
-    it("should retrieve a library by key", async () => {
-      const lib = await createLibrary();
-      const { result } = await renderHookSuspended(
-        () => Library.use({ key: lib.key }),
-        {
-          wrapper,
-        },
-      );
-      await waitFor(() => expect(result.current?.key).toEqual(lib.key));
-      expect(result.current?.entries).toEqual(lib.entries);
+    it("should retrieve an ICD by key", async () => {
+      const ic = await createICD();
+      const { result } = await renderHookSuspended(() => ICD.use({ key: ic.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current?.key).toEqual(ic.key));
+      expect(result.current?.entries).toEqual(ic.entries);
     });
   });
 
   describe("useList", () => {
-    it("should list libraries by key", async () => {
-      const [a, b] = await Promise.all([createLibrary(), createLibrary()]);
-      const { result } = renderHook(() => Library.useList(), { wrapper });
+    it("should list ICDs by key", async () => {
+      const [a, b] = await Promise.all([createICD(), createICD()]);
+      const { result } = renderHook(() => ICD.useList(), { wrapper });
       act(() => result.current.retrieve({ keys: [a.key, b.key] }));
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect([...result.current.data].sort()).toEqual([a.key, b.key].sort());
     });
 
-    it("should add a library created after the list loads", async () => {
-      const { result } = renderHook(() => Library.useList(), { wrapper });
+    it("should add an ICD created after the list loads", async () => {
+      const { result } = renderHook(() => ICD.useList(), { wrapper });
       act(() => result.current.retrieve({}));
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      const lib = await createLibrary();
-      await waitFor(() => expect(result.current.data).toContain(lib.key));
+      const ic = await createICD();
+      await waitFor(() => expect(result.current.data).toContain(ic.key));
     });
   });
 
   describe("useCreate", () => {
-    it("should create a library", async () => {
+    it("should create an ICD", async () => {
       const key = uuid.create();
-      const name = `library-${id.create()}`;
-      const { result } = renderHook(() => Library.useCreate(), { wrapper });
+      const name = `icd-${id.create()}`;
+      const { result } = renderHook(() => ICD.useCreate(), { wrapper });
       await act(async () => {
         expect(await result.current.updateAsync({ key, name })).toBe(true);
       });
-      expect((await client.libraries.retrieve({ key })).name).toEqual(name);
+      expect((await client.icds.retrieve({ key })).name).toEqual(name);
     });
   });
 
   describe("useRename", () => {
-    it("should rename a library", async () => {
-      const lib = await createLibrary();
+    it("should rename an ICD", async () => {
+      const ic = await createICD();
       const { result } = await renderHookSuspended(
         () => ({
-          name: Library.useName({ key: lib.key }),
-          rename: Library.useRename(),
+          name: ICD.useName({ key: ic.key }),
+          rename: ICD.useRename(),
         }),
         { wrapper },
       );
       await act(async () => {
-        await result.current.rename.updateAsync({ key: lib.key, name: "Renamed" });
+        await result.current.rename.updateAsync({ key: ic.key, name: "Renamed" });
       });
       await waitFor(() => expect(result.current.name).toEqual("Renamed"));
-      expect((await client.libraries.retrieve({ key: lib.key })).name).toEqual(
-        "Renamed",
-      );
+      expect((await client.icds.retrieve({ key: ic.key })).name).toEqual("Renamed");
     });
   });
 
   describe("useDelete", () => {
-    it("should delete a library", async () => {
-      const lib = await createLibrary();
-      const { result } = renderHook(() => Library.useDelete(), { wrapper });
+    it("should delete an ICD", async () => {
+      const ic = await createICD();
+      const { result } = renderHook(() => ICD.useDelete(), { wrapper });
       await act(async () => {
-        await result.current.updateAsync(lib.key);
+        await result.current.updateAsync(ic.key);
       });
-      await expect(client.libraries.retrieve({ key: lib.key })).rejects.toThrow(
+      await expect(client.icds.retrieve({ key: ic.key })).rejects.toThrow(
         NotFoundError,
       );
     });
   });
 
   describe("useImport", () => {
-    it("should replace the entries of a library with an import", async () => {
-      const lib = await createLibrary();
+    it("should replace the entries of an ICD with an import", async () => {
+      const ic = await createICD();
       const csv = "message,field,start_bit,bit_length\nEngine,Rpm,0,16";
-      const { result } = renderHook(() => Library.useImport(), { wrapper });
+      const { result } = renderHook(() => ICD.useImport(), { wrapper });
       await act(async () => {
         await result.current.updateAsync({
-          key: lib.key,
+          key: ic.key,
           format: "csv",
           data: new TextEncoder().encode(csv),
         });
       });
-      const retrieved = await client.libraries.retrieve({ key: lib.key });
+      const retrieved = await client.icds.retrieve({ key: ic.key });
       expect(retrieved.entries.map((e) => e.name)).toEqual(["Engine"]);
     });
   });
 
   describe("useForm", () => {
-    it("should save the whole library", async () => {
-      const lib = await createLibrary();
+    it("should save the whole ICD", async () => {
+      const ic = await createICD();
       const { result } = await renderHookSuspended(
-        () => Library.useForm({ query: { key: lib.key } }),
+        () => ICD.useForm({ query: { key: ic.key } }),
         { wrapper },
       );
-      expect(result.current.form.value().entries).toEqual(lib.entries);
+      expect(result.current.form.value().entries).toEqual(ic.entries);
       act(() =>
         result.current.form.set("entries", [
-          ...lib.entries,
+          ...ic.entries,
           {
             kind: "message",
             key: uuid.create(),
@@ -174,16 +169,16 @@ describe("Library queries", () => {
       await act(async () => {
         expect(await result.current.saveAsync()).toBe(true);
       });
-      const retrieved = await client.libraries.retrieve({ key: lib.key });
+      const retrieved = await client.icds.retrieve({ key: ic.key });
       expect(retrieved.entries).toEqual(result.current.form.value().entries);
       expect(retrieved.entries.map((e) => e.name)).toEqual(["State", "Status"]);
     });
 
     it("should place a Core validation error on the field it names", async () => {
-      const lib = await createLibrary();
-      const [state] = lib.entries;
+      const ic = await createICD();
+      const [state] = ic.entries;
       const { result } = await renderHookSuspended(
-        () => Library.useForm({ query: { key: lib.key } }),
+        () => ICD.useForm({ query: { key: ic.key } }),
         { wrapper },
       );
       act(() =>
@@ -200,30 +195,64 @@ describe("Library queries", () => {
       });
     });
 
-    it("should take a rename made elsewhere", async () => {
-      const lib = await createLibrary();
+    it("should reject a save when the ICD changed elsewhere", async () => {
+      const ic = await createICD();
       const { result } = await renderHookSuspended(
-        () => Library.useForm({ query: { key: lib.key } }),
+        () => ICD.useForm({ query: { key: ic.key } }),
         { wrapper },
       );
-      await client.libraries.rename(lib.key, "Renamed");
+      await client.icds.create({ ...ic, entries: [] });
+      act(() => result.current.form.set(`entries.${ic.entries[0].key}.name`, "Mode"));
+      await act(async () => {
+        expect(await result.current.saveAsync()).toBe(false);
+      });
+      const { status } = result.current;
+      assert(status.variant === "error");
+      expect(StaleError.matches(status.details.error)).toBe(true);
+      expect((await client.icds.retrieve({ key: ic.key })).entries).toEqual([]);
+    });
+
+    it("should save after a rename made elsewhere", async () => {
+      const ic = await createICD();
+      const { result } = await renderHookSuspended(
+        () => ICD.useForm({ query: { key: ic.key } }),
+        { wrapper },
+      );
+      await client.icds.rename(ic.key, "Renamed");
+      await waitFor(() => expect(result.current.form.value().name).toEqual("Renamed"));
+      act(() => result.current.form.set(`entries.${ic.entries[0].key}.name`, "Mode"));
+      await act(async () => {
+        expect(await result.current.saveAsync()).toBe(true);
+      });
+      const retrieved = await client.icds.retrieve({ key: ic.key });
+      expect(retrieved.name).toEqual("Renamed");
+      expect(retrieved.entries[0].name).toEqual("Mode");
+    });
+
+    it("should take a rename made elsewhere", async () => {
+      const ic = await createICD();
+      const { result } = await renderHookSuspended(
+        () => ICD.useForm({ query: { key: ic.key } }),
+        { wrapper },
+      );
+      await client.icds.rename(ic.key, "Renamed");
       await waitFor(() => expect(result.current.form.value().name).toEqual("Renamed"));
     });
   });
 
   describe("useTasks", () => {
     it("should not list resources joined by other relationships", async () => {
-      const lib = await createLibrary();
+      const ic = await createICD();
       const child = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: `group-${id.create()}`,
       });
       await client.ontology.addChildren(
-        library.ontologyID(lib.key),
+        icd.ontologyID(ic.key),
         group.ontologyID(child.key),
       );
       const { result } = await renderHookSuspended(
-        () => Library.useTasks({ key: lib.key }),
+        () => ICD.useTasks({ key: ic.key }),
         { wrapper },
       );
       expect(result.current).toEqual([]);

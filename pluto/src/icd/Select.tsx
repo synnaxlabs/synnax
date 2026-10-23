@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type library } from "@synnaxlabs/client";
+import { type icd } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -15,24 +15,24 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement } from "react";
 
 import { type Flux } from "@/flux";
-import { type ListQuery, useList } from "@/library/queries";
+import { type ListQuery, useList } from "@/icd/queries";
 
 export interface SelectSingleProps
   extends
     Omit<
-      Select.SingleProps<library.Key, library.Library | undefined>,
+      Select.SingleProps<icd.Key, icd.ICD | undefined>,
       "data" | "getItem" | "subscribe" | "children" | "resourceName"
     >,
-    Flux.UseListParams<ListQuery, library.Key, library.Library> {}
+    Flux.UseListParams<ListQuery, icd.Key, icd.ICD> {}
 
 const listItemRenderProp = Component.renderProp(
-  (props: List.ItemRenderProps<library.Key>) => {
-    const item = List.useItem<library.Key, library.Library>(props.itemKey);
+  (props: List.ItemRenderProps<icd.Key>) => {
+    const item = List.useItem<icd.Key, icd.ICD>(props.itemKey);
     return <Select.Item {...props}>{item?.name}</Select.Item>;
   },
 );
 
-/** Selects one library. */
+/** Selects one ICD. */
 export const SelectSingle = ({
   initialQuery,
   filter,
@@ -44,8 +44,8 @@ export const SelectSingle = ({
   });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
-    <Select.Single<library.Key, library.Library | undefined>
-      resourceName="library"
+    <Select.Single<icd.Key, icd.ICD | undefined>
+      resourceName="ICD"
       data={data}
       getItem={getItem}
       subscribe={subscribe}
