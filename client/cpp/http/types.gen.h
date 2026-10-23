@@ -154,7 +154,7 @@ struct ChannelField {
     ::x::telem::DataType data_type = ::x::telem::DataType("float64");
     /// @brief time_format is the output encoding when the command channel holds
     /// timestamps.
-    /// Required for timestamp channels.
+    /// An unset format is ISO 8601.
     std::optional<std::string> time_format;
     /// @brief enum_values maps numeric channel values to string labels. Only valid when
     /// json_type is 'string'.
