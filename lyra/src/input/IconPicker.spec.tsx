@@ -12,6 +12,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Theming } from "@/theming";
@@ -30,6 +31,8 @@ const search = (c: RenderResult): HTMLInputElement =>
   c.getByLabelText("Search icons") as HTMLInputElement;
 
 const options = (c: RenderResult): HTMLElement[] => c.queryAllByRole("option");
+
+const ESCAPE = { key: "Escape", code: "Escape" };
 
 const names = (c: RenderResult): (string | null)[] =>
   options(c).map((o) => o.getAttribute("aria-label"));
@@ -178,6 +181,31 @@ describe("IconPicker", () => {
       fireEvent.keyDown(document.activeElement as Element, { key: "End" });
       fireEvent.keyDown(document.activeElement as Element, { key: "ArrowRight" });
       expect(focusedName()).toEqual(shown.at(-1));
+    });
+
+    it("should return to the search field on Escape in the grid", () => {
+      const c = renderPicker();
+      fireEvent.keyDown(search(c), { key: "ArrowDown" });
+      fireEvent.keyDown(document.activeElement as Element, ESCAPE);
+      expect(document.activeElement).toBe(search(c));
+    });
+  });
+
+  describe("in a dialog", () => {
+    it("should close the dialog on an Escape from the search field", () => {
+      const c = render(
+        <Dialog.Frame initialVisible>
+          <Dialog.Dialog>
+            <Input.IconPicker onChange={vi.fn()} />
+          </Dialog.Dialog>
+        </Dialog.Frame>,
+        { wrapper: Wrapper },
+      );
+      fireEvent.keyDown(search(c), { key: "ArrowDown" });
+      fireEvent.keyDown(document.activeElement as Element, ESCAPE);
+      expect(c.queryByLabelText("Search icons")).not.toBeNull();
+      fireEvent.keyDown(search(c), ESCAPE);
+      expect(c.queryByLabelText("Search icons")).toBeNull();
     });
   });
 });

@@ -23,7 +23,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { Text as InputText } from "@/input/Text";
+import { Search } from "@/input/Search";
 import { Text } from "@/text";
 
 export interface IconPickerProps {
@@ -51,7 +51,8 @@ const MOVES: Partial<Record<string, Move>> = {
 
 /**
  * A search field over a grid of the {@link Icon.PICKABLE} icons. The arrow keys move
- * between the field and the grid, and Enter in the field picks the best match.
+ * between the field and the grid, Enter in the field picks the best match, and Escape in
+ * the grid returns to the field.
  */
 export const IconPicker = ({
   value,
@@ -82,6 +83,11 @@ export const IconPicker = ({
   };
 
   const handleGridKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      searchRef.current?.focus();
+      return;
+    }
     const move = MOVES[e.key];
     if (move == null) return;
     e.preventDefault();
@@ -96,15 +102,13 @@ export const IconPicker = ({
 
   return (
     <Flex.Box y gap="medium" className={CSS.B("icon-picker")}>
-      <InputText
+      <Search
         ref={searchRef}
         value={term}
         onChange={setTerm}
         onKeyDown={handleSearchKeyDown}
-        autoFocus
         size="small"
         full="x"
-        startContent={<Icon.Search />}
         placeholder="Search icons"
         aria-label="Search icons"
       />

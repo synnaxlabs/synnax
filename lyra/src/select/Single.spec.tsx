@@ -87,6 +87,14 @@ describe("Select.Single", () => {
     expect(c.getByText("Test Item")).toBeTruthy();
   });
 
+  it("should close the selection dialog on one Escape from the search field", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.keyDown(c.getByRole("textbox"), { key: "Escape", code: "Escape" });
+    expect(c.queryByRole("option", { name: "First Item Option" })).toBeNull();
+  });
+
   it("should open the selection dialog when the trigger is clicked", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);

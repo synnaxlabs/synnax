@@ -14,6 +14,19 @@ import { Dialog } from "@/dialog";
 import { PORTAL_ID_ATTR, PORTAL_OWNER_ATTR } from "@/dialog/useClickOutside";
 import { Triggers } from "@/triggers";
 
+const rect = (left: number, top: number, width: number, height: number) =>
+  ({
+    left,
+    top,
+    width,
+    height,
+    right: left + width,
+    bottom: top + height,
+    x: left,
+    y: top,
+    toJSON: () => ({}),
+  }) as DOMRect;
+
 describe("Dialog", () => {
   it("should not display the dialog content by default", () => {
     const c = render(
@@ -232,20 +245,65 @@ describe("Dialog", () => {
       });
     });
   });
-  describe("window fit", () => {
-    const rect = (left: number, top: number, width: number, height: number) =>
-      ({
-        left,
-        top,
-        width,
-        height,
-        right: left + width,
-        bottom: top + height,
-        x: left,
-        y: top,
-        toJSON: () => ({}),
-      }) as DOMRect;
+  describe("anchor", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
 
+    it("should place the dialog under the anchor instead of the frame", () => {
+      const anchor = document.createElement("div");
+      document.body.appendChild(anchor);
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+        this: Element,
+      ) {
+        return this === anchor ? rect(400, 100, 100, 30) : rect(0, 0, 0, 0);
+      });
+      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(200);
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(100);
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame anchor={anchor} initialVisible>
+            <Dialog.Dialog>
+              <p>Content</p>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+      const el = c.getByRole("dialog");
+      expect(el.style.left).toBe("400px");
+      expect(parseFloat(el.style.top)).toBeGreaterThanOrEqual(130);
+      anchor.remove();
+    });
+  });
+
+  describe("open", () => {
+    it("should open the frame with the given id", () => {
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame id="frame">
+            <Dialog.Trigger>Toggle</Dialog.Trigger>
+            <Dialog.Dialog>
+              <p>Content</p>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      act(() => Dialog.open("frame"));
+      expect(c.getByText("Content")).toBeTruthy();
+    });
+
+    it("should throw when the id names no frame", () => {
+      render(<p id="paragraph">Text</p>);
+      expect(() => Dialog.open("paragraph")).toThrow(
+        "no dialog frame has the id paragraph",
+      );
+    });
+  });
+
+  describe("window fit", () => {
     afterEach(() => {
       vi.restoreAllMocks();
     });
