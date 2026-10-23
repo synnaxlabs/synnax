@@ -263,8 +263,8 @@ class Series(ArrayOperators, BaseModel):
         This represents the range [alignment, alignment + length).
         """
         return Bounds(
-            lower=float(int(self.alignment)),
-            upper=float(int(self.alignment) + len(self)),
+            lower=int(self.alignment),
+            upper=int(self.alignment) + len(self),
         )
 
     def astype(self, data_type: DataType) -> Series:

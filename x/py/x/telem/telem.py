@@ -50,10 +50,13 @@ def _timedelta64_nanoseconds(delta: np.timedelta64) -> int:
     unit, count = np.datetime_data(delta.dtype)
     if unit not in _TIMEDELTA64_UNIT_NANOSECONDS:
         return int(delta.astype("timedelta64[ns]").astype(np.int64))
-    ns = int(delta.astype(np.int64)) * count * _TIMEDELTA64_UNIT_NANOSECONDS[unit]
-    if not -(2**63) <= ns < 2**63:
-        raise ValueError(f"{delta} does not fit in a 64-bit TimeSpan")
-    return ns
+    return int(delta.astype(np.int64)) * count * _TIMEDELTA64_UNIT_NANOSECONDS[unit]
+
+
+def _int64(value: int, name: str) -> int:
+    if not -(2**63) <= value < 2**63:
+        raise ValueError(f"{value} does not fit in a 64-bit {name}")
+    return value
 
 
 class TimeStamp(int):
@@ -93,8 +96,7 @@ class TimeStamp(int):
             value = int(value)
         else:
             raise TypeError(f"Cannot convert {type(value)} to TimeStamp")
-
-        return super().__new__(cls, value)
+        return super().__new__(cls, _int64(value, "TimeStamp"))
 
     @classmethod
     def __get_pydantic_core_schema__(
@@ -210,6 +212,9 @@ class TimeStamp(int):
             return False
         return super().__eq__(TimeStamp(rhs))
 
+    def __hash__(self) -> int:
+        return super().__hash__()
+
     def __str__(self) -> str:
         return self.datetime().isoformat()
 
@@ -238,14 +243,16 @@ class TimeSpan(int):
         if isinstance(value, str):
             value = int(value)
         if isinstance(value, pd.Timedelta):
-            value = value.value
+            ns = value.value
         elif isinstance(value, timedelta):
-            value = _timedelta_nanoseconds(value)
+            ns = _timedelta_nanoseconds(value)
         elif isinstance(value, np.timedelta64):
-            value = _timedelta64_nanoseconds(value)
-        elif not isinstance(value, (int, float, np.floating, np.integer)):
+            ns = _timedelta64_nanoseconds(value)
+        elif isinstance(value, (int, float, np.floating, np.integer)):
+            ns = int(value)
+        else:
             raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
-        return super().__new__(cls, value)
+        return super().__new__(cls, _int64(ns, "TimeSpan"))
 
     @classmethod
     def __get_pydantic_core_schema__(
@@ -476,6 +483,9 @@ class TimeSpan(int):
         if not isinstance(rhs, (int, float, timedelta, np.timedelta64)):
             return NotImplemented
         return super().__eq__(int(TimeSpan(rhs)))
+
+    def __hash__(self) -> int:
+        return super().__hash__()
 
     NANOSECOND: TimeSpan
     """A nanosecond."""
@@ -797,6 +807,9 @@ class TimeRange(BaseModel):
         if not isinstance(rhs, TimeRange):
             return False
         return self.start == rhs.start and self.end == rhs.end
+
+    def __hash__(self) -> int:
+        return hash((self.start, self.end))
 
     MAX: ClassVar[TimeRange]
     """The maximum possible TimeRange, starting at TimeStamp.MIN and ending
@@ -1204,7 +1217,7 @@ DataType._FROM_NUMPY = {
     np.dtype(np.uint16): DataType.UINT16,
     np.dtype(np.uint8): DataType.UINT8,
     np.dtype(np.bool_): DataType.BOOLEAN,
-    np.dtype(np.datetime64): DataType.TIMESTAMP,
+    np.dtype("datetime64[ns]"): DataType.TIMESTAMP,
     np.dtype(np.str_): DataType.STRING,
 }
 
