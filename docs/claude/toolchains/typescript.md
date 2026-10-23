@@ -122,6 +122,9 @@ code in the editor.
 - Keep render pure. The compiler caches each computation on its inputs, so a clock, a
   ref, a module cache, or an object changed in place goes stale in render without an
   error. Pass the current time in as state, and copy an object instead of changing it.
+- Render a component as an element, never pass it where a render function goes
+  (`{(p) => <Input.Numeric {...p} />}`, not `{Input.Numeric}`). A compiled component
+  calls a hook, so a cached call to it breaks the hook order.
 - Write `if (x == null) x = y;` in a component or hook. The compiler cannot compile
   `??=`.
 - Use the `"use no memo"` directive only for an incompatible library or a fixed hook
