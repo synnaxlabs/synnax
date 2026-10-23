@@ -53,6 +53,25 @@ var _ = Describe("Python Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should leave out a field omitted in py", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@py output "out"
+
+					Session struct {
+						key     uuid
+						hash    bytes { @py omit }
+						subject string
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`key: UUID`, `subject: str`).
+					ToNotContain("hash")
+			})
+		})
+
 		Context("basic struct generation", func() {
 			It(
 				"Should generate Pydantic model for simple struct",
@@ -1844,7 +1863,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 		Context("generic alias with nil type argument", func() {
 			It(
-				"Should generate TypeAlias with None for nil type arg",
+				"Should drop a nil type arg so the generic uses its default",
 				func(ctx SpecContext) {
 					loader.Add("schemas/status", `
 @py output "client/py/synnax/status"
@@ -1866,8 +1885,9 @@ ChannelStatus = status.Status<nil>
 					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 					ExpectContent(resp, "channel/types_gen.py").
 						ToContain(
-							`ChannelStatus: TypeAlias = status.Status[None]`,
-						)
+							"ChannelStatus: TypeAlias = status.Status\n",
+						).
+						ToNotContain(`status.Status[None]`)
 				},
 			)
 		})

@@ -30,7 +30,10 @@ export interface UseOnChangeExtra<K extends record.Key = record.Key> {
   clicked: K | null;
 }
 
-/** Props for {@link useSingle} when clicking the selected entry can clear it. */
+/**
+ * Props for {@link useSingle} when the selection can be cleared. Clicking the selected
+ * entry clears it only when the click does not close a dialog.
+ */
 export interface UseSingleAllowNoneProps<K extends record.Key> {
   value?: K;
   onChange: (next: K | null, extra: UseOnChangeExtra<K>) => void;
@@ -163,21 +166,21 @@ export const useSingle = <K extends record.Key>({
     select();
     return subscribe(select);
   }, [autoSelectOnNone, onChange, value, getOrder, subscribe]);
+  const clear = useCallback(() => {
+    if (allowNone) onChange(null as unknown as K, { clicked: null });
+  }, [onChange, allowNone]);
   const handleSelect = useCallback(
     (key: K): void => {
       if (valueRef.current === key) {
-        if (allowNone) onChange(null as unknown as K, { clicked: null });
         if (closeDialogOnSelect) close();
+        else clear();
         return;
       }
       onChange(key, { clicked: key });
       if (closeDialogOnSelect) close();
     },
-    [onChange, close],
+    [onChange, close, clear, closeDialogOnSelect],
   );
-  const clear = useCallback(() => {
-    if (allowNone) onChange(null as unknown as K, { clicked: null });
-  }, [onChange, allowNone]);
 
   const setSelected = useCallback(
     (keys: K[]): void => onChange(keys[0], { clicked: null }),
