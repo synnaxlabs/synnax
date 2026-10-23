@@ -32,10 +32,12 @@ import ec2_off
 import ec2_on
 from aws import AWS
 from common import (
+    Channels,
     add_connection_args,
     close_quietly,
     command_channels,
     connect,
+    patch_client,
     shield,
 )
 from heartbeat import Heartbeat
@@ -77,7 +79,7 @@ def existing_channels(
 
 def dispatch(
     frame: sy.Frame, lookup: dict[int | str, tuple[str, str]], aws: AWS, log: Log
-):
+) -> None:
     for channel, series in frame.items():
         if channel not in lookup or len(series) == 0:
             continue
@@ -98,10 +100,12 @@ def main() -> None:
     p = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     add_connection_args(p)
     args = p.parse_args()
+    patch_client()
     client = connect(args)
-    log = Log(client, LOG)
+    creator = Channels(client, args.create_channels)
+    log = Log(client, creator, LOG)
     aws = AWS()
-    alive = Heartbeat(client, HEARTBEAT)
+    alive = Heartbeat(client, creator, HEARTBEAT)
     channels = command_channels(known_runners(), tuple(COMMANDS))
     names, lookup = existing_channels(client, channels)
     if not names:

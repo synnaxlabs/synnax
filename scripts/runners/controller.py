@@ -92,25 +92,22 @@ from common import (
     MISSING,
     OFFLINE,
     ChannelCreateError,
+    Channels,
     add_connection_args,
     channel_name,
     command_channels,
     connect,
-    create_agent_channels,
-    create_calculated,
-    create_channels,
-    create_index,
-    create_virtual,
     ec2_channels,
     gh_channels,
     instance_status,
+    patch_client,
     seconds,
     shield,
 )
 from cost import QUERY_TIME, Cost
 from events import Events
 from gate import GATE_CMD, GATE_ENABLED, GATE_ENABLED_INDEX, GATE_LOG, Gate
-from github import github_token, runner_status, webhook_secret
+from github import GitHub, github_token, webhook_secret
 from heartbeat import Heartbeat
 from jobs import Jobs
 from log import Log
@@ -148,35 +145,40 @@ class Controller:
     def __init__(
         self,
         client: sy.Synnax,
-        token: str,
+        channels: Channels,
+        github: GitHub,
+        aws: AWS,
+        runners: RunnerRegistry,
+        jobs: Jobs,
+        cost: Cost,
         scaler: Scaler,
         gate: Gate,
         log: Log,
         webhook: Webhook,
     ) -> None:
-        self.client = client
-        self.token = token
+        self.channels = channels
+        self.github = github
+        self.aws = aws
+        self.runners = runners
+        self.jobs = jobs
+        self.cost = cost
         self.scaler = scaler
         self.gate = gate
         self.log = log
         self.webhook = webhook
-        self.aws = AWS()
-        self.runners = RunnerRegistry()
-        self.jobs = Jobs(token, log)
         self.pool = ThreadPoolExecutor(8)
-        self.gh_index = create_index(client, GH_INDEX)
-        self.ec2_index = create_index(client, EC2_INDEX)
+        self.gh_index = channels.index(GH_INDEX)
+        self.ec2_index = channels.index(EC2_INDEX)
         self.known: set[str] = set()
-        self.cost = Cost(log, self.aws)
-        self.cost_index = create_index(client, QUERY_TIME)
+        self.cost_index = channels.index(QUERY_TIME)
         # What the writer carries, so a fetch that adds a type retargets first.
         self.cost_channels: set[str] = set()
-        self.uptime = Uptime(client, report=log.error)
+        self.uptime = Uptime(client, channels, report=log.error)
         self.status = Publisher(client, "Controller", [], report=log.error)
         self.last_gh: dict[str, int] = {}
         self.last_ec2: dict[str, bool] = {}
         self.cost_pending: dict[str, float] = {}
-        self.events = Events(client, set(), report=log.error)
+        self.events = Events(client, channels, set(), report=log.error)
         self.commands = Subscription(
             client, "switches", [SCALER_CMD, GATE_CMD], report=log.error
         )
@@ -241,7 +243,7 @@ class Controller:
         """GitHub runner status and EC2 instances, queried concurrently."""
         return resolve(
             [
-                self.pool.submit(runner_status, self.token),
+                self.pool.submit(self.github.runner_status),
                 self.pool.submit(self.aws.instances),
             ]
         )
@@ -252,16 +254,16 @@ class Controller:
         self.known = self.runners.snapshot()
         cost = self.cost.channels()
         self.cost_channels = set(cost)
-        create_channels(self.client, self.gh_index, gh_channels(self.known))
-        create_channels(self.client, self.cost_index, cost)
+        self.channels.data(self.gh_index, gh_channels(self.known))
+        self.channels.data(self.cost_index, cost)
         for name, expression in self.cost.calculated(found).items():
-            create_calculated(self.client, name, expression)
+            self.channels.calculated(name, expression)
         self.uptime.retarget(self.known)
-        create_channels(self.client, self.ec2_index, ec2_channels(self.known))
+        self.channels.data(self.ec2_index, ec2_channels(self.known))
         for name in command_channels(self.known):
-            index = create_index(self.client, f"{name}_time")
-            create_channels(self.client, index, {name: sy.DataType.BOOLEAN})
-        create_agent_channels(self.client, self.known)
+            index = self.channels.index(f"{name}_time")
+            self.channels.data(index, {name: sy.DataType.BOOLEAN})
+        self.channels.agent(self.known)
         self.status.retarget(
             [
                 GH_INDEX,
@@ -356,40 +358,61 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    token = github_token()
+    github = GitHub(github_token())
+    patch_client()
     client = connect(args)
-    log = Log(client, LOG)
-    alive = Heartbeat(client, HEARTBEAT)
-    create_virtual(client, SCALER_CMD, sy.DataType.BOOLEAN)
-    create_channels(
-        client,
-        create_index(client, f"{GATE_CMD}_time"),
-        {GATE_CMD: sy.DataType.BOOLEAN},
-    )
+    channels = Channels(client, args.create_channels)
+    log = Log(client, channels, LOG)
+    alive = Heartbeat(client, channels, HEARTBEAT)
+    channels.virtual(SCALER_CMD, sy.DataType.BOOLEAN)
+    channels.data(channels.index(f"{GATE_CMD}_time"), {GATE_CMD: sy.DataType.BOOLEAN})
     scaler = Scaler(
         client,
         args.idle_cooldown,
         args.boot_grace,
-        Log(client, SCALER_LOG),
+        Log(client, channels, SCALER_LOG),
         enabled=args.scale == "enabled",
     )
-    gate = Gate(client, Log(client, GATE_LOG), enabled=args.gh == "enabled")
+    gate = Gate(
+        client, channels, Log(client, channels, GATE_LOG), enabled=args.gh == "enabled"
+    )
     toggles: dict[str, Toggle] = {
         SCALER_CMD: (
             scaler,
-            Heartbeat(client, SCALER_ENABLED, lambda: scaler.enabled),
+            Heartbeat(client, channels, SCALER_ENABLED, lambda: scaler.enabled),
             "scaler",
         ),
         GATE_CMD: (
             gate,
-            Heartbeat(client, GATE_ENABLED, lambda: gate.enabled, GATE_ENABLED_INDEX),
+            Heartbeat(
+                client,
+                channels,
+                GATE_ENABLED,
+                lambda: gate.enabled,
+                GATE_ENABLED_INDEX,
+            ),
             "gate",
         ),
     }
     webhook = Webhook(webhook_secret(), args.webhook_port, report=log.error)
-    controller = Controller(client, token, scaler, gate, log, webhook)
-    controller.runners.add(set(runner_status(token)[0]))
-    controller.cost.seed(client, controller.runners.snapshot())
+    aws = AWS()
+    runners = RunnerRegistry()
+    runners.add(set(github.runner_status()[0]))
+    cost = Cost(log, aws)
+    cost.create_state(client, runners.snapshot())
+    controller = Controller(
+        client,
+        channels,
+        github,
+        aws,
+        runners,
+        Jobs(github, log),
+        cost,
+        scaler,
+        gate,
+        log,
+        webhook,
+    )
     try:
         while True:
             timer = sy.Timer()

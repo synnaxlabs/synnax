@@ -17,9 +17,8 @@ import synnax as sy
 from common import (
     IDLE,
     STOP_TIMEOUT,
+    Channels,
     channel_name,
-    create_channels,
-    create_index,
     instance_for,
     uptime_channels,
     warn,
@@ -37,10 +36,13 @@ class Uptime:
     map, which update() replaces whole, so it never sees a half-rebuilt one."""
 
     def __init__(
-        self, client: sy.Synnax, report: Callable[[str, Exception], None] = warn
+        self,
+        client: sy.Synnax,
+        channels: Channels,
+        report: Callable[[str, Exception], None] = warn,
     ) -> None:
-        self.client = client
-        self.index = create_index(client, INDEX)
+        self.channels = channels
+        self.index = channels.index(INDEX)
         self.states: dict[str, tuple[int, sy.TimeStamp | None]] = {}
         self.stopped = threading.Event()
         self.lock = threading.Lock()
@@ -51,7 +53,7 @@ class Uptime:
         self.thread.start()
 
     def retarget(self, known: set[str]) -> None:
-        create_channels(self.client, self.index, uptime_channels(known))
+        self.channels.data(self.index, uptime_channels(known))
         with self.lock:
             self.publisher.retarget(list(uptime_channels(known)))
 

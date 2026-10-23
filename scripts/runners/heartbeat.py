@@ -15,7 +15,7 @@ from collections.abc import Callable
 
 import synnax as sy
 
-from common import HEARTBEAT_INTERVAL, STOP_TIMEOUT, create_channels, create_index
+from common import HEARTBEAT_INTERVAL, STOP_TIMEOUT, Channels
 from publisher import Publisher
 
 
@@ -29,6 +29,7 @@ class Heartbeat:
     def __init__(
         self,
         client: sy.Synnax,
+        channels: Channels,
         name: str,
         value: Callable[[], bool] = lambda: True,
         index: str | None = None,
@@ -37,8 +38,9 @@ class Heartbeat:
         self.value = value
         self.stopped = threading.Event()
         self.wake = threading.Event()
-        index = create_index(client, index or f"{name}_time")
-        create_channels(client, index, {name: sy.DataType.BOOLEAN})
+        channels.data(
+            channels.index(index or f"{name}_time"), {name: sy.DataType.BOOLEAN}
+        )
         self.publisher = Publisher(client, name, [name], auto_index=True)
         atexit.register(self.stop)
         self.thread = threading.Thread(target=self._run, daemon=True)

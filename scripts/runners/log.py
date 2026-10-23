@@ -12,17 +12,19 @@ virtual string channel, one sample per line, and to stdout only when echo is on.
 
 import synnax as sy
 
-from common import create_virtual
+from common import Channels
 from publisher import Publisher
 
 
 class Log:
     """A failed channel write reports to stdout, since it cannot report to itself."""
 
-    def __init__(self, client: sy.Synnax, channel: str, echo: bool = False) -> None:
+    def __init__(
+        self, client: sy.Synnax, channels: Channels, channel: str, echo: bool = False
+    ) -> None:
         self.channel = channel
         self.echo = echo
-        create_virtual(client, channel, sy.DataType.STRING)
+        channels.virtual(channel, sy.DataType.STRING)
         self.publisher = Publisher(client, channel, [channel], report=to_stdout)
 
     def __call__(self, line: str) -> None:
