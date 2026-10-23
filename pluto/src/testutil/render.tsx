@@ -52,12 +52,12 @@ export interface RenderResult extends RTLRenderResult {
  * commit it waits on cannot land until that scope exits.
  */
 export const renderHookSuspended = async <Result, Props>(
-  hook: (props: Props) => Result,
+  useHook: (props: Props) => Result,
   options?: RenderHookOptions<Props>,
 ): Promise<RenderHookResult<Result, Props>> => {
   let committed = false;
   const Tracked = (props: Props): Result => {
-    const result = hook(props);
+    const result = useHook(props);
     useEffect(() => {
       committed = true;
     }, []);

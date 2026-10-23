@@ -18,6 +18,8 @@ import { type CSSProperties, type ReactElement, useMemo } from "react";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
+const SYMBOL_COLOR = CSS.variable("symbol-color");
+
 interface RenderProps extends Omit<
   schematic.TextBoxNodeConfig,
   "variant" | "label" | "scale"
@@ -42,7 +44,7 @@ export const TextBox = ({
   const style = useMemo<CSSProperties>(
     () => ({
       textAlign: align as CSSProperties["textAlign"],
-      [CSS.variable("symbol-color")]: color.rgbaString(textColor),
+      [SYMBOL_COLOR]: color.rgbaString(textColor),
       ...(isVertical ? { height: size } : { width: size }),
     }),
     [align, textColor, isVertical, size],

@@ -123,13 +123,14 @@ export const Indicator = ({
   const onDragStart = Cursor.useDrag({
     onStart: useCallback(() => {
       sizeRef.current = valueRef.current;
-    }, []),
+    }, [valueRef]),
     onMove: useCallback(
       (b: box.Box) => onChange(sizeRef.current + box.dim(b, dir, true), index),
       [onChange, index, dir],
     ),
   });
-  const style = useMemo(() => ({ [direction.dimension(dir)]: value }), [dir, value]);
+  const dim = direction.dimension(dir);
+  const style = useMemo(() => ({ [dim]: value }), [dim, value]);
   const label = dir === "x" ? getCellColumn(index) : index + 1;
   return (
     <td

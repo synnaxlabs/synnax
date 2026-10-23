@@ -18,6 +18,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   useSyncExternalStore,
 } from "react";
 import { type z } from "zod";
@@ -66,9 +67,7 @@ const ROOT_PATH = ["root"] as const;
  * calls read. Re-throws worker-reported errors so the nearest React error boundary can
  * catch them. */
 export const Provider = ({ children, ...config }: ProviderProps): ReactElement => {
-  const storeRef = useRef<Store | null>(null);
-  storeRef.current ??= new Store(config);
-  const store = storeRef.current;
+  const [store] = useState(() => new Store(config));
   const subscribeError = useCallback(
     (listener: () => void) => {
       const unsubscribe = store.subscribeError(listener);
@@ -151,20 +150,19 @@ export const useLifecycle = <
   const key = useUniqueKey(aetherKey);
   const ctx = useContext();
   const onReceiveRef = useSyncedRef(onAetherChange);
-  const handleRef = useRef<Handle<StateSchema, Methods> | null>(null);
   // Staging is pure: the store keeps no reference and the worker hears nothing until
-  // the attach below. A render React discards is reclaimed with this ref. `??=` short
-  // circuits, so the path array is built on the mounting render alone.
-  handleRef.current ??= ctx.store.stage({
-    type,
-    path: [...ctx.path, key],
-    schema,
-    initialState,
-    initialTransfer,
-    methodsSchema,
-    onReceiveRef,
-  });
-  const handle = handleRef.current;
+  // the attach below, so a render React discards drops its handle with its state.
+  const [handle] = useState<Handle<StateSchema, Methods>>(() =>
+    ctx.store.stage({
+      type,
+      path: [...ctx.path, key],
+      schema,
+      initialState,
+      initialTransfer,
+      methodsSchema,
+      onReceiveRef,
+    }),
+  );
 
   // The handle outlives the effect so StrictMode's cleanup-then-setup remount, which
   // does not re-render, re-attaches this same component.

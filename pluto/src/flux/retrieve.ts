@@ -24,10 +24,10 @@ import {
   TimeSpan,
 } from "@synnaxlabs/x";
 import {
+  use,
   useCallback,
   useEffect,
   useMemo,
-  useReducer,
   useRef,
   useSyncExternalStore,
 } from "react";
@@ -46,12 +46,13 @@ import {
 import {
   ensureFetch,
   type EnsureFetchParams,
+  fulfilled,
   type LocalCache,
   localFor,
-  readCached,
+  promiseFor,
   type RetrieveParams,
   setSettled,
-  suspendOnFetch,
+  type Settled,
   useMemoQuery,
   usePendingFetch,
 } from "@/flux/suspend";
@@ -134,7 +135,7 @@ const useCachedSnapshot = <Query extends query.Params, Data extends query.Data>(
           return NOOP_SUBSCRIBE();
         return onChange({ client, query: memoQuery }, () => notify());
       },
-      [client, memoQuery],
+      [onChange, client, memoQuery],
     ),
     useCallback(() => {
       if (client == null || memoQuery == null) return undefined;
@@ -145,7 +146,35 @@ const useCachedSnapshot = <Query extends query.Params, Data extends query.Data>(
         return prev.value;
       held.current = { query: memoQuery, value: next };
       return next;
-    }, [client, memoQuery]),
+    }, [getCached, equal, client, memoQuery]),
+  );
+};
+
+/**
+ * Subscribes to the query's settled entry, which holds the answer to a retrieve the
+ * domain cache never serves. Returns undefined when there is no client, no query, or no
+ * entry.
+ */
+const useSettled = <Query extends query.Params, Data extends query.Data>(
+  locals: WeakMap<Client, LocalCache<Data>>,
+  client: Client | null,
+  memoQuery: Query | null,
+): Settled<Data> | undefined => {
+  const hash = memoQuery == null ? null : query.hash(memoQuery);
+  return useSyncExternalStore(
+    useCallback(
+      (notify: () => void) => {
+        if (client == null) return NOOP_SUBSCRIBE();
+        const { listeners } = localFor(locals, client);
+        listeners.add(notify);
+        return () => listeners.delete(notify);
+      },
+      [locals, client],
+    ),
+    useCallback(() => {
+      if (client == null || hash == null) return undefined;
+      return localFor(locals, client).settled.get(hash);
+    }, [locals, client, hash]),
   );
 };
 
@@ -462,45 +491,23 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   if (pending.promise == null && cached !== undefined) {
     if (Deleted.matches<Data>(cached))
       throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, cached.corpse);
-    return readCached(cached);
+    return use(fulfilled(cached));
   }
-  return suspendOnFetch(
-    params,
-    fetchParamsFor({
-      name,
-      retrieve,
-      onChange,
-      getCached,
-      awaitCreation,
-      retryUnreachable,
-      local,
-    }),
-    pending,
+  return use(
+    promiseFor(
+      params,
+      fetchParamsFor({
+        name,
+        retrieve,
+        onChange,
+        getCached,
+        awaitCreation,
+        retryUnreachable,
+        local,
+      }),
+      pending,
+    ),
   );
-};
-
-/**
- * A result minted per render defeats every memo keyed on it, and its status carries a
- * fresh key and timestamp. The returned hold keys the previous result on what produced
- * it and re-returns it until that changes.
- */
-const useHeldResult = <V extends state.State>(): ((
-  source: unknown[],
-  make: () => Result<V>,
-) => Result<V>) => {
-  const held = useRef<{ source: unknown[]; result: Result<V> } | null>(null);
-  return (source, make) => {
-    const prev = held.current;
-    if (
-      prev != null &&
-      prev.source.length === source.length &&
-      prev.source.every((s, i) => s === source[i])
-    )
-      return prev.result;
-    const result = make();
-    held.current = { source, result };
-    return result;
-  };
 };
 
 const useResultValue = <Query extends query.Params, Data extends query.Data>(
@@ -518,9 +525,6 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
   q: Query | null,
 ): Result<Data> => {
   const memoQuery = useMemoQuery(q, normalizeQuery);
-  // A retrieve whose answer never reaches the domain cache is served from the local
-  // settled entry, which no subscription announces, so settling re-renders by hand.
-  const [, bump] = useReducer((x: number) => x + 1, 0);
   const client = Synnax.useClient();
 
   const cached = useCachedSnapshot<Query, Data>(memoQuery, client, {
@@ -528,8 +532,7 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
     getCached,
     equal,
   });
-
-  const hold = useHeldResult<Data>();
+  const settled = useSettled<Query, Data>(locals, client, memoQuery);
 
   // A render React discards must not fetch, and nothing dedupes one once the
   // in-flight entry clears, so the cold path starts its fetch after commit.
@@ -539,8 +542,9 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
     if (client == null || memoQuery == null || cached !== undefined) return;
     const local = localFor(locals, client);
     const params = { client, query: memoQuery };
-    const settled = local.settled.get(query.hash(memoQuery));
-    if (settled != null && "data" in settled) return;
+    const prior = local.settled.get(query.hash(memoQuery));
+    if (prior != null && "data" in prior) return;
+    // A failure settles, and the settled subscription reports it.
     ensureFetch(
       params,
       fetchParamsFor({
@@ -552,35 +556,24 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
         retryUnreachable,
         local,
       }),
-    ).then(bump, bump);
+    ).catch(() => {});
   }, [client, memoQuery, cached]);
 
-  if (client == null)
-    return hold(["disabled", client], () => nullClientResult<Data>(`retrieve ${name}`));
-  if (memoQuery == null)
-    return hold(["disabled", memoQuery], () => noQueryResult<Data>(`retrieve ${name}`));
+  if (client == null) return nullClientResult<Data>(`retrieve ${name}`);
+  if (memoQuery == null) return noQueryResult<Data>(`retrieve ${name}`);
   if (cached !== undefined) {
     if (!Deleted.matches<Data>(cached))
-      return hold(["success", cached], () =>
-        successResult(`retrieved ${name}`, cached),
-      );
-    return hold(["deleted", cached], () =>
-      errorResult(
-        `retrieve ${name}`,
-        new DeletedError(`${caseconv.capitalize(name)} was deleted`, cached.corpse),
-      ),
+      return successResult(`retrieved ${name}`, cached);
+    return errorResult(
+      `retrieve ${name}`,
+      new DeletedError(`${caseconv.capitalize(name)} was deleted`, cached.corpse),
     );
   }
-
-  const local = localFor(locals, client);
-  const settled = local.settled.get(query.hash(memoQuery));
   if (settled != null)
-    return hold(["settled", settled], () =>
-      "data" in settled
-        ? successResult(`retrieved ${name}`, settled.data)
-        : errorResult(`retrieve ${name}`, settled.error),
-    );
-  return hold(["loading", memoQuery], () => loadingResult<Data>(`retrieving ${name}`));
+    return "data" in settled
+      ? successResult(`retrieved ${name}`, settled.data)
+      : errorResult(`retrieve ${name}`, settled.error);
+  return loadingResult<Data>(`retrieving ${name}`);
 };
 
 const useEnsure = <Query extends query.Params, Data extends query.Data>(
@@ -614,22 +607,24 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
           `${caseconv.capitalize(name)} was deleted`,
           cached.corpse,
         );
-      readCached(cached);
+      use(fulfilled(cached));
       return;
     }
   }
-  suspendOnFetch(
-    params,
-    fetchParamsFor({
-      name,
-      retrieve,
-      onChange,
-      getCached,
-      awaitCreation,
-      retryUnreachable,
-      local,
-    }),
-    pending,
+  use(
+    promiseFor(
+      params,
+      fetchParamsFor({
+        name,
+        retrieve,
+        onChange,
+        getCached,
+        awaitCreation,
+        retryUnreachable,
+        local,
+      }),
+      pending,
+    ),
   );
 };
 
@@ -644,7 +639,7 @@ const useInvalidate = <Query extends query.Params, Data extends query.Data>(
       const normalized = normalizeQuery?.(q) ?? q;
       localFor(locals, client).settled.delete(query.hash(normalized));
     },
-    [client, locals],
+    [client, locals, normalizeQuery],
   );
 };
 
@@ -781,7 +776,6 @@ const createResultSelector = <
   };
   const useResultSelect = (q: ExtendedQuery | null): Result<Selected> => {
     const memoQuery = useMemoQuery<ExtendedQuery>(q, normalizeQuery);
-    const [, bump] = useReducer((x: number) => x + 1, 0);
     const client = Synnax.useClient();
     const held = useRef<{ query: Query; value: Data } | null>(null);
     const subscribeToCache = useCallback(
@@ -817,7 +811,7 @@ const createResultSelector = <
       selector,
       sliceEqual,
     );
-    const hold = useHeldResult<Selected>();
+    const settled = useSettled<ExtendedQuery, Data>(locals, client, memoQuery);
     // A render React discards must not fetch, and nothing dedupes one once the
     // in-flight entry clears, so the cold path starts its fetch after commit.
     // A settled failure does not block the fetch: each new mount gets one fresh
@@ -826,8 +820,9 @@ const createResultSelector = <
       if (client == null || memoQuery == null || slice.kind !== "none") return;
       const local = localFor(locals, client);
       const params = { client, query: memoQuery };
-      const settled = local.settled.get(query.hash(memoQuery));
-      if (settled != null && "data" in settled) return;
+      const prior = local.settled.get(query.hash(memoQuery));
+      if (prior != null && "data" in prior) return;
+      // A failure settles, and the settled subscription reports it.
       ensureFetch(
         params,
         fetchParamsFor({
@@ -839,38 +834,22 @@ const createResultSelector = <
           retryUnreachable,
           local,
         }),
-      ).then(bump, bump);
+      ).catch(() => {});
     }, [client, memoQuery, slice]);
-    if (client == null)
-      return hold(["disabled", client], () =>
-        nullClientResult<Selected>(`retrieve ${name}`),
-      );
-    if (memoQuery == null)
-      return hold(["disabled", memoQuery], () =>
-        noQueryResult<Selected>(`retrieve ${name}`),
-      );
+    if (client == null) return nullClientResult<Selected>(`retrieve ${name}`);
+    if (memoQuery == null) return noQueryResult<Selected>(`retrieve ${name}`);
     if (slice.kind === "live")
-      return hold(["success", slice.selected], () =>
-        successResult(`retrieved ${name}`, slice.selected),
-      );
+      return successResult(`retrieved ${name}`, slice.selected);
     if (slice.kind === "deleted")
-      return hold(["deleted", slice.corpse], () =>
-        errorResult(
-          `retrieve ${name}`,
-          new DeletedError(`${caseconv.capitalize(name)} was deleted`, slice.corpse),
-        ),
+      return errorResult(
+        `retrieve ${name}`,
+        new DeletedError(`${caseconv.capitalize(name)} was deleted`, slice.corpse),
       );
-    const local = localFor(locals, client);
-    const settled = local.settled.get(query.hash(memoQuery));
     if (settled != null)
-      return hold(["settled", settled], () =>
-        "data" in settled
-          ? successResult(`retrieved ${name}`, select(settled.data, memoQuery))
-          : errorResult(`retrieve ${name}`, settled.error),
-      );
-    return hold(["loading", memoQuery], () =>
-      loadingResult<Selected>(`retrieving ${name}`),
-    );
+      return "data" in settled
+        ? successResult(`retrieved ${name}`, select(settled.data, memoQuery))
+        : errorResult(`retrieve ${name}`, settled.error);
+    return loadingResult<Selected>(`retrieving ${name}`);
   };
   return useResultSelect;
 };

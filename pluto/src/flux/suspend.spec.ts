@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { type LocalCache, setSettled } from "@/flux/suspend";
 
@@ -15,6 +15,7 @@ const newLocal = (): LocalCache<number> => ({
   epoch: 0,
   inFlight: new Map(),
   settled: new Map(),
+  listeners: new Set(),
 });
 
 describe("setSettled", () => {
@@ -35,5 +36,13 @@ describe("setSettled", () => {
     expect(local.settled.has("q0")).toBe(true);
     expect(local.settled.get("q0")).toEqual({ data: -1 });
     expect(local.settled.has("q1")).toBe(false);
+  });
+
+  it("notifies listeners after the entry lands", () => {
+    const local = newLocal();
+    const listener = vi.fn(() => expect(local.settled.get("q")).toEqual({ data: 1 }));
+    local.listeners.add(listener);
+    setSettled(local, "q", { data: 1 });
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 });

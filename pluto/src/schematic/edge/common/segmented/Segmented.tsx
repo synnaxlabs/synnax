@@ -20,7 +20,6 @@ import {
   Fragment,
   type ReactElement,
   useCallback,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -66,25 +65,13 @@ const create = (Path: FC<PathProps>): Edge => {
   }): ReactElement | null => {
     const flow = useReactFlow();
     const crossings = Jumps.useCrossings(edgeKey);
-    const visualSegments = useMemo(
-      () =>
-        build({
-          source,
-          target,
-          sourceBox: selectNodeBox(flow, sourceNode),
-          targetBox: selectNodeBox(flow, targetNode),
-          middleSegments,
-        }),
-      [
-        source.position.x,
-        source.position.y,
-        target.position.x,
-        target.position.y,
-        source.orientation,
-        target.orientation,
-        middleSegments,
-      ],
-    );
+    const visualSegments = build({
+      source,
+      target,
+      sourceBox: selectNodeBox(flow, sourceNode),
+      targetBox: selectNodeBox(flow, targetNode),
+      middleSegments,
+    });
 
     const persistMiddle = useCallback(
       (segs: Segment[]) => {
@@ -100,17 +87,20 @@ const create = (Path: FC<PathProps>): Edge => {
     const segments = dragOverride ?? visualSegments;
     const dragRef = useRef<CurrentlyDragging | null>(null);
 
-    const computeDragged = useCallback((b: box.Box): Segment[] | null => {
-      const drag = dragRef.current;
-      if (drag == null) return null;
-      return dragSegment({
-        segments: drag.segments,
-        index: drag.index,
-        magnitude:
-          box.dim(b, direction.swap(drag.segments[drag.index].direction), true) /
-          flow.getZoom(),
-      });
-    }, []);
+    const computeDragged = useCallback(
+      (b: box.Box): Segment[] | null => {
+        const drag = dragRef.current;
+        if (drag == null) return null;
+        return dragSegment({
+          segments: drag.segments,
+          index: drag.index,
+          magnitude:
+            box.dim(b, direction.swap(drag.segments[drag.index].direction), true) /
+            flow.getZoom(),
+        });
+      },
+      [flow],
+    );
 
     const dragStart = Cursor.useDrag({
       onStart: useCallback(
@@ -155,10 +145,9 @@ const create = (Path: FC<PathProps>): Edge => {
           calcMidPoints(points).map((p, i) => {
             const dir = segments[i].direction;
             const swapped = direction.swap(dir);
-            const dims = {
-              [direction.dimension(dir)]: "18px",
-              [direction.dimension(swapped)]: "4px",
-            };
+            const dim = direction.dimension(dir);
+            const swappedDim = direction.dimension(swapped);
+            const dims = { [dim]: "18px", [swappedDim]: "4px" };
             const pos = {
               [dir]: p[dir] - 9,
               [swapped]: p[swapped] - 2,

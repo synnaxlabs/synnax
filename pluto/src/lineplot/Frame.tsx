@@ -213,7 +213,8 @@ export const Frame = ({
   const removeGridEntry = useCallback(
     (key: string) =>
       setState((prev) => {
-        const { [key]: _, ...grid } = prev.grid;
+        const grid = { ...prev.grid };
+        delete grid[key];
         return { ...prev, grid };
       }),
     [setState],
@@ -228,7 +229,7 @@ export const Frame = ({
 
   const removeLine = useCallback(
     (key: string) => setLines((prev) => prev.filter(({ key: k }) => k !== key)),
-    [setLine],
+    [setLines],
   );
 
   const cssGrid = useMemo(() => buildPlotGrid(grid), [grid]);

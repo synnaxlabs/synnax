@@ -11,7 +11,7 @@ import { useCombinedStateAndRef, useStateRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoCompare } from "@synnaxlabs/lyra/memo";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { findParent } from "@synnaxlabs/lyra/util";
-import { box, dimensions, location, record, scale, xy } from "@synnaxlabs/x";
+import { box, type dimensions, location, record, scale, xy } from "@synnaxlabs/x";
 import {
   type ForwardedRef,
   type RefObject,
@@ -141,7 +141,7 @@ export const useMask = ({
   onChange,
   triggers: initialTriggers,
   initial = D,
-  threshold: threshold_ = DEFAULT_THRESHOLD,
+  threshold = DEFAULT_THRESHOLD,
   ref,
 }: UseProps): UseReturn => {
   const defaultMode = initialTriggers?.defaultMode ?? "zoom";
@@ -155,7 +155,6 @@ export const useMask = ({
   // result of the previous pan update.
   const prevCursorRef = useRef<xy.XY>(xy.ZERO);
   const canvasRef = useRef<HTMLDivElement | null>(null);
-  const threshold = dimensions.construct(threshold_);
 
   useEffect(
     () => setStateRef(() => box.truncate(initial, calculateTruncPrecision(initial))),
@@ -182,6 +181,14 @@ export const useMask = ({
       Triggers.compareModeConfigs,
       [initialTriggers],
     );
+
+  const handleZoomSelect = useCallback(
+    (b: box.Box, prev: box.Box, canvas: box.Box): box.Box | null => {
+      const next = constructScale(prev, canvas).box(fullSize(threshold, b, canvas));
+      return box.truncate(next, calculateTruncPrecision(next));
+    },
+    [threshold],
+  );
 
   const handleDrag = useCallback<Triggers.DragCallback>(
     ({ box: box_, triggers, stage, cursor }): void => {
@@ -251,14 +258,13 @@ export const useMask = ({
     },
     [
       setMaskBox,
-      setMaskMode,
       onChange,
       triggerConfig,
-      threshold_.height,
-      threshold_.width,
+      threshold,
       setStateRef,
-      canvasRef,
-      calculateTruncPrecision,
+      stateRef,
+      maskBoxRef,
+      handleZoomSelect,
     ],
   );
 
@@ -277,14 +283,6 @@ export const useMask = ({
       },
     }),
     [onChange],
-  );
-
-  const handleZoomSelect = useCallback(
-    (b: box.Box, prev: box.Box, canvas: box.Box): box.Box | null => {
-      const next = constructScale(prev, canvas).box(fullSize(threshold, b, canvas));
-      return box.truncate(next, calculateTruncPrecision(next));
-    },
-    [threshold_],
   );
 
   const verticalTrigger = Triggers.useHeldRef({ triggers: [["Control"]] });
@@ -344,7 +342,7 @@ export const useMask = ({
       if (mode == null) return;
       setMaskMode(mode);
     },
-    [purgedTriggers, defaultMode, onChange],
+    [purgedTriggers, defaultMode],
   );
 
   Triggers.useListen({

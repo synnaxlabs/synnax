@@ -316,7 +316,7 @@ export const create = ({
     onContextMenu,
     ...rest
   }: DiagramProps): ReactElement => {
-    const [{ path }, , setState] = Aether.useBidirectional({
+    const { path, setState } = Aether.useLifecycle({
       aetherKey,
       type: diagram.Diagram.TYPE,
       schema: diagram.diagramStateZ,
@@ -351,7 +351,7 @@ export const create = ({
           if (fitViewOnResize) debouncedFitView(fitViewOptions);
           setState((prev) => ({ ...prev, region }));
         },
-        [setState, debouncedFitView, fitViewOnResize],
+        [setState, debouncedFitView, fitViewOnResize, fitViewOptions],
       ),
     );
 
@@ -363,6 +363,7 @@ export const create = ({
       [pTriggers],
     );
 
+    const triggerRef = useRef<HTMLDivElement>(null);
     const viewportRef = useRef<RFViewport | null>(null);
     const handleViewportChange = useCallback(
       (vp: RFViewport): void => {
@@ -433,7 +434,7 @@ export const create = ({
         }
         if (mutations.length > 0) onMutations(mutations);
       },
-      [onSelectionChange],
+      [selectedRef, onSelectionChange],
     );
 
     const handleNodesChange = useCallback(
@@ -472,7 +473,6 @@ export const create = ({
 
     const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
 
-    const triggerRef = useRef<HTMLDivElement>(null);
     Triggers.useListen({
       triggers: triggers.modes.zoomReset,
       callback: useCallback(
@@ -518,6 +518,7 @@ export const create = ({
         visible,
         onEditableChange,
         fitViewOnResize,
+        setFitViewOnResize,
         fitViewOptions,
         viewportMode,
         onViewportModeChange,
@@ -540,15 +541,12 @@ export const create = ({
       [onMouseMove],
     );
 
-    const cursorInDiagramSpace = useCallback(
-      (target: HTMLDivElement): xy.XY =>
-        calculateCursorPosition(
-          box.construct(target),
-          cursorRef.current,
-          viewportSyncRef.current,
-        ),
-      [],
-    );
+    const cursorInDiagramSpace = (target: HTMLDivElement): xy.XY =>
+      calculateCursorPosition(
+        box.construct(target),
+        cursorRef.current,
+        viewportSyncRef.current,
+      );
 
     const handleCopy = useCallback(
       (e: ReactClipboardEvent<HTMLDivElement>): void => {

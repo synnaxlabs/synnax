@@ -21,6 +21,8 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { SIZE_LEVELS } from "@/schematic/node/common/size";
 
+const SYMBOL_COLOR = CSS.variable("symbol-color");
+
 interface RenderProps extends Partial<
   Pick<
     schematic.StateIndicatorNodeConfig,
@@ -63,7 +65,7 @@ export const StateIndicator = ({
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: color.rgbaString(strokeColor),
+      [SYMBOL_COLOR]: color.rgbaString(strokeColor),
       backgroundColor,
       minWidth: inlineSize,
       height: Component.HEIGHTS[size],

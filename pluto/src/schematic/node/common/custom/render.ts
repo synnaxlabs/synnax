@@ -10,7 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { useInitializerRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { color, deep, dimensions, direction, type location } from "@synnaxlabs/x";
-import { type RefCallback, useCallback, useRef } from "react";
+import { type RefCallback, useCallback, useLayoutEffect, useRef } from "react";
 
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -282,24 +282,30 @@ const runRender = (
 /// SVG is removed and internal diff state is cleared so the next attach re-creates
 /// the SVG cleanly (including after a Missing→Resolved→Missing→Resolved cycle and
 /// under StrictMode's simulated remount). Subsequent params changes against an
-/// already-attached container are picked up via a render-phase pass.
+/// already-attached container are picked up after every commit.
 export const useRender = (params: UseRenderParams): RefCallback<HTMLElement> => {
   const containerRef = useRef<HTMLElement | null>(null);
   const paramsRef = useSyncedRef(params);
   const stateRef = useInitializerRef<RenderState>(createRenderState);
 
-  if (containerRef.current != null)
-    runRender(containerRef.current, params, stateRef.current);
+  // No dependency list: the symbol editor changes its spec in place.
+  useLayoutEffect(() => {
+    if (containerRef.current != null)
+      runRender(containerRef.current, params, stateRef.current);
+  });
 
-  return useCallback<RefCallback<HTMLElement>>((el) => {
-    if (el == null) {
-      const { svgElement } = stateRef.current;
-      if (svgElement != null) svgElement.remove();
-      stateRef.current = createRenderState();
-      containerRef.current = null;
-      return;
-    }
-    containerRef.current = el;
-    runRender(el, paramsRef.current, stateRef.current);
-  }, []);
+  return useCallback<RefCallback<HTMLElement>>(
+    (el) => {
+      if (el == null) {
+        const { svgElement } = stateRef.current;
+        if (svgElement != null) svgElement.remove();
+        stateRef.current = createRenderState();
+        containerRef.current = null;
+        return;
+      }
+      containerRef.current = el;
+      runRender(el, paramsRef.current, stateRef.current);
+    },
+    [paramsRef, stateRef],
+  );
 };

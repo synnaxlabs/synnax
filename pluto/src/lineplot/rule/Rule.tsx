@@ -17,7 +17,15 @@ import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { state } from "@synnaxlabs/lyra/state";
 import { Text } from "@synnaxlabs/lyra/text";
 import { box, color } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { type z } from "zod";
 
@@ -82,13 +90,16 @@ export const Rule = ({
     ),
   });
 
-  const pixelPosRef = useRef(pixelPosition);
-  if (pixelPosition !== pixelPosRef.current) pixelPosRef.current = pixelPosition;
+  const pixelPosRef = useSyncedRef(pixelPosition);
 
   const { id } = useContext("Rule.Rule");
 
-  const plotEl = document.getElementById(id);
-  const viewportEl = plotEl?.querySelector(".pluto-line-plot__viewport");
+  // The viewport can mount after the rule, so each commit looks for it again.
+  const [viewportEl, setViewportEl] = useState<Element | null>(null);
+  useLayoutEffect(() => {
+    const plotEl = document.getElementById(id);
+    setViewportEl(plotEl?.querySelector(".pluto-line-plot__viewport") ?? null);
+  });
 
   const dragStartRef = useRef(pixelPosition);
 
@@ -107,7 +118,7 @@ export const Rule = ({
       onSelect?.();
       setState((p) => ({ ...p, dragging: true }));
       dragStartRef.current = pixelPosRef.current;
-    }, []),
+    }, [onSelect, setState, pixelPosRef]),
     onMove: (b: box.Box) => {
       setState((p) => ({
         ...p,
@@ -117,7 +128,7 @@ export const Rule = ({
     onEnd: useCallback(() => {
       setState((p) => ({ ...p, dragging: false }));
       dragStartRef.current = pixelPosition;
-    }, []),
+    }, [setState, pixelPosition]),
   });
 
   const ref = useRef<HTMLDivElement>(null);

@@ -23,6 +23,8 @@ import {
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
+const SYMBOL_COLOR = CSS.variable("symbol-color");
+
 interface RenderProps extends PropsWithChildren<
   Pick<
     schematic.ValueNodeConfig,
@@ -48,7 +50,7 @@ export const Value = ({
   const symbolColor = color.rgbaString(strokeColor);
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: symbolColor,
+      [SYMBOL_COLOR]: symbolColor,
       height: dimensions?.height,
     }),
     [symbolColor, dimensions?.height],

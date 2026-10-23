@@ -23,6 +23,8 @@ import {
 
 import { type SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
 
+const SYMBOL_COLOR = CSS.variable("symbol-color");
+
 export interface SVGProps
   extends
     SVGBasedProps,
@@ -71,7 +73,7 @@ export const SVG = ({
       ...style,
       aspectRatio: `${dims.width} / ${dims.height}`,
       width: dimensions.scale(dims, scale * BASE_SCALE).width,
-      [CSS.variable("symbol-color")]: symbolColor,
+      [SYMBOL_COLOR]: symbolColor,
     }),
     [style, dims, scale, symbolColor],
   );

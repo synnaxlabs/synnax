@@ -83,7 +83,7 @@ export const Measure = ({
           setTimeout(() => onModeChange?.(moveToTwo ? "two" : "one"), 10);
       }
     },
-    [setState, onModeChange],
+    [setState, onModeChange, measureModeRef, hasFirstRef, hasSecondRef],
   );
 
   useViewport(handleClick, "Measure.Measure");
@@ -107,7 +107,7 @@ export const Measure = ({
       parent.removeEventListener("mousemove", handleMove);
       parent.removeEventListener("mouseleave", handleLeave);
     };
-  }, [handleClick]);
+  }, [handleMove, handleLeave]);
 
   return <span ref={ref} />;
 };

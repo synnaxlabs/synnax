@@ -20,6 +20,10 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Toggle } from "@/schematic/node/common/toggle";
 
+const SWITCH_SCALE = CSS.variable("switch-scale");
+const SYMBOL_COLOR = CSS.variable("symbol-color");
+const TOGGLE_DELAY = CSS.variable("toggle-delay");
+
 export interface Props
   extends Omit<Toggle.ButtonProps, "onClick" | "onMouseDown">, Primitive.SVGBasedProps {
   onClick?: MouseEventHandler<HTMLElement>;
@@ -38,10 +42,10 @@ export const Switch = ({
   const hold = useHold<HTMLElement>({ onClick, onClickDelay, disabled });
   const delayed = !hold.delay.isZero;
   const style: CSSProperties = {
-    [CSS.variable("switch-scale")]: Primitive.resolveScale(scale),
-    [CSS.variable("symbol-color")]: colorVar,
+    [SWITCH_SCALE]: Primitive.resolveScale(scale),
+    [SYMBOL_COLOR]: colorVar,
     ...(delayed && {
-      [CSS.variable("toggle-delay")]: `${hold.delay.seconds.toString()}s`,
+      [TOGGLE_DELAY]: `${hold.delay.seconds.toString()}s`,
     }),
   };
   return (

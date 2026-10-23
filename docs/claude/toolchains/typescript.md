@@ -125,10 +125,13 @@ code in the editor.
 - Render a component as an element, never pass it where a render function goes
   (`{(p) => <Input.Numeric {...p} />}`, not `{Input.Numeric}`). A compiled component
   calls a hook, so a cached call to it breaks the hook order.
+- Call `use` in the component or hook itself, never inside a plain helper. The compiler
+  caches a call to a plain function, so a later render skips the `use` in it.
 - Write `if (x == null) x = y;` in a component or hook. The compiler cannot compile
   `??=`.
-- Use the `"use no memo"` directive only for an incompatible library or a fixed hook
-  list, with a one-line reason.
+- Use the `"use no memo"` directive only for an incompatible library, a fixed hook
+  list, or a memo hook that keeps its own cache, with a one-line reason. The lint rules
+  still check the function, so disable the flagged rule on each flagged line.
 
 ## Testing (Vitest — never Jest)
 

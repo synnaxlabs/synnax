@@ -17,6 +17,7 @@ import {
 import { Status } from "@synnaxlabs/lyra/status";
 import { type CrudeTimeSpan, type destructor, state, TimeSpan } from "@synnaxlabs/x";
 import {
+  use,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -35,11 +36,11 @@ import {
   successResult,
 } from "@/flux/result";
 import {
+  fulfilled,
   type LocalCache,
   localFor,
-  readCached,
+  promiseFor,
   type RetrieveParams,
-  suspendOnFetch,
   useMemoQuery,
   usePendingFetch,
 } from "@/flux/suspend";
@@ -215,12 +216,16 @@ export const createForm = <
     // answer from anywhere else would skip the `use` call React needs to find the
     // end of the recorded hook list, corrupting every hook below.
     let retrieved: z.infer<Schema> | undefined =
-      pending.promise == null && cached !== undefined ? readCached(cached) : undefined;
+      pending.promise == null && cached !== undefined
+        ? use(fulfilled(cached))
+        : undefined;
     if (retrieved == null && memoQuery != null && client != null && retrieve != null)
-      retrieved = suspendOnFetch(
-        { client, query: memoQuery },
-        { name, retrieve, getCached, local: localFor(locals, client) },
-        pending,
+      retrieved = use(
+        promiseFor(
+          { client, query: memoQuery },
+          { name, retrieve, getCached, local: localFor(locals, client) },
+          pending,
+        ),
       );
 
     const abandonedRef = useRef(false);

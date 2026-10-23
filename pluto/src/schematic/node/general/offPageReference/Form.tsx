@@ -112,7 +112,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
       <Base.Section title="Label">
         <Base.TextField path="label.label" label="Label" padHelpText={false} />
         <Base.Field<text.Level> path="label.level" label="Size" padHelpText={false}>
-          {Form.SelectTextLevel}
+          {(p) => <Form.SelectTextLevel {...p} />}
         </Base.Field>
       </Base.Section>
       <Base.Section title="Navigation">

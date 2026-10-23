@@ -330,7 +330,7 @@ export const Table = ({
       lastSelectedRef.current = cellKey;
       onSelectionChange?.([cellKey]);
     },
-    [editable, onSelectionChange],
+    [editable, onSelectionChange, rowsRef, selectedRef],
   );
 
   const handleRowSelect = useCallback(
@@ -368,7 +368,7 @@ export const Table = ({
       lastSelectedRef.current = row.cells[row.cells.length - 1] ?? null;
       onSelectionChange?.(row.cells);
     },
-    [editable, onSelectionChange],
+    [editable, onSelectionChange, rowsRef, selectedRef],
   );
 
   const handleColSelect = useCallback(
@@ -410,7 +410,7 @@ export const Table = ({
       lastSelectedRef.current = colCells[colCells.length - 1] ?? null;
       onSelectionChange?.(colCells);
     },
-    [editable, onSelectionChange],
+    [editable, onSelectionChange, rowsRef, selectedRef],
   );
 
   const handleRowResize = useCallback(
@@ -434,7 +434,7 @@ export const Table = ({
     for (const row of rowsRef.current) for (const k of row.cells) all.push(k);
     lastSelectedRef.current = all[all.length - 1] ?? null;
     onSelectionChange?.(all);
-  }, [editable, onSelectionChange]);
+  }, [editable, onSelectionChange, rowsRef]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTableElement>) => {
@@ -461,7 +461,7 @@ export const Table = ({
       lastSelectedRef.current = nextKey;
       onSelectionChange?.([nextKey]);
     },
-    [editable, onSelectionChange],
+    [editable, onSelectionChange, rowsRef],
   );
 
   const colSizes = useMemo(() => columns.map((c) => c.size), [columns]);
@@ -488,13 +488,13 @@ export const Table = ({
   const handlePointerDown = useCallback(() => {
     if (!centered) return;
     setHeld(liveOffset);
+    const listening = new AbortController();
     const release = (): void => {
-      window.removeEventListener("pointerup", release);
-      window.removeEventListener("pointercancel", release);
+      listening.abort();
       setHeld(null);
     };
-    window.addEventListener("pointerup", release);
-    window.addEventListener("pointercancel", release);
+    window.addEventListener("pointerup", release, { signal: listening.signal });
+    window.addEventListener("pointercancel", release, { signal: listening.signal });
   }, [centered, liveOffset]);
   const offset = centered ? (held ?? liveOffset) : xy.ZERO;
   const frameStyle = useMemo(
@@ -505,7 +505,12 @@ export const Table = ({
     [offset],
   );
 
+  const rowYs: number[] = [];
   let rowYCursor = offset.y + indicatorSize;
+  for (const row of rows) {
+    rowYs.push(rowYCursor);
+    rowYCursor += row.size;
+  }
   const cellXOrigin = offset.x + indicatorSize;
   return (
     <div
@@ -544,28 +549,24 @@ export const Table = ({
                         onResize={handleColResize}
                       />
                     )}
-                    {rows.map((row, rowIndex) => {
-                      const yPos = rowYCursor;
-                      rowYCursor += row.size;
-                      return (
-                        <Row
-                          key={rowIndex}
-                          index={rowIndex}
-                          resourceKey={key}
-                          cells={row.cells}
-                          columns={colSizes}
-                          x={cellXOrigin}
-                          y={yPos}
-                          size={row.size}
-                          editable={editable}
-                          last={rowIndex === rows.length - 1}
-                          showIndicator={showIndicators}
-                          onSelect={handleRowSelect}
-                          onResize={handleRowResize}
-                          onCellSelect={handleCellSelect}
-                        />
-                      );
-                    })}
+                    {rows.map((row, rowIndex) => (
+                      <Row
+                        key={rowIndex}
+                        index={rowIndex}
+                        resourceKey={key}
+                        cells={row.cells}
+                        columns={colSizes}
+                        x={cellXOrigin}
+                        y={rowYs[rowIndex]}
+                        size={row.size}
+                        editable={editable}
+                        last={rowIndex === rows.length - 1}
+                        showIndicator={showIndicators}
+                        onSelect={handleRowSelect}
+                        onResize={handleRowResize}
+                        onCellSelect={handleCellSelect}
+                      />
+                    ))}
                   </Selection.Context>
                 </Aether.Composite>
               </tbody>

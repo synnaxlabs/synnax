@@ -24,6 +24,8 @@ import {
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
+const SYMBOL_COLOR = CSS.variable("symbol-color");
+
 // A context menu swallows a secondary press's release, so momentary would stay pressed.
 const primaryOnly = (
   handler?: MouseEventHandler<HTMLButtonElement>,
@@ -62,7 +64,7 @@ export const Button = ({
 }: ButtonProps): ReactElement => {
   const symbolColor = color.rgbaString(fillColor);
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.variable("symbol-color")]: symbolColor }),
+    () => ({ [SYMBOL_COLOR]: symbolColor }),
     [symbolColor],
   );
   // The activation delay gates Base.Button's onClick, so single-shot actuation
