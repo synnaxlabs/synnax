@@ -17,7 +17,7 @@ import "core/pkg/service/ontology/pb/ontology.proto";
 import "core/pkg/service/status/pb/status.proto";
 import "google/protobuf/struct.proto";
 
-option go_package = "github.com/synnaxlabs/synnax/pkg/service/device/pb";
+option go_package = "github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb";
 
 // StatusDetails contains device-specific status details identifying the device and its
 // associated rack.

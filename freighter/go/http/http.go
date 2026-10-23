@@ -77,6 +77,7 @@ func parseRequestCtx(
 		Context:  ctx,
 		Protocol: lo.Ternary(stream, streamProtocol, unaryProtocol),
 		Target:   target,
+		Remote:   address.Address(fiberCtx.RequestCtx().RemoteAddr().String()),
 		Sec:      parseSecurityInfo(fiberCtx),
 		Role:     freighter.RoleServer,
 		Variant:  lo.Ternary(stream, freighter.VariantStream, freighter.VariantUnary),
