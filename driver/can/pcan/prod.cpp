@@ -7,41 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <string>
-
 #include "driver/can/can.h"
 #include "driver/can/pcan/prod.h"
-#include "driver/errors/errors.h"
 
 namespace driver::can::pcan {
-namespace {
-#ifdef _WIN32
-const std::string LIBRARY_NAME = "PCANBasic.dll";
-const LibraryInfo LIBRARY_INFO = {
-    "PEAK PCAN-Basic",
-    "https://www.peak-system.com/PCAN-Basic.239.0.html"
-};
-#elif defined(__APPLE__)
-const std::string LIBRARY_NAME = "libPCBUSB.dylib";
-const LibraryInfo LIBRARY_INFO = {"MacCAN PCBUSB", "https://www.mac-can.com"};
-#else
-const std::string LIBRARY_NAME;
-const LibraryInfo LIBRARY_INFO;
-#endif
-}
-
 std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
-    if (LIBRARY_NAME.empty())
-        return {
-            nullptr,
-            x::errors::Error(
-                UNSUPPORTED_ERROR,
-                "PCAN-Basic runs on Windows and macOS. Use the socketcan backend on "
-                "Linux"
-            )
-        };
-    auto lib = std::make_unique<x::lib::Shared>(LIBRARY_NAME);
-    if (!lib->load()) return {nullptr, driver::errors::missing_lib(LIBRARY_INFO)};
+    const auto library = pcan::library();
+    auto [lib, err] = vendor::load(library);
+    if (err) return {nullptr, err};
     auto api = std::make_shared<ProdAPI>(std::move(lib));
     x::lib::Symbols symbols(*api->lib);
     symbols.resolve("CAN_Initialize", api->initialize);
@@ -55,8 +28,8 @@ std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
     symbols.resolve("CAN_GetValue", api->get_value);
     symbols.resolve("CAN_SetValue", api->set_value);
     symbols.resolve("CAN_GetErrorText", api->get_error_text);
-    if (auto err = symbols.error(CRITICAL_HARDWARE_ERROR, LIBRARY_INFO.name))
-        return {nullptr, err};
+    err = symbols.error(CRITICAL_HARDWARE_ERROR, library.info.name);
+    if (err) return {nullptr, err};
     return {api, x::errors::NIL};
 }
 

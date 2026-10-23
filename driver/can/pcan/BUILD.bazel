@@ -18,6 +18,10 @@ cc_library(
     ] + select({
         "@platforms//os:windows": ["prod_windows.cpp"],
         "//conditions:default": ["prod_posix.cpp"],
+    }) + select({
+        "@platforms//os:windows": ["library_windows.cpp"],
+        "@platforms//os:macos": ["library_macos.cpp"],
+        "//conditions:default": ["library_unsupported.cpp"],
     }),
     hdrs = [
         "abi.h",
@@ -28,6 +32,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//driver/can",
+        "//driver/can:vendor",
         "//driver/errors",
         "//x/cpp/errors",
         "//x/cpp/lib",

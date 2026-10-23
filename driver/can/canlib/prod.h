@@ -16,8 +16,12 @@
 #include "x/cpp/lib/lib.h"
 
 #include "driver/can/canlib/api.h"
+#include "driver/can/vendor.h"
 
 namespace driver::can::canlib {
+/// @returns the CANlib library for the platform the build targets.
+[[nodiscard]] vendor::Library library();
+
 /// @brief Kvaser's canlib32.dll, loaded at runtime.
 class ProdAPI final : public API {
     std::unique_ptr<x::lib::Shared> lib;

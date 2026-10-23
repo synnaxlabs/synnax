@@ -8,47 +8,15 @@
 // included in the file licenses/APL.txt.
 
 #include <string>
-#include <vector>
 
 #include "driver/can/can.h"
 #include "driver/can/gs_usb/prod.h"
-#include "driver/errors/errors.h"
 
 namespace driver::can::gs_usb {
-namespace {
-const LibraryInfo LIBRARY_INFO = {"libusb", "https://libusb.info"};
-
-#ifdef _WIN32
-const std::vector<std::string> LIBRARY_NAMES = {"libusb-1.0.dll"};
-#elif defined(__APPLE__)
-const std::vector<std::string> LIBRARY_NAMES = {
-    "libusb-1.0.0.dylib",
-    "/opt/homebrew/lib/libusb-1.0.0.dylib",
-    "/usr/local/lib/libusb-1.0.0.dylib",
-};
-#else
-const std::vector<std::string> LIBRARY_NAMES;
-#endif
-}
-
 std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
-    if (LIBRARY_NAMES.empty())
-        return {
-            nullptr,
-            x::errors::Error(
-                UNSUPPORTED_ERROR,
-                "Linux runs gs_usb adapters as SocketCAN interfaces. Use the socketcan "
-                "backend on Linux"
-            )
-        };
-    std::unique_ptr<x::lib::Shared> lib;
-    for (const auto &name: LIBRARY_NAMES) {
-        auto candidate = std::make_unique<x::lib::Shared>(name);
-        if (!candidate->load()) continue;
-        lib = std::move(candidate);
-        break;
-    }
-    if (lib == nullptr) return {nullptr, driver::errors::missing_lib(LIBRARY_INFO)};
+    const auto library = gs_usb::library();
+    auto [lib, err] = vendor::load(library);
+    if (err) return {nullptr, err};
     auto api = std::make_shared<ProdAPI>(std::move(lib));
     x::lib::Symbols symbols(*api->lib);
     symbols.resolve("libusb_init", api->init);
@@ -69,8 +37,8 @@ std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
     symbols.resolve("libusb_control_transfer", api->control_transfer);
     symbols.resolve("libusb_bulk_transfer", api->bulk_transfer);
     symbols.resolve("libusb_error_name", api->error_name);
-    if (auto err = symbols.error(CRITICAL_HARDWARE_ERROR, LIBRARY_INFO.name))
-        return {nullptr, err};
+    err = symbols.error(CRITICAL_HARDWARE_ERROR, library.info.name);
+    if (err) return {nullptr, err};
     if (const int rc = api->init(&api->ctx); rc != LIBUSB_SUCCESS)
         return {
             nullptr,

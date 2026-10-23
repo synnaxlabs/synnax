@@ -7,36 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <string>
-
 #include "driver/can/can.h"
 #include "driver/can/nixnet/prod.h"
-#include "driver/errors/errors.h"
 
 namespace driver::can::nixnet {
-namespace {
-const LibraryInfo LIBRARY_INFO = {
-    "NI-XNET",
-    "https://www.ni.com/en/support/downloads/drivers/download.ni-xnet.html"
-};
-
-#ifdef _WIN32
-const std::string LIBRARY_NAME = "nixnet.dll";
-#elif defined(__linux__)
-const std::string LIBRARY_NAME = "libnixnet.so";
-#else
-const std::string LIBRARY_NAME;
-#endif
-}
-
 std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
-    if (LIBRARY_NAME.empty())
-        return {
-            nullptr,
-            x::errors::Error(UNSUPPORTED_ERROR, "NI-XNET runs on Windows and Linux")
-        };
-    auto lib = std::make_unique<x::lib::Shared>(LIBRARY_NAME);
-    if (!lib->load()) return {nullptr, driver::errors::missing_lib(LIBRARY_INFO)};
+    const auto library = nixnet::library();
+    auto [lib, err] = vendor::load(library);
+    if (err) return {nullptr, err};
     auto api = std::make_shared<ProdAPI>(std::move(lib));
     x::lib::Symbols symbols(*api->lib);
     symbols.resolve("nxCreateSession", api->create_session);
@@ -50,8 +28,8 @@ std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
     symbols.resolve("nxStatusToString", api->status_to_string);
     symbols.resolve("nxSystemOpen", api->system_open);
     symbols.resolve("nxSystemClose", api->system_close);
-    if (auto err = symbols.error(CRITICAL_HARDWARE_ERROR, LIBRARY_INFO.name))
-        return {nullptr, err};
+    err = symbols.error(CRITICAL_HARDWARE_ERROR, library.info.name);
+    if (err) return {nullptr, err};
     return {api, x::errors::NIL};
 }
 

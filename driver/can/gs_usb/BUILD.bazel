@@ -43,7 +43,11 @@ cc_library(
     srcs = [
         "gs_usb.cpp",
         "prod.cpp",
-    ],
+    ] + select({
+        "@platforms//os:windows": ["library_windows.cpp"],
+        "@platforms//os:macos": ["library_macos.cpp"],
+        "//conditions:default": ["library_unsupported.cpp"],
+    }),
     hdrs = [
         "api.h",
         "gs_usb.h",
@@ -55,6 +59,7 @@ cc_library(
         ":libusb",
         ":protocol",
         "//driver/can",
+        "//driver/can:vendor",
         "//driver/errors",
         "//x/cpp/errors",
         "//x/cpp/lib",

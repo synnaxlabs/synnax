@@ -16,10 +16,14 @@
 #include "x/cpp/lib/lib.h"
 
 #include "driver/can/pcan/api.h"
+#include "driver/can/vendor.h"
 
 namespace driver::can::pcan {
-/// @brief the PCAN-Basic library, PCANBasic.dll on Windows and MacCAN's
-/// libPCBUSB.dylib on macOS, loaded at runtime.
+/// @returns the PCAN-Basic library for the platform the build targets.
+[[nodiscard]] vendor::Library library();
+
+/// @brief the PCAN-Basic library, PCANBasic.dll on Windows and MacCAN's libPCBUSB.dylib
+/// on macOS, loaded at runtime.
 class ProdAPI final : public API {
     std::unique_ptr<x::lib::Shared> lib;
     CAN_Initialize_t initialize = nullptr;
