@@ -47,6 +47,7 @@ class RangesVerify(ConsoleCase):
         assert self.parent.time_range.end == PARENT_TR.end, (
             f"End mismatch: {self.parent.time_range.end} != {PARENT_TR.end}"
         )
+        assert self.parent.color is not None, "Parent color missing"
         assert self.parent.color == PARENT_COLOR, (
             f"Color mismatch: {self.parent.color.hex()} != {PARENT_COLOR}"
         )
@@ -63,6 +64,7 @@ class RangesVerify(ConsoleCase):
             assert child is not None, f"Child '{name}' not found"
             assert child.time_range.start == tr.start, f"{name} start mismatch"
             assert child.time_range.end == tr.end, f"{name} end mismatch"
+            assert child.color is not None, f"{name} color missing"
             assert child.color == color, (
                 f"{name} color mismatch: {child.color.hex()} != {color}"
             )

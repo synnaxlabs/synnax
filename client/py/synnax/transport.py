@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import ssl
+
 from urllib3 import Retry, Timeout
 
 from alamos import Instrumentation
@@ -32,7 +34,6 @@ class Transport:
     stream_async: AsyncWebsocketClient
     unary: UnaryClient
     file_transport: FileTransport
-    secure: bool
 
     def __init__(
         self,
@@ -43,27 +44,37 @@ class Transport:
         read_timeout: TimeSpan = TimeSpan.SECOND * 5,
         keep_alive: TimeSpan = TimeSpan.SECOND * 30,
         max_retries: int = 3,
+        ca_cert: str | None = None,
     ) -> None:
+        """
+        :param secure: Whether to use TLS. The client then verifies the Core's
+            certificate against ca_cert, or the system trust roots when ca_cert is None.
+        :param ca_cert: The path to a PEM file of CA certificates that sign the Core's
+            certificate.
+        :raises ValueError: If ca_cert is set and secure is False.
+        """
+        if ca_cert is not None and not secure:
+            raise ValueError("ca_cert requires secure=True")
+        ssl_context = ssl.create_default_context(cafile=ca_cert) if secure else None
         self.url = url.child("/api/v1/")
         codec = JSONCodec()
         ws_args = {
             "base_url": self.url,
             "encoder": codec,
             "max_message_size": int(Size.MB * 5),
-            "secure": secure,
+            "ssl_context": ssl_context,
             "open_timeout": open_timeout.seconds,
             "close_timeout": read_timeout.seconds,
         }
         self.stream = WebsocketClient(**ws_args)
-        # We need to update these here because the WebSocket client doesn't support the
-        # same arguments as the async WebSocket client.
+        # The sync client keeps the websockets keep-alive defaults.
         ws_args["ping_interval"] = keep_alive.seconds
         ws_args["ping_timeout"] = 180
         self.stream_async = AsyncWebsocketClient(**ws_args)
         http = HTTPClient(
             url=self.url,
             codec=codec,
-            secure=secure,
+            ssl_context=ssl_context,
             timeout=Timeout(connect=open_timeout.seconds, read=read_timeout.seconds),
             retries=Retry(total=max_retries),
         )

@@ -112,6 +112,88 @@ Channel struct {
 	})
 })
 
+var _ = Describe("Frozen union with a borrowed enum", func() {
+	It("Should type the frozen discriminator with the frozen enum", func() {
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		const decls = `
+Method enum {
+	password = "password"
+}
+
+Credentials struct {
+	username string
+}
+
+Proof union on method Method {
+	password Credentials
+
+	@go marshal
+}
+`
+		write("schemas/synnax/versions/auth/v0.oracle", decls)
+		write("schemas/synnax/versions/auth/v1.oracle", `
+Method enum {
+	password = "password"
+	api_key  = "api_key"
+}
+
+Credentials = v0.Credentials
+
+Proof union on method Method {
+	password v0.Credentials
+	api_key  v0.Credentials
+
+	@go marshal
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		resolver := versions.NewResolver(
+			chains, analyzer.NewStandardFileLoader(root),
+		)
+		table := resolution.NewTable()
+		diag := analyzer.AnalyzeSeeded(
+			GinkgoT().Context(), `@go output "core/pkg/service/auth"`+"\n"+`
+Method enum {
+	password = "password"
+	api_key  = "api_key"
+}
+
+Credentials struct {
+	username string
+}
+
+Proof union on method Method {
+	password Credentials
+	api_key  Credentials
+
+	@go marshal
+}
+`,
+			"schemas/synnax/auth.oracle", "auth",
+			analyzer.NewStandardFileLoader(root), table,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		req := &plugin.Request{Resolutions: table, RepoRoot: root, Versions: resolver}
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
+		var frozen string
+		for _, f := range resp.Files {
+			if f.Path == "core/pkg/service/auth/versions/v0/types.gen.go" {
+				frozen = string(f.Content)
+			}
+		}
+		Expect(frozen).ToNot(BeEmpty())
+		Expect(frozen).To(ContainSubstring("Type Method `json:\"method\"`"))
+		Expect(frozen).To(ContainSubstring("MethodPassword Method"))
+		Expect(frozen).ToNot(ContainSubstring("ProofType"))
+	})
+})
+
 var _ = Describe("Ended chain", func() {
 	var req *plugin.Request
 
@@ -493,4 +575,263 @@ Window union on variant {
 			))
 		},
 	)
+})
+
+var _ = Describe("Stored reference through a lagging pin", func() {
+	var req *plugin.Request
+
+	BeforeEach(func() {
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/x/versions/color/v0.oracle", `
+Color struct {
+	r uint8
+
+	@go marshal
+}
+`)
+		write("schemas/x/versions/color/v1.oracle", `
+Color = v0.Color
+
+Band struct {
+	color Color
+
+	@go marshal
+}
+`)
+		write("schemas/x/color.oracle", `
+@go output "x/go/color"
+
+Color struct {
+	r uint8
+}
+
+Band struct {
+	color Color
+}
+`)
+		write("schemas/synnax/versions/log/v0.oracle", `
+import "schemas/x/versions/color/v0"
+
+Log struct {
+	key uuid @key
+	color color.Color
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/log.oracle", `
+import "schemas/x/color"
+
+@go output "core/pkg/service/log"
+
+Log struct {
+	key uuid @key
+	color color.Color
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(
+			GinkgoT().Context(),
+			[]string{"schemas/x/color", "schemas/synnax/log"},
+			loader,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		req = &plugin.Request{
+			Resolutions: table,
+			RepoRoot:    root,
+			Versions:    versions.NewResolver(chains, loader),
+		}
+	})
+
+	file := func(resp *plugin.Response, path string) string {
+		GinkgoHelper()
+		for _, f := range resp.Files {
+			if f.Path == path {
+				return string(f.Content)
+			}
+		}
+		Fail("no generated file " + path)
+		return ""
+	}
+
+	// log v0 still pins color v0, which color v1 only aliases, so the current log
+	// package imports v0, the version its version file imports.
+	It("Should import the pinned version from a current package", func() {
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
+		current := file(resp, "core/pkg/service/log/versions/v0/types.gen.go")
+		Expect(current).To(ContainSubstring(`x/go/color/versions/v0"`))
+		Expect(current).ToNot(ContainSubstring(`x/go/color/versions/v1"`))
+	})
+
+	It("Should keep the alias in the dependency's current package", func() {
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
+		dep := file(resp, "x/go/color/versions/v1/types.gen.go")
+		Expect(dep).To(ContainSubstring("type Color = v0.Color"))
+		Expect(dep).To(ContainSubstring("Color Color"))
+	})
+})
+
+// writePinFixture writes a log whose v0 declares Note against color v0 and whose v1
+// declares Log against color v1, where color v1 only aliases v0's Color. With frozen
+// set, a log v2 aliases both, freezing v1.
+func writePinFixture(root string, frozen bool) {
+	GinkgoHelper()
+	write := func(rel, content string) {
+		GinkgoHelper()
+		full := filepath.Join(root, rel)
+		Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+		Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+	}
+	write("schemas/x/versions/color/v0.oracle", `
+Color struct {
+	r uint8
+
+	@go marshal
+}
+`)
+	write("schemas/x/versions/color/v1.oracle", `
+Color = v0.Color
+
+Band struct {
+	color Color
+
+	@go marshal
+}
+`)
+	write("schemas/x/color.oracle", `
+@go output "x/go/color"
+
+Color struct {
+	r uint8
+
+	@go marshal
+}
+
+Band struct {
+	color Color
+
+	@go marshal
+}
+`)
+	write("schemas/synnax/versions/log/v0.oracle", `
+import "schemas/x/versions/color/v0"
+
+Note struct {
+	tint color.Color
+
+	@go marshal
+}
+
+Log struct {
+	key uuid @key
+	note Note
+
+	@go marshal
+}
+`)
+	write("schemas/synnax/versions/log/v1.oracle", `
+import "schemas/x/versions/color/v1"
+
+Note = v0.Note
+
+Log struct {
+	key uuid @key
+	note Note
+	colors color.Color[]
+	bands color.Band[]
+
+	@go marshal
+}
+`)
+	if frozen {
+		write("schemas/synnax/versions/log/v2.oracle", `
+Note = v0.Note
+
+Log = v1.Log
+`)
+	}
+	write("schemas/synnax/log.oracle", `
+import "schemas/x/color"
+
+@go output "core/pkg/service/log"
+
+Note struct {
+	tint color.Color
+
+	@go marshal
+}
+
+Log struct {
+	key uuid @key
+	note Note
+	colors color.Color[]
+	bands color.Band[]
+
+	@go marshal
+}
+`)
+}
+
+// pinRequest analyzes the fixture writePinFixture writes.
+func pinRequest(frozen bool) *plugin.Request {
+	GinkgoHelper()
+	root := GinkgoT().TempDir()
+	writePinFixture(root, frozen)
+	chains := MustSucceed(versions.Discover(root))
+	loader := analyzer.NewStandardFileLoader(root)
+	table, diag := analyzer.Analyze(
+		GinkgoT().Context(),
+		[]string{"schemas/x/color", "schemas/synnax/log"},
+		loader,
+	)
+	Expect(diag.Ok()).To(BeTrue(), diag.String())
+	return &plugin.Request{
+		Resolutions: table,
+		RepoRoot:    root,
+		Versions:    versions.NewResolver(chains, loader),
+	}
+}
+
+// generatedFile returns the content resp holds at path.
+func generatedFile(resp *plugin.Response, path string) string {
+	GinkgoHelper()
+	for _, f := range resp.Files {
+		if f.Path == path {
+			return string(f.Content)
+		}
+	}
+	Fail("no generated file " + path)
+	return ""
+}
+
+var _ = Describe("Stored references through the importing version file", func() {
+	// log v1 imports color v1, which aliases v0's Color, so the package references
+	// color v1 only, and freezing v1 keeps that import.
+	DescribeTable("Should import the version that log v1 imports",
+		func(frozen bool) {
+			resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).
+				Generate(pinRequest(frozen)))
+			v1 := generatedFile(resp, "core/pkg/service/log/versions/v1/types.gen.go")
+			Expect(v1).To(MatchRegexp(`\scolor "[^"]*/color/versions/v1"`))
+			Expect(v1).ToNot(ContainSubstring(`color/versions/v0"`))
+			Expect(v1).To(MatchRegexp(`\sv0 "[^"]*/log/versions/v0"`))
+		},
+		Entry("current", false),
+		Entry("frozen", true),
+	)
+
+	It("Should import the version that log v0 imports", func() {
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).
+			Generate(pinRequest(false)))
+		v0 := generatedFile(resp, "core/pkg/service/log/versions/v0/types.gen.go")
+		Expect(v0).To(ContainSubstring(`x/go/color/versions/v0"`))
+		Expect(v0).ToNot(ContainSubstring(`color/versions/v1"`))
+	})
 })

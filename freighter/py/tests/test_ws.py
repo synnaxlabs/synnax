@@ -7,17 +7,21 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import asyncio
+import threading
 import time
+from collections.abc import Iterator
 from uuid import uuid4
 
 import pytest
 from pydantic import BaseModel
 from websockets.protocol import State
+from websockets.sync.server import ServerConnection, serve
 
 import freighter.exceptions
 from freighter.context import Context
 from freighter.http import HTTPClient
-from freighter.transport import AsyncNext, Next, P
+from freighter.transport import AsyncNext, Empty, Next, P
 from freighter.url import URL
 from freighter.websocket import (
     AsyncWebsocketClient,
@@ -62,6 +66,154 @@ def sync_client(endpoint: URL) -> WebsocketClient:
 @pytest.fixture
 def unary_client(endpoint: URL) -> HTTPClient:
     return HTTPClient(endpoint.child("unary"), JSONCodec())
+
+
+@pytest.fixture
+def errorless_close_endpoint() -> Iterator[URL]:
+    """Serves a stream that acks the open, then closes without an error."""
+    codec = JSONCodec()
+
+    def handler(ws: ServerConnection) -> None:
+        ws.send(codec.encode(WebsocketMessage[Empty](type="open", payload=Empty())))
+        ws.send(codec.encode(WebsocketMessage[Empty](type="close", payload=Empty())))
+        for _ in ws:
+            pass
+
+    with serve(handler, "localhost", 0) as server:
+        thread = threading.Thread(target=server.serve_forever)
+        thread.start()
+        yield URL("localhost", server.socket.getsockname()[1])
+        server.shutdown()
+        thread.join()
+
+
+class TestServerCloseWithoutError:
+    @pytest.mark.asyncio
+    async def test_async(self, errorless_close_endpoint: URL) -> None:
+        """Should raise EOF when the server closes without an error."""
+        client = AsyncWebsocketClient(
+            encoder=JSONCodec(), base_url=errorless_close_endpoint
+        )
+        stream = await client.stream("/", Empty, Empty)
+        with pytest.raises(freighter.EOF):
+            await stream.receive()
+        with pytest.raises(freighter.EOF):
+            await stream.receive()
+
+    def test_sync(self, errorless_close_endpoint: URL) -> None:
+        """Should raise EOF when the server closes without an error."""
+        client = WebsocketClient(encoder=JSONCodec(), base_url=errorless_close_endpoint)
+        stream = client.stream("/", Empty, Empty)
+        with pytest.raises(freighter.EOF):
+            stream.receive()
+        with pytest.raises(freighter.EOF):
+            stream.receive()
+
+
+@pytest.fixture
+def server_close_endpoint() -> Iterator[tuple[URL, threading.Event]]:
+    """Serves a stream that acks the open, then closes the connection. Sets the event
+    once the close handshake completes."""
+    codec = JSONCodec()
+    closed = threading.Event()
+
+    def handler(ws: ServerConnection) -> None:
+        ws.send(codec.encode(WebsocketMessage[Empty](type="open", payload=Empty())))
+        ws.close()
+        closed.set()
+
+    with serve(handler, "localhost", 0) as server:
+        thread = threading.Thread(target=server.serve_forever)
+        thread.start()
+        yield URL("localhost", server.socket.getsockname()[1]), closed
+        server.shutdown()
+        thread.join()
+
+
+@pytest.mark.asyncio
+class TestAsyncServerCloseConnection:
+    async def test_receive(
+        self, server_close_endpoint: tuple[URL, threading.Event]
+    ) -> None:
+        """Should raise EOF when the server closes the connection."""
+        url, _ = server_close_endpoint
+        client = AsyncWebsocketClient(encoder=JSONCodec(), base_url=url)
+        stream = await client.stream("/", Empty, Empty)
+        with pytest.raises(freighter.EOF):
+            await stream.receive()
+
+    async def test_close_send(
+        self, server_close_endpoint: tuple[URL, threading.Event]
+    ) -> None:
+        """Should raise EOF when closing the send side after the server closes the
+        connection."""
+        url, closed = server_close_endpoint
+        client = AsyncWebsocketClient(encoder=JSONCodec(), base_url=url)
+        stream = await client.stream("/", Empty, Empty)
+        assert await asyncio.to_thread(closed.wait, 2)
+        with pytest.raises(freighter.EOF):
+            await stream.close_send()
+
+
+@pytest.fixture
+def failed_open_endpoint() -> Iterator[tuple[URL, threading.Event]]:
+    """Serves a stream that answers the open with a data message instead of an ack.
+    Sets the event once the client closes the connection."""
+    codec = JSONCodec()
+    closed = threading.Event()
+
+    def handler(ws: ServerConnection) -> None:
+        ws.send(codec.encode(WebsocketMessage[Empty](type="data", payload=Empty())))
+        for _ in ws:
+            pass
+        closed.set()
+
+    with serve(handler, "localhost", 0) as server:
+        thread = threading.Thread(target=server.serve_forever)
+        thread.start()
+        yield URL("localhost", server.socket.getsockname()[1]), closed
+        server.shutdown()
+        thread.join()
+
+
+class TestFailedOpen:
+    @pytest.mark.asyncio
+    async def test_async(
+        self, failed_open_endpoint: tuple[URL, threading.Event]
+    ) -> None:
+        """Should close the connection when the server does not ack the open."""
+        url, closed = failed_open_endpoint
+        client = AsyncWebsocketClient(encoder=JSONCodec(), base_url=url)
+        with pytest.raises(RuntimeError):
+            await client.stream("/", Empty, Empty)
+        assert await asyncio.to_thread(closed.wait, 2)
+
+    def test_sync(self, failed_open_endpoint: tuple[URL, threading.Event]) -> None:
+        """Should close the connection when the server does not ack the open."""
+        url, closed = failed_open_endpoint
+        client = WebsocketClient(encoder=JSONCodec(), base_url=url)
+        with pytest.raises(RuntimeError):
+            client.stream("/", Empty, Empty)
+        assert closed.wait(2)
+
+
+class TestWithCodec:
+    @pytest.mark.asyncio
+    async def test_async_max_message_size(self, errorless_close_endpoint: URL) -> None:
+        """Should keep the maximum message size of the original client."""
+        client = AsyncWebsocketClient(
+            encoder=JSONCodec(), base_url=errorless_close_endpoint, max_message_size=8
+        ).with_codec(JSONCodec())
+        with pytest.raises(ConnectionClosedError):
+            await client.stream("/", Empty, Empty)
+
+    def test_sync_max_message_size(self, errorless_close_endpoint: URL) -> None:
+        """Should keep the maximum message size of the original client."""
+        client = WebsocketClient(
+            encoder=JSONCodec(), base_url=errorless_close_endpoint, max_message_size=8
+        ).with_codec(JSONCodec())
+        with pytest.raises(ConnectionClosedError):
+            client.stream("/", Empty, Empty)
 
 
 @pytest.mark.ws
@@ -141,7 +293,7 @@ class TestAsyncWebsocket:
         """Should correctly use a custom codec for the websocket client."""
         async_client = async_client.with_codec(MyVerySpecialCustomCodec())
         stream = await async_client.stream("/echo", Message, Message)
-        for i in range(1):
+        for _ in range(1):
             await stream.send(Message(id=12, message="what we send here is ignored"))
             msg = await stream.receive()
             assert msg.id == 4201
@@ -242,7 +394,7 @@ class TestSyncWebsocket:
     def test_exit_immediately_with_err(self, sync_client: WebsocketClient) -> None:
         """Should correctly return the error to the stream"""
         stream = sync_client.stream("/immediatelyExitWithErr", Message, Message)
-        for i in range(100):
+        for _ in range(100):
             try:
                 stream.send(Message(id=1, message="hello"))
             except freighter.EOF:
@@ -257,7 +409,7 @@ class TestSyncWebsocket:
         """Should correctly use a custom codec for the websocket client."""
         sync_client = sync_client.with_codec(MyVerySpecialCustomCodec())
         stream = sync_client.stream("/echo", Message, Message)
-        for i in range(1):
+        for _ in range(1):
             stream.send(Message(id=12, message="what we send here is ignored"))
             msg = stream.receive()
             assert msg.id == 4201
@@ -275,3 +427,36 @@ class TestSyncWebsocket:
             stream.receive()
         state = stream._internal.state
         assert state is State.CLOSED
+
+
+class TestContext:
+    def test_sync_protocol_and_target(self, sync_client: WebsocketClient) -> None:
+        """Should give middleware the websocket protocol and the stream target."""
+        contexts: list[Context] = []
+
+        def mw(ctx: Context, _: Next) -> Context:
+            contexts.append(ctx)
+            raise RuntimeError("stop")
+
+        sync_client.use(mw)
+        with pytest.raises(RuntimeError, match="stop"):
+            sync_client.stream("/echo", Message, Message)
+        assert contexts[0].protocol == "websocket"
+        assert contexts[0].target == "/echo"
+
+    @pytest.mark.asyncio
+    async def test_async_protocol_and_target(
+        self, async_client: AsyncWebsocketClient
+    ) -> None:
+        """Should give middleware the websocket protocol and the stream target."""
+        contexts: list[Context] = []
+
+        async def mw(ctx: Context, _: AsyncNext) -> Context:
+            contexts.append(ctx)
+            raise RuntimeError("stop")
+
+        async_client.use(mw)
+        with pytest.raises(RuntimeError, match="stop"):
+            await async_client.stream("/echo", Message, Message)
+        assert contexts[0].protocol == "websocket"
+        assert contexts[0].target == "/echo"

@@ -32,10 +32,6 @@
       "project": ["src/**/*.{ts,tsx}"],
       "ignoreDependencies": ["vscode"]
     },
-    "x/media": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.{ts,tsx}"]
-    },
     "x/ts": {
       "entry": ["src/index.ts", "src/bench/index.ts"],
       "project": ["src/**/*.ts"]
@@ -78,7 +74,7 @@
       "project": ["src/**/*.{ts,tsx,astro}"]
     },
     "configs/eslint": {
-      "project": ["*.ts"]
+      "project": ["*.ts", "rules/**/*.ts"]
     },
     "configs/ts": {},
     "configs/vite": {

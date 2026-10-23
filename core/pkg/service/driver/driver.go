@@ -58,6 +58,8 @@ type instance struct {
 type commandSink struct {
 	confluence.UnarySink[framer.StreamerResponse]
 	driver *Driver
+	// open is closed on the streamer's open acknowledgment.
+	open chan struct{}
 }
 
 // Open creates and starts a new Go driver. The driver is fully initialized and ready to
@@ -78,29 +80,12 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 		integrations[i] = f.Name()
 	}
 
-	if err = cfg.Rack.NewRetrieve().
-		Where(rack.MatchEmbedded(true)).
-		Where(rack.MatchNames(fmt.Sprintf("Node %d", cfg.Host.HostKey()))).
-		Entry(&d.rack).Exec(ctx, nil); errors.Is(err, query.ErrNotFound) {
-		d.rack = rack.Rack{
-			Name:         fmt.Sprintf("Node %d", cfg.Host.HostKey()),
-			Embedded:     true,
-			Integrations: integrations,
-		}
-		if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return cfg.Rack.NewWriter(tx).Create(ctx, &d.rack)
-		}); !ok(err, nil) {
-			return nil, err
-		}
-	} else if !ok(err, nil) {
+	if d.rack, err = cfg.Rack.RetrieveOrCreateEmbedded(
+		ctx,
+		fmt.Sprintf("Node %d", cfg.Host.HostKey()),
+		func(r *rack.Rack) { r.Integrations = integrations },
+	); !ok(err, nil) {
 		return nil, err
-	} else {
-		d.rack.Integrations = integrations
-		if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return cfg.Rack.NewWriter(tx).Create(ctx, &d.rack)
-		}); !ok(err, nil) {
-			return nil, err
-		}
 	}
 	cfg.L.Info("created Core driver rack", zap.Stringer("key", d.rack.Key))
 
@@ -125,9 +110,18 @@ func (d *Driver) startHeartbeat() {
 		d.cfg.HeartbeatInterval,
 		func(ctx context.Context, _ time.Time) error {
 			if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				// Reading the rack each beat means a rename that races a beat is
+				// overwritten for at most that one beat.
+				var r rack.Rack
+				if err := d.cfg.Rack.NewRetrieve().
+					Where(rack.MatchKeys(d.rack.Key)).
+					Entry(&r).
+					Exec(ctx, tx); err != nil {
+					return err
+				}
 				return d.cfg.Status.NewWriter(tx).Set(ctx, &rack.Status{
 					Key:     rack.StatusKey(d.rack.Key),
-					Name:    d.rack.Name,
+					Name:    r.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
 					Message: "Driver is running",
@@ -147,14 +141,16 @@ func (d *Driver) startCommandStreaming(ctx context.Context) error {
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.closer = append(d.closer, signal.NewGracefulShutdown(sCtx, cancel))
 	streamer, err := d.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{
-		Keys: channel.Keys{d.cfg.Task.CommandChannelKey()},
+		Keys:        channel.Keys{d.cfg.Task.CommandChannelKey()},
+		SendOpenAck: true,
 	})
 	if err != nil {
 		return err
 	}
 	p := plumber.New()
 	p.SetSegment[framer.StreamerRequest, framer.StreamerResponse]("streamer", streamer)
-	sink := &commandSink{driver: d}
+	open := make(chan struct{})
+	sink := &commandSink{driver: d, open: open}
 	sink.Sink = sink.process
 	p.SetSink[framer.StreamerResponse]("driver", sink)
 	p.MustConnect[framer.StreamerResponse]("streamer", "driver", 10)
@@ -166,10 +162,21 @@ func (d *Driver) startCommandStreaming(ctx context.Context) error {
 		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
 	)
-	return nil
+	select {
+	case <-ctx.Done():
+		streamerRequests.Close()
+		return ctx.Err()
+	case <-open:
+		return nil
+	}
 }
 
 func (s *commandSink) process(ctx context.Context, res framer.StreamerResponse) error {
+	if s.open != nil {
+		close(s.open)
+		s.open = nil
+		return nil
+	}
 	s.driver.processCommand(ctx, res.Frame)
 	return nil
 }

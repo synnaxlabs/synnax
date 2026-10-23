@@ -127,7 +127,6 @@ type RetrieveRequest struct {
 	SearchTerm    string                 `protobuf:"bytes,3,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
 	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
 	Offset        int32                  `protobuf:"varint,5,opt,name=offset,proto3" json:"offset,omitempty"`
-	IncludeStatus bool                   `protobuf:"varint,6,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
 	Compile       bool                   `protobuf:"varint,7,opt,name=compile,proto3" json:"compile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -196,13 +195,6 @@ func (x *RetrieveRequest) GetOffset() int32 {
 		return x.Offset
 	}
 	return 0
-}
-
-func (x *RetrieveRequest) GetIncludeStatus() bool {
-	if x != nil {
-		return x.IncludeStatus
-	}
-	return false
 }
 
 func (x *RetrieveRequest) GetCompile() bool {
@@ -308,16 +300,15 @@ const file_core_pkg_transport_grpc_arc_arc_proto_rawDesc = "" +
 	"\rCreateRequest\x12'\n" +
 	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcs\"9\n" +
 	"\x0eCreateResponse\x12'\n" +
-	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcs\"\xcb\x01\n" +
+	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcs\"\xba\x01\n" +
 	"\x0fRetrieveRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\x12\x1f\n" +
 	"\vsearch_term\x18\x03 \x01(\tR\n" +
 	"searchTerm\x12\x14\n" +
 	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x05 \x01(\x05R\x06offset\x12%\n" +
-	"\x0einclude_status\x18\x06 \x01(\bR\rincludeStatus\x12\x18\n" +
-	"\acompile\x18\a \x01(\bR\acompile\";\n" +
+	"\x06offset\x18\x05 \x01(\x05R\x06offset\x12\x18\n" +
+	"\acompile\x18\a \x01(\bR\acompileJ\x04\b\x06\x10\aR\x0einclude_status\";\n" +
 	"\x10RetrieveResponse\x12'\n" +
 	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcs\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +

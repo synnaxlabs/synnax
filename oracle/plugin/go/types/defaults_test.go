@@ -370,6 +370,63 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			)
 		})
 
+		It("Should fill an array default of objects", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Tab struct { name string }
+
+				Cfg struct { tabs Tab[] = [{ name = "a" }, { name = "b" }] }
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"if c.Tabs == nil {",
+				"v0 := Tab{}",
+				`v0.Name = "a"`,
+				"v1 := Tab{}",
+				`v1.Name = "b"`,
+				"c.Tabs = []Tab{v0, v1}",
+			)
+		})
+
+		It(
+			"Should bind a generic element's type arguments in an array default",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Box struct<T extends int64> { value T? }
+
+				Cfg struct { boxes Box<int64>[] = [{ value = 7 }] }
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"v0 := Box[int64]{}",
+					"v0.Value = new(int64(7))",
+					"c.Boxes = []Box[int64]{v0}",
+				)
+			},
+		)
+
+		It(
+			"Should keep a defaulted type parameter at its default in an array default",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Box struct<T extends int64 = int32> { value T? }
+
+				Cfg struct { boxes Box<int64>[] = [{ value = 7 }] }
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"Value *int32",
+					"v0 := Box{}",
+					"v0.Value = new(int32(7))",
+				)
+			},
+		)
+
 		It("Should ignore an empty array default", func(ctx SpecContext) {
 			source := `
 				@go output "core/pkg/service/x"
@@ -843,6 +900,178 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				// ApplyDefaults to dispatch to.
 				Expect(strings.Index(content, "i.Cjc.Variant = ConstValCJC{}")).
 					To(BeNumerically("<", strings.Index(content, "i.Cjc.ApplyDefaults()")))
+			},
+		)
+
+		It("Should fill the nil variant from an object literal", func(ctx SpecContext) {
+			literal := `
+				@go output "core/pkg/service/x"
+
+				CJC union on source {
+					built_in {}
+					const_val {
+						val float64 = 0
+					}
+				}
+
+				Item struct { cjc CJC = { source = "const_val", val = 5 } }
+			`
+			resp := MustGenerate(ctx, literal, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"if i.Cjc.Variant == nil {",
+				"v0 := ConstValCJC{}",
+				"v0.Val = 5",
+				"i.Cjc.Variant = v0",
+			)
+		})
+
+		It("Should fill a union literal nested in a variant", func(ctx SpecContext) {
+			nested := `
+				@go output "core/pkg/service/x"
+
+				Window union on variant {
+					dynamic {
+						span int64 = 0
+					}
+					static {
+						start int64 = 0
+					}
+				}
+
+				Ref union on variant {
+					key {
+						key string
+					}
+					window {
+						key    string
+						window Window
+					}
+				}
+
+				Log struct {
+					range Ref = {
+						variant = "window",
+						key = "r7",
+						window = { variant = "dynamic", span = 7 }
+					}
+				}
+			`
+			resp := MustGenerate(ctx, nested, "x", loader, goPlugin)
+			content := MustContentOf(resp, "types.gen.go")
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"if l.Range.Variant == nil {",
+				"v0 := WindowRef{}",
+				`v0.Key = "r7"`,
+				"v1 := DynamicWindow{}",
+				"v1.Span = 7",
+				"v0.Window.Variant = v1",
+				"l.Range.Variant = v0",
+			)
+			Expect(strings.Index(content, "v0.Window.Variant = v1")).
+				To(BeNumerically("<", strings.Index(content, "l.Range.Variant = v0")))
+		})
+
+		It(
+			"Should allocate optional fields a union literal sets",
+			func(ctx SpecContext) {
+				optional := `
+				@go output "core/pkg/service/x"
+
+				Meta struct { name string }
+
+				Ref union on variant {
+					key {
+						key string
+					}
+					window {
+						label string?
+						span  int64?
+						meta  Meta?
+					}
+				}
+
+				Log struct {
+					range Ref = {
+						variant = "window",
+						label = "x",
+						span = 7,
+						meta = { name = "m" }
+					}
+				}
+			`
+				resp := MustGenerate(ctx, optional, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"v0 := WindowRef{}",
+					`v0.Label = new(string("x"))`,
+					"v0.Span = new(int64(7))",
+					"v0.Meta = &Meta{}",
+					`v0.Meta.Name = "m"`,
+					"l.Range.Variant = v0",
+				)
+			},
+		)
+
+		It(
+			"Should build object array elements of a union literal",
+			func(ctx SpecContext) {
+				objects := `
+				@go output "core/pkg/service/x"
+
+				Tab struct { name string }
+
+				Node union on variant {
+					leaf {
+						tabs Tab[]
+					}
+					split {
+						size int64
+					}
+				}
+
+				Panel struct {
+					root Node = { variant = "leaf", tabs = [{ name = "first" }] }
+				}
+			`
+				resp := MustGenerate(ctx, objects, "x", loader, goPlugin)
+				content := MustContentOf(resp, "types.gen.go")
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"if p.Root.Variant == nil {",
+					"v0 := LeafNode{}",
+					"v1 := Tab{}",
+					`v1.Name = "first"`,
+					"v0.Tabs = []Tab{v1}",
+					"p.Root.Variant = v0",
+				)
+				Expect(strings.Index(content, `v1.Name = "first"`)).
+					To(BeNumerically("<", strings.Index(content, "v0.Tabs = []Tab{v1}")))
+			},
+		)
+
+		It(
+			"Should fill a union literal inside a struct default",
+			func(ctx SpecContext) {
+				inStruct := `
+				@go output "core/pkg/service/x"
+
+				CJC union on source {
+					built_in {}
+					const_val {
+						val float64 = 0
+					}
+				}
+
+				Item struct { cjc CJC }
+
+				Cfg struct { item Item = { cjc = { source = "const_val", val = 5 } } }
+			`
+				resp := MustGenerate(ctx, inStruct, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (c *Cfg) ApplyDefaults() {",
+					"if c.Item.Cjc.Variant == nil {",
+					"v0 := ConstValCJC{}",
+					"v0.Val = 5",
+					"c.Item.Cjc.Variant = v0",
+				)
 			},
 		)
 	})

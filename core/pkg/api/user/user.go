@@ -12,24 +12,24 @@ package user
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
 )
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
 	access   *rbac.Service
 	internal *user.Service
+	password *password.Service
 	auth     *svcauth.Service
 }
 
@@ -43,6 +43,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	return &Service{
 		access:   cfg.Service.RBAC,
 		internal: cfg.Service.User,
+		password: cfg.Service.Password,
 		auth:     cfg.Service.Auth,
 	}, nil
 }
@@ -79,13 +80,10 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	authW := s.auth.NewWriter(tx)
+	passwordW := s.password.NewWriter(tx)
 	userW := s.internal.NewWriter(tx)
 	newUsers := make([]user.User, len(req.Users))
 	for i, nu := range req.Users {
-		if err := authW.Register(ctx, nu.Credentials); err != nil {
-			return CreateResponse{}, err
-		}
 		u, err := userW.Create(ctx, user.User{
 			Username:  nu.Username,
 			FirstName: nu.FirstName,
@@ -93,6 +91,9 @@ func (s *Service) Create(
 			Key:       nu.Key,
 		})
 		if err != nil {
+			return CreateResponse{}, err
+		}
+		if err := passwordW.Set(ctx, u.OntologyID(), nu.Credentials); err != nil {
 			return CreateResponse{}, err
 		}
 		newUsers[i] = u
@@ -137,8 +138,8 @@ func (s *Service) ChangeUsername(
 		ChangeUsername(ctx, req.Key, req.Username); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.auth.NewWriter(tx).
-		UpdateUsername(ctx, u.Username, req.Username)
+	return struct{}{}, s.password.NewWriter(tx).
+		Rename(ctx, u.OntologyID(), req.Username)
 }
 
 type RenameRequest struct {
@@ -218,26 +219,9 @@ func (s *Service) Delete(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	// Look up the usernames of the keys that actually exist so we can deactivate the
-	// matching auth rows. A bare-key retrieve wraps query.ErrNotFound when any key is
-	// missing; we treat that as "those keys are simply not here" and continue with
-	// whatever was found, so deleting a non-existent user is a no-op rather than an
-	// error.
-	var toDelete []user.User
-	if err := s.internal.NewRetrieve().
-		Where(user.MatchKeys(req.Keys...)).
-		Entries(&toDelete).
-		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return struct{}{}, err
-	}
 	if err := s.internal.NewWriter(tx).Delete(ctx, req.Keys...); err != nil {
 		return struct{}{}, err
 	}
-	if len(toDelete) == 0 {
-		return struct{}{}, nil
-	}
-	usernames := lo.Map(toDelete, func(u user.User, _ int) string {
-		return u.Username
-	})
-	return struct{}{}, s.auth.NewWriter(tx).Deactivate(ctx, usernames...)
+	return struct{}{}, s.auth.NewWriter(tx).
+		DeleteFor(ctx, user.OntologyIDsFromKeys(req.Keys)...)
 }

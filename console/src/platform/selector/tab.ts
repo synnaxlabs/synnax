@@ -17,7 +17,6 @@ export const TAB_TYPE = "selector";
 export const createEmptyTab = (): panel.NewTab => ({
   variant: "view",
   type: TAB_TYPE,
-  args: {},
 });
 
 export const useOpenTab = (): (() => void) => {

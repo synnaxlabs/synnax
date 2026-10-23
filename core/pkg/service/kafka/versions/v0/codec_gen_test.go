@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	httpv2 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v2"
 	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -58,8 +59,8 @@ var _ = Describe("Codec", func() {
 								Channel:    channel.Key(17),
 								Pointer:    "test_17",
 								DataType:   telem.DataType("test_18"),
-								TimeFormat: new(http.TimeFormat("iso8601")),
-								EnumValues: []http.EnumEntry{{Label: "test_21", Value: 22.5}},
+								TimeFormat: new(httpv2.TimeFormat("iso8601")),
+								EnumValues: []httpv2.EnumEntry{{Label: "test_21", Value: 22.5}},
 							},
 						},
 					},
@@ -105,8 +106,8 @@ var _ = Describe("Codec", func() {
 				Channel:    channel.Key(5),
 				Pointer:    "test_5",
 				DataType:   telem.DataType("test_6"),
-				TimeFormat: new(http.TimeFormat("iso8601")),
-				EnumValues: []http.EnumEntry{{Label: "test_9", Value: 10.5}},
+				TimeFormat: new(httpv2.TimeFormat("iso8601")),
+				EnumValues: []httpv2.EnumEntry{{Label: "test_9", Value: 10.5}},
 			}),
 			Entry("zero values", v0.ReadField{
 				Key:        "",
@@ -116,7 +117,7 @@ var _ = Describe("Codec", func() {
 				Pointer:    "",
 				DataType:   telem.DataType(""),
 				TimeFormat: nil,
-				EnumValues: []http.EnumEntry{},
+				EnumValues: []httpv2.EnumEntry{},
 			}),
 			Entry("empty collections", v0.ReadField{
 				Key:        "test_1",
@@ -125,8 +126,8 @@ var _ = Describe("Codec", func() {
 				Channel:    channel.Key(5),
 				Pointer:    "test_5",
 				DataType:   telem.DataType("test_6"),
-				TimeFormat: new(http.TimeFormat("iso8601")),
-				EnumValues: []http.EnumEntry{},
+				TimeFormat: new(httpv2.TimeFormat("iso8601")),
+				EnumValues: []httpv2.EnumEntry{},
 			}),
 		)
 	})
@@ -153,8 +154,8 @@ var _ = Describe("Codec", func() {
 						Channel:    channel.Key(9),
 						Pointer:    "test_9",
 						DataType:   telem.DataType("test_10"),
-						TimeFormat: new(http.TimeFormat("iso8601")),
-						EnumValues: []http.EnumEntry{{Label: "test_13", Value: 14.5}},
+						TimeFormat: new(httpv2.TimeFormat("iso8601")),
+						EnumValues: []httpv2.EnumEntry{{Label: "test_13", Value: 14.5}},
 					},
 				},
 			}),
@@ -187,9 +188,9 @@ var _ = Describe("Codec", func() {
 				ValuePointer:     "test_1",
 				ChannelPointer:   new(string("test_2")),
 				TimestampPointer: new(string("test_3")),
-				TimeFormat:       http.TimeFormat("iso8601"),
-				Fields: []http.WriteField{
-					{Variant: http.StaticWriteField{
+				TimeFormat:       httpv2.TimeFormat("iso8601"),
+				Fields: []httpv2.WriteField{
+					{Variant: httpv2.StaticWriteField{
 						BaseWriteField: http.BaseWriteField{Key: "test_6", Pointer: "test_7"},
 						JSONType:       http.JSONType("number"),
 						Value:          any(map[string]any{"key_9": "value_9"}),
@@ -200,15 +201,15 @@ var _ = Describe("Codec", func() {
 				ValuePointer:     "",
 				ChannelPointer:   nil,
 				TimestampPointer: nil,
-				TimeFormat:       http.TimeFormat(""),
-				Fields:           []http.WriteField{},
+				TimeFormat:       httpv2.TimeFormat(""),
+				Fields:           []httpv2.WriteField{},
 			}),
 			Entry("empty collections", v0.Record{
 				ValuePointer:     "test_1",
 				ChannelPointer:   new(string("test_2")),
 				TimestampPointer: new(string("test_3")),
-				TimeFormat:       http.TimeFormat("iso8601"),
-				Fields:           []http.WriteField{},
+				TimeFormat:       httpv2.TimeFormat("iso8601"),
+				Fields:           []httpv2.WriteField{},
 			}),
 		)
 	})
@@ -250,25 +251,25 @@ var _ = Describe("Codec", func() {
 				Key:        "test_1",
 				Disabled:   false,
 				Channel:    channel.Key(4),
-				JSONType:   http.JSONType("number"),
-				TimeFormat: new(http.TimeFormat("iso8601")),
-				EnumValues: []http.EnumEntry{{Label: "test_7", Value: 8.5}},
+				JSONType:   httpv2.JSONType("number"),
+				TimeFormat: new(httpv2.TimeFormat("iso8601")),
+				EnumValues: []httpv2.EnumEntry{{Label: "test_7", Value: 8.5}},
 			}),
 			Entry("zero values", v0.WriteChannel{
 				Key:        "",
 				Disabled:   false,
 				Channel:    channel.Key(0),
-				JSONType:   http.JSONType(""),
+				JSONType:   httpv2.JSONType(""),
 				TimeFormat: nil,
-				EnumValues: []http.EnumEntry{},
+				EnumValues: []httpv2.EnumEntry{},
 			}),
 			Entry("empty collections", v0.WriteChannel{
 				Key:        "test_1",
 				Disabled:   false,
 				Channel:    channel.Key(4),
-				JSONType:   http.JSONType("number"),
-				TimeFormat: new(http.TimeFormat("iso8601")),
-				EnumValues: []http.EnumEntry{},
+				JSONType:   httpv2.JSONType("number"),
+				TimeFormat: new(httpv2.TimeFormat("iso8601")),
+				EnumValues: []httpv2.EnumEntry{},
 			}),
 		)
 	})
@@ -293,9 +294,9 @@ var _ = Describe("Codec", func() {
 					ValuePointer:     "test_7",
 					ChannelPointer:   new(string("test_8")),
 					TimestampPointer: new(string("test_9")),
-					TimeFormat:       http.TimeFormat("iso8601"),
-					Fields: []http.WriteField{
-						{Variant: http.StaticWriteField{
+					TimeFormat:       httpv2.TimeFormat("iso8601"),
+					Fields: []httpv2.WriteField{
+						{Variant: httpv2.StaticWriteField{
 							BaseWriteField: http.BaseWriteField{Key: "test_12", Pointer: "test_13"},
 							JSONType:       http.JSONType("number"),
 							Value:          any(map[string]any{"key_15": "value_15"}),
@@ -307,9 +308,9 @@ var _ = Describe("Codec", func() {
 						Key:        "test_17",
 						Disabled:   false,
 						Channel:    channel.Key(20),
-						JSONType:   http.JSONType("number"),
-						TimeFormat: new(http.TimeFormat("iso8601")),
-						EnumValues: []http.EnumEntry{{Label: "test_23", Value: 24.5}},
+						JSONType:   httpv2.JSONType("number"),
+						TimeFormat: new(httpv2.TimeFormat("iso8601")),
+						EnumValues: []httpv2.EnumEntry{{Label: "test_23", Value: 24.5}},
 					},
 				},
 			}),
@@ -323,8 +324,8 @@ var _ = Describe("Codec", func() {
 					ValuePointer:     "",
 					ChannelPointer:   nil,
 					TimestampPointer: nil,
-					TimeFormat:       http.TimeFormat(""),
-					Fields:           []http.WriteField{},
+					TimeFormat:       httpv2.TimeFormat(""),
+					Fields:           []httpv2.WriteField{},
 				},
 				Channels: []v0.WriteChannel{},
 			}),
@@ -338,8 +339,8 @@ var _ = Describe("Codec", func() {
 					ValuePointer:     "test_7",
 					ChannelPointer:   new(string("test_8")),
 					TimestampPointer: new(string("test_9")),
-					TimeFormat:       http.TimeFormat("iso8601"),
-					Fields:           []http.WriteField{},
+					TimeFormat:       httpv2.TimeFormat("iso8601"),
+					Fields:           []httpv2.WriteField{},
 				},
 				Channels: []v0.WriteChannel{},
 			}),
@@ -369,8 +370,8 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 						Channel:    channel.Key(17),
 						Pointer:    "test_17",
 						DataType:   telem.DataType("test_18"),
-						TimeFormat: new(http.TimeFormat("iso8601")),
-						EnumValues: []http.EnumEntry{{Label: "test_21", Value: 22.5}},
+						TimeFormat: new(httpv2.TimeFormat("iso8601")),
+						EnumValues: []httpv2.EnumEntry{{Label: "test_21", Value: 22.5}},
 					},
 				},
 			},
@@ -399,8 +400,8 @@ func BenchmarkEncodeDecodeReadField(b *testing.B) {
 		Channel:    channel.Key(5),
 		Pointer:    "test_5",
 		DataType:   telem.DataType("test_6"),
-		TimeFormat: new(http.TimeFormat("iso8601")),
-		EnumValues: []http.EnumEntry{{Label: "test_9", Value: 10.5}},
+		TimeFormat: new(httpv2.TimeFormat("iso8601")),
+		EnumValues: []httpv2.EnumEntry{{Label: "test_9", Value: 10.5}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -430,8 +431,8 @@ func BenchmarkEncodeDecodeReadRecord(b *testing.B) {
 				Channel:    channel.Key(9),
 				Pointer:    "test_9",
 				DataType:   telem.DataType("test_10"),
-				TimeFormat: new(http.TimeFormat("iso8601")),
-				EnumValues: []http.EnumEntry{{Label: "test_13", Value: 14.5}},
+				TimeFormat: new(httpv2.TimeFormat("iso8601")),
+				EnumValues: []httpv2.EnumEntry{{Label: "test_13", Value: 14.5}},
 			},
 		},
 	}
@@ -455,9 +456,9 @@ func BenchmarkEncodeDecodeRecord(b *testing.B) {
 		ValuePointer:     "test_1",
 		ChannelPointer:   new(string("test_2")),
 		TimestampPointer: new(string("test_3")),
-		TimeFormat:       http.TimeFormat("iso8601"),
-		Fields: []http.WriteField{
-			{Variant: http.StaticWriteField{
+		TimeFormat:       httpv2.TimeFormat("iso8601"),
+		Fields: []httpv2.WriteField{
+			{Variant: httpv2.StaticWriteField{
 				BaseWriteField: http.BaseWriteField{Key: "test_6", Pointer: "test_7"},
 				JSONType:       http.JSONType("number"),
 				Value:          any(map[string]any{"key_9": "value_9"}),
@@ -505,9 +506,9 @@ func BenchmarkEncodeDecodeWriteChannel(b *testing.B) {
 		Key:        "test_1",
 		Disabled:   false,
 		Channel:    channel.Key(4),
-		JSONType:   http.JSONType("number"),
-		TimeFormat: new(http.TimeFormat("iso8601")),
-		EnumValues: []http.EnumEntry{{Label: "test_7", Value: 8.5}},
+		JSONType:   httpv2.JSONType("number"),
+		TimeFormat: new(httpv2.TimeFormat("iso8601")),
+		EnumValues: []httpv2.EnumEntry{{Label: "test_7", Value: 8.5}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -535,9 +536,9 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 			ValuePointer:     "test_7",
 			ChannelPointer:   new(string("test_8")),
 			TimestampPointer: new(string("test_9")),
-			TimeFormat:       http.TimeFormat("iso8601"),
-			Fields: []http.WriteField{
-				{Variant: http.StaticWriteField{
+			TimeFormat:       httpv2.TimeFormat("iso8601"),
+			Fields: []httpv2.WriteField{
+				{Variant: httpv2.StaticWriteField{
 					BaseWriteField: http.BaseWriteField{Key: "test_12", Pointer: "test_13"},
 					JSONType:       http.JSONType("number"),
 					Value:          any(map[string]any{"key_15": "value_15"}),
@@ -549,9 +550,9 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 				Key:        "test_17",
 				Disabled:   false,
 				Channel:    channel.Key(20),
-				JSONType:   http.JSONType("number"),
-				TimeFormat: new(http.TimeFormat("iso8601")),
-				EnumValues: []http.EnumEntry{{Label: "test_23", Value: 24.5}},
+				JSONType:   httpv2.JSONType("number"),
+				TimeFormat: new(httpv2.TimeFormat("iso8601")),
+				EnumValues: []httpv2.EnumEntry{{Label: "test_23", Value: 24.5}},
 			},
 		},
 	}
@@ -593,8 +594,8 @@ func FuzzDecodeReadConfig(f *testing.F) {
 							Channel:    channel.Key(17),
 							Pointer:    "test_17",
 							DataType:   telem.DataType("test_18"),
-							TimeFormat: new(http.TimeFormat("iso8601")),
-							EnumValues: []http.EnumEntry{{Label: "test_21", Value: 22.5}},
+							TimeFormat: new(httpv2.TimeFormat("iso8601")),
+							EnumValues: []httpv2.EnumEntry{{Label: "test_21", Value: 22.5}},
 						},
 					},
 				},
@@ -671,8 +672,8 @@ func FuzzDecodeReadField(f *testing.F) {
 			Channel:    channel.Key(5),
 			Pointer:    "test_5",
 			DataType:   telem.DataType("test_6"),
-			TimeFormat: new(http.TimeFormat("iso8601")),
-			EnumValues: []http.EnumEntry{{Label: "test_9", Value: 10.5}},
+			TimeFormat: new(httpv2.TimeFormat("iso8601")),
+			EnumValues: []httpv2.EnumEntry{{Label: "test_9", Value: 10.5}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -689,7 +690,7 @@ func FuzzDecodeReadField(f *testing.F) {
 			Pointer:    "",
 			DataType:   telem.DataType(""),
 			TimeFormat: nil,
-			EnumValues: []http.EnumEntry{},
+			EnumValues: []httpv2.EnumEntry{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -705,8 +706,8 @@ func FuzzDecodeReadField(f *testing.F) {
 			Channel:    channel.Key(5),
 			Pointer:    "test_5",
 			DataType:   telem.DataType("test_6"),
-			TimeFormat: new(http.TimeFormat("iso8601")),
-			EnumValues: []http.EnumEntry{},
+			TimeFormat: new(httpv2.TimeFormat("iso8601")),
+			EnumValues: []httpv2.EnumEntry{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -750,8 +751,8 @@ func FuzzDecodeReadRecord(f *testing.F) {
 					Channel:    channel.Key(9),
 					Pointer:    "test_9",
 					DataType:   telem.DataType("test_10"),
-					TimeFormat: new(http.TimeFormat("iso8601")),
-					EnumValues: []http.EnumEntry{{Label: "test_13", Value: 14.5}},
+					TimeFormat: new(httpv2.TimeFormat("iso8601")),
+					EnumValues: []httpv2.EnumEntry{{Label: "test_13", Value: 14.5}},
 				},
 			},
 		}
@@ -815,9 +816,9 @@ func FuzzDecodeRecord(f *testing.F) {
 			ValuePointer:     "test_1",
 			ChannelPointer:   new(string("test_2")),
 			TimestampPointer: new(string("test_3")),
-			TimeFormat:       http.TimeFormat("iso8601"),
-			Fields: []http.WriteField{
-				{Variant: http.StaticWriteField{
+			TimeFormat:       httpv2.TimeFormat("iso8601"),
+			Fields: []httpv2.WriteField{
+				{Variant: httpv2.StaticWriteField{
 					BaseWriteField: http.BaseWriteField{Key: "test_6", Pointer: "test_7"},
 					JSONType:       http.JSONType("number"),
 					Value:          any(map[string]any{"key_9": "value_9"}),
@@ -835,8 +836,8 @@ func FuzzDecodeRecord(f *testing.F) {
 			ValuePointer:     "",
 			ChannelPointer:   nil,
 			TimestampPointer: nil,
-			TimeFormat:       http.TimeFormat(""),
-			Fields:           []http.WriteField{},
+			TimeFormat:       httpv2.TimeFormat(""),
+			Fields:           []httpv2.WriteField{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -849,8 +850,8 @@ func FuzzDecodeRecord(f *testing.F) {
 			ValuePointer:     "test_1",
 			ChannelPointer:   new(string("test_2")),
 			TimestampPointer: new(string("test_3")),
-			TimeFormat:       http.TimeFormat("iso8601"),
-			Fields:           []http.WriteField{},
+			TimeFormat:       httpv2.TimeFormat("iso8601"),
+			Fields:           []httpv2.WriteField{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -933,9 +934,9 @@ func FuzzDecodeWriteChannel(f *testing.F) {
 			Key:        "test_1",
 			Disabled:   false,
 			Channel:    channel.Key(4),
-			JSONType:   http.JSONType("number"),
-			TimeFormat: new(http.TimeFormat("iso8601")),
-			EnumValues: []http.EnumEntry{{Label: "test_7", Value: 8.5}},
+			JSONType:   httpv2.JSONType("number"),
+			TimeFormat: new(httpv2.TimeFormat("iso8601")),
+			EnumValues: []httpv2.EnumEntry{{Label: "test_7", Value: 8.5}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -948,9 +949,9 @@ func FuzzDecodeWriteChannel(f *testing.F) {
 			Key:        "",
 			Disabled:   false,
 			Channel:    channel.Key(0),
-			JSONType:   http.JSONType(""),
+			JSONType:   httpv2.JSONType(""),
 			TimeFormat: nil,
-			EnumValues: []http.EnumEntry{},
+			EnumValues: []httpv2.EnumEntry{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -963,9 +964,9 @@ func FuzzDecodeWriteChannel(f *testing.F) {
 			Key:        "test_1",
 			Disabled:   false,
 			Channel:    channel.Key(4),
-			JSONType:   http.JSONType("number"),
-			TimeFormat: new(http.TimeFormat("iso8601")),
-			EnumValues: []http.EnumEntry{},
+			JSONType:   httpv2.JSONType("number"),
+			TimeFormat: new(httpv2.TimeFormat("iso8601")),
+			EnumValues: []httpv2.EnumEntry{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1007,9 +1008,9 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 				ValuePointer:     "test_7",
 				ChannelPointer:   new(string("test_8")),
 				TimestampPointer: new(string("test_9")),
-				TimeFormat:       http.TimeFormat("iso8601"),
-				Fields: []http.WriteField{
-					{Variant: http.StaticWriteField{
+				TimeFormat:       httpv2.TimeFormat("iso8601"),
+				Fields: []httpv2.WriteField{
+					{Variant: httpv2.StaticWriteField{
 						BaseWriteField: http.BaseWriteField{Key: "test_12", Pointer: "test_13"},
 						JSONType:       http.JSONType("number"),
 						Value:          any(map[string]any{"key_15": "value_15"}),
@@ -1021,9 +1022,9 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 					Key:        "test_17",
 					Disabled:   false,
 					Channel:    channel.Key(20),
-					JSONType:   http.JSONType("number"),
-					TimeFormat: new(http.TimeFormat("iso8601")),
-					EnumValues: []http.EnumEntry{{Label: "test_23", Value: 24.5}},
+					JSONType:   httpv2.JSONType("number"),
+					TimeFormat: new(httpv2.TimeFormat("iso8601")),
+					EnumValues: []httpv2.EnumEntry{{Label: "test_23", Value: 24.5}},
 				},
 			},
 		}
@@ -1044,8 +1045,8 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 				ValuePointer:     "",
 				ChannelPointer:   nil,
 				TimestampPointer: nil,
-				TimeFormat:       http.TimeFormat(""),
-				Fields:           []http.WriteField{},
+				TimeFormat:       httpv2.TimeFormat(""),
+				Fields:           []httpv2.WriteField{},
 			},
 			Channels: []v0.WriteChannel{},
 		}
@@ -1066,8 +1067,8 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 				ValuePointer:     "test_7",
 				ChannelPointer:   new(string("test_8")),
 				TimestampPointer: new(string("test_9")),
-				TimeFormat:       http.TimeFormat("iso8601"),
-				Fields:           []http.WriteField{},
+				TimeFormat:       httpv2.TimeFormat("iso8601"),
+				Fields:           []httpv2.WriteField{},
 			},
 			Channels: []v0.WriteChannel{},
 		}

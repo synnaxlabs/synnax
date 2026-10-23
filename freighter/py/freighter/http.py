@@ -10,11 +10,11 @@
 import json
 import os
 import pathlib
+import ssl
 from collections.abc import Iterable
 from typing import IO, Any
 from urllib.parse import urlencode
 
-import urllib3
 from urllib3 import PoolManager, Retry
 from urllib3.exceptions import MaxRetryError
 from urllib3.response import BaseHTTPResponse
@@ -72,21 +72,22 @@ class HTTPClient(MiddlewareCollector):
         self,
         url: URL,
         codec: Codec,
-        secure: bool = False,
+        ssl_context: ssl.SSLContext | None = None,
         **kwargs: Any,
     ) -> None:
         """
         :param url: The base URL for the client.
         :param codec: The codec used to encode and decode typed request and response
             payloads.
-        :param secure: Whether to use HTTPS.
+        :param ssl_context: The TLS context that verifies the server. The client uses
+            HTTPS when set and plain HTTP when None.
         """
         super().__init__()
-        self._endpoint = url
-        self._endpoint.protocol = "https" if secure else "http"
+        self._endpoint = url.replace(
+            protocol="http" if ssl_context is None else "https"
+        )
         self._codec = codec
-        self._pool = PoolManager(cert_reqs="CERT_NONE", **kwargs)
-        urllib3.disable_warnings()
+        self._pool = PoolManager(ssl_context=ssl_context, **kwargs)
 
     def send(self, target: str, req: RQ, res_t: type[RS]) -> RS:
         """Implements the UnaryClient protocol — typed request, typed response."""
@@ -131,7 +132,7 @@ class HTTPClient(MiddlewareCollector):
                 body=f,
                 content_type=_file_content_type(req),
                 res_t=res_t,
-                retries=False,
+                retries=Retry(total=0),
                 params={"params": json.dumps(all_params)},
             )
 
@@ -165,7 +166,7 @@ class HTTPClient(MiddlewareCollector):
             finally:
                 http_res.release_conn()
 
-        in_ctx = Context(url, self._endpoint.protocol, "client")
+        in_ctx = Context(self._endpoint.protocol, url, "client")
         self.exec(in_ctx, finalizer)
 
     def _build_url(self, target: str, params: dict[str, str] | None = None) -> str:
@@ -181,11 +182,11 @@ class HTTPClient(MiddlewareCollector):
         body: bytes | IO[bytes] | Iterable[bytes] | None,
         content_type: str,
         res_t: type[RS],
-        retries: Retry | bool | None = None,
+        retries: Retry | None = None,
         params: dict[str, str] | None = None,
     ) -> RS:
         url = self._build_url(target, params)
-        in_ctx = Context(url, self._endpoint.protocol, "client")
+        in_ctx = Context(self._endpoint.protocol, url, "client")
         res_container: list[RS | None] = [None]
 
         def finalizer(ctx: Context) -> Context:
@@ -216,17 +217,17 @@ class HTTPClient(MiddlewareCollector):
         accept: str,
         body: bytes | IO[bytes] | Iterable[bytes] | None,
         preload_content: bool,
-        retries: Retry | bool | None = None,
+        retries: Retry | None = None,
     ) -> tuple[BaseHTTPResponse, Context]:
         """Issues a POST to url and returns the response alongside an outgoing context.
 
         Raises Unreachable on a transport failure and the decoded server error on a
         non-2xx status. On success the response body has not been consumed; when
         preload_content is False the caller owns release_conn. A retries value of None
-        defers to the pool default; pass False to disable retries (e.g. for an
-        unreplayable streaming body).
+        defers to the pool default; pass Retry(total=0) to disable retries. Never pass
+        False: urllib3 then raises the raw connection error instead of MaxRetryError.
         """
-        out_ctx = Context(url, self._endpoint.protocol, "client")
+        out_ctx = Context(self._endpoint.protocol, url, "client")
         headers = {"Content-Type": content_type, "Accept": accept, **ctx.params}
         try:
             http_res = self._pool.request(

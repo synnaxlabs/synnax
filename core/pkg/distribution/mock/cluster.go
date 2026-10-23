@@ -96,6 +96,11 @@ func (c *Cluster) Provision(
 			return len(node.Cluster.Nodes())
 		}).Should(gomega.Equal(len(c.Nodes)))
 	}
+	// Each node subscribes to every peer's control state from an async membership
+	// observer. Waiting here keeps those subscriptions out of the caller's first spec.
+	gomega.Eventually(c.distNet.Control().Subscriptions).Should(
+		gomega.BeNumerically(">=", len(c.Nodes)*(len(c.Nodes)-1)),
+	)
 	return node
 }
 

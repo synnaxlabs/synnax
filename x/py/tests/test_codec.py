@@ -12,7 +12,7 @@ import json
 import msgpack
 from pydantic import BaseModel, ConfigDict, Field
 
-from x.codec import JSONCodec, MessagePackCodec
+from x.codec import Bytes, JSONCodec, MessagePackCodec
 
 
 class PayloadWithAlias(BaseModel):
@@ -33,6 +33,15 @@ class PayloadWithOptional(BaseModel):
 
     name: str
     limit: int | None = None
+
+
+class PayloadWithBytes(BaseModel):
+    """Payload with a binary field."""
+
+    data: Bytes
+
+
+BINARY = b"\x00asm\xff"
 
 
 class TestJSONCodec:
@@ -67,6 +76,13 @@ class TestJSONCodec:
         data = json.loads(encoded.decode("utf-8"))
         assert data == {"name": "x"}
 
+    def test_bytes_cross_as_base64(self) -> None:
+        """Should send binary data as base64 text and decode it back to bytes."""
+        codec = JSONCodec()
+        encoded = codec.encode(PayloadWithBytes(data=BINARY))
+        assert json.loads(encoded) == {"data": "AGFzbf8="}
+        assert codec.decode(encoded, PayloadWithBytes).data == BINARY
+
 
 class TestMessagePackCodec:
     def test_encode_decode_basic(self) -> None:
@@ -90,3 +106,10 @@ class TestMessagePackCodec:
         assert "from" in data
         assert "from_" not in data
         assert data["from"] == "source"
+
+    def test_bytes_cross_raw(self) -> None:
+        """Should send binary data as raw bytes and decode it unchanged."""
+        codec = MessagePackCodec()
+        encoded = codec.encode(PayloadWithBytes(data=BINARY))
+        assert msgpack.unpackb(encoded) == {"data": BINARY}
+        assert codec.decode(encoded, PayloadWithBytes).data == BINARY

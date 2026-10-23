@@ -65,7 +65,7 @@ export const useProvider = ({
   lightTheme = "synnaxLight",
   darkTheme = "synnaxDark",
 }: UseProviderProps): ContextValue => {
-  const [selected, setSelected] = useState<string>(
+  const [selected, setSelected] = useState<string>(() =>
     isDarkMode() ? darkTheme : lightTheme,
   );
 

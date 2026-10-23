@@ -94,6 +94,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
         <SingleTrigger
           haulType={haulType}
           icon={icon}
+          clearable={allowNone}
           placeholder={placeholder}
           aria-label={caseconv.capitalize(resourceName)}
           disabled={disabled}

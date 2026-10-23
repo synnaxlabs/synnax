@@ -19,8 +19,6 @@ import (
 var (
 	// ErrLicense is the base error for every license failure.
 	ErrLicense = errors.New("license error")
-	// ErrMissing is returned while no license applies to this Core.
-	ErrMissing = errors.Wrap(ErrLicense, "no license is activated on this Core")
 	// ErrExpired is returned while the license on this Core no longer covers it.
 	ErrExpired = errors.Wrap(ErrLicense, "the license on this Core has expired")
 	// ErrInvalid is returned when a license key fails to verify.
@@ -39,7 +37,6 @@ var (
 
 const (
 	errorType       = "sy.license"
-	missingType     = errorType + ".missing"
 	expiredType     = errorType + ".expired"
 	invalidType     = errorType + ".invalid"
 	fingerprintType = errorType + ".fingerprint"
@@ -51,9 +48,6 @@ func newTooManyError(count uint32) error {
 }
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {
-	if errors.CheapIs(err, ErrMissing) {
-		return errors.Payload{Type: missingType, Data: err.Error()}, true
-	}
 	if errors.CheapIs(err, ErrExpired) {
 		return errors.Payload{Type: expiredType, Data: err.Error()}, true
 	}
@@ -74,8 +68,6 @@ func encode(_ context.Context, err error) (errors.Payload, bool) {
 
 func decode(_ context.Context, p errors.Payload) (error, bool) {
 	switch p.Type {
-	case missingType:
-		return errors.Wrap(ErrMissing, p.Data), true
 	case expiredType:
 		return errors.Wrap(ErrExpired, p.Data), true
 	case invalidType:

@@ -74,17 +74,19 @@ tsk = sy.ni.DigitalWriteTask(
 client.tasks.configure(tsk)
 
 # Start the task.
-with tsk.run():
-    with client.control.acquire(
+with (
+    tsk.run(),
+    client.control.acquire(
         name="Control Sequence",
         read=["do_1_state"],
         write=["do_1_cmd"],
         write_authorities=50,
-    ) as ctrl:
-        ctrl["do_1_cmd"] = 1
-        ctrl.wait_until(lambda c: c["do_1_state"] == 1, timeout=1)
-        ctrl.sleep(0.1)
-        ctrl["do_1_cmd"] = 0
-        ctrl.wait_until(lambda c: c["do_1_state"] == 0, timeout=1)
+    ) as ctrl,
+):
+    ctrl["do_1_cmd"] = 1
+    ctrl.wait_until(lambda c: c["do_1_state"] == 1, timeout=1)
+    ctrl.sleep(0.1)
+    ctrl["do_1_cmd"] = 0
+    ctrl.wait_until(lambda c: c["do_1_state"] == 0, timeout=1)
 
 client.tasks.delete(tsk.key)

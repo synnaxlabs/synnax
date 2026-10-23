@@ -43,7 +43,6 @@ __all__ = [
     "Alignment",
     "Authority",
     "Bounds",
-    "convert_time_units",
     "CrudeAlignment",
     "CrudeAuthority",
     "CrudeDataType",
@@ -55,7 +54,6 @@ __all__ = [
     "CrudeTimeStamp",
     "DataType",
     "Density",
-    "elapsed_seconds",
     "MultiSeries",
     "Rate",
     "SampleValue",
@@ -67,5 +65,7 @@ __all__ = [
     "TimeSpanUnits",
     "TimeStamp",
     "TypedCrudeSeries",
+    "convert_time_units",
+    "elapsed_seconds",
     "seconds_linspace",
 ]

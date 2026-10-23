@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -157,7 +157,7 @@ class ScramSha512SASL(Credentials):
 
 # Selects the SASL mechanism and the credentials it carries.
 SASL = Annotated[
-    Union[NoneSASL, PlainSASL, ScramSha256SASL, ScramSha512SASL],
+    NoneSASL | PlainSASL | ScramSha256SASL | ScramSha512SASL,
     Field(discriminator="mechanism"),
 ]
 

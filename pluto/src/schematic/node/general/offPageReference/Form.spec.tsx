@@ -171,15 +171,13 @@ describe("OffPageReferenceForm", () => {
     expect(getColor()).toBe(before);
   });
 
-  it("should clear the page and keep the color when deselected", async () => {
-    const { findByText, getAllByText, getMethods, getColor, targetName } =
+  it("should clear the page and keep the color when cleared", async () => {
+    const { findByLabelText, getMethods, getColor, targetName } =
       await createPageFormFixture({
         initialPage: (key) => ({ type: "lineplot", key }),
       });
     const before = getColor();
-    fireEvent.click(await findByText(targetName));
-    const options = getAllByText(targetName);
-    fireEvent.click(options[options.length - 1]);
+    fireEvent.click(await findByLabelText(`Clear ${targetName}`));
     await waitFor(() =>
       expect(getMethods().get("page", { optional: true })?.value).toBeUndefined(),
     );

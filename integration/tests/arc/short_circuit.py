@@ -34,7 +34,9 @@ import threading
 
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channel
+from synnax.telem import SampleValue
 from tests.arc.arc import ArcCase
+from x.telem import to_int
 
 SHORT_CIRCUIT_SOURCE = """
 func noop{} (input bool) bool {
@@ -77,9 +79,9 @@ class ChannelCollector:
         self._client = client
         self._channels = channels
         self._stop = threading.Event()
-        self.data: dict[str, list[int | float | str]] = {ch: [] for ch in channels}
+        self.data: dict[str, list[SampleValue]] = {ch: [] for ch in channels}
 
-    def __enter__(self) -> dict[str, list[int | float | str]]:
+    def __enter__(self) -> dict[str, list[SampleValue]]:
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
         return self.data
@@ -220,11 +222,9 @@ class ShortCircuit(ArcCase):
         self.wait_for_eq("ss_sim_stage", 3, timeout=5.0)
         self.log("Phase 2 complete: first transition won, later statements skipped")
 
-    def _assert_loop_writes(
-        self, collected: dict[str, list[int | float | str]]
-    ) -> None:
+    def _assert_loop_writes(self, collected: dict[str, list[SampleValue]]) -> None:
         for ch in ("ss_on_tick_time", "ss_pause_tick_time"):
-            times = [int(t) for t in collected[ch]]
+            times = [to_int(t) for t in collected[ch]]
             deltas_s = [(times[i + 1] - times[i]) / 1e9 for i in range(len(times) - 1)]
             self.log(f"{ch} deltas (s): {[f'{d:.3f}' for d in deltas_s]}")
             for d in deltas_s:

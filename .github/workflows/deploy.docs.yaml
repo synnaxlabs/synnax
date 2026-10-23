@@ -27,7 +27,6 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - turbo.json
-      - x/media/**
       - x/ts/**
   workflow_dispatch:
 

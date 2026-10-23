@@ -181,6 +181,7 @@ jobs:
           tag: ${{ needs.resolve.outputs.console_tag }}
           title: Console v${{ needs.resolve.outputs.console_version }}
           previous_tag: ${{ needs.resolve.outputs.console_previous_tag }}
+          config: .github/release/console.yml
           prerelease: ${{ inputs.prerelease }}
 
   build-console:
@@ -239,6 +240,7 @@ jobs:
           tag: ${{ needs.resolve.outputs.driver_tag }}
           title: Driver v${{ needs.resolve.outputs.driver_version }}
           previous_tag: ${{ needs.resolve.outputs.driver_previous_tag }}
+          config: .github/release/driver.yml
           prerelease: ${{ inputs.prerelease }}
 
   build-driver:
@@ -291,9 +293,14 @@ jobs:
           tag: ${{ needs.resolve.outputs.core_tag }}
           title: Core v${{ needs.resolve.outputs.core_version }}
           previous_tag: ${{ needs.resolve.outputs.core_previous_tag }}
-          notes:
-            Embeds Console v${{ needs.resolve.outputs.core_console_version }} and Driver
-            v${{ needs.resolve.outputs.core_driver_version }}.
+          config: .github/release/core.yml
+          notes: >-
+            Embeds [Console v${{ needs.resolve.outputs.core_console_version }}](${{
+            github.server_url }}/${{ github.repository }}/releases/tag/console/v${{
+            needs.resolve.outputs.core_console_version }}) and [Driver v${{
+            needs.resolve.outputs.core_driver_version }}](${{ github.server_url }}/${{
+            github.repository }}/releases/tag/driver/v${{
+            needs.resolve.outputs.core_driver_version }}).
           prerelease: ${{ inputs.prerelease }}
 
   build-core:

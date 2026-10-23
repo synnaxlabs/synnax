@@ -158,6 +158,10 @@
       "types": "./dist/list/index.d.ts",
       "default": "./dist/list/index.js"
     },
+    "./logo": {
+      "types": "./dist/logo/index.d.ts",
+      "default": "./dist/logo/index.js"
+    },
     "./memo": {
       "types": "./dist/memo/index.d.ts",
       "default": "./dist/memo/index.js"
@@ -201,6 +205,10 @@
     "./select": {
       "types": "./dist/select/index.d.ts",
       "default": "./dist/select/index.js"
+    },
+    "./skeleton": {
+      "types": "./dist/skeleton/index.d.ts",
+      "default": "./dist/skeleton/index.js"
     },
     "./state": {
       "types": "./dist/state/index.d.ts",
@@ -262,6 +270,7 @@
       "types": "./dist/video/index.d.ts",
       "default": "./dist/video/index.js"
     },
-    "./dist/*": "./dist/*"
+    "./dist/*": "./dist/*",
+    "./static/*": "./static/*"
   }
 }

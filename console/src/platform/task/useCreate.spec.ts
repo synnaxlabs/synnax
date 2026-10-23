@@ -88,7 +88,6 @@ describe("createUseCreate", () => {
       variant: "view",
       key: uuid.create(),
       type: "seed",
-      args: {},
     };
     const store = await createTestStore();
     const { wrapper } = await createConsoleWrapper({ client, store });

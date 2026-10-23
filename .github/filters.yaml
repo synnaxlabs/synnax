@@ -63,6 +63,9 @@ ts: &ts
   - pnpm-workspace.yaml
   - turbo.json
 
+eslint_config:
+  - *ts
+
 vite_plugin:
   - *ts
 
@@ -135,10 +138,6 @@ oracle_language:
   - *ts
   - oracle/lsp/extensions/vscode/**
 
-media: &media
-  - *ts
-  - x/media/**
-
 x_ts: &x_ts
   - *ts
   - x/ts/**
@@ -177,7 +176,6 @@ pluto: &pluto
   - *client_ts
   - *freighter_ts
   - *lyra
-  - *media
   - *ts
   - *x_ts
   - pluto/**
@@ -185,7 +183,6 @@ pluto: &pluto
 portal:
   - *client_ts
   - *lyra
-  - *media
   - *ts
   - *x_ts
   - site/portal/**
@@ -195,7 +192,6 @@ console: &console
   - *drift
   - *freighter_ts
   - *lyra
-  - *media
   - *pluto
   - *ts
   - *x_ts
@@ -203,7 +199,6 @@ console: &console
 
 site_common: &site_common
   - *lyra
-  - *media
   - *ts
   - site/common/**
 
@@ -211,7 +206,6 @@ docs:
   - *arc_ts
   - *client_ts
   - *lyra
-  - *media
   - *site_common
   - *ts
   - *x_ts
@@ -220,7 +214,6 @@ docs:
 
 foundation:
   - *lyra
-  - *media
   - *site_common
   - *ts
   - site/foundation/**
@@ -228,7 +221,6 @@ foundation:
 www:
   - *arc_ts
   - *lyra
-  - *media
   - *site_common
   - *ts
   - site/www/**
@@ -351,10 +343,12 @@ protobuf:
   - buf.gen.yaml
   - buf.yaml
 
-scripts:
-  - *ci
+ci_scripts:
+  - *py
   - .github/scripts/**
-  - .github/workflows/test.scripts.yaml
+
+scripts:
+  - *py
   - scripts/**
 
 console_build: &console_build

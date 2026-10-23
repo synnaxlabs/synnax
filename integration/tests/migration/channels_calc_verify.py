@@ -33,6 +33,7 @@ from tests.migration.channels_calc_setup import (
     WIN_NUM_DOMAINS,
     _win_value,
 )
+from x.telem import to_float
 
 NpArray = np.ndarray[Any, Any]
 
@@ -48,6 +49,7 @@ CALC_TYPE_CHANNELS_TYPED: list[tuple[str, str, sy.DataType]] = [
             sy.DataType.FLOAT64,
             sy.DataType.INT64,
         ],
+        strict=True,
     )
 ]
 
@@ -87,25 +89,25 @@ class CalcChannelsVerify(TestCase):
         """Write VERIFY_SRC_DATA, stream calc results, assert scalar values."""
         channels = {name: self.client.channels.retrieve(name) for name in expected}
         start = sy.TimeStamp.now()
-        with self.client.open_streamer(
-            [ch.key for ch in channels.values()]
-        ) as streamer:
-            with self.client.open_writer(
+        with (
+            self.client.open_streamer([ch.key for ch in channels.values()]) as streamer,
+            self.client.open_writer(
                 start, [self._calc_idx.key, self._src.key]
-            ) as writer:
-                writer.write(
-                    {
-                        self._calc_idx.key: _timestamps(start, len(VERIFY_SRC_DATA)),
-                        self._src.key: VERIFY_SRC_DATA,
-                    }
+            ) as writer,
+        ):
+            writer.write(
+                {
+                    self._calc_idx.key: _timestamps(start, len(VERIFY_SRC_DATA)),
+                    self._src.key: VERIFY_SRC_DATA,
+                }
+            )
+            frame = streamer.read(timeout=5)
+            assert frame is not None, "No streamer frame received"
+            for name, exp_val in expected.items():
+                actual = to_float(frame[channels[name].key][0])
+                assert abs(actual - exp_val) < 0.01, (
+                    f"{name}: expected {exp_val}, got {actual}"
                 )
-                frame = streamer.read(timeout=5)
-                assert frame is not None, "No streamer frame received"
-                for name, exp_val in expected.items():
-                    actual = float(frame[channels[name].key][0])
-                    assert abs(actual - exp_val) < 0.01, (
-                        f"{name}: expected {exp_val}, got {actual}"
-                    )
 
     def test_calc_operations(self) -> None:
         self.log("Testing: Calc channel operations metadata")
@@ -252,7 +254,7 @@ class CalcChannelsVerify(TestCase):
             ("quadratic", calc_quad, 0.5),
         ]:
             actual = np.array(
-                [float(s[0]) for s in frame[calc_ch.key].series[:WIN_NUM_DOMAINS]]
+                [to_float(s[0]) for s in frame[calc_ch.key].series[:WIN_NUM_DOMAINS]]
             )
             expected = np.array([_win_value(seed, d) for d in range(len(actual))])
             rmse = float(np.sqrt(np.mean((actual - expected) ** 2)))

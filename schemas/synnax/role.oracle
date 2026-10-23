@@ -21,10 +21,11 @@ Role struct {
         @key
     }
     name        string {
-        @doc value """
+        @doc value         """
             is a human-readable name for the role (e.g., 'Administrator', 'Engineer').
         """
         @filter
+        @validate required
     }
     description string = "" {
         @doc value """

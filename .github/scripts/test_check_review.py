@@ -44,6 +44,7 @@ case "$ENDPOINT" in
         FILE="$FAKE_GH_DIR/check-runs-${SHA%%/*}.json"
         [ -f "$FILE" ] || FILE="$FAKE_GH_DIR/check-runs-none.json"
         ;;
+    */pulls/*/commits*) FILE="$FAKE_GH_DIR/commits.json" ;;
     */pulls/*) FILE="$FAKE_GH_DIR/pull.json" ;;
     *)
         echo "unexpected endpoint: $ENDPOINT" >&2
@@ -72,16 +73,26 @@ class Harness:
             "GITHUB_REPOSITORY": "synnaxlabs/synnax",
         }
         (self.data / "check-runs-none.json").write_text('{"check_runs": []}')
-        (self.data / "pull.json").write_text(json.dumps({"head": {"sha": "head"}}))
+        self.pull("someone")
+        self.commits(commit())
         self.check_runs("head", ("Greptile Review", "success"))
         self.edits(greptile_edit(5))
+
+    def pull(self, author: str) -> None:
+        """Sets the account that opened the pull request."""
+        payload = {"head": {"sha": "head"}, "user": {"login": author}}
+        (self.data / "pull.json").write_text(json.dumps(payload))
+
+    def commits(self, *commits: dict[str, object]) -> None:
+        """Sets the commits on the pull request's branch."""
+        (self.data / "commits.json").write_text(json.dumps(list(commits)))
 
     def check_runs(self, sha: str, *runs: tuple[str, str | None]) -> None:
         """Sets the (name, conclusion) check runs a commit reports."""
         payload = {"check_runs": [{"name": n, "conclusion": c} for n, c in runs]}
         (self.data / f"check-runs-{sha}.json").write_text(json.dumps(payload))
 
-    def edits(self, *edits: dict) -> None:
+    def edits(self, *edits: dict[str, object]) -> None:
         """Sets the description revisions, newest first, as GitHub serves them."""
         payload = {
             "data": {
@@ -102,7 +113,23 @@ class Harness:
         return state, description
 
 
-def edit(body: str | None, login: str = "author", kind: str = "User") -> dict:
+def commit(
+    author: str = "dependabot[bot]",
+    committer: str = "web-flow",
+    verified: bool = True,
+) -> dict[str, object]:
+    """A commit on the pull request's branch."""
+    return {
+        "sha": "sha",
+        "author": {"login": author},
+        "committer": {"login": committer},
+        "commit": {"verification": {"verified": verified}},
+    }
+
+
+def edit(
+    body: str | None, login: str = "author", kind: str = "User"
+) -> dict[str, object]:
     """A description revision by an account of the given kind."""
     return {"editor": {"__typename": kind, "login": login}, "diff": body}
 
@@ -114,7 +141,7 @@ def greptile_body(*scores: int, sha: str = "head") -> str:
     return f'{markers}<sub>Last reviewed commit: ["Fix"]({link}</sub>'
 
 
-def greptile_edit(*scores: int, sha: str = "head") -> dict:
+def greptile_edit(*scores: int, sha: str = "head") -> dict[str, object]:
     """A description revision Greptile wrote after it scores a commit."""
     return edit(greptile_body(*scores, sha=sha), "greptile-apps", "Bot")
 
@@ -187,4 +214,32 @@ class TestScore:
 
     def test_pends_on_a_deleted_revision(self, harness: Harness) -> None:
         harness.edits(edit(None, "greptile-apps", "Bot"), greptile_edit(5))
+        assert harness.run()[0] == "pending"
+
+
+class TestDependabot:
+    """Tests for the Dependabot exemption from the Greptile review."""
+
+    @pytest.fixture(autouse=True)
+    def unreviewed(self, harness: Harness) -> None:
+        harness.pull("dependabot[bot]")
+        harness.check_runs("head")
+
+    def test_passes_without_a_review(self, harness: Harness) -> None:
+        assert harness.run() == ("success", "Dependabot wrote every commit")
+
+    def test_pends_on_a_commit_someone_else_wrote(self, harness: Harness) -> None:
+        harness.commits(commit(), commit("someone", "someone"))
+        assert harness.run()[0] == "pending"
+
+    def test_pends_on_a_forged_author(self, harness: Harness) -> None:
+        harness.commits(commit(committer="someone"))
+        assert harness.run()[0] == "pending"
+
+    def test_pends_on_an_unsigned_commit(self, harness: Harness) -> None:
+        harness.commits(commit(verified=False))
+        assert harness.run()[0] == "pending"
+
+    def test_requires_dependabot_to_open_it(self, harness: Harness) -> None:
+        harness.pull("someone")
         assert harness.run()[0] == "pending"

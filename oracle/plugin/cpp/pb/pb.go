@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -54,6 +55,7 @@ func (p *Plugin) Domains() []string { return []string{"cpp", "pb"} }
 func (p *Plugin) Requires() []string { return []string{"cpp/types", "pb/types"} }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("cpp", "pb")
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
 	outputStructs := make(map[string][]resolution.Type)
@@ -411,7 +413,7 @@ func (p *Plugin) processUnionForTranslation(
 	data *templateData,
 ) unionTranslatorData {
 	cppName := domain.GetName(u, "cpp")
-	pbNamespace := naming.PBNamespace(output.GetPBPath(u))
+	pbNamespace := naming.PBNamespace(output.GetPBPath(u), u.Namespace)
 	ut := unionTranslatorData{
 		CppName:   cppName,
 		SnakeName: casing.FieldSnake(cppName),
@@ -519,7 +521,7 @@ func (p *Plugin) processStructForTranslation(
 
 	pbName := naming.PBName(s)
 	pbOutputPath := output.GetPBPath(s)
-	pbNamespace := naming.PBNamespace(pbOutputPath)
+	pbNamespace := naming.PBNamespace(pbOutputPath, s.Namespace)
 
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
@@ -1058,7 +1060,7 @@ func (p *Plugin) generateEnumConversion(
 	}
 
 	pbOutputPath := enum.FindPBOutputPath(resolved, data.table)
-	pbNamespace := naming.PBNamespace(pbOutputPath)
+	pbNamespace := naming.PBNamespace(pbOutputPath, resolved.Namespace)
 
 	if form.IsIntEnum {
 		forward = fmt.Sprintf(
@@ -1364,6 +1366,31 @@ func (p *Plugin) generateArrayElementConversion(
 		}
 	}
 
+	if toPB, fromPB, ok := p.elementConversion(elemType, data); ok {
+		if isOptional {
+			forward = fmt.Sprintf(`if (this->%s.has_value()) {
+        auto* wrapper = pb.mutable_%s();
+        for (const auto& item : *this->%s) {
+            %s
+        }
+    }`, cppFieldName, pbAccessorName, cppFieldName, toPB("wrapper->add_values"))
+			backward = fmt.Sprintf(`if (pb.has_%s()) {
+        cpp.%s.emplace();
+        for (const auto& item : pb.%s().values()) {
+            %s
+        }
+    }`, pbAccessorName, cppFieldName, pbAccessorName, fromPB("cpp."+cppFieldName+"->"))
+			return forward, backward
+		}
+		forward = fmt.Sprintf(`for (const auto& item : this->%s) {
+        %s
+    }`, cppFieldName, toPB("pb.add_"+pbAccessorName))
+		backward = fmt.Sprintf(`for (const auto& item : pb.%s()) {
+        %s
+    }`, pbAccessorName, fromPB("cpp."+cppFieldName+"."))
+		return forward, backward
+	}
+
 	if isOptional {
 		forward = fmt.Sprintf(`if (this->%s.has_value()) {
         auto* wrapper = pb.mutable_%s();
@@ -1388,6 +1415,74 @@ func (p *Plugin) generateArrayElementConversion(
 	)
 
 	return forward, backward
+}
+
+// elementConversion returns the per-item statements that translate an array element
+// that proto cannot hold as is: a uuid (directly or through aliases and distinct types)
+// or an enum. toPB takes the proto adder and fromPB takes the C++ container prefix
+// ("cpp.field." or "cpp.field->"). Both read the loop variable item.
+func (p *Plugin) elementConversion(
+	elemType resolution.TypeRef,
+	data *templateData,
+) (toPB, fromPB func(string) string, ok bool) {
+	if key.ResolvePrimitive(elemType, data.table) == "uuid" {
+		toPB = func(add string) string {
+			return fmt.Sprintf("%s(item.to_string());", add)
+		}
+		fromPB = func(dst string) string {
+			return fmt.Sprintf(`auto [v, err] = x::uuid::UUID::parse(item);
+            if (err) return {{}, err};
+            %spush_back(v);`, dst)
+		}
+		return toPB, fromPB, true
+	}
+	resolved, ok := elemType.Resolve(data.table)
+	if !ok {
+		return nil, nil, false
+	}
+	form, ok := resolved.Form.(resolution.EnumForm)
+	if !ok {
+		return nil, nil, false
+	}
+	cppEnumType := domain.GetName(resolved, "cpp")
+	funcNamespace := ""
+	if resolved.Namespace != data.rawNs {
+		if target := output.GetPath(resolved, "cpp"); target != "" {
+			data.addConversionIncludes(target)
+			ns := naming.Namespace(target)
+			cppEnumType = fmt.Sprintf("::%s::%s", ns, cppEnumType)
+			funcNamespace = fmt.Sprintf("::%s::", ns)
+		}
+	}
+	pbEnumType := fmt.Sprintf(
+		"%s::%s",
+		naming.PBNamespace(
+			enum.FindPBOutputPath(resolved, data.table),
+			resolved.Namespace,
+		),
+		resolved.Name,
+	)
+	if form.IsIntEnum {
+		toPB = func(add string) string {
+			return fmt.Sprintf("%s(static_cast<%s>(item));", add, pbEnumType)
+		}
+		fromPB = func(dst string) string {
+			return fmt.Sprintf("%spush_back(static_cast<%s>(item));", dst, cppEnumType)
+		}
+		return toPB, fromPB, true
+	}
+	funcName := funcNamespace + casing.TypeSnake(resolved.Name)
+	toPB = func(add string) string {
+		return fmt.Sprintf(`auto [v, err] = %s_to_pb(item);
+            if (err) return {{}, err};
+            %s(v);`, funcName, add)
+	}
+	fromPB = func(dst string) string {
+		return fmt.Sprintf(`auto [v, err] = %s_from_pb(static_cast<%s>(item));
+            if (err) return {{}, err};
+            %spush_back(v);`, funcName, pbEnumType, dst)
+	}
+	return toPB, fromPB, true
 }
 
 func (p *Plugin) generateUnionArrayConversion(
@@ -1613,7 +1708,7 @@ func (p *Plugin) processEnumForTranslation(
 	}
 
 	pbOutputPath := enum.FindPBOutputPath(e, data.table)
-	pbNamespace := naming.PBNamespace(pbOutputPath)
+	pbNamespace := naming.PBNamespace(pbOutputPath, e.Namespace)
 
 	values := make([]enumValueTranslatorData, 0, len(form.Values))
 	for _, v := range form.Values {
@@ -1654,7 +1749,7 @@ func (p *Plugin) processArrayWrapperForTranslation(
 	cppName := domain.GetName(dt, "cpp")
 	pbName := naming.PBName(dt)
 	pbOutputPath := output.GetPBPath(dt)
-	pbNamespace := naming.PBNamespace(pbOutputPath)
+	pbNamespace := naming.PBNamespace(pbOutputPath, dt.Namespace)
 
 	elemType := form.Base.TypeArgs[0]
 	elemCppType := p.typeRefToCppForTranslator(elemType, data)

@@ -13,7 +13,7 @@
     &.pluto--show-rules .pluto-tree__item::after {
         content: "";
         position: absolute;
-        left: calc(var(--pluto-tree-item-offset) - 1.5rem);
+        left: calc(var(--pluto-tree-item-offset) - 2.25rem);
         top: 0;
         bottom: 0;
         width: 2px;
@@ -31,12 +31,17 @@
         }
 
         & .pluto-icon {
-            width: 2.5rem;
+            width: calc(var(--pluto-icon-aspect, 1) * 2.5rem);
             height: 2.5rem;
         }
 
         & .pluto-icon:not(.pluto-tree__expansion-indicator) {
             color: var(--pluto-gray-l10);
+        }
+
+        & .pluto-tree__expansion-indicator {
+            margin-left: -0.5rem;
+            margin-right: -0.5rem;
         }
 
         &.pluto--margin {

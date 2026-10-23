@@ -11,6 +11,7 @@ package panel_test
 
 import (
 	"encoding/json/v2"
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -233,7 +234,9 @@ var _ = Describe("DecodeBundle", func() {
 			"root": map[string]any{"variant": "leaf", "tabs": []any{}},
 		})).To(Succeed())
 		Expect(panel.DecodeBundle(ctx, WireRoundTrip(env), nil)).Error().To(SatisfyAll(
-			MatchError(ContainSubstring("panel version 1")),
+			MatchError(ContainSubstring(fmt.Sprintf(
+				"panel version %d", versions.Latest+1,
+			))),
 			MatchError(ContainSubstring("newer than this Core supports")),
 		))
 	})

@@ -62,6 +62,31 @@ var _ = Describe("C++ PB Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			DescribeTable(
+				"Should leave out a field omitted in cpp or pb",
+				func(ctx SpecContext, lang string) {
+					source := `
+					@go output "core/pkg/service/auth"
+					@cpp output "client/cpp/auth"
+					@pb output "core/pkg/service/auth/pb"
+
+					Session struct {
+						key     uint32
+						hash    bytes { @` + lang + ` omit }
+						subject string
+					}
+				`
+					resp := MustGenerate(ctx, source, "auth", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain("subject").
+						ToNotContain("hash")
+				},
+				Entry("cpp", "cpp"),
+				Entry("pb", "pb"),
+			)
+		})
+
 		Context("array alias fields (e.g., Params -> Param[])", func() {
 			It(
 				"Should use add_* for repeated fields in forward conversion",
@@ -210,6 +235,53 @@ var _ = Describe("C++ PB Plugin", func() {
 						"pb.add_names(item)",
 					)
 			})
+
+			It("Should convert uuid arrays element by element", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Key = uuid
+
+					Data struct {
+						keys Key[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"pb.add_keys(item.to_string());",
+						"auto [v, err] = x::uuid::UUID::parse(item);",
+						"cpp.keys.push_back(v);",
+					)
+			})
+
+			It(
+				"Should translate string enum arrays element by element",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Data struct {
+						variants Variant[]
+					}
+				`
+					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(
+							"auto [v, err] = variant_to_pb(item);",
+							"pb.add_variants(v);",
+							"variant_from_pb(static_cast<",
+							"cpp.variants.push_back(v);",
+						)
+				},
+			)
 		})
 
 		Context("optional struct fields", func() {
