@@ -14,6 +14,7 @@ import (
 	"compress/gzip"
 	"context"
 	"io"
+	"sync"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/samber/lo"
@@ -72,9 +73,9 @@ func WithErrorEncoders(encoders ...http.Encoder) UnaryServerOption {
 }
 
 // WithStreamingResponse writes the response body as a chunked stream driven by
-// Encoder.EncodeStream. The route gives up the ability to report a failure that happens
-// after the first byte: the status is committed, so the encoder owns the in-band
-// failure contract. Only use it for responses too large to buffer.
+// Encoder.EncodeStream. An encoder that fails before it writes is still an ordinary
+// error response. Once it writes, the status is committed, so the encoder owns the
+// in-band failure contract. Only use it for responses too large to buffer.
 //
 // Bodies from the given encoders are gzipped when the request accepts that encoding;
 // every other body is written as is. Name only encoders whose output compression
@@ -182,6 +183,11 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 		}
 		return encodeAndWrite(fCtx, encoder, res)
 	}
+	return s.writeError(fCtx, fErr)
+}
+
+// writeError answers the request with fErr as a 400.
+func (s *unaryServer[RQ, RS]) writeError(fCtx fiber.Ctx, fErr errors.Payload) error {
 	errEncoder, ok := s.resolveErrorEncoder(fCtx)
 	if !ok {
 		return fCtx.SendStatus(fiber.StatusBadRequest)
@@ -242,9 +248,10 @@ func (s *unaryServer[RQ, RS]) resolveResponseEncoder(
 }
 
 // streamAndWrite writes v as a chunked body, gzipping it when the route names the
-// resolved encoder as compressed and the request accepts that encoding. The writer can
-// outlive the handler, which recycles c on return, so the closure only captures values
-// read here.
+// resolved encoder as compressed and the request accepts that encoding. It waits for
+// the encoder's first write before it commits the status, so an encoder that fails
+// first gets a 400. The writer can outlive the handler, which recycles c on return, so
+// the closure only captures values read here.
 func (s *unaryServer[RQ, RS]) streamAndWrite(
 	c fiber.Ctx,
 	encoder http.Encoder,
@@ -259,9 +266,12 @@ func (s *unaryServer[RQ, RS]) streamAndWrite(
 		if gz, err = gzip.NewWriterLevel(nil, gzip.BestSpeed); err != nil {
 			return err
 		}
-		c.Set(fiber.HeaderContentEncoding, gzipEncoding)
 	}
-	pr, pw := io.Pipe()
+	var (
+		pr, pw  = io.Pipe()
+		started = make(chan struct{})
+		done    = make(chan error, 1)
+	)
 	go func() {
 		w := bufio.NewWriter(pw)
 		var dst io.Writer = w
@@ -269,7 +279,7 @@ func (s *unaryServer[RQ, RS]) streamAndWrite(
 			gz.Reset(w)
 			dst = gz
 		}
-		err := encoder.EncodeStream(ctx, dst, v)
+		err := encoder.EncodeStream(ctx, &startWriter{Writer: dst, started: started}, v)
 		if gz != nil && err == nil {
 			err = gz.Close()
 		}
@@ -277,14 +287,45 @@ func (s *unaryServer[RQ, RS]) streamAndWrite(
 			err = w.Flush()
 		}
 		if err != nil {
-			s.L.Error("failed to write streamed response", zap.Error(err))
+			select {
+			case <-started:
+				s.L.Error("failed to write streamed response", zap.Error(err))
+			default:
+				// The handler sends the failure to the client as a 400.
+			}
 		}
-		// The status is long since committed. A pipe closed with an error makes the
-		// server drop the connection before the chunk that ends the body, so the
-		// client sees the body cut short instead of complete.
+		done <- err
+		// Once the encoder writes, the status is committed. A pipe closed with an error
+		// makes the server drop the connection before the chunk that ends the body, so
+		// the client sees the body cut short instead of complete.
 		pw.CloseWithError(err)
 	}()
+	select {
+	case <-started:
+	case err := <-done:
+		if err != nil {
+			return s.writeError(c, errors.Encode(c.RequestCtx(), err, false))
+		}
+	}
+	if gz != nil {
+		c.Set(fiber.HeaderContentEncoding, gzipEncoding)
+	}
 	return c.SendStream(pr)
+}
+
+// startWriter closes started on the first write that carries bytes.
+type startWriter struct {
+	io.Writer
+	started chan struct{}
+	once    sync.Once
+}
+
+// Write implements io.Writer.
+func (w *startWriter) Write(p []byte) (int, error) {
+	if len(p) > 0 {
+		w.once.Do(func() { close(w.started) })
+	}
+	return w.Writer.Write(p)
 }
 
 const gzipEncoding = "gzip"

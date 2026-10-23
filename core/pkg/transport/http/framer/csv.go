@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xhttp "github.com/synnaxlabs/x/http"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // csvFlushSize is the number of bytes the encoder accumulates before writing them out.
@@ -30,8 +31,8 @@ const csvFlushSize = 64 << 10
 // cells are empty at a timestamp it has no sample for. A data channel's cell holds its
 // sample at the alignment of the row's index sample, and is empty when the channel has
 // no sample there. An empty variable-length sample is written as "", so it differs
-// from a missing one. A channel is excluded when the read does not include its index.
-// A read that fails after the first byte truncates the body.
+// from a missing one. A read of a channel whose index it does not include fails
+// before the first byte. A read that fails after the first byte truncates the body.
 var CSVEncoder csvEncoder
 
 type csvEncoder struct{}
@@ -57,7 +58,10 @@ func (csvEncoder) EncodeStream(_ context.Context, w io.Writer, value any) error 
 	if err != nil {
 		return err
 	}
-	groups := newCSVGroups(res)
+	groups, err := newCSVGroups(res)
+	if err != nil {
+		return errors.Combine(err, res.Close())
+	}
 	buf := make([]byte, 0, csvFlushSize)
 	for i := range groups {
 		for j := range groups[i].columns {
@@ -114,8 +118,9 @@ type csvColumn struct {
 }
 
 // newCSVGroups builds the columns of the response, grouped by index channel and
-// ordered by the first channel each group timestamps.
-func newCSVGroups(res ReadResponse) []csvGroup {
+// ordered by the first channel each group timestamps. It returns a validation error
+// when the response leaves out the index of a channel.
+func newCSVGroups(res ReadResponse) ([]csvGroup, error) {
 	var (
 		all    = slices.Concat(res.Channels, res.Indexes)
 		stride = max(res.DownsampleFactor, 1)
@@ -129,7 +134,12 @@ func newCSVGroups(res ReadResponse) []csvGroup {
 	for _, ch := range res.Channels {
 		index, ok := records[ch.Index()]
 		if !ok {
-			continue
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"channel %s has no index in the read: add its index to keys or set "+
+					"timestamps_included",
+				ch.Name,
+			)
 		}
 		i, ok := position[index.Key()]
 		if !ok {
@@ -142,7 +152,7 @@ func newCSVGroups(res ReadResponse) []csvGroup {
 			groups[i].columns = append(groups[i].columns, newCSVColumn(ch, stride))
 		}
 	}
-	return groups
+	return groups, nil
 }
 
 func newCSVColumn(ch channel.Channel, stride uint32) csvColumn {

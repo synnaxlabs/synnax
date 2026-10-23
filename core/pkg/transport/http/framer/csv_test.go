@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // writeSizes records the size of every write it receives.
@@ -201,39 +202,28 @@ var _ = Describe("CSV", func() {
 			},
 		)
 
-		It("Should leave out a channel whose index the read does not include", func(
+		It("Should fail a read that leaves out the index of a channel", func(
 			ctx SpecContext,
 		) {
-			firstIndex, first := createIndexed(ctx, telem.Float32T)
-			secondIndex, second := createIndexed(ctx, telem.Float32T)
+			index, channels := createIndexed(ctx, telem.Float32T)
 			write(
 				ctx,
-				firstIndex,
+				index,
 				telem.NewSeriesSecondsTSV(1),
-				first,
+				channels,
 				telem.NewSeriesV[float32](1),
 			)
-			write(
-				ctx,
-				secondIndex,
-				telem.NewSeriesSecondsTSV(1),
-				second,
-				telem.NewSeriesV[float32](2),
-			)
-			channels := []svcchannel.Channel{firstIndex, first[0], second[0]}
 			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
 				Keys:   svcchannel.KeysFromChannels(channels),
 				Bounds: readBounds,
 			}))
-			b := MustSucceed(framer.CSVEncoder.Encode(ctx, framer.ReadResponse{
+			Expect(framer.CSVEncoder.Encode(ctx, framer.ReadResponse{
 				Iterator: iter,
 				Channels: channels,
-			}))
-			Expect(string(b)).To(Equal(fmt.Sprintf(
-				"%s,%s\n1000000000,1\n",
-				firstIndex.Name,
-				first[0].Name,
-			)))
+			})).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(channels[0].Name)),
+			))
 		})
 
 		It("Should order the rows of groups that advance at different rates", func(
