@@ -987,6 +987,8 @@ class DataType(str):
             return value
 
         if isinstance(value, str):
+            if value not in DataType.ALL:
+                raise ValueError(f"{value!r} is not a valid data type")
             return super().__new__(cls, value)
 
         if isinstance(value, (int, float, np.number, np.bool_, dict, uuid.UUID)):
@@ -1127,23 +1129,27 @@ class DataType(str):
     _DENSITIES: dict[DataType, Density]
 
 
-DataType.UUID = DataType("uuid")
-DataType.UNKNOWN = DataType("")
-DataType.TIMESTAMP = DataType("timestamp")
-DataType.FLOAT64 = DataType("float64")
-DataType.FLOAT32 = DataType("float32")
-DataType.INT64 = DataType("int64")
-DataType.INT32 = DataType("int32")
-DataType.INT16 = DataType("int16")
-DataType.INT8 = DataType("int8")
-DataType.UINT64 = DataType("uint64")
-DataType.UINT32 = DataType("uint32")
-DataType.UINT16 = DataType("uint16")
-DataType.UINT8 = DataType("uint8")
-DataType.JSON = DataType("json")
-DataType.STRING = DataType("string")
-DataType.BYTES = DataType("bytes")
-DataType.BOOLEAN = DataType("boolean")
+def _const(name: str) -> DataType:
+    return str.__new__(DataType, name)
+
+
+DataType.UUID = _const("uuid")
+DataType.UNKNOWN = _const("")
+DataType.TIMESTAMP = _const("timestamp")
+DataType.FLOAT64 = _const("float64")
+DataType.FLOAT32 = _const("float32")
+DataType.INT64 = _const("int64")
+DataType.INT32 = _const("int32")
+DataType.INT16 = _const("int16")
+DataType.INT8 = _const("int8")
+DataType.UINT64 = _const("uint64")
+DataType.UINT32 = _const("uint32")
+DataType.UINT16 = _const("uint16")
+DataType.UINT8 = _const("uint8")
+DataType.JSON = _const("json")
+DataType.STRING = _const("string")
+DataType.BYTES = _const("bytes")
+DataType.BOOLEAN = _const("boolean")
 DataType.ALL = (
     DataType.UNKNOWN,
     DataType.UINT8,
@@ -1237,7 +1243,8 @@ class Bounds:
         self.upper = upper
 
     def contains(self, value: float) -> bool:
-        return self.lower < value <= self.upper
+        """:returns: True if lower <= value < upper."""
+        return self.lower <= value < self.upper
 
 
 def _pack_alignment(domain_idx: int, sample_idx: int) -> int:
