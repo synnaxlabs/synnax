@@ -24,6 +24,10 @@ EVENT = "workflow_job"
 # A backlog this deep already means the controller is not cycling; the oldest
 # deliveries are the least useful, and the resync rebuilds what they carried.
 MAX_QUEUED = 1000
+# GitHub caps a delivery at 25 MB; workflow_job payloads are a few KB.
+MAX_BODY = 1024 * 1024
+# Bounds how long a client can hold a request thread.
+REQUEST_TIMEOUT = 10
 
 
 class Webhook:
@@ -72,9 +76,19 @@ class Webhook:
 
         class Handler(BaseHTTPRequestHandler):
             protocol_version = "HTTP/1.1"
+            timeout = REQUEST_TIMEOUT
 
             def do_POST(self) -> None:
-                body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                try:
+                    length = int(self.headers.get("Content-Length", 0))
+                except ValueError:
+                    length = -1
+                if not 0 <= length <= MAX_BODY:
+                    hook.rejected += 1
+                    self.close_connection = True
+                    self.reply(413)
+                    return
+                body = self.rfile.read(length)
                 if not hook.valid(body, self.headers.get("X-Hub-Signature-256", "")):
                     hook.rejected += 1
                     self.reply(401)

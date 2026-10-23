@@ -1,0 +1,70 @@
+#  Copyright 2026 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
+import synnax as sy
+
+from common import Channels
+from conftest import Client, core
+from github import GitHub
+from jobs import Jobs
+from log import Log
+
+LABELS = ["self-hosted", "ubuntu-test-bot"]
+
+
+class Responses(GitHub):
+    """Answers API paths from a table instead of the network."""
+
+    def __init__(self, responses: dict[str, dict]) -> None:
+        super().__init__("token")
+        self.responses = responses
+
+    def get(self, path: str) -> dict:
+        return self.responses[path]
+
+
+def runs(*ids: int) -> dict:
+    return {"workflow_runs": [{"id": i} for i in ids]}
+
+
+def job(id: int, status: str) -> dict:
+    return {"id": id, "status": status, "labels": LABELS}
+
+
+def jobs(github: GitHub, client: Client) -> Jobs:
+    return Jobs(github, Log(core(client), Channels(core(client), False), "log"))
+
+
+class TestJobs:
+    def test_should_count_queued_deliveries_per_pool(self, client: Client) -> None:
+        j = jobs(Responses({}), client)
+        j.apply(
+            [
+                {"action": "queued", "workflow_job": {"id": 1, "labels": LABELS}},
+                {"action": "queued", "workflow_job": {"id": 2, "labels": ["x"]}},
+            ]
+        )
+        assert j.counts() == {"ubuntu-test-bot": 1}
+
+    def test_should_rebuild_the_queue_from_in_progress_runs(
+        self, client: Client
+    ) -> None:
+        github = Responses(
+            {
+                "/actions/runs?status=queued&per_page=100": runs(),
+                "/actions/runs?status=in_progress&per_page=100": runs(7),
+                "/actions/runs/7/jobs?per_page=100": {
+                    "jobs": [job(1, "completed"), job(2, "queued")]
+                },
+            }
+        )
+        j = jobs(github, client)
+        j.resync(sy.TimeStamp.now())
+        assert j.queued == {2: set(LABELS)}
+        assert j.counts() == {"ubuntu-test-bot": 1}

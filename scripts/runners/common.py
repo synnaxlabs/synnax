@@ -19,6 +19,7 @@ from typing import Protocol
 import boto3
 import numpy as np
 import synnax as sy
+from pydantic import BaseModel
 from synnax import auth
 from x.codec import JSONCodec
 from x.exceptions.exceptions import REGISTRY, ExceptionPayload, _ExceptionProvider
@@ -57,12 +58,8 @@ RELEASED_AUTHORITY = 0
 RECOMMAND_DELAY = 1 * sy.TimeSpan.MINUTE
 
 
-def _encode(self: JSONCodec, payload) -> bytes:
+def _encode(self: JSONCodec, payload: BaseModel) -> bytes:
     return payload.model_dump_json(by_alias=True, exclude_none=True).encode()
-
-
-# Cores since 2026-09-23 reject the null fields the client sends.
-JSONCodec.encode = _encode  # type: ignore[method-assign]
 
 
 def _decode_token(p: ExceptionPayload) -> Exception | None:
@@ -70,10 +67,6 @@ def _decode_token(p: ExceptionPayload) -> Exception | None:
         if p.type is not None and p.type.startswith(cls.TYPE):
             return cls(p.data)
     return None
-
-
-# The client decodes token errors as plain AuthError, so it never re-logins.
-REGISTRY.providers.insert(0, _ExceptionProvider(lambda e: None, _decode_token))
 
 
 def _authenticate(self: auth.Client) -> None:
@@ -94,7 +87,13 @@ def _authenticate(self: auth.Client) -> None:
     self.user = res.user
 
 
-auth.Client.authenticate = _authenticate
+def patch_client() -> None:
+    """Adapts the Synnax client to the Core the fleet runs against. Cores since
+    2026-09-23 reject the null fields the client sends, and the client decodes token
+    errors as plain AuthError, so it never logs in again. Call once, before connect."""
+    JSONCodec.encode = _encode  # type: ignore[method-assign]
+    REGISTRY.providers.insert(0, _ExceptionProvider(lambda e: None, _decode_token))
+    auth.Client.authenticate = _authenticate
 
 
 class Closeable(Protocol):
@@ -137,7 +136,10 @@ def instance_for(runner: str, found: dict[str, dict]) -> str | None:
     prefix = instance_prefix(runner)
     if prefix is None:
         return None
-    return next((iid for iid in found if iid.startswith(prefix)), None)
+    matches = [iid for iid in found if iid.startswith(prefix)]
+    if len(matches) > 1:
+        raise LookupError(f"multiple EC2 instances match {runner}")
+    return matches[0] if matches else None
 
 
 def instance_status(runners: set[str], found: dict[str, dict]) -> dict[str, bool]:
@@ -178,10 +180,6 @@ def ec2_channels(runners: set[str]) -> dict[str, sy.DataType]:
     }
 
 
-# Set by connect() from --create-channels; the usual accounts cannot create channels.
-_create = False
-
-
 # A request past a few dozen channels outlives the client's timeout.
 BATCH = 40
 
@@ -190,73 +188,70 @@ class ChannelCreateError(Exception):
     """A --create-channels run stops on this rather than retrying every cycle."""
 
 
-def create(
-    client: sy.Synnax, what: str, *channels: sy.Channel, update: bool = False
-) -> list[sy.Channel]:
-    """Creates, or with update rewrites channels that carry their key."""
-    try:
-        return client.channels.create(
-            list(channels), retrieve_if_name_exists=not update
+class Channels:
+    """Creates channels on the Core. While disabled every method does nothing, since
+    the usual accounts cannot create channels."""
+
+    def __init__(self, client: sy.Synnax, enabled: bool) -> None:
+        self.client = client
+        self.enabled = enabled
+
+    def create(
+        self, what: str, *channels: sy.Channel, update: bool = False
+    ) -> list[sy.Channel]:
+        """Creates, or with update rewrites channels that carry their key."""
+        try:
+            return self.client.channels.create(
+                list(channels), retrieve_if_name_exists=not update
+            )
+        except Exception as e:
+            raise ChannelCreateError(f"{what}: {type(e).__name__}: {e}") from e
+
+    def data(self, index: sy.Channel | None, channels: dict[str, sy.DataType]) -> None:
+        if not self.enabled or index is None:
+            return
+        wanted = [
+            sy.Channel(name=name, data_type=data_type, index=index.key)
+            for name, data_type in channels.items()
+        ]
+        for i in range(0, len(wanted), BATCH):
+            self.create(f"channels on {index.name}", *wanted[i : i + BATCH])
+
+    def calculated(self, name: str, expression: str) -> None:
+        """Creates, or when the expression changed rewrites, a calculated channel."""
+        if not self.enabled:
+            return
+        channel = sy.Channel(
+            name=name, data_type=sy.DataType.FLOAT32, expression=expression
         )
-    except Exception as e:
-        raise ChannelCreateError(f"{what}: {type(e).__name__}: {e}") from e
+        found = self.create(f"calculated {name}", channel)[0]
+        if found.expression != expression:
+            found.expression = expression
+            self.create(f"calculated {name}", found, update=True)
 
+    def index(self, name: str) -> sy.Channel | None:
+        if not self.enabled:
+            return None
+        index = sy.Channel(name=name, data_type=sy.DataType.TIMESTAMP, is_index=True)
+        return self.create(f"index {name}", index)[0]
 
-def create_channels(
-    client: sy.Synnax, index: sy.Channel | None, channels: dict[str, sy.DataType]
-) -> None:
-    if not _create or index is None:
-        return
-    wanted = [
-        sy.Channel(name=name, data_type=data_type, index=index.key)
-        for name, data_type in channels.items()
-    ]
-    for i in range(0, len(wanted), BATCH):
-        create(client, f"channels on {index.name}", *wanted[i : i + BATCH])
-
-
-def create_calculated(client: sy.Synnax, name: str, expression: str) -> None:
-    """Creates, or when the expression changed rewrites, a calculated channel."""
-    if not _create:
-        return
-    channel = sy.Channel(
-        name=name, data_type=sy.DataType.FLOAT32, expression=expression
-    )
-    found = create(client, f"calculated {name}", channel)[0]
-    if found.expression != expression:
-        found.expression = expression
-        create(client, f"calculated {name}", found, update=True)
-
-
-def create_index(client: sy.Synnax, name: str) -> sy.Channel | None:
-    if not _create:
-        return None
-    index = sy.Channel(name=name, data_type=sy.DataType.TIMESTAMP, is_index=True)
-    return create(client, f"index {name}", index)[0]
-
-
-def create_virtual(client: sy.Synnax, name: str, data_type: sy.DataType) -> None:
-    if not _create:
-        return
-    create(
-        client,
-        f"virtual {name}",
-        sy.Channel(name=name, data_type=data_type, virtual=True),
-    )
-
-
-def create_agent_channels(client: sy.Synnax, runners: set[str]) -> None:
-    """Creates what agent.py writes, one index per runner. The agents run on machines
-    that only get retrieve on channels, so they resolve these rather than create
-    them."""
-    for r in sorted(runners):
-        if instance_prefix(r) is None:
-            continue
-        index = create_index(client, channel_name(AGENT_INDEX, r))
-        create_channels(
-            client, index, {channel_name(s, r): t for s, t in AGENT_CHANNELS.items()}
+    def virtual(self, name: str, data_type: sy.DataType) -> None:
+        if not self.enabled:
+            return
+        self.create(
+            f"virtual {name}", sy.Channel(name=name, data_type=data_type, virtual=True)
         )
-        create_virtual(client, channel_name(AGENT_LOG, r), sy.DataType.STRING)
+
+    def agent(self, runners: set[str]) -> None:
+        """Creates what agent.py writes, one index per runner. The agents run on
+        machines that only get retrieve on channels, so they resolve these rather
+        than create them."""
+        for r in sorted(runners):
+            if instance_prefix(r) is None:
+                continue
+            index = self.index(channel_name(AGENT_INDEX, r))
+            self.data(index, {channel_name(s, r): t for s, t in AGENT_CHANNELS.items()})
+            self.virtual(channel_name(AGENT_LOG, r), sy.DataType.STRING)
 
 
 def latest(client: sy.Synnax, names: list[str]) -> dict[str, np.generic]:
@@ -304,8 +299,6 @@ def add_connection_args(p: argparse.ArgumentParser) -> None:
 
 
 def connect(args: argparse.Namespace) -> sy.Synnax:
-    global _create
-    _create = args.create_channels
     return sy.Synnax(
         host=args.host,
         port=args.port,

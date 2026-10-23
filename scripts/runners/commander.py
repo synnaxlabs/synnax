@@ -10,6 +10,8 @@
 """What the scaler and the gate share: a writer over one command channel per runner,
 and a memory of what was sent to whom."""
 
+from collections.abc import Callable
+
 import synnax as sy
 
 from common import (
@@ -22,17 +24,26 @@ from common import (
 from log import Log
 from publisher import Publisher
 
+Describe = Callable[[str, bool, sy.TimeStamp], str]
+
 
 class Commander:
     """Writes <runner>_<command> at COMMAND_AUTHORITY for just the instant of a write,
     so the Console (absolute) always wins, and logs each send; the same value twice
-    to one runner is marked [WARN]."""
+    to one runner is marked [WARN]. describe formats one command for the log."""
 
-    def __init__(self, client: sy.Synnax, command: str, name: str, log: Log) -> None:
-        self.client = client
+    def __init__(
+        self,
+        client: sy.Synnax,
+        command: str,
+        name: str,
+        log: Log,
+        describe: Describe | None = None,
+    ) -> None:
         self.command_name = command
         self.log = log
-        # Time and value of the last command sent to each runner.
+        self.describe = describe or (lambda r, v, _: f"{self.channel(r)}={v}")
+        # Time and value of the last command that landed on each runner.
         self.commanded: dict[str, tuple[sy.TimeStamp, bool]] = {}
         self.commands = Publisher(
             client, name, [], RELEASED_AUTHORITY, report=log.error
@@ -65,10 +76,15 @@ class Commander:
             or now.span(last[0]) >= RECOMMAND_DELAY
         }
 
-    def describe(self, runner: str, value: bool, now: sy.TimeStamp) -> str:
-        return f"{self.channel(runner)}={value}"
-
-    def command(self, commands: dict[str, bool], now: sy.TimeStamp) -> None:
+    def command(self, commands: dict[str, bool], now: sy.TimeStamp) -> bool:
+        """Writes commands, returning whether they landed. A failed write records
+        nothing, so the caller sends the same commands again."""
+        frame: dict[str, object] = {}
+        for r, v in commands.items():
+            frame[self.channel(r)] = v
+            frame[f"{self.channel(r)}_time"] = now
+        if not self.commands.write(frame, COMMAND_AUTHORITY):
+            return False
         again = {
             r: v
             for r, v in commands.items()
@@ -81,11 +97,7 @@ class Commander:
             self.log(self.lines(first, now))
         if again:
             self.log(f"[WARN] resending {self.lines(again, now)}")
-        frame: dict[str, object] = {}
-        for r, v in commands.items():
-            frame[self.channel(r)] = v
-            frame[f"{self.channel(r)}_time"] = now
-        self.commands.write(frame, COMMAND_AUTHORITY)
+        return True
 
     def lines(self, commands: dict[str, bool], now: sy.TimeStamp) -> str:
         return ", ".join(self.describe(r, v, now) for r, v in sorted(commands.items()))

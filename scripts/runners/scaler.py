@@ -56,11 +56,13 @@ def job_pool(labels: set[str]) -> Pool | None:
     return pool_of(labels)
 
 
-class Scaler(Commander):
+class Scaler:
     """Busy runners, runners with a job in progress, and instances up less than
-    boot_grace whose runner is offline are never touched. While disabled, the writer
-    is closed and nothing is written, but idle time keeps accruing and each decision
-    is logged once, marked [DISABLED], so enabling clears whatever backlog built up."""
+    boot_grace whose runner is offline are never touched. Instances still booting,
+    and runners just commanded to start, count toward a pool's demand. While
+    disabled, the writer is closed and nothing is written, but idle time keeps
+    accruing and each decision is logged once, marked [DISABLED], so enabling clears
+    whatever backlog built up."""
 
     def __init__(
         self,
@@ -70,7 +72,8 @@ class Scaler(Commander):
         log: Log,
         enabled: bool = True,
     ) -> None:
-        super().__init__(client, "ec2_cmd", "EC2 Scaler", log)
+        self.commander = Commander(client, "ec2_cmd", "EC2 Scaler", log, self.describe)
+        self.log = log
         self.cooldown = cooldown
         self.boot_grace = boot_grace
         self.enabled = enabled
@@ -80,9 +83,9 @@ class Scaler(Commander):
 
     def refresh_writer(self, known: set[str]) -> None:
         if self.enabled:
-            super().refresh_writer(known)
+            self.commander.refresh_writer(known)
         else:
-            self.commands.close()
+            self.commander.commands.close()
 
     def step(
         self,
@@ -115,26 +118,36 @@ class Scaler(Commander):
                 self.idle_since.pop(r, None)
         idle: dict[Pool, list[str]] = {}
         offline: dict[Pool, list[str]] = {}
+        # Instances on their way up, which take a queued job once their runner
+        # connects.
+        booting: dict[Pool, int] = {}
         # Offline-past-grace runners are stoppable but cannot take a job.
         stoppable: dict[Pool, list[str]] = {}
         # Recently commanded runners still count, they just cannot be commanded again.
-        ready = self.ready(known, now)
+        ready = self.commander.ready(known, now)
         for r in sorted(known):
             pool = pool_of(labels.get(r, set()))
             iid = instance_for(r, found)
             if pool is None or iid is None:
                 continue
-            if found[iid]["state"] == "stopped":
+            state = found[iid]["state"]
+            last = self.commander.commanded.get(r)
+            if state == "stopped" and (r in ready or last is None or not last[1]):
                 offline.setdefault(pool, []).append(r)
             elif r in self.idle_since:
                 stoppable.setdefault(pool, []).append(r)
                 if status.get(r) == IDLE:
                     idle.setdefault(pool, []).append(r)
+            elif state in ("stopped", "pending") or (
+                state == "running" and status.get(r) == OFFLINE and r not in running
+            ):
+                booting[pool] = booting.get(pool, 0) + 1
         commands: dict[str, bool] = {}
         for pool, n in queued.items():
             spare = offline.get(pool, [])
             startable = [r for r in spare if r in ready]
-            starting = startable[: max(n - len(idle.get(pool, [])), 0)]
+            covered = len(idle.get(pool, [])) + booting.get(pool, 0)
+            starting = startable[: max(n - covered, 0)]
             # Once a pool has been acted on, stay quiet until something changes for
             # it; only a pool with nothing left to start keeps reporting.
             if starting or not spare:
@@ -163,7 +176,7 @@ class Scaler(Commander):
             self.log(line)
 
     def describe(self, runner: str, value: bool, now: sy.TimeStamp) -> str:
-        name = self.channel(runner)
+        name = self.commander.channel(runner)
         if value:
             return f"{name}=True"
         since = self.idle_since.get(runner)
@@ -178,7 +191,10 @@ class Scaler(Commander):
             fresh = {r: v for r, v in commands.items() if self.logged.get(r) != v}
             if fresh:
                 self.logged.update(fresh)
-                self.log(f"[DISABLED] {self.lines(fresh, now)}")
+                self.log(f"[DISABLED] {self.commander.lines(fresh, now)}")
             return
         self.logged.clear()
-        super().command(commands, now)
+        self.commander.command(commands, now)
+
+    def close(self) -> None:
+        self.commander.close()

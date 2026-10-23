@@ -582,7 +582,6 @@ jobs:
     uses: ./.github/workflows/test.py.yaml
     with:
       directory: scripts/runners
-      test: false
     secrets: inherit
 
   site-common:
