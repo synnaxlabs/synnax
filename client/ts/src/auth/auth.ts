@@ -13,7 +13,7 @@ import {
   type Next,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { errors } from "@synnaxlabs/x";
+import { errors, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
