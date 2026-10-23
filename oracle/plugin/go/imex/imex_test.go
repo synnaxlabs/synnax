@@ -588,6 +588,44 @@ ScanConfig struct {
 					)))
 				},
 			)
+
+			It("Should error when body types at one path span version chains", func(
+				ctx SpecContext,
+			) {
+				root := GinkgoT().TempDir()
+				other := filepath.Join(root, "schemas", "synnax", "versions", "other")
+				Expect(os.MkdirAll(other, 0o755)).To(Succeed())
+				Expect(os.WriteFile(
+					filepath.Join(other, "v1.oracle"),
+					[]byte(
+						"OtherConfig struct {\n\tkey uuid @key\n\n\t@go imex body\n}\n",
+					),
+					0o644,
+				)).To(Succeed())
+				req := configRequest(ctx, root, map[int]string{
+					1: configChain("\n\t@go imex body"),
+				})
+				const liveOther = `
+@go output "core/pkg/service/modbus"
+
+OtherConfig struct {
+	key uuid @key
+	@go imex body
+}
+`
+				diag := analyzer.AnalyzeSeeded(
+					ctx,
+					liveOther,
+					"schemas/synnax/other.oracle",
+					"other",
+					analyzer.NewStandardFileLoader(root),
+					req.Resolutions,
+				)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"@go imex body types for core/pkg/service/modbus span version chains",
+				)))
+			})
 		})
 
 		It(

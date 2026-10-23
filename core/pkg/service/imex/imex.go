@@ -87,9 +87,9 @@ type Ladder[T any] struct {
 	First Version
 	// Latest is the version stamped on exports and the newest version Decode accepts.
 	Latest Version
-	// Decode decodes data as the shape stamped version and migrates it to the current
-	// shape. It returns an error wrapping validate.ErrValidation for a version the type
-	// never exported.
+	// Decode decodes data as the type's shape at version and migrates it to the current
+	// shape. It returns a path-scoped validation error for a version the type never
+	// exported.
 	Decode func(
 		ctx context.Context,
 		version Version,
