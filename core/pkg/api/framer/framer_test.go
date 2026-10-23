@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -82,13 +83,37 @@ var _ = Describe("Framer", func() {
 			Expect(res.Indexes).To(BeEmpty())
 		})
 
-		It("Should carry the request's downsample factor", func(ctx SpecContext) {
-			res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
-				Keys:             channel.Keys{data.Key()},
-				Bounds:           telem.TimeRangeMax,
-				DownsampleFactor: 3,
+		It("Should open iterators under the request's reduction", func(
+			ctx SpecContext,
+		) {
+			keys := channel.Keys{index.Key(), data.Key()}
+			w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  keys,
 			}))
-			Expect(res.DownsampleFactor).To(BeEquivalentTo(3))
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
+				telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8),
+			}))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			reduction := telem.Reduction{Variant: telem.LimitReduction{
+				Aggregation: telem.AggregationDecimate,
+				PointLimit:  4,
+			}}
+			res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
+				Keys:      channel.Keys{data.Key()},
+				Bounds:    telem.TimeRangeMax,
+				Reduction: reduction,
+			}))
+			Expect(res.Reduction).To(Equal(reduction))
+			iter := MustSucceed(res.OpenIterator(ctx, channel.Keys{data.Key()}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.Next(apiframer.IteratorAutoSpan)).To(BeTrue())
+			series := iter.Value().Get(data.Key()).Series
+			Expect(iter.Close()).To(Succeed())
+			Expect(series).To(HaveLen(1))
+			Expect(series[0].AlignmentMultiple).To(BeEquivalentTo(2))
+			Expect(series[0]).To(telem.MatchSeriesDataV[float32](1, 3, 5, 7))
 		})
 
 		It("Should return an error when a key has no channel", func(ctx SpecContext) {

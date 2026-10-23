@@ -31,9 +31,10 @@ const csvFlushSize = 64 << 10
 // channel, headed by the channel's name. Rows are ordered by timestamp, and a group's
 // cells are empty at a timestamp it has no sample for. A data channel's cell holds its
 // sample at the alignment of the row's index sample, and is empty when the channel has
-// no sample there. An empty variable-length sample is written as "", so it differs
-// from a missing one. A read of a channel whose index it does not include fails
-// before the first byte. A read that fails after the first byte truncates the body.
+// no sample there. An empty variable-length sample is written as "", so it differs from
+// a missing one. A read of a channel whose index it does not include, or a read under a
+// limit reduction, fails before the first byte. A read that fails after the first byte
+// truncates the body.
 var CSVEncoder csvEncoder
 
 type csvEncoder struct{}
@@ -109,14 +110,25 @@ type csvColumn struct {
 	stride uint32
 }
 
-// newCSVGroups builds the columns of the response, grouped by index channel and
-// ordered by the first channel each group timestamps. It returns a validation error
-// when the response leaves out the index of a channel.
+// newCSVGroups builds the columns of the response, grouped by index channel and ordered
+// by the first channel each group timestamps. It returns a validation error when the
+// response leaves out the index of a channel or carries a limit reduction.
 func newCSVGroups(res ReadResponse) ([]csvGroup, error) {
 	var (
 		all    = slices.Concat(res.Channels, res.Indexes)
-		stride = max(res.DownsampleFactor, 1)
+		stride = uint32(1)
 	)
+	switch r := res.Reduction.Variant.(type) {
+	case telem.StrideReduction:
+		stride = max(r.Factor, 1)
+	case telem.LimitReduction:
+		// A limit leaves non-numeric channels raw beside their reduced index, so their
+		// samples have no row.
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"a CSV read cannot take a limit reduction: use a stride",
+		)
+	}
 	records := make(map[channel.Key]channel.Channel, len(all))
 	for _, ch := range all {
 		records[ch.Key()] = ch
