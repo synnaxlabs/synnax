@@ -253,27 +253,6 @@ func userBackward(u *User) (*user.User, error) {
 	return &user.User{Key: key, Username: u.Username}, nil
 }
 
-func clusterInfoForward(c auth.ClusterInfo) *ClusterInfo {
-	return &ClusterInfo{
-		ClusterKey:  c.ClusterKey,
-		NodeVersion: c.NodeVersion,
-		NodeKey:     uint32(c.NodeKey),
-		NodeTime:    int64(c.NodeTime),
-	}
-}
-
-func clusterInfoBackward(c *ClusterInfo) auth.ClusterInfo {
-	if c == nil {
-		return auth.ClusterInfo{}
-	}
-	return auth.ClusterInfo{
-		ClusterKey:  c.ClusterKey,
-		NodeVersion: c.NodeVersion,
-		NodeKey:     node.Key(c.NodeKey),
-		NodeTime:    telem.TimeStamp(c.NodeTime),
-	}
-}
-
 func (sessionCreateRequestTranslator) Forward(
 	_ context.Context,
 	r auth.SessionCreateRequest,
@@ -301,10 +280,9 @@ func (sessionCreateResponseTranslator) Forward(
 	r auth.SessionCreateResponse,
 ) (*SessionCreateResponse, error) {
 	return &SessionCreateResponse{
-		Token:       r.Token,
-		Session:     sessionForward(r.Session),
-		User:        userForward(r.User),
-		ClusterInfo: clusterInfoForward(r.ClusterInfo),
+		Token:   r.Token,
+		Session: sessionForward(r.Session),
+		User:    userForward(r.User),
 	}, nil
 }
 
@@ -321,10 +299,9 @@ func (sessionCreateResponseTranslator) Backward(
 		return auth.SessionCreateResponse{}, err
 	}
 	return auth.SessionCreateResponse{
-		Token:       r.Token,
-		Session:     session,
-		User:        u,
-		ClusterInfo: clusterInfoBackward(r.ClusterInfo),
+		Token:   r.Token,
+		Session: session,
+		User:    u,
 	}, nil
 }
 

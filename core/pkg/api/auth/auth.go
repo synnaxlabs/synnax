@@ -81,6 +81,7 @@ func (s *Service) Login(
 	ctx context.Context,
 	req LoginRequest,
 ) (LoginResponse, error) {
+	start := telem.Now()
 	res, err := s.CreateSession(
 		ctx,
 		SessionCreateRequest{Proof: proofOf(req.Credentials)},
@@ -91,7 +92,7 @@ func (s *Service) Login(
 	return LoginResponse{
 		User:        *res.User,
 		Token:       res.Token,
-		ClusterInfo: res.ClusterInfo,
+		ClusterInfo: s.clusterInfo(start),
 	}, nil
 }
 
