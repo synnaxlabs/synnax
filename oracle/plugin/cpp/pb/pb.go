@@ -424,24 +424,31 @@ func (p *Plugin) processUnionForTranslation(
 		if !ok {
 			continue
 		}
-		if _, isStruct := base.Form.(resolution.StructForm); !isStruct {
+		// An alias base keeps its own field name but translates through the struct
+		// it stands for.
+		target, targetRef, ok := resolution.Dealias(ext, data.table)
+		if !ok {
+			continue
+		}
+		if _, isStruct := target.Form.(resolution.StructForm); !isStruct {
 			continue
 		}
 		ut.Bases = append(ut.Bases, unionBaseTranslatorData{
-			CppType:    p.resolveExtendsType(ext, base, data),
+			CppType:    p.resolveExtendsType(targetRef, target, data),
 			PBAccessor: keywords.Escape(casing.FieldSnake(base.Name)),
 		})
 	}
 	for _, v := range form.Variants {
-		payload, ok := v.Type.Resolve(data.table)
+		payload, _, ok := resolution.Dealias(v.Type, data.table)
 		if !ok {
 			continue
 		}
 		variantName := naming.VariantTypeName(cppName, v.Name)
+		messageNamespace, _ := naming.VariantPBNamespace(u, v, payload)
 		translator := translatorData{
 			CppName:     variantName,
 			PBName:      naming.PBName(payload),
-			PBNamespace: pbNamespace,
+			PBNamespace: messageNamespace,
 			Fields:      make([]fieldTranslatorData, 0),
 		}
 		for _, field := range resolution.UnifiedFields(payload, data.table) {
@@ -1242,7 +1249,8 @@ func (p *Plugin) generateAliasConversion(
 		return forward, backward
 	}
 
-	if targetForm, isAlias := targetResolved.Form.(resolution.AliasForm); isAlias {
+	switch targetForm := targetResolved.Form.(type) {
+	case resolution.AliasForm:
 		return p.generateAliasConversion(
 			targetResolved,
 			targetForm,
@@ -1251,6 +1259,32 @@ func (p *Plugin) generateAliasConversion(
 			pbAccessorName,
 			pbSetter,
 			data,
+		)
+	case resolution.EnumForm:
+		return p.generateEnumConversion(
+			targetResolved,
+			targetForm,
+			cppFieldName,
+			pbAccessorName,
+			pbSetter,
+			data,
+		)
+	case resolution.DistinctForm:
+		return p.generateDistinctConversion(
+			targetResolved,
+			targetForm,
+			cppFieldName,
+			pbAccessorName,
+			pbSetter,
+			data,
+		)
+	case resolution.UnionForm:
+		return p.generateUnionConversion(
+			targetResolved,
+			isOptional,
+			data,
+			cppFieldName,
+			pbAccessorName,
 		)
 	}
 
@@ -1317,7 +1351,7 @@ func (p *Plugin) generateArrayElementConversion(
 	data *templateData,
 ) (forward, backward string) {
 	if !resolution.IsPrimitive(elemType.Name) {
-		if resolved, ok := elemType.Resolve(data.table); ok {
+		if resolved, _, ok := resolution.Dealias(elemType, data.table); ok {
 			if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
 				if resolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(resolved, "cpp")
@@ -1436,7 +1470,7 @@ func (p *Plugin) elementConversion(
 		}
 		return toPB, fromPB, true
 	}
-	resolved, ok := elemType.Resolve(data.table)
+	resolved, _, ok := resolution.Dealias(elemType, data.table)
 	if !ok {
 		return nil, nil, false
 	}

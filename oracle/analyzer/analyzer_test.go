@@ -255,6 +255,161 @@ Entry struct {
 				"schemas/synnax/channel.oracle", "channel")
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
+
+		Describe("Redeclaring types over aliases", func() {
+			var table *resolution.Table
+
+			BeforeEach(func(ctx SpecContext) {
+				table = resolution.NewTable()
+				diag := analyzer.AnalyzeSeeded(ctx, `
+Size enum {
+	small = "small"
+	large = "large"
+}
+
+Method enum {
+	password = "password"
+}
+
+Labeled struct {
+	label  string
+	hidden bool
+}
+
+Valve struct extends Labeled {
+	open bool
+}
+
+Credentials struct {
+	username string
+}
+
+Edge union on variant {
+	pipe Labeled
+}
+`,
+					"schemas/synnax/versions/widget/v0.oracle", "v0", loader, table,
+				)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			})
+
+			analyzeV1 := func(ctx SpecContext, decls string) *diagnostics.Files {
+				return analyzer.AnalyzeSeeded(ctx, `
+Size = v0.Size
+
+Method = v0.Method
+
+Labeled = v0.Labeled
+
+Valve = v0.Valve
+
+Credentials = v0.Credentials
+
+Edge = v0.Edge
+`+decls,
+					"schemas/synnax/versions/widget/v1.oracle", "v1", loader, table,
+				)
+			}
+
+			fieldNames := func(fields []resolution.Field) []string {
+				names := make([]string, len(fields))
+				for i, f := range fields {
+					names[i] = f.Name
+				}
+				return names
+			}
+
+			It("Should accept aliased variants, bases, enums, and defaults", func(
+				ctx SpecContext,
+			) {
+				diag := analyzeV1(ctx, `
+Wide enum extends Size {
+	huge = "huge"
+}
+
+Panel struct extends Labeled {
+	size Size = large
+	hidden?
+}
+
+Node union on variant {
+	valve Valve
+	tank extends Labeled {
+		-hidden
+		size Size = small
+	}
+}
+
+Element union on variant extends Node, Edge {}
+
+Shape union on kind extends Labeled {
+	circle Credentials
+}
+
+Proof union on method Method {
+	password Credentials
+}
+`)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				panel := table.MustGet("v1.Panel")
+				Expect(fieldNames(resolution.UnifiedFields(panel, table))).To(
+					Equal([]string{"label", "size", "hidden"}),
+				)
+				Expect(findField(
+					resolution.UnifiedFields(panel, table), "hidden",
+				).Type.Name).To(Equal("bool"))
+				node := table.MustGet("v1.Node")
+				form := node.Form.(resolution.UnionForm)
+				valve := MustBeOk(form.Variant("valve"))
+				Expect(fieldNames(resolution.UnifiedVariantFields(node, valve, table))).
+					To(Equal([]string{"label", "hidden", "open"}))
+				tank := MustBeOk(form.Variant("tank"))
+				Expect(fieldNames(resolution.UnifiedVariantFields(node, tank, table))).
+					To(Equal([]string{"label", "size"}))
+				element := table.MustGet("v1.Element").Form.(resolution.UnionForm)
+				Expect(element.Variants).To(HaveLen(3))
+				Expect(
+					MustBeOk(element.Variant("pipe")).Type.Name,
+				).To(Equal("v0.Labeled"))
+				shape := table.MustGet("v1.Shape")
+				circle := MustBeOk(shape.Form.(resolution.UnionForm).Variant("circle"))
+				Expect(
+					fieldNames(resolution.UnifiedVariantFields(shape, circle, table)),
+				).
+					To(Equal([]string{"label", "hidden", "username"}))
+			})
+
+			DescribeTable("Should run kind checks through aliases",
+				func(ctx SpecContext, decls, message string) {
+					diag := analyzeV1(ctx, decls)
+					Expect(diag.Ok()).To(BeFalse())
+					Expect(diag.String()).To(ContainSubstring(message))
+				},
+				Entry("a union default whose aliased payload has a required field", `
+Panel struct {
+	edge Edge = pipe
+}
+`, `defaults to union variant "pipe", whose field "label" is required`),
+				Entry("a variant omitting a field it does not inherit", `
+Node union on variant {
+	tank extends Labeled {
+		-open
+	}
+}
+`, `cannot omit field "open", which the variant does not inherit`),
+				Entry("an enum extending an aliased struct", `
+Wide enum extends Labeled {}
+`, "which is not an enum"),
+				Entry("a struct extending an aliased enum", `
+Panel struct extends Size {}
+`, "extends non-struct type"),
+				Entry("a union variant naming an aliased enum", `
+Node union on variant {
+	size Size
+}
+`, "must reference a struct type"),
+			)
+		})
 	})
 
 	Describe("ImEx marker", func() {

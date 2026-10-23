@@ -389,7 +389,7 @@ func desugarPartialOverrides(c *analysisCtx) {
 		if hasCircularInheritance(typ, c.table, make(set.Set[string])) {
 			continue
 		}
-		parents := resolvedParentFields(c, form)
+		parents := resolution.InheritedFields(form.Extends, c.table)
 		fields := make([]resolution.Field, len(form.Fields))
 		copy(fields, form.Fields)
 		var changed bool
@@ -435,40 +435,6 @@ func desugarPartialOverrides(c *analysisCtx) {
 	}
 }
 
-// resolvedParentFields collects the fields a struct inherits, keyed by name, with
-// generic type parameters substituted. The first parent wins on a name conflict,
-// matching UnifiedFields.
-func resolvedParentFields(
-	c *analysisCtx,
-	form resolution.StructForm,
-) map[string]resolution.Field {
-	out := make(map[string]resolution.Field)
-	for _, ext := range form.Extends {
-		parent, ok := ext.Resolve(c.table)
-		if !ok {
-			continue
-		}
-		parentForm, ok := parent.Form.(resolution.StructForm)
-		if !ok {
-			continue
-		}
-		typeArgMap := make(map[string]resolution.TypeRef)
-		for i, tp := range parentForm.TypeParams {
-			if i < len(ext.TypeArgs) {
-				typeArgMap[tp.Name] = ext.TypeArgs[i]
-			}
-		}
-		for _, pf := range resolution.UnifiedFields(parent, c.table) {
-			if _, exists := out[pf.Name]; exists {
-				continue
-			}
-			pf.Type = resolution.SubstituteTypeRef(pf.Type, typeArgMap)
-			out[pf.Name] = pf
-		}
-	}
-	return out
-}
-
 // validateFieldOverrides reports partial-override syntax that cannot resolve: a field
 // that omits its type, or removes a domain with `-@domain`, must name a field inherited
 // from a parent struct to inherit from. Outside an extends chain, or naming no parent
@@ -485,7 +451,7 @@ func validateFieldOverrides(c *analysisCtx, typ resolution.Type) {
 	}
 	parentFields := make(set.Set[string])
 	for _, extendsRef := range form.Extends {
-		parent, ok := extendsRef.Resolve(c.table)
+		parent, _, ok := resolution.Dealias(extendsRef, c.table)
 		if !ok {
 			continue
 		}
@@ -594,7 +560,7 @@ func effectiveEnumValues(
 	}
 
 	for i := range form.Extends {
-		parent, ok := c.table.Get(form.Extends[i].Name)
+		parent, _, ok := resolution.Dealias(form.Extends[i], c.table)
 		if !ok {
 			addTypeDiag(
 				c,
@@ -692,7 +658,7 @@ func finalizeUnionExtensions(c *analysisCtx) {
 // union.
 func hasUnionBases(form resolution.UnionForm, table *resolution.Table) bool {
 	for _, ref := range form.Extends {
-		if base, ok := ref.Resolve(table); ok {
+		if base, _, ok := resolution.Dealias(ref, table); ok {
 			if _, isUnion := base.Form.(resolution.UnionForm); isUnion {
 				return true
 			}
@@ -743,7 +709,7 @@ func effectiveUnionVariants(
 	}
 
 	for i := range form.Extends {
-		parent, ok := form.Extends[i].Resolve(c.table)
+		parent, _, ok := resolution.Dealias(form.Extends[i], c.table)
 		if !ok {
 			addTypeDiag(c, typ, "union %s extends unresolved type: %s",
 				typ.QualifiedName, form.Extends[i].Name)
@@ -1803,12 +1769,12 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 		return
 	}
 
-	for i, extendsRef := range form.Extends {
-		parent, ok := extendsRef.Resolve(c.table)
+	for i, declared := range form.Extends {
+		parent, extendsRef, ok := resolution.Dealias(declared, c.table)
 		if !ok {
 			d := diagnostics.Errorf(nil,
 				"struct %s extends unresolved type at position %d: %s",
-				typ.Name, i+1, extendsRef.Name)
+				typ.Name, i+1, declared.Name)
 			c.report(d)
 			continue
 		}
@@ -1867,7 +1833,7 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 	}
 	allParentFields := make(set.Set[string])
 	for _, extendsRef := range form.Extends {
-		parent, ok := extendsRef.Resolve(c.table)
+		parent, _, ok := resolution.Dealias(extendsRef, c.table)
 		if !ok {
 			continue
 		}
@@ -1900,7 +1866,7 @@ func reportInheritedFieldConflicts(
 	}
 	inheritedFrom := make(map[string]string)
 	for _, ext := range extends {
-		parent, ok := ext.Resolve(c.table)
+		parent, _, ok := resolution.Dealias(ext, c.table)
 		if !ok {
 			continue
 		}
@@ -1936,12 +1902,12 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 		return
 	}
 	for _, action := range form.Actions {
-		for i, ext := range action.Extends {
-			parent, ok := ext.Resolve(c.table)
+		for i, declared := range action.Extends {
+			parent, ext, ok := resolution.Dealias(declared, c.table)
 			if !ok {
 				d := diagnostics.Errorf(nil,
 					"action %s extends unresolved type at position %d: %s",
-					action.Name, i+1, ext.Name)
+					action.Name, i+1, declared.Name)
 				c.report(d)
 				continue
 			}
@@ -2014,8 +1980,8 @@ func unifyActionFields(c *analysisCtx, action resolution.Action) []resolution.Fi
 	}
 	seen := make(set.Set[string])
 	var inherited []resolution.Field
-	for _, ext := range action.Extends {
-		parent, ok := ext.Resolve(c.table)
+	for _, declared := range action.Extends {
+		parent, ext, ok := resolution.Dealias(declared, c.table)
 		if !ok {
 			continue
 		}
@@ -2113,7 +2079,7 @@ func validateUnionEnum(c *analysisCtx, typ resolution.Type, form resolution.Unio
 	if !form.BorrowsEnum() {
 		return
 	}
-	enumType, ok := form.Enum.Resolve(c.table)
+	enumType, _, ok := resolution.Dealias(form.Enum, c.table)
 	if !ok {
 		c.report(diagnostics.Errorf(ruleCtx(typ.AST),
 			"union %s borrows unresolved type %s as its discriminator",
@@ -2207,7 +2173,7 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 
 	baseFields := set.New[string]()
 	for i, baseRef := range form.Extends {
-		base, ok := baseRef.Resolve(c.table)
+		base, _, ok := resolution.Dealias(baseRef, c.table)
 		if !ok {
 			d := diagnostics.Errorf(nil,
 				"union %s extends unresolved type at position %d: %s",
@@ -2260,7 +2226,7 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 			)
 			c.report(d)
 		}
-		variantType, ok := variant.Type.Resolve(c.table)
+		variantType, _, ok := resolution.Dealias(variant.Type, c.table)
 		if !ok {
 			d := diagnostics.Errorf(nil,
 				"union %s variant %q references unresolved type: %s",
@@ -2309,7 +2275,7 @@ func validateVariantOmissions(
 	}
 	inherited := baseFields.Copy()
 	for _, ext := range variantForm.Extends {
-		parent, ok := ext.Resolve(c.table)
+		parent, _, ok := resolution.Dealias(ext, c.table)
 		if !ok {
 			continue
 		}
@@ -2355,7 +2321,7 @@ func hasCircularInheritance(
 	}
 	visited.Add(typ.QualifiedName)
 	for _, extendsRef := range form.Extends {
-		parent, ok := extendsRef.Resolve(table)
+		parent, _, ok := resolution.Dealias(extendsRef, table)
 		if !ok {
 			continue
 		}

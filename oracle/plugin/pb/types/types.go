@@ -645,13 +645,14 @@ func (p *Plugin) processUnion(
 
 	fieldNumber := 1
 	for _, baseRef := range form.Extends {
-		base, ok := baseRef.Resolve(data.table)
+		target, _, ok := resolution.Dealias(baseRef, data.table)
 		if !ok {
 			continue
 		}
-		if _, isStruct := base.Form.(resolution.StructForm); !isStruct {
+		if _, isStruct := target.Form.(resolution.StructForm); !isStruct {
 			continue
 		}
+		base, _ := baseRef.Resolve(data.table)
 		protoType, err := p.typeToProto(baseRef, data)
 		if err != nil {
 			return messageData{}, errors.Wrapf(err, "union %q base", entry.Name)

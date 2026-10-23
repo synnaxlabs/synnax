@@ -1875,6 +1875,36 @@ var _ = Describe("C++ PB Plugin unions", func() {
 				)
 		},
 	)
+
+	It(
+		"Should translate a variant against its payload's own proto package",
+		func(ctx SpecContext) {
+			loader.Add("schemas/hw", `
+			@cpp output "client/cpp/hw"
+			@go output "core/pkg/service/hw"
+			@pb
+
+			Valve struct { open bool }
+			`)
+			source := `
+			import "schemas/hw"
+
+			@cpp output "arc/cpp/ir"
+			@go output "arc/go/ir"
+			@pb
+
+			Node union on variant {
+				valve hw.Valve
+			}
+			`
+			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			ExpectContent(resp, "ir/proto.gen.h").ToContain(
+				"inline std::pair<::service::hw::pb::Valve, x::errors::Error> "+
+					"ValveNode::to_proto() const {",
+				"::service::hw::pb::Valve pb;",
+			)
+		},
+	)
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

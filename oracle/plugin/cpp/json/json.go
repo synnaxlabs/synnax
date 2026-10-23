@@ -611,10 +611,10 @@ func (p *Plugin) parseExprForField(
 					structType,
 				)
 			}
-			if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
-				parseFn := "parse_" + lo.SnakeCase(domain.GetName(elemResolved, "cpp"))
-				if elemResolved.Namespace != data.rawNs {
-					targetOutputPath := output.GetPath(elemResolved, "cpp")
+			if union, ok := dealiasUnion(elemType, data.table); ok {
+				parseFn := "parse_" + lo.SnakeCase(domain.GetName(union, "cpp"))
+				if union.Namespace != data.rawNs {
+					targetOutputPath := output.GetPath(union, "cpp")
 					if targetOutputPath != "" {
 						ns := cppnaming.Namespace(targetOutputPath)
 						parseFn = fmt.Sprintf("::%s::%s", ns, parseFn)
@@ -730,13 +730,14 @@ func (p *Plugin) parseExprForField(
 			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)
 		}
-		if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
-			unionType := domain.GetName(resolved, "cpp")
+		if union, ok := dealiasUnion(typeRef, data.table); ok {
+			unionType := domain.GetName(union, "cpp")
 			parseFn := "parse_" + lo.SnakeCase(unionType)
-			if resolved.Namespace != data.rawNs {
-				targetOutputPath := output.GetPath(resolved, "cpp")
+			if union.Namespace != data.rawNs {
+				targetOutputPath := output.GetPath(union, "cpp")
 				if targetOutputPath != "" {
 					ns := cppnaming.Namespace(targetOutputPath)
+					unionType = fmt.Sprintf("::%s::%s", ns, unionType)
 					parseFn = fmt.Sprintf("::%s::%s", ns, parseFn)
 					data.AddInternal(data.jsonInclude(targetOutputPath))
 				}
@@ -762,7 +763,7 @@ func (p *Plugin) parseExprForField(
 					fallback = fmt.Sprintf(
 						"%s{%s{}}",
 						cppType,
-						cppnaming.QualifiedVariantTypeName(cppType, uv.Variant.Name),
+						cppnaming.QualifiedVariantTypeName(unionType, uv.Variant.Name),
 					)
 				}
 				return fmt.Sprintf(
@@ -772,11 +773,9 @@ func (p *Plugin) parseExprForField(
 			}
 			return fmt.Sprintf(`%s(parser.child("%s"))`, parseFn, jsonName)
 		}
-		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-			if targetResolved, targetOk := aliasForm.Target.Resolve(
-				data.table,
-			); targetOk {
-				if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
+		if _, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+			if target, _, ok := resolution.Dealias(typeRef, data.table); ok {
+				if _, isStruct := target.Form.(resolution.StructForm); isStruct {
 					aliasType := domain.GetName(resolved, "cpp")
 					if resolved.Namespace != data.rawNs {
 						targetOutputPath := output.GetPath(resolved, "cpp")
@@ -938,8 +937,9 @@ func (p *Plugin) toJSONExprForField(
 			return body
 		}
 
-		if elemResolved, ok := elemType.Resolve(data.table); ok {
-			if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
+		if _, ok := elemType.Resolve(data.table); ok {
+			elem, _, _ := resolution.Dealias(elemType, data.table)
+			if _, isStruct := elem.Form.(resolution.StructForm); isStruct {
 				if field.Optional {
 					return fmt.Sprintf(
 						`if (this->%s.has_value()) j["%s"] = x::json::to_array(*this->%s);`,
@@ -954,12 +954,12 @@ func (p *Plugin) toJSONExprForField(
 					fieldName,
 				)
 			}
-			if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
+			if _, isUnion := elem.Form.(resolution.UnionForm); isUnion {
 				// Qualify the free to_json: unqualified lookup inside a member
 				// to_json() finds the member and never reaches the overload.
 				qualifier := "::" + data.Namespace
-				if elemResolved.Namespace != data.rawNs {
-					targetOutputPath := output.GetPath(elemResolved, "cpp")
+				if elem.Namespace != data.rawNs {
+					targetOutputPath := output.GetPath(elem, "cpp")
 					if targetOutputPath != "" {
 						data.AddInternal(data.jsonInclude(targetOutputPath))
 						qualifier = "::" + cppnaming.Namespace(targetOutputPath)
@@ -976,8 +976,8 @@ func (p *Plugin) toJSONExprForField(
 			// can't serialize vector<vector<Struct>> directly — serialize each inner
 			// array via to_array and bundle them in a JSON array.
 			if innerElem, ok := p.resolveToArrayElement(elemType, data); ok {
-				if innerResolved, ok := innerElem.Resolve(data.table); ok {
-					if _, isStruct := innerResolved.Form.(resolution.StructForm); isStruct {
+				if inner, _, ok := resolution.Dealias(innerElem, data.table); ok {
+					if _, isStruct := inner.Form.(resolution.StructForm); isStruct {
 						return fmt.Sprintf(`{
         auto arr = x::json::json::array();
         for (const auto& inner : this->%s) arr.push_back(x::json::to_array(inner));
@@ -1020,12 +1020,12 @@ func (p *Plugin) toJSONExprForField(
 			}
 			return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
 		}
-		if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
+		if union, ok := dealiasUnion(typeRef, data.table); ok {
 			// Qualify the free to_json: unqualified lookup inside a member to_json()
 			// finds the member and never reaches the overload.
 			qualifier := "::" + data.Namespace
-			if resolved.Namespace != data.rawNs {
-				targetOutputPath := output.GetPath(resolved, "cpp")
+			if union.Namespace != data.rawNs {
+				targetOutputPath := output.GetPath(union, "cpp")
 				if targetOutputPath != "" {
 					data.AddInternal(data.jsonInclude(targetOutputPath))
 					qualifier = "::" + cppnaming.Namespace(targetOutputPath)
@@ -1047,11 +1047,9 @@ func (p *Plugin) toJSONExprForField(
 				fieldName,
 			)
 		}
-		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-			if targetResolved, targetOk := aliasForm.Target.Resolve(
-				data.table,
-			); targetOk {
-				if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
+		if _, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+			if target, _, ok := resolution.Dealias(typeRef, data.table); ok {
+				if _, isStruct := target.Form.(resolution.StructForm); isStruct {
 					if field.Optional {
 						return fmt.Sprintf(
 							`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
@@ -1089,6 +1087,19 @@ func (p *Plugin) toJSONExprForField(
 	}
 
 	return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
+}
+
+// dealiasUnion returns the union ref stands for, following aliases.
+func dealiasUnion(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) (resolution.Type, bool) {
+	t, _, ok := resolution.Dealias(ref, table)
+	if !ok {
+		return resolution.Type{}, false
+	}
+	_, isUnion := t.Form.(resolution.UnionForm)
+	return t, isUnion
 }
 
 // hasRenderableDefault reports whether the field declares a default the parse

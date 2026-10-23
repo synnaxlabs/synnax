@@ -893,15 +893,24 @@ func (p *Plugin) processStruct(
 		// Collect all parent schema names for merge chaining
 		allParentsValid := true
 		for _, extendsRef := range form.Extends {
-			parentType, ok := extendsRef.Resolve(table)
+			target, _, ok := resolution.Dealias(extendsRef, table)
 			if !ok {
 				allParentsValid = false
 				break
 			}
-			parentForm, isStruct := parentType.Form.(resolution.StructForm)
-			if !isStruct {
+			if _, isStruct := target.Form.(resolution.StructForm); !isStruct {
 				allParentsValid = false
 				break
+			}
+			// An alias re-exports its target's schema under its own name and type
+			// parameters.
+			parentType, _ := extendsRef.Resolve(table)
+			var parentParams []resolution.TypeParam
+			switch f := parentType.Form.(type) {
+			case resolution.StructForm:
+				parentParams = f.TypeParams
+			case resolution.AliasForm:
+				parentParams = f.TypeParams
 			}
 
 			parentTSName := domain.GetName(parentType, "ts")
@@ -922,9 +931,9 @@ func (p *Plugin) processStruct(
 				TypeName: parentTSName,
 			}
 
-			if parentForm.IsGeneric() {
+			if len(parentParams) > 0 {
 				parentInfo.IsGeneric = true
-				for _, tp := range parentForm.TypeParams {
+				for _, tp := range parentParams {
 					parentInfo.SchemaArgs = append(
 						parentInfo.SchemaArgs,
 						casing.CamelAcronym(tp.Name),
@@ -946,7 +955,7 @@ func (p *Plugin) processStruct(
 
 			parentFields := make(map[string]resolution.Field)
 			for _, extendsRef := range form.Extends {
-				parentType, _ := extendsRef.Resolve(table)
+				parentType, _, _ := resolution.Dealias(extendsRef, table)
 				for _, pf := range resolution.UnifiedFields(parentType, table) {
 					if _, exists := parentFields[pf.Name]; !exists {
 						parentFields[pf.Name] = pf // First parent wins
@@ -1005,7 +1014,7 @@ func (p *Plugin) processStruct(
 					}
 				}
 				for _, extendsRef := range form.Extends {
-					parentType, _ := extendsRef.Resolve(table)
+					parentType, _, _ := resolution.Dealias(extendsRef, table)
 					for _, pf := range resolution.UnifiedFields(parentType, table) {
 						name := fieldCamel(pf.Name)
 						if handled.Contains(name) {
@@ -1337,13 +1346,15 @@ func parentSchemaName(
 	table *resolution.Table,
 	data *templateData,
 ) (string, bool) {
-	parent, ok := ref.Resolve(table)
+	target, _, ok := resolution.Dealias(ref, table)
 	if !ok {
 		return "", false
 	}
-	if _, isStruct := parent.Form.(resolution.StructForm); !isStruct {
+	if _, isStruct := target.Form.(resolution.StructForm); !isStruct {
 		return "", false
 	}
+	// An alias re-exports its target's schema under its own name.
+	parent, _ := ref.Resolve(table)
 	name := casing.CamelAcronym(domain.GetName(parent, "ts")) + "Z"
 	importLocalHand(parent, name, data)
 	if parent.Namespace != data.Namespace {

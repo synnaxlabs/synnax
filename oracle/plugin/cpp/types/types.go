@@ -500,6 +500,10 @@ func (p *Plugin) aliasTargetToCpp(
 	if !ok {
 		return typeRef.Name
 	}
+	// A string enum declares no C++ type, only its member constants.
+	if form, ok := resolved.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
+		return p.resolveEnumType(resolved, form, data)
+	}
 
 	name := resolved.Name
 	isOmitted := omit.IsSkipped(resolved, "cpp")
@@ -793,12 +797,15 @@ func getUnderlyingPrimitive(
 		return typeRef.Name
 	}
 
-	resolved, ok := typeRef.Resolve(table)
+	resolved, _, ok := resolution.Dealias(typeRef, table)
 	if !ok {
 		return ""
 	}
 
-	if form, ok := resolved.Form.(resolution.DistinctForm); ok {
+	switch form := resolved.Form.(type) {
+	case resolution.PrimitiveForm:
+		return form.Name
+	case resolution.DistinctForm:
 		return getUnderlyingPrimitive(form.Base, table)
 	}
 
@@ -806,7 +813,7 @@ func getUnderlyingPrimitive(
 }
 
 func isIntEnum(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	resolved, ok := typeRef.Resolve(table)
+	resolved, _, ok := resolution.Dealias(typeRef, table)
 	if !ok {
 		return false
 	}
@@ -897,9 +904,11 @@ func (p *Plugin) cppDefaultLiteral(
 			data.table,
 		); ok {
 			// std::variant default-constructs its first alternative, so a default
-			// naming any other variant must be written out explicitly.
+			// naming any other variant must be written out explicitly. The variant
+			// structs live with the union, not with an alias of it.
+			_, unionRef, _ := resolution.Dealias(typeRef, data.table)
 			return cppnaming.QualifiedVariantTypeName(
-				p.typeRefToCpp(typeRef, data),
+				p.typeRefToCpp(unionRef, data),
 				uv.Variant.Name,
 			) + "{}"
 		}
@@ -927,7 +936,7 @@ func (p *Plugin) cppStructLiteral(
 	val resolution.ExpressionValue,
 	data *templateData,
 ) string {
-	resolved, ok := typeRef.Resolve(data.table)
+	resolved, _, ok := resolution.Dealias(typeRef, data.table)
 	if !ok {
 		return "{}"
 	}

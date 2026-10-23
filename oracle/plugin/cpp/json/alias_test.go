@@ -1,0 +1,97 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package json_test
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	"github.com/synnaxlabs/oracle/plugin/cpp/json"
+	. "github.com/synnaxlabs/oracle/testutil"
+)
+
+const aliasBase = `
+@cpp output "client/cpp/base"
+
+Labeled struct {
+	label string
+}
+
+Valve struct extends Labeled {
+	open bool
+}
+
+Edge union on variant {
+	pipe Labeled
+}
+
+Signal union on kind {
+	none {}
+	level {
+		value float64
+	}
+}
+`
+
+const aliasHead = `
+import "schemas/base"
+
+@cpp output "client/cpp/test"
+
+Valve = base.Valve
+Gate = Valve
+Edge = base.Edge
+Signal = base.Signal
+`
+
+var _ = Describe("C++ JSON aliases", func() {
+	DescribeTable("Should code a use of an alias as a use of its target",
+		func(ctx SpecContext, use string, expected ...string) {
+			loader := NewMockFileLoader().Add("schemas/base", aliasBase)
+			resp := MustGenerate(
+				ctx,
+				aliasHead+use,
+				"test",
+				loader,
+				json.New(json.DefaultOptions()),
+			)
+			ExpectContent(resp, "test/json.gen.h").ToContain(expected...)
+		},
+		Entry("a union", `
+			Panel struct {
+				edge Edge
+			}
+		`,
+			`::synnax::base::parse_edge(parser.child("edge"))`,
+			`j["edge"] = ::synnax::base::to_json(this->edge);`,
+		),
+		Entry("a union array", `
+			Panel struct {
+				edges Edge[]
+			}
+		`,
+			"result.push_back(::synnax::base::parse_edge(p));",
+			"arr.push_back(::synnax::base::to_json(item));",
+		),
+		Entry("a union default", `
+			Panel struct {
+				signal Signal = none
+			}
+		`, `: Signal{::synnax::base::NoneSignal{}}`),
+		Entry("a struct array", `
+			Panel struct {
+				valves Valve[]
+			}
+		`, `j["valves"] = x::json::to_array(this->valves);`),
+		Entry("an alias of an alias", `
+			Panel struct {
+				gate Gate
+			}
+		`, `j["gate"] = this->gate.to_json();`),
+	)
+})

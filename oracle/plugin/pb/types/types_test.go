@@ -1090,6 +1090,37 @@ var _ = Describe("Protobuf Union Generation", func() {
 	)
 
 	It(
+		"Should nest an aliased shared base as a message field",
+		func(ctx SpecContext) {
+			loader.Add("schemas/hw", `
+			@go output "core/pkg/hw"
+			@pb
+
+			BaseAIChan struct { port int32 }
+			`)
+			source := `
+			import "schemas/hw"
+
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			BaseAIChan = hw.BaseAIChan
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, p)
+			ExpectContent(resp, "ni.proto").
+				ToContain(
+					".hw.pb.BaseAIChan base_ai_chan = 1;",
+					"VoltageFields ai_voltage = 2;",
+				)
+		},
+	)
+
+	It(
 		"Should error when a variant omits a field from a shared base",
 		func(ctx SpecContext) {
 			source := `

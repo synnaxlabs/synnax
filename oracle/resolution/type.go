@@ -240,13 +240,40 @@ func (r TypeRef) Resolve(table *Table) (Type, bool) {
 	return table.Get(r.Name)
 }
 
-// IsDistinct reports whether ref resolves to a distinct type. Primitives and
-// references the table cannot resolve are not distinct.
-func IsDistinct(ref TypeRef, table *Table) bool {
-	if IsPrimitive(ref.Name) {
-		return false
+// Dealias follows ref through alias declarations to the type it stands for, and returns
+// that type with the reference to it. A generic alias's type arguments carry over to
+// the target. A distinct type is not an alias, so the walk stops there. ok is false
+// when ref is a bare type parameter, or when ref or an alias target does not resolve
+// or forms a cycle.
+func Dealias(ref TypeRef, table *Table) (Type, TypeRef, bool) {
+	visited := make(set.Set[string])
+	for {
+		if ref.IsTypeParam() || visited.Contains(ref.Name) {
+			return Type{}, TypeRef{}, false
+		}
+		visited.Add(ref.Name)
+		resolved, ok := ref.Resolve(table)
+		if !ok {
+			return Type{}, TypeRef{}, false
+		}
+		form, isAlias := resolved.Form.(AliasForm)
+		if !isAlias {
+			return resolved, ref, true
+		}
+		typeArgMap := make(map[string]TypeRef, len(form.TypeParams))
+		for i, tp := range form.TypeParams {
+			if i < len(ref.TypeArgs) {
+				typeArgMap[tp.Name] = ref.TypeArgs[i]
+			}
+		}
+		ref = SubstituteTypeRef(form.Target, typeArgMap)
 	}
-	resolved, ok := ref.Resolve(table)
+}
+
+// IsDistinct reports whether ref, or the type its aliases stand for, is a distinct
+// type. Primitives and references the table cannot resolve are not distinct.
+func IsDistinct(ref TypeRef, table *Table) bool {
+	resolved, _, ok := Dealias(ref, table)
 	if !ok {
 		return false
 	}
@@ -454,8 +481,8 @@ func UnifiedFields(typ Type, table *Table) []Field {
 	seenFields := make(set.Set[string])
 	var allParentFields []Field
 
-	for _, extendsRef := range form.Extends {
-		parent, ok := extendsRef.Resolve(table)
+	for _, ext := range form.Extends {
+		parent, extendsRef, ok := Dealias(ext, table)
 		if !ok {
 			continue
 		}
@@ -513,6 +540,37 @@ func UnifiedFields(typ Type, table *Table) []Field {
 	return result
 }
 
+// InheritedFields returns the fields the given parents contribute, keyed by name, with
+// each parent's type arguments substituted. The leftmost parent wins a name collision,
+// matching UnifiedFields.
+func InheritedFields(extends []TypeRef, table *Table) map[string]Field {
+	out := make(map[string]Field)
+	for _, declared := range extends {
+		parent, ext, ok := Dealias(declared, table)
+		if !ok {
+			continue
+		}
+		parentForm, ok := parent.Form.(StructForm)
+		if !ok {
+			continue
+		}
+		typeArgs := make(map[string]TypeRef, len(parentForm.TypeParams))
+		for i, tp := range parentForm.TypeParams {
+			if i < len(ext.TypeArgs) {
+				typeArgs[tp.Name] = ext.TypeArgs[i]
+			}
+		}
+		for _, f := range UnifiedFields(parent, table) {
+			if _, seen := out[f.Name]; seen {
+				continue
+			}
+			f.Type = SubstituteTypeRef(f.Type, typeArgs)
+			out[f.Name] = f
+		}
+	}
+	return out
+}
+
 // UnifiedVariantFields returns the flattened field list for one variant of a
 // discriminated union: fields contributed by the union's Extends (with their
 // own inheritance resolved), followed by the variant struct's own fields (also
@@ -536,7 +594,7 @@ func UnifiedVariantFields(union Type, variant UnionVariant, table *Table) []Fiel
 	var result []Field
 	// A variant drops a field the union's bases contribute with `-name`.
 	var omitted set.Set[string]
-	variantType, variantOK := variant.Type.Resolve(table)
+	variantType, _, variantOK := Dealias(variant.Type, table)
 	variantForm, isStruct := StructForm{}, false
 	if variantOK {
 		variantForm, isStruct = variantType.Form.(StructForm)
@@ -554,7 +612,7 @@ func UnifiedVariantFields(union Type, variant UnionVariant, table *Table) []Fiel
 		}
 	}
 	for _, baseRef := range form.Extends {
-		base, ok := baseRef.Resolve(table)
+		base, _, ok := Dealias(baseRef, table)
 		if !ok {
 			continue
 		}

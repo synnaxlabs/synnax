@@ -531,10 +531,16 @@ func (p *Plugin) processUnionForTranslation(
 		if !ok {
 			return nil, errors.Newf("union %s: unresolved base %s", u.Name, ext.Name)
 		}
-		if _, isStruct := base.Form.(resolution.StructForm); !isStruct {
+		// An alias base embeds under its own name but translates through the struct
+		// it stands for.
+		target, _, ok := resolution.Dealias(ext, data.table)
+		if !ok {
 			continue
 		}
-		prefix, baseName := p.resolvePBTranslatorInfo(base, data)
+		if _, isStruct := target.Form.(resolution.StructForm); !isStruct {
+			continue
+		}
+		prefix, baseName := p.resolvePBTranslatorInfo(target, data)
 		ut.Bases = append(ut.Bases, unionBaseTranslatorData{
 			GoEmbed:  naming.GetGoName(base),
 			PBGoName: lo.PascalCase(casing.FieldSnake(base.Name)),
@@ -570,7 +576,8 @@ func (p *Plugin) processUnionForTranslation(
 			vt.PayloadToPB = memberName + "ToPB"
 			vt.PayloadFromPB = memberName + "FromPB"
 		} else {
-			prefix, payloadName := p.resolvePBTranslatorInfo(payload, data)
+			target, _, _ := resolution.Dealias(v.Type, data.table)
+			prefix, payloadName := p.resolvePBTranslatorInfo(target, data)
 			vt.PayloadGoField = naming.GetGoName(payload)
 			vt.PayloadToPB = prefix + payloadName + "ToPB"
 			vt.PayloadFromPB = prefix + payloadName + "FromPB"
@@ -1198,8 +1205,26 @@ func (p *Plugin) generateFieldConversion(
 		return goFieldName, pbFieldName, "", false, false
 	}
 
-	if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
-		prefix, name := p.resolveUnionTranslatorName(resolved, data)
+	// An alias converts as the type it stands for.
+	target, _, ok := resolution.Dealias(typeRef, data.table)
+	if !ok {
+		return goFieldName, pbFieldName, "", false, false
+	}
+
+	switch form := target.Form.(type) {
+	case resolution.PrimitiveForm:
+		if _, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+			f, b, c, be := p.generateAliasConversion(
+				resolved,
+				form.Name,
+				data,
+				goFieldName,
+				pbFieldName,
+			)
+			return f, b, c, false, be
+		}
+	case resolution.UnionForm:
+		prefix, name := p.resolveUnionTranslatorName(target, data)
 		if field.Optional {
 			return fmt.Sprintf("%s%sToPB(*%s)", prefix, name, goFieldName),
 				fmt.Sprintf("%s%sFromPB(%s)", prefix, name, pbFieldName),
@@ -1208,9 +1233,7 @@ func (p *Plugin) generateFieldConversion(
 		return fmt.Sprintf("%s%sToPB(%s)", prefix, name, goFieldName),
 			fmt.Sprintf("%s%sFromPB(%s)", prefix, name, pbFieldName),
 			"", true, true
-	}
-
-	if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
+	case resolution.StructForm:
 		f, b, c, hasErr := p.generateStructConversion(
 			typeRef,
 			resolved,
@@ -1220,41 +1243,21 @@ func (p *Plugin) generateFieldConversion(
 			pbFieldName,
 		)
 		return f, b, c, hasErr, hasErr
-	}
-
-	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-		if target, ok := aliasForm.Target.Resolve(data.table); ok {
-			if _, isStruct := target.Form.(resolution.StructForm); isStruct {
-				f, b, c, hasErr := p.generateStructConversion(
-					typeRef,
-					resolved,
-					field.Optional,
-					data,
-					goFieldName,
-					pbFieldName,
-				)
-				return f, b, c, hasErr, hasErr
-			}
-		}
-	}
-
-	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
+	case resolution.EnumForm:
 		f, b := p.generateEnumConversion(
-			resolved,
+			target,
 			data,
 			goFieldName,
 			pbFieldName,
 			field.Optional,
 		)
 		return f, b, "", true, true
-	}
-
-	if form, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
-		if baseResolved, ok := form.Base.Resolve(data.table); ok {
-			if _, isStruct := baseResolved.Form.(resolution.StructForm); isStruct {
+	case resolution.DistinctForm:
+		if base, _, ok := resolution.Dealias(form.Base, data.table); ok {
+			if _, isStruct := base.Form.(resolution.StructForm); isStruct {
 				f, b, c, hasErr := p.generateStructConversion(
 					typeRef,
-					resolved,
+					target,
 					field.Optional,
 					data,
 					goFieldName,
@@ -1262,25 +1265,9 @@ func (p *Plugin) generateFieldConversion(
 				)
 				return f, b, c, hasErr, hasErr
 			}
-			// Also check if base is an alias to a struct
-			if aliasForm, isAlias := baseResolved.Form.(resolution.AliasForm); isAlias {
-				if target, ok := aliasForm.Target.Resolve(data.table); ok {
-					if _, isStruct := target.Form.(resolution.StructForm); isStruct {
-						f, b, c, hasErr := p.generateStructConversion(
-							typeRef,
-							resolved,
-							field.Optional,
-							data,
-							goFieldName,
-							pbFieldName,
-						)
-						return f, b, c, hasErr, hasErr
-					}
-				}
-			}
 		}
 		f, b, c, be := p.generateTypeDefConversion(
-			resolved,
+			target,
 			form,
 			data,
 			goFieldName,
@@ -1288,20 +1275,6 @@ func (p *Plugin) generateFieldConversion(
 		)
 		return f, b, c, false, be
 	}
-
-	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-		if resolution.IsPrimitive(aliasForm.Target.Name) {
-			f, b, c, be := p.generateAliasConversion(
-				resolved,
-				aliasForm,
-				data,
-				goFieldName,
-				pbFieldName,
-			)
-			return f, b, c, false, be
-		}
-	}
-
 	return goFieldName, pbFieldName, "", false, false
 }
 
@@ -1701,12 +1674,10 @@ func (p *Plugin) generateTypeDefConversion(
 
 func (p *Plugin) generateAliasConversion(
 	resolved resolution.Type,
-	form resolution.AliasForm,
+	primitiveName string,
 	data *templateData,
 	goField, pbField string,
 ) (forward, backward, backwardCast string, hasBackwardError bool) {
-	primitiveName := form.Target.Name
-
 	aliasPrefix := ""
 	goOutput := output.GetPath(resolved, "go")
 	if resolved.Namespace != data.Namespace ||
@@ -1767,10 +1738,12 @@ func (p *Plugin) generateArrayConversion(
 	}
 
 	elemResolved, ok := elemType.Resolve(data.table)
-	if ok {
-		if _, isEnum := elemResolved.Form.(resolution.EnumForm); isEnum {
+	// An alias element converts as the type it stands for.
+	elem, elemRef, named := resolution.Dealias(elemType, data.table)
+	if named {
+		if _, isEnum := elem.Form.(resolution.EnumForm); isEnum {
 			if f, b, ok := p.generateEnumArrayConversion(
-				elemResolved,
+				elem,
 				data,
 				goField,
 				pbField,
@@ -1778,23 +1751,23 @@ func (p *Plugin) generateArrayConversion(
 				return f, b, true, true
 			}
 		}
-		if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
-			prefix, name := p.resolveUnionTranslatorName(elemResolved, data)
+		if _, isUnion := elem.Form.(resolution.UnionForm); isUnion {
+			prefix, name := p.resolveUnionTranslatorName(elem, data)
 			pluralName := pluralizeDistinct(name)
 			return fmt.Sprintf("%s%sToPB(%s)", prefix, pluralName, goField),
 				fmt.Sprintf("%s%sFromPB(%s)", prefix, pluralName, pbField),
 				true, true
 		}
-		if structForm, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
+		if structForm, isStruct := elem.Form.(resolution.StructForm); isStruct {
 			translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(
-				elemResolved,
+				elem,
 				data,
 			)
 			pluralName := pluralizeDistinct(translatorStructName)
 
-			if structForm.IsGeneric() && len(elemType.TypeArgs) > 0 {
+			if structForm.IsGeneric() && len(elemRef.TypeArgs) > 0 {
 				var typeParamArgs, converterArgs []string
-				for _, ta := range elemType.TypeArgs {
+				for _, ta := range elemRef.TypeArgs {
 					if ta.IsTypeParam() && ta.TypeParam != nil &&
 						!ta.TypeParam.HasDefault() {
 						typeParamArgs = append(typeParamArgs, ta.TypeParam.Name)
@@ -1865,12 +1838,12 @@ func (p *Plugin) generateArrayConversion(
 	// Distinct element types over primitive bases require per-element casts:
 	// `[]channel.Key` cannot be assigned to `[]uint32` (and vice-versa), so emit lo.Map
 	// conversions in both directions using the proto/distinct type names.
-	if ok {
-		if distinctForm, isDistinct := elemResolved.Form.(resolution.DistinctForm); isDistinct {
+	if named {
+		if distinctForm, isDistinct := elem.Form.(resolution.DistinctForm); isDistinct {
 			if resolution.IsPrimitive(distinctForm.Base.Name) &&
 				distinctForm.Base.Name != "uuid" {
 				data.AddExternal("github.com/samber/lo")
-				elemGoType, ok := p.qualifiedDistinctGoName(elemResolved, data)
+				elemGoType, ok := p.qualifiedDistinctGoName(elem, data)
 				if ok {
 					protoType := primitiveToProtoType(distinctForm.Base.Name)
 					forward := fmt.Sprintf(

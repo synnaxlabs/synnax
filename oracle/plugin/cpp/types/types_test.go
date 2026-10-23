@@ -2542,6 +2542,36 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 				)
 		},
 	)
+	It(
+		"Should name a variant's proto message from its payload's package",
+		func(ctx SpecContext) {
+			loader.Add("schemas/hw", `
+			@cpp output "client/cpp/hw"
+			@go output "core/pkg/service/hw"
+			@pb
+
+			Valve struct { open bool }
+			`)
+			source := `
+			import "schemas/hw"
+
+			@cpp output "arc/cpp/ir"
+			@go output "arc/go/ir"
+			@pb
+
+			Node union on variant {
+				valve hw.Valve
+			}
+
+			Graph struct { node Node }
+			`
+			resp := MustGenerate(ctx, source, "ir", loader, cppPlugin)
+			ExpectContent(resp, "ir/types.gen.h").ToContain(
+				"using proto_type = ::service::hw::pb::Valve;",
+				`#include "core/pkg/service/hw/pb/hw.pb.h"`,
+			)
+		},
+	)
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

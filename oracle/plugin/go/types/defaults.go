@@ -420,8 +420,7 @@ func goLiteral(
 		if !ok {
 			return "", false
 		}
-		enumType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
-		return enumType + naming.ToPascalCase(ev.Variant.Name), true
+		return enumConstRef(typeRef, ev, data), true
 	}
 	return "", false
 }
@@ -484,11 +483,10 @@ func scalarFill(
 			// there is nothing to fill; a non-zeroth default is an invariant violation.
 			return defaultFillData{}, false
 		}
-		enumType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
 		return defaultFillData{
 			GoName:  goName,
 			ZeroLit: `""`,
-			Expr:    enumType + naming.ToPascalCase(ev.Variant.Name),
+			Expr:    enumConstRef(typeRef, ev, data),
 		}, true
 	}
 	return defaultFillData{}, false
@@ -506,8 +504,22 @@ func emptyVariant(
 	if !ok {
 		return "", false
 	}
-	unionType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
+	// The variant structs live with the union, not with an alias of it.
+	_, unionRef, _ := resolution.Dealias(typeRef, data.table)
+	unionType := stripPointer(data.resolver.ResolveTypeRef(unionRef, data.ctx))
 	return casing.QualifiedVariantTypeName(unionType, uv.Variant.Name, ".") + "{}", true
+}
+
+// enumConstRef renders the Go constant of the enum member ev that a value of type
+// typeRef defaults to. The constants live with the enum, not with an alias of it.
+func enumConstRef(
+	typeRef resolution.TypeRef,
+	ev validation.EnumVariant,
+	data *templateData,
+) string {
+	_, enumRef, _ := resolution.Dealias(typeRef, data.table)
+	enumType := stripPointer(data.resolver.ResolveTypeRef(enumRef, data.ctx))
+	return enumType + naming.ToPascalCase(ev.Variant.Name)
 }
 
 // constraintCheckData describes a single @validate constraint assertion emitted by a
@@ -599,7 +611,7 @@ func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, boo
 	if field.Optional {
 		return enumCheckData{}, false
 	}
-	resolved, ok := field.Type.Resolve(data.table)
+	resolved, _, ok := resolution.Dealias(field.Type, data.table)
 	if !ok {
 		return enumCheckData{}, false
 	}
