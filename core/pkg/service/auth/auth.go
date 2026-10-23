@@ -29,9 +29,7 @@ var _ override.Zeroable = Credentials{}
 // IsZero implements override.Zeroable.
 func (c Credentials) IsZero() bool { return c == Credentials{} }
 
-// Method returns the method the proof is for. It returns a validation error when the
-// proof carries no variant.
-func (p Proof) Method() (Method, error) {
+func (p Proof) method() (Method, error) {
 	switch p.Variant.(type) {
 	case PasswordProof:
 		return MethodPassword, nil
