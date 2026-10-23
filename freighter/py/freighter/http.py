@@ -81,8 +81,7 @@ class HTTPClient(MiddlewareCollector):
         :param secure: Whether to use HTTPS.
         """
         super().__init__()
-        self._endpoint = url
-        self._endpoint.protocol = "https" if secure else "http"
+        self._endpoint = url.replace(protocol="https" if secure else "http")
         self._codec = codec
         self._pool = PoolManager(cert_reqs="CERT_NONE", **kwargs)
 

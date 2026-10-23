@@ -130,7 +130,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
             allowNone
           >
             {siblings.map(({ key, name, icon }) => (
-              <Select.Item key={key} itemKey={key}>
+              <Select.Item key={key} itemKey={key} textValue={name}>
                 {icon}
                 {name}
               </Select.Item>

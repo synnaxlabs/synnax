@@ -34,7 +34,7 @@ export const TaskControls = () => {
   const bound = primitive.isNonZero(taskRack);
 
   const handleRackChange = useCallback(
-    (rackKey: rack.Key | undefined) => updateTask({ key, rack: rackKey ?? 0 }),
+    (rackKey: rack.Key) => updateTask({ key, rack: rackKey }),
     [updateTask, key],
   );
   const handlePerformanceChange = useCallback(
@@ -58,7 +58,6 @@ export const TaskControls = () => {
             className={CSS.B("rack-select")}
             value={bound ? taskRack : undefined}
             onChange={handleRackChange}
-            allowNone={!running}
             location="top"
             initialQuery={INITIAL_RACK_QUERY}
           />

@@ -34,8 +34,6 @@
                 &:not(:has([contenteditable="true"])) {
                     overflow: hidden;
                 }
-                /* Padding fixes overflow issues with the slightly enlarged OPC UA logo */
-                padding-left: 0.25rem;
                 p {
                     text-overflow: ellipsis;
                     overflow: hidden;
