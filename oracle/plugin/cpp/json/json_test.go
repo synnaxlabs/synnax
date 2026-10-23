@@ -45,6 +45,25 @@ var _ = Describe("C++ JSON Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should leave out a field omitted in cpp", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@cpp output "client/cpp/auth"
+
+					Session struct {
+						key     uint32
+						hash    bytes { @cpp omit }
+						subject string
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, jsonPlugin)
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`"subject"`).
+					ToNotContain("hash")
+			})
+		})
+
 		Context("field names ending in a digit", func() {
 			It(
 				"Should keep the schema name as the JSON key",
@@ -425,6 +444,24 @@ var _ = Describe("C++ JSON Plugin", func() {
 							`j["values"] = this->values`,
 							`j["names"] = this->names`,
 						)
+				},
+			)
+
+			It(
+				"Should serialize uuid arrays element by element",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/types"
+
+					Key = uuid
+
+					Data struct {
+						keys Key[]
+					}
+				`
+					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					ExpectContent(resp, "json.gen.h").
+						ToContain("for (const auto& item : this->keys) arr.push_back(item.to_json());")
 				},
 			)
 		})

@@ -9,6 +9,8 @@
 
 # Categories for generated release notes, one per product a user knows, keyed on the
 # labels labeler.yml applies. A pull request lands in the first category that matches.
+# Synnax Desktop uses this file. The Console, Driver, and Core use their own configs
+# in release/.
 changelog:
   categories:
     - title: Console
@@ -32,9 +34,9 @@ changelog:
     - title: TypeScript client
       labels:
         - ts-client
-    - title: Documentation
+    - title: Website
       labels:
-        - documentation
+        - website
     - title: Other changes
       labels:
         - "*"

@@ -42,7 +42,7 @@ class SYMBOLS(Enum):
             return "\u2753"
 
 
-@dataclass
+@dataclass(frozen=True)
 class SynnaxConnection:
     """Data class representing the Synnax connection parameters."""
 
@@ -51,6 +51,7 @@ class SynnaxConnection:
     username: str = "synnax"
     password: str = "seldon"
     secure: bool = False
+    ca_cert: str | None = None
 
     def create_client(self) -> sy.Synnax:
         return sy.Synnax(
@@ -59,7 +60,12 @@ class SynnaxConnection:
             username=self.username,
             password=self.password,
             secure=self.secure,
+            ca_cert=self.ca_cert,
         )
+
+
+DEFAULT_CONNECTION = SynnaxConnection()
+"""Connection to a local Core with the default credentials."""
 
 
 @dataclass

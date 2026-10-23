@@ -88,6 +88,25 @@ var _ = Describe("C++ Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should leave out a field omitted in cpp", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@cpp output "client/cpp/auth"
+
+					Session struct {
+						key     uint32
+						hash    bytes { @cpp omit }
+						subject string
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, cppPlugin)
+				ExpectContent(resp, "types.gen.h").
+					ToContain("std::string subject;").
+					ToNotContain("hash")
+			})
+		})
+
 		Context("basic struct generation", func() {
 			It("Should generate struct for simple types", func(ctx SpecContext) {
 				source := `
@@ -2094,6 +2113,106 @@ var _ = Describe("C++ Union Generation", func() {
 				)
 		},
 	)
+
+	It("Should emit ontology helpers for a union", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			Key uuid
+
+			Base struct {
+				key Key @key
+			}
+
+			View union on type extends Base {
+				first {
+					name string
+				}
+				second {
+					size int32
+				}
+
+				@ontology type "view"
+			}
+		`
+		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(
+				`const synnax::ontology::ID ONTOLOGY_TYPE("view", "");`,
+				`return synnax::ontology::ID("view", key.to_string());`,
+			)
+	})
+
+	It("Should type union ontology helpers by a primitive key", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			Base struct {
+				key uuid @key
+			}
+
+			View union on type extends Base {
+				first {
+					name string
+				}
+
+				@ontology type "view"
+			}
+		`
+		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(`ontology_id(const x::uuid::UUID& key)`)
+	})
+
+	It(
+		"Should default the discriminator to the borrowed enum constant",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "out"
+
+			Method enum {
+				password = "password"
+			}
+			Credentials struct { username string }
+
+			Proof union on method Method {
+				password Credentials
+			}
+		`
+			resp := MustGenerate(ctx, source, "auth", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(
+					`constexpr const char* METHOD_PASSWORD = "password";`,
+					`std::string method = METHOD_PASSWORD;`,
+				)
+		},
+	)
+
+	It("Should include the header of a borrowed enum from another namespace", func(
+		ctx SpecContext,
+	) {
+		loader.Add("schemas/auth", `
+			@cpp output "client/cpp/auth"
+
+			Method enum {
+				password = "password"
+			}
+		`)
+		source := `
+			import "schemas/auth"
+
+			@cpp output "client/cpp/login"
+
+			Credentials struct { username string }
+
+			Proof union on method auth.Method {
+				password Credentials
+			}
+		`
+		resp := MustGenerate(ctx, source, "login", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(`#include "client/cpp/auth/types.gen.h"`, `METHOD_PASSWORD;`)
+	})
 
 	It(
 		"Should declare inline variant fields directly on the variant struct",

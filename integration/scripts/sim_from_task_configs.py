@@ -24,7 +24,24 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 import synnax as sy
+
+
+def _latest(frame: sy.Frame, name: str) -> float | None:
+    """Returns the latest sample of a numeric channel in frame, or None if the frame
+    holds no samples for it.
+
+    :raises TypeError: If the latest sample is not numeric.
+    """
+    data = frame[name]
+    if len(data) == 0:
+        return None
+    value = data[-1]
+    if not isinstance(value, (int, float, np.number, np.bool_)):
+        raise TypeError(f"{name} holds a non-numeric sample {value!r}")
+    return float(value)
 
 
 class SimDAQ:
@@ -116,7 +133,7 @@ class SimDAQ:
 
         state_idx = self.get_index("daq_time")
 
-        for i, ch in enumerate(channels):
+        for ch in channels:
             if not ch.get("enabled", True):
                 continue
 
@@ -214,7 +231,7 @@ class SimDAQ:
 
         state_idx = self.get_index("daq_time")
 
-        for i, ch in enumerate(channels):
+        for ch in channels:
             if not ch.get("enabled", True):
                 continue
 
@@ -272,20 +289,19 @@ class SimDAQ:
         if ch_type == "ai_voltage":
             return f"voltage_{port}"
 
-        elif ch_type == "ai_current":
+        if ch_type == "ai_current":
             return f"current_{port}"
 
-        elif ch_type == "ai_bridge":
+        if ch_type == "ai_bridge":
             return f"bridge_{port}"
 
-        elif ch_type == "ai_thermocouple":
+        if ch_type == "ai_thermocouple":
             tc_type = ch.get("thermocoupleType", "K")
             return f"temp_tc{tc_type}_{port}"
 
-        elif ch_type == "ai_rtd":
+        if ch_type == "ai_rtd":
             return f"temp_rtd_{port}"
-        else:
-            return f"sensor_{index}"
+        return f"sensor_{index}"
 
     def _save_channel_mapping(self) -> None:
         """Save channel mapping to JSON file."""
@@ -318,10 +334,9 @@ class SimDAQ:
         if "voltage" in name_lower:
             if "24" in name_lower:
                 return 12 + base * 6 + noise
-            elif "5" in name_lower:
+            if "5" in name_lower:
                 return 2.5 + base * 1.5 + noise * 0.5
-            else:
-                return 0.015 + base * 0.01 + noise * 0.001
+            return 0.015 + base * 0.01 + noise * 0.001
 
         # Current sensors
         if "current" in name_lower or ch_type == "ai_current":
@@ -362,7 +377,7 @@ class SimDAQ:
         state_channels = [state for _, state in self.valve_pairs] + [
             state for _, state in self.ao_pairs
         ]
-        write_channels = ["daq_time"] + sensor_names + state_channels
+        write_channels = ["daq_time", *sensor_names, *state_channels]
 
         print("\nConfiguration:")
         print(f"  Writing {len(write_channels)} channels at 100 Hz")
@@ -405,19 +420,16 @@ class SimDAQ:
                         if frame is not None:
                             # Process valve commands
                             for cmd_name, state_name in self.valve_pairs:
-                                data = frame.get(cmd_name, [])
-                                if len(data) > 0:
-                                    self.valve_states[state_name] = float(data[-1])
-                                    if data[-1] != 0:
-                                        print(
-                                            f"  [{timestamp}] {cmd_name} = {data[-1]}"
-                                        )
+                                value = _latest(frame, cmd_name)
+                                if value is not None:
+                                    self.valve_states[state_name] = value
+                                    if value != 0:
+                                        print(f"  [{timestamp}] {cmd_name} = {value}")
 
                             # Process analog output commands
                             for cmd_name, state_name in self.ao_pairs:
-                                data = frame.get(cmd_name, [])
-                                if len(data) > 0:
-                                    target = float(data[-1])
+                                target = _latest(frame, cmd_name)
+                                if target is not None:
                                     current = self.ao_states.get(state_name, 0.0)
                                     self.ao_states[state_name] = current + 0.8 * (
                                         target - current
@@ -431,7 +443,7 @@ class SimDAQ:
                             print(f"  ⚠ Error: {e}")
 
                 # Build frame
-                frame_data = {"daq_time": timestamp}
+                frame_data: dict[str, sy.TimeStamp | float] = {"daq_time": timestamp}
 
                 # Add sensor data
                 for name, ch_type in self.sensor_channels:

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Logo } from "@synnaxlabs/media";
+import { Logo } from "@synnaxlabs/lyra/logo";
 import { type ReactElement } from "react";
 
 import {
@@ -69,7 +69,7 @@ export const FoundationNode = ({
       <g
         transform={`translate(${sx} ${sy}) scale(${1.1 * Math.SQRT2} ${0.47 * Math.SQRT2})`}
       >
-        <Logo {...logoPlacement} className="scene-node-mark" aria-hidden="true" />
+        <Logo.Logo {...logoPlacement} className="scene-node-mark" aria-hidden="true" />
       </g>
       <text x={sx} y={sy - 21} className="scene-node-id" textAnchor="middle">
         {label}

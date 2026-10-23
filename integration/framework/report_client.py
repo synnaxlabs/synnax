@@ -25,7 +25,9 @@ class ReportClient:
         tests: list[Test],
         tests_lock: threading.Lock,
         test_definitions: list[TestDefinition],
-        active_tests: list[tuple[TestDefinition, TestCase, sy.Range, threading.Thread]],
+        active_tests: list[
+            tuple[TestDefinition, TestCase, sy.Range | None, threading.Thread]
+        ],
         active_tests_lock: threading.Lock,
         log: Callable[[str, bool], None],
     ) -> None:

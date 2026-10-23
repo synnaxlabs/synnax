@@ -101,8 +101,6 @@ const Properties = () => (
         className={TEXT_FIELD_CLASS}
         path="config.record.channelPointer"
         label="Channel pointer"
-        optional
-        defaultValue=""
         inputProps={CHANNEL_POINTER_INPUT_PROPS}
         grow
       />
@@ -110,8 +108,6 @@ const Properties = () => (
         className={TEXT_FIELD_CLASS}
         path="config.record.timestampPointer"
         label="Timestamp pointer"
-        optional
-        defaultValue=""
         inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
         grow
       />

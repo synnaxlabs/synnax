@@ -42,8 +42,6 @@ import { type Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const useForm = PDevice.createForm(SCHEMAS);
-
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(15);
 
 const INITIAL_VALUES: Device = {
@@ -57,10 +55,15 @@ const INITIAL_VALUES: Device = {
   configured: true,
 };
 
+const useForm = PDevice.createForm(SCHEMAS, INITIAL_VALUES);
+
 const beforeValidate = ({
   get,
   set,
-}: Flux.BeforeValidateParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
+}: Flux.BeforeValidateParams<
+  PDevice.RetrieveQuery,
+  PDevice.FormSchema<typeof SCHEMAS>
+>) => {
   const brokers = get<string[]>("properties.brokers").value;
   set("location", brokers.filter((b) => b !== "").join(","));
 };
@@ -69,7 +72,10 @@ const beforeSave = async ({
   client,
   get,
   set,
-}: Flux.FormBeforeSaveParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
+}: Flux.FormBeforeSaveParams<
+  PDevice.RetrieveQuery,
+  PDevice.FormSchema<typeof SCHEMAS>
+>) => {
   const scanTask = await client.tasks.retrieve({
     type: SCAN_TYPE,
     rack: get<rack.Key>("rack").value,
@@ -161,7 +167,6 @@ const CAField = () => {
     <Form.TextField
       path="properties.caCertificate"
       label="CA certificate"
-      optional
       inputProps={CA_INPUT_PROPS}
     />
   );
@@ -226,7 +231,6 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
       variant,
     } = useForm({
       query: deviceKey == null ? null : { key: deviceKey },
-      initialValues: INITIAL_VALUES,
       beforeValidate,
       beforeSave,
       afterSave: useCallback(() => {
@@ -239,7 +243,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
       <Modal.Frame className={CSS.B("kafka-connect")}>
         <Modal.Header icon={<Icon.Logo.Kafka />}>Cluster.Connect</Modal.Header>
         <Flex.Box className={CSS.B("content")} grow size="small">
-          <Form.Form<typeof PDevice.formSchema> {...form}>
+          <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
             <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
             <Form.Field<rack.Key> path="rack" label="Connect from" required>
               {selectRackRenderProp}

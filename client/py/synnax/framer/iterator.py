@@ -20,7 +20,7 @@ from freighter import EOF, ExceptionPayload, Stream, WebsocketClient
 from freighter.transport import P
 from freighter.websocket import Message
 from synnax.framer.adapter import ReadFrameAdapter
-from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec
+from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSCodec
 from synnax.framer.common import validate_downsample_factor
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeRange, TimeSpan, TimeStamp
@@ -64,7 +64,7 @@ class _Response(BaseModel):
     frame: FramePayload
 
 
-class WSIteratorCodec(WSFramerCodec):
+class WSIteratorCodec(WSCodec):
     def encode(self, data: BaseModel) -> bytes:
         return self.lower_perf_codec.encode(data)
 
@@ -133,11 +133,13 @@ class Iterator:
         :param tr: The time range to iterate over.
         """
         self._exec(
-            command=_Command.OPEN,
-            bounds=self.tr,
-            keys=self._adapter.keys,
-            chunk_size=self._chunk_size,
-            downsample_factor=self._downsample_factor,
+            _Request(
+                command=_Command.OPEN,
+                bounds=self.tr,
+                keys=self._adapter.keys,
+                chunk_size=self._chunk_size,
+                downsample_factor=self._downsample_factor,
+            )
         )
         self.value = Frame()
 
@@ -152,7 +154,7 @@ class Iterator:
         :returns: False if a segment satisfying the request can't be found for a
         particular channel or the iterator has accumulated an error.
         """
-        return self._exec(command=_Command.NEXT, span=span)
+        return self._exec(_Request(command=_Command.NEXT, span=span))
 
     def prev(self, span: TimeSpan) -> bool:
         """Reads the previous time span of telemetry for each channel in the iterator.
@@ -165,7 +167,7 @@ class Iterator:
         :returns: False if a segment satisfying the request can't be found for a particular
         channel or the iterator has accumulated an error.
         """
-        return self._exec(command=_Command.PREV, span=span)
+        return self._exec(_Request(command=_Command.PREV, span=span))
 
     def seek_first(self) -> bool:
         """Seeks the iterator to the first segment in the time range, but does not read
@@ -175,7 +177,7 @@ class Iterator:
         :returns: False if the iterator is not pointing to a valid segment for a particular
         channel or has accumulated an error.
         """
-        return self._exec(command=_Command.SEEK_FIRST)
+        return self._exec(_Request(command=_Command.SEEK_FIRST))
 
     def seek_last(self) -> bool:
         """Seeks the iterator to the last segment in the time range, but does not read it.
@@ -185,7 +187,7 @@ class Iterator:
         :returns: False if the iterator is not pointing to a valid segment for a particular
         channel or has accumulated an error.
         """
-        return self._exec(command=_Command.SEEK_LAST)
+        return self._exec(_Request(command=_Command.SEEK_LAST))
 
     def seek_le(self, stamp: TimeStamp) -> bool:
         """Seeks the iterator to the first segment whose start is less than or equal to
@@ -195,7 +197,7 @@ class Iterator:
         :returns: False if the iterator is not pointing to a valid segment for a particular
         channel or has accumulated an error.
         """
-        return self._exec(command=_Command.SEEK_LE, stamp=stamp)
+        return self._exec(_Request(command=_Command.SEEK_LE, stamp=stamp))
 
     def seek_ge(self, stamp: TimeStamp) -> bool:
         """Seeks the iterator to the first segment whose start is greater than or equal to
@@ -205,14 +207,14 @@ class Iterator:
         :returns: False if the iterator is not pointing to a valid segment for a particular
         channel or has accumulated an error.
         """
-        return self._exec(command=_Command.SEEK_GE, stamp=stamp)
+        return self._exec(_Request(command=_Command.SEEK_GE, stamp=stamp))
 
     def valid(self) -> bool:
         """Returns true if the iterator value contains a valid segment, and False otherwise.
         valid most commonly returns false when the iterator is exhausted or has accumulated
         an error.
         """
-        return self._exec(command=_Command.VALID)
+        return self._exec(_Request(command=_Command.VALID))
 
     def close(self) -> None:
         """Close closes the iterator. An iterator MUST be closed after use, and this method
@@ -243,8 +245,8 @@ class Iterator:
     def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
         self.close()
 
-    def _exec(self, **kwargs: object) -> bool:
-        self._stream.send(_Request(**kwargs))
+    def _exec(self, req: _Request) -> bool:
+        self._stream.send(req)
         self.value = Frame()
         while True:
             r = self._stream.receive()

@@ -7,13 +7,19 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import operator
 import uuid
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from x import telem
+from x.interop import ArrayOperators
 
 
 @pytest.mark.telem
@@ -104,8 +110,8 @@ class TestSeries:
 
     def test_construct_from_buffer_no_data_type(self) -> None:
         """Should throw a ValueError"""
-        with pytest.raises(ValueError):
-            assert telem.Series(b"57678")
+        with pytest.raises(ValueError, match="data_type must be specified"):
+            telem.Series(b"57678")
 
     def test_construction_from_bool_list(self) -> None:
         """Should infer BOOLEAN from a list of Python booleans"""
@@ -123,6 +129,15 @@ class TestSeries:
         assert len(s) == 3
         assert s.data_type == telem.DataType.BOOLEAN
         assert s.data == b"\x01\x00\x01"
+
+    @pytest.mark.parametrize("value", [np.True_, np.False_])
+    def test_construction_from_np_bool_scalar(self, value: np.bool_) -> None:
+        """Should infer BOOLEAN from a numpy bool_ scalar"""
+        s = telem.Series(value)
+        assert s.data_type == telem.DataType.BOOLEAN
+        assert len(s) == 1
+        assert s.data == bytes([int(value)])
+        assert s[0] == value
 
     def test_bool_normalizes_nonzero_numeric_inputs(self) -> None:
         """Should normalize nonzero numeric inputs to 0x01 when dtype is BOOLEAN"""
@@ -288,6 +303,66 @@ class TestSeries:
         s2 = telem.Series(s1)
         assert s2.alignment == s1.alignment
 
+    def test_alignment_override_from_series(self) -> None:
+        """Should use a given alignment over the source series' alignment"""
+        s1 = telem.Series([1, 2, 3], alignment=telem.Alignment(1, 2))
+        assert telem.Series(s1, alignment=5).alignment == 5
+
+    def test_astype_keeps_alignment(self) -> None:
+        """Should keep the alignment when casting"""
+        s = telem.Series([1, 2, 3], alignment=7)
+        assert s.astype(telem.DataType.FLOAT64).alignment == 7
+
+    def test_infer_mixed_numeric_list(self) -> None:
+        """Should infer a float series when ints and floats are mixed"""
+        s = telem.Series([1, 2.5])
+        assert s.data_type == telem.DataType.FLOAT64
+        assert list(s) == [1.0, 2.5]
+
+    @pytest.mark.parametrize(
+        ("values", "data_type"),
+        [
+            ([2**53 + 1, np.uint64(1)], telem.DataType.INT64),
+            ([np.uint64(2**63), 1], telem.DataType.UINT64),
+        ],
+    )
+    def test_infer_mixed_ints_keeps_values(
+        self, values: list[Any], data_type: telem.DataType
+    ) -> None:
+        """Should pick an integer type that holds every mixed integer exactly"""
+        s = telem.Series(values)
+        assert s.data_type == data_type
+        assert np.asarray(s).tolist() == [int(v) for v in values]
+
+    @pytest.mark.parametrize(
+        "values", [[np.uint64(2**63), np.int64(-1)], [2**53 + 1, 0.5]]
+    )
+    def test_infer_rejects_lossy_promotion(self, values: list[Any]) -> None:
+        """Should reject a mix that no inferred type holds exactly"""
+        with pytest.raises(TypeError):
+            telem.Series(values)
+
+    def test_infer_rejects_bool_and_number_list(self) -> None:
+        """Should reject a list that mixes booleans and numbers"""
+        with pytest.raises(TypeError):
+            telem.Series([True, 2])
+
+    def test_infer_timestamp_scalar(self) -> None:
+        """Should infer a timestamp series from a single TimeStamp"""
+        assert telem.Series(telem.TimeStamp(5)).data_type == telem.DataType.TIMESTAMP
+
+    def test_uuid_list_rejects_non_uuid(self) -> None:
+        """Should reject a value that is not a UUID instead of dropping it"""
+        values: list[Any] = [uuid.uuid4(), "not-a-uuid"]
+        with pytest.raises(TypeError):
+            telem.Series(values, data_type=telem.DataType.UUID)
+
+    def test_json_from_scalar_string(self) -> None:
+        """Should encode a bare string as one JSON value, like a one-item list"""
+        s = telem.Series("hello", data_type=telem.DataType.JSON)
+        assert s.data_type == telem.DataType.JSON
+        assert s.data == telem.Series(["hello"], data_type=telem.DataType.JSON).data
+
 
 @pytest.mark.telem
 @pytest.mark.series
@@ -425,13 +500,13 @@ class TestVariableLengthSeries:
         """Should iterate in insertion order"""
         values = ["first", "second", "third", "fourth"]
         s = telem.Series(values)
-        assert [v for v in s] == values
+        assert list(s) == values
 
     def test_json_iteration_order(self) -> None:
         """Should iterate JSON values in insertion order"""
         values = [{"i": 0}, {"i": 1}, {"i": 2}]
         s = telem.Series(values)
-        assert [v for v in s] == values
+        assert list(s) == values
 
     def test_string_size_bytes(self) -> None:
         """Should report the correct raw byte size including prefixes"""
@@ -462,7 +537,7 @@ class TestMultiSeries:
         """Should throw a ValueError"""
         s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8)
         s2 = telem.Series([4, 5, 6], data_type=telem.DataType.INT16)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="must have the same data type"):
             telem.MultiSeries([s1, s2])
 
     def test_construction_from_none(self) -> None:
@@ -635,3 +710,219 @@ class TestMultiSeries:
         arr1 = ms.__array__(copy=True)
         arr2 = ms.__array__(copy=True)
         assert not np.shares_memory(arr1, arr2)
+
+
+@pytest.mark.telem
+@pytest.mark.series
+class TestSampleConversion:
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [(3, 3.0), (2.5, 2.5), (np.float32(1.5), 1.5), (np.int64(4), 4.0)],
+    )
+    def test_to_float(self, value: telem.SampleValue, expected: float) -> None:
+        """Should convert a numeric sample to a float"""
+        assert telem.to_float(value) == expected
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [(3, 3), (np.int64(4), 4), (telem.TimeStamp(7), 7)],
+    )
+    def test_to_int(self, value: telem.SampleValue, expected: int) -> None:
+        """Should convert an integer or timestamp sample to an int"""
+        assert telem.to_int(value) == expected
+
+    @pytest.mark.parametrize("value", ["a", uuid.uuid4(), {"a": 1}])
+    def test_to_float_rejects(self, value: telem.SampleValue) -> None:
+        """Should reject a sample that is not numeric"""
+        with pytest.raises(TypeError):
+            telem.to_float(value)
+
+    @pytest.mark.parametrize("value", [1.5, np.float64(2.0), "a"])
+    def test_to_int_rejects(self, value: telem.SampleValue) -> None:
+        """Should reject a sample that is not an integer"""
+        with pytest.raises(TypeError):
+            telem.to_int(value)
+
+
+def _series() -> telem.Series:
+    return telem.Series(np.array([1, 2, 3], dtype=np.int64))
+
+
+def _multi_series() -> telem.MultiSeries:
+    return telem.MultiSeries(
+        [
+            telem.Series(np.array([1, 2], dtype=np.int64)),
+            telem.Series(np.array([3], dtype=np.int64)),
+        ]
+    )
+
+
+@pytest.mark.telem
+@pytest.mark.series
+@pytest.mark.parametrize("create", [_series, _multi_series])
+class TestArrayOperators:
+    def test_comparison(self, create: Callable[[], ArrayOperators]) -> None:
+        """Should compare element-wise and return a boolean array"""
+        a = create()
+        assert np.array_equal(a == 2, [False, True, False])
+        assert np.array_equal(a > 1, [False, True, True])
+
+    def test_arithmetic(self, create: Callable[[], ArrayOperators]) -> None:
+        """Should apply arithmetic element-wise"""
+        assert np.array_equal(create() * 2, [2, 4, 6])
+
+    def test_reflected(self, create: Callable[[], ArrayOperators]) -> None:
+        """Should apply a reflected operator when the left operand is a scalar"""
+        assert np.array_equal(10 - create(), [9, 8, 7])
+
+    def test_negation(self, create: Callable[[], ArrayOperators]) -> None:
+        """Should negate every sample"""
+        assert np.array_equal(-create(), [-1, -2, -3])
+
+    @pytest.mark.parametrize(
+        "op",
+        [
+            operator.eq,
+            operator.ne,
+            operator.lt,
+            operator.gt,
+            operator.le,
+            operator.ge,
+            operator.add,
+            operator.sub,
+            operator.mul,
+            operator.truediv,
+            operator.floordiv,
+            operator.mod,
+            operator.pow,
+            operator.lshift,
+            operator.rshift,
+            operator.and_,
+            operator.or_,
+            operator.xor,
+            operator.matmul,
+            divmod,
+        ],
+    )
+    def test_binary_matches_numpy(
+        self, create: Callable[[], ArrayOperators], op: Callable[[Any, Any], Any]
+    ) -> None:
+        """Should match NumPy for every binary operator in both operand orders"""
+        a = create()
+        arr = np.asarray(a)
+        # A list on the left makes Python call the reflected operator.
+        other = [3, 2, 1]
+        assert np.array_equal(op(a, other), op(arr, np.array(other)))
+        assert np.array_equal(op(other, a), op(np.array(other), arr))
+
+    @pytest.mark.parametrize(
+        "op", [operator.neg, operator.pos, operator.abs, operator.invert]
+    )
+    def test_unary_matches_numpy(
+        self, create: Callable[[], ArrayOperators], op: Callable[[Any], Any]
+    ) -> None:
+        """Should match NumPy for every unary operator"""
+        a = create()
+        assert np.array_equal(op(a), op(np.asarray(a)))
+
+    def test_in_place(self, create: Callable[[], ArrayOperators]) -> None:
+        """Should rebind an in-place operation to a new array"""
+        a: Any = create()
+        a += 1
+        assert isinstance(a, np.ndarray)
+        assert np.array_equal(a, [2, 3, 4])
+
+    def test_unhashable(self, create: Callable[[], ArrayOperators]) -> None:
+        """Should not be hashable, like a NumPy array"""
+        with pytest.raises(TypeError):
+            hash(create())
+
+
+@pytest.mark.telem
+@pytest.mark.series
+class TestSeriesModel:
+    def test_round_trip(self) -> None:
+        """Should validate and serialize with the operator mixin in place"""
+        s = _series()
+        restored = telem.Series.model_validate(s.model_dump())
+        assert restored.data == s.data
+        assert np.array_equal(restored, s)
+
+
+_INT64 = st.integers(min_value=-(2**63), max_value=2**63 - 1)
+_FLOAT = st.floats(allow_nan=False, allow_infinity=False)
+_TEXT = st.text(max_size=20)
+_JSON = st.dictionaries(_TEXT, st.integers() | _TEXT | st.booleans(), max_size=4)
+
+
+@pytest.mark.telem
+@pytest.mark.series
+class TestSeriesProperties:
+    @given(st.lists(_INT64, min_size=1, max_size=50))
+    def test_int_round_trip(self, values: list[int]) -> None:
+        """Should round-trip a list of int64 values"""
+        s = telem.Series(values)
+        assert s.data_type == telem.DataType.INT64
+        assert np.asarray(s).tolist() == values
+
+    @given(st.lists(_FLOAT, min_size=1, max_size=50))
+    def test_float_round_trip(self, values: list[float]) -> None:
+        """Should round-trip a list of float64 values"""
+        assert np.asarray(telem.Series(values)).tolist() == values
+
+    @given(st.lists(st.integers(-(2**31), 2**31) | _FLOAT, min_size=1, max_size=50))
+    def test_mixed_numbers_keep_values(self, values: list[int | float]) -> None:
+        """Should keep every value of a mixed int and float list"""
+        s = telem.Series(values)
+        assert np.asarray(s).tolist() == [float(v) for v in values]
+
+    @given(
+        st.lists(
+            st.integers(0, 2**63 - 1) | st.integers(0, 2**64 - 1).map(np.uint64),
+            min_size=1,
+            max_size=50,
+        )
+    )
+    def test_mixed_int_kinds_round_trip(self, values: list[Any]) -> None:
+        """Should round-trip mixed int64 and uint64 values exactly"""
+        assert np.asarray(telem.Series(values)).tolist() == [int(v) for v in values]
+
+    @given(st.lists(_TEXT, min_size=1, max_size=20))
+    def test_string_round_trip(self, values: list[str]) -> None:
+        """Should round-trip a list of strings"""
+        assert list(telem.Series(values)) == values
+
+    @given(st.lists(_JSON, min_size=1, max_size=10))
+    def test_json_round_trip(self, values: list[dict[str, Any]]) -> None:
+        """Should round-trip a list of JSON objects"""
+        assert list(telem.Series(values)) == values
+
+    @given(st.lists(st.uuids(), min_size=1, max_size=20))
+    def test_uuid_round_trip(self, values: list[uuid.UUID]) -> None:
+        """Should round-trip a list of UUIDs"""
+        assert list(telem.Series(values)) == values
+
+    @given(st.lists(_INT64, min_size=1, max_size=20), st.integers(0, 2**32 - 1))
+    def test_alignment_survives_copy_and_cast(
+        self, values: list[int], align: int
+    ) -> None:
+        """Should keep the alignment through a copy and a cast"""
+        s = telem.Series(values, alignment=align)
+        assert telem.Series(s).alignment == align
+        assert s.astype(telem.DataType.FLOAT64).alignment == align
+
+    @given(st.lists(_INT64, max_size=20), st.integers(0, 2**64 - 21))
+    def test_alignment_bounds_exact(self, values: list[int], align: int) -> None:
+        """Should keep every bit of a 64-bit alignment in the bounds"""
+        bounds = telem.Series(
+            values, data_type="int64", alignment=align
+        ).alignment_bounds
+        assert bounds.lower == align
+        assert bounds.upper == align + len(values)
+
+    @given(st.lists(_INT64, min_size=1, max_size=20))
+    def test_datetime64_round_trip(self, values: list[int]) -> None:
+        """Should round-trip a datetime64[ns] array as timestamps"""
+        s = telem.Series(np.array(values, dtype="datetime64[ns]"))
+        assert s.data_type == telem.DataType.TIMESTAMP
+        assert np.asarray(s).tolist() == values

@@ -70,6 +70,12 @@ synnax start -l localhost:9090 -im
         "Starts the node without TLS encryption. This is not recommended for production use.",
     },
     {
+      option: "--fips",
+      default: "false",
+      description:
+        "Restricts password hashing to PBKDF2, the one password hash NIST approves. With it on, the Core refuses to check a password stored with another algorithm until an administrator sets it again.",
+    },
+    {
       option: "--mem/-m",
       default: "false",
       description: `Starts the node with an in-memory data store. In this mode, all data will
@@ -130,19 +136,19 @@ synnax start -l localhost:9090 -im
     {
       option: "--license-key",
       default: '""',
-      description:
-        'License key to activate at start. See <a href="/reference/core/production#licensing">Licensing</a>.',
-    },
-    {
-      option: "--license-file",
-      default: '""',
-      description: "Path to a file that holds the license key to activate at start.",
+      description: "License key that activates the Core.",
     },
     {
       option: "--debug",
       default: "false",
       description:
         "Enables debug logging output. We recommend against using this in production, as it generates a very large amount of output.",
+    },
+    {
+      option: "--session-idle-timeout",
+      default: "168h",
+      description:
+        "Ends a login session after this long without a request from its client.",
     },
     {
       option: "--slow-consumer-timeout",
@@ -250,6 +256,7 @@ Command line flags will take precedence over environment variables.
     { option: "--data/-d", env: "SYNNAX_DATA" },
     { option: "--verbose/-v", env: "SYNNAX_VERBOSE" },
     { option: "--insecure/-i", env: "SYNNAX_INSECURE" },
+    { option: "--fips", env: "SYNNAX_FIPS" },
     { option: "--mem/-m", env: "SYNNAX_MEM" },
     { option: "--config/c", env: "SYNNAX_CONFIG" },
     { option: "--certs-dir", env: "SYNNAX_CERTS_DIR" },
@@ -259,8 +266,8 @@ Command line flags will take precedence over environment variables.
     { option: "--username", env: "SYNNAX_USERNAME" },
     { option: "--password", env: "SYNNAX_PASSWORD" },
     { option: "--license-key", env: "SYNNAX_LICENSE_KEY" },
-    { option: "--license-file", env: "SYNNAX_LICENSE_FILE" },
     { option: "--debug", env: "SYNNAX_DEBUG" },
+    { option: "--session-idle-timeout", env: "SYNNAX_SESSION_IDLE_TIMEOUT" },
     { option: "--slow-consumer-timeout", env: "SYNNAX_SLOW_CONSUMER_TIMEOUT" },
     { option: "--no-driver", env: "SYNNAX_NO_DRIVER" },
     { option: "--stop-on-stdin-close", env: "SYNNAX_STOP_ON_STDIN_CLOSE" },
@@ -318,7 +325,7 @@ Here are example configuration files in various formats:
   "node-key": "node.key",
   "username": "synnax",
   "password": "seldon",
-  "license-file": "/usr/local/synnax/synnax.lic",
+  "license-key": "000000-00000000-0000000000",
   "debug": false,
   "slow-consumer-timeout": "2.5s",
   "no-driver": false,
@@ -356,7 +363,7 @@ node-cert: node.crt
 node-key: node.key
 username: synnax
 password: seldon
-license-file: /usr/local/synnax/synnax.lic
+license-key: 000000-00000000-0000000000
 no-driver: false
 disable-integrations: []
 enable-integrations: []
@@ -389,7 +396,7 @@ node-cert = "node.crt"
 node-key = "node.key"
 username = "synnax"
 password = "seldon"
-license-file = "/usr/local/synnax/synnax.lic"
+license-key = "000000-00000000-0000000000"
 no-driver = false
 disable-integrations = []
 enable-integrations = []

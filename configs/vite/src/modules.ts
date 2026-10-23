@@ -29,10 +29,12 @@ export const discoverModules = (root: string): string[] =>
 
 /**
  * The `exports` map a subpath-only package must carry for the given modules, plus a
- * passthrough for static files under `dist/`.
+ * passthrough for static files under `dist/`, and under `static/` when `assets` is
+ * true.
  */
 export const moduleExports = (
   modules: string[],
+  assets: boolean = false,
 ): Record<string, ExportEntry | string> => ({
   ...Object.fromEntries(
     modules.map((name) => [
@@ -41,16 +43,21 @@ export const moduleExports = (
     ]),
   ),
   "./dist/*": "./dist/*",
+  ...(assets ? { "./static/*": "./static/*" } : {}),
 });
+
+/** The `exports` map the package at `root` must carry. */
+export const packageExports = (root: string): Record<string, ExportEntry | string> =>
+  moduleExports(discoverModules(root), existsSync(path.join(root, "static")));
 
 /**
  * Throws when the package's `package.json` exports differ from the map its `src/`
  * layout implies. The message names the script that regenerates them.
  */
-export const checkExports = (root: string, modules: string[]): void => {
+export const checkExports = (root: string): void => {
   const manifest = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
   const actual = JSON.stringify(manifest.exports ?? {});
-  const expected = JSON.stringify(moduleExports(modules));
+  const expected = JSON.stringify(packageExports(root));
   if (actual === expected) return;
   throw new Error(
     `package.json exports do not match the modules under src/. Run \`pnpm exports\` in ${root}.`,

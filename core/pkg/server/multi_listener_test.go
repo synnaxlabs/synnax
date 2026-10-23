@@ -36,7 +36,6 @@ var _ = Describe("MultiListener", func() {
 		mock.GenerateCerts(fs)
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			FS:       fs,
-			KeySize:  mock.SmallKeySize,
 			Insecure: new(false),
 		}))
 		ca := MustSucceed(cert.NewFactory(cert.FactoryConfig{
@@ -65,7 +64,6 @@ var _ = Describe("MultiListener", func() {
 		mock.GenerateCerts(fs)
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			FS:       fs,
-			KeySize:  mock.SmallKeySize,
 			Insecure: new(false),
 		}))
 		ca := MustSucceed(cert.NewFactory(cert.FactoryConfig{
@@ -117,7 +115,6 @@ var _ = Describe("MultiListener", func() {
 		)))
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			FS:       fs,
-			KeySize:  mock.SmallKeySize,
 			Insecure: new(false),
 		}))
 		src := MustSucceed(file.NewSource(

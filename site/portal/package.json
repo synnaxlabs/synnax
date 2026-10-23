@@ -28,7 +28,6 @@
     "@neondatabase/serverless": "catalog:",
     "@synnaxlabs/client": "catalog:",
     "@synnaxlabs/lyra": "catalog:",
-    "@synnaxlabs/media": "catalog:",
     "@synnaxlabs/x": "catalog:",
     "@vercel/oidc-aws-credentials-provider": "catalog:",
     "astro": "catalog:",

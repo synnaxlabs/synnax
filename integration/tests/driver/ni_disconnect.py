@@ -24,6 +24,7 @@ import os
 import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 import nidaqmx.system
 import nisyscfg
@@ -31,7 +32,13 @@ import nisyscfg
 import synnax as sy
 from tests.driver.ni_read import NIDigitalRead, NIReadCurrentVoltage
 from tests.driver.ni_write import NIDigitalWrite
-from tests.driver.task import ReadTaskCase, WriteTaskCase, send_and_verify_commands
+from tests.driver.task import (
+    ReadTaskCase,
+    ReadTaskT,
+    TaskT,
+    WriteTaskCase,
+    send_and_verify_commands,
+)
 
 # The scan task polls every 5s. 30s gives ~5 cycles of margin under CI load.
 _STATUS_TIMEOUT = 30 * sy.TimeSpan.SECOND
@@ -108,7 +115,7 @@ def _wait_for_device_status(
     *,
     device_key: str = "",
     device_name: str = "",
-) -> list[sy.status.Status]:
+) -> list[sy.status.Status[Any]]:
     """Wait until a device emits a status with the given message.
 
     Filter by ``device_key`` (exact match on ``device:<key>``) or
@@ -118,7 +125,7 @@ def _wait_for_device_status(
     Returns all matching device statuses collected up to (and including)
     the first status with the expected ``message``.
     """
-    matched: list[sy.status.Status] = []
+    matched: list[sy.status.Status[Any]] = []
     diag = _StatusWaitDiag()
     timer = sy.Timer()
 
@@ -131,7 +138,7 @@ def _wait_for_device_status(
             continue
         diag.frames_with_status += 1
         for raw in frame["sy_status_set"]:
-            s = sy.status.Status.model_validate(raw)
+            s = sy.status.Status[Any].model_validate(raw)
             diag.all_keys.append(s.key)
             if device_key and s.key != f"device:{device_key}":
                 continue
@@ -152,7 +159,7 @@ def _wait_for_device_status(
 
 
 def _log_statuses(
-    log: Callable[[str], None], statuses: list[sy.status.Status], label: str
+    log: Callable[[str], None], statuses: list[sy.status.Status[Any]], label: str
 ) -> None:
     """Log final status with count of skipped intermediate ones."""
     final = statuses[-1]
@@ -204,7 +211,7 @@ def _restore_device_and_wait(
         log(f"Warning: restore failed: {e}")
 
 
-class _NIReadDisconnectMixin(ReadTaskCase):
+class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
     """Reset + remove/re-add disconnect test logic for read tasks.
 
     Subclasses set ``disconnect_device`` to the NI MAX alias of the device
@@ -258,7 +265,7 @@ class _NIReadDisconnectMixin(ReadTaskCase):
         self.client.tasks.configure(tsk)
         self.assert_sample_count(task=tsk, strict=False)
 
-    def _assert_no_samples_after_removal(self, tsk: sy.Task) -> None:
+    def _assert_no_samples_after_removal(self, tsk: ReadTaskT) -> None:
         self.log("Assert no new samples after removal")
         start = sy.TimeStamp.now()
         sy.sleep(0.5)
@@ -274,7 +281,9 @@ class _NIReadDisconnectMixin(ReadTaskCase):
                 )
 
 
-class NIAnalogReadDisconnect(_NIReadDisconnectMixin, NIReadCurrentVoltage):
+class NIAnalogReadDisconnect(
+    _NIReadDisconnectMixin[sy.ni.AnalogReadTask], NIReadCurrentVoltage
+):
     """Disconnect test for analog read on cDAQ chassis E101.
 
     E101Mod3 (NI 9203) + E101Mod4 (NI 9205). Disconnects E101Mod4.
@@ -284,7 +293,9 @@ class NIAnalogReadDisconnect(_NIReadDisconnectMixin, NIReadCurrentVoltage):
     disconnect_device = "E101Mod4"
 
 
-class NIDigitalReadDisconnect(_NIReadDisconnectMixin, NIDigitalRead):
+class NIDigitalReadDisconnect(
+    _NIReadDisconnectMixin[sy.ni.DigitalReadTask], NIDigitalRead
+):
     """Disconnect test for digital read on cDAQ chassis E102.
 
     E102Mod3 (NI 9375). Disconnects E102Mod3.
@@ -294,7 +305,7 @@ class NIDigitalReadDisconnect(_NIReadDisconnectMixin, NIDigitalRead):
     disconnect_device = "E102Mod3"
 
 
-class _NIWriteDisconnectMixin(WriteTaskCase):
+class _NIWriteDisconnectMixin(WriteTaskCase[TaskT]):
     """Reset + remove/re-add disconnect test logic for write tasks.
 
     Subclasses set ``disconnect_device`` to the NI MAX alias of the device
@@ -372,7 +383,9 @@ class _NIWriteDisconnectMixin(WriteTaskCase):
             )
 
 
-class NIDigitalWriteDisconnect(_NIWriteDisconnectMixin, NIDigitalWrite):
+class NIDigitalWriteDisconnect(
+    _NIWriteDisconnectMixin[sy.ni.DigitalWriteTask], NIDigitalWrite
+):
     """Disconnect test for digital write on SYMod1.
 
     SYMod1 (NI 9375 on SYChassis). Disconnects SYMod1.

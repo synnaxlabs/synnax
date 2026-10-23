@@ -23,7 +23,7 @@ export default defineConfig({
       include: [
         "@synnaxlabs/lyra/button",
         "@synnaxlabs/lyra/icon",
-        "@synnaxlabs/media",
+        "@synnaxlabs/lyra/logo",
       ],
     },
     // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for

@@ -18,7 +18,4 @@ class Options(BaseModel):
     username: str = ""
     password: str = ""
     secure: bool = False
-
-
-SynnaxOptions = Options
-"""Deprecated: Use Options instead."""
+    ca_cert: str | None = None

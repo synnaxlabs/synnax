@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/device"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -24,6 +24,7 @@ import (
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -141,15 +142,21 @@ func (s *Service) Retrieve(
 	}
 
 	if req.IncludeStatus {
+		ids := rack.OntologyIDsFromRacks(resRacks)
 		statuses := make([]rack.Status, 0, len(resRacks))
-		if err := s.status.NewRetrieve[rack.StatusDetails]().
-			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...)).
+		// A status row can be missing, so the resource keeps a nil status.
+		if err := errors.Skip(s.status.NewRetrieve[rack.StatusDetails]().
+			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(ids)...)).
 			Entries(&statuses).
-			Exec(ctx, nil); err != nil {
+			Exec(ctx, nil), query.ErrNotFound); err != nil {
 			return RetrieveResponse{}, err
 		}
-		for i, stat := range statuses {
-			resRacks[i].Status = &stat
+		statusByKey := make(map[status.Key]*rack.Status, len(statuses))
+		for i := range statuses {
+			statusByKey[statuses[i].Key] = &statuses[i]
+		}
+		for i, id := range ids {
+			resRacks[i].Status = statusByKey[id.String()]
 		}
 	}
 
@@ -161,6 +168,30 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	return RetrieveResponse{Racks: resRacks}, nil
+}
+
+// RenameRequest names the rack to rename and the name to give it.
+type RenameRequest struct {
+	// Name is the new name. It must not be empty.
+	Name string `json:"name" msgpack:"name"`
+	// Key selects the rack to rename.
+	Key rack.Key `json:"key" msgpack:"key"`
+}
+
+// Rename renames the rack. It requires update access on it.
+func (s *Service) Rename(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RenameRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{req.Key.OntologyID()},
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.rack.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 type DeleteRequest struct {

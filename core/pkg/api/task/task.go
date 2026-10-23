@@ -145,15 +145,21 @@ func (s *Service) Retrieve(
 	}
 
 	if req.IncludeStatus {
+		ids := task.OntologyIDsFromTasks(res.Tasks)
 		statuses := make([]task.Status, 0, len(res.Tasks))
-		if err := s.status.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](ontology.IDsToKeys(task.OntologyIDsFromTasks(res.Tasks))...)).
+		// A status row can be missing, so the resource keeps a nil status.
+		if err := errors.Skip(s.status.NewRetrieve[task.StatusDetails]().
+			Where(status.MatchKeys[task.StatusDetails](ontology.IDsToKeys(ids)...)).
 			Entries(&statuses).
-			Exec(ctx, nil); err != nil {
+			Exec(ctx, nil), query.ErrNotFound); err != nil {
 			return RetrieveResponse{}, err
 		}
-		for i, stat := range statuses {
-			res.Tasks[i].Status = &stat
+		statusByKey := make(map[status.Key]*task.Status, len(statuses))
+		for i := range statuses {
+			statusByKey[statuses[i].Key] = &statuses[i]
+		}
+		for i, id := range ids {
+			res.Tasks[i].Status = statusByKey[id.String()]
 		}
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
@@ -164,6 +170,30 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	return res, nil
+}
+
+// RenameRequest names the task to rename and the name to give it.
+type RenameRequest struct {
+	// Name is the new name. It must not be empty.
+	Name string `json:"name" msgpack:"name"`
+	// Key selects the task to rename.
+	Key task.Key `json:"key" msgpack:"key"`
+}
+
+// Rename renames the task. It requires update access on it.
+func (s *Service) Rename(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RenameRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{task.OntologyID(req.Key)},
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.task.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 type DeleteRequest struct {

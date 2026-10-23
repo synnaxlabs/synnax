@@ -37,6 +37,13 @@ const deployReadFieldZ = kafka.readFieldZ
   .refine(
     ({ disabled, pointer }) => disabled || json.pointerZ.safeParse(pointer).success,
     { message: "Pointer must be a valid JSON pointer", path: ["pointer"] },
+  )
+  .refine(
+    ({ disabled, dataType, timeFormat }) =>
+      disabled ||
+      timeFormat != null ||
+      !new DataType(dataType).equals(DataType.TIMESTAMP),
+    { message: "Time format is required for timestamps", path: ["timeFormat"] },
   );
 
 const deployReadRecordZ = kafka.readRecordZ.extend({

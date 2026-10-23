@@ -172,6 +172,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 	return CoreConfig{
 		Instrumentation:     ins,
 		insecure:            new(viper.GetBool(FlagInsecure)),
+		fips:                new(viper.GetBool(FlagFIPS)),
 		debug:               new(viper.GetBool(instrumentation.FlagDebug)),
 		autoCert:            new(viper.GetBool(cert.FlagAutoCert)),
 		licenseKey:          licenseKey,
@@ -180,6 +181,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		peers:               peers,
 		dataPath:            viper.GetString(FlagData),
 		slowConsumerTimeout: viper.GetDuration(FlagSlowConsumerTimeout),
+		sessionIdleTimeout:  viper.GetDuration(FlagSessionIdleTimeout),
 		rootCredentials: auth.Credentials{
 			Username: viper.GetString(FlagUsername),
 			Password: viper.GetString(FlagPassword),

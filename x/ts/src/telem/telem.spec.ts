@@ -22,6 +22,7 @@ import {
   TimeSpan,
   TimeStamp,
   type TimestampFormat,
+  windowZ,
 } from "@/telem";
 
 describe("TimeStamp", () => {
@@ -1298,19 +1299,19 @@ describe("TimeSpan", () => {
 
   const TO_STRING_TESTS = [
     [TimeSpan.nanoseconds(1), "1ns"],
-    [TimeSpan.microseconds(1), "1µs"],
+    [TimeSpan.microseconds(1), "1μs"],
     [TimeSpan.milliseconds(1), "1ms"],
     [TimeSpan.seconds(1), "1s"],
-    [TimeSpan.minutes(1), "1m"],
+    [TimeSpan.minutes(1), "1min"],
     [TimeSpan.hours(1), "1h"],
     [TimeSpan.days(1), "1d"],
     [
       TimeSpan.milliseconds(1)
         .add(TimeSpan.microseconds(500))
         .add(TimeSpan.nanoseconds(50)),
-      "1ms 500µs 50ns",
+      "1ms 500μs 50ns",
     ],
-    [TimeSpan.seconds(1).add(TimeSpan.microseconds(500)), "1s 500µs"],
+    [TimeSpan.seconds(1).add(TimeSpan.microseconds(500)), "1s 500μs"],
   ];
 
   test("toString", () => {
@@ -1332,27 +1333,27 @@ describe("TimeSpan", () => {
       [TimeSpan.seconds(59), "59s"],
 
       // Minutes with seconds (< 5 minutes)
-      [TimeSpan.seconds(60), "1m"],
-      [TimeSpan.seconds(90), "1m 30s"],
-      [TimeSpan.seconds(119), "1m 59s"],
-      [TimeSpan.seconds(120), "2m"],
-      [TimeSpan.seconds(150), "2m 30s"],
-      [TimeSpan.seconds(240), "4m"],
-      [TimeSpan.seconds(270), "4m 30s"],
+      [TimeSpan.seconds(60), "1min"],
+      [TimeSpan.seconds(90), "1min 30s"],
+      [TimeSpan.seconds(119), "1min 59s"],
+      [TimeSpan.seconds(120), "2min"],
+      [TimeSpan.seconds(150), "2min 30s"],
+      [TimeSpan.seconds(240), "4min"],
+      [TimeSpan.seconds(270), "4min 30s"],
 
       // Minutes without seconds (>= 5 minutes)
-      [TimeSpan.seconds(300), "5m"],
-      [TimeSpan.seconds(330), "5m"], // seconds dropped
-      [TimeSpan.minutes(30), "30m"],
-      [TimeSpan.minutes(59), "59m"],
+      [TimeSpan.seconds(300), "5min"],
+      [TimeSpan.seconds(330), "5min"], // seconds dropped
+      [TimeSpan.minutes(30), "30min"],
+      [TimeSpan.minutes(59), "59min"],
 
       // Hours with minutes (< 3 hours)
       [TimeSpan.minutes(60), "1h"],
-      [TimeSpan.minutes(90), "1h 30m"],
-      [TimeSpan.minutes(119), "1h 59m"],
+      [TimeSpan.minutes(90), "1h 30min"],
+      [TimeSpan.minutes(119), "1h 59min"],
       [TimeSpan.minutes(120), "2h"],
-      [TimeSpan.minutes(150), "2h 30m"],
-      [TimeSpan.minutes(179), "2h 59m"],
+      [TimeSpan.minutes(150), "2h 30min"],
+      [TimeSpan.minutes(179), "2h 59min"],
 
       // Hours without minutes (>= 3 hours)
       [TimeSpan.minutes(180), "3h"],
@@ -1372,54 +1373,24 @@ describe("TimeSpan", () => {
       [TimeSpan.days(3), "3d"],
       [TimeSpan.days(6), "6d"],
 
-      // Weeks with days (< 2 weeks)
-      [TimeSpan.days(7), "1w"],
-      [TimeSpan.days(8), "1w 1d"],
-      [TimeSpan.days(10), "1w 3d"],
-      [TimeSpan.days(13), "1w 6d"],
+      // Days past a week stay in days.
+      [TimeSpan.days(7), "7d"],
+      [TimeSpan.days(8), "8d"],
+      [TimeSpan.days(14), "14d"],
+      [TimeSpan.days(30), "30d"],
+      [TimeSpan.days(365), "365d"],
+      [TimeSpan.days(750), "750d"],
 
-      // Weeks without days (>= 2 weeks)
-      [TimeSpan.days(14), "2w"],
-      [TimeSpan.days(15), "2w"], // days dropped
-      [TimeSpan.days(21), "3w"],
-      [TimeSpan.days(28), "4w"],
-
-      // Months with days (< 3 months)
-      [TimeSpan.days(30), "1mo"],
-      [TimeSpan.days(35), "1mo 5d"],
-      [TimeSpan.days(45), "1mo 15d"],
-      [TimeSpan.days(60), "2mo"],
-      [TimeSpan.days(75), "2mo 15d"],
-
-      // Months without days (>= 3 months)
-      [TimeSpan.days(90), "3mo"],
-      [TimeSpan.days(95), "3mo"], // days dropped
-      [TimeSpan.days(180), "6mo"],
-      [TimeSpan.days(330), "11mo"],
-
-      // Years with months (< 2 years)
-      [TimeSpan.days(364), "12mo"],
-      [TimeSpan.days(365), "1y"],
-      [TimeSpan.days(395), "1y 1mo"],
-      [TimeSpan.days(500), "1y 4mo"],
-      [TimeSpan.days(700), "1y 11mo"],
-
-      // Years without months (>= 2 years)
-      [TimeSpan.days(730), "2y"],
-      [TimeSpan.days(750), "2y"], // months dropped
-      [TimeSpan.days(1095), "3y"],
-      [TimeSpan.days(3650), "10y"],
-
-      [TimeSpan.seconds(3661), "1h 1m"],
+      [TimeSpan.seconds(3661), "1h 1min"],
       [TimeSpan.minutes(1441), "1d"], // 24h 1m, but minutes are dropped at day level
       [TimeSpan.minutes(1500), "1d 1h"], // 25h exactly
-      [TimeSpan.hours(169), "1w 1h"],
+      [TimeSpan.hours(169), "7d"],
 
       [TimeSpan.seconds(-30), "-30s"],
-      [TimeSpan.minutes(-90), "-1h 30m"],
+      [TimeSpan.minutes(-90), "-1h 30min"],
       [TimeSpan.hours(-25), "-1d 1h"],
-      [TimeSpan.days(-8), "-1w 1d"],
-      [TimeSpan.days(-400), "-1y 1mo"],
+      [TimeSpan.days(-8), "-8d"],
+      [TimeSpan.days(-400), "-400d"],
     ];
 
     TESTS.forEach(([ts, expected]) => {
@@ -1442,7 +1413,7 @@ describe("TimeSpan", () => {
 
     test("toString with full format", () => {
       const ts = TimeSpan.hours(25).add(TimeSpan.minutes(30)).add(TimeSpan.seconds(15));
-      expect(ts.toString("full")).toEqual("1d 1h 30m 15s");
+      expect(ts.toString("full")).toEqual("1d 1h 30min 15s");
     });
   });
 
@@ -1459,6 +1430,72 @@ describe("TimeSpan", () => {
         ["250µs", TimeSpan.microseconds(250)],
         ["10ns", TimeSpan.nanoseconds(10)],
         ["2D 3H", TimeSpan.days(2).add(TimeSpan.hours(3))],
+        ["250μs", TimeSpan.microseconds(250)],
+        [".5h", TimeSpan.minutes(30)],
+        ["14min 7s", TimeSpan.seconds(14 * 60 + 7)],
+        ["1 hour 30 minutes", TimeSpan.minutes(90)],
+        ["2 days", TimeSpan.days(2)],
+        ["3 secs", TimeSpan.seconds(3)],
+        ["2hrs", TimeSpan.hours(2)],
+        ["2w", TimeSpan.days(14)],
+        ["1 week", TimeSpan.days(7)],
+        ["1mo", TimeSpan.days(30)],
+        ["2 months", TimeSpan.days(60)],
+        ["1y", TimeSpan.days(365)],
+        ["1 Year", TimeSpan.days(365)],
+        ["5 msec", TimeSpan.milliseconds(5)],
+        ["3 microseconds", TimeSpan.microseconds(3)],
+        ["4 nanoseconds", TimeSpan.nanoseconds(4)],
+      ];
+      for (const [text, expected] of cases)
+        expect(TimeSpan.parse(text)?.equals(expected), text).toBe(true);
+    });
+
+    it("should parse uncommon units", () => {
+      const cases: [string, TimeSpan][] = [
+        ["2 shakes", TimeSpan.nanoseconds(20)],
+        ["3cs", TimeSpan.milliseconds(30)],
+        ["3 centiseconds", TimeSpan.milliseconds(30)],
+        ["4ds", TimeSpan.milliseconds(400)],
+        ["1 decisecond", TimeSpan.milliseconds(100)],
+        ["2das", TimeSpan.seconds(20)],
+        ["1 decasecond", TimeSpan.seconds(10)],
+        ["3hs", TimeSpan.seconds(300)],
+        ["1 hectosecond", TimeSpan.seconds(100)],
+        ["2ks", TimeSpan.seconds(2000)],
+        ["1 kilosecond", TimeSpan.seconds(1000)],
+        ["1Ms", TimeSpan.seconds(1e6)],
+        ["1 megasecond", TimeSpan.seconds(1e6)],
+        ["1 milliday", TimeSpan.milliseconds(86400)],
+        ["2 moments", TimeSpan.seconds(180)],
+        ["1 centiday", TimeSpan.seconds(864)],
+        ["1 deciday", TimeSpan.seconds(8640)],
+        ["1 decaday", TimeSpan.days(10)],
+        ["1 fortnight", TimeSpan.days(14)],
+        ["1 microfortnight", TimeSpan.microseconds(1209600)],
+        ["1 semester", TimeSpan.days(180)],
+        ["1 olympiad", TimeSpan.days(1460)],
+        ["2 lustra", TimeSpan.days(3650)],
+        ["1 decade", TimeSpan.days(3650)],
+        ["1 decade 2 decadays", TimeSpan.days(3670)],
+      ];
+      for (const [text, expected] of cases)
+        expect(TimeSpan.parse(text)?.equals(expected), text).toBe(true);
+    });
+
+    it("should read Ms as megaseconds and other cases of it as milliseconds", () => {
+      expect(TimeSpan.parse("5Ms")?.equals(TimeSpan.seconds(5e6))).toBe(true);
+      for (const text of ["5ms", "5MS", "5mS"])
+        expect(TimeSpan.parse(text)?.equals(TimeSpan.milliseconds(5)), text).toBe(true);
+    });
+
+    it("should parse clock form as hours, minutes, and seconds", () => {
+      const cases: [string, TimeSpan][] = [
+        ["1:30", TimeSpan.minutes(90)],
+        ["0:05", TimeSpan.minutes(5)],
+        ["1:30:29", TimeSpan.minutes(90).add(TimeSpan.seconds(29))],
+        ["36:00:00", TimeSpan.hours(36)],
+        ["0:00:30.25", TimeSpan.milliseconds(30250)],
       ];
       for (const [text, expected] of cases)
         expect(TimeSpan.parse(text)?.equals(expected), text).toBe(true);
@@ -1473,8 +1510,20 @@ describe("TimeSpan", () => {
       expect(TimeSpan.parse(span.toString())?.equals(span)).toBe(true);
     });
 
-    it("should return null for text that is not a unit run", () => {
-      for (const text of ["", "soon", "5 parsecs", "1:30:00", "45", "2h and 5m"])
+    it("should return null for text that is not a unit run or a clock", () => {
+      for (const text of [
+        "",
+        "soon",
+        "5 parsecs",
+        "1:",
+        "1:30:",
+        "1:30:00:00",
+        "1h 1:30",
+        "45",
+        "2h and 5m",
+        "5 minutesx",
+        "1.h",
+      ])
         expect(TimeSpan.parse(text), text).toBeNull();
     });
   });
@@ -1770,6 +1819,52 @@ describe("TimeRange", () => {
       const tr = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
       const one = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
       expect(tr.overlapsWith(one)).toBe(true);
+    });
+    it("should overlap a range that contains it, in either direction", () => {
+      const outer = new TimeRange(TimeStamp.ZERO, TimeStamp.seconds(10));
+      const inner = new TimeRange(TimeStamp.seconds(2), TimeStamp.seconds(3));
+      expect(outer.overlapsWith(inner)).toBe(true);
+      expect(inner.overlapsWith(outer)).toBe(true);
+      expect(outer.overlapsWith(inner, TimeSpan.seconds(1))).toBe(true);
+      expect(inner.overlapsWith(outer, TimeSpan.seconds(2))).toBe(false);
+    });
+    it("should not overlap an equal range sharing less than delta", () => {
+      const tr = new TimeRange(TimeStamp.ZERO, TimeStamp.seconds(10));
+      const same = new TimeRange(TimeStamp.ZERO, TimeStamp.seconds(10));
+      expect(tr.overlapsWith(same, TimeSpan.seconds(10))).toBe(true);
+      expect(tr.overlapsWith(same, TimeSpan.seconds(11))).toBe(false);
+    });
+    it("should be symmetric when one range is inverted", () => {
+      const tr = new TimeRange(TimeStamp.ZERO, TimeStamp.seconds(10));
+      const swapped = tr.swap();
+      const delta = TimeSpan.seconds(20);
+      expect(tr.overlapsWith(swapped, delta)).toBe(false);
+      expect(swapped.overlapsWith(tr, delta)).toBe(false);
+      expect(tr.overlapsWith(swapped)).toBe(true);
+      expect(swapped.overlapsWith(tr)).toBe(true);
+    });
+    it("should be symmetric and match shared time for any two ranges", () => {
+      const stamps = [0, 1, 5, 10, 15, 20].map((s) => TimeStamp.seconds(s));
+      const ranges = stamps.flatMap((start) =>
+        stamps.map((end) => new TimeRange(start, end)),
+      );
+      const deltas = [0, 1, 5, 10, 25].map((s) => TimeSpan.seconds(s));
+      for (const a of ranges)
+        for (const b of ranges) {
+          const r1 = a.makeValid();
+          const r2 = b.makeValid();
+          const shared = TimeStamp.min(r1.end, r2.end).sub(
+            TimeStamp.max(r1.start, r2.start),
+          );
+          for (const delta of deltas) {
+            const overlaps = a.overlapsWith(b, delta);
+            expect(overlaps).toBe(b.overlapsWith(a, delta));
+            if (overlaps)
+              expect(shared.valueOf()).toBeGreaterThanOrEqual(delta.valueOf());
+          }
+          if (!r1.span.isZero && !r2.span.isZero)
+            expect(a.overlapsWith(b)).toBe(shared.valueOf() > 0n);
+        }
     });
   });
 
@@ -2480,5 +2575,32 @@ describe("convertDataType", () => {
 
   it("normalizes a zero bigint to 0 when casting to BOOLEAN", () => {
     expect(convertDataType(DataType.INT64, DataType.BOOLEAN, 0n)).toBe(0);
+  });
+});
+
+describe("windowZ", () => {
+  it("should parse a dynamic window", () => {
+    expect(windowZ.parse({ variant: "dynamic", timeSpan: 60e9 })).toEqual({
+      variant: "dynamic",
+      timeSpan: 60e9,
+    });
+  });
+
+  it("should keep a static window's endpoints as decimal strings", () => {
+    const window = {
+      variant: "static",
+      timeRange: { start: "1788000000000000123", end: "1788000000000000456" },
+    };
+    expect(windowZ.parse(window)).toEqual(window);
+  });
+
+  it("should coerce numeric static endpoints to strings", () => {
+    expect(
+      windowZ.parse({ variant: "static", timeRange: { start: 0, end: 1000n } }),
+    ).toEqual({ variant: "static", timeRange: { start: "0", end: "1000" } });
+  });
+
+  it("should reject a static window without a time range", () => {
+    expect(() => windowZ.parse({ variant: "static", start: "0", end: "1" })).toThrow();
   });
 });

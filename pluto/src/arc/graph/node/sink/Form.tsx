@@ -18,7 +18,11 @@ export const Form = (): ReactElement => (
   <Flex.Box x>
     <Base.Field<channel.Key> path="channel">
       {({ value, onChange }) => (
-        <Channel.SelectSingle value={value} onChange={onChange} />
+        <Channel.SelectSingle
+          value={value}
+          onChange={(key: channel.Key | null) => onChange(key ?? 0)}
+          allowNone
+        />
       )}
     </Base.Field>
     <Base.NumericField path="value" grow />

@@ -10,7 +10,7 @@
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type FC, useEffect } from "react";
+import { type FC } from "react";
 
 import { type TimeFormat } from "@/feature/kafka/task/types";
 
@@ -35,27 +35,15 @@ const renderSelect = Component.renderProp(
 export interface TimeFormatFieldProps {
   path: string;
   label: string;
-  /** The format stored when the field mounts without one. */
-  defaultValue?: TimeFormat;
 }
 
 /**
  * Selects the encoding of a timestamp carried as a JSON value. The caller decides when
- * a timestamp format applies; mounting writes the default to `path` so the choice is
- * stored instead of silently absent.
+ * a timestamp format applies. An unset format is left absent, and a timestamp channel
+ * without one fails validation.
  */
-export const TimeFormatField: FC<TimeFormatFieldProps> = ({
-  path,
-  label,
-  defaultValue = "unix_ms",
-}) => {
-  const { get, set } = PForm.useContext();
-  useEffect(() => {
-    if (get<TimeFormat>(path, { optional: true }) == null) set(path, defaultValue);
-  }, [path, get, set, defaultValue]);
-  return (
-    <PForm.Field<TimeFormat> path={path} label={label} defaultValue={defaultValue}>
-      {renderSelect}
-    </PForm.Field>
-  );
-};
+export const TimeFormatField: FC<TimeFormatFieldProps> = ({ path, label }) => (
+  <PForm.Field<TimeFormat> path={path} label={label}>
+    {renderSelect}
+  </PForm.Field>
+);

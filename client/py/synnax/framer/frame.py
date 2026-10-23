@@ -9,11 +9,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
-from typing import TypeAlias, cast, overload
+from collections.abc import Iterator, Mapping, Sequence
+from typing import TypeAlias, overload
 
+import numpy as np
+import numpy.typing as npt
 from pandas import DataFrame
 from pydantic import BaseModel, Field
+from typing_extensions import TypeVar
 
 import synnax.channel.payload as channel
 from synnax.exceptions import ValidationError
@@ -30,9 +33,9 @@ class FramePayload(BaseModel):
         series: list[Series] | None = None,
     ):
         if series is None:
-            series = list()
+            series = []
         if keys is None:
-            keys = list()
+            keys = []
         super().__init__(series=series, keys=keys)
 
 
@@ -42,9 +45,18 @@ class Frame:
     can be keyed by channel name or channel key, but not both.
     """
 
-    channels: list[channel.Key] | list[str]
+    channels: list[channel.Key | str]
     series: list[Series] = Field(default_factory=list)
 
+    @overload
+    def __init__(
+        self,
+        channels: list[channel.Key | str],
+        series: Sequence[TypedCrudeSeries] | None = None,
+    ) -> None:
+        """Builds a frame from a list that mixes channel keys and names."""
+
+    @overload
     def __init__(
         self,
         channels: (
@@ -55,12 +67,30 @@ class Frame:
             | DataFrame
             | Frame
             | FramePayload
-            | dict[channel.Key, TypedCrudeSeries]
-            | dict[str, TypedCrudeSeries]
+            | Mapping[channel.Key, TypedCrudeSeries]
+            | Mapping[str, TypedCrudeSeries]
             | None
         ) = None,
         series: Sequence[TypedCrudeSeries] | None = None,
-    ):
+    ) -> None: ...
+
+    def __init__(
+        self,
+        channels: (
+            list[channel.Key | str]
+            | list[channel.Key]
+            | tuple[channel.Key]
+            | list[str]
+            | tuple[str]
+            | DataFrame
+            | Frame
+            | FramePayload
+            | Mapping[channel.Key, TypedCrudeSeries]
+            | Mapping[str, TypedCrudeSeries]
+            | None
+        ) = None,
+        series: Sequence[TypedCrudeSeries] | None = None,
+    ) -> None:
         if isinstance(channels, Frame):
             self.channels = channels.channels
             self.series = channels.series
@@ -68,20 +98,16 @@ class Frame:
             self.channels = list(channels.keys)
             self.series = channels.series
         elif isinstance(channels, DataFrame):
-            self.channels = channels.columns.to_list()
+            self.channels = list(channels.columns)
             self.series = [Series(data=channels[k]) for k in self.channels]
-        elif isinstance(channels, dict):
-            self.channels = cast(list[channel.Key] | list[str], list(channels.keys()))
+        elif isinstance(channels, Mapping):
+            self.channels = list(channels.keys())
             self.series = [Series(d) for d in channels.values()]
         elif (series is None or isinstance(series, list)) and (
             channels is None or isinstance(channels, list)
         ):
-            self.series = list() if series is None else [Series(d) for d in series]
-            self.channels = (
-                cast(list[channel.Key] | list[str], list(channels))
-                if channels
-                else list()
-            )
+            self.series = [] if series is None else [Series(d) for d in series]
+            self.channels = list(channels) if channels else []
         else:
             raise ValueError(f"""
                 [Frame] - invalid construction arguments. Received {channels}
@@ -97,14 +123,12 @@ class Frame:
         :param col_or_frame: The channel key or name to append the series to.
         :param series: The series to append to the frame
         """
-        ...
 
     @overload
     def append(self, col_or_frame: Frame) -> None:
         """Appends the given frame to the current frame, modifying the current frame in place.
         :param col_or_frame: The frame to append to the current frame.
         """
-        ...
 
     def append(
         self,
@@ -121,12 +145,12 @@ class Frame:
         """
         if isinstance(col_or_frame, Frame):
             self.series.extend(col_or_frame.series)
-            self.channels.extend(col_or_frame.channels)  # type: ignore[arg-type]
+            self.channels.extend(col_or_frame.channels)
         else:
             if series is None:
                 raise ValueError("series must be provided when appending a channel")
             self.series.append(series)
-            self.channels.append(col_or_frame)  # type: ignore[arg-type]
+            self.channels.append(col_or_frame)
 
     def items(
         self,
@@ -135,9 +159,18 @@ class Frame:
         Returns a generator of tuples containing the channel and series for each channel
         in the frame.
         """
-        return zip(self.channels, self.series)
+        return zip(self.channels, self.series, strict=True)
 
-    def __getitem__(self, key: channel.Key | str) -> MultiSeries:
+    @overload
+    def __getitem__(self, key: channel.Key | str) -> MultiSeries: ...
+
+    @overload
+    def __getitem__(self, key: npt.NDArray[np.bool_]) -> DataFrame:
+        """Selects the rows where the boolean mask is true, through pandas."""
+
+    def __getitem__(
+        self, key: channel.Key | str | npt.NDArray[np.bool_]
+    ) -> MultiSeries | DataFrame:
         if not isinstance(key, (channel.Key, str)):
             return self.to_df()[key]
         indexes = [i for i, k in enumerate(self.channels) if k == key]
@@ -174,9 +207,8 @@ class Frame:
         """Converts the frame to a pandas DataFrame. Each column in the DataFrame
         corresponds to a channel in the frame.
         """
-        base: dict[channel.Key | str, object] = dict()
-        channels = cast(list[channel.Key | str], self.channels)
-        for k in set(channels):
+        base: dict[channel.Key | str, object] = {}
+        for k in set(self.channels):
             v = self.get(k)
             if v is None:
                 continue
@@ -190,6 +222,10 @@ class Frame:
         return key in self.channels
 
 
-CrudeFrame: TypeAlias = (
-    Frame | FramePayload | dict[channel.Key, CrudeSeries] | DataFrame
+# Bound per call, so a typed mapping of keys, names, payloads, or a mix matches.
+K = TypeVar(
+    "K",
+    bound=channel.Key | str | channel.Payload,
+    default=channel.Key | str | channel.Payload,
 )
+CrudeFrame: TypeAlias = Frame | FramePayload | Mapping[K, CrudeSeries] | DataFrame

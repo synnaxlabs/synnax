@@ -18,7 +18,7 @@ from x.telem import CrudeTimeSpan, Rate, TimeSpan, TimeStamp
 
 T = TypeVar("T")
 
-RESOLUTION = (100 * TimeSpan.MICROSECOND).seconds
+RESOLUTION = (TimeSpan.MICROSECOND * 100).seconds
 
 
 def _precise_sleep(dur: float | int) -> None:
@@ -170,12 +170,13 @@ def poll(
 
     :param func: A callable that returns a value or None. Polling stops when it returns
     a non-None value.
-    :param timeout: Maximum time to poll for.
-    :param interval: Time to sleep between calls to func.
+    :param timeout: Maximum time to poll for. A float or int is a number of seconds.
+    :param interval: Time to sleep between calls to func. A float or int is a number of
+    seconds.
     :returns: The first non-None return value from func, or None if the timeout expired.
     """
-    timeout = TimeSpan(timeout)
-    interval = TimeSpan(interval)
+    timeout = TimeSpan.from_seconds(timeout)
+    interval = TimeSpan.from_seconds(interval)
     timer = Timer()
     while timer.elapsed() < timeout:
         result = func()

@@ -17,9 +17,9 @@ import (
 	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	authversions "github.com/synnaxlabs/synnax/pkg/service/auth/versions"
 	channelversions "github.com/synnaxlabs/synnax/pkg/service/channel/versions"
-	deviceversions "github.com/synnaxlabs/synnax/pkg/service/device/versions"
 	groupversions "github.com/synnaxlabs/synnax/pkg/service/group/versions"
 	labelversions "github.com/synnaxlabs/synnax/pkg/service/label/versions"
+	deviceversions "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions"
 	lineplotversions "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 	logversions "github.com/synnaxlabs/synnax/pkg/service/log/versions"
 	ontologyversions "github.com/synnaxlabs/synnax/pkg/service/ontology/versions"
@@ -69,5 +69,5 @@ var _ = DescribeTable("Pre-v0.54 key normalization",
 	Entry("table", tableversions.Migrations),
 	Entry("task", taskversions.NewMigrations(taskversions.MigrationsConfig{})),
 	Entry("user", userversions.Migrations),
-	Entry("view", viewversions.Migrations),
+	Entry("view", viewversions.NewMigrations(nil)),
 )

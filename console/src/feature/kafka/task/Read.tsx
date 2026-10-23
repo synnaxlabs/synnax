@@ -79,7 +79,6 @@ const Properties = () => (
         className={TEXT_FIELD_CLASS}
         path="config.group"
         label="Consumer group"
-        optional
         inputProps={GROUP_INPUT_PROPS}
         grow
       />
@@ -241,7 +240,6 @@ const RecordDetails = ({ path }: Task.Views.GroupProps) => (
       <PForm.TextField
         path={`${path}.recordKey`}
         label="Record key"
-        optional
         padHelpText={false}
         inputProps={RECORD_KEY_INPUT_PROPS}
       />

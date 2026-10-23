@@ -72,6 +72,30 @@ describe("Kafka Task Types", () => {
       );
     });
 
+    it("should reject a timestamp field without a time format", () => {
+      const result = Kafka.Task.deployReadConfigZ.safeParse({
+        ...valid,
+        records: [{ ...record, fields: [{ ...field, dataType: "timestamp" }] }],
+      });
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0].message).toBe(
+        "Time format is required for timestamps",
+      );
+    });
+
+    it("should accept a timestamp field with a time format", () => {
+      const result = Kafka.Task.deployReadConfigZ.safeParse({
+        ...valid,
+        records: [
+          {
+            ...record,
+            fields: [{ ...field, dataType: "timestamp", timeFormat: "unix_ms" }],
+          },
+        ],
+      });
+      expect(result.success).toBe(true);
+    });
+
     it("should accept a disabled field without a pointer", () => {
       const result = Kafka.Task.deployReadConfigZ.safeParse({
         ...valid,
