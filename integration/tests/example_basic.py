@@ -26,11 +26,6 @@ class CheckConnectionBasic(TestCase):
             name="is_connected", data_type=sy.DataType.UINT32, initial_value=1
         )
 
-        # Or explicitly change the time out
-        self._timeout_limit = 6 * sy.TimeSpan.SECOND
-        # Or change it via test parameters
-        self._timeout_limit = self.params.get("timeout", None)
-
         # Just make sure to call super() last!
         super().setup()
 
@@ -42,7 +37,6 @@ class CheckConnectionBasic(TestCase):
         # Stuff goes here
         wait_time = self.params.get("wait_time", 0)
         self.log(f"Waiting for {wait_time} seconds")
-        self.log(f"Expected timeout: {self._timeout_limit}")
         sy.sleep(wait_time)
 
         # Or induce a failure

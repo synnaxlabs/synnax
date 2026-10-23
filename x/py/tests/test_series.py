@@ -130,6 +130,15 @@ class TestSeries:
         assert s.data_type == telem.DataType.BOOLEAN
         assert s.data == b"\x01\x00\x01"
 
+    @pytest.mark.parametrize("value", [np.True_, np.False_])
+    def test_construction_from_np_bool_scalar(self, value: np.bool_) -> None:
+        """Should infer BOOLEAN from a numpy bool_ scalar"""
+        s = telem.Series(value)
+        assert s.data_type == telem.DataType.BOOLEAN
+        assert len(s) == 1
+        assert s.data == bytes([int(value)])
+        assert s[0] == value
+
     def test_bool_normalizes_nonzero_numeric_inputs(self) -> None:
         """Should normalize nonzero numeric inputs to 0x01 when dtype is BOOLEAN"""
         s = telem.Series([0, 1, 42, -3, 0], data_type=telem.DataType.BOOLEAN)
@@ -901,3 +910,19 @@ class TestSeriesProperties:
         s = telem.Series(values, alignment=align)
         assert telem.Series(s).alignment == align
         assert s.astype(telem.DataType.FLOAT64).alignment == align
+
+    @given(st.lists(_INT64, max_size=20), st.integers(0, 2**64 - 21))
+    def test_alignment_bounds_exact(self, values: list[int], align: int) -> None:
+        """Should keep every bit of a 64-bit alignment in the bounds"""
+        bounds = telem.Series(
+            values, data_type="int64", alignment=align
+        ).alignment_bounds
+        assert bounds.lower == align
+        assert bounds.upper == align + len(values)
+
+    @given(st.lists(_INT64, min_size=1, max_size=20))
+    def test_datetime64_round_trip(self, values: list[int]) -> None:
+        """Should round-trip a datetime64[ns] array as timestamps"""
+        s = telem.Series(np.array(values, dtype="datetime64[ns]"))
+        assert s.data_type == telem.DataType.TIMESTAMP
+        assert np.asarray(s).tolist() == values

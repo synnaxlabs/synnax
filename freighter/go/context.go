@@ -52,6 +52,8 @@ type Context struct {
 	Protocol string
 	// Target is the address the request is being sent to.
 	Target address.Address
+	// Remote is the address the request came from. It is set on the server side only.
+	Remote address.Address
 	// Sec is the security information for the requests/response connection.
 	Sec SecurityInfo
 	// Role indicates the location of the middleware (client or server).

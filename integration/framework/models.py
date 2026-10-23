@@ -51,6 +51,7 @@ class SynnaxConnection:
     username: str = "synnax"
     password: str = "seldon"
     secure: bool = False
+    ca_cert: str | None = None
 
     def create_client(self) -> sy.Synnax:
         return sy.Synnax(
@@ -59,6 +60,7 @@ class SynnaxConnection:
             username=self.username,
             password=self.password,
             secure=self.secure,
+            ca_cert=self.ca_cert,
         )
 
 

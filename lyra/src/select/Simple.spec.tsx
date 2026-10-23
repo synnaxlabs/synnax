@@ -288,6 +288,31 @@ describe("Select.Simple multiple", () => {
     expect(tag?.querySelector("[aria-label='trigger icon']")).toBeNull();
   });
 
+  it("should clear a selected item with allowNone", () => {
+    const onClear = vi.fn();
+    const Clearable = (): ReactElement => {
+      const [value, setValue] = useState<string | undefined>("1");
+      const handleChange = (key: string | null) => {
+        setValue(key ?? undefined);
+        onClear(key);
+      };
+      return (
+        <Select.Simple<string>
+          value={value}
+          onChange={handleChange}
+          resourceName="Test Item"
+          allowNone
+        >
+          <Select.Item itemKey="1">First Item</Select.Item>
+        </Select.Simple>
+      );
+    };
+    const c = render(<Clearable />);
+    fireEvent.click(c.getByLabelText("Clear First Item"));
+    expect(onClear).toHaveBeenLastCalledWith(null);
+    expect(c.getByText("Test Item")).toBeTruthy();
+  });
+
   describe("first paint", () => {
     // act runs every effect before returning, which hides what a browser would paint.
     // These specs mount outside it and read the page after each task, where a browser
