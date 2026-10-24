@@ -186,6 +186,7 @@ ReadConfig struct extends task.PersistConfig {
         configures an MQTT read task, which subscribes to topics and Sparkplug B tags on
         a broker device and writes their values to Synnax channels.
     """
+    @go imex    body
     @go marshal
     @go migrate
 }
@@ -320,25 +321,25 @@ WriteTarget union on type extends BaseWriteTarget {
         @doc value "publishes a JSON payload to one topic."
     }
     sparkplug {
-        group          string = "" {
+        group     string = "" {
             @doc value "is the Sparkplug group ID of the edge node."
         }
-        edge_node      string = "" {
+        edge_node string = "" {
             @doc value "is the Sparkplug edge node ID."
         }
-        device         string = "" {
+        device    string = "" {
             @doc value "is the Sparkplug device ID. Empty for a tag of the edge node."
         }
-        tag            string = "" {
+        tag       string = "" {
             @doc value "is the name of the tag to command."
         }
-        tag_type       SparkplugDataType = double {
+        tag_type  SparkplugDataType = double {
             @doc value "is the Sparkplug B data type the command value is sent as."
         }
-        channel        channel.Key = 0 {
+        channel   channel.Key = 0 {
             @doc value "is the Synnax command channel whose writes trigger the command."
         }
-        name           string = "" {
+        name      string = "" {
             @doc value "is the human-readable name of the command channel."
         }
 
@@ -364,40 +365,42 @@ WriteConfig struct extends task.StartConfig {
         configures an MQTT write task, which publishes a message whenever a value is
         written to the command channel of a target.
     """
+    @go imex    body
     @go marshal
     @go migrate
 }
 
 ScanConfig struct extends task.ScanConfig {
     @doc value  "configures an MQTT scan task."
+    @go imex    body
     @go marshal
     @go migrate
 }
 
 EdgeTag struct {
-    key             string = create {
+    key                  string = create {
         @doc value "uniquely identifies the tag within the task."
         @key
     }
-    disabled        bool = false {
+    disabled             bool = false {
         @doc value "is true when the tag is excluded from the task."
     }
-    name            string = "" {
+    name                 string = "" {
         @doc value "is the Sparkplug B name of the tag."
     }
-    channel         channel.Key = 0 {
+    channel              channel.Key = 0 {
         @doc value "is the Synnax channel whose value the tag publishes."
     }
-    tag_type        SparkplugDataType = double {
+    tag_type             SparkplugDataType = double {
         @doc value "is the Sparkplug B data type the tag is published as."
     }
-    command_channel channel.Key = 0 {
+    command_channel      channel.Key = 0 {
         @doc value """
             is the Synnax channel that takes values written to the tag. Zero when the
             tag rejects writes.
         """
     }
-    command_channel_name string? {
+    command_channel_name string?           {
         @doc value """
             is the name of the command channel that the Console creates at configure
             when the tag has none. Absent when the tag rejects writes.
@@ -432,6 +435,7 @@ EdgeConfig struct extends task.StartConfig {
         configures a Sparkplug B edge node task, which publishes Synnax channels as the
         tags of one edge node and writes inbound tag commands to Synnax channels.
     """
+    @go imex    body
     @go marshal
     @go migrate
 }

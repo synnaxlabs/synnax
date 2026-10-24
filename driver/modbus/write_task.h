@@ -180,7 +180,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
                 return ch.field_err("channel", "channel must be specified");
             if (const auto *c = std::get_if<
                     ::synnax::modbus::HoldingRegisterWriteChannel>(&parsed))
-                registers.emplace_back(*c);
+                registers.emplace_back(*c, this->conn);
             else
                 coils.emplace_back(
                     std::get<::synnax::modbus::CoilWriteChannel>(parsed)

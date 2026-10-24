@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -45,6 +46,24 @@ var _ = Describe("Service", func() {
 				mqtt.EdgeTaskType,
 			))
 		})
+	})
+
+	Describe("Normalize", func() {
+		DescribeTable(
+			"Should import a config at version 1 and reject a later version",
+			func(ctx SpecContext, store func(*mqtt.Service) config.Store) {
+				s := store(svc)
+				Expect(s.Version()).To(BeEquivalentTo(1))
+				MustSucceed(s.Normalize(ctx, 1, msgpack.EncodedJSON{}))
+				newer := " version 2 is newer than this Core supports (latest: 1)"
+				Expect(s.Normalize(ctx, 2, msgpack.EncodedJSON{})).Error().
+					To(MatchError(ContainSubstring(s.Type() + newer)))
+			},
+			Entry("read", func(s *mqtt.Service) config.Store { return s.Read }),
+			Entry("write", func(s *mqtt.Service) config.Store { return s.Write }),
+			Entry("scan", func(s *mqtt.Service) config.Store { return s.Scan }),
+			Entry("edge", func(s *mqtt.Service) config.Store { return s.Edge }),
+		)
 	})
 
 	Describe("Write", func() {

@@ -1,0 +1,103 @@
+{
+  "version": 2,
+  "name": "http_read_list",
+  "auto_start": true,
+  "data_saving_disabled": true,
+  "device": "fixture-http-device",
+  "rate": 2.5,
+  "endpoints": [
+    {
+      "query_params": [
+        {
+          "parameter": "siteId",
+          "value": "fixture-site-9"
+        },
+        {
+          "value": "false",
+          "parameter": "verbose"
+        }
+      ],
+      "body": "",
+      "fields": [
+        {
+          "key": "fld-list-ts",
+          "name": "fixture_http_list_timestamp",
+          "disabled": false,
+          "channel": 10110,
+          "pointer": "/data/timestamp",
+          "data_type": "timestamp",
+          "time_format": "iso8601",
+          "enum_values": []
+        },
+        {
+          "disabled": false,
+          "channel": 10120,
+          "pointer": "/data/modeLabel",
+          "data_type": "uint8",
+          "enum_values": [
+            {
+              "label": "idle",
+              "value": 1
+            },
+            {
+              "label": "running",
+              "value": 2
+            },
+            {
+              "value": 3,
+              "label": "faulted"
+            }
+          ],
+          "key": "fld-list-mode",
+          "name": "fixture_http_list_mode"
+        }
+      ],
+      "index": "fixture_http_list_index",
+      "key": "ep-list-get",
+      "method": "GET",
+      "path": "/api/v1/fixtureListTelemetry",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "X-Api-Key",
+          "value": "fixture-api-key-456"
+        }
+      ]
+    },
+    {
+      "query_params": [
+        {
+          "parameter": "limitCount",
+          "value": "50"
+        }
+      ],
+      "body": "{\"deviceId\": \"fixture-43\"}",
+      "fields": [
+        {
+          "data_type": "float64",
+          "enum_values": [],
+          "key": "fld-list-temp",
+          "name": "fixture_http_list_temperature",
+          "disabled": true,
+          "channel": 10140,
+          "pointer": "/results/0/tempC"
+        }
+      ],
+      "index": "",
+      "key": "ep-list-post",
+      "method": "POST",
+      "path": "/api/v1/fixtureListQuery",
+      "headers": [
+        {
+          "name": "X-Request-Source",
+          "value": "fixture"
+        }
+      ]
+    }
+  ],
+  "nan_fill_enabled": false,
+  "type": "http_read"
+}

@@ -52,6 +52,7 @@ dev = [
     "types-pyserial>=3.5.0.20260712,<4",
     "protobuf>=7.36.2,<8",
     "types-protobuf>=7.35.1.20260906,<8",
+    "nptdms>=1.13.0,<2",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -142,6 +143,7 @@ markers = [
     "telem: mark test as a telem test",
     "timing: mark test as a timing test",
     "tsconvert: mark test as a tsconvert test",
+    "reader: mark test as a frame reader test",
     "writer: mark test as a frame writer test",
     "streamer: mark test as a frame streamer test",
     "calculations: mark test as a calculated channels test",

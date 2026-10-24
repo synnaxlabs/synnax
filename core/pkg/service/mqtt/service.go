@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -32,9 +33,6 @@ const (
 	ScanTaskType = "mqtt_scan"
 	// EdgeTaskType is the type of a task that is one Sparkplug B edge node.
 	EdgeTaskType = "mqtt_sparkplug_edge"
-	// configVersion is the version of every MQTT config type. No legacy shape sits
-	// below it.
-	configVersion = 1
 )
 
 // ServiceConfig is the configuration for opening the MQTT task config service.
@@ -90,7 +88,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               ReadTaskType,
-			Version:            configVersion,
+			Ladder:             versions.ReadConfigLadder,
 			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 			ValidateEntry:      (*ReadConfig).Validate,
@@ -103,7 +101,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               WriteTaskType,
-			Version:            configVersion,
+			Ladder:             versions.WriteConfigLadder,
 			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 			ValidateEntry:      (*WriteConfig).Validate,
@@ -116,7 +114,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               ScanTaskType,
-			Version:            configVersion,
+			Ladder:             versions.ScanConfigLadder,
 			SetEntryKey:        (*ScanConfig).SetKey,
 			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
 		},
@@ -128,7 +126,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               EdgeTaskType,
-			Version:            configVersion,
+			Ladder:             versions.EdgeConfigLadder,
 			SetEntryKey:        (*EdgeConfig).SetKey,
 			ApplyEntryDefaults: (*EdgeConfig).ApplyDefaults,
 			ValidateEntry:      (*EdgeConfig).Validate,

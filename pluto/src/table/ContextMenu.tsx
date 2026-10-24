@@ -14,7 +14,13 @@ import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { type ReactElement, type ReactNode, useCallback, useMemo } from "react";
 
 import { getCellColumn } from "@/table/Indicator";
-import { useCellPosition, useRedo, useRows, useUndo } from "@/table/queries";
+import {
+  useCellPosition,
+  useColumns,
+  useRedo,
+  useRows,
+  useUndo,
+} from "@/table/queries";
 
 /** Erases the selected cells. Registered by {@link Table}; shown on the erase item. */
 export const ERASE_TRIGGER: Triggers.Trigger = ["Delete"];
@@ -36,19 +42,25 @@ export interface DefaultContextMenuProps {
   onCenteredChange?: (next: boolean) => void;
   onAddRow: (index?: number) => void;
   onAddCol: (index?: number) => void;
-  onRemoveRow: (indices: number[]) => void;
-  onRemoveCol: (indices: number[]) => void;
+  /** Removes the rows with the given keys. */
+  onRemoveRow: (keys: string[]) => void;
+  /** Removes the columns with the given keys. */
+  onRemoveCol: (keys: string[]) => void;
   onEraseCells: (cells: string[]) => void;
   extra?: ReactNode;
 }
 
-const parseResizer = (id: string): { dir: "x" | "y"; index: number } | null => {
+const parseResizer = (id: string): { dir: "x" | "y"; key: string } | null => {
   if (!id.startsWith("resizer-")) return null;
-  const [, dir, idx] = id.split("-");
+  const [, dir, ...key] = id.split("-");
   if (dir !== "x" && dir !== "y") return null;
-  const parsed = Number.parseInt(idx, 10);
-  if (!Number.isFinite(parsed)) return null;
-  return { dir, index: parsed };
+  return { dir, key: key.join("-") };
+};
+
+// indexOf returns the index of the row or column with key, or null when none has it.
+const indexOf = (items: Array<{ key: string }>, key: string): number | null => {
+  const index = items.findIndex((item) => item.key === key);
+  return index === -1 ? null : index;
 };
 
 export const DefaultContextMenu = ({
@@ -71,9 +83,12 @@ export const DefaultContextMenu = ({
   const resizer = targetID != null ? parseResizer(targetID) : null;
   const cellKey = resizer == null ? targetID : null;
   const cellPos = useCellPosition({ key: resourceKey, cellKey: cellKey ?? "" });
-  const rowIdx = resizer?.dir === "y" ? resizer.index : (cellPos?.y ?? null);
-  const colIdx = resizer?.dir === "x" ? resizer.index : (cellPos?.x ?? null);
   const rows = useRows({ key: resourceKey });
+  const columns = useColumns({ key: resourceKey });
+  const rowIdx =
+    resizer?.dir === "y" ? indexOf(rows, resizer.key) : (cellPos?.y ?? null);
+  const colIdx =
+    resizer?.dir === "x" ? indexOf(columns, resizer.key) : (cellPos?.x ?? null);
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   // fullySelectedRows / fullySelectedCols: indices where every cell along that axis is
   // in the selection. When the right-clicked row/col is part of this set, the delete
@@ -182,7 +197,7 @@ export const DefaultContextMenu = ({
           <Menu.Item
             size="small"
             itemKey="deleteRow"
-            onClick={() => onRemoveRow(targetRowIndices)}
+            onClick={() => onRemoveRow(targetRowIndices.map((i) => rows[i].key))}
           >
             <Icon.Delete.Row />
             {targetRowIndices.length > 1
@@ -195,7 +210,7 @@ export const DefaultContextMenu = ({
         <Menu.Item
           size="small"
           itemKey="deleteCol"
-          onClick={() => onRemoveCol(targetColIndices)}
+          onClick={() => onRemoveCol(targetColIndices.map((i) => columns[i].key))}
         >
           <Icon.Delete.Col />
           {targetColIndices.length > 1

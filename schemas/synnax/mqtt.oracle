@@ -192,6 +192,7 @@ ReadConfig struct extends task.PersistConfig {
         configures an MQTT read task, which subscribes to topics and Sparkplug B tags on
         a broker device and writes their values to Synnax channels.
     """
+    @go imex    body
     @go marshal
     @go migrate
 }
@@ -371,12 +372,14 @@ WriteConfig struct extends task.StartConfig {
         configures an MQTT write task, which publishes a message whenever a value is
         written to the command channel of a target.
     """
+    @go imex    body
     @go marshal
     @go migrate
 }
 
 ScanConfig struct extends task.ScanConfig {
     @doc value  "configures an MQTT scan task."
+    @go imex    body
     @go marshal
     @go migrate
 }
@@ -439,6 +442,7 @@ EdgeConfig struct extends task.StartConfig {
         configures a Sparkplug B edge node task, which publishes Synnax channels as the
         tags of one edge node and writes inbound tag commands to Synnax channels.
     """
+    @go imex    body
     @go marshal
     @go migrate
 }
