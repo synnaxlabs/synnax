@@ -588,6 +588,15 @@ TEST_F(EngineTest, SlowTasksRunTheBusAtTheMinimumRate) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
 }
 
+/// @brief it should open a 0.1 Hz reader on a 100 Hz bus, despite the float precision
+/// of a rate.
+TEST_F(EngineTest, TenthHzReaderOpens) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(0.1), 1)
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
+}
+
 /// @brief it should run the bus at the least common multiple of the read rates.
 TEST_F(EngineTest, BusRateIsTheCommonMultipleOfReadRates) {
     const auto a = ASSERT_NIL_P(
