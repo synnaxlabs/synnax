@@ -187,6 +187,32 @@ describe("useConnectModal", () => {
     expect(analytics.capture).not.toHaveBeenCalled();
   });
 
+  it("should show a failure from a Driver that sends no description", async () => {
+    const rack = await client.racks.create({
+      name: uniqueName("http_rack"),
+      integrations: ["http"],
+    });
+    const scan = await rack.createTask({
+      name: uniqueName("http_scan"),
+      type: HTTP.Task.SCAN_TYPE,
+      config: {},
+    });
+    await renderModalOpener(HTTP.Device.useConnectModal, [{}], { client });
+    await selectFromDropdown("Select Driver", rack.name);
+    fireEvent.change(screen.getByPlaceholderText("www.example.com"), {
+      target: { value: "localhost:8080" },
+    });
+    const { answered } = await answerNextCommand(client, scan, {
+      variant: "error",
+      message: "Connection refused",
+    });
+    pressSaveTrigger();
+    await answered;
+    expect(
+      await screen.findByText("Failed to update device: Connection refused"),
+    ).toBeTruthy();
+  });
+
   // Submitting with no rack chosen fails validation. That error is the proof the keys
   // reached the same save path the Connect button uses.
   it("should submit on the shortcut its footer advertises", async () => {

@@ -83,6 +83,32 @@ describe("OPCUA.Device.useConnectModal", () => {
     );
   });
 
+  it("should show a failure from a Driver that sends no description", async () => {
+    const rack = await client.racks.create({
+      name: uniqueName("opcua_rack"),
+      integrations: ["opc"],
+    });
+    const scan = await rack.createTask({
+      name: uniqueName("opcua_scan"),
+      type: OPCUA.Task.SCAN_TYPE,
+      config: {},
+    });
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{}], { client });
+    await selectFromDropdown("Select Driver", rack.name);
+    fireEvent.change(screen.getByPlaceholderText("opc.tcp://localhost:4840"), {
+      target: { value: "opc.tcp://localhost:4840" },
+    });
+    const { answered } = await answerNextCommand(client, scan, {
+      variant: "error",
+      message: "Connection refused",
+    });
+    pressSaveTrigger();
+    await answered;
+    expect(
+      await screen.findByText("Failed to update device: Connection refused"),
+    ).toBeTruthy();
+  });
+
   // Submitting with no rack chosen fails validation. That error is the proof the keys
   // reached the same save path the Connect button uses.
   it("should submit on the shortcut its footer advertises", async () => {

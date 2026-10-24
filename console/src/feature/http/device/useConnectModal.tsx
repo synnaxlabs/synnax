@@ -418,7 +418,10 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
             {variant == "success" ? (
               <Triggers.SaveHelpText action="Connect" noBar />
             ) : (
-              <Status.Summary variant={variant} message={stat.description} />
+              <Status.Summary
+                variant={variant}
+                message={stat.description || stat.message}
+              />
             )}
           </Nav.Bar.Start>
           <Nav.Bar.End>
