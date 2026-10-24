@@ -12,7 +12,7 @@ import { type Locator } from "playwright";
 import { capture, fixtures } from "@/index";
 
 /** NAME is the calculated channel the shots create and edit. */
-export const NAME = "cpu_calc";
+const NAME = "cpu_calc";
 
 /** A point in the empty panel with no control under it, for the end of a shot. */
 export const PARK = { x: 1180, y: 680 };

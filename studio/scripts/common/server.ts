@@ -101,7 +101,7 @@ export const browseNodes =
  * connect runs the connect command of a server, enters its name and the Driver, fills
  * the fields of the protocol, and waits for the Driver to test the connection.
  */
-export const connect = async (
+const connect = async (
   session: capture.CaptureSession,
   { command, defaultName, name, fill }: Server,
 ): Promise<void> => {
