@@ -247,9 +247,9 @@ No fix is necessary when the sensor streams. See
 <Problem.Body>
 <Problem.Cause>
 
-A runtime error, such as an index out of bounds on a Driver. The status shows "Failed to
-run Arc program", with this text in the description. A Driver stops the automation on
-such an error. The Core drops the cycle and keeps running.
+A runtime error, such as an index out of bounds. On a Driver, the status shows "Failed
+to run Arc program" with this text in the description, and the automation stops. On the
+Core, the status shows "Node failed", and the Core drops the cycle and keeps running.
 
 </Problem.Cause>
 <Problem.Fix>
