@@ -423,7 +423,8 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
-			Expect(stat.Message).To(ContainSubstring("invalid uuid"))
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Description).To(ContainSubstring("invalid uuid"))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
@@ -449,7 +450,8 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
-			Expect(stat.Message).To(ContainSubstring("not found"))
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Description).To(ContainSubstring("not found"))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
@@ -663,7 +665,8 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("error"))
-				Expect(stat.Message).To(ContainSubstring("not found"))
+				Expect(stat.Message).To(Equal("Failed to configure task"))
+				Expect(stat.Description).To(ContainSubstring("not found"))
 				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
@@ -878,6 +881,44 @@ var _ = Describe("Task", Ordered, func() {
 				).
 					Error().
 					To(MatchError(ContainSubstring("undefined symbol")))
+			},
+		)
+	})
+
+	Describe("Start Error Paths", func() {
+		It(
+			"Should report a failed start with the cause in the description",
+			func(ctx SpecContext) {
+				ch := &channel.Channel{
+					Name:     "start_fail_test_ch_" + uuid.New().String()[:8],
+					Virtual:  true,
+					DataType: telem.Float32T,
+				}
+				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				svcTask := task.Task{
+					Key:  uuid.New(),
+					Name: "test-start-fail",
+					Type: arctask.Type,
+					Config: configToMap(arctask.Config{
+						ArcKey:      uuid.New(),
+						Performance: "unknown",
+					}),
+				}
+				t := MustSucceed(newGraphFactory(simpleGraph(ch.Key())).
+					ConfigureTask(ctx, svcTask, "cmd-1"))
+				Expect(t.Exec(ctx, task.Command{Type: "start", Key: "cmd-start"})).
+					To(MatchError(`unknown performance "unknown"`))
+				var stat task.Status
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchKeys[task.StatusDetails](
+						svcTask.OntologyID().String(),
+					)).
+					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Description).To(Equal(`unknown performance "unknown"`))
+				Expect(stat.Details.Cmd).To(Equal("cmd-start"))
+				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
 	})
@@ -3322,8 +3363,9 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
-					g.Expect(stat.Message).To(ContainSubstring("Runtime error in"))
-					g.Expect(stat.Message).To(ContainSubstring("divide_test"))
+					g.Expect(stat.Message).To(Equal("Failed to run Arc program"))
+					g.Expect(stat.Description).
+						To(HavePrefix("The divide_test node failed: "))
 					g.Expect(stat.Description).
 						To(ContainSubstring("integer divide by zero"))
 					g.Expect(stat.Details.Running).To(BeTrue())

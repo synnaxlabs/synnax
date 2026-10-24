@@ -28,7 +28,7 @@ var _ = BeforeSuite(func() {
 
 func TestConfig(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Task Config Suite")
+	RunSpecs(t, "Service Task Config Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

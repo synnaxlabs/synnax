@@ -19,7 +19,7 @@ import (
 
 func TestPebbleKV(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "KV PebbleKV Suite")
+	RunSpecs(t, "KV PebbleKV Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
