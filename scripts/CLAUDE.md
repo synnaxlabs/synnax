@@ -12,8 +12,9 @@ easy to get wrong by hand.
   `.cpp`/`.hpp`/`.h`/`.cc` in place, parallelized across cores. Excludes come from the
   root `.clang-format-ignore`. `check_clang_format.sh <path>` — dry run, non-zero exit
   on diffs.
-- `install_clang_tools.sh` — installs the pinned LLVM 23 clang-format and clang-tidy via
-  apt. Always use this over a plain `apt install`, so the versions match CI.
+- `install_clang_format.sh` — installs the pinned clang-format with `uv tool install`.
+  Always use this over a package manager, so the version matches CI. Bazel fetches
+  clang-tidy itself (`MODULE.bazel`).
 
 ## Linting
 

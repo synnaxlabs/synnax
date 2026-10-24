@@ -9,8 +9,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Runs the clang-tidy on PATH for the --config=clang-tidy aspect. The aspect passes the
-# file to lint right before the -- that starts the compiler arguments.
+# Runs the pinned clang-tidy for the --config=clang-tidy aspect. The aspect passes the
+# file to lint right before the -- that starts the compiler arguments. Bazel writes the
+# path of the binary in place of @CLANG_TIDY@.
 
 # A generated file follows its generator, so lint the generator instead.
 previous=
@@ -82,4 +83,4 @@ if [ "$os" = Darwin ]; then
     set -- "${args[@]}"
 fi
 
-exec clang-tidy "$@"
+exec @CLANG_TIDY@ "$@"
