@@ -137,15 +137,17 @@ to an even size for `min_max`. Groups are anchored at sample `0` of each index d
 so two reads of overlapping bounds cut the same groups.
 
 A fixed-span read without a limit can be large: 12 hours of a 1 kHz channel is about 400
-MB. Cesium sends it in pieces of at most the chunk size of samples of every index, each
-ending at the same time for every channel. A limited read is not pieced, because a piece
-edge would cut its groups, and the limit already bounds it.
+MB. Cesium sends a fixed-span `Next` or `Prev` in pieces, in time order. Each piece
+holds at most the chunk size of samples of every index and ends at the same time for
+every channel. A limited read is not pieced, because a piece edge would cut its groups,
+and the limit already bounds it.
 
 A calculation must see every sample, so a request that runs one reads every channel raw,
 and the service reduces the output. Each channel's group size comes from the concrete
 indexes it depends on, so a stored channel reduces the same way with or without a
 calculation beside it. The reducer keeps each channel's last group until the next piece
-completes it.
+completes it. The service reads a `Next` or `Prev` with the automatic span as one
+fixed-span read to the end of the bounds, so no chunk edge cuts a group.
 
 ### 3.5 The wire
 
@@ -275,9 +277,7 @@ other requests.
 
 **5.10 One reduction per request.** Reading the calculations' inputs raw and the other
 channels reduced needs a second distribution iterator and a merge of their replies. The
-trade is real: a plot with a calculated channel reads all its channels raw. Cesium does
-not send `Prev` in pieces, so `Prev` with the automatic span fails for such a read
-instead of holding the remaining bounds in memory.
+trade is real: a plot with a calculated channel reads all its channels raw.
 
 ## 6 What this RFC does not cover
 
