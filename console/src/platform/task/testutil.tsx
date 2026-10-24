@@ -537,21 +537,24 @@ export const reportTaskStopped = async (
 };
 
 /**
- * Answers the next command sent to the task with a success status, as a Driver does.
- * Specs run without a Driver, so a caller that waits for the answer otherwise times out.
- * Resolves once it listens, with a promise that settles after the answer is written.
+ * Answers the next command sent to the task as a Driver does, with a success status
+ * unless answer overrides its fields. Specs run without a Driver, so a caller that
+ * waits for the answer otherwise times out. Resolves once it listens, with a promise
+ * that settles after the answer is written.
  */
 export const answerNextCommand = async (
   client: Client,
   tsk: task.Task,
+  answer: Omit<CreateTaskStatusOverrides, "details"> = {},
 ): Promise<{ answered: Promise<void> }> => {
   const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  const answer = async (): Promise<void> => {
+  const respond = async (): Promise<void> => {
     try {
       const cmd = await awaitCommand(streamer, tsk.key);
       await client.tasks.create({
         ...tsk.payload,
         status: createTaskStatus({
+          ...answer,
           details: { task: tsk.key, cmd: cmd.key, rack: tsk.rack },
         }),
       });
@@ -559,7 +562,7 @@ export const answerNextCommand = async (
       streamer.close();
     }
   };
-  return { answered: answer() };
+  return { answered: respond() };
 };
 
 /** Finds the single text input rendered by a task form field. */

@@ -210,6 +210,18 @@ class ScanTask final : public task::Task, public pipeline::Base {
         this->status.details.cmd = driver::task::NO_COMMAND;
     }
 
+    /// @brief sets the status variant and text, then sends it.
+    void send_status(
+        const std::string &variant,
+        const std::string &message,
+        const std::string &description = ""
+    ) {
+        this->status.variant = variant;
+        this->status.message = message;
+        this->status.description = description;
+        this->send_status();
+    }
+
     [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {
         auto last_updated = x::telem::TimeStamp(0);
         if (const auto dev_state = this->dev_states.find(dev_key);
@@ -365,16 +377,20 @@ public:
     void run() override {
         this->status.details.running = false;
         if (const auto err = this->init()) {
-            this->status.variant = synnax::status::VARIANT_ERROR;
-            this->status.message = err.message();
-            this->send_status();
+            this->send_status(
+                synnax::status::VARIANT_ERROR,
+                "Failed to start scan task",
+                err.data
+            );
             return;
         }
 
         if (const auto err = this->scanner->start()) {
-            this->status.variant = synnax::status::VARIANT_ERROR;
-            this->status.message = err.message();
-            this->send_status();
+            this->send_status(
+                synnax::status::VARIANT_ERROR,
+                "Failed to start scan task",
+                err.data
+            );
             return;
         }
 
@@ -382,15 +398,15 @@ public:
             LOG(WARNING) << this->log_prefix
                          << "failed to start signal monitoring: " << err;
 
-        this->status.variant = synnax::status::VARIANT_SUCCESS;
         this->status.details.running = true;
-        this->status.message = "Scan task started";
-        this->send_status();
+        this->send_status(synnax::status::VARIANT_SUCCESS, "Started scan task");
         while (this->breaker.running()) {
             if (const auto err = this->scan()) {
-                this->status.variant = synnax::status::VARIANT_WARNING;
-                this->status.message = err.message();
-                this->send_status();
+                this->send_status(
+                    synnax::status::VARIANT_WARNING,
+                    "Failed to scan for devices",
+                    err.data
+                );
                 LOG(WARNING) << this->log_prefix
                              << "failed to scan for devices: " << err;
             }
@@ -398,15 +414,15 @@ public:
         }
 
         this->stop_signal_monitoring();
-        if (const auto err = this->scanner->stop()) {
-            this->status.variant = synnax::status::VARIANT_ERROR;
-            this->status.message = err.message();
-        } else {
-            this->status.variant = synnax::status::VARIANT_SUCCESS;
-            this->status.message = "scan task stopped";
-        }
         this->status.details.running = false;
-        this->send_status();
+        if (const auto err = this->scanner->stop())
+            this->send_status(
+                synnax::status::VARIANT_ERROR,
+                "Failed to stop scan task",
+                err.data
+            );
+        else
+            this->send_status(synnax::status::VARIANT_SUCCESS, "Stopped scan task");
     }
 
     void exec(synnax::task::Command &cmd) override {
@@ -422,11 +438,14 @@ public:
             return;
         }
         if (cmd.type == common::SCAN_CMD_TYPE) {
-            const auto err = this->scan();
-            this->status.variant = err ? synnax::status::VARIANT_ERROR
-                                       : synnax::status::VARIANT_SUCCESS;
-            this->status.message = err ? err.message() : "Scan complete";
-            this->send_status();
+            if (const auto err = this->scan())
+                this->send_status(
+                    synnax::status::VARIANT_ERROR,
+                    "Failed to scan for devices",
+                    err.data
+                );
+            else
+                this->send_status(synnax::status::VARIANT_SUCCESS, "Scan complete");
             return;
         }
         // The scanner answers the commands it handles with its own status.
@@ -435,9 +454,11 @@ public:
             return;
         }
         LOG(ERROR) << this->log_prefix << "unknown command type: " << cmd.type;
-        this->status.variant = synnax::status::VARIANT_ERROR;
-        this->status.message = "Unknown command type '" + cmd.type + "'";
-        this->send_status();
+        this->send_status(
+            synnax::status::VARIANT_ERROR,
+            "Failed to execute command",
+            "Unknown command type '" + cmd.type + "'."
+        );
     }
 
     x::errors::Error scan() {
@@ -526,9 +547,14 @@ public:
 
             for (auto &[key, dev]: this->dev_states) {
                 if (present.contains(key)) continue;
-                if (!dev.status.has_value()) dev.status = synnax::device::Status{};
+                if (!dev.status.has_value())
+                    dev.status = synnax::device::Status{
+                        .key = synnax::device::status_key(dev),
+                        .name = dev.name,
+                    };
                 dev.status->variant = synnax::status::VARIANT_WARNING;
                 dev.status->message = "Device disconnected";
+                dev.status->description = "";
             }
 
             statuses.reserve(this->dev_states.size());
