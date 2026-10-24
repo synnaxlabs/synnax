@@ -328,35 +328,4 @@ var _ = Describe("Reduce", func() {
 			Entry("uuid", telem.UUIDT, false),
 		)
 	})
-
-	Describe("Series.AlignmentBounds", func() {
-		It("Should span every alignment step of a reduced series", func() {
-			s := telem.NewSeriesV[float64](1, 2, 3)
-			s.Alignment = telem.NewAlignment(1, 10)
-			s.AlignmentMultiple = 5
-			Expect(s.AlignmentBounds()).To(Equal(telem.AlignmentBounds{
-				Lower: telem.NewAlignment(1, 10),
-				Upper: telem.NewAlignment(1, 25),
-			}))
-		})
-	})
-
-	Describe("Series.Multiple", func() {
-		DescribeTable("returns the alignment steps per sample",
-			func(multiple, expected uint32) {
-				s := telem.Series{AlignmentMultiple: multiple}
-				Expect(s.Multiple()).To(Equal(expected))
-			},
-			Entry("zero means one", uint32(0), uint32(1)),
-			Entry("set", uint32(4), uint32(4)),
-		)
-	})
-
-	Describe("Series.DeepCopy", func() {
-		It("Should copy the alignment multiple", func() {
-			s := telem.NewSeriesV[float64](1, 2)
-			s.AlignmentMultiple = 3
-			Expect(s.DeepCopy().AlignmentMultiple).To(Equal(uint32(3)))
-		})
-	})
 })

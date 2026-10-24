@@ -49,8 +49,8 @@ func GroupStart(a Alignment, groupSize uint32) Alignment {
 
 // Reduce collapses the series into groups of groupSize samples and keeps the points
 // that agg selects from each group. Group k of a domain holds the samples whose
-// alignment sample index lies in [k*groupSize, (k+1)*groupSize), so every series on
-// the same index reduces over the same groups. A group only partly inside the series
+// alignment sample index lies in [k*groupSize, (k+1)*groupSize), so every series on the
+// same index reduces over the same groups. A group only partly inside the series
 // reduces the samples that are present.
 //
 // The result's AlignmentMultiple is groupSize/2 for AggregationMinMax and groupSize
@@ -60,7 +60,7 @@ func GroupStart(a Alignment, groupSize uint32) Alignment {
 // Reduce returns the series unchanged when groupSize is below 2 or when the data type
 // is not numeric. It panics if the series is already reduced.
 func (s Series) Reduce(agg Aggregation, groupSize uint32) Series {
-	if groupSize < 2 || s.Len() == 0 {
+	if groupSize < 2 || s.Len() == 0 || !Reducible(s.DataType) {
 		return s
 	}
 	if s.Multiple() > 1 {
@@ -89,7 +89,7 @@ func (s Series) Reduce(agg Aggregation, groupSize uint32) Series {
 	case Uint8T, BooleanT:
 		data = reduceData(s, agg, groupSize, intOffset[uint8])
 	default:
-		return s
+		panic(fmt.Sprintf("telem: no reduction for reducible data type %s", s.DataType))
 	}
 	multiple := groupSize
 	if agg == AggregationMinMax {

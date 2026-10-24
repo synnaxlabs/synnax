@@ -1874,11 +1874,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			v := iterValue.Get(dataCh.Key())
 			Expect(v.Series).To(HaveLen(1))
 			Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 3, 5, 7))
+			Expect(v.Series[0].AlignmentMultiple).To(Equal(uint32(2)))
 
 			idxV := iterValue.Get(indexCh.Key())
 			Expect(idxV.Series).To(HaveLen(1))
 			Expect(idxV.Series[0]).
 				To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 3, 5, 7)))
+			Expect(idxV.AlignmentBounds()).To(Equal(v.AlignmentBounds()))
 
 			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 			Expect(iter.Close()).To(Succeed())
@@ -2049,11 +2051,15 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				v := iter.Value()
 				Expect(v.Get(indexCh.Key()).Series[0]).
 					To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 3, 5, 7)))
-				Expect(v.Get(dataCh.Key()).Series[0]).
-					To(telem.MatchSeriesDataV[float32](5, 7))
+				data := v.Get(dataCh.Key()).Series[0]
+				Expect(data).To(telem.MatchSeriesDataV[float32](5, 7))
+				Expect(data.AlignmentMultiple).To(Equal(uint32(2)))
+				Expect(v.Get(indexCh.Key()).AlignmentBounds().Upper).
+					To(Equal(data.AlignmentBounds().Upper))
 				if calculated {
-					Expect(v.Get(calc.Key()).Series[0]).
-						To(telem.MatchSeriesDataV[float32](10, 14))
+					doubled := v.Get(calc.Key()).Series[0]
+					Expect(doubled).To(telem.MatchSeriesDataV[float32](10, 14))
+					Expect(doubled.AlignmentBounds()).To(Equal(data.AlignmentBounds()))
 				}
 				Expect(iter.Close()).To(Succeed())
 			},
@@ -2353,6 +2359,20 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			),
 		)
 
+		It("Should reduce to min and max when a limit names no aggregation", func(
+			ctx SpecContext,
+		) {
+			v := read(ctx, iterator.Config{
+				Keys:   []channel.Key{sensorCh.Key()},
+				Bounds: bounds,
+				Reduction: telem.Reduction{
+					Variant: telem.LimitReduction{PointLimit: 10},
+				},
+			}).Get(sensorCh.Key())
+			Expect(v.Series).To(HaveLen(1))
+			Expect(v.Series[0].Unmarshal[float32]()).To(Equal(groupEnds(ramp(1), 20)))
+		})
+
 		It("Should reduce concrete channels in storage", func(ctx SpecContext) {
 			fr := read(ctx, aggregated(indexCh.Key(), sensorCh.Key()))
 			v := fr.Get(sensorCh.Key())
@@ -2448,6 +2468,48 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(v.Series[0].Unmarshal[float32]()).To(Equal(groupEnds(totals, 20)))
 		})
 
+		It("Should size the groups of a calculation by its busiest index", func(
+			ctx SpecContext,
+		) {
+			slowIndex := &channel.Channel{
+				Name:     "aggregate_slow_time",
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(channelWriter.Create(ctx, slowIndex)).To(Succeed())
+			slow := &channel.Channel{
+				Name:       "aggregate_slow",
+				DataType:   telem.Float32T,
+				LocalIndex: slowIndex.LocalKey,
+			}
+			Expect(channelWriter.Create(ctx, slow)).To(Succeed())
+			stamps := make([]telem.TimeStamp, 20)
+			for i := range stamps {
+				stamps[i] = telem.TimeStamp(5*(i+1)) * telem.SecondTS
+			}
+			keys := []channel.Key{slowIndex.Key(), slow.Key()}
+			w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start:            5 * telem.SecondTS,
+				Keys:             keys,
+				EnableAutoCommit: new(true),
+			}))
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeries(stamps),
+				telem.NewSeries(make([]float32, 20)),
+			}))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			calc := &channel.Channel{
+				Name:       "aggregate_fast_plus_slow",
+				DataType:   telem.Float32T,
+				Expression: "return aggregate_sensor + aggregate_slow",
+			}
+			Expect(channelWriter.Create(ctx, calc)).To(Succeed())
+			v := read(ctx, aggregated(calc.Key())).Get(calc.Key())
+			Expect(v.Series).To(HaveLen(1))
+			Expect(v.Series[0].Unmarshal[float32]()).To(Equal(groupEnds(ramp(1), 20)))
+			Expect(v.Series[0].AlignmentMultiple).To(Equal(uint32(10)))
+		})
+
 		Describe("Pieces", func() {
 			// values returns the samples of every series in m, in order.
 			values := func(m telem.MultiSeries) []float32 {
@@ -2500,6 +2562,119 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					To(Equal(groupEnds(ramp(4), 20)))
 				Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 				Expect(iter.Close()).To(Succeed())
+			})
+
+			It("Should reduce Prev with AutoSpan to the groups of Next", func(
+				ctx SpecContext,
+			) {
+				calc := &channel.Channel{
+					Name:       "aggregate_septupled",
+					DataType:   telem.Float32T,
+					Expression: "return aggregate_sensor * 7",
+				}
+				Expect(channelWriter.Create(ctx, calc)).To(Succeed())
+				cfg := aggregated(calc.Key())
+				cfg.ChunkSize = 7
+				type group struct {
+					alignment telem.Alignment
+					multiple  uint32
+					values    []float32
+				}
+				// groups returns the alignment, alignment multiple, and samples of each
+				// series in m.
+				groups := func(m telem.MultiSeries) []group {
+					out := make([]group, len(m.Series))
+					for i, s := range m.Series {
+						out[i] = group{
+							alignment: s.Alignment,
+							multiple:  s.AlignmentMultiple,
+							values:    s.Unmarshal[float32](),
+						}
+					}
+					return out
+				}
+				forward := MustSucceed(iteratorSvc.Open(ctx, cfg))
+				Expect(forward.SeekFirst()).To(BeTrue())
+				Expect(forward.Next(iterator.AutoSpan)).To(BeTrue())
+				next := forward.Value().Get(calc.Key())
+				Expect(forward.Close()).To(Succeed())
+				backward := MustSucceed(iteratorSvc.Open(ctx, cfg))
+				Expect(backward.SeekLast()).To(BeTrue())
+				Expect(backward.Prev(iterator.AutoSpan)).To(BeTrue())
+				prev := backward.Value().Get(calc.Key())
+				Expect(backward.Prev(iterator.AutoSpan)).To(BeFalse())
+				Expect(backward.Close()).To(Succeed())
+				Expect(values(prev)).To(Equal(groupEnds(ramp(7), 20)))
+				Expect(groups(prev)).To(Equal(groups(next)))
+			})
+
+			It("Should clip the groups of Prev with a fixed span at its edges", func(
+				ctx SpecContext,
+			) {
+				calc := &channel.Channel{
+					Name:       "aggregate_octupled",
+					DataType:   telem.Float32T,
+					Expression: "return aggregate_sensor * 8",
+				}
+				Expect(channelWriter.Create(ctx, calc)).To(Succeed())
+				cfg := aggregated(calc.Key())
+				cfg.ChunkSize = 7
+				iter := MustSucceed(iteratorSvc.Open(ctx, cfg))
+				Expect(iter.SeekLast()).To(BeTrue())
+				Expect(iter.Prev(30 * telem.Second)).To(BeTrue())
+				v := ramp(8)
+				Expect(values(iter.Value().Get(calc.Key()))).
+					To(Equal([]float32{v[70], v[79], v[80], v[99]}))
+				Expect(iter.Close()).To(Succeed())
+			})
+
+			It("Should keep each group inside its domain when read in pieces", func(
+				ctx SpecContext,
+			) {
+				index := &channel.Channel{
+					Name:     "aggregate_split_time",
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}
+				Expect(channelWriter.Create(ctx, index)).To(Succeed())
+				sensor := &channel.Channel{
+					Name:       "aggregate_split",
+					DataType:   telem.Float32T,
+					LocalIndex: index.LocalKey,
+				}
+				Expect(channelWriter.Create(ctx, sensor)).To(Succeed())
+				keys := []channel.Key{index.Key(), sensor.Key()}
+				stamps := make([]telem.TimeStamp, 100)
+				for i := range stamps {
+					stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
+				}
+				all := ramp(1)
+				for _, half := range [][2]int{{0, 50}, {50, 100}} {
+					w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+						Start:            stamps[half[0]],
+						Keys:             keys,
+						EnableAutoCommit: new(true),
+					}))
+					Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+						telem.NewSeries(stamps[half[0]:half[1]]),
+						telem.NewSeries(all[half[0]:half[1]]),
+					}))).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+				}
+				calc := &channel.Channel{
+					Name:       "aggregate_split_doubled",
+					DataType:   telem.Float32T,
+					Expression: "return aggregate_split * 2",
+				}
+				Expect(channelWriter.Create(ctx, calc)).To(Succeed())
+				cfg := aggregated(calc.Key())
+				cfg.ChunkSize = 9
+				v := read(ctx, cfg).Get(calc.Key())
+				doubled := ramp(2)
+				Expect(values(v)).To(Equal(append(
+					groupEnds(doubled[:50], 20),
+					groupEnds(doubled[50:], 20)...,
+				)))
 			})
 
 			It("Should keep the stride of a calculation read in pieces", func(
@@ -2572,18 +2747,25 @@ var _ = Describe("Close", func() {
 })
 
 var _ = Describe("Read failure", func() {
-	It("Should return the read error from Close", func(ctx SpecContext) {
-		var (
-			cluster = mock.OpenCluster(ctx, 0)
-			faulty  = WrapFaultyFS(xfs.NewMem())
-			store   = &storage.Layer{
-				KV: DeferClose(memkv.New()),
-				TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
-			}
-			node = cluster.Provision(ctx, distribution.LayerConfig{Storage: store})
-		)
+	var (
+		faulty      *FaultyFS
+		iteratorSvc *iterator.Service
+		channelSvc  *channel.Service
+		node        mock.Node
+	)
+	BeforeEach(func(ctx SpecContext) {
+		cluster := mock.OpenCluster(ctx, 0)
+		faulty = WrapFaultyFS(xfs.NewMem())
+		store := &storage.Layer{
+			KV: DeferClose(memkv.New()),
+			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
+		}
+		node = cluster.Provision(ctx, distribution.LayerConfig{Storage: store})
 		DeferCleanup(func() { Expect(cluster.Close()).To(Succeed()) })
-		iteratorSvc, channelSvc := openServices(ctx, node)
+		iteratorSvc, channelSvc = openServices(ctx, node)
+	})
+
+	It("Should return the read error from Close", func(ctx SpecContext) {
 		ch := &channel.Channel{
 			Name:     "Shackleton",
 			DataType: telem.TimestampT,
@@ -2608,5 +2790,51 @@ var _ = Describe("Read failure", func() {
 		Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 		Expect(iter.Close()).To(MatchError(ContainSubstring(ErrFault.Error())))
 		Expect(iter.Close()).To(Succeed())
+	})
+
+	It("Should release the channels it read when sizing groups fails", func(
+		ctx SpecContext,
+	) {
+		writer := channelSvc.NewWriter(nil)
+		index := &channel.Channel{
+			Name:     "Amundsen",
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}
+		Expect(writer.Create(ctx, index)).To(Succeed())
+		sensor := &channel.Channel{
+			Name:       "amundsen_sensor",
+			DataType:   telem.Float32T,
+			LocalIndex: index.LocalKey,
+		}
+		Expect(writer.Create(ctx, sensor)).To(Succeed())
+		keys := []channel.Key{index.Key(), sensor.Key()}
+		w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+			Start: telem.SecondTS,
+			Keys:  keys,
+		}))
+		MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](1, 2, 3),
+		})))
+		Expect(w.Close()).To(Succeed())
+		calc := &channel.Channel{
+			Name:       "amundsen_doubled",
+			DataType:   telem.Float32T,
+			Expression: "return amundsen_sensor * 2",
+		}
+		Expect(writer.Create(ctx, calc)).To(Succeed())
+
+		faulty.SetOptions(WithFailReadAt())
+		Expect(iteratorSvc.Open(ctx, iterator.Config{
+			Keys:   []channel.Key{calc.Key()},
+			Bounds: telem.TimeRangeMax,
+			Reduction: telem.Reduction{Variant: telem.LimitReduction{
+				Aggregation: telem.AggregationMinMax,
+				PointLimit:  2,
+			}},
+		})).Error().To(MatchError(ContainSubstring(ErrFault.Error())))
+		faulty.SetOptions()
+		Expect(writer.DeleteMany(ctx, keys, false)).To(Succeed())
 	})
 })

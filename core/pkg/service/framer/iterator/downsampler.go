@@ -32,7 +32,9 @@ func (d *downsampler) transform(
 ) (out Response, ok bool, err error) {
 	in.Frame = in.Frame.ShallowCopy()
 	for i, s := range in.Frame.SeriesI() {
-		in.Frame.SetSeriesAt(i, s.Downsample(d.factor))
+		s = s.Downsample(d.factor)
+		s.AlignmentMultiple = d.factor
+		in.Frame.SetSeriesAt(i, s)
 	}
 	return in, true, nil
 }

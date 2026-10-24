@@ -380,10 +380,10 @@ class TestIterator:
         result = client.read_latest(data_ch.key)
         assert np.array_equal(result, np.array([10]))
 
-    def test_downsample_factor_2(
+    def test_stride_factor_2(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
-        """Test downsampling with factor of 2."""
+        """Should keep every second sample and report a multiple of 2"""
         idx_ch, data_ch = indexed_pair
         time_data = seconds_linspace(1, 8)
         data = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], dtype=np.float32)
@@ -397,14 +397,14 @@ class TestIterator:
         ) as i:
             assert i.seek_first()
             assert i.next(sy.framer.AUTO_SPAN)
-            # [1, 2, 3, 4, 5, 6, 7, 8] downsampled by 2 = [1, 3, 5, 7]
-            result = i.value[data_ch.key].to_numpy()
-            assert np.array_equal(result, np.array([1.0, 3.0, 5.0, 7.0]))
+            series = i.value[data_ch.key]
+            assert np.array_equal(series.to_numpy(), np.array([1.0, 3.0, 5.0, 7.0]))
+            assert series.series[0].alignment_multiple == 2
 
-    def test_downsample_factor_3(
+    def test_stride_factor_3(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
-        """Test downsampling with factor of 3."""
+        """Should keep every third sample under a factor of 3"""
         idx_ch, data_ch = indexed_pair
         time_data = seconds_linspace(1, 9)
         data = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], dtype=np.float32)
@@ -418,18 +418,17 @@ class TestIterator:
         ) as i:
             assert i.seek_first()
             assert i.next(sy.framer.AUTO_SPAN)
-            # [1, 2, 3, 4, 5, 6, 7, 8, 9] downsampled by 3 = [1, 4, 7]
             result = i.value[data_ch.key].to_numpy()
             assert np.array_equal(result, np.array([1.0, 4.0, 7.0]))
 
     @pytest.mark.parametrize("factor", [0, 1])
-    def test_no_downsample_when_factor_lte_1(
+    def test_stride_factor_lte_1(
         self,
         factor: int,
         indexed_pair: tuple[sy.Channel, sy.Channel],
         client: sy.Synnax,
     ) -> None:
-        """Test that downsampling does not occur when factor is 0 or 1."""
+        """Should keep every sample under a factor of 0 or 1"""
         idx_ch, data_ch = indexed_pair
         time_data = seconds_linspace(1, 4)
         data = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
@@ -444,8 +443,8 @@ class TestIterator:
             result = i.value[data_ch.key].to_numpy()
             assert np.array_equal(result, np.array([1.0, 2.0, 3.0, 4.0]))
 
-    def test_downsample_multiple_domains(self, client: sy.Synnax) -> None:
-        """Test downsampling across multiple domains."""
+    def test_stride_multiple_domains(self, client: sy.Synnax) -> None:
+        """Should keep every factor-th sample of each domain"""
         idx_ch = client.channels.create(
             name=random_name(),
             data_type=sy.DataType.TIMESTAMP,
@@ -477,8 +476,6 @@ class TestIterator:
         ) as i:
             assert i.seek_first()
             assert i.next(sy.framer.AUTO_SPAN)
-            # Domain 0: [1, 2, 3] downsampled by 2 = [1, 3]
-            # Domain 1: [10, 11, 12, 13] downsampled by 2 = [10, 12]
             result = i.value[data_ch.key].to_numpy()
             assert np.array_equal(result, np.array([1.0, 3.0, 10.0, 12.0]))
 
@@ -524,15 +521,17 @@ class TestIterator:
             assert not i.next(sy.framer.AUTO_SPAN)
 
     @pytest.mark.parametrize(
-        "make",
+        ("make", "field"),
         [
-            lambda: sy.StrideReduction(factor=-1),
-            lambda: sy.LimitReduction(point_limit=0),
-            lambda: sy.LimitReduction(point_limit=-1),
-            lambda: sy.LimitReduction(point_limit=2**32),
+            (lambda: sy.StrideReduction(factor=-1), "factor"),
+            (lambda: sy.LimitReduction(point_limit=0), "point_limit"),
+            (lambda: sy.LimitReduction(point_limit=-1), "point_limit"),
+            (lambda: sy.LimitReduction(point_limit=2**32), "point_limit"),
         ],
     )
-    def test_reduction_out_of_range(self, make: Callable[[], sy.Reduction]) -> None:
+    def test_reduction_out_of_range(
+        self, make: Callable[[], sy.Reduction], field: str
+    ) -> None:
         """Should reject a reduction the unsigned wire fields would reinterpret."""
-        with pytest.raises(pydantic.ValidationError):
+        with pytest.raises(pydantic.ValidationError, match=field):
             make()
