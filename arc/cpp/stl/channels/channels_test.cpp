@@ -1782,7 +1782,7 @@ struct WasmFixture {
         instance(setup(wat)) {}
 
     wasmtime::Func get(const std::string &name) {
-        return std::get<wasmtime::Func>(*instance.get(store, name));
+        return std::get<wasmtime::Func>(instance.get(store, name).value());
     }
 
     void write_bool(int32_t channel, int32_t value) {
