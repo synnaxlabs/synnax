@@ -21,8 +21,12 @@ import { Button, type ButtonProps } from "@/button/Button";
 import { clipboard } from "@/clipboard";
 import { Icon } from "@/icon";
 import { useAdder, useErrorHandler } from "@/status/Aggregator";
+import { type Heading } from "@/status/status";
 
 const COPIED_DURATION_MS = TimeSpan.seconds(2).milliseconds;
+
+const toObject = (heading: Heading): Exclude<Heading, string> =>
+  typeof heading === "string" ? { message: heading, name: "" } : heading;
 
 /** Props for {@link Copy}. */
 export interface CopyProps extends ButtonProps {
@@ -32,8 +36,11 @@ export interface CopyProps extends ButtonProps {
   onCopy?: () => void;
   /** How long the checkmark stays up. Defaults to 2 seconds. */
   copiedDuration?: CrudeTimeSpan;
-  /** The status shown on success. Omit for no status. */
-  successMessage?: string | (() => string);
+  /**
+   * The status shown on success: a message, or a message and the name of what was
+   * copied. A failure carries the same name. Omit for no status.
+   */
+  successMessage?: Heading | (() => Heading);
 }
 
 /**
@@ -66,21 +73,26 @@ export const Copy = ({
   const handleClick = useCallback(
     (e: MouseEvent<HTMLButtonElement>) => {
       onClick?.(e);
-      handleError(async () => {
-        const resolvedText = await (typeof text === "function" ? text() : text);
-        await clipboard.writeText(resolvedText);
-        onCopy?.();
-        if (successMessage != null) {
-          const message =
-            typeof successMessage === "function" ? successMessage() : successMessage;
-          return addStatus({ variant: "success", message });
-        }
-        setCopied(true);
-        setTimeout(
-          () => setCopied(false),
-          TimeSpan.fromMilliseconds(copiedDuration).milliseconds,
-        );
-      }, "Failed to copy to the clipboard");
+      const success =
+        successMessage == null
+          ? undefined
+          : toObject(
+              typeof successMessage === "function" ? successMessage() : successMessage,
+            );
+      handleError(
+        async () => {
+          const resolvedText = await (typeof text === "function" ? text() : text);
+          await clipboard.writeText(resolvedText);
+          onCopy?.();
+          if (success != null) return addStatus({ variant: "success", ...success });
+          setCopied(true);
+          setTimeout(
+            () => setCopied(false),
+            TimeSpan.fromMilliseconds(copiedDuration).milliseconds,
+          );
+        },
+        { message: "Failed to copy to clipboard", name: success?.name ?? "" },
+      );
     },
     [text, onCopy, copiedDuration, addStatus, successMessage, handleError, onClick],
   );

@@ -60,7 +60,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const handleCopyAddress = (key: string): void => {
     const core = allCores.find((c) => c.key === key);
     if (core == null) return;
-    copy(`${core.host}:${core.port}`, "Core address");
+    copy(`${core.host}:${core.port}`, "Core address", core.name);
   };
 
   const openConnect = useConnectModal();

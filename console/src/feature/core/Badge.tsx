@@ -64,7 +64,7 @@ const Content = (): ReactElement => {
     variant === "loading" || variant === "warning" || variant === "error";
   const skewDirection = details.clockSkew.valueOf() > 0n ? "ahead of" : "behind";
   const copyAddress = (): void => {
-    if (core != null) copy(`${core.host}:${core.port}`, "Core address");
+    if (core != null) copy(`${core.host}:${core.port}`, "Core address", core.name);
   };
   const editConnection = (): void => {
     if (activeKey == null) return;
