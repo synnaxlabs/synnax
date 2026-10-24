@@ -152,9 +152,9 @@ export class TileReader {
   }
 
   /**
-   * Reads the tile, serving it from the cache when a fresh copy is there. A cached copy
-   * waits for the reads of the tile's other channels made in the same task, so
-   * channels drawn as a pair arrive together.
+   * Reads the tile, serving it from the cache when a fresh copy is there. When another
+   * channel of the tile is being fetched, the read fetches the tile again with it, so
+   * channels drawn as a pair share one group size.
    * @param dataType - The data type of the series the caller holds. A cached tile of
    * another data type is read again.
    * @throws {UnexpectedError} if the reader is closed while the read is pending.
@@ -180,10 +180,9 @@ export class TileReader {
         this.bytes += cached.bytes;
         // Reads made later in this task enter pending first.
         await Promise.resolve();
-        const reads = this.pending.get(tile);
-        if (reads != null) await Promise.allSettled(reads.values());
         if (this.closed) throw new UnexpectedError("tile reader is closed");
-        return cached.series;
+        // Samples written into the tile since it was cached can change its group size.
+        if (!this.pending.has(tile)) return cached.series;
       }
     }
     let reads = this.pending.get(tile);
@@ -206,6 +205,8 @@ export class TileReader {
   }
 
   private insert(key: string, ch: channel.Key, series: MultiSeries): void {
+    const replaced = this.tiles.get(key);
+    if (replaced != null) this.remove(key, replaced);
     const bytes = series.series.reduce(
       (sum, s) => sum + s.byteLength.valueOf(),
       ENTRY_OVERHEAD,
