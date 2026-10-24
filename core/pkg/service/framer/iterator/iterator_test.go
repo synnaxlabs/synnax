@@ -2572,18 +2572,25 @@ var _ = Describe("Close", func() {
 })
 
 var _ = Describe("Read failure", func() {
-	It("Should return the read error from Close", func(ctx SpecContext) {
-		var (
-			cluster = mock.OpenCluster(ctx, 0)
-			faulty  = WrapFaultyFS(xfs.NewMem())
-			store   = &storage.Layer{
-				KV: DeferClose(memkv.New()),
-				TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
-			}
-			node = cluster.Provision(ctx, distribution.LayerConfig{Storage: store})
-		)
+	var (
+		faulty      *FaultyFS
+		iteratorSvc *iterator.Service
+		channelSvc  *channel.Service
+		node        mock.Node
+	)
+	BeforeEach(func(ctx SpecContext) {
+		cluster := mock.OpenCluster(ctx, 0)
+		faulty = WrapFaultyFS(xfs.NewMem())
+		store := &storage.Layer{
+			KV: DeferClose(memkv.New()),
+			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
+		}
+		node = cluster.Provision(ctx, distribution.LayerConfig{Storage: store})
 		DeferCleanup(func() { Expect(cluster.Close()).To(Succeed()) })
-		iteratorSvc, channelSvc := openServices(ctx, node)
+		iteratorSvc, channelSvc = openServices(ctx, node)
+	})
+
+	It("Should return the read error from Close", func(ctx SpecContext) {
 		ch := &channel.Channel{
 			Name:     "Shackleton",
 			DataType: telem.TimestampT,
@@ -2608,5 +2615,51 @@ var _ = Describe("Read failure", func() {
 		Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 		Expect(iter.Close()).To(MatchError(ContainSubstring(ErrFault.Error())))
 		Expect(iter.Close()).To(Succeed())
+	})
+
+	It("Should release the channels it read when sizing groups fails", func(
+		ctx SpecContext,
+	) {
+		writer := channelSvc.NewWriter(nil)
+		index := &channel.Channel{
+			Name:     "Amundsen",
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}
+		Expect(writer.Create(ctx, index)).To(Succeed())
+		sensor := &channel.Channel{
+			Name:       "amundsen_sensor",
+			DataType:   telem.Float32T,
+			LocalIndex: index.LocalKey,
+		}
+		Expect(writer.Create(ctx, sensor)).To(Succeed())
+		keys := []channel.Key{index.Key(), sensor.Key()}
+		w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+			Start: telem.SecondTS,
+			Keys:  keys,
+		}))
+		MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](1, 2, 3),
+		})))
+		Expect(w.Close()).To(Succeed())
+		calc := &channel.Channel{
+			Name:       "amundsen_doubled",
+			DataType:   telem.Float32T,
+			Expression: "return amundsen_sensor * 2",
+		}
+		Expect(writer.Create(ctx, calc)).To(Succeed())
+
+		faulty.SetOptions(WithFailReadAt())
+		Expect(iteratorSvc.Open(ctx, iterator.Config{
+			Keys:   []channel.Key{calc.Key()},
+			Bounds: telem.TimeRangeMax,
+			Reduction: telem.Reduction{Variant: telem.LimitReduction{
+				Aggregation: telem.AggregationMinMax,
+				PointLimit:  2,
+			}},
+		})).Error().To(MatchError(ContainSubstring(ErrFault.Error())))
+		faulty.SetOptions()
+		Expect(writer.DeleteMany(ctx, keys, false)).To(Succeed())
 	})
 })

@@ -131,6 +131,12 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	if err != nil {
 		return nil, err
 	}
+	var sizes map[channel.Key]uint32
+	if sizer != nil {
+		if sizes, err = sizer.resolve(ctx, cfg.Bounds); err != nil {
+			return nil, err
+		}
+	}
 	distCfg := cfg.distribution()
 	if calcTransform != nil {
 		// A calculation must see every sample its expression was written over. Fed a
@@ -162,10 +168,6 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 			routeOutletFrom = "downsampler"
 		}
 		if sizer != nil {
-			sizes, err := sizer.resolve(ctx, cfg.Bounds)
-			if err != nil {
-				return nil, err
-			}
 			r := newReducer(sizer.limit.Aggregation, sizes)
 			p.SetSegment("reducer", r)
 			p.MustConnect[Response](routeOutletFrom, "reducer", 25)
