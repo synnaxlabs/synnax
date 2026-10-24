@@ -11,7 +11,7 @@ clients: ["console", "python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Video } from "@/components/media/Media";
@@ -46,7 +46,7 @@ Use the `create` method to create one channel or many channels. Creating many ch
 in a single call is more efficient than creating them individually. The call is atomic,
 so Synnax creates all of the channels or none of them.
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   You must create an index channel before the non-virtual data channels that use it.
 </Note.Note>
 
@@ -97,7 +97,7 @@ data_channels = client.channels.create(
 )
 ```
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   `retrieve_if_name_exists` returns the existing channel if the name already exists.
 </Note.Note>
 
@@ -138,7 +138,7 @@ const sensors = await client.channels.create(
 );
 ```
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   `retrieveIfNameExists` returns the existing channel if the name already exists.
 </Note.Note>
 
@@ -196,7 +196,7 @@ If you pass one key or name, the client raises a `NotFoundError` when no channel
 and a `MultipleFoundError` when more than one channel matches. If you pass a list, the
 client raises no error and leaves missing channels out of the results.
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   Channels can also be retrieved using
   [ranges](/reference/client/ranges#read-from-a-range).
 </Note.Note>
@@ -283,7 +283,7 @@ await client.channels.rename(
 
 ## Delete channels
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   Deleting a channel will also delete all of the data stored for that channel in a
   Synnax Core. This is a permanent operation that cannot be undone. Be careful!
 </Note.Note>
