@@ -24,7 +24,7 @@ struct Point {
 struct Node;
 
 struct Node {
-    int value;
+    int value{};
     x::mem::indirect<Node> left;
     x::mem::indirect<Node> right;
 };

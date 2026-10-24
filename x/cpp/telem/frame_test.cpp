@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/frame.h"
@@ -114,8 +116,7 @@ TEST(FrameTests, testIteration) {
     ASSERT_EQ(frame.size(), 3);
 
     size_t count = 0;
-    for (auto it = frame.begin(); it != frame.end(); ++it) {
-        auto [key, series] = *it;
+    for (auto [key, series]: frame) {
         count++;
         if (key == 65537) {
             ASSERT_EQ(series.data_type(), FLOAT32_T);
@@ -182,6 +183,7 @@ TEST(FrameTests, testIteratorWithSTLAlgorithms) {
     frame.emplace(65538, Series(std::vector{4.0, 5.0, 6.0}));
     frame.emplace(65539, Series(std::vector{7, 8, 9}));
 
+    // NOLINTNEXTLINE(modernize-use-ranges): the test covers the classic algorithms.
     const auto it = std::find_if(frame.begin(), frame.end(), [](const auto &pair) {
         return pair.first == 65538;
     });
@@ -198,6 +200,7 @@ TEST(FrameTests, testIteratorWithSTLAlgorithms) {
     ASSERT_EQ(count, 2);
 
     std::vector<std::uint32_t> keys;
+    // NOLINTNEXTLINE(modernize-use-ranges): the test covers the classic algorithms.
     std::for_each(frame.begin(), frame.end(), [&keys](const auto &p) {
         keys.push_back(p.first);
     });
@@ -680,6 +683,7 @@ TEST(FrameShallowCopy, BusBroadcastPattern) {
     source.emplace(2, Series(std::vector<double>{4.0, 5.0}));
 
     std::vector<Frame> subscribers;
+    subscribers.reserve(10);
     for (int i = 0; i < 10; i++)
         subscribers.push_back(source.shallow_copy());
 

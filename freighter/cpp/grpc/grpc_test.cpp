@@ -241,6 +241,7 @@ TEST(testGRPC, stressTestUnaryWithManyThreads) {
     global_unary_client->use(mw);
     std::vector<std::thread> threads;
 
+    threads.reserve(N_THREADS);
     for (int i = 0; i < N_THREADS; i++)
         threads.emplace_back(client_send, i, global_unary_client);
     for (size_t i = 0; i < N_THREADS; i++) {
@@ -277,6 +278,7 @@ TEST(testGRPC, stressTestStreamWithManyThreads) {
     global_stream_client->use(mw);
     std::vector<std::thread> threads;
 
+    threads.reserve(N_THREADS);
     for (int i = 0; i < N_THREADS; i++)
         threads.emplace_back(stream_send, i, global_stream_client);
     for (size_t i = 0; i < N_THREADS; i++)

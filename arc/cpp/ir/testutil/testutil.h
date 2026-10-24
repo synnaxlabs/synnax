@@ -102,7 +102,7 @@ public:
     /// @brief sets the Root scope's stratum layering. Each inner vector is
     /// a stratum of node keys with no data dependency among them; stratum
     /// N depends only on strata 0..N-1.
-    Builder &strata(std::vector<std::vector<std::string>> strata_spec) {
+    Builder &strata(const std::vector<std::vector<std::string>> &strata_spec) {
         this->prog.root.strata.clear();
         this->prog.root.strata.reserve(strata_spec.size());
         for (auto &stratum_keys: strata_spec) {
@@ -140,7 +140,7 @@ private:
     /// ScopeSpec.steps (non-empty) takes priority and produces a sequential
     /// nested scope; otherwise ScopeSpec.strata produces a parallel nested
     /// scope.
-    static Member scope_member_from(ScopeSpec spec) {
+    static Member scope_member_from(const ScopeSpec &spec) {
         Scope nested;
         nested.key = spec.key;
         nested.liveness = Liveness::Gated;

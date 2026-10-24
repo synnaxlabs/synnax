@@ -118,7 +118,7 @@ protected:
         return dev;
     }
 
-    x::json::json create_base_config() {
+    static x::json::json create_base_config() {
         return {
             {"data_saving_disabled", true},
             {"sample_rate", 100},
@@ -430,8 +430,7 @@ TEST_F(EtherCATReadTest, SourceReadsCorrectValueFromEngine) {
         [&] {
             x::telem::Frame frame;
             source.read(brk, frame);
-            if (frame.empty() || frame.series->size() < 1)
-                return static_cast<int16_t>(0);
+            if (frame.empty() || frame.series->empty()) return static_cast<int16_t>(0);
             return frame.series->at(0).at<int16_t>(0);
         }(),
         static_cast<int16_t>(0x5678)

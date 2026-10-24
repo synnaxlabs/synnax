@@ -18,5 +18,5 @@
 
 namespace driver::opcua::testutil {
 std::pair<::x::telem::Series, x::errors::Error>
-simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id);
+simple_read(const std::shared_ptr<UA_Client> &client, const std::string &node_id);
 }

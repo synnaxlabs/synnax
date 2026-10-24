@@ -33,7 +33,7 @@ struct TestSetup {
             )
         ) {}
 
-    runtime::state::Node make_node() const {
+    [[nodiscard]] runtime::state::Node make_node() const {
         return ASSERT_NIL_P(this->state->node("set_auth"));
     }
 
@@ -162,7 +162,8 @@ class SetAuthorityInputsTest : public testing::TestWithParam<bool> {
 protected:
     std::shared_ptr<runtime::state::State> auth = auth_state();
 
-    stl::testutil::Fixture config(const uint8_t value, const uint32_t channel) const {
+    [[nodiscard]] static stl::testutil::Fixture
+    config(const uint8_t value, const uint32_t channel) {
         stl::testutil::InputValue v = x::json::json(value);
         if (GetParam())
             v = std::shared_ptr<stl::testutil::VarBinding>(

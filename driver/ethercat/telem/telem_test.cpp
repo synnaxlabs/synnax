@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <numbers>
+
 #include "gtest/gtest.h"
 
 #include "driver/ethercat/telem/telem.h"
@@ -384,7 +386,7 @@ TEST(ReadWriteRoundTrip, TwentyFourBitWithOffset) {
 TEST(ReadWriteRoundTrip, StandardTypes) {
     uint8_t buffer[8] = {0};
 
-    write_pdo_from_value(buffer, 0, 32, x::telem::FLOAT32_T, 3.14159f);
+    write_pdo_from_value(buffer, 0, 32, x::telem::FLOAT32_T, std::numbers::pi_v<float>);
     x::telem::Series series(x::telem::FLOAT32_T, 1);
     read_pdo_to_series(buffer, 0, 32, x::telem::FLOAT32_T, series);
     EXPECT_FLOAT_EQ(series.at<float>(0), 3.14159f);

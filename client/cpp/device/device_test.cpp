@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/synnax.h"
@@ -87,16 +89,16 @@ TEST(DeviceTests, testRetrieveDevices) {
 
     ASSERT_EQ(devices.size(), 2);
 
-    const auto it1 = std::find_if(
-        devices.begin(),
-        devices.end(),
+    const auto it1 = std::ranges::find_if(
+        devices,
+
         [&d1](const Device &d) { return d.key == d1.key; }
     );
     ASSERT_NE(it1, devices.end());
     ASSERT_EQ(it1->name, "test_device_1");
     ASSERT_EQ(it1->location, "location_1");
 
-    auto it2 = std::find_if(devices.begin(), devices.end(), [&d2](const Device &d) {
+    auto it2 = std::ranges::find_if(devices, [&d2](const Device &d) {
         return d.key == d2.key;
     });
     ASSERT_NE(it2, devices.end());

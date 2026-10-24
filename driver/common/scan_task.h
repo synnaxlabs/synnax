@@ -44,7 +44,7 @@ inline x::json::json merge_device_properties(
     x::json::json merged = remote_props.is_object() ? remote_props
                                                     : x::json::json::object();
     if (scanned_props.is_object()) {
-        for (auto &[k, v]: scanned_props.items())
+        for (const auto &[k, v]: scanned_props.items())
             merged[k] = v;
     }
     return merged;
@@ -82,7 +82,7 @@ struct Scanner {
     virtual ~Scanner() = default;
 
     /// @brief Returns the scanner configuration.
-    virtual ScannerConfig config() const = 0;
+    [[nodiscard]] virtual ScannerConfig config() const = 0;
 
     /// @brief Lifecycle method called when the scan task starts.
     virtual x::errors::Error start() { return x::errors::NIL; }
@@ -457,11 +457,11 @@ public:
                 std::unordered_set<std::string> seen;
                 std::vector<synnax::device::Device> deduped;
                 for (auto it = scanned_devs.rbegin(); it != scanned_devs.rend(); ++it) {
-                    if (seen.count(it->key)) continue;
+                    if (seen.contains(it->key)) continue;
                     seen.insert(it->key);
                     deduped.push_back(std::move(*it));
                 }
-                std::reverse(deduped.begin(), deduped.end());
+                std::ranges::reverse(deduped);
                 scanned_devs = std::move(deduped);
             }
 
@@ -524,7 +524,7 @@ public:
             }
 
             for (auto &[key, dev]: this->dev_states) {
-                if (present.find(key) != present.end()) continue;
+                if (present.contains(key)) continue;
                 if (!dev.status.has_value()) dev.status = synnax::device::Status{};
                 dev.status->variant = synnax::status::VARIANT_WARNING;
                 dev.status->message = "Device disconnected";

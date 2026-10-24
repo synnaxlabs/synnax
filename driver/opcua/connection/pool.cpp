@@ -42,10 +42,9 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
                         entry.in_use = true;
                         candidate = entry.client;
                         break;
-                    } else {
-                        VLOG(1) << log_prefix << "Removing stale connection from pool";
-                        entry.client.reset();
                     }
+                    VLOG(1) << log_prefix << "Removing stale connection from pool";
+                    entry.client.reset();
                 }
             }
 
@@ -235,7 +234,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     return {Connection(client, this, key), x::errors::NIL};
 }
 
-void Pool::release(const std::string &key, std::shared_ptr<UA_Client> client) {
+void Pool::release(const std::string &key, const std::shared_ptr<UA_Client> &client) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto it = connections_.find(key);
@@ -318,7 +317,7 @@ size_t Pool::available_count(const std::string &endpoint) const {
     std::lock_guard<std::mutex> lock(mutex_);
     size_t count = 0;
     for (const auto &[key, entries]: connections_)
-        if (key.find(endpoint) == 0)
+        if (key.starts_with(endpoint))
             for (const auto &entry: entries)
                 if (!entry.in_use && entry.client) count++;
     return count;

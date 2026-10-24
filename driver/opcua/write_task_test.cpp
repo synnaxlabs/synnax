@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <numbers>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -246,11 +247,11 @@ protected:
         );
         fr.emplace(
             this->float_cmd_channel.key,
-            x::telem::Series(2.718f, x::telem::FLOAT32_T)
+            x::telem::Series(std::numbers::e_v<float>, x::telem::FLOAT32_T)
         );
         fr.emplace(
             this->double_cmd_channel.key,
-            x::telem::Series(3.14159, x::telem::FLOAT64_T)
+            x::telem::Series(std::numbers::pi, x::telem::FLOAT64_T)
         );
         reads->push_back(std::move(fr));
 

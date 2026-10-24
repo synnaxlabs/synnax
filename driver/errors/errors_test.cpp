@@ -38,8 +38,8 @@ TEST(ErrorsTest, LibraryInfoNotEmpty) {
 TEST(ErrorsTest, URLsAreWellFormed) {
     auto is_valid_url = [](const std::string &url) {
         if (url.length() < 12) return false;
-        if (url.substr(0, 8) != "https://") return false;
-        if (url.find(' ') != std::string::npos) return false;
+        if (!url.starts_with("https://")) return false;
+        if (url.contains(' ')) return false;
         return true;
     };
 

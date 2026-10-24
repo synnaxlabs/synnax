@@ -19,7 +19,7 @@
 #include "x/cpp/test/test.h"
 
 namespace synnax::arc {
-std::mt19937 gen_rand = random_generator(std::move("Arc Tests"));
+std::mt19937 gen_rand = random_generator("Arc Tests");
 
 std::string random_arc_name(const std::string &prefix) {
     std::uniform_int_distribution<> dis(10000, 99999);

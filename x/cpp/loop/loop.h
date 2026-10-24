@@ -140,7 +140,7 @@ private:
     /// system tick.
     void step();
 
-    telem::TimeSpan interval{};
+    telem::TimeSpan interval;
     bool last_set = false;
     hs_clock::time_point last;
     /// @brief the OS state of a sleep step.

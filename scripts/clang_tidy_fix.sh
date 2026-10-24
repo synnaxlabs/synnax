@@ -34,7 +34,9 @@ bazel build --config=clang-tidy-fix --keep_going \
     --build_event_json_file="$tmp/events.json" "$@" || status=$?
 
 # Each action exports its fixes against the sandbox it ran in. Collect the files this
-# build produced and point their paths back at the checkout.
+# build produced and point their paths back at the checkout. A template reports one
+# fix per instantiation, each with its own message, and clang-apply-replacements
+# applies every copy within one file, so keep one of each.
 mkdir "$tmp/fixes"
 python3 - "$tmp/events.json" "$tmp/fixes" "$root" << 'PY'
 import json
@@ -45,6 +47,9 @@ from urllib.parse import unquote, urlparse
 
 events, out, root = sys.argv[1], pathlib.Path(sys.argv[2]), sys.argv[3]
 sandbox = re.compile(r"[^'\"\s]*/execroot/_main\b")
+relative = re.compile(r"((?:FilePath|MainSourceFile):\s+')(?:\./)?(?=[^/'])")
+diagnostic = re.compile(r"(?m)^(?=  - DiagnosticName:)")
+message = re.compile(r"(?m)^ +Message: .*\n")
 count = 0
 for line in open(events):
     files = json.loads(line).get("namedSetOfFiles", {}).get("files", [])
@@ -52,8 +57,14 @@ for line in open(events):
         path = pathlib.Path(unquote(urlparse(file["uri"]).path))
         if not path.name.endswith(".clang-tidy.yaml") or path.stat().st_size == 0:
             continue
-        text = sandbox.sub(root, path.read_text())
-        (out / f"{count}.yaml").write_text(text)
+        text = relative.sub(rf"\g<1>{root}/", sandbox.sub(root, path.read_text()))
+        head, _, body = text.partition("Diagnostics:\n")
+        body = body.removesuffix("...\n")
+        blocks = {}
+        for block in diagnostic.split(body):
+            blocks.setdefault(message.sub("", block), block)
+        unique = "".join(blocks.values())
+        (out / f"{count}.yaml").write_text(f"{head}Diagnostics:\n{unique}...\n")
         count += 1
 print(f"Applying fixes from {count} files.")
 PY

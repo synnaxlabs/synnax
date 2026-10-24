@@ -16,7 +16,7 @@
 #include "x/cpp/test/test.h"
 
 namespace synnax::rack {
-std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
+std::mt19937 gen_rand = random_generator("Ranger Tests");
 
 /// @brief it should correctly create a rack in the cluster.
 TEST(RackTests, testCreateRack) {

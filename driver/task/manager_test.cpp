@@ -36,7 +36,7 @@ public:
         ctx->set_status(status);
     }
 
-    std::string name() const override { return "echo"; }
+    [[nodiscard]] std::string name() const override { return "echo"; }
 
     void exec(synnax::task::Command &cmd) override {
         synnax::task::Status status{
@@ -103,7 +103,7 @@ public:
         ctx->set_status(status);
     }
 
-    std::string name() const override { return "blocking"; }
+    [[nodiscard]] std::string name() const override { return "blocking"; }
     void exec(synnax::task::Command &) override {}
     void stop(bool) override {}
 };
@@ -164,7 +164,7 @@ public:
         ctx->set_status(status);
     }
 
-    std::string name() const override { return "tracking"; }
+    [[nodiscard]] std::string name() const override { return "tracking"; }
 
     void exec(synnax::task::Command &cmd) override {
         state->exec_count++;
@@ -177,7 +177,7 @@ public:
         state->stop_will_reconfigure = will_reconfigure;
     }
 
-    std::vector<std::string> get_cmd_order() {
+    std::vector<std::string> get_cmd_order() const {
         std::lock_guard lock(state->cmd_order_mu);
         return state->cmd_order;
     }
@@ -222,7 +222,7 @@ public:
         cv.wait(lock, [&] { return this->release.load(); });
     }
 
-    std::string name() const override { return "timeout"; }
+    [[nodiscard]] std::string name() const override { return "timeout"; }
     void exec(synnax::task::Command &) override {}
     void stop(bool) override {}
 };
@@ -1057,7 +1057,7 @@ public:
     ):
         stop_called(stop_called), release(release), cv(cv), mu(mu) {}
 
-    std::string name() const override { return "blocking_stop"; }
+    [[nodiscard]] std::string name() const override { return "blocking_stop"; }
     void exec(synnax::task::Command &) override {}
 
     void stop(bool) override {
@@ -1144,7 +1144,7 @@ public:
     SlowStopTask(x::telem::TimeSpan duration, std::atomic<bool> &stopped):
         stop_duration(duration), stopped(stopped) {}
 
-    std::string name() const override { return "slow_stop"; }
+    [[nodiscard]] std::string name() const override { return "slow_stop"; }
     void exec(synnax::task::Command &) override {}
 
     void stop(bool) override {
@@ -1167,7 +1167,7 @@ public:
         const std::string &
     ) override {
         if (task.type == SYNTHETIC_TASK_TYPE) {
-            auto flag = new std::atomic<bool>(false);
+            auto *flag = new std::atomic<bool>(false);
             std::lock_guard lock(mu);
             stopped_flags.push_back(flag);
             return {std::make_unique<SlowStopTask>(stop_duration, *flag), true};

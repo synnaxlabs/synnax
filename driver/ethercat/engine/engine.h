@@ -111,7 +111,7 @@ public:
     struct ResolvedPDO {
         pdo::Offset offset;
         x::telem::DataType data_type;
-        uint8_t bit_length;
+        uint8_t bit_length{};
     };
 
     /// @brief proxy for reading input data from the EtherCAT cycle engine.
@@ -193,7 +193,7 @@ public:
     };
 
     /// @brief constructs an Engine with the given master and configuration.
-    explicit Engine(std::shared_ptr<master::Master> master, const Config &config);
+    explicit Engine(std::shared_ptr<master::Master> master, Config config);
 
     /// @brief constructs an Engine with the given master using default configuration.
     explicit Engine(std::shared_ptr<master::Master> master);

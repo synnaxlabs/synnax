@@ -50,7 +50,7 @@ inline x::errors::Error err_from_status(const ::grpc::Status &status) {
 class Pool {
     std::mutex mu;
     /// @brief A map of channels to targets.
-    std::unordered_map<std::string, std::shared_ptr<::grpc::Channel>> channels{};
+    std::unordered_map<std::string, std::shared_ptr<::grpc::Channel>> channels;
     /// @brief GRPC credentials to provide when connecting to a target.
     std::shared_ptr<::grpc::ChannelCredentials> credentials;
 

@@ -31,7 +31,7 @@
 constexpr size_t VARIABLE_LENGTH_PREFIX_SIZE = sizeof(uint32_t);
 
 static inline uint32_t read_u32_le(const std::byte *ptr) {
-    uint32_t v;
+    uint32_t v = 0;
     memcpy(&v, ptr, VARIABLE_LENGTH_PREFIX_SIZE);
     return v;
 }
@@ -130,7 +130,7 @@ public:
     /// @brief alignment defines the location of the series relative to other series in
     /// a logical group. This is typically used to define the location of the series
     /// within a channel's data.
-    Alignment alignment = Alignment();
+    Alignment alignment;
 
 private:
     /// @brief validates the input index is within the bounds of the series. If the
@@ -701,8 +701,11 @@ public:
     /// @brief constructs the series from a vector of JSON values.
     /// @param values the vector of JSON values to be used.
     explicit Series(const std::vector<json::json> &values):
-        data_type_(JSON_T), cap_(values.size()), size_(values.size()) {
-        this->cached_byte_size = 0;
+        data_type_(JSON_T),
+        cap_(values.size()),
+        cached_byte_size(0),
+        size_(values.size()) {
+
         for (const auto &value: values)
             this->cached_byte_size += value.dump().size() + VARIABLE_LENGTH_PREFIX_SIZE;
 
@@ -859,7 +862,6 @@ public:
         this->set(d.data_(), index, d.size());
     }
 
-public:
     /// @brief writes the given vector of numeric data to the series.
     /// @param d the vector of numeric data to be written.
     /// @returns the number of samples written. If the capacity of the series is
@@ -932,8 +934,8 @@ public:
                 );
             if (this->size() >= this->cap()) return 0;
 
-            const char *str_data;
-            size_t str_len;
+            const char *str_data = nullptr;
+            size_t str_len = 0;
             if constexpr (std::is_same_v<T, std::string>) {
                 str_data = d.c_str();
                 str_len = d.length();
@@ -1033,7 +1035,7 @@ public:
         v.reserve(this->size());
         const auto *ptr = this->data_.get();
         for (size_t i = 0; i < this->size(); i++, ptr += x::uuid::UUID::size()) {
-            std::array<std::uint8_t, 16> bytes;
+            std::array<std::uint8_t, 16> bytes{};
             std::memcpy(bytes.data(), ptr, bytes.size());
             v.emplace_back(bytes);
         }
@@ -1730,43 +1732,49 @@ public:
         const auto size = this->size();
 
         if (this->data_type() == FLOAT64_T) {
-            auto *data_ptr = reinterpret_cast<const double *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const double *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == FLOAT32_T) {
-            auto *data_ptr = reinterpret_cast<const float *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const float *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == INT64_T) {
-            auto *data_ptr = reinterpret_cast<const int64_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const int64_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == INT32_T) {
-            auto *data_ptr = reinterpret_cast<const int32_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const int32_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == INT16_T) {
-            auto *data_ptr = reinterpret_cast<const int16_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const int16_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == INT8_T) {
-            auto *data_ptr = reinterpret_cast<const int8_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const int8_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT64_T) {
-            auto *data_ptr = reinterpret_cast<const uint64_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const uint64_t *>(
+                this->data_.get()
+            );
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT32_T) {
-            auto *data_ptr = reinterpret_cast<const uint32_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const uint32_t *>(
+                this->data_.get()
+            );
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT16_T) {
-            auto *data_ptr = reinterpret_cast<const uint16_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const uint16_t *>(
+                this->data_.get()
+            );
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT8_T) {
-            auto *data_ptr = reinterpret_cast<const uint8_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const uint8_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == TIMESTAMP_T) {

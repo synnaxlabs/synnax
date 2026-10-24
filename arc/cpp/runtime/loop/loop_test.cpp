@@ -451,7 +451,7 @@ TEST(ConfigOutputTest, OutputContainsCpuAffinityWhenSet) {
     std::ostringstream os;
     os << cfg;
     EXPECT_NE(os.str().find("cpu affinity"), std::string::npos);
-    EXPECT_NE(os.str().find("7"), std::string::npos);
+    EXPECT_NE(os.str().find('7'), std::string::npos);
 }
 
 TEST(ConfigOutputTest, OutputOmitsCpuAffinityWhenAuto) {
@@ -1065,6 +1065,7 @@ TEST(DeadlineTest, Hybrid_FiresOnADeadlineInsideTheInputSpin) {
     breaker.start();
     constexpr int COUNT = 20;
     std::vector<x::telem::TimeSpan> errors;
+    errors.reserve(COUNT);
     for (int i = 0; i < COUNT; i++)
         errors.push_back(measure_fire(
                              *loop,
@@ -1086,7 +1087,7 @@ protected:
 
     void SetUp() override {
         Config config;
-        config.mode = this->GetParam();
+        config.mode = arc::runtime::loop::StaleDeadlineTest::GetParam();
         this->loop = ASSERT_NIL_P(create_and_start(config));
         this->notifier = x::notify::create();
         ASSERT_TRUE(this->loop->watch(*this->notifier));
@@ -1161,7 +1162,7 @@ protected:
 
     void SetUp() override {
         Config config;
-        config.mode = this->GetParam();
+        config.mode = arc::runtime::loop::IntervalTest::GetParam();
         config.interval = this->INTERVAL;
         this->loop = ASSERT_NIL_P(create_and_start(config));
         this->breaker.start();
@@ -1210,7 +1211,7 @@ void expect_timer_on_deadline(Loop &loop, x::breaker::Breaker &breaker) {
         );
         errors.push_back(sw.elapsed() - test_timing::DEADLINE_DURATION);
     }
-    std::sort(errors.begin(), errors.end());
+    std::ranges::sort(errors);
     EXPECT_GE(errors.front(), x::telem::TimeSpan(0));
     EXPECT_LE(errors[COUNT / 2], test_timing::FIRE_ERROR_BOUND);
 }
@@ -1284,7 +1285,7 @@ protected:
 
     void SetUp() override {
         Config config;
-        config.mode = this->GetParam();
+        config.mode = arc::runtime::loop::FailedArmTest::GetParam();
         config.cpu_affinity = CPU_AFFINITY_NONE;
         this->loop = std::make_unique<FailingArmLoop>(config);
         ASSERT_NIL(this->loop->start());
@@ -1340,7 +1341,7 @@ INSTANTIATE_TEST_SUITE_P(ArmedModes, FailedArmTest, testing::ValuesIn(ARMED_MODE
 struct RecordingArm {
     std::vector<struct kevent> *kevs;
 
-    int set(const int kq, const struct kevent &kev) const {
+    [[nodiscard]] int set(const int kq, const struct kevent &kev) const {
         this->kevs->push_back(kev);
         return KqueueArm::set(kq, kev);
     }
@@ -1774,8 +1775,10 @@ protected:
     x::telem::TimeSpan duration;
 
     void SetUp() override {
-        const auto config = Config().apply_defaults(std::get<0>(this->GetParam()));
-        this->duration = std::get<1>(this->GetParam());
+        const auto config = Config().apply_defaults(
+            std::get<0>(arc::runtime::loop::ShortDeadlineTest::GetParam())
+        );
+        this->duration = std::get<1>(arc::runtime::loop::ShortDeadlineTest::GetParam());
         this->loop = ASSERT_NIL_P(create_and_start(config));
         this->breaker.start();
     }

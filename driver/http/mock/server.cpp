@@ -32,7 +32,7 @@ struct Server::Impl {
     std::mutex stop_mu;
     std::condition_variable stop_cv;
     std::string host;
-    bool secure;
+    bool secure{};
     std::string cert_path;
     std::string key_path;
     int port = 0;

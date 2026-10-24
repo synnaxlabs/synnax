@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <numbers>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/test/test.h"
@@ -51,8 +53,8 @@ TEST_F(ModbusUtilTest, test32BitTypes) {
     expect_format_parse_eq<int32_t>(-12345678, x::telem::INT32_T);
     expect_format_parse_eq<int32_t>(12345678, x::telem::INT32_T);
 
-    expect_format_parse_eq<float>(3.14159f, x::telem::FLOAT32_T);
-    expect_format_parse_eq<float>(-3.14159f, x::telem::FLOAT32_T);
+    expect_format_parse_eq<float>(std::numbers::pi_v<float>, x::telem::FLOAT32_T);
+    expect_format_parse_eq<float>(-std::numbers::pi_v<float>, x::telem::FLOAT32_T);
     expect_format_parse_eq<float>(0.0f, x::telem::FLOAT32_T);
     expect_format_parse_eq<float>(100.0, x::telem::FLOAT32_T);
 }
@@ -65,8 +67,8 @@ TEST_F(ModbusUtilTest, test64BitTypes) {
     expect_format_parse_eq<int64_t>(-12345678901234, x::telem::INT64_T);
     expect_format_parse_eq<int64_t>(12345678901234, x::telem::INT64_T);
 
-    expect_format_parse_eq<double>(3.14159265359, x::telem::FLOAT64_T);
-    expect_format_parse_eq<double>(-3.14159265359, x::telem::FLOAT64_T);
+    expect_format_parse_eq<double>(std::numbers::pi, x::telem::FLOAT64_T);
+    expect_format_parse_eq<double>(-std::numbers::pi, x::telem::FLOAT64_T);
     expect_format_parse_eq<double>(0.0, x::telem::FLOAT64_T);
 }
 
@@ -85,21 +87,31 @@ TEST_F(ModbusUtilTest, test8BitTypes) {
 TEST_F(ModbusUtilTest, testByteSwapping) {
     expect_format_parse_eq<uint16_t>(0x1234, x::telem::UINT16_T, true);
     expect_format_parse_eq<uint32_t>(0x12345678, x::telem::UINT32_T, true);
-    expect_format_parse_eq<float>(3.14159f, x::telem::FLOAT32_T, true);
+    expect_format_parse_eq<float>(std::numbers::pi_v<float>, x::telem::FLOAT32_T, true);
 }
 
 /// @brief it should handle word swapping in register operations.
 TEST_F(ModbusUtilTest, testWordSwapping) {
     expect_format_parse_eq<uint32_t>(0x12345678, x::telem::UINT32_T, false, true);
-    expect_format_parse_eq<float>(3.14159f, x::telem::FLOAT32_T, false, true);
-    expect_format_parse_eq<double>(3.14159265359, x::telem::FLOAT64_T, false, true);
+    expect_format_parse_eq<float>(
+        std::numbers::pi_v<float>,
+        x::telem::FLOAT32_T,
+        false,
+        true
+    );
+    expect_format_parse_eq<double>(std::numbers::pi, x::telem::FLOAT64_T, false, true);
 }
 
 /// @brief it should handle combined byte and word swapping.
 TEST_F(ModbusUtilTest, testByteAndWordSwapping) {
     expect_format_parse_eq<uint32_t>(0x12345678, x::telem::UINT32_T, true, true);
-    expect_format_parse_eq<float>(3.14159f, x::telem::FLOAT32_T, true, true);
-    expect_format_parse_eq<double>(3.14159265359, x::telem::FLOAT64_T, true, true);
+    expect_format_parse_eq<float>(
+        std::numbers::pi_v<float>,
+        x::telem::FLOAT32_T,
+        true,
+        true
+    );
+    expect_format_parse_eq<double>(std::numbers::pi, x::telem::FLOAT64_T, true, true);
 }
 
 /// @brief it should reject invalid data type in register operations.

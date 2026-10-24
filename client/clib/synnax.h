@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 
 #include "client/clib/channel/channel.h"
 #include "client/clib/export.h"

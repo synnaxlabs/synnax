@@ -17,7 +17,7 @@ namespace x::json {
 TEST(testConfig, testParserHappyPath) {
     struct MyConfig {
         std::string name;
-        float dog;
+        float dog{};
     };
     MyConfig v;
 
@@ -70,7 +70,7 @@ TEST(testConfig, testParserFieldHasInvalidType) {
 TEST(testConfig, testParserFieldChildHappyPath) {
     struct MyChildConfig {
         std::string name;
-        float dog;
+        float dog{};
     };
 
     struct MyConfig {
@@ -92,7 +92,7 @@ TEST(testConfig, testParserFieldChildHappyPath) {
 TEST(testConfig, testParserFieldChildDoesNotExist) {
     struct MyChildConfig {
         std::string name;
-        float dog;
+        float dog{};
     };
 
     struct MyConfig {
@@ -116,7 +116,7 @@ TEST(testConfig, testParserFieldChildDoesNotExist) {
 TEST(testConfig, testParserChildFieldInvalidType) {
     struct MyChildConfig {
         std::string name;
-        float dog;
+        float dog{};
     };
 
     struct MyConfig {
@@ -140,7 +140,7 @@ TEST(testConfig, testParserChildFieldInvalidType) {
 TEST(testConfig, testIterHappyPath) {
     struct MyChildConfig {
         std::string name;
-        float dog;
+        float dog{};
     };
 
     struct MyConfig {
@@ -170,7 +170,7 @@ TEST(testConfig, testIterHappyPath) {
 TEST(testConfig, testIterFieldDoesNotExist) {
     struct MyChildConfig {
         std::string name;
-        float dog;
+        float dog{};
     };
 
     struct MyConfig {
@@ -197,7 +197,7 @@ TEST(testConfig, testIterFieldDoesNotExist) {
 TEST(testConfig, testIterFieldIsNotArray) {
     struct MyChildConfig {
         std::string name;
-        float dog;
+        float dog{};
     };
 
     struct MyConfig {
@@ -224,7 +224,7 @@ TEST(testConfig, testIterFieldIsNotArray) {
 TEST(testConfig, testIterFieldChildFieldInvalidType) {
     struct MyChildConfig {
         std::string name;
-        float dog;
+        float dog{};
     };
 
     struct MyConfig {
@@ -257,7 +257,7 @@ TEST(testConfig, testInterpretStringAsNumber) {
         float dog;
     };
     const json j = {{"dog", "1.232"}};
-    MyConfig v;
+    MyConfig v{};
     Parser parser(j);
     v.dog = parser.field<float>("dog");
     EXPECT_TRUE(parser.ok());
@@ -329,7 +329,7 @@ TEST(testConfig, testNoError) {
 TEST(testConfig, testParseFromFileSuccess) {
     struct MyConfig {
         std::string name;
-        float value;
+        float value{};
     };
 
     // Create a temporary test file
@@ -434,7 +434,7 @@ struct NestedOuterConfig {
         name(p.field<std::string>("name")),
         inner(p.field<NestedInnerConfig>("inner")) {}
 
-    NestedOuterConfig() {}
+    NestedOuterConfig() = default;
 };
 
 struct MissingFieldConfig {
@@ -474,7 +474,7 @@ struct NestedErrorOuterConfig {
         name(p.field<std::string>("name")),
         inner(p.field<NestedErrorInnerConfig>("inner")) {}
 
-    NestedErrorOuterConfig() {}
+    NestedErrorOuterConfig() = default;
 };
 
 struct ArrayItem {
@@ -515,7 +515,7 @@ struct ParentMissingConfig {
 
     explicit ParentMissingConfig(Parser p): name(p.field<std::string>("name")) {}
 
-    ParentMissingConfig() {}
+    ParentMissingConfig() = default;
 };
 
 struct ParentInvalidTypeConfig {
@@ -523,7 +523,7 @@ struct ParentInvalidTypeConfig {
 
     explicit ParentInvalidTypeConfig(Parser p): name(p.field<std::string>("name")) {}
 
-    ParentInvalidTypeConfig() {}
+    ParentInvalidTypeConfig() = default;
 };
 
 struct OptionalConfig {

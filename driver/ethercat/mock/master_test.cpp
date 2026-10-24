@@ -317,7 +317,7 @@ TEST(MasterIoMap, SetInputWritesToInputMap) {
     master.set_input<int16_t>(0, 0x1234);
     auto data = master.input_data();
     ASSERT_GE(data.size(), 2);
-    int16_t value;
+    int16_t value = 0;
     std::memcpy(&value, data.data(), sizeof(value));
     EXPECT_EQ(value, 0x1234);
 }

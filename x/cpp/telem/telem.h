@@ -613,7 +613,7 @@ public:
     [[nodiscard]] x::json::json to_json() const;
 
     /// @brief converts the TimeRange to protobuf representation.
-    std::pair<pb::TimeRange, x::errors::Error> to_proto() const;
+    [[nodiscard]] std::pair<pb::TimeRange, x::errors::Error> to_proto() const;
 
     /// @brief constructs a TimeRange from protobuf representation.
     static std::pair<TimeRange, x::errors::Error> from_proto(const pb::TimeRange &pb);
@@ -628,7 +628,7 @@ inline std::pair<pb::TimeRange, x::errors::Error> TimeRange::to_proto() const {
 
 inline std::pair<TimeRange, x::errors::Error>
 TimeRange::from_proto(const pb::TimeRange &pb) {
-    TimeRange cpp;
+    TimeRange cpp{};
     cpp.start = TimeStamp::from_proto(pb.start());
     cpp.end = TimeStamp::from_proto(pb.end());
     return {cpp, x::errors::NIL};
@@ -765,7 +765,7 @@ inline constexpr TimeStamp TIME_STAMP_MIN = TimeStamp::min();
 
 #define ASSERT_TYPE_SIZE(type, size)                                                   \
     static_assert(                                                                     \
-        sizeof(type) == size,                                                          \
+        sizeof(type) == (size),                                                        \
         "synnax only supports compilation environments with " #size " bit " #type "s"  \
     )
 

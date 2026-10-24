@@ -160,6 +160,7 @@ TEST(CrashDeathTest, ConcurrentFatalSignalsTerminateCleanly) {
         {
             x::crash::install("test-driver");
             std::vector<std::thread> threads;
+            threads.reserve(8);
             for (int i = 0; i < 8; i++)
                 threads.emplace_back([] { std::raise(SIGABRT); });
             for (auto &t: threads)

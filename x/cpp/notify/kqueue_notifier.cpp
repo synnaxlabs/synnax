@@ -86,7 +86,7 @@ public:
     [[nodiscard]] void *native_handle() const override { return nullptr; }
 
 private:
-    bool drain() {
+    bool drain() const {
         char buf[64];
         bool drained = false;
         while (read(this->read_fd, buf, sizeof(buf)) > 0)

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <numbers>
 #include <sstream>
 #include <vector>
 
@@ -322,7 +323,7 @@ TEST(CodecTests, EncodeDecodeChannelSubset) {
 /// @brief it should handle a large frame to ensure robustness.
 TEST(CodecTests, LargeFrame) {
     auto frame = x::telem::Frame(1);
-    std::vector large_data(100000, 3.14159f);
+    std::vector large_data(100000, std::numbers::pi_v<float>);
     auto large_series = x::telem::Series(large_data);
     large_series.time_range = {x::telem::TimeStamp(1000), x::telem::TimeStamp(2000)};
     large_series.alignment = x::telem::Alignment(42);

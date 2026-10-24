@@ -18,7 +18,7 @@
 #include "x/cpp/test/test.h"
 
 namespace synnax::channel {
-std::mt19937 gen_rand = random_generator(std::move("Channel Tests"));
+std::mt19937 gen_rand = random_generator("Channel Tests");
 
 /// @brief it should create a rate based channel and assign it a non-zero key.
 TEST(TestChannel, testCreate) {

@@ -286,6 +286,7 @@ TEST(BusTest, ConcurrentPublishAndSubscribeLifecycle) {
     constexpr int num_subscribers = 4;
     constexpr int frames_per_publisher = 50;
     std::vector<std::thread> threads;
+    threads.reserve(num_publishers);
     for (int p = 0; p < num_publishers; p++) {
         threads.emplace_back([&bus] {
             for (int i = 0; i < frames_per_publisher; i++) {

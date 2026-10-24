@@ -107,6 +107,7 @@ TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
 
     std::vector<std::thread> threads;
 
+    threads.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
         threads.emplace_back([&]() {
             for (int j = 0; j < iterations_per_thread; ++j) {

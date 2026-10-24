@@ -20,6 +20,8 @@
 #   a value.
 # - avoid-c-style-cast: it flags harmless casts such as uint8_t(7). pro-type-cstyle-cast
 #   flags the risky ones.
+# - avoid-endl: a tool that prints to a pipe needs the flush that std::endl does.
+# - use-string-view: it changes return types and leaves callers that append to them.
 # - include-cleaner and inconsistent-declaration-parameter-name: the result differs
 #   between libc++ and libstdc++.
 # - Brace, parameter, literal, and declaration style: clang-format and review own it.
@@ -58,8 +60,10 @@ Checks: |
     -modernize-return-braced-init-list,
     -modernize-use-designated-initializers,
     -modernize-use-std-print,
+    -modernize-use-string-view,
     -modernize-use-trailing-return-type,
     performance-*,
+    -performance-avoid-endl,
     -performance-enum-size,
     -performance-no-int-to-ptr,
     portability-*,

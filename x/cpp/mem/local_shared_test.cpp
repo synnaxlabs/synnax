@@ -32,7 +32,7 @@ TEST(LocalShared, CopyConstruction) {
     auto ptr1 = make_local_shared<int>(42);
     EXPECT_EQ(ptr1.use_count(), 1);
 
-    auto ptr2 = ptr1;
+    const auto &ptr2 = ptr1;
     EXPECT_EQ(ptr1.use_count(), 2);
     EXPECT_EQ(ptr2.use_count(), 2);
     EXPECT_EQ(*ptr1, 42);
@@ -128,7 +128,7 @@ TEST(LocalShared, StructWithMembers) {
     EXPECT_EQ(ptr->y, 3.14);
     EXPECT_EQ(ptr->z, "test");
 
-    auto ptr2 = ptr;
+    const auto &ptr2 = ptr;
     EXPECT_EQ(ptr2->x, 42);
     EXPECT_EQ(ptr.use_count(), 2);
 }
@@ -160,10 +160,7 @@ TEST(LocalShared, DestructorCalled) {
         auto ptr1 = make_local_shared<DestructorCounter>(&counter);
         EXPECT_EQ(counter, 0);
 
-        {
-            auto ptr2 = ptr1;
-            EXPECT_EQ(counter, 0);
-        }
+        { EXPECT_EQ(counter, 0); }
 
         EXPECT_EQ(counter, 0); // Still one reference
     }

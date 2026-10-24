@@ -20,7 +20,7 @@
 #include "core/pkg/service/ranger/pb/ranger.pb.h"
 
 namespace synnax::ranger {
-std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
+std::mt19937 gen_rand = random_generator("Ranger Tests");
 
 /// @brief it should create a new range and assign it a non-zero key.
 TEST(RangerTests, testCreate) {

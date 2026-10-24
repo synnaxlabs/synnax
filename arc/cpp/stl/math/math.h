@@ -49,8 +49,7 @@ struct WindowInputs {
     static std::pair<WindowInputs, x::errors::Error>
     create(const types::Params &params) {
         WindowInputs inputs;
-        for (size_t i = 0; i < params.size(); i++) {
-            const auto &p = params[i];
+        for (const auto &p: params) {
             if (p.name == "duration") {
                 auto sv = types::to_sample_value(p.value, p.type);
                 if (sv.has_value())
@@ -93,14 +92,14 @@ public:
         state(std::move(state)),
         kind(kind),
         op(op),
-        inputs(std::move(inputs)),
+        inputs(inputs),
         input_idx(input_idx),
         reset_idx(reset_idx) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
         const auto &input_time = this->state.input_time(this->input_idx);
-        if (this->start_time == x::telem::TimeStamp(0) && input_time->size() > 0)
+        if (this->start_time == x::telem::TimeStamp(0) && !input_time->empty())
             this->start_time = x::telem::TimeStamp(input_time->at<int64_t>(0));
 
         bool should_reset = false;
@@ -113,13 +112,13 @@ public:
                 if (ts > this->last_reset_time && reset_data->at<bool>(i))
                     should_reset = true;
             }
-            if (reset_time->size() > 0)
+            if (!reset_time->empty())
                 this->last_reset_time = x::telem::TimeStamp(
                     reset_time->at<int64_t>(-1)
                 );
         }
 
-        if (this->inputs.duration > x::telem::TimeSpan(0) && input_time->size() > 0) {
+        if (this->inputs.duration > x::telem::TimeSpan(0) && !input_time->empty()) {
             auto current_time = x::telem::TimeStamp(input_time->at<int64_t>(-1));
             if (x::telem::TimeSpan(current_time - this->start_time) >=
                 this->inputs.duration) {
@@ -137,7 +136,7 @@ public:
         }
 
         const auto &input_data = this->state.input(this->input_idx);
-        if (input_data->size() == 0) return x::errors::NIL;
+        if (input_data->empty()) return x::errors::NIL;
 
         switch (this->kind) {
             case types::Kind::F64:
@@ -219,7 +218,7 @@ private:
     void reduce(const runtime::state::Series &input_data) {
         const auto n = static_cast<int64_t>(input_data->size());
         auto &output = this->state.output(0);
-        const bool fresh = (output->size() == 0);
+        const bool fresh = (output->empty());
         switch (this->op) {
             case Op::Avg:
                 this->reduce_avg<T>(input_data, n, fresh);
@@ -295,7 +294,7 @@ public:
         if (!this->state.refresh_inputs()) return x::errors::NIL;
         const auto &input_data = this->state.input(this->input_idx);
         const auto &input_time = this->state.input_time(this->input_idx);
-        if (input_data->size() == 0) return x::errors::NIL;
+        if (input_data->empty()) return x::errors::NIL;
         switch (this->kind) {
             case types::Kind::F64:
                 this->compute<double>(input_data, input_time, ctx);
@@ -612,7 +611,7 @@ public:
         bind_float_unary<double>(linker, "f64");
     }
 
-    bool handles(const std::string &node_type) const override {
+    [[nodiscard]] bool handles(const std::string &node_type) const override {
         return node_type == "avg" || node_type == "min" || node_type == "max" ||
                node_type == "derivative" || node_type == "add" ||
                node_type == "subtract" || node_type == "multiply" ||
@@ -715,7 +714,7 @@ public:
 private:
     template<typename T>
     static void bind_float(wasmtime::Linker &linker, const std::string &suffix) {
-        using W = typename WasmType<T>::type;
+        using W = WasmType<T>::type;
         linker
             .func_wrap(
                 MODULE_NAME,
@@ -731,7 +730,7 @@ private:
 
     template<typename T>
     static void bind_int(wasmtime::Linker &linker, const std::string &suffix) {
-        using W = typename WasmType<T>::type;
+        using W = WasmType<T>::type;
         linker
             .func_wrap(
                 MODULE_NAME,
@@ -747,7 +746,7 @@ private:
 
     template<typename T>
     static void bind_signed_unary(wasmtime::Linker &linker, const std::string &suffix) {
-        using W = typename WasmType<T>::type;
+        using W = WasmType<T>::type;
         linker
             .func_wrap(
                 MODULE_NAME,
@@ -759,7 +758,7 @@ private:
 
     template<typename T>
     static void bind_float_unary(wasmtime::Linker &linker, const std::string &suffix) {
-        using W = typename WasmType<T>::type;
+        using W = WasmType<T>::type;
         linker
             .func_wrap(
                 MODULE_NAME,

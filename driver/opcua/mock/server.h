@@ -15,8 +15,10 @@
 #include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <numbers>
 #include <string>
 #include <thread>
+#include <utility>
 
 #include "absl/log/log.h"
 #include "open62541/server.h"
@@ -34,7 +36,7 @@ struct TestNode {
     std::int32_t ns;
     std::string node_id;
     UA_DataType *data_type;
-    UA_Variant initial_value;
+    UA_Variant initial_value{};
     std::string description;
     bool return_invalid_data = false;
 
@@ -89,9 +91,10 @@ struct TestNode {
         ns(other.ns),
         node_id(std::move(other.node_id)),
         data_type(other.data_type),
+        initial_value(other.initial_value),
         description(std::move(other.description)),
         return_invalid_data(other.return_invalid_data) {
-        initial_value = other.initial_value;
+
         UA_Variant_init(&other.initial_value);
     }
 
@@ -128,8 +131,8 @@ struct ServerConfig {
         UA_Int16 int16_data = 42;
         UA_Int32 int32_data = 12345;
         UA_Int64 int64_data = 12345;
-        UA_Float float_data = 3.14159f;
-        UA_Double double_data = 2.71828;
+        UA_Float float_data = std::numbers::pi_v<float>;
+        UA_Double double_data = std::numbers::e;
         UA_Guid guid_data = {
             0x12345678,
             0x1234,
@@ -316,9 +319,9 @@ public:
     /// @brief artificial delay injected before each server iterate cycle.
     /// Used in tests to simulate a slow server (e.g. network-unreachable PLC).
     /// Zero means no delay.
-    x::telem::TimeSpan probe_delay{};
+    x::telem::TimeSpan probe_delay;
 
-    explicit Server(const ServerConfig &cfg): cfg(cfg) {}
+    explicit Server(ServerConfig cfg): cfg(std::move(cfg)) {}
 
     void start() {
         running = true;
@@ -352,7 +355,7 @@ public:
 
     void run() {
         UA_Server *server = UA_Server_new();
-        auto server_config = UA_Server_getConfig(server);
+        auto *server_config = UA_Server_getConfig(server);
         UA_ServerConfig_setMinimal(server_config, cfg.port, nullptr);
         server_config->maxSessionTimeout = 3600000;
         if (cfg.max_sessions > 0) server_config->maxSessions = cfg.max_sessions;
@@ -398,8 +401,8 @@ public:
                 nodeName.get(),
                 UA_NODEID_NULL,
                 attr,
-                NULL,
-                NULL
+                nullptr,
+                nullptr
             );
         }
 

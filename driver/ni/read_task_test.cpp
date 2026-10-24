@@ -345,7 +345,7 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
     ASSERT_GE(mock_factory->writes->size(), 1);
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.contains(data_channel.key), true);
@@ -652,7 +652,7 @@ public:
         this->live->fetch_add(1);
     }
 
-    ~CountingReader() { this->live->fetch_sub(1); }
+    ~CountingReader() override { this->live->fetch_sub(1); }
 
     x::errors::Error start() override { return x::errors::NIL; }
     x::errors::Error stop() override { return x::errors::NIL; }
@@ -817,7 +817,7 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     EXPECT_EQ(second_state.message, "Task stopped successfully");
 
     ASSERT_GE(mock_factory->writes->size(), 1);
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_TRUE(fr.contains(data_channel.key));
@@ -1026,7 +1026,7 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
     EXPECT_EQ(second_state.message, "Task stopped successfully");
 
     ASSERT_GE(mock_factory->writes->size(), 1);
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_TRUE(fr.contains(data_channel.key));
@@ -1148,7 +1148,7 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
 
     // Verify all three readings
     for (size_t i = 0; i < 3; i++) {
-        auto &fr = mock_factory->writes->at(i);
+        const auto &fr = mock_factory->writes->at(i);
         ASSERT_EQ(fr.size(), 2);
         ASSERT_EQ(fr.length(), 1);
         ASSERT_TRUE(fr.contains(data_channel.key));
@@ -1500,7 +1500,7 @@ TEST_F(AnalogReadTest, testSkewWarningFiresForAnalogRead) {
     bool found_warning = false;
     for (const auto &s: ctx->statuses) {
         if (s.variant == synnax::status::VARIANT_WARNING &&
-            s.message.find("trailing") != std::string::npos) {
+            s.message.contains("trailing")) {
             found_warning = true;
             break;
         }

@@ -425,11 +425,7 @@ private:
     exec(grpc::framer::WriterRequest &req, bool ack);
 
     /// @brief opens a writer to the Synnax cluster.
-    explicit Writer(
-        std::unique_ptr<WriterStream> s,
-        WriterConfig cfg,
-        const Codec &codec
-    );
+    explicit Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg, Codec codec);
 
     /// @brief initializes the cached request with the frame structure
     x::errors::Error init_request(const x::telem::Frame &fr);

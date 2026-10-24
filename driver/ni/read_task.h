@@ -108,6 +108,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
         std::vector<synnax::channel::Key> channel_keys;
+        channel_keys.reserve(this->channels.size());
         for (const auto &ch: this->channels)
             channel_keys.push_back(ch->synnax_key);
         auto [channel_vec, err] = client->channels.retrieve(channel_keys);
@@ -132,6 +133,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             devices[device.key] = device;
         } else {
             std::vector<std::string> dev_keys;
+            dev_keys.reserve(this->channels.size());
             for (const auto &ch: this->channels)
                 dev_keys.push_back(ch->dev_key);
             auto [devices_vec, dev_err] = client->devices.retrieve(dev_keys);
@@ -299,7 +301,7 @@ private:
         auto [hw, err] = this->make_hw(this->cfg);
         if (err) return err;
         this->hw_reader = std::move(hw);
-        this->sample_clock->reset();
+        (*this->sample_clock).reset();
         if (const auto start_err = this->hw_reader->start()) {
             this->hw_reader.reset();
             return start_err;
@@ -359,7 +361,7 @@ private:
 
         if (res.error) return res;
         if (prev_read_err) {
-            this->sample_clock->reset();
+            (*this->sample_clock).reset();
             return res;
         }
 

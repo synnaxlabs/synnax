@@ -340,7 +340,7 @@ TEST(ReadTask, testBasicReadTask) {
     EXPECT_EQ(second_state.message, "Task stopped successfully");
 
     ASSERT_GE(factory->writes->size(), 1);
-    auto &fr = factory->writes->at(0);
+    const auto &fr = factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.contains(data_channel.key), true);
@@ -494,7 +494,7 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2); // Data channel + index channel
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.at<uint8_t>(data_channel.key, 0), 1);
@@ -548,7 +548,7 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.at<uint16_t>(data_channel.key, 0), 12345);
@@ -619,7 +619,7 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 4); // 4 data channels + 1 index channel
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.at<uint8_t>(coil_ch.key, 0), 1);
@@ -712,7 +712,7 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 4); // 3 data channels + 1 index channel
     ASSERT_EQ(fr.length(), 1);
     // All three channels should have correct values, including the last one
@@ -780,7 +780,7 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 4); // 3 data channels + 1 index channel
     ASSERT_EQ(fr.length(), 1);
     // All three channels should have correct values, including the last one

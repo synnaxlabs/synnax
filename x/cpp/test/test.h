@@ -423,8 +423,8 @@ inline void eventually_nil(
 /// @param line The source line number
 /// @return The first element of the pair (the result value) if successful
 template<typename Pair>
-auto assert_nil_p(Pair &&pair_result, const char *file, const int line) ->
-    typename std::remove_reference<decltype(pair_result.first)>::type {
+auto assert_nil_p(Pair &&pair_result, const char *file, const int line)
+    -> std::remove_reference_t<decltype(pair_result.first)> {
     if (pair_result.second) {
         ADD_FAILURE_AT(file, line)
             << "Expected operation to succeed, but got error: " << pair_result.second;
@@ -451,7 +451,7 @@ auto assert_occurred_as_p(
     const errors::Error &expected,
     const char *file,
     const int line
-) -> typename std::remove_reference<decltype(pair_result.first)>::type {
+) -> std::remove_reference_t<decltype(pair_result.first)> {
     if (!pair_result.second) {
         ADD_FAILURE_AT(file, line) << "Expected operation to fail with error "
                                    << expected << ", but it succeeded";
@@ -489,8 +489,8 @@ auto assert_occurred_as_p(
 /// @brief macro asserting that the provided error matches the expeced err via a call
 /// to err.matches(expect).
 #define ASSERT_MATCHES(err, expected)                                                  \
-    ASSERT_TRUE(err.matches(expected))                                                 \
-        << "Expected error to match " << expected << ", but got " << err;
+    ASSERT_TRUE((err).matches(expected))                                               \
+        << "Expected error to match " << (expected) << ", but got " << (err);
 
 /// @brief macro asserting that the provided error will eventually be NIL.
 /// @param expr The expression to evaluate
@@ -615,7 +615,7 @@ inline void eventually_false(
     const std::chrono::milliseconds timeout = std::chrono::seconds(1),
     const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
 ) {
-    bool last_value;
+    bool last_value = false;
     eventually(
         [&]() {
             last_value = condition();
@@ -648,7 +648,7 @@ inline void eventually_true(
     const std::chrono::milliseconds timeout = std::chrono::seconds(1),
     const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
 ) {
-    bool last_value;
+    bool last_value = false;
     eventually(
         [&]() {
             last_value = condition();

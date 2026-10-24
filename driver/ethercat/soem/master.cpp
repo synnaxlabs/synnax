@@ -647,9 +647,9 @@ x::errors::Error Master::read_pdo_mapping(
 
         if (mapping == 0) continue;
 
-        const uint16_t index = static_cast<uint16_t>((mapping >> 16) & 0xFFFF);
-        const uint8_t sub_index = static_cast<uint8_t>((mapping >> 8) & 0xFF);
-        const uint8_t bit_length = static_cast<uint8_t>(mapping & 0xFF);
+        const auto index = static_cast<uint16_t>((mapping >> 16) & 0xFFFF);
+        const auto sub_index = static_cast<uint8_t>((mapping >> 8) & 0xFF);
+        const auto bit_length = static_cast<uint8_t>(mapping & 0xFF);
 
         if (index == 0 && sub_index == 0) continue;
 
@@ -692,9 +692,9 @@ std::string Master::read_pdo_entry_name(
     od_list.Entries = 1;
 
     ec_OElistt oe_list{};
-    if (this->api->readOEsingle(0, sub_index, &od_list, &oe_list) > 0)
-        if (oe_list.Entries > 0 && oe_list.Name[0][0] != '\0')
-            return std::string(oe_list.Name[0]);
+    if ((this->api->readOEsingle(0, sub_index, &od_list, &oe_list) > 0) &&
+        (oe_list.Entries > 0 && oe_list.Name[0][0] != '\0'))
+        return std::string(oe_list.Name[0]);
 
     return "";
 }
@@ -815,7 +815,7 @@ Manager::create(const std::string &key) {
             nullptr,
             x::errors::Error(errors::MASTER_INIT_ERROR, "empty interface name")
         };
-    if (key.size() >= 4 && key.substr(0, 4) == "igh:")
+    if (key.size() >= 4 && key.starts_with("igh:"))
         return {
             nullptr,
             x::errors::Error(

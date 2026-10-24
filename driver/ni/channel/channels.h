@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <map>
 #include <string>
 #include <vector>
@@ -131,7 +132,7 @@ struct ExcitationConfig {
         max_val_for_excitation(0),
         use_excit_for_scaling(0) {}
 
-    ExcitationConfig(
+    explicit ExcitationConfig(
         const ::synnax::ni::VoltageExcitation &e,
         const bool use_excit_for_scaling = false
     ):
@@ -181,10 +182,10 @@ struct TableConfig {
     int32_t physical_units;
 
     TableConfig(const ::synnax::ni::Table &t, const std::string &physical_units_str):
-        electrical_vals(t.electrical_vals), physical_vals(t.physical_vals) {
-        electrical_units = units_or_volts(t.electrical_units);
-        physical_units = units_or_volts(physical_units_str);
-    }
+        electrical_vals(t.electrical_vals),
+        physical_vals(t.physical_vals),
+        electrical_units(units_or_volts(t.electrical_units)),
+        physical_units(units_or_volts(physical_units_str)) {}
 };
 
 struct TwoPointLinConfig {
@@ -211,7 +212,7 @@ struct TwoPointLinConfig {
 
 inline std::string format_cfg_path(const std::string &path) {
     auto formatted = path;
-    std::replace(formatted.begin(), formatted.end(), '.', '_');
+    std::ranges::replace(formatted, '.', '_');
     if (formatted.empty()) return formatted;
     formatted.pop_back();
     return formatted;

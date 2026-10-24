@@ -160,7 +160,7 @@ TEST(ArcTests, testCalcDoubling) {
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
-    auto &output_fr = mock_writer->writes->at(0);
+    const auto &output_fr = mock_writer->writes->at(0);
     ASSERT_TRUE(output_fr.contains(output_ch.key));
     auto output_val = output_fr.at<float>(output_ch.key, 0);
     EXPECT_FLOAT_EQ(output_val, 10.0f);
@@ -1906,7 +1906,7 @@ TEST(ArcTests, testRestartResetsState) {
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
-    auto &output_fr_1 = mock_writer->writes->at(0);
+    const auto &output_fr_1 = mock_writer->writes->at(0);
     ASSERT_TRUE(output_fr_1.contains(output_ch.key));
     auto output_val_1 = output_fr_1.at<int64_t>(output_ch.key, 0);
     EXPECT_EQ(output_val_1, 1);
@@ -1933,7 +1933,7 @@ TEST(ArcTests, testRestartResetsState) {
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
-    auto &output_fr_2 = mock_writer->writes->at(0);
+    const auto &output_fr_2 = mock_writer->writes->at(0);
     ASSERT_TRUE(output_fr_2.contains(output_ch.key));
     auto output_val_2 = output_fr_2.at<int64_t>(output_ch.key, 0);
     EXPECT_EQ(output_val_2, 1) << "State should be reset on restart, count should be 1";

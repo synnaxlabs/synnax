@@ -9,8 +9,10 @@
 
 #pragma once
 
+#include <cmath>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "wasmtime.hh"
@@ -151,12 +153,12 @@ sample_from_bits(const uint64_t bits, const types::Type &type) {
             return x::telem::SampleValue(static_cast<int64_t>(bits));
         case types::Kind::F32: {
             const auto bits32 = static_cast<uint32_t>(bits);
-            float f;
+            float f = NAN;
             memcpy(&f, &bits32, sizeof(float));
             return x::telem::SampleValue(f);
         }
         case types::Kind::F64: {
-            double d;
+            double d = NAN;
             memcpy(&d, &bits, sizeof(double));
             return x::telem::SampleValue(d);
         }
@@ -192,19 +194,19 @@ class Module {
 
 public:
     Module(
-        const ModuleConfig &cfg,
+        ModuleConfig cfg,
         wasmtime::Module module,
         wasmtime::Engine engine,
         wasmtime::Store store,
         wasmtime::Memory memory,
         wasmtime::Instance instance
     ):
-        cfg(cfg),
+        cfg(std::move(cfg)),
         module(std::move(module)),
         engine(std::move(engine)),
         store(std::move(store)),
-        memory(std::move(memory)),
-        instance(std::move(instance)) {}
+        memory(memory),
+        instance(instance) {}
 
     static std::pair<std::shared_ptr<Module>, x::errors::Error>
     open(const ModuleConfig &cfg) {
@@ -236,7 +238,7 @@ public:
         const auto mod = mod_result.ok();
 
         wasmtime::Linker linker(engine);
-        for (auto &m: cfg.modules)
+        for (const auto &m: cfg.modules)
             m->bind_to(linker, store);
 
         auto inst_result = linker.instantiate(store, mod);
@@ -277,11 +279,11 @@ public:
 
         auto module = std::make_shared<Module>(
             cfg,
-            std::move(mod),
+            mod,
             std::move(engine),
             std::move(store),
-            std::move(mem),
-            std::move(instance)
+            mem,
+            instance
         );
         for (auto &m: module->cfg.modules)
             m->set_wasm_context(&module->store, &module->memory);
@@ -319,7 +321,7 @@ public:
             const types::Params &inputs,
             const uint32_t base
         ):
-            module(module), fn(std::move(fn)), outputs(outputs), base(base) {
+            module(module), fn(fn), outputs(outputs), base(base) {
             this->args.resize(inputs.size(), wasmtime::Val(0));
             this->streamed.assign(inputs.size(), false);
             // An input with a nil value is edge-fed and streams in call(); a literal

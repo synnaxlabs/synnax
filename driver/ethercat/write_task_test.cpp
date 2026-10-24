@@ -90,7 +90,7 @@ protected:
         return dev;
     }
 
-    synnax::device::Device create_slave_device(
+    [[nodiscard]] synnax::device::Device create_slave_device(
         uint32_t serial,
         const x::json::json &input_pdos,
         const x::json::json &output_pdos
@@ -120,7 +120,7 @@ protected:
         return dev;
     }
 
-    x::json::json create_base_config() {
+    static x::json::json create_base_config() {
         return {
             {"data_saving_disabled", true},
             {"state_rate", 10.0},

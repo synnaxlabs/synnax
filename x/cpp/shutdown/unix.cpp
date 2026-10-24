@@ -52,7 +52,7 @@ void listen_stdin() {
             buffer[n] = '\0';
             input += buffer;
 
-            size_t pos;
+            size_t pos = 0;
             while ((pos = input.find('\n')) != std::string::npos) {
                 std::string line = input.substr(0, pos);
                 input.erase(0, pos + 1);

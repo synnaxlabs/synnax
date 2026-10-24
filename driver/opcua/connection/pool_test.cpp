@@ -127,6 +127,7 @@ TEST_F(ConnectionPoolTest, ThreadSafety) {
     std::vector<std::thread> threads;
     std::atomic<int> success_count{0};
 
+    threads.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
         threads.emplace_back([&pool, &success_count, this]() {
             for (int j = 0; j < acquisitions_per_thread; ++j) {
@@ -377,6 +378,7 @@ TEST_F(ConnectionPoolTest, ConcurrentRecoveryAfterFailure) {
     std::vector<std::thread> threads;
     std::atomic<int> success_count{0};
 
+    threads.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
         threads.emplace_back([&pool, &success_count, this]() {
             auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
@@ -812,6 +814,7 @@ TEST_F(SessionLimitPoolTest, ConcurrentChurnExhaustsSessions) {
     std::atomic<int> success_count{0};
     std::atomic<int> error_count{0};
 
+    threads.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
         threads.emplace_back([&pool, &success_count, &error_count, this]() {
             auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");

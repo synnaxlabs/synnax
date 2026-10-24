@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <numbers>
 #include <random>
 #include <string>
 
@@ -167,7 +168,7 @@ TEST(SampleToWasmTest, ConvertsFloatTypes) {
     const auto f32_val = sample_to_wasm(x::telem::SampleValue(3.14f));
     EXPECT_FLOAT_EQ(f32_val.f32(), 3.14f);
 
-    const auto f64_val = sample_to_wasm(x::telem::SampleValue(2.71828));
+    const auto f64_val = sample_to_wasm(x::telem::SampleValue(std::numbers::e));
     EXPECT_DOUBLE_EQ(f64_val.f64(), 2.71828);
 }
 
@@ -218,7 +219,7 @@ TEST(SampleFromWasmTest, ConvertsFloatTypes) {
     );
     EXPECT_FLOAT_EQ(std::get<float>(f32_sample), 3.14f);
 
-    wasmtime::Val f64_wasm(2.71828);
+    wasmtime::Val f64_wasm(std::numbers::e);
     const auto f64_sample = sample_from_wasm(
         f64_wasm,
         arc::types::Type{.kind = arc::types::Kind::F64}
@@ -266,7 +267,7 @@ TEST(SampleFromBitsTest, ConvertsIntegerTypes) {
 /// @brief sample_from_bits converts float types correctly via bit reinterpretation.
 TEST(SampleFromBitsTest, ConvertsFloatTypes) {
     float f32_val = 3.14f;
-    uint32_t f32_bits;
+    uint32_t f32_bits = 0;
     memcpy(&f32_bits, &f32_val, sizeof(float));
     const auto f32_sample = sample_from_bits(
         f32_bits,
@@ -274,8 +275,8 @@ TEST(SampleFromBitsTest, ConvertsFloatTypes) {
     );
     EXPECT_FLOAT_EQ(std::get<float>(f32_sample), 3.14f);
 
-    double f64_val = 2.71828;
-    uint64_t f64_bits;
+    double f64_val = std::numbers::e;
+    uint64_t f64_bits = 0;
     memcpy(&f64_bits, &f64_val, sizeof(double));
     const auto f64_sample = sample_from_bits(
         f64_bits,

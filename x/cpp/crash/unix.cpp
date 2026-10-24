@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <csignal>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
@@ -26,7 +27,7 @@ namespace {
 /// @brief size of the alternate signal stack. Must be large enough to run the
 /// trace-capturing handler when the normal stack is exhausted (the stack-overflow
 /// case). 64 KiB is comfortably above MINSIGSTKSZ on every supported platform.
-constexpr size_t ALT_STACK_SIZE = 64 * 1024;
+constexpr size_t ALT_STACK_SIZE = static_cast<const size_t>(64 * 1024);
 
 /// @brief backing storage for the alternate signal stack. Static so it outlives
 /// install() and remains valid when a signal fires.

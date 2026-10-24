@@ -56,7 +56,10 @@ inline void signal_shutdown() {
 /// @param stdin_enabled whether to listen for stdin input. Default is true.
 inline void listen(const bool sig_enabled = true, const bool stdin_enabled = true) {
     if (sig_enabled) details::listen_signal();
-    if (stdin_enabled) return details::listen_stdin();
+    if (stdin_enabled) {
+        details::listen_stdin();
+        return;
+    }
     std::unique_lock lock(details::shutdown_mutex);
     details::shutdown_cv.wait(lock, [] { return details::should_stop; });
 }
