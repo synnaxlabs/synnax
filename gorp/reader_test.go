@@ -59,7 +59,7 @@ var _ = Describe("Reader", func() {
 					return n
 				}
 				allocs, kvAllocs := least(open), least(openKV)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).To(Succeed())
 				Expect(allocs).To(Equal(kvAllocs))
 			},
 		)
