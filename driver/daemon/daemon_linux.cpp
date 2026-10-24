@@ -27,7 +27,7 @@ namespace fs = std::filesystem;
 namespace driver::daemon {
 const std::string SYSTEMD_SERVICE_PATH = "/etc/systemd/system/synnax-driver.service";
 
-auto SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
+const auto *const SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
 Description=Synnax Driver Service
 Documentation=https://docs.synnaxlabs.com/reference/driver
 After=network-online.target
@@ -104,6 +104,7 @@ const std::string
     ETHERCAT_RULE = "KERNEL==\"EtherCAT[0-9]*\", GROUP=\"synnax\", MODE=\"0660\"\n";
 const std::string ETHERCAT_MATCH = "--subsystem-match=EtherCAT";
 
+// NOLINTBEGIN(bugprone-command-processor): each command is built from constants.
 /// @brief reloads the udev rules and applies them to the existing devices that match
 /// the udevadm trigger filter in match.
 x::errors::Error apply_udev_rules(const std::string &match) {
@@ -312,4 +313,6 @@ x::errors::Error status() {
     if (result != 0) return x::errors::Error("Service is not running");
     return x::errors::NIL;
 }
+
+// NOLINTEND(bugprone-command-processor)
 }

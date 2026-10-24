@@ -173,17 +173,15 @@ inline void read_pdo_to_series(
     const uint8_t *src,
     const uint8_t bit_offset,
     const uint8_t bit_length,
-    const x::telem::DataType data_type,
+    const x::telem::DataType &data_type,
     x::telem::Series &series
 ) {
     if (bit_length < 8) {
         uint16_t two_bytes = src[0];
         if (bit_offset + bit_length > 8)
             two_bytes |= static_cast<uint16_t>(src[1]) << 8;
-        const uint8_t mask = static_cast<uint8_t>((1u << bit_length) - 1);
-        const uint8_t extracted = static_cast<uint8_t>(
-            (two_bytes >> bit_offset) & mask
-        );
+        const auto mask = static_cast<uint8_t>((1u << bit_length) - 1);
+        const auto extracted = static_cast<uint8_t>((two_bytes >> bit_offset) & mask);
         series.write_casted(&extracted, 1, x::telem::UINT8_T);
         return;
     }
@@ -196,8 +194,9 @@ inline void read_pdo_to_series(
             raw = (raw >> bit_offset) |
                   (static_cast<uint32_t>(src[3]) << (24 - bit_offset));
         uint32_t val = raw & 0x00FFFFFF;
-        if (data_type == x::telem::INT32_T || data_type == x::telem::INT64_T)
-            if (val & 0x800000) val |= 0xFF000000;
+        if ((data_type == x::telem::INT32_T || data_type == x::telem::INT64_T) &&
+            (val & 0x800000))
+            val |= 0xFF000000;
         series.write_casted(&val, 1, data_type);
         return;
     }
@@ -218,7 +217,7 @@ inline void write_pdo_from_value(
     uint8_t *dest,
     const uint8_t bit_offset,
     const uint8_t bit_length,
-    const x::telem::DataType data_type,
+    const x::telem::DataType &data_type,
     const x::telem::SampleValue &value
 ) {
     const auto casted = data_type == x::telem::UNKNOWN_T ? value
@@ -226,13 +225,13 @@ inline void write_pdo_from_value(
 
     if (bit_length < 8) {
         const auto src_val = x::telem::cast<uint8_t>(casted);
-        const uint16_t mask = static_cast<uint16_t>((1u << bit_length) - 1);
+        const auto mask = static_cast<uint16_t>((1u << bit_length) - 1);
 
         if (bit_offset + bit_length > 8) {
             uint16_t two_bytes = static_cast<uint16_t>(dest[0]) |
                                  (static_cast<uint16_t>(dest[1]) << 8);
-            const uint16_t shifted_mask = static_cast<uint16_t>(mask << bit_offset);
-            const uint16_t shifted_val = static_cast<uint16_t>(
+            const auto shifted_mask = static_cast<uint16_t>(mask << bit_offset);
+            const auto shifted_val = static_cast<uint16_t>(
                 (src_val & mask) << bit_offset
             );
             two_bytes = static_cast<uint16_t>(
@@ -241,8 +240,8 @@ inline void write_pdo_from_value(
             dest[0] = static_cast<uint8_t>(two_bytes & 0xFF);
             dest[1] = static_cast<uint8_t>((two_bytes >> 8) & 0xFF);
         } else {
-            const uint8_t shifted_mask = static_cast<uint8_t>(mask << bit_offset);
-            const uint8_t shifted_val = static_cast<uint8_t>(
+            const auto shifted_mask = static_cast<uint8_t>(mask << bit_offset);
+            const auto shifted_val = static_cast<uint8_t>(
                 (src_val & mask) << bit_offset
             );
             dest[0] = static_cast<uint8_t>((dest[0] & ~shifted_mask) | shifted_val);
@@ -251,7 +250,7 @@ inline void write_pdo_from_value(
     }
 
     if (bit_length == 24) {
-        const uint32_t src_val = x::telem::cast<uint32_t>(casted);
+        const auto src_val = x::telem::cast<uint32_t>(casted);
         const uint32_t masked_val = src_val & 0x00FFFFFF;
 
         if (bit_offset > 0) {

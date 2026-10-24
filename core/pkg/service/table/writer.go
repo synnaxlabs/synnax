@@ -13,10 +13,13 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete tables within Synnax. The writer
@@ -49,6 +52,9 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 		}
 	}
 	if err = t.Validate(); err != nil {
+		return err
+	}
+	if err = validateUniqueKeys(*t); err != nil {
 		return err
 	}
 	if err = w.tbl.NewCreate().Entry(t).Exec(ctx, w.tx); err != nil {
@@ -99,4 +105,26 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return err
 	}
 	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+}
+
+func validateUniqueKeys(t Table) error {
+	if k, ok := duplicateKey(t.Rows, func(r Row) string { return r.Key }); ok {
+		return errors.Wrapf(validate.ErrValidation, "duplicate row key %q", k)
+	}
+	if k, ok := duplicateKey(t.Columns, func(c Column) string { return c.Key }); ok {
+		return errors.Wrapf(validate.ErrValidation, "duplicate column key %q", k)
+	}
+	return nil
+}
+
+func duplicateKey[T any](items []T, keyOf func(T) string) (string, bool) {
+	seen := make(set.Set[string], len(items))
+	for _, item := range items {
+		k := keyOf(item)
+		if seen.Contains(k) {
+			return k, true
+		}
+		seen.Add(k)
+	}
+	return "", false
 }

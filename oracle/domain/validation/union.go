@@ -35,7 +35,7 @@ func ResolveUnionVariant(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
 ) (UnionVariant, bool) {
-	resolved, ok := typeRef.Resolve(table)
+	resolved, _, ok := resolution.Dealias(typeRef, table)
 	if !ok {
 		return UnionVariant{}, false
 	}

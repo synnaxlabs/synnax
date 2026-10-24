@@ -57,12 +57,12 @@ class Tare final : public Transform {
     std::unordered_map<synnax::channel::Key, double> tare_values;
     std::unordered_map<synnax::channel::Key, synnax::channel::Channel> tare_channels;
     std::unordered_set<synnax::channel::Key> channels_to_tare;
-    bool tare_all;
+    bool tare_all{false};
     std::mutex mutex;
 
 public:
     explicit Tare(const std::vector<synnax::channel::Channel> &channels):
-        tare_channels(synnax::channel::map_channel_keys(channels)), tare_all(false) {}
+        tare_channels(synnax::channel::map_channel_keys(channels)) {}
 
     x::errors::Error tare(x::json::json::object_t &arg) {
         x::json::Parser parser(arg);
@@ -79,8 +79,8 @@ public:
             return x::errors::NIL;
         }
 
-        for (auto &key: channels) {
-            if (tare_channels.find(key) == tare_channels.end()) {
+        for (const auto &key: channels) {
+            if (!tare_channels.contains(key)) {
                 parser.field_err(
                     "keys",
                     "Channel " + std::to_string(key) +
@@ -98,7 +98,7 @@ public:
         std::lock_guard lock(mutex);
         if (tare_all || !channels_to_tare.empty()) {
             for (const auto &[ch_key, series]: frame)
-                if (tare_all || channels_to_tare.find(ch_key) != channels_to_tare.end())
+                if (tare_all || channels_to_tare.contains(ch_key))
                     tare_values[ch_key] = series.avg<double>();
             tare_all = false;
             channels_to_tare.clear();
@@ -122,7 +122,8 @@ public:
     UnaryLinearScale(const double slope, const double offset, x::telem::DataType dt):
         slope(slope), offset(offset), dt(std::move(dt)) {}
 
-    x::errors::Error transform_inplace(const x::telem::Series &series) const {
+    [[nodiscard]] x::errors::Error
+    transform_inplace(const x::telem::Series &series) const {
         if (this->dt != series.data_type())
             return x::errors::Error(
                 x::errors::VALIDATION,
@@ -159,7 +160,8 @@ public:
         scaled_max(scaled_max),
         dt(std::move(dt)) {}
 
-    x::errors::Error transform_inplace(const x::telem::Series &series) const {
+    [[nodiscard]] x::errors::Error
+    transform_inplace(const x::telem::Series &series) const {
         if (this->dt != series.data_type())
             return x::errors::Error(
                 x::errors::VALIDATION,

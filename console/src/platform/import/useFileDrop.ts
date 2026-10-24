@@ -47,7 +47,8 @@ const importEntry = async (
   const file = await FS.readEntryFile(entry);
   if (isZipFile(file.name))
     return await importBundle(file.name, file, { client, store });
-  if (!file.name.toLowerCase().endsWith(".json")) throw new Error("not a JSON file");
+  if (!file.name.toLowerCase().endsWith(".json"))
+    throw new Error("The file is not JSON.");
   if (client == null) throw new DisconnectedError();
   return await client.imex.import(file, {
     ...imex.JSON_OPTIONS,
@@ -90,6 +91,7 @@ export const useFileDrop = ({ importBundle }: UseFileDropParams): FileDrop => {
               await importEntry(entry, { client, importBundle, projectKey, store }),
             placement,
           }),
+        "Failed to import files",
       );
     },
     [client, importBundle, importBatch, store, handleError],
