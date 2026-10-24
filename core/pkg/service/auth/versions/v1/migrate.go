@@ -12,8 +12,8 @@ package v1
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Migration re-encodes stored credentials from the untagged MessagePack v0 shape into

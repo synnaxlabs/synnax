@@ -14,7 +14,7 @@ package lineplot
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // Retrieve is used to retrieve LinePlot records from the database using a

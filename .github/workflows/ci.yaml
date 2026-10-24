@@ -80,6 +80,7 @@ jobs:
       freighter_integration: ${{ steps.filter.outputs.freighter_integration }}
       freighter_py: ${{ steps.filter.outputs.freighter_py }}
       freighter_ts: ${{ steps.filter.outputs.freighter_ts }}
+      gorp: ${{ steps.filter.outputs.gorp }}
       integration: ${{ steps.filter.outputs.integration }}
       knip: ${{ steps.filter.outputs.knip }}
       lint_integration: ${{ steps.filter.outputs.lint_integration }}
@@ -453,6 +454,17 @@ jobs:
       package: freighter
     secrets: inherit
 
+  gorp:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.gorp == 'true'
+    uses: ./.github/workflows/test.go.yaml
+    with:
+      coverage_flag: gorp
+      directory: gorp
+      macos: *full
+      windows: *full
+    secrets: inherit
+
   integration:
     needs: changes
     if:
@@ -742,6 +754,7 @@ jobs:
       - freighter-integration
       - freighter-py
       - freighter-ts
+      - gorp
       - integration
       - knip
       - lint-integration

@@ -15,6 +15,7 @@ import (
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -24,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"

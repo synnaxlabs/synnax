@@ -8,6 +8,7 @@ replace (
 	github.com/synnaxlabs/aspen => ../aspen
 	github.com/synnaxlabs/cesium => ../cesium
 	github.com/synnaxlabs/freighter => ../freighter/go
+	github.com/synnaxlabs/gorp => ../gorp
 	github.com/synnaxlabs/x => ../x/go
 )
 
@@ -32,6 +33,7 @@ require (
 	github.com/synnaxlabs/aspen v0.0.0
 	github.com/synnaxlabs/cesium v0.0.0
 	github.com/synnaxlabs/freighter v0.0.0
+	github.com/synnaxlabs/gorp v0.0.0
 	github.com/synnaxlabs/x v0.0.0
 	github.com/tetratelabs/wazero v1.12.0
 	github.com/uptrace/uptrace-go v1.47.0

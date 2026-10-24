@@ -15,8 +15,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/synnaxlabs/x/gorp"
-	. "github.com/synnaxlabs/x/gorp/testutil"
+	"github.com/synnaxlabs/gorp"
+	. "github.com/synnaxlabs/gorp/testutil"
 )
 
 // indexBenchEntry is a small entry with two indexable fields and one

@@ -9,7 +9,7 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp"
 
 // ResourceMigration re-encodes stored resources from MessagePack to Orc.
 var ResourceMigration = gorp.CodecMigration[string, Resource]("msgpack_to_orc")
