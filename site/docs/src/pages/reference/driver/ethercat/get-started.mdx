@@ -86,6 +86,33 @@ The Synnax Driver works with any EtherCAT-compatible device. Common vendors incl
 
 <Divider.Divider x />
 
+## Network interface access
+
+EtherCAT sends raw Ethernet frames, so the Driver needs direct access to the network
+interface. Connect your devices to a dedicated Ethernet port. Do not connect that port
+to a switch or to your office network.
+
+| Platform           | What the Driver needs                                                                  |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| Linux              | Nothing when it runs as a service. The service has raw Ethernet access and IgH access. |
+| NI Linux Real-Time | Nothing. The service runs as root.                                                     |
+| Windows            | [Npcap](https://npcap.com/#download).                                                  |
+| macOS              | Root access, because only root can open the packet capture devices (`/dev/bpf*`).      |
+
+To start the Driver on Linux without the service, run it as root or give it the two
+capabilities that the service has:
+
+```bash
+sudo setcap cap_net_raw,cap_net_admin+ep /usr/local/bin/synnax-driver
+```
+
+<Note.Note variant="info" className="compact">
+  A service installed by an older Driver does not have these permissions. To update it,
+  run `sudo synnax-driver install` again.
+</Note.Note>
+
+<Divider.Divider x />
+
 ## Key terminology
 
 EtherCAT uses specific terminology that differs from other industrial protocols:
