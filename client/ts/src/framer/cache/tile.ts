@@ -125,7 +125,8 @@ export class TileReader {
   // dataTypes holds the data type of each channel's newest fetched tile, which every
   // cached tile of the channel shares.
   private readonly dataTypes = new Map<channel.Key, DataType>();
-  private readonly pending = new Map<string, Promise<MultiSeries>>();
+  // pending holds each tile's fetching reads by channel, keyed by tile request key.
+  private readonly pending = new Map<string, Map<channel.Key, Promise<MultiSeries>>>();
   private bytes = 0;
   private closed = false;
 
@@ -146,7 +147,9 @@ export class TileReader {
   }
 
   /**
-   * Reads the tile, serving it from the cache when a fresh copy is there.
+   * Reads the tile, serving it from the cache when a fresh copy is there. A cached copy
+   * waits for the reads of the tile's other channels made in the same task, so
+   * channels drawn as a pair arrive together.
    * @param dataType - The data type of the series the caller holds. A cached tile of
    * another data type is read again.
    * @throws {UnexpectedError} if the reader is closed while the read is pending.
@@ -156,6 +159,7 @@ export class TileReader {
     if (this.closed) throw new UnexpectedError("tile reader is closed");
     if (spec.start != null || spec.end != null) return await this.batcher.enqueue(spec);
     const key = cacheKey(spec);
+    const tile = tileRequestKey(spec);
     const cached = this.tiles.get(key);
     if (cached != null) {
       this.remove(key, cached);
@@ -169,19 +173,30 @@ export class TileReader {
       ) {
         this.tiles.set(key, cached);
         this.bytes += cached.bytes;
+        // Reads made later in this task enter pending first.
+        await Promise.resolve();
+        const reads = this.pending.get(tile);
+        if (reads != null) await Promise.allSettled(reads.values());
+        if (this.closed) throw new UnexpectedError("tile reader is closed");
         return cached.series;
       }
     }
-    const pending = this.pending.get(key);
+    let reads = this.pending.get(tile);
+    const pending = reads?.get(spec.key);
     if (pending != null) return await pending;
+    if (reads == null) {
+      reads = new Map();
+      this.pending.set(tile, reads);
+    }
     const fetched = this.batcher.enqueue(spec);
-    this.pending.set(key, fetched);
+    reads.set(spec.key, fetched);
     try {
       const series = await fetched;
       if (!this.closed) this.insert(key, spec.key, series);
       return series;
     } finally {
-      this.pending.delete(key);
+      reads.delete(spec.key);
+      if (reads.size === 0) this.pending.delete(tile);
     }
   }
 
