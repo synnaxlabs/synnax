@@ -937,24 +937,16 @@ func buildGenericType(
 		return baseName
 	}
 
-	var args []string
+	var typeParams []resolution.TypeParam
 	if targetType != nil {
-		if form, ok := targetType.Form.(resolution.StructForm); ok {
-			for i, arg := range typeArgs {
-				if i < len(form.TypeParams) && form.TypeParams[i].HasDefault() {
-					continue
-				}
-				args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
-			}
-		} else {
-			for _, arg := range typeArgs {
-				args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
-			}
+		typeParams = resolution.TypeParams(targetType.Form)
+	}
+	var args []string
+	for i, arg := range typeArgs {
+		if i < len(typeParams) && typeParams[i].HasDefault() {
+			continue
 		}
-	} else {
-		for _, arg := range typeArgs {
-			args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
-		}
+		args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
 	}
 
 	if len(args) == 0 {

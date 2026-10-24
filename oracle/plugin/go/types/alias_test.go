@@ -49,6 +49,11 @@ Signal union on kind {
 		value float64
 	}
 }
+
+Pair struct<T, U = string> {
+	first  T
+	second U
+}
 `
 
 const aliasHead = `
@@ -70,6 +75,7 @@ Table Index
 Doc Data
 Payload Blob
 Quad float64[4]
+Couple<T, U = string> = base.Pair<T, U>
 `
 
 var _ = Describe("Go aliases", func() {
@@ -165,5 +171,10 @@ var _ = Describe("Go aliases", func() {
 				corners Quad?
 			}
 		`, "Corners *Quad `"),
+		Entry("a parent alias passed a defaulted type argument", `
+			Child struct extends Couple<int32, string> {
+				depth float64
+			}
+		`, "\tCouple[int32]\n"),
 	)
 })
