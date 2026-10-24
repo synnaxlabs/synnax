@@ -219,15 +219,20 @@ var _ = Describe("C++ PB aliases", func() {
 				fitting Fitting
 			}
 		`,
-			"auto [v, err] = ::synnax::base::Valve::from_proto(pb.fitting());",
+			"auto [v, err] = Valve::from_proto(pb.fitting());",
 		),
 		Entry("a generic distinct type over a generic alias", `
 			Panel struct {
 				crate Crate<string>
 			}
 		`,
-			"auto [v, err] = ::synnax::base::Box<std::string>::from_proto(pb.crate());",
+			"auto [v, err] = Box<std::string>::from_proto(pb.crate());",
 		),
+		Entry("an alias of a struct", `
+			Panel struct {
+				valve Valve?
+			}
+		`, "auto [v, err] = Valve::from_proto(pb.valve());"),
 		Entry("a distinct type", `
 			Panel struct {
 				code Code

@@ -717,6 +717,19 @@ func (p *Plugin) generateFieldConversion(
 			form.Target,
 			resolution.TypeArgMap(form.TypeParams, typeRef.TypeArgs),
 		)
+		// A C++ alias is a using declaration, so a struct converts through its name.
+		if target, ok := field.Type.Resolve(data.table); ok {
+			if _, isStruct := target.Form.(resolution.StructForm); isStruct {
+				return p.generateStructConversion(
+					typeRef,
+					target,
+					field.Optional,
+					data,
+					cppFieldName,
+					pbAccessorName,
+				)
+			}
+		}
 		return p.generateFieldConversion(field, cppFieldName, data)
 	default:
 		return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
