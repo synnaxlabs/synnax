@@ -9,7 +9,7 @@
 
 package v1
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp"
 
 // Migration lifts stored statuses from v0 to v1. Labels are intentionally dropped: they
 // are no longer persisted on the status and are instead resolved at read time from the

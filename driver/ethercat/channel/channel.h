@@ -62,11 +62,10 @@ protected:
         const x::json::Parser &parser,
         const std::string &path
     ) {
-        if (!pdo)
-            return parser.field_err(
-                path + "pdo",
-                "PDO '" + name + "' not found in slave"
-            );
+        if (!pdo) {
+            parser.field_err(path + "pdo", "PDO '" + name + "' not found in slave");
+            return;
+        }
         this->index = pdo->index;
         this->sub_index = pdo->sub_index;
         this->bit_length = pdo->bit_length;

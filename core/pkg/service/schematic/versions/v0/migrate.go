@@ -9,7 +9,7 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp"
 
 // Migration re-encodes stored schematics from MessagePack to Orc.
 var Migration = gorp.CodecMigration[Key, Schematic]("msgpack_to_orc")

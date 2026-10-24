@@ -137,7 +137,7 @@ describe("License.Guard", () => {
       target: { value: uniqueName("not-a-license-key") },
     });
     fireEvent.click(findButton("Activate"));
-    expect(await screen.findByText("Failed to activate the license")).toBeTruthy();
+    expect(await screen.findByText("Failed to activate license")).toBeTruthy();
     expect(
       screen.getByText("a license key has three parts: invalid license: license error"),
     ).toBeTruthy();

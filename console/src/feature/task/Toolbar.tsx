@@ -68,7 +68,6 @@ const filter = (task: task.Task) =>
 const Content = () => {
   const client = Synnax.use();
   const [selected, setSelected] = useState<task.Key[]>([]);
-  const addStatus = Status.useAdder();
   const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
@@ -92,7 +91,6 @@ const Content = () => {
       },
       [client, getItem, confirmDelete],
     ),
-    afterFailure: ({ status }) => addStatus(status),
   });
 
   const { capture } = Analytics.use();

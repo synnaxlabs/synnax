@@ -23,6 +23,7 @@
 
 #include "x/cpp/errors/errors.h"
 
+#include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/node.h"
 

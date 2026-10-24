@@ -13,10 +13,10 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/vmihailenco/msgpack/v5"
 )
 

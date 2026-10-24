@@ -20,6 +20,7 @@ cc_library(
         "//driver/errors",
         "//driver/labjack/ljm:ljm_official",
         "//x/cpp/lib",
+        "//x/cpp/os",
     ],
 )
 
@@ -32,4 +33,6 @@ cc_library(
         "LabJackM.h",
         "LabJackMModbusMap.h",
     ],
+    # Vendor SDK headers follow the vendor's conventions.
+    tags = ["no-clang-tidy"],
 )

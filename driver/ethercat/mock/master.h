@@ -26,8 +26,8 @@ class Master final : public master::Master {
     std::vector<slave::DiscoveryResult> slave_list;
     std::unordered_map<uint16_t, slave::State> slave_states;
     pdo::Offsets pdo_offset_cache;
-    bool initialized;
-    bool activated;
+    bool initialized{false};
+    bool activated{false};
     mutable std::mutex mu;
 
     x::errors::Error inject_init_err;
@@ -39,21 +39,16 @@ class Master final : public master::Master {
 
     std::vector<uint8_t> input_iomap;
     std::vector<uint8_t> output_iomap;
-    size_t input_sz;
-    size_t output_sz;
+    size_t input_sz{0};
+    size_t output_sz{0};
     std::vector<std::string> calls;
-    size_t init_calls;
+    size_t init_calls{0};
     std::vector<pdo::Entry> registered_pdos;
     size_t output_padding_ = 0;
 
 public:
     explicit Master(std::string interface_name = "mock0"):
-        iface_name(std::move(interface_name)),
-        initialized(false),
-        activated(false),
-        input_sz(0),
-        output_sz(0),
-        init_calls(0) {}
+        iface_name(std::move(interface_name)) {}
 
     /// @brief adds a simulated slave to the mock master.
     void add_slave(slave::Properties props) {
@@ -116,13 +111,12 @@ public:
 
     /// @brief checks if a specific method was called.
     bool was_called(const std::string &method) const {
-        return std::find(this->calls.begin(), this->calls.end(), method) !=
-               this->calls.end();
+        return std::ranges::find(this->calls, method) != this->calls.end();
     }
 
     x::errors::Error initialize() override {
         std::lock_guard lock(this->mu);
-        this->calls.push_back("initialize");
+        this->calls.emplace_back("initialize");
         this->init_calls++;
         if (this->inject_init_err) return this->inject_init_err;
         this->initialized = true;
@@ -131,7 +125,7 @@ public:
 
     x::errors::Error register_pdos(const std::vector<pdo::Entry> &entries) override {
         std::lock_guard lock(this->mu);
-        this->calls.push_back("register_pdos");
+        this->calls.emplace_back("register_pdos");
         this->registered_pdos = entries;
         return x::errors::NIL;
     }
@@ -140,7 +134,7 @@ public:
 
     x::errors::Error activate() override {
         std::lock_guard lock(this->mu);
-        this->calls.push_back("activate");
+        this->calls.emplace_back("activate");
         if (this->inject_activate_err) return this->inject_activate_err;
         if (!this->initialized)
             return x::errors::Error(errors::ACTIVATION_ERROR, "master not initialized");
@@ -189,7 +183,7 @@ public:
 
     void deactivate() override {
         std::lock_guard lock(this->mu);
-        this->calls.push_back("deactivate");
+        this->calls.emplace_back("deactivate");
         this->activated = false;
         this->initialized = false;
         this->pdo_offset_cache.clear();
@@ -204,14 +198,14 @@ public:
 
     x::errors::Error receive() override {
         std::lock_guard lock(this->mu);
-        this->calls.push_back("receive");
+        this->calls.emplace_back("receive");
         if (this->inject_receive_err) return this->inject_receive_err;
         return x::errors::NIL;
     }
 
     x::errors::Error send() override {
         std::lock_guard lock(this->mu);
-        this->calls.push_back("send");
+        this->calls.emplace_back("send");
         if (this->inject_send_err) return this->inject_send_err;
         return x::errors::NIL;
     }
