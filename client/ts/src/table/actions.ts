@@ -14,6 +14,8 @@ import {
   addRow,
   createReduceAll,
   type Handlers,
+  moveCol,
+  moveRow,
   removeCol,
   removeRow,
   rename,
@@ -35,6 +37,12 @@ const deriveCellKey = (templateKey: string, index: number): string => {
   const suffix = index.toString(16).padStart(4, "0");
   if (templateKey.length < 36) return `${templateKey}-${suffix}`;
   return templateKey.slice(0, 32) + suffix;
+};
+
+// move relocates the element at from to index to, shifting the elements between them by
+// one.
+const move = <T>(items: T[], from: number, to: number): void => {
+  items.splice(to, 0, ...items.splice(from, 1));
 };
 
 // expandTemplate returns count replicas of template with keys derived via
@@ -164,6 +172,32 @@ const handlers: Handlers = {
       .filter((k): k is string => k != null);
     return {
       inverse: [resizeCol({ index: payload.index, size: oldSize })],
+      targets,
+    };
+  },
+
+  moveRow: (state, payload) => {
+    if (payload.from >= state.rows.length) return actions.NO_OP_RESULT;
+    const to = Math.min(payload.to, state.rows.length - 1);
+    move(state.rows, payload.from, to);
+    return {
+      inverse: [moveRow({ from: to, to: payload.from })],
+      targets: [...state.rows[to].cells],
+    };
+  },
+
+  moveCol: (state, payload) => {
+    if (payload.from >= state.columns.length) return actions.NO_OP_RESULT;
+    const to = Math.min(payload.to, state.columns.length - 1);
+    move(state.columns, payload.from, to);
+    const targets: string[] = [];
+    for (const row of state.rows) {
+      if (Math.max(payload.from, to) >= row.cells.length) continue;
+      move(row.cells, payload.from, to);
+      targets.push(row.cells[to]);
+    }
+    return {
+      inverse: [moveCol({ from: to, to: payload.from })],
       targets,
     };
   },

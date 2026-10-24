@@ -192,6 +192,42 @@ func (p ResizeColPayload) Handle(state Table) (Table, error) {
 	return state, nil
 }
 
+// move relocates the element at from to index to, shifting the elements between them by
+// one.
+func move[T any](s []T, from, to int) []T {
+	v := s[from]
+	return slices.Insert(slices.Delete(s, from, from+1), to, v)
+}
+
+// Handle moves the row at p.From to p.To, clamping p.To to the last row. No-op if
+// p.From is out of range.
+func (p MoveRowPayload) Handle(state Table) (Table, error) {
+	from := int(p.From)
+	if from >= len(state.Rows) {
+		return state, nil
+	}
+	state.Rows = move(state.Rows, from, min(int(p.To), len(state.Rows)-1))
+	return state, nil
+}
+
+// Handle moves the column at p.From to p.To, clamping p.To to the last column, and
+// moves the matching cell in every row that holds both indices. No-op if p.From is out
+// of range.
+func (p MoveColPayload) Handle(state Table) (Table, error) {
+	from := int(p.From)
+	if from >= len(state.Columns) {
+		return state, nil
+	}
+	to := min(int(p.To), len(state.Columns)-1)
+	state.Columns = move(state.Columns, from, to)
+	for i := range state.Rows {
+		if max(from, to) < len(state.Rows[i].Cells) {
+			state.Rows[i].Cells = move(state.Rows[i].Cells, from, to)
+		}
+	}
+	return state, nil
+}
+
 // Handle replaces the cell config stored under p.Cell.Key. No-op if no entry
 // with that key exists.
 func (p SetCellPayload) Handle(state Table) (Table, error) {

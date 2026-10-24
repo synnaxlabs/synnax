@@ -22,6 +22,8 @@ const (
 	ActionTypeRemoveCol  = "remove_col"
 	ActionTypeResizeRow  = "resize_row"
 	ActionTypeResizeCol  = "resize_col"
+	ActionTypeMoveRow    = "move_row"
+	ActionTypeMoveCol    = "move_col"
 	ActionTypeSetCell    = "set_cell"
 	ActionTypeEraseCells = "erase_cells"
 )
@@ -102,6 +104,23 @@ type ResizeColPayload struct {
 	Size  float64 `json:"size" msgpack:"size"`
 }
 
+// MoveRowPayload moves the row at from so that it ends up at index to, shifting the
+// rows between them by one. The row keeps its size and cells. No-op if from is out of
+// range; to clamps to the last row.
+type MoveRowPayload struct {
+	From uint32 `json:"from" msgpack:"from"`
+	To   uint32 `json:"to" msgpack:"to"`
+}
+
+// MoveColPayload moves the column at from so that it ends up at index to, shifting the
+// columns between them by one. The column keeps its size and its cell in every row.
+// No-op if from is out of range; to clamps to the last column. A row missing a cell at
+// either index is left unchanged.
+type MoveColPayload struct {
+	From uint32 `json:"from" msgpack:"from"`
+	To   uint32 `json:"to" msgpack:"to"`
+}
+
 // SetCellPayload replaces the cell at cell.key with the provided value. No-op if no
 // cell with that key exists in the table.
 type SetCellPayload struct {
@@ -130,6 +149,8 @@ type Action struct {
 	RemoveCol  *RemoveColPayload  `json:"remove_col,omitzero" msgpack:"remove_col,omitempty"`
 	ResizeRow  *ResizeRowPayload  `json:"resize_row,omitzero" msgpack:"resize_row,omitempty"`
 	ResizeCol  *ResizeColPayload  `json:"resize_col,omitzero" msgpack:"resize_col,omitempty"`
+	MoveRow    *MoveRowPayload    `json:"move_row,omitzero" msgpack:"move_row,omitempty"`
+	MoveCol    *MoveColPayload    `json:"move_col,omitzero" msgpack:"move_col,omitempty"`
 	SetCell    *SetCellPayload    `json:"set_cell,omitzero" msgpack:"set_cell,omitempty"`
 	EraseCells *EraseCellsPayload `json:"erase_cells,omitzero" msgpack:"erase_cells,omitempty"`
 }
@@ -183,6 +204,16 @@ func Reduce(state Table, actions ...Action) (Table, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.ResizeCol.Handle(state)
+		case ActionTypeMoveRow:
+			if a.MoveRow == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.MoveRow.Handle(state)
+		case ActionTypeMoveCol:
+			if a.MoveCol == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.MoveCol.Handle(state)
 		case ActionTypeSetCell:
 			if a.SetCell == nil {
 				return state, union.MissingPayload(a.Type)
@@ -241,6 +272,16 @@ func NewResizeRowAction(p ResizeRowPayload) Action {
 // NewResizeColAction wraps a ResizeColPayload in an Action envelope.
 func NewResizeColAction(p ResizeColPayload) Action {
 	return Action{Type: ActionTypeResizeCol, ResizeCol: &p}
+}
+
+// NewMoveRowAction wraps a MoveRowPayload in an Action envelope.
+func NewMoveRowAction(p MoveRowPayload) Action {
+	return Action{Type: ActionTypeMoveRow, MoveRow: &p}
+}
+
+// NewMoveColAction wraps a MoveColPayload in an Action envelope.
+func NewMoveColAction(p MoveColPayload) Action {
+	return Action{Type: ActionTypeMoveCol, MoveCol: &p}
 }
 
 // NewSetCellAction wraps a SetCellPayload in an Action envelope.

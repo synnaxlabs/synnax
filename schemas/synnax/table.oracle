@@ -286,6 +286,29 @@ Table struct {
         """
     }
 
+    action MoveRow {
+        from uint32
+        to   uint32
+
+        @doc value """
+            moves the row at from so that it ends up at index to, shifting the rows
+            between them by one. The row keeps its size and cells. No-op if from is out
+            of range; to clamps to the last row.
+        """
+    }
+
+    action MoveCol {
+        from uint32
+        to   uint32
+
+        @doc value """
+            moves the column at from so that it ends up at index to, shifting the
+            columns between them by one. The column keeps its size and its cell in every
+            row. No-op if from is out of range; to clamps to the last column. A row
+            missing a cell at either index is left unchanged.
+        """
+    }
+
     action SetCell {
         cell Cell
 

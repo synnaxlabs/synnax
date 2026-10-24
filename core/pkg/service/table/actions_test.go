@@ -367,6 +367,112 @@ var _ = Describe("Reducer", func() {
 		})
 	})
 
+	Describe("MoveRow", func() {
+		DescribeTable("lands the row at the target index",
+			func(from, to uint32, expected [][]string) {
+				out := MustSucceed(table.Reduce(
+					create3x3(),
+					table.NewMoveRowAction(table.MoveRowPayload{From: from, To: to}),
+				))
+				Expect(out.Rows).To(HaveLen(len(expected)))
+				for i, cells := range expected {
+					Expect(out.Rows[i].Cells).To(Equal(cells))
+				}
+				Expect(out.Cells).To(HaveLen(9))
+			},
+			Entry("forward", uint32(0), uint32(2), [][]string{
+				{"d", "e", "f"}, {"g", "h", "i"}, {"a", "b", "c"},
+			}),
+			Entry("backward", uint32(2), uint32(0), [][]string{
+				{"g", "h", "i"}, {"a", "b", "c"}, {"d", "e", "f"},
+			}),
+			Entry("onto itself", uint32(1), uint32(1), [][]string{
+				{"a", "b", "c"}, {"d", "e", "f"}, {"g", "h", "i"},
+			}),
+			Entry("past the end, clamped to the last row", uint32(0), uint32(99),
+				[][]string{{"d", "e", "f"}, {"g", "h", "i"}, {"a", "b", "c"}},
+			),
+		)
+
+		It("Should carry the row's size with it", func() {
+			t := create3x3()
+			t.Rows[0].Size = 50
+			out := MustSucceed(table.Reduce(
+				t,
+				table.NewMoveRowAction(table.MoveRowPayload{From: 0, To: 2}),
+			))
+			Expect(out.Rows[2].Size).To(Equal(50.0))
+			Expect(out.Rows[0].Size).To(Equal(36.0))
+		})
+
+		It("Should be a no-op when from is out of range", func() {
+			out := MustSucceed(table.Reduce(
+				create3x3(),
+				table.NewMoveRowAction(table.MoveRowPayload{From: 3, To: 0}),
+			))
+			Expect(out).To(Equal(create3x3()))
+		})
+	})
+
+	Describe("MoveCol", func() {
+		DescribeTable("lands the column at the target index in every row",
+			func(from, to uint32, expected [][]string) {
+				out := MustSucceed(table.Reduce(
+					create3x3(),
+					table.NewMoveColAction(table.MoveColPayload{From: from, To: to}),
+				))
+				Expect(out.Columns).To(HaveLen(3))
+				for i, cells := range expected {
+					Expect(out.Rows[i].Cells).To(Equal(cells))
+				}
+				Expect(out.Cells).To(HaveLen(9))
+			},
+			Entry("forward", uint32(0), uint32(2), [][]string{
+				{"b", "c", "a"}, {"e", "f", "d"}, {"h", "i", "g"},
+			}),
+			Entry("backward", uint32(2), uint32(0), [][]string{
+				{"c", "a", "b"}, {"f", "d", "e"}, {"i", "g", "h"},
+			}),
+			Entry("onto itself", uint32(1), uint32(1), [][]string{
+				{"a", "b", "c"}, {"d", "e", "f"}, {"g", "h", "i"},
+			}),
+			Entry("past the end, clamped to the last column", uint32(0), uint32(99),
+				[][]string{{"b", "c", "a"}, {"e", "f", "d"}, {"h", "i", "g"}},
+			),
+		)
+
+		It("Should carry the column's size with it", func() {
+			t := create3x3()
+			t.Columns[0].Size = 120
+			out := MustSucceed(table.Reduce(
+				t,
+				table.NewMoveColAction(table.MoveColPayload{From: 0, To: 2}),
+			))
+			Expect(out.Columns[2].Size).To(Equal(120.0))
+			Expect(out.Columns[0].Size).To(Equal(80.0))
+		})
+
+		It("Should be a no-op when from is out of range", func() {
+			out := MustSucceed(table.Reduce(
+				create3x3(),
+				table.NewMoveColAction(table.MoveColPayload{From: 3, To: 0}),
+			))
+			Expect(out).To(Equal(create3x3()))
+		})
+
+		It("Should leave a row missing a cell at either index unchanged", func() {
+			t := create3x3()
+			t.Rows[1].Cells = []string{"d", "e"}
+			out := MustSucceed(table.Reduce(
+				t,
+				table.NewMoveColAction(table.MoveColPayload{From: 0, To: 2}),
+			))
+			Expect(out.Rows[0].Cells).To(Equal([]string{"b", "c", "a"}))
+			Expect(out.Rows[1].Cells).To(Equal([]string{"d", "e"}))
+			Expect(out.Rows[2].Cells).To(Equal([]string{"h", "i", "g"}))
+		})
+	})
+
 	Describe("SetCell", func() {
 		It("Should replace the cell stored under the given key", func() {
 			out := MustSucceed(

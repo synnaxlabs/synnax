@@ -117,6 +117,31 @@ export const resizeColPayloadZ = z.object({
 export type ResizeColPayload = z.infer<typeof resizeColPayloadZ>;
 
 /**
+ * MoveRow moves the row at from so that it ends up at index to, shifting the rows
+ * between them by one. The row keeps its size and cells. No-op if from is out of range;
+ * to clamps to the last row.
+ */
+export const moveRowPayloadZ = z.object({
+  from: z.uint32(),
+  to: z.uint32(),
+});
+
+export type MoveRowPayload = z.infer<typeof moveRowPayloadZ>;
+
+/**
+ * MoveCol moves the column at from so that it ends up at index to, shifting the columns
+ * between them by one. The column keeps its size and its cell in every row. No-op if
+ * from is out of range; to clamps to the last column. A row missing a cell at either
+ * index is left unchanged.
+ */
+export const moveColPayloadZ = z.object({
+  from: z.uint32(),
+  to: z.uint32(),
+});
+
+export type MoveColPayload = z.infer<typeof moveColPayloadZ>;
+
+/**
  * SetCell replaces the cell at cell.key with the provided value. No-op if no cell with
  * that key exists in the table.
  */
@@ -152,6 +177,8 @@ export type Action =
   | { type: "remove_col"; removeCol: RemoveColPayload }
   | { type: "resize_row"; resizeRow: ResizeRowPayload }
   | { type: "resize_col"; resizeCol: ResizeColPayload }
+  | { type: "move_row"; moveRow: MoveRowPayload }
+  | { type: "move_col"; moveCol: MoveColPayload }
   | { type: "set_cell"; setCell: SetCellPayload }
   | { type: "erase_cells"; eraseCells: EraseCellsPayload };
 
@@ -164,6 +191,8 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("remove_col"), removeCol: removeColPayloadZ }),
   z.object({ type: z.literal("resize_row"), resizeRow: resizeRowPayloadZ }),
   z.object({ type: z.literal("resize_col"), resizeCol: resizeColPayloadZ }),
+  z.object({ type: z.literal("move_row"), moveRow: moveRowPayloadZ }),
+  z.object({ type: z.literal("move_col"), moveCol: moveColPayloadZ }),
   z.object({ type: z.literal("set_cell"), setCell: setCellPayloadZ }),
   z.object({ type: z.literal("erase_cells"), eraseCells: eraseCellsPayloadZ }),
 ]);
@@ -224,6 +253,20 @@ export const resizeCol = (payload: z.input<typeof resizeColPayloadZ>): Action =>
   }),
 });
 
+export const moveRow = (payload: z.input<typeof moveRowPayloadZ>): Action => ({
+  type: "move_row",
+  moveRow: zod.parse(moveRowPayloadZ, payload, {
+    label: "table move_row action payload",
+  }),
+});
+
+export const moveCol = (payload: z.input<typeof moveColPayloadZ>): Action => ({
+  type: "move_col",
+  moveCol: zod.parse(moveColPayloadZ, payload, {
+    label: "table move_col action payload",
+  }),
+});
+
 export const setCell = (payload: z.input<typeof setCellPayloadZ>): Action => ({
   type: "set_cell",
   setCell: zod.parse(setCellPayloadZ, payload, {
@@ -251,6 +294,8 @@ export interface Handlers {
   removeCol: (state: Draft<Table>, payload: RemoveColPayload) => HandlerResult;
   resizeRow: (state: Draft<Table>, payload: ResizeRowPayload) => HandlerResult;
   resizeCol: (state: Draft<Table>, payload: ResizeColPayload) => HandlerResult;
+  moveRow: (state: Draft<Table>, payload: MoveRowPayload) => HandlerResult;
+  moveCol: (state: Draft<Table>, payload: MoveColPayload) => HandlerResult;
   setCell: (state: Draft<Table>, payload: SetCellPayload) => HandlerResult;
   eraseCells: (state: Draft<Table>, payload: EraseCellsPayload) => HandlerResult;
 }
@@ -274,6 +319,10 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.resizeRow(state, action.resizeRow);
       case "resize_col":
         return handlers.resizeCol(state, action.resizeCol);
+      case "move_row":
+        return handlers.moveRow(state, action.moveRow);
+      case "move_col":
+        return handlers.moveCol(state, action.moveCol);
       case "set_cell":
         return handlers.setCell(state, action.setCell);
       case "erase_cells":

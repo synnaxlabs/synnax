@@ -513,6 +513,112 @@ describe("Table", () => {
       });
     });
 
+    describe("move", () => {
+      const cellsOf = (t: table.Table): string[][] => t.rows.map((r) => r.cells);
+
+      test.for<{ name: string; action: table.Action; expected: string[][] }>([
+        {
+          name: "moveRow forward",
+          action: table.moveRow({ from: 0, to: 2 }),
+          expected: [
+            ["d", "e", "f"],
+            ["g", "h", "i"],
+            ["a", "b", "c"],
+          ],
+        },
+        {
+          name: "moveRow backward",
+          action: table.moveRow({ from: 2, to: 0 }),
+          expected: [
+            ["g", "h", "i"],
+            ["a", "b", "c"],
+            ["d", "e", "f"],
+          ],
+        },
+        {
+          name: "moveRow past the end",
+          action: table.moveRow({ from: 0, to: 99 }),
+          expected: [
+            ["d", "e", "f"],
+            ["g", "h", "i"],
+            ["a", "b", "c"],
+          ],
+        },
+        {
+          name: "moveCol forward",
+          action: table.moveCol({ from: 0, to: 2 }),
+          expected: [
+            ["b", "c", "a"],
+            ["e", "f", "d"],
+            ["h", "i", "g"],
+          ],
+        },
+        {
+          name: "moveCol backward",
+          action: table.moveCol({ from: 2, to: 0 }),
+          expected: [
+            ["c", "a", "b"],
+            ["f", "d", "e"],
+            ["i", "g", "h"],
+          ],
+        },
+        {
+          name: "moveCol past the end",
+          action: table.moveCol({ from: 0, to: 99 }),
+          expected: [
+            ["b", "c", "a"],
+            ["e", "f", "d"],
+            ["h", "i", "g"],
+          ],
+        },
+      ])("$name lands at the target index and undoes", ({ action, expected }) => {
+        const original = createTable3x3();
+        const { next, inverse } = table.reduceAll(original, [action]);
+        expect(cellsOf(next)).toEqual(expected);
+        expect(next.cells).toEqual(original.cells);
+        const { next: restored } = table.reduceAll(next, inverse);
+        expect(restored).toEqual(original);
+      });
+
+      test("moveRow carries the row's size", () => {
+        const state = createTable3x3();
+        state.rows[0].size = 50;
+        const { next } = table.reduceAll(state, [table.moveRow({ from: 0, to: 2 })]);
+        expect(next.rows.map((r) => r.size)).toEqual([36, 36, 50]);
+      });
+
+      test("moveCol carries the column's size", () => {
+        const state = createTable3x3();
+        state.columns[0].size = 120;
+        const { next } = table.reduceAll(state, [table.moveCol({ from: 0, to: 2 })]);
+        expect(next.columns.map((c) => c.size)).toEqual([80, 80, 120]);
+      });
+
+      test("moveCol leaves a row missing a cell at either index unchanged", () => {
+        const state = createTable3x3();
+        state.rows[1].cells = ["d", "e"];
+        const { next, inverse } = table.reduceAll(state, [
+          table.moveCol({ from: 0, to: 2 }),
+        ]);
+        expect(cellsOf(next)).toEqual([
+          ["b", "c", "a"],
+          ["d", "e"],
+          ["h", "i", "g"],
+        ]);
+        expect(table.reduceAll(next, inverse).next).toEqual(state);
+      });
+
+      test.for<{ name: string; action: table.Action }>([
+        { name: "moveRow", action: table.moveRow({ from: 3, to: 0 }) },
+        { name: "moveCol", action: table.moveCol({ from: 3, to: 0 }) },
+      ])("$name from out of range is a no-op", ({ action }) => {
+        const state = createTable3x3();
+        const { next, inverse } = table.reduceAll(state, [action]);
+        expect(next).toEqual(state);
+        expect(inverse).toEqual([]);
+      });
+    });
+
     describe("eraseCells", () => {
       test.for<{
         name: string;
