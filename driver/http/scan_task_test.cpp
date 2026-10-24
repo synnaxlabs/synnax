@@ -139,8 +139,8 @@ TEST(HTTPScanTask, HealthCheckConfigParsesAllFields) {
     EXPECT_EQ(hc.request.headers.at("X-Custom"), "abc");
     EXPECT_EQ(hc.body, R"({"ping": true})");
     ASSERT_TRUE(hc.expected_response.has_value());
-    EXPECT_EQ(hc.expected_response->pointer, "/status");
-    EXPECT_EQ(hc.expected_response->expected_value, "ok");
+    EXPECT_EQ(hc.expected_response.value().pointer, "/status");
+    EXPECT_EQ(hc.expected_response.value().expected_value, "ok");
 }
 
 TEST(HTTPScanTask, HealthCheckConfigDefaults) {
@@ -170,7 +170,7 @@ TEST(HTTPScanTask, HealthCheckConfigValidateResponseTrueUsesResponse) {
     const HealthCheckConfig hc(parser);
     ASSERT_TRUE(parser.ok());
     ASSERT_TRUE(hc.expected_response.has_value());
-    EXPECT_EQ(hc.expected_response->pointer, "/status");
+    EXPECT_EQ(hc.expected_response.value().pointer, "/status");
 }
 
 TEST(HTTPScanTask, HealthCheckConfigValidateResponseFalseHasNoResponse) {
@@ -421,8 +421,8 @@ TEST(HTTPScanTask, ScanHealthyDevice) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(result[0].status->message, "Device connected");
+    EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].status.value().message, "Device connected");
 
     server.stop();
 }
@@ -457,8 +457,8 @@ TEST(HTTPScanTask, ScanSuccessOnHTTP200) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(result[0].status->message, "Device connected");
+    EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].status.value().message, "Device connected");
 
     server.stop();
 }
@@ -493,9 +493,9 @@ TEST(HTTPScanTask, ScanFailsOnNon2xxStatus) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(result[0].status->message, "HTTP 503");
-    EXPECT_EQ(result[0].status->description, "Service Unavailable");
+    EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].status.value().message, "HTTP 503");
+    EXPECT_EQ(result[0].status.value().description, "Service Unavailable");
 
     server.stop();
 }
@@ -528,8 +528,8 @@ TEST(HTTPScanTask, ScanRepeatedScans) {
     for (int i = 0; i < 3; i++) {
         const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
         ASSERT_EQ(result.size(), 1);
-        EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_SUCCESS);
-        EXPECT_EQ(result[0].status->message, "Device connected");
+        EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
+        EXPECT_EQ(result[0].status.value().message, "Device connected");
     }
 
     // Stop server and verify device becomes unreachable on next scan.
@@ -537,8 +537,8 @@ TEST(HTTPScanTask, ScanRepeatedScans) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status->message, "Failed to reach server");
+    EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status.value().message, "Failed to reach server");
 }
 
 TEST(HTTPScanTask, ScanUnreachableDevice) {
@@ -559,10 +559,10 @@ TEST(HTTPScanTask, ScanUnreachableDevice) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status->message, "Failed to reach server");
+    EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status.value().message, "Failed to reach server");
     EXPECT_NE(
-        result[0].status->description.find("Could not connect to server"),
+        result[0].status.value().description.find("Could not connect to server"),
         std::string::npos
     );
 }
@@ -610,10 +610,10 @@ TEST(HTTPScanTask, ScanHealthCheckValidationFailure) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(result[0].status->message, "Health check validation failed");
+    EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].status.value().message, "Health check validation failed");
     EXPECT_EQ(
-        result[0].status->description,
+        result[0].status.value().description,
         "expected value at '/status' to be \"ok\", got \"degraded\""
     );
 
@@ -663,8 +663,8 @@ TEST(HTTPScanTask, ScanHealthCheckValidationSuccess) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(result[0].status->message, "Device connected");
+    EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].status.value().message, "Device connected");
 
     server.stop();
 }
@@ -715,8 +715,8 @@ TEST(HTTPScanTask, ScanConsoleSavedHealthCheckWithNullExpectedValue) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(result[0].status->message, "Device connected");
+    EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].status.value().message, "Device connected");
 
     server.stop();
 }
@@ -768,9 +768,9 @@ TEST(HTTPScanTask, ScanMultipleDevices) {
 
     for (const auto &dev: result) {
         if (dev.key == healthy_dev.key) {
-            EXPECT_EQ(dev.status->variant, synnax::status::VARIANT_SUCCESS);
+            EXPECT_EQ(dev.status.value().variant, synnax::status::VARIANT_SUCCESS);
         } else if (dev.key == bad_dev.key) {
-            EXPECT_EQ(dev.status->variant, synnax::status::VARIANT_WARNING);
+            EXPECT_EQ(dev.status.value().variant, synnax::status::VARIANT_WARNING);
         } else {
             FAIL() << "Unexpected device key: " << dev.key;
         }
@@ -808,9 +808,12 @@ TEST(HTTPScanTask, ScanInvalidHealthCheck) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status->message, "Invalid device properties");
-    EXPECT_NE(result[0].status->description.find("health_check"), std::string::npos);
+    EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status.value().message, "Invalid device properties");
+    EXPECT_NE(
+        result[0].status.value().description.find("health_check"),
+        std::string::npos
+    );
 }
 
 TEST(HTTPScanTask, ScanInvalidDeviceProperties) {
@@ -835,9 +838,9 @@ TEST(HTTPScanTask, ScanInvalidDeviceProperties) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(result[0].status->message, "Invalid device properties");
-    EXPECT_NE(result[0].status->description.find("base_url"), std::string::npos);
+    EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status.value().message, "Invalid device properties");
+    EXPECT_NE(result[0].status.value().description.find("base_url"), std::string::npos);
 }
 
 TEST(HTTPScanTask, ScanWithPOSTHealthCheck) {
@@ -884,7 +887,7 @@ TEST(HTTPScanTask, ScanWithPOSTHealthCheck) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
 
     auto received = server.received_requests();
     ASSERT_FALSE(received.empty());
@@ -938,10 +941,12 @@ TEST(HTTPScanTask, ScanHealthCheckNonJSONResponse) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(result[0].status->message, "Health check validation failed");
+    EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].status.value().message, "Health check validation failed");
     EXPECT_NE(
-        result[0].status->description.find("failed to parse response body as JSON"),
+        result[0].status.value().description.find(
+            "failed to parse response body as JSON"
+        ),
         std::string::npos
     );
 
@@ -991,10 +996,10 @@ TEST(HTTPScanTask, ScanHealthCheckMissingPointer) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(result[0].status->message, "Health check validation failed");
+    EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].status.value().message, "Health check validation failed");
     EXPECT_EQ(
-        result[0].status->description,
+        result[0].status.value().description,
         "response body does not contain pointer '/status'"
     );
 
@@ -1242,7 +1247,7 @@ TEST(HTTPScanTask, ScanExecutesHealthChecksInParallel) {
 
     ASSERT_EQ(result.size(), NUM_SERVERS);
     for (const auto &dev: result)
-        EXPECT_EQ(dev.status->variant, synnax::status::VARIANT_SUCCESS);
+        EXPECT_EQ(dev.status.value().variant, synnax::status::VARIANT_SUCCESS);
 
     EXPECT_LT(elapsed, x::telem::MILLISECOND * MAX_PARALLEL_MS)
         << "Scan took " << elapsed.milliseconds()

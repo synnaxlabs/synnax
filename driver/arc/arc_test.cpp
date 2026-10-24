@@ -2029,7 +2029,7 @@ TEST(ArcTests, testStaticAuthorityConfig) {
 
     ASSERT_TRUE(task_cfg.program.authorities.default_.has_value())
         << "IR AuthorityConfig.default_ should be set from 'authority 200'";
-    EXPECT_EQ(*task_cfg.program.authorities.default_, 200);
+    EXPECT_EQ(task_cfg.program.authorities.default_.value(), 200);
 
     task->start("test_start");
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
@@ -2125,7 +2125,7 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     ASSERT_TRUE(task_cfg.program.authorities.default_.has_value());
-    EXPECT_EQ(*task_cfg.program.authorities.default_, 100);
+    EXPECT_EQ(task_cfg.program.authorities.default_.value(), 100);
     ASSERT_EQ(task_cfg.program.authorities.channels.count(out_a_ch.key), 1);
     EXPECT_EQ(task_cfg.program.authorities.channels.at(out_a_ch.key), 200);
 

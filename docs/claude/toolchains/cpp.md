@@ -59,7 +59,9 @@ The aspect lints each header as its own file, so a header must include, and its 
 must depend on, everything it uses. Suppress one finding with
 `// NOLINTNEXTLINE(<check>): <reason>` above its line, never a bare `NOLINT`. The aspect
 skips a file whose header says `Code generated`. A target that holds vendor SDK headers,
-or embeds a large generated table, takes `tags = ["no-clang-tidy"]`.
+or embeds a large generated table, takes `tags = ["no-clang-tidy"]`. In a test, read an
+optional with `.value()`: the lint cannot see that `ASSERT_TRUE(opt.has_value())` makes
+`*opt` safe.
 
 ## Memory
 

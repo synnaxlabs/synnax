@@ -39,10 +39,12 @@ TEST(ErrorModule, PanicInvokesHandlerWithCorrectMessage) {
 
     auto wasm_mod = wasmtime::Module::compile(engine, PANIC_WAT).unwrap();
     auto instance = linker.instantiate(store, wasm_mod).unwrap();
-    auto memory = std::get<wasmtime::Memory>(*instance.get(store, "memory"));
+    auto memory = std::get<wasmtime::Memory>(instance.get(store, "memory").value());
     mod.set_wasm_context(&store, &memory);
 
-    auto trigger = std::get<wasmtime::Func>(*instance.get(store, "trigger_panic"));
+    auto trigger = std::get<wasmtime::Func>(
+        instance.get(store, "trigger_panic").value()
+    );
     (void) trigger.call(store, {});
     EXPECT_TRUE(captured.matches(runtime::errors::WASM_PANIC));
     EXPECT_NE(captured.message().find("test error message"), std::string::npos);
@@ -59,10 +61,12 @@ TEST(ErrorModule, PanicReportsOutOfBoundsForInvalidPointer) {
 
     auto wasm_mod = wasmtime::Module::compile(engine, PANIC_WAT).unwrap();
     auto instance = linker.instantiate(store, wasm_mod).unwrap();
-    auto memory = std::get<wasmtime::Memory>(*instance.get(store, "memory"));
+    auto memory = std::get<wasmtime::Memory>(instance.get(store, "memory").value());
     mod.set_wasm_context(&store, &memory);
 
-    auto trigger = std::get<wasmtime::Func>(*instance.get(store, "trigger_oob_panic"));
+    auto trigger = std::get<wasmtime::Func>(
+        instance.get(store, "trigger_oob_panic").value()
+    );
     (void) trigger.call(store, {});
     EXPECT_TRUE(captured.matches(runtime::errors::WASM_PANIC));
     EXPECT_NE(captured.message().find("out of bounds"), std::string::npos);
@@ -80,7 +84,9 @@ TEST(ErrorModule, PanicBeforeSetWasmContextReportsNoMemory) {
     auto wasm_mod = wasmtime::Module::compile(engine, PANIC_WAT).unwrap();
     auto instance = linker.instantiate(store, wasm_mod).unwrap();
 
-    auto trigger = std::get<wasmtime::Func>(*instance.get(store, "trigger_panic"));
+    auto trigger = std::get<wasmtime::Func>(
+        instance.get(store, "trigger_panic").value()
+    );
     (void) trigger.call(store, {});
     EXPECT_TRUE(captured.matches(runtime::errors::WASM_PANIC));
     EXPECT_NE(captured.message().find("no memory available"), std::string::npos);

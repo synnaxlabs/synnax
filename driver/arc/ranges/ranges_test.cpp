@@ -248,9 +248,9 @@ TEST(CreateRangeTest, NextParsesColor) {
         ASSERT_NIL_P(x::uuid::UUID::parse(output_key(s)))
     ));
     ASSERT_TRUE(r.color.has_value());
-    EXPECT_EQ(r.color->r, 0xdf);
-    EXPECT_EQ(r.color->g, 0x6d);
-    EXPECT_EQ(r.color->b, 0x38);
+    EXPECT_EQ(r.color.value().r, 0xdf);
+    EXPECT_EQ(r.color.value().g, 0x6d);
+    EXPECT_EQ(r.color.value().b, 0x38);
 }
 
 TEST(CreateRangeTest, NextWarnsAndDoesNotCreateOnInvalidColor) {

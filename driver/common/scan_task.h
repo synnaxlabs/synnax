@@ -213,9 +213,9 @@ class ScanTask final : public task::Task, public pipeline::Base {
     [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {
         auto last_updated = x::telem::TimeStamp(0);
         if (const auto dev_state = this->dev_states.find(dev_key);
-            dev_state != this->dev_states.end() &&
-            dev_state->second.status.has_value()) {
-            last_updated = dev_state->second.status->time;
+            dev_state != this->dev_states.end()) {
+            if (const auto &status = dev_state->second.status; status.has_value())
+                last_updated = status->time;
         }
         const auto delta = x::telem::TimeStamp::now() - last_updated;
         return delta > x::telem::SECOND * 30;

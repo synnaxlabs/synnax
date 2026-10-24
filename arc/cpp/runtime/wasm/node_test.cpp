@@ -584,7 +584,8 @@ struct AddProgram {
         ctx.mark_changed = [&](size_t i) {
             changed_outputs.push_back(ir.nodes.back().outputs[i].name);
         };
-        if (const auto err = node->next(ctx)) throw std::runtime_error(err.message());
+        if (const auto err = node.value().next(ctx))
+            throw std::runtime_error(err.message());
         return !changed_outputs.empty();
     }
 

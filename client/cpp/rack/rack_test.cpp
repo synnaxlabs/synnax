@@ -128,8 +128,8 @@ TEST(RackTests, testCreateRackWithStatusIncluded) {
     );
     ASSERT_EQ(r2.name, "test_rack_with_status");
     ASSERT_TRUE(r2.status.has_value());
-    ASSERT_EQ(r2.status->variant, synnax::status::VARIANT_SUCCESS);
-    ASSERT_EQ(r2.status->message, "Rack is healthy");
+    ASSERT_EQ(r2.status.value().variant, synnax::status::VARIANT_SUCCESS);
+    ASSERT_EQ(r2.status.value().message, "Rack is healthy");
 }
 
 /// @brief it should create a rack with integrations and retrieve them.

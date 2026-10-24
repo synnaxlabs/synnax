@@ -507,7 +507,7 @@ TEST_F(TaskManagerTest, Command) {
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.details.cmd == "cmd1";
     });
-    ASSERT_EQ((*s.details.data)["msg"], "hi");
+    ASSERT_EQ((s.details.data.value())["msg"], "hi");
 }
 
 TEST_F(TaskManagerTest, IgnoresForeignRack) {

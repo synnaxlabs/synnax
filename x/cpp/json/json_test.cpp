@@ -1604,7 +1604,7 @@ TEST(testConfig, testOptionalFieldPresent) {
     const auto result = parser.field<std::optional<int>>("value");
     EXPECT_TRUE(parser.ok());
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, 42);
+    EXPECT_EQ(result.value(), 42);
 }
 
 TEST(testConfig, testOptionalFieldMissing) {
