@@ -19,6 +19,7 @@ cc_library(
         "writer.cpp",
     ],
     hdrs = [
+        "clock.h",
         "engine.h",
         "pool.h",
     ],
@@ -35,6 +36,15 @@ cc_library(
         "//x/cpp/thread/rt",
         "@abseil-cpp//absl/log",
         "@abseil-cpp//absl/log:check",
+    ],
+)
+
+cc_test(
+    name = "clock_test",
+    srcs = ["clock_test.cpp"],
+    deps = [
+        "//driver/ethercat/engine",
+        "@googletest//:gtest_main",
     ],
 )
 

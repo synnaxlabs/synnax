@@ -16,6 +16,7 @@
 
 #include "x/cpp/loop/loop.h"
 
+#include "driver/ethercat/engine/clock.h"
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/telem/telem.h"
@@ -217,6 +218,7 @@ void Engine::run() {
     uint64_t receive_failures = 0;
     uint64_t send_failures = 0;
     x::telem::TimeStamp sent_at;
+    Clock clock;
 
     const auto send = [&] {
         sent_at = x::telem::TimeStamp::now();
@@ -264,8 +266,11 @@ void Engine::run() {
             VLOG(1) << "[ethercat] cycle overrun: " << elapsed;
 
         // The slaves latched these inputs when the previous cycle's frame passed.
-        const auto latched_at = sent_at;
+        auto latched_at = sent_at;
         const auto err = this->master->receive();
+        if (!err)
+            if (const auto dc = this->master->dc_time())
+                latched_at = clock.map(*dc, latched_at);
         if (err) {
             if (receive_failures++ == 0) {
                 LOG(WARNING) << "[ethercat] cycle failed on " << iface << ": "

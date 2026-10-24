@@ -338,6 +338,24 @@ TEST_F(SOEMMasterTest, InputDataAfterActivation) {
 
 ////////////////////// Slave State //////////////////////
 
+TEST_F(SOEMMasterTest, DCTimeIsAbsentWithoutADistributedClock) {
+    this->initialize_with_slave();
+    this->activate_master();
+    EXPECT_EQ(this->mock->configdc_count, 1);
+    EXPECT_EQ(this->master->dc_time(), std::nullopt);
+}
+
+TEST_F(SOEMMasterTest, DCTimeCountsFromTheDCEpoch) {
+    this->initialize_with_slave();
+    this->mock->hasdc = true;
+    this->activate_master();
+    this->mock->dc_time_value = 1'000'000'000;
+    EXPECT_EQ(
+        this->master->dc_time(),
+        x::telem::TimeStamp(x::telem::SECOND * 946'684'801)
+    );
+}
+
 TEST_F(SOEMMasterTest, CheckReportsOperationalSlave) {
     this->initialize_with_slave();
     this->activate_master();
