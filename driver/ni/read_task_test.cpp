@@ -345,7 +345,7 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Stopped task");
     ASSERT_GE(mock_factory->writes->size(), 1);
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.contains(data_channel.key), true);
@@ -657,7 +657,7 @@ public:
         this->live->fetch_add(1);
     }
 
-    ~CountingReader() { this->live->fetch_sub(1); }
+    ~CountingReader() override { this->live->fetch_sub(1); }
 
     x::errors::Error start() override { return x::errors::NIL; }
     x::errors::Error stop() override { return x::errors::NIL; }
@@ -822,7 +822,7 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     EXPECT_EQ(second_state.message, "Stopped task");
 
     ASSERT_GE(mock_factory->writes->size(), 1);
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_TRUE(fr.contains(data_channel.key));
@@ -1031,7 +1031,7 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
     EXPECT_EQ(second_state.message, "Stopped task");
 
     ASSERT_GE(mock_factory->writes->size(), 1);
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_TRUE(fr.contains(data_channel.key));
@@ -1157,7 +1157,7 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
 
     // Verify all three readings
     for (size_t i = 0; i < 3; i++) {
-        auto &fr = mock_factory->writes->at(i);
+        const auto &fr = mock_factory->writes->at(i);
         ASSERT_EQ(fr.size(), 2);
         ASSERT_EQ(fr.length(), 1);
         ASSERT_TRUE(fr.contains(data_channel.key));
@@ -1371,8 +1371,8 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     for (const auto &channel: cfg->channels)
         if (!channel->dev_loc.empty()) { unique_locs.insert(channel->dev_loc); }
     EXPECT_EQ(unique_locs.size(), 2);
-    EXPECT_TRUE(unique_locs.count("cDAQ1Mod1") > 0);
-    EXPECT_TRUE(unique_locs.count("cDAQ1Mod2") > 0);
+    EXPECT_TRUE(unique_locs.contains("cDAQ1Mod1"));
+    EXPECT_TRUE(unique_locs.contains("cDAQ1Mod2"));
 }
 
 /// @brief Verify a counter read config without a top-level device binds each
@@ -1476,11 +1476,11 @@ TEST(ReadTaskConfigTest, testMinimumSampleRateErrorMessageFormat) {
     std::string result = msg.str();
 
     // Verify the message contains all required components
-    EXPECT_TRUE(result.find("25 Hz") != std::string::npos);
-    EXPECT_TRUE(result.find("50 Hz") != std::string::npos);
-    EXPECT_TRUE(result.find("cDAQ1Mod1") != std::string::npos);
-    EXPECT_TRUE(result.find("NI SIM") != std::string::npos);
-    EXPECT_TRUE(result.find("below device minimum") != std::string::npos);
+    EXPECT_TRUE(result.contains("25 Hz"));
+    EXPECT_TRUE(result.contains("50 Hz"));
+    EXPECT_TRUE(result.contains("cDAQ1Mod1"));
+    EXPECT_TRUE(result.contains("NI SIM"));
+    EXPECT_TRUE(result.contains("below device minimum"));
 }
 
 /// Regression test to ensure enable_auto_commit is set to true in WriterConfig.

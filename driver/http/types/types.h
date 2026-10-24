@@ -110,7 +110,7 @@ constexpr bool has_response_body(const Method m) {
 /// @brief static request configuration, set once at task setup time.
 struct RequestConfig {
     /// @brief HTTP method.
-    Method method;
+    Method method = Method::GET;
     /// @brief URL path (appended to base_url).
     std::string path;
     /// @brief query parameters.
@@ -133,7 +133,7 @@ struct Request {
     /// @brief cap on in-flight requests sharing base_url.
     std::size_t max_concurrent_requests = DEFAULT_MAX_CONCURRENT_REQUESTS;
     /// @brief HTTP method.
-    Method method;
+    Method method = Method::GET;
     /// @brief request timeout.
     x::telem::TimeSpan timeout;
     /// @brief whether to verify SSL certificates.

@@ -109,16 +109,18 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
         status.message = "Failed to parse test command";
         status.description = common::config_err_description(parser.error());
         status.details.data = parser.error_json();
-        return ctx->set_status(status);
+        ctx->set_status(status);
+        return;
     }
     auto [dev, err] = this->devices->acquire(args.connection);
     if (err) {
         status.message = "Failed to connect to device";
         status.description = err.data;
-        return ctx->set_status(status);
+        ctx->set_status(status);
+        return;
     }
     status.variant = synnax::status::VARIANT_SUCCESS;
     status.message = "Connected to device";
-    return ctx->set_status(status);
+    ctx->set_status(status);
 }
 }

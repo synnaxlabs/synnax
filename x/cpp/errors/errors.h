@@ -90,12 +90,7 @@ public:
     /// @brief checks if the error matches the provided type. The error matches if
     /// the provided type is equal to or is a prefix of this errors type.
     [[nodiscard]] bool matches(const std::string &other) const {
-        const auto [loc, _] = std::mismatch(
-            other.begin(),
-            other.end(),
-            type.begin(),
-            type.end()
-        );
+        const auto [loc, _] = std::ranges::mismatch(other, type);
         return loc == other.end();
     }
 
@@ -103,7 +98,7 @@ public:
     /// matches if
     /// the provided type is equal to or is a prefix of this errors type.
     [[nodiscard]] bool matches(const std::vector<std::string> &types) const {
-        return std::any_of(types.begin(), types.end(), [this](const std::string &t) {
+        return std::ranges::any_of(types, [this](const std::string &t) {
             return matches(t);
         });
     }
@@ -111,7 +106,7 @@ public:
     /// @brief checks if any of the provided errors match the error. An error
     /// matches if the provided type is equal to or is a prefix of this errors type.
     [[nodiscard]] bool matches(const std::vector<Error> &errors) const {
-        return std::any_of(errors.begin(), errors.end(), [this](const Error &e) {
+        return std::ranges::any_of(errors, [this](const Error &e) {
             return matches(e);
         });
     }

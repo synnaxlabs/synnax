@@ -9,6 +9,7 @@
 
 #include <limits>
 #include <set>
+#include <utility>
 
 #include "client/cpp/http/json.gen.h"
 #include "x/cpp/strings/strings.h"
@@ -100,7 +101,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     for (const auto &ch: sy_channels)
         cfg.channels[ch.key] = ch;
 
-    for (int ei = 0; ei < static_cast<int>(cfg.endpoints.size()); ei++) {
+    for (int ei = 0; std::cmp_less(ei, cfg.endpoints.size()); ei++) {
         for (const auto &field: cfg.endpoints[ei].fields) {
             if (field.disabled) continue;
             auto it = cfg.channels.find(field.channel);
@@ -128,7 +129,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 
             if (ch.index == 0) continue;
             const auto idx_key = ch.index;
-            if (enabled_field_keys.count(idx_key)) continue;
+            if (enabled_field_keys.contains(idx_key)) continue;
             auto [existing, inserted] = cfg.software_timed_indexes.try_emplace(
                 idx_key,
                 ei
@@ -196,9 +197,9 @@ ReadTaskSource::ReadTaskSource(
             if (inserted)
                 this->groups.push_back({
                     .index_key = idx_key,
-                    .software_timed_index = this->cfg.software_timed_indexes.count(
-                                                idx_key
-                                            ) > 0,
+                    .software_timed_index = this->cfg.software_timed_indexes.contains(
+                        idx_key
+                    ),
                     .endpoint_index = ei,
                     .fields = {std::move(gf)},
                 });

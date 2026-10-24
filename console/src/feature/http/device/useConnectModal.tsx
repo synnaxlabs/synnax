@@ -96,6 +96,7 @@ const beforeSave = async ({
   });
   if (state.variant === "error") throw status.toError(state);
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
+    name: get<string>("name").value,
     message: "Device connected",
     variant: "success",
     details: {

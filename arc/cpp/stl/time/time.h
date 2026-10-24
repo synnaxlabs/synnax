@@ -274,7 +274,7 @@ public:
     /// creation, or TimeSpan::max() if there is none.
     [[nodiscard]] x::telem::TimeSpan shortest_span() const { return this->shortest; }
 
-    bool handles(const std::string &node_type) const override {
+    [[nodiscard]] bool handles(const std::string &node_type) const override {
         return node_type == "interval" || node_type == "wait" || node_type == "now";
     }
 

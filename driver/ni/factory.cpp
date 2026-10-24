@@ -79,7 +79,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const synnax::task::Task &task,
     const std::string &cmd_key
 ) {
-    if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
+    if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     if (!this->check_health(ctx, task, cmd_key)) return {nullptr, true};
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == SCAN_TASK_TYPE)

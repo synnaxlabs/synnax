@@ -33,6 +33,7 @@ core:
           - cesium/**
           - core/**
           - freighter/go/**
+          - gorp/**
           - x/go/**
 
 arc:

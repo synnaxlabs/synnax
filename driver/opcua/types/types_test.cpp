@@ -41,6 +41,7 @@ TEST(TypesTest, NodeIdRAII) {
 }
 
 /// @brief it should properly implement NodeId copy semantics.
+// NOLINTBEGIN(bugprone-use-after-move): the tests check the moved-from state.
 TEST(TypesTest, NodeIdCopySemantics) {
     UA_NodeId string_id = UA_NODEID_STRING_ALLOC(2, "TestNode");
     NodeId nodeId1(string_id);
@@ -216,6 +217,7 @@ TEST(TypesTest, StringRAII) {
     EXPECT_GT(str4.get().length, 0);
     EXPECT_EQ(str3.get().length, 0);
 }
+// NOLINTEND(bugprone-use-after-move)
 
 /// @brief it should properly manage ByteString lifecycle with RAII.
 TEST(TypesTest, ByteStringRAII) {
@@ -306,7 +308,7 @@ TEST(TypesTest, NodeIdToStringNumeric) {
 /// @brief it should convert string NodeId to string.
 TEST(TypesTest, NodeIdToStringString) {
     UA_String uaStr;
-    uaStr.data = (UA_Byte *) "TestString";
+    uaStr.data = reinterpret_cast<UA_Byte *>(const_cast<char *>("TestString"));
     uaStr.length = 10;
     UA_NodeId nodeId;
     nodeId.namespaceIndex = 2;

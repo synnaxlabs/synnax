@@ -302,7 +302,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Stopped task");
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 11);
     ASSERT_EQ(fr.length(), 2); // 50 sample rate, 25 stream rate = 50 / 25 = 2
 
@@ -650,7 +650,7 @@ TEST_F(TestReadTask, testEmptyFramesNotWrittenInUnaryMode) {
     rt->stop("stop_cmd", true);
 
     // If any frames were written, they should not be empty
-    if (mock_factory->writes->size() > 0) {
+    if (!mock_factory->writes->empty()) {
         for (const auto &fr: mock_factory->writes->snapshot()) {
             EXPECT_GT(fr.length(), 0);
         }
@@ -669,7 +669,7 @@ TEST_F(TestReadTask, testMultipleChannelsWithMixedData) {
     rt->stop("stop_cmd", true);
 
     // Verify that we received data for multiple channels
-    if (mock_factory->writes->size() > 0) {
+    if (!mock_factory->writes->empty()) {
         const auto &fr = mock_factory->writes->at(0);
         // Should have index channel + all data channels
         EXPECT_GE(fr.size(), 11);
@@ -905,7 +905,7 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInUnaryMode) {
 
     rt->stop("stop_cmd", true);
 
-    if (mock_factory->writes->size() > 0) {
+    if (!mock_factory->writes->empty()) {
         for (const auto &fr: mock_factory->writes->snapshot()) {
             EXPECT_GT(fr.length(), 0);
         }
@@ -982,15 +982,15 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
 
     // Verify that frames were cleared due to invalid data
     bool has_empty_frames = false;
-    if (mock_factory->writes->size() > 0) {
+    if (!mock_factory->writes->empty()) {
         for (const auto &fr: mock_factory->writes->snapshot()) {
-            if (fr.length() == 0) {
+            if (fr.empty()) {
                 has_empty_frames = true;
                 break;
             }
         }
     }
-    EXPECT_TRUE(mock_factory->writes->size() == 0 || has_empty_frames);
+    EXPECT_TRUE(mock_factory->writes->empty() || has_empty_frames);
 
     invalid_server->stop();
 }
@@ -1063,15 +1063,15 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
 
     // Verify frames were cleared
     bool has_empty_frames = false;
-    if (mock_factory->writes->size() > 0) {
+    if (!mock_factory->writes->empty()) {
         for (const auto &fr: mock_factory->writes->snapshot()) {
-            if (fr.length() == 0) {
+            if (fr.empty()) {
                 has_empty_frames = true;
                 break;
             }
         }
     }
-    EXPECT_TRUE(mock_factory->writes->size() == 0 || has_empty_frames);
+    EXPECT_TRUE(mock_factory->writes->empty() || has_empty_frames);
 
     invalid_server->stop();
 }
@@ -1145,15 +1145,15 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
 
     // Verify frames were cleared - tests read_task.h line 268
     bool has_empty_frames = false;
-    if (mock_factory->writes->size() > 0) {
+    if (!mock_factory->writes->empty()) {
         for (const auto &fr: mock_factory->writes->snapshot()) {
-            if (fr.length() == 0) {
+            if (fr.empty()) {
                 has_empty_frames = true;
                 break;
             }
         }
     }
-    EXPECT_TRUE(mock_factory->writes->size() == 0 || has_empty_frames);
+    EXPECT_TRUE(mock_factory->writes->empty() || has_empty_frames);
 
     invalid_server->stop();
 }

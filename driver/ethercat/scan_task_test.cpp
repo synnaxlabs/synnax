@@ -105,7 +105,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = x::json::json::object_t{};
-    cmd.key = 1;
+    cmd.key = '1';
 
     bool handled = scanner.exec(cmd, task, ctx);
     EXPECT_TRUE(handled);
@@ -160,7 +160,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "eth0"}};
-    cmd.key = 1;
+    cmd.key = '1';
 
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
@@ -215,7 +215,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "enp3s0"}};
-    cmd.key = 2;
+    cmd.key = '2';
 
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
@@ -246,7 +246,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "eth0"}};
-    cmd.key = 3;
+    cmd.key = '3';
 
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);

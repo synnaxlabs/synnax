@@ -525,9 +525,9 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
     ASSERT_TRUE(err) << "Expected error for invalid node ID";
 
     const std::string err_msg = err.data;
-    EXPECT_TRUE(err_msg.find(invalid_cmd_channel.name) != std::string::npos)
+    EXPECT_TRUE(err_msg.contains(invalid_cmd_channel.name))
         << "Error message should contain channel name. Got: " << err_msg;
-    EXPECT_TRUE(err_msg.find("NS=99;I=99999") != std::string::npos)
+    EXPECT_TRUE(err_msg.contains("NS=99;I=99999"))
         << "Error message should contain node ID. Got: " << err_msg;
 
     ASSERT_NIL(sink->stop());

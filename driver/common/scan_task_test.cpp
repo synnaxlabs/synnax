@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <thread>
+#include <utility>
 
 #include "gtest/gtest.h"
 
@@ -87,7 +88,7 @@ public:
     size_t stop_count = 0;
     std::vector<x::errors::Error> stop_errors;
 
-    ScannerConfig config() const override {
+    [[nodiscard]] ScannerConfig config() const override {
         return ScannerConfig{.make = "", .log_prefix = "[mock] "};
     }
 
@@ -198,13 +199,15 @@ public:
     std::vector<x::errors::Error> scan_errors;
 
     explicit MockScannerWithSignals(
-        const ScannerConfig &config,
+        ScannerConfig config,
         const std::vector<std::vector<synnax::device::Device>> &devices_ = {},
         const std::vector<x::errors::Error> &scan_errors_ = {}
     ):
-        scanner_config(config), devices(devices_), scan_errors(scan_errors_) {}
+        scanner_config(std::move(config)),
+        devices(devices_),
+        scan_errors(scan_errors_) {}
 
-    ScannerConfig config() const override { return scanner_config; }
+    [[nodiscard]] ScannerConfig config() const override { return scanner_config; }
 
     x::errors::Error start() override { return x::errors::NIL; }
 
@@ -740,7 +743,7 @@ TEST(TestScanTask, TestStatePropagation) {
         remote_devices,
         created_devices
     );
-    auto cluster_api_ptr = cluster_api.get();
+    auto *cluster_api_ptr = cluster_api.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -767,8 +770,7 @@ TEST(TestScanTask, TestStatePropagation) {
     auto &first_states = cluster_api_ptr->propagated_statuses[0];
     ASSERT_EQ(first_states.size(), 2);
 
-    for (size_t i = 0; i < first_states.size(); i++) {
-        auto status = first_states.at(i);
+    for (const auto &status: first_states) {
         if (status.key == "device:device1") {
             ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
             ASSERT_EQ(status.details.rack, 1);
@@ -784,8 +786,7 @@ TEST(TestScanTask, TestStatePropagation) {
     auto &second_states = cluster_api_ptr->propagated_statuses[1];
     ASSERT_EQ(second_states.size(), 2);
 
-    for (size_t i = 0; i < second_states.size(); i++) {
-        auto status = second_states.at(i);
+    for (const auto &status: second_states) {
         if (status.key == "device:device1") {
             ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
             ASSERT_EQ(status.details.rack, 1);
@@ -841,7 +842,7 @@ TEST(TestScanTask, DisconnectedDeviceWithoutStatus) {
 TEST(TestScanTask, testCustomCommandDelegation) {
     ScannerConfig cfg{.make = "test", .log_prefix = "[test] "};
     auto scanner = std::make_unique<MockScannerWithSignals>(cfg);
-    auto scanner_ptr = scanner.get();
+    auto *scanner_ptr = scanner.get();
     scanner_ptr->exec_return_value = true;
 
     auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
@@ -1109,7 +1110,7 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceChanges) {
         remote_devices,
         created_devices
     );
-    auto cluster_api_ptr = cluster_api.get();
+    auto *cluster_api_ptr = cluster_api.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -1240,7 +1241,7 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceCleared) {
         remote_devices,
         created_devices
     );
-    auto cluster_api_ptr = cluster_api.get();
+    auto *cluster_api_ptr = cluster_api.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -1289,8 +1290,8 @@ public:
     std::vector<std::unordered_map<std::string, synnax::device::Device>>
         captured_devices;
 
-    explicit DeviceCapturingScanner(const ScannerConfig &config):
-        scanner_config(config) {}
+    explicit DeviceCapturingScanner(ScannerConfig config):
+        scanner_config(std::move(config)) {}
 
     ScannerConfig config() const override { return scanner_config; }
 
@@ -1300,7 +1301,7 @@ public:
         if (ctx.devices != nullptr)
             captured_devices.push_back(*ctx.devices);
         else
-            captured_devices.push_back({});
+            captured_devices.emplace_back();
         // Return devices from context (like OPC scanner does)
         std::vector<synnax::device::Device> result;
         if (ctx.devices != nullptr)
@@ -1318,7 +1319,7 @@ public:
     bool has_device(const std::string &key) {
         std::lock_guard lock(mu);
         if (captured_devices.empty()) return false;
-        return captured_devices.back().find(key) != captured_devices.back().end();
+        return captured_devices.back().contains(key);
     }
 };
 
@@ -1366,7 +1367,7 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
 
     ScannerConfig cfg{.make = "test_make", .log_prefix = "[test] "};
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
-    auto scanner_ptr = scanner.get();
+    auto *scanner_ptr = scanner.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -1434,12 +1435,12 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
         remote_devices,
         created_devices
     );
-    cluster_api->streamer_factory = streamer_factory;
+    cluster_api->streamer_factory = std::move(streamer_factory);
     cluster_api->signal_channels = {device_set_ch, device_delete_ch};
 
     ScannerConfig cfg{.make = "test_make", .log_prefix = "[test] "};
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
-    auto scanner_ptr = scanner.get();
+    auto *scanner_ptr = scanner.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -1509,7 +1510,7 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     // Scanner expects "test_make" but device has "other_make"
     ScannerConfig cfg{.make = "test_make", .log_prefix = "[test] "};
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
-    auto scanner_ptr = scanner.get();
+    auto *scanner_ptr = scanner.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 

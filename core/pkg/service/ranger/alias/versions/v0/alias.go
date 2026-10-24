@@ -12,7 +12,7 @@ package v0
 import (
 	"fmt"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 const keySeparator = "---"

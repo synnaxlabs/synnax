@@ -19,6 +19,7 @@
 #include "x/cpp/control/control.h"
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
+#include "x/cpp/telem/mono_clock.h"
 #include "x/cpp/thread/thread.h"
 
 #include "arc/cpp/program/program.h"
@@ -175,17 +176,16 @@ public:
                 Output out;
                 out.authority_changes = this->state->flush_authority_changes();
                 this->clock.advance(this->state->flush_into(out.frame, cycle.now));
-                if (!out.frame.empty() || !out.authority_changes.empty()) {
-                    if (!this->outputs.push(std::move(out))) {
-                        if (this->outputs.closed()) break;
-                        this->error_handler(
-                            x::errors::Error(
-                                errors::QUEUE_FULL_OUTPUT,
-                                "The output queue is full, so the program dropped "
-                                "output data."
-                            )
-                        );
-                    }
+                if ((!out.frame.empty() || !out.authority_changes.empty()) &&
+                    (!this->outputs.push(std::move(out)))) {
+                    if (this->outputs.closed()) break;
+                    this->error_handler(
+                        x::errors::Error(
+                            errors::QUEUE_FULL_OUTPUT,
+                            "The output queue is full, so the program dropped "
+                            "output data."
+                        )
+                    );
                 }
             }
             // The timeout counts from now, so that the work of the cycle does not delay
@@ -220,7 +220,7 @@ public:
         this->inputs.close();
         this->outputs.close();
         this->state->reset();
-        this->scheduler->reset();
+        (*this->scheduler).reset();
         return true;
     }
 

@@ -87,6 +87,7 @@ public:
 
     [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
         std::vector<synnax::channel::Key> keys;
+        keys.reserve(this->state_channels.size());
         for (const auto &[_, ch]: this->state_channels)
             keys.push_back(ch.key);
         for (const auto idx: this->state_indexes)

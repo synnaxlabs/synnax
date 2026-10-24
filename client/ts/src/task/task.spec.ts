@@ -951,6 +951,8 @@ describe("Task", async () => {
         await setRackStatus(testRack.key, "success", "Driver is running");
         await client.tasks.executeCommand({ task: t.key, type: "stop" });
         await expect.poll(() => loading.length).toBeGreaterThan(0);
+        expect(loading[0].name).toBe(t.name);
+        expect(loading[0].message).toBe("Sending stop command");
         expect(loading[0].details.configHash).toBe("deadbeef");
         expect(loading[0].details.rack).toBe(testRack.key);
       } finally {

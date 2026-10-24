@@ -195,7 +195,7 @@ public:
         this->live->fetch_add(1);
     }
 
-    ~CountingWriter() { this->live->fetch_sub(1); }
+    ~CountingWriter() override { this->live->fetch_sub(1); }
 
     x::errors::Error start() override { return x::errors::NIL; }
     x::errors::Error stop() override { return x::errors::NIL; }

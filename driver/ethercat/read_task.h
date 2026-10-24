@@ -185,10 +185,7 @@ public:
         for (const auto &ch: this->cfg.channels)
             entries.push_back(*ch);
 
-        auto [rdr, err] = this->engine->open_reader(
-            std::move(entries),
-            this->cfg.sample_rate
-        );
+        auto [rdr, err] = this->engine->open_reader(entries, this->cfg.sample_rate);
         if (err) return err;
         this->reader = std::move(rdr);
         return x::errors::NIL;
@@ -209,9 +206,7 @@ public:
             ser.clear();
 
         const auto engine_rate = this->engine->cycle_rate();
-        const size_t decimation = static_cast<size_t>(
-            engine_rate / this->cfg.sample_rate
-        );
+        const auto decimation = (engine_rate / this->cfg.sample_rate);
         const size_t epochs_per_batch = n_samples * decimation;
 
         const auto start = x::telem::TimeStamp::now();

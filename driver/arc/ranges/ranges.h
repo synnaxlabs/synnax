@@ -206,7 +206,7 @@ public:
 
     [[nodiscard]] std::string module_name() const override { return "ranges"; }
 
-    bool handles(const std::string &node_type) const override {
+    [[nodiscard]] bool handles(const std::string &node_type) const override {
         return node_type == "create" || node_type == "end";
     }
 

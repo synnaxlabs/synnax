@@ -38,7 +38,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     // Phase 1: build all requests, setting status immediately for devices that
     // fail config parsing.
     std::vector<PreparedHealthCheck> prepared;
-    for (auto [key, dev]: *scan_ctx.devices) {
+    for (const auto &[key, dev]: *scan_ctx.devices) {
         const auto idx = devices_out.size();
         devices_out.push_back(dev);
         auto hc = this->prepare_health_check(devices_out[idx], idx);
@@ -168,28 +168,34 @@ void Scanner::process_health_response(
     const Response &resp,
     const x::errors::Error &err
 ) const {
-    if (err)
-        return this->set_device_status(
+    if (err) {
+        this->set_device_status(
             dev,
             synnax::status::VARIANT_WARNING,
             "Failed to reach server",
             err.data
         );
-    if (const auto status_err = errors::from_status(resp.status_code))
-        return this->set_device_status(
+        return;
+    }
+    if (const auto status_err = errors::from_status(resp.status_code)) {
+        this->set_device_status(
             dev,
             synnax::status::VARIANT_ERROR,
             "Health check failed",
             rejection_description(resp)
         );
+        return;
+    }
     if (const auto v_err = validate_health_response(expected_response, resp);
-        !v_err.empty())
-        return this->set_device_status(
+        !v_err.empty()) {
+        this->set_device_status(
             dev,
             synnax::status::VARIANT_ERROR,
             "Health check failed",
             v_err
         );
+        return;
+    }
     this->set_device_status(dev, synnax::status::VARIANT_SUCCESS, "Device connected");
 }
 
@@ -210,22 +216,24 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
     if (!parser.ok()) {
         status.message = "Failed to parse test command";
         status.description = common::config_err_description(parser.error());
-        return ctx->set_status(status);
+        ctx->set_status(status);
+        return;
     }
     auto request = device::build_request(args.connection, args.health_check.request);
-    if (!args.health_check.body.empty())
-        request.body = std::move(args.health_check.body);
+    if (!args.health_check.body.empty()) request.body = args.health_check.body;
     auto [resp, err] = this->processor->execute(request);
     if (err) {
         status.message = "Failed to connect to server";
         status.description = err.data;
-        return ctx->set_status(status);
+        ctx->set_status(status);
+        return;
     }
     const auto status_err = errors::from_status(resp.status_code);
     if (status_err) {
         status.message = "Health check failed";
         status.description = rejection_description(resp);
-        return ctx->set_status(status);
+        ctx->set_status(status);
+        return;
     }
 
     const auto validation_err = validate_health_response(
@@ -235,10 +243,11 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
     if (!validation_err.empty()) {
         status.message = "Health check failed";
         status.description = validation_err;
-        return ctx->set_status(status);
+        ctx->set_status(status);
+        return;
     }
     status.variant = synnax::status::VARIANT_SUCCESS;
     status.message = "Connected to server";
-    return ctx->set_status(status);
+    ctx->set_status(status);
 }
 }

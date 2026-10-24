@@ -155,14 +155,13 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (ch.index != 0) this->index_keys.insert(ch.index);
             this->channels[i]->ch = ch;
         }
-        for (std::size_t i = 0; i < sy_channels.size(); i++) {
-            auto ch = sy_channels[i];
-            if (ch.is_index && this->index_keys.find(ch.key) != this->index_keys.end())
+        for (const auto &ch: sy_channels) {
+            if (ch.is_index && this->index_keys.contains(ch.key))
                 this->index_keys.erase(ch.key);
         }
     }
 
-    std::vector<synnax::channel::Channel> sy_channels() const {
+    [[nodiscard]] std::vector<synnax::channel::Channel> sy_channels() const {
         std::vector<synnax::channel::Channel> chs;
         chs.reserve(this->channels.size());
         for (const auto &ch: this->channels)
@@ -214,7 +213,8 @@ protected:
         connection(nullptr, nullptr, ""),
         request_builder(create_read_request(this->cfg)) {}
 
-    synnax::framer::WriterConfig writer_config() const override {
+public:
+    [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
         return this->cfg.writer_config();
     }
 
@@ -249,7 +249,7 @@ public:
         return BaseReadTaskSource::start();
     }
 
-    std::vector<synnax::channel::Channel> channels() const override {
+    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 
@@ -385,11 +385,11 @@ public:
             this->timer.wait(breaker);
         }
         // Do not write empty frames
-        if (!fr.series->empty() && fr.series->at(0).size() == 0) { fr.clear(); }
+        if (!fr.series->empty() && fr.series->at(0).empty()) { fr.clear(); }
         return res;
     }
 
-    std::vector<synnax::channel::Channel> channels() const override {
+    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 };

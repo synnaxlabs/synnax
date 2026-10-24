@@ -49,7 +49,7 @@ std::vector<int> discover_rt_cores() {
         std::getline(file, content);
         auto cores = parse_cpu_list(content);
         if (!cores.empty()) {
-            std::sort(cores.begin(), cores.end());
+            std::ranges::sort(cores);
             LOG(INFO) << "[rt.manager] discovered " << cores.size()
                       << " isolated cores from kernel";
             return cores;

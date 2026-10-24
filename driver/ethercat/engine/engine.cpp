@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <utility>
 
 #include "absl/log/check.h"
 #include "absl/log/log.h"
@@ -286,8 +287,8 @@ void Engine::unregister_writer(const size_t id) {
     if (!this->should_be_running()) this->stop();
 }
 
-Engine::Engine(std::shared_ptr<master::Master> master, const Config &config):
-    config(config),
+Engine::Engine(std::shared_ptr<master::Master> master, Config config):
+    config(std::move(config)),
     breaker(
         x::breaker::Config{
             .name = "ethercat_engine",

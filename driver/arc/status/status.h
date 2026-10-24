@@ -129,7 +129,7 @@ public:
 
     [[nodiscard]] std::string module_name() const override { return "status"; }
 
-    bool handles(const std::string &node_type) const override {
+    [[nodiscard]] bool handles(const std::string &node_type) const override {
         return node_type == "set";
     }
 
