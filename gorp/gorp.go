@@ -128,14 +128,12 @@ type txState struct {
 	cleanups []func(committed bool)
 }
 
-// onCleanup registers a hook to run when the owning transaction commits
+// OnCleanup registers a hook to run when the owning transaction commits
 // or closes. The hook is invoked with committed=true if the owning tx
 // reached a successful Commit, and committed=false otherwise (Close
 // without prior Commit, or a failed Commit). Safe to call from any
 // goroutine that holds a reference to the state handle.
-//
-//nolint:unused
-func (s *txState) onCleanup(fn func(committed bool)) {
+func (s *txState) OnCleanup(fn func(committed bool)) {
 	s.mu.Lock()
 	s.cleanups = append(s.cleanups, fn)
 	s.mu.Unlock()
@@ -171,7 +169,7 @@ var _ Tx = (*tx)(nil)
 // txIdentity returns this tx's state handle.
 func (t *tx) txIdentity() *txState { return &t.state }
 
-// Commit commits the transaction. Hooks registered via state.onCleanup
+// Commit commits the transaction. Hooks registered via state.OnCleanup
 // run after the commit attempt completes, with committed=true on
 // success and committed=false otherwise.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
@@ -180,7 +178,7 @@ func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	return err
 }
 
-// Close closes the transaction. Hooks registered via state.onCleanup
+// Close closes the transaction. Hooks registered via state.OnCleanup
 // run with committed=false.
 func (t *tx) Close() error {
 	err := t.Tx.Close()

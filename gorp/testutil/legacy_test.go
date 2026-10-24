@@ -13,10 +13,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	. "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -41,7 +41,7 @@ var _ = Describe("SetPreV54Row", func() {
 	)
 
 	It(
-		"Should write a row NormalizeKeysMigration lifts to the current prefix",
+		"Should write a row NormalizeKeys lifts to the current prefix",
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
@@ -49,8 +49,8 @@ var _ = Describe("SetPreV54Row", func() {
 			SetPreV54Row(ctx, kvDB, "entry", e.ID, e)
 			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
 				DB: db,
-				Migrations: []migrate.Migration{
-					gorp.NormalizeKeysMigration[int32, entry]("entry"),
+				Migrations: []gorp.Migration{
+					migrate.NormalizeKeys[int32, entry]("entry"),
 				},
 			}))
 			r := gorp.WrapReader[int32, entry](db)
