@@ -17,7 +17,7 @@ import {
   type NodePath,
   type PluginItem,
   type PluginObj,
-  type types as t,
+  types as t,
   type Visitor,
 } from "@babel/core";
 
@@ -45,18 +45,37 @@ export const isWorker = (file: string): boolean => {
   }
 };
 
+const SENTINEL = /^react\./;
+
 /**
- * Renames each binding that shadows the global `Symbol`, such as a `Symbol` namespace
- * import. The compiler reads its memo sentinel through a bare `Symbol.for`.
+ * Points each compiler sentinel at the global `Symbol` in a file that binds its own
+ * `Symbol`, such as a component named `Symbol`. The compiler emits a bare `Symbol.for`.
  */
-const UNSHADOW_SYMBOL: PluginObj = {
+const GLOBAL_SYMBOL: PluginObj = {
   visitor: {
-    Program: (program) => {
-      const rename = (scoped: NodePath) => {
-        if (scoped.scope.hasOwnBinding("Symbol")) scoped.scope.rename("Symbol");
-      };
-      rename(program);
-      program.traverse({ Scopable: rename });
+    Program: {
+      exit: (program) =>
+        program.traverse({
+          CallExpression: (call) => {
+            const {
+              callee,
+              arguments: [key],
+            } = call.node;
+            if (
+              !t.isMemberExpression(callee) ||
+              !t.isIdentifier(callee.object, { name: "Symbol" }) ||
+              !t.isIdentifier(callee.property, { name: "for" }) ||
+              !t.isStringLiteral(key) ||
+              !SENTINEL.test(key.value) ||
+              !call.scope.hasBinding("Symbol", true)
+            )
+              return;
+            callee.object = t.memberExpression(
+              t.identifier("globalThis"),
+              t.identifier("Symbol"),
+            );
+          },
+        }),
     },
   },
 };
@@ -166,9 +185,9 @@ const RESTORE_BARE_USE: PluginObj = {
  * @throws during a transform of a file that contains the reserved name `useBare$`.
  */
 export const plugins = (compiler: PluginItem): PluginItem[] => [
-  UNSHADOW_SYMBOL,
   UNWRAP_CASTS,
   MARK_BARE_USE,
   compiler,
   RESTORE_BARE_USE,
+  GLOBAL_SYMBOL,
 ];

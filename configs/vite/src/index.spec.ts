@@ -245,6 +245,29 @@ describe("lib", () => {
       ).rejects.toThrow("Handle ??= operators in AssignmentExpression");
     });
 
+    it("should keep a callback inside a hook built by a factory", async () => {
+      const root = createPackage(
+        {
+          ...REACT,
+          "src/index.ts": 'export * from "@/create";\n',
+          "src/create.ts":
+            'import { useState } from "react";\n' +
+            "export const create = (label: string) => {\n" +
+            "  const useLabel = () => {\n" +
+            "    const [n] = useState(0);\n" +
+            "    return { n, read: () => label };\n" +
+            "  };\n" +
+            "  return useLabel;\n" +
+            "};\n",
+        },
+        { transpiled: true },
+      );
+      await buildPackage(root, { name: "pkg", transpiled: true, reactCompiled: true });
+      const code = read(root, "create.js");
+      expect(code).toContain(COMPILED);
+      expect(code).toContain("() => label");
+    });
+
     it("should compile a hook wrapped in a type cast", async () => {
       const code = await buildBundle({
         "src/index.ts":

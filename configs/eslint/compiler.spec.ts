@@ -130,6 +130,25 @@ describe("plugins", () => {
     });
   });
 
+  describe("a local Symbol", () => {
+    it("should compile a component named Symbol", () => {
+      const code = compile(
+        'import { Edit } from "./edit";\n' +
+          "export const Symbol = () => <p><Edit /></p>;\n",
+      );
+      expect(code).toContain("const Symbol = () => {\n  const $ = _c(1);");
+      expect(code).toContain('globalThis.Symbol.for("react.memo_cache_sentinel")');
+    });
+
+    it("should leave an imported Symbol unchanged", () => {
+      const code = compile(
+        'import { Symbol } from "./symbol";\n' +
+          'export const C = () => <p><b>{Symbol.label("a")}</b></p>;\n',
+      );
+      expect(code).toContain('import { Symbol } from "./symbol";');
+      expect(code).toContain('globalThis.Symbol.for("react.memo_cache_sentinel")');
+    });
+  });
 });
 
 describe("isWorker", () => {

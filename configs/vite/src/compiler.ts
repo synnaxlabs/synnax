@@ -33,7 +33,7 @@ const CACHE_KEY = createHash("sha1")
 
 const OPTIONS = {
   // Outlining moves a callback in a hook or component nested in a factory to module
-  // scope, where the factory's bindings are unbound.
+  // scope, where the factory's bindings are unbound (facebook/react#34901).
   environment: { enableFunctionOutlining: false },
   // A compiled worker function throws "Invalid hook call" on the Aether worker.
   sources: (file: string) => !isWorker(file),
