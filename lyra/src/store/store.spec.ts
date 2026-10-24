@@ -247,21 +247,48 @@ describe("useKeyedListeners", () => {
   });
 
   describe("edge cases", () => {
-    it("should log a warning if the same listener is subscribed to twice without being unsubscribed", () => {
+    it("should keep a listener on every key it subscribes to", () => {
       const { result } = renderHook(() => useKeyedListeners<string>());
       const listener = vi.fn();
+      let unsubscribeFirst: () => void;
 
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      act(() => {
+        unsubscribeFirst = result.current.subscribe(listener, "key1");
+        result.current.subscribe(listener, "key2");
+      });
+
+      act(() => {
+        result.current.notifyListeners("key1");
+      });
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        result.current.notifyListeners("key2");
+      });
+      expect(listener).toHaveBeenCalledTimes(2);
+
+      act(() => {
+        unsubscribeFirst();
+        result.current.notifyListeners("key1");
+        result.current.notifyListeners("key2");
+      });
+      expect(listener).toHaveBeenCalledTimes(3);
+    });
+
+    it("should notify a listener once per call", () => {
+      const { result } = renderHook(() => useKeyedListeners<string>());
+      const listener = vi.fn();
 
       act(() => {
         result.current.subscribe(listener, "key1");
         result.current.subscribe(listener, "key2");
+        result.current.subscribe(listener);
       });
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        "[store] attempted to subscribe listener with key key1 to key key2 without being unsubscribed first",
-      );
-      consoleSpy.mockRestore();
+      act(() => {
+        result.current.notifyListeners(["key1", "key2"]);
+      });
+      expect(listener).toHaveBeenCalledTimes(1);
     });
 
     it("should handle unsubscribing a non-existent listener gracefully", () => {

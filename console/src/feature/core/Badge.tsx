@@ -18,7 +18,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Synnax } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
+import { location, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Clipboard } from "@/platform/clipboard";
@@ -55,7 +55,9 @@ const Content = (): ReactElement => {
   const { close } = Dialog.useContext();
   const degraded =
     variant === "loading" || variant === "warning" || variant === "error";
-  const skewDirection = details.clockSkew.valueOf() > 0n ? "ahead of" : "behind";
+  const skewDirection = details.clockSkew.greaterThan(TimeSpan.ZERO)
+    ? "ahead of"
+    : "behind";
   const copyAddress = (): void => {
     if (core != null) copy(`${core.host}:${core.port}`, "Core address");
   };

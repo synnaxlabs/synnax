@@ -36,7 +36,7 @@ export interface ListProps
 export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const menuProps = Menu.useContextMenu();
   const dispatch = Session.useDispatch();
-  const allCores = Session.Core.useSelectMany().sort((a, b) =>
+  const allCores = Session.Core.useSelectMany().toSorted((a, b) =>
     a.name.localeCompare(b.name),
   );
   const keys = useMemo(() => allCores.map((c) => c.key), [allCores]);
@@ -70,28 +70,23 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
     const core = allCores.find((c) => c.key === key);
     if (core == null) return;
     handleError(async () => {
-      try {
-        setTesting(key);
-        const status = await connection.check({
+      setTesting(key);
+      const status = await connection
+        .check({
           host: core.host,
           port: core.port,
           secure: core.secure,
           name: core.name,
+        })
+        .finally(() => setTesting(null));
+      if (status.variant === "success")
+        addStatus({ variant: "success", message: `Connected to ${core.name}` });
+      else
+        addStatus({
+          variant: "error",
+          message: `Failed to connect to ${core.name}`,
+          description: status.message,
         });
-        if (status.variant === "success")
-          addStatus({
-            variant: "success",
-            message: `Connected to ${core.name}`,
-          });
-        else
-          addStatus({
-            variant: "error",
-            message: `Failed to connect to ${core.name}`,
-            description: status.message,
-          });
-      } finally {
-        setTesting(null);
-      }
     }, `Failed to connect to ${core.name}`);
   };
 
@@ -142,7 +137,15 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
         </ContextMenu.Menu>
       );
     },
-    [handleRemove, handleRetest, handleEdit, handleCopyAddress],
+    [
+      allCores,
+      handleCopyAddress,
+      handleEdit,
+      handleLink,
+      handleRemove,
+      handleRename,
+      handleRetest,
+    ],
   );
 
   return (

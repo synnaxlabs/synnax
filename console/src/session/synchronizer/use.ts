@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type Action } from "@reduxjs/toolkit";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "react-redux";
 
 import {
@@ -34,18 +35,19 @@ interface Mounted<S, A extends Action> extends Callbacks<S, A> {
 export const use = <S, A extends Action>(
   synchronizers: Synchronizers<S, A>,
 ): boolean => {
+  "use no memo"; // Calls a hook per synchronizer; each window passes one fixed list.
   const store = useStore<S, A>();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const [verified, setVerified] = useState(false);
   const entries: Mounted<S, A>[] = synchronizers.map(({ name, use }) => ({
     name,
+    // eslint-disable-next-line synnax/react-compiler
     ...use(),
   }));
   // Epoch-triggered reconciles read the ref so they always see the latest
   // hook closures.
-  const entriesRef = useRef(entries);
-  entriesRef.current = entries;
+  const entriesRef = useSyncedRef(entries);
   useEffect(() => {
     if (client == null) return;
     setVerified(false);
@@ -59,12 +61,14 @@ export const use = <S, A extends Action>(
     const reconcile = (): void => {
       const gen = generation;
       handleError(async () => {
-        for (const synchronizer of entriesRef.current)
+        for (const synchronizer of entriesRef.current) {
+          if (synchronizer.reconcile == null) continue;
           try {
-            await synchronizer.reconcile?.(params);
+            await synchronizer.reconcile(params);
           } catch (err) {
             console.error(`${synchronizer.name} reconcile failed`, err);
           }
+        }
         if (gen === generation) setVerified(true);
       });
     };
@@ -79,7 +83,7 @@ export const use = <S, A extends Action>(
         if (details.epoch === epoch) return;
         epoch = details.epoch;
         if (epoch === 0) {
-          generation++;
+          generation += 1;
           setVerified(false);
           return;
         }
@@ -87,7 +91,7 @@ export const use = <S, A extends Action>(
       }),
     );
     return () => {
-      generation++;
+      generation += 1;
       destructors.forEach((destroy) => destroy());
     };
   }, [client, store]);

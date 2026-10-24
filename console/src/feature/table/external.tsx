@@ -39,7 +39,7 @@ const TAB: Panel.Tab = {
     await client.tables.create(project, corpse);
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
-  useTombstone: Panel.createTombstoneReader({ useTombstone: Base.useTombstone }),
+  Guard: Panel.createGuard({ useTombstone: Base.useTombstone }),
 };
 
 export const TABS: Panel.Tabs = {

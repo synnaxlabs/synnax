@@ -33,7 +33,7 @@ export const UtilityButtons = () => {
       // Retrieve ${getName()}
       const task = client.tasks.retrieve("${taskKey}")
       `,
-    [ctx, taskKey],
+    [getName, taskKey],
   );
   const getPythonCode = useCallback(
     () =>
@@ -41,7 +41,7 @@ export const UtilityButtons = () => {
       # Retrieve ${getName()}
       task = client.tasks.retrieve("${taskKey}")
       `,
-    [ctx, taskKey],
+    [getName, taskKey],
   );
   const getJSONConfig = useCallback(() => {
     const config = ctx.get("config").value;

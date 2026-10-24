@@ -49,7 +49,7 @@ const haulItems = (resource: ontology.Resource): Haul.Item[] => {
 };
 
 const useRename = Tree.createUseRename({
-  query: Ranger.useRename,
+  useUpdate: Ranger.useRename,
   ontologyID: ranger.ontologyID,
   convertKey: String,
 });
@@ -57,7 +57,7 @@ const useRename = Tree.createUseRename({
 const useDelete = Tree.createUseDelete({
   type: "Range",
   description: "Deleting a range also deletes its child ranges.",
-  query: Session.Range.useDelete,
+  useUpdate: Session.Range.useDelete,
   convertKey: String,
 });
 
@@ -82,7 +82,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const handleLink = Core.useCopyLinkToClipboard();
   const firstID = ids[0];
-  const first = getResource(firstID);
   const singleResource = ids.length === 1;
   const handleFavorite = () => {
     handleError(async () => {
@@ -129,7 +128,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       <Menu.Divider />
       {singleResource && (
         <Link.CopyContextMenuItem
-          onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
+          onClick={() =>
+            handleLink({ name: getResource(firstID).name, ontologyID: firstID })
+          }
         />
       )}
       <Menu.Divider />

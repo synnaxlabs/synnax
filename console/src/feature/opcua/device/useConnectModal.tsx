@@ -93,122 +93,124 @@ const beforeSave = async ({
   return true;
 };
 
-export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
-  ({ deviceKey, close }) => {
-    const { capture } = Analytics.use();
-    const {
-      form,
-      save,
-      status: stat,
-      variant,
-    } = useForm({
-      query: deviceKey == null ? null : { key: deviceKey },
-      beforeValidate,
-      beforeSave,
-      afterSave: useCallback(() => {
-        if (deviceKey == null) capture("device_connected", { integration: "opcua" });
-        close();
-      }, [capture, close, deviceKey]),
-    });
+const Connect = ({
+  deviceKey,
+  close,
+}: Modals.ContentProps<PlatformDevice.ConnectParams, void>) => {
+  const { capture } = Analytics.use();
+  const {
+    form,
+    save,
+    status: stat,
+    variant,
+  } = useForm({
+    query: deviceKey == null ? null : { key: deviceKey },
+    beforeValidate,
+    beforeSave,
+    afterSave: useCallback(() => {
+      if (deviceKey == null) capture("device_connected", { integration: "opcua" });
+      close();
+    }, [capture, close, deviceKey]),
+  });
 
-    const hasSecurity =
-      Form.useFieldValue<
-        SecurityMode,
-        SecurityMode,
-        PDevice.FormSchema<typeof SCHEMAS>
-      >("properties.connection.securityMode", { ctx: form }) != NO_SECURITY_MODE;
-    return (
-      <Modal.Frame className={CSS.B("opc-connect")}>
-        <Modal.Header icon={<Icon.Logo.OPCUA />}>Server.Connect</Modal.Header>
-        <Modal.Body gap="small">
-          <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
-            <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
-            <Form.Field<rack.Key> path="rack" label="Connect from" required>
-              {selectRackRenderProp}
-            </Form.Field>
+  const hasSecurity =
+    Form.useFieldValue<SecurityMode, SecurityMode, PDevice.FormSchema<typeof SCHEMAS>>(
+      "properties.connection.securityMode",
+      { ctx: form },
+    ) != NO_SECURITY_MODE;
+  return (
+    <Modal.Frame className={CSS.B("opc-connect")}>
+      <Modal.Header icon={<Icon.Logo.OPCUA />}>Server.Connect</Modal.Header>
+      <Modal.Body gap="small">
+        <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
+          <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
+          <Form.Field<rack.Key> path="rack" label="Connect from" required>
+            {selectRackRenderProp}
+          </Form.Field>
+          <Form.TextField
+            path="properties.connection.endpoint"
+            inputProps={ENDPOINT_INPUT_PROPS}
+          />
+          <Divider.Divider x padded="bottom" />
+          <Flex.Box x justify="between">
             <Form.TextField
-              path="properties.connection.endpoint"
-              inputProps={ENDPOINT_INPUT_PROPS}
+              grow
+              path="properties.connection.username"
+              inputProps={USERNAME_INPUT_PROPS}
             />
-            <Divider.Divider x padded="bottom" />
-            <Flex.Box x justify="between">
-              <Form.TextField
-                grow
-                path="properties.connection.username"
-                inputProps={USERNAME_INPUT_PROPS}
-              />
-              <Form.TextField
-                grow
-                path="properties.connection.password"
-                inputProps={PASSWORD_INPUT_PROPS}
-              />
-              <Form.Field<SecurityMode>
-                label="Security mode"
-                path="properties.connection.securityMode"
-              >
-                {({ value, onChange }) => (
-                  <SelectSecurityMode value={value} onChange={onChange} />
-                )}
-              </Form.Field>
-            </Flex.Box>
-            <Divider.Divider x padded="bottom" />
-            <Form.Field<SecurityPolicy>
-              grow={!hasSecurity}
-              path="properties.connection.securityPolicy"
-              label="Security policy"
+            <Form.TextField
+              grow
+              path="properties.connection.password"
+              inputProps={PASSWORD_INPUT_PROPS}
+            />
+            <Form.Field<SecurityMode>
+              label="Security mode"
+              path="properties.connection.securityMode"
             >
               {({ value, onChange }) => (
-                <SelectSecurityPolicy value={value} onChange={onChange} />
+                <SelectSecurityMode value={value} onChange={onChange} />
               )}
             </Form.Field>
-            {hasSecurity && (
-              <>
-                <Form.Field<string>
-                  label="Client certificate"
-                  path="properties.connection.clientCertificate"
-                >
-                  {clientCertField}
-                </Form.Field>
-                <Form.Field<string>
-                  label="Client private key"
-                  path="properties.connection.clientPrivateKey"
-                >
-                  {clientPrivateKeyField}
-                </Form.Field>
-                <Form.Field<string>
-                  grow
-                  label="Server certificate"
-                  path="properties.connection.serverCertificate"
-                >
-                  {serverCertField}
-                </Form.Field>
-              </>
+          </Flex.Box>
+          <Divider.Divider x padded="bottom" />
+          <Form.Field<SecurityPolicy>
+            grow={!hasSecurity}
+            path="properties.connection.securityPolicy"
+            label="Security policy"
+          >
+            {({ value, onChange }) => (
+              <SelectSecurityPolicy value={value} onChange={onChange} />
             )}
-          </Form.Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Nav.Bar.Start gap="small">
-            {variant == "success" ? (
-              <Triggers.SaveHelpText action="Connect" noBar />
-            ) : (
-              <Status.Summary variant={variant} message={stat.description} />
-            )}
-          </Nav.Bar.Start>
-          <Nav.Bar.End>
-            <Button.Button
-              status={status.keepVariants(variant, "loading")}
-              onClick={() => save()}
-              variant="filled"
-              trigger={Triggers.SAVE}
-            >
-              Connect
-            </Button.Button>
-          </Nav.Bar.End>
-        </Modal.Footer>
-      </Modal.Frame>
-    );
-  },
-);
+          </Form.Field>
+          {hasSecurity && (
+            <>
+              <Form.Field<string>
+                label="Client certificate"
+                path="properties.connection.clientCertificate"
+              >
+                {clientCertField}
+              </Form.Field>
+              <Form.Field<string>
+                label="Client private key"
+                path="properties.connection.clientPrivateKey"
+              >
+                {clientPrivateKeyField}
+              </Form.Field>
+              <Form.Field<string>
+                grow
+                label="Server certificate"
+                path="properties.connection.serverCertificate"
+              >
+                {serverCertField}
+              </Form.Field>
+            </>
+          )}
+        </Form.Form>
+      </Modal.Body>
+      <Modal.Footer>
+        <Nav.Bar.Start gap="small">
+          {variant == "success" ? (
+            <Triggers.SaveHelpText action="Connect" noBar />
+          ) : (
+            <Status.Summary variant={variant} message={stat.description} />
+          )}
+        </Nav.Bar.Start>
+        <Nav.Bar.End>
+          <Button.Button
+            status={status.keepVariants(variant, "loading")}
+            onClick={() => save()}
+            variant="filled"
+            trigger={Triggers.SAVE}
+          >
+            Connect
+          </Button.Button>
+        </Nav.Bar.End>
+      </Modal.Footer>
+    </Modal.Frame>
+  );
+};
+
+export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(Connect);
 
 const clientCertField = Component.renderProp(({ value, onChange }) => (
   <FS.InputPath value={value} onChange={onChange} title="Select a client certificate" />

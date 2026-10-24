@@ -129,19 +129,24 @@ interface Page<K extends record.Key> {
   unsubscribe: destructor.Destructor;
 }
 
-export const createList =
-  <Query extends query.Params, Key extends record.Key, Data extends record.Keyed<Key>>({
-    name,
-    retrieve,
-    retrieveByKey,
-    onChange: subscribeToQuery,
-    onChangeByKey,
-    getCached,
-    sort: defaultSort,
-    normalizeQuery,
-  }: CreateListParams<Query, Key, Data>): UseList<Query, Key, Data> =>
-  (params: UseListParams<Query, Key, Data> = {}) => {
-    const normalized = (q: Query): Query => normalizeQuery?.(q) ?? q;
+export const createList = <
+  Query extends query.Params,
+  Key extends record.Key,
+  Data extends record.Keyed<Key>,
+>({
+  name,
+  retrieve,
+  retrieveByKey,
+  onChange: subscribeToQuery,
+  onChangeByKey,
+  getCached,
+  sort: defaultSort,
+  normalizeQuery,
+}: CreateListParams<Query, Key, Data>): UseList<Query, Key, Data> => {
+  const normalized = (q: Query): Query => normalizeQuery?.(q) ?? q;
+  const useList = (
+    params: UseListParams<Query, Key, Data> = {},
+  ): UseListReturn<Query, Key, Data> => {
     const {
       filter = defaultFilter,
       sort,
@@ -153,7 +158,7 @@ export const createList =
     const sortRef = useSyncedRef(sort ?? defaultSort);
     const client = Synnax.use();
     const dataRef = useRef<Map<Key, Data | null>>(new Map());
-    const listItemListeners = useInitializerRef<Map<Key, Set<() => void>>>(
+    const listItemListenersRef = useInitializerRef<Map<Key, Set<() => void>>>(
       () => new Map(),
     );
     const queryRef = useRef<Query | null>(
@@ -166,8 +171,8 @@ export const createList =
 
     const notifyListeners = useCallback(
       (changed: Key) =>
-        listItemListeners.current.get(changed)?.forEach((notify) => notify()),
-      [],
+        listItemListenersRef.current.get(changed)?.forEach((notify) => notify()),
+      [listItemListenersRef],
     );
 
     const readCache = useCallback(
@@ -180,7 +185,7 @@ export const createList =
         items.forEach((v) => dataRef.current.set(v.key, v));
         return items.map((v) => v.key);
       },
-      [client, useCachedList],
+      [client, useCachedList, filterRef, sortRef],
     );
 
     const [result, setResult, resultRef] = useCombinedStateAndRef<Result<Key[]>>(() =>
@@ -209,7 +214,7 @@ export const createList =
         return items.map((item) => item.key);
       }
       return keys;
-    }, []);
+    }, [sortRef]);
 
     /** Applies a page answer: updates items, notifies, recomputes keys. */
     const applyPageAnswer = useCallback(
@@ -238,7 +243,7 @@ export const createList =
           return { ...p, data: next };
         });
       },
-      [notifyListeners, recomputeKeys, setResult],
+      [notifyListeners, recomputeKeys, setResult, filterRef, itemSubsRef],
     );
 
     const clearPages = useCallback(() => {
@@ -254,7 +259,7 @@ export const createList =
         else dataRef.current.set(key, filterRef.current(cached) ? cached : null);
         notifyListeners(key);
       },
-      [notifyListeners],
+      [notifyListeners, filterRef],
     );
 
     const openItemSub = useCallback(
@@ -273,19 +278,22 @@ export const createList =
           ),
         );
       },
-      [client, handleItemChange],
+      [client, handleItemChange, itemSubsRef],
     );
 
     const clearItemSubs = useCallback(() => {
       itemSubsRef.current.forEach((unsub) => unsub());
       itemSubsRef.current.clear();
-    }, []);
+    }, [itemSubsRef]);
     useEffect(() => clearItemSubs, [clearItemSubs]);
 
-    const closeItemSub = useCallback((key: Key) => {
-      itemSubsRef.current.get(key)?.();
-      itemSubsRef.current.delete(key);
-    }, []);
+    const closeItemSub = useCallback(
+      (key: Key) => {
+        itemSubsRef.current.get(key)?.();
+        itemSubsRef.current.delete(key);
+      },
+      [itemSubsRef],
+    );
 
     const openPage = useCallback(
       (q: Query, keys: Key[]): void => {
@@ -324,7 +332,8 @@ export const createList =
         );
         queryRef.current = query;
 
-        try {
+        // The compiler rejects `?.`, `??`, and `?:` in a try, so the body is a closure.
+        const apply = async (): Promise<void> => {
           if (client == null)
             return setResult(nullClientResult<Key[]>(`retrieve ${name}`));
           setResult((p) => loadingResult(`retrieving ${name}`, p.data));
@@ -353,7 +362,7 @@ export const createList =
           // A replaced page no longer delivers changes to the items it held, so an
           // item a consumer still reads, such as a selection, needs its own feed.
           if (mode === "replace")
-            listItemListeners.current.forEach((_, key) => {
+            listItemListenersRef.current.forEach((_, key) => {
               if (!keys.includes(key)) openItemSub(key);
             });
 
@@ -366,12 +375,27 @@ export const createList =
             return setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
 
           return setResult(() => successResult(`retrieved ${name}`, recomputeKeys()));
+        };
+        try {
+          await apply();
         } catch (error) {
           if (signal?.aborted || queryRef.current !== query) return;
           setResult(errorResult(`retrieve ${name}`, error));
         }
       },
-      [client, name, filterRef, clearPages, openPage, openItemSub, recomputeKeys],
+      [
+        client,
+        filterRef,
+        sortRef,
+        resultRef,
+        listItemListenersRef,
+        setResult,
+        notifyListeners,
+        clearPages,
+        openPage,
+        openItemSub,
+        recomputeKeys,
+      ],
     );
 
     // When the client is swapped, an active hook must re-point itself at the
@@ -396,36 +420,34 @@ export const createList =
     const retrieveSingle = useCallback(
       (key: Key, options: query.FetchOptions = {}) => {
         const { signal } = options;
-        void (async () => {
-          try {
-            if (client == null || primitive.isZero(key)) return;
-            const item = await retrieveByKey({
-              client,
-              key,
-              query: queryRef.current ?? {},
-            });
-            if (signal?.aborted || item == null) return;
-            openItemSub(key);
-            if (!filterRef.current(item)) {
-              dataRef.current.set(key, null);
-              return;
-            }
-            dataRef.current.set(key, item);
-            notifyListeners(key);
-          } catch (error) {
-            if (signal?.aborted) return;
+        // The compiler rejects `?.`, `??`, and `?:` in a try, so the body is a closure.
+        const apply = async (): Promise<void> => {
+          if (client == null || primitive.isZero(key)) return;
+          const item = await retrieveByKey({
+            client,
+            key,
+            query: queryRef.current ?? {},
+          });
+          if (signal?.aborted || item == null) return;
+          openItemSub(key);
+          if (!filterRef.current(item)) {
             dataRef.current.set(key, null);
-            setResult(errorResult(`retrieve ${name}`, error));
+            return;
           }
-        })();
+          dataRef.current.set(key, item);
+          notifyListeners(key);
+        };
+        apply().catch((error: unknown) => {
+          if (signal?.aborted) return;
+          dataRef.current.set(key, null);
+          setResult(errorResult(`retrieve ${name}`, error));
+        });
       },
-      [retrieveByKey, client, notifyListeners, openItemSub],
+      [client, filterRef, setResult, notifyListeners, openItemSub],
     );
 
-    const getItem = useCallback(
-      ((key?: Key | Key[]) => {
-        if (Array.isArray(key))
-          return key.map((k) => getItem(k)).filter((v) => v != null);
+    const getOne = useCallback(
+      (key?: Key) => {
         // Zero-value keys that are not null or undefined are common as initialized
         // fields in various data structures ("", 0, etc.). A 'zero-value' is never
         // valid as a key in Synnax, and a simple null check would result in excessive
@@ -435,14 +457,21 @@ export const createList =
         const res = dataRef.current.get(key);
         if (res === undefined) retrieveSingle(key);
         return res;
-      }) as GetItem<Key, Data>,
+      },
       [retrieveSingle],
     );
+    const getItem = useCallback(
+      (key?: Key | Key[]) =>
+        Array.isArray(key)
+          ? key.map((k) => getOne(k)).filter((v) => v != null)
+          : getOne(key),
+      [getOne],
+    ) as GetItem<Key, Data>;
 
     const subscribe = useCallback(
       (callback: () => void, key?: Key) => {
         if (key == null) return () => {};
-        const listeners = listItemListeners.current;
+        const listeners = listItemListenersRef.current;
         let callbacks = listeners.get(key);
         if (callbacks == null) {
           callbacks = new Set();
@@ -460,7 +489,7 @@ export const createList =
             dataRef.current.delete(key);
         };
       },
-      [closeItemSub],
+      [closeItemSub, itemSubsRef, listItemListenersRef],
     );
 
     // Seeds a cold list from the cached answer for the exact query the debounced
@@ -478,7 +507,7 @@ export const createList =
         keys.forEach(notifyListeners);
         setResult(loadingResult(`retrieving ${name}`, keys));
       },
-      [readCache, notifyListeners, name],
+      [readCache, notifyListeners, resultRef, setResult],
     );
 
     const debouncedRetrieve = useDebouncedCallback(
@@ -506,6 +535,8 @@ export const createList =
       answered: result.data != null,
     };
   };
+  return useList;
+};
 
 export interface UseListItemParams<
   K extends record.Key,

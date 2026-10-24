@@ -15,7 +15,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Header } from "@synnaxlabs/lyra/header";
-import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
+import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -67,7 +67,7 @@ const ArrayVariableIcon = Icon.createComposite(Icon.Variable, {
   bottomRight: Icon.Array,
 });
 
-const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>) => {
+const NodeItem = (props: Tree.ItemRenderProps<string>) => {
   const node = List.useItem<string, ScannedNode>(props.itemKey);
   const { getState } = Select.useContext<string>();
   const { getItem } = List.useUtilContext<string, ScannedNode>();
@@ -93,7 +93,9 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>
       </Text.Text>
     </Tree.Item>
   );
-});
+};
+
+const itemRenderProp = Component.renderProp(NodeItem);
 
 const BROWSE_TIMEOUT = TimeSpan.seconds(10);
 
@@ -120,6 +122,7 @@ export const Browser = ({ device }: BrowserProps) => {
   );
   const opcNodesStore = List.useMapData<string, ScannedNode>();
   const [stat, setStat] = useState<status.Status | null>(null);
+  const [initialLoading, setInitialLoading] = useState(false);
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const retrieveNodes = useCallback(
@@ -160,7 +163,7 @@ export const Browser = ({ device }: BrowserProps) => {
           ]);
       }, "Failed to browse OPC UA nodes");
     },
-    [client, device, handleError, opcNodesStore],
+    [client, device, handleError, opcNodesStore, setTreeNodes, treeNodesRef],
   );
 
   const expand = useCallback(
@@ -173,13 +176,13 @@ export const Browser = ({ device }: BrowserProps) => {
 
   const treeProps = Tree.use({ nodes: treeNodes, onExpand: expand });
   const { shape, clearExpanded } = treeProps;
-  const [initialLoading, setInitialLoading] = useState(false);
-  const refresh = useCallback(() => {
+  const refresh = () => {
     setInitialLoading(true);
     expand({ action: "expand", current: [] });
     clearExpanded();
-  }, [clearExpanded]);
-  useEffect(refresh, [refresh]);
+  };
+  const refreshRef = useSyncedRef(refresh);
+  useEffect(() => refreshRef.current(), [refreshRef]);
   let content: ReactElement;
   if (stat?.variant === "error") content = <Status.Summary center status={stat} />;
   else if (initialLoading)

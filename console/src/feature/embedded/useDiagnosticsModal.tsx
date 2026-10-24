@@ -128,12 +128,7 @@ const Log = (): ReactElement => {
   );
 };
 
-/**
- * Opens a dialog that shows the health of Synnax Desktop, the place and size of its
- * data, and the end of its log. From it, a person can restart the embedded Core and
- * export an archive for support.
- */
-export const useDiagnosticsModal = Modals.create(() => {
+const DiagnosticsModal = () => {
   const status = useStatus();
   const diagnostics = useDiagnostics(status.state);
   const handleError = Status.useErrorHandler();
@@ -225,4 +220,11 @@ export const useDiagnosticsModal = Modals.create(() => {
       </Modal.Footer>
     </Modal.Frame>
   );
-});
+};
+
+/**
+ * Opens a dialog that shows the health of Synnax Desktop, the place and size of its
+ * data, and the end of its log. From it, a person can restart the embedded Core and
+ * export an archive for support.
+ */
+export const useDiagnosticsModal = Modals.create(DiagnosticsModal);

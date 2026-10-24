@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { type Haul } from "@/haul";
 import { List } from "@/list";
@@ -195,6 +195,38 @@ describe("Tree toggling", () => {
       expect(parentRow().getAttribute("aria-selected")).toBe("true");
       expect(parentRow().getAttribute("aria-expanded")).toBe("false");
       expect(screen.queryByText("child")).toBeNull();
+    });
+  });
+});
+
+describe("Tree expansion", () => {
+  const NODES: Node[] = [
+    { key: "a", children: [{ key: "a1" }] },
+    { key: "b", children: [{ key: "b1" }] },
+  ];
+
+  it("should report the expanded keys after an expand", () => {
+    const onExpand = vi.fn();
+    const { result } = renderHook(() => use({ nodes: NODES, onExpand }));
+    act(() => result.current.expand("a"));
+    act(() => result.current.expand("b"));
+    expect(onExpand).toHaveBeenLastCalledWith({
+      current: ["a", "b"],
+      action: "expand",
+      clicked: "b",
+    });
+  });
+
+  it("should report the expanded keys after a contract", () => {
+    const onExpand = vi.fn();
+    const { result } = renderHook(() =>
+      use({ nodes: NODES, onExpand, initialExpanded: ["a", "b"] }),
+    );
+    act(() => result.current.contract("a"));
+    expect(onExpand).toHaveBeenLastCalledWith({
+      current: ["b"],
+      action: "contract",
+      clicked: "a",
     });
   });
 });

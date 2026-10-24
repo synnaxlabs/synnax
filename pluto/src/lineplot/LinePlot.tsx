@@ -126,10 +126,12 @@ const Line = ({
   resolved,
   visible = true,
 }: LineProps): ReactElement | null => {
-  const { key, ...line } = useLine({ key: pKey, lineKey });
+  const spec = useLine({ key: pKey, lineKey });
+  const { key, ...line } = spec;
+  // JSX takes the rest object, so the compiler counts reads from it as changing later.
+  const { xChannel, yChannel } = spec;
   const telemetry = useMemo(() => {
     if (resolved == null) return null;
-    const { xChannel, yChannel } = line;
     const hasX = primitive.isNonZero(xChannel);
     if (resolved.variant === "dynamic") {
       const keepFor = Number(resolved.span.valueOf()) * 3;
@@ -156,8 +158,8 @@ const Line = ({
       }),
       y: telem.channelData({ timeRange: resolved.timeRange, channel: yChannel }),
     };
-  }, [resolved, line?.xChannel, line?.yChannel]);
-  if (line == null || telemetry == null) return null;
+  }, [resolved, xChannel, yChannel]);
+  if (telemetry == null) return null;
   return (
     <BaseLine
       key={key}
@@ -343,7 +345,7 @@ const YAxis = ({
         key,
         actions: [lineplot.setAxisLabel({ key: axisKey, label })],
       }),
-    [editable],
+    [editable, dispatch, key, axisKey],
   );
   const dropProps = useAxisDrop(axisKey, "y", handleDrop);
   const dragging = Haul.useDraggingState();

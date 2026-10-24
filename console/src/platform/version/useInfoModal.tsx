@@ -36,23 +36,23 @@ type UpdateCheck =
   | { variant: "error"; status: status.Status }
   | { variant: "success"; update: Update | null };
 
+const checkForUpdate = async (): Promise<Update | null> => {
+  if (Session.Runtime.ENGINE !== "tauri" || (await isDevBuild())) return null;
+  await sleep.sleep(TimeSpan.milliseconds(500));
+  return await check();
+};
+
 const useUpdateCheck = (): UpdateCheck => {
   const [result, setResult] = useState<UpdateCheck>({ variant: "loading" });
   useAsyncEffect(async (signal) => {
-    try {
-      let update: Update | null = null;
-      if (Session.Runtime.ENGINE === "tauri" && !(await isDevBuild())) {
-        await sleep.sleep(TimeSpan.milliseconds(500));
-        update = await check();
-      }
-      if (!signal.aborted) setResult({ variant: "success", update });
-    } catch (error) {
-      if (signal.aborted) return;
-      setResult({
+    const next = await checkForUpdate().then(
+      (update): UpdateCheck => ({ variant: "success", update }),
+      (error: unknown): UpdateCheck => ({
         variant: "error",
         status: status.fromException(error, "Failed to check for updates"),
-      });
-    }
+      }),
+    );
+    if (!signal.aborted) setResult(next);
   }, []);
   return result;
 };
@@ -113,7 +113,7 @@ const useDownload = (): UseDownloadReturn => {
   return { download, start };
 };
 
-export const useInfoModal = Modals.create(() => {
+const Info = () => {
   const version = Session.Version.use();
   const available = useUpdateCheck();
   const { download, start } = useDownload();
@@ -206,4 +206,6 @@ export const useInfoModal = Modals.create(() => {
       </Flex.Box>
     </Modal.Frame>
   );
-});
+};
+
+export const useInfoModal = Modals.create(Info);

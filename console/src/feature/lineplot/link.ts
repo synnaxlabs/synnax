@@ -10,5 +10,3 @@
 import { Link } from "@/platform/link";
 
 export const useLink = Link.createUseOpenResourceTab("lineplot");
-
-export const LINKS: Link.Registry = { lineplot: useLink };

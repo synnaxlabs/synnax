@@ -30,7 +30,7 @@ import { Session } from "@/session";
 
 const useDelete = Tree.createUseDelete({
   type: "Schematic",
-  query: Base.useDelete,
+  useUpdate: Base.useDelete,
   convertKey: String,
   beforeUpdate: async ({ data, store }) => {
     store.dispatch(Session.Schematic.remove({ keys: array.toArray(data) }));
@@ -104,7 +104,7 @@ export const useRangeSnapshot = () => {
 };
 
 const useRename = Tree.createUseRename({
-  query: Base.useRename,
+  useUpdate: Base.useRename,
   ontologyID: schematic.ontologyID,
   convertKey: String,
 });
@@ -112,7 +112,7 @@ const useRename = Tree.createUseRename({
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getResource, shape },
+    state,
   } = props;
   const activeRange = Range.useResolve();
   const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
@@ -126,7 +126,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const firstID = ids[0];
-  const resources = getResource(ids);
+  const resources = Tree.useResources(state, ids);
   const first = resources[0];
   const singleResource = ids.length === 1;
   return (
@@ -136,7 +136,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           {singleResource && <ContextMenu.RenameItem onClick={rename} />}
           <Group.ContextMenuItem
             ids={ids}
-            shape={shape}
+            shape={state.shape}
             rootID={rootID}
             onClick={() => group(props)}
           />

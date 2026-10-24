@@ -128,7 +128,7 @@ export const useHover = <K extends record.Key>({
         intervalRef.current = setInterval(move, HOVER_INTERVAL);
       }, INITIAL_HOVER_DELAY);
     },
-    [click, initialHover],
+    [enabledRef, getOrderRef, scrollToRef, click, initialHover],
   );
   Triggers.use({
     triggers: TRIGGERS,
