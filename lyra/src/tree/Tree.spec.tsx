@@ -138,7 +138,10 @@ describe("Tree", () => {
 describe("Tree toggling", () => {
   beforeAll(() => mockGeometry(100, 100));
 
-  const NODES: Node[] = [{ key: "parent", children: [{ key: "child" }] }];
+  const NODES: Node[] = [
+    { key: "parent", children: [{ key: "child" }] },
+    { key: "second", children: [{ key: "second-child" }] },
+  ];
 
   const getItem = List.createGetItem(
     (key: string) => ({ key, name: key }),
@@ -158,9 +161,10 @@ describe("Tree toggling", () => {
     );
   };
 
-  const parentRow = () => screen.getByRole("treeitem", { name: "parent" });
-  const caret = () =>
-    parentRow().querySelector(".pluto-tree__expansion-indicator") as Element;
+  const row = (name: string) => screen.getByRole("treeitem", { name });
+  const parentRow = () => row("parent");
+  const caret = (name = "parent") =>
+    row(name).querySelector(".pluto-tree__expansion-indicator") as Element;
 
   describe("on the row", () => {
     it("should select and expand a node when its row is clicked", () => {
@@ -187,6 +191,22 @@ describe("Tree toggling", () => {
       fireEvent.click(caret());
       expect(parentRow().getAttribute("aria-expanded")).toBe("false");
       expect(screen.queryByText("child")).toBeNull();
+    });
+
+    it("should toggle the clicked node after an expand above it moves it", () => {
+      render(<Component toggleOn="caret" />);
+      fireEvent.click(caret());
+      fireEvent.click(caret("second"));
+      expect(row("second").getAttribute("aria-expanded")).toBe("true");
+      expect(screen.getByText("second-child")).toBeTruthy();
+    });
+
+    it("should toggle the clicked node after an expand below it", () => {
+      render(<Component toggleOn="caret" />);
+      fireEvent.click(caret("second"));
+      fireEvent.click(caret());
+      expect(parentRow().getAttribute("aria-expanded")).toBe("true");
+      expect(screen.getByText("child")).toBeTruthy();
     });
 
     it("should select a node without expanding it when its row is clicked", () => {

@@ -203,12 +203,15 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   ...rest
 }: TreeProps<K, E>): ReactElement => {
   const { keys, nodes } = shape;
+  // Reads keys at click time, so an expand keeps unchanged items cached.
+  const keysRef = useSyncedRef(keys);
+  const toggleAt = useCallback(
+    (index: number) => toggle(keysRef.current[index]),
+    [toggle, keysRef],
+  );
   const contextValue = useMemo(
-    () => ({
-      nodes,
-      toggle: toggleOn === "caret" ? (i: number) => toggle(keys[i]) : undefined,
-    }),
-    [nodes, keys, toggle, toggleOn],
+    () => ({ nodes, toggle: toggleOn === "caret" ? toggleAt : undefined }),
+    [nodes, toggleAt, toggleOn],
   );
   return (
     <Context value={contextValue}>
