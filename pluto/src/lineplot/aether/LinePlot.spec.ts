@@ -27,7 +27,7 @@ import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { telem } from "@/telem/aether";
 import { buildStack } from "@/testutil/providers";
-import { Context as LineContext, Line } from "@/vis/line/aether/line";
+import { Context, Line } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/test";
 
@@ -167,7 +167,7 @@ class LineContextProvider extends aether.Composite<typeof lineContextProviderSta
   schema = lineContextProviderStateZ;
 
   afterUpdate(ctx: aether.Context): void {
-    LineContext.create(ctx, render.Context.use(ctx));
+    Context.create(ctx, render.Context.use(ctx));
   }
 }
 
