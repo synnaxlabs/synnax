@@ -314,7 +314,7 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should retrieve a task by key", async () => {
       const rack = await client.racks.create({
         name: "retrieveRack",
@@ -326,7 +326,7 @@ describe("queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Task.useRetrieve({ key: testTask.key }),
+        () => Task.use({ key: testTask.key }),
         {
           wrapper,
         },
@@ -367,7 +367,7 @@ describe("queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Task.useRetrieve({ key: testTask.key, includeStatus: true }),
+        () => Task.use({ key: testTask.key, includeStatus: true }),
         { wrapper },
       );
       await waitFor(() => {
@@ -389,7 +389,7 @@ describe("queries", () => {
 
       const { result } = await renderHookSuspended(
         () => {
-          const retrieve = Task.useRetrieve({ key: testTask.key });
+          const retrieve = Task.use({ key: testTask.key });
           const rename = Task.useRename();
           return { retrieve, rename };
         },
@@ -420,7 +420,7 @@ describe("queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Task.useRetrieve({ key: testTask.key }),
+        () => Task.use({ key: testTask.key }),
         {
           wrapper,
         },
@@ -474,14 +474,11 @@ describe("queries", () => {
         statusData: z.any().optional(),
       };
 
-      const { useRetrieve } = Task.createRetrieve(schemas);
+      const { use } = Task.createRetrieve(schemas);
 
-      const { result } = await renderHookSuspended(
-        () => useRetrieve({ key: testTask.key }),
-        {
-          wrapper,
-        },
-      );
+      const { result } = await renderHookSuspended(() => use({ key: testTask.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.type).toEqual("pagerduty_alert");
       expect(result.current?.config.routingKey).toEqual("rk-schema");
@@ -514,26 +511,20 @@ describe("queries", () => {
 
     it("should fill schema defaults on a task cached untyped", async () => {
       const created = await createUntyped();
-      const { useRetrieve } = Task.createRetrieve(schemas);
-      const { result } = await renderHookSuspended(
-        () => useRetrieve({ key: created.key }),
-        {
-          wrapper,
-        },
-      );
+      const { use } = Task.createRetrieve(schemas);
+      const { result } = await renderHookSuspended(() => use({ key: created.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(result.current?.config.severity).toBe("critical"));
       expect(result.current?.config.routingKey).toBe("rk-untyped");
     });
 
     it("should keep schema defaults across an untyped streamed update", async () => {
       const created = await createUntyped();
-      const { useRetrieve } = Task.createRetrieve(schemas);
-      const { result } = await renderHookSuspended(
-        () => useRetrieve({ key: created.key }),
-        {
-          wrapper,
-        },
-      );
+      const { use } = Task.createRetrieve(schemas);
+      const { result } = await renderHookSuspended(() => use({ key: created.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(result.current?.config.severity).toBe("critical"));
       await act(async () => {
         await client.tasks.rename(created.key, "renamed_task");

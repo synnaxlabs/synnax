@@ -35,7 +35,7 @@ interface HostProps extends PropsWithChildren {
 // Mounts a Form with a single `scale` field and exposes get/set via a ref so tests can
 // drive the form state and observe the underlying value the ScaleField writes back.
 const Host = ({ initial = 1, children, ref }: HostProps): ReactElement => {
-  const methods = Base.useState({ values: { scale: initial }, schema });
+  const methods = Base.use({ values: { scale: initial }, schema });
   const inner = useRef<FormHandle>({
     get: () => methods.get<number>("scale").value,
     set: (v) => methods.set("scale", v),

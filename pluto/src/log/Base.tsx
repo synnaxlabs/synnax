@@ -19,7 +19,7 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, strings } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
 
-import { useAether, type UseProps } from "@/log/use";
+import { use, type UseProps } from "@/log/use";
 import { Canvas } from "@/vis/canvas";
 
 export const PAUSE_TRIGGER: Triggers.Trigger = ["H"];
@@ -77,7 +77,7 @@ export const Base = ({
   children,
   ...rest
 }: BaseProps): ReactElement | null => {
-  const { state, setState } = useAether({
+  const { state, setState } = use({
     aetherKey,
     font,
     visible,
@@ -190,7 +190,7 @@ export const Base = ({
     }, "Failed to copy to clipboard");
   }, [selectedText, selectedLines.length, buildCopyHTML, notifyCopied, handleError]);
 
-  Triggers.useListen({
+  Triggers.use({
     triggers: FLATTENED_TRIGGERS,
     enabled: enableTriggers,
     callback: useCallback(

@@ -88,7 +88,7 @@ export const Preview = ({
   const zoom = Form.useField<number>(ZOOM_PATH);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const isDark = Base.useTheme().key === "synnaxDark";
+  const isDark = Base.use().key === "synnaxDark";
   // The toggle holds until the app theme changes.
   const [darkMode, setDarkMode] = useState({ app: isDark, dark: isDark });
   if (darkMode.app !== isDark) setDarkMode({ app: isDark, dark: isDark });
@@ -147,7 +147,7 @@ export const Preview = ({
   }, []);
   useEffect(() => stopRepeat, [stopRepeat]);
 
-  Triggers.useListen({
+  Triggers.use({
     triggers: FLATTENED_ZOOM_TRIGGERS,
     enabled: Boolean(spec.svg),
     callback: useCallback(

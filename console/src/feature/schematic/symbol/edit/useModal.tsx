@@ -57,7 +57,7 @@ const Editor = ({
   close,
 }: Modals.ContentProps<ModalParams, void>): ReactElement => {
   const isCreate = symbolKey == null;
-  const theme = Theming.useTheme();
+  const theme = Theming.use();
   const { form, save } = Schematic.Symbol.useForm({
     query: symbolKey == null ? null : { key: symbolKey },
     initialValues: {

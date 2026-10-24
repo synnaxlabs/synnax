@@ -63,7 +63,7 @@ export interface UseReturn {
   setState: Dispatch<SetStateAction<LogState>>;
 }
 
-export const useAether = ({
+export const use = ({
   aetherKey,
   font,
   visible = true,
@@ -127,7 +127,7 @@ export const useAether = ({
     [onHold, holdRef],
   );
 
-  const [, state, setState] = Aether.useBidirectional({
+  const [, state, setState] = Aether.use({
     aetherKey,
     type: log.Log.TYPE,
     schema: log.logStateZ,

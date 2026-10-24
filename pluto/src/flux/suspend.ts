@@ -211,7 +211,7 @@ export const usePendingFetch = <Query extends query.Params, Data>(
   useLayoutEffect(() => {
     pending.current = null;
   });
-  /* eslint-disable react-hooks/refs */
+  /* eslint-disable synnax/react-compiler */
   const held = pending.current;
   return {
     promise: held != null && held.query === q ? held.promise : null,
@@ -219,7 +219,7 @@ export const usePendingFetch = <Query extends query.Params, Data>(
       pending.current = { query: q, promise };
     },
   };
-  /* eslint-enable react-hooks/refs */
+  /* eslint-enable synnax/react-compiler */
 };
 
 /**

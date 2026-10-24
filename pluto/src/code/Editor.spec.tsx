@@ -711,7 +711,7 @@ describe("Editor", () => {
       const C = () => {
         // double mirrors the app-level Escape handlers: a quick second press arrives as
         // a double trigger, and they still need to see it.
-        Triggers.useListen({ triggers: ESCAPE, callback, double: true });
+        Triggers.use({ triggers: ESCAPE, callback, double: true });
         return <Editor language="arc" />;
       };
       return render(

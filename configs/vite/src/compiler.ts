@@ -14,11 +14,12 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
-import { type NodePath, type PluginObj, transformFileAsync } from "@babel/core";
+import { transformFileAsync } from "@babel/core";
 import babel, {
   defineRolldownBabelPreset,
   type RolldownBabelPreset,
 } from "@rolldown/plugin-babel";
+import { plugins } from "@synnaxlabs/eslint-config/compiler";
 import { type PluginOption, type ResolvedConfig } from "vite";
 
 const require = createRequire(import.meta.url);
@@ -27,43 +28,12 @@ const JSX = require.resolve("@babel/plugin-transform-react-jsx");
 const MAP_COMMENT = /\n\/\/# sourceMappingURL=\S*\s*$/;
 const CACHE_KEY = createHash("sha1")
   .update(readFileSync(new URL(import.meta.url)))
+  .update(readFileSync(require.resolve("@synnaxlabs/eslint-config/compiler")))
   .digest("hex");
 
 // Outlining moves a callback in a hook or component nested in a factory to module
 // scope, where the factory's bindings are unbound.
 const OPTIONS = { environment: { enableFunctionOutlining: false } };
-
-/**
- * Renames each binding that shadows the global `Symbol`, such as a `Symbol` namespace
- * import. The compiler reads its memo sentinel through a bare `Symbol.for`.
- */
-const UNSHADOW_SYMBOL: PluginObj = {
-  visitor: {
-    Program: (program) => {
-      const rename = (scoped: NodePath) => {
-        if (scoped.scope.hasOwnBinding("Symbol")) scoped.scope.rename("Symbol");
-      };
-      rename(program);
-      program.traverse({ Scopable: rename });
-    },
-  },
-};
-
-/**
- * Removes a TypeScript cast around a function, which hides a component or hook from the
- * compiler. `tsc` output has no casts, so source and emitted builds compile alike.
- */
-const UNWRAP_CASTS: PluginObj = {
-  visitor: {
-    Program: (program) =>
-      program.traverse({
-        "TSAsExpression|TSSatisfiesExpression": (cast: NodePath) => {
-          const inner = cast.get("expression") as NodePath;
-          if (inner.isFunction()) cast.replaceWith(inner.node);
-        },
-      }),
-  },
-};
 
 /** Fails on any component or hook that the compiler cannot compile. */
 const STRICT = { ...OPTIONS, panicThreshold: "all_errors" };
@@ -93,7 +63,7 @@ const preset = ({
 }: PresetParams): RolldownBabelPreset =>
   defineRolldownBabelPreset({
     preset: () => ({
-      plugins: [UNSHADOW_SYMBOL, UNWRAP_CASTS, [COMPILER, strict ? STRICT : OPTIONS]],
+      plugins: plugins([COMPILER, strict ? STRICT : OPTIONS]),
     }),
     rolldown: {
       filter: { id: { include, exclude: [DIST, WORKER, ...exclude] } },
@@ -142,7 +112,7 @@ export const compileEmitted = async (file: string): Promise<void> => {
     configFile: false,
     sourceMaps: mapped,
     inputSourceMap: mapped ? JSON.parse(readFileSync(mapFile, "utf8")) : undefined,
-    plugins: [UNSHADOW_SYMBOL, [COMPILER, STRICT], [JSX, { runtime: "automatic" }]],
+    plugins: [...plugins([COMPILER, STRICT]), [JSX, { runtime: "automatic" }]],
   });
   if (result?.code == null)
     throw new Error(`${file}: the React Compiler emitted nothing`);

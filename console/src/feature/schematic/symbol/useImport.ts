@@ -16,7 +16,7 @@ import { Import } from "@/platform/import";
 import { Runtime } from "@/platform/runtime";
 
 export const useImport = (): ((parentGroup: group.Key) => void) => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const importBatch = Import.useImportBatch();

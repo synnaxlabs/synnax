@@ -16,7 +16,7 @@ const ImportCommand = Command.create({
   key: "import",
   name: "Import components",
   icon: <Icon.Import />,
-  useOnSelect: Import.useAction,
+  useOnSelect: Import.use,
   useVisible: Import.useCanImport,
 });
 

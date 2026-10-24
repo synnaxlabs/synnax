@@ -36,7 +36,7 @@ export const Provider = ({
 }: ProviderProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
   const { setViewport, setHold } = useContext("Range.Provider");
-  const [, { hovered, count }, setState] = Aether.useBidirectional({
+  const [, { hovered, count }, setState] = Aether.use({
     aetherKey: cKey,
     type: range.Provider.TYPE,
     schema: range.providerStateZ,

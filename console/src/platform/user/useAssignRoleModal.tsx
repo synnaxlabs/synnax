@@ -30,7 +30,7 @@ const AssignRole = ({
   close,
   userKey,
 }: Modals.ContentProps<AssignRoleModalParams, void>) => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const { form, save, variant } = Access.Role.useChangeRoleForm({
     query: { key: userKey },
     afterSave: useCallback(() => close(), [close]),

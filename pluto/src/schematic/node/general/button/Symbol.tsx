@@ -24,7 +24,7 @@ export const Symbol = ({
   config: { label, orientation = "left", commandChannel, control, mode, ...rest },
 }: NodeProps<schematic.ButtonNodeConfig>): ReactElement => {
   const sink = useMemo(() => Telem.booleanSink(commandChannel), [commandChannel]);
-  const { onClick, onMouseDown, onMouseUp } = BaseButton.useAether({
+  const { onClick, onMouseDown, onMouseUp } = BaseButton.use({
     aetherKey: nodeKey,
     sink,
     mode,

@@ -51,7 +51,7 @@ const DeleteModal = ({
   close,
 }: Modals.ContentProps<Record<never, never>, void>): ReactElement => {
   const [step, setStep] = useState<"form" | "confirm">("form");
-  const methods = Form.useState({
+  const methods = Form.use({
     schema: formSchema,
     values: { channels: [], timeRange: TimeRange.MAX.numeric },
   });
@@ -217,7 +217,7 @@ const ConfirmStep = ({ onBack, onClose }: ConfirmStepProps): ReactElement => {
   const channelKeys = Form.useFieldValue<channel.Key[]>("channels");
   const start = Form.useFieldValue<number>("timeRange.start");
   const end = Form.useFieldValue<number>("timeRange.end");
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const handleDelete = useCallback(() => {

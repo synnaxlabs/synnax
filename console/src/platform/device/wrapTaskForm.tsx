@@ -21,7 +21,7 @@ export interface TaskFormContentProps<D> {
 }
 
 export interface WrapTaskFormParams<D> {
-  useRetrieve: (query: { key: device.Key }) => D;
+  use: (query: { key: device.Key }) => D;
   useConfigure: () => (params: { deviceKey: device.Key }) => void;
   Content: FC<TaskFormContentProps<D>>;
 }
@@ -34,7 +34,7 @@ export interface WrapTaskFormParams<D> {
 export const wrapTaskForm = <
   D extends Pick<device.Device, "key" | "name" | "configured">,
 >({
-  useRetrieve,
+  use,
   useConfigure,
   Content,
 }: WrapTaskFormParams<D>): FC<{}> => {
@@ -42,7 +42,7 @@ export const wrapTaskForm = <
     const isSnapshot = Task.useIsSnapshot();
     const canUpdate = Access.useUpdateGranted(device.ontologyID(deviceKey));
     const configure = useConfigure();
-    const dev = useRetrieve({ key: deviceKey });
+    const dev = use({ key: deviceKey });
     if (!dev.configured)
       return (
         <Unconfigured

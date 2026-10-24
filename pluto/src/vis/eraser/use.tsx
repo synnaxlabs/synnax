@@ -24,7 +24,7 @@ export interface UseReturn {
   erase: (region: box.Box) => void;
 }
 
-export const useAether = ({ aetherKey, enabled = true }: UseProps): UseReturn => {
+export const use = ({ aetherKey, enabled = true }: UseProps): UseReturn => {
   const { setState } = Aether.useLifecycle({
     aetherKey,
     type: eraser.Eraser.TYPE,
@@ -44,7 +44,7 @@ export const useAether = ({ aetherKey, enabled = true }: UseProps): UseReturn =>
 export interface EraserProps extends PropsWithChildren, Aether.ComponentProps {}
 
 export const Eraser = ({ aetherKey, children }: EraserProps): ReactElement => {
-  const { erase } = useAether({ aetherKey });
+  const { erase } = use({ aetherKey });
   const ref = useResize(erase);
   return (
     <div ref={ref} className={CSS.cls(CSS.inheritDims())}>

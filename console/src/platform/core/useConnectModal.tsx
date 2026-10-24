@@ -48,7 +48,7 @@ const Connect = ({ coreKey, close }: Modals.ContentProps<ConnectModalParams, voi
   const dispatch = Session.useDispatch();
   const isEdit = coreKey != null;
   const existing = Session.Core.useSelectState(coreKey);
-  const methods = Form.useState<typeof FORM_SCHEMA>({
+  const methods = Form.use<typeof FORM_SCHEMA>({
     schema: FORM_SCHEMA,
     values:
       isEdit && existing != null

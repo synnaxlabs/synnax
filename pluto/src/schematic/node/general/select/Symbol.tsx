@@ -36,7 +36,7 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.SelectNodeConfig>): ReactElement => {
   const sink = useMemo(() => Telem.numberSink(commandChannel), [commandChannel]);
-  const { set } = BaseSetpoint.useAether({ aetherKey: nodeKey, sink });
+  const { set } = BaseSetpoint.use({ aetherKey: nodeKey, sink });
   const [selectedKey, setSelectedKey] = useState<string | undefined>(undefined);
   const handleSelectionChange = (key: string | null): void =>
     setSelectedKey(key ?? undefined);

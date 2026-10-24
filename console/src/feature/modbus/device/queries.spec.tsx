@@ -24,14 +24,14 @@ const DeviceName = () => (
   <span>{Modbus.Device.useFromConfig()?.name ?? "no device"}</span>
 );
 
-describe("useRetrieve", () => {
+describe("use", () => {
   it("should retrieve the device with its typed properties", async () => {
     const dev = await createModbusDevice(client, {
       properties: { connection: CONNECTION },
     });
     const wrapper = await createAsyncSynnaxWrapper({ client });
     const { result } = await renderHookSuspended(
-      () => Modbus.Device.useRetrieve({ key: dev.key }),
+      () => Modbus.Device.use({ key: dev.key }),
       { wrapper },
     );
     await waitFor(() =>

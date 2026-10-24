@@ -111,7 +111,7 @@ const Connect = ({
   deviceKey,
   close,
 }: Modals.ContentProps<PlatformDevice.ConnectParams, void>) => {
-  const { capture } = Analytics.useSink();
+  const { capture } = Analytics.use();
   const {
     form,
     save,

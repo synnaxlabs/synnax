@@ -23,7 +23,7 @@ import {
   isHaulItem,
   type ToggleOn,
   Tree,
-  useState,
+  use,
 } from "@/tree/Tree";
 
 const KEY = "node-1";
@@ -87,7 +87,7 @@ describe("Tree", () => {
   }
 
   const Component = ({ pinned }: ComponentProps) => {
-    const props = useState({ nodes: NODES });
+    const props = use({ nodes: NODES });
     return (
       <Tree {...props} getItem={getItem} pinned={pinned}>
         {({ key, ...rest }) => (
@@ -146,7 +146,7 @@ describe("Tree toggling", () => {
   );
 
   const Component = ({ toggleOn }: { toggleOn?: ToggleOn }) => {
-    const props = useState({ nodes: NODES, toggleOn });
+    const props = use({ nodes: NODES, toggleOn });
     return (
       <Tree {...props} getItem={getItem}>
         {({ key, ...rest }) => (
@@ -207,7 +207,7 @@ describe("Tree expansion", () => {
 
   it("should report the expanded keys after an expand", () => {
     const onExpand = vi.fn();
-    const { result } = renderHook(() => useState({ nodes: NODES, onExpand }));
+    const { result } = renderHook(() => use({ nodes: NODES, onExpand }));
     act(() => result.current.expand("a"));
     act(() => result.current.expand("b"));
     expect(onExpand).toHaveBeenLastCalledWith({
@@ -220,7 +220,7 @@ describe("Tree expansion", () => {
   it("should report the expanded keys after a contract", () => {
     const onExpand = vi.fn();
     const { result } = renderHook(() =>
-      useState({ nodes: NODES, onExpand, initialExpanded: ["a", "b"] }),
+      use({ nodes: NODES, onExpand, initialExpanded: ["a", "b"] }),
     );
     act(() => result.current.contract("a"));
     expect(onExpand).toHaveBeenLastCalledWith({

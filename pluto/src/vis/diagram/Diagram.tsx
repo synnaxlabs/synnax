@@ -473,7 +473,7 @@ export const create = ({
 
     const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
 
-    Triggers.useListen({
+    Triggers.use({
       triggers: triggers.modes.zoomReset,
       callback: useCallback(
         ({ stage, cursor, target }: Triggers.UseEvent) => {

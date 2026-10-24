@@ -18,7 +18,7 @@ import { Form } from "@/schematic/node/common/form";
 const schema = z.object({ onClickDelay: z.number().default(0) });
 
 const Host = ({ values }: { values: z.infer<typeof schema> }): ReactElement => {
-  const methods = Base.useState({ values, schema });
+  const methods = Base.use({ values, schema });
   return (
     <Base.Form<typeof schema> {...methods}>
       <Form.ActivationDelayField />

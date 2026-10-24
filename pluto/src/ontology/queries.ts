@@ -22,28 +22,28 @@ const PLURAL_CHILDREN_RESOURCE_NAME = "children";
 export const useResourceSetSynchronizer = (
   onSet: (resource: ontology.Resource) => void,
 ): void => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   useEffect(() => client?.ontology.onResourceSet(onSet), [client, onSet]);
 };
 
 export const useResourceDeleteSynchronizer = (
   onDelete: (id: ontology.ID) => void,
 ): void => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   useEffect(() => client?.ontology.onResourceDelete(onDelete), [client, onDelete]);
 };
 
 export const useRelationshipSetSynchronizer = (
   onSet: (relationship: ontology.Relationship) => void,
 ): void => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   useEffect(() => client?.ontology.onRelationshipSet(onSet), [client, onSet]);
 };
 
 export const useRelationshipDeleteSynchronizer = (
   onDelete: (relationship: ontology.Relationship) => void,
 ): void => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   useEffect(() => client?.ontology.onRelationshipDelete(onDelete), [client, onDelete]);
 };
 
@@ -125,7 +125,7 @@ export type RetrieveChildrenQuery = {
   id: ontology.ID;
 };
 
-export const { useRetrieve: useChildren } = Flux.createRetrieve<
+export const { use: useChildren } = Flux.createRetrieve<
   RetrieveChildrenQuery,
   ontology.Resource[]
 >({
@@ -142,7 +142,7 @@ type RetrieveResourceQuery = {
   ids: ontology.ID[];
 };
 
-export const { useRetrieve: useResource } = Flux.createRetrieve<
+export const { use: useResource } = Flux.createRetrieve<
   RetrieveResourceQuery,
   ontology.Resource[]
 >({

@@ -14,7 +14,7 @@ import { type Device, SCHEMAS } from "@/feature/ni/device/types";
 import { Device as PlatformDevice } from "@/platform/device";
 
 /** Retrieves the NI device the query names, parsed through its schemas. */
-export const { useRetrieve, useResult } = PDevice.createRetrieve(SCHEMAS);
+export const { use, useResult } = PDevice.createRetrieve(SCHEMAS);
 
 /** The device the form's config names, or undefined until it resolves or on failure. */
 export const useFromConfig = PlatformDevice.createUseFromConfig(useResult);

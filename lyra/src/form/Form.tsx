@@ -13,7 +13,7 @@ import { type z } from "zod";
 import { Context, type ContextValue } from "@/form/Context";
 
 /**
- * Publishes a form built by {@link useState} to its subtree, so every field hook and
+ * Publishes a form built by {@link use} to its subtree, so every field hook and
  * component below binds to it. Spread the hook's return value onto it.
  */
 export const Form = <Z extends z.ZodType>({

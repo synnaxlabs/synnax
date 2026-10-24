@@ -28,7 +28,7 @@ export type RetrieveQuery = {
   key: string;
 };
 
-export const { useRetrieve, useResult } = Flux.createRetrieve<
+export const { use, useResult } = Flux.createRetrieve<
   RetrieveQuery,
   schematic.symbol.Symbol
 >({
@@ -192,7 +192,7 @@ export const { useUpdate: useDeleteGroup } = Flux.createUpdate<DeleteGroupParams
   },
 });
 
-export const { useRetrieve: useGroup, useResult: useResultGroup } = Flux.createRetrieve<
+export const { use: useGroup, useResult: useResultGroup } = Flux.createRetrieve<
   {},
   group.Group
 >({

@@ -22,7 +22,7 @@ export interface UseReturn {
   set: (value: number) => void;
 }
 
-export const useAether = ({ aetherKey, sink }: UseProps): UseReturn => {
+export const use = ({ aetherKey, sink }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({ sink });
   const { setState, methods } = Aether.useLifecycle({
     aetherKey,

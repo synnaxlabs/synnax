@@ -25,7 +25,7 @@ export const Symbol = ({
   config: { label, control, commandChannel, ...rest },
 }: NodeProps<schematic.InputNodeConfig>): ReactElement => {
   const sink = useMemo(() => Telem.stringSink(commandChannel), [commandChannel]);
-  const { set } = InputTelem.useAether({ aetherKey: nodeKey, sink });
+  const { set } = InputTelem.use({ aetherKey: nodeKey, sink });
   return (
     <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected}>
       <Control.State

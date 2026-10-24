@@ -37,7 +37,7 @@ const Harness = ({
   valueType,
   valueFirst,
 }: HarnessProps): ReactElement => {
-  const methods = PForm.useState<z.ZodType>({
+  const methods = PForm.use<z.ZodType>({
     values: { [PATH]: initialHeaders },
     onChange,
   });
@@ -214,7 +214,7 @@ describe("KeyValueEditor", () => {
       [PATH]: z.array(z.object({ name: z.string(), value: z.string() })).optional(),
     });
     const Optional = (): ReactElement => {
-      const methods = PForm.useState<typeof schema>({ values: {}, schema, onChange });
+      const methods = PForm.use<typeof schema>({ values: {}, schema, onChange });
       return (
         <PForm.Form<typeof schema> {...methods}>
           <Form.KeyValueEditor path={PATH} label="Headers" keyField="name" />

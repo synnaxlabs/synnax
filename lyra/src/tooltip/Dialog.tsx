@@ -196,7 +196,7 @@ export const Dialog = ({
     },
     [visibleRef, close],
   );
-  Triggers.useListen({
+  Triggers.use({
     triggers: ESCAPE_TRIGGERS,
     callback: handleEscape,
     priority: 200,

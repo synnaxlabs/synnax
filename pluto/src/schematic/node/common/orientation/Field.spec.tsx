@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 import { Orientation } from "@/schematic/node/common/orientation";
 
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
-  const methods = Form.useState({
+  const methods = Form.use({
     values: { node: { orientation: "top", label: { orientation: "top" } } },
   });
   return <Form.Form {...methods}>{children}</Form.Form>;

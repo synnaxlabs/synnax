@@ -49,7 +49,7 @@ export const RenameDialog = ({
 );
 
 const Content = ({ activation }: { activation: Activation }): ReactElement => {
-  const methods = Form.useState({ values: { name: machineName(activation) }, schema });
+  const methods = Form.use({ values: { name: machineName(activation) }, schema });
   return (
     <Modal.Form
       methods={methods}

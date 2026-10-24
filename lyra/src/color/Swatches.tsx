@@ -45,7 +45,7 @@ export const Swatches = ({
   fallback,
   children,
 }: SwatchesProps): ReactElement => {
-  const { colors } = Theming.useTheme();
+  const { colors } = Theming.use();
   const frequent = useFrequent();
   const presets = [
     colors.primary.z,

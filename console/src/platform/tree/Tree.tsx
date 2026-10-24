@@ -92,7 +92,7 @@ const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
   );
   // A drop re-parents the dragged items, so the grant is read on them and not on the
   // destination. The item itself carries the same grant to leave its parent.
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const canMove = Access.useUpdateGranted(id);
 
   const [draggingOver, setDraggingOver] = useState(false);
@@ -186,7 +186,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const loadingRef = useRef<string | false>(false);
   const handleError = Status.useErrorHandler();
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   // The retained answer seeds the first render, not an effect: an effect runs
   // after the commit paints, so the tree would still show one empty frame.
   const [seed] = useState<Base.Node<string>[] | null>(() => {
@@ -403,7 +403,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [getResourceByKey],
   );
 
-  const treeProps = Base.useState({
+  const treeProps = Base.use({
     nodes,
     onExpand: handleExpand,
     selected,

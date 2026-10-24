@@ -26,7 +26,7 @@ export interface EditorProps extends Pick<
 
 export const Editor = ({ autoFocus = false, extraMenuItems }: EditorProps) => {
   const resourceKey = useKey();
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const dispatch = useSingleDispatch();
   const hasText = useHasText();
 

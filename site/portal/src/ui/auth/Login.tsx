@@ -47,8 +47,8 @@ export const Login = ({ target }: LoginProps): ReactElement => {
   const [factor, setFactor] = useState<CodeFactor | null>(null);
   const [backup, setBackup] = useState<CodeFactor | null>(null);
   const [oauthError, setOAuthError] = useState<string | null>(null);
-  const methods = Form.useState({ values: { email: "", password: "" }, schema });
-  const codeMethods = Form.useState({ values: { code: "" }, schema: codeSchema });
+  const methods = Form.use({ values: { email: "", password: "" }, schema });
+  const codeMethods = Form.use({ values: { code: "" }, schema: codeSchema });
 
   const login = useAction(async () => {
     if (clerk?.client == null || !methods.validate()) return;

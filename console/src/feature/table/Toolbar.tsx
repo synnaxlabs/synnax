@@ -181,7 +181,7 @@ const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
     [cell, cellKey, dispatch],
   );
 
-  const methods = Form.useState<typeof Table.Cell.configZ>({
+  const methods = Form.use<typeof Table.Cell.configZ>({
     values: cell != null ? deep.copy(cell) : Table.Cell.defaultConfig("text"),
     schema: Table.Cell.configZ,
     onChange: handleChange,
@@ -232,7 +232,7 @@ interface MultiCellFormProps {
 const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
   const cellsByKey = Table.useCells({ cellKeys });
   const dispatch = Table.useSingleDispatch();
-  const theme = Theming.useTheme();
+  const theme = Theming.use();
 
   // One dispatch per change so undo collapses to one step.
   const selection = MultiEdit.selection({

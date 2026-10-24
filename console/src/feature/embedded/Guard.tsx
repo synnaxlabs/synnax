@@ -38,7 +38,7 @@ import { Session } from "@/session";
  */
 export const Guard = ({ children }: PropsWithChildren): ReactNode => {
   const status = useStatus();
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const settled = Session.useSettled();
   const selected = Session.Core.useSelectIsAnySelected();
   let content: ReactNode;

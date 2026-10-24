@@ -225,7 +225,7 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
     },
     [selected, entries],
   );
-  const treeProps = Tree.useState({
+  const treeProps = Tree.use({
     nodes,
     selected,
     onSelectedChange: setSelected,

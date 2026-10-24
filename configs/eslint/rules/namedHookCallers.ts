@@ -10,10 +10,10 @@
 import { type Rule } from "eslint";
 
 const HOOK = /^use([A-Z0-9]|$)/;
-const NAMED = /^(use[A-Z0-9]|[A-Z])/;
+const NAMED = /^(use([A-Z0-9]|$)|[A-Z])/;
 const NAMESPACE = /^[A-Z]/;
 const WRAPPERS = new Set(["memo", "forwardRef"]);
-// The casts that configs/vite/src/compiler.ts removes before the compiler runs.
+// The casts that ../compiler.ts removes before the compiler runs.
 const CASTS = new Set(["TSAsExpression", "TSSatisfiesExpression"]);
 const FUNCTIONS = new Set([
   "ArrowFunctionExpression",

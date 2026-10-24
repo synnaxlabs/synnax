@@ -95,7 +95,7 @@ export const renderTaskFormHook = async <R,>(
   useValue: (ctx: PForm.ContextValue<z.ZodType>) => R,
 ) => {
   const useHarness = () => {
-    const ctx = PForm.useState<z.ZodType>({ values });
+    const ctx = PForm.use<z.ZodType>({ values });
     return { ctx, value: useValue(ctx) };
   };
   return await renderHookWithConsole(useHarness);
@@ -119,7 +119,7 @@ export const TaskFormProvider = ({
   formRef,
   children,
 }: TaskFormProviderProps): ReactElement => {
-  const ctx = PForm.useState<z.ZodType>({ values, mode });
+  const ctx = PForm.use<z.ZodType>({ values, mode });
   useImperativeHandle(formRef, () => ctx, [ctx]);
   return <PForm.Form {...ctx}>{children}</PForm.Form>;
 };

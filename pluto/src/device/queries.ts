@@ -21,7 +21,7 @@ const PLURAL_RESOURCE_NAME = "devices";
 export const useSetSynchronizer = (
   onSet: (device: Omit<device.Device, "status">) => void,
 ): void => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   useEffect(() => client?.devices.onSet(onSet), [client]);
 };
 
@@ -141,7 +141,7 @@ export const createRetrieve = <
   });
 };
 
-export const { useRetrieve, useResult, createResultSelector } = createRetrieve();
+export const { use, useResult, createResultSelector } = createRetrieve();
 
 /** Names the devices to retrieve by key or by filter. */
 export type RetrieveMultipleQuery = device.RetrieveMultipleParams;
@@ -228,7 +228,7 @@ export const { useUpdate: useCreate } = createCreate();
 
 export type UseRetrieveGroupParams = Record<string, never>;
 
-export const { useRetrieve: useGroupID } = Flux.createRetrieve<
+export const { use: useGroupID } = Flux.createRetrieve<
   UseRetrieveGroupParams,
   ontology.ID | undefined
 >({

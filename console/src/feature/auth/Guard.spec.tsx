@@ -233,7 +233,7 @@ describe("connection guard permissions", () => {
     const verdicts: boolean[] = [];
     const { result } = renderHook(
       () => {
-        const client = Synnax.useClient();
+        const client = Synnax.use();
         const granted = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
         if (client != null) verdicts.push(granted);
         return granted;

@@ -129,7 +129,7 @@ const focusedKey = (
 export const useGetFocusedKey = (): (() => client.Key | undefined) => {
   const getSelectedPanel = Panel.useGetSelected();
   const getFocusedTabKey = Panel.useGetFocusedTab();
-  const synnax = Synnax.useClient();
+  const synnax = Synnax.use();
   return useCallback(() => {
     const panelKey = getSelectedPanel();
     if (panelKey == null) return undefined;

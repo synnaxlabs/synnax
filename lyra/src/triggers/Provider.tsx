@@ -100,7 +100,7 @@ const shouldTriggerOnKeyDown = (key: Key, e: KeyboardEvent): boolean => {
 
 /**
  * Listens for keyboard and mouse input on the window and fans it out to every
- * {@link useListen} subscriber, highest priority first. Mount one near the root of the
+ * {@link use} subscriber, highest priority first. Mount one near the root of the
  * app. Keystrokes inside a text field reach subscribers only when they carry a
  * modifier.
  */

@@ -130,7 +130,7 @@ export const useHover = <K extends record.Key>({
     },
     [enabledRef, getOrderRef, scrollToRef, click, initialHover],
   );
-  Triggers.useListen({
+  Triggers.use({
     triggers: TRIGGERS,
     callback: handleTrigger,
     loose: true,

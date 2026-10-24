@@ -21,7 +21,7 @@ const SynnaxWrapper = createSynnaxWrapper({ client: null });
 let methods: Form.ContextValue<typeof table.valueCellConfigZ>;
 
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
-  methods = Form.useState<typeof table.valueCellConfigZ>({
+  methods = Form.use<typeof table.valueCellConfigZ>({
     values: table.valueCellConfigZ.parse({ variant: "value" }),
     schema: table.valueCellConfigZ,
   });
@@ -211,7 +211,7 @@ describe("ValueForm", () => {
 
 describe("TextForm", () => {
   const TextWrapper = ({ children }: PropsWithChildren): ReactElement => {
-    const textMethods = Form.useState<typeof table.textCellConfigZ>({
+    const textMethods = Form.use<typeof table.textCellConfigZ>({
       values: table.textCellConfigZ.parse({ variant: "text", fillColor: "#00ff00" }),
       schema: table.textCellConfigZ,
     });

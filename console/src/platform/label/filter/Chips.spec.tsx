@@ -33,7 +33,7 @@ const schema = z.object({
 });
 
 const Fixture = ({ hasLabels }: { hasLabels: label.Key[] }): ReactElement => {
-  const methods = Form.useState({ schema, values: { query: { hasLabels } } });
+  const methods = Form.use({ schema, values: { query: { hasLabels } } });
   return (
     <View.Frame resourceType="range" icon="Label">
       <Form.Form<typeof schema> {...methods}>

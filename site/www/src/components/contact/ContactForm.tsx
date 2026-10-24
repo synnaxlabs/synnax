@@ -30,7 +30,7 @@ export const ContactForm = (): ReactElement => {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const methods = Form.useState({
+  const methods = Form.use({
     schema: formSchema,
     values: { name: "", email: "", phone: "", message: "" },
   });

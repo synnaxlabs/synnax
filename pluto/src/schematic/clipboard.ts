@@ -36,7 +36,7 @@ export const useClipboard = ({
 }: UseClipboardParams): Diagram.UseClipboardReturn => {
   const key = useKey();
   const dispatch = useSingleDispatch();
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const adapter: Diagram.ClipboardAdapter<
     schematic.Node,
     schematic.Edge,

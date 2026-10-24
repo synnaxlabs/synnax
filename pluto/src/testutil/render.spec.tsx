@@ -27,7 +27,7 @@ const CONSUMER_PATH = [
 ];
 
 const useConsumer = (initialValue: number) =>
-  Aether.useBidirectional({
+  Aether.use({
     type: aetherTest.Leaf.TYPE,
     schema: aetherTest.Leaf.stateZ,
     aetherKey: "consumer",

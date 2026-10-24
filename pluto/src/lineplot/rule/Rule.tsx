@@ -62,7 +62,7 @@ export const Rule = ({
 
   const onPositionChangeRef = useSyncedRef(onPositionChange);
 
-  const [, { pixelPosition }, setState] = Aether.useBidirectional({
+  const [, { pixelPosition }, setState] = Aether.use({
     aetherKey,
     type: rule.Rule.TYPE,
     schema: rule.ruleStateZ,

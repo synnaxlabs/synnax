@@ -53,7 +53,7 @@ const getCachedForUser = (
   return client.access.roles.getCached({ keys });
 };
 
-export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, access.role.Role>({
+export const { use } = Flux.createRetrieve<RetrieveQuery, access.role.Role>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.access.roles.retrieve(query),
   onChange: ({ client, query }, handler) =>

@@ -40,7 +40,7 @@ beforeAll(async () => {
 // Favorite eviction lives in the status synchronizer, mounted app-wide in
 // production; the toolbar only renders what survives.
 const Synchronizers = (): null => {
-  Session.Synchronizer.useMount(Session.Status.SYNCHRONIZERS);
+  Session.Synchronizer.use(Session.Status.SYNCHRONIZERS);
   return null;
 };
 

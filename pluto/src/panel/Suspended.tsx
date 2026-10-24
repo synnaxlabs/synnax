@@ -14,11 +14,11 @@ import { useEnsure } from "@/panel/queries";
 import { Scope, TabScope } from "@/panel/scope";
 
 /** useKey resolves the active panel key from the surrounding {@link Suspended}. */
-export const useKey = Scope.useRequired;
+export const useKey = Scope.use;
 export const useOptionalKey = Scope.useOptional;
 
 /** useTabKey resolves the active tab key from the surrounding {@link TabProvider}. */
-export const useTabKey = TabScope.useRequired;
+export const useTabKey = TabScope.use;
 export const useOptionalTabKey = TabScope.useOptional;
 
 export interface SuspendedProps extends PropsWithChildren {

@@ -26,13 +26,9 @@ export interface UseReturn extends Pick<
   "enabled" | "stale"
 > {}
 
-export const useAether = ({
-  aetherKey,
-  source,
-  stalenessTimeout,
-}: UseProps): UseReturn => {
+export const use = ({ aetherKey, source, stalenessTimeout }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({ source, stalenessTimeout });
-  const [, { enabled, stale }, setState] = Aether.useBidirectional({
+  const [, { enabled, stale }, setState] = Aether.use({
     aetherKey,
     type: light.Light.TYPE,
     schema: light.stateZ,

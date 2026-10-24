@@ -73,9 +73,9 @@ const Create = ({
 }: Modals.ContentProps<CreateModalParams, void>) => {
   const [now] = useState(() => Number(TimeStamp.now().valueOf()));
   const dispatch = Session.useDispatch();
-  const { capture } = Analytics.useSink();
+  const { capture } = Analytics.use();
 
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const clientExists = client != null;
   const { form, save, variant } = Ranger.useForm({
     query: rangeKey == null ? null : { key: rangeKey },

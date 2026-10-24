@@ -14,13 +14,13 @@ import { renderHook } from "@/testutil/render";
 import { Setpoint } from "@/vis/setpoint";
 import { setpoint } from "@/vis/setpoint/aether";
 
-describe("Setpoint.useAether", () => {
+describe("Setpoint.use", () => {
   it("should render once for each prop change", () => {
     let renders = 0;
     const { rerender } = renderHook(
       ({ sink }: { sink: telem.NumberSinkSpec }) => {
         renders++;
-        return Setpoint.useAether({ aetherKey: "setpoint", sink });
+        return Setpoint.use({ aetherKey: "setpoint", sink });
       },
       {
         rtl: { initialProps: { sink: telem.noopNumericSinkSpec } },

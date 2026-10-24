@@ -20,9 +20,9 @@ import { Session } from "@/session";
  * carries its own posthog.
  */
 export const Watch = (): null => {
-  const sink = Analytics.useSink();
+  const sink = Analytics.use();
   const store = Session.useStore();
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   useEffect(() => watchAccount({ store, sink }), [store, sink]);
   useEffect(() => {
     if (client == null) return;

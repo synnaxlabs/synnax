@@ -21,10 +21,10 @@
     "@babel/core": "catalog:",
     "@babel/plugin-transform-react-jsx": "catalog:",
     "@rolldown/plugin-babel": "catalog:",
+    "@synnaxlabs/eslint-config": "catalog:",
     "babel-plugin-react-compiler": "catalog:"
   },
   "devDependencies": {
-    "@synnaxlabs/eslint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
     "@types/babel__core": "catalog:",
     "@vitest/coverage-v8": "catalog:",

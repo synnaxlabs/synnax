@@ -39,7 +39,7 @@ import { Session } from "@/session";
  * surface; a degraded live connection does not.
  */
 export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const status = Synnax.useConnectionStatus();
   const settled = Session.useSettled();
   if (client == null) return children;

@@ -71,7 +71,7 @@ export const Palette = (): ReactElement => {
     [visibleRef, setVisible],
   );
 
-  Triggers.useListen({ triggers: flattenedConfig, callback: handleTrigger });
+  Triggers.use({ triggers: flattenedConfig, callback: handleTrigger });
 
   const List = value.startsWith(FeatureCommand.PREFIX) ? Command.List : Search.List;
 

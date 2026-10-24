@@ -28,14 +28,14 @@ export interface UseReturn extends Pick<
   toggle: () => void;
 }
 
-export const useAether = ({
+export const use = ({
   aetherKey,
   source,
   sink,
   stalenessTimeout,
 }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({ source, sink, stalenessTimeout });
-  const [, { enabled, stale }, setState, methods] = Aether.useBidirectional({
+  const [, { enabled, stale }, setState, methods] = Aether.use({
     aetherKey,
     type: toggle.Toggle.TYPE,
     schema: toggle.toggleStateZ,

@@ -27,7 +27,7 @@ export interface UseReturn {
   width: number;
 }
 
-export const useAether = ({
+export const use = ({
   aetherKey,
   box,
   telem,
@@ -64,7 +64,7 @@ export const useAether = ({
     clip,
     borderRadius,
   });
-  const [, state, setState] = Aether.useBidirectional({
+  const [, state, setState] = Aether.use({
     aetherKey,
     type: Value.TYPE,
     schema: Value.z,

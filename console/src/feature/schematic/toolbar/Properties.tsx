@@ -79,7 +79,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
   const handleTabChange = (tab: PProperties.TabKey) =>
     sessionDispatch(Session.Schematic.setPropertiesTab({ key: schematicKey, tab }));
   const initialValues = useMemo(() => deep.copy(config), [config]);
-  const formMethods = Form.useState<typeof Schematic.elementConfigZ>({
+  const formMethods = Form.use<typeof Schematic.elementConfigZ>({
     schema: Schematic.elementConfigZ,
     values: initialValues,
     sync: true,
@@ -228,7 +228,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     if (firstNodeLabel != null) break;
   }
 
-  const theme = Theming.useTheme();
+  const theme = Theming.use();
 
   const selection = MultiEdit.selection({
     configs: editableByKey,

@@ -90,13 +90,8 @@ export const ZERO_FORM_VALUES: z.infer<
   operations: [ZERO_OPERATION],
 };
 
-export const {
-  useRetrieve,
-  useResult,
-  useEnsure,
-  createSelector,
-  createResultSelector,
-} = Flux.createRetrieve<RetrieveQuery, channel.Channel>(retrieveDefinition);
+export const { use, useResult, useEnsure, createSelector, createResultSelector } =
+  Flux.createRetrieve<RetrieveQuery, channel.Channel>(retrieveDefinition);
 
 /** The channel's range-scoped alias when one is set, its name otherwise. */
 export const useAlias = createSelector(({ alias, name }) =>
@@ -130,10 +125,10 @@ export const useResultAliasAndName = createResultSelector(
   (a, b) => a.alias === b.alias && a.name === b.name,
 );
 
-export const { useRetrieve: useMultiple, useResult: useResultMultiple } =
-  Flux.createRetrieve<RetrieveMultipleQuery, channel.Channel[]>(
-    retrieveMultipleDefinition,
-  );
+export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  channel.Channel[]
+>(retrieveMultipleDefinition);
 
 const retrieveInitialFormValues = async ({
   query: { key, rangeKey },
@@ -286,10 +281,7 @@ export const { useUpdate: useDeleteAlias } = Flux.createUpdate<DeleteAliasParams
 
 type RetrieveGroupQuery = Record<string, never>;
 
-export const { useRetrieve: useGroup } = Flux.createRetrieve<
-  RetrieveGroupQuery,
-  group.Group
->({
+export const { use: useGroup } = Flux.createRetrieve<RetrieveGroupQuery, group.Group>({
   name: "channel group",
   retrieve: async ({ client }) => await client.channels.retrieveGroup(),
 });

@@ -18,7 +18,7 @@ import { ExternalStore } from "@/platform/external-store";
  * deployment, and re-renders when any of those tasks changes.
  */
 export const useDriftedTaskKeys = (keys: arc.Key[]): task.Key[] => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   return ExternalStore.useItems({
     keys,
     subscribe: (handler, key) =>

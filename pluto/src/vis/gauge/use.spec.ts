@@ -14,13 +14,13 @@ import { renderHook } from "@/testutil/render";
 import { Gauge } from "@/vis/gauge";
 import { gauge } from "@/vis/gauge/aether";
 
-describe("Gauge.useAether", () => {
+describe("Gauge.use", () => {
   it("should render once for each prop change", () => {
     let renders = 0;
     const { rerender } = renderHook(
       ({ precision }: { precision: number }) => {
         renders++;
-        Gauge.useAether({ aetherKey: "gauge", box: box.ZERO, precision });
+        Gauge.use({ aetherKey: "gauge", box: box.ZERO, precision });
       },
       {
         rtl: { initialProps: { precision: 2 } },

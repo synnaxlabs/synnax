@@ -39,6 +39,8 @@ tester.run("named-hook-callers", namedHookCallers, {
     { code: "const useA = (() => use(p)) as UseA;" },
     { code: "const create = () => { const useA = () => useState(0); return useA; };" },
     { code: "const x = { useVisible: () => Access.useGranted(id) };" },
+    { code: "const x = { use: (q) => useSuspended(c, q) };" },
+    { code: "const use = () => items.map((i) => Access.useGranted(i));" },
     { code: "const useA = () => items.map((i) => i.useVisible());" },
     { code: "const a = () => items.map((i) => i + 1);" },
     { code: "class Client { use(m) { this.unary.use(m); } }" },

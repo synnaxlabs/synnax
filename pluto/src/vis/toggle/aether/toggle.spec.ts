@@ -191,15 +191,15 @@ describe("toggle/aether/Toggle", () => {
     });
   });
 
-  // The aether Toggle carries the behavior above; Toggle.useAether is a thin React
+  // The aether Toggle carries the behavior above; Toggle.use is a thin React
   // adapter over its RPC method. This test covers only that adapter wiring.
-  describe("Toggle.useAether (React adapter)", () => {
+  describe("Toggle.use (React adapter)", () => {
     const TestWrapper = TelemTest.createTestWrapper({ registry: toggle.REGISTRY });
 
     it("should expose a toggle fn and the enabled state", () => {
       const { result } = renderHook(
         () =>
-          Toggle.useAether({
+          Toggle.use({
             aetherKey: "tgl",
             source: noopBooleanSourceSpec,
             sink: noopBooleanSinkSpec,

@@ -222,7 +222,7 @@ const setupSettled = async (
         settled: Session.useSettled(),
         statuses: Status.useNotifications().statuses,
         awaitingProject: Session.Link.useSelectAwaitingProject(),
-        client: Synnax.useClient(),
+        client: Synnax.use(),
       };
     },
     { wrapper: Wrapper },

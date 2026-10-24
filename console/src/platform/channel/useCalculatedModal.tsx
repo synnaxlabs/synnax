@@ -52,7 +52,7 @@ const Calculated = ({
   close,
 }: Modals.ContentProps<CalculatedModalParams, void>) => {
   const isEdit = primitive.isNonZero(channelKey);
-  const { capture } = Analytics.useSink();
+  const { capture } = Analytics.use();
   const {
     form,
     variant,

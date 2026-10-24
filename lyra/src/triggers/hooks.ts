@@ -28,7 +28,7 @@ import {
   UNDO,
 } from "@/triggers/triggers";
 
-/** The event {@link useListen} hands its callback. */
+/** The event {@link use} hands its callback. */
 export interface UseEvent {
   target: HTMLElement;
   prevTriggers: Trigger[];
@@ -37,14 +37,14 @@ export interface UseEvent {
   stage: Stage;
   cursor: xy.XY;
   /**
-   * Prevents the event from being dispatched to any remaining {@link useListen}
+   * Prevents the event from being dispatched to any remaining {@link use}
    * subscribers with a lower priority than the current one. Subscribers at the same
    * priority that have not yet been notified still receive the event.
    */
   stopPropagation: () => void;
 }
 
-/** Props for {@link useListen}. */
+/** Props for {@link use}. */
 export interface UseProps extends MatchOptions {
   triggers?: Trigger | Trigger[];
   /** Fires only while the cursor sits inside this element. */
@@ -73,12 +73,12 @@ export interface UseProps extends MatchOptions {
  * the active one.
  *
  * @example
- * Triggers.useListen({
+ * Triggers.use({
  *   triggers: [["Control", "S"]],
  *   callback: ({ stage }) => save(stage),
  * });
  */
-export const useListen = ({
+export const use = ({
   triggers,
   callback: f,
   region,
@@ -178,7 +178,7 @@ export interface UseUndoRedoProps {
 
 /** useUndoRedo binds the standard undo and redo shortcuts to the given handlers. */
 export const useUndoRedo = ({ undo, redo, enabled }: UseUndoRedoProps): void => {
-  useListen({
+  use({
     triggers: UNDO_REDO_TRIGGERS,
     loose: true,
     enabled,
@@ -219,7 +219,7 @@ export const useHeldRef = ({
     triggers: [],
     held: false,
   });
-  useListen({
+  use({
     triggers,
     callback: useCallback(
       (e: UseEvent) => {
@@ -244,7 +244,7 @@ export const useHeldRef = ({
  */
 export const useHeld = ({ triggers, loose }: UseHeldProps): UseHeldReturn => {
   const [held, setHeld] = useState<UseHeldReturn>({ triggers: [], held: false });
-  useListen({
+  use({
     triggers,
     callback: useCallback((e: UseEvent) => {
       setHeld((prev) => {

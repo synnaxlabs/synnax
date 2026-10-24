@@ -69,7 +69,7 @@ export const createUseCreate = <S extends task.Schemas = task.Schemas>({
   getInitialValues,
 }: CreateUseCreateParams<S>): UseCreate => {
   const useCreate: UseCreate = ({ tabKey }: UseCreateProps = {}) => {
-    const client = PSynnax.useClient();
+    const client = PSynnax.use();
     const openTab = Panel.useOpenTab();
     const handleError = Status.useErrorHandler();
     return useCallback(

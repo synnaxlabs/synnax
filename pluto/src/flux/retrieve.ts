@@ -203,7 +203,7 @@ const useSettled = <Query extends query.Params, Data extends query.Data>(
 /// Concurrent reads of the same query share one fetch via the domain client's
 /// query cache. Client-side listeners push new values into the cache, which
 /// notifies subscribed consumers without re-suspending.
-export interface UseRetrieve<Query extends query.Params, Data extends state.State> {
+export interface Use<Query extends query.Params, Data extends state.State> {
   (query: Query): Data;
 }
 
@@ -304,7 +304,7 @@ export interface CreateRetrieveReturn<
   Query extends query.Params,
   Data extends state.State,
 > {
-  useRetrieve: UseRetrieve<Query, Data>;
+  use: Use<Query, Data>;
   useEnsure: UseEnsure<Query>;
   useResult: UseResult<Query, Data>;
   useInvalidate: UseInvalidate<Query>;
@@ -488,7 +488,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   query: Query,
 ): Data => {
   const memoQuery = useMemoQuery(query, normalizeQuery);
-  const client = Synnax.useClient();
+  const client = Synnax.use();
 
   // Every hook runs before the disconnected throw. Gating them on the client
   // would change this hook's count as the connection comes and goes, which
@@ -545,7 +545,7 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
   query: Query,
 ): void => {
   const memoQuery = useMemoQuery(query, normalizeQuery);
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const pending = usePendingFetch<Query, Data>(memoQuery);
 
   if (client == null)
@@ -587,7 +587,7 @@ const useInvalidate = <Query extends query.Params, Data extends query.Data>(
   locals: WeakMap<Client, LocalCache<Data>>,
   normalizeQuery?: <Q extends Query>(query: Q) => Q,
 ): ((q: Query) => void) => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   return useCallback(
     (q: Query) => {
       if (client == null) return;
@@ -603,7 +603,7 @@ const useTombstone = <Query extends query.Params, Data extends query.Data>(
   query: Query,
 ): Tombstone | null => {
   const memoQuery = useMemoQuery(query, normalizeQuery);
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const cached = useCachedSnapshot<Query, Data>(locals, memoQuery, client, {
     onChange,
     getCached,
@@ -634,7 +634,7 @@ const createSelector = <
 ): UseSelect<ExtendedQuery, Selected> => {
   const useSelect = (q: ExtendedQuery): Selected => {
     const memoQuery = useMemoQuery<ExtendedQuery>(q, normalizeQuery);
-    const client = Synnax.useClient();
+    const client = Synnax.use();
     const held = useRef<{ query: Query; value: Data } | null>(null);
     const computed = useRef<{ raw: Data; query: Query; out: Selected } | null>(null);
     const subscribe = useCallback(
@@ -730,7 +730,7 @@ const createResultSelector = <
   };
   const useResultSelect = (q: ExtendedQuery | null): Result<Selected> => {
     const memoQuery = useMemoQuery<ExtendedQuery>(q, normalizeQuery);
-    const client = Synnax.useClient();
+    const client = Synnax.use();
     const held = useRef<{ query: Query; value: Data } | null>(null);
     const subscribe = useCallback(
       (notify: () => void) => {
@@ -813,7 +813,7 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
   const context: Context<Query, Data> = { ...createParams, locals: new WeakMap() };
   const { locals } = context;
   return {
-    useRetrieve: (query: Query) => useSuspended(context, query),
+    use: (query: Query) => useSuspended(context, query),
     useEnsure: (query: Query) => useEnsure(context, query),
     useResult: createResultSelector<Query, Data, Data>(context, (data) => data),
     useInvalidate: () =>

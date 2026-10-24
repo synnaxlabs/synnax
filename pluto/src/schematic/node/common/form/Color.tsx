@@ -33,7 +33,7 @@ export const ColorField = ({
   fallback = defaultFallback,
   ...rest
 }: ColorFieldProps): ReactElement => {
-  const theme = Theming.useTheme();
+  const theme = Theming.use();
   return <Color.Field fallback={fallback(theme)} {...rest} />;
 };
 

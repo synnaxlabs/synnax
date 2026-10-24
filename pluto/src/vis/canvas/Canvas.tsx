@@ -63,7 +63,7 @@ export const Canvas = ({
   className,
   ...rest
 }: CanvasProps): ReactElement => {
-  const [{ path }, { bootstrapped, dpr }, setState] = Aether.useBidirectional({
+  const [{ path }, { bootstrapped, dpr }, setState] = Aether.use({
     type: canvas.Canvas.TYPE,
     schema: canvas.canvasStateZ,
     initialState: ZERO_PROPS,

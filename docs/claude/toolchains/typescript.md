@@ -114,12 +114,16 @@ cross-references. Never put types in JSDoc; the signature carries them.
 The React Compiler compiles the Console, Pluto, Lyra, and Drift
 (`configs/vite/src/compiler.ts`), in builds and in specs. A build or spec run fails on a
 component or hook that the compiler cannot compile; spec files, test helpers, and the
-dev server skip it instead. The `react-hooks` lint rules flag most of the same code in
-the editor.
+dev server skip it instead. The `synnax/react-compiler` lint rule runs the same compiler
+with the same passes (`configs/eslint/compiler.ts`), so the editor reports the same
+errors.
 
-- Name a hook `use` and a capital letter (`useClient`, `useRetrieve`), never bare `use`.
-  The compiler caches a call to a bare `use` like a plain function, and the lint rules
-  do not catch it.
+- A hook can be a bare `use` (`Synnax.use`, `Form.use`). A pass gives each `use` that is
+  not React's a hook name before the compiler runs, so never name a value that is not a
+  hook `use`.
+- Keep a hook's name when you store it (`const useKey = Scope.use`, never
+  `const get = Scope.use`). The compiler knows a hook only by its name, so it caches a
+  call to `get()` like a plain function.
 - Give every component and hook a name, including one a factory returns or one passed to
   `Component.renderProp` or `Modals.create`: `const useForm = ...; return useForm;`. The
   compiler reads a name only from a function or variable declaration, so it skips a
@@ -142,8 +146,8 @@ the editor.
 - Never give a parameter a JSX default (`icon = <Icon.Close />`). Put the element in a
   module constant.
 - Use the `"use no memo"` directive only for an incompatible library, a fixed hook list,
-  or a memo hook that keeps its own cache, with a one-line reason. The lint rules still
-  check the function, so disable the flagged rule on each flagged line.
+  or a memo hook that keeps its own cache, with a one-line reason. The lint rule still
+  checks the function, so disable `synnax/react-compiler` on each flagged line.
 
 ## Testing (Vitest — never Jest)
 

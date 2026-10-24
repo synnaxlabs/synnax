@@ -28,7 +28,7 @@ const SideEffect = (): null => {
   Device.useListenForChanges();
   Link.useDeep();
   Persist.useStoreStatus();
-  Triggers.useGlobal();
+  Triggers.use();
   return null;
 };
 

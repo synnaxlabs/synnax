@@ -33,7 +33,7 @@ export interface OnChangeParams<Z extends z.ZodType> {
   valid: boolean;
 }
 
-/** Params for {@link useState}. */
+/** Params for {@link use}. */
 export interface UseParams<Z extends z.ZodType> {
   /** The starting values. They are copied, not held. */
   values: z.infer<Z>;
@@ -55,10 +55,10 @@ export interface UseReturn<Z extends z.ZodType> extends ContextValue<Z> {}
  * value is stable, so a field hook re-renders only when its own path changes.
  *
  * @example
- * const form = Form.useState({ values: initial, schema: rangeZ, onChange: save });
+ * const form = Form.use({ values: initial, schema: rangeZ, onChange: save });
  * return <Form.Form {...form}><Form.TextField path="name" /></Form.Form>;
  */
-export const useState = <Z extends z.ZodType>({
+export const use = <Z extends z.ZodType>({
   values: initialValues,
   sync = false,
   schema,

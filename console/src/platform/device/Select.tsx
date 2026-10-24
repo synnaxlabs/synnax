@@ -35,7 +35,7 @@ export const Select = ({
   path = "config.device",
   icon,
 }: SelectProps) => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const handleDeviceChange = useCallback(
     (key: device.Key, { set }: Form.ContextValue) => {

@@ -16,7 +16,7 @@ import { SCAN_SCHEMAS, SCAN_TYPE } from "@/feature/ni/task/types";
 
 /** Toggles the enabled state of the NI device scanner on a specific rack. */
 export const useToggleScanner = (rackKey: rack.Key) => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   return useCallback(

@@ -28,10 +28,10 @@ describe("Synchronizer.use", () => {
     const { wrapper } = await createConsoleWrapper({ client });
     renderHook(
       () =>
-        Synchronizer.useMount([
+        Synchronizer.use([
           {
             name: "first",
-            useCallbacks: () => ({
+            use: () => ({
               reconcile: async () => {
                 calls.push("first:start");
                 await gate;
@@ -41,7 +41,7 @@ describe("Synchronizer.use", () => {
           },
           {
             name: "second",
-            useCallbacks: () => ({
+            use: () => ({
               reconcile: () => {
                 calls.push("second");
               },
@@ -64,10 +64,10 @@ describe("Synchronizer.use", () => {
       const { wrapper } = await createConsoleWrapper({ client });
       renderHook(
         () =>
-          Synchronizer.useMount([
+          Synchronizer.use([
             {
               name: "broken",
-              useCallbacks: () => ({
+              use: () => ({
                 reconcile: () => {
                   throw new Error("broken");
                 },
@@ -75,7 +75,7 @@ describe("Synchronizer.use", () => {
             },
             {
               name: "healthy",
-              useCallbacks: () => ({
+              use: () => ({
                 reconcile: () => {
                   calls.push("healthy");
                 },
@@ -97,10 +97,10 @@ describe("Synchronizer.use", () => {
     const { wrapper } = await createConsoleWrapper({ client });
     const { unmount } = renderHook(
       () =>
-        Synchronizer.useMount([
+        Synchronizer.use([
           {
             name: "listener",
-            useCallbacks: () => ({
+            use: () => ({
               reconcile: () => {
                 calls.push("reconcile");
               },
@@ -127,10 +127,10 @@ describe("Synchronizer.use", () => {
     const { wrapper } = await createConsoleWrapper({ client });
     const { result } = renderHook(
       () =>
-        Synchronizer.useMount([
+        Synchronizer.use([
           {
             name: "slow",
-            useCallbacks: () => ({
+            use: () => ({
               reconcile: async () => {
                 await gate;
               },
@@ -158,10 +158,10 @@ describe("Synchronizer.use", () => {
     const { wrapper } = await createConsoleWrapper({ client: local });
     const { result } = renderHook(
       () =>
-        Synchronizer.useMount([
+        Synchronizer.use([
           {
             name: "counter",
-            useCallbacks: () => ({
+            use: () => ({
               reconcile: () => {
                 reconciles++;
               },
@@ -184,10 +184,10 @@ describe("Synchronizer.use", () => {
     const { wrapper } = await createConsoleWrapper({ client: null });
     renderHook(
       () =>
-        Synchronizer.useMount([
+        Synchronizer.use([
           {
             name: "idle",
-            useCallbacks: () => ({
+            use: () => ({
               reconcile: () => {
                 calls.push("reconcile");
               },

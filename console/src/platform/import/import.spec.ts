@@ -26,11 +26,11 @@ afterEach(() => {
 });
 
 const useHarness = () => ({
-  run: Import.useAction(),
+  run: Import.use(),
   statuses: Status.useNotifications().statuses,
 });
 
-describe("useAction", () => {
+describe("use", () => {
   it("reads each picked file and streams its contents to the Core", async () => {
     const picker = interceptFilePicker();
     const client = createTestClient();

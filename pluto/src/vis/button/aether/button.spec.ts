@@ -118,15 +118,15 @@ describe("button/aether/Button", () => {
     });
   });
 
-  // The aether Button carries the behavior above; Button.useAether is a thin React
+  // The aether Button carries the behavior above; Button.use is a thin React
   // adapter over its RPC methods. These tests cover only that adapter wiring.
-  describe("Button.useAether (React adapter)", () => {
+  describe("Button.use (React adapter)", () => {
     const TestWrapper = TelemTest.createTestWrapper({ registry: button.REGISTRY });
 
     it("should expose handlers with onClick aliasing mouse up", () => {
       const { result } = renderHook(
         () =>
-          Button.useAether({
+          Button.use({
             aetherKey: "btn",
             sink: noopBooleanSinkSpec,
             mode: "fire",

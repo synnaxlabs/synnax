@@ -28,11 +28,11 @@ const useCache = <K, V>(
 ): V => {
   "use no memo"; // Reads a ref in render. An entry holds for any render with its key.
   const ref = useRef<{ key: K; value: V }>(null);
-  /* eslint-disable react-hooks/refs */
+  /* eslint-disable synnax/react-compiler */
   if (ref.current == null || !areEqual(ref.current.key, key))
     ref.current = { key, value: create() };
   return ref.current.value;
-  /* eslint-enable react-hooks/refs */
+  /* eslint-enable synnax/react-compiler */
 };
 
 /**

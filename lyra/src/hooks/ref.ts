@@ -16,7 +16,7 @@ import {
   useEffect,
   useInsertionEffect,
   useRef,
-  useState as reactUseState,
+  useState,
 } from "react";
 
 /**
@@ -102,7 +102,7 @@ export const useCombinedRefs = <T>(
 export const useCombinedStateAndRef = <T extends primitive.Value | object>(
   initialState: state.Initial<T>,
 ): [T, state.Setter<T>, RefObject<T>] => {
-  const [s, setS] = reactUseState<T>(() => state.executeInitialSetter<T>(initialState));
+  const [s, setS] = useState<T>(() => state.executeInitialSetter<T>(initialState));
   const ref = useRef<T>(s);
 
   const setStateAndRef: state.Setter<T> = useCallback((nextState): void => {
@@ -119,7 +119,7 @@ export const useCombinedStateAndRef = <T extends primitive.Value | object>(
  * extra render, in which the hook catches up to the new value.
  */
 export const usePrevious = <T>(value: T): T | undefined => {
-  const [prev, setPrev] = reactUseState<T>();
+  const [prev, setPrev] = useState<T>();
   useEffect(() => setPrev(() => value), [value]);
   return prev;
 };

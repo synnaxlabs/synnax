@@ -156,7 +156,7 @@ export const createList = <
     } = params;
     const filterRef = useSyncedRef(filter);
     const sortRef = useSyncedRef(sort ?? defaultSort);
-    const client = Synnax.useClient();
+    const client = Synnax.use();
     const dataRef = useRef<Map<Key, Data | null>>(new Map());
     const listItemListenersRef = useInitializerRef<Map<Key, Set<() => void>>>(
       () => new Map(),

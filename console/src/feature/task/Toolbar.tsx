@@ -92,7 +92,7 @@ const Content = () => {
     afterFailure: ({ status }) => addStatus(status),
   });
 
-  const { capture } = Analytics.useSink();
+  const { capture } = Analytics.use();
   const { update: runCommand } = Task.useCommand({
     afterSuccess: useCallback(
       ({ data }: Flux.AfterSuccessParams<Task.CommandParams>) =>

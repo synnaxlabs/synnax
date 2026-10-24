@@ -20,14 +20,16 @@ const RESOURCE_NAME = "line plot";
 
 export type RetrieveQuery = lineplot.RetrieveSingleParams;
 
-export const { useRetrieve, useEnsure, useTombstone, createSelector } =
-  Flux.createRetrieve<RetrieveQuery, lineplot.LinePlot>({
-    name: RESOURCE_NAME,
-    retrieve: async ({ client, query }) => await client.lineplots.retrieve(query),
-    onChange: ({ client, query }, handler) => client.lineplots.onChange(query, handler),
-    getCached: ({ client, query }) => client.lineplots.getCached(query),
-    awaitCreation: true,
-  });
+export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetrieve<
+  RetrieveQuery,
+  lineplot.LinePlot
+>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.lineplots.retrieve(query),
+  onChange: ({ client, query }, handler) => client.lineplots.onChange(query, handler),
+  getCached: ({ client, query }) => client.lineplots.getCached(query),
+  awaitCreation: true,
+});
 
 export interface KeyParams {
   key: lineplot.Key;
@@ -130,7 +132,7 @@ const useRawLines = (params: KeyParams): RawDerivedLine[] => {
 
 const useLinesBase = (params: KeyParams): DerivedLine[] => {
   const lines = useRawLines(params);
-  const palette = Theming.useTheme().colors.visualization.palettes.default;
+  const palette = Theming.use().colors.visualization.palettes.default;
   return useMemo(
     () =>
       lines.map(({ color, ...line }, i) => ({
@@ -273,7 +275,7 @@ const useRawLine = createSelector<RawLine, LineParams>(
 
 const useLineBase = (params: LineParams): require.Require<DerivedLine, "label"> => {
   const raw = useRawLine(params);
-  const palette = Theming.useTheme().colors.visualization.palettes.default;
+  const palette = Theming.use().colors.visualization.palettes.default;
   const { yChannel } = lineplot.parseLineKey(raw.line.key);
   const { data: chanName } = Channel.useResultName(
     yChannel > 0 ? { key: yChannel } : null,
@@ -303,7 +305,7 @@ const useRawRules = createSelector(({ rules }) => rules);
 
 const useRulesBase = (params: KeyParams): DerivedRule[] => {
   const rules = useRawRules(params);
-  const palette = Theming.useTheme().colors.visualization.palettes.default;
+  const palette = Theming.use().colors.visualization.palettes.default;
   return useMemo(
     () =>
       rules.map(({ color, ...rule }, i) => ({
@@ -340,7 +342,7 @@ const useRawRule = createSelector<RawRule, RuleParams>(
 
 const useRuleBase = (params: RuleParams): DerivedRule => {
   const raw = useRawRule(params);
-  const palette = Theming.useTheme().colors.visualization.palettes.default;
+  const palette = Theming.use().colors.visualization.palettes.default;
   return useMemo(
     () => ({
       ...raw.rule,

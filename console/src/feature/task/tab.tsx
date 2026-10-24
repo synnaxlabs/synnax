@@ -36,7 +36,7 @@ const FORMS: Task.Forms = {
 
 const Content: Panel.Content = () => {
   const { key } = PPanel.useTabResource();
-  const { type } = Base.useRetrieve({ key });
+  const { type } = Base.use({ key });
   const Form = FORMS[type];
   if (Form == null)
     return (

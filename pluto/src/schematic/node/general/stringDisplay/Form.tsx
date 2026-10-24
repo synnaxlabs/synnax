@@ -28,7 +28,7 @@ const TelemForm = (): ReactElement => {
   const { set } = Base.useContext();
   const { value, onChange } =
     Base.useField<Pick<schematic.StringDisplayNodeConfig, "channel">>("");
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const handleSourceChange = (key: channel.Key | null): void => {
     if (primitive.isNonZero(key) && client != null)

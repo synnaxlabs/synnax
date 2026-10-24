@@ -114,7 +114,7 @@ const useDownload = (): UseDownloadReturn => {
 };
 
 const Info = () => {
-  const version = Session.Version.useCurrent();
+  const version = Session.Version.use();
   const available = useUpdateCheck();
   const { download, start } = useDownload();
   const total = download.total.valueOf();

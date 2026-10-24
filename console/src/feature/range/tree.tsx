@@ -25,7 +25,7 @@ import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 const useOnSelect = (): ((resource: ontology.Resource) => void) => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const store = Session.useStore();
   const openTab = Panel.useOpenTab();
   const handleError = Status.useErrorHandler();

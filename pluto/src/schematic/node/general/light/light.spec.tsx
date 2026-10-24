@@ -70,7 +70,7 @@ describe("light symbol", () => {
       children,
       strokeColor,
     }: PropsWithChildren<{ strokeColor?: color.Color }>): ReactElement => {
-      const methods = Form.useState<typeof CONFIG_Z>({
+      const methods = Form.use<typeof CONFIG_Z>({
         values: { ...Node.createConfig({ variant: "light" }), strokeColor },
         schema: CONFIG_Z,
       });

@@ -40,7 +40,7 @@ const useExtraErrorInfo = (): ExtraErrorInfo => {
   // These hooks must be called unconditionally per React rules.
   // If they throw, the error bubbles to OverlayWithoutStore which is fine.
   // We use optional chaining when building extraInfo to handle undefined values.
-  const consoleVersion = Session.Version.useCurrent();
+  const consoleVersion = Session.Version.use();
   const connectionStatus = Synnax.useConnectionStatus();
   const extraInfo: ExtraErrorInfo = {
     consoleVersion: "unknown",

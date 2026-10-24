@@ -138,7 +138,7 @@ const formSchema = z.object({
 });
 
 const PreviewForm = ({ preview }: { preview: boolean }) => {
-  const methods = Form.useState({
+  const methods = Form.use({
     values: { name: "Pressure sensor", rate: 50, enabled: true, type: "digital" },
     schema: formSchema,
     mode: preview ? "preview" : "normal",

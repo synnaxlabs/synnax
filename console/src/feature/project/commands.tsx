@@ -30,7 +30,7 @@ const CreateCommand = Command.create({
 });
 
 const useOnImport = () => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const store = Session.useStore();
   return useCallback(
     async (bundle: UploadBody, fileName: string) => {
@@ -59,9 +59,9 @@ const ImportProjectCommand = Command.create({
 });
 
 const useExportSelected = () => {
-  const handleExport = Export.useAction();
+  const handleExport = Export.use();
   const getSelected = Session.Project.useGetSelected();
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   return useCallback(() => {
     let name = "project";

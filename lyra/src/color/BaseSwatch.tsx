@@ -54,7 +54,7 @@ export const BaseSwatch = ({
   style,
   ...rest
 }: BaseSwatchProps): ReactElement => {
-  const { gray } = Theming.useTheme().colors;
+  const { gray } = Theming.use().colors;
   const hex = color.hex(value);
   const dragging = Haul.useDraggingState();
   const canDrop: Haul.CanDrop = ({ items }) => {

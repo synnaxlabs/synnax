@@ -40,7 +40,7 @@ describe("Range.SYNCHRONIZERS", () => {
       client,
       preloadedState: preloadedFor(range),
     });
-    renderHook(() => Session.Synchronizer.useMount(Session.Range.SYNCHRONIZERS), {
+    renderHook(() => Session.Synchronizer.use(Session.Range.SYNCHRONIZERS), {
       wrapper,
     });
     expect(Session.Range.selectState(store.getState(), range.key)).toBeDefined();

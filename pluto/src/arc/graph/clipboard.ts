@@ -35,7 +35,7 @@ export const useClipboard = ({
   container,
 }: UseClipboardParams): Diagram.UseClipboardReturn => {
   const { dispatch } = useDispatch();
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const adapter: Diagram.ClipboardAdapter<arc.graph.Node, arc.graph.Edge> = {
     mime: MIME,
     edgeKey: (edge) => edge.key,

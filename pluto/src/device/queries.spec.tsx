@@ -30,7 +30,7 @@ describe("queries", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should return a device", async () => {
       const rack = await client.racks.create({
         name: "test",
@@ -44,12 +44,9 @@ describe("queries", () => {
         model: "test",
         properties: {},
       });
-      const { result } = await renderHookSuspended(
-        () => Device.useRetrieve({ key: dev.key }),
-        {
-          wrapper,
-        },
-      );
+      const { result } = await renderHookSuspended(() => Device.use({ key: dev.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.key).toEqual(dev.key);
     });
@@ -67,7 +64,7 @@ describe("queries", () => {
       });
       const spy = vi.spyOn(client.devices, "getCached");
       const { result, rerender } = await renderHookSuspended(
-        () => Device.useRetrieve({ key: dev.key }),
+        () => Device.use({ key: dev.key }),
         { wrapper },
       );
       await waitFor(() => expect(result.current?.key).toEqual(dev.key));
@@ -91,12 +88,9 @@ describe("queries", () => {
         model: "test",
         properties: {},
       });
-      const { result } = await renderHookSuspended(
-        () => Device.useRetrieve({ key: dev.key }),
-        {
-          wrapper,
-        },
-      );
+      const { result } = await renderHookSuspended(() => Device.use({ key: dev.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.key).toEqual(dev.key);
       await act(async () => {
@@ -123,12 +117,9 @@ describe("queries", () => {
         model: "test",
         properties: {},
       });
-      const { result } = await renderHookSuspended(
-        () => Device.useRetrieve({ key: dev.key }),
-        {
-          wrapper,
-        },
-      );
+      const { result } = await renderHookSuspended(() => Device.use({ key: dev.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.key).toEqual(dev.key);
       const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
@@ -159,12 +150,9 @@ describe("queries", () => {
         model: "test",
         properties: {},
       });
-      const { result } = await renderHookSuspended(
-        () => Device.useRetrieve({ key: dev.key }),
-        {
-          wrapper,
-        },
-      );
+      const { result } = await renderHookSuspended(() => Device.use({ key: dev.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(result.current).not.toBeNull());
       const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
         key: device.statusKey(dev.key),
@@ -203,7 +191,7 @@ describe("queries", () => {
         properties: {},
       });
       const { result: result1 } = await renderHookSuspended(
-        () => Device.useRetrieve({ key: dev.key }),
+        () => Device.use({ key: dev.key }),
         { wrapper },
       );
       await waitFor(() => expect(result1.current).not.toBeNull());
@@ -220,7 +208,7 @@ describe("queries", () => {
         );
       });
       const { result: result2 } = await renderHookSuspended(
-        () => Device.useRetrieve({ key: dev.key }),
+        () => Device.use({ key: dev.key }),
         { wrapper },
       );
       await waitFor(() => {
@@ -1386,13 +1374,10 @@ describe("queries", () => {
           schemas,
         );
 
-        const { useRetrieve } = Device.createRetrieve(schemas);
-        const { result } = await renderHookSuspended(
-          () => useRetrieve({ key: dev.key }),
-          {
-            wrapper,
-          },
-        );
+        const { use } = Device.createRetrieve(schemas);
+        const { result } = await renderHookSuspended(() => use({ key: dev.key }), {
+          wrapper,
+        });
 
         await waitFor(() => expect(result.current).not.toBeNull());
         expect(result.current?.properties.sampleRate).toBe(1000);
@@ -1415,13 +1400,10 @@ describe("queries", () => {
           schemas,
         );
 
-        const { useRetrieve } = Device.createRetrieve(schemas);
-        const { result } = await renderHookSuspended(
-          () => useRetrieve({ key: dev.key }),
-          {
-            wrapper,
-          },
-        );
+        const { use } = Device.createRetrieve(schemas);
+        const { result } = await renderHookSuspended(() => use({ key: dev.key }), {
+          wrapper,
+        });
 
         await waitFor(() => expect(result.current).not.toBeNull());
         expect(result.current?.properties.sampleRate).toBe(100);
@@ -1471,26 +1453,20 @@ describe("queries", () => {
 
       it("should fill schema defaults on a record cached untyped", async () => {
         const dev = await createUntyped();
-        const { useRetrieve } = Device.createRetrieve(defaultedSchemas);
-        const { result } = await renderHookSuspended(
-          () => useRetrieve({ key: dev.key }),
-          {
-            wrapper,
-          },
-        );
+        const { use } = Device.createRetrieve(defaultedSchemas);
+        const { result } = await renderHookSuspended(() => use({ key: dev.key }), {
+          wrapper,
+        });
         await waitFor(() => expect(result.current?.properties.sampleRate).toBe(100));
         expect(result.current?.properties.channels).toEqual({});
       });
 
       it("should keep schema defaults across an untyped streamed update", async () => {
         const dev = await createUntyped();
-        const { useRetrieve } = Device.createRetrieve(defaultedSchemas);
-        const { result } = await renderHookSuspended(
-          () => useRetrieve({ key: dev.key }),
-          {
-            wrapper,
-          },
-        );
+        const { use } = Device.createRetrieve(defaultedSchemas);
+        const { result } = await renderHookSuspended(() => use({ key: dev.key }), {
+          wrapper,
+        });
         await waitFor(() => expect(result.current?.properties.sampleRate).toBe(100));
         await act(async () => {
           await client.devices.create({ ...dev, name: "renamed", properties: {} });
@@ -1502,9 +1478,9 @@ describe("queries", () => {
       it("should fill schema defaults on records cached untyped by keys", async () => {
         const first = await createUntyped();
         const second = await createUntyped();
-        const { useRetrieve } = Device.createRetrieveMultiple(defaultedSchemas);
+        const { use } = Device.createRetrieveMultiple(defaultedSchemas);
         const { result } = await renderHookSuspended(
-          () => useRetrieve({ keys: [first.key, second.key] }),
+          () => use({ keys: [first.key, second.key] }),
           { wrapper },
         );
         await waitFor(() => expect(result.current).toHaveLength(2));
@@ -1533,9 +1509,9 @@ describe("queries", () => {
         const rack = await client.racks.create({ name: "schema-multi-rack" });
         const first = await createDevice(rack.key, 100);
         const second = await createDevice(rack.key, 200);
-        const { useRetrieve } = Device.createRetrieveMultiple(schemas);
+        const { use } = Device.createRetrieveMultiple(schemas);
         const { result } = await renderHookSuspended(
-          () => useRetrieve({ keys: [first.key, second.key] }),
+          () => use({ keys: [first.key, second.key] }),
           { wrapper },
         );
         await waitFor(() => expect(result.current).toHaveLength(2));
@@ -1547,9 +1523,9 @@ describe("queries", () => {
         const rack = await client.racks.create({ name: "schema-multi-update-rack" });
         const first = await createDevice(rack.key, 100);
         const second = await createDevice(rack.key, 200);
-        const { useRetrieve } = Device.createRetrieveMultiple(schemas);
+        const { use } = Device.createRetrieveMultiple(schemas);
         const { result } = await renderHookSuspended(
-          () => useRetrieve({ keys: [first.key, second.key] }),
+          () => use({ keys: [first.key, second.key] }),
           { wrapper },
         );
         await waitFor(() => expect(result.current).toHaveLength(2));

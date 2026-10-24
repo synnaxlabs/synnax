@@ -33,7 +33,7 @@ export type UseTareReturn<C extends TareableChannel> = [
 export const useTare = <C extends TareableChannel>({
   isChannelTareable,
 }: UseTareProps<C> = {}): UseTareReturn<C> => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const key = useKey();
   const isRunning = useIsRunning();
   const handleError = Status.useErrorHandler();

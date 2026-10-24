@@ -32,7 +32,7 @@ describe("Project.SYNCHRONIZERS", () => {
   it("clears a selected project that no longer exists on the Core", async () => {
     const ghost = uuid.create();
     const { store } = await renderHookWithConsole(
-      () => Session.Synchronizer.useMount(Session.Project.SYNCHRONIZERS),
+      () => Session.Synchronizer.use(Session.Project.SYNCHRONIZERS),
       { client, preloadedState: preloadWith(ghost) },
     );
     await waitFor(() => {
@@ -45,7 +45,7 @@ describe("Project.SYNCHRONIZERS", () => {
       name: uniqueName("project"),
     });
     const { store } = await renderHookWithConsole(
-      () => Session.Synchronizer.useMount(Session.Project.SYNCHRONIZERS),
+      () => Session.Synchronizer.use(Session.Project.SYNCHRONIZERS),
       { client, preloadedState: preloadWith(proj.key) },
     );
     expect(Session.Project.selectOptionalSelected(store.getState())).toBe(proj.key);

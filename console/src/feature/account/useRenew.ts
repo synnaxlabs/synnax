@@ -51,7 +51,7 @@ export const useRenew = ({
   license: injected,
   onError = console.error,
 }: Partial<RenewDeps> = {}): void => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const api = injected ?? client?.license;
   const secret = Session.Account.useSelectSecret();
   const dispatch = Session.useDispatch();

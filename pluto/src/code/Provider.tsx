@@ -200,7 +200,7 @@ const LanguageServerRunner = ({
   language,
   onStatus,
 }: LanguageServerRunnerProps): null => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   useLanguageServer({
     monaco,
     client,

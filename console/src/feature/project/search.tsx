@@ -16,7 +16,7 @@ import { Search } from "@/platform/search";
 import { Session } from "@/session";
 
 const useOpen = () => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();
   return ({ id, name }: ontology.Resource) => {

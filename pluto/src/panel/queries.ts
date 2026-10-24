@@ -28,7 +28,7 @@ const PLURAL_RESOURCE_NAME = "panels";
 
 export type RetrieveQuery = { key: panel.Key };
 
-export const { useRetrieve, useEnsure, useInvalidate, useResult, createSelector } =
+export const { use, useEnsure, useInvalidate, useResult, createSelector } =
   Flux.createRetrieve<RetrieveQuery, panel.Panel>({
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.panels.retrieve(query),
@@ -48,7 +48,7 @@ const keysOf = (panels: panel.Panel[]): panel.Key[] => panels.map(({ key }) => k
 // A panel's parent lives in the ontology graph and is absent from the panel record, so
 // membership is resolved through the project's children. The answer carries keys alone:
 // consumers read each panel's own fields, so a rename must not re-answer the query.
-export const { useRetrieve: useKeysByProject } = Flux.createRetrieve<
+export const { use: useKeysByProject } = Flux.createRetrieve<
   RetrieveKeysByProjectQuery,
   panel.Key[]
 >({
@@ -104,8 +104,8 @@ const bindTabHook = <Args extends TabContentParams, R>(
   useHook: (args: Args) => R,
 ): BoundTabHook<Args, R> => {
   const useBound = (args?: optional.Optional<Args, "key" | "tabKey">): R => {
-    const key = Scope.useRequired(args?.key);
-    const tabKey = TabScope.useRequired(args?.tabKey);
+    const key = Scope.use(args?.key);
+    const tabKey = TabScope.use(args?.tabKey);
     return useHook({ ...args, key, tabKey } as Args);
   };
   return useBound;
@@ -295,7 +295,7 @@ export const useRedo = Scope.bindHook(useRedoBase);
 export const useCloseResourceTabs = (): ((
   ids: ontology.ID | ontology.ID[],
 ) => void) => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const { dispatch } = useDispatch();
   return useCallback(
     (ids: ontology.ID | ontology.ID[]) =>
@@ -341,7 +341,7 @@ export const useMoveTabToPanel = (): ((
   params: MoveTabToPanelParams,
 ) => Promise<panel.TabKey | undefined>) => {
   const { dispatchAsync } = useDispatch();
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   return useCallback(
     async ({ source, destination, tab, targetLeaf, index, location }) => {
       const inserted = await dispatchAsync({
@@ -362,7 +362,7 @@ export const useMoveTabToPanel = (): ((
 // user picks a visualization.
 export const useSetCurrentTabResource = (): ((resource: ontology.ID) => void) => {
   const dispatch = useSingleDispatch();
-  const tabKey = TabScope.useRequired();
+  const tabKey = TabScope.use();
   return useCallback(
     (resource: ontology.ID) =>
       dispatch(panel.setTabResource({ key: tabKey, resource })),
@@ -374,7 +374,7 @@ export const useSetCurrentTabResource = (): ((resource: ontology.ID) => void) =>
 // clearing any resource.
 export const useSetCurrentTabView = (): ((view: panel.View) => void) => {
   const dispatch = useSingleDispatch();
-  const tabKey = TabScope.useRequired();
+  const tabKey = TabScope.use();
   return useCallback(
     (view: panel.View) => dispatch(panel.setTabView({ key: tabKey, view })),
     [dispatch, tabKey],

@@ -48,13 +48,13 @@ describe("createProvider", () => {
     expect(getByText("Test Child")).toBeDefined();
   });
 
-  it("should allow Aether.useBidirectional with registered components", async () => {
+  it("should allow Aether.use with registered components", async () => {
     const Provider = createProvider({
       [TestLeaf.TYPE]: TestLeaf,
     });
 
     const TestComponent: FC = () => {
-      const [, state] = Aether.useBidirectional({
+      const [, state] = Aether.use({
         type: TestLeaf.TYPE,
         aetherKey: "test-key",
         schema: testStateZ,
@@ -90,7 +90,7 @@ describe("createProvider", () => {
 
     const { result } = renderHook(
       () =>
-        Aether.useBidirectional({
+        Aether.use({
           type: TestLeaf.TYPE,
           aetherKey: "hook-test",
           schema: testStateZ,

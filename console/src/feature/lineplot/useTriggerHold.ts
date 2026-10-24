@@ -21,7 +21,7 @@ export interface UseTriggerHoldProps {
 
 export const useTriggerHold = ({ key, enabled }: UseTriggerHoldProps): void => {
   const dispatch = Session.useDispatch();
-  Triggers.useListen({
+  Triggers.use({
     triggers: HOLD_TRIGGER,
     loose: true,
     enabled,

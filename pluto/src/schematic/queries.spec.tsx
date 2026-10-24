@@ -73,12 +73,12 @@ describe("schematic queries", () => {
     ]);
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("suspends until the schematic loads, then returns it", async () => {
       const schem = await createTestSchematic(proj.key);
 
       const Display = (): ReactElement => {
-        const s = Schematic.useRetrieve({ key: schem.key });
+        const s = Schematic.use({ key: schem.key });
         return <div data-testid="name">{s.name}</div>;
       };
 
@@ -103,7 +103,7 @@ describe("schematic queries", () => {
       await loadSchematic(Wrapper, schem.key);
 
       const Display = (): ReactElement => {
-        const s = Schematic.useRetrieve({ key: schem.key });
+        const s = Schematic.use({ key: schem.key });
         return <div data-testid="name">{s.name}</div>;
       };
 

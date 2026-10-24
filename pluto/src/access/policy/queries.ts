@@ -28,15 +28,13 @@ export type RetrieveQuery = {
   key: access.policy.Key;
 };
 
-export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, access.policy.Policy>(
-  {
-    name: RESOURCE_NAME,
-    retrieve: async ({ client, query }) => await client.access.policies.retrieve(query),
-    onChange: ({ client, query }, handler) =>
-      client.access.policies.onChange(query, handler),
-    getCached: ({ client, query }) => client.access.policies.getCached(query),
-  },
-);
+export const { use } = Flux.createRetrieve<RetrieveQuery, access.policy.Policy>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.access.policies.retrieve(query),
+  onChange: ({ client, query }, handler) =>
+    client.access.policies.onChange(query, handler),
+  getCached: ({ client, query }) => client.access.policies.getCached(query),
+});
 
 export type ListParams = List.PagerParams;
 

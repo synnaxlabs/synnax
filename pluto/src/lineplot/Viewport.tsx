@@ -50,7 +50,7 @@ export const Viewport = ({
     [onChange, setViewport],
   );
 
-  const maskProps = Base.useMask({ onChange: handleChange, initial, ref, ...rest });
+  const maskProps = Base.use({ onChange: handleChange, initial, ref, ...rest });
 
   const { ref: maskRef } = maskProps;
   useLayoutEffect(() => {

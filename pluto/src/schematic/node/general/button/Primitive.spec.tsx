@@ -223,7 +223,7 @@ const CONFIG = CONFIG_Z.parse({ variant: "button", label: { label: "Button" } })
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
-  const methods = Form.useState<typeof CONFIG_Z>({
+  const methods = Form.use<typeof CONFIG_Z>({
     values: deep.copy(CONFIG),
     schema: CONFIG_Z,
   });

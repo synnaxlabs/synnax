@@ -744,6 +744,9 @@ importers:
 
   configs/eslint:
     dependencies:
+      '@babel/core':
+        specifier: 'catalog:'
+        version: 7.29.7(supports-color@10.2.2)
       '@eslint-react/eslint-plugin':
         specifier: 'catalog:'
         version: 5.28.1(eslint@10.13.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3)
@@ -753,6 +756,9 @@ importers:
       '@stylistic/eslint-plugin':
         specifier: 'catalog:'
         version: 5.10.0(eslint@10.13.0(jiti@2.7.0)(supports-color@10.2.2))
+      babel-plugin-react-compiler:
+        specifier: 'catalog:'
+        version: 1.0.0
       eslint-plugin-react-hooks:
         specifier: 'catalog:'
         version: 7.1.1(eslint@10.13.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)
@@ -769,6 +775,9 @@ importers:
       '@synnaxlabs/tsconfig':
         specifier: 'catalog:'
         version: link:../ts
+      '@types/babel__core':
+        specifier: 'catalog:'
+        version: 7.20.5
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
@@ -824,13 +833,13 @@ importers:
       '@rolldown/plugin-babel':
         specifier: 'catalog:'
         version: 0.2.4(@babel/core@7.29.7(supports-color@10.2.2))(@babel/runtime@7.29.7)(rolldown@1.2.14)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+      '@synnaxlabs/eslint-config':
+        specifier: 'catalog:'
+        version: link:../eslint
       babel-plugin-react-compiler:
         specifier: 'catalog:'
         version: 1.0.0
     devDependencies:
-      '@synnaxlabs/eslint-config':
-        specifier: 'catalog:'
-        version: link:../eslint
       '@synnaxlabs/tsconfig':
         specifier: 'catalog:'
         version: link:../ts

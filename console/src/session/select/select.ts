@@ -17,7 +17,7 @@ export const useMemo = <S extends object, R>(
   deps: unknown[],
 ): R => {
   "use no memo"; // Forwards the caller's deps, which the compiler cannot check.
-  // eslint-disable-next-line react-hooks/use-memo
+  // eslint-disable-next-line synnax/react-compiler
   return useSelector(useCallback(memoize(selector), deps));
 };
 

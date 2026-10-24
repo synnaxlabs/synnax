@@ -55,7 +55,7 @@ const mockOverride: Form.ContextValue = {
 };
 
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
-  const methods = Form.useState({
+  const methods = Form.use({
     values: mockInitialValues,
     schema: mockSchema,
   });

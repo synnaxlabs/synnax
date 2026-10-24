@@ -144,7 +144,7 @@ const draw = (canvas: HTMLCanvasElement, seed: number): void => {
  */
 export const Nebula = (): ReactElement => {
   const ref = useRef<HTMLCanvasElement>(null);
-  const theme = Theming.useTheme();
+  const theme = Theming.use();
   useEffect(() => {
     const canvas = ref.current;
     if (canvas == null) return;

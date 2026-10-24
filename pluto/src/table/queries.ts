@@ -25,14 +25,16 @@ const RESOURCE_NAME = "table";
 
 export type RetrieveQuery = table.RetrieveSingleParams;
 
-export const { useRetrieve, useEnsure, useTombstone, createSelector } =
-  Flux.createRetrieve<RetrieveQuery, table.Table>({
-    name: RESOURCE_NAME,
-    retrieve: async ({ client, query }) => await client.tables.retrieve(query),
-    onChange: ({ client, query }, handler) => client.tables.onChange(query, handler),
-    getCached: ({ client, query }) => client.tables.getCached(query),
-    awaitCreation: true,
-  });
+export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetrieve<
+  RetrieveQuery,
+  table.Table
+>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.tables.retrieve(query),
+  onChange: ({ client, query }, handler) => client.tables.onChange(query, handler),
+  getCached: ({ client, query }) => client.tables.getCached(query),
+  awaitCreation: true,
+});
 
 export interface KeyParams {
   key: table.Key;

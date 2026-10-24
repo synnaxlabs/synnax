@@ -629,7 +629,7 @@ describe("panel selectors", () => {
       const { Wrapper, store } = await setup({ client });
       const { result } = renderHook(
         () => {
-          Synchronizer.useMount(
+          Synchronizer.use(
             pickSynchronizer(Panel.WINDOW_SYNCHRONIZERS, "reconcile tab selections"),
           );
           return Panel.useSelectIsTabVisible(PANEL, TAB);

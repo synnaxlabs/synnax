@@ -21,7 +21,7 @@ export interface UseProps extends z.input<typeof scale.Scale.z> {
   aetherKey: string;
 }
 
-export const useAether = ({ aetherKey, ...state }: UseProps): void => {
+export const use = ({ aetherKey, ...state }: UseProps): void => {
   Aether.useUnidirectional({
     aetherKey,
     type: scale.Scale.TYPE,

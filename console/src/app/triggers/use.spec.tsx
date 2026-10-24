@@ -98,7 +98,7 @@ const renderTriggers = async (ui?: ReactNode) => {
   Wrapper.displayName = "Wrapper";
   const { result } = renderHook(
     () => {
-      Triggers.useGlobal();
+      Triggers.use();
       return {
         overlaid: Session.Panel.useSelectOverlaid(),
         modals: Modals.useStore("app/triggers.spec"),
@@ -122,7 +122,7 @@ const renderLiveTriggers = async (panelKey: panel.Key) => {
   Wrapper.displayName = "LiveWrapper";
   const { result } = renderHook(
     () => {
-      Triggers.useGlobal();
+      Triggers.use();
       return {
         canCreateTab: useSelectorVisible(),
         canEditPanel: PlatformPanel.useCanEditActive(),

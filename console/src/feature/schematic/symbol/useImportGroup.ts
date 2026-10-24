@@ -15,7 +15,7 @@ import { useCallback } from "react";
 import { Import } from "@/platform/import";
 
 const useOnImport = () => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   return useCallback(
     async (bundle: UploadBody) => {
       if (client == null) throw new DisconnectedError();

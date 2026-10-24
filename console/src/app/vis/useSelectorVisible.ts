@@ -13,7 +13,7 @@ import { Panel } from "@/platform/panel";
 export const useSelectorVisible = (): boolean => {
   "use no memo"; // Calls a hook per selectable; VIS_SELECTABLES is a module constant.
   const anySelectable = AppSelector.VIS_SELECTABLES.map(
-    // eslint-disable-next-line react-hooks/hooks
+    // eslint-disable-next-line synnax/react-compiler
     (s) => s.useVisible?.() ?? true,
   ).some(Boolean);
   return Panel.useCanOpenTab() && anySelectable;

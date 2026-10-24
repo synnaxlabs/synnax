@@ -32,18 +32,18 @@ interface Mounted<S, A extends Action> extends Callbacks<S, A> {
  * false until the first pass finishes, reset on client change and on the epoch
  * returning to 0 (Core replacement).
  */
-export const useMount = <S, A extends Action>(
+export const use = <S, A extends Action>(
   synchronizers: Synchronizers<S, A>,
 ): boolean => {
   "use no memo"; // Calls a hook per synchronizer; each window passes one fixed list.
   const store = useStore<S, A>();
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const [verified, setVerified] = useState(false);
-  const entries: Mounted<S, A>[] = synchronizers.map(({ name, useCallbacks }) => ({
+  const entries: Mounted<S, A>[] = synchronizers.map(({ name, use }) => ({
     name,
-    // eslint-disable-next-line react-hooks/hooks, react-hooks/rules-of-hooks
-    ...useCallbacks(),
+    // eslint-disable-next-line synnax/react-compiler
+    ...use(),
   }));
   // Epoch-triggered reconciles read the ref so they always see the latest
   // hook closures.
@@ -61,12 +61,14 @@ export const useMount = <S, A extends Action>(
     const reconcile = (): void => {
       const gen = generation;
       handleError(async () => {
-        for (const synchronizer of entriesRef.current)
+        for (const synchronizer of entriesRef.current) {
+          if (synchronizer.reconcile == null) continue;
           try {
-            await synchronizer.reconcile?.(params);
+            await synchronizer.reconcile(params);
           } catch (err) {
             console.error(`${synchronizer.name} reconcile failed`, err);
           }
+        }
         if (gen === generation) setVerified(true);
       });
     };

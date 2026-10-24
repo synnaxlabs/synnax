@@ -92,7 +92,7 @@ export const createDispatch = <
     key: Key;
     side: "undo" | "redo";
   }): boolean => {
-    const client = Synnax.useClient();
+    const client = Synnax.use();
     const subscribe = useCallback(
       (onStoreChange: () => void) => {
         if (client == null) return () => {};
@@ -109,7 +109,7 @@ export const createDispatch = <
   };
 
   const useDispatch = () => {
-    const client = Synnax.useClient();
+    const client = Synnax.use();
     const addStatus = Status.useAdder();
 
     const dispatchAsync = useCallback(
@@ -157,7 +157,7 @@ export const createDispatch = <
   };
 
   const useUndo = ({ key }: { key: Key }) => {
-    const client = Synnax.useClient();
+    const client = Synnax.use();
     const addStatus = Status.useAdder();
     const canUndo = useCanReverse({ key, side: "undo" });
     const undo = useCallback(() => {
@@ -170,7 +170,7 @@ export const createDispatch = <
   };
 
   const useRedo = ({ key }: record.Keyed<Key>) => {
-    const client = Synnax.useClient();
+    const client = Synnax.use();
     const addStatus = Status.useAdder();
     const canRedo = useCanReverse({ key, side: "redo" });
     const redo = useCallback(() => {

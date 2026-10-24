@@ -209,7 +209,7 @@ const focusNextFrame: EditorExtension = (editor) => {
 };
 
 const useTheme = (hasCustomTheme: boolean) => {
-  const theme = Theming.useTheme();
+  const theme = Theming.use();
   const prefersDark = theme.key.includes("Dark");
   if (hasCustomTheme) return prefersDark ? BASE_THEMES.dark : BASE_THEMES.light;
   return prefersDark ? "vs-dark" : "vs";
@@ -349,7 +349,7 @@ const useRenameAvailable = (
   return renameable;
 };
 
-const useEditor = ({
+const use = ({
   initialValue = "",
   onValueChange,
   onEdit,
@@ -444,7 +444,7 @@ const useEditor = ({
 
   // A first Escape steps out of the editor, a second reaches whatever encloses it. The
   // priority sits above Dialog.Frame's so the blur happens before a modal would close.
-  Triggers.useListen({
+  Triggers.use({
     triggers: ESCAPE_TRIGGERS,
     priority: 120,
     double: true,
@@ -502,7 +502,7 @@ const EditorInternal = ({
   ...rest
 }: Omit<EditorProps, "loading">) => {
   const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
-  const { containerRef, editorRef, cursorRenameable, handle } = useEditor({
+  const { containerRef, editorRef, cursorRenameable, handle } = use({
     initialValue,
     onEdit,
     onValueChange,

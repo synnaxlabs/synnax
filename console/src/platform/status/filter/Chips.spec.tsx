@@ -27,7 +27,7 @@ const schema = z.object({
 });
 
 const Fixture = ({ variants }: { variants: status.Variant[] }): ReactElement => {
-  const methods = Form.useState({ schema, values: { query: { variants } } });
+  const methods = Form.use({ schema, values: { query: { variants } } });
   return (
     <View.Frame resourceType="status" icon="Status">
       <Form.Form<typeof schema> {...methods}>

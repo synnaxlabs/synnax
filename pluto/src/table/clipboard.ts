@@ -60,7 +60,7 @@ export const useClipboard = ({
   onPaste,
 }: UseClipboardParams): UseClipboardReturn => {
   const { dispatch } = useDispatch();
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const selectedRef = useSyncedRef(selected ?? []);
 
   const getTable = useCallback((): table.Table | undefined => {

@@ -45,7 +45,7 @@ export type RetrieveQuery = {
   key: arc.Key;
 };
 
-export const { useRetrieve, useEnsure, useTombstone, useResult, createSelector } =
+export const { use, useEnsure, useTombstone, useResult, createSelector } =
   Flux.createRetrieve<RetrieveQuery, arc.Arc>({
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
@@ -125,8 +125,8 @@ export interface AddNodeProps {
 // the given position, seeding its config from the type's default props. The Arc key
 // is resolved from the surrounding scope unless overridden.
 export const useAddNode = (keyOverride?: arc.Key) => {
-  const key = Scope.useRequired(keyOverride);
-  const theme = Theming.useTheme();
+  const key = Scope.use(keyOverride);
+  const theme = Theming.use();
   const { dispatch } = useDispatch();
   return useCallback(
     ({ key: nodeKey, type, position }: AddNodeProps) => {
@@ -240,7 +240,7 @@ export type RetrieveTaskParams = {
 };
 
 export const {
-  useRetrieve: useTask,
+  use: useTask,
   useResult: useResultTask,
   createResultSelector: createTaskResultSelector,
 } = Flux.createRetrieve<RetrieveTaskParams, task.Task | null>({

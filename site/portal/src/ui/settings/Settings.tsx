@@ -67,7 +67,7 @@ const EditProfileDialog = ({ user }: EditProfileDialogProps): ReactElement => (
 );
 
 const EditProfileContent = ({ user }: EditProfileDialogProps): ReactElement => {
-  const methods = Form.useState({
+  const methods = Form.use({
     values: { firstName: user.firstName ?? "", lastName: user.lastName ?? "" },
     schema: profileSchema,
   });

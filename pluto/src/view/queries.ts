@@ -94,11 +94,11 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
 });
 
 export const useSetSynchronizer = (onSet: (view: view.View) => void): void => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   useEffect(() => client?.views.onSet(onSet), [client, onSet]);
 };
 
 export const useDeleteSynchronizer = (onDelete: (key: view.Key) => void): void => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   useEffect(() => client?.views.onDelete(onDelete), [client, onDelete]);
 };

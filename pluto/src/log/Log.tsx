@@ -15,7 +15,7 @@ import { type ReactElement, useMemo } from "react";
 
 import { streamMultiChannelLog } from "@/log/aether/telem/sources";
 import { Base, type BaseProps } from "@/log/Base";
-import { useRedo, useRetrieve, useUndo } from "@/log/queries";
+import { use, useRedo, useUndo } from "@/log/queries";
 import { useKey } from "@/log/Suspended";
 
 const DEFAULT_RETENTION = TimeSpan.days(7);
@@ -51,7 +51,7 @@ export interface LogProps extends Omit<
 export const Log = ({ enableTriggers, ...rest }: LogProps): ReactElement | null => {
   const key = useKey();
   const { channels, channelNamesHidden, receiptTimestampHidden, timestampPrecision } =
-    useRetrieve({
+    use({
       key,
     });
   const undoRedo = useUndoRedo(key, enableTriggers);

@@ -30,16 +30,16 @@ export interface Instance<K extends record.Key> {
   /** Provider sets the active key for all descendants. */
   Provider: FC<ProviderProps<K>>;
   /**
-   * useRequired resolves the active key. An explicitly passed override takes precedence
+   * use resolves the active key. An explicitly passed override takes precedence
    * over the surrounding scope. It throws if neither an override nor a Provider is
    * present.
    */
-  useRequired: (override?: K) => K;
-  /** useOptional behaves like useRequired but returns undefined instead of throwing. */
+  use: (override?: K) => K;
+  /** useOptional behaves like use but returns undefined instead of throwing. */
   useOptional: (override?: K) => K | undefined;
   /**
    * require narrows an already-resolved key, throwing if it is nullish. Use inside a
-   * callback to enforce a key where useRequired cannot be called.
+   * callback to enforce a key where use cannot be called.
    */
   require: (key: K | undefined) => K;
   /**
@@ -80,17 +80,17 @@ export const create = <K extends record.Key>(name: string): Instance<K> => {
     return key;
   };
 
-  const useRequired = (override?: K): K => require(useOptional(override));
+  const use = (override?: K): K => require(useOptional(override));
 
   const bindHook = <Args extends record.Keyed<K>, R>(
     useHook: (args: Args) => R,
   ): Hook<K, Args, R> => {
     const useBound = (args?: optional.Optional<Args, "key">): R => {
-      const key = useRequired(args?.key);
+      const key = use(args?.key);
       return useHook({ ...args, key } as Args);
     };
     return useBound;
   };
 
-  return { Provider, useRequired, useOptional, require, bindHook };
+  return { Provider, use, useOptional, require, bindHook };
 };

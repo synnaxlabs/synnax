@@ -417,7 +417,7 @@ const VirtualFrame = <
     },
     [extract],
   );
-  // eslint-disable-next-line react-hooks/incompatible-library
+  // eslint-disable-next-line synnax/react-compiler
   const virtualizer = useVirtualizer({
     count: data.length,
     getScrollElement: () => ref.current,

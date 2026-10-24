@@ -48,7 +48,7 @@ export const Legend = (props: LegendProps): ReactElement | null => {
   const { key: contextKey, needsControlOf } = useContext();
   const { colors = {}, onColorsChange, ...restProps } = props;
 
-  const [, { states }, setState] = Aether.useBidirectional({
+  const [, { states }, setState] = Aether.use({
     type: control.Legend.TYPE,
     schema: control.legendStateZ,
     initialState: { states: [], needsControlOf, colors },

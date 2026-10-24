@@ -29,7 +29,7 @@ interface FormWrapperProps {
 }
 
 const FormWrapper = ({ values, children }: FormWrapperProps): ReactElement => {
-  const methods = Form.useState<typeof CONFIG_Z>({ values, schema: CONFIG_Z });
+  const methods = Form.use<typeof CONFIG_Z>({ values, schema: CONFIG_Z });
   return (
     <SynnaxWrapper>
       <Form.Form<typeof CONFIG_Z> {...methods}>{children}</Form.Form>

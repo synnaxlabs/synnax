@@ -1353,7 +1353,7 @@ describe("custom symbol editor preview", () => {
     let form!: Form.ContextValue<any>;
     const Harness = (): ReactElement => {
       const values = editorInitialValues();
-      form = Form.useState<any>({ values });
+      form = Form.use<any>({ values });
       return (
         <Form.Form {...form}>
           <PreviewLike activeState="base" />

@@ -129,7 +129,7 @@ const Info = () => {
   const info = result.data;
   const { details } = Synnax.useConnectionStatus();
   const core = Session.Core.useSelectSelected();
-  const consoleVersion = Session.Version.useCurrent();
+  const consoleVersion = Session.Version.use();
   const fingerprint = info?.fingerprint ?? [];
   const lic = info?.license;
   const address = core == null ? null : `${core.host}:${core.port}`;

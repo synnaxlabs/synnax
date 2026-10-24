@@ -36,7 +36,7 @@ describe("table queries", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should retrieve a table by key", async () => {
       const project = await client.projects.create({
         name: "test_project",
@@ -46,7 +46,7 @@ describe("table queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Table.useRetrieve({ key: created.key }),
+        () => Table.use({ key: created.key }),
         {
           wrapper,
         },
@@ -67,13 +67,13 @@ describe("table queries", () => {
       });
 
       const { result: result1 } = await renderHookSuspended(
-        () => Table.useRetrieve({ key: created.key }),
+        () => Table.use({ key: created.key }),
         { wrapper },
       );
       await waitFor(() => expect(result1.current).not.toBeNull());
 
       const { result: result2 } = await renderHookSuspended(
-        () => Table.useRetrieve({ key: created.key }),
+        () => Table.use({ key: created.key }),
         { wrapper },
       );
       await waitFor(() => expect(result2.current).not.toBeNull());
@@ -125,7 +125,7 @@ describe("table queries", () => {
       });
 
       const { result: retrieveResult } = await renderHookSuspended(
-        () => Table.useRetrieve({ key }),
+        () => Table.use({ key }),
         {
           wrapper,
         },
@@ -220,7 +220,7 @@ describe("table queries", () => {
 
       const { result } = await renderHookSuspended(
         () => {
-          const retrieve = Table.useRetrieve({ key: created.key });
+          const retrieve = Table.use({ key: created.key });
           const rename = Table.useRename();
           return { retrieve, rename };
         },
@@ -251,7 +251,7 @@ describe("table queries", () => {
 
       const { result } = await renderHookSuspended(
         () => ({
-          retrieve: Table.useRetrieve({ key: created.key }),
+          retrieve: Table.use({ key: created.key }),
           rename: Table.useRename(),
         }),
         { wrapper },
@@ -333,7 +333,7 @@ describe("table queries", () => {
       const created = await createTable();
       const { result } = await renderHookSuspended(
         () => ({
-          retrieve: Table.useRetrieve({ key: created.key }),
+          retrieve: Table.use({ key: created.key }),
           dispatch: Table.useDispatch(),
         }),
         { wrapper },
@@ -354,7 +354,7 @@ describe("table queries", () => {
       const created = await createTable();
       const { result } = await renderHookSuspended(
         () => ({
-          retrieve: Table.useRetrieve({ key: created.key }),
+          retrieve: Table.use({ key: created.key }),
           dispatch: Table.useDispatch(),
           undo: Table.useUndo({ key: created.key }),
         }),
@@ -387,7 +387,7 @@ describe("table queries", () => {
       const created = await createTable();
       const { result } = await renderHookSuspended(
         () => ({
-          retrieve: Table.useRetrieve({ key: created.key }),
+          retrieve: Table.use({ key: created.key }),
           dispatch: Table.useDispatch(),
           undo: Table.useUndo({ key: created.key }),
           redo: Table.useRedo({ key: created.key }),
@@ -425,7 +425,7 @@ describe("table queries", () => {
       const created = await createTable();
       const { result } = await renderHookSuspended(
         () => ({
-          retrieve: Table.useRetrieve({ key: created.key }),
+          retrieve: Table.use({ key: created.key }),
           dispatch: Table.useDispatch(),
           undo: Table.useUndo({ key: created.key }),
         }),
@@ -456,7 +456,7 @@ describe("table queries", () => {
       const created = await createTable();
       const { result } = await renderHookSuspended(
         () => ({
-          retrieve: Table.useRetrieve({ key: created.key }),
+          retrieve: Table.use({ key: created.key }),
           dispatch: Table.useDispatch(),
           undo: Table.useUndo({ key: created.key }),
         }),
@@ -498,7 +498,7 @@ describe("table queries", () => {
       const created = await createTable();
       const { result } = await renderHookSuspended(
         () => ({
-          retrieve: Table.useRetrieve({ key: created.key }),
+          retrieve: Table.use({ key: created.key }),
           dispatch: Table.useDispatch(),
           undo: Table.useUndo({ key: created.key }),
         }),
@@ -618,7 +618,7 @@ describe("table queries", () => {
       key: table.Key,
       hook: () => T,
     ): Promise<ReturnType<typeof renderHook<T, unknown>>> => {
-      const retrieve = await renderHookSuspended(() => Table.useRetrieve({ key }), {
+      const retrieve = await renderHookSuspended(() => Table.use({ key }), {
         wrapper,
       });
       await waitFor(() => expect(retrieve.result.current).toBeDefined());

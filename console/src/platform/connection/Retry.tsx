@@ -27,7 +27,7 @@ export interface RetryProps extends Omit<Button.ButtonProps, "onClick" | "disabl
  * nothing when there is no client.
  */
 export const Retry = ({ children, ...rest }: RetryProps): ReactElement | null => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const { details } = Synnax.useConnectionStatus();
   if (client == null) return null;
   return (

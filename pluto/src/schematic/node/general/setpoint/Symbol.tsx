@@ -35,7 +35,7 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.SetpointNodeConfig>): ReactElement => {
   const sink = useMemo(() => Telem.numberSink(commandChannel), [commandChannel]);
-  const { set } = BaseSetpoint.useAether({ aetherKey: nodeKey, sink });
+  const { set } = BaseSetpoint.use({ aetherKey: nodeKey, sink });
   return (
     <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected}>
       <Control.State

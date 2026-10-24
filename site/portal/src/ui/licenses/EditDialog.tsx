@@ -41,7 +41,7 @@ export const EditDialog = ({ license }: EditDialogProps): ReactElement => (
 );
 
 const Content = ({ license }: EditDialogProps): ReactElement => {
-  const methods = Form.useState({ values: termsOf(license), schema });
+  const methods = Form.use({ values: termsOf(license), schema });
   return (
     <Modal.Form
       methods={methods}

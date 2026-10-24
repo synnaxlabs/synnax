@@ -189,7 +189,7 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
   const background =
     Form.useFieldValue<color.Color>("fillColor", { optional: true }) ?? undefined;
   const { push, remove } = Form.useFieldListUtils<string, color.Band>(bandsPath);
-  const theme = Theming.useTheme();
+  const theme = Theming.use();
   const { bands, smooth } = redline;
   const sorted = bands.toSorted(ascending);
   const keys = sorted.map(({ key }) => key);

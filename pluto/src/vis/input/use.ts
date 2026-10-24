@@ -18,7 +18,7 @@ export interface UseReturn {
   set: (value: string) => void;
 }
 
-export const useAether = ({ aetherKey, sink }: UseProps): UseReturn => {
+export const use = ({ aetherKey, sink }: UseProps): UseReturn => {
   const { methods } = Aether.useUnidirectional({
     aetherKey,
     type: input.Input.TYPE,

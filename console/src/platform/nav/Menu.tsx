@@ -65,7 +65,7 @@ export const useItem = ({
     return [trigger, [trigger[0], trigger[0]]];
   }, [trigger]);
 
-  Triggers.useListen({
+  Triggers.use({
     triggers,
     loose: false,
     callback: useCallback(

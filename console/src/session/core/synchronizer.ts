@@ -70,6 +70,6 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers<
   RequiredStoreState,
   RequiredAction
 > = [
-  { name: "cache the connected cluster's key", useCallbacks: useCacheClusterKey },
-  { name: "close windows on Core change", useCallbacks: useCloseOnChange },
+  { name: "cache the connected cluster's key", use: useCacheClusterKey },
+  { name: "close windows on Core change", use: useCloseOnChange },
 ];

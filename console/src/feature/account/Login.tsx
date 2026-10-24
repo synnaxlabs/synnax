@@ -63,8 +63,8 @@ const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
   const email = Session.Account.useSelectEmail();
   const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
-  const client = Synnax.useClient();
-  const version = Session.Version.useCurrent();
+  const client = Synnax.use();
+  const version = Session.Version.use();
   const online = useOnline();
 
   const start = (): void =>

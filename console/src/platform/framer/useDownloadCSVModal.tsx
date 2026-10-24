@@ -56,7 +56,7 @@ const DownloadCSV = ({
   close,
 }: Modals.ContentProps<DownloadCSVModalParams, void>) => {
   const initialRange = new TimeRange(timeRange).numeric;
-  const form = Form.useState<typeof formSchema>({
+  const form = Form.use<typeof formSchema>({
     schema: formSchema,
     values: {
       channels,
@@ -152,7 +152,7 @@ interface DownloadButtonProps {
 
 const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
   const handleError = Status.useErrorHandler();
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const download = Runtime.useDownload();
   const { get } = Form.useContext();
   const handleClick = () => {

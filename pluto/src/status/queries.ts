@@ -88,32 +88,34 @@ export type RetrieveMultipleQuery = {
   keys: status.Key[];
 };
 
-export const { useRetrieve: useMultiple, useResult: useResultMultiple } =
-  Flux.createRetrieve<RetrieveMultipleQuery, status.Status[]>({
-    name: PLURAL_RESOURCE_NAME,
-    retrieve: async ({ client, query: { keys } }) => {
-      if (keys.length === 0) return [];
-      return await client.statuses.retrieve({ keys });
-    },
-    onChange: ({ client, query: { keys } }, handler) => {
-      if (keys.length === 0) return () => {};
-      return client.statuses.onChange({ keys }, handler);
-    },
-    getCached: ({ client, query: { keys } }) => {
-      if (keys.length === 0) return undefined;
-      return client.statuses.getCached({ keys });
-    },
-  });
+export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  status.Status[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query: { keys } }) => {
+    if (keys.length === 0) return [];
+    return await client.statuses.retrieve({ keys });
+  },
+  onChange: ({ client, query: { keys } }, handler) => {
+    if (keys.length === 0) return () => {};
+    return client.statuses.onChange({ keys }, handler);
+  },
+  getCached: ({ client, query: { keys } }) => {
+    if (keys.length === 0) return undefined;
+    return client.statuses.getCached({ keys });
+  },
+});
 
-export const { useRetrieve, useResult } = createRetrieve();
+export const { use, useResult } = createRetrieve();
 
 export const useSetSynchronizer = (onSet: (status: status.Status) => void): void => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   useEffect(() => client?.statuses.onSet(onSet), [client, onSet]);
 };
 
 export const useDeleteSynchronizer = (onDelete: (key: status.Key) => void): void => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   useEffect(() => client?.statuses.onDelete(onDelete), [client, onDelete]);
 };
 

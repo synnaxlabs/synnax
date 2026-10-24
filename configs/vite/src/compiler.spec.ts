@@ -87,6 +87,16 @@ describe("reactCompiler", () => {
     expect(code).not.toContain(COMPILED);
   });
 
+  it("should compile a hook named use", async () => {
+    const code = await transform(
+      "test",
+      "src/use.ts",
+      'import { useState } from "react";\n' +
+        "export const use = () => { const [n] = useState(0); return { n }; };\n",
+    );
+    expect(code).toContain(COMPILED);
+  });
+
   it("should compile a hook in a spec run", async () => {
     const code = await transform(
       "test",

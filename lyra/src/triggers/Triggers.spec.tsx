@@ -157,10 +157,10 @@ describe("Triggers", () => {
     });
   });
 
-  describe("useListen", () => {
+  describe("use", () => {
     it("should handle single key triggers", async () => {
       const callback = vi.fn();
-      renderHook(() => Triggers.useListen({ callback, triggers: [["A"]] }), {
+      renderHook(() => Triggers.use({ callback, triggers: [["A"]] }), {
         wrapper: TriggersWrapper,
       });
       fireEvent.keyDown(document.body, { code: "KeyA" });
@@ -187,7 +187,7 @@ describe("Triggers", () => {
 
     it("should handle multi-key combinations", async () => {
       const callback = vi.fn();
-      renderHook(() => Triggers.useListen({ callback, triggers: [["Control", "A"]] }), {
+      renderHook(() => Triggers.use({ callback, triggers: [["Control", "A"]] }), {
         wrapper: TriggersWrapper,
       });
 
@@ -219,7 +219,7 @@ describe("Triggers", () => {
 
     it("should handle mouse triggers", async () => {
       const callback = vi.fn();
-      renderHook(() => Triggers.useListen({ callback, triggers: [["MouseLeft"]] }), {
+      renderHook(() => Triggers.use({ callback, triggers: [["MouseLeft"]] }), {
         wrapper: TriggersWrapper,
       });
 
@@ -247,7 +247,7 @@ describe("Triggers", () => {
     it("should handle double key presses", async () => {
       const callback = vi.fn();
       renderHook(
-        () => Triggers.useListen({ callback, triggers: [["A", "A"]], double: true }),
+        () => Triggers.use({ callback, triggers: [["A", "A"]], double: true }),
         { wrapper: TriggersWrapper },
       );
 
@@ -279,7 +279,7 @@ describe("Triggers", () => {
     it("should handle loose matching", async () => {
       const callback = vi.fn();
       renderHook(
-        () => Triggers.useListen({ callback, triggers: [["Control"]], loose: true }),
+        () => Triggers.use({ callback, triggers: [["Control"]], loose: true }),
         { wrapper: TriggersWrapper },
       );
 
@@ -313,7 +313,7 @@ describe("Triggers", () => {
       const callback = vi.fn();
       renderHook(
         () =>
-          Triggers.useListen({
+          Triggers.use({
             callback,
             triggers: [
               ["Control", "A"],
@@ -370,7 +370,7 @@ describe("Triggers", () => {
 
     it("should not fire a trigger for an autofill key event", () => {
       const callback = vi.fn();
-      renderHook(() => Triggers.useListen({ callback, triggers: [["Enter"]] }), {
+      renderHook(() => Triggers.use({ callback, triggers: [["Enter"]] }), {
         wrapper: TriggersWrapper,
       });
       autofill("keydown");
@@ -380,12 +380,9 @@ describe("Triggers", () => {
 
     it("should still match an exact combination after an autofill keydown", () => {
       const callback = vi.fn();
-      renderHook(
-        () => Triggers.useListen({ callback, triggers: [["Control", "Enter"]] }),
-        {
-          wrapper: TriggersWrapper,
-        },
-      );
+      renderHook(() => Triggers.use({ callback, triggers: [["Control", "Enter"]] }), {
+        wrapper: TriggersWrapper,
+      });
       fireEvent.keyDown(document.body, { code: "ControlLeft" });
       autofill("keydown");
       fireEvent.keyDown(document.body, { code: "Enter" });
@@ -422,7 +419,7 @@ describe("Triggers", () => {
     const renderScoped = ({ active, inner, enabled }: RenderScopedProps) => {
       const callback = vi.fn();
       const C = () => {
-        Triggers.useListen({ callback, triggers: [["A"]], enabled });
+        Triggers.use({ callback, triggers: [["A"]], enabled });
         return <div>Hello</div>;
       };
       const subject =
@@ -712,7 +709,7 @@ describe("Triggers", () => {
       const callback = vi.fn();
       const regionRef = { current: document.createElement("div") };
       const C = () => {
-        Triggers.useListen({
+        Triggers.use({
           callback,
           triggers: [["A"]],
           region: regionRef,
@@ -755,7 +752,7 @@ describe("Triggers", () => {
       Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
       const regionRef = { current: document.createElement("div") };
       const C = () => {
-        Triggers.useListen({
+        Triggers.use({
           callback,
           triggers: [["A"]],
           region: regionRef,
@@ -799,7 +796,7 @@ describe("Triggers", () => {
       Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
       const regionRef = { current: document.createElement("div") };
       const C = () => {
-        Triggers.useListen({
+        Triggers.use({
           callback,
           triggers: [["MouseLeft"]],
           region: regionRef,
@@ -849,7 +846,7 @@ describe("Triggers", () => {
     it("should ignore alphanumeric keys in input elements without modifiers", async () => {
       const callback = vi.fn();
       const C = () => {
-        Triggers.useListen({
+        Triggers.use({
           callback,
           triggers: [["A"]],
         });
@@ -881,7 +878,7 @@ describe("Triggers", () => {
       async (code, key) => {
         const callback = vi.fn();
         const C = () => {
-          Triggers.useListen({ callback, triggers: [[code]] });
+          Triggers.use({ callback, triggers: [[code]] });
           return <input type="text" data-testid="input" />;
         };
         const { getByTestId } = render(
@@ -900,7 +897,7 @@ describe("Triggers", () => {
     it("should still fire a bare punctuation trigger outside a text field", async () => {
       const callback = vi.fn();
       const C = () => {
-        Triggers.useListen({ callback, triggers: [["Minus"]] });
+        Triggers.use({ callback, triggers: [["Minus"]] });
         return <div data-testid="canvas" />;
       };
       const { getByTestId } = render(
@@ -918,7 +915,7 @@ describe("Triggers", () => {
     it("should handle non-text-editing ctrl+key combinations in input elements", async () => {
       const callback = vi.fn();
       const C = () => {
-        Triggers.useListen({
+        Triggers.use({
           callback,
           triggers: [["Control", "B"]],
         });
@@ -955,7 +952,7 @@ describe("Triggers", () => {
 
     it("should suppress native text-editing shortcuts in input elements", async () => {
       const C = ({ callback }: { callback: () => void }) => {
-        Triggers.useListen({
+        Triggers.use({
           callback,
           triggers: [
             ["Control", "A"],
@@ -993,7 +990,7 @@ describe("Triggers", () => {
     it("should still trigger undo/redo in input elements", async () => {
       const callback = vi.fn();
       const C = () => {
-        Triggers.useListen({ callback, triggers: [Triggers.UNDO] });
+        Triggers.use({ callback, triggers: [Triggers.UNDO] });
         return <input type="text" data-testid="input" />;
       };
       const { getByTestId } = render(
@@ -1024,7 +1021,7 @@ describe("Triggers", () => {
     it("should handle contenteditable elements", async () => {
       const callback = vi.fn();
       const C = () => {
-        Triggers.useListen({
+        Triggers.use({
           callback,
           triggers: [["A"], ["Control", "B"]],
         });
@@ -1068,7 +1065,7 @@ describe("Triggers", () => {
     it("should handle non-alphanumeric keys in input elements", async () => {
       const callback = vi.fn();
       const C = () => {
-        Triggers.useListen({
+        Triggers.use({
           callback,
           triggers: [["Escape"], ["ArrowUp"]],
         });
@@ -1128,7 +1125,7 @@ describe("Triggers", () => {
     it("should treat Meta (Command) key as Control", async () => {
       const callback = vi.fn();
       const C = () => {
-        Triggers.useListen({
+        Triggers.use({
           callback,
           triggers: [["Control", "A"]],
         });
@@ -1166,7 +1163,7 @@ describe("Triggers", () => {
     it("should handle both Meta and Control for the same trigger", async () => {
       const callback = vi.fn();
       const C = () => {
-        Triggers.useListen({
+        Triggers.use({
           callback,
           triggers: [["Control", "S"]],
         });
@@ -1218,7 +1215,7 @@ describe("Triggers", () => {
     it("should handle right Meta key the same as left Meta key", async () => {
       const callback = vi.fn();
       const C = () => {
-        Triggers.useListen({
+        Triggers.use({
           callback,
           triggers: [["Control", "X"]],
         });
@@ -1255,7 +1252,7 @@ describe("Triggers", () => {
       const callback = vi.fn();
       renderHook(
         () =>
-          Triggers.useListen({
+          Triggers.use({
             callback,
             triggers: [
               ["Control", "Shift", "P"],
@@ -1310,7 +1307,7 @@ describe("Triggers", () => {
     it("should handle Safari's sticky shift key behavior", async () => {
       const callback = vi.fn();
       const C = () => {
-        Triggers.useListen({
+        Triggers.use({
           callback,
           triggers: [["Shift", "A"]],
         });
@@ -1375,8 +1372,8 @@ describe("Triggers", () => {
         const low = vi.fn(() => order.push("low"));
         renderHook(
           () => {
-            Triggers.useListen({ callback: high, triggers: [["A"]], priority: 100 });
-            Triggers.useListen({ callback: low, triggers: [["A"]], priority: 0 });
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
           },
           { wrapper: TriggersWrapper },
         );
@@ -1389,8 +1386,8 @@ describe("Triggers", () => {
         const low = vi.fn();
         renderHook(
           () => {
-            Triggers.useListen({ callback: high, triggers: [["A"]], priority: 100 });
-            Triggers.useListen({ callback: low, triggers: [["A"]], priority: 0 });
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
           },
           { wrapper: TriggersWrapper },
         );
@@ -1405,9 +1402,9 @@ describe("Triggers", () => {
         const lower = vi.fn();
         renderHook(
           () => {
-            Triggers.useListen({ callback: stopper, triggers: [["A"]], priority: 100 });
-            Triggers.useListen({ callback: peer, triggers: [["A"]], priority: 100 });
-            Triggers.useListen({ callback: lower, triggers: [["A"]], priority: 0 });
+            Triggers.use({ callback: stopper, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: peer, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: lower, triggers: [["A"]], priority: 0 });
           },
           { wrapper: TriggersWrapper },
         );
@@ -1422,8 +1419,8 @@ describe("Triggers", () => {
         const low = vi.fn();
         renderHook(
           () => {
-            Triggers.useListen({ callback: high, triggers: [["A"]], priority: 100 });
-            Triggers.useListen({ callback: low, triggers: [["A"]], priority: 0 });
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
           },
           { wrapper: TriggersWrapper },
         );
@@ -1437,8 +1434,8 @@ describe("Triggers", () => {
         const defaultPriority = vi.fn();
         renderHook(
           () => {
-            Triggers.useListen({ callback: high, triggers: [["A"]], priority: 1 });
-            Triggers.useListen({ callback: defaultPriority, triggers: [["A"]] });
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 1 });
+            Triggers.use({ callback: defaultPriority, triggers: [["A"]] });
           },
           { wrapper: TriggersWrapper },
         );
@@ -1454,8 +1451,8 @@ describe("Triggers", () => {
         const low = vi.fn();
         renderHook(
           () => {
-            Triggers.useListen({ callback: high, triggers: [["A"]], priority: 100 });
-            Triggers.useListen({ callback: low, triggers: [["B"]], priority: 0 });
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: low, triggers: [["B"]], priority: 0 });
           },
           { wrapper: TriggersWrapper },
         );
@@ -1475,8 +1472,8 @@ describe("Triggers", () => {
         const low = vi.fn();
         renderHook(
           () => {
-            Triggers.useListen({ callback: high, triggers: [["A"]], priority: 100 });
-            Triggers.useListen({ callback: low, triggers: [["A"]], priority: 0 });
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
           },
           { wrapper: TriggersWrapper },
         );

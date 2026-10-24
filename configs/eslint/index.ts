@@ -20,35 +20,45 @@ import tseslint from "typescript-eslint";
 
 import { jsxFilenameExtension } from "./rules/jsxFilenameExtension";
 import { namedHookCallers } from "./rules/namedHookCallers";
+import { namedHookValues } from "./rules/namedHookValues";
+import { reactCompiler } from "./rules/reactCompiler";
 
 const synnax: ESLint.Plugin = {
   rules: {
     "jsx-filename-extension": jsxFilenameExtension,
     "named-hook-callers": namedHookCallers,
+    "named-hook-values": namedHookValues,
+    "react-compiler": reactCompiler,
   },
 };
 
 const COMPILER_RULES: Linter.RulesRecord = {
   "react-hooks/rules-of-hooks": "error",
-  "react-hooks/hooks": "error",
-  "react-hooks/use-memo": "error",
-  "react-hooks/void-use-memo": "error",
-  "react-hooks/preserve-manual-memoization": "error",
-  "react-hooks/memo-dependencies": "error",
-  "react-hooks/incompatible-library": "error",
-  "react-hooks/immutability": "error",
-  "react-hooks/globals": "error",
-  "react-hooks/refs": "error",
-  "react-hooks/purity": "error",
-  "react-hooks/set-state-in-render": "error",
-  "react-hooks/component-hook-factories": "error",
-  "react-hooks/unsupported-syntax": "error",
-  "react-hooks/todo": "error",
-  "react-hooks/syntax": "error",
-  "react-hooks/invariant": "error",
-  "react-hooks/config": "error",
-  "react-hooks/gating": "error",
+  "synnax/react-compiler": [
+    "error",
+    {
+      rules: [
+        "hooks",
+        "use-memo",
+        "preserve-manual-memoization",
+        "incompatible-library",
+        "immutability",
+        "globals",
+        "refs",
+        "purity",
+        "set-state-in-render",
+        "component-hook-factories",
+        "unsupported-syntax",
+        "todo",
+        "syntax",
+        "invariant",
+        "config",
+        "gating",
+      ],
+    },
+  ],
   "synnax/named-hook-callers": "error",
+  "synnax/named-hook-values": "error",
 };
 
 const gitignorePath = path.join(import.meta.dirname, "../../.gitignore");
@@ -155,7 +165,7 @@ const config: Linter.Config[] = [
       // Off until a SY-5149 hook audit: the fixes change render behavior.
       "@eslint-react/exhaustive-deps": "off",
       "@eslint-react/set-state-in-effect": "off",
-      // Off: the react-hooks rules below check these with the React Compiler.
+      // Off: the rules below check these with the React Compiler.
       "@eslint-react/rules-of-hooks": "off",
       "@eslint-react/purity": "off",
       // Off: matches our own useContext hooks from context.create by name.

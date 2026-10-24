@@ -22,12 +22,12 @@ const DeviceName = () => (
   <span>{HTTP.Device.useFromConfig()?.name ?? "no device"}</span>
 );
 
-describe("useRetrieve", () => {
+describe("use", () => {
   it("should retrieve the device with its typed properties", async () => {
     const dev = await createHTTPDevice(client, { properties: { timeoutMs: 1234 } });
     const wrapper = await createAsyncSynnaxWrapper({ client });
     const { result } = await renderHookSuspended(
-      () => HTTP.Device.useRetrieve({ key: dev.key }),
+      () => HTTP.Device.use({ key: dev.key }),
       { wrapper },
     );
     await waitFor(() => expect(result.current?.properties.timeoutMs).toBe(1234));

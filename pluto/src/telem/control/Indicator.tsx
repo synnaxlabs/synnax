@@ -37,7 +37,7 @@ export const Indicator = ({
 }: IndicatorProps): ReactElement => {
   const memoProps = useMemoDeepEqual({ colorSource, statusSource });
 
-  const [, { color: colorVal, status }, setState] = Aether.useBidirectional({
+  const [, { color: colorVal, status }, setState] = Aether.use({
     type: control.Indicator.TYPE,
     initialState: {
       ...memoProps,

@@ -57,7 +57,7 @@ export const StringDisplay = ({
     }),
     [strokeColor, inlineSize, level],
   );
-  const theme = Theming.useTheme();
+  const theme = Theming.use();
   const resolvedTextColor = stale
     ? Staleness.resolveColor(stalenessColor, theme)
     : textColor;

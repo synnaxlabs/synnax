@@ -11,4 +11,4 @@ import { Device } from "@synnaxlabs/pluto";
 
 import { SCHEMAS } from "@/feature/labjack/device/types";
 
-export const { useRetrieve } = Device.createRetrieve(SCHEMAS);
+export const { use } = Device.createRetrieve(SCHEMAS);

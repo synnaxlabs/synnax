@@ -22,7 +22,7 @@ export interface UseProps extends Omit<State, "color">, Partial<Pick<State, "col
   aetherKey: string;
 }
 
-export const useAether = ({
+export const use = ({
   aetherKey,
   box,
   telem,

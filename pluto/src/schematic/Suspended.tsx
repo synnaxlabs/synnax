@@ -13,7 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { useEnsure } from "@/schematic/queries";
 import { Scope } from "@/schematic/scope";
 
-export const useKey = Scope.useRequired;
+export const useKey = Scope.use;
 
 export interface SuspendedProps extends PropsWithChildren {
   schematicKey: schematic.Key;

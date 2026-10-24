@@ -47,7 +47,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const confirm = Modals.useConfirmDelete({ type: "Panel" });
   const dispatch = useDispatch();
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const openWindow = useOpenWindow();
   const selected = Session.Panel.useSelectSelected();
   const { update: del } = Panel.useDelete({

@@ -59,7 +59,7 @@ export const Row = memo(
       cellXs.push(xCursor);
       xCursor += columns[i];
     }
-    const theme = Theming.useTheme();
+    const theme = Theming.use();
     // Table.css rounds the table's outer corners on the corner <td> by
     // --pluto-border-radius-small, but a cell that paints its background on the canvas
     // squares them off unless it knows the radius, so both sides read the same theme

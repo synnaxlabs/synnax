@@ -21,18 +21,16 @@ interface SelectParams {
 const select = ({ key, suffix = "" }: SelectParams): string => `${key}${suffix}`;
 
 describe("Scope", () => {
-  describe("useRequired", () => {
+  describe("use", () => {
     it("should return the override when no provider is present", () => {
       const s = Scope.create<string>("Test");
-      const { result } = renderHook(() => s.useRequired("override"));
+      const { result } = renderHook(() => s.use("override"));
       expect(result.current).toEqual("override");
     });
 
     it("should throw when neither an override nor a provider is present", () => {
       const s = Scope.create<string>("Test");
-      expect(() => renderHook(() => s.useRequired())).toThrow(
-        "Test scope requires a key",
-      );
+      expect(() => renderHook(() => s.use())).toThrow("Test scope requires a key");
     });
 
     it("should resolve the key from the surrounding provider", () => {
@@ -40,7 +38,7 @@ describe("Scope", () => {
       const wrapper = ({ children }: PropsWithChildren): ReactElement => (
         <s.Provider value="from-context">{children}</s.Provider>
       );
-      const { result } = renderHook(() => s.useRequired(), { wrapper });
+      const { result } = renderHook(() => s.use(), { wrapper });
       expect(result.current).toEqual("from-context");
     });
 
@@ -49,7 +47,7 @@ describe("Scope", () => {
       const wrapper = ({ children }: PropsWithChildren): ReactElement => (
         <s.Provider value="from-context">{children}</s.Provider>
       );
-      const { result } = renderHook(() => s.useRequired("override"), { wrapper });
+      const { result } = renderHook(() => s.use("override"), { wrapper });
       expect(result.current).toEqual("override");
     });
   });

@@ -28,7 +28,7 @@ const isPlainVirtual = ({ data }: ontology.Resource): boolean =>
 // plottable channels go to the focused line plot or a new one, plain virtual
 // channels to the focused log or a new one.
 export const useOpen = (): ((resource: ontology.Resource) => void) => {
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const openTab = Panel.useOpenTab();
   const getFocusedTab = Session.Panel.useGetFocusedTab();
   const getSelectedPanel = Session.Panel.useGetSelected();
@@ -36,7 +36,7 @@ export const useOpen = (): ((resource: ontology.Resource) => void) => {
   const getSelectedRange = Session.Range.useGetSelectedKey();
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();
-  const { capture } = Analytics.useSink();
+  const { capture } = Analytics.use();
   return useCallback(
     (resource) => {
       if (client == null) return;

@@ -585,7 +585,7 @@ describe("Arc queries", () => {
     });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should retrieve a single arc", async () => {
       const testArc = await client.arcs.create({
         name: `retrieve-arc-${Math.random().toString(36).substring(7)}`,
@@ -593,7 +593,7 @@ describe("Arc queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Arc.useRetrieve({ key: testArc.key }),
+        () => Arc.use({ key: testArc.key }),
         {
           wrapper,
         },
@@ -1505,12 +1505,12 @@ describe("Arc queries", () => {
     });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("serves the arc initially and on each change", async () => {
       const isolated = await createTestArc();
       const { result } = await renderHookSuspended(
         () => ({
-          arc: Arc.useRetrieve({ key: isolated.key }),
+          arc: Arc.use({ key: isolated.key }),
           rename: Arc.useRename(),
         }),
         { wrapper },

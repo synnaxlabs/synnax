@@ -36,9 +36,9 @@ export interface BundleImporter {
   (name: string, bundle: UploadBody, ctx: BundleImporterContext): Promise<void>;
 }
 
-export const useAction = (): ((projectKey?: string) => void) => {
+export const use = (): ((projectKey?: string) => void) => {
   const store = Session.useStore();
-  const client = Synnax.useClient();
+  const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const importBatch = useImportBatch();
   return useCallback(
