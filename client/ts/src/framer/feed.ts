@@ -40,8 +40,6 @@ export interface LatestReader {
   (keys: channel.Key[]): Promise<Frame>;
 }
 
-type LatestBatch = Array<debounce.Entry<channel.Key, MultiSeries>>;
-
 /** Props for {@link Feed}, including the transport it reads and streams through. */
 export interface FeedProps
   extends
@@ -76,7 +74,6 @@ export class Feed {
   private readonly streamer: MultiplexedStreamer;
   private readonly tiles: TileReader;
   private readonly latest: debounce.Batcher<channel.Key, MultiSeries>;
-  private readonly inFlight = new Set<LatestBatch>();
   private closed = false;
 
   constructor(props: FeedProps) {
@@ -143,17 +140,11 @@ export class Feed {
     this.latest = new debounce.Batcher({
       interval: batchDebounce ?? DEFAULT_BATCH_DEBOUNCE,
       exec: async (entries) => {
-        if (this.closed) throw new UnexpectedError("telemetry feed is closed");
-        this.inFlight.add(entries);
-        try {
-          const frame = await readLatest([...new Set(entries.map(({ req }) => req))]);
-          entries.forEach(({ req, resolve }) => {
-            const series = frame.get(req).series.map((s) => transform.convert(s));
-            resolve(new MultiSeries(series));
-          });
-        } finally {
-          this.inFlight.delete(entries);
-        }
+        const frame = await readLatest([...new Set(entries.map(({ req }) => req))]);
+        entries.forEach(({ req, resolve }) => {
+          const series = frame.get(req).series.map((s) => transform.convert(s));
+          resolve(new MultiSeries(series));
+        });
       },
     });
   }
@@ -204,10 +195,7 @@ export class Feed {
   /** Closes the feed, releasing the stream and all cached buffers. */
   async close(): Promise<void> {
     this.closed = true;
-    const err = new UnexpectedError("telemetry feed is closed");
-    this.latest.close(err);
-    this.inFlight.forEach((batch) => batch.forEach(({ reject }) => reject(err)));
-    this.inFlight.clear();
+    this.latest.close(new UnexpectedError("telemetry feed is closed"));
     await this.streamer.close();
     await this.reader.close();
     this.tiles.close();
