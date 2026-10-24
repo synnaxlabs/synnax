@@ -35,7 +35,7 @@ public:
         // SAFETY: raw `this` capture is safe because wasm::Module owns this
         // stl::Module via cfg.modules (shared_ptr), and Store/Memory are
         // stable members of the heap-pinned wasm::Module.
-        auto self = this;
+        auto *self = this;
         linker
             .func_wrap(
                 MODULE_NAME,

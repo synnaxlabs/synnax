@@ -110,11 +110,11 @@ public:
         return 0;
     }
 
-    int slave_count() const override {
+    [[nodiscard]] int slave_count() const override {
         return static_cast<int>(this->slave_infos.size());
     }
 
-    uint16_t slave_state(uint16_t pos) const override {
+    [[nodiscard]] uint16_t slave_state(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return 0;
         return this->slave_infos[pos - 1].state;
     }
@@ -125,42 +125,42 @@ public:
         this->state_change_requests.emplace_back(pos, state);
     }
 
-    uint32_t slave_eep_man(uint16_t pos) const override {
+    [[nodiscard]] uint32_t slave_eep_man(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return 0;
         return this->slave_infos[pos - 1].eep_man;
     }
 
-    uint32_t slave_eep_id(uint16_t pos) const override {
+    [[nodiscard]] uint32_t slave_eep_id(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return 0;
         return this->slave_infos[pos - 1].eep_id;
     }
 
-    uint32_t slave_eep_rev(uint16_t pos) const override {
+    [[nodiscard]] uint32_t slave_eep_rev(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return 0;
         return this->slave_infos[pos - 1].eep_rev;
     }
 
-    uint32_t slave_eep_ser(uint16_t pos) const override {
+    [[nodiscard]] uint32_t slave_eep_ser(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return 0;
         return this->slave_infos[pos - 1].eep_ser;
     }
 
-    std::string slave_name(uint16_t pos) const override {
+    [[nodiscard]] std::string slave_name(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return "";
         return this->slave_infos[pos - 1].name;
     }
 
-    uint16_t slave_Ibits(uint16_t pos) const override {
+    [[nodiscard]] uint16_t slave_Ibits(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return 0;
         return this->slave_infos[pos - 1].Ibits;
     }
 
-    uint16_t slave_Obits(uint16_t pos) const override {
+    [[nodiscard]] uint16_t slave_Obits(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return 0;
         return this->slave_infos[pos - 1].Obits;
     }
 
-    uint8_t slave_group(uint16_t pos) const override {
+    [[nodiscard]] uint8_t slave_group(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return 0;
         return this->slave_infos[pos - 1].group;
     }
@@ -170,35 +170,39 @@ public:
         this->slave_infos[pos - 1].group = group;
     }
 
-    uint8_t *slave_outputs(uint16_t pos) const override {
+    [[nodiscard]] uint8_t *slave_outputs(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return nullptr;
         if (this->iomap_ptr == nullptr) return nullptr;
         return this->iomap_ptr + this->slave_infos[pos - 1].output_offset;
     }
 
-    uint8_t *slave_inputs(uint16_t pos) const override {
+    [[nodiscard]] uint8_t *slave_inputs(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return nullptr;
         if (this->iomap_ptr == nullptr) return nullptr;
         return this->iomap_ptr + this->slave_infos[pos - 1].input_offset;
     }
 
-    uint16_t slave_mbx_proto(uint16_t pos) const override {
+    [[nodiscard]] uint16_t slave_mbx_proto(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return 0;
         return this->slave_infos[pos - 1].mbx_proto;
     }
 
-    uint16_t slave_ALstatuscode(uint16_t pos) const override {
+    [[nodiscard]] uint16_t slave_ALstatuscode(uint16_t pos) const override {
         if (pos == 0 || pos > this->slave_infos.size()) return 0;
         return this->slave_infos[pos - 1].ALstatuscode;
     }
 
-    uint32_t group_Ibytes(uint8_t) const override { return this->ibytes; }
+    [[nodiscard]] uint32_t group_Ibytes(uint8_t) const override { return this->ibytes; }
 
-    uint32_t group_Obytes(uint8_t) const override { return this->obytes; }
+    [[nodiscard]] uint32_t group_Obytes(uint8_t) const override { return this->obytes; }
 
-    uint16_t group_outputsWKC(uint8_t) const override { return this->outputs_wkc; }
+    [[nodiscard]] uint16_t group_outputsWKC(uint8_t) const override {
+        return this->outputs_wkc;
+    }
 
-    uint16_t group_inputsWKC(uint8_t) const override { return this->inputs_wkc; }
+    [[nodiscard]] uint16_t group_inputsWKC(uint8_t) const override {
+        return this->inputs_wkc;
+    }
 };
 
 }

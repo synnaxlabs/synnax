@@ -23,9 +23,7 @@ State::State(const std::vector<Digest> &digests) {
 
 void State::ingest(const x::telem::Frame &frame) {
     for (size_t i = 0; i < frame.size(); i++)
-        this->reads[frame.channels->at(i)].push_back(
-            x::mem::local_shared(std::move(frame.series->at(i)))
-        );
+        this->reads[frame.channels->at(i)].emplace_back(std::move(frame.series->at(i)));
 }
 
 std::pair<x::telem::MultiSeries, bool> State::read_value(const types::ChannelKey key) {
@@ -216,7 +214,7 @@ static void sort_by_time(Series &data, Series &times, std::vector<size_t> order)
                      times->at<int64_t>(static_cast<int>(i));
         if (sorted) return;
         order.resize(n);
-        std::iota(order.begin(), order.end(), 0);
+        std::ranges::iota(order, 0);
     }
     const auto stamps = times->values<int64_t>();
     std::ranges::stable_sort(order, {}, [&stamps](const size_t i) {
