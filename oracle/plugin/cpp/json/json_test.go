@@ -541,6 +541,44 @@ var _ = Describe("C++ JSON Plugin", func() {
 						)
 				},
 			)
+
+			DescribeTable(
+				"Should generate parse/to_json for fixed-size array wrappers",
+				func(ctx SpecContext, decls string) {
+					source := `
+					@cpp output "arc/cpp/types"
+				` + decls
+					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							"#include <algorithm>",
+							"#include <string>",
+							"inline Corners Corners::parse(x::json::Parser parser) {",
+							"auto items = parser.field<std::vector<double>>();",
+							"if (items.size() != result.size()) {",
+							`"expected 4 elements, got " + std::to_string(`,
+							"std::move(items.begin(), items.end(), result.begin());",
+							"inline x::json::json Corners::to_json() const {",
+						).
+						ToNotContain("result.push_back")
+				},
+				Entry("over an array", "Corners float64[4]"),
+				Entry("over an alias of an array", "Quad = float64[4]\nCorners Quad"),
+			)
+
+			It(
+				"Should leave a fixed-size uint8 array to its hand-written header",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "arc/cpp/types"
+
+					Hash uint8[32]
+				`
+					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					Expect(resp.Files).To(BeEmpty())
+				},
+			)
 		})
 
 		Context("generic struct field type args", func() {

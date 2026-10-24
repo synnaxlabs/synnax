@@ -161,7 +161,7 @@ func collect(req *plugin.Request) (collection, error) {
 	}
 	for _, path := range c.distinct.Paths() {
 		if lo.SomeBy(c.distinct.Get(path), func(t resolution.Type) bool {
-			return isVariableLengthArray(t, req.Resolutions)
+			return serializesArray(t, req.Resolutions)
 		}) {
 			c.jsonPaths.Add(path)
 		}
@@ -169,15 +169,16 @@ func collect(req *plugin.Request) (collection, error) {
 	return c, nil
 }
 
-// isVariableLengthArray reports whether t is a distinct type wrapping a variable-length
-// array, the only distinct form that needs JSON serialization.
-func isVariableLengthArray(t resolution.Type, table *resolution.Table) bool {
+// serializesArray reports whether t is a distinct type wrapping an array, the only
+// distinct form that needs JSON serialization. A fixed-size uint8 array is excluded,
+// since its own hand-written header serializes it.
+func serializesArray(t resolution.Type, table *resolution.Table) bool {
 	form, ok := t.Form.(resolution.DistinctForm)
 	if !ok {
 		return false
 	}
-	base, ok := arrays.Wrapped(form, table)
-	return ok && base.ArraySize == nil
+	_, ok = arrays.Wrapped(form, table)
+	return ok && !isFixedSizeUint8ArrayType(t, table)
 }
 
 func (p *Plugin) generateFile(
@@ -237,10 +238,16 @@ func (p *Plugin) processArrayWrapper(
 	dt resolution.Type,
 	data *templateData,
 ) *arrayWrapperData {
-	if !isVariableLengthArray(dt, data.table) {
+	if !serializesArray(dt, data.table) {
 		return nil
 	}
 	base, _ := arrays.Wrapped(dt.Form.(resolution.DistinctForm), data.table)
+	var arraySize int64
+	if base.ArraySize != nil {
+		arraySize = *base.ArraySize
+		data.AddSystem("algorithm")
+		data.AddSystem("string")
+	}
 
 	name := domain.GetName(dt, "cpp")
 	elemType := base.TypeArgs[0]
@@ -257,6 +264,8 @@ func (p *Plugin) processArrayWrapper(
 		Name:                name,
 		ElementType:         elemCppType,
 		ElementNeedsConvert: elemNeedsConversion,
+		IsFixedSizeArray:    base.ArraySize != nil,
+		ArraySize:           arraySize,
 	}
 }
 
@@ -1260,6 +1269,8 @@ type arrayWrapperData struct {
 	ElementType string
 	// ElementNeedsConvert is true if element is a struct that needs to_json()/parse().
 	ElementNeedsConvert bool
+	IsFixedSizeArray    bool
+	ArraySize           int64
 }
 
 type serializerData struct {
