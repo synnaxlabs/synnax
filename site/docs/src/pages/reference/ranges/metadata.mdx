@@ -189,7 +189,15 @@ run the "Edit labels" command from the
 
   <Fragment slot="python">
 
-The Python client cannot read or set labels.
+The Python client can read the labels of a range, but cannot set them:
+
+```python
+my_range = client.ranges.retrieve(name="My Range", include_labels=True)
+
+# labels is None when the range has no labels
+for label in my_range.labels or []:
+    print(label.name)
+```
 
   </Fragment>
 
