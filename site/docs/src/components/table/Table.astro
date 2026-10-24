@@ -101,6 +101,55 @@ const labeled = html
         padding-bottom: 0.5rem;
     }
 
+    /* The first column names each row, so it stays in view while the table scrolls. */
+    .table-wrapper :global(:is(td, th):first-child) {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        padding-right: 2rem;
+        background: var(--pluto-gray-l0);
+    }
+
+    /* While a table scrolls, the far edge fades until the last column shows, and a
+       divider marks the columns under the first. Longhands, because the minifier
+       folds a timeline into an invalid shorthand. */
+    @supports (animation-timeline: scroll()) {
+        .table-wrapper {
+            scroll-timeline: --table-scroll x;
+            animation-name: table-edge;
+            animation-timing-function: linear;
+            animation-fill-mode: both;
+            animation-timeline: --table-scroll;
+        }
+
+        .table-wrapper :global(:is(td, th):first-child) {
+            animation-name: table-column;
+            animation-timing-function: linear;
+            animation-fill-mode: both;
+            animation-timeline: --table-scroll;
+        }
+    }
+
+    @keyframes table-edge {
+        0%,
+        95% {
+            mask-image: linear-gradient(to left, transparent, #000 6rem);
+        }
+        100% {
+            mask-image: none;
+        }
+    }
+
+    @keyframes table-column {
+        0% {
+            box-shadow: inset -1px 0 0 transparent;
+        }
+        2%,
+        100% {
+            box-shadow: inset -1px 0 0 var(--pluto-gray-l4);
+        }
+    }
+
     /* A short name in the first column and a number with its unit stay on one line. */
     .table-wrapper :global(td[data-whole]) {
         white-space: nowrap;
@@ -109,6 +158,11 @@ const labeled = html
     /* On a phone, each entry has its title on top, then one line per field with the
        label in its own column. A cell's label and value are grid items of the entry. */
     @media (max-width: 800px) {
+        /* Code in a cell wraps between words before the table scrolls. */
+        .table-wrapper :global(td code) {
+            white-space: normal;
+        }
+
         .table-wrapper[data-shape="stack"] {
             & :global(thead) {
                 display: none;
@@ -159,6 +213,10 @@ const labeled = html
 
             & :global(td.num) {
                 text-align: start;
+            }
+            /* A value has a narrow column, so even one long token breaks in it. */
+            & :global(td code) {
+                overflow-wrap: anywhere;
             }
         }
     }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { start } from "@/components/nav/onThisPage";
 import { CHANGE_EVENT } from "@/components/tabs/sync";
@@ -123,6 +123,63 @@ describe("on this page", () => {
       heading.getBoundingClientRect = () => ({ top: 110, height: 30 }) as DOMRect;
     document.dispatchEvent(new Event("astro:after-swap"));
     expect(active()).toEqual(["v1"]);
+  });
+
+  describe("outline bar", () => {
+    // Mirrors the markup of OutlineBar.astro.
+    const BAR = `
+      <article>
+        <h2 id="create">Create</h2>
+        <h2 id="delete">Delete <code>key</code></h2>
+      </article>
+      <div data-outline-bar>
+        <button popovertarget="panel">
+          On this page <span data-outline-current>Create</span>
+        </button>
+        <div id="panel" popover="auto">
+          <div data-outline="article h2">
+            <a href="#create" data-item-key="create">
+              <span data-item-label>Create</span>
+            </a>
+            <a href="#delete" data-item-key="delete">
+              <span class="on-this-page-step">Step 2</span>
+              <span data-item-label>Delete <code>key</code></span>
+            </a>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const current = (): Element | null =>
+      document.querySelector("[data-outline-current]");
+
+    const showBar = (tops: Record<string, number>): void => {
+      document.body.innerHTML = BAR;
+      scrollTo(tops);
+      document.dispatchEvent(new Event("astro:after-swap"));
+    };
+
+    it("should name the entry being read without its step label", () => {
+      showBar({ create: -400, delete: 100 });
+      expect(current()?.innerHTML).toBe("Delete <code>key</code>");
+    });
+
+    it("should follow the scroll", () => {
+      showBar({ create: 100, delete: 600 });
+      scrollTo({ create: -500, delete: 110 });
+      window.dispatchEvent(new Event("scroll"));
+      expect(current()?.textContent).toBe("Delete key");
+    });
+
+    it("should close the panel when an entry is picked", () => {
+      showBar({ create: 100 });
+      const hide = vi.fn();
+      const panel = document.querySelector<HTMLElement>("[popover]");
+      if (panel != null) panel.hidePopover = hide;
+      (document.querySelector('[data-item-key="delete"]') as HTMLElement).click();
+      expect(current()?.textContent).toBe("Delete key");
+      expect(hide).toHaveBeenCalled();
+    });
   });
 
   it("should stop listening to a page after it swaps out", () => {

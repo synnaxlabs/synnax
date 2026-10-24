@@ -236,6 +236,24 @@ main {
     }
 }
 
+/* The outline bar under the header stands in for the outline sidebar. Beside the page
+   nav, it shows once the header menu replaces the nav. */
+.outline-bar {
+    display: none;
+}
+
+@media (max-width: 1023px) {
+    body:has(.page-nav) .outline-bar {
+        display: block;
+    }
+}
+
+@media (max-width: 900px) {
+    .outline-bar {
+        display: block;
+    }
+}
+
 /* Article content */
 article {
     h1,

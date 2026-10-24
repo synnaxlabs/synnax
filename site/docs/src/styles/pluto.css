@@ -64,6 +64,16 @@ article .pluto-tabs__selector {
     --pluto-height-medium: 7rem;
     --pluto-tabs-tab-height: 5rem;
 
+    @media (pointer: coarse) {
+        --pluto-height-medium: 8rem;
+        --pluto-tabs-tab-height: 6.5rem;
+
+        /* A chip takes the small button height, not the tab height. */
+        &.pluto-tabs__selector--chip {
+            --pluto-height-small: 6rem;
+        }
+    }
+
     .pluto-tabs__tab {
         padding: 0 2rem;
         gap: 1.5rem;

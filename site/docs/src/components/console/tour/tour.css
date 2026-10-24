@@ -312,6 +312,10 @@
     background: none;
     cursor: pointer;
 
+    @media (pointer: coarse) {
+        height: 6rem;
+    }
+
     &::before {
         content: "";
         display: block;

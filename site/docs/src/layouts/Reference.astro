@@ -10,11 +10,13 @@
 
 import Article from "@/components/article/Article.astro";
 import OnThisPage from "@/components/nav/OnThisPage.astro";
+import OutlineBar from "@/components/nav/OutlineBar.astro";
 import PageNav from "@/components/nav/Page.astro";
 import { type PageNavNode } from "@/components/nav/Page";
 import { editionOf, groupOf, neighbors } from "@/components/nav/tree";
 import Main from "@/layouts/Root.astro";
 import { labelOf, REFERENCE_PAGES } from "@/pages/_nav";
+import { outlined } from "@/util/outline";
 import { normalizeRoute } from "@/util/route";
 const { headings, frontmatter } = Astro.props;
 const {
@@ -57,6 +59,16 @@ const edition = editionOf(REFERENCE_PAGES, Astro.url.pathname);
         type="text/markdown"
         href={`${normalizeRoute(Astro.url.pathname)}.md`}
     />
+    <Fragment slot="subheader">
+        {showOnThisPage && (
+            <OutlineBar
+                headings={outlined(headings)}
+                outline={frontmatter.outline}
+                clients={clients}
+                platforms={platforms}
+            />
+        )}
+    </Fragment>
     <PageNav />
     <section>
         <Article

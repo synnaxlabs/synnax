@@ -10,7 +10,9 @@
 
 import Article from "@/components/article/Article.astro";
 import OnThisPage from "@/components/nav/OnThisPage.astro";
+import OutlineBar from "@/components/nav/OutlineBar.astro";
 import Root from "@/layouts/Root.astro";
+import { outlined } from "@/util/outline";
 import { normalizeRoute } from "@/util/route";
 
 const { headings, frontmatter } = Astro.props;
@@ -47,6 +49,11 @@ const posting = {
         slot="head"
         type="application/ld+json"
         set:html={JSON.stringify(posting).replaceAll("<", "\\u003c")}
+    />
+    <OutlineBar
+        slot="subheader"
+        headings={outlined(headings)}
+        outline={frontmatter.outline}
     />
     <section>
         <Article
