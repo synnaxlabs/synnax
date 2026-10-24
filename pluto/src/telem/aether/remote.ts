@@ -576,6 +576,9 @@ const DEFAULT_WIDTH = 1000;
 // How long a view must hold a new level before its tiles are requested.
 const DEFAULT_LEVEL_SETTLE = TimeSpan.milliseconds(150);
 
+// Spans within the live buffer draw immediately and skip the loading state.
+const LOADING_MIN_SPAN = TimeSpan.minutes(1).valueOf();
+
 const viewRange = ({ lower, upper }: bounds.Bounds): TimeRange =>
   new TimeRange(BigInt(Math.max(Math.floor(lower), 0)), BigInt(Math.ceil(upper)));
 
@@ -605,6 +608,7 @@ export class TiledChannelData
   // window holds a live line's full-resolution series from rawFrom() on.
   private readonly window: LiveWindow;
   private rawLoaded = false;
+  private readonly skipLoading: boolean;
   private readonly failures: FailureReporter;
   private readonly retryNotifier = new sync.Notifier();
   // breaker paces retries of the channel and live reads, and tileBreaker paces retries
@@ -647,6 +651,8 @@ export class TiledChannelData
       dataType: () => this.dataType(),
       restart: () => this.restart(),
     });
+    const { timeSpan } = this.props;
+    this.skipLoading = timeSpan != null && timeSpan.valueOf() <= LOADING_MIN_SPAN;
     this.loading_ = true;
   }
 
@@ -655,13 +661,14 @@ export class TiledChannelData
   }
 
   loading(): boolean {
-    if (primitive.isZero(this.props.channel) || !this.loading_) return false;
+    if (this.skipLoading || primitive.isZero(this.props.channel) || !this.loading_)
+      return false;
     this.value();
     return this.loading_;
   }
 
   fetching(): boolean {
-    return !this.loading_ && this.pending.size > 0;
+    return (this.skipLoading || !this.loading_) && this.pending.size > 0;
   }
 
   value(props?: ValueProps): [bounds.Bounds, MultiSeries] {
