@@ -46,7 +46,7 @@ import (
 
 func TestAPIArc(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Arc Suite")
+	RunSpecs(t, "API Arc Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

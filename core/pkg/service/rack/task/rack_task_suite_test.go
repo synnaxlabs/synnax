@@ -28,7 +28,7 @@ var _ = BeforeSuite(func() {
 
 func TestRackTask(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Rack Task Suite")
+	RunSpecs(t, "Service Rack Task Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

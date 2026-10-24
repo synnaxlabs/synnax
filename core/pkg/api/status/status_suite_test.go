@@ -36,7 +36,7 @@ import (
 
 func TestAPIStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Status Suite")
+	RunSpecs(t, "API Status Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

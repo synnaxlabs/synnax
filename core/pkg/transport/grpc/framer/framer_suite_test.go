@@ -35,7 +35,7 @@ var (
 
 func TestFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Transport gRPC Framer Suite")
+	RunSpecs(t, "Transport gRPC Framer Suite", SuiteConfig())
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {

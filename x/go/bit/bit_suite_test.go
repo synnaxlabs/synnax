@@ -19,7 +19,7 @@ import (
 
 func TestBit(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Bit Suite")
+	RunSpecs(t, "Bit Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -30,7 +30,7 @@ import (
 
 func TestOntology(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Ontology Suite")
+	RunSpecs(t, "Service Ontology Suite", SuiteConfig())
 }
 
 type sampleService struct {

@@ -22,7 +22,7 @@ import (
 
 func TestGoPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go PB Suite")
+	RunSpecs(t, "Plugin Go PB Suite", SuiteConfig())
 }
 
 var _ = Describe("Go PB Plugin", func() {

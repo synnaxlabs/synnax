@@ -34,7 +34,7 @@ import (
 
 func TestAPIImEx(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API ImEx Suite")
+	RunSpecs(t, "API ImEx Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

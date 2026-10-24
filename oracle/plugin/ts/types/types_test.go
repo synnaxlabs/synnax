@@ -25,7 +25,7 @@ import (
 
 func TestTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin TS Types Suite")
+	RunSpecs(t, "Plugin TS Types Suite", SuiteConfig())
 }
 
 var _ = Describe("TS Types Plugin", func() {

@@ -40,7 +40,7 @@ import (
 
 func TestAPISchematic(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Schematic Suite")
+	RunSpecs(t, "API Schematic Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

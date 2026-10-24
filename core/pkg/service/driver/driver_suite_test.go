@@ -51,7 +51,7 @@ var (
 
 func TestDriver(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Driver Suite")
+	RunSpecs(t, "Service Driver Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

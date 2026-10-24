@@ -28,7 +28,7 @@ var _ = BeforeSuite(func() {
 
 func TestLabjack(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service LabJack Suite")
+	RunSpecs(t, "Service LabJack Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

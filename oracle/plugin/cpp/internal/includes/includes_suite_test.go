@@ -19,7 +19,7 @@ import (
 
 func TestIncludes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin CPP Includes Suite")
+	RunSpecs(t, "Plugin CPP Includes Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

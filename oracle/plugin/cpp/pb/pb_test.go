@@ -21,7 +21,7 @@ import (
 
 func TestCppPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Cpp PB Suite")
+	RunSpecs(t, "Plugin Cpp PB Suite", SuiteConfig())
 }
 
 var _ = Describe("C++ PB Plugin", func() {

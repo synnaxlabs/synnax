@@ -22,7 +22,7 @@ import (
 
 func TestImEx(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Import/Export Suite")
+	RunSpecs(t, "Service Import/Export Suite", SuiteConfig())
 }
 
 var (

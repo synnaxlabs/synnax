@@ -32,7 +32,7 @@ import (
 
 func TestPanel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Panel Suite")
+	RunSpecs(t, "Service Panel Suite", SuiteConfig())
 }
 
 var (

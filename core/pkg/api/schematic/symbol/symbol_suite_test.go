@@ -39,7 +39,7 @@ import (
 
 func TestAPISchematicSymbol(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Schematic Symbol Suite")
+	RunSpecs(t, "API Schematic Symbol Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

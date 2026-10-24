@@ -21,7 +21,7 @@ import (
 
 func TestGorp(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Freighter Gorp Suite")
+	RunSpecs(t, "Freighter Gorp Suite", SuiteConfig())
 }
 
 var db *gorp.DB
