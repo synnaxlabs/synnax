@@ -86,7 +86,7 @@ export const useMoveTab = (): MoveTab => {
         if (landed == null) return;
         dispatch(Session.Panel.select({ key: destination }));
         selectTab(landed, destination);
-      }, "Failed to move the component"),
+      }, "Failed to move component"),
     [move, dispatch, selectTab, handleError],
   );
 };
@@ -108,7 +108,7 @@ export const useMoveTabToNewPanel = (): MoveTabToNewPanel => {
       handleError(async () => {
         const key = await mint(origin);
         if (key != null) dispatch(Session.Panel.select({ key }));
-      }, "Failed to move the component into a new panel"),
+      }, "Failed to move component into a new panel"),
     [mint, dispatch, handleError],
   );
 };

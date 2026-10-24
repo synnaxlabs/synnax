@@ -11,6 +11,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "client/cpp/ranger/json.gen.h"
@@ -43,12 +44,12 @@ public:
         std::unique_ptr<RetrieveClient> retrieve_client,
         std::unique_ptr<CreateClient> create_client,
         std::unique_ptr<SetEndClient> set_end_client,
-        const ranger::kv::Client &kv_client
+        ranger::kv::Client kv_client
     ):
         retrieve_client(std::move(retrieve_client)),
         create_client(std::move(create_client)),
         set_end_client(std::move(set_end_client)),
-        kv(kv_client) {}
+        kv(std::move(kv_client)) {}
 
     /// @brief retrieves the range with the given key.
     [[nodiscard]] std::pair<Range, x::errors::Error>

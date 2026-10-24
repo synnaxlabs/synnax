@@ -114,8 +114,8 @@ private:
             const telem::TimeSpan delta = elapsed_ns - sleep_mean_;
             sleep_mean_ += delta / sleep_count_;
             sleep_M2_ += delta * (elapsed_ns - sleep_mean_);
-            sleep_estimate_ = sleep_mean_ +
-                              std::sqrt((sleep_M2_ / sleep_count_).nanoseconds());
+            const auto stddev = std::sqrt((sleep_M2_ / sleep_count_).nanoseconds());
+            sleep_estimate_ = sleep_mean_ + static_cast<int64_t>(stddev);
             sleep_count_++;
         }
         while (end > hs_clock::now())
@@ -140,7 +140,7 @@ private:
     /// system tick.
     void step();
 
-    telem::TimeSpan interval{};
+    telem::TimeSpan interval;
     bool last_set = false;
     hs_clock::time_point last;
     /// @brief the OS state of a sleep step.

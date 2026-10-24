@@ -12,8 +12,8 @@ package v1
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Migration lifts stored panels from v0 to v1, dropping the args of every view tab.

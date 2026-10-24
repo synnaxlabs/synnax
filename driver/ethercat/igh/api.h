@@ -56,7 +56,7 @@ class API {
     /// @brief shared library handle.
     std::unique_ptr<x::lib::Shared> lib;
     /// @brief function pointers loaded from the library.
-    FunctionPointers func_ptrs;
+    FunctionPointers func_ptrs{};
 
 protected:
     /// @brief tag type for constructing without loading shared library (testing only).

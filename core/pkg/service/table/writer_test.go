@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -26,8 +27,8 @@ var _ = Describe("Writer", func() {
 		GinkgoHelper()
 		s := table.Table{
 			Name:    "test",
-			Rows:    []table.Row{{Size: 30, Cells: []string{"a", "b"}}},
-			Columns: []table.Column{{Size: 80}, {Size: 100}},
+			Rows:    []table.Row{{Key: "r0", Size: 30, Cells: []string{"a", "b"}}},
+			Columns: []table.Column{{Key: "c0", Size: 80}, {Key: "c1", Size: 100}},
 			Cells: map[string]table.CellConfig{
 				"a": textCfg("A"),
 				"b": textCfg("B"),
@@ -50,8 +51,8 @@ var _ = Describe("Writer", func() {
 		It("Should create a Table", func(ctx SpecContext) {
 			t := table.Table{
 				Name:    "test",
-				Rows:    []table.Row{{Size: 30, Cells: []string{"a"}}},
-				Columns: []table.Column{{Size: 80}},
+				Rows:    []table.Row{{Key: "r0", Size: 30, Cells: []string{"a"}}},
+				Columns: []table.Column{{Key: "c0", Size: 80}},
 				Cells: map[string]table.CellConfig{
 					"a": textCfg("hello"),
 				},
@@ -74,6 +75,29 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil(), &t)).To(Succeed())
 			Expect(t.Key).ToNot(Equal(uuid.Nil()))
 		})
+
+		DescribeTable(
+			"Should reject a table whose rows or columns share a key",
+			func(ctx SpecContext, rows []table.Row, cols []table.Column, msg string) {
+				t := table.Table{Name: "test", Rows: rows, Columns: cols}
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &t)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(msg),
+				))
+			},
+			Entry(
+				"rows",
+				[]table.Row{{Key: "r0", Size: 30}, {Key: "r0", Size: 30}},
+				[]table.Column(nil),
+				`duplicate row key "r0": validation error`,
+			),
+			Entry(
+				"columns",
+				[]table.Row(nil),
+				[]table.Column{{Key: "c0", Size: 80}, {Key: "c0", Size: 80}},
+				`duplicate column key "c0": validation error`,
+			),
+		)
 	})
 
 	Describe("CreateMany", func() {
@@ -111,6 +135,7 @@ var _ = Describe("Writer", func() {
 					table.NewRenameAction(table.RenamePayload{Name: "multi"}),
 					table.NewAddRowAction(table.AddRowPayload{
 						Index: 1,
+						Key:   "r1",
 						Size:  40,
 						Cells: []table.Cell{
 							cell("c", textCfg("")),

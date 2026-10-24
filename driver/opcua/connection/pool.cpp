@@ -30,8 +30,8 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         if (it != connections_.end()) {
             for (auto &entry: it->second) {
                 if (!entry.in_use) {
-                    UA_SessionState session_state;
-                    UA_SecureChannelState channel_state;
+                    UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+                    UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
                     UA_Client_getState(
                         entry.client.get(),
                         &channel_state,
@@ -42,10 +42,9 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
                         entry.in_use = true;
                         candidate = entry.client;
                         break;
-                    } else {
-                        VLOG(1) << log_prefix << "Removing stale connection from pool";
-                        entry.client.reset();
                     }
+                    VLOG(1) << log_prefix << "Removing stale connection from pool";
+                    entry.client.reset();
                 }
             }
 
@@ -63,7 +62,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     // Health probe runs outside the lock so other threads can acquire
     // different connections concurrently.
     if (candidate) {
-        if (const auto err = run_iterate_checked(candidate, log_prefix)) {
+        if (const auto err = this->run_iterate_checked(candidate, log_prefix)) {
             VLOG(1) << log_prefix << "Cached connection failed maintenance, discarding";
             std::lock_guard<std::mutex> lock(mutex_);
             auto it = connections_.find(key);
@@ -152,8 +151,8 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
             if (it != connections_.end()) {
                 for (auto &entry: it->second) {
                     if (!entry.in_use) {
-                        UA_SessionState ss;
-                        UA_SecureChannelState cs;
+                        UA_SessionState ss = UA_SESSIONSTATE_CLOSED;
+                        UA_SecureChannelState cs = UA_SECURECHANNELSTATE_CLOSED;
                         UA_Client_getState(entry.client.get(), &cs, &ss, nullptr);
                         if (ss == UA_SESSIONSTATE_ACTIVATED) {
                             entry.in_use = true;
@@ -205,7 +204,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     }
 
     // Perform initial connection maintenance with error checking.
-    if (const auto iterate_err = run_iterate_checked(client, log_prefix)) {
+    if (const auto iterate_err = this->run_iterate_checked(client, log_prefix)) {
         LOG(WARNING) << log_prefix << "New connection failed initial maintenance";
         std::lock_guard<std::mutex> lock(mutex_);
         auto &breaker = breakers[key];
@@ -235,7 +234,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     return {Connection(client, this, key), x::errors::NIL};
 }
 
-void Pool::release(const std::string &key, std::shared_ptr<UA_Client> client) {
+void Pool::release(const std::string &key, const std::shared_ptr<UA_Client> &client) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto it = connections_.find(key);
@@ -243,8 +242,8 @@ void Pool::release(const std::string &key, std::shared_ptr<UA_Client> client) {
 
     for (auto &entry: it->second) {
         if (entry.client == client) {
-            UA_SessionState session_state;
-            UA_SecureChannelState channel_state;
+            UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+            UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
             UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
             if (session_state == UA_SESSIONSTATE_ACTIVATED) {
                 entry.in_use = false;
@@ -280,8 +279,8 @@ void Pool::cleanup_stale_entries(
         if (it == connections_.end()) return;
         for (auto &entry: it->second) {
             if (entry.in_use || !entry.client) continue;
-            UA_SessionState ss;
-            UA_SecureChannelState cs;
+            UA_SessionState ss = UA_SESSIONSTATE_CLOSED;
+            UA_SecureChannelState cs = UA_SECURECHANNELSTATE_CLOSED;
             UA_Client_getState(entry.client.get(), &cs, &ss, nullptr);
             if (ss != UA_SESSIONSTATE_ACTIVATED) {
                 stale.push_back(entry.client);
@@ -318,7 +317,7 @@ size_t Pool::available_count(const std::string &endpoint) const {
     std::lock_guard<std::mutex> lock(mutex_);
     size_t count = 0;
     for (const auto &[key, entries]: connections_)
-        if (key.find(endpoint) == 0)
+        if (key.starts_with(endpoint))
             for (const auto &entry: entries)
                 if (!entry.in_use && entry.client) count++;
     return count;
@@ -335,8 +334,8 @@ x::errors::Error Pool::run_iterate_checked(
         return driver::opcua::errors::parse(status);
     }
 
-    UA_SessionState session_state;
-    UA_SecureChannelState channel_state;
+    UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+    UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
     UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
 
     if (session_state != UA_SESSIONSTATE_ACTIVATED) {

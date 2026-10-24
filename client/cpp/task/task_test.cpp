@@ -15,7 +15,10 @@
 #include "x/cpp/test/test.h"
 #include "x/cpp/uuid/uuid.h"
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
+// printed so that a failing run can be replayed.
 std::mt19937 gen_rand_task = random_generator("Task Tests");
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 namespace synnax::task {
 /// @brief it should correctly create a module on the rack.

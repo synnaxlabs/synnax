@@ -43,3 +43,13 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 	}
 	return LinePlot{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }
+
+// liftFirst lifts the first exported LinePlot shape to the current shape. A decoder
+// of an older shape builds the first exported shape and enters the ladder here.
+func liftFirst(ctx context.Context, t5 v5.LinePlot) (LinePlot, error) {
+	t6, err := v6.MigrateLinePlot(ctx, t5)
+	if err != nil {
+		return LinePlot{}, err
+	}
+	return t6, nil
+}

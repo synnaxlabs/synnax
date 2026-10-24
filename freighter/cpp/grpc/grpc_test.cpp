@@ -24,7 +24,7 @@ using RS = test::Message;
 using UNARY_RPC = test::UnaryMessageService;
 using STREAM_RPC = test::StreamMessageService;
 
-auto base_target = "localhost:8080";
+const std::string base_target = "localhost:8080";
 
 /// @brief it should set and get payload in a message proto.
 TEST(testGRPC, basicProto) {
@@ -241,6 +241,7 @@ TEST(testGRPC, stressTestUnaryWithManyThreads) {
     global_unary_client->use(mw);
     std::vector<std::thread> threads;
 
+    threads.reserve(N_THREADS);
     for (int i = 0; i < N_THREADS; i++)
         threads.emplace_back(client_send, i, global_unary_client);
     for (size_t i = 0; i < N_THREADS; i++) {
@@ -277,6 +278,7 @@ TEST(testGRPC, stressTestStreamWithManyThreads) {
     global_stream_client->use(mw);
     std::vector<std::thread> threads;
 
+    threads.reserve(N_THREADS);
     for (int i = 0; i < N_THREADS; i++)
         threads.emplace_back(stream_send, i, global_stream_client);
     for (size_t i = 0; i < N_THREADS; i++)

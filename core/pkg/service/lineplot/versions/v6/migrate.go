@@ -12,8 +12,8 @@ package v6
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 func MigrateLinePlot(ctx context.Context, old v5.LinePlot) (LinePlot, error) {
