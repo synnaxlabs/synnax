@@ -72,7 +72,7 @@ export const Activate = ({ onBack }: ActivateProps): ReactElement => {
       if (file == null) return;
       const bytes = await Runtime.toBytes(await file.read());
       setKey(decoder.decode(bytes).trim());
-    }, "Failed to read the license file");
+    }, "Failed to read license file");
 
   const activate = async (): Promise<void> => {
     if (client == null || key.trim() === "") return;
@@ -81,7 +81,7 @@ export const Activate = ({ onBack }: ActivateProps): ReactElement => {
     await client.license
       .activate(key.trim())
       .catch((e: unknown) =>
-        setError(status.fromException(e, "Failed to activate the license")),
+        setError(status.fromException(e, "Failed to activate license")),
       );
     setActivating(false);
   };

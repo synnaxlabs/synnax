@@ -193,7 +193,14 @@ export const Provider = ({
       return;
     }
     versionWarned.current = false;
-    const client = new Synnax({ ...connParams, onInternalError: handleError });
+    const heading = {
+      message: "Failed to sync with Core",
+      name: connParams.name ?? "",
+    };
+    const client = new Synnax({
+      ...connParams,
+      onInternalError: (e) => handleError(e, heading),
+    });
     setState({ client, status: client.connection.status });
     setResetKey((key) => key + 1);
     const detach = client.connection.onChange(handleChange);

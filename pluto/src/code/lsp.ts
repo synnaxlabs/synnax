@@ -272,7 +272,12 @@ export const useLanguageServer = ({
         }
         if (!(await b.wait())) {
           onStatusRef.current(
-            status.fromException(new Error("Failed to reach the language server")),
+            status.create({
+              variant: "error",
+              message: "Failed to reach the language server",
+              description:
+                "The language server did not answer after repeated attempts.",
+            }),
           );
           return;
         }

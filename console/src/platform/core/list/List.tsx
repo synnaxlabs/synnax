@@ -42,7 +42,6 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const keys = useMemo(() => allCores.map((c) => c.key), [allCores]);
   const [testing, setTesting] = useState<string | null>(null);
   const addStatus = Status.useAdder();
-  const handleError = Status.useErrorHandler();
 
   const handleRemove = (key: string): void => {
     if (key === value) {
@@ -61,33 +60,31 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const handleCopyAddress = (key: string): void => {
     const core = allCores.find((c) => c.key === key);
     if (core == null) return;
-    copy(`${core.host}:${core.port}`, "Core address");
+    copy(`${core.host}:${core.port}`, "Core address", core.name);
   };
 
   const openConnect = useConnectModal();
 
-  const handleRetest = (key: string): void => {
+  const handleRetest = async (key: string): Promise<void> => {
     const core = allCores.find((c) => c.key === key);
     if (core == null) return;
-    handleError(async () => {
-      setTesting(key);
-      const status = await connection
-        .check({
-          host: core.host,
-          port: core.port,
-          secure: core.secure,
-          name: core.name,
-        })
-        .finally(() => setTesting(null));
-      if (status.variant === "success")
-        addStatus({ variant: "success", message: `Connected to ${core.name}` });
-      else
-        addStatus({
-          variant: "error",
-          message: `Failed to connect to ${core.name}`,
-          description: status.message,
-        });
-    }, `Failed to connect to ${core.name}`);
+    setTesting(key);
+    const status = await connection.check({
+      host: core.host,
+      port: core.port,
+      secure: core.secure,
+      name: core.name,
+    });
+    setTesting(null);
+    if (status.variant === "success")
+      addStatus({ variant: "success", name: core.name, message: "Connected to Core" });
+    else
+      addStatus({
+        variant: "error",
+        name: core.name,
+        message: status.message,
+        description: status.description,
+      });
   };
 
   const handleEdit = (key: string): void => {
@@ -111,7 +108,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             Edit
           </Menu.Item>
           <Menu.Divider />
-          <Menu.Item itemKey="retest" onClick={() => handleRetest(key)}>
+          <Menu.Item itemKey="retest" onClick={() => void handleRetest(key)}>
             <Icon.Refresh />
             Refresh connection
           </Menu.Item>

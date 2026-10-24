@@ -68,17 +68,19 @@ export const createResource = (
  * Builds a {@link Status.ErrorHandler} that actually runs the wrapped operation, so
  * handlers like Tree.HandleSelect (which route their async work through
  * handleError) execute in tests. Failures are reported to onError with the handler's
- * context message.
+ * heading.
  */
 export const createExecutingHandleError =
-  (onError: (message: string, exc: unknown) => void = () => {}): Status.ErrorHandler =>
-  (excOrFunc, message = "error") => {
-    if (typeof excOrFunc !== "function") return onError(message, excOrFunc);
+  (
+    onError: (heading: Status.Heading, exc: unknown) => void = () => {},
+  ): Status.ErrorHandler =>
+  (excOrFunc, heading = "error") => {
+    if (typeof excOrFunc !== "function") return onError(heading, excOrFunc);
     void (async () => {
       try {
         await excOrFunc();
       } catch (exc) {
-        onError(message, exc);
+        onError(heading, exc);
       }
     })();
   };

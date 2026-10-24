@@ -37,17 +37,20 @@ const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const svc = services[id.type];
   if (svc == null) return null;
   const handleSelect = () => {
-    handleError(
-      svc.onClick(entry, { client, openTab }),
-      `Failed to open ${entry.name}`,
-    );
+    handleError(() => svc.onClick(entry, { client, openTab }), {
+      message: "Failed to open snapshot",
+      name,
+    });
   };
   const handleDelete = () => {
-    handleError(async () => {
-      const confirmed = await promptConfirm({ name });
-      if (!confirmed) return;
-      await svc.onDelete(entry, { client, openTab });
-    }, `Failed to delete ${name}`);
+    handleError(
+      async () => {
+        const confirmed = await promptConfirm({ name });
+        if (!confirmed) return;
+        await svc.onDelete(entry, { client, openTab });
+      },
+      { message: "Failed to delete snapshot", name },
+    );
   };
   return (
     <List.Item

@@ -28,7 +28,7 @@ const Item = ({ id, state }: ItemProps): ReactElement | null => {
     <Menu.CopyItem
       itemKey="copyData"
       text={() => JSON.stringify(data)}
-      successMessage={`Copied properties for ${name} to clipboard`}
+      successMessage={{ message: "Copied properties to clipboard", name }}
     >
       <Icon.JSON />
       Copy properties

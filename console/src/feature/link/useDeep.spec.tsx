@@ -574,7 +574,14 @@ describe("useDeep", () => {
     });
     vi.useRealTimers();
     await waitFor(() =>
-      expect(h.statuses().some((s) => s.message.includes("Failed to open"))).toBe(true),
+      expect(h.statuses()).toContainEqual(
+        expect.objectContaining({
+          variant: "error",
+          name: "synnax://cluster/c1/range/r1",
+          message: "Failed to open link",
+          description: "Timed out waiting for the workspace to settle.",
+        }),
+      ),
     );
     expect(h.handlers.range).not.toHaveBeenCalled();
   });

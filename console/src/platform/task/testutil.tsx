@@ -177,7 +177,7 @@ const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
   configHash: "",
   status: createTaskStatus({
     variant: "disabled",
-    message: "Test Task has not been deployed",
+    message: "Task not deployed",
   }),
   config: { channels: [] },
 };

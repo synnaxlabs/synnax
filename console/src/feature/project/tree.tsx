@@ -174,10 +174,13 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   return useCallback(
     (resource) => {
       if (client == null) return;
-      handleError(async () => {
-        const proj = await client.projects.retrieve(resource.id.key);
-        store.dispatch(Session.Project.select(proj.key));
-      }, `Failed to select ${resource.name}`);
+      handleError(
+        async () => {
+          const proj = await client.projects.retrieve(resource.id.key);
+          store.dispatch(Session.Project.select(proj.key));
+        },
+        { message: "Failed to select project", name: resource.name },
+      );
     },
     [client, store, handleError],
   );

@@ -9,7 +9,6 @@
 
 import { type Action } from "@reduxjs/toolkit";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { useEffect, useState } from "react";
 import { useStore } from "react-redux";
@@ -38,7 +37,6 @@ export const use = <S, A extends Action>(
   "use no memo"; // Calls a hook per synchronizer; each window passes one fixed list.
   const store = useStore<S, A>();
   const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
   const [verified, setVerified] = useState(false);
   const entries: Mounted<S, A>[] = synchronizers.map(({ name, use }) => ({
     name,
@@ -58,26 +56,24 @@ export const use = <S, A extends Action>(
     const destructors = entriesRef.current.flatMap(
       ({ listen }) => listen?.(params) ?? [],
     );
-    const reconcile = (): void => {
+    const reconcile = async (): Promise<void> => {
       const gen = generation;
-      handleError(async () => {
-        for (const synchronizer of entriesRef.current) {
-          if (synchronizer.reconcile == null) continue;
-          try {
-            await synchronizer.reconcile(params);
-          } catch (err) {
-            console.error(`${synchronizer.name} reconcile failed`, err);
-          }
+      for (const synchronizer of entriesRef.current) {
+        if (synchronizer.reconcile == null) continue;
+        try {
+          await synchronizer.reconcile(params);
+        } catch (err) {
+          console.error(`${synchronizer.name} reconcile failed`, err);
         }
-        if (gen === generation) setVerified(true);
-      });
+      }
+      if (gen === generation) setVerified(true);
     };
     // The connection machine demands the change stream itself; the host only
     // reacts to the continuity epochs it publishes. Epoch 0 means cold: the
     // mirror was reset, so nothing verified against it still holds.
     const { connection } = client;
     let epoch = connection.status.details.epoch;
-    if (epoch > 0) reconcile();
+    if (epoch > 0) void reconcile();
     destructors.push(
       connection.onChange(({ details }) => {
         if (details.epoch === epoch) return;
@@ -87,7 +83,7 @@ export const use = <S, A extends Action>(
           setVerified(false);
           return;
         }
-        reconcile();
+        void reconcile();
       }),
     );
     return () => {

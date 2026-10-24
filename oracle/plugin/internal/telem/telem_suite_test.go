@@ -7,34 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package gorp_test
+package telem_test
 
 import (
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var (
-	kvDB kv.DB
-	db   *gorp.DB
-)
-
-var _ = BeforeSuite(func() {
-	ShouldNotLeakGoroutines()
-	kvDB = memkv.New()
-	db = DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
-})
-
-func TestGorp(t *testing.T) {
+func TestTelem(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Gorp Suite")
+	RunSpecs(t, "Plugin Telem Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

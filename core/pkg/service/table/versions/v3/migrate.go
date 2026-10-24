@@ -13,8 +13,8 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/synnaxlabs/gorp"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // MigrateTable lifts a v2 table to v3 and keys each row and column by its position, so

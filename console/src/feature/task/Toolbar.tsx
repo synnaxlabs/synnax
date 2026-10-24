@@ -68,7 +68,6 @@ const filter = (task: task.Task) =>
 
 const Content = () => {
   const [selected, setSelected] = useState<task.Key[]>([]);
-  const addStatus = Status.useAdder();
   const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
@@ -92,7 +91,6 @@ const Content = () => {
       },
       [getItem, confirmDelete],
     ),
-    afterFailure: ({ status }) => addStatus(status),
   });
 
   const { capture } = Analytics.use();
