@@ -817,6 +817,22 @@ describe("line", () => {
         fine.line.render(showing(0, N - 1));
         expect(fine.strips()).toEqual([[0, 2 * (N / 16)]]);
       });
+
+      it("should average by the data types its sources' channels store", () => {
+        const bits = series(
+          Array.from({ length: N }, (_, i) => i % 2),
+          0n,
+          RANGE,
+        );
+        const m = mount([ramp(N)], [bits]);
+        m.xSource.dataType = () => DataType.TIMESTAMP;
+        m.ySource.dataType = () => DataType.INT16;
+        m.ySource.aggregation = () => "average";
+        m.line.render(showing(0, N - 1));
+        const [xs, ys] = uploads(m).slice(-2);
+        expect(xs.slice(0, 2)).toEqual([15, 47]);
+        expect(new Set(ys)).toEqual(new Set([0]));
+      });
     });
 
     describe("findByXValue", () => {

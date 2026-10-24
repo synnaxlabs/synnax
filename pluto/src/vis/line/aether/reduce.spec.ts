@@ -183,6 +183,16 @@ describe("Reducer", () => {
       ]);
     });
 
+    it("should average float32 series by the integer types their channels store", () => {
+      const y = new Series(new Float32Array([0, 1, 0, 1]));
+      const [r] = new Reducer().reduce([op(ramp(4), y)], "average", 4, {
+        x: DataType.TIMESTAMP,
+        y: DataType.INT16,
+      });
+      expect(Array.from(r.x)).toEqual([1]);
+      expect(Array.from(r.y)).toEqual([0]);
+    });
+
     it("should scale the mean of a partial group to its count", () => {
       const y = new Series(new Float64Array([0.1, 0.2, 2.3]));
       const r = reduceOne(op(ramp(3), y), "average", 4);

@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { ValidationError } from "@synnaxlabs/client";
-import { type Aggregation, type destructor, type TimeStamp } from "@synnaxlabs/x";
+import {
+  type Aggregation,
+  type DataType,
+  type destructor,
+  type TimeStamp,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
@@ -113,6 +118,10 @@ export class SourcePipeline<V>
 
   aggregation(): Aggregation | null {
     return this.outlet.aggregation?.() ?? null;
+  }
+
+  dataType(): DataType | null {
+    return this.outlet.dataType?.() ?? null;
   }
 
   onChange(handler: () => void): destructor.Destructor {

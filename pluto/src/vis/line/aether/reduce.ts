@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Aggregation, bounds, math, Series, type TypedArray } from "@synnaxlabs/x";
+import {
+  type Aggregation,
+  bounds,
+  type DataType,
+  math,
+  Series,
+  type TypedArray,
+} from "@synnaxlabs/x";
 
 import { type telem } from "@/telem/aether";
 import { type DrawOperation } from "@/vis/line/aether/line";
@@ -148,6 +155,8 @@ class Pair {
     private readonly aggregation: Aggregation,
     private readonly groupSize: number,
     preceded: boolean,
+    // Whether the channels of x and y store floats, which average without rounding.
+    private readonly float: { x: boolean; y: boolean },
   ) {
     this.x = op.x;
     this.y = op.y;
@@ -263,8 +272,8 @@ class Pair {
         break;
       }
       case "average":
-        out.xs.push(mean(chain, "x", lo, hi, this.groupSize, this.x.dataType.isFloat));
-        out.ys.push(mean(chain, "y", lo, hi, this.groupSize, this.y.dataType.isFloat));
+        out.xs.push(mean(chain, "x", lo, hi, this.groupSize, this.float.x));
+        out.ys.push(mean(chain, "y", lo, hi, this.groupSize, this.float.y));
         break;
       case "decimate": {
         const { x, y } = chain[0];
@@ -337,6 +346,9 @@ export class Reducer {
 
   /**
    * @param groupSize - The samples per group. It must be even for min_max.
+   * @param dataTypes - The data types the channels of x and y store, when their series
+   * hold another. An average of an integer channel rounds down, as the Core does. A
+   * null data type averages by the type of the series.
    * @returns the ops with each full-resolution op replaced by its reduced pair, or left
    * out when it draws no group. Ops of reduced series stay the same, and so does every
    * op when groupSize is below 2. The pairs of ops not in the list are released.
@@ -345,6 +357,7 @@ export class Reducer {
     ops: DrawOperation[],
     aggregation: Aggregation,
     groupSize: number,
+    dataTypes: { x: DataType | null; y: DataType | null } = { x: null, y: null },
   ): DrawOperation[] {
     if (aggregation !== this.aggregation || groupSize !== this.groupSize) {
       this.release();
@@ -374,7 +387,10 @@ export class Reducer {
       }
       let pair = byY.get(op.y);
       if (pair == null) {
-        pair = new Pair(op, aggregation, groupSize, preceded);
+        pair = new Pair(op, aggregation, groupSize, preceded, {
+          x: (dataTypes.x ?? op.x.dataType).isFloat,
+          y: (dataTypes.y ?? op.y.dataType).isFloat,
+        });
         byY.set(op.y, pair);
       }
       drawn.add(pair);

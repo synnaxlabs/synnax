@@ -10,6 +10,7 @@
 import {
   type Aggregation,
   type color,
+  type DataType,
   type destructor,
   id,
   observe,
@@ -29,6 +30,7 @@ export class TestSource<V> extends observe.Observer<void> implements Source<V>, 
   static readonly TYPE = TEST_SOURCE_TYPE;
   readonly id: string;
   aggregation?: () => Aggregation | null;
+  dataType?: () => DataType | null;
   private _value: V;
   private _destructor: destructor.Destructor;
 

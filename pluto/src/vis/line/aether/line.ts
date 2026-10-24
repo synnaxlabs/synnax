@@ -396,7 +396,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const [[, xData], [, yData]] = [xTelem.value(valueProps), yTelem.value(valueProps)];
     const full = buildDrawOperations(xData, yData, DEFAULT_OVERLAP_THRESHOLD);
     const size = groupSize(full, valueProps.view, groupsPerColumn);
-    const ops = reducer.reduce(full, aggregation, size);
+    const ops = reducer.reduce(full, aggregation, size, {
+      x: xTelem.dataType?.() ?? null,
+      y: yTelem.dataType?.() ?? null,
+    });
     if (ops.length === 0) return;
     ops.forEach(({ x, y }) => {
       x.updateGLBuffer(ctx.gl);

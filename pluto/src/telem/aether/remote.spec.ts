@@ -827,6 +827,7 @@ describe("remote", () => {
 
     class MockClient implements Client {
       now = (): TimeStamp => TimeStamp.now();
+      dataType = DataType.FLOAT32;
       tiles: framer.TileSpec[] = [];
       tileDataTypes: Array<DataType | undefined> = [];
       reads: TimeRange[] = [];
@@ -849,7 +850,7 @@ describe("remote", () => {
           return new channel.Channel({
             key,
             name: `data-${key}`,
-            dataType: DataType.FLOAT32,
+            dataType: this.dataType,
             index: INDEX_KEY,
           });
         },
@@ -961,6 +962,15 @@ describe("remote", () => {
         [1024, "average"],
       ]);
       expect(source.aggregation()).toBe("average");
+    });
+
+    it("should report the data type its channel stores", async () => {
+      c.dataType = DataType.INT16;
+      const source = create();
+      expect(source.dataType()).toBeNull();
+      await settle(source);
+      expect(source.value()[1].dataType).toEqual(DataType.FLOAT32);
+      expect(source.dataType()).toEqual(DataType.INT16);
     });
 
     it("should bound an index channel by the home view", async () => {
