@@ -52,10 +52,7 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
     const importZip = useCallback(
       async (bundle: UploadBody, fileName: string): Promise<void> => {
         const name = await onImport(bundle, fileName);
-        addStatus({
-          variant: "success",
-          message: `Imported ${resourceName} "${name}"`,
-        });
+        addStatus({ variant: "success", name, message: `Imported ${resourceName}` });
         close();
       },
       [onImport, addStatus, close],

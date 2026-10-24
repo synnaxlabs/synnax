@@ -99,7 +99,7 @@ export const Aggregator = ({
  * @returns a handler that turns a caught error into an error status on the enclosing
  * {@link Aggregator}. Use it in place of `console.error` in a UI path.
  *
- * @example handleError(err, "failed to save the range");
+ * @example handleError(err, "Failed to save range");
  */
 export const useErrorHandler = (): ErrorHandler => useHandlers().error;
 

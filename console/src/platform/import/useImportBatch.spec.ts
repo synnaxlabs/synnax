@@ -107,9 +107,13 @@ describe("Import.useImportBatch", () => {
         }),
     );
     await waitFor(() =>
-      expect(
-        result.current.notifications.statuses.map((status) => status.message),
-      ).toContain("Failed to import notes.txt"),
+      expect(result.current.notifications.statuses).toContainEqual(
+        expect.objectContaining({
+          name: "notes.txt",
+          message: "Failed to import",
+          description: "not a JSON file",
+        }),
+      ),
     );
     expect(onSuccess).toHaveBeenCalledTimes(1);
     expect(onSuccess).toHaveBeenCalledWith({ name: "a.json" });

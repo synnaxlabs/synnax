@@ -762,10 +762,24 @@ describe("fromException", () => {
     expect(details.error).toBeInstanceOf(Error);
   });
 
-  it("should prefix a caller-provided message with the custom toStatus() message", () => {
-    expect(status.fromException(new CustomError("boom"), "Saving failed").message).toBe(
-      "Saving failed: Failed to parse task config",
-    );
+  it("should move the custom toStatus() message into the description under a caller-provided message", () => {
+    const s = status.fromException(new CustomError("boom"), "Failed to save task");
+    expect(s.message).toBe("Failed to save task");
+    expect(s.description).toBe("Failed to parse task config. the formatted breakdown");
+  });
+
+  it("should set the name and message from a heading", () => {
+    const s = status.fromException(new Error("boom"), {
+      message: "Failed to export",
+      name: "Main schematic",
+    });
+    expect(s.name).toBe("Main schematic");
+    expect(s.message).toBe("Failed to export");
+    expect(s.description).toBe("boom");
+  });
+
+  it("should leave the name empty for a string heading", () => {
+    expect(status.fromException(new Error("boom"), "Failed to export").name).toBe("");
   });
 
   it("should surface the cause chain as the description", () => {

@@ -60,11 +60,13 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
       if (dblClick !== navigatesOnDblClick) return;
       const target = PAGE_TARGETS[page.type];
       const { label } = config.label;
-      const name = label.length > 0 ? label : `Referenced ${target.noun.toLowerCase()}`;
-      handleError(async () => {
-        await target.retrieve(client, page.key);
-        openTab({ variant: "resource", resource: page });
-      }, `${target.noun} "${name}" not found`);
+      handleError(
+        async () => {
+          await target.retrieve(client, page.key);
+          openTab({ variant: "resource", resource: page });
+        },
+        { message: `Failed to open ${target.noun.toLowerCase()}`, name: label },
+      );
     },
     [getSchematic, schematicKey, openTab, handleError, client],
   );

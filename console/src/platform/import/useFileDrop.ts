@@ -90,6 +90,7 @@ export const useFileDrop = ({ importBundle }: UseFileDropParams): FileDrop => {
               await importEntry(entry, { client, importBundle, projectKey, store }),
             placement,
           }),
+        "Failed to import files",
       );
     },
     [client, importBundle, importBatch, store, handleError],

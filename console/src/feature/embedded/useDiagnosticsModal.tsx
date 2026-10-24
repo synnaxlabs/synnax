@@ -152,8 +152,12 @@ export const useDiagnosticsModal = Modals.create(() => {
       });
       if (path == null) return;
       await exportDiagnostics(path);
-      addStatus({ variant: "success", message: `Exported diagnostics to ${path}` });
-    }, "Failed to export the diagnostics");
+      addStatus({
+        variant: "success",
+        message: "Exported diagnostics",
+        description: `Saved to ${path}.`,
+      });
+    }, "Failed to export diagnostics");
   const history = diagnostics?.history;
   return (
     <Modal.Frame className={CSS.B("diagnostics")}>

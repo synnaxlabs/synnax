@@ -53,13 +53,17 @@ export const useDownload = (): ((params: DownloadParams) => Promise<void>) => {
         onDownloadStart?.();
         addStatus({
           variant: "info",
-          message: `Downloading ${name} to ${location}`,
+          name,
+          message: "Downloading file",
+          description: `Saving to ${location}.`,
         });
       };
       const addFinishStatus = (location: string) =>
         addStatus({
           variant: "success",
-          message: `Downloaded ${name} to ${location}`,
+          name,
+          message: "Downloaded file",
+          description: `Saved to ${location}.`,
         });
       // Case 1: we can use the browser's file stream download, which is the most
       // performant and preferred method.

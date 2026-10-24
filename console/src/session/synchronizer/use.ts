@@ -66,7 +66,7 @@ export const use = <S, A extends Action>(
             console.error(`${synchronizer.name} reconcile failed`, err);
           }
         if (gen === generation) setVerified(true);
-      });
+      }, "Failed to sync workspace");
     };
     // The connection machine demands the change stream itself; the host only
     // reacts to the continuity epochs it publishes. Epoch 0 means cold: the

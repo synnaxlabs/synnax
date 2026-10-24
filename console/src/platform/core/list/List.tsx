@@ -69,30 +69,35 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const handleRetest = (key: string): void => {
     const core = allCores.find((c) => c.key === key);
     if (core == null) return;
-    handleError(async () => {
-      try {
-        setTesting(key);
-        const status = await connection.check({
-          host: core.host,
-          port: core.port,
-          secure: core.secure,
-          name: core.name,
-        });
-        if (status.variant === "success")
-          addStatus({
-            variant: "success",
-            message: `Connected to ${core.name}`,
+    handleError(
+      async () => {
+        try {
+          setTesting(key);
+          const status = await connection.check({
+            host: core.host,
+            port: core.port,
+            secure: core.secure,
+            name: core.name,
           });
-        else
-          addStatus({
-            variant: "error",
-            message: `Failed to connect to ${core.name}`,
-            description: status.message,
-          });
-      } finally {
-        setTesting(null);
-      }
-    }, `Failed to connect to ${core.name}`);
+          if (status.variant === "success")
+            addStatus({
+              variant: "success",
+              name: core.name,
+              message: "Connected to Core",
+            });
+          else
+            addStatus({
+              variant: "error",
+              name: core.name,
+              message: "Failed to connect to Core",
+              description: status.message,
+            });
+        } finally {
+          setTesting(null);
+        }
+      },
+      { message: "Failed to connect to Core", name: core.name },
+    );
   };
 
   const handleEdit = (key: string): void => {

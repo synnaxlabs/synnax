@@ -283,7 +283,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
             handleLayouts(nodeEl, nodeElBox, zoom),
           );
         } catch (e) {
-          handleError(e, "failed to calculate schematic node layout");
+          handleError(e, "Failed to align symbols");
         }
         return null;
       })
@@ -333,7 +333,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
             handleLayouts(nodeEl, nodeElBox, zoom),
           );
         } catch (e) {
-          handleError(e, "failed to calculate schematic node layout");
+          handleError(e, "Failed to align symbols");
         }
         return null;
       })

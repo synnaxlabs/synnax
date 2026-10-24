@@ -183,20 +183,29 @@ const causeChain = (err: Error): string | undefined => {
 };
 
 /**
+ * The text a status built by {@link fromException} leads with: a message, or a message
+ * and the name of what the status is about.
+ */
+export type Heading = string | Pick<Base<Variant>, "message" | "name">;
+
+/**
  * Turns any thrown value into an error status, flattening its cause chain into the
- * description and keeping the error and its stack in the details.
+ * description and keeping the error and its stack in the details. A heading replaces
+ * the error's own message, which then leads the description.
  */
 export const fromException = (
   exc: unknown,
-  message?: string,
+  heading?: Heading,
 ): Status<typeof exceptionDetailsSchema, z.ZodLiteral<"error">> => {
   const err = errors.fromUnknown(exc);
   const detail = causeChain(err);
+  const lead = typeof heading === "string" ? { message: heading, name: "" } : heading;
   const crude: Crude<typeof exceptionDetailsSchema, "error"> = {
     variant: "error",
-    message: message ?? err.message,
+    name: lead?.name ?? "",
+    message: lead?.message ?? err.message,
     description:
-      message != null
+      lead != null
         ? [err.message, detail].filter((part) => part != null).join(": ")
         : detail,
     details: { stack: err.stack ?? "", error: cloneSafeError(err) },
@@ -205,10 +214,14 @@ export const fromException = (
   // `toStatus()` method still contributes its status fields.
   const custom = safeToStatus(exc);
   if (custom != null) {
-    if (message != null && custom.message != null)
-      crude.message = `${message}: ${custom.message}`;
-    else if (custom.message != null) crude.message = custom.message;
-    if (custom.description != null) crude.description = custom.description;
+    if (lead != null && custom.message != null)
+      crude.description = [custom.message, custom.description]
+        .filter((part) => part != null)
+        .join(". ");
+    else {
+      if (custom.message != null) crude.message = custom.message;
+      if (custom.description != null) crude.description = custom.description;
+    }
     if (custom.details != null && crude.details != null)
       crude.details = { ...crude.details, ...custom.details };
   }

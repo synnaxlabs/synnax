@@ -87,7 +87,9 @@ describe("Import.createModal", () => {
     const entries = unzipSync(await bodyBytes(importFn.mock.calls[0][0]));
     expect(Object.keys(entries)).toEqual(["a.json"]);
     await waitFor(() =>
-      expect(statuses.map((s) => s.message)).toContain('Imported widget "My Widget"'),
+      expect(statuses).toContainEqual(
+        expect.objectContaining({ name: "My Widget", message: "Imported widget" }),
+      ),
     );
     await waitFor(() => expect(screen.queryByText(ZONE_TEXT)).toBeNull());
   });
@@ -148,7 +150,9 @@ describe("Import.createModal", () => {
     expect(importFn.mock.calls[0][0]).toBe(picked);
     expect(importFn.mock.calls[0][1]).toBe("picked.zip");
     await waitFor(() =>
-      expect(statuses.map((s) => s.message)).toContain('Imported widget "Picked"'),
+      expect(statuses).toContainEqual(
+        expect.objectContaining({ name: "Picked", message: "Imported widget" }),
+      ),
     );
   });
 

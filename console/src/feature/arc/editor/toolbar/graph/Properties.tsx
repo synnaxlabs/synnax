@@ -97,7 +97,7 @@ const MultiConfig = ({ nodes }: MultiElementPropertiesProps): ReactElement => {
           });
           return new Diagram.NodeLayout(node.key, nodeBox, handles);
         } catch (e) {
-          handleError(e, "failed to calculate Arc node layout");
+          handleError(e, "Failed to align nodes");
         }
         return null;
       })

@@ -18,25 +18,24 @@ import { Range } from "@/platform/range";
 export const useRangeSnapshot = () => {
   const addStatus = Status.useAdder();
   const rng = Range.useResolve();
-  const buildMessage = useCallback(
-    ({ tasks }: Task.SnapshotParams) =>
-      `${strings.naturalLanguageJoin(
-        array.toArray(tasks).map((s) => s.name),
-        "schematic",
-      )} to ${rng?.name ?? "active range"}`,
-    [rng],
-  );
   const { update } = Task.useCreateSnapshot({
     afterSuccess: useCallback(
-      ({ data }: Flux.AfterSuccessParams<Task.SnapshotParams>) =>
+      ({ data: { tasks } }: Flux.AfterSuccessParams<Task.SnapshotParams>) => {
+        const names = array.toArray(tasks).map((t) => t.name);
         addStatus({
           variant: "success",
-          message: `Snapshotted ${buildMessage(data)}`,
-        }),
-      [buildMessage, addStatus],
+          name: rng?.name ?? "",
+          message:
+            names.length === 1
+              ? "Snapshotted task"
+              : `Snapshotted ${names.length} tasks`,
+          description: `Created snapshots of ${strings.naturalLanguageJoin(names)}.`,
+        });
+      },
+      [rng, addStatus],
     ),
-    afterFailure: ({ status, data }: Flux.AfterFailureParams<Task.SnapshotParams>) =>
-      addStatus({ ...status, message: `Failed to snapshot ${buildMessage(data)}` }),
+    afterFailure: ({ status }: Flux.AfterFailureParams<Task.SnapshotParams>) =>
+      addStatus({ ...status, name: rng?.name ?? "" }),
   });
   return ({ tasks }: Omit<Task.SnapshotParams, "parentID">) => {
     if (rng == null)

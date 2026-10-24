@@ -284,9 +284,9 @@ export const shouldExecuteCommand = <StatusData extends z.ZodType = z.ZodNever>(
 };
 
 const COMMAND_VERBS: verbs.Verbs = {
-  present: "command",
-  participle: "commanding",
-  past: "commanded",
+  present: "send commands to",
+  participle: "sending commands to",
+  past: "sent commands to",
 };
 
 export const { useUpdate: useCommand } = Flux.createUpdate<CommandParams>({

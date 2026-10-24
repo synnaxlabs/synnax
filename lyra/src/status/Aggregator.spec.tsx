@@ -291,6 +291,26 @@ describe("Aggregator", () => {
       expect(result.current.statuses.statuses).toHaveLength(1);
       expect(result.current.statuses.statuses[0].message).toEqual("Custom");
     });
+    it("should allow the caller to name what failed", () => {
+      const { result } = renderHook(
+        () => ({
+          add: Status.useErrorHandler(),
+          statuses: Status.useNotifications(),
+        }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.add(new Error("Disk is full"), {
+          message: "Failed to export",
+          name: "Main schematic",
+        });
+      });
+      expect(result.current.statuses.statuses).toHaveLength(1);
+      const [stat] = result.current.statuses.statuses;
+      expect(stat.name).toEqual("Main schematic");
+      expect(stat.message).toEqual("Failed to export");
+      expect(stat.description).toEqual("Disk is full");
+    });
     it("should allow the caller to pass in an async function", async () => {
       const { result } = renderHook(
         () => ({

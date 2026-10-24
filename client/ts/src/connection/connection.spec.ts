@@ -303,6 +303,8 @@ describe("connection", () => {
         info: createInfo(),
       });
       expect(status.variant).toEqual("success");
+      expect(status.name).toEqual("test-cluster");
+      expect(status.message).toEqual("Connected");
       expect(status.details.clusterKey).toEqual("test-cluster");
     });
 
@@ -355,6 +357,8 @@ describe("connection", () => {
       const failed = apply(config, { type: "check.failure", error, attempt: 1 });
       const exhausted = reduce(failed, { type: "retry.exhausted" }, config);
       expect(exhausted.variant).toEqual("error");
+      expect(exhausted.message).toEqual("Cannot reach Core");
+      expect(exhausted.description).toEqual("server down");
       expect(reasonOf(exhausted)).toEqual("unreachable");
       expect(exhausted.details.retry).toBeNull();
     });
@@ -439,6 +443,8 @@ describe("connection", () => {
         error: new AuthError("invalid credentials"),
       });
       expect(rejected.variant).toEqual("error");
+      expect(rejected.message).toEqual("Failed to authenticate");
+      expect(rejected.description).toEqual("invalid credentials");
       expect(reasonOf(rejected)).toEqual("auth");
       expect(rejected.details.authenticated).toBe(false);
       const retrying = reduce(rejected, { type: "retry.requested" }, config);
@@ -525,6 +531,8 @@ describe("connection", () => {
       expect(once.variant).toEqual("loading");
       const twice = reduce(once, { type: "check.failure", error, attempt: 2 }, config);
       expect(reasonOf(twice)).toEqual("unreachable");
+      expect(twice.message).toEqual("Cannot reach Core");
+      expect(twice.description).toEqual("server down");
       expect(twice.details.error).toBe(error);
     });
 
