@@ -448,6 +448,37 @@ Node union on variant extends Base {
     }
 }
 `),
+		Entry("when a later patch removes the field from the base", `
+C struct {
+    x int32
+}
+
+A struct extends C {
+    x int64
+}
+
+B struct extends A {
+    x int64?
+}
+`, `
+C = v0.C
+
+B struct extends v0.B {
+    -x
+}
+
+A struct extends v0.A {
+    -x
+}
+`, `
+C = v0.C
+
+B struct extends A {}
+
+A struct extends C {
+    -x
+}
+`),
 		Entry("through a typeless parent field", `
 Base struct {
     x int32 {

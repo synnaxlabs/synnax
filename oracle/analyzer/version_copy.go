@@ -180,9 +180,15 @@ type removal struct {
 // omitRemovedFields omits each field a patch removed that a base of the patched type
 // still contributes, so the removal holds against the base. The bases of a variant
 // payload include its union's. Runs once references resolve, since bases resolve in
-// this file's scope.
+// this file's scope, and settles a type's bases before the type.
 func omitRemovedFields(c *analysisCtx) {
+	pending := make(map[string]removal, len(c.removals))
 	for _, r := range c.removals {
+		pending[r.typ] = r
+	}
+	var apply func(r removal)
+	apply = func(r removal) {
+		delete(pending, r.typ)
 		i := slices.IndexFunc(c.table.Types, func(t resolution.Type) bool {
 			return t.QualifiedName == r.typ
 		})
@@ -197,7 +203,12 @@ func omitRemovedFields(c *analysisCtx) {
 			base, _, ok := resolution.Dealias(ref, c.table)
 			return ok && hasCircularInheritance(base, c.table, make(set.Set[string]))
 		}) {
-			continue
+			return
+		}
+		for ancestor := range structAncestors(bases, c.table) {
+			if ar, ok := pending[ancestor]; ok {
+				apply(ar)
+			}
 		}
 		contributed := resolution.InheritedFields(bases, c.table)
 		for _, name := range r.fields {
@@ -208,6 +219,34 @@ func omitRemovedFields(c *analysisCtx) {
 		typ.Form = form
 		c.table.Types[i] = typ
 	}
+	for _, r := range c.removals {
+		if _, ok := pending[r.typ]; ok {
+			apply(r)
+		}
+	}
+}
+
+// structAncestors returns the qualified names of the structs that bases reach through
+// extends, bases included.
+func structAncestors(
+	bases []resolution.TypeRef, table *resolution.Table,
+) set.Set[string] {
+	out := make(set.Set[string])
+	var visit func(refs []resolution.TypeRef)
+	visit = func(refs []resolution.TypeRef) {
+		for _, ref := range refs {
+			t, _, ok := resolution.Dealias(ref, table)
+			if !ok || out.Contains(t.QualifiedName) {
+				continue
+			}
+			if form, isStruct := t.Form.(resolution.StructForm); isStruct {
+				out.Add(t.QualifiedName)
+				visit(form.Extends)
+			}
+		}
+	}
+	visit(bases)
+	return out
 }
 
 // copyUnion applies decl as a patch over the declaration of the same union in an
