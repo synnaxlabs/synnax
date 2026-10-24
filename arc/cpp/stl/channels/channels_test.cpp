@@ -1529,8 +1529,8 @@ TEST(ChannelStateTest, StampInvariants_TimeThenWriteOrder) {
             synthesized.push_back(order[i] == 'b');
         }
         std::vector<size_t> positions(written.size());
-        std::iota(positions.begin(), positions.end(), 0);
-        std::stable_sort(positions.begin(), positions.end(), [&](size_t a, size_t b) {
+        std::ranges::iota(positions, 0);
+        std::ranges::stable_sort(positions, [&](size_t a, size_t b) {
             return written[a].first < written[b].first;
         });
         std::vector<std::pair<int64_t, float>> expected;
@@ -1798,7 +1798,7 @@ struct WasmFixture {
             .i32();
     }
 
-    void flush_and_ingest() {
+    void flush_and_ingest() const {
         ::x::telem::Frame frame(1);
         this->state->flush_into(frame, FLUSH_NOW);
         this->state->ingest(frame);

@@ -152,7 +152,10 @@ export const TagPicker = ({
         set({
           tags: null,
           loading: false,
-          error: status.fromException(e, `Could not ask ${node.edgeNode} for its tags`),
+          error: status.fromException(e, {
+            message: "Failed to get tags",
+            name: node.edgeNode,
+          }),
         });
         return null;
       }

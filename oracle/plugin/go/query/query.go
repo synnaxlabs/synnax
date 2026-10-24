@@ -416,7 +416,7 @@ func retrieveFields(typ resolution.Type, table *resolution.Table) []resolution.F
 	}
 	var fields []resolution.Field
 	for _, ext := range form.Extends {
-		if base, ok := ext.Resolve(table); ok {
+		if base, _, ok := resolution.Dealias(ext, table); ok {
 			fields = append(fields, resolution.UnifiedFields(base, table)...)
 		}
 	}

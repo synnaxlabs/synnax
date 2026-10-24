@@ -359,7 +359,7 @@ export const GroupTree = <
       ctx.set(path, [...groups, ...byKey.values()]);
       setSelected([added[0].key]);
       for (const g of added) if (isBranch<F>(g)) expand(g.key);
-    });
+    }, `Failed to ${addLabel.toLowerCase()}`);
 
   const handleAddField = useCallback(
     (groupKey: string) => {

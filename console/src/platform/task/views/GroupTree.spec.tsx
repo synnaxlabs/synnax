@@ -206,7 +206,10 @@ describe("GroupTree", () => {
     await waitFor(() =>
       expect(
         statuses.some(
-          (s) => s.variant === "error" && s.message === "broker unreachable",
+          (s) =>
+            s.variant === "error" &&
+            s.message === "Failed to add group" &&
+            s.description === "broker unreachable",
         ),
       ).toBe(true),
     );

@@ -75,6 +75,7 @@ const beforeSave = async ({
   });
   if (state.variant === "error") throw new Error(state.message);
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
+    name: get<string>("name").value,
     message: "Broker connected",
     variant: "success",
     details: {

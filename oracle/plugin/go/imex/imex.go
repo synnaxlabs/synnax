@@ -9,14 +9,17 @@
 
 // Package imex generates the portable import/export machinery for any Oracle struct
 // that declares the bare `@go imex` marker. Every versions/vK package gains a Version
-// constant equal to K; the versions package root gains Latest and an autoDecodeEnvelope
-// ladder that lifts server-era envelopes through the per-version Migrate<Type> steps;
-// the service package gains the Service.Export half of imex.ImportExporter. Latest
-// keeps the wire envelope version and the storage schema version a single sequence per
+// constant equal to K; the versions package root gains Latest, an autoDecodeEnvelope
+// ladder that lifts server-era envelopes through the per-version Migrate<Type> steps,
+// and liftFirst, which lifts the first exported shape through the same steps; the
+// service package gains the Service.Export half of imex.ImportExporter. Latest keeps
+// the wire envelope version and the storage schema version a single sequence per
 // resource, and the ladder extends itself on every version bump. Import stays
-// hand-written: every resource parents and persists differently. A type another
-// resource exports declares `@go imex body` and gets an exported <Type>Ladder over body
-// blobs instead of the envelope ladder and Export.
+// hand-written: every resource parents and persists differently, and a decoder of
+// shapes older than the first export builds the first exported shape and calls
+// liftFirst, so a version bump never edits it. A type another resource exports declares
+// `@go imex body` and gets an exported <Type>Ladder over body blobs instead of the
+// envelope ladder, liftFirst, and Export.
 package imex
 
 import (
@@ -82,12 +85,12 @@ func (*Plugin) Requires() []string { return []string{"go/types"} }
 // Generate emits imex machinery for every output package whose types declare @go imex:
 // a Version constant in each versions/vK package the Core has exported, and Latest in
 // the versions package root. Constants below the earliest exported version are deleted.
-// A bare marker adds the autoDecodeEnvelope ladder and Service.Export; `@go imex body`
-// adds an exported <Type>Ladder per type instead and deletes any Export. It errors when
-// a marked type has no version chain, when a bare marker shares its package with
-// another marked type, when body types in one package come from different chains, when
-// a version redeclares a type without its Migrate<Type> step, or when a version package
-// does not parse.
+// A bare marker adds the autoDecodeEnvelope ladder, liftFirst, and Service.Export;
+// `@go imex body` adds an exported <Type>Ladder per type instead and deletes any
+// Export. It errors when a marked type has no version chain, when a bare marker shares
+// its package with another marked type, when body types in one package come from
+// different chains, when a version redeclares a type without its Migrate<Type> step, or
+// when a version package does not parse.
 //
 // The emitted Export calls the service's NewRetrieve, MatchKeys, and Type, and parses
 // id.Key as a UUID. A resource missing any of them, or keyed by something else, fails
@@ -312,6 +315,7 @@ func (p *Plugin) executeChain(buf *bytes.Buffer, t target, imports []string) err
 		Type:       t.goName,
 		CurrentPkg: versioning.Dir(t.current),
 		Arms:       chainArms(t, envelopeDecode),
+		First:      firstLift(t),
 		Imports:    imports,
 		Runtime:    p.options.RuntimeImportPath,
 	})
@@ -495,24 +499,45 @@ func chainArms(t target, decode decodeExpr) []chainArm {
 		cur := fmt.Sprintf("t%d", k)
 		fmt.Fprintf(&b, "\t\t%s, err := %s\n", cur, decode(versioning.Dir(k), goName))
 		fmt.Fprintf(&b, "\t\tif err != nil {\n\t\t\treturn %s{}, err\n\t\t}\n", goName)
-		for _, j := range nums[i+1:] {
-			if !t.steps.Contains(j) {
-				continue
-			}
-			next := fmt.Sprintf("t%d", j)
-			fmt.Fprintf(
-				&b, "\t\t%s, err := %s.Migrate%s(ctx, %s)\n",
-				next, versioning.Dir(j), goName, cur,
-			)
-			fmt.Fprintf(
-				&b, "\t\tif err != nil {\n\t\t\treturn %s{}, err\n\t\t}\n", goName,
-			)
-			cur = next
-		}
+		cur = writeSteps(&b, t, i, cur, "\t\t")
 		fmt.Fprintf(&b, "\t\treturn %s, nil", cur)
 		arms = append(arms, chainArm{Pkg: versioning.Dir(k), Body: b.String()})
 	}
 	return arms
+}
+
+// firstLift builds liftFirst, which lifts the first exported shape through every later
+// bump's Migrate<Type> step.
+func firstLift(t target) liftData {
+	var b strings.Builder
+	in := fmt.Sprintf("t%d", t.floor)
+	out := writeSteps(&b, t, 0, in, "\t")
+	fmt.Fprintf(&b, "\treturn %s, nil", out)
+	return liftData{
+		Param: fmt.Sprintf("%s %s.%s", in, versioning.Dir(t.floor), t.goName),
+		Body:  b.String(),
+	}
+}
+
+// writeSteps writes, at indent, the Migrate<Type> calls that lift cur, the value at
+// t.exported[i], to the current shape. It returns the variable holding the result.
+func writeSteps(b *strings.Builder, t target, i int, cur, indent string) string {
+	for _, j := range t.exported[i+1:] {
+		if !t.steps.Contains(j) {
+			continue
+		}
+		next := fmt.Sprintf("t%d", j)
+		fmt.Fprintf(
+			b, "%s%s, err := %s.Migrate%s(ctx, %s)\n",
+			indent, next, versioning.Dir(j), t.goName, cur,
+		)
+		fmt.Fprintf(
+			b, "%sif err != nil {\n%s\treturn %s{}, err\n%s}\n",
+			indent, indent, t.goName, indent,
+		)
+		cur = next
+	}
+	return cur
 }
 
 // migrateSteps returns the versions in exported, above the first, whose package
@@ -594,11 +619,17 @@ type chainArm struct {
 	Body string
 }
 
+type liftData struct {
+	Param string
+	Body  string
+}
+
 type chainData struct {
 	Type       string
 	CurrentPkg string
 	Imports    []string
 	Arms       []chainArm
+	First      liftData
 	Runtime    string
 }
 
@@ -633,6 +664,12 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) ({{.Type}}, erro
 		return env.Decode[{{.Type}}](ctx)
 	}
 	return {{.Type}}{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
+}
+
+// liftFirst lifts the first exported {{.Type}} shape to the current shape. A decoder
+// of an older shape builds the first exported shape and enters the ladder here.
+func liftFirst(ctx context.Context, {{.First.Param}}) ({{.Type}}, error) {
+{{.First.Body}}
 }
 `),
 )
