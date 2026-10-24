@@ -122,6 +122,25 @@ Holder struct {
     @go marshal
 }
 `),
+		Entry("a domain removal applies to the parent field", `
+Node = v0.Node
+
+Holder struct extends v0.Holder {
+    name -@doc
+}
+`, `
+Node = v0.Node
+
+Holder struct {
+    key uuid @key
+    name string
+    count int32
+    node Node
+    old bool
+
+    @go marshal
+}
+`),
 		Entry("a field omit removes the parent field", `
 Node = v0.Node
 
@@ -336,6 +355,123 @@ Holder struct {
 `,
 		}, 2)))
 	})
+
+	DescribeTable("Should keep a removed field omitted where a base has it", func(
+		ctx SpecContext, v0, patch, handWritten string,
+	) {
+		Expect(renderVersion(ctx, map[string]string{
+			extendsV0Path: v0,
+			extendsV1Path: patch,
+		}, 1)).To(Equal(renderVersion(ctx, map[string]string{
+			extendsV0Path: v0,
+			extendsV1Path: handWritten,
+		}, 1)))
+	},
+		Entry("on a struct", `
+Base struct {
+    x int32
+}
+
+Holder struct extends Base {
+    x int64
+    y int32
+}
+`, `
+Base = v0.Base
+
+Holder struct extends v0.Holder {
+    -x
+}
+`, `
+Base = v0.Base
+
+Holder struct extends Base {
+    -x
+    y int32
+}
+`),
+		Entry("on an inline variant", `
+Base struct {
+    x int32
+}
+
+Node union on variant {
+    box extends Base {
+        x int64
+        y int32
+    }
+}
+`, `
+Base = v0.Base
+
+Node union on variant extends v0.Node {
+    box {
+        -x
+    }
+}
+`, `
+Base = v0.Base
+
+Node union on variant {
+    box extends Base {
+        -x
+        y int32
+    }
+}
+`),
+		Entry("on a union base", `
+Base struct {
+    x int32
+}
+
+Node union on variant extends Base {
+    box {
+        x int64
+        y int32
+    }
+}
+`, `
+Base = v0.Base
+
+Node union on variant extends v0.Node {
+    box {
+        -x
+    }
+}
+`, `
+Base = v0.Base
+
+Node union on variant extends Base {
+    box {
+        -x
+        y int32
+    }
+}
+`),
+		Entry("through a typeless parent field", `
+Base struct {
+    x int32 {
+        @doc value "is x."
+    }
+}
+
+Holder struct extends Base {
+    x?
+}
+`, `
+Base = v0.Base
+
+Holder struct extends v0.Holder {
+    x -@doc
+}
+`, `
+Base = v0.Base
+
+Holder struct extends Base {
+    x? -@doc
+}
+`),
+	)
 
 	It("Should count an import that only the copy uses", func(ctx SpecContext) {
 		f := MustSucceed(resolverFor(map[string]string{

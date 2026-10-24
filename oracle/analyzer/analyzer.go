@@ -38,6 +38,9 @@ type analysisCtx struct {
 	// copied holds the earlier-version declarations the file copies. Their references
 	// count as the file's own when checking for unused imports.
 	copied []parsedRule
+	// removals holds the fields patches removed from copied declarations, for
+	// omitRemovedFields.
+	removals []removal
 }
 
 // parsedRule is a parsed rule together with the parser that holds its tokens.
@@ -364,6 +367,7 @@ func analyze(c *analysisCtx) {
 			}
 		}
 	}
+	omitRemovedFields(c)
 
 	finalizeEnumExtensions(c)
 	finalizeUnionExtensions(c)
@@ -815,6 +819,9 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 		Domains:       mergeDomains(c.fileDomains, decl.domains),
 		AST:           def,
 	}))
+	if len(decl.removed) > 0 {
+		c.removals = append(c.removals, removal{typ: qname, fields: decl.removed})
+	}
 }
 
 // structDecl is a struct declaration collected but not yet registered. Its domains
@@ -822,6 +829,8 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 type structDecl struct {
 	form    resolution.StructForm
 	domains map[string]resolution.Domain
+	// removed names the copied fields a patch removed. See omitRemovedFields.
+	removed []string
 }
 
 // collectStructDecl collects def, declared in version below of the file's chain (0
@@ -1513,6 +1522,13 @@ func registerVariant(
 		AST:           variant.AST,
 		Synthetic:     true,
 	}))
+	if len(decl.payload.removed) > 0 {
+		c.removals = append(c.removals, removal{
+			typ:    qname,
+			union:  c.namespace + "." + unionName,
+			fields: decl.payload.removed,
+		})
+	}
 	variant.Type = resolution.TypeRef{Name: name}
 	return variant
 }

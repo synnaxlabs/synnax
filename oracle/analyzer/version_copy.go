@@ -129,30 +129,85 @@ func patchStruct(parent, child structDecl) structDecl {
 			if cf.HasType() {
 				return cf
 			}
-			return resolution.MergeOverrideField(pf, cf)
+			merged := resolution.MergeOverrideField(pf, cf)
+			// A copied field that still inherits keeps its domain removals for its
+			// base. Otherwise the merge applied them.
+			if merged.HasType() {
+				merged.OmittedDomains = nil
+			}
+			return merged
 		},
 		func(name string) bool {
 			return slices.Contains(child.form.OmittedFields, name)
 		},
 	)
-	inherited := func(name string) bool {
-		return slices.ContainsFunc(parent.form.Fields, func(f resolution.Field) bool {
+	has := func(fields []resolution.Field, name string) bool {
+		return slices.ContainsFunc(fields, func(f resolution.Field) bool {
 			return f.Name == name
 		})
 	}
 	for _, omit := range parent.form.OmittedFields {
-		if !slices.ContainsFunc(child.form.Fields, func(f resolution.Field) bool {
-			return f.Name == omit
-		}) {
+		if !has(child.form.Fields, omit) {
 			out.form.OmittedFields = append(out.form.OmittedFields, omit)
 		}
 	}
+	for _, name := range parent.removed {
+		if !has(child.form.Fields, name) {
+			out.removed = append(out.removed, name)
+		}
+	}
 	for _, omit := range child.form.OmittedFields {
-		if !inherited(omit) && !slices.Contains(out.form.OmittedFields, omit) {
+		switch {
+		case has(parent.form.Fields, omit) || slices.Contains(parent.removed, omit):
+			if !slices.Contains(out.removed, omit) {
+				out.removed = append(out.removed, omit)
+			}
+		case !slices.Contains(out.form.OmittedFields, omit):
 			out.form.OmittedFields = append(out.form.OmittedFields, omit)
 		}
 	}
 	return out
+}
+
+// removal names the fields a patch removed from the copied declaration of typ, the
+// payload of an inline variant of union when union is set.
+type removal struct {
+	typ    string
+	union  string
+	fields []string
+}
+
+// omitRemovedFields omits each field a patch removed that a base of the patched type
+// still contributes, so the removal holds against the base. The bases of a variant
+// payload include its union's. Runs once references resolve, since bases resolve in
+// this file's scope.
+func omitRemovedFields(c *analysisCtx) {
+	for _, r := range c.removals {
+		i := slices.IndexFunc(c.table.Types, func(t resolution.Type) bool {
+			return t.QualifiedName == r.typ
+		})
+		typ := c.table.Types[i]
+		form := typ.Form.(resolution.StructForm)
+		bases := slices.Clone(form.Extends)
+		if r.union != "" {
+			union := c.table.MustGet(r.union)
+			bases = append(bases, union.Form.(resolution.UnionForm).Extends...)
+		}
+		if slices.ContainsFunc(bases, func(ref resolution.TypeRef) bool {
+			base, _, ok := resolution.Dealias(ref, c.table)
+			return ok && hasCircularInheritance(base, c.table, make(set.Set[string]))
+		}) {
+			continue
+		}
+		contributed := resolution.InheritedFields(bases, c.table)
+		for _, name := range r.fields {
+			if _, ok := contributed[name]; ok {
+				form.OmittedFields = append(form.OmittedFields, name)
+			}
+		}
+		typ.Form = form
+		c.table.Types[i] = typ
+	}
 }
 
 // copyUnion applies decl as a patch over the declaration of the same union in an
