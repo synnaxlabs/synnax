@@ -9,7 +9,11 @@
 
 package gorp
 
-import "context"
+import (
+	"context"
+
+	"github.com/synnaxlabs/gorp/internal/key"
+)
 
 // Writer wraps a key-value writer to provide a strongly typed interface for writing
 // entries to the DB. Writer is NOT safe for concurrent use.
@@ -17,7 +21,7 @@ type Writer[K Key, E Entry[K]] struct {
 	// tx is the underlying transaction this Writer writes through.
 	tx Tx
 	// keyCodec encodes K to prefixed pebble keys.
-	keyCodec keyCodec[K, E]
+	keyCodec key.Codec[K]
 	// indexes is the set of secondary indexes that receive staged
 	// mutations for each Set / Delete call. Nil means no per-write index
 	// staging.
@@ -30,17 +34,19 @@ func WrapWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
 	return wrapWriter[K, E](tx, nil, nil)
 }
 
-// wrapWriter constructs a Writer with an optional precomputed key prefix
-// (nil falls back to types.Name[E]()) and an optional index list to
-// stage mutations against on each Set / Delete.
+// wrapWriter constructs a Writer that encodes keys under prefix and stages each Set /
+// Delete against indexes. A nil prefix falls back to the prefix of E's table.
 func wrapWriter[K Key, E Entry[K]](
 	tx Tx,
 	prefix []byte,
 	indexes []Index[K, E],
 ) *Writer[K, E] {
+	if prefix == nil {
+		prefix = key.Prefix[E]()
+	}
 	return &Writer[K, E]{
 		tx:       tx,
-		keyCodec: newKeyCodec[K, E](prefix),
+		keyCodec: key.NewCodec[K](prefix),
 		indexes:  indexes,
 	}
 }
@@ -70,7 +76,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	if err != nil {
 		return err
 	}
-	v := w.keyCodec.encode(entry.GorpKey())
+	v := w.keyCodec.Encode(entry.GorpKey())
 	if err := w.tx.Set(ctx, v, data, entry.SetOptions()...); err != nil {
 		return err
 	}
@@ -81,7 +87,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
-	if err := w.tx.Delete(ctx, w.keyCodec.encode(key)); err != nil {
+	if err := w.tx.Delete(ctx, w.keyCodec.Encode(key)); err != nil {
 		return err
 	}
 	for _, idx := range w.indexes {
