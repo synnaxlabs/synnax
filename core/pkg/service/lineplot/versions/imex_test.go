@@ -38,6 +38,16 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(lp.Lines[0].Detail).To(Equal(versions.DetailMedium))
 	})
 
+	It("Should lift a v6 envelope's downsample mode to an aggregation", func(
+		ctx SpecContext,
+	) {
+		lp := decode(ctx, "testdata/import_v6.json")
+		Expect(lp.Lines).To(HaveLen(1))
+		Expect(lp.Lines[0].StrokeWidth).To(Equal(2.5))
+		Expect(lp.Lines[0].Aggregation).To(Equal(versions.AggregationAverage))
+		Expect(lp.Lines[0].Detail).To(Equal(versions.DetailMedium))
+	})
+
 	It("Should lift a Console state through the legacy chain", func(ctx SpecContext) {
 		lp := decode(ctx, "testdata/import_v0_state.json")
 		Expect(lp.Channels.Y1).To(Equal([]channel.Key{9}))
