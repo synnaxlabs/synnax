@@ -35,6 +35,15 @@ const CONDITIONAL_HOOK = [
   "};",
 ].join("\n");
 
+const MEMO_AFTER_CAPITALIZED_CALL = [
+  'import { CSS } from "@synnaxlabs/lyra/css";',
+  'import { useCallback } from "react";',
+  "export const C = ({ a }: { a: number }) => {",
+  "  const onClick = useCallback(() => a, []);",
+  '  return <p className={CSS.B("c")} onClick={onClick} />;',
+  "};",
+].join("\n");
+
 tester.run("react-compiler", reactCompiler, {
   valid: [
     {
@@ -60,6 +69,19 @@ tester.run("react-compiler", reactCompiler, {
           message: /^Error: Hooks must always be called in a consistent order/,
           line: 3,
           column: 18,
+        },
+      ],
+    },
+    {
+      code: MEMO_AFTER_CAPITALIZED_CALL,
+      filename: "file.tsx",
+      options: [{ rules: ["preserve-manual-memoization"] }],
+      errors: [
+        {
+          message:
+            /^Compilation Skipped: Existing memoization could not be preserved\n/,
+          line: 4,
+          column: 31,
         },
       ],
     },

@@ -18,7 +18,8 @@ import { type Rule } from "eslint";
 
 import { plugins } from "../compiler";
 
-// The checks that `eslint-plugin-react-hooks` turns on when it runs the compiler.
+// Only checks whose errors the configured rules report. An unreported error still stops
+// the compiler on its function, which hides every reported error after it.
 const LINT = {
   noEmit: true,
   panicThreshold: "none",
@@ -26,15 +27,10 @@ const LINT = {
   environment: {
     validateRefAccessDuringRender: true,
     validateNoSetStateInRender: true,
-    validateNoSetStateInEffects: true,
-    validateNoJSXInTryStatements: true,
     validateNoImpureFunctionsInRender: true,
-    validateStaticComponents: true,
     validateNoFreezingKnownMutableFunctions: true,
     validateNoVoidUseMemo: true,
-    validateNoCapitalizedCalls: [],
     validateHooksUsage: true,
-    validateNoDerivedComputationsInEffects: true,
   },
 };
 
