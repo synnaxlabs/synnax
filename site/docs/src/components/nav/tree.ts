@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Edition } from "@/components/edition/edition";
+import { type Edition } from "@/components/edition";
 import { type Flag } from "@/flags";
 import { normalizeRoute } from "@/util/route";
 
@@ -16,7 +16,7 @@ interface Base {
   /** Hides the node and its children while the flag is off. */
   flag?: Flag;
   /** Marks the node and its children as applying only to this edition. */
-  edition?: Edition;
+  edition?: Edition.Edition;
   children?: PageNavNode[];
 }
 
@@ -106,7 +106,10 @@ export const firstPages = (
  * Returns the edition of the page at path: the nearest edition set on the page's node
  * or on one of its ancestors. Undefined means the page applies to every edition.
  */
-export const editionOf = (nodes: PageNavNode[], path: string): Edition | undefined =>
+export const editionOf = (
+  nodes: PageNavNode[],
+  path: string,
+): Edition.Edition | undefined =>
   ancestry(nodes, path).findLast(({ edition }) => edition != null)?.edition;
 
 /** Returns the name of the nearest group that holds the page at path, if one does. */

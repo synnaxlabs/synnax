@@ -13,8 +13,7 @@ import { Tabs as Base } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { Badge } from "@/components/edition/Badge";
-import { type Edition, NAMES } from "@/components/edition/edition";
+import { Edition } from "@/components/edition";
 import { QUERY_ATTRIBUTE } from "@/components/tabs/sync";
 
 /**
@@ -28,7 +27,7 @@ export interface TabEntry<K extends string = string> {
   tabKey: K;
   name: string;
   icon?: ReactElement;
-  edition?: Edition;
+  edition?: Edition.Edition;
   /** Shows only in blocks that fill its slot. */
   optional?: boolean;
 }
@@ -94,9 +93,9 @@ export const Tabs = <K extends string>({
             className="docs-tabs__edition"
             data-edition={edition}
             href="/reference/get-started/editions"
-            title={`Needs Synnax ${NAMES[edition]}`}
+            title={`Needs Synnax ${Edition.NAMES[edition]}`}
           >
-            <Badge edition={edition} />
+            <Edition.Badge edition={edition} />
           </a>
         ))}
       </div>
