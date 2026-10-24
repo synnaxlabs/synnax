@@ -22,6 +22,8 @@ const (
 	ActionTypeRemoveCol  = "remove_col"
 	ActionTypeResizeRow  = "resize_row"
 	ActionTypeResizeCol  = "resize_col"
+	ActionTypeMoveRow    = "move_row"
+	ActionTypeMoveCol    = "move_col"
 	ActionTypeSetCell    = "set_cell"
 	ActionTypeEraseCells = "erase_cells"
 )
@@ -37,7 +39,7 @@ type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-// AddRowPayload inserts a row at the given index. Three flows:
+// AddRowPayload inserts a row with the given key at the given index. Three flows:
 //
 // 1. User gesture with cell_template against a non-empty table: replicate the template
 // once per existing column. 2. User gesture with cell_template against a fully-empty
@@ -47,21 +49,23 @@ type RenamePayload struct {
 // trigger the same column-bootstrap as flow 2.
 //
 // Derived replica keys come from the template's key with the last four hex digits
-// replaced by the column index. Out-of-range indices clamp to the end.
+// replaced by the column index. Bootstrapped columns derive their keys from the row's
+// key the same way. Out-of-range indices clamp to the end.
 type AddRowPayload struct {
 	Index        uint32  `json:"index" msgpack:"index"`
+	Key          string  `json:"key" msgpack:"key"`
 	Size         float64 `json:"size" msgpack:"size"`
 	Cells        []Cell  `json:"cells" msgpack:"cells"`
 	CellTemplate *Cell   `json:"cell_template,omitzero" msgpack:"cell_template,omitempty"`
 }
 
-// RemoveRowPayload removes the row at the given index. All cells referenced by the
-// removed row are also dropped from the cells map. No-op if the index is out of range.
+// RemoveRowPayload removes the row with the given key. All cells referenced by the
+// removed row are also dropped from the cells map. No-op if no row has the key.
 type RemoveRowPayload struct {
-	Index uint32 `json:"index" msgpack:"index"`
+	Key string `json:"key" msgpack:"key"`
 }
 
-// AddColPayload inserts a column at the given index. Three flows:
+// AddColPayload inserts a column with the given key at the given index. Three flows:
 //
 // 1. User gesture with cell_template against a non-empty table: replicate the template
 // once per existing row. 2. User gesture with cell_template against a fully-empty
@@ -71,35 +75,52 @@ type RemoveRowPayload struct {
 // trigger the same row-bootstrap as flow 2.
 //
 // Derived replica keys come from the template's key with the last four hex digits
-// replaced by the row index. Cells whose row index exceeds the row count are added to
-// the cells map but not referenced by any row. Out-of-range indices clamp to the end of
-// every row's cells list.
+// replaced by the row index. Bootstrapped rows derive their keys from the column's key
+// the same way. Cells whose row index exceeds the row count are added to the cells map
+// but not referenced by any row. Out-of-range indices clamp to the end of every row's
+// cells list.
 type AddColPayload struct {
 	Index        uint32  `json:"index" msgpack:"index"`
+	Key          string  `json:"key" msgpack:"key"`
 	Size         float64 `json:"size" msgpack:"size"`
 	Cells        []Cell  `json:"cells" msgpack:"cells"`
 	CellTemplate *Cell   `json:"cell_template,omitzero" msgpack:"cell_template,omitempty"`
 }
 
-// RemoveColPayload removes the column at the given index. All cells in that column
-// (across every row) are dropped from the cells map. No-op if the index is out of
-// range.
+// RemoveColPayload removes the column with the given key. All cells in that column
+// (across every row) are dropped from the cells map. No-op if no column has the key.
 type RemoveColPayload struct {
-	Index uint32 `json:"index" msgpack:"index"`
+	Key string `json:"key" msgpack:"key"`
 }
 
-// ResizeRowPayload resizes the row at the given index. No-op if the index is out of
-// range.
+// ResizeRowPayload resizes the row with the given key. No-op if no row has the key.
 type ResizeRowPayload struct {
-	Index uint32  `json:"index" msgpack:"index"`
-	Size  float64 `json:"size" msgpack:"size"`
+	Key  string  `json:"key" msgpack:"key"`
+	Size float64 `json:"size" msgpack:"size"`
 }
 
-// ResizeColPayload resizes the column at the given index. No-op if the index is out of
-// range.
+// ResizeColPayload resizes the column with the given key. No-op if no column has the
+// key.
 type ResizeColPayload struct {
-	Index uint32  `json:"index" msgpack:"index"`
-	Size  float64 `json:"size" msgpack:"size"`
+	Key  string  `json:"key" msgpack:"key"`
+	Size float64 `json:"size" msgpack:"size"`
+}
+
+// MoveRowPayload moves the row with the given key so that it ends up at index to,
+// shifting the rows in between by one. The row keeps its size and cells. No-op if no
+// row has the key; to clamps to the last row.
+type MoveRowPayload struct {
+	Key string `json:"key" msgpack:"key"`
+	To  uint32 `json:"to" msgpack:"to"`
+}
+
+// MoveColPayload moves the column with the given key so that it ends up at index to,
+// shifting the columns in between by one. The column keeps its size and its cell in
+// every row. No-op if no column has the key; to clamps to the last column. A row
+// missing a cell at the old or new index is left unchanged.
+type MoveColPayload struct {
+	Key string `json:"key" msgpack:"key"`
+	To  uint32 `json:"to" msgpack:"to"`
 }
 
 // SetCellPayload replaces the cell at cell.key with the provided value. No-op if no
@@ -130,6 +151,8 @@ type Action struct {
 	RemoveCol  *RemoveColPayload  `json:"remove_col,omitzero" msgpack:"remove_col,omitempty"`
 	ResizeRow  *ResizeRowPayload  `json:"resize_row,omitzero" msgpack:"resize_row,omitempty"`
 	ResizeCol  *ResizeColPayload  `json:"resize_col,omitzero" msgpack:"resize_col,omitempty"`
+	MoveRow    *MoveRowPayload    `json:"move_row,omitzero" msgpack:"move_row,omitempty"`
+	MoveCol    *MoveColPayload    `json:"move_col,omitzero" msgpack:"move_col,omitempty"`
 	SetCell    *SetCellPayload    `json:"set_cell,omitzero" msgpack:"set_cell,omitempty"`
 	EraseCells *EraseCellsPayload `json:"erase_cells,omitzero" msgpack:"erase_cells,omitempty"`
 }
@@ -183,6 +206,16 @@ func Reduce(state Table, actions ...Action) (Table, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.ResizeCol.Handle(state)
+		case ActionTypeMoveRow:
+			if a.MoveRow == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.MoveRow.Handle(state)
+		case ActionTypeMoveCol:
+			if a.MoveCol == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.MoveCol.Handle(state)
 		case ActionTypeSetCell:
 			if a.SetCell == nil {
 				return state, union.MissingPayload(a.Type)
@@ -241,6 +274,16 @@ func NewResizeRowAction(p ResizeRowPayload) Action {
 // NewResizeColAction wraps a ResizeColPayload in an Action envelope.
 func NewResizeColAction(p ResizeColPayload) Action {
 	return Action{Type: ActionTypeResizeCol, ResizeCol: &p}
+}
+
+// NewMoveRowAction wraps a MoveRowPayload in an Action envelope.
+func NewMoveRowAction(p MoveRowPayload) Action {
+	return Action{Type: ActionTypeMoveRow, MoveRow: &p}
+}
+
+// NewMoveColAction wraps a MoveColPayload in an Action envelope.
+func NewMoveColAction(p MoveColPayload) Action {
+	return Action{Type: ActionTypeMoveCol, MoveCol: &p}
 }
 
 // NewSetCellAction wraps a SetCellPayload in an Action envelope.

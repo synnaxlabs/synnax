@@ -147,7 +147,7 @@ export class Loop {
         // is unique in the queue.
         if (cleanup != null) this.cleanup.set(req.key, cleanup);
       } catch (e) {
-        this.handleError(e, "render loop failed");
+        this.handleError(e, "Failed to render");
       }
     });
   }
@@ -158,7 +158,7 @@ export class Loop {
       try {
         this.render();
       } catch (e) {
-        this.handleError(e, "render loop failed");
+        this.handleError(e, "Failed to render");
       }
       requestAnimationFrame(render);
     };

@@ -10,6 +10,8 @@
 import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement, useMemo } from "react";
 
+import { transform, useShift } from "@/table/shift";
+
 export interface CellProps extends React.ComponentPropsWithRef<"td"> {
   selected?: boolean;
   // height is the row's stored size in px, applied to the <td> with
@@ -30,7 +32,11 @@ export const Cell = ({
   style,
   ...rest
 }: CellProps): ReactElement => {
-  const mergedStyle = useMemo(() => ({ ...style, height }), [style, height]);
+  const shift = useShift();
+  const mergedStyle = useMemo(
+    () => ({ ...style, height, transform: transform(shift) }),
+    [style, height, shift],
+  );
   return (
     <td
       ref={ref}
