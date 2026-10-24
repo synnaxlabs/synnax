@@ -295,7 +295,7 @@ func validateOmitOverrides(table *resolution.Table, diag *diagnostics.Files) {
 		}
 		inherited := make(map[string]resolution.Field)
 		for _, ext := range form.Extends {
-			parent, ok := ext.Resolve(table)
+			parent, _, ok := resolution.Dealias(ext, table)
 			if !ok {
 				continue
 			}
