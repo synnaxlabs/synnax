@@ -104,7 +104,7 @@ var _ = Describe("Create", Ordered, func() {
 					)
 				}
 				allocs, kvAllocs := leastAllocs(create), leastAllocs(setKV)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).To(Succeed())
 				Expect(allocs).To(Equal(kvAllocs + 1))
 			},
 		)
