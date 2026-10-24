@@ -471,6 +471,14 @@ describe("Form", () => {
       fireEvent.change(input, { target: { value: "Jane Doe" } });
       expect(c.getByDisplayValue("Jane Doe")).toBeTruthy();
     });
+    it("should render nothing when visible is false", () => {
+      const c = render(<Form.Field path="name" visible={false} />, { wrapper });
+      expect(c.queryByDisplayValue("John Doe")).toBeNull();
+    });
+    it("should allow a hidden field to bind an absent path", () => {
+      const c = render(<Form.Field path="absent" visible={false} />, { wrapper });
+      expect(c.container.innerHTML).toBe("");
+    });
     it("should render help text if validation on the field fails", () => {
       const c = render(
         <Form.Field<number> path="age">{(p) => <Input.Numeric {...p} />}</Form.Field>,
