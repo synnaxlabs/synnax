@@ -52,13 +52,12 @@ struct Status {
     /// warning, error, loading, or disabled.
     std::string variant;
     /// @brief message says what happened in one short line, such as "Failed to start
-    /// task"
-    /// or "Started task". A status that reports a state names the state instead, such
-    /// as "Driver not running".
+    /// task" or "Started task". A status that reports a state names the state instead,
+    /// such as "Driver not running".
     std::string message;
     /// @brief description says why it happened and what to do next, in full sentences.
-    /// Raw
-    /// error text goes here, never in the message. Empty when the message says enough.
+    /// Raw error text goes here, never in the message. Empty when the message says
+    /// enough.
     std::string description = "";
     /// @brief time is the timestamp when the status was created.
     ::x::telem::TimeStamp time = x::telem::TimeStamp::now();
