@@ -2853,8 +2853,9 @@ describe("remote", () => {
         source.value({ view: v });
         await expect.poll(() => source.fetching()).toBe(false);
         expect(left.refCount).toBe(0);
+        // The tile stops where the held raw series starts, so no span draws twice.
         const cut = c.tiles.find((t) => t.level === 14 && t.index === 5);
-        expect(cut?.end?.valueOf()).toBe(TimeStamp.milliseconds(90_112).valueOf());
+        expect(cut?.end?.valueOf()).toBe(TimeStamp.seconds(90).valueOf());
         expect(positions(source.value({ view: v })[1])).toEqual([
           [14, 4],
           [14, 5],

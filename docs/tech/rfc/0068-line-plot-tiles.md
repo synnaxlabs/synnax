@@ -194,9 +194,10 @@ aggregation setting is hidden for these lines.
 A live line keeps a window at full resolution: `feed.read` fills it once, and
 `Feed.stream` extends it. The window starts at the home-level tile boundary at or before
 the start of the home view, and series that end before the start are released as it
-moves. Tiles cover everything before the start. No tile at the home level or finer
-crosses it, and a coarser tile that does is read with `end` set to it. The x and y
-sources compute the start from the clock, so both cut at the same time.
+moves. Tiles cover everything before the start, or before the first held series when
+that series crosses the start, so no span draws twice. A tile that crosses where tiles
+stop is read with `end` set to it. The x and y sources compute the start from the clock,
+so both cut at the same time.
 
 ### 3.9 Loading
 
