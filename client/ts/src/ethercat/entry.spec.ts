@@ -15,6 +15,7 @@ import { ethercat } from "@/ethercat";
 const EL1008_INPUTS: ethercat.PDOEntry[] = Array.from({ length: 8 }, (_, i) => ({
   name: "Input",
   pdoName: `Channel ${i + 1}`,
+  pdoIndex: 0x1a00 + i,
   index: 0x6000 + 0x10 * i,
   subIndex: 1,
   bitLength: 1,
