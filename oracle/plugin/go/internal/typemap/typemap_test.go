@@ -60,6 +60,87 @@ var _ = Describe("IsUUID", func() {
 	})
 })
 
+var _ = Describe("Nilable", func() {
+	var table *resolution.Table
+	ref := func(name string, args ...resolution.TypeRef) resolution.TypeRef {
+		return resolution.TypeRef{Name: name, TypeArgs: args}
+	}
+	strings := ref("Array", ref("string"))
+	quad := ref("Array", ref("float64"))
+	quad.ArraySize = new(int64(4))
+	index := ref("Map", ref("string"), ref("int32"))
+
+	BeforeEach(func() {
+		table = resolution.NewTable()
+		for _, typ := range []resolution.Type{
+			{
+				Name:          "Labels",
+				QualifiedName: "test.Labels",
+				Form:          resolution.AliasForm{Target: strings},
+			},
+			{
+				Name:          "Names",
+				QualifiedName: "test.Names",
+				Form:          resolution.DistinctForm{Base: ref("test.Labels")},
+			},
+			{
+				Name:          "Quad",
+				QualifiedName: "test.Quad",
+				Form:          resolution.AliasForm{Target: quad},
+			},
+			{
+				Name:          "Index",
+				QualifiedName: "test.Index",
+				Form:          resolution.DistinctForm{Base: index},
+			},
+			{
+				Name:          "Blob",
+				QualifiedName: "test.Blob",
+				Form:          resolution.DistinctForm{Base: ref("bytes")},
+			},
+			{
+				Name:          "Data",
+				QualifiedName: "test.Data",
+				Form:          resolution.DistinctForm{Base: ref("record")},
+			},
+			{
+				Name:          "Key",
+				QualifiedName: "test.Key",
+				Form:          resolution.DistinctForm{Base: ref("uint32")},
+			},
+		} {
+			Expect(table.Add(typ)).To(Succeed())
+		}
+	})
+
+	DescribeTable("Should report whether nil marks a Go value of a type absent",
+		func(r resolution.TypeRef, expected bool) {
+			Expect(typemap.Nilable(r, table)).To(Equal(expected))
+		},
+		Entry("an array", strings, true),
+		Entry("a fixed-size array", quad, false),
+		Entry("a map", index, true),
+		Entry("a record", ref("record"), true),
+		Entry("bytes", ref("bytes"), true),
+		Entry("any", ref("any"), false),
+		Entry("a number", ref("uint32"), false),
+		Entry("a distinct type over an alias of an array", ref("test.Names"), true),
+		Entry("an alias of a fixed-size array", ref("test.Quad"), false),
+		Entry("a distinct map", ref("test.Index"), true),
+		Entry("a distinct type over bytes", ref("test.Blob"), true),
+		Entry("a distinct type over a record", ref("test.Data"), true),
+		Entry("a distinct number", ref("test.Key"), false),
+		Entry("a type parameter defaulted to a record", resolution.TypeRef{
+			Name:      "D",
+			TypeParam: &resolution.TypeParam{Name: "D", Default: new(ref("record"))},
+		}, true),
+		Entry("a type parameter without a default", resolution.TypeRef{
+			Name:      "D",
+			TypeParam: &resolution.TypeParam{Name: "D"},
+		}, false),
+	)
+})
+
 var _ = Describe("UnwrapType", func() {
 	It("should return the type itself for a struct", func() {
 		table := resolution.NewTable()

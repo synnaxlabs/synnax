@@ -65,6 +65,11 @@ Data = base.Data
 Blob = base.Blob
 Labels = base.Labels
 Index = base.Index
+Names Labels
+Table Index
+Doc Data
+Payload Blob
+Quad float64[4]
 `
 
 var _ = Describe("Go aliases", func() {
@@ -135,5 +140,30 @@ var _ = Describe("Go aliases", func() {
 				labeled Labeled?
 			}
 		`, "Labeled *Labeled `"),
+		Entry("an optional distinct type over an alias of an array", `
+			Panel struct {
+				names Names?
+			}
+		`, "Names Names `"),
+		Entry("an optional distinct type over an alias of a map", `
+			Panel struct {
+				table Table?
+			}
+		`, "Table Table `"),
+		Entry("an optional distinct type over an alias of record", `
+			Panel struct {
+				doc Doc?
+			}
+		`, "Doc Doc `"),
+		Entry("an optional distinct type over an alias of bytes", `
+			Panel struct {
+				payload Payload?
+			}
+		`, "Payload Payload `"),
+		Entry("an optional fixed-size array", `
+			Panel struct {
+				corners Quad?
+			}
+		`, "Corners *Quad `"),
 	)
 })

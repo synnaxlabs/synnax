@@ -824,6 +824,50 @@ var _ = Describe("Go Marshal Plugin", func() {
 			)
 		})
 
+		Context("optional bytes field", func() {
+			It(
+				"Should generate a single presence bit without a redundant inner nil check",
+				func() {
+					source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Test struct {
+						name string
+						data bytes?
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					content := ExpectContent(resp, "codec.gen.go")
+					content.ToContain(
+						"if t.Data != nil {",
+						"w.WriteWithLen(t.Data)",
+						"t.Data, err = r.ReadWithLen(); if err != nil { return err }",
+					)
+					content.ToNotContain("w.Bool(t.Data != nil)", "&hv")
+				},
+			)
+
+			It("Should keep the presence bit of each element of an optional array",
+				func() {
+					source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Test struct {
+						name  string
+						blobs bytes[]?
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					content := ExpectContent(resp, "codec.gen.go")
+					content.ToContain("w.Bool(t.Blobs[j] != nil)")
+				},
+			)
+		})
+
 		Context("optional struct-array field", func() {
 			It("Should encode the slice in place without a pointer deref", func() {
 				source := `

@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -56,6 +57,30 @@ func PrimitiveGoType(primName string) (string, bool) {
 		return "interface{}", true
 	default:
 		return "", false
+	}
+}
+
+// Nilable reports whether a Go value of ref, through aliases and distinct types, is a
+// slice, map, or record. An optional field of such a type holds no pointer, since nil
+// already marks it absent. A defaulted type parameter counts as its default.
+func Nilable(ref resolution.TypeRef, table *resolution.Table) bool {
+	if ref.IsTypeParam() {
+		return ref.TypeParam.HasDefault() && Nilable(*ref.TypeParam.Default, table)
+	}
+	if arrays.IsArray(ref, table) {
+		return arrays.Size(ref, table) == nil
+	}
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return false
+	}
+	switch form := UnwrapType(resolved, table).Form.(type) {
+	case resolution.BuiltinGenericForm:
+		return form.Name == "Map"
+	case resolution.PrimitiveForm:
+		return form.Name == "record" || form.Name == "bytes"
+	default:
+		return false
 	}
 }
 

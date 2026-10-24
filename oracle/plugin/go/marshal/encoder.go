@@ -901,7 +901,8 @@ func (b *encoderBuilder) processArray(
 
 	// Write a presence bit to distinguish nil from empty slices.
 	// When inside a optional guard, the slice is already known non-nil.
-	if !b.skipNilCheck {
+	known := b.takeNonNil()
+	if !known {
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
 			ind+fmt.Sprintf("if %s != nil {", getPath),
@@ -940,7 +941,7 @@ func (b *encoderBuilder) processArray(
 
 	b.encodeLines = append(b.encodeLines, ind+"\t}")
 	b.decodeLines = append(b.decodeLines, ind+"\t}")
-	if !b.skipNilCheck {
+	if !known {
 		b.encodeLines = append(b.encodeLines, ind+"}")
 		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
 	}
@@ -971,7 +972,8 @@ func (b *encoderBuilder) processMap(
 
 	// Write a presence bit to distinguish nil from empty maps. When inside a optional
 	// guard, the map is already known non-nil.
-	if !b.skipNilCheck {
+	known := b.takeNonNil()
+	if !known {
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
 			ind+fmt.Sprintf("if %s != nil {", getPath),
@@ -1010,7 +1012,7 @@ func (b *encoderBuilder) processMap(
 		ind+"\t\t"+setPath+"[key] = val",
 		ind+"\t}",
 	)
-	if !b.skipNilCheck {
+	if !known {
 		b.encodeLines = append(b.encodeLines, ind+"}")
 		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
 	}
@@ -1080,7 +1082,18 @@ func (b *encoderBuilder) processLeaf(
 		)
 
 	case "bytes":
-		// Write a presence bit to distinguish nil from empty byte slices.
+		// Write a presence bit to distinguish nil from empty byte slices. Inside an
+		// optional guard, the slice is already known non-nil.
+		if b.takeNonNil() {
+			b.encodeLines = append(b.encodeLines,
+				ind+fmt.Sprintf("w.WriteWithLen(%s)", valPath),
+			)
+			b.decodeLines = append(b.decodeLines, ind+fmt.Sprintf(
+				"%s, err = r.ReadWithLen(); if err != nil { return err }",
+				setPath,
+			))
+			break
+		}
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Bool(%s != nil)", valPath),
 			ind+fmt.Sprintf("if %s != nil {", valPath),
@@ -1231,16 +1244,16 @@ func (b *encoderBuilder) unwrapType(typ resolution.Type) resolution.Type {
 	return typemap.UnwrapType(typ, b.table)
 }
 
+// takeNonNil reports whether the value about to be encoded is known non-nil, and
+// clears the flag so the value's elements write their own presence bits.
+func (b *encoderBuilder) takeNonNil() bool {
+	known := b.skipNilCheck
+	b.skipNilCheck = false
+	return known
+}
+
 func (b *encoderBuilder) isGoNilable(ref resolution.TypeRef) bool {
-	resolved, ok := ref.Resolve(b.table)
-	if !ok {
-		return false
-	}
-	actual := b.unwrapType(resolved)
-	if bg, ok := actual.Form.(resolution.BuiltinGenericForm); ok {
-		return bg.Name == "Array" || bg.Name == "Map"
-	}
-	return false
+	return typemap.Nilable(ref, b.table)
 }
 
 func (b *encoderBuilder) resolveLeaf(

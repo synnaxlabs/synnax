@@ -732,18 +732,7 @@ func declaredFields(
 // (msgpack.EncodedJSON) are nilable in place and are never pointerized, so only
 // the remaining types take the `new(...)` pointer form for their test value.
 func (b *testValueBuilder) isGoPointerField(ref resolution.TypeRef) bool {
-	resolved, ok := ref.Resolve(b.table)
-	if !ok {
-		return false
-	}
-	actual, _ := typemap.UnwrapTypeRef(resolved, ref, b.table)
-	switch form := actual.Form.(type) {
-	case resolution.BuiltinGenericForm:
-		return form.Name != "Array" && form.Name != "Map"
-	case resolution.PrimitiveForm:
-		return form.Name != "record"
-	}
-	return true
+	return !typemap.Nilable(ref, b.table)
 }
 
 func (b *testValueBuilder) optionalExpr(
