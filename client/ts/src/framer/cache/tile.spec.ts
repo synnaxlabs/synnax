@@ -172,6 +172,53 @@ describe("tile", () => {
       reader.close();
     });
 
+    describe("a cached tile read with another channel of the tile", () => {
+      it("should resolve once the other channel's fetch lands", async () => {
+        const { reader, calls } = createReader({
+          batchDebounce: TimeSpan.milliseconds(20),
+        });
+        await reader.read(createSpec({ key: 1 }));
+        let resolved = false;
+        const cached = reader
+          .read(createSpec({ key: 1 }))
+          .then(() => (resolved = true));
+        const fetched = reader.read(createSpec({ key: 2 }));
+        await sleep.sleep(TimeSpan.milliseconds(5));
+        expect(resolved).toBe(false);
+        await Promise.all([cached, fetched]);
+        expect(calls).toHaveLength(2);
+        expect(calls[1].keys).toEqual([2]);
+        reader.close();
+      });
+
+      it("should resolve at once when the other read is of another tile", async () => {
+        const { reader } = createReader({ batchDebounce: TimeSpan.milliseconds(20) });
+        await reader.read(createSpec({ key: 1 }));
+        let resolved = false;
+        const cached = reader
+          .read(createSpec({ key: 1 }))
+          .then(() => (resolved = true));
+        const fetched = reader.read(createSpec({ key: 2, index: 4 }));
+        await sleep.sleep(TimeSpan.milliseconds(5));
+        expect(resolved).toBe(true);
+        await Promise.all([cached, fetched]);
+        reader.close();
+      });
+
+      it("should reject when the reader closes before the fetch lands", async () => {
+        const { reader } = createReader();
+        await reader.read(createSpec({ key: 1 }));
+        const cached = expect(reader.read(createSpec({ key: 1 }))).rejects.toThrow(
+          "tile reader is closed",
+        );
+        const fetched = expect(reader.read(createSpec({ key: 2 }))).rejects.toThrow(
+          "tile reader is closed",
+        );
+        reader.close();
+        await Promise.all([cached, fetched]);
+      });
+    });
+
     it("should fetch tiles with different bounds or options separately", async () => {
       const { reader, calls } = createReader();
       const mid = tileRange(createSpec()).start.add(TimeSpan.milliseconds(512));
