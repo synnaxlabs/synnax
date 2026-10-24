@@ -1528,7 +1528,8 @@ TEST(ChannelStateTest, StampInvariants_TimeThenWriteOrder) {
             synthesized.push_back(order[i] == 'b');
         }
         std::vector<size_t> positions(written.size());
-        std::ranges::iota(positions, 0);
+        // NOLINTNEXTLINE(modernize-use-ranges): macOS libc++ has no std::ranges::iota.
+        std::iota(positions.begin(), positions.end(), 0);
         std::ranges::stable_sort(positions, [&](size_t a, size_t b) {
             return written[a].first < written[b].first;
         });
