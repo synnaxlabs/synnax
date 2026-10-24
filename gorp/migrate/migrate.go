@@ -95,7 +95,7 @@ func NewInstrumentedEntry[IK, OK gorp.Key, I gorp.Entry[IK], O gorp.Entry[OK]](
 				if err = writer.Set(ctx, newEntry); err != nil {
 					return err
 				}
-				logger.logProgress()
+				logger.increment()
 			}
 			return err
 		},
@@ -124,10 +124,10 @@ type progressLogger struct {
 	count int
 }
 
-// logProgress counts one more processed entry and logs at the progress interval.
-func (p *progressLogger) logProgress() {
+// increment counts one more processed entry and logs at the progress interval.
+func (p *progressLogger) increment() {
 	p.count++
-	if p.shouldLogProgress() {
+	if p.shouldLog() {
 		p.ins.L.Info(
 			"migration progress",
 			zap.String("migration", p.key),
@@ -136,9 +136,9 @@ func (p *progressLogger) logProgress() {
 	}
 }
 
-// shouldLogProgress returns true at logarithmically spaced intervals (1, 10, 100, 1000)
-// then every 1000 entries after that.
-func (p *progressLogger) shouldLogProgress() bool {
+// shouldLog returns true at logarithmically spaced intervals (1, 10, 100, 1000) then
+// every 1000 entries after that.
+func (p *progressLogger) shouldLog() bool {
 	if p.count >= progressMax {
 		return p.count%progressMax == 0
 	}
