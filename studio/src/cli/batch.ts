@@ -10,7 +10,7 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -25,14 +25,18 @@ import {
   stampFile,
   THEMES,
 } from "@/cli/common";
+import { entryHash } from "@/cli/hash";
 import { runCapture, runRender, STUDIO_PORT } from "@/cli/pipeline";
-import { type Entry, videoName } from "@/manifest";
+import { type Entry, stillsDir, videoName } from "@/manifest";
+import { type Timeline } from "@/timeline";
 
 const usage = `usage: pnpm batch [filter] [options]
 Produces every manifest entry (videos.ts) whose id contains [filter]: for each,
 captures light and dark against fresh ephemeral cores and renders the themed
-pair into the consolidated out/videos/ directory. Entries whose script and
-options are unchanged since their last successful production are skipped.
+pair into the consolidated out/videos/ directory. A stills entry skips the render:
+its stills land in out/stills/<id>/, and their regions at the entry's regions path.
+Entries whose script, the modules it imports from scripts/, and options are
+unchanged since their last successful production are skipped.
   --exact           treat [filter] as a full id instead of a substring
   --draft           fast review renders: higher crf + fast encoder preset
   --force           re-produce even when unchanged
@@ -46,17 +50,10 @@ options are unchanged since their last successful production are skipped.
                     port + i, and its log prints when the entry finishes.
                     Entries pinning a port produce first, one at a time`;
 
-const entryHash = async (entry: Entry, draft: boolean): Promise<string> => {
-  const script = await readFile(path.resolve(ROOT, entry.script));
-  return createHash("sha256")
-    .update(script)
-    .update(JSON.stringify({ entry, draft }))
-    .digest("hex");
-};
-
 const paths = (entry: Entry) => ({
   captureDir: (theme: "light" | "dark") => path.join(OUT_ROOT, entry.id, theme),
   video: (theme: "light" | "dark") => path.join(OUT_ROOT, videoName(entry.id, theme)),
+  stills: path.join(OUT_ROOT, stillsDir(entry.id)),
 });
 
 interface ProduceEntryOptions {
@@ -68,6 +65,13 @@ interface ProduceEntryOptions {
   port?: number;
 }
 
+/** versionOf hashes named files, so their CDN keys change with their content. */
+const versionOf = (files: Record<string, Buffer>): string => {
+  const hash = createHash("sha256");
+  for (const name of Object.keys(files).sort()) hash.update(name).update(files[name]);
+  return hash.digest("hex").slice(0, 12);
+};
+
 const produceEntry = async ({
   entry,
   url,
@@ -77,11 +81,12 @@ const produceEntry = async ({
   port,
 }: ProduceEntryOptions): Promise<void> => {
   const p = paths(entry);
-  for (const theme of THEMES) {
+  const capture = async (theme: "light" | "dark"): Promise<Timeline> => {
     const captureDir = p.captureDir(theme);
+    await rm(path.join(captureDir, "stills"), { recursive: true, force: true });
     await mkdir(captureDir, { recursive: true });
     console.log(`  [${theme}] capturing...`);
-    const timeline = await runCapture({
+    return await runCapture({
       scriptPath: path.resolve(ROOT, entry.script),
       outDir: captureDir,
       url,
@@ -94,22 +99,52 @@ const produceEntry = async ({
       ...(entry.height != null && { height: entry.height }),
       ...(entry.dsf != null && { dsf: entry.dsf }),
     });
-    console.log(`  [${theme}] rendering ${timeline.meta.frames} frames...`);
-    const outputLocation = p.video(theme);
-    await mkdir(path.dirname(outputLocation), { recursive: true });
-    await runRender({
-      timeline,
-      captureDir,
-      outputLocation,
-      target: entry.target,
-      draft,
-    });
-    console.log(`  [${theme}] wrote ${path.relative(ROOT, outputLocation)}`);
-    if (!keepFrames)
-      await rm(path.join(captureDir, "frames"), { recursive: true, force: true });
-  }
+  };
+  if (entry.stills != null) {
+    await rm(p.stills, { recursive: true, force: true });
+    const stills: Record<string, Buffer> = {};
+    const regions: string[] = [];
+    for (const theme of THEMES) {
+      await capture(theme);
+      const dir = path.join(p.captureDir(theme), "stills");
+      for (const file of await readdir(dir))
+        if (file.endsWith(".webp"))
+          stills[`${path.basename(file, ".webp")}-${theme}.webp`] = await readFile(
+            path.join(dir, file),
+          );
+      regions.push(await readFile(path.join(dir, "regions.json"), "utf8"));
+    }
+    if (regions[0] !== regions[1])
+      throw new Error("the light and dark stills have different regions");
+    const version = versionOf(stills);
+    await mkdir(path.join(p.stills, version), { recursive: true });
+    for (const [file, data] of Object.entries(stills))
+      await writeFile(path.join(p.stills, version, file), data);
+    await writeFile(
+      path.resolve(ROOT, entry.stills.regions),
+      `${JSON.stringify({ version, ...JSON.parse(regions[0]) }, null, 2)}\n`,
+    );
+    console.log(`  wrote ${path.relative(ROOT, p.stills)} and ${entry.stills.regions}`);
+  } else
+    for (const theme of THEMES) {
+      const captureDir = p.captureDir(theme);
+      const timeline = await capture(theme);
+      console.log(`  [${theme}] rendering ${timeline.meta.frames} frames...`);
+      const outputLocation = p.video(theme);
+      await mkdir(path.dirname(outputLocation), { recursive: true });
+      await runRender({
+        timeline,
+        captureDir,
+        outputLocation,
+        target: entry.target,
+        draft,
+      });
+      console.log(`  [${theme}] wrote ${path.relative(ROOT, outputLocation)}`);
+      if (!keepFrames)
+        await rm(path.join(captureDir, "frames"), { recursive: true, force: true });
+    }
   const stamp: Stamp = {
-    hash: await entryHash(entry, draft),
+    hash: await entryHash(entry, draft, ROOT),
     draft,
     producedAt: new Date().toISOString(),
   };
@@ -218,10 +253,13 @@ const main = async (): Promise<void> => {
   const stale: Entry[] = [];
   for (const entry of entries) {
     const p = paths(entry);
-    const hash = await entryHash(entry, values.draft);
+    const hash = await entryHash(entry, values.draft, ROOT);
     const stamp = await readStamp(entry.id);
-    const fresh =
-      stamp?.hash === hash && THEMES.every((theme) => existsSync(p.video(theme)));
+    const present =
+      entry.stills != null
+        ? existsSync(p.stills)
+        : THEMES.every((theme) => existsSync(p.video(theme)));
+    const fresh = stamp?.hash === hash && present;
     if (fresh && !values.force) {
       console.log(`${entry.id}: unchanged, skipping`);
       skipped++;
