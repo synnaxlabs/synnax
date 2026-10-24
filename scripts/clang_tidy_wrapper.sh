@@ -26,9 +26,24 @@ done
 # runs over their headers before clang-tidy drops the findings. As system paths, the
 # checks skip them, which halves the run time.
 third_party='^(external|vendor|bazel-out)/'
+os=$(uname)
+gcc_install_dir=
 args=()
 while [ "$#" -gt 0 ]; do
     case $1 in
+        # On Linux, the aspect passes the GCC built-in include paths with the C paths
+        # first, which breaks the #include_next in libstdc++. clang-tidy finds the same
+        # paths in the correct order from the GCC install.
+        -isystem)
+            if [ "$os" = Linux ] && [[ $2 == /* ]]; then
+                if [[ $2 =~ ^(/usr/lib/gcc/[^/]+/[^/]+)/include$ ]]; then
+                    gcc_install_dir=${BASH_REMATCH[1]}
+                fi
+            else
+                args+=("$1" "$2")
+            fi
+            shift 2
+            ;;
         -iquote | -I)
             if [[ $2 =~ $third_party ]]; then
                 args+=(-isystem "$2")
@@ -51,11 +66,12 @@ while [ "$#" -gt 0 ]; do
             ;;
     esac
 done
+if [ -n "$gcc_install_dir" ]; then args+=("--gcc-install-dir=$gcc_install_dir"); fi
 set -- "${args[@]}"
 
 # The macOS toolchain passes Xcode path placeholders that only its own compiler wrapper
 # expands.
-if [ "$(uname)" = Darwin ]; then
+if [ "$os" = Darwin ]; then
     sdk_root=$(xcrun --show-sdk-path)
     developer_dir=$(xcode-select --print-path)
     args=()
