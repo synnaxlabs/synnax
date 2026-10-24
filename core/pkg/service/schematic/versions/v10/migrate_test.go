@@ -19,7 +19,6 @@ import (
 	v9 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -111,7 +110,7 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Schematic",
-			Migrations: []migrate.Migration{v10.Migration},
+			Migrations: []gorp.Migration{v10.Migration},
 		})).To(Succeed())
 		var got v10.Schematic
 		Expect(gorp.NewRetrieve[v10.Key, v10.Schematic]().

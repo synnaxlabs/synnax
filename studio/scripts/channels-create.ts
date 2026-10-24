@@ -7,59 +7,67 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { capture, fixtures } from "@/index";
+import { capture } from "@/index";
+
+import { selectItem, switchFor } from "./common/channel-dialog";
 
 /**
- * Docs `console/channels/create_new`: click the "+" action in the Channels
- * toolbar, fill the dialog (name, data type, index), and submit; the new
- * channel appears in the toolbar.
+ * Docs `client/channels/create`: click the "+" action in the Channels toolbar, create
+ * the index channel tank_time with "Create more" on, then create tank_pressure as a
+ * float32 channel on that index. Both channels land in the toolbar.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
-  const fixture = await fixtures.sineTelemetry();
-  try {
-    const { page } = session;
-    await capture.login(session);
+  const { page } = session;
+  await capture.login(session);
 
-    await capture.openToolbar(session, "channel");
-    await capture.resizeToolbar(session, 400);
-    await session.moveTo({ x: 756, y: 500 });
+  await capture.clearPanel(session);
+  await capture.openToolbar(session, "channel");
+  await capture.resizeToolbar(session, 400);
+  await session.moveTo({ x: 800, y: 450 });
 
-    session.startRecording();
-    await session.hold(1000);
+  session.startRecording();
+  await session.hold(1500);
 
-    await capture.clickToolbarCreate(session);
-    const name = page.getByPlaceholder("Name").first();
-    await session.waitFor(name);
-    await session.hold(600);
-    await session.zoom(page.locator(".console-modal").first());
+  await capture.clickToolbarCreate(session);
+  const modal = page.locator(capture.MODAL).first();
+  const name = modal.getByPlaceholder("Name").first();
+  await session.waitFor(name);
+  await session.hold(600);
+  await session.zoom(modal);
 
-    await session.click(name);
-    await session.type("pressure_pt_01");
-    await session.hold(400);
+  await session.click(name);
+  await session.type("tank_time");
+  await session.hold(400);
+  await session.click(switchFor(modal, "Is index"));
+  await session.hold(500);
+  await session.click(switchFor(modal, "Create more"));
+  await session.hold(500);
+  await capture.clickButton(session, "Create");
+  await session.waitFor(
+    page.locator(".console-nav__drawer").getByText("tank_time", { exact: true }),
+  );
+  await session.hold(800);
 
-    await session.click(page.getByText("Select channel", { exact: true }).first(), {
-      text: true,
-    });
-    const index = page
-      .locator(".pluto-list__item:not(.pluto-tree__item)")
-      .filter({ hasText: "demo_time" })
-      .first();
-    await session.waitFor(index);
-    await session.click(index.getByText("demo_time", { exact: true }).first(), {
-      text: true,
-    });
-    await session.hold(600);
+  await session.click(name);
+  await session.type("tank_pressure");
+  await session.hold(400);
+  await session.click(
+    modal.locator(".pluto-dialog__trigger").filter({ hasText: "float32" }).first(),
+  );
+  await selectItem(session, "float32");
+  await session.click(modal.getByText("Select channel", { exact: true }).first(), {
+    text: true,
+  });
+  await selectItem(session, "tank_time");
+  await session.hold(600);
+  await capture.clickButton(session, "Create");
+  session.endZoom();
+  await session.waitFor(
+    page.locator(".console-nav__drawer").getByText("tank_pressure", { exact: true }),
+  );
+  await session.hold(800);
 
-    await capture.clickButton(session, "Create");
-    await session.waitForHidden(name);
-    session.endZoom();
-    const created = page
-      .locator(".console-nav__drawer")
-      .getByText("pressure_pt_01", { exact: true })
-      .first();
-    await session.waitFor(created);
-    await session.hold(500);
-  } finally {
-    await fixture.stop();
-  }
+  await session.click(modal.getByRole("button", { name: "Close" }).first());
+  await session.waitForHidden(name);
+  await session.hold(2800);
 };

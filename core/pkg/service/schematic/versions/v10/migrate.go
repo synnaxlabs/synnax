@@ -12,7 +12,7 @@ package v10
 import (
 	"context"
 
-	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	v9 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
 )
 
@@ -37,4 +37,4 @@ func MigrateSchematic(ctx context.Context, old v9.Schematic) (Schematic, error) 
 
 // Migration lifts stored schematics from v9 to v10, which adds read-back state to the
 // setpoint, input, and select symbols.
-var Migration = gorp.NewEntryMigration("v60_add_read_back_state", MigrateSchematic)
+var Migration = migrate.NewEntry("v60_add_read_back_state", MigrateSchematic)

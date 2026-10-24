@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -143,7 +142,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:        db,
 				Namespace: "RBAC",
-				Migrations: []migrate.Migration{
+				Migrations: []gorp.Migration{
 					v0.NewMigration(v0.MigrationConfig{
 						User:     userSvc,
 						Ontology: otg,
@@ -279,7 +278,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			return gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:        db,
 				Namespace: "RBAC",
-				Migrations: []migrate.Migration{
+				Migrations: []gorp.Migration{
 					v0.NewMigration(v0.MigrationConfig{
 						User:     userSvc,
 						Ontology: otg,
@@ -347,7 +346,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "RBAC",
-			Migrations: []migrate.Migration{v0.NewMigration(v0.MigrationConfig{
+			Migrations: []gorp.Migration{v0.NewMigration(v0.MigrationConfig{
 				User:     userSvc,
 				Ontology: otg,
 				Role:     roleSvc,

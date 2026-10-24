@@ -74,7 +74,7 @@ struct WriteTaskConfig : ::synnax::ni::WriteConfig {
         }
         auto [dev, err] = client->devices.retrieve(this->device);
         if (err) {
-            cfg.field_err("device", "failed to retrieve device " + err.message());
+            cfg.field_err("device", "failed to retrieve device " + err.data);
             return;
         }
 
@@ -91,7 +91,7 @@ struct WriteTaskConfig : ::synnax::ni::WriteConfig {
         if (ch_err) {
             cfg.field_err(
                 "channels",
-                "failed to retrieve state channels: " + ch_err.message()
+                "failed to retrieve state channels: " + ch_err.data
             );
             return;
         }
@@ -122,7 +122,7 @@ struct WriteTaskConfig : ::synnax::ni::WriteConfig {
 
     /// @brief returns the configuration necessary for opening a streamer to
     /// receive values form Synnax.
-    [[nodiscard]] std::set<synnax::channel::Key> state_indexes() {
+    [[nodiscard]] std::set<synnax::channel::Key> state_indexes() const {
         return this->state_index_keys;
     }
 

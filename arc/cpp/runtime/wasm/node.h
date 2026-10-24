@@ -55,10 +55,13 @@ public:
         const ir::IR &prog,
         const ir::Node &node,
         state::Node &&state,
-        const Module::Function &func,
+        Module::Function func,
         std::shared_ptr<stl::strings::State> str_state
     ):
-        ir(node), state(std::move(state)), func(func), str_state(std::move(str_state)) {
+        ir(node),
+        state(std::move(state)),
+        func(std::move(func)),
+        str_state(std::move(str_state)) {
         const auto &func_ir = prog.function(node.type);
         this->inputs.resize(node.inputs.size());
         this->offsets.resize(node.outputs.size());
@@ -94,7 +97,7 @@ public:
         for (size_t i = 0; i < this->ir.inputs.size(); i++) {
             if (!this->chan_inputs[i] || !this->ir.inputs[i].value.is_null()) continue;
             const auto t = this->state.ref_input(i);
-            if (t == nullptr || t->size() == 0) return x::errors::NIL;
+            if (t == nullptr || t->empty()) return x::errors::NIL;
             this->inputs[i] = t->at<uint32_t>(-1);
         }
 
@@ -102,7 +105,7 @@ public:
         for (size_t i = 0; i < this->ir.inputs.size(); i++) {
             if (!this->var_inputs[i]) continue;
             const auto t = this->state.ref_input(i);
-            if (t == nullptr || t->size() == 0) return x::errors::NIL;
+            if (t == nullptr || t->empty()) return x::errors::NIL;
             if (this->string_inputs[i])
                 this->inputs[i] = static_cast<int32_t>(
                     this->str_state->create(t->at<std::string>(-1))
@@ -210,16 +213,17 @@ public:
             if (err) {
                 ctx.report_error(
                     x::errors::Error(
+                        err,
                         "WASM execution failed in node " + this->ir.key +
-                        " at sample " + std::to_string(i) + "/" +
-                        std::to_string(max_length) + ": " + err.message()
+                            " at sample " + std::to_string(i) + "/" +
+                            std::to_string(max_length) + ": " + err.data
                     )
                 );
                 trapped = true;
                 continue;
             }
 
-            x::telem::TimeStamp ts;
+            x::telem::TimeStamp ts{};
             if (clock_stamp)
                 ts = clock_first + static_cast<int64_t>(i);
             else

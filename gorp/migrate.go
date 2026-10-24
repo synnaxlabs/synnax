@@ -11,147 +11,26 @@ package gorp
 
 import (
 	"context"
+	"encoding/json/v2"
+	"slices"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"go.uber.org/zap"
 )
 
-// migration is a versioned schema migration that transforms entries stored in gorp.
-type migration struct {
-	// key is the migration's unique identifier, recorded in the applied-migrations set
-	// once the migration runs successfully.
-	key string
-	// tx is the gorp transaction the migration runs against. Bound by setMigrationTx
-	// just before Migrate executes.
-	tx Tx
-	// fn is the migration body.
-	fn func(context.Context, Tx, alamos.Instrumentation) error
-}
-
-var _ migrate.Migration = (*migration)(nil)
-
-// Key implements migrate.Migration.
-func (m *migration) Key() string { return m.key }
-
-// Run implements migrate.Migration.
-func (m *migration) Run(ctx context.Context, ins alamos.Instrumentation) error {
-	return m.fn(ctx, m.tx, ins)
-}
-
-const migrationProgressMax = 1000
-
-// progressLogger emits periodic info-level progress messages during a long-running
-// migration.
-type progressLogger struct {
-	// ins is the instrumentation used to emit progress logs.
-	ins alamos.Instrumentation
-	// key identifies the migration the logger is reporting on.
-	key string
-	// count is the number of entries processed so far.
-	count int
-}
-
-func (p *progressLogger) logProgress() {
-	if p.shouldLogProgress() {
-		p.ins.L.Info(
-			"migration progress",
-			zap.String("migration", p.key),
-			zap.Int("entries", p.count),
-		)
-	}
-}
-
-// shouldLogProgress returns true at logarithmically spaced intervals (1, 10, 100, 1000)
-// then every 1000 entries after that.
-func (p *progressLogger) shouldLogProgress() bool {
-	if p.count <= 0 {
-		return false
-	}
-	if p.count >= migrationProgressMax {
-		return p.count%migrationProgressMax == 0
-	}
-	for p.count >= 10 {
-		if p.count%10 != 0 {
-			return false
-		}
-		p.count /= 10
-	}
-	return p.count == 1
-}
-
-// NewEntryMigration creates a migration that iterates over all entries with the
-// configured prefix, decodes each as type I, transforms it to type O via the transform
-// function, and encodes the result. Both decoding and encoding use the DB's codec from
-// MigrationContext.
-func NewEntryMigration[IK, OK Key, I Entry[IK], O Entry[OK]](
-	key string,
-	transform func(context.Context, I) (O, error),
-) migrate.Migration {
-	return NewInstrumentedEntryMigration(
-		key,
-		func(ctx context.Context, old I, _ alamos.Instrumentation) (O, error) {
-			return transform(ctx, old)
-		},
-	)
-}
-
-// NewInstrumentedEntryMigration is NewEntryMigration for a transform that reports
-// through the runner's instrumentation, such as one that must log a lossy step.
-func NewInstrumentedEntryMigration[IK, OK Key, I Entry[IK], O Entry[OK]](
-	key string,
-	transform func(context.Context, I, alamos.Instrumentation) (O, error),
-) migrate.Migration {
-	return NewMigration(
-		key,
-		func(ctx context.Context, tx Tx, ins alamos.Instrumentation) (err error) {
-			var (
-				reader   = WrapReader[IK, I](tx)
-				writer   = WrapWriter[OK, O](tx)
-				logger   = &progressLogger{key: key, ins: ins}
-				newEntry O
-			)
-			iter, err := reader.OpenIterator(IterOptions{})
-			if err != nil {
-				return err
-			}
-			defer func() { err = errors.Combine(err, iter.Close()) }()
-			for iter.First(); iter.Valid(); iter.Next() {
-				logger.logProgress()
-				old := iter.Value(ctx)
-				if err = iter.Error(); err != nil {
-					return err
-				}
-				newEntry, err = transform(ctx, *old, ins)
-				if err != nil {
-					return errors.Wrapf(err, "entry %v (transform)", (*old).GorpKey())
-				}
-				if err = writer.Set(ctx, newEntry); err != nil {
-					return err
-				}
-			}
-			return err
-		},
-	)
-}
-
-// NewMigration creates a migration that receives a fully wrapped gorp.Tx, allowing
-// arbitrary read/write operations on the store.
-//
-// The returned migrate.Migration will ONLY work properly when run within the context of
-// gorp.OpenTable or gorp.Migrate.
-func NewMigration(
-	key string,
-	fn func(context.Context, Tx, alamos.Instrumentation) error,
-) migrate.Migration {
-	return &migration{key: key, fn: fn}
-}
-
-func setMigrationTx(mig migrate.Migration, tx Tx) {
-	if tMig, ok := mig.(*migration); ok {
-		tMig.tx = tx
-	}
+// Migration is a versioned change to the entries in a DB. A migration runs once:
+// Migrate records its key after it succeeds and skips it from then on. The
+// gorp/migrate package builds migrations.
+type Migration interface {
+	// Key returns the migration's identifier, unique among the migrations that run
+	// together.
+	Key() string
+	// Run applies the migration within tx.
+	Run(ctx context.Context, tx Tx, ins alamos.Instrumentation) error
 }
 
 // MigrateConfig configures a call to Migrate.
@@ -165,55 +44,113 @@ type MigrateConfig struct {
 	Namespace string
 	// Migrations is the ordered set of migrations to consider. Migrations whose key is
 	// already in the applied set are skipped.
-	Migrations []migrate.Migration
+	Migrations []Migration
 }
 
+// Migrate runs, in order, each migration in cfg that has not yet run in cfg.Namespace.
+// All of them run in one transaction, which commits only if every one succeeds. Migrate
+// returns an error without running any migration if two migrations share a key.
 func Migrate(ctx context.Context, cfg MigrateConfig) (err error) {
-	txn := cfg.DB.OpenTx()
-	defer func() { err = errors.Combine(err, txn.Close()) }()
-	for _, mig := range cfg.Migrations {
-		setMigrationTx(mig, txn)
-	}
-	applied, err := readAppliedMigrations(ctx, txn, cfg.Namespace)
+	tx := cfg.DB.OpenTx()
+	defer func() { err = errors.Combine(err, tx.Close()) }()
+	applied, err := readAppliedMigrations(ctx, tx, cfg.Namespace)
 	if err != nil {
 		return err
 	}
-	applied, err = migrate.Migrate(ctx, migrate.Config{
-		Migrations:      cfg.Migrations,
-		Applied:         applied,
-		Instrumentation: cfg.Instrumentation,
-	})
+	pending, err := pendingMigrations(cfg.Migrations, applied)
 	if err != nil {
 		return err
 	}
-	if err = writeAppliedMigrations(ctx, txn, cfg.Namespace, applied); err != nil {
+	if len(pending) == 0 {
+		cfg.L.Info("all migrations already applied", zap.Int("applied", len(applied)))
+	} else {
+		cfg.L.Info(
+			"running migrations",
+			zap.Strings("already_applied", applied.Slice()),
+			zap.Strings("pending", migrationKeys(pending)),
+		)
+	}
+	for _, mig := range pending {
+		k := mig.Key()
+		cfg.L.Info("running migration", zap.String("migration", k))
+		if err = mig.Run(ctx, tx, cfg.Instrumentation); err != nil {
+			cfg.L.Error("migration failed", zap.String("migration", k), zap.Error(err))
+			return errors.Wrapf(err, "migration %s failed", k)
+		}
+		cfg.L.Info("migration completed", zap.String("migration", k))
+		applied.Add(k)
+	}
+	if err = writeAppliedMigrations(ctx, tx, cfg.Namespace, applied); err != nil {
 		return err
 	}
-	return txn.Commit(ctx)
+	return tx.Commit(ctx)
 }
 
-func CodecMigration[K Key, E Entry[K]](key string) migrate.Migration {
-	return NewMigration(
-		key,
-		func(ctx context.Context, tx Tx, ins alamos.Instrumentation) (err error) {
-			writer := WrapWriter[K, E](tx)
-			logger := &progressLogger{key: key, ins: ins}
-			iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{})
-			if err != nil {
-				return err
-			}
-			defer func() { err = errors.Combine(err, iter.Close()) }()
-			for iter.First(); iter.Valid(); iter.Next() {
-				v := iter.Value(ctx)
-				logger.logProgress()
-				if err = iter.Error(); err != nil {
-					return err
-				}
-				if err = writer.Set(ctx, *v); err != nil {
-					return err
-				}
-			}
-			return nil
-		},
+// pendingMigrations returns the migrations whose keys are not in applied, in order.
+func pendingMigrations(
+	migrations []Migration,
+	applied set.Set[string],
+) ([]Migration, error) {
+	var (
+		seen    = make(set.Set[string], len(migrations))
+		pending = make([]Migration, 0, len(migrations))
 	)
+	for _, mig := range migrations {
+		k := mig.Key()
+		if seen.Contains(k) {
+			return nil, errors.Newf("duplicate migration name %q", k)
+		}
+		seen.Add(k)
+		if !applied.Contains(k) {
+			pending = append(pending, mig)
+		}
+	}
+	return pending, nil
+}
+
+func migrationKeys(migrations []Migration) []string {
+	keys := make([]string, len(migrations))
+	for i, mig := range migrations {
+		keys[i] = mig.Key()
+	}
+	return keys
+}
+
+// readAppliedMigrations reads the set of applied migration names from the KV store.
+// Names are stored as a JSON string array.
+func readAppliedMigrations(
+	ctx context.Context,
+	tx Tx,
+	namespace string,
+) (applied set.Set[string], err error) {
+	b, closer, err := tx.Get(ctx, key.Migrations(namespace))
+	if err != nil {
+		if errors.Is(err, query.ErrNotFound) {
+			return make(set.Set[string]), nil
+		}
+		return nil, err
+	}
+	defer func() { err = errors.Combine(err, closer.Close()) }()
+	var names []string
+	if err := json.Unmarshal(b, &names); err != nil {
+		return nil, err
+	}
+	return set.New(names...), nil
+}
+
+// writeAppliedMigrations persists the set of applied migration names as a sorted JSON
+// string array.
+func writeAppliedMigrations(
+	ctx context.Context,
+	tx Tx,
+	namespace string,
+	applied set.Set[string],
+) error {
+	names := applied.Slice()
+	slices.Sort(names)
+	b, err := json.Marshal(names)
+	if err != nil {
+		return err
+	}
+	return tx.Set(ctx, key.Migrations(namespace), b)
 }

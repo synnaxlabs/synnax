@@ -14,6 +14,9 @@
 
 #include "absl/log/log.h"
 
+#include "x/cpp/json/json.h"
+#include "x/cpp/strings/strings.h"
+
 #include "driver/common/common.h"
 #include "driver/task/task.h"
 
@@ -26,8 +29,6 @@ struct StatusHandler {
     const std::shared_ptr<driver::task::Context> ctx;
     /// @brief the raw synnax task.
     const synnax::task::Task task;
-    /// @brief the accumulated error in the task state.
-    x::errors::Error accumulated_err = x::errors::NIL;
     /// @brief the wrapped raw task state that will be sent back to Synnax.
     synnax::task::Status status;
 
@@ -50,52 +51,47 @@ struct StatusHandler {
     void reset() {
         this->status.variant = synnax::status::VARIANT_SUCCESS;
         this->accumulated_err = x::errors::NIL;
+        this->accumulated_msg.clear();
         this->recent_statuses.clear();
         this->insertion_order.clear();
     }
 
-    /// @brief register the provided error in the task state. If err is nil, then it
-    /// will be ignored, and false will be returned. Otherwise, the provided error
-    /// will override any other accumulated errors.
-    bool error(const x::errors::Error &err) {
+    /// @brief registers err in the task state, with message saying what failed. A nil
+    /// err is ignored and returns false. Otherwise, err overrides any accumulated error
+    /// and the call returns true.
+    bool error(const x::errors::Error &err, const std::string &message) {
         if (!err) return false;
         this->status.variant = synnax::status::VARIANT_ERROR;
         this->accumulated_err = err;
+        this->accumulated_msg = message;
         return true;
     }
 
-    /// @brief immediately sends the provided error as a status update. Unlike
-    /// error(), which only accumulates the error for later transmission, this
-    /// method sends the error status to the task context right away.
-    void send_error(const x::errors::Error &err) {
-        if (!err) return;
+    /// @brief registers err like error(), then sends it right away.
+    void send_error(const x::errors::Error &err, const std::string &message) {
+        if (!this->error(err, message)) return;
         this->status.key = synnax::task::status_key(this->task);
-        this->status.variant = synnax::status::VARIANT_ERROR;
         this->status.details.running = false;
-        this->status.message = err.data;
-        this->accumulated_err = err;
+        this->set_text(message, err.data);
         this->maybe_set_status();
     }
 
-    void send_warning(const x::errors::Error &err) { this->send_warning(err.data); }
-
-    /// @brief sends the provided warning string to the task. If the task is in
-    /// error state, the error message will be communicated instead.
-    void send_warning(const std::string &warning) {
+    /// @brief sends a warning to the task. If the task is in error state, the error is
+    /// communicated instead.
+    void send_warning(const std::string &message, const std::string &description) {
         this->status.key = synnax::task::status_key(this->task);
-        // If there's already an error bound, communicate it instead.
         if (!this->accumulated_err) {
             this->status.variant = synnax::status::VARIANT_WARNING;
-            this->status.message = warning;
+            this->set_text(message, description);
         } else
-            this->status.message = this->accumulated_err.data;
+            this->set_text(this->accumulated_msg, this->accumulated_err.data);
         this->maybe_set_status();
     }
 
     void clear_warning() {
         if (this->status.variant != synnax::status::VARIANT_WARNING) return;
         this->status.variant = synnax::status::VARIANT_SUCCESS;
-        this->status.message = "Task running";
+        this->set_text("Task running");
         this->maybe_set_status();
     }
 
@@ -109,11 +105,11 @@ struct StatusHandler {
         this->status.details.cmd = cmd_key;
         if (!this->accumulated_err) {
             this->status.details.running = true;
-            this->status.message = "Task started successfully";
+            this->set_text("Started task");
         } else {
             this->status.variant = synnax::status::VARIANT_ERROR;
             this->status.details.running = false;
-            this->status.message = this->accumulated_err.data;
+            this->set_text(this->accumulated_msg, this->accumulated_err.data);
         }
         this->set_status();
     }
@@ -129,9 +125,11 @@ struct StatusHandler {
         this->status.details.running = false;
         if (this->accumulated_err) {
             this->status.variant = synnax::status::VARIANT_ERROR;
-            this->status.message = this->accumulated_err.data;
-        } else
-            this->status.message = "Task stopped successfully";
+            this->set_text(this->accumulated_msg, this->accumulated_err.data);
+        } else {
+            this->status.variant = synnax::status::VARIANT_SUCCESS;
+            this->set_text("Stopped task");
+        }
         this->set_status();
     }
 
@@ -149,14 +147,25 @@ struct StatusHandler {
     static constexpr size_t MAX_RECENT_STATUSES = 50;
 
 private:
-    /// @brief tracks recently sent statuses to suppress identical repeated
-    /// updates. Key is "variant:message", value is the timestamp it was last sent.
+    /// @brief the accumulated error in the task state.
+    x::errors::Error accumulated_err = x::errors::NIL;
+    /// @brief what failed when accumulated_err occurred, sent as the status message.
+    std::string accumulated_msg;
+    /// @brief tracks recently sent statuses to suppress identical repeated updates. Key
+    /// is "variant:message:description", value is the timestamp it was last sent.
     std::unordered_map<std::string, x::telem::TimeStamp> recent_statuses;
     /// @brief maintains insertion order of recent_statuses keys so the oldest
     /// entry can be evicted in O(1) when the map reaches MAX_RECENT_STATUSES.
     std::deque<std::string> insertion_order;
     /// @brief how long a status stays suppressed after being sent.
     const x::telem::TimeSpan rate_limit;
+
+    /// @brief sets the status text. Every transition sets both fields, so a stale
+    /// description never outlives the message it explained.
+    void set_text(const std::string &message, const std::string &description = "") {
+        this->status.message = message;
+        this->status.description = description;
+    }
 
     /// @brief unconditionally sends the current status to the server. Used by
     /// send_start and send_stop which must always deliver because the Console
@@ -173,7 +182,8 @@ private:
     /// statuses that were already sent within STATUS_RATE_LIMIT.
     void maybe_set_status() {
         const auto now = x::telem::TimeStamp::now();
-        const auto key = std::string(this->status.variant) + ":" + this->status.message;
+        const auto key = std::string(this->status.variant) + ":" +
+                         this->status.message + ":" + this->status.description;
         // Check if this key was recently sent. If so, suppress it only when the
         // window has not yet expired. If the window has expired, erase the stale
         // entry from both structures so it re-enters below as a fresh insertion
@@ -207,6 +217,19 @@ private:
     }
 };
 
+/// @brief returns the text of a configuration error, with each field error of a parser
+/// validation error on its own line as "path: message".
+inline std::string config_err_description(const x::errors::Error &err) {
+    const auto parsed = x::json::json::parse(err.data, nullptr, false);
+    if (!err.matches(x::errors::VALIDATION) || !parsed.is_object() ||
+        !parsed.contains("errors") || !parsed["errors"].is_array())
+        return err.data;
+    std::vector<std::string> lines;
+    for (const auto &field: parsed["errors"])
+        lines.push_back(field.value("path", "") + ": " + field.value("message", ""));
+    return x::strings::join(lines, "\n");
+}
+
 /// @brief a utility function that appropriately handles configuration errors and
 /// communicates them back to Synnax in the standard format. cmd_key is the start
 /// command driving the deploy, empty at boot. A boot configure that does not
@@ -227,7 +250,8 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         status.details.config_hash = task.config_hash;
         status.details.running = false;
         status.variant = synnax::status::VARIANT_ERROR;
-        status.message = res.second.message();
+        status.message = "Failed to configure task";
+        status.description = config_err_description(res.second);
         // Ack the start so a waiting caller resolves with the failure, not a timeout.
         status.details.cmd = cmd_key;
         if (boot && !res.first.auto_start)

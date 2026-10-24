@@ -9,10 +9,11 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-LLVM_VERSION=23
+# Installs the clang-format that CI formats with onto the uv tool PATH. Keep the version
+# equal to the clang-tidy that MODULE.bazel pins.
 
-wget -O llvm.sh https://apt.llvm.org/llvm.sh
-sudo bash llvm.sh "$LLVM_VERSION"
-sudo apt-get install -y "clang-format-${LLVM_VERSION}"
-sudo update-alternatives --install /usr/bin/clang-format clang-format "/usr/bin/clang-format-${LLVM_VERSION}" 100
-sudo update-alternatives --set clang-format "/usr/bin/clang-format-${LLVM_VERSION}"
+set -euo pipefail
+
+VERSION=23.1.3
+
+uv tool install --force "clang-format==$VERSION"

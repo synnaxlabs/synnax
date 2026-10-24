@@ -64,13 +64,16 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
             if (!slave_cache.contains(slave_key)) {
                 auto [slave_dev, slave_err] = client->devices.retrieve(slave_key);
                 if (slave_err) {
-                    cfg.field_err(path + "device", slave_err.message());
+                    cfg.field_err(path + "device", slave_err.data);
                     continue;
                 }
                 auto props_parser = x::json::Parser(slave_dev.properties);
                 auto props = slave::Properties::parse(props_parser);
                 if (props_parser.error()) {
-                    cfg.field_err(path + "device", props_parser.error().message());
+                    cfg.field_err(
+                        path + "device",
+                        common::config_err_description(props_parser.error())
+                    );
                     continue;
                 }
                 slave_cache.emplace(slave_key, std::move(props));
@@ -104,7 +107,7 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
         if (!state_keys.empty()) {
             auto [state_chs, err] = client->channels.retrieve(state_keys);
             if (err) {
-                cfg.field_err("channels", err.message());
+                cfg.field_err("channels", err.data);
                 return;
             }
             this->state_channels = std::move(state_chs);
@@ -161,10 +164,7 @@ public:
         entries.reserve(this->cfg.outputs.size());
         for (const auto &ch: this->cfg.outputs)
             entries.push_back(*ch);
-        auto [wtr, err] = this->engine->open_writer(
-            std::move(entries),
-            this->cfg.execution_rate
-        );
+        auto [wtr, err] = this->engine->open_writer(entries, this->cfg.execution_rate);
         if (err) return err;
         this->writer = std::move(wtr);
         return x::errors::NIL;

@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -46,7 +45,7 @@ var _ = Describe("Migration", func() {
 		t := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v2.Key, v2.Symbol]{
 				DB:         db,
-				Migrations: []migrate.Migration{v2.Migration},
+				Migrations: []gorp.Migration{v2.Migration},
 			},
 		))
 		var got v2.Symbol

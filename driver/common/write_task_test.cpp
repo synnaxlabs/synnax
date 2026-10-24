@@ -136,7 +136,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
     const auto s = x::telem::Series(static_cast<uint8_t>(1), x::telem::UINT8_T);
-    cmd_reads->emplace_back(x::telem::Frame(1, s.deep_copy()));
+    cmd_reads->emplace_back(1, s.deep_copy());
     auto mock_streamer_factory = pipeline::mock::simple_streamer_factory(
         std::vector<synnax::channel::Key>{1},
         cmd_reads
@@ -193,7 +193,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     EXPECT_EQ(start_state.details.cmd, cmd_key);
     EXPECT_EQ(start_state.details.task, task.key);
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(start_state.message, "Task started successfully");
+    EXPECT_EQ(start_state.message, "Started task");
 
     ASSERT_EVENTUALLY_GE(
         mock_writer_factory->writer_opens.load(std::memory_order_acquire),
@@ -211,7 +211,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
                             ->at(mock_writer_factory->writes->size() - 1)
                             .deep_copy();
         if (fr.size() < 2) return 0;
-        if (fr.length() < 1) return 0;
+        if (fr.empty()) return 0;
         if (!fr.contains(3)) return 0;
         return fr.at<uint8_t>(3, 0);
     };
@@ -225,7 +225,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(stop_state.message, "Task stopped successfully");
+    EXPECT_EQ(stop_state.message, "Stopped task");
 
     auto write_fr = writes->at(0).deep_copy();
     ASSERT_EQ(write_fr.size(), 1);
@@ -294,7 +294,7 @@ TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
     EXPECT_EQ(ack_state.key, synnax::task::status_key(task));
     EXPECT_EQ(ack_state.details.cmd, "cmd_2");
     EXPECT_EQ(ack_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ack_state.message, "Task started successfully");
+    EXPECT_EQ(ack_state.message, "Started task");
     EXPECT_EQ(ack_state.details.running, true);
     // The live sink was not closed and reopened.
     EXPECT_EQ(mock_streamer_factory->streamer_opens.load(std::memory_order_acquire), 1);

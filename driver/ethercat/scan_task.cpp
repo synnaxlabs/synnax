@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cctype>
 #include <ranges>
 #include <utility>
 
@@ -20,16 +21,22 @@
 namespace driver::ethercat {
 namespace {
 std::string get_pdo_error_guidance(const std::string &error) {
-    if (error.find("CoE") != std::string::npos ||
-        error.find("mailbox") != std::string::npos)
+    if (error.contains("CoE") || error.contains("mailbox"))
         return "Use manual channel configuration with explicit index/sub_index values.";
-    if (error.find("SII") != std::string::npos ||
-        error.find("fallback") != std::string::npos)
+    if (error.contains("SII") || error.contains("fallback"))
         return "PDO order may be unreliable. Verify data correctness after configuration.";
-    if (error.find("empty") != std::string::npos ||
-        error.find("no PDO") != std::string::npos)
-        return "Device reports no PDOs. Use manual channel configuration if needed.";
+    if (error.contains("empty") || error.contains("no PDO"))
+        return "Use manual channel configuration if needed.";
     return "Use manual channel configuration if automatic discovery is insufficient.";
+}
+
+/// @brief describes a PDO discovery error and what the user can do about it.
+std::string pdo_error_description(const std::string &error) {
+    auto sentence = error;
+    sentence[0] = static_cast<char>(
+        std::toupper(static_cast<unsigned char>(sentence[0]))
+    );
+    return sentence + ". " + get_pdo_error_guidance(error);
 }
 }
 
@@ -39,10 +46,7 @@ Scanner::Scanner(
     ScanTaskConfig cfg,
     std::shared_ptr<engine::Pool> pool
 ):
-    ctx(std::move(ctx)),
-    task(std::move(task)),
-    cfg(std::move(cfg)),
-    pool(std::move(pool)) {}
+    ctx(std::move(ctx)), task(std::move(task)), cfg(cfg), pool(std::move(pool)) {}
 
 common::ScannerConfig Scanner::config() const {
     return common::ScannerConfig{
@@ -127,29 +131,27 @@ synnax::device::Device Scanner::create_slave_device(
 
     nlohmann::json json_props = get_existing_properties(key, scan_ctx);
     auto slave_props = props.to_json();
-    for (auto &[k, v]: slave_props.items())
+    for (const auto &[k, v]: slave_props.items())
         if (k != "enabled" || !json_props.contains("enabled")) json_props[k] = v;
 
     const bool is_enabled = json_props["enabled"].get<bool>();
 
     std::string status_msg;
+    std::string status_description;
     std::string status_variant;
     if (!is_enabled) {
         status_msg = "Device disabled";
         status_variant = synnax::status::VARIANT_DISABLED;
-    } else if (sts.pdos_discovered) {
-        if (sts.pdo_discovery_error.empty()) {
-            status_msg = "Discovered (" + std::to_string(props.input_pdos.size()) +
-                         " inputs, " + std::to_string(props.output_pdos.size()) +
-                         " outputs)";
-            status_variant = synnax::status::VARIANT_SUCCESS;
-        } else {
-            status_msg = "Discovered with warning: " + sts.pdo_discovery_error + ". " +
-                         get_pdo_error_guidance(sts.pdo_discovery_error);
-            status_variant = synnax::status::VARIANT_WARNING;
-        }
+    } else if (sts.pdos_discovered && sts.pdo_discovery_error.empty()) {
+        status_msg = "Discovered (" + std::to_string(props.input_pdos.size()) +
+                     " inputs, " + std::to_string(props.output_pdos.size()) +
+                     " outputs)";
+        status_variant = synnax::status::VARIANT_SUCCESS;
     } else {
-        status_msg = "Discovered (no PDOs found). " + get_pdo_error_guidance("no PDOs");
+        status_msg = "Failed to discover PDOs";
+        status_description = pdo_error_description(
+            sts.pdo_discovery_error.empty() ? "no PDOs found" : sts.pdo_discovery_error
+        );
         status_variant = synnax::status::VARIANT_WARNING;
     }
 
@@ -167,6 +169,7 @@ synnax::device::Device Scanner::create_slave_device(
         .name = dev.name,
         .variant = status_variant,
         .message = status_msg,
+        .description = status_description,
         .time = x::telem::TimeStamp::now(),
         .details = {.rack = rack_key, .device = dev.key},
     };
@@ -195,7 +198,7 @@ std::string Scanner::generate_slave_key(
         return "ethercat_" + std::to_string(slave.vendor_id) + "_" +
                std::to_string(slave.product_code) + "_" + std::to_string(slave.serial);
     std::string safe_key = master_key;
-    std::replace(safe_key.begin(), safe_key.end(), ':', '_');
+    std::ranges::replace(safe_key, ':', '_');
     return "ethercat_" + safe_key + "_" + std::to_string(slave.vendor_id) + "_" +
            std::to_string(slave.product_code) + "_" + std::to_string(slave.position);
 }
@@ -244,7 +247,8 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
 
     if (!parser.ok()) {
         LOG(WARNING) << SCAN_LOG_PREFIX << "test_interface: failed to parse command";
-        task_status.message = "Failed to parse command";
+        task_status.message = "Failed to parse test command";
+        task_status.description = common::config_err_description(parser.error());
         task_status.details.data = parser.error_json();
         this->ctx->set_status(task_status);
         return;
@@ -255,7 +259,8 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
     if (err) {
         VLOG(1) << SCAN_LOG_PREFIX << "test_interface failed for "
                 << args.interface << ": " << err.message();
-        task_status.message = "Failed to probe interface: " + err.message();
+        task_status.message = "Failed to probe interface";
+        task_status.description = err.data;
         this->ctx->set_status(task_status);
         return;
     }

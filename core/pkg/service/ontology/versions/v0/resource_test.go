@@ -17,7 +17,6 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -58,7 +57,7 @@ var _ = Describe("ResourceNormalizeKeys", func() {
 				ctx,
 				gorp.TableConfig[string, v0.Resource]{
 					DB:         db,
-					Migrations: []migrate.Migration{v0.ResourceNormalizeKeys},
+					Migrations: []gorp.Migration{v0.ResourceNormalizeKeys},
 				},
 			))
 			var res v0.Resource

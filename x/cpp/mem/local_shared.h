@@ -35,11 +35,10 @@ template<typename T>
 class local_shared {
     struct ControlBlock {
         T value;
-        size_t ref_count;
+        size_t ref_count{1};
 
         template<typename... Args>
-        explicit ControlBlock(Args &&...args):
-            value(std::forward<Args>(args)...), ref_count(1) {}
+        explicit ControlBlock(Args &&...args): value(std::forward<Args>(args)...) {}
     };
 
     ControlBlock *ptr_;
@@ -65,15 +64,15 @@ public:
 
     /// @brief Constructs a local_shared managing a new object constructed with args
     /// SFINAE constraint: Don't use this constructor if Args is a local_shared
-    template<
-        typename... Args,
-        typename = std::enable_if_t<
+    template<typename... Args>
+    explicit local_shared(Args &&...args)
+        requires(
             !std::is_same_v<
                 std::decay_t<std::tuple_element_t<0, std::tuple<Args..., void>>>,
                 local_shared<T>> ||
-            sizeof...(Args) != 1>>
-    explicit local_shared(Args &&...args):
-        ptr_(new ControlBlock(std::forward<Args>(args)...)) {}
+            sizeof...(Args) != 1
+        )
+        : ptr_(new ControlBlock(std::forward<Args>(args)...)) {}
 
     /// @brief Copy constructor - shares ownership with another local_shared
     local_shared(const local_shared &other): ptr_(other.ptr_) { this->add_ref(); }
@@ -119,7 +118,9 @@ public:
     explicit operator bool() const { return this->ptr_ != nullptr; }
 
     /// @brief Returns the current reference count (for debugging/testing)
-    size_t use_count() const { return this->ptr_ ? this->ptr_->ref_count : 0; }
+    [[nodiscard]] size_t use_count() const {
+        return this->ptr_ ? this->ptr_->ref_count : 0;
+    }
 
     /// @brief Resets the local_shared to empty, releasing ownership
     void reset() { this->release(); }

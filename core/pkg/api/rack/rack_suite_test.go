@@ -30,7 +30,7 @@ import (
 
 func TestAPIRack(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Rack Suite")
+	RunSpecs(t, "API Rack Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

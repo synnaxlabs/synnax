@@ -951,6 +951,8 @@ describe("Task", async () => {
         await setRackStatus(testRack.key, "success", "Driver is running");
         await client.tasks.executeCommand({ task: t.key, type: "stop" });
         await expect.poll(() => loading.length).toBeGreaterThan(0);
+        expect(loading[0].name).toBe(t.name);
+        expect(loading[0].message).toBe("Sending stop command");
         expect(loading[0].details.configHash).toBe("deadbeef");
         expect(loading[0].details.rack).toBe(testRack.key);
       } finally {
@@ -1117,7 +1119,7 @@ describe("Task", async () => {
           key,
           name: "Task Status",
           variant: "success",
-          message: "Task started successfully",
+          message: "Started task",
           description: "",
           time: TimeStamp.now().sub(TimeSpan.minutes(1)),
           details: {
@@ -1133,7 +1135,7 @@ describe("Task", async () => {
         await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
         expect(client.statuses.store.get(key)).toMatchObject({
           variant: "success",
-          message: "Task started successfully",
+          message: "Started task",
           details: { running: true, cmd: cmdKey },
         });
       } finally {
@@ -1179,7 +1181,7 @@ describe("Task", async () => {
           key,
           name: "Task Status",
           variant: "success",
-          message: "Task started successfully",
+          message: "Started task",
           description: "",
           time: TimeStamp.now(),
           details,
@@ -1226,7 +1228,7 @@ describe("Task", async () => {
         key,
         name: "Task Status",
         variant: "success",
-        message: "Task started successfully",
+        message: "Started task",
         description: "",
         time: TimeStamp.now().sub(TimeSpan.minutes(1)),
         details: {
@@ -1246,7 +1248,7 @@ describe("Task", async () => {
       await fetching;
       expect(local.statuses.store.get(key)).toMatchObject({
         variant: "success",
-        message: "Task started successfully",
+        message: "Started task",
       });
     });
 
