@@ -459,16 +459,14 @@ describe("MQTT Task Types", () => {
 
     it("should default a Sparkplug B target to the double type", () => {
       const result = MQTT.Task.deployWriteConfigZ.parse(writeConfig(tagTarget));
-      expect(result.targets[0]).toMatchObject({ sparkplugType: "double", channel: 0 });
+      expect(result.targets[0]).toMatchObject({ tagType: "double", channel: 0 });
     });
 
-    it("should reject a Sparkplug B type that the driver does not send", () => {
+    it("should reject a Sparkplug B type that the Core does not send", () => {
       const result = MQTT.Task.deployWriteConfigZ.safeParse(
-        writeConfig({ ...tagTarget, sparkplugType: "Text" }),
+        writeConfig({ ...tagTarget, tagType: "Text" }),
       );
-      expect(issuesOf(result).map(({ path }) => path)).toEqual([
-        "targets.0.sparkplugType",
-      ]);
+      expect(issuesOf(result).map(({ path }) => path)).toEqual(["targets.0.tagType"]);
     });
 
     it("should require the group, the edge node, and the tag of a Sparkplug B target", () => {
@@ -659,7 +657,7 @@ describe("MQTT Edge Task", () => {
       expect(result.tags[0]).toMatchObject({
         name: "",
         channel: 0,
-        sparkplugType: "double",
+        tagType: "double",
         commandChannel: 0,
         disabled: false,
       });
@@ -766,13 +764,11 @@ describe("MQTT Edge Task", () => {
       expect(issuesOf(result)).toEqual([]);
     });
 
-    it("should reject a Sparkplug B type that the driver does not send", () => {
+    it("should reject a Sparkplug B type that the Core does not send", () => {
       const result = MQTT.Task.deployEdgeConfigZ.safeParse(
-        edgeConfig({ ...tag, sparkplugType: "Text" }),
+        edgeConfig({ ...tag, tagType: "Text" }),
       );
-      expect(issuesOf(result).map(({ path }) => path)).toEqual([
-        "tags.0.sparkplugType",
-      ]);
+      expect(issuesOf(result).map(({ path }) => path)).toEqual(["tags.0.tagType"]);
     });
   });
 });

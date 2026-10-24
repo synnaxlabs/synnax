@@ -52,7 +52,8 @@ class MQTTInvalidConfig(MQTTCase):
         self.select_broker(page)
         page.add_entry()
         page.set_topic(WILDCARD_TOPIC)
-        page.add_field(POINTER)
+        page.add_field(WILDCARD_TOPIC, POINTER)
+        page.select_entry(WILDCARD_TOPIC)
         page.deploy(expect=None)
         message = page.field_help_text("Topic")
         assert message == "Topic must not hold the wildcards + or #", (
@@ -89,6 +90,6 @@ class MQTTInvalidConfig(MQTTCase):
         self.select_broker(second)
         second.add_entry()
         second.set_topic(TOPIC)
-        second.add_field(POINTER)
+        second.add_field(TOPIC, POINTER)
         self.assert_driver_rejects(second, "duplicate channel")
         self.console.tasks.stop(page.page_name)

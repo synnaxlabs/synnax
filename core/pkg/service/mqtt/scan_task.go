@@ -83,9 +83,10 @@ type scanner struct {
 var _ driver.Scanner = (*scanner)(nil)
 
 // Check implements driver.Scanner. A broker with running tasks reports the state of
-// their shared connection. Any other broker gets a test connection.
+// their shared connection, and the error of the last edit of its properties that the
+// connection could not take. Any other broker gets a test connection.
 func (s *scanner) Check(ctx context.Context, dev device.Device) error {
-	pooled, connected, err := s.pool.state(dev)
+	pooled, connected, err := s.pool.state(dev.Key)
 	if err != nil || connected {
 		return err
 	}
@@ -96,6 +97,9 @@ func (s *scanner) Check(ctx context.Context, dev device.Device) error {
 	if err != nil {
 		return err
 	}
+	// A task can connect while the probe runs, and a broker drops the older of two
+	// sessions with one client ID.
+	cfg.clientID = deriveClientID(dev.Key + "/probe")
 	return probe(ctx, s.ins, cfg)
 }
 
@@ -159,7 +163,7 @@ func (s *scanner) browse(ctx context.Context, cmd task.Command) (browseResult, e
 		res  = browseResult{Topics: []browsedTopic{}}
 	)
 	if err := cmd.Args.Unmarshal(&args); err != nil {
-		return res, errors.Wrapf(
+		return browseResult{}, errors.Wrapf(
 			validate.ErrValidation, "invalid arguments: %s", err.Error(),
 		)
 	}
@@ -173,7 +177,7 @@ func (s *scanner) browse(ctx context.Context, cmd task.Command) (browseResult, e
 	args.Limit = min(args.Limit, maxBrowseLimit)
 	_, _, cfg, err := s.browseConfig(ctx, args.Device)
 	if err != nil {
-		return res, err
+		return browseResult{}, err
 	}
 	var (
 		mu     sync.Mutex
@@ -195,17 +199,19 @@ func (s *scanner) browse(ctx context.Context, cmd task.Command) (browseResult, e
 	})
 	client, disconnect, err := open(ctx, s.ins, opts)
 	if err != nil {
-		return res, err
+		return browseResult{}, err
 	}
 	defer disconnect()
+	// The handler writes to res until the deferred disconnect, so an error path must
+	// not read it.
 	if err = wait(ctx, client.Subscribe(args.Filter, 0, nil)); err != nil {
-		return res, err
+		return browseResult{}, err
 	}
 	timer := time.NewTimer(duration)
 	defer timer.Stop()
 	select {
 	case <-ctx.Done():
-		return res, ctx.Err()
+		return browseResult{}, ctx.Err()
 	case <-timer.C:
 	}
 	mu.Lock()
@@ -235,13 +241,13 @@ func browseDuration(ms int) time.Duration {
 func (s *scanner) browseConfig(
 	ctx context.Context,
 	key device.Key,
-) (device.Device, Properties, clientConfig, error) {
+) (device.Device, properties, clientConfig, error) {
 	var dev device.Device
 	if err := s.device.NewRetrieve().
 		Where(device.MatchKeys(key)).
 		Entry(&dev).
 		Exec(ctx, nil); err != nil {
-		return dev, Properties{}, clientConfig{}, err
+		return dev, properties{}, clientConfig{}, err
 	}
 	props, err := parseProperties(dev)
 	if err != nil {

@@ -167,21 +167,28 @@ func (h *StatusHandler) write(ctx context.Context, stat task.Status) error {
 	})
 }
 
-// ReportConfigError reports err for a task that failed to configure. It writes an
-// error status that answers cmdKey when a caller waits on the command or the task
-// starts automatically, and logs a warning otherwise.
-func ReportConfigError(
+// ConfigReporter reports the errors of tasks that fail to configure. A factory builds
+// one and uses it for every task it configures.
+type ConfigReporter struct {
+	// DB opens the transactions that status writes run in.
+	DB *gorp.DB
+	// Status writes the error statuses.
+	Status *status.Service
+	alamos.Instrumentation
+}
+
+// Report reports err for t, which failed to configure. It writes an error status that
+// answers cmdKey when a caller waits on the command or the task starts automatically,
+// and logs a warning otherwise.
+func (r ConfigReporter) Report(
 	ctx context.Context,
-	ins alamos.Instrumentation,
-	db *gorp.DB,
-	svc *status.Service,
 	t task.Task,
 	cmdKey string,
 	autoStart bool,
 	err error,
 ) {
 	if cmdKey == NoCommand && !autoStart {
-		ins.L.Warn("failed to configure task", zap.Stringer("task", t), zap.Error(err))
+		r.L.Warn("failed to configure task", zap.Stringer("task", t), zap.Error(err))
 		return
 	}
 	details := task.NewStatusDetails(t, false)
@@ -194,10 +201,10 @@ func ReportConfigError(
 		Time:    telem.Now(),
 		Details: details,
 	}
-	if sErr := db.WithTx(ctx, func(tx gorp.Tx) error {
-		return svc.NewWriter(tx).Set(ctx, &stat)
+	if sErr := r.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return r.Status.NewWriter(tx).Set(ctx, &stat)
 	}); sErr != nil {
-		ins.L.Error(
+		r.L.Error(
 			"failed to set configuration status",
 			zap.Stringer("task", t),
 			zap.Error(sErr),

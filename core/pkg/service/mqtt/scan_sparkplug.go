@@ -96,6 +96,11 @@ func (s *scanner) browseSparkplug(
 	}
 	duration := browseDuration(args.Duration)
 	if args.EdgeNode == "" {
+		if args.Group != "" {
+			if err = sparkplug.ValidateID("group", args.Group); err != nil {
+				return res, err
+			}
+		}
 		res.Nodes, err = browseNodes(
 			ctx,
 			s.ins,
@@ -115,19 +120,11 @@ func (s *scanner) browseSparkplug(
 
 // nodeFilters returns the topic filters of a browse for edge nodes: the group that
 // the user gave, else the groups in the broker properties, else every group.
-func nodeFilters(props Properties, group string) []string {
-	groups := []string{group}
-	if group == "" {
-		groups = props.Sparkplug.Groups
+func nodeFilters(props properties, group string) []string {
+	if group != "" {
+		return sparkplug.GroupFilters([]string{group})
 	}
-	if len(groups) == 0 {
-		return []string{sparkplug.Namespace + "/#"}
-	}
-	filters := make([]string, 0, len(groups))
-	for _, g := range groups {
-		filters = append(filters, sparkplug.Namespace+"/"+g+"/#")
-	}
-	return filters
+	return sparkplug.GroupFilters(props.Sparkplug.Groups)
 }
 
 // browseNodes lists the edge nodes and devices that publish during duration. An edge
@@ -208,21 +205,21 @@ func browseTags(
 	duration time.Duration,
 ) ([]browsedTag, error) {
 	var (
-		host   = sparkplug.NewHost()
+		host   = sparkplug.NewHost(sparkplug.DefaultRebirthInterval)
 		births = make(chan sparkplug.Event, 16)
 	)
 	opts := newClientOptions(cfg).SetOrderMatters(true)
 	opts.SetDefaultPublishHandler(func(_ paho.Client, m paho.Message) {
 		topic, err := sparkplug.ParseTopic(m.Topic())
-		if err != nil || !topic.Type.Session() {
+		if err != nil || !topic.Type.InSession() {
 			return
 		}
-		payload, err := sparkplug.DecodePayload(topic, m.Payload())
+		msg, err := sparkplug.Decode(topic, m.Payload())
 		if err != nil {
 			return
 		}
 		// Only the delivery goroutine of the client uses host.
-		ev := host.Handle(topic, payload)
+		ev := host.Handle(msg)
 		if ev.Type != sparkplug.NBirth && ev.Type != sparkplug.DBirth {
 			return
 		}
@@ -243,12 +240,13 @@ func browseTags(
 	if err = wait(ctx, client.SubscribeMultiple(filters, nil)); err != nil {
 		return nil, err
 	}
-	payload, err := sparkplug.EncodeRebirth(telem.Now())
+	rebirth, err := sparkplug.EncodeRebirth(node, telem.Now())
 	if err != nil {
 		return nil, err
 	}
-	topic := sparkplug.CommandTopic(node, "").String()
-	if err = wait(ctx, client.Publish(topic, 0, false, payload)); err != nil {
+	if err = wait(ctx, client.Publish(
+		rebirth.Topic, rebirth.QoS, rebirth.Retained, rebirth.Payload,
+	)); err != nil {
 		return nil, err
 	}
 	var (

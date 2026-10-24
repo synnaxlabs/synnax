@@ -44,16 +44,20 @@ describe("channels", () => {
     });
   });
 
-  describe("createChannel", () => {
+  describe("createChannelWithIndex", () => {
     it("should give a fixed-density channel its own index", async () => {
       const name = uniqueName("fixed");
-      const ch = await Task.createChannel(client, name, "float32");
+      const ch = await Task.createChannelWithIndex(client, name, "float32");
       expect(ch.name).toBe(name);
       expect((await client.channels.retrieve(ch.index)).name).toBe(`${name}_time`);
     });
 
     it("should make a variable-density channel virtual", async () => {
-      const ch = await Task.createChannel(client, uniqueName("variable"), "string");
+      const ch = await Task.createChannelWithIndex(
+        client,
+        uniqueName("variable"),
+        "string",
+      );
       expect(ch.virtual).toBe(true);
       expect(ch.index).toBe(0);
     });
@@ -62,30 +66,46 @@ describe("channels", () => {
   describe("configureReadChannels", () => {
     it("should create the index and a channel for each field", async () => {
       const prefix = uniqueName("src");
-      const props: Task.ReadChannelProps = { index: 0, channels: {} };
+      const read: Record<string, Task.ReadChannelProps> = {};
       const fields = [
         createField("f1", "/temperature"),
         createField("f2", "/label", "string"),
         createField("ts", "/ts", "timestamp"),
       ];
-      const modified = await Task.configureReadChannels({
+      await Task.configureReadChannels({
         client,
-        props,
+        read,
+        propertiesKey: "src",
         fields,
         namePrefix: prefix,
         indexKey: "ts",
       });
-      expect(modified).toBe(true);
-      expect((await client.channels.retrieve(props.index)).name).toBe(`${prefix}_time`);
+      const { index } = read.src;
+      expect((await client.channels.retrieve(index)).name).toBe(`${prefix}_time`);
       const data = await client.channels.retrieve(fields[0].channel);
       expect(data.name).toBe(`${prefix}_temperature`);
-      expect(data.index).toBe(props.index);
+      expect(data.index).toBe(index);
       expect((await client.channels.retrieve(fields[1].channel)).virtual).toBe(true);
-      expect(fields[2].channel).toBe(props.index);
-      expect(props.channels).toEqual({
+      expect(fields[2].channel).toBe(index);
+      expect(read.src.channels).toEqual({
         "/temperature": fields[0].channel,
         "/label": fields[1].channel,
       });
+    });
+
+    it("should create no channel or index for a disabled field", async () => {
+      const read: Record<string, Task.ReadChannelProps> = {};
+      const fields = [{ ...createField("f1", "/temperature"), disabled: true }];
+      await Task.configureReadChannels({
+        client,
+        read,
+        propertiesKey: "src",
+        fields,
+        namePrefix: uniqueName("src"),
+        indexKey: "",
+      });
+      expect(read).toEqual({});
+      expect(fields[0].channel).toBe(0);
     });
 
     it("should keep a field channel that exists and reuse a stored one", async () => {
@@ -100,22 +120,24 @@ describe("channels", () => {
         dataType: "float64",
         index: index.key,
       });
-      const props: Task.ReadChannelProps = {
-        index: index.key,
-        channels: { "/stored": stored.key },
+      const read: Record<string, Task.ReadChannelProps> = {
+        src: { index: index.key, channels: { "/stored": stored.key } },
       };
       const fields = [
         { ...createField("f1", "/own"), channel: own.key },
         createField("f2", "/stored"),
       ];
-      const modified = await Task.configureReadChannels({
+      await Task.configureReadChannels({
         client,
-        props,
+        read,
+        propertiesKey: "src",
         fields,
         namePrefix: uniqueName("src"),
         indexKey: "",
       });
-      expect(modified).toBe(false);
+      expect(read).toEqual({
+        src: { index: index.key, channels: { "/stored": stored.key } },
+      });
       expect(fields[0].channel).toBe(own.key);
       expect(fields[1].channel).toBe(stored.key);
     });
@@ -127,36 +149,87 @@ describe("channels", () => {
         dataType: "float64",
         index: index.key,
       });
-      const props: Task.ReadChannelProps = {
-        index: MISSING_KEY,
-        channels: { "/stored": stored.key },
+      const read: Record<string, Task.ReadChannelProps> = {
+        src: { index: MISSING_KEY, channels: { "/stored": stored.key } },
       };
       const fields = [createField("f1", "/new")];
-      const modified = await Task.configureReadChannels({
+      await Task.configureReadChannels({
         client,
-        props,
+        read,
+        propertiesKey: "src",
         fields,
         namePrefix: uniqueName("src"),
         indexKey: "",
       });
-      expect(modified).toBe(true);
-      expect(props.index).toBe(index.key);
+      expect(read.src.index).toBe(index.key);
       expect((await client.channels.retrieve(fields[0].channel)).index).toBe(index.key);
     });
 
+    it("should take the index of a live field channel when the index is gone", async () => {
+      const index = await createIndex(uniqueName("idx"));
+      const own = await client.channels.create({
+        name: uniqueName("own"),
+        dataType: "float64",
+        index: index.key,
+      });
+      const read: Record<string, Task.ReadChannelProps> = {
+        src: { index: MISSING_KEY, channels: {} },
+      };
+      const fields = [
+        { ...createField("f1", "/own"), channel: own.key },
+        createField("f2", "/new"),
+      ];
+      await Task.configureReadChannels({
+        client,
+        read,
+        propertiesKey: "src",
+        fields,
+        namePrefix: uniqueName("src"),
+        indexKey: "",
+      });
+      expect(read).toEqual({
+        src: { index: index.key, channels: { "/new": fields[1].channel } },
+      });
+      expect((await client.channels.retrieve(fields[1].channel)).index).toBe(index.key);
+    });
+
+    it("should leave the index alone when no field takes it or needs a new channel", async () => {
+      const own = await Task.createChannelWithIndex(
+        client,
+        uniqueName("own"),
+        "float64",
+      );
+      const read: Record<string, Task.ReadChannelProps> = {};
+      const fields = [{ ...createField("f1", "/own"), channel: own.key }];
+      await Task.configureReadChannels({
+        client,
+        read,
+        propertiesKey: "src",
+        fields,
+        namePrefix: uniqueName("src"),
+        indexKey: "",
+      });
+      expect(read).toEqual({});
+    });
+
     it("should skip the index when no field counts as indexed", async () => {
-      const own = await Task.createChannel(client, uniqueName("own"), "timestamp");
-      const props: Task.ReadChannelProps = { index: 0, channels: {} };
+      const own = await Task.createChannelWithIndex(
+        client,
+        uniqueName("own"),
+        "timestamp",
+      );
+      const read: Record<string, Task.ReadChannelProps> = {};
       const fields = [{ ...createField("f1", "/ts", "timestamp"), channel: own.key }];
       await Task.configureReadChannels({
         client,
-        props,
+        read,
+        propertiesKey: "src",
         fields,
         namePrefix: uniqueName("src"),
         indexKey: "",
         indexed: () => false,
       });
-      expect(props.index).toBe(0);
+      expect(read).toEqual({});
     });
   });
 
@@ -168,22 +241,14 @@ describe("channels", () => {
         virtual: true,
       });
       const write = {};
-      const result = await Task.configureCommandChannel(client, write, {
+      const key = await Task.configureCommandChannel(client, write, {
         propertiesKey: "/cmd",
         channel: ch.key,
         name: "unused",
         dataType: "string",
       });
-      expect(result).toEqual([ch.key, true]);
+      expect(key).toBe(ch.key);
       expect(write).toEqual({ "/cmd": ch.key });
-      expect(
-        await Task.configureCommandChannel(client, write, {
-          propertiesKey: "/cmd",
-          channel: ch.key,
-          name: "unused",
-          dataType: "string",
-        }),
-      ).toEqual([ch.key, false]);
     });
 
     it("should reuse the stored channel of a target with none", async () => {
@@ -200,19 +265,19 @@ describe("channels", () => {
           name: "unused",
           dataType: "string",
         }),
-      ).toEqual([ch.key, false]);
+      ).toBe(ch.key);
+      expect(write).toEqual({ "/cmd": ch.key });
     });
 
     it("should create a channel when neither exists", async () => {
       const name = uniqueName("cmd");
       const write = { "/cmd": MISSING_KEY };
-      const [key, changed] = await Task.configureCommandChannel(client, write, {
+      const key = await Task.configureCommandChannel(client, write, {
         propertiesKey: "/cmd",
         channel: MISSING_KEY,
         name,
         dataType: "uint8",
       });
-      expect(changed).toBe(true);
       expect(write["/cmd"]).toBe(key);
       const ch = await client.channels.retrieve(key);
       expect(ch.name).toBe(name);

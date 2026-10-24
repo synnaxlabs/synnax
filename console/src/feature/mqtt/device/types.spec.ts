@@ -14,16 +14,6 @@ import { MQTT } from "@/feature/mqtt";
 
 describe("MQTT Device Properties", () => {
   describe("propertiesZ", () => {
-    it("should validate ZERO_PROPERTIES", () => {
-      expect(MQTT.Device.propertiesZ.parse(MQTT.Device.ZERO_PROPERTIES)).toEqual(
-        MQTT.Device.ZERO_PROPERTIES,
-      );
-    });
-
-    it("should fill every property of an empty object with its default", () => {
-      expect(MQTT.Device.propertiesZ.parse({})).toEqual(MQTT.Device.ZERO_PROPERTIES);
-    });
-
     it("should validate a TLS broker with client certificates", () => {
       const result = MQTT.Device.propertiesZ.parse({
         ...MQTT.Device.ZERO_PROPERTIES,
@@ -37,19 +27,28 @@ describe("MQTT Device Properties", () => {
       expect(result.keyFile).toBe("/etc/ssl/client.key");
     });
 
-    it("should reject a port above 65535", () => {
-      const result = MQTT.Device.propertiesZ.safeParse({ port: 65536 });
-      expect(result.error?.issues[0].message).toBe("Port must be 0 to 65535");
+    it("should leave the port and keep alive absent, so the Core picks them", () => {
+      expect(MQTT.Device.ZERO_PROPERTIES).not.toHaveProperty("port");
+      expect(MQTT.Device.ZERO_PROPERTIES).not.toHaveProperty("keepAlive");
     });
 
-    it("should reject a negative port", () => {
-      const result = MQTT.Device.propertiesZ.safeParse({ port: -1 });
-      expect(result.error?.issues[0].message).toBe("Port must be 0 to 65535");
+    it.each([0, -1, 65536])("should reject the port %d", (port) => {
+      const result = MQTT.Device.propertiesZ.safeParse({ port });
+      expect(result.error?.issues).toMatchObject([
+        { message: "Port must be 1 to 65535", path: ["port"] },
+      ]);
     });
 
-    it("should reject a negative keep alive", () => {
-      const result = MQTT.Device.propertiesZ.safeParse({ keepAlive: -1 });
-      expect(result.error?.issues[0].message).toBe("Keep alive must be non-negative");
+    it.each([0, -1])("should reject the keep alive %d", (keepAlive) => {
+      const result = MQTT.Device.propertiesZ.safeParse({ keepAlive });
+      expect(result.error?.issues).toMatchObject([
+        { message: "Keep alive must be positive", path: ["keepAlive"] },
+      ]);
+    });
+
+    it("should accept a port of 65535 and a keep alive of 1", () => {
+      const result = MQTT.Device.propertiesZ.parse({ port: 65535, keepAlive: 1 });
+      expect(result).toMatchObject({ port: 65535, keepAlive: 1 });
     });
 
     it("should reject a version other than 1", () => {
@@ -102,9 +101,15 @@ describe("MQTT Device Properties", () => {
     };
     const schema = MQTT.Device.propertiesZ;
 
-    it("should send the connection properties in the snake case the driver reads", () => {
+    it("should send the connection properties in the snake case the Core reads", () => {
+      const wire = caseconv.camelToSnake({ ...properties, keepAlive: 45 }, { schema });
+      expect(wire).toMatchObject({ client_id: "console", keep_alive: 45, ca_file: "" });
+    });
+
+    it("should leave an unset port and keep alive off the wire", () => {
       const wire = caseconv.camelToSnake(properties, { schema });
-      expect(wire).toMatchObject({ client_id: "console", keep_alive: 0, ca_file: "" });
+      expect(wire).not.toHaveProperty("port");
+      expect(wire).not.toHaveProperty("keep_alive");
     });
 
     it("should send the Sparkplug B host ID under a snake case key", () => {

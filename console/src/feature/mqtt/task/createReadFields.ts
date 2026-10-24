@@ -15,15 +15,17 @@ import { type ReadField } from "@/feature/mqtt/task/types";
 const escapeToken = (token: string): string =>
   token.replaceAll("~", "~0").replaceAll("/", "~1");
 
-const DATA_TYPES: Partial<Record<string, string>> = {
+const DATA_TYPES: Record<mqtt.JSONType, string> = {
   number: DataType.FLOAT64.toString(),
   boolean: DataType.UINT8.toString(),
   string: DataType.STRING.toString(),
 };
 
 const flatten = (value: unknown, pointer: string): ReadField[] => {
-  const dataType = DATA_TYPES[typeof value];
-  if (dataType != null) return [{ ...mqtt.readFieldZ.parse({}), pointer, dataType }];
+  const sampled = typeof value;
+  const type = mqtt.JSON_TYPES.find((t) => t === sampled);
+  if (type != null)
+    return [{ ...mqtt.readFieldZ.parse({}), pointer, dataType: DATA_TYPES[type] }];
   if (value == null || typeof value !== "object" || Array.isArray(value)) return [];
   return Object.entries(value).flatMap(([token, child]) =>
     flatten(child, `${pointer}/${escapeToken(token)}`),
@@ -47,4 +49,14 @@ export const createReadFields = (payload: string): ReadField[] => {
   const isVariable = (f: ReadField) => new DataType(f.dataType).isVariable;
   if (fields.every(isVariable)) return fields;
   return fields.map((f) => ({ ...f, disabled: isVariable(f) }));
+};
+
+/**
+ * @returns the JSON type of the sample that a field came from.
+ * @throws {Error} if no JSON sample gives a field of its data type.
+ */
+export const jsonTypeOf = ({ dataType }: ReadField): mqtt.JSONType => {
+  const type = mqtt.JSON_TYPES.find((t) => DATA_TYPES[t] === dataType);
+  if (type == null) throw new Error(`No JSON sample gives a ${dataType} field`);
+  return type;
 };

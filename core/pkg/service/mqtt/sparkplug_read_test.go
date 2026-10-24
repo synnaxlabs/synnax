@@ -11,6 +11,7 @@ package mqtt_test
 
 import (
 	"context"
+	"math"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -59,7 +60,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 		broker = startBroker(0)
 		rackKey = createRack(ctx)
 		dev = createBrokerDevice(ctx, rackKey, broker.port, nil)
-		factory = MustSucceed(mqtt.NewFactory(mqtt.FactoryConfig{
+		factory = MustOpen(mqtt.OpenFactory(mqtt.FactoryConfig{
 			Device:  deviceSvc,
 			Channel: channelSvc,
 			Framer:  framerSvc,
@@ -296,6 +297,34 @@ var _ = Describe("Sparkplug B read entries", func() {
 			},
 		)
 
+		DescribeTable("Should write a NaN or an infinity of a double tag",
+			func(ctx SpecContext, value float64, expected telem.Series) {
+				_, data := createIndexed(ctx, expected.DataType)
+				node.setTags("", tagValue{
+					name:      "temperature",
+					alias:     1,
+					value:     value,
+					timestamp: 1700000000000,
+				})
+				start(ctx, readConfig(
+					dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+				))
+				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+					Should(BeEquivalentTo(1))
+				Expect(stored(ctx, data[0])).To(telem.MatchSeriesData(expected))
+			},
+			Entry("NaN into float64", nan, telem.NewSeriesV(nan)),
+			Entry("+Inf into float64", math.Inf(1), telem.NewSeriesV(math.Inf(1))),
+			Entry("-Inf into float64", math.Inf(-1), telem.NewSeriesV(math.Inf(-1))),
+			Entry("NaN into float32", nan, telem.NewSeriesV(float32(nan))),
+			Entry("+Inf into float32",
+				math.Inf(1), telem.NewSeriesV(float32(math.Inf(1))),
+			),
+			Entry("-Inf into float32",
+				math.Inf(-1), telem.NewSeriesV(float32(math.Inf(-1))),
+			),
+		)
+
 		It("Should warn about a value that does not fit its channel",
 			func(ctx SpecContext) {
 				_, data := createIndexed(ctx, telem.Float64T)
@@ -314,89 +343,90 @@ var _ = Describe("Sparkplug B read entries", func() {
 	})
 
 	Describe("Configuration errors", func() {
-		configureErr := func(ctx context.Context, cfg msgpack.EncodedJSON) error {
-			t := newTask(rackKey, mqtt.ReadTaskType, cfg)
-			_, err := factory.ConfigureTask(ctx, t, "configure")
-			return err
-		}
-
-		It("Should reject an entry with no edge node", func(ctx SpecContext) {
-			_, data := createIndexed(ctx, telem.Float64T)
-			err := configureErr(ctx, readConfig(
-				dev, tagEntry("plant", "", "", "temperature", data[0]),
-			))
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(err).To(MatchError(ContainSubstring("edge_node: required")))
-		})
-
-		It("Should reject a group with a topic separator", func(ctx SpecContext) {
-			_, data := createIndexed(ctx, telem.Float64T)
-			err := configureErr(ctx, readConfig(
-				dev, tagEntry("plant/a", "line1", "", "temperature", data[0]),
-			))
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(err).To(MatchError(ContainSubstring(
-				"group: plant/a must not hold /, +, or #",
-			)))
-		})
-
-		It("Should reject an entry with no tag", func(ctx SpecContext) {
-			_, data := createIndexed(ctx, telem.Float64T)
-			err := configureErr(ctx, readConfig(
-				dev, tagEntry("plant", "line1", "", "", data[0]),
-			))
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(err).To(MatchError(ContainSubstring("tag: required")))
-		})
-
-		It("Should reject a tag that appears two times", func(ctx SpecContext) {
-			_, first := createIndexed(ctx, telem.Float64T)
-			_, second := createIndexed(ctx, telem.Float64T)
-			entry := tagEntry("plant", "line1", "", "temperature", second[0])
-			entry["key"] = "again"
-			err := configureErr(ctx, readConfig(
-				dev, tagEntry("plant", "line1", "", "temperature", first[0]), entry,
-			))
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(err).To(MatchError(ContainSubstring(
-				"tag plant/line1/temperature appears more than once",
-			)))
-		})
-
-		It("Should reject two tags that share an index", func(ctx SpecContext) {
-			_, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
-			err := configureErr(ctx, readConfig(
-				dev,
-				tagEntry("plant", "line1", "", "a", data[0]),
-				tagEntry("plant", "line1", "", "b", data[1]),
-			))
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(err).To(MatchError(ContainSubstring(
-				"tag plant/line1/a and tag plant/line1/b write to the same channel",
-			)))
-		})
-
-		It("Should reject an index channel as the channel of a tag",
-			func(ctx SpecContext) {
-				idx, _ := createIndexed(ctx)
-				err := configureErr(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "", "time", idx),
+		DescribeTable(
+			"Should reject a config that is not valid",
+			func(
+				ctx SpecContext,
+				build func(ctx context.Context) (msgpack.EncodedJSON, string),
+			) {
+				cfg, message := build(ctx)
+				t := newTask(rackKey, mqtt.ReadTaskType, cfg)
+				Expect(factory.ConfigureTask(ctx, t, "configure")).
+					Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(message)),
 				))
-				Expect(err).To(MatchError(validate.ErrValidation))
-				Expect(err).To(MatchError(ContainSubstring(
-					"cannot take the values of a tag",
-				)))
 			},
+			Entry("an entry with no edge node",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.Float64T)
+					return readConfig(
+						dev, tagEntry("plant", "", "", "temperature", data[0]),
+					), "edge_node: required"
+				},
+			),
+			Entry("a group with a topic separator",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.Float64T)
+					return readConfig(
+						dev, tagEntry("plant/a", "line1", "", "temperature", data[0]),
+					), "group: plant/a must not hold /, +, or #"
+				},
+			),
+			Entry("an entry with no tag",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.Float64T)
+					return readConfig(dev, tagEntry("plant", "line1", "", "", data[0])),
+						"tag: required"
+				},
+			),
+			Entry("a tag that appears two times",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, first := createIndexed(ctx, telem.Float64T)
+					_, second := createIndexed(ctx, telem.Float64T)
+					entry := tagEntry("plant", "line1", "", "temperature", second[0])
+					entry["key"] = "again"
+					return readConfig(
+						dev,
+						tagEntry("plant", "line1", "", "temperature", first[0]),
+						entry,
+					), "tag plant/line1/temperature appears more than once"
+				},
+			),
+			Entry("two tags that share an index",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
+					a := tagEntry("plant", "line1", "", "a", data[0])
+					b := tagEntry("plant", "line1", "", "b", data[1])
+					return readConfig(dev, a, b),
+						"tag plant/line1/a and tag plant/line1/b " +
+							"write to the same channel"
+				},
+			),
+			Entry("an index channel as the channel of a tag",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					idx, _ := createIndexed(ctx)
+					return readConfig(dev, tagEntry("plant", "line1", "", "time", idx)),
+						"cannot take the values of a tag"
+				},
+			),
+			Entry("a json channel as the channel of a tag",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.JSONT)
+					return readConfig(dev, tagEntry("plant", "line1", "", "doc", ch)),
+						"tag plant/line1/doc: channel " + ch.Name +
+							" cannot take the values of a tag"
+				},
+			),
+			Entry("a channel that does not exist",
+				func(context.Context) (msgpack.EncodedJSON, string) {
+					entry := tagEntry(
+						"plant", "line1", "", "temperature", channel.Channel{},
+					)
+					entry["channel"] = 999999
+					return readConfig(dev, entry), "channel 999999 does not exist"
+				},
+			),
 		)
-
-		It("Should reject a channel that does not exist", func(ctx SpecContext) {
-			entry := tagEntry("plant", "line1", "", "temperature", channel.Channel{})
-			entry["channel"] = 999999
-			err := configureErr(ctx, readConfig(dev, entry))
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(
-				err,
-			).To(MatchError(ContainSubstring("channel 999999 does not exist")))
-		})
 	})
 })

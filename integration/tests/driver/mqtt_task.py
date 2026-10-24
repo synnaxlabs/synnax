@@ -11,16 +11,90 @@
 
 import os
 from abc import abstractmethod
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 
 from examples.mqtt_sim import MQTTSim
 
 import synnax as sy
 from synnax import mqtt
 from tests.driver.simulator_case import SimulatorCase
-from tests.driver.task import ReadTaskCase, WriteTaskCase, assert_sample_counts_in_range
+from tests.driver.task import ReadTaskCase, WriteTaskCase
+from x.telem import SampleValue, to_float
 
 # MQTT tasks run on the driver inside the Core, which has its own rack.
 CORE_RACK_NAME = os.environ.get("SYNNAX_CORE_RACK", "Node 1")
+WRITE_TIMEOUT = 20 * sy.TimeSpan.SECOND
+
+
+@contextmanager
+def run_reader(
+    client: sy.Synnax,
+    *,
+    device: str,
+    name: str,
+    channel: str,
+    data_type: sy.DataType,
+    entry: Callable[[sy.Channel], mqtt.ReadEntry],
+) -> Iterator[sy.Channel]:
+    """Run a read task of one entry that writes to a new virtual channel. On exit,
+    delete the task and the channel.
+
+    :param device: The key of the broker device to read from.
+    :param name: The name of the read task.
+    :param channel: The name of the virtual channel.
+    :param data_type: The data type of the virtual channel.
+    :param entry: Returns the entry of the task for the virtual channel.
+    :returns: A context that yields the virtual channel.
+    """
+    ch = client.channels.create(
+        name=channel, data_type=data_type, virtual=True, retrieve_if_name_exists=True
+    )
+    reader = mqtt.ReadTask(name=name, device=device, entries=[entry(ch)])
+    client.tasks.configure(reader)
+    try:
+        with reader.run():
+            yield ch
+    finally:
+        client.tasks.delete(reader.key)
+        client.channels.delete([ch.key])
+
+
+def write_until(
+    client: sy.Synnax,
+    *,
+    channel: sy.Channel,
+    value: float,
+    watched: sy.Channel,
+    matches: Callable[[SampleValue], bool] | None = None,
+) -> SampleValue:
+    """Write ``value`` to ``channel`` until a sample of ``watched`` matches, for at most
+    20 seconds. A message sent before its subscriber or Sparkplug birth is ready is
+    lost, so each pass writes the value again.
+
+    :param matches: Whether a sample of ``watched`` ends the wait. By default, a sample
+        that equals ``value``.
+    :returns: The sample that matched.
+    :raises AssertionError: If no sample matches in time.
+    """
+    last: SampleValue | None = None
+    timer = sy.Timer()
+    with client.open_streamer([watched.key]) as streamer:
+        with client.open_writer(
+            start=sy.TimeStamp.now(), channels=[channel.index, channel.key]
+        ) as writer:
+            while timer.elapsed() < WRITE_TIMEOUT:
+                writer.write({channel.index: sy.TimeStamp.now(), channel.key: value})
+                frame = streamer.read(timeout=1)
+                if frame is None or watched.key not in frame:
+                    continue
+                last = frame[watched.key][-1]
+                done = to_float(last) == value if matches is None else matches(last)
+                if done:
+                    return last
+    raise AssertionError(
+        f"{watched.name} did not match within {WRITE_TIMEOUT}, last sample: {last}"
+    )
 
 
 class MQTTReadTaskCase(SimulatorCase, ReadTaskCase[mqtt.ReadTask]):
@@ -28,6 +102,7 @@ class MQTTReadTaskCase(SimulatorCase, ReadTaskCase[mqtt.ReadTask]):
 
     sim_classes = [MQTTSim]
     RACK_NAME = CORE_RACK_NAME
+    EVENT_DRIVEN = True
     # The rate at which the simulator publishes each topic.
     SAMPLE_RATE = 10 * sy.Rate.HZ
     TASK_DURATION = 3 * sy.TimeSpan.SECOND
@@ -60,50 +135,6 @@ class MQTTReadTaskCase(SimulatorCase, ReadTaskCase[mqtt.ReadTask]):
                 continue
             keys.extend(f.channel for f in entry.fields if f.channel != 0)
         return keys
-
-    def run(self) -> None:
-        """An MQTT read task has no rate, so the rate step of the lifecycle is left
-        out."""
-        if self.tsk is None:
-            self.fail("Task not configured. Subclass must set self.tsk in setup()")
-            return
-        self.test_task_exists()
-        self.test_start_and_stop()
-        self.test_disable_data_saving()
-        self.test_enable_data_saving()
-        self.test_survives_channel_deletion()
-
-    def assert_sample_count(
-        self,
-        *,
-        task: mqtt.ReadTask,
-        duration: sy.TimeSpan = 1 * sy.TimeSpan.SECOND,
-        strict: bool = True,
-    ) -> None:
-        """Assert the sample count against the publish rate of the simulator."""
-        channel_keys = self._channel_keys(task)
-
-        def collect() -> sy.TimeStamp:
-            with self.client.open_streamer(channel_keys) as streamer:
-                if streamer.read(timeout=30) is None:
-                    raise AssertionError("Task did not start: no data received")
-            sy.sleep(1)
-            start = sy.TimeStamp.now()
-            sy.sleep(duration.seconds * 1.25)
-            return start
-
-        with task.run():
-            start_time = collect()
-
-        time_range = sy.TimeRange(start_time, sy.TimeStamp.now())
-        for key in channel_keys:
-            assert_sample_counts_in_range(
-                self.client,
-                channel_keys=[key],
-                time_range=time_range,
-                expected_samples=int(float(self.SAMPLE_RATE) * duration.seconds),
-                strict=strict,
-            )
 
 
 class MQTTWriteTaskCase(SimulatorCase, WriteTaskCase[mqtt.WriteTask]):

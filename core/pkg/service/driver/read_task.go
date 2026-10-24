@@ -21,36 +21,34 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ErrTemporary marks an error that a task recovers from by trying again, such as a
-// lost connection. A task reports it as a warning and keeps running.
-var ErrTemporary = errors.New("temporary error")
-
-// ErrDegraded marks a condition that loses data while the task keeps up its work,
-// such as a full queue. A task reports it as a warning and continues at once.
-var ErrDegraded = errors.New("degraded")
-
-// Source produces the frames that a ReadTask writes to the Core.
+// Source opens the reads of a ReadTask.
 type Source interface {
-	// Start acquires what the source needs to produce frames.
-	Start(ctx context.Context) error
+	// Open acquires what the reads of one run need and returns the Reader that owns it.
+	// Its error answers the start command.
+	Open(ctx context.Context) (Reader, error)
+}
+
+// Reader produces the frames of one run of a ReadTask.
+type Reader interface {
 	// Read blocks until the next frame is ready or ctx is cancelled. An empty frame
 	// with a nil error writes nothing and reports the source as healthy. An error
 	// that matches ErrTemporary makes the task warn, back off, and call Read again.
 	// An error that matches ErrDegraded makes the task warn and write the frame that
 	// came with it. Any other error stops the task.
 	Read(ctx context.Context) (framer.Frame, error)
-	// Stop releases what Start acquired. The task calls it after the last Read
-	// returns.
-	Stop() error
+	// Close releases what Open acquired. The task calls it after the last Read returns.
+	Close() error
 }
 
 // ReadTaskConfig is the configuration for a ReadTask.
@@ -135,7 +133,8 @@ func (c ReadTaskConfig) Validate() error {
 
 // ReadTask runs a Source and writes its frames to the Core. It handles the start and
 // stop commands, opens its writer on the first frame, and reports the health of the
-// source through the task status. Safe for concurrent use.
+// source through the task status. A failed write stops the task, also while the source
+// waits for its next frame. Safe for concurrent use.
 type ReadTask struct {
 	*Runner
 	cfg ReadTaskConfig
@@ -155,34 +154,55 @@ func NewReadTask(cfgs ...ReadTaskConfig) (*ReadTask, error) {
 		Status:          cfg.Status,
 		Instrumentation: cfg.Instrumentation,
 		Task:            cfg.Task,
-		Open:            cfg.Source.Start,
-		Run:             t.run,
+		Open:            t.open,
 	})
 	return t, err
 }
 
-func (t *ReadTask) run(ctx context.Context) (err error) {
-	var w *framer.Writer
+func (t *ReadTask) open(ctx context.Context) (func(context.Context) error, error) {
+	r, err := t.cfg.Source.Open(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return func(ctx context.Context) error { return t.run(ctx, r) }, nil
+}
+
+// errWriterClosed is the error of a run whose writer stops before the run does.
+var errWriterClosed = errors.New("writer closed unexpectedly")
+
+func (t *ReadTask) run(ctx context.Context, r Reader) (err error) {
+	// A failed write cancels readCtx, so that a source that waits for its next frame
+	// does not hide the failure.
+	readCtx, fail := context.WithCancelCause(ctx)
+	var w *frameWriter
 	defer func() {
+		fail(nil)
 		if w != nil {
-			err = errors.Combine(err, w.Close())
+			err = errors.Combine(w.close(), err)
 		}
-		err = errors.Combine(err, t.cfg.Source.Stop())
+		err = errors.Combine(err, r.Close())
 	}()
-	brk, err := breaker.NewBreaker(ctx, t.cfg.Breaker)
+	// stopped returns the error of a run whose reads are cancelled: nil for a stop.
+	stopped := func() error {
+		if ctx.Err() != nil {
+			return nil
+		}
+		return context.Cause(readCtx)
+	}
+	brk, err := breaker.NewBreaker(readCtx, t.cfg.Breaker)
 	if err != nil {
 		return err
 	}
 	for {
-		fr, err := t.cfg.Source.Read(ctx)
-		if ctx.Err() != nil {
-			return nil
+		fr, err := r.Read(readCtx)
+		if readCtx.Err() != nil {
+			return stopped()
 		}
 		if errors.Is(err, ErrTemporary) {
 			t.Report(ctx, err)
 			if !brk.Wait() {
-				if ctx.Err() != nil {
-					return nil
+				if readCtx.Err() != nil {
+					return stopped()
 				}
 				return err
 			}
@@ -197,26 +217,85 @@ func (t *ReadTask) run(ctx context.Context) (err error) {
 			continue
 		}
 		if w == nil {
-			if w, err = t.cfg.Framer.OpenWriter(ctx, framer.WriterConfig{
-				ControlSubject: control.Subject{
-					Key:  t.cfg.Task.Key.String(),
-					Name: t.cfg.Task.Name,
-				},
-				Keys:              t.cfg.Channels,
-				Start:             startOf(fr),
-				Mode:              t.cfg.Mode,
-				ErrOnUnauthorized: new(true),
-				// A push source can wait a long time for its next frame. Without an
-				// acknowledgment, a failed write stays hidden until that frame.
-				Sync: new(true),
-			}); err != nil {
+			if w, err = t.openWriter(ctx, startOf(fr), fail); err != nil {
 				return err
 			}
 		}
-		if _, err = w.Write(fr); err != nil {
-			return err
+		if !w.write(fr) {
+			return stopped()
 		}
 	}
+}
+
+// frameWriter streams the frames of one run to the Core.
+type frameWriter struct {
+	requests confluence.Inlet[framer.WriterRequest]
+	sCtx     signal.Context
+	cancel   context.CancelFunc
+}
+
+// openWriter opens a writer that calls fail with its first error.
+func (t *ReadTask) openWriter(
+	ctx context.Context,
+	start telem.TimeStamp,
+	fail context.CancelCauseFunc,
+) (*frameWriter, error) {
+	sw, err := t.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+		ControlSubject: control.Subject{
+			Key:  t.cfg.Task.Key.String(),
+			Name: t.cfg.Task.Name,
+		},
+		Keys:              t.cfg.Channels,
+		Start:             start,
+		Mode:              t.cfg.Mode,
+		ErrOnUnauthorized: new(true),
+	})
+	if err != nil {
+		return nil, err
+	}
+	var (
+		requests  = confluence.NewStream[framer.WriterRequest]()
+		responses = confluence.NewStream[framer.WriterResponse]()
+	)
+	sw.InFrom(requests)
+	sw.OutTo(responses)
+	// A routine never starts under a cancelled context, and then never closes its
+	// outlets. The writer runs apart from ctx, so that close always ends it.
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.cfg.Instrumentation))
+	sw.Flow(
+		sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic(),
+	)
+	sCtx.Go(func(context.Context) error {
+		for res := range responses.Outlet() {
+			if res.Err != nil {
+				fail(res.Err)
+			}
+		}
+		fail(errWriterClosed)
+		return nil
+	}, signal.RecoverWithErrOnPanic())
+	return &frameWriter{requests: requests, sCtx: sCtx, cancel: cancel}, nil
+}
+
+// write sends fr to the writer, also during a stop, so that a stop drops no frame that
+// the source returned. It returns false when the writer has stopped.
+func (w *frameWriter) write(fr framer.Frame) bool {
+	select {
+	case w.requests.Inlet() <- framer.WriterRequest{
+		Command: framer.WriterCommandWrite,
+		Frame:   fr,
+	}:
+		return true
+	case <-w.sCtx.Stopped():
+		return false
+	}
+}
+
+// close commits the written frames and returns the first error of the writer.
+func (w *frameWriter) close() error {
+	defer w.cancel()
+	w.requests.Close()
+	return w.sCtx.Wait()
 }
 
 // startOf returns the first timestamp in fr, so that the writer's domain starts at

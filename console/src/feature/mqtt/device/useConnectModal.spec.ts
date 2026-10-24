@@ -12,9 +12,11 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
-import { createBroker } from "@/feature/mqtt/testutil";
+import { createBroker, openScanner } from "@/feature/mqtt/testutil";
+import { createTestSink } from "@/platform/analytics/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
-import { getSwitchInput } from "@/testutil";
+import { selectFromDropdown } from "@/platform/task/testutil";
+import { getSwitchInput, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -43,8 +45,8 @@ describe("useConnectModal", () => {
 
   it("should show the default port and keep alive as placeholders", async () => {
     await renderConnectModal();
-    expect(screen.getByPlaceholderText("1883")).toBeTruthy();
-    expect(screen.getByPlaceholderText("30")).toBeTruthy();
+    expect(screen.getByPlaceholderText<HTMLInputElement>("1883").value).toBe("");
+    expect(screen.getByPlaceholderText<HTMLInputElement>("30").value).toBe("");
   });
 
   it("should reveal the certificate fields and the TLS port when TLS is on", async () => {
@@ -107,12 +109,86 @@ describe("useConnectModal", () => {
     ).toBeTruthy();
   });
 
-  it("should clamp the port to 65535", async () => {
+  it("should reject a port and keep alive out of range", async () => {
     await renderConnectModal();
-    const input = screen.getByPlaceholderText<HTMLInputElement>("1883");
-    fireEvent.change(input, { target: { value: "70000" } });
-    fireEvent.blur(input);
-    await waitFor(() => expect(input.value).toBe("65535"));
+    const port = screen.getByPlaceholderText<HTMLInputElement>("1883");
+    fireEvent.change(port, { target: { value: "70000" } });
+    fireEvent.blur(port);
+    await waitFor(() => expect(port.value).toBe("70000"));
+    const keepAlive = screen.getByPlaceholderText<HTMLInputElement>("30");
+    fireEvent.change(keepAlive, { target: { value: "0" } });
+    fireEvent.blur(keepAlive);
+    await waitFor(() => expect(keepAlive.value).toBe("0"));
+    fireEvent.click(screen.getByRole("button", { name: /Connect/ }));
+    expect(await screen.findByText("Port must be 1 to 65535")).toBeTruthy();
+    expect(screen.getByText("Keep alive must be positive")).toBeTruthy();
+  });
+
+  it("should report a device it connected and leave an empty port unset", async () => {
+    const rack = await client.racks.create({
+      name: uniqueName("mqtt_rack"),
+      integrations: [MQTT.Device.MAKE],
+    });
+    const scanner = await openScanner(client, rack.key);
+    const analytics = createTestSink();
+    await renderModalOpener(MQTT.Device.useConnectModal, [{}], { client, analytics });
+    await selectFromDropdown("Select Driver", rack.name);
+    fireEvent.change(screen.getByPlaceholderText("broker.example.com"), {
+      target: { value: "localhost" },
+    });
+    pressSaveTrigger();
+    const cmd = await scanner.answer({});
+    scanner.close();
+    expect(cmd.args.properties).not.toHaveProperty("port");
+    expect(cmd.args.properties).not.toHaveProperty("keep_alive");
+    await waitFor(() =>
+      expect(analytics.capture).toHaveBeenCalledWith("device_connected", {
+        integration: "mqtt",
+      }),
+    );
+  });
+
+  it("should leave a port and keep alive the user typed and then cleared unset", async () => {
+    const rack = await client.racks.create({
+      name: uniqueName("mqtt_rack"),
+      integrations: [MQTT.Device.MAKE],
+    });
+    const scanner = await openScanner(client, rack.key);
+    await renderModalOpener(MQTT.Device.useConnectModal, [{}], { client });
+    await selectFromDropdown("Select Driver", rack.name);
+    fireEvent.change(screen.getByPlaceholderText("broker.example.com"), {
+      target: { value: "localhost" },
+    });
+    for (const placeholder of ["1883", "30"]) {
+      const input = screen.getByPlaceholderText(placeholder);
+      fireEvent.change(input, { target: { value: "42" } });
+      fireEvent.blur(input);
+      await screen.findByDisplayValue("42");
+      fireEvent.change(input, { target: { value: "" } });
+      fireEvent.blur(input);
+      await waitFor(() => expect(screen.queryByDisplayValue("42")).toBeNull());
+    }
+    pressSaveTrigger();
+    const cmd = await scanner.answer({});
+    scanner.close();
+    expect(cmd.args.properties).not.toHaveProperty("port");
+    expect(cmd.args.properties).not.toHaveProperty("keep_alive");
+  });
+
+  it("should not report an edited device as connected", async () => {
+    const dev = await createBroker(client);
+    const scanner = await openScanner(client, dev.rack);
+    const analytics = createTestSink();
+    await renderModalOpener(MQTT.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+      analytics,
+    });
+    await screen.findByDisplayValue(dev.name);
+    pressSaveTrigger();
+    await scanner.answer({});
+    scanner.close();
+    await waitFor(() => expect(screen.queryByDisplayValue(dev.name)).toBeNull());
+    expect(analytics.capture).not.toHaveBeenCalled();
   });
 
   // Submitting with no rack chosen fails validation. That error is the proof the keys
@@ -124,7 +200,7 @@ describe("useConnectModal", () => {
     expect(await screen.findByText(/rack is required/i)).toBeTruthy();
   });
 
-  it("should surface a missing scan task when the rack has no MQTT driver", async () => {
+  it("should surface a missing scan task on the rack of the broker", async () => {
     const dev = await createBroker(client);
     await renderModalOpener(MQTT.Device.useConnectModal, [{ deviceKey: dev.key }], {
       client,

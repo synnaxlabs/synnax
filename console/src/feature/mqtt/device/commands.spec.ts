@@ -16,11 +16,10 @@ import { describe, expect, it } from "vitest";
 import { renderPalette } from "@/feature/command/testutil";
 import { MQTT } from "@/feature/mqtt";
 import { findCommand } from "@/platform/command/testutil";
+import { assertDefined, renderHookWithConsole } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
-
-import { assertDefined, renderHookWithConsole } from "@/testutil";
 
 describe("MQTT.Device Commands", () => {
   it("should open the connect modal from the connect broker command", async () => {

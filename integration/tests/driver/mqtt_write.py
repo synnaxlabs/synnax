@@ -17,9 +17,8 @@ from examples.mqtt_sim.server import (
 
 import synnax as sy
 from synnax import mqtt
-from tests.driver.mqtt_task import MQTTWriteTaskCase
+from tests.driver.mqtt_task import MQTTWriteTaskCase, run_reader, write_until
 from tests.driver.task import create_channel, create_index
-from x.telem import to_float
 
 
 class MQTTWriteValve(MQTTWriteTaskCase):
@@ -63,17 +62,15 @@ class MQTTWriteValve(MQTTWriteTaskCase):
         assert self.tsk is not None
         self.log("Testing: Command payload reaches the broker")
         device = self.client.devices.retrieve(name=self.device_name)
-        echo = self.client.channels.create(
-            name="mqtt_valve_state_payload",
-            data_type=sy.DataType.STRING,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        reader = mqtt.ReadTask(
-            name=f"{self.task_name} Echo Reader",
-            device=device.key,
-            entries=[
-                mqtt.PlainReadEntry(
+        cmd = self.client.channels.retrieve(self._channel_keys(self.tsk)[0])
+        with (
+            run_reader(
+                self.client,
+                device=device.key,
+                name=f"{self.task_name} Echo Reader",
+                channel="mqtt_valve_state_payload",
+                data_type=sy.DataType.STRING,
+                entry=lambda echo: mqtt.PlainReadEntry(
                     topic="plant/valve/state",
                     retained_ignored=True,
                     fields=[
@@ -81,37 +78,22 @@ class MQTTWriteValve(MQTTWriteTaskCase):
                             pointer="", channel=echo.key, data_type=sy.DataType.STRING
                         )
                     ],
-                )
-            ],
-        )
-        self.client.tasks.configure(reader)
-        cmd_key = self._channel_keys(self.tsk)[0]
-        cmd = self.client.channels.retrieve(cmd_key)
-        try:
-            with reader.run(), self.tsk.run():
-                with self.client.open_streamer([echo.key]) as streamer:
-                    with self.client.open_writer(
-                        start=sy.TimeStamp.now(), channels=[cmd.index, cmd_key]
-                    ) as writer:
-                        payload = None
-                        timer = sy.Timer()
-                        while (
-                            payload is None
-                            and timer.elapsed() < 20 * sy.TimeSpan.SECOND
-                        ):
-                            writer.write({cmd.index: sy.TimeStamp.now(), cmd_key: 42.5})
-                            frame = streamer.read(timeout=1)
-                            if frame is not None and echo.key in frame:
-                                payload = json.loads(str(frame[echo.key][-1]))
-            if payload is None:
-                raise AssertionError("The simulator did not echo the command")
-            if payload["position"] != 42.5 or payload["source"] != "synnax":
-                raise AssertionError(f"Unexpected command payload: {payload}")
-            if len(payload["id"]) != 36:
-                raise AssertionError(f"Payload has no generated UUID: {payload}")
-        finally:
-            self.client.tasks.delete(reader.key)
-            self.client.channels.delete([echo.key])
+                ),
+            ) as echo,
+            self.tsk.run(),
+        ):
+            sample = write_until(
+                self.client,
+                channel=cmd,
+                value=42.5,
+                watched=echo,
+                matches=lambda _: True,
+            )
+        payload = json.loads(str(sample))
+        if payload["position"] != 42.5 or payload["source"] != "synnax":
+            raise AssertionError(f"Unexpected command payload: {payload}")
+        if len(payload["id"]) != 36:
+            raise AssertionError(f"Payload has no generated UUID: {payload}")
 
 
 class MQTTWriteSparkplug(MQTTWriteTaskCase):
@@ -136,7 +118,7 @@ class MQTTWriteSparkplug(MQTTWriteTaskCase):
                 device=SPARKPLUG_DEVICE,
                 tag="setpoint",
                 channel=cmd,
-                sparkplug_type="double",
+                tag_type="double",
             ),
         ]
 
@@ -148,46 +130,23 @@ class MQTTWriteSparkplug(MQTTWriteTaskCase):
         assert self.tsk is not None
         self.log("Testing: Command reaches the edge node")
         device = self.client.devices.retrieve(name=self.device_name)
-        state = self.client.channels.create(
-            name="mqtt_sparkplug_setpoint_state",
-            data_type=sy.DataType.FLOAT64,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        reader = mqtt.ReadTask(
-            name=f"{self.task_name} State Reader",
-            device=device.key,
-            entries=[
-                mqtt.SparkplugReadEntry(
+        cmd = self.client.channels.retrieve(self._channel_keys(self.tsk)[0])
+        with (
+            run_reader(
+                self.client,
+                device=device.key,
+                name=f"{self.task_name} State Reader",
+                channel="mqtt_sparkplug_setpoint_state",
+                data_type=sy.DataType.FLOAT64,
+                entry=lambda state: mqtt.SparkplugReadEntry(
                     group=SPARKPLUG_GROUP,
                     edge_node=SPARKPLUG_EDGE_NODE,
                     device=SPARKPLUG_DEVICE,
                     tag="setpoint",
                     channel=state.key,
                     data_type=sy.DataType.FLOAT64,
-                )
-            ],
-        )
-        self.client.tasks.configure(reader)
-        cmd_key = self._channel_keys(self.tsk)[0]
-        cmd = self.client.channels.retrieve(cmd_key)
-        try:
-            with reader.run(), self.tsk.run():
-                with self.client.open_streamer([state.key]) as streamer:
-                    with self.client.open_writer(
-                        start=sy.TimeStamp.now(), channels=[cmd.index, cmd_key]
-                    ) as writer:
-                        value = None
-                        timer = sy.Timer()
-                        while (
-                            value != 42.5 and timer.elapsed() < 20 * sy.TimeSpan.SECOND
-                        ):
-                            writer.write({cmd.index: sy.TimeStamp.now(), cmd_key: 42.5})
-                            frame = streamer.read(timeout=1)
-                            if frame is not None and state.key in frame:
-                                value = to_float(frame[state.key][-1])
-            if value != 42.5:
-                raise AssertionError(f"The setpoint tag is {value}, not 42.5")
-        finally:
-            self.client.tasks.delete(reader.key)
-            self.client.channels.delete([state.key])
+                ),
+            ) as state,
+            self.tsk.run(),
+        ):
+            write_until(self.client, channel=cmd, value=42.5, watched=state)

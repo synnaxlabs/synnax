@@ -93,8 +93,9 @@ to the outside.
 
 - **Read task**: The integration supplies a source with a blocking `Read`. The read task
   opens the writer on the first frame with the start taken from the first timestamp in
-  that frame, as `driver/pipeline/acquisition.cpp` does. The writer acknowledges each
-  write, because a push source can wait a long time for its next frame and a failed
+  that frame, as `driver/pipeline/acquisition.cpp` does. The task streams frames to the
+  writer and does not wait for each write. The first error of the writer stops the run
+  at once, because a push source can wait a long time for its next frame and a failed
   write must not stay hidden until then. The task maps `data_saving_disabled` to the
   writer mode, treats an unauthorized write as an error, and closes the writer on stop.
 - **Write task**: The integration supplies a sink. The write task opens a streamer on
@@ -153,8 +154,9 @@ Connect use the same model of one connection for each configured broker.
 
 - Each topic filter has one subscription, shared by the tasks that use it.
 - The message handler puts each message on a bounded queue for each subscribing task.
-  Each task drains its queue on its own goroutine. A full queue drops its oldest message
-  and raises a rate-limited warning on that task only.
+  Each task drains its queue on its own goroutine, and each read puts every waiting
+  message into one frame. A full queue drops its oldest message and raises a
+  rate-limited warning on that task only.
 - The connection owns its connect loop: one attempt at a time, a backoff from 1 s to 30
   s, and a new subscription to every filter after each connect. Attached tasks show a
   warning during the outage, and the warning clears on recovery (§7.10).
@@ -223,10 +225,12 @@ mapping in the device properties, as the HTTP forms do.
   and drops data that arrives before a birth. On a gap, on data before a birth, or on a
   tag that the birth did not declare, it sends a rebirth request. The rate limit is one
   request every 5 s for each edge node.
-- A task that starts to follow an edge node always sends a rebirth request, even when
-  the connection holds a valid birth. The task then starts from the current value of
-  each tag, and it learns at once whether each tag exists. A reconnect does the same for
-  every followed edge node, because the connection missed messages.
+- A task that starts to follow an edge node asks for a rebirth, even when the connection
+  holds a valid birth. The task then starts from the current value of each tag, and it
+  learns at once whether each tag exists. A reconnect does the same for every followed
+  edge node, because the connection missed messages. The connection holds at most one
+  request for each edge node, and a birth that arrives before the request goes out
+  answers it.
 - A task waits 8 s for the birth. The wait is longer than the rate limit, so a request
   that waits out the limit gives no false warning. After it, the task warns that the
   edge node is offline.
@@ -304,9 +308,8 @@ it from traffic.
   The wiring sites are the const maps in `feature/device/make.tsx`,
   `feature/device/external.ts`, and `feature/task/{types,tab,Selector,external}`. Pluto
   gains `Icon.Logo.MQTT`.
-- **Clients**: Oracle generates the TypeScript, Python, Go, and C++ types. The Python
-  client gains a hand-written `synnax.mqtt` module with task classes and a `Device`
-  helper.
+- **Clients**: Oracle generates the TypeScript, Python, and Go types. The Python client
+  gains a hand-written `synnax.mqtt` module with task classes and a `Device` helper.
 - **Docs**: A page set under `reference/driver/mqtt`: connect a broker, read task, write
   task, and Sparkplug edge node.
 - **Go tests**: Specs run against a real in-memory Core (`mock.NewNode`) and a real
@@ -340,7 +343,7 @@ migration exists, and no released format changes.
 
 ## 6 What this RFC does not cover
 
-- MQTT 5.0, WebSocket transport, QoS 2, shared subscriptions, and persistent sessions.
+- MQTT 5.0, WebSocket transport, shared subscriptions, and persistent sessions.
 - Wildcard subscriptions that create channels from topic segments.
 - Payload formats other than JSON, bare scalars, and Sparkplug B. Array payloads that
   carry many samples in one message are also out.
@@ -436,8 +439,8 @@ task warns. For the same reason, all fields of a topic share one index, and two 
 may not write to one channel.
 
 **7.16 Dependency licenses.** `paho.mqtt.golang` is under EPL-2.0 or EDL-1.0, and the
-Tahu proto file is under EPL-2.0. The generated bindings in `sparkplug/pb` are the only
-copy of the proto in the repository.
+Tahu proto file is under EPL-2.0. `sparkplug/pb` holds the proto file and the bindings
+generated from it.
 
 **7.17 The test broker is pinned.** `mochi-mqtt/server/v2` v2.7.9 is a test-only
 dependency. It has had no release since 2025-03, so the version stays pinned until a

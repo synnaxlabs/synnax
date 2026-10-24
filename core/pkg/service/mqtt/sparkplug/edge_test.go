@@ -38,14 +38,45 @@ var _ = Describe("Edge", func() {
 	const nowMillis uint64 = 1700000000123
 
 	var (
+		node = sparkplug.NodeID{Group: "plant", EdgeNode: "line1"}
+		ncmd = sparkplug.Topic{Type: sparkplug.NCmd, Node: node}
 		tags = []sparkplug.Tag{
 			{Name: "temp", DataType: sparkplug.Double},
 			{Name: "count", DataType: sparkplug.Int32},
 			{Name: "mode", DataType: sparkplug.String},
 		}
 		e *sparkplug.Edge
+		s *sparkplug.Sequence
 	)
-	BeforeEach(func() { e = sparkplug.NewEdge(tags) })
+	BeforeEach(func() {
+		e = sparkplug.NewEdge(node, tags)
+		s = sparkplug.NewSequence(e)
+	})
+
+	// birth returns the payload of the NBIRTH message of values.
+	birth := func(values map[string]sparkplug.Metric) *pb.Payload {
+		GinkgoHelper()
+		return decodePayload(MustSucceed(s.Birth(values, now)).Payload)
+	}
+
+	death := func() *pb.Payload {
+		GinkgoHelper()
+		return decodePayload(MustSucceed(s.Death()).Payload)
+	}
+
+	// data returns the payload of an NDATA message that carries every metric.
+	data := func(metrics []sparkplug.Metric) *pb.Payload {
+		GinkgoHelper()
+		pub, carried := MustSucceed2(s.Data(metrics, now))
+		Expect(carried).To(HaveLen(len(metrics)))
+		return decodePayload(pub.Payload)
+	}
+
+	// command returns what an NCMD message with payload p asks of the edge node.
+	command := func(p *pb.Payload) sparkplug.Command {
+		GinkgoHelper()
+		return e.Command(MustSucceed(sparkplug.Decode(ncmd, encode(p))))
+	}
 
 	bdSeq := func(p *pb.Payload) *pb.Payload_Metric {
 		GinkgoHelper()
@@ -59,7 +90,7 @@ var _ = Describe("Edge", func() {
 
 	Describe("NewEdge", func() {
 		It("Should give each tag the alias of its position, from 1", func() {
-			p := decodePayload(MustSucceed(e.Birth(nil, now)))
+			p := birth(nil)
 			Expect(p.Metrics).To(HaveLen(5))
 			for i, t := range tags {
 				m := p.Metrics[2+i]
@@ -67,28 +98,58 @@ var _ = Describe("Edge", func() {
 				Expect(m.Alias).To(HaveValue(Equal(uint64(i + 1))))
 				Expect(m.GetDatatype()).To(Equal(uint32(t.DataType)))
 			}
-			p = decodePayload(MustSucceed(e.Data([]sparkplug.Metric{
-				{Name: "mode", Value: "auto"},
-				{Name: "temp", Value: 1.5},
-			}, now)))
+			p = data([]sparkplug.Metric{
+				{Name: "mode", Value: sparkplug.StringValue("auto")},
+				{Name: "temp", Value: sparkplug.FloatValue(1.5)},
+			})
 			Expect(p.Metrics).To(HaveLen(2))
 			Expect(p.Metrics[0].Alias).To(HaveValue(Equal(uint64(3))))
 			Expect(p.Metrics[1].Alias).To(HaveValue(Equal(uint64(1))))
 		})
 
 		It("Should declare no tag for an edge node with none", func() {
-			e = sparkplug.NewEdge(nil)
-			p := decodePayload(MustSucceed(e.Birth(nil, now)))
+			s = sparkplug.NewSequence(sparkplug.NewEdge(node, nil))
+			p := birth(nil)
 			Expect(p.Metrics).To(HaveLen(2))
-			Expect(e.Data([]sparkplug.Metric{{Name: "temp", Value: 1.0}}, now)).
-				Error().To(MatchError("tag temp is not a tag of the edge node"))
+			Expect(
+				s.Data(
+					[]sparkplug.Metric{
+						{Name: "temp", Value: sparkplug.FloatValue(1.0)},
+					},
+					now,
+				),
+			).
+				Error().
+				To(MatchError("tag temp is not a tag of the edge node"))
 		})
 	})
+
+	DescribeTable("Should give each message the topic, quality of service, and "+
+		"retain flag of its type",
+		func(publish func() sparkplug.Publication, expected sparkplug.Publication) {
+			pub := publish()
+			Expect(pub.Payload).ToNot(BeEmpty())
+			pub.Payload = nil
+			Expect(pub).To(Equal(expected))
+		},
+		Entry("a death", func() sparkplug.Publication {
+			return MustSucceed(s.Death())
+		}, sparkplug.Publication{Topic: "spBv1.0/plant/NDEATH/line1", QoS: 1}),
+		Entry("a birth", func() sparkplug.Publication {
+			return MustSucceed(s.Birth(nil, now))
+		}, sparkplug.Publication{Topic: "spBv1.0/plant/NBIRTH/line1"}),
+		Entry("data", func() sparkplug.Publication {
+			pub, _ := MustSucceed2(s.Data([]sparkplug.Metric{
+				{Name: "temp", Value: sparkplug.FloatValue(1)},
+			}, now))
+			return pub
+		}, sparkplug.Publication{Topic: "spBv1.0/plant/NDATA/line1"}),
+	)
 
 	Describe("Death", func() {
 		It("Should carry only the bdSeq of the session, with no sequence number",
 			func() {
-				p := decodePayload(MustSucceed(e.Death()))
+				p := death()
 				Expect(p.Seq).To(BeNil())
 				Expect(p.Metrics).To(HaveLen(1))
 				Expect(bdSeq(p).GetValue()).To(Equal(
@@ -98,24 +159,23 @@ var _ = Describe("Edge", func() {
 		)
 
 		It("Should hold the same bdSeq as the birth of the session", func() {
-			e.EndSession()
-			e.EndSession()
-			death := decodePayload(MustSucceed(e.Death()))
-			birth := decodePayload(MustSucceed(e.Birth(nil, now)))
-			Expect(bdSeq(death).GetLongValue()).To(Equal(uint64(2)))
-			Expect(bdSeq(birth).GetLongValue()).To(Equal(uint64(2)))
+			s.EndSession()
+			s.EndSession()
+			d, b := death(), birth(nil)
+			Expect(bdSeq(d).GetLongValue()).To(Equal(uint64(2)))
+			Expect(bdSeq(b).GetLongValue()).To(Equal(uint64(2)))
 		})
 	})
 
 	Describe("Birth", func() {
 		It("Should start the sequence at 0 and stamp the payload", func() {
-			p := decodePayload(MustSucceed(e.Birth(nil, now)))
+			p := birth(nil)
 			Expect(p.Seq).To(HaveValue(Equal(uint64(0))))
 			Expect(p.Timestamp).To(HaveValue(Equal(nowMillis)))
 		})
 
 		It("Should lead with bdSeq and a false Node Control/Rebirth", func() {
-			p := decodePayload(MustSucceed(e.Birth(nil, now)))
+			p := birth(nil)
 			Expect(bdSeq(p).GetValue()).To(Equal(
 				&pb.Payload_Metric_LongValue{LongValue: 0},
 			))
@@ -129,7 +189,7 @@ var _ = Describe("Edge", func() {
 		})
 
 		It("Should declare a tag with no value as null, stamped now", func() {
-			p := decodePayload(MustSucceed(e.Birth(nil, now)))
+			p := birth(nil)
 			for i, t := range tags {
 				m := p.Metrics[2+i]
 				Expect(m.GetName()).To(Equal(t.Name))
@@ -140,14 +200,14 @@ var _ = Describe("Edge", func() {
 		})
 
 		It("Should carry the value and timestamp of a tag that has one", func() {
-			p := decodePayload(MustSucceed(e.Birth(map[string]sparkplug.Metric{
+			p := birth(map[string]sparkplug.Metric{
 				"count": {
 					Name:      "count",
-					Value:     int64(-4),
+					Value:     sparkplug.IntValue(-4),
 					Timestamp: now - telem.SecondTS,
 				},
-				"mode": {Name: "mode", Value: "auto"},
-			}, now)))
+				"mode": {Name: "mode", Value: sparkplug.StringValue("auto")},
+			})
 			temp, count, mode := p.Metrics[2], p.Metrics[3], p.Metrics[4]
 			Expect(temp.GetIsNull()).To(BeTrue())
 			Expect(count.IsNull).To(BeNil())
@@ -164,9 +224,13 @@ var _ = Describe("Edge", func() {
 		})
 
 		It("Should encode a value as the data type of its tag", func() {
-			p := decodePayload(MustSucceed(e.Birth(map[string]sparkplug.Metric{
-				"temp": {Name: "temp", Value: int64(3), DataType: sparkplug.Int32},
-			}, now)))
+			p := birth(map[string]sparkplug.Metric{
+				"temp": {
+					Name:     "temp",
+					Value:    sparkplug.IntValue(3),
+					DataType: sparkplug.Int32,
+				},
+			})
 			Expect(p.Metrics[2].GetDatatype()).To(Equal(uint32(sparkplug.Double)))
 			Expect(p.Metrics[2].GetValue()).To(Equal(
 				&pb.Payload_Metric_DoubleValue{DoubleValue: 3},
@@ -175,17 +239,17 @@ var _ = Describe("Edge", func() {
 
 		It("Should ignore a value of a tag that the edge node does not declare",
 			func() {
-				p := decodePayload(MustSucceed(e.Birth(map[string]sparkplug.Metric{
-					"other": {Name: "other", Value: 1.0},
-				}, now)))
+				p := birth(map[string]sparkplug.Metric{
+					"other": {Name: "other", Value: sparkplug.FloatValue(1.0)},
+				})
 				Expect(p.Metrics).To(HaveLen(5))
 			},
 		)
 
 		It("Should reject a value that does not fit the data type of its tag",
 			func() {
-				Expect(e.Birth(map[string]sparkplug.Metric{
-					"count": {Name: "count", Value: "twelve"},
+				Expect(s.Birth(map[string]sparkplug.Metric{
+					"count": {Name: "count", Value: sparkplug.StringValue("twelve")},
 				}, now)).Error().To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(
@@ -195,26 +259,38 @@ var _ = Describe("Edge", func() {
 			},
 		)
 
-		It("Should reset the sequence of the session", func() {
-			MustSucceed(e.Birth(nil, now))
-			MustSucceed(e.Data(nil, now))
-			p := decodePayload(MustSucceed(e.Data(nil, now)))
+		It("Should keep the sequence of the session when it fails", func() {
+			MustSucceed(s.Birth(nil, now))
+			data(nil)
+			Expect(s.Birth(map[string]sparkplug.Metric{
+				"count": {Name: "count", Value: sparkplug.FloatValue(1.5)},
+			}, now)).Error().To(MatchError(ContainSubstring(
+				"tag count: 1.5 as Int32: value does not fit the data type",
+			)))
+			p := data(nil)
 			Expect(p.Seq).To(HaveValue(Equal(uint64(2))))
-			p = decodePayload(MustSucceed(e.Birth(nil, now)))
+		})
+
+		It("Should reset the sequence of the session", func() {
+			MustSucceed(s.Birth(nil, now))
+			data(nil)
+			p := data(nil)
+			Expect(p.Seq).To(HaveValue(Equal(uint64(2))))
+			p = birth(nil)
 			Expect(p.Seq).To(HaveValue(Equal(uint64(0))))
-			p = decodePayload(MustSucceed(e.Data(nil, now)))
+			p = data(nil)
 			Expect(p.Seq).To(HaveValue(Equal(uint64(1))))
 		})
 	})
 
 	Describe("Data", func() {
-		BeforeEach(func() { MustSucceed(e.Birth(nil, now)) })
+		BeforeEach(func() { MustSucceed(s.Birth(nil, now)) })
 
 		It("Should identify each tag by its alias only", func() {
-			p := decodePayload(MustSucceed(e.Data([]sparkplug.Metric{
-				{Name: "count", Value: int64(7)},
-				{Name: "temp", Value: 21.5},
-			}, now)))
+			p := data([]sparkplug.Metric{
+				{Name: "count", Value: sparkplug.IntValue(7)},
+				{Name: "temp", Value: sparkplug.FloatValue(21.5)},
+			})
 			Expect(p.Metrics).To(HaveLen(2))
 			Expect(p.Metrics[0].Name).To(BeNil())
 			Expect(p.Metrics[0].Alias).To(HaveValue(Equal(uint64(2))))
@@ -231,9 +307,13 @@ var _ = Describe("Edge", func() {
 		})
 
 		It("Should encode a value as the data type of its tag", func() {
-			p := decodePayload(MustSucceed(e.Data([]sparkplug.Metric{
-				{Name: "count", Value: 3.0, DataType: sparkplug.Double},
-			}, now)))
+			p := data([]sparkplug.Metric{
+				{
+					Name:     "count",
+					Value:    sparkplug.FloatValue(3.0),
+					DataType: sparkplug.Double,
+				},
+			})
 			Expect(p.Metrics[0].GetDatatype()).To(Equal(uint32(sparkplug.Int32)))
 			Expect(p.Metrics[0].GetValue()).To(Equal(
 				&pb.Payload_Metric_IntValue{IntValue: 3},
@@ -241,10 +321,14 @@ var _ = Describe("Edge", func() {
 		})
 
 		It("Should stamp a metric with its own timestamp or with now", func() {
-			p := decodePayload(MustSucceed(e.Data([]sparkplug.Metric{
-				{Name: "temp", Value: 1.0, Timestamp: now + 250*telem.MillisecondTS},
-				{Name: "temp", Value: 2.0},
-			}, now)))
+			p := data([]sparkplug.Metric{
+				{
+					Name:      "temp",
+					Value:     sparkplug.FloatValue(1.0),
+					Timestamp: now + 250*telem.MillisecondTS,
+				},
+				{Name: "temp", Value: sparkplug.FloatValue(2.0)},
+			})
 			Expect(p.Timestamp).To(HaveValue(Equal(nowMillis)))
 			Expect(p.Metrics[0].Timestamp).To(HaveValue(Equal(nowMillis + 250)))
 			Expect(p.Metrics[1].Timestamp).To(HaveValue(Equal(nowMillis)))
@@ -252,32 +336,40 @@ var _ = Describe("Edge", func() {
 
 		It("Should count the sequence up from the birth", func() {
 			for seq := uint64(1); seq <= 3; seq++ {
-				p := decodePayload(MustSucceed(e.Data(nil, now)))
+				p := data(nil)
 				Expect(p.Seq).To(HaveValue(Equal(seq)))
 			}
 		})
 
 		It("Should wrap the sequence from 255 to 0", func() {
 			for range 254 {
-				MustSucceed(e.Data(nil, now))
+				data(nil)
 			}
 			for _, seq := range []uint64{255, 0, 1} {
-				p := decodePayload(MustSucceed(e.Data(nil, now)))
+				p := data(nil)
 				Expect(p.Seq).To(HaveValue(Equal(seq)))
 			}
 		})
 
 		It("Should reject a tag that the edge node does not declare", func() {
-			Expect(e.Data([]sparkplug.Metric{
-				{Name: "temp", Value: 1.0},
-				{Name: "flow", Value: 1.0},
-			}, now)).Error().To(MatchError("tag flow is not a tag of the edge node"))
+			Expect(
+				s.Data(
+					[]sparkplug.Metric{
+						{Name: "flow", Value: sparkplug.FloatValue(1.0)},
+					},
+					now,
+				),
+			).
+				Error().
+				To(MatchError("tag flow is not a tag of the edge node"))
 		})
 
 		It("Should reject a value that does not fit the data type of its tag",
 			func() {
-				Expect(e.Data(
-					[]sparkplug.Metric{{Name: "count", Value: int64(1) << 40}},
+				Expect(s.Data(
+					[]sparkplug.Metric{
+						{Name: "count", Value: sparkplug.IntValue(1) << 40},
+					},
 					now,
 				)).Error().To(SatisfyAll(
 					MatchError(validate.ErrValidation),
@@ -289,56 +381,92 @@ var _ = Describe("Edge", func() {
 			},
 		)
 
-		It("Should not use up a sequence number on an error", func() {
-			Expect(e.Data([]sparkplug.Metric{{Name: "flow", Value: 1.0}}, now)).
-				Error().To(MatchError(ContainSubstring("is not a tag")))
-			p := decodePayload(MustSucceed(e.Data(nil, now)))
+		It("Should carry the metrics that fit and name each one it leaves out",
+			func() {
+				temp := sparkplug.Metric{Name: "temp", Value: sparkplug.FloatValue(1.0)}
+				count := sparkplug.Metric{Name: "count", Value: sparkplug.IntValue(4)}
+				pub, carried, err := s.Data([]sparkplug.Metric{
+					temp,
+					{Name: "flow", Value: sparkplug.FloatValue(1.0)},
+					count,
+					{Name: "count", Value: sparkplug.FloatValue(1.5)},
+				}, now)
+				Expect(err).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError("tag flow is not a tag of the edge node\n"+
+						"tag count: 1.5 as Int32: "+
+						"value does not fit the data type: validation error",
+					),
+				))
+				Expect(carried).To(Equal([]sparkplug.Metric{temp, count}))
+				p := decodePayload(pub.Payload)
+				Expect(p.Seq).To(HaveValue(Equal(uint64(1))))
+				Expect(p.Metrics).To(HaveLen(2))
+				Expect(p.Metrics[0].Alias).To(HaveValue(Equal(uint64(1))))
+				Expect(p.Metrics[1].Alias).To(HaveValue(Equal(uint64(2))))
+			},
+		)
+
+		It("Should not use up a sequence number when it carries no metric", func() {
+			Expect(
+				s.Data(
+					[]sparkplug.Metric{
+						{Name: "flow", Value: sparkplug.FloatValue(1.0)},
+					},
+					now,
+				),
+			).
+				Error().
+				To(MatchError(ContainSubstring("is not a tag")))
+			p := data(nil)
 			Expect(p.Seq).To(HaveValue(Equal(uint64(1))))
 		})
 	})
 
 	Describe("EndSession", func() {
 		It("Should move the next death and birth to the next bdSeq", func() {
-			e.EndSession()
-			Expect(bdSeq(decodePayload(MustSucceed(e.Death()))).GetLongValue()).
+			s.EndSession()
+			Expect(bdSeq(death()).GetLongValue()).
 				To(Equal(uint64(1)))
-			Expect(bdSeq(decodePayload(MustSucceed(e.Birth(nil, now)))).GetLongValue()).
+			Expect(bdSeq(birth(nil)).GetLongValue()).
 				To(Equal(uint64(1)))
-			e.EndSession()
-			Expect(bdSeq(decodePayload(MustSucceed(e.Death()))).GetLongValue()).
+			s.EndSession()
+			Expect(bdSeq(death()).GetLongValue()).
 				To(Equal(uint64(2)))
 		})
 
 		It("Should wrap the bdSeq from 255 to 0", func() {
 			for range 255 {
-				e.EndSession()
+				s.EndSession()
 			}
-			Expect(bdSeq(decodePayload(MustSucceed(e.Death()))).GetLongValue()).
+			Expect(bdSeq(death()).GetLongValue()).
 				To(Equal(uint64(255)))
-			e.EndSession()
-			Expect(bdSeq(decodePayload(MustSucceed(e.Death()))).GetLongValue()).
+			s.EndSession()
+			Expect(bdSeq(death()).GetLongValue()).
 				To(Equal(uint64(0)))
 		})
 
 		It("Should leave the message sequence alone", func() {
-			MustSucceed(e.Birth(nil, now))
-			MustSucceed(e.Data(nil, now))
-			e.EndSession()
-			p := decodePayload(MustSucceed(e.Data(nil, now)))
+			MustSucceed(s.Birth(nil, now))
+			data(nil)
+			s.EndSession()
+			p := data(nil)
 			Expect(p.Seq).To(HaveValue(Equal(uint64(2))))
 		})
 	})
 
-	Describe("DecodeCommand", func() {
+	Describe("Command", func() {
 		It("Should report a rebirth request", func() {
-			cmd := MustSucceed(
-				e.DecodeCommand(MustSucceed(sparkplug.EncodeRebirth(now))),
-			)
+			rebirth := MustSucceed(sparkplug.EncodeRebirth(node, now))
+			cmd := e.Command(MustSucceed(sparkplug.Decode(
+				MustSucceed(sparkplug.ParseTopic(rebirth.Topic)),
+				rebirth.Payload,
+			)))
 			Expect(cmd).To(Equal(sparkplug.Command{Rebirth: true}))
 		})
 
 		It("Should not report a rebirth request that is false", func() {
-			cmd := MustSucceed(e.DecodeCommand(encode(&pb.Payload{
+			cmd := command(&pb.Payload{
 				Timestamp: new(nowMillis),
 				Metrics: []*pb.Payload_Metric{
 					declared(
@@ -348,19 +476,21 @@ var _ = Describe("Edge", func() {
 						boolValue(false),
 					),
 				},
-			})))
+			})
 			Expect(cmd).To(Equal(sparkplug.Command{}))
 		})
 
 		It("Should resolve a metric by its name", func() {
-			cmd := MustSucceed(e.DecodeCommand(MustSucceed(sparkplug.EncodeCommand(
-				sparkplug.Metric{Name: "temp", DataType: sparkplug.Double, Value: 2.5},
-				now,
-			))))
+			pub := MustSucceed(sparkplug.EncodeCommand(node, "", sparkplug.Metric{
+				Name:     "temp",
+				DataType: sparkplug.Double,
+				Value:    sparkplug.FloatValue(2.5),
+			}, now))
+			cmd := e.Command(MustSucceed(sparkplug.Decode(ncmd, pub.Payload)))
 			Expect(cmd).To(Equal(sparkplug.Command{Metrics: []sparkplug.Metric{{
 				Name:      "temp",
 				DataType:  sparkplug.Double,
-				Value:     2.5,
+				Value:     sparkplug.FloatValue(2.5),
 				Timestamp: now,
 			}}}))
 		})
@@ -368,14 +498,14 @@ var _ = Describe("Edge", func() {
 		It("Should resolve a metric by its alias", func() {
 			m := byAlias(2, intValue(0xFFFFFFF6))
 			m.Datatype = new(uint32(sparkplug.Int32))
-			cmd := MustSucceed(e.DecodeCommand(encode(&pb.Payload{
+			cmd := command(&pb.Payload{
 				Timestamp: new(nowMillis),
 				Metrics:   []*pb.Payload_Metric{m},
-			})))
+			})
 			Expect(cmd).To(Equal(sparkplug.Command{Metrics: []sparkplug.Metric{{
 				Name:      "count",
 				DataType:  sparkplug.Int32,
-				Value:     int64(-10),
+				Value:     sparkplug.IntValue(-10),
 				Timestamp: now,
 			}}}))
 		})
@@ -383,49 +513,58 @@ var _ = Describe("Edge", func() {
 		It("Should resolve an empty name through the alias", func() {
 			m := byAlias(3, stringValue("manual"))
 			m.Name = new("")
-			cmd := MustSucceed(e.DecodeCommand(encode(&pb.Payload{
+			cmd := command(&pb.Payload{
 				Timestamp: new(nowMillis),
 				Metrics:   []*pb.Payload_Metric{m},
-			})))
+			})
 			Expect(cmd.Metrics).To(HaveLen(1))
 			Expect(cmd.Metrics[0].Name).To(Equal("mode"))
-			Expect(cmd.Metrics[0].Value).To(Equal("manual"))
+			Expect(cmd.Metrics[0].Value).To(Equal(sparkplug.StringValue("manual")))
 		})
 
 		It("Should take the data type of the tag when the command gives none", func() {
-			cmd := MustSucceed(e.DecodeCommand(encode(&pb.Payload{
+			cmd := command(&pb.Payload{
 				Timestamp: new(nowMillis),
 				Metrics: []*pb.Payload_Metric{
 					byName("count", intValue(12)),
 					byAlias(1, doubleValue(0.5)),
 				},
-			})))
+			})
 			Expect(cmd.Metrics).To(Equal([]sparkplug.Metric{
 				{
 					Name:      "count",
 					DataType:  sparkplug.Int32,
-					Value:     int64(12),
+					Value:     sparkplug.IntValue(12),
 					Timestamp: now,
 				},
-				{Name: "temp", DataType: sparkplug.Double, Value: 0.5, Timestamp: now},
+				{
+					Name:      "temp",
+					DataType:  sparkplug.Double,
+					Value:     sparkplug.FloatValue(0.5),
+					Timestamp: now,
+				},
 			}))
 		})
 
 		It("Should take the data type of the command when it gives one", func() {
 			m := byName("count", intValue(0xFFFF))
 			m.Datatype = new(uint32(sparkplug.UInt16))
-			cmd := MustSucceed(e.DecodeCommand(encode(&pb.Payload{
+			cmd := command(&pb.Payload{
 				Metrics: []*pb.Payload_Metric{m},
-			})))
-			Expect(cmd.Metrics).To(Equal([]sparkplug.Metric{{
-				Name: "count", DataType: sparkplug.UInt16, Value: uint64(0xFFFF),
-			}}))
+			})
+			Expect(cmd.Metrics).To(Equal([]sparkplug.Metric{
+				{
+					Name:     "count",
+					DataType: sparkplug.UInt16,
+					Value:    sparkplug.UintValue(0xFFFF),
+				},
+			}))
 		})
 
 		It("Should give a nil value for a null metric", func() {
-			cmd := MustSucceed(e.DecodeCommand(encode(&pb.Payload{
+			cmd := command(&pb.Payload{
 				Metrics: []*pb.Payload_Metric{byName("temp", nullValue())},
-			})))
+			})
 			Expect(cmd.Metrics).To(HaveLen(1))
 			Expect(cmd.Metrics[0].Value).To(BeNil())
 		})
@@ -433,26 +572,26 @@ var _ = Describe("Edge", func() {
 		It("Should use the timestamp of the metric over that of the payload", func() {
 			m := byName("temp", doubleValue(1))
 			m.Timestamp = new(nowMillis + 500)
-			cmd := MustSucceed(e.DecodeCommand(encode(&pb.Payload{
+			cmd := command(&pb.Payload{
 				Timestamp: new(nowMillis),
 				Metrics:   []*pb.Payload_Metric{m, byName("temp", doubleValue(2))},
-			})))
+			})
 			Expect(cmd.Metrics).To(HaveLen(2))
 			Expect(cmd.Metrics[0].Timestamp).To(Equal(now + 500*telem.MillisecondTS))
 			Expect(cmd.Metrics[1].Timestamp).To(Equal(now))
 		})
 
 		It("Should give a zero timestamp when the command has none", func() {
-			cmd := MustSucceed(e.DecodeCommand(encode(&pb.Payload{
+			cmd := command(&pb.Payload{
 				Metrics: []*pb.Payload_Metric{byName("temp", doubleValue(1))},
-			})))
+			})
 			Expect(cmd.Metrics).To(HaveLen(1))
 			Expect(cmd.Metrics[0].Timestamp).To(BeZero())
 		})
 
 		It("Should drop a metric of a tag it does not declare and keep the rest",
 			func() {
-				cmd := MustSucceed(e.DecodeCommand(encode(&pb.Payload{
+				cmd := command(&pb.Payload{
 					Timestamp: new(nowMillis),
 					Metrics: []*pb.Payload_Metric{
 						byName("flow", doubleValue(1)),
@@ -460,12 +599,12 @@ var _ = Describe("Edge", func() {
 						doubleValue(1),
 						byName("temp", doubleValue(4)),
 					},
-				})))
+				})
 				Expect(cmd.Rebirth).To(BeFalse())
 				Expect(cmd.Metrics).To(Equal([]sparkplug.Metric{{
 					Name:      "temp",
 					DataType:  sparkplug.Double,
-					Value:     4.0,
+					Value:     sparkplug.FloatValue(4.0),
 					Timestamp: now,
 				}}))
 			},
@@ -475,15 +614,15 @@ var _ = Describe("Edge", func() {
 			func() {
 				m := byAlias(1, doubleValue(1))
 				m.Name = new("flow")
-				cmd := MustSucceed(e.DecodeCommand(encode(&pb.Payload{
+				cmd := command(&pb.Payload{
 					Metrics: []*pb.Payload_Metric{m},
-				})))
+				})
 				Expect(cmd.Metrics).To(BeEmpty())
 			},
 		)
 
 		It("Should report a rebirth request next to the metrics", func() {
-			cmd := MustSucceed(e.DecodeCommand(encode(&pb.Payload{
+			cmd := command(&pb.Payload{
 				Timestamp: new(nowMillis),
 				Metrics: []*pb.Payload_Metric{
 					byName("mode", stringValue("auto")),
@@ -494,19 +633,35 @@ var _ = Describe("Edge", func() {
 						boolValue(true),
 					),
 				},
-			})))
+			})
 			Expect(cmd.Rebirth).To(BeTrue())
 			Expect(cmd.Metrics).To(HaveLen(1))
 			Expect(cmd.Metrics[0].Name).To(Equal("mode"))
 		})
 
-		It("Should reject a payload that does not decode", func() {
-			Expect(e.DecodeCommand([]byte{0xFF, 0xFF, 0xFF})).Error().
-				To(MatchError(ContainSubstring("invalid command payload")))
+		It("Should give an empty command for an empty payload", func() {
+			Expect(e.Command(MustSucceed(sparkplug.Decode(ncmd, nil)))).
+				To(Equal(sparkplug.Command{}))
 		})
 
-		It("Should give an empty command for an empty payload", func() {
-			Expect(e.DecodeCommand(nil)).To(Equal(sparkplug.Command{}))
-		})
+		DescribeTable("Should ask nothing for a message that is not its NCMD",
+			func(topic sparkplug.Topic) {
+				p := encode(&pb.Payload{
+					Metrics: []*pb.Payload_Metric{byName("temp", doubleValue(1))},
+				})
+				Expect(e.Command(MustSucceed(sparkplug.Decode(topic, p)))).
+					To(Equal(sparkplug.Command{}))
+			},
+			Entry("an NCMD message to another edge node", sparkplug.Topic{
+				Type: sparkplug.NCmd,
+				Node: sparkplug.NodeID{Group: "plant", EdgeNode: "line2"},
+			}),
+			Entry("an NDATA message of the edge node", sparkplug.Topic{
+				Type: sparkplug.NData, Node: node,
+			}),
+			Entry("a DCMD message to a device of the edge node", sparkplug.Topic{
+				Type: sparkplug.DCmd, Node: node, Device: "pump",
+			}),
+		)
 	})
 })

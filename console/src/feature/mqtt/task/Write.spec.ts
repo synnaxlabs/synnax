@@ -9,11 +9,12 @@
 
 import { channel, mqtt, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
-import { createBroker } from "@/feature/mqtt/testutil";
+import { createBroker, openScanner } from "@/feature/mqtt/testutil";
 import {
   clickDeploy,
   createChannelReadOnlyClient,
@@ -94,8 +95,15 @@ const renderWrite = async (
   return { ...result, dev, draft };
 };
 
+// The add button renders once the form leaves its loading preview.
+const openAddTargets = async () => {
+  fireEvent.click(await screen.findByRole("button", { name: "Add targets" }));
+  return within(await screen.findByRole("dialog"));
+};
+
 const addTarget = async (): Promise<void> => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add topic" }));
+  const dialog = await openAddTargets();
+  fireEvent.click(dialog.getByRole("button", { name: "Add a topic by name" }));
   await screen.findByText("Publish");
 };
 
@@ -233,7 +241,7 @@ describe("MQTT Write form", () => {
       properties: {
         write: {
           "plant/cmd": plainCh.key,
-          [MQTT.Task.sparkplugPropertiesKey(tag)]: tagCh.key,
+          "spBv1.0/plant/line1//setpoint": tagCh.key,
         },
       },
     });
@@ -290,24 +298,26 @@ describe("MQTT Write form", () => {
       await screen.findByText(ch.name);
     });
 
-    it("should add a tag from the list footer and select its Sparkplug B type", async () => {
+    it("should add a tag by name and select its Sparkplug B type", async () => {
       const { draft } = await renderWrite();
       await screen.findByText("No targets");
-      fireEvent.click(screen.getByRole("button", { name: "Add Sparkplug B tag" }));
+      const dialog = await openAddTargets();
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      fireEvent.click(await dialog.findByRole("button", { name: "Add a tag by name" }));
       await screen.findByText("Edge node");
       expect(screen.getByPlaceholderText("Optional")).toBeTruthy();
       expect(screen.queryByText("JSON type")).toBeNull();
       await selectFromDropdown("Double", "DateTime");
       await waitFor(async () =>
         expect(await retrieveTargets(draft.key)).toMatchObject([
-          { type: "sparkplug", sparkplugType: "date_time", channel: 0 },
+          { type: "sparkplug", tagType: "date_time", channel: 0 },
         ]),
       );
     });
 
     it("should duplicate a tag with no command channel", async () => {
       const { draft } = await renderWrite([
-        createTagTarget("s1", "setpoint", { channel: 12, sparkplugType: "float" }),
+        createTagTarget("s1", "setpoint", { channel: 12, tagType: "float" }),
       ]);
       fireEvent.contextMenu(await screen.findByRole("option", { name: /setpoint/ }));
       fireEvent.click(await screen.findByText("Duplicate"));
@@ -315,10 +325,207 @@ describe("MQTT Write form", () => {
         const targets = await retrieveTargets(draft.key);
         expect(targets).toMatchObject([
           { key: "s1", channel: 12 },
-          { tag: "setpoint", sparkplugType: "float", channel: 0 },
+          { tag: "setpoint", tagType: "float", channel: 0 },
         ]);
         expect(targets[1].key).not.toBe("s1");
       });
+    });
+  });
+
+  describe("picking targets in the add targets dialog", () => {
+    // Opens the dialog over a broker whose scan task answers the first browse.
+    const openOnTopics = async (
+      topics: object[],
+      targets: MQTT.Task.WriteTarget[] = [],
+      truncated = false,
+    ) => {
+      const { dev, draft } = await renderWrite(targets);
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddTargets();
+      await scanner.answer({ data: { topics, truncated } });
+      return { dialog, draft, scanner };
+    };
+
+    const NODES = [{ group: "plant", edgeNode: "line1", devices: ["ovenA"] }];
+
+    // Answers an empty topic browse, then the edge nodes and the tags of the first.
+    const openOnTags = async (reply: { tags?: object[]; message?: string }) => {
+      const { dialog, draft, scanner } = await openOnTopics([]);
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      await scanner.answer({ data: { nodes: NODES, tags: [] } });
+      if (reply.message != null)
+        await scanner.answer({ variant: "error", message: reply.message });
+      else await scanner.answer({ data: { nodes: [], tags: reply.tags } });
+      return { dialog, draft, scanner };
+    };
+
+    const byIdentity = (targets: MQTT.Task.WriteTarget[]) =>
+      Object.fromEntries(targets.map((t) => [t.type === "plain" ? t.topic : t.tag, t]));
+
+    it("should add a target at the first value of each topic under a picked level", async () => {
+      const { dialog, draft, scanner } = await openOnTopics([
+        { topic: "plant/valve", payload: '{"open": true}', retained: false },
+        {
+          topic: "plant/speed",
+          payload: '{"unit": "rpm", "rpm": 1200}',
+          retained: false,
+        },
+        { topic: "plant/mode", payload: "AUTO", retained: false },
+      ]);
+      scanner.close();
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick plant" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 3 targets" }));
+      await waitFor(async () => {
+        const targets = await retrieveTargets(draft.key);
+        expect(targets).toHaveLength(3);
+        expect(byIdentity(targets)).toMatchObject({
+          "plant/valve": {
+            channel: { pointer: "/open", jsonType: "boolean", dataType: "uint8" },
+          },
+          "plant/speed": {
+            channel: { pointer: "/rpm", jsonType: "number", dataType: "float64" },
+          },
+          "plant/mode": {
+            channel: { pointer: "", jsonType: "string", dataType: "string" },
+          },
+        });
+      });
+    });
+
+    it("should replace the value picked from a topic with the next one", async () => {
+      const { dialog, draft, scanner } = await openOnTopics([
+        {
+          topic: "plant/oven",
+          payload: '{"setpoint": 21.5, "mode": "AUTO"}',
+          retained: false,
+        },
+      ]);
+      scanner.close();
+      const setpoint = await dialog.findByRole("checkbox", { name: "Record setpoint" });
+      expect(dialog.queryByRole("button", { name: "Select all" })).toBeNull();
+      fireEvent.click(setpoint);
+      fireEvent.click(dialog.getByRole("checkbox", { name: "Record mode" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+      await waitFor(async () =>
+        expect(await retrieveTargets(draft.key)).toMatchObject([
+          {
+            topic: "plant/oven",
+            channel: { pointer: "/mode", jsonType: "string", dataType: "string" },
+          },
+        ]),
+      );
+    });
+
+    it("should offer no value of a topic that the task writes to", async () => {
+      const { dialog, scanner } = await openOnTopics(
+        [
+          { topic: "plant/oven", payload: '{"setpoint": 21.5}', retained: false },
+          { topic: "plant/pump", payload: '{"speed": 3}', retained: false },
+        ],
+        [createWriteTarget("t1", "plant/oven")],
+      );
+      scanner.close();
+      const pump = await dialog.findByRole<HTMLInputElement>("checkbox", {
+        name: "Pick pump",
+      });
+      expect(pump.disabled).toBe(false);
+      const oven = dialog.getByRole<HTMLInputElement>("checkbox", {
+        name: "Pick oven",
+      });
+      expect(oven.disabled).toBe(true);
+      const setpoint = dialog.getByRole<HTMLInputElement>("checkbox", {
+        name: "Record setpoint",
+      });
+      expect(setpoint.disabled).toBe(true);
+    });
+
+    it("should mark a retained topic and say when the list is full", async () => {
+      const { dialog, scanner } = await openOnTopics(
+        [{ topic: "plant/temperature", payload: '{"value": 21.5}', retained: true }],
+        [],
+        true,
+      );
+      scanner.close();
+      await dialog.findByText("Retained");
+      expect(dialog.getByText(/list is full/)).toBeTruthy();
+    });
+
+    it("should show a failed listen in place of each list, with no notification", async () => {
+      let statuses: Status.NotificationSpec[] = [];
+      await renderWrite([], { onStatuses: (s) => (statuses = s) });
+      const dialog = await openAddTargets();
+      await dialog.findByText(/not found/i);
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      await waitFor(() => expect(dialog.getAllByText(/not found/i)).toHaveLength(2));
+      expect(statuses).toHaveLength(0);
+    });
+
+    it("should add a picked tag as a target of its Sparkplug B type, once", async () => {
+      const tags = [
+        { device: "", name: "flow", dataType: "float", value: "1", supported: true },
+      ];
+      const { dialog, draft, scanner } = await openOnTags({ tags });
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Record flow" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+      await screen.findByText("Sparkplug B type");
+      await waitFor(async () =>
+        expect(await retrieveTargets(draft.key)).toMatchObject([
+          {
+            type: "sparkplug",
+            group: "plant",
+            edgeNode: "line1",
+            device: "",
+            tag: "flow",
+            tagType: "float",
+            channel: 0,
+          },
+        ]),
+      );
+      const again = await openAddTargets();
+      await scanner.answer({ data: { topics: [], truncated: false } });
+      fireEvent.click(again.getByRole("button", { name: "Sparkplug B" }));
+      await scanner.answer({ data: { nodes: NODES, tags: [] } });
+      await scanner.answer({ data: { nodes: [], tags } });
+      scanner.close();
+      const flow = await again.findByRole<HTMLInputElement>("checkbox", {
+        name: "Record flow",
+      });
+      expect(flow.disabled).toBe(true);
+      expect(again.getByText("In task")).toBeTruthy();
+    });
+
+    it("should list the tags of an edge node under their devices and lock an unsupported one", async () => {
+      const tags = [
+        {
+          device: "",
+          name: "Node Control/Rebirth",
+          dataType: "boolean",
+          value: "false",
+        },
+        { device: "ovenA", name: "zoneTemp", dataType: "double", value: "21.5" },
+        { device: "ovenA", name: "recipe", dataType: "DataSet", value: "" },
+      ].map((t) => ({ ...t, supported: t.dataType !== "DataSet" }));
+      const { dialog, scanner } = await openOnTags({ tags });
+      scanner.close();
+      const zoneTemp = await dialog.findByRole<HTMLInputElement>("checkbox", {
+        name: "Record zoneTemp",
+      });
+      expect(zoneTemp.disabled).toBe(false);
+      expect(dialog.getByText("Edge node")).toBeTruthy();
+      expect(dialog.getByText("ovenA")).toBeTruthy();
+      const recipe = dialog.getByRole<HTMLInputElement>("checkbox", {
+        name: "Record recipe",
+      });
+      expect(recipe.disabled).toBe(true);
+      expect(dialog.getByText("Not supported")).toBeTruthy();
+    });
+
+    it("should keep the edge nodes when one does not answer", async () => {
+      const message = "edge node plant/line1 did not answer the rebirth request";
+      const { dialog, scanner } = await openOnTags({ message });
+      scanner.close();
+      await dialog.findByText(message);
+      expect(dialog.getByText("line1")).toBeTruthy();
     });
   });
 
@@ -337,11 +544,11 @@ describe("MQTT Write form", () => {
       const { container, dev, draft } = await renderWrite([
         createTagTarget("s1", "zone 1/setpoint", {
           device: "ovenA",
-          sparkplugType: "float",
+          tagType: "float",
         }),
-        createTagTarget("s2", "running", { sparkplugType: "boolean" }),
-        createTagTarget("s3", "mode", { sparkplugType: "string" }),
-        createTagTarget("s4", "started", { sparkplugType: "date_time" }),
+        createTagTarget("s2", "running", { tagType: "boolean" }),
+        createTagTarget("s3", "mode", { tagType: "string" }),
+        createTagTarget("s4", "started", { tagType: "date_time" }),
       ]);
       const created = await deployAndAwaitTask(
         client,

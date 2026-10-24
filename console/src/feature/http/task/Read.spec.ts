@@ -16,6 +16,7 @@ import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import {
   awaitEditableForm,
+  clickDeploy,
   commitFieldInput,
   deployAndAwaitTask,
   renderTaskFormTab,
@@ -319,6 +320,33 @@ describe("Read", () => {
     expect(fields.find((f) => f.key === "f1")?.channel).toBe(dataKey);
     expect(fields.find((f) => f.key === "f2")?.channel).toBe(virtualKey);
     expect(fields.find((f) => f.key === "tf")?.channel).toBe(epProps.index);
+  });
+
+  it("should save the channels it created when a later channel fails", async () => {
+    const dev = await createHTTPDevice(client);
+    const config = createReadConfig(dev.key, [
+      {
+        ...http.readEndpointZ.parse({}),
+        key: "ep1",
+        path: "/data",
+        fields: [
+          createReadField("f1", "/temperature"),
+          createReadField("f2", "/pressure", { name: "bad name" }),
+        ],
+      },
+    ]);
+    const draft = await createDraft(client, config);
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    await clickDeploy(container);
+    await waitFor(async () => {
+      const updated = await client.devices.retrieve({
+        key: dev.key,
+        schemas: HTTP.Device.SCHEMAS,
+      });
+      const epProps = updated.properties.read["/data"];
+      expect(epProps.index).toBeGreaterThan(0);
+      expect(Object.keys(epProps.channels)).toEqual(["/temperature"]);
+    });
   });
 
   it("should rename a field's existing channel from the details pane", async () => {

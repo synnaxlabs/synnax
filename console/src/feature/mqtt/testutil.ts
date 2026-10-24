@@ -10,7 +10,12 @@
 import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
 import { deep, TimeStamp } from "@synnaxlabs/x";
 
-import { MAKE, type Properties, ZERO_PROPERTIES } from "@/feature/mqtt/device/types";
+import {
+  MAKE,
+  type Properties,
+  SCHEMAS,
+  ZERO_PROPERTIES,
+} from "@/feature/mqtt/device/types";
 import { SCAN_TYPE } from "@/feature/mqtt/task/types";
 import { createTestDevice } from "@/platform/device/testutil";
 import { awaitCommand } from "@/platform/task/testutil";
@@ -26,13 +31,17 @@ export const createBroker = async (
   client: Synnax,
   { configured = true, properties }: CreateBrokerOptions = {},
 ): Promise<device.Device> =>
-  await createTestDevice(client, {
-    name: uniqueName("mqtt_broker"),
-    make: MAKE,
-    model: "MQTT broker",
-    configured,
-    properties: { ...deep.copy(ZERO_PROPERTIES), ...properties },
-  });
+  await createTestDevice(
+    client,
+    {
+      name: uniqueName("mqtt_broker"),
+      make: MAKE,
+      model: "MQTT broker",
+      configured,
+      properties: { ...deep.copy(ZERO_PROPERTIES), ...properties },
+    },
+    SCHEMAS,
+  );
 
 export interface ScannerReply {
   variant?: "success" | "error";
@@ -47,7 +56,7 @@ export interface Scanner {
 }
 
 /**
- * Creates a scan task on the rack and answers its commands in place of the driver.
+ * Creates a scan task on the rack and answers its commands in place of the Core.
  * Open it before the command goes out.
  */
 export const openScanner = async (

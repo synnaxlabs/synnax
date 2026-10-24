@@ -9,12 +9,12 @@
 
 import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
-import { id } from "@synnaxlabs/x";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
+import { createBroker } from "@/feature/mqtt/testutil";
 import { createDeviceResource } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
 import { type Tree } from "@/platform/tree";
@@ -34,17 +34,7 @@ import {
 const client = createTestClient();
 
 const renderContextMenuItems = async (configured: boolean) => {
-  const rack = await client.racks.create({ name: uniqueName("rack") });
-  const dev = await client.devices.create({
-    key: id.create(),
-    name: "mqtt_dev",
-    make: MQTT.Device.MAKE,
-    model: "MQTT broker",
-    location: "localhost",
-    rack: rack.key,
-    configured,
-    properties: MQTT.Device.ZERO_PROPERTIES,
-  });
+  const dev = await createBroker(client, { configured });
   const resource = createDeviceResource({ key: dev.key, name: dev.name, configured });
   const { wrapper, store } = await createConsoleWrapper({ client });
   const proj = await client.projects.create({
@@ -58,9 +48,9 @@ const renderContextMenuItems = async (configured: boolean) => {
   };
   render(
     <>
-      <PMenu.Menu>
+      <Menu.Menu>
         <MQTT.Device.ContextMenuItems {...props} />
-      </PMenu.Menu>
+      </Menu.Menu>
       <Modals.Stack />
     </>,
     { wrapper },

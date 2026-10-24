@@ -20,10 +20,6 @@
         text-decoration: line-through;
         text-decoration-color: var(--pluto-gray-l6);
     }
-
-    .console-static-field-value {
-        width: 120px;
-    }
 }
 
 .console-task-configure--mqtt_sparkplug_edge .console-field-data-type {

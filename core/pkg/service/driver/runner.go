@@ -41,15 +41,12 @@ type RunnerConfig struct {
 	//
 	// [REQUIRED]
 	Task task.Task
-	// Open acquires what a run needs. Its error answers the start command.
+	// Open acquires what a run needs and returns the run, which owns it. The run blocks
+	// until ctx is cancelled or the run fails, and releases what Open acquired before
+	// it returns. The error of Open answers the start command.
 	//
 	// [REQUIRED]
-	Open func(ctx context.Context) error
-	// Run blocks until ctx is cancelled or the run fails. It releases what Open
-	// acquired before it returns.
-	//
-	// [REQUIRED]
-	Run func(ctx context.Context) error
+	Open func(ctx context.Context) (run func(ctx context.Context) error, err error)
 }
 
 var _ config.Config[RunnerConfig] = RunnerConfig{}
@@ -60,7 +57,6 @@ func (c RunnerConfig) Override(other RunnerConfig) RunnerConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Open = override.Nil(c.Open, other.Open)
-	c.Run = override.Nil(c.Run, other.Run)
 	if other.Task.Key != uuid.Nil() {
 		c.Task = other.Task
 	}
@@ -73,7 +69,6 @@ func (c RunnerConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("status", c.Status)
 	v.NotNil("open", c.Open)
-	v.NotNil("run", c.Run)
 	v.Ternary("task", c.Task.Key == uuid.Nil(), "must have a key")
 	return v.Error()
 }
@@ -156,7 +151,8 @@ func (r *Runner) Start(ctx context.Context, cmdKey string) error {
 	if r.current() != nil {
 		return r.status.Ack(ctx, cmdKey, true)
 	}
-	if err := r.cfg.Open(ctx); err != nil {
+	run, err := r.cfg.Open(ctx)
+	if err != nil {
 		return errors.Combine(
 			err,
 			r.status.Send(ctx, cmdKey, status.VariantError, false, err.Error()),
@@ -171,11 +167,11 @@ func (r *Runner) Start(ctx context.Context, cmdKey string) error {
 	r.mu.Unlock()
 	// The running status goes out before the run starts, so a run that fails at once
 	// cannot have its error status overwritten.
-	err := r.status.Send(
+	err = r.status.Send(
 		ctx, cmdKey, status.VariantSuccess, true, "Task started successfully",
 	)
 	active.sCtx.Go(func(ctx context.Context) error {
-		err := r.cfg.Run(ctx)
+		err := r.runRecovered(ctx, run)
 		// A stop that already released the run waits on this error and reports it.
 		if !r.release(active) {
 			return err
@@ -191,7 +187,7 @@ func (r *Runner) Start(ctx context.Context, cmdKey string) error {
 			r.cfg.L.Error("failed to write error status", zap.Error(sErr))
 		}
 		return nil
-	}, signal.RecoverWithErrOnPanic())
+	})
 	if err == nil {
 		return nil
 	}
@@ -203,6 +199,26 @@ func (r *Runner) Start(ctx context.Context, cmdKey string) error {
 		err = errors.Combine(err, wErr)
 	}
 	return err
+}
+
+// runRecovered returns the error of run, or an error for its panic.
+func (r *Runner) runRecovered(
+	ctx context.Context,
+	run func(context.Context) error,
+) (err error) {
+	defer func() {
+		p := recover()
+		if p == nil {
+			return
+		}
+		r.cfg.L.Error("task panicked", zap.Any("panic", p), zap.Stack("stack"))
+		if pErr, ok := p.(error); ok {
+			err = errors.Wrap(pErr, "task panicked")
+		} else {
+			err = errors.Newf("task panicked: %v", p)
+		}
+	}()
+	return run(ctx)
 }
 
 func (r *Runner) stop(ctx context.Context, cmdKey string, sendStatus bool) error {
@@ -234,8 +250,8 @@ func (r *Runner) stop(ctx context.Context, cmdKey string, sendStatus bool) error
 	)
 }
 
-// Report writes the health of a run to the task status: a warning for an error that
-// matches ErrTemporary, and the status that the warning replaced for a nil error.
+// Report writes the health of a run to the task status: a warning with the message of a
+// non-nil err, and the status that the warning replaced for a nil err.
 func (r *Runner) Report(ctx context.Context, err error) {
 	var sErr error
 	if err == nil {
@@ -245,5 +261,15 @@ func (r *Runner) Report(ctx context.Context, err error) {
 	}
 	if sErr != nil {
 		r.cfg.L.Error("failed to write task health status", zap.Error(sErr))
+	}
+}
+
+// ReportError writes an error status with message for a run that keeps running. The
+// status stays until the next start or stop: Report does not clear it.
+func (r *Runner) ReportError(ctx context.Context, message string) {
+	if err := r.status.Send(
+		ctx, NoCommand, status.VariantError, true, message,
+	); err != nil {
+		r.cfg.L.Error("failed to write task error status", zap.Error(err))
 	}
 }

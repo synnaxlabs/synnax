@@ -16,15 +16,13 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Telem } from "@synnaxlabs/pluto";
-import { DataType, id } from "@synnaxlabs/x";
+import { DataType, deep, id } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
-import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
@@ -82,19 +80,6 @@ const useDefaultChannelName = (epKey: string, pointer: string): string => {
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
-const HIDDEN_DATA_TYPES = [
-  DataType.TIMESTAMP,
-  DataType.UUID,
-  DataType.JSON,
-  DataType.BYTES,
-];
-
-const renderTelemSelectDataType = Component.renderProp(
-  (p: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType {...p} hideDataTypes={HIDDEN_DATA_TYPES} location="bottom" />
-  ),
-);
-
 const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) => {
   const { set } = PForm.useContext();
   const handleChange = useCallback(
@@ -120,34 +105,6 @@ const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) =>
     <PForm.Field<ReadMethod> path={path} label="Method">
       {renderMethod}
     </PForm.Field>
-  );
-};
-
-/**
- * Binds an endpoint's fields to the channels the device stores for its path. Mounted by
- * the form for every endpoint, as the details pane renders only the selected one.
- */
-const FieldBinder = ({ epKey }: { epKey: string }) => {
-  const dev = useFromConfig();
-  const epPath = PForm.useFieldValue<string>(`config.endpoints.${epKey}.path`);
-  const indexKey = PForm.useFieldValue<string>(`config.endpoints.${epKey}.index`);
-  const resolve = useCallback(
-    (field: ReadField) => {
-      if (dev == null) return null;
-      const props = dev.properties.read[epPath];
-      if (props == null) return { channel: 0 };
-      return {
-        channel:
-          field.key === indexKey ? props.index : (props.channels[field.pointer] ?? 0),
-      };
-    },
-    [dev, epPath, indexKey],
-  );
-  return (
-    <Task.BindChannels<ReadField>
-      path={`config.endpoints.${epKey}.fields`}
-      resolve={resolve}
-    />
   );
 };
 
@@ -199,7 +156,7 @@ const TimestampFields: FC<{ path: string }> = ({ path }) => {
             padHelpText={false}
             inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
           />
-          <TimeFormatField
+          <Task.Payload.TimeFormatField
             path={`${path}.fields.${indexField.key}.timeFormat`}
             label="Format"
           />
@@ -260,7 +217,6 @@ const FieldPane: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey })
   const path = `config.endpoints.${epKey}.fields.${fieldKey}`;
   const { channel: fieldChannel, pointer } = PForm.useFieldValue<ReadField>(path);
   const defaultName = useDefaultChannelName(epKey, pointer);
-  const bound = fieldChannel !== 0;
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
       <PForm.Sections className={CSS.B("endpoint-form")}>
@@ -271,28 +227,17 @@ const FieldPane: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey })
             padHelpText={false}
             inputProps={POINTER_INPUT_PROPS}
           />
-          <PForm.Field<string>
+          <Task.Payload.DataTypeField
             path={`${path}.dataType`}
-            label="Data type"
-            padHelpText={false}
-            helpText={bound ? "Set on the channel" : undefined}
-          >
-            {(p) => renderTelemSelectDataType({ ...p, disabled: bound })}
-          </PForm.Field>
+            channel={fieldChannel}
+          />
           <Task.ChannelNameField
             channel={fieldChannel}
             namePath={`${path}.name`}
             defaultName={defaultName}
           />
         </PForm.Section>
-        <PForm.Section title="Enum mapping">
-          <PlatformForm.KeyValueEditor
-            path={`${path}.enumValues`}
-            keyField="label"
-            keyPlaceholder="String (e.g. ON)"
-            valueType="number"
-          />
-        </PForm.Section>
+        <Task.Payload.EnumMappingSection path={`${path}.enumValues`} />
       </PForm.Sections>
     </Flex.Box>
   );
@@ -306,8 +251,8 @@ const REQUEST_BODY_INPUT_PROPS = {
   className: CSS.B("request-body"),
 } as const;
 
-const ENDPOINT_KINDS: Task.Views.GroupKind<ReadEndpoint>[] = [
-  { name: "endpoint", create: () => http.readEndpointZ.parse({}) },
+const createEndpoints = async (): Promise<ReadEndpoint[]> => [
+  http.readEndpointZ.parse({}),
 ];
 
 const createField = (): Omit<ReadField, "key"> => http.readFieldZ.parse({});
@@ -328,6 +273,7 @@ const fieldDetails = Component.renderProp(
 
 const Form: FC = () => {
   const endpoints = PForm.useFieldValue<ReadEndpoint[]>("config.endpoints");
+  const read = useFromConfig()?.properties.read ?? null;
   return (
     <>
       <Task.Views.GroupTree<ReadEndpoint, ReadField>
@@ -335,14 +281,20 @@ const Form: FC = () => {
         listTitle="Endpoints"
         emptyMessage="No endpoints"
         placeholder="Select an endpoint or field to configure"
-        groupKinds={ENDPOINT_KINDS}
+        addLabel="Add endpoint"
+        createGroups={createEndpoints}
         createField={createField}
         groupLabel={endpointLabel}
         groupDetails={endpointDetails}
         fieldDetails={fieldDetails}
       />
       {endpoints.map(({ key }) => (
-        <FieldBinder key={key} epKey={key} />
+        <Task.BindReadChannels
+          key={key}
+          path={`config.endpoints.${key}`}
+          propertiesKeyField="path"
+          read={read}
+        />
       ))}
     </>
   );
@@ -363,22 +315,21 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     schemas: Device.SCHEMAS,
   });
   const safeDevName = channel.escapeInvalidName(dev.name);
-  let modified = false;
+  const saved = deep.copy(dev.properties);
   try {
-    for (const ep of config.endpoints) {
-      dev.properties.read[ep.path] ??= { index: 0, channels: {} };
-      const changed = await Task.configureReadChannels({
+    for (const ep of config.endpoints)
+      await Task.configureReadChannels({
         client,
-        props: dev.properties.read[ep.path],
+        read: dev.properties.read,
+        propertiesKey: ep.path,
         fields: ep.fields,
         namePrefix: `${safeDevName}${channel.escapeInvalidName(ep.path)}`,
         indexKey: ep.index,
         indexed: (f) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
       });
-      modified ||= changed;
-    }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (!deep.equal(saved, dev.properties))
+      await client.devices.create(dev, Device.SCHEMAS);
   }
   return [config, dev.rack];
 };

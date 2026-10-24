@@ -49,7 +49,9 @@ var _ = Describe("Convert", func() {
 			Expect(decode("\"a\xffb\"")).To(Equal("a\uFFFDb"))
 		})
 		It("Should reject text after the document", func() {
-			Expect(xjson.Decode([]byte("1 2"))).Error().To(HaveOccurred())
+			Expect(xjson.Decode([]byte("1 2"))).Error().To(MatchError(
+				ContainSubstring("invalid character '2' after top-level value"),
+			))
 		})
 	})
 
@@ -79,18 +81,35 @@ var _ = Describe("Convert", func() {
 		})
 	})
 
-	Describe("SupportsSampleTarget", func() {
-		DescribeTable("Should report support",
-			func(dt telem.DataType, expected bool) {
-				Expect(xjson.SupportsSampleTarget(dt)).To(Equal(expected))
+	Describe("CheckToSample", func() {
+		DescribeTable("Should accept a data type that AppendSample produces",
+			func(dt telem.DataType) { Expect(xjson.CheckToSample(dt)).To(Succeed()) },
+			Entry("float64", telem.Float64T),
+			Entry("float32", telem.Float32T),
+			Entry("int64", telem.Int64T),
+			Entry("int32", telem.Int32T),
+			Entry("int16", telem.Int16T),
+			Entry("int8", telem.Int8T),
+			Entry("uint64", telem.Uint64T),
+			Entry("uint32", telem.Uint32T),
+			Entry("uint16", telem.Uint16T),
+			Entry("uint8", telem.Uint8T),
+			Entry("timestamp", telem.TimestampT),
+			Entry("string", telem.StringT),
+		)
+		DescribeTable("Should reject a data type that AppendSample cannot produce",
+			func(dt telem.DataType) {
+				Expect(xjson.CheckToSample(dt)).To(SatisfyAll(
+					MatchError(xjson.ErrConversion),
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						"cannot convert a JSON value to "+string(dt),
+					)),
+				))
 			},
-			Entry("float64", telem.Float64T, true),
-			Entry("uint8", telem.Uint8T, true),
-			Entry("timestamp", telem.TimestampT, true),
-			Entry("string", telem.StringT, true),
-			Entry("uuid", telem.UUIDT, false),
-			Entry("json", telem.JSONT, false),
-			Entry("bytes", telem.BytesT, false),
+			Entry("uuid", telem.UUIDT),
+			Entry("json", telem.JSONT),
+			Entry("bytes", telem.BytesT),
 		)
 	})
 
@@ -202,6 +221,25 @@ var _ = Describe("Convert", func() {
 				To(telem.MatchSeriesData(telem.NewSeriesV[uint8](1)))
 		})
 
+		It("Should append strings in the series encoding", func() {
+			data := MustSucceed(
+				xjson.AppendSample(nil, telem.StringT, "open", xjson.ISO8601, nil),
+			)
+			data = MustSucceed(
+				xjson.AppendSample(
+					data,
+					telem.StringT,
+					decode("2"),
+					xjson.ISO8601,
+					nil,
+				),
+			)
+			Expect(data).To(Equal([]byte{
+				4, 0, 0, 0, 'o', 'p', 'e', 'n',
+				1, 0, 0, 0, '2',
+			}))
+		})
+
 		DescribeTable("Should convert to a string",
 			func(text, expected string) {
 				Expect(convert(text, telem.StringT, xjson.ISO8601, nil)).
@@ -264,6 +302,10 @@ var _ = Describe("Convert", func() {
 				xjson.ISO8601, "value is out of bounds"),
 			Entry("a float above the int64 maximum", "1e19", telem.Int64T,
 				xjson.ISO8601, "value is out of bounds"),
+			Entry("a NaN string for a signed integer", `"NaN"`, telem.Int32T,
+				xjson.ISO8601, `cannot convert "NaN" to int32: value is out of bounds`),
+			Entry("a NaN string for an unsigned integer", `"NaN"`, telem.Uint8T,
+				xjson.ISO8601, `cannot convert "NaN" to uint8: value is out of bounds`),
 			Entry("a non-numeric string", `"abc"`, telem.Float64T, xjson.ISO8601,
 				`cannot convert "abc" to float64: not a valid number`),
 			Entry("an empty string", `""`, telem.Float64T, xjson.ISO8601,

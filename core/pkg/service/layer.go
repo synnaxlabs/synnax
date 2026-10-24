@@ -795,7 +795,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, nil) {
 		return nil, err
 	}
-	mqttFactory, err := mqtt.NewFactory(mqtt.FactoryConfig{
+	mqttFactory, err := mqtt.OpenFactory(mqtt.FactoryConfig{
 		Instrumentation: cfg.Child("mqtt"),
 		DB:              cfg.Distribution.DB,
 		Device:          l.Device,
@@ -803,7 +803,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Framer:          l.Framer,
 		Status:          l.Status,
 	})
-	if !ok(err, nil) {
+	if !ok(err, mqttFactory) {
 		return nil, err
 	}
 	if l.Driver, err = driver.Open(ctx, driver.Config{

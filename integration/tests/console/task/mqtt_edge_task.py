@@ -11,14 +11,16 @@ import synnax as sy
 from console.task.mqtt import MQTTEdge
 from synnax import mqtt
 from tests.console.task.mqtt_case import MQTTCase
+from tests.driver.mqtt_task import run_reader, write_until
 from tests.driver.task import create_channel, create_index, delete_channels
-from x.telem import to_float
 
 # An edge node of its own, so it does not collide with the one the simulator runs.
 GROUP = "ConsolePlant"
 EDGE_NODE = "Line9"
 TAG = "temperature"
 CHANNEL = "mqtt_console_edge_temperature"
+# The context menu names the command channel after the tag; configure creates it.
+COMMAND_CHANNEL = f"{TAG}_cmd"
 # The simulator mirrors every tag it sees on a plain topic.
 MIRROR_TOPIC = f"plant/sparkplug/{GROUP}/{EDGE_NODE}/{TAG}"
 VALUE = 21.5
@@ -45,10 +47,12 @@ class MQTTEdgeTask(MQTTCase):
     def run(self) -> None:
         page = self.test_create_task()
         self.test_add_tag(page)
+        self.test_add_command_channel(page)
         self.test_deploy(page)
+        self.test_command_channel_created(page)
         self.test_tag_reaches_broker(page)
         self.test_stop(page)
-        self.test_reopen_config(page, [])
+        self.test_reopen_config(page, [COMMAND_CHANNEL])
         tags = page.tags()
         assert tags == [TAG], f"Tags should be {[TAG]}, got {tags}"
 
@@ -68,62 +72,55 @@ class MQTTEdgeTask(MQTTCase):
         tags = page.tags()
         assert tags == [TAG], f"Tags should be {[TAG]}, got {tags}"
 
+    def test_add_command_channel(self, page: MQTTEdge) -> None:
+        """The context menu names a command channel after the tag."""
+        self.log("Testing: Add a command channel")
+        page.add_command_channel(TAG)
+        name = page.command_channel(TAG)
+        assert name == COMMAND_CHANNEL, (
+            f"The command channel should be '{COMMAND_CHANNEL}', got '{name}'"
+        )
+
+    def test_command_channel_created(self, page: MQTTEdge) -> None:
+        """Configure created the named command channel, of the type of the tag."""
+        self.log("Testing: Configure created the command channel")
+        [tag] = mqtt.EdgeTask(self.retrieve_task(page.page_name)).config.tags
+        assert tag.channel == self.channel, (
+            f"The tag should publish {self.channel}, got {tag.channel}"
+        )
+        assert tag.command_channel != 0, "Configure should create the command channel"
+        command = self.client.channels.retrieve(tag.command_channel)
+        assert command.name == COMMAND_CHANNEL, (
+            f"The command channel should be '{COMMAND_CHANNEL}', got '{command.name}'"
+        )
+        assert command.data_type == sy.DataType.FLOAT64, (
+            f"A double tag needs a float64 command channel, got {command.data_type}"
+        )
+
     def test_tag_reaches_broker(self, page: MQTTEdge) -> None:
         """A sample written to the channel of the tag shows up on the mirror topic of
         the simulator, read back through a plain read task."""
         self.log("Testing: Tag value reaches the broker")
-        task = self.retrieve_task(page.page_name)
-        keys = self.channel_keys(task)
-        assert keys == [self.channel], (
-            f"The tag should publish {self.channel}, got {keys}"
-        )
         device = self.client.devices.retrieve(name=self.device_name)
-        mirror = self.client.channels.create(
-            name=f"{CHANNEL}_mirror",
-            data_type=sy.DataType.FLOAT64,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        reader = mqtt.ReadTask(
-            name=f"{page.page_name} Mirror",
+        channel = self.client.channels.retrieve(self.channel)
+        with run_reader(
+            self.client,
             device=device.key,
-            entries=[
-                mqtt.PlainReadEntry(
-                    topic=MIRROR_TOPIC,
-                    fields=[
-                        mqtt.ReadField(
-                            pointer="/value",
-                            channel=mirror.key,
-                            data_type=sy.DataType.FLOAT64,
-                        )
-                    ],
-                )
-            ],
-        )
-        self.client.tasks.configure(reader)
-        index = self.index
-        try:
-            with reader.run():
-                with self.client.open_streamer([mirror.key]) as streamer:
-                    with self.client.open_writer(
-                        start=sy.TimeStamp.now(), channels=[index, self.channel]
-                    ) as writer:
-                        value = None
-                        timer = sy.Timer()
-                        while (
-                            value != VALUE and timer.elapsed() < 20 * sy.TimeSpan.SECOND
-                        ):
-                            writer.write(
-                                {index: sy.TimeStamp.now(), self.channel: VALUE}
-                            )
-                            frame = streamer.read(timeout=1)
-                            if frame is not None and mirror.key in frame:
-                                value = to_float(frame[mirror.key][-1])
-            if value != VALUE:
-                raise AssertionError(f"The broker saw {value}, not {VALUE}")
-        finally:
-            self.client.tasks.delete(reader.key)
-            self.client.channels.delete([mirror.key])
+            name=f"{page.page_name} Mirror",
+            channel=f"{CHANNEL}_mirror",
+            data_type=sy.DataType.FLOAT64,
+            entry=lambda mirror: mqtt.PlainReadEntry(
+                topic=MIRROR_TOPIC,
+                fields=[
+                    mqtt.ReadField(
+                        pointer="/value",
+                        channel=mirror.key,
+                        data_type=sy.DataType.FLOAT64,
+                    )
+                ],
+            ),
+        ) as mirror:
+            write_until(self.client, channel=channel, value=VALUE, watched=mirror)
         status = page.status()
         assert status["level"] == "success", (
             f"The edge node should keep running, but the status is "

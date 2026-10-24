@@ -50,18 +50,6 @@ var _ = Describe("FromSample", func() {
 		})
 	})
 
-	Describe("ZeroValue", func() {
-		DescribeTable("Should return the zero value of each type",
-			func(t xjson.Type, expected string) {
-				Expect(MustSucceed(xjson.Marshal(xjson.ZeroValue(t)))).
-					To(BeEquivalentTo(expected))
-			},
-			Entry("number", xjson.Number, "0"),
-			Entry("string", xjson.String, `""`),
-			Entry("boolean", xjson.Boolean, "false"),
-		)
-	})
-
 	Describe("CheckFromSample", func() {
 		DescribeTable("Should accept a supported conversion",
 			func(dt telem.DataType, target xjson.Type) {

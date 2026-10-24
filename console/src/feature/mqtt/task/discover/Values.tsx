@@ -17,7 +17,7 @@ import { Skeleton } from "@synnaxlabs/lyra/skeleton";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
 
-import { CheckSkeleton } from "@/feature/mqtt/task/discover/Picker";
+import { Picker } from "@/feature/mqtt/task/discover/picker";
 import { CSS } from "@/platform/css";
 
 /** A value the pane offers: a field of a JSON topic or a Sparkplug B tag. */
@@ -41,7 +41,8 @@ interface PaneHeaderProps {
   note?: string;
   free: number;
   picked: number;
-  onPickAll: () => void;
+  /** Absent for a pane that takes one value. */
+  onPickAll?: () => void;
   onClear: () => void;
 }
 
@@ -54,10 +55,10 @@ export const PaneHeader = ({
   onClear,
 }: PaneHeaderProps) => (
   <Header.Header bordered={false} className={CSS.BE("mqtt-discover", "pane-header")}>
-    <Header.Title weight={500} color={10}>
-      <span className={CSS.BE("mqtt-discover", "code")}>{title}</span>
+    <Header.Title weight={500} color={10} variant="code">
+      {title}
       {note != null && (
-        <Text.Text el="span" level="small" className={CSS.BE("mqtt-discover", "muted")}>
+        <Text.Text el="span" level="small" color={9}>
           {note}
         </Text.Text>
       )}
@@ -68,14 +69,16 @@ export const PaneHeader = ({
           Clear
         </Button.Button>
       ) : (
-        <Button.Button
-          variant="text"
-          size="small"
-          disabled={free === 0}
-          onClick={onPickAll}
-        >
-          Select all
-        </Button.Button>
+        onPickAll != null && (
+          <Button.Button
+            variant="text"
+            size="small"
+            disabled={free === 0}
+            onClick={onPickAll}
+          >
+            Select all
+          </Button.Button>
+        )
       )}
     </Header.Actions>
   </Header.Header>
@@ -88,9 +91,11 @@ interface HeadProps {
 const Head = ({ noun }: HeadProps) => (
   <div className={CSS.BE("mqtt-discover", "values-head")}>
     <span />
-    <span>{noun}</span>
-    <span>Last value</span>
-    <span>Type</span>
+    {[noun, "Last value", "Type"].map((label) => (
+      <Text.Text key={label} level="small" weight={500} color={9}>
+        {label}
+      </Text.Text>
+    ))}
   </div>
 );
 
@@ -118,19 +123,10 @@ const Item = (props: List.ItemRenderProps<string>) => {
       <Text.Text level="small" weight={500} color={locked ? 9 : 10} overflow="ellipsis">
         {value.name}
       </Text.Text>
-      <Text.Text
-        level="small"
-        color={9}
-        overflow="ellipsis"
-        className={CSS.BE("mqtt-discover", "code")}
-      >
+      <Text.Text level="small" color={9} overflow="ellipsis" variant="code">
         {value.sample ?? "–"}
       </Text.Text>
-      <Text.Text
-        level="small"
-        overflow="ellipsis"
-        className={CSS.BE("mqtt-discover", "muted")}
-      >
+      <Text.Text level="small" color={9} overflow="ellipsis">
         {dataType}
       </Text.Text>
     </Select.Item>
@@ -139,19 +135,19 @@ const Item = (props: List.ItemRenderProps<string>) => {
 
 const item = Component.renderProp(Item);
 
-interface GroupListProps extends Pick<ValuesProps, "picked" | "onPickedChange"> {
+interface GroupListProps extends Pick<ValuesProps, "value" | "onChange"> {
   values: Value[];
 }
 
-const GroupList = ({ values, picked, onPickedChange }: GroupListProps) => {
+const GroupList = ({ values, value, onChange }: GroupListProps) => {
   const { data, getItem } = List.useStaticData<string, Value>({ data: values });
   return (
     <Select.Frame<string, Value>
       multiple
       data={data}
       getItem={getItem}
-      value={picked}
-      onChange={onPickedChange}
+      value={value}
+      onChange={onChange}
     >
       <List.Scroll className={CSS.BE("mqtt-discover", "value-list")}>
         <List.Items<string, Value>>{item}</List.Items>
@@ -163,11 +159,11 @@ const GroupList = ({ values, picked, onPickedChange }: GroupListProps) => {
 export interface ValuesProps {
   noun: string;
   groups: ValueGroup[];
-  picked: string[];
-  onPickedChange: (keys: string[]) => void;
+  value: string[];
+  onChange: (value: string[]) => void;
 }
 
-export const Values = ({ noun, groups, picked, onPickedChange }: ValuesProps) => (
+export const Values = ({ noun, groups, value, onChange }: ValuesProps) => (
   <div className={CSS.BE("mqtt-discover", "values")}>
     <Head noun={noun} />
     {groups.map(({ title, values }) => (
@@ -182,7 +178,7 @@ export const Values = ({ noun, groups, picked, onPickedChange }: ValuesProps) =>
             {title}
           </Text.Text>
         )}
-        <GroupList values={values} picked={picked} onPickedChange={onPickedChange} />
+        <GroupList values={values} value={value} onChange={onChange} />
       </Fragment>
     ))}
   </div>
@@ -207,8 +203,8 @@ export const PaneSkeleton = ({ noun, title }: PaneSkeletonProps) => (
           <Skeleton.Skeleton style={{ width: "24rem" }} />
         </Header.Title>
       ) : (
-        <Header.Title weight={500} color={10}>
-          <span className={CSS.BE("mqtt-discover", "code")}>{title}</span>
+        <Header.Title weight={500} color={10} variant="code">
+          {title}
         </Header.Title>
       )}
     </Header.Header>
@@ -217,7 +213,7 @@ export const PaneSkeleton = ({ noun, title }: PaneSkeletonProps) => (
       <div className={CSS.BE("mqtt-discover", "value-list")}>
         {SKELETON_WIDTHS.map((widths, i) => (
           <div key={i} className={CSS.BE("mqtt-discover", "value-skeleton")}>
-            <CheckSkeleton />
+            <Picker.CheckSkeleton />
             {widths.map((width, j) => (
               <Text.Text key={j} level="small">
                 <Skeleton.Skeleton style={{ width }} />

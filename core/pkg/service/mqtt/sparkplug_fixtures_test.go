@@ -10,6 +10,7 @@
 package mqtt_test
 
 import (
+	"math"
 	"sync"
 
 	mochi "github.com/mochi-mqtt/server/v2"
@@ -21,6 +22,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/protobuf/proto"
 )
+
+// nan is the NaN with no payload. A float32 cannot keep the payload of math.NaN.
+var nan = math.Float64frombits(0x7FF8000000000000)
 
 // tagValue is the value of one tag of a test edge node.
 type tagValue struct {
@@ -34,6 +38,7 @@ type tagValue struct {
 
 // metric returns the wire form of v. A data message names its tag by alias only.
 func (v tagValue) metric(birth bool) *pb.Payload_Metric {
+	GinkgoHelper()
 	m := &pb.Payload_Metric{Alias: new(v.alias)}
 	if birth {
 		m.Name = new(v.name)
@@ -100,6 +105,7 @@ func startEdgeNode(b *testBroker, group, edgeNode string) *testEdgeNode {
 	done := make(chan struct{})
 	stopped := make(chan struct{})
 	go func() {
+		defer GinkgoRecover()
 		defer close(stopped)
 		for {
 			select {
@@ -112,7 +118,7 @@ func startEdgeNode(b *testBroker, group, edgeNode string) *testEdgeNode {
 	}()
 	DeferCleanup(func() {
 		close(done)
-		<-stopped
+		Eventually(stopped).Should(BeClosed())
 	})
 	onCommand := func(
 		_ *mochi.Client,

@@ -31,10 +31,10 @@ export const channelExists = async (
 ): Promise<boolean> => (await retrieveChannel(client, key)) != null;
 
 /**
- * Creates a channel for values of dataType. A fixed-density channel gets its own
+ * Creates a Core channel for values of dataType. A fixed-density channel gets its own
  * index named `${name}_time`; a variable-density one is virtual.
  */
-export const createChannel = async (
+export const createChannelWithIndex = async (
   client: Client,
   name: string,
   dataType: string,
@@ -62,13 +62,17 @@ export interface ReadChannelField {
   channel: channel.Key;
   name: string;
   dataType: string;
+  /** A disabled field gets no channel. */
+  disabled?: boolean;
 }
 
 export interface ConfigureReadChannelsArgs<F extends ReadChannelField> {
   client: Client;
-  /** The stored channels of the source. Updated in place. */
-  props: ReadChannelProps;
-  /** The fields of the source. Each gets its channel in place. */
+  /** The read properties of the device. Updated in place. */
+  read: Record<string, ReadChannelProps>;
+  /** The key of the source in read. */
+  propertiesKey: string;
+  /** The fields of the source. Each enabled one gets its channel in place. */
   fields: F[];
   /** Prefix of a generated channel name. The index is named `${namePrefix}_time`. */
   namePrefix: string;
@@ -85,24 +89,43 @@ const isFixed = (field: ReadChannelField): boolean =>
   !new DataType(field.dataType).isVariable;
 
 /**
- * Gives every field of a read source a channel: the one it has, the one the device
- * stores for its pointer, or a new one. An index that no longer exists is recovered
- * from a stored data channel, or created.
- *
- * @returns true when it changed props.
+ * Gives every enabled field of a read source a channel: the one it has, the one the
+ * device stores for its pointer, or a new one, which read then stores. The index field
+ * or a new indexed channel gets the stored index. When that is gone, it gets the index
+ * of a live channel of the source, or a new one. A source that needs no new channel
+ * gets no entry in read.
  */
 export const configureReadChannels = async <F extends ReadChannelField>({
   client,
-  props,
+  read,
+  propertiesKey,
   fields,
   namePrefix,
   indexKey,
   indexed = isFixed,
-}: ConfigureReadChannelsArgs<F>): Promise<boolean> => {
-  let modified = false;
-  if (fields.some(indexed) && !(await channelExists(client, props.index))) {
-    modified = true;
-    props.index = await recoverIndex(client, props);
+}: ConfigureReadChannelsArgs<F>): Promise<void> => {
+  const props = read[propertiesKey] ?? { index: 0, channels: {} };
+  const enabled = fields.filter(({ disabled }) => !disabled);
+  const live: channel.Channel[] = [];
+  const bind = async (field: F): Promise<boolean> => {
+    const ch = await retrieveChannel(client, field.channel);
+    if (ch != null) {
+      if (indexed(field)) live.push(ch);
+      return true;
+    }
+    const stored = props.channels[field.pointer];
+    if (!(await channelExists(client, stored))) return false;
+    field.channel = stored;
+    return true;
+  };
+  const indexField = enabled.find(({ key }) => key === indexKey);
+  const unbound: F[] = [];
+  for (const field of enabled)
+    if (field !== indexField && !(await bind(field))) unbound.push(field);
+  const needsIndex =
+    enabled.some(indexed) && (indexField != null || unbound.some(indexed));
+  if (needsIndex && !(await channelExists(client, props.index))) {
+    props.index = await recoverIndex(client, live, props);
     if (!primitive.isNonZero(props.index)) {
       const indexCh = await client.channels.create({
         name: `${namePrefix}_time`,
@@ -111,18 +134,12 @@ export const configureReadChannels = async <F extends ReadChannelField>({
       });
       props.index = indexCh.key;
     }
+    read[propertiesKey] = props;
   }
-  for (const field of fields) {
-    if (field.key === indexKey && primitive.isNonZero(props.index)) {
-      field.channel = props.index;
-      continue;
-    }
-    if (await channelExists(client, field.channel)) continue;
-    const stored = props.channels[field.pointer];
-    if (await channelExists(client, stored)) {
-      field.channel = stored;
-      continue;
-    }
+  if (indexField != null && primitive.isNonZero(props.index))
+    indexField.channel = props.index;
+  else if (indexField != null && !(await bind(indexField))) unbound.push(indexField);
+  for (const field of unbound) {
     const name = primitive.isNonZero(field.name)
       ? field.name
       : `${namePrefix}${channel.escapeInvalidName(field.pointer)}`;
@@ -131,18 +148,22 @@ export const configureReadChannels = async <F extends ReadChannelField>({
       dataType: field.dataType,
       ...(isFixed(field) ? { index: props.index } : { virtual: true }),
     });
-    modified = true;
     field.channel = ch.key;
     props.channels[field.pointer] = ch.key;
+    read[propertiesKey] = props;
   }
-  return modified;
 };
 
-/** @returns the index of the first stored data channel that still exists, or 0. */
+/**
+ * @returns the first index that still exists among those of the live channels, then
+ * those of the stored channels, or 0.
+ */
 const recoverIndex = async (
   client: Client,
+  live: channel.Channel[],
   props: ReadChannelProps,
 ): Promise<channel.Key> => {
+  for (const ch of live) if (await channelExists(client, ch.index)) return ch.index;
   for (const stored of Object.values(props.channels)) {
     const ch = await retrieveChannel(client, stored);
     if (ch == null || !(await channelExists(client, ch.index))) continue;
@@ -167,21 +188,20 @@ export interface CommandChannelSpec {
  * for its key, or a new one.
  *
  * @param write - The write properties of the device. Updated in place.
- * @returns the command channel, and true when it changed write.
+ * @returns the command channel.
  */
 export const configureCommandChannel = async (
   client: Client,
   write: Record<string, channel.Key>,
   { propertiesKey, channel: current, name, dataType }: CommandChannelSpec,
-): Promise<[channel.Key, boolean]> => {
+): Promise<channel.Key> => {
   if (await channelExists(client, current)) {
-    const changed = write[propertiesKey] !== current;
     write[propertiesKey] = current;
-    return [current, changed];
+    return current;
   }
   const stored = write[propertiesKey];
-  if (await channelExists(client, stored)) return [stored, false];
-  const cmdCh = await createChannel(client, name, dataType);
+  if (await channelExists(client, stored)) return stored;
+  const cmdCh = await createChannelWithIndex(client, name, dataType);
   write[propertiesKey] = cmdCh.key;
-  return [cmdCh.key, true];
+  return cmdCh.key;
 };

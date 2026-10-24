@@ -10,26 +10,19 @@
  */
 
 .console-mqtt-discover {
-    /* The gray ramp jumps from 3:1 at l8 to 8:1 at l9; this tier sits at 5:1. */
-    --console-muted: color-mix(in srgb, var(--pluto-gray-l8), var(--pluto-gray-l9));
-    --console-accent: color-mix(
-        in srgb,
-        var(--pluto-primary-z) 80%,
-        var(--pluto-gray-l11)
-    );
     --console-divider: var(--pluto-border-width) solid var(--pluto-gray-l4);
     --console-values-columns: 3rem minmax(16rem, 1fr) minmax(14rem, 1.3fr) 11rem;
 
     width: min(196rem, calc(100vw - 8rem));
     height: min(128rem, calc(100vh - 8rem));
 
-    .pluto-modal__header,
-    .pluto-modal__footer,
     .console-mqtt-discover__bar {
+        flex-shrink: 0;
+        padding: 0 2rem;
         background: var(--pluto-gray-l2);
     }
 
-    .console-mqtt-discover__picker {
+    .console-mqtt-discover__frame {
         flex: 1 1 0;
         min-height: 0;
 
@@ -38,22 +31,11 @@
         }
     }
 
-    .console-mqtt-discover__bar {
-        position: relative;
-        flex-shrink: 0;
-        padding: 0 2rem;
-    }
-
     .console-mqtt-discover__progress {
         position: absolute;
         left: 0;
         right: 0;
         bottom: -1px;
-    }
-
-    .console-mqtt-discover__body {
-        flex: 1 1 0;
-        min-height: 0;
     }
 
     .console-mqtt-discover__side {
@@ -77,22 +59,14 @@
         min-height: 0;
     }
 
-    .console-mqtt-discover__item {
-        .console-mqtt-discover__meta {
-            flex: none;
-            margin-left: auto;
-            white-space: nowrap;
-            color: var(--console-muted);
+    .console-mqtt-discover__meta {
+        flex: none;
+        margin-left: auto;
+        white-space: nowrap;
 
-            &.console--picked {
-                color: var(--console-accent);
-                font-weight: 500;
-            }
-        }
-
-        /* The muted tier drops under 4.5:1 on the selection. */
-        &.pluto--selected .console-mqtt-discover__meta:not(.console--picked) {
-            color: var(--pluto-gray-l9);
+        &.console--picked {
+            color: var(--pluto-primary-text);
+            font-weight: 500;
         }
     }
 
@@ -101,7 +75,7 @@
     }
 
     .console-mqtt-discover__skeleton-item {
-        height: 33px;
+        height: var(--console-item-height);
         padding-left: calc(var(--console-depth, 0) * 3rem + 1.5rem);
     }
 
@@ -136,7 +110,7 @@
         overflow: hidden;
     }
 
-    /* The extra class outranks the gap the list item sets as a button. */
+    /* The extra class outranks the gap and padding the list item sets as a button. */
     .console-mqtt-discover__values-head,
     .console-mqtt-discover__values .console-mqtt-discover__value,
     .console-mqtt-discover__value-skeleton {
@@ -150,24 +124,20 @@
         }
     }
 
+    .console-mqtt-discover__values .console-mqtt-discover__value,
+    .console-mqtt-discover__value-skeleton {
+        padding: 0 1rem;
+    }
+
     .console-mqtt-discover__values-head {
         height: 5rem;
         padding: 0 2rem;
         background: var(--pluto-gray-l2);
         border-bottom: var(--console-divider);
-        color: var(--console-muted);
-        font-family: var(--pluto-font-family);
-        font-size: var(--pluto-small-size);
-        font-weight: 500;
     }
 
     .console-mqtt-discover__value-list {
         padding: 1rem;
-    }
-
-    .console-mqtt-discover__value,
-    .console-mqtt-discover__value-skeleton {
-        padding: 0 1rem;
     }
 
     .console-mqtt-discover__value-skeleton {
@@ -205,10 +175,6 @@
 
     .console-mqtt-discover__code {
         font-family: var(--pluto-code-font-family);
-    }
-
-    .console-mqtt-discover__muted {
-        color: var(--console-muted);
     }
 
     .console-mqtt-discover__notice {

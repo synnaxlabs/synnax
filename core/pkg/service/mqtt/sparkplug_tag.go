@@ -13,7 +13,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/x/errors"
-	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -95,7 +94,7 @@ func newReadTag(
 			validate.ErrValidation, "%s: channel %d does not exist", t, entry.Channel,
 		)
 	}
-	if ch.IsIndex || !xjson.SupportsSampleTarget(ch.DataType) {
+	if ch.IsIndex || !takesTags(ch.DataType) {
 		return t, errors.Wrapf(
 			validate.ErrValidation,
 			"%s: channel %s cannot take the values of a tag", t, ch.Name,
@@ -112,17 +111,15 @@ func (t readTag) keys() channel.Keys {
 	return channel.Keys{t.index, t.channel}
 }
 
-// appendSample converts the value of a tag to one sample of the channel of t.
-func (t readTag) appendSample(dst []byte, value any) ([]byte, error) {
-	format := xjson.ISO8601
-	if v, ok := value.(telem.TimeStamp); ok {
-		value, format = int64(v), xjson.UnixNanosecond
-		if t.dataType != telem.TimestampT {
-			// A DateTime counts milliseconds.
-			value = int64(v / telem.MillisecondTS)
+// takesTags reports whether a channel of type dt can take the values of a tag of some
+// data type.
+func takesTags(dt telem.DataType) bool {
+	for t := sparkplug.Int8; t.Supported(); t++ {
+		if sparkplug.Compatible(dt, t) {
+			return true
 		}
 	}
-	return xjson.AppendSample(dst, t.dataType, value, format, nil)
+	return false
 }
 
 // sparkplugTypes maps the config form of a Sparkplug B data type to its wire form.
@@ -146,8 +143,6 @@ var sparkplugTypes = map[SparkplugDataType]sparkplug.DataType{
 // channel as commands for one tag.
 type commandTarget struct {
 	tagID
-	topic         string
-	dataType      telem.DataType
 	sparkplugType sparkplug.DataType
 }
 
@@ -159,28 +154,21 @@ func newCommandTarget(
 	ch channel.Channel,
 ) (commandTarget, error) {
 	t := commandTarget{
-		node:     sparkplug.NodeID{Group: cfg.Group, EdgeNode: cfg.EdgeNode},
-		device:   cfg.Device,
-		name:     cfg.Tag,
-		dataType: ch.DataType,
+		node:   sparkplug.NodeID{Group: cfg.Group, EdgeNode: cfg.EdgeNode},
+		device: cfg.Device,
+		name:   cfg.Tag,
 	}
 	if err := t.validate(); err != nil {
 		return t, err
 	}
-	t.topic = sparkplug.CommandTopic(t.node, t.device).String()
 	var ok bool
-	if t.sparkplugType, ok = sparkplugTypes[cfg.SparkplugType]; !ok {
+	if t.sparkplugType, ok = sparkplugTypes[cfg.TagType]; !ok {
 		return t, errors.Wrapf(
 			validate.ErrValidation,
-			"%s: unknown Sparkplug B data type %s", t, cfg.SparkplugType,
+			"%s: unknown Sparkplug B data type %s", t, cfg.TagType,
 		)
 	}
-	// A channel and a type that never match fail now, not on the first command.
-	probe := telem.MakeSeries(ch.DataType, 1)
-	if ch.DataType.IsVariable() {
-		probe = telem.NewSeriesV("")
-	}
-	if _, err := t.publication(probe, 0); err != nil {
+	if !sparkplug.Compatible(ch.DataType, t.sparkplugType) {
 		return t, errors.Wrapf(
 			validate.ErrValidation,
 			"%s: channel %s of type %s cannot be sent as %s",
@@ -190,27 +178,23 @@ func newCommandTarget(
 	return t, nil
 }
 
-// sampleValue returns sample i of series in a form that a Sparkplug B metric takes.
-func sampleValue(dataType telem.DataType, series telem.Series, i int) (any, error) {
-	switch dataType {
-	case telem.TimestampT:
-		return series.ValueAt[telem.TimeStamp](i), nil
-	case telem.StringT:
-		return string(series.At(i)), nil
-	}
-	return xjson.FromSample(dataType, series.At(i), xjson.Number, nil)
-}
-
-// publication implements target.
+// publication implements target. Sparkplug B sends every command at quality of service
+// 0 and not retained.
 func (t commandTarget) publication(series telem.Series, i int) (publication, error) {
-	value, err := sampleValue(t.dataType, series, i)
-	if err != nil {
-		return publication{}, err
-	}
-	payload, err := sparkplug.EncodeCommand(
-		sparkplug.Metric{Name: t.name, DataType: t.sparkplugType, Value: value},
+	pub, err := sparkplug.EncodeCommand(
+		t.node,
+		t.device,
+		sparkplug.Metric{
+			Name:     t.name,
+			DataType: t.sparkplugType,
+			Value:    sparkplug.ValueAt(series, i),
+		},
 		telem.Now(),
 	)
-	// Sparkplug B sends every command at quality of service 0 and not retained.
-	return publication{topic: t.topic, payload: payload}, err
+	return publication{
+		topic:    pub.Topic,
+		payload:  pub.Payload,
+		qos:      pub.QoS,
+		retained: pub.Retained,
+	}, err
 }

@@ -12,9 +12,10 @@ from tests.console.task.mqtt_case import MQTTCase
 
 # A JSON payload and a bare number, both published at the simulator's rate.
 TOPICS = ["plant/sensors", "plant/scalar"]
-# The fields the Browser reads off the payload sample of plant/sensors. The string
-# field comes in disabled, because it cannot share the index of the numbers.
-SENSOR_FIELDS = ["/temperature", "/pressure", "/count", "/state"]
+# A pick in the add data dialog takes the numbers of plant/sensors. The string field
+# stays out, because it cannot share the index of the numbers.
+SENSOR_FIELDS = ["/temperature", "/pressure", "/count"]
+# The numbers of plant/sensors and the whole payload of plant/scalar.
 DATA_CHANNELS = 4
 
 
@@ -29,7 +30,7 @@ class MQTTReadTask(MQTTCase):
         self.test_reopen_config(page, TOPICS)
 
     def test_create_task(self) -> MQTTRead:
-        """A new task is not deployed; select the broker and open its Browser."""
+        """A new task is not deployed; select the broker."""
         self.log("Testing: Create MQTT read task")
         page = self.create_page(MQTTRead, "MQTT Console Read")
         self.assert_not_deployed(page, "new task")
@@ -37,15 +38,13 @@ class MQTTReadTask(MQTTCase):
         return page
 
     def test_add_entries(self, page: MQTTRead) -> None:
-        """Topics dragged from the Browser are listed with the fields of their
+        """Topics picked in the add data dialog are listed with the fields of their
         payloads."""
-        self.log("Testing: Add entries from the Browser")
-        page.browse_topics("plant/#")
+        self.log("Testing: Add entries through the add data dialog")
         page.add_topics(TOPICS)
         listed = page.entries()
         assert listed == TOPICS, f"Entries should be {TOPICS}, got {listed}"
-        page.select_entry(TOPICS[0])
-        fields = page.fields()
+        fields = page.fields(TOPICS[0])
         assert fields == SENSOR_FIELDS, (
             f"Fields should be {SENSOR_FIELDS}, got {fields}"
         )

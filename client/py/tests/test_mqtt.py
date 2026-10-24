@@ -68,14 +68,21 @@ class TestMQTTReadTask:
 
     def test_reject_unknown_entry_type(self) -> None:
         """Should reject an entry whose type is not a known variant."""
-        with pytest.raises(ValidationError):
+        with pytest.raises(
+            ValidationError,
+            match="Input tag 'kafka' found using 'type' does not match any of the "
+            "expected tags: 'plain', 'sparkplug'",
+        ):
             sy.mqtt.ReadConfig.model_validate(
                 {"device": "broker-1", "entries": [{"type": "kafka"}]}
             )
 
     def test_reject_unknown_qos(self) -> None:
         """Should reject a quality of service that MQTT does not define."""
-        with pytest.raises(ValidationError):
+        with pytest.raises(
+            ValidationError,
+            match="Input should be 'at_most_once', 'at_least_once' or 'exactly_once'",
+        ):
             sy.mqtt.PlainReadEntry.model_validate({"topic": "a", "qos": "twice"})
 
     def test_entries_and_fields_get_keys(self) -> None:
@@ -158,7 +165,7 @@ class TestMQTTWriteTask:
                         "device": "Pump1",
                         "tag": "setpoint",
                         "channel": 12,
-                        "sparkplug_type": "float",
+                        "tag_type": "float",
                     }
                 ],
             }
@@ -167,12 +174,12 @@ class TestMQTTWriteTask:
         assert isinstance(target, sy.mqtt.SparkplugWriteTarget)
         assert target.device == "Pump1"
         assert target.channel == 12
-        assert target.sparkplug_type == "float"
+        assert target.tag_type == "float"
 
     def test_sparkplug_target_defaults_to_double(self) -> None:
         """Should send a command as a double unless the target names a type."""
         target = sy.mqtt.SparkplugWriteTarget(group="Plant", edge_node="Line7")
-        assert target.sparkplug_type == "double"
+        assert target.tag_type == "double"
 
     def test_parse_static_and_generated_fields(self) -> None:
         """Should select the field variant from the type field."""
@@ -233,7 +240,7 @@ class TestMQTTEdgeTask:
     def test_tag_defaults(self) -> None:
         """Should default a tag to a double that rejects writes."""
         tag = sy.mqtt.EdgeTag(name="temperature", channel=7)
-        assert tag.sparkplug_type == "double"
+        assert tag.tag_type == "double"
         assert tag.command_channel == 0
         assert tag.disabled is False
         assert tag.key != ""
@@ -261,7 +268,7 @@ class TestMQTTEdgeTask:
                 sy.mqtt.EdgeTag(
                     name="setpoint",
                     channel=4321,
-                    sparkplug_type="float",
+                    tag_type="float",
                     command_channel=4322,
                 )
             ],
@@ -274,7 +281,7 @@ class TestMQTTEdgeTask:
         cfg = sy.mqtt.EdgeTask(created).config
         assert cfg.edge_node == "Line1"
         assert cfg.authority == 150
-        assert cfg.tags[0].sparkplug_type == "float"
+        assert cfg.tags[0].tag_type == "float"
         assert cfg.tags[0].command_channel == 4322
 
 
@@ -283,14 +290,13 @@ class TestMQTTDevice:
     """Tests for the MQTT broker device."""
 
     def test_device_defaults(self) -> None:
-        """Should describe a plain broker on the default port."""
+        """Should leave the port and keep alive out so the Core uses its defaults."""
         dev = sy.mqtt.Device(host="broker.local", name="Broker")
         assert dev.make == "mqtt"
         assert dev.model == "MQTT broker"
         assert dev.location == "broker.local"
         assert dev.key != ""
         assert dev.properties == {
-            "port": 0,
             "secure": False,
             "verification_skipped": False,
             "ca_file": "",
@@ -299,7 +305,6 @@ class TestMQTTDevice:
             "username": "",
             "password": "",
             "client_id": "",
-            "keep_alive": 0,
             "sparkplug": {"host_id": "", "groups": []},
             "version": 1,
         }
@@ -335,14 +340,28 @@ class TestMQTTDevice:
             "groups": ["Plant", "Lab"],
         }
 
-    @pytest.mark.parametrize("port", [-1, 65536])
+    @pytest.mark.parametrize("port", [1, 65535])
+    def test_device_accepts_port_at_bounds(self, port: int) -> None:
+        """Should keep a port at either end of the TCP range."""
+        dev = sy.mqtt.Device(host="broker.local", port=port)
+        assert dev.properties["port"] == port
+
+    @pytest.mark.parametrize("port", [-1, 0, 65536])
     def test_device_rejects_port_out_of_range(self, port: int) -> None:
-        with pytest.raises(ValueError, match="port must be 0 to 65535"):
+        """Should reject a port outside the TCP range, zero included."""
+        with pytest.raises(ValueError, match="port must be 1 to 65535"):
             sy.mqtt.Device(host="broker.local", port=port)
 
-    def test_device_rejects_negative_keep_alive(self) -> None:
-        with pytest.raises(ValueError, match="keep_alive must not be negative"):
-            sy.mqtt.Device(host="broker.local", keep_alive=-1)
+    def test_device_accepts_one_second_keep_alive(self) -> None:
+        """Should keep the shortest keep alive."""
+        dev = sy.mqtt.Device(host="broker.local", keep_alive=1)
+        assert dev.properties["keep_alive"] == 1
+
+    @pytest.mark.parametrize("keep_alive", [-1, 0])
+    def test_device_rejects_keep_alive_not_positive(self, keep_alive: int) -> None:
+        """Should reject a keep alive of zero or less."""
+        with pytest.raises(ValueError, match="keep_alive must be positive"):
+            sy.mqtt.Device(host="broker.local", keep_alive=keep_alive)
 
     def test_device_auto_key_generation(self) -> None:
         a = sy.mqtt.Device(host="broker.local")
@@ -355,6 +374,7 @@ class TestMQTTTaskRack:
     """Tests that MQTT tasks run on the rack of their broker device."""
 
     def test_task_follows_the_rack_of_its_device(self, client: sy.Synnax) -> None:
+        """Should configure the task onto the rack of its broker device."""
         rack = client.racks.retrieve(integration=sy.mqtt.INTEGRATION)[0]
         dev = client.devices.create(
             sy.mqtt.Device(host="127.0.0.1", rack=rack.key, name="Rack Test Broker")

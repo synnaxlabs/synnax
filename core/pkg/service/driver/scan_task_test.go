@@ -10,8 +10,10 @@
 package driver_test
 
 import (
+	"bytes"
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 	"uuid"
 
@@ -24,6 +26,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -33,12 +37,17 @@ type mapScanner struct {
 	// unreachable holds the check error of each device that is not reachable.
 	unreachable map[device.Key]error
 	checks      map[device.Key]int
+	// release ends one wait command.
+	release chan struct{}
+	// waiting and peak count the wait commands that run now and at most.
+	waiting, peak atomic.Int32
 }
 
 func newMapScanner() *mapScanner {
 	return &mapScanner{
 		unreachable: make(map[device.Key]error),
 		checks:      make(map[device.Key]int),
+		release:     make(chan struct{}),
 	}
 }
 
@@ -66,7 +75,7 @@ func (s *mapScanner) Check(_ context.Context, dev device.Device) error {
 }
 
 func (s *mapScanner) Exec(
-	_ context.Context,
+	ctx context.Context,
 	cmd task.Command,
 ) (msgpack.EncodedJSON, error) {
 	switch cmd.Type {
@@ -74,8 +83,49 @@ func (s *mapScanner) Exec(
 		return msgpack.EncodedJSON{"latency_ms": 4.0}, nil
 	case "browse":
 		return nil, errors.New("broker refused the subscription")
+	case "wait":
+		n := s.waiting.Add(1)
+		defer s.waiting.Add(-1)
+		if n > s.peak.Load() {
+			s.peak.Store(n)
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-s.release:
+			return msgpack.EncodedJSON{"waited": true}, nil
+		}
 	}
 	return nil, driver.ErrUnsupportedCommand
+}
+
+// refusingDB is a kv.DB whose transactions fail to commit when they set a key that
+// holds marker.
+type refusingDB struct {
+	kv.DB
+	marker []byte
+}
+
+func (d refusingDB) OpenTx() kv.Tx {
+	return &refusingTx{Tx: d.DB.OpenTx(), marker: d.marker}
+}
+
+type refusingTx struct {
+	kv.Tx
+	marker  []byte
+	refused bool
+}
+
+func (t *refusingTx) Set(ctx context.Context, key, value []byte, opts ...any) error {
+	t.refused = t.refused || bytes.Contains(key, t.marker)
+	return t.Tx.Set(ctx, key, value, opts...)
+}
+
+func (t *refusingTx) Commit(ctx context.Context, opts ...any) error {
+	if t.refused {
+		return errCommit
+	}
+	return t.Tx.Commit(ctx, opts...)
 }
 
 var _ = Describe("ScanTask", func() {
@@ -100,11 +150,11 @@ var _ = Describe("ScanTask", func() {
 		scanner = newMapScanner()
 	})
 
-	open := func(interval time.Duration) *driver.ScanTask {
+	openOn := func(statusDB *gorp.DB, interval time.Duration) *driver.ScanTask {
 		GinkgoHelper()
 		st := MustSucceed(driver.NewScanTask(driver.ScanTaskConfig{
 			Scanner: scanner,
-			DB:      db, Status: statusSvc,
+			DB:      statusDB, Status: statusSvc,
 			Device:             deviceSvc,
 			Make:               deviceMake,
 			ReachableMessage:   "Broker connected",
@@ -114,6 +164,19 @@ var _ = Describe("ScanTask", func() {
 		}))
 		DeferCleanup(func() { Expect(st.Stop(false)).To(Succeed()) })
 		return st
+	}
+	open := func(interval time.Duration) *driver.ScanTask {
+		GinkgoHelper()
+		return openOn(db, interval)
+	}
+
+	// writeDevices runs write in one transaction, as the API does, so a device and its
+	// status change together.
+	writeDevices := func(ctx context.Context, write func(device.Writer) error) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return write(deviceSvc.NewWriter(tx))
+		})).To(Succeed())
 	}
 
 	createDevice := func(ctx context.Context, deviceMake string) device.Device {
@@ -126,24 +189,18 @@ var _ = Describe("ScanTask", func() {
 			Make:     deviceMake,
 			Model:    "broker",
 		}
-		Expect(deviceSvc.NewWriter(nil).Create(ctx, &dev)).To(Succeed())
+		writeDevices(ctx, func(w device.Writer) error { return w.Create(ctx, &dev) })
 		return dev
 	}
 
 	deviceStatus := func(ctx context.Context, dev device.Device) device.Status {
-		var stat device.Status
-		_ = statusSvc.NewRetrieve[device.StatusDetails]().
-			Where(status.MatchKeys[device.StatusDetails](dev.OntologyID().String())).
-			Entry(&stat).Exec(ctx, nil)
-		return stat
+		GinkgoHelper()
+		return retrieveStatus[device.StatusDetails](ctx, dev.OntologyID().String())
 	}
 
 	taskStatus := func(ctx context.Context) task.Status {
-		var stat task.Status
-		_ = statusSvc.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-			Entry(&stat).Exec(ctx, nil)
-		return stat
+		GinkgoHelper()
+		return retrieveStatus[task.StatusDetails](ctx, t.OntologyID().String())
 	}
 
 	Describe("NewScanTask", func() {
@@ -224,6 +281,73 @@ var _ = Describe("ScanTask", func() {
 			Expect(deviceStatus(ctx, dev).Time).To(Equal(first))
 		})
 
+		It(
+			"Should restore a status that a stale write replaced",
+			func(ctx SpecContext) {
+				dev := createDevice(ctx, deviceMake)
+				st := open(5 * time.Millisecond)
+				Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(deviceStatus(ctx, dev).Message).
+						To(Equal("Broker connected"))
+				}).Should(Succeed())
+				stale := deviceStatus(ctx, dev)
+				stale.Variant = status.VariantWarning
+				stale.Message = "Broker state unknown"
+				Expect(statusSvc.NewWriter(nil).Set(ctx, &stale)).To(Succeed())
+				Eventually(func(g Gomega) {
+					stat := deviceStatus(ctx, dev)
+					g.Expect(stat.Variant).To(Equal(status.VariantSuccess))
+					g.Expect(stat.Message).To(Equal("Broker connected"))
+				}).Should(Succeed())
+			},
+		)
+
+		It("Should give a status to a device that is deleted and created again",
+			func(ctx SpecContext) {
+				dev := createDevice(ctx, deviceMake)
+				witness := createDevice(ctx, deviceMake)
+				st := open(5 * time.Millisecond)
+				Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(deviceStatus(ctx, dev).Message).
+						To(Equal("Broker connected"))
+				}).Should(Succeed())
+				writeDevices(ctx, func(w device.Writer) error {
+					return w.Delete(ctx, dev.Key)
+				})
+				Expect(deviceStatus(ctx, dev).Message).To(BeEmpty())
+				// The second check of witness belongs to a scan that began after the
+				// delete, so that scan forgets dev.
+				checks := scanner.checkCount(witness.Key)
+				Eventually(func() int { return scanner.checkCount(witness.Key) }).
+					Should(BeNumerically(">", checks+1))
+				writeDevices(ctx, func(w device.Writer) error {
+					return w.Create(ctx, &dev)
+				})
+				Eventually(func(g Gomega) {
+					g.Expect(deviceStatus(ctx, dev).Message).
+						To(Equal("Broker connected"))
+				}).Should(Succeed())
+			},
+		)
+
+		It("Should warn with the error of a scan that fails", func(ctx SpecContext) {
+			dev := createDevice(ctx, deviceMake)
+			st := openOn(
+				gorp.Wrap(refusingDB{DB: db.KV(), marker: []byte(dev.Key)}),
+				time.Hour,
+			)
+			Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
+			Eventually(func(g Gomega) {
+				stat := taskStatus(ctx)
+				g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+				g.Expect(stat.Message).To(Equal("commit failed"))
+				g.Expect(stat.Details.Running).To(BeTrue())
+			}).Should(Succeed())
+			Expect(deviceStatus(ctx, dev).Message).ToNot(Equal("Broker connected"))
+		})
+
 		It("Should stop the checks on a stop command", func(ctx SpecContext) {
 			dev := createDevice(ctx, deviceMake)
 			st := open(5 * time.Millisecond)
@@ -250,32 +374,129 @@ var _ = Describe("ScanTask", func() {
 			Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
 			Expect(st.Exec(ctx, task.Command{Type: "test_connection", Key: "cmd-2"})).
 				To(Succeed())
-			stat := taskStatus(ctx)
-			Expect(stat.Variant).To(Equal(status.VariantSuccess))
-			Expect(stat.Details.Cmd).To(Equal("cmd-2"))
-			Expect(stat.Details.Running).To(BeTrue())
-			Expect(stat.Details.Data).To(HaveKeyWithValue("latency_ms", 4.0))
+			Eventually(func(g Gomega) {
+				stat := taskStatus(ctx)
+				g.Expect(stat.Variant).To(Equal(status.VariantSuccess))
+				g.Expect(stat.Message).To(Equal("Command executed successfully"))
+				g.Expect(stat.Details.Cmd).To(Equal("cmd-2"))
+				g.Expect(stat.Details.Running).To(BeTrue())
+				g.Expect(stat.Details.Data).To(HaveKeyWithValue("latency_ms", 4.0))
+			}).Should(Succeed())
 		})
 
 		It("Should answer a failed scanner command with its error",
 			func(ctx SpecContext) {
 				st := open(time.Hour)
 				Expect(st.Exec(ctx, task.Command{Type: "browse", Key: "cmd-3"})).
-					To(MatchError(ContainSubstring("broker refused the subscription")))
-				stat := taskStatus(ctx)
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("broker refused the subscription"))
-				Expect(stat.Details.Cmd).To(Equal("cmd-3"))
+					To(Succeed())
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx)
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("broker refused the subscription"))
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-3"))
+				}).Should(Succeed())
 			},
 		)
 
-		It("Should reject a command the scanner does not support",
+		It("Should not answer a command the scanner does not support",
 			func(ctx SpecContext) {
+				var writes atomic.Int32
+				key := t.OntologyID().String()
+				DeferCleanup(statusSvc.Observe().OnChange(func(
+					_ context.Context,
+					r gorp.TxReader[status.Key, status.Status[any]],
+				) {
+					for ch := range r {
+						if ch.Key == key {
+							writes.Add(1)
+						}
+					}
+				}))
 				st := open(time.Hour)
 				Expect(st.Exec(ctx, task.Command{Type: "tare", Key: "cmd-4"})).
-					To(MatchError(driver.ErrUnsupportedCommand))
-				Expect(taskStatus(ctx).Details.Cmd).ToNot(Equal("cmd-4"))
+					To(Succeed())
+				// Commands run one at a time, so the answer to cmd-5 comes after cmd-4
+				// is done.
+				Expect(st.Exec(ctx, task.Command{
+					Type: "test_connection", Key: "cmd-5",
+				})).To(Succeed())
+				Eventually(func() string { return taskStatus(ctx).Details.Cmd }).
+					Should(Equal("cmd-5"))
+				Expect(writes.Load()).To(BeEquivalentTo(1))
 			},
 		)
+
+		It("Should return before the scanner command does", func(ctx SpecContext) {
+			st := open(time.Hour)
+			Expect(st.Exec(ctx, task.Command{Type: "wait", Key: "cmd-6"})).
+				To(Succeed())
+			Eventually(scanner.waiting.Load).Should(BeEquivalentTo(1))
+			Eventually(scanner.release).Should(BeSent(struct{}{}))
+			Eventually(func(g Gomega) {
+				stat := taskStatus(ctx)
+				g.Expect(stat.Details.Cmd).To(Equal("cmd-6"))
+				g.Expect(stat.Details.Data).To(HaveKeyWithValue("waited", true))
+			}).Should(Succeed())
+		})
+
+		It("Should run one scanner command at a time", func(ctx SpecContext) {
+			st := open(time.Hour)
+			Expect(st.Exec(ctx, task.Command{Type: "wait", Key: "cmd-7"})).
+				To(Succeed())
+			Expect(st.Exec(ctx, task.Command{Type: "wait", Key: "cmd-8"})).
+				To(Succeed())
+			Eventually(scanner.waiting.Load).Should(BeEquivalentTo(1))
+			Consistently(scanner.waiting.Load, 50*time.Millisecond).
+				Should(BeEquivalentTo(1))
+			Eventually(scanner.release).Should(BeSent(struct{}{}))
+			Eventually(scanner.release).Should(BeSent(struct{}{}))
+			Eventually(func() string { return taskStatus(ctx).Details.Cmd }).
+				Should(Equal("cmd-8"))
+			Expect(scanner.peak.Load()).To(BeEquivalentTo(1))
+		})
+
+		It("Should end a scanner command at the time limit of its context",
+			func(ctx SpecContext) {
+				st := open(time.Hour)
+				limited, cancel := context.WithTimeout(ctx, 20*time.Millisecond)
+				defer cancel()
+				Expect(st.Exec(limited, task.Command{Type: "wait", Key: "cmd-9"})).
+					To(Succeed())
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx)
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("context deadline exceeded"))
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-9"))
+				}).Should(Succeed())
+			},
+		)
+	})
+
+	Describe("Stop", func() {
+		It("Should cancel the scanner commands and wait for them, with no answer",
+			func(ctx SpecContext) {
+				st := open(time.Hour)
+				Expect(st.Exec(ctx, task.Command{Type: "wait", Key: "cmd-10"})).
+					To(Succeed())
+				Expect(st.Exec(ctx, task.Command{Type: "wait", Key: "cmd-11"})).
+					To(Succeed())
+				Eventually(scanner.waiting.Load).Should(BeEquivalentTo(1))
+				Expect(st.Stop(false)).To(Succeed())
+				Expect(scanner.waiting.Load()).To(BeZero())
+				Expect(taskStatus(ctx).Details.Cmd).To(BeEmpty())
+			},
+		)
+
+		It("Should answer scanner commands sent after a stop", func(ctx SpecContext) {
+			st := open(time.Hour)
+			Expect(st.Exec(ctx, task.Command{Type: "wait", Key: "cmd-12"})).
+				To(Succeed())
+			Eventually(scanner.waiting.Load).Should(BeEquivalentTo(1))
+			Expect(st.Stop(false)).To(Succeed())
+			Expect(st.Exec(ctx, task.Command{Type: "test_connection", Key: "cmd-13"})).
+				To(Succeed())
+			Eventually(func() string { return taskStatus(ctx).Details.Cmd }).
+				Should(Equal("cmd-13"))
+		})
 	})
 })

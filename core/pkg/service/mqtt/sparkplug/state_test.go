@@ -18,25 +18,27 @@ import (
 )
 
 var _ = Describe("State", func() {
-	Describe("StateTopic", func() {
-		It("Should return the STATE topic of the host application", func() {
-			Expect(sparkplug.StateTopic("synnax")).To(Equal("spBv1.0/STATE/synnax"))
-		})
-		It("Should return a topic that ParseTopic reads back", func() {
-			topic := MustSucceed(sparkplug.ParseTopic(sparkplug.StateTopic("synnax")))
-			Expect(topic).To(Equal(sparkplug.Topic{
-				Type:   sparkplug.State,
-				HostID: "synnax",
-			}))
-		})
-	})
-
 	Describe("EncodeState", func() {
+		It(
+			"Should publish retained at quality of service 1 on the STATE topic",
+			func() {
+				pub := sparkplug.EncodeState("synnax", true, 0)
+				Expect(pub.Topic).To(Equal("spBv1.0/STATE/synnax"))
+				Expect(pub.QoS).To(Equal(byte(1)))
+				Expect(pub.Retained).To(BeTrue())
+			},
+		)
+		It("Should use a topic that ParseTopic reads back", func() {
+			pub := sparkplug.EncodeState("synnax", false, 0)
+			Expect(MustSucceed(sparkplug.ParseTopic(pub.Topic))).To(Equal(
+				sparkplug.Topic{Type: sparkplug.State, HostID: "synnax"},
+			))
+		})
 		DescribeTable(
 			"Should return the exact JSON payload",
 			func(online bool, timestamp telem.TimeStamp, expected string) {
-				payload := sparkplug.EncodeState(online, timestamp)
-				Expect(string(payload)).To(Equal(expected))
+				pub := sparkplug.EncodeState("synnax", online, timestamp)
+				Expect(string(pub.Payload)).To(Equal(expected))
 			},
 			Entry("online",
 				true,

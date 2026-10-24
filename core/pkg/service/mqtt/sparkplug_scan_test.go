@@ -16,7 +16,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
@@ -25,8 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Sparkplug B browse", func() {
@@ -65,28 +62,18 @@ var _ = Describe("Sparkplug B browse", func() {
 	) msgpack.EncodedJSON {
 		GinkgoHelper()
 		configured, t := scan(ctx)
-		Expect(configured.Exec(ctx, browseCommand(dev, args))).To(Succeed())
-		stat := taskStatus(ctx, t)
+		stat := answer(ctx, configured, t, browseCommand(dev, args))
 		Expect(stat.Variant).To(Equal(status.VariantSuccess))
-		Expect(stat.Details.Cmd).To(Equal("browse"))
 		return stat.Details.Data
 	}
 
-	// expectFailed runs a browse that fails with an error that matches matcher.
-	expectFailed := func(
-		ctx context.Context,
-		cmd task.Command,
-		message string,
-		matcher types.GomegaMatcher,
-	) {
+	// expectFailed runs a browse that fails with message.
+	expectFailed := func(ctx context.Context, cmd task.Command, message string) {
 		GinkgoHelper()
 		configured, t := scan(ctx)
-		Expect(configured.Exec(ctx, cmd)).
-			To(And(matcher, MatchError(ContainSubstring(message))))
-		stat := taskStatus(ctx, t)
+		stat := answer(ctx, configured, t, cmd)
 		Expect(stat.Variant).To(Equal(status.VariantError))
-		Expect(stat.Message).To(ContainSubstring(message))
-		Expect(stat.Details.Cmd).To(Equal("browse"))
+		Expect(stat.Message).To(Equal(message))
 	}
 
 	Describe("Edge nodes", func() {
@@ -115,11 +102,7 @@ var _ = Describe("Sparkplug B browse", func() {
 				cmd := browseCommand(dev, msgpack.EncodedJSON{
 					"group": group, "duration": 300,
 				})
-				result := make(chan error, 1)
-				go func() {
-					defer GinkgoRecover()
-					result <- configured.Exec(ctx, cmd)
-				}()
+				Expect(configured.Exec(ctx, cmd)).To(Succeed())
 				// An edge node reports by exception, so it must publish after the
 				// browse has subscribed.
 				Eventually(broker.subscriptions).Should(Equal(filters))
@@ -127,8 +110,7 @@ var _ = Describe("Sparkplug B browse", func() {
 				bench.birth()
 				line2.birth()
 				line1.birth()
-				Eventually(result, 5*time.Second).Should(Receive(BeNil()))
-				stat := taskStatus(ctx, t)
+				stat := answered(ctx, t, cmd.Key)
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
 				Expect(stat.Details.Data).To(HaveKeyWithValue("tags", BeEmpty()))
 				Expect(stat.Details.Data["nodes"]).To(Equal(expected))
@@ -172,6 +154,16 @@ var _ = Describe("Sparkplug B browse", func() {
 				},
 			),
 		)
+
+		It("Should reject a group that cannot be a topic level", func(ctx SpecContext) {
+			dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
+			args := msgpack.EncodedJSON{"group": "pl+nt", "duration": 100}
+			expectFailed(
+				ctx,
+				browseCommand(dev, args),
+				"group: pl+nt must not hold /, +, or #: validation error",
+			)
+		})
 
 		It("Should list no edge node when none publishes", func(ctx SpecContext) {
 			dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
@@ -239,7 +231,6 @@ var _ = Describe("Sparkplug B browse", func() {
 					"group": "plant", "edge_node": "line1", "duration": 200,
 				}),
 				"edge node plant/line1 did not answer the rebirth request",
-				Not(MatchError(validate.ErrValidation)),
 			)
 			Expect(node.births()).To(BeZero())
 		})
@@ -252,37 +243,38 @@ var _ = Describe("Sparkplug B browse", func() {
 						"group": group, "edge_node": edgeNode, "duration": 200,
 					}),
 					message,
-					MatchError(validate.ErrValidation),
 				)
 			},
 			Entry("an edge node with a topic separator",
-				"plant", "line/1", "edge_node: line/1 must not hold /, +, or #",
+				"plant", "line/1",
+				"edge_node: line/1 must not hold /, +, or #: validation error",
 			),
 			Entry("an edge node with a wildcard",
-				"plant", "+", "edge_node: + must not hold /, +, or #",
+				"plant", "+", "edge_node: + must not hold /, +, or #: validation error",
 			),
-			Entry("no group", "", "line1", "group: required"),
+			Entry("no group", "", "line1", "group: required: validation error"),
 		)
 	})
 
 	Describe("Arguments", func() {
 		It("Should reject arguments of the wrong type", func(ctx SpecContext) {
 			dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
-			expectFailed(
-				ctx,
+			configured, t := scan(ctx)
+			stat := answer(
+				ctx, configured, t,
 				browseCommand(dev, msgpack.EncodedJSON{"duration": "long"}),
-				"invalid arguments",
-				MatchError(validate.ErrValidation),
 			)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(SatisfyAll(
+				HavePrefix("invalid arguments: "), HaveSuffix(": validation error"),
+			))
 		})
 
 		It("Should report a device that does not exist", func(ctx SpecContext) {
-			configured, t := scan(ctx)
-			Expect(configured.Exec(ctx, task.Command{
+			expectFailed(ctx, task.Command{
 				Type: "browse_sparkplug", Key: "browse",
 				Args: msgpack.EncodedJSON{"device": "missing"},
-			})).To(MatchError(query.ErrNotFound))
-			Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantError))
+			}, "Devices with keys [missing] not found: not found: query")
 		})
 	})
 
@@ -292,31 +284,34 @@ var _ = Describe("Sparkplug B browse", func() {
 				ctx SpecContext,
 				silent bool,
 				args msgpack.EncodedJSON,
-				result types.GomegaMatcher,
+				message string,
 			) {
 				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
 				startEdgeNode(broker, "plant", "line1").setSilent(silent)
-				configured, _ := scan(ctx)
-				Expect(configured.Exec(ctx, browseCommand(dev, args))).To(result)
+				configured, t := scan(ctx)
+				stat := answer(ctx, configured, t, browseCommand(dev, args))
+				Expect(stat.Message).To(Equal(message))
 				Eventually(broker.clientCount).Should(BeZero())
 				Consistently(broker.clientCount, 100*time.Millisecond).Should(BeZero())
 			},
 			Entry("a browse for edge nodes",
-				false, msgpack.EncodedJSON{"duration": 50}, Succeed(),
+				false,
+				msgpack.EncodedJSON{"duration": 50},
+				"Command executed successfully",
 			),
 			Entry("a browse for tags",
 				false,
 				msgpack.EncodedJSON{
 					"group": "plant", "edge_node": "line1", "duration": 2000,
 				},
-				Succeed(),
+				"Command executed successfully",
 			),
 			Entry("a browse for tags with no answer",
 				true,
 				msgpack.EncodedJSON{
 					"group": "plant", "edge_node": "line1", "duration": 50,
 				},
-				MatchError(ContainSubstring("did not answer the rebirth request")),
+				"edge node plant/line1 did not answer the rebirth request",
 			),
 		)
 	})

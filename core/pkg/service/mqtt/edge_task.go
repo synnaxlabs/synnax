@@ -31,25 +31,25 @@ import (
 // commandBacklog is the count of inbound commands that can wait to be written.
 const commandBacklog = 64
 
-// edgeTag is one tag of an edge node, ready to publish samples and to take commands.
-type edgeTag struct {
+// publishedTag is one tag of an edge node, ready to publish samples and to take
+// commands.
+type publishedTag struct {
 	name string
 	// index is the index channel of channel. Zero for a virtual channel.
-	index    channel.Key
-	channel  channel.Key
-	dataType telem.DataType
+	index   channel.Key
+	channel channel.Key
 	// command is the tag as a target of inbound commands. Nil for a tag that rejects
 	// writes.
 	command *readTag
 }
 
-// newEdgeTag validates cfg against channels, which holds its channels.
-func newEdgeTag(
+// newPublishedTag validates cfg against channels, which holds its channels.
+func newPublishedTag(
 	node sparkplug.NodeID,
 	cfg EdgeTag,
 	channels map[channel.Key]channel.Channel,
-) (edgeTag, sparkplug.Tag, error) {
-	t := edgeTag{name: cfg.Name, channel: cfg.Channel}
+) (publishedTag, sparkplug.Tag, error) {
+	t := publishedTag{name: cfg.Name, channel: cfg.Channel}
 	if cfg.Name == "" {
 		return t, sparkplug.Tag{}, errors.Wrap(validate.ErrValidation, "tag: required")
 	}
@@ -60,20 +60,16 @@ func newEdgeTag(
 			"tag %s: channel %d does not exist", cfg.Name, cfg.Channel,
 		)
 	}
-	t.index, t.dataType = ch.Index(), ch.DataType
-	sparkplugType, ok := sparkplugTypes[cfg.SparkplugType]
+	t.index = ch.Index()
+	sparkplugType, ok := sparkplugTypes[cfg.TagType]
 	if !ok {
 		return t, sparkplug.Tag{}, errors.Wrapf(
 			validate.ErrValidation,
-			"tag %s: unknown Sparkplug B data type %s", cfg.Name, cfg.SparkplugType,
+			"tag %s: unknown Sparkplug B data type %s", cfg.Name, cfg.TagType,
 		)
 	}
 	declared := sparkplug.Tag{Name: cfg.Name, DataType: sparkplugType}
-	// A channel and a type that never match fail now, not on the first sample.
-	if _, err := sparkplug.NewEdge([]sparkplug.Tag{declared}).Data(
-		[]sparkplug.Metric{{Name: cfg.Name, Value: zeroValue(ch.DataType)}},
-		telem.Now(),
-	); err != nil {
+	if !sparkplug.Compatible(ch.DataType, sparkplugType) {
 		return t, declared, errors.Wrapf(
 			validate.ErrValidation,
 			"tag %s: channel %s of type %s cannot be sent as %s",
@@ -92,31 +88,75 @@ func newEdgeTag(
 	if err != nil {
 		return t, declared, errors.Wrap(err, "command channel")
 	}
+	if !sparkplug.Compatible(command.dataType, sparkplugType) {
+		return t, declared, errors.Wrapf(
+			validate.ErrValidation,
+			"tag %s: command channel %s of type %s cannot take values of %s",
+			cfg.Name, channels[cfg.CommandChannel].Name, command.dataType,
+			sparkplugType,
+		)
+	}
 	t.command = &command
 	return t, declared, nil
 }
 
-// zeroValue returns the zero sample of dataType in the form that a metric takes.
-func zeroValue(dataType telem.DataType) any {
-	if dataType.IsVariable() {
-		return ""
+// edgeHealth is the state that the Health of an edge node reports.
+type edgeHealth struct {
+	// commandErr is the text of the error of the last command. Empty when the command
+	// was written.
+	commandErr string
+	connected  bool
+}
+
+func (h edgeHealth) err() error {
+	if !h.connected {
+		return errNotConnected
 	}
-	value, _ := sampleValue(dataType, telem.MakeSeries(dataType, 1), 0)
-	return value
+	if h.commandErr != "" {
+		return errors.Mark(errors.New(h.commandErr), driver.ErrTemporary)
+	}
+	return nil
 }
 
 // edgeNode is one Sparkplug B edge node: the sink of an edge task. It publishes the
 // samples of its channels as NDATA messages on a client of its own, and writes the
 // commands it receives to the command channels of its tags.
 type edgeNode struct {
-	ins       alamos.Instrumentation
-	cfg       clientConfig
-	node      sparkplug.NodeID
-	tags      map[channel.Key][]edgeTag
-	byName    map[string]edgeTag
+	ins alamos.Instrumentation
+	cfg clientConfig
+	// command is the topic of the NCMD messages to the edge node.
+	command   string
+	tags      map[channel.Key][]publishedTag
+	byName    map[string]publishedTag
 	framer    *framer.Service
 	task      task.Task
 	authority control.Authority
+	edge      *sparkplug.Edge
+	// mu guards the sequence, which continues from one run to the next, and the state
+	// of the current run. A sequenced publish encodes its message and hands it to the
+	// client under mu, so messages leave the client in sequence order. The wait for the
+	// broker happens outside the lock.
+	mu struct {
+		sync.Mutex
+		seq    *sparkplug.Sequence
+		client paho.Client
+		// latest holds the last value of each tag, for the next birth. Every value fits
+		// its tag.
+		latest map[string]sparkplug.Metric
+		// reported is the state that Health returned last.
+		reported edgeHealth
+		// commandErr is the text of the error of the last command. Empty when the
+		// command was written.
+		commandErr string
+	}
+}
+
+var _ driver.Sink = (*edgeNode)(nil)
+
+// edgeSession is the driver.Writer of one run of an edge task: the goroutine of its
+// connection and the commands it receives.
+type edgeSession struct {
+	*edgeNode
 	// commands carries the commands that the message handler received to the serve
 	// loop, which writes them.
 	commands chan sparkplug.Command
@@ -126,37 +166,24 @@ type edgeNode struct {
 	changed chan struct{}
 	cancel  context.CancelFunc
 	stopped chan struct{}
-	mu      struct {
-		sync.Mutex
-		// edge holds the message sequence. A sequenced publish encodes its message
-		// and hands it to the client under the lock, so messages leave the client in
-		// sequence order. The wait for the broker happens outside the lock. The
-		// birth-death sequence moves only on the reconnect goroutine.
-		edge   *sparkplug.Edge
-		client paho.Client
-		// latest holds the last value of each tag, for the next birth.
-		latest map[string]sparkplug.Metric
-		// reported is the state that Health returned last.
-		reported error
-		// commandErr is the error of the last command, or nil when it was written.
-		commandErr error
+}
+
+var _ driver.Writer = (*edgeSession)(nil)
+
+// Open implements driver.Sink. It returns after the first connection attempt.
+func (n *edgeNode) Open(ctx context.Context) (driver.Writer, error) {
+	e := &edgeSession{
+		edgeNode: n,
+		commands: make(chan sparkplug.Command, commandBacklog),
+		rebirths: make(chan struct{}, 1),
+		changed:  make(chan struct{}, 1),
+		stopped:  make(chan struct{}),
 	}
-}
-
-var _ driver.Sink = (*edgeNode)(nil)
-
-func (e *edgeNode) topic(t sparkplug.MessageType) string {
-	return sparkplug.Topic{Type: t, Node: e.node}.String()
-}
-
-// Start implements driver.Sink. It returns after the first connection attempt.
-func (e *edgeNode) Start(ctx context.Context) error {
-	e.commands = make(chan sparkplug.Command, commandBacklog)
-	e.rebirths = make(chan struct{}, 1)
-	e.changed = make(chan struct{}, 1)
-	e.mu.latest = make(map[string]sparkplug.Metric)
-	e.mu.reported, e.mu.commandErr = nil, nil
-	e.stopped = make(chan struct{})
+	n.mu.Lock()
+	n.mu.commandErr = ""
+	n.mu.latest = make(map[string]sparkplug.Metric)
+	n.mu.reported = edgeHealth{connected: true}
+	n.mu.Unlock()
 	var (
 		settled    = make(chan struct{})
 		settleOnce sync.Once
@@ -172,37 +199,37 @@ func (e *edgeNode) Start(ctx context.Context) error {
 	}, signal.RecoverWithErrOnPanic())
 	select {
 	case <-settled:
-		return nil
+		return e, nil
 	case <-ctx.Done():
 		cancel()
 		<-e.stopped
-		return ctx.Err()
+		return nil, ctx.Err()
 	}
 }
 
-// Stop implements driver.Sink.
-func (e *edgeNode) Stop() error {
+// Close implements driver.Writer.
+func (e *edgeSession) Close() error {
 	e.cancel()
 	<-e.stopped
 	return nil
 }
 
-func (e *edgeNode) run(ctx context.Context, settle func()) {
+func (e *edgeSession) run(ctx context.Context, settle func()) {
 	reconnect(ctx, e.ins, reconnectHooks{
 		options: func(lost chan<- error) *paho.ClientOptions {
-			will, err := e.mu.edge.Death()
+			will, err := e.death()
 			if err != nil {
 				e.ins.L.DPanic("failed to encode the NDEATH message", zap.Error(err))
 			}
 			return newClientOptions(e.cfg).
-				SetBinaryWill(e.topic(sparkplug.NDeath), will, 1, false).
+				SetBinaryWill(will.Topic, will.Payload, will.QoS, will.Retained).
 				SetOrderMatters(true).
 				SetDefaultPublishHandler(e.onMessage).
 				SetConnectionLostHandler(reportLost(lost))
 		},
 		serve: func(ctx context.Context, client paho.Client, lost <-chan error) {
-			defer e.mu.edge.EndSession()
-			err := wait(ctx, client.Subscribe(e.topic(sparkplug.NCmd), 0, nil))
+			defer e.endSession()
+			err := wait(ctx, client.Subscribe(e.command, 0, nil))
 			if err == nil {
 				err = e.publishBirth(ctx, client)
 			}
@@ -237,7 +264,11 @@ func (e *edgeNode) run(ctx context.Context, settle func()) {
 
 // serve writes commands and answers rebirth requests until ctx is cancelled or the
 // connection is lost.
-func (e *edgeNode) serve(ctx context.Context, client paho.Client, lost <-chan error) {
+func (e *edgeSession) serve(
+	ctx context.Context,
+	client paho.Client,
+	lost <-chan error,
+) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -255,14 +286,17 @@ func (e *edgeNode) serve(ctx context.Context, client paho.Client, lost <-chan er
 				return
 			}
 			e.mu.Lock()
-			e.mu.commandErr = err
+			e.mu.commandErr = ""
+			if err != nil {
+				e.mu.commandErr = err.Error()
+			}
 			e.notify()
 			e.mu.Unlock()
 		}
 	}
 }
 
-func (e *edgeNode) setClient(client paho.Client) {
+func (e *edgeSession) setClient(client paho.Client) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.mu.client = client
@@ -270,53 +304,39 @@ func (e *edgeNode) setClient(client paho.Client) {
 }
 
 // health returns the state that the task reports. The caller holds e.mu.
-func (e *edgeNode) health() error {
-	if e.mu.client == nil {
-		return errNotConnected
-	}
-	if e.mu.commandErr != nil {
-		return errors.Wrap(driver.ErrTemporary, e.mu.commandErr.Error())
-	}
-	return nil
+func (e *edgeSession) health() edgeHealth {
+	return edgeHealth{connected: e.mu.client != nil, commandErr: e.mu.commandErr}
 }
 
-func (e *edgeNode) notify() {
+func (e *edgeSession) notify() {
 	select {
 	case e.changed <- struct{}{}:
 	default:
 	}
 }
 
-// Health implements driver.Sink. It reports each loss and recovery of the connection,
+// Health implements driver.Writer. It reports each loss and recovery of the connection,
 // and each command that could not be written.
-// sameHealth reports whether two results of health describe the same state.
-func sameHealth(a, b error) bool {
-	if a == nil || b == nil {
-		return a == b
-	}
-	return a.Error() == b.Error()
-}
-
-func (e *edgeNode) Health(ctx context.Context) error {
+func (e *edgeSession) Health(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-e.changed:
 			e.mu.Lock()
-			err := e.health()
-			same := sameHealth(err, e.mu.reported)
-			e.mu.reported = err
+			h := e.health()
+			same := h == e.mu.reported
+			e.mu.reported = h
 			e.mu.Unlock()
 			if !same {
-				return err
+				return h.err()
 			}
 		}
 	}
 }
 
 // publishBirth publishes the NBIRTH message that starts a new sequence.
-func (e *edgeNode) publishBirth(ctx context.Context, client paho.Client) error {
+func (e *edgeSession) publishBirth(ctx context.Context, client paho.Client) error {
 	token, err := e.queueBirth(client)
 	if err != nil {
 		return err
@@ -324,20 +344,32 @@ func (e *edgeNode) publishBirth(ctx context.Context, client paho.Client) error {
 	return wait(ctx, token)
 }
 
-func (e *edgeNode) queueBirth(client paho.Client) (paho.Token, error) {
+func (e *edgeSession) queueBirth(client paho.Client) (paho.Token, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	payload, err := e.mu.edge.Birth(e.mu.latest, telem.Now())
+	pub, err := e.mu.seq.Birth(e.mu.latest, telem.Now())
 	if err != nil {
 		return nil, err
 	}
-	return client.Publish(e.topic(sparkplug.NBirth), 0, false, payload), nil
+	return client.Publish(pub.Topic, pub.QoS, pub.Retained, pub.Payload), nil
 }
 
-func (e *edgeNode) publishDeath(ctx context.Context, client paho.Client) {
-	payload, err := e.mu.edge.Death()
+func (n *edgeNode) death() (sparkplug.Publication, error) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.mu.seq.Death()
+}
+
+func (n *edgeNode) endSession() {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.mu.seq.EndSession()
+}
+
+func (e *edgeSession) publishDeath(ctx context.Context, client paho.Client) {
+	pub, err := e.death()
 	if err == nil {
-		err = wait(ctx, client.Publish(e.topic(sparkplug.NDeath), 1, false, payload))
+		err = wait(ctx, client.Publish(pub.Topic, pub.QoS, pub.Retained, pub.Payload))
 	}
 	if err != nil && ctx.Err() == nil {
 		e.ins.L.Warn("failed to publish the NDEATH message", zap.Error(err))
@@ -346,15 +378,17 @@ func (e *edgeNode) publishDeath(ctx context.Context, client paho.Client) {
 
 // onMessage takes an NCMD message. It must not block: the client delivers messages in
 // order on one goroutine.
-func (e *edgeNode) onMessage(_ paho.Client, m paho.Message) {
-	if m.Topic() != e.topic(sparkplug.NCmd) {
-		return
+func (e *edgeSession) onMessage(_ paho.Client, m paho.Message) {
+	var msg sparkplug.Message
+	topic, err := sparkplug.ParseTopic(m.Topic())
+	if err == nil {
+		msg, err = sparkplug.Decode(topic, m.Payload())
 	}
-	cmd, err := e.mu.edge.DecodeCommand(m.Payload())
 	if err != nil {
 		e.ins.L.Debug("dropped a Sparkplug B command", zap.Error(err))
 		return
 	}
+	cmd := e.edge.Command(msg)
 	if cmd.Rebirth {
 		select {
 		case e.rebirths <- struct{}{}:
@@ -375,7 +409,7 @@ func (e *edgeNode) onMessage(_ paho.Client, m paho.Message) {
 // the arrival time as their timestamp. Each command opens its own writer, because a
 // command names any subset of the tags, and a writer needs every channel of an index
 // in each frame.
-func (e *edgeNode) writeCommand(ctx context.Context, cmd sparkplug.Command) error {
+func (e *edgeSession) writeCommand(ctx context.Context, cmd sparkplug.Command) error {
 	var (
 		fr   framer.Frame
 		keys channel.Keys
@@ -390,7 +424,7 @@ func (e *edgeNode) writeCommand(ctx context.Context, cmd sparkplug.Command) erro
 			)
 			continue
 		}
-		data, err := t.command.appendSample(nil, m.Value)
+		data, err := sparkplug.AppendSample(nil, t.command.dataType, m.Value)
 		if err != nil {
 			e.ins.L.Warn(
 				"rejected a command value", zap.String("tag", m.Name), zap.Error(err),
@@ -431,19 +465,16 @@ func (e *edgeNode) writeCommand(ctx context.Context, cmd sparkplug.Command) erro
 	return errors.Combine(err, w.Close())
 }
 
-// Write implements driver.Sink. It publishes the samples of fr in one NDATA message.
-// A sample carries the timestamp of its index when the frame holds it.
-func (e *edgeNode) Write(ctx context.Context, fr framer.Frame) error {
+// Write implements driver.Writer. It publishes the samples of fr in one NDATA message.
+// A sample carries the timestamp of its index when the frame holds it. A sample that
+// does not fit its tag is left out, and the temporary error names it.
+func (e *edgeSession) Write(ctx context.Context, fr framer.Frame) error {
 	var metrics []sparkplug.Metric
 	for key, series := range fr.Entries() {
 		for _, t := range e.tags[key] {
 			stamps := indexOf(fr, t.index, series)
 			for i := range int(series.Len()) {
-				value, err := sampleValue(t.dataType, series, i)
-				if err != nil {
-					return errors.Wrapf(driver.ErrTemporary, "tag %s: %v", t.name, err)
-				}
-				m := sparkplug.Metric{Name: t.name, Value: value}
+				m := sparkplug.Metric{Name: t.name, Value: sparkplug.ValueAt(series, i)}
 				if stamps != nil {
 					m.Timestamp = stamps.ValueAt[telem.TimeStamp](i)
 				}
@@ -455,31 +486,33 @@ func (e *edgeNode) Write(ctx context.Context, fr framer.Frame) error {
 		return nil
 	}
 	token, err := e.queueData(metrics)
-	if err != nil {
+	if token == nil {
 		return err
 	}
-	if err := wait(ctx, token); err != nil {
-		return errors.Wrap(driver.ErrTemporary, err.Error())
+	if wErr := wait(ctx, token); wErr != nil {
+		return errors.Mark(wErr, driver.ErrTemporary)
 	}
-	return nil
+	return err
 }
 
-// queueData records metrics as the latest values and hands an NDATA message to the
-// client.
-func (e *edgeNode) queueData(metrics []sparkplug.Metric) (paho.Token, error) {
+// queueData records the metrics that fit their tags as the latest values, and hands an
+// NDATA message that carries them to the client. The error names each metric that does
+// not fit. The token is nil when no message went to the client.
+func (e *edgeSession) queueData(metrics []sparkplug.Metric) (paho.Token, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	for _, m := range metrics {
+	pub, carried, err := e.mu.seq.Data(metrics, telem.Now())
+	for _, m := range carried {
 		e.mu.latest[m.Name] = m
 	}
+	err = errors.Mark(err, driver.ErrTemporary)
 	if e.mu.client == nil {
 		return nil, errNotConnected
 	}
-	payload, err := e.mu.edge.Data(metrics, telem.Now())
-	if err != nil {
-		return nil, errors.Wrap(driver.ErrTemporary, err.Error())
+	if pub.Payload == nil {
+		return nil, err
 	}
-	return e.mu.client.Publish(e.topic(sparkplug.NData), 0, false, payload), nil
+	return e.mu.client.Publish(pub.Topic, pub.QoS, pub.Retained, pub.Payload), err
 }
 
 // indexOf returns the series of index in fr that lines up with series, or nil.

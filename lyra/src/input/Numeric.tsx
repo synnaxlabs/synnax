@@ -53,6 +53,8 @@ export interface NumericProps
    * renders empty, and clearing the input commits it.
    */
   emptyValue?: number;
+  /** Called when the user commits an empty input. Without it, an empty input reverts. */
+  onClear?: () => void;
 }
 
 /**
@@ -82,6 +84,7 @@ export const Numeric = ({
   size,
   color,
   emptyValue,
+  onClear,
   ...rest
 }: NumericProps): ReactElement => {
   // An absent value renders empty, so the placeholder reads as the unset state.
@@ -107,6 +110,10 @@ export const Numeric = ({
       return;
     }
     if (raw === "" && valueRef.current == null) return;
+    if (raw === "" && onClear != null) {
+      onClear();
+      return;
+    }
     const commit = (v: number | null): void => {
       if (v != null) onChange?.(bounds.clamp(boundsRef.current, v));
       else
@@ -119,7 +126,7 @@ export const Numeric = ({
     const plain = parseNumber(raw);
     if (plain != null) return commit(plain);
     void evaluateExpression(raw).then(commit);
-  }, [onChange, setInternalValue, emptyValue]);
+  }, [onChange, setInternalValue, emptyValue, onClear]);
 
   const updateActualValueRef = useSyncedRef(updateActualValue);
 

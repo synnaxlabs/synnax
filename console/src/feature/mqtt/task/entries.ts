@@ -10,7 +10,6 @@
 import { channel, mqtt } from "@synnaxlabs/client";
 import { DataType } from "@synnaxlabs/x";
 
-import { type SparkplugHaulTag } from "@/feature/mqtt/device/SparkplugBrowser";
 import { createReadFields } from "@/feature/mqtt/task/createReadFields";
 import {
   fromSparkplugDataType,
@@ -20,6 +19,7 @@ import {
   type PlainReadEntry,
   type ReadField,
   type SparkplugReadEntry,
+  type SparkplugTag,
 } from "@/feature/mqtt/task/types";
 
 export const ENTRIES_PATH = "config.entries";
@@ -31,7 +31,7 @@ export const namePrefix = (devName: string, topic: string): string =>
 export const createEntry = (): PlainReadEntry =>
   mqtt.plainReadEntryZ.parse({ type: "plain" });
 
-export const createSparkplugEntry = (tag?: SparkplugHaulTag): SparkplugReadEntry => {
+export const createSparkplugEntry = (tag?: SparkplugTag): SparkplugReadEntry => {
   const entry = mqtt.sparkplugReadEntryZ.parse({ type: "sparkplug" });
   if (tag == null) return entry;
   const { dataType, ...tagID } = tag;

@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -271,19 +270,13 @@ var _ = Describe("StatusHandler", func() {
 		})
 	})
 
-	Describe("ReportConfigError", func() {
+	Describe("ConfigReporter", func() {
 		cfgErr := errors.New("bad config")
+		reporter := func() driver.ConfigReporter {
+			return driver.ConfigReporter{DB: db, Status: statusSvc}
+		}
 		It("should answer the command with an error status", func(ctx SpecContext) {
-			driver.ReportConfigError(
-				ctx,
-				alamos.Instrumentation{},
-				db,
-				statusSvc,
-				t,
-				"cmd-9",
-				false,
-				cfgErr,
-			)
+			reporter().Report(ctx, t, "cmd-9", false, cfgErr)
 			stat := retrieve(ctx)
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Message).To(Equal("bad config"))
@@ -292,31 +285,16 @@ var _ = Describe("StatusHandler", func() {
 		})
 		It("should write an error status for a task that starts automatically",
 			func(ctx SpecContext) {
-				driver.ReportConfigError(
-					ctx,
-					alamos.Instrumentation{},
-					db,
-					statusSvc,
-					t,
-					driver.NoCommand,
-					true,
-					cfgErr,
-				)
-				Expect(retrieve(ctx).Variant).To(Equal(status.VariantError))
+				reporter().Report(ctx, t, driver.NoCommand, true, cfgErr)
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("bad config"))
+				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
 			},
 		)
 		It("should write no status at boot for a task that does not start",
 			func(ctx SpecContext) {
-				driver.ReportConfigError(
-					ctx,
-					alamos.Instrumentation{},
-					db,
-					statusSvc,
-					t,
-					driver.NoCommand,
-					false,
-					cfgErr,
-				)
+				reporter().Report(ctx, t, driver.NoCommand, false, cfgErr)
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](
 						t.OntologyID().String(),

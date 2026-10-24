@@ -59,7 +59,10 @@ func (c FactoryConfig) Validate() error {
 	return v.Error()
 }
 
-type factory struct{ cfg FactoryConfig }
+type factory struct {
+	cfg      FactoryConfig
+	reporter driver.ConfigReporter
+}
 
 var _ driver.Factory = (*factory)(nil)
 
@@ -69,7 +72,14 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &factory{cfg: cfg}, nil
+	return &factory{
+		cfg: cfg,
+		reporter: driver.ConfigReporter{
+			DB:              cfg.DB,
+			Status:          cfg.Status,
+			Instrumentation: cfg.Instrumentation,
+		},
+	}, nil
 }
 
 func (f *factory) ConfigureTask(
@@ -82,22 +92,11 @@ func (f *factory) ConfigureTask(
 	}
 	var cfg TaskConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
-		driver.ReportConfigError(
-			ctx, f.cfg.Instrumentation, f.cfg.DB, f.cfg.Status, t, cmdKey, false, err,
-		)
+		f.reporter.Report(ctx, t, cmdKey, false, err)
 		return nil, err
 	}
 	if err := validateConfig(cfg); err != nil {
-		driver.ReportConfigError(
-			ctx,
-			f.cfg.Instrumentation,
-			f.cfg.DB,
-			f.cfg.Status,
-			t,
-			cmdKey,
-			cfg.AutoStart,
-			err,
-		)
+		f.reporter.Report(ctx, t, cmdKey, cfg.AutoStart, err)
 		return nil, err
 	}
 	pdTask, err := newAlertTask(f.cfg, t, cfg)

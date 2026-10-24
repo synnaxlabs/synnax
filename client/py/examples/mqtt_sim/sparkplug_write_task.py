@@ -55,7 +55,7 @@ tsk = mqtt.WriteTask(
             tag="setpoint",
             channel=cmd.key,
             # The data type that the edge node declares for the tag.
-            sparkplug_type="double",
+            tag_type="double",
         ),
     ],
 )

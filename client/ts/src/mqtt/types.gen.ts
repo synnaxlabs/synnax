@@ -108,13 +108,18 @@ export const edgeTagZ = z.object({
   name: z.string().default(""),
   /** channel is the Synnax channel whose value the tag publishes. */
   channel: channel.keyZ.default(0),
-  /** sparkplugType is the Sparkplug B data type the tag is published as. */
-  sparkplugType: sparkplugDataTypeZ.default("double"),
+  /** tagType is the Sparkplug B data type the tag is published as. */
+  tagType: sparkplugDataTypeZ.default("double"),
   /**
    * commandChannel is the Synnax channel that takes values written to the tag. Zero
    * when the tag rejects writes.
    */
   commandChannel: channel.keyZ.default(0),
+  /**
+   * commandChannelName is the name of the command channel that the Console creates at
+   * configure when the tag has none. Absent when the tag rejects writes.
+   */
+  commandChannelName: z.string().optional(),
 });
 export interface EdgeTag extends z.infer<typeof edgeTagZ> {}
 
@@ -162,8 +167,8 @@ export const channelFieldZ = z.object({
   /** dataType is the data type of the command channel. */
   dataType: z.string().default("float64"),
   /**
-   * timeFormat is the output encoding when the command channel holds timestamps.
-   * Required for timestamp channels.
+   * timeFormat is the output encoding when the command channel holds timestamps. An
+   * unset format is ISO 8601.
    */
   timeFormat: timeFormatZ.optional(),
   /**
@@ -261,8 +266,6 @@ export const sparkplugReadEntryZ = baseReadEntryZ.extend({
   tag: z.string().default(""),
   /** channel is the Synnax channel the tag value is written to. */
   channel: channel.keyZ.default(0),
-  /** index is the index channel that takes the tag timestamp. */
-  index: channel.keyZ.default(0),
   /** name is the human-readable name of the channel. */
   name: z.string().default(""),
   /** dataType is the data type of the channel. */
@@ -318,8 +321,8 @@ export const sparkplugWriteTargetZ = baseWriteTargetZ.extend({
   device: z.string().default(""),
   /** tag is the name of the tag to command. */
   tag: z.string().default(""),
-  /** sparkplugType is the Sparkplug B data type the command value is sent as. */
-  sparkplugType: sparkplugDataTypeZ.default("double"),
+  /** tagType is the Sparkplug B data type the command value is sent as. */
+  tagType: sparkplugDataTypeZ.default("double"),
   /** channel is the Synnax command channel whose writes trigger the command. */
   channel: channel.keyZ.default(0),
   /** name is the human-readable name of the command channel. */

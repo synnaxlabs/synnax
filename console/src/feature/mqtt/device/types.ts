@@ -64,17 +64,19 @@ const readTopicPropsZ = z.object({
 export const propertiesZ = z.object({
   secure: z.boolean().default(false),
   verificationSkipped: z.boolean().default(false),
+  /** Absent selects 1883, or 8883 when secure. */
   port: z
     .number()
     .int("Port must be a whole number")
-    .min(0, "Port must be 0 to 65535")
-    .max(65535, "Port must be 0 to 65535")
-    .default(0),
+    .min(1, "Port must be 1 to 65535")
+    .max(65535, "Port must be 1 to 65535")
+    .optional(),
+  /** In seconds. Absent selects 30. */
   keepAlive: z
     .number()
     .int("Keep alive must be a whole number")
-    .nonnegative("Keep alive must be non-negative")
-    .default(0),
+    .positive("Keep alive must be positive")
+    .optional(),
   caFile: z.string().default(""),
   certFile: z.string().default(""),
   keyFile: z.string().default(""),
@@ -89,22 +91,7 @@ export const propertiesZ = z.object({
 
 export interface Properties extends z.infer<typeof propertiesZ> {}
 
-export const ZERO_PROPERTIES: Properties = {
-  secure: false,
-  verificationSkipped: false,
-  port: 0,
-  keepAlive: 0,
-  caFile: "",
-  certFile: "",
-  keyFile: "",
-  username: "",
-  password: "",
-  clientId: "",
-  sparkplug: { hostId: "", groups: [] },
-  read: {},
-  write: {},
-  version: 1,
-};
+export const ZERO_PROPERTIES: Properties = propertiesZ.parse({});
 
 export interface Device extends device.Device<
   typeof propertiesZ,

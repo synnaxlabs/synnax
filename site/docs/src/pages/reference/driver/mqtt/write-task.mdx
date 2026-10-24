@@ -43,7 +43,7 @@ disabled. A topic may not hold the wildcards `+` or `#`.
 
 | Parameter  | Type    | Required | Default           | Description                                                                |
 | ---------- | ------- | -------- | ----------------- | -------------------------------------------------------------------------- |
-| `type`     | string  | No       | `"plain"`         | The kind of target. `"plain"` publishes a JSON payload to one topic        |
+| `type`     | string  | Yes      | -                 | The kind of target. `"plain"` publishes a JSON payload to one topic        |
 | `topic`    | string  | Yes      | -                 | The topic to publish to (e.g., `plant/valve1/set`)                         |
 | `qos`      | string  | No       | `"at_least_once"` | `"at_most_once"` (0), `"at_least_once"` (1), or `"exactly_once"` (2)       |
 | `retained` | boolean | No       | `false`           | Ask the broker to keep the message for clients that subscribe later        |
@@ -58,7 +58,7 @@ disabled. A topic may not hold the wildcards `+` or `#`.
 | Parameter     | Type    | Required | Default     | Description                                                                         |
 | ------------- | ------- | -------- | ----------- | ----------------------------------------------------------------------------------- |
 | `channel`     | integer | Yes      | -           | Key of the command channel                                                          |
-| `pointer`     | string  | Yes      | -           | JSON Pointer where the value goes (e.g., `/position`). `""` is the whole payload    |
+| `pointer`     | string  | No       | `""`        | JSON Pointer where the value goes (e.g., `/position`). `""` is the whole payload    |
 | `json_type`   | string  | No       | `"number"`  | JSON type of the value: `"number"`, `"string"`, or `"boolean"`                      |
 | `data_type`   | string  | No       | `"float64"` | Data type of the command channel                                                    |
 | `time_format` | string  | No       | `"iso8601"` | Format of the value when the command channel holds timestamps                       |
@@ -77,7 +77,7 @@ the current time.
 | Parameter     | Type   | Required | Default     | Description                                     |
 | ------------- | ------ | -------- | ----------- | ----------------------------------------------- |
 | `type`        | string | Yes      | -           | `"static"` or `"generated"`                     |
-| `pointer`     | string | Yes      | -           | JSON Pointer where the value goes               |
+| `pointer`     | string | No       | `""`        | JSON Pointer where the value goes               |
 | `json_type`   | string | No       | `"number"`  | Static only. JSON type of `value`               |
 | `value`       | any    | Yes      | -           | Static only. The fixed value                    |
 | `generator`   | string | No       | `"uuid"`    | Generated only. `"uuid"` or `"timestamp"`       |

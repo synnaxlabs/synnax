@@ -9,12 +9,7 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import {
-  channel,
-  DisconnectedError,
-  mqtt,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { channel, DisconnectedError, mqtt } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -43,6 +38,7 @@ import {
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Empty } from "@/platform/empty";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -76,6 +72,7 @@ const TagListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `${TAGS_PATH}.${itemKey}`;
   const commandChannel = PForm.useFieldValue<channel.Key>(`${path}.commandChannel`);
+  const commandChannelName = PForm.useFieldValue<string>(`${path}.commandChannelName`);
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
 
@@ -109,23 +106,21 @@ const TagListItem = (props: Task.ChannelListItemProps) => {
         grow
       />
       <SparkplugTypeField
-        path={`${path}.sparkplugType`}
+        path={`${path}.tagType`}
         showLabel={false}
         showHelpText={false}
         className={CSS.B("field-data-type")}
       />
       <Flex.Box x align="center" grow justify="end">
-        {commandChannel === 0 ? (
+        {commandChannel === 0 && commandChannelName == null ? (
           <Text.Text level="small" color={9}>
             No command channel
           </Text.Text>
         ) : (
-          // The tag holds no name for its command channel, so the path resolves to
-          // nothing and the name comes from the Core alone.
           <Task.ChannelName
             channel={commandChannel}
             namePath={`${path}.commandChannelName`}
-            defaultName="No command channel"
+            defaultName={commandChannelName ?? undefined}
             id={Task.getChannelNameID(itemKey, "cmd")}
           />
         )}
@@ -139,39 +134,37 @@ const NAME_INPUT_PROPS = { placeholder: "oven/temperature" } as const;
 
 const listItem = Component.renderProp(TagListItem);
 
-const createCommandChannel = async (
-  client: Client,
-  tag: EdgeTag,
-): Promise<channel.Channel> => {
-  if (tag.name === "") throw new Error("Name the tag before adding a command channel");
-  const name = channel.escapeInvalidName(`${tag.name}_cmd`);
-  return await Task.createChannel(
-    client,
-    name,
-    fromSparkplugDataType(tag.sparkplugType),
-  );
-};
+const isWritable = ({ commandChannel, commandChannelName }: EdgeTag): boolean =>
+  commandChannel !== 0 || commandChannelName != null;
+
+const deriveCommandChannelName = ({ name }: EdgeTag): string =>
+  channel.escapeInvalidName(`${name}_cmd`);
 
 const ContextMenuItem = ({ channels, keys }: Task.ContextMenuItemProps<EdgeTag>) => {
-  const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const { set } = PForm.useContext();
   const canCreate = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
   const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
-  const withoutCommands = channels.filter(({ commandChannel }) => commandChannel === 0);
-  const withCommands = channels.filter(({ commandChannel }) => commandChannel !== 0);
+  const withoutCommands = channels.filter((tag) => !isWritable(tag));
+  const withCommands = channels.filter(isWritable);
 
   const handleAdd = () =>
     handleError(async () => {
-      if (client == null) throw new DisconnectedError();
-      for (const tag of withoutCommands) {
-        const ch = await createCommandChannel(client, tag);
-        set(`${TAGS_PATH}.${tag.key}.commandChannel`, ch.key);
-      }
+      if (withoutCommands.some(({ name }) => name === ""))
+        throw new Error("Name the tag before adding a command channel");
+      withoutCommands.forEach((tag) =>
+        set(
+          `${TAGS_PATH}.${tag.key}.commandChannelName`,
+          deriveCommandChannelName(tag),
+        ),
+      );
     }, "Failed to add command channel");
 
   const handleRemove = () =>
-    withCommands.forEach(({ key }) => set(`${TAGS_PATH}.${key}.commandChannel`, 0));
+    withCommands.forEach(({ key }) => {
+      set(`${TAGS_PATH}.${key}.commandChannel`, 0);
+      set(`${TAGS_PATH}.${key}.commandChannelName`, undefined);
+    });
 
   const handleRename = () => Text.edit(Task.getChannelNameID(keys[0], "cmd"));
 
@@ -201,12 +194,17 @@ const contextMenuItems = Component.renderProp(ContextMenuItem);
 
 const createTag = (tags: EdgeTag[]): EdgeTag => ({
   ...mqtt.edgeTagZ.parse({}),
-  ...(tags.length > 0 && { sparkplugType: tags[tags.length - 1].sparkplugType }),
+  ...(tags.length > 0 && { tagType: tags[tags.length - 1].tagType }),
 });
+
+const EMPTY_CONTENT = <Empty.Action message="No tags in task" />;
 
 const Content = () => (
   <Task.Views.List<EdgeTag>
     path={TAGS_PATH}
+    title="Tags"
+    emptyContent={EMPTY_CONTENT}
+    addLabel="Add tag"
     createChannel={createTag}
     listItem={listItem}
     contextMenuItems={contextMenuItems}
@@ -229,12 +227,17 @@ const getInitialValues: Task.GetInitialValues<EdgeSchemas> = ({
   return { name: "Sparkplug edge node", type: EDGE_TYPE, config: cfg };
 };
 
-// A deleted command channel drops to zero so the deploy does not reference it.
 const onConfigure: Task.OnConfigure<EdgeSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
   for (const tag of config.tags) {
-    if (tag.commandChannel === 0) continue;
-    if (!(await Task.channelExists(client, tag.commandChannel))) tag.commandChannel = 0;
+    if (!isWritable(tag) || (await Task.channelExists(client, tag.commandChannel)))
+      continue;
+    const cmd = await Task.createChannelWithIndex(
+      client,
+      tag.commandChannelName ?? deriveCommandChannelName(tag),
+      fromSparkplugDataType(tag.tagType),
+    );
+    tag.commandChannel = cmd.key;
   }
   return [config, dev.rack];
 };

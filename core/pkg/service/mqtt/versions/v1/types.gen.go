@@ -203,8 +203,6 @@ type SparkplugReadEntry struct {
 	Tag string `json:"tag" msgpack:"tag"`
 	// Channel is the Synnax channel the tag value is written to.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// Index is the index channel that takes the tag timestamp.
-	Index channel.Key `json:"index" msgpack:"index"`
 	// Name is the human-readable name of the channel.
 	Name string `json:"name" msgpack:"name"`
 	// DataType is the data type of the channel.
@@ -385,8 +383,8 @@ type ChannelField struct {
 	Name string `json:"name" msgpack:"name"`
 	// DataType is the data type of the command channel.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// TimeFormat is the output encoding when the command channel holds timestamps.
-	// Required for timestamp channels.
+	// TimeFormat is the output encoding when the command channel holds timestamps. An
+	// unset format is ISO 8601.
 	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps numeric channel values to string labels. Only valid when
 	// json_type is 'string'.
@@ -639,8 +637,8 @@ type SparkplugWriteTarget struct {
 	Device string `json:"device" msgpack:"device"`
 	// Tag is the name of the tag to command.
 	Tag string `json:"tag" msgpack:"tag"`
-	// SparkplugType is the Sparkplug B data type the command value is sent as.
-	SparkplugType SparkplugDataType `json:"sparkplug_type" msgpack:"sparkplug_type"`
+	// TagType is the Sparkplug B data type the command value is sent as.
+	TagType SparkplugDataType `json:"tag_type" msgpack:"tag_type"`
 	// Channel is the Synnax command channel whose writes trigger the command.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// Name is the human-readable name of the command channel.
@@ -651,8 +649,8 @@ func (SparkplugWriteTarget) isWriteTargetVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SparkplugWriteTarget) ApplyDefaults() {
-	if s.SparkplugType == "" {
-		s.SparkplugType = SparkplugDataTypeDouble
+	if s.TagType == "" {
+		s.TagType = SparkplugDataTypeDouble
 	}
 }
 
@@ -660,7 +658,7 @@ func (s *SparkplugWriteTarget) ApplyDefaults() {
 // schema constraints.
 func (s SparkplugWriteTarget) Validate() error {
 	v := validate.New("SparkplugWriteTarget")
-	v.Ternaryf("sparkplug_type", !s.SparkplugType.IsValid(), "invalid sparkplug_type: %v", s.SparkplugType)
+	v.Ternaryf("tag_type", !s.TagType.IsValid(), "invalid tag_type: %v", s.TagType)
 	return v.Error()
 }
 
@@ -798,17 +796,20 @@ type EdgeTag struct {
 	Name string `json:"name" msgpack:"name"`
 	// Channel is the Synnax channel whose value the tag publishes.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// SparkplugType is the Sparkplug B data type the tag is published as.
-	SparkplugType SparkplugDataType `json:"sparkplug_type" msgpack:"sparkplug_type"`
+	// TagType is the Sparkplug B data type the tag is published as.
+	TagType SparkplugDataType `json:"tag_type" msgpack:"tag_type"`
 	// CommandChannel is the Synnax channel that takes values written to the tag. Zero
 	// when the tag rejects writes.
 	CommandChannel channel.Key `json:"command_channel" msgpack:"command_channel"`
+	// CommandChannelName is the name of the command channel that the Console creates at
+	// configure when the tag has none. Absent when the tag rejects writes.
+	CommandChannelName *string `json:"command_channel_name,omitzero" msgpack:"command_channel_name,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (e *EdgeTag) ApplyDefaults() {
-	if e.SparkplugType == "" {
-		e.SparkplugType = SparkplugDataTypeDouble
+	if e.TagType == "" {
+		e.TagType = SparkplugDataTypeDouble
 	}
 }
 
@@ -816,7 +817,7 @@ func (e *EdgeTag) ApplyDefaults() {
 // schema constraints.
 func (e EdgeTag) Validate() error {
 	v := validate.New("EdgeTag")
-	v.Ternaryf("sparkplug_type", !e.SparkplugType.IsValid(), "invalid sparkplug_type: %v", e.SparkplugType)
+	v.Ternaryf("tag_type", !e.TagType.IsValid(), "invalid tag_type: %v", e.TagType)
 	return v.Error()
 }
 

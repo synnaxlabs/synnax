@@ -132,6 +132,29 @@ type testBroker struct {
 	mu     sync.Mutex
 	// messages holds what the collector of the broker received.
 	messages []received
+	// clientIDs holds the client ID of each connection, in order.
+	clientIDs []string
+	// keepAlives holds the keep-alive interval in seconds of each connection, in order.
+	keepAlives []uint16
+}
+
+// connectHook records the client ID and the keep-alive interval of each connection to a
+// test broker.
+type connectHook struct {
+	mochi.HookBase
+	broker *testBroker
+}
+
+func (h *connectHook) ID() string { return "connect" }
+
+func (h *connectHook) Provides(b byte) bool { return b == mochi.OnConnect }
+
+func (h *connectHook) OnConnect(cl *mochi.Client, pk packets.Packet) error {
+	h.broker.mu.Lock()
+	defer h.broker.mu.Unlock()
+	h.broker.clientIDs = append(h.broker.clientIDs, cl.ID)
+	h.broker.keepAlives = append(h.broker.keepAlives, pk.Connect.Keepalive)
+	return nil
 }
 
 // brokerOptions selects what a test broker requires of its clients.
@@ -168,6 +191,7 @@ func startBrokerWith(opts brokerOptions) *testBroker {
 			}}},
 		})).To(Succeed())
 	}
+	Expect(b.server.AddHook(&connectHook{broker: b}, nil)).To(Succeed())
 	tcp := listeners.NewTCP(listeners.Config{
 		ID:        "tcp",
 		Address:   net.JoinHostPort("127.0.0.1", strconv.Itoa(opts.port)),
@@ -212,6 +236,21 @@ func (b *testBroker) collect(filter string) {
 			retained: pk.FixedHeader.Retain,
 		})
 	})).To(Succeed())
+}
+
+// connectedIDs returns the client ID of each connection so far, in order.
+func (b *testBroker) connectedIDs() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]string(nil), b.clientIDs...)
+}
+
+// connectedKeepAlives returns the keep-alive interval in seconds of each connection so
+// far, in order.
+func (b *testBroker) connectedKeepAlives() []uint16 {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]uint16(nil), b.keepAlives...)
 }
 
 func (b *testBroker) collected() []received {

@@ -31,22 +31,25 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// recordingSink is a driver.Sink that records the values it receives.
+// recordingSink is a driver.Sink whose Writer records the values it receives.
 type recordingSink struct {
-	startErr error
+	openErr error
 	// writeErr is returned by Write in place of recording the frame.
 	writeErr atomic.Pointer[error]
 	// health carries the results of Health.
 	health chan error
 	mu     sync.Mutex
 	values []float32
-	starts atomic.Int32
-	stops  atomic.Int32
+	opens  atomic.Int32
+	closes atomic.Int32
 }
 
-func (s *recordingSink) Start(context.Context) error {
-	s.starts.Add(1)
-	return s.startErr
+func (s *recordingSink) Open(context.Context) (driver.Writer, error) {
+	s.opens.Add(1)
+	if s.openErr != nil {
+		return nil, s.openErr
+	}
+	return s, nil
 }
 
 func (s *recordingSink) Write(_ context.Context, fr framer.Frame) error {
@@ -70,8 +73,8 @@ func (s *recordingSink) Health(ctx context.Context) error {
 	}
 }
 
-func (s *recordingSink) Stop() error {
-	s.stops.Add(1)
+func (s *recordingSink) Close() error {
+	s.closes.Add(1)
 	return nil
 }
 
@@ -113,11 +116,8 @@ var _ = Describe("WriteTask", func() {
 	}
 
 	retrieve := func(ctx context.Context) task.Status {
-		var stat task.Status
-		_ = statusSvc.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-			Entry(&stat).Exec(ctx, nil)
-		return stat
+		GinkgoHelper()
+		return retrieveStatus[task.StatusDetails](ctx, t.OntologyID().String())
 	}
 
 	// command writes value to the command channel until check passes, because a
@@ -169,24 +169,25 @@ var _ = Describe("WriteTask", func() {
 				Expect(stopped.Message).To(Equal("Task stopped successfully"))
 				Expect(stopped.Details.Running).To(BeFalse())
 				Expect(stopped.Details.Cmd).To(Equal("cmd-2"))
-				Expect(sink.stops.Load()).To(BeEquivalentTo(1))
+				Expect(sink.closes.Load()).To(BeEquivalentTo(1))
 			},
 		)
 
-		It("Should answer the start with the error of a sink that fails to start",
+		It("Should answer the start with the error of a sink that fails to open",
 			func(ctx SpecContext) {
-				sink.startErr = errors.New("broker refused the connection")
+				sink.openErr = errors.New("broker refused the connection")
 				wt := open()
 				Expect(wt.Exec(ctx, task.Command{Type: "start", Key: "cmd-3"})).
-					To(MatchError(ContainSubstring("broker refused the connection")))
+					To(MatchError("broker refused the connection"))
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("broker refused the connection"))
 				Expect(stat.Details.Cmd).To(Equal("cmd-3"))
 				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
 
-		It("Should stop the sink when the streamer fails to open",
+		It("Should close the writer of the sink when the streamer fails to open",
 			func(ctx SpecContext) {
 				wt := MustSucceed(driver.NewWriteTask(driver.WriteTaskConfig{
 					Sink: sink,
@@ -196,7 +197,7 @@ var _ = Describe("WriteTask", func() {
 					Task:     t,
 				}))
 				Expect(wt.Start(ctx, "cmd-4")).To(MatchError(query.ErrNotFound))
-				Expect(sink.stops.Load()).To(BeEquivalentTo(1))
+				Expect(sink.closes.Load()).To(BeEquivalentTo(1))
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Details.Running).To(BeFalse())
@@ -218,17 +219,16 @@ var _ = Describe("WriteTask", func() {
 	})
 
 	Describe("Sink errors", func() {
-		It("Should warn on a temporary error and recover on the next write",
-			func(ctx SpecContext) {
+		DescribeTable("Should warn on a write error and recover on the next write",
+			func(ctx SpecContext, marker error) {
 				wt := open()
 				Expect(wt.Start(ctx, driver.NoCommand)).To(Succeed())
-				lost := errors.Wrap(driver.ErrTemporary, "broker connection lost")
+				lost := errors.Mark(errors.New("broker connection lost"), marker)
 				sink.writeErr.Store(&lost)
 				command(ctx, 1, func(g Gomega) {
 					stat := retrieve(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).
-						To(ContainSubstring("broker connection lost"))
+					g.Expect(stat.Message).To(Equal("broker connection lost"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				})
 				sink.writeErr.Store(nil)
@@ -243,19 +243,21 @@ var _ = Describe("WriteTask", func() {
 				Expect(received[slices.Index(received, 2):]).
 					ToNot(ContainElement(float32(1)))
 			},
+			Entry("temporary", driver.ErrTemporary),
+			Entry("degraded", driver.ErrDegraded),
 		)
 
 		It("Should warn while the sink is not healthy, with no frame to send",
 			func(ctx SpecContext) {
 				wt := open()
 				Expect(wt.Start(ctx, driver.NoCommand)).To(Succeed())
-				lost := errors.Wrap(driver.ErrTemporary, "broker connection lost")
-				sink.health <- lost
+				sink.health <- errors.Mark(
+					errors.New("broker connection lost"), driver.ErrTemporary,
+				)
 				Eventually(func(g Gomega) {
 					stat := retrieve(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).
-						To(ContainSubstring("broker connection lost"))
+					g.Expect(stat.Message).To(Equal("broker connection lost"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).Should(Succeed())
 				sink.health <- nil
@@ -275,7 +277,7 @@ var _ = Describe("WriteTask", func() {
 					g.Expect(stat.Message).To(Equal("broker rejected the credentials"))
 					g.Expect(stat.Details.Running).To(BeFalse())
 				}).Should(Succeed())
-				Eventually(sink.stops.Load).Should(BeEquivalentTo(1))
+				Eventually(sink.closes.Load).Should(BeEquivalentTo(1))
 			},
 		)
 
@@ -290,7 +292,7 @@ var _ = Describe("WriteTask", func() {
 				g.Expect(stat.Message).To(Equal("payload encoder failed"))
 				g.Expect(stat.Details.Running).To(BeFalse())
 			})
-			Eventually(sink.stops.Load).Should(BeEquivalentTo(1))
+			Eventually(sink.closes.Load).Should(BeEquivalentTo(1))
 		})
 	})
 })

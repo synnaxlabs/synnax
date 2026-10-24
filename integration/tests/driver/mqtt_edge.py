@@ -12,10 +12,9 @@ from examples.mqtt_sim import MQTTSim
 
 import synnax as sy
 from synnax import mqtt
-from tests.driver.mqtt_task import CORE_RACK_NAME
+from tests.driver.mqtt_task import CORE_RACK_NAME, run_reader, write_until
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import WriteTaskCase, create_channel, create_index
-from x.telem import to_float
 
 GROUP = "Plant"
 EDGE_NODE = "SynnaxLine"
@@ -67,12 +66,12 @@ class MQTTEdgeNode(SimulatorCase, WriteTaskCase[mqtt.EdgeTask]):
             authority=200,
             tags=[
                 mqtt.EdgeTag(
-                    name="temperature", channel=temperature, sparkplug_type="double"
+                    name="temperature", channel=temperature, tag_type="double"
                 ),
                 mqtt.EdgeTag(
                     name="setpoint",
                     channel=setpoint,
-                    sparkplug_type="double",
+                    tag_type="double",
                     command_channel=setpoint_cmd,
                 ),
             ],
@@ -91,64 +90,32 @@ class MQTTEdgeNode(SimulatorCase, WriteTaskCase[mqtt.EdgeTask]):
         self.test_tag_reaches_host()
         self.test_command_reaches_channel()
 
-    def _mirror_reader(self, tag: str, channel: sy.Channel) -> mqtt.ReadTask:
-        device = self.client.devices.retrieve(name=self.device_name)
-        reader = mqtt.ReadTask(
-            name=f"{self.task_name} {tag} Mirror",
-            device=device.key,
-            entries=[
-                mqtt.PlainReadEntry(
-                    topic=f"{MIRROR}/{tag}",
-                    fields=[
-                        mqtt.ReadField(
-                            pointer="/value",
-                            channel=channel.key,
-                            data_type=sy.DataType.FLOAT64,
-                        )
-                    ],
-                )
-            ],
-        )
-        self.client.tasks.configure(reader)
-        return reader
-
     def test_tag_reaches_host(self) -> None:
         assert self.tsk is not None
         self.log("Testing: Tag value reaches the host")
-        mirror = self.client.channels.create(
-            name="mqtt_edge_node_temperature_mirror",
-            data_type=sy.DataType.FLOAT64,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        reader = self._mirror_reader("temperature", mirror)
+        device = self.client.devices.retrieve(name=self.device_name)
         temperature = self.client.channels.retrieve("mqtt_edge_node_temperature")
-        try:
-            with reader.run(), self.tsk.run():
-                with self.client.open_streamer([mirror.key]) as streamer:
-                    with self.client.open_writer(
-                        start=sy.TimeStamp.now(),
-                        channels=[temperature.index, temperature.key],
-                    ) as writer:
-                        value = None
-                        timer = sy.Timer()
-                        while (
-                            value != 21.5 and timer.elapsed() < 20 * sy.TimeSpan.SECOND
-                        ):
-                            writer.write(
-                                {
-                                    temperature.index: sy.TimeStamp.now(),
-                                    temperature.key: 21.5,
-                                }
-                            )
-                            frame = streamer.read(timeout=1)
-                            if frame is not None and mirror.key in frame:
-                                value = to_float(frame[mirror.key][-1])
-            if value != 21.5:
-                raise AssertionError(f"The host saw {value}, not 21.5")
-        finally:
-            self.client.tasks.delete(reader.key)
-            self.client.channels.delete([mirror.key])
+        with (
+            run_reader(
+                self.client,
+                device=device.key,
+                name=f"{self.task_name} temperature Mirror",
+                channel="mqtt_edge_node_temperature_mirror",
+                data_type=sy.DataType.FLOAT64,
+                entry=lambda mirror: mqtt.PlainReadEntry(
+                    topic=f"{MIRROR}/temperature",
+                    fields=[
+                        mqtt.ReadField(
+                            pointer="/value",
+                            channel=mirror.key,
+                            data_type=sy.DataType.FLOAT64,
+                        )
+                    ],
+                ),
+            ) as mirror,
+            self.tsk.run(),
+        ):
+            write_until(self.client, channel=temperature, value=21.5, watched=mirror)
 
     def test_command_reaches_channel(self) -> None:
         assert self.tsk is not None
@@ -177,25 +144,10 @@ class MQTTEdgeNode(SimulatorCase, WriteTaskCase[mqtt.EdgeTask]):
         setpoint_cmd = self.client.channels.retrieve("mqtt_edge_node_setpoint_cmd")
         try:
             with self.tsk.run(), writer_task.run():
-                # The mirror drops a command until the birth declares the tag, so the
-                # loop sends again until the command channel sees the value.
-                with self.client.open_streamer([setpoint_cmd.key]) as streamer:
-                    with self.client.open_writer(
-                        start=sy.TimeStamp.now(), channels=[set_idx.key, set_ch.key]
-                    ) as writer:
-                        value = None
-                        timer = sy.Timer()
-                        while (
-                            value != 42.5 and timer.elapsed() < 20 * sy.TimeSpan.SECOND
-                        ):
-                            writer.write(
-                                {set_idx.key: sy.TimeStamp.now(), set_ch.key: 42.5}
-                            )
-                            frame = streamer.read(timeout=1)
-                            if frame is not None and setpoint_cmd.key in frame:
-                                value = to_float(frame[setpoint_cmd.key][-1])
-            if value != 42.5:
-                raise AssertionError(f"The command channel got {value}, not 42.5")
+                # The mirror drops a command until the birth declares the tag.
+                write_until(
+                    self.client, channel=set_ch, value=42.5, watched=setpoint_cmd
+                )
         finally:
             self.client.tasks.delete(writer_task.key)
             self.client.channels.delete([set_ch.key, set_idx.key])

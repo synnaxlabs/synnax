@@ -139,7 +139,6 @@ def _sparkplug_entry(
         device=device,
         tag=tag,
         channel=ch,
-        index=idx.key,
         data_type=data_type,
     )
 

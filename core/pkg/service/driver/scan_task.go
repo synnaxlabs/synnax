@@ -25,7 +25,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -37,7 +38,8 @@ type Scanner interface {
 	Check(ctx context.Context, dev device.Device) error
 	// Exec runs a command other than start and stop, such as a connection test, and
 	// returns the data that answers it. It returns ErrUnsupportedCommand for a
-	// command it does not know.
+	// command it does not know. The task runs one Exec at a time, apart from the
+	// command loop of the driver, and cancels ctx when the task stops.
 	Exec(ctx context.Context, cmd task.Command) (msgpack.EncodedJSON, error)
 }
 
@@ -130,6 +132,15 @@ func (c ScanTaskConfig) Validate() error {
 type ScanTask struct {
 	*Runner
 	cfg ScanTaskConfig
+	// turn holds a token while a command of the scanner runs.
+	turn     chan struct{}
+	commands struct {
+		// sCtx runs the commands of the scanner. It is nil when no command ran since
+		// the last stop.
+		sCtx   signal.Context
+		cancel context.CancelFunc
+		sync.Mutex
+	}
 }
 
 var _ Task = (*ScanTask)(nil)
@@ -140,35 +151,93 @@ func NewScanTask(cfgs ...ScanTaskConfig) (*ScanTask, error) {
 	if err != nil {
 		return nil, err
 	}
-	t := &ScanTask{cfg: cfg}
+	t := &ScanTask{cfg: cfg, turn: make(chan struct{}, 1)}
 	t.Runner, err = NewRunner(RunnerConfig{
 		DB:              cfg.DB,
 		Status:          cfg.Status,
 		Instrumentation: cfg.Instrumentation,
 		Task:            cfg.Task,
-		Open:            func(context.Context) error { return nil },
-		Run:             t.run,
+		Open: func(context.Context) (func(context.Context) error, error) {
+			return t.run, nil
+		},
 	})
 	return t, err
 }
 
-// Exec implements Task. A command other than start and stop goes to the Scanner, and
-// its result answers the command.
+// Exec implements Task. A command other than start and stop goes to the Scanner in the
+// background, and Exec returns at once. The result of the Scanner answers the command,
+// within the time limit of ctx, which starts when the command gets its turn. A command
+// that the Scanner does not support gets no answer.
 func (t *ScanTask) Exec(ctx context.Context, cmd task.Command) error {
 	if cmd.Type == startCommandType || cmd.Type == stopCommandType {
 		return t.Runner.Exec(ctx, cmd)
 	}
+	deadline, limited := ctx.Deadline()
+	limit := time.Until(deadline)
+	t.commands.Lock()
+	defer t.commands.Unlock()
+	if t.commands.sCtx == nil {
+		t.commands.sCtx, t.commands.cancel = signal.Isolated(
+			signal.WithInstrumentation(t.cfg.Instrumentation),
+		)
+	}
+	t.commands.sCtx.Go(func(ctx context.Context) error {
+		select {
+		case <-ctx.Done():
+			return nil
+		case t.turn <- struct{}{}:
+		}
+		defer func() { <-t.turn }()
+		if limited {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, limit)
+			defer cancel()
+		}
+		t.execScanner(ctx, cmd)
+		return nil
+	}, signal.RecoverWithErrOnPanic())
+	return nil
+}
+
+// execScanner runs cmd on the Scanner and answers it. A command cancelled by a stop
+// gets no answer, since the successor of the task owns its status.
+func (t *ScanTask) execScanner(ctx context.Context, cmd task.Command) {
 	data, err := t.cfg.Scanner.Exec(ctx, cmd)
 	if errors.Is(err, ErrUnsupportedCommand) {
-		return err
+		t.cfg.L.Warn(
+			"unsupported command",
+			zap.Stringer("command", cmd),
+			zap.Stringer("task", cmd.Task),
+		)
+		return
+	}
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return
 	}
 	variant, message := status.VariantSuccess, "Command executed successfully"
 	if err != nil {
 		variant, message = status.VariantError, err.Error()
 	}
-	return errors.Combine(
-		err, t.status.Reply(ctx, cmd.Key, variant, message, data),
-	)
+	if rErr := t.status.Reply(
+		context.WithoutCancel(ctx), cmd.Key, variant, message, data,
+	); rErr != nil {
+		t.cfg.L.Error("failed to answer command", zap.Error(rErr))
+	}
+}
+
+// Stop implements Task. It also cancels the commands of the Scanner and waits for them
+// to return.
+func (t *ScanTask) Stop(sendStatus bool) error {
+	err := t.Runner.Stop(sendStatus)
+	t.commands.Lock()
+	sCtx, cancel := t.commands.sCtx, t.commands.cancel
+	t.commands.sCtx, t.commands.cancel = nil, nil
+	t.commands.Unlock()
+	if sCtx == nil {
+		return err
+	}
+	cancel()
+	return errors.Combine(err, errors.Skip(sCtx.Wait(), context.Canceled))
 }
 
 // health is the part of a device status that a check decides.
@@ -198,10 +267,9 @@ func (t *ScanTask) run(ctx context.Context) error {
 	defer disconnect()
 	ticker := time.NewTicker(t.cfg.Interval)
 	defer ticker.Stop()
-	reported := make(map[device.Key]health)
 	for {
-		if err := t.scan(ctx, reported); err != nil && ctx.Err() == nil {
-			t.Report(ctx, errors.Wrap(ErrTemporary, err.Error()))
+		if err := t.scan(ctx); err != nil && ctx.Err() == nil {
+			t.Report(ctx, err)
 		} else {
 			t.Report(ctx, nil)
 		}
@@ -218,10 +286,10 @@ func (t *ScanTask) owns(dev device.Device) bool {
 	return dev.Make == t.cfg.Make && dev.Rack == t.cfg.Task.Rack
 }
 
-// scan checks every owned device and writes the statuses that differ from reported,
-// which it updates. It forgets devices that no longer exist, so a device created
-// again gets a status.
-func (t *ScanTask) scan(ctx context.Context, reported map[device.Key]health) error {
+// scan checks every owned device and updates each stored status that differs from the
+// result. A device write can store an older status after a scan, so the next scan
+// compares against storage.
+func (t *ScanTask) scan(ctx context.Context) error {
 	var devices []device.Device
 	if err := t.cfg.Device.NewRetrieve().
 		Where(device.And(
@@ -256,42 +324,75 @@ func (t *ScanTask) scan(ctx context.Context, reported map[device.Key]health) err
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	var (
-		statuses = make([]device.Status, 0, len(devices))
-		present  = make(set.Set[device.Key], len(devices))
-		now      = telem.Now()
-	)
-	for i, dev := range devices {
-		present.Add(dev.Key)
-		if reported[dev.Key] == results[i] {
-			continue
-		}
-		statuses = append(statuses, device.Status{
-			Key:         dev.OntologyID().String(),
-			Name:        dev.Name,
-			Time:        now,
-			Variant:     results[i].variant,
-			Message:     results[i].message,
-			Description: results[i].description,
-			Details:     device.StatusDetails{Rack: dev.Rack, Device: dev.Key},
-		})
-	}
-	for key := range reported {
-		if _, ok := present[key]; !ok {
-			delete(reported, key)
-		}
-	}
-	if len(statuses) == 0 {
-		return nil
-	}
+	var count int
 	if err := t.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		stored, err := t.storedHealth(ctx, tx, devices)
+		if err != nil {
+			return err
+		}
+		var (
+			statuses = make([]device.Status, 0, len(devices))
+			now      = telem.Now()
+		)
+		for i, dev := range devices {
+			// A device with no status was deleted after the retrieve, or lost its
+			// status, which its next Create restores.
+			h, ok := stored[dev.OntologyID().String()]
+			if !ok || h == results[i] {
+				continue
+			}
+			statuses = append(statuses, device.Status{
+				Key:         dev.OntologyID().String(),
+				Name:        dev.Name,
+				Time:        now,
+				Variant:     results[i].variant,
+				Message:     results[i].message,
+				Description: results[i].description,
+				Details:     device.StatusDetails{Rack: dev.Rack, Device: dev.Key},
+			})
+		}
+		count = len(statuses)
+		if count == 0 {
+			return nil
+		}
 		return t.cfg.Status.NewWriter(tx).SetMany(ctx, &statuses)
 	}); err != nil {
 		return err
 	}
-	for i, dev := range devices {
-		reported[dev.Key] = results[i]
+	if count > 0 {
+		t.cfg.L.Debug("updated device statuses", zap.Int("count", count))
 	}
-	t.cfg.L.Debug("updated device statuses", zap.Int("count", len(statuses)))
 	return nil
+}
+
+// storedHealth returns the health in the stored status of each device, by status key. A
+// device with no stored status has no entry.
+func (t *ScanTask) storedHealth(
+	ctx context.Context,
+	tx gorp.Tx,
+	devices []device.Device,
+) (map[status.Key]health, error) {
+	keys := make([]status.Key, len(devices))
+	for i, dev := range devices {
+		keys[i] = dev.OntologyID().String()
+	}
+	var statuses []device.Status
+	if err := errors.Skip(
+		t.cfg.Status.NewRetrieve[device.StatusDetails]().
+			Where(status.MatchKeys[device.StatusDetails](keys...)).
+			Entries(&statuses).
+			Exec(ctx, tx),
+		query.ErrNotFound,
+	); err != nil {
+		return nil, err
+	}
+	stored := make(map[status.Key]health, len(statuses))
+	for _, s := range statuses {
+		stored[s.Key] = health{
+			variant:     s.Variant,
+			message:     s.Message,
+			description: s.Description,
+		}
+	}
+	return stored, nil
 }

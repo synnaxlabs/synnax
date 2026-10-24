@@ -155,6 +155,10 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 			if extra.format, err = parseTimeFormat(field.TimeFormat); err != nil {
 				return t, errors.Wrap(err, path)
 			}
+		case nil:
+			return t, errors.Wrapf(validate.ErrValidation, "%s: a field is null", path)
+		default:
+			panic(errors.Newf("mqtt: unknown write field variant %T", field))
 		}
 		if len(extra.pointer) == 0 {
 			return t, errors.Wrapf(
@@ -222,57 +226,68 @@ func (t writeTarget) payload(series telem.Series, i int) ([]byte, error) {
 
 // writeSink is the driver.Sink of an MQTT write task.
 type writeSink struct {
-	pool       *pool
-	attachment *attachment
+	pool *pool
 	// targets holds the targets that each command channel triggers.
 	targets map[channel.Key][]target
-	dev     device.Device
+	// broker is the key of the broker device.
+	broker device.Key
 }
 
 var _ driver.Sink = (*writeSink)(nil)
 
-// Start implements driver.Sink.
-func (s *writeSink) Start(ctx context.Context) (err error) {
+// Open implements driver.Sink.
+func (s *writeSink) Open(ctx context.Context) (driver.Writer, error) {
 	// A write task receives no messages, so its queue holds none.
-	if s.attachment, err = s.pool.attach(s.dev, 0); err != nil {
-		return err
+	a, err := s.pool.attach(ctx, s.broker, 0)
+	if err != nil {
+		return nil, err
 	}
-	if err = s.attachment.settle(ctx); err != nil {
-		s.pool.release(s.dev.Key, s.attachment)
+	if err = a.settle(ctx); err != nil {
+		s.pool.release(s.broker, a)
+		return nil, err
 	}
+	return &writer{writeSink: s, attachment: a}, nil
+}
+
+// writer is the driver.Writer of one run of an MQTT write task.
+type writer struct {
+	*writeSink
+	attachment *attachment
+}
+
+var _ driver.Writer = (*writer)(nil)
+
+// Health implements driver.Writer. It reports each loss and recovery of the connection.
+func (w *writer) Health(ctx context.Context) error {
+	_, err := w.attachment.next(ctx)
 	return err
 }
 
-// Health implements driver.Sink. It reports each loss and recovery of the connection.
-func (s *writeSink) Health(ctx context.Context) error {
-	_, err := s.attachment.next(ctx)
-	return err
-}
-
-// Stop implements driver.Sink.
-func (s *writeSink) Stop() error {
-	s.pool.release(s.dev.Key, s.attachment)
+// Close implements driver.Writer.
+func (w *writer) Close() error {
+	w.pool.release(w.broker, w.attachment)
 	return nil
 }
 
-// Write implements driver.Sink. It publishes every sample it can, and returns the
+// Write implements driver.Writer. It publishes every sample it can, and returns the
 // first error it met.
-func (s *writeSink) Write(ctx context.Context, fr framer.Frame) error {
+func (w *writer) Write(ctx context.Context, fr framer.Frame) error {
 	var first error
 	for key, series := range fr.Entries() {
-		for _, t := range s.targets[key] {
+		for _, t := range w.targets[key] {
 			for i := range int(series.Len()) {
 				pub, err := t.publication(series, i)
 				if err != nil {
 					// A value with no form in the payload, such as NaN in JSON, drops
 					// its command. It does not stop the task.
-					err = errors.Wrap(driver.ErrTemporary, err.Error())
+					err = errors.Mark(errors.Wrap(err, t.String()), driver.ErrDegraded)
 				} else {
-					err = s.attachment.publish(
+					err = w.attachment.publish(
 						ctx, pub.topic, pub.qos, pub.retained, pub.payload,
 					)
 				}
-				if err != nil && !errors.Is(err, driver.ErrTemporary) {
+				if err != nil &&
+					!errors.IsAny(err, driver.ErrTemporary, driver.ErrDegraded) {
 					return errors.Wrap(err, t.String())
 				}
 				if first == nil {

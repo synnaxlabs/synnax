@@ -12,12 +12,14 @@ package mqtt_test
 import (
 	"context"
 	"crypto/tls"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -27,7 +29,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -130,11 +131,51 @@ var _ = Describe("Scan task", func() {
 			Eventually(func(g Gomega) {
 				stat := deviceStatus(ctx, dev)
 				g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-				g.Expect(stat.Description).To(ContainSubstring(
-					"invalid broker properties: port: must be 0 to 65535",
+				g.Expect(stat.Description).To(Equal(
+					"invalid broker properties: port: must be 1 to 65535: " +
+						"validation error",
 				))
 			}).Should(Succeed())
 		})
+
+		It("Should probe a broker with a client ID of its own", func(ctx SpecContext) {
+			broker := startBroker(0)
+			dev := createBrokerDevice(ctx, rackKey, broker.port, msgpack.EncodedJSON{
+				"client_id": "line-7",
+			})
+			scan(ctx)
+			Eventually(func() status.Variant {
+				return deviceStatus(ctx, dev).Variant
+			}).Should(Equal(status.VariantSuccess))
+			Expect(broker.connectedIDs()).To(SatisfyAll(
+				Not(BeEmpty()), Not(ContainElement("line-7")),
+			))
+		})
+
+		It("Should not read the TLS files again while the properties stay the same",
+			func(ctx SpecContext) {
+				tlsCfg, caFile := createCerts()
+				broker := startBrokerWith(brokerOptions{tls: tlsCfg})
+				properties := msgpack.EncodedJSON{"secure": true, "ca_file": caFile}
+				dev := createBrokerDevice(ctx, rackKey, broker.port, properties)
+				_, data := createIndexed(ctx, telem.Float64T)
+				read := configure(ctx, factory, newTask(
+					rackKey, mqtt.ReadTaskType,
+					readConfig(dev, plainEntry("plant/tls", field("v", data[0], ""))),
+				))
+				Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
+					To(Succeed())
+				Eventually(broker.clientCount).Should(Equal(1))
+				scan(ctx)
+				variant := func() status.Variant {
+					return deviceStatus(ctx, dev).Variant
+				}
+				Eventually(variant).Should(Equal(status.VariantSuccess))
+				Expect(os.Remove(caFile)).To(Succeed())
+				Consistently(variant, 300*time.Millisecond).
+					Should(Equal(status.VariantSuccess))
+			},
+		)
 
 		It("Should report the connection of a running task in place of its own",
 			func(ctx SpecContext) {
@@ -157,23 +198,130 @@ var _ = Describe("Scan task", func() {
 		)
 	})
 
-	Describe("Test connection", func() {
-		// tested is the scan task of the last call to testConnection.
-		var tested task.Task
+	Describe("Device edits", func() {
+		// configureRead configures a read task on dev, which opens the shared
+		// connection when it starts.
+		configureRead := func(ctx context.Context, dev device.Device) driver.Task {
+			GinkgoHelper()
+			ch := createVirtual(ctx, telem.Float64T)
+			return configure(ctx, factory, newTask(
+				rackKey, mqtt.ReadTaskType,
+				readConfig(dev, plainEntry("plant/edit", field("v", ch, ""))),
+			))
+		}
+		startRead := func(ctx context.Context, read driver.Task) {
+			GinkgoHelper()
+			Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
+				To(Succeed())
+		}
+		edit := func(ctx context.Context, dev device.Device, props msgpack.EncodedJSON) {
+			GinkgoHelper()
+			dev.Properties = props
+			writeDevice(ctx, &dev)
+		}
 
+		It("Should reconnect a running task with the new properties, with no scan task",
+			func(ctx SpecContext) {
+				broker := startBroker(0)
+				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
+				startRead(ctx, configureRead(ctx, dev))
+				Eventually(broker.clientCount).Should(Equal(1))
+				edit(ctx, dev, msgpack.EncodedJSON{
+					"port": broker.port, "client_id": "line-9",
+				})
+				Eventually(broker.connectedIDs).Should(ContainElement("line-9"))
+				Eventually(broker.clientCount).Should(Equal(1))
+			},
+		)
+
+		It("Should start a task configured before an edit with the new properties",
+			func(ctx SpecContext) {
+				broker := startBroker(0)
+				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
+				read := configureRead(ctx, dev)
+				edit(ctx, dev, msgpack.EncodedJSON{
+					"port": broker.port, "client_id": "line-9",
+				})
+				startRead(ctx, read)
+				Eventually(broker.connectedIDs).Should(Equal([]string{"line-9"}))
+				Consistently(broker.connectedIDs, 300*time.Millisecond).
+					Should(Equal([]string{"line-9"}))
+			},
+		)
+
+		It("Should answer a start with the error of the current properties",
+			func(ctx SpecContext) {
+				broker := startBroker(0)
+				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
+				read := configureRead(ctx, dev)
+				edit(ctx, dev, msgpack.EncodedJSON{"port": 0})
+				Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
+					To(MatchError(
+						"invalid broker properties: port: must be 1 to 65535: " +
+							"validation error",
+					))
+				edit(ctx, dev, msgpack.EncodedJSON{"port": broker.port})
+				startRead(ctx, read)
+				Eventually(broker.clientCount).Should(Equal(1))
+			},
+		)
+
+		It("Should keep the new properties when a task configured before the edit "+
+			"joins the connection",
+			func(ctx SpecContext) {
+				broker := startBroker(0)
+				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
+				first, second := configureRead(ctx, dev), configureRead(ctx, dev)
+				startRead(ctx, first)
+				Eventually(broker.clientCount).Should(Equal(1))
+				edit(ctx, dev, msgpack.EncodedJSON{
+					"port": broker.port, "client_id": "line-9",
+				})
+				Eventually(broker.connectedIDs).Should(ContainElement("line-9"))
+				ids := broker.connectedIDs()
+				startRead(ctx, second)
+				Consistently(broker.connectedIDs, 300*time.Millisecond).
+					Should(Equal(ids))
+			},
+		)
+
+		It("Should report an edit that the connection cannot take, and keep it",
+			func(ctx SpecContext) {
+				broker := startBroker(0)
+				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
+				startRead(ctx, configureRead(ctx, dev))
+				Eventually(broker.clientCount).Should(Equal(1))
+				scan(ctx)
+				edit(ctx, dev, msgpack.EncodedJSON{
+					"port": broker.port, "cert_file": "/certs/client.crt",
+				})
+				Eventually(func(g Gomega) {
+					stat := deviceStatus(ctx, dev)
+					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+					g.Expect(stat.Description).To(Equal(
+						"invalid broker properties: key_file: cert_file and key_file " +
+							"must be set together: validation error",
+					))
+				}).Should(Succeed())
+				Expect(broker.connectedIDs()).To(HaveLen(1))
+				edit(ctx, dev, msgpack.EncodedJSON{"port": broker.port})
+				Eventually(func() status.Variant {
+					return deviceStatus(ctx, dev).Variant
+				}).Should(Equal(status.VariantSuccess))
+			},
+		)
+	})
+
+	Describe("Test connection", func() {
+		// testConnection runs a connection test with properties on a new scan task and
+		// returns the status that answers it.
 		testConnection := func(
 			ctx context.Context,
-			port int,
 			properties msgpack.EncodedJSON,
-		) error {
+		) task.Status {
 			GinkgoHelper()
-			if properties == nil {
-				properties = msgpack.EncodedJSON{}
-			}
-			properties["port"] = port
-			var configured driver.Task
-			configured, tested = scan(ctx)
-			return configured.Exec(ctx, task.Command{
+			configured, t := scan(ctx)
+			return answer(ctx, configured, t, task.Command{
 				Type: "test_connection",
 				Key:  "test",
 				Args: msgpack.EncodedJSON{
@@ -182,14 +330,23 @@ var _ = Describe("Scan task", func() {
 				},
 			})
 		}
+		expectSuccess := func(stat task.Status) {
+			GinkgoHelper()
+			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			Expect(stat.Message).To(Equal("Command executed successfully"))
+		}
+		expectError := func(stat task.Status, message types.GomegaMatcher) {
+			GinkgoHelper()
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(message)
+		}
 
 		It("Should connect to a broker that is not a device yet",
 			func(ctx SpecContext) {
 				broker := startBroker(0)
-				Expect(testConnection(ctx, broker.port, nil)).To(Succeed())
-				stat := taskStatus(ctx, tested)
-				Expect(stat.Variant).To(Equal(status.VariantSuccess))
-				Expect(stat.Details.Cmd).To(Equal("test"))
+				expectSuccess(testConnection(ctx, msgpack.EncodedJSON{
+					"port": broker.port,
+				}))
 				Eventually(broker.clientCount).Should(BeZero())
 			},
 		)
@@ -198,46 +355,74 @@ var _ = Describe("Scan task", func() {
 			broker := startBroker(0)
 			port := broker.port
 			broker.stop()
-			Expect(testConnection(ctx, port, nil)).
-				To(MatchError(ContainSubstring("refused")))
-			stat := taskStatus(ctx, tested)
-			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(ContainSubstring("refused"))
-			Expect(stat.Details.Cmd).To(Equal("test"))
+			expectError(
+				testConnection(ctx, msgpack.EncodedJSON{"port": port}),
+				ContainSubstring("refused"),
+			)
 		})
 
 		It("Should send the username and the password", func(ctx SpecContext) {
 			broker := startBrokerWith(brokerOptions{
 				username: "operator", password: "valve-7",
 			})
-			Expect(testConnection(ctx, broker.port, msgpack.EncodedJSON{
-				"username": "operator", "password": "valve-7",
-			})).To(Succeed())
-			Expect(testConnection(ctx, broker.port, msgpack.EncodedJSON{
-				"username": "operator", "password": "wrong",
-			})).To(MatchError(ContainSubstring(
-				"the broker rejected the username or password",
-			)))
+			expectSuccess(testConnection(ctx, msgpack.EncodedJSON{
+				"port": broker.port, "username": "operator", "password": "valve-7",
+			}))
+			expectError(
+				testConnection(ctx, msgpack.EncodedJSON{
+					"port": broker.port, "username": "operator", "password": "wrong",
+				}),
+				Equal("the broker rejected the username or password: not Authorized"),
+			)
+		})
+
+		Describe("Port and keep-alive", func() {
+			DescribeTable("Should connect to the default port of a broker",
+				func(ctx SpecContext, properties msgpack.EncodedJSON, address string) {
+					expectError(
+						testConnection(ctx, properties),
+						ContainSubstring(address),
+					)
+				},
+				Entry("a plain broker", msgpack.EncodedJSON{}, "127.0.0.1:1883"),
+				Entry("a secure broker",
+					msgpack.EncodedJSON{"secure": true}, "127.0.0.1:8883",
+				),
+			)
+
+			DescribeTable("Should send the keep-alive of the properties",
+				func(ctx SpecContext, properties msgpack.EncodedJSON, seconds uint16) {
+					broker := startBroker(0)
+					properties["port"] = broker.port
+					expectSuccess(testConnection(ctx, properties))
+					Expect(broker.connectedKeepAlives()).To(Equal([]uint16{seconds}))
+				},
+				Entry("no keep-alive", msgpack.EncodedJSON{}, uint16(30)),
+				Entry("a keep-alive of 7 seconds",
+					msgpack.EncodedJSON{"keep_alive": 7}, uint16(7),
+				),
+			)
 		})
 
 		Describe("TLS", func() {
 			It("Should verify the broker against a CA file", func(ctx SpecContext) {
 				tlsCfg, caFile := createCerts()
 				broker := startBrokerWith(brokerOptions{tls: tlsCfg})
-				Expect(testConnection(ctx, broker.port, msgpack.EncodedJSON{
-					"secure": true, "ca_file": caFile,
-				})).To(Succeed())
+				expectSuccess(testConnection(ctx, msgpack.EncodedJSON{
+					"port": broker.port, "secure": true, "ca_file": caFile,
+				}))
 			})
 
 			It("Should reject a broker that its roots do not verify",
 				func(ctx SpecContext) {
 					tlsCfg, _ := createCerts()
 					broker := startBrokerWith(brokerOptions{tls: tlsCfg})
-					Expect(testConnection(ctx, broker.port, msgpack.EncodedJSON{
-						"secure": true,
-					})).To(MatchError(ContainSubstring(
-						"failed to verify certificate",
-					)))
+					expectError(
+						testConnection(ctx, msgpack.EncodedJSON{
+							"port": broker.port, "secure": true,
+						}),
+						ContainSubstring("failed to verify certificate"),
+					)
 				},
 			)
 
@@ -245,18 +430,94 @@ var _ = Describe("Scan task", func() {
 				func(ctx SpecContext) {
 					tlsCfg, _ := createCerts()
 					broker := startBrokerWith(brokerOptions{tls: tlsCfg})
-					Expect(testConnection(ctx, broker.port, msgpack.EncodedJSON{
-						"secure": true, "verification_skipped": true,
-					})).To(Succeed())
+					expectSuccess(testConnection(ctx, msgpack.EncodedJSON{
+						"port":                 broker.port,
+						"secure":               true,
+						"verification_skipped": true,
+					}))
 				},
 			)
 
 			It("Should report a CA file that does not exist", func(ctx SpecContext) {
-				Expect(testConnection(ctx, 8883, msgpack.EncodedJSON{
-					"secure": true, "ca_file": "/no/such/ca.crt",
-				})).To(MatchError(ContainSubstring("failed to read the CA file")))
+				expectError(
+					testConnection(ctx, msgpack.EncodedJSON{
+						"port": 8883, "secure": true, "ca_file": "/no/such/ca.crt",
+					}),
+					HavePrefix("failed to read the CA file: "),
+				)
 			})
 		})
+
+		DescribeTable("Should reject properties that are not valid",
+			func(
+				ctx SpecContext,
+				build func() (msgpack.EncodedJSON, string),
+			) {
+				properties, message := build()
+				if _, ok := properties["port"]; !ok {
+					properties["port"] = 8883
+				}
+				expectError(testConnection(ctx, properties), Equal(message))
+			},
+			Entry("a certificate with no key", func() (msgpack.EncodedJSON, string) {
+				return msgpack.EncodedJSON{"cert_file": "/certs/client.crt"},
+					"invalid broker properties: key_file: " +
+						"cert_file and key_file must be set together: validation error"
+			}),
+			Entry("a key with no certificate", func() (msgpack.EncodedJSON, string) {
+				return msgpack.EncodedJSON{"key_file": "/certs/client.key"},
+					"invalid broker properties: key_file: " +
+						"cert_file and key_file must be set together: validation error"
+			}),
+			Entry("a port of zero", func() (msgpack.EncodedJSON, string) {
+				return msgpack.EncodedJSON{"port": 0},
+					"invalid broker properties: port: must be 1 to 65535: " +
+						"validation error"
+			}),
+			Entry("a port above 65535", func() (msgpack.EncodedJSON, string) {
+				return msgpack.EncodedJSON{"port": 65536},
+					"invalid broker properties: port: must be 1 to 65535: " +
+						"validation error"
+			}),
+			Entry("a keep-alive of zero", func() (msgpack.EncodedJSON, string) {
+				return msgpack.EncodedJSON{"keep_alive": 0},
+					"invalid broker properties: keep_alive: must be positive: " +
+						"validation error"
+			}),
+			Entry("a negative keep-alive", func() (msgpack.EncodedJSON, string) {
+				return msgpack.EncodedJSON{"keep_alive": -1},
+					"invalid broker properties: keep_alive: must be positive: " +
+						"validation error"
+			}),
+			Entry("a Sparkplug B host ID that cannot be a topic level",
+				func() (msgpack.EncodedJSON, string) {
+					return msgpack.EncodedJSON{
+						"sparkplug": map[string]any{"host_id": "scada/1"},
+					}, "invalid broker properties: sparkplug.host_id: " +
+						"scada/1 must not hold /, +, or #: validation error"
+				},
+			),
+			Entry("a Sparkplug B group that cannot be a topic level",
+				func() (msgpack.EncodedJSON, string) {
+					return msgpack.EncodedJSON{
+						"sparkplug": map[string]any{
+							"groups": []any{"plant", "l+b"},
+						},
+					}, "invalid broker properties: sparkplug.groups: " +
+						"l+b must not hold /, +, or #: validation error"
+				},
+			),
+			Entry("a CA file that holds no PEM certificates",
+				func() (msgpack.EncodedJSON, string) {
+					caFile := filepath.Join(GinkgoT().TempDir(), "ca.crt")
+					Expect(os.WriteFile(caFile, []byte("not a certificate"), 0o600)).
+						To(Succeed())
+					return msgpack.EncodedJSON{"secure": true, "ca_file": caFile},
+						"CA file " + caFile + " holds no PEM certificates: " +
+							"validation error"
+				},
+			),
+		)
 	})
 
 	Describe("Browse", func() {
@@ -274,12 +535,10 @@ var _ = Describe("Scan task", func() {
 			GinkgoHelper()
 			args["device"] = dev.Key
 			configured, t := scan(ctx)
-			Expect(configured.Exec(ctx, task.Command{
+			stat := answer(ctx, configured, t, task.Command{
 				Type: "browse", Key: "browse", Args: args,
-			})).To(Succeed())
-			stat := taskStatus(ctx, t)
+			})
 			Expect(stat.Variant).To(Equal(status.VariantSuccess))
-			Expect(stat.Details.Cmd).To(Equal("browse"))
 			return stat
 		}
 
@@ -332,19 +591,27 @@ var _ = Describe("Scan task", func() {
 
 		It("Should report a device that does not exist", func(ctx SpecContext) {
 			configured, t := scan(ctx)
-			Expect(configured.Exec(ctx, task.Command{
+			stat := answer(ctx, configured, t, task.Command{
 				Type: "browse", Key: "browse",
 				Args: msgpack.EncodedJSON{"device": "missing"},
-			})).To(MatchError(query.ErrNotFound))
-			Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantError))
+			})
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal(
+				"Devices with keys [missing] not found: not found: query",
+			))
 		})
 	})
 
 	Describe("Exec", func() {
-		It("Should reject a command it does not support", func(ctx SpecContext) {
-			configured, _ := scan(ctx)
-			Expect(configured.Exec(ctx, task.Command{Type: "reboot", Key: "x"})).
-				To(MatchError(driver.ErrUnsupportedCommand))
-		})
+		It("Should leave a command it does not support unanswered",
+			func(ctx SpecContext) {
+				configured, t := scan(ctx)
+				Expect(configured.Exec(ctx, task.Command{Type: "reboot", Key: "x"})).
+					To(Succeed())
+				Consistently(func() string { return taskStatus(ctx, t).Details.Cmd }).
+					WithTimeout(100 * time.Millisecond).
+					ShouldNot(Equal("x"))
+			},
+		)
 	})
 })

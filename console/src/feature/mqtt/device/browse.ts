@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
+import { type Synnax } from "@synnaxlabs/client";
 import { TimeSpan } from "@synnaxlabs/pluto";
 
 import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
@@ -18,23 +18,23 @@ import {
   type BrowsedTopic,
 } from "@/feature/mqtt/task/types";
 
-/** How long the driver listens to the broker for one browse. */
+/** How long the Core listens to the broker for one browse. */
 export const BROWSE_DURATION = TimeSpan.seconds(3);
 
-// The driver listens for up to 20 s before it replies.
+// The Core listens for up to 20 s before it replies.
 const BROWSE_TIMEOUT = TimeSpan.seconds(25);
 
 export interface KeyedTopic extends BrowsedTopic {
   key: string;
 }
 
-export interface BrowseResult {
+interface BrowseResult {
   topics: KeyedTopic[];
   truncated: boolean;
 }
 
 export const browseTopics = async (
-  client: Client,
+  client: Synnax,
   device: Device,
   filter: string,
 ): Promise<BrowseResult> => {
@@ -46,7 +46,8 @@ export const browseTopics = async (
   });
   if (variant !== "success") throw new Error(message);
   const data = details?.data;
-  if (data == null || !("topics" in data)) return { topics: [], truncated: false };
+  if (data == null || !("topics" in data))
+    throw new Error("The scan task replied without topics");
   return {
     topics: data.topics.map((t) => ({ ...t, key: t.topic })),
     truncated: data.truncated,
@@ -59,7 +60,7 @@ interface BrowseArgs {
 }
 
 export const browseSparkplug = async (
-  client: Client,
+  client: Synnax,
   device: Device,
   { group, edgeNode }: BrowseArgs,
 ) => {
@@ -76,6 +77,7 @@ export const browseSparkplug = async (
   });
   if (variant !== "success") throw new Error(message);
   const data = details?.data;
-  if (data == null || !("nodes" in data)) return { nodes: [], tags: [] };
+  if (data == null || !("nodes" in data))
+    throw new Error("The scan task replied without edge nodes");
   return data;
 };

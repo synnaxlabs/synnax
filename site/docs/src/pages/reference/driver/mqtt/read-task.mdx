@@ -43,7 +43,7 @@ topic may appear once in a task, and it may not hold the wildcards `+` or `#`.
 
 | Parameter          | Type    | Required | Default          | Description                                                                      |
 | ------------------ | ------- | -------- | ---------------- | -------------------------------------------------------------------------------- |
-| `type`             | string  | No       | `"plain"`        | The kind of entry. `"plain"` reads the payload of one topic                      |
+| `type`             | string  | Yes      | -                | The kind of entry. `"plain"` reads the payload of one topic                      |
 | `topic`            | string  | Yes      | -                | The topic to subscribe to (e.g., `plant/line1/sensors`)                          |
 | `qos`              | string  | No       | `"at_most_once"` | `"at_most_once"` (0), `"at_least_once"` (1), or `"exactly_once"` (2)             |
 | `retained_ignored` | boolean | No       | `false`          | Drop the retained message that the broker sends when the task subscribes         |
@@ -62,7 +62,7 @@ number or string.
 
 | Parameter     | Type    | Required | Default     | Description                                                                 |
 | ------------- | ------- | -------- | ----------- | --------------------------------------------------------------------------- |
-| `pointer`     | string  | Yes      | -           | JSON Pointer to the value (e.g., `/temperature`). `""` is the whole payload |
+| `pointer`     | string  | No       | `""`        | JSON Pointer to the value (e.g., `/temperature`). `""` is the whole payload |
 | `channel`     | integer | Yes      | -           | Key of the Synnax channel to write to                                       |
 | `data_type`   | string  | No       | `"float64"` | Data type of the channel                                                    |
 | `time_format` | string  | No       | -           | [Timestamp format](#timestamp-handling). Required for `TIMESTAMP` channels  |
@@ -83,7 +83,7 @@ payload carries its own timestamp, add a field for it that writes to the index c
 set its `time_format`, and put its key in the `index` parameter of the entry.
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Supported Timestamp Formats</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Details /> Supported timestamp formats</Text.Text>
 
 | Format     | Description                   | Example                      |
 | ---------- | ----------------------------- | ---------------------------- |

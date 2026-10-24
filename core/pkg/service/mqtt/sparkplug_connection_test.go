@@ -47,7 +47,7 @@ func parseHostState(payload string) hostState {
 
 func newTimedFactory(rebirthInterval, birthGrace time.Duration) driver.Factory {
 	GinkgoHelper()
-	return MustSucceed(mqtt.NewFactory(mqtt.FactoryConfig{
+	return MustOpen(mqtt.OpenFactory(mqtt.FactoryConfig{
 		Device:  deviceSvc,
 		Channel: channelSvc,
 		Framer:  framerSvc,
@@ -293,6 +293,31 @@ var _ = Describe("Sparkplug B host session", func() {
 			},
 		)
 
+		It("Should ask a born node for a rebirth on data of a device with no birth",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.Float64T)
+				node.setTags("", tagValue{
+					name: "uptime", alias: 1, value: 1.0, timestamp: 1700000000000,
+				})
+				run(ctx, readConfig(
+					dev, tagEntry("plant", "line1", "boiler", "temperature", data[0]),
+				))
+				Eventually(node.births).Should(Equal(1))
+				// The device comes online without a DBIRTH that the host saw.
+				node.setTags("boiler", tagValue{
+					name: "temperature", alias: 2, value: 1.5, timestamp: 1700000001000,
+				})
+				node.data("boiler", tagValue{
+					alias: 2, value: 2.5, timestamp: 1700000002000,
+				})
+				Eventually(node.births, 2*time.Second).Should(Equal(2))
+				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+					Should(BeEquivalentTo(1))
+				Expect(stored(ctx, data[0])).
+					To(telem.MatchSeriesData(telem.NewSeriesV(2.5)))
+			},
+		)
+
 		It("Should ask for a rebirth again after the broker returns",
 			func(ctx SpecContext) {
 				_, data := createIndexed(ctx, telem.Float64T)
@@ -309,8 +334,7 @@ var _ = Describe("Sparkplug B host session", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).
-						To(ContainSubstring("broker is not connected"))
+					g.Expect(stat.Message).To(Equal("broker is not connected"))
 				}, 5*time.Second).Should(Succeed())
 				broker = startBroker(port)
 				// An edge node belongs to one broker, so a new one takes its place.
@@ -403,10 +427,10 @@ var _ = Describe("Sparkplug B host session", func() {
 		)
 	})
 
-	Describe("NewFactory", func() {
+	Describe("OpenFactory", func() {
 		DescribeTable("Should reject timing that is not valid",
 			func(rebirthInterval, birthGrace time.Duration, message string) {
-				Expect(mqtt.NewFactory(mqtt.FactoryConfig{
+				Expect(mqtt.OpenFactory(mqtt.FactoryConfig{
 					Device:  deviceSvc,
 					Channel: channelSvc,
 					Framer:  framerSvc,

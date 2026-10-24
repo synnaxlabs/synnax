@@ -176,17 +176,21 @@ class EdgeTag(BaseModel):
         disabled: Is true when the tag is excluded from the task.
         name: Is the Sparkplug B name of the tag.
         channel: Is the Synnax channel whose value the tag publishes.
-        sparkplug_type: Is the Sparkplug B data type the tag is published as.
+        tag_type: Is the Sparkplug B data type the tag is published as.
         command_channel: Is the Synnax channel that takes values written to the tag.
             Zero when the tag rejects writes.
+        command_channel_name: Is the name of the command channel that the Console
+            creates at configure when the tag has none. Absent when the tag rejects
+            writes.
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
     name: str = ""
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    sparkplug_type: SparkplugDataType = "double"
+    tag_type: SparkplugDataType = "double"
     command_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    command_channel_name: str | None = None
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -233,7 +237,7 @@ class ChannelField(BaseModel):
         name: Is the human-readable name of the command channel.
         data_type: Is the data type of the command channel.
         time_format: Is the output encoding when the command channel holds timestamps.
-            Required for timestamp channels.
+            An unset format is ISO 8601.
         enum_values: Maps numeric channel values to string labels. Only valid when
             json_type is 'string'.
     """
@@ -314,7 +318,6 @@ class SparkplugReadEntry(BaseReadEntry):
     device: str = ""
     tag: str = ""
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     name: str = ""
     data_type: telem.DataType = telem.DataType("float64")
 
@@ -346,7 +349,7 @@ class SparkplugWriteTarget(BaseWriteTarget):
     edge_node: str = ""
     device: str = ""
     tag: str = ""
-    sparkplug_type: SparkplugDataType = "double"
+    tag_type: SparkplugDataType = "double"
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     name: str = ""
 

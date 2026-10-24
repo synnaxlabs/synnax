@@ -136,12 +136,13 @@ var _ = Describe("Codec", func() {
 				Authority: 7,
 				Tags: []v1.EdgeTag{
 					{
-						Key:            "test_8",
-						Disabled:       true,
-						Name:           "test_10",
-						Channel:        channel.Key(12),
-						SparkplugType:  v1.SparkplugDataType("int8"),
-						CommandChannel: channel.Key(14),
+						Key:                "test_8",
+						Disabled:           true,
+						Name:               "test_10",
+						Channel:            channel.Key(12),
+						TagType:            v1.SparkplugDataType("int8"),
+						CommandChannel:     channel.Key(14),
+						CommandChannelName: new(string("test_14")),
 					},
 				},
 			}),
@@ -177,20 +178,22 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.EdgeTag{
-				Key:            "test_1",
-				Disabled:       false,
-				Name:           "test_3",
-				Channel:        channel.Key(5),
-				SparkplugType:  v1.SparkplugDataType("int8"),
-				CommandChannel: channel.Key(7),
+				Key:                "test_1",
+				Disabled:           false,
+				Name:               "test_3",
+				Channel:            channel.Key(5),
+				TagType:            v1.SparkplugDataType("int8"),
+				CommandChannel:     channel.Key(7),
+				CommandChannelName: new(string("test_7")),
 			}),
 			Entry("zero values", v1.EdgeTag{
-				Key:            "",
-				Disabled:       false,
-				Name:           "",
-				Channel:        channel.Key(0),
-				SparkplugType:  v1.SparkplugDataType(""),
-				CommandChannel: channel.Key(0),
+				Key:                "",
+				Disabled:           false,
+				Name:               "",
+				Channel:            channel.Key(0),
+				TagType:            v1.SparkplugDataType(""),
+				CommandChannel:     channel.Key(0),
+				CommandChannelName: nil,
 			}),
 		)
 	})
@@ -300,9 +303,8 @@ var _ = Describe("Codec", func() {
 				Device:        "test_3",
 				Tag:           "test_4",
 				Channel:       channel.Key(6),
-				Index:         channel.Key(7),
-				Name:          "test_7",
-				DataType:      telem.DataType("test_8"),
+				Name:          "test_6",
+				DataType:      telem.DataType("test_7"),
 			}}),
 		)
 	})
@@ -488,7 +490,7 @@ var _ = Describe("Codec", func() {
 				EdgeNode:        "test_2",
 				Device:          "test_3",
 				Tag:             "test_4",
-				SparkplugType:   v1.SparkplugDataType("int8"),
+				TagType:         v1.SparkplugDataType("int8"),
 				Channel:         channel.Key(7),
 				Name:            "test_7",
 			}}),
@@ -582,12 +584,13 @@ func BenchmarkEncodeDecodeEdgeConfig(b *testing.B) {
 		Authority: 7,
 		Tags: []v1.EdgeTag{
 			{
-				Key:            "test_8",
-				Disabled:       true,
-				Name:           "test_10",
-				Channel:        channel.Key(12),
-				SparkplugType:  v1.SparkplugDataType("int8"),
-				CommandChannel: channel.Key(14),
+				Key:                "test_8",
+				Disabled:           true,
+				Name:               "test_10",
+				Channel:            channel.Key(12),
+				TagType:            v1.SparkplugDataType("int8"),
+				CommandChannel:     channel.Key(14),
+				CommandChannelName: new(string("test_14")),
 			},
 		},
 	}
@@ -608,12 +611,13 @@ func BenchmarkEncodeDecodeEdgeConfig(b *testing.B) {
 
 func BenchmarkEncodeDecodeEdgeTag(b *testing.B) {
 	seed := v1.EdgeTag{
-		Key:            "test_1",
-		Disabled:       false,
-		Name:           "test_3",
-		Channel:        channel.Key(5),
-		SparkplugType:  v1.SparkplugDataType("int8"),
-		CommandChannel: channel.Key(7),
+		Key:                "test_1",
+		Disabled:           false,
+		Name:               "test_3",
+		Channel:            channel.Key(5),
+		TagType:            v1.SparkplugDataType("int8"),
+		CommandChannel:     channel.Key(7),
+		CommandChannelName: new(string("test_7")),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1075,12 +1079,13 @@ func FuzzDecodeEdgeConfig(f *testing.F) {
 			Authority: 7,
 			Tags: []v1.EdgeTag{
 				{
-					Key:            "test_8",
-					Disabled:       true,
-					Name:           "test_10",
-					Channel:        channel.Key(12),
-					SparkplugType:  v1.SparkplugDataType("int8"),
-					CommandChannel: channel.Key(14),
+					Key:                "test_8",
+					Disabled:           true,
+					Name:               "test_10",
+					Channel:            channel.Key(12),
+					TagType:            v1.SparkplugDataType("int8"),
+					CommandChannel:     channel.Key(14),
+					CommandChannelName: new(string("test_14")),
 				},
 			},
 		}
@@ -1147,12 +1152,13 @@ func FuzzDecodeEdgeConfig(f *testing.F) {
 func FuzzDecodeEdgeTag(f *testing.F) {
 	{
 		seed := v1.EdgeTag{
-			Key:            "test_1",
-			Disabled:       false,
-			Name:           "test_3",
-			Channel:        channel.Key(5),
-			SparkplugType:  v1.SparkplugDataType("int8"),
-			CommandChannel: channel.Key(7),
+			Key:                "test_1",
+			Disabled:           false,
+			Name:               "test_3",
+			Channel:            channel.Key(5),
+			TagType:            v1.SparkplugDataType("int8"),
+			CommandChannel:     channel.Key(7),
+			CommandChannelName: new(string("test_7")),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1162,12 +1168,13 @@ func FuzzDecodeEdgeTag(f *testing.F) {
 	}
 	{
 		seed := v1.EdgeTag{
-			Key:            "",
-			Disabled:       false,
-			Name:           "",
-			Channel:        channel.Key(0),
-			SparkplugType:  v1.SparkplugDataType(""),
-			CommandChannel: channel.Key(0),
+			Key:                "",
+			Disabled:           false,
+			Name:               "",
+			Channel:            channel.Key(0),
+			TagType:            v1.SparkplugDataType(""),
+			CommandChannel:     channel.Key(0),
+			CommandChannelName: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1356,9 +1363,8 @@ func FuzzDecodeReadEntry(f *testing.F) {
 			Device:        "test_3",
 			Tag:           "test_4",
 			Channel:       channel.Key(6),
-			Index:         channel.Key(7),
-			Name:          "test_7",
-			DataType:      telem.DataType("test_8"),
+			Name:          "test_6",
+			DataType:      telem.DataType("test_7"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1678,7 +1684,7 @@ func FuzzDecodeWriteTarget(f *testing.F) {
 			EdgeNode:        "test_2",
 			Device:          "test_3",
 			Tag:             "test_4",
-			SparkplugType:   v1.SparkplugDataType("int8"),
+			TagType:         v1.SparkplugDataType("int8"),
 			Channel:         channel.Key(7),
 			Name:            "test_7",
 		}}

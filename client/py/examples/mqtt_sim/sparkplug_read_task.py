@@ -61,7 +61,6 @@ tsk = mqtt.ReadTask(
             edge_node="Line1",
             tag="temperature",
             channel=temperature.key,
-            index=temperature.index,
             data_type=sy.DataType.FLOAT64,
         ),
         # A device ID selects a tag of a device of the edge node.
@@ -71,7 +70,6 @@ tsk = mqtt.ReadTask(
             device="Pump1",
             tag="speed",
             channel=speed.key,
-            index=speed.index,
             data_type=sy.DataType.FLOAT32,
         ),
     ],

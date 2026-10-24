@@ -41,9 +41,9 @@ var _ = Describe("Topic", func() {
 			Entry("DCmd", sparkplug.DCmd, "DCMD"),
 			Entry("State", sparkplug.State, "STATE"),
 		)
-		DescribeTable("Session should be true for births, deaths, and data",
+		DescribeTable("InSession should be true for births, deaths, and data",
 			func(t sparkplug.MessageType, expected bool) {
-				Expect(t.Session()).To(Equal(expected))
+				Expect(t.InSession()).To(Equal(expected))
 			},
 			Entry("NBirth", sparkplug.NBirth, true),
 			Entry("NDeath", sparkplug.NDeath, true),
@@ -189,36 +189,39 @@ var _ = Describe("Topic", func() {
 			It("Should accept two valid IDs", func() {
 				Expect(node.Validate()).To(Succeed())
 			})
-			It("Should reject an empty group", func() {
-				Expect(sparkplug.NodeID{EdgeNode: "line1"}.Validate()).To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("group: required")),
-				))
-			})
-			It("Should reject an empty edge node", func() {
-				Expect(sparkplug.NodeID{Group: "plant"}.Validate()).To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("edge_node: required")),
-				))
-			})
-			It("Should reject a group with a wildcard", func() {
-				id := sparkplug.NodeID{Group: "pl+nt", EdgeNode: "line1"}
-				Expect(id.Validate()).To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(
-						ContainSubstring("group: pl+nt must not hold /, +, or #"),
-					),
-				))
-			})
-			It("Should reject an edge node with a slash", func() {
-				id := sparkplug.NodeID{Group: "plant", EdgeNode: "line/1"}
-				Expect(id.Validate()).To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(
-						"edge_node: line/1 must not hold /, +, or #",
-					)),
-				))
-			})
+			DescribeTable("Should reject an ID that cannot be a topic level",
+				func(id sparkplug.NodeID, message string) {
+					Expect(id.Validate()).To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring(message)),
+					))
+				},
+				Entry("an empty group",
+					sparkplug.NodeID{EdgeNode: "line1"}, "group: required",
+				),
+				Entry("an empty edge node",
+					sparkplug.NodeID{Group: "plant"}, "edge_node: required",
+				),
+				Entry("a group with a wildcard",
+					sparkplug.NodeID{Group: "pl+nt", EdgeNode: "line1"},
+					"group: pl+nt must not hold /, +, or #",
+				),
+				Entry("an edge node with a slash",
+					sparkplug.NodeID{Group: "plant", EdgeNode: "line/1"},
+					"edge_node: line/1 must not hold /, +, or #",
+				),
+			)
+		})
+	})
+
+	Describe("GroupFilters", func() {
+		It("Should match every message of each group", func() {
+			Expect(sparkplug.GroupFilters([]string{"plant", "lab"})).To(Equal(
+				[]string{"spBv1.0/plant/#", "spBv1.0/lab/#"},
+			))
+		})
+		It("Should match the whole namespace for no groups", func() {
+			Expect(sparkplug.GroupFilters(nil)).To(Equal([]string{"spBv1.0/#"}))
 		})
 	})
 

@@ -11,6 +11,8 @@ package mqtt
 
 import (
 	"context"
+	"io"
+	"sync"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -21,12 +23,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -37,7 +43,7 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Device retrieves broker devices.
+	// Device retrieves and observes broker devices.
 	//
 	// [REQUIRED]
 	Device *device.Service
@@ -114,31 +120,102 @@ func (c FactoryConfig) Validate() error {
 	return v.Error()
 }
 
-type factory struct {
-	pool *pool
-	cfg  FactoryConfig
+// Factory configures the MQTT task types. Its tasks share one connection for each
+// broker device, and an edit of the properties of a broker device reaches that
+// connection, whether or not a scan task runs. Safe for concurrent use.
+type Factory struct {
+	pool     *pool
+	reporter driver.ConfigReporter
+	cfg      FactoryConfig
+	// edited holds the keys of the broker devices that changed since the last
+	// reconfigure.
+	edited struct {
+		keys set.Set[device.Key]
+		sync.Mutex
+	}
+	// wake signals that edited holds a key.
+	wake       chan struct{}
+	disconnect observe.Disconnect
+	shutdown   io.Closer
 }
 
-var _ driver.Factory = (*factory)(nil)
+var _ driver.Factory = (*Factory)(nil)
 
-// NewFactory creates the factory for the MQTT task types. Its tasks share one
-// connection for each broker device.
-func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
+// OpenFactory opens the factory for the MQTT task types. The caller must Close it after
+// the last of its tasks stops.
+func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 	cfg, err := config.New(DefaultFactoryConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	return &factory{
+	f := &Factory{
 		cfg:  cfg,
-		pool: newPool(cfg.Instrumentation, cfg.RebirthInterval),
-	}, nil
+		pool: newPool(cfg.Instrumentation, cfg.Device, cfg.RebirthInterval),
+		reporter: driver.ConfigReporter{
+			DB:              cfg.DB,
+			Status:          cfg.Status,
+			Instrumentation: cfg.Instrumentation,
+		},
+		wake: make(chan struct{}, 1),
+	}
+	f.edited.keys = make(set.Set[device.Key])
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
+	sCtx.Go(f.reconfigureEdited, signal.RecoverWithErrOnPanic())
+	f.shutdown = signal.NewHardShutdown(sCtx, cancel)
+	f.disconnect = cfg.Device.Observe().OnChange(f.onDeviceChange)
+	return f, nil
+}
+
+// Close stops following the edits of broker devices.
+func (f *Factory) Close() error {
+	f.disconnect()
+	return f.shutdown.Close()
+}
+
+// onDeviceChange runs in the commit of a device change, so it hands the edited brokers
+// to reconfigureEdited and never waits.
+func (f *Factory) onDeviceChange(
+	_ context.Context,
+	r gorp.TxReader[device.Key, device.Device],
+) {
+	for ch := range r {
+		if ch.Variant != change.VariantSet || ch.Value.Make != Make {
+			continue
+		}
+		f.edited.Lock()
+		f.edited.keys.Add(ch.Key)
+		f.edited.Unlock()
+		select {
+		case f.wake <- struct{}{}:
+		default:
+		}
+	}
+}
+
+// reconfigureEdited points the connection of each edited broker at its new properties
+// until ctx is cancelled.
+func (f *Factory) reconfigureEdited(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-f.wake:
+		}
+		f.edited.Lock()
+		keys := f.edited.keys
+		f.edited.keys = make(set.Set[device.Key])
+		f.edited.Unlock()
+		for key := range keys {
+			f.pool.reconfigure(ctx, key)
+		}
+	}
 }
 
 // Name implements driver.Factory.
-func (f *factory) Name() string { return Make }
+func (f *Factory) Name() string { return Make }
 
 // InitialTasks implements driver.Factory.
-func (f *factory) InitialTasks() []task.Task {
+func (f *Factory) InitialTasks() []task.Task {
 	return []task.Task{{Name: "MQTT Scanner", Type: ScanTaskType}}
 }
 
@@ -149,7 +226,7 @@ type autoStarter interface {
 }
 
 // ConfigureTask implements driver.Factory.
-func (f *factory) ConfigureTask(
+func (f *Factory) ConfigureTask(
 	ctx context.Context,
 	t task.Task,
 	cmdKey string,
@@ -172,16 +249,7 @@ func (f *factory) ConfigureTask(
 		return nil, driver.ErrTaskNotHandled
 	}
 	if err != nil {
-		driver.ReportConfigError(
-			ctx,
-			f.cfg.Instrumentation,
-			f.cfg.DB,
-			f.cfg.Status,
-			t,
-			cmdKey,
-			autoStart,
-			err,
-		)
+		f.reporter.Report(ctx, t, cmdKey, autoStart, err)
 		return nil, err
 	}
 	// A successful configure writes no status: the start that follows it answers the
@@ -194,7 +262,7 @@ func (f *factory) ConfigureTask(
 	return configured, nil
 }
 
-func (f *factory) retrieveDevice(
+func (f *Factory) retrieveDevice(
 	ctx context.Context,
 	key device.Key,
 ) (device.Device, error) {
@@ -224,7 +292,7 @@ func (f *factory) retrieveDevice(
 	return dev, err
 }
 
-func (f *factory) retrieveChannels(
+func (f *Factory) retrieveChannels(
 	ctx context.Context,
 	keys channel.Keys,
 ) (map[channel.Key]channel.Channel, error) {
@@ -244,7 +312,7 @@ func (f *factory) retrieveChannels(
 	return byKey, nil
 }
 
-func (f *factory) configureRead(
+func (f *Factory) configureRead(
 	ctx context.Context,
 	t task.Task,
 ) (autoStarter, bool, error) {
@@ -276,6 +344,12 @@ func (f *factory) configureRead(
 				continue
 			}
 			keys = append(keys, entry.Channel)
+		case nil:
+			return nil, cfg.AutoStart, errors.Wrap(
+				validate.ErrValidation, "entries: an entry is null",
+			)
+		default:
+			panic(errors.Newf("mqtt: unknown read entry variant %T", entry))
 		}
 		enabled = append(enabled, e.Variant)
 	}
@@ -290,7 +364,7 @@ func (f *factory) configureRead(
 	}
 	src := &readSource{
 		pool:       f.pool,
-		dev:        dev,
+		broker:     dev.Key,
 		queueSize:  f.cfg.QueueSize,
 		birthGrace: f.cfg.BirthGrace,
 		topics:     make(map[string]readTopic),
@@ -333,6 +407,8 @@ func (f *factory) configureRead(
 			}
 			src.tags[tag.tagID] = tag
 			name, entryKeys = tag.String(), tag.keys()
+		default:
+			panic(errors.Newf("mqtt: unknown read entry variant %T", entry))
 		}
 		// Two entries on one index would race for the rising order of its timestamps.
 		for _, key := range entryKeys {
@@ -365,18 +441,19 @@ func (f *factory) configureRead(
 }
 
 // enabledTarget returns the command channel and the name of a target. ok is false
-// for a disabled target.
+// for a disabled target. v must not be nil.
 func enabledTarget(v WriteTargetVariant) (key channel.Key, name string, ok bool) {
 	switch t := v.(type) {
 	case PlainWriteTarget:
 		return t.Channel.Channel, t.Topic, !t.Disabled
 	case SparkplugWriteTarget:
 		return t.Channel, t.Tag, !t.Disabled
+	default:
+		panic(errors.Newf("mqtt: unknown write target variant %T", v))
 	}
-	return 0, "", false
 }
 
-func (f *factory) configureWrite(
+func (f *Factory) configureWrite(
 	ctx context.Context,
 	t task.Task,
 ) (autoStarter, bool, error) {
@@ -390,6 +467,11 @@ func (f *factory) configureWrite(
 	}
 	var keys channel.Keys
 	for _, tg := range cfg.Targets {
+		if tg.Variant == nil {
+			return nil, cfg.AutoStart, errors.Wrap(
+				validate.ErrValidation, "targets: a target is null",
+			)
+		}
 		if key, _, ok := enabledTarget(tg.Variant); ok {
 			keys = append(keys, key)
 		}
@@ -405,7 +487,7 @@ func (f *factory) configureWrite(
 	}
 	sink := &writeSink{
 		pool:    f.pool,
-		dev:     dev,
+		broker:  dev.Key,
 		targets: make(map[channel.Key][]target, len(keys)),
 	}
 	for _, tg := range cfg.Targets {
@@ -426,6 +508,8 @@ func (f *factory) configureWrite(
 			built, err = newWriteTarget(variant, ch)
 		case SparkplugWriteTarget:
 			built, err = newCommandTarget(variant, ch)
+		default:
+			panic(errors.Newf("mqtt: unknown write target variant %T", variant))
 		}
 		if err != nil {
 			return nil, cfg.AutoStart, err
@@ -444,7 +528,7 @@ func (f *factory) configureWrite(
 	return wt, cfg.AutoStart, err
 }
 
-func (f *factory) configureEdge(
+func (f *Factory) configureEdge(
 	ctx context.Context,
 	t task.Task,
 ) (autoStarter, bool, error) {
@@ -489,9 +573,9 @@ func (f *factory) configureEdge(
 	edge := &edgeNode{
 		ins:       f.cfg.Child(t.Key.String()),
 		cfg:       clientCfg,
-		node:      node,
-		tags:      make(map[channel.Key][]edgeTag),
-		byName:    make(map[string]edgeTag),
+		command:   sparkplug.CommandTopic(node, "").String(),
+		tags:      make(map[channel.Key][]publishedTag),
+		byName:    make(map[string]publishedTag),
 		framer:    f.cfg.Framer,
 		task:      t,
 		authority: control.Authority(cfg.Authority),
@@ -499,12 +583,14 @@ func (f *factory) configureEdge(
 	var (
 		declared   []sparkplug.Tag
 		streamKeys channel.Keys
+		// commanded names the tag that writes to each command channel.
+		commanded = make(map[channel.Key]string)
 	)
 	for _, tg := range cfg.Tags {
 		if tg.Disabled {
 			continue
 		}
-		et, tag, err := newEdgeTag(node, tg, channels)
+		et, tag, err := newPublishedTag(node, tg, channels)
 		if err != nil {
 			return nil, cfg.AutoStart, err
 		}
@@ -512,6 +598,17 @@ func (f *factory) configureEdge(
 			return nil, cfg.AutoStart, errors.Wrapf(
 				validate.ErrValidation, "tags: tag %s appears more than once", et.name,
 			)
+		}
+		if et.command != nil {
+			// One command would carry two values for one sample of the channel.
+			if other, ok := commanded[et.command.channel]; ok {
+				return nil, cfg.AutoStart, errors.Wrapf(
+					validate.ErrValidation,
+					"tags: tag %s and tag %s write to the same command channel %d",
+					other, et.name, et.command.channel,
+				)
+			}
+			commanded[et.command.channel] = et.name
 		}
 		edge.byName[et.name] = et
 		edge.tags[et.channel] = append(edge.tags[et.channel], et)
@@ -521,7 +618,8 @@ func (f *factory) configureEdge(
 			streamKeys = append(streamKeys, et.index)
 		}
 	}
-	edge.mu.edge = sparkplug.NewEdge(declared)
+	edge.edge = sparkplug.NewEdge(node, declared)
+	edge.mu.seq = sparkplug.NewSequence(edge.edge)
 	wt, err := driver.NewWriteTask(driver.WriteTaskConfig{
 		Instrumentation: edge.ins,
 		Sink:            edge,
@@ -534,7 +632,7 @@ func (f *factory) configureEdge(
 	return wt, cfg.AutoStart, err
 }
 
-func (f *factory) configureScan(t task.Task) (autoStarter, bool, error) {
+func (f *Factory) configureScan(t task.Task) (autoStarter, bool, error) {
 	var cfg ScanConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, true, err

@@ -16,8 +16,6 @@ import { Task } from "@/platform/task";
 
 export const PREFIX = "mqtt";
 
-export type TimeFormat = mqtt.TimeFormat;
-
 export type QoS = mqtt.QoS;
 
 export type SparkplugDataType = mqtt.SparkplugDataType;
@@ -27,6 +25,19 @@ export interface SparkplugTagID extends Pick<
   mqtt.SparkplugReadEntry,
   "group" | "edgeNode" | "device" | "tag"
 > {}
+
+/** @returns the key of a Sparkplug B edge node. */
+export const nodeKey = ({
+  group,
+  edgeNode,
+}: Pick<SparkplugTagID, "group" | "edgeNode">): string => `${group}/${edgeNode}`;
+
+/**
+ * @returns the key of a Sparkplug B tag. The device level is always present, because a
+ * tag name can hold a slash.
+ */
+export const tagKey = (id: SparkplugTagID): string =>
+  `${nodeKey(id)}/${id.device}/${id.tag}`;
 
 const deployTopicZ = z
   .string()
@@ -126,7 +137,7 @@ type Item =
   | Pick<PlainReadEntry, "type" | "disabled" | "topic">
   | Pick<SparkplugReadEntry, "type" | "disabled" | keyof SparkplugTagID>;
 
-// The driver skips disabled items, so they may share a topic or a tag with an enabled
+// The Core skips disabled items, so they may share a topic or a tag with an enabled
 // one.
 const validateItems = (label: string) => (ctx: z.core.ParsePayload<Item[]>) => {
   if (ctx.value.every(({ disabled }) => disabled))
@@ -136,23 +147,22 @@ const validateItems = (label: string) => (ctx: z.core.ParsePayload<Item[]>) => {
       message: `At least one ${label} must be enabled`,
       path: [],
     });
-  const seen = new Set<string>();
+  const seen = { plain: new Set<string>(), sparkplug: new Set<string>() };
   ctx.value.forEach((item, i) => {
     if (item.disabled) return;
-    const [field, name, identity] =
+    const [field, name, key] =
       item.type === "plain"
-        ? ["topic", item.topic, [item.topic]]
-        : ["tag", item.tag, [item.group, item.edgeNode, item.device, item.tag]];
+        ? ["topic", item.topic, item.topic]
+        : ["tag", item.tag, tagKey(item)];
     if (name === "") return;
-    const key = JSON.stringify(identity);
-    if (seen.has(key))
+    if (seen[item.type].has(key))
       ctx.issues.push({
         code: "custom",
         input: ctx.value,
         message: `Duplicate ${field} "${name}"`,
         path: [i, field],
       });
-    else seen.add(key);
+    else seen[item.type].add(key);
   });
 };
 
@@ -173,11 +183,7 @@ export interface ReadPayload extends task.Payload<ReadSchemas> {}
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-export type GeneratorType = mqtt.GeneratorType;
-
 export interface ChannelField extends mqtt.ChannelField {}
-
-export type WriteField = mqtt.WriteField;
 
 export interface PlainWriteTarget extends mqtt.PlainWriteTarget {}
 
@@ -319,14 +325,6 @@ export type EdgeSchemas = typeof EDGE_SCHEMAS;
 
 export interface EdgePayload extends task.Payload<EdgeSchemas> {}
 
-/** Data types that no JSON field can carry. */
-export const HIDDEN_DATA_TYPES = [
-  DataType.TIMESTAMP,
-  DataType.UUID,
-  DataType.JSON,
-  DataType.BYTES,
-];
-
 export const SCAN_TYPE = `${PREFIX}_scan`;
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
@@ -365,6 +363,10 @@ const browsedSparkplugTagZ = z.object({
 });
 
 export interface BrowsedSparkplugTag extends z.infer<typeof browsedSparkplugTagZ> {}
+
+/** A Sparkplug B tag and the data type the broker reports for it. */
+export interface SparkplugTag
+  extends SparkplugTagID, Pick<BrowsedSparkplugTag, "dataType"> {}
 
 const browseSparkplugResultZ = z.object({
   nodes: browsedSparkplugNodeZ.array(),

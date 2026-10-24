@@ -279,8 +279,7 @@ var _ = Describe("Driver", func() {
 			Expect(tasks).To(HaveLen(1))
 			Expect(tasks[0].Name).To(Equal("Scanner"))
 			Expect(tasks[0].Internal).To(BeTrue())
-			_, ok := configured.Load(tasks[0].Key)
-			Expect(ok).To(BeTrue())
+			MustBeOk(configured.Load(tasks[0].Key))
 			Expect(d.Close()).To(Succeed())
 
 			openDriver(ctx, factory)
@@ -1888,6 +1887,73 @@ var _ = Describe("Driver", func() {
 					func() bool { return execCalled.Load() },
 					time.Second*2,
 				).Should(BeTrue())
+			},
+		)
+
+		It(
+			"should start a task while a scanner command runs",
+			func(ctx SpecContext) {
+				var (
+					scanner = newMapScanner()
+					scanKey atomic.Value
+					started = make(chan task.Key, 1)
+				)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						if t.Key == scanKey.Load() {
+							return driver.NewScanTask(driver.ScanTaskConfig{
+								Scanner:            scanner,
+								DB:                 db,
+								Status:             statusSvc,
+								Device:             deviceSvc,
+								Make:               "make-" + uuid.New().String(),
+								ReachableMessage:   "Broker connected",
+								UnreachableMessage: "Failed to reach broker",
+								Task:               t,
+								Interval:           time.Hour,
+							})
+						}
+						return &mockTask{
+							key: t.Key,
+							execFunc: func(_ context.Context, cmd task.Command) error {
+								if cmd.Type == "start" {
+									started <- t.Key
+								}
+								return nil
+							},
+						}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				scanTask := newTask(embeddedRackKey(ctx))
+				other := newTask(embeddedRackKey(ctx))
+				scanKey.Store(scanTask.Key)
+				Expect(taskWriter.Create(ctx, &scanTask)).To(Succeed())
+				Expect(taskWriter.Create(ctx, &other)).To(Succeed())
+				writeCommand(ctx, task.Command{Task: scanTask.Key, Type: "start"})
+				Eventually(func() bool {
+					return retrieveStatus[task.StatusDetails](
+						ctx, scanTask.OntologyID().String(),
+					).Details.Running
+				}).Should(BeTrue())
+				writeCommand(ctx, task.Command{
+					Task: scanTask.Key, Type: "wait", Key: "cmd-wait",
+				})
+				Eventually(scanner.waiting.Load).Should(BeEquivalentTo(1))
+
+				writeCommand(ctx, task.Command{Task: other.Key, Type: "start"})
+				Eventually(started).Should(Receive(Equal(other.Key)))
+
+				Eventually(scanner.release).Should(BeSent(struct{}{}))
+				Eventually(func() string {
+					return retrieveStatus[task.StatusDetails](
+						ctx, scanTask.OntologyID().String(),
+					).Details.Cmd
+				}).Should(Equal("cmd-wait"))
 			},
 		)
 	})

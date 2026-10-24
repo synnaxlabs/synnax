@@ -122,7 +122,7 @@ var _ = Describe("Service", func() {
 			})).To(Succeed())
 			data := MustSucceed(svc.Edge.Read(ctx, nil, key))
 			Expect(data["tags"]).To(HaveExactElements(
-				HaveKeyWithValue("sparkplug_type", "double"),
+				HaveKeyWithValue("tag_type", "double"),
 			))
 		})
 

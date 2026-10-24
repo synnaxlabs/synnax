@@ -57,11 +57,10 @@ var _ = Describe("Runner", func() {
 			DB:     statusDB,
 			Status: statusSvc,
 			Task:   t,
-			Open: func(context.Context) error {
+			Open: func(context.Context) (func(context.Context) error, error) {
 				opened++
-				return nil
+				return run, nil
 			},
-			Run: run,
 		}))
 		DeferCleanup(func() { Expect(r.Stop(false)).To(Succeed()) })
 		return r
@@ -72,20 +71,17 @@ var _ = Describe("Runner", func() {
 	}
 
 	retrieve := func(ctx context.Context) task.Status {
-		var stat task.Status
-		_ = statusSvc.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-			Entry(&stat).Exec(ctx, nil)
-		return stat
+		GinkgoHelper()
+		return retrieveStatus[task.StatusDetails](ctx, t.OntologyID().String())
 	}
 
 	Describe("NewRunner", func() {
-		It("Should reject a configuration with no hooks", func() {
+		It("Should reject a configuration with no open", func() {
 			Expect(driver.NewRunner(driver.RunnerConfig{
 				DB:     db,
 				Status: statusSvc,
 				Task:   t,
-			})).Error().To(MatchError(ContainSubstring("open")))
+			})).Error().To(MatchError(ContainSubstring("open: must be non-nil")))
 		})
 	})
 
@@ -121,6 +117,25 @@ var _ = Describe("Runner", func() {
 			},
 		)
 
+		It("Should answer the start with the error of a failed open",
+			func(ctx SpecContext) {
+				r := MustSucceed(driver.NewRunner(driver.RunnerConfig{
+					DB:     db,
+					Status: statusSvc,
+					Task:   t,
+					Open: func(context.Context) (func(context.Context) error, error) {
+						return nil, errors.New("port is in use")
+					},
+				}))
+				Expect(r.Start(ctx, "cmd-1")).To(MatchError("port is in use"))
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("port is in use"))
+				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+				Expect(stat.Details.Running).To(BeFalse())
+			},
+		)
+
 		It("Should report a run that ends on its own", func(ctx SpecContext) {
 			r := open(func(context.Context) error { return errors.New("boom") })
 			Expect(r.Start(ctx, "cmd-1")).To(Succeed())
@@ -131,21 +146,57 @@ var _ = Describe("Runner", func() {
 				g.Expect(stat.Details.Running).To(BeFalse())
 			}).Should(Succeed())
 		})
+
+		It("Should report a run that panics, and open a new run on the next start",
+			func(ctx SpecContext) {
+				r := open(func(context.Context) error { panic("decoder broke") })
+				Expect(r.Start(ctx, "cmd-1")).To(Succeed())
+				Eventually(func(g Gomega) {
+					stat := retrieve(ctx)
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("task panicked: decoder broke"))
+					g.Expect(stat.Details.Running).To(BeFalse())
+				}).Should(Succeed())
+				Expect(r.Start(ctx, "cmd-2")).To(Succeed())
+				Expect(opened).To(Equal(2))
+			},
+		)
 	})
 
 	Describe("Report", func() {
-		It("Should warn and restore the running status", func(ctx SpecContext) {
-			r := open(waitRun)
-			Expect(r.Start(ctx, "cmd-1")).To(Succeed())
-			r.Report(ctx, errors.Wrap(driver.ErrTemporary, "flaky"))
-			stat := retrieve(ctx)
-			Expect(stat.Variant).To(Equal(status.VariantWarning))
-			Expect(stat.Message).To(ContainSubstring("flaky"))
-			Expect(stat.Details.Running).To(BeTrue())
-			r.Report(ctx, nil)
-			stat = retrieve(ctx)
-			Expect(stat.Variant).To(Equal(status.VariantSuccess))
-			Expect(stat.Message).To(Equal("Task started successfully"))
-		})
+		It("Should warn with the message of any error and restore the running status",
+			func(ctx SpecContext) {
+				r := open(waitRun)
+				Expect(r.Start(ctx, "cmd-1")).To(Succeed())
+				r.Report(ctx, errors.New("flaky"))
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantWarning))
+				Expect(stat.Message).To(Equal("flaky"))
+				Expect(stat.Details.Running).To(BeTrue())
+				r.Report(ctx, nil)
+				stat = retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantSuccess))
+				Expect(stat.Message).To(Equal("Task started successfully"))
+			},
+		)
+	})
+
+	Describe("ReportError", func() {
+		It("Should write an error status that Report does not clear",
+			func(ctx SpecContext) {
+				r := open(waitRun)
+				Expect(r.Start(ctx, "cmd-1")).To(Succeed())
+				r.ReportError(ctx, "Failed to send event")
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to send event"))
+				Expect(stat.Details.Running).To(BeTrue())
+				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
+				r.Report(ctx, nil)
+				stat = retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to send event"))
+			},
+		)
 	})
 })

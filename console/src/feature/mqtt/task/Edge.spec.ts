@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, mqtt, type Synnax, type task } from "@synnaxlabs/client";
+import { mqtt, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -97,25 +97,16 @@ const addCommandChannel = async (): Promise<void> => {
   fireEvent.click(await screen.findByText("Add command channel"));
 };
 
-const awaitCommandChannel = async (taskKey: task.Key): Promise<channel.Channel> => {
-  let key: channel.Key = 0;
-  await waitFor(async () => {
-    [{ commandChannel: key }] = await retrieveTags(taskKey);
-    expect(key).not.toBe(0);
-  });
-  return await client.channels.retrieve(key);
-};
-
 describe("MQTT Edge form", () => {
   it("should ask for a broker before it shows the form body", async () => {
     await renderTaskFormTab(MQTT.Task.Edge, { task: ZERO_DRAFT });
     await screen.findByText("No device selected");
-    expect(screen.queryByText("Channels")).toBeNull();
+    expect(screen.queryByText("Tags")).toBeNull();
   });
 
   it("should show the node fields, the authority, and the empty state", async () => {
     await renderEdge();
-    await screen.findByText("No channels in task");
+    await screen.findByText("No tags in task");
     await screen.findByPlaceholderText("plant");
     expect(screen.getByPlaceholderText("line1")).toBeTruthy();
     expect(getLabeledInput("Authority").value).toBe("0");
@@ -124,26 +115,26 @@ describe("MQTT Edge form", () => {
 
   it("should add a tag with no channels and the double type", async () => {
     const { draft } = await renderEdge();
-    fireEvent.click(await screen.findByText("Add channel"));
+    fireEvent.click(await screen.findByText("Add tag"));
     await screen.findByPlaceholderText("oven/temperature");
     await findDialogTriggerByText("Channel");
     await findDialogTriggerByText("Double");
     expect(screen.getByText("No command channel")).toBeTruthy();
     await waitFor(async () =>
       expect(await retrieveTags(draft.key)).toMatchObject([
-        { name: "", channel: 0, sparkplugType: "double", commandChannel: 0 },
+        { name: "", channel: 0, tagType: "double", commandChannel: 0 },
       ]),
     );
   });
 
   it("should copy the type of the last tag into a new one", async () => {
-    const { draft } = await renderEdge([createTag("t1", { sparkplugType: "int16" })]);
+    const { draft } = await renderEdge([createTag("t1", { tagType: "int16" })]);
     await screen.findByPlaceholderText("oven/temperature");
-    fireEvent.click(screen.getByText("Add channel"));
+    fireEvent.click(screen.getByText("Add tag"));
     await waitFor(async () =>
       expect(await retrieveTags(draft.key)).toMatchObject([
         { key: "t1" },
-        { sparkplugType: "int16" },
+        { tagType: "int16" },
       ]),
     );
   });
@@ -187,29 +178,18 @@ describe("MQTT Edge form", () => {
     expect(screen.queryByText("No command channel")).toBeNull();
   });
 
-  it("should create a command channel of the type of the tag", async () => {
+  it("should name the command channel of a tag without creating it", async () => {
     const name = uniqueName("zone 1/setpoint");
-    const { draft } = await renderEdge([
-      createTag("t1", { name, channel: 1, sparkplugType: "float" }),
-    ]);
+    const { draft } = await renderEdge([createTag("t1", { name, channel: 1 })]);
     await addCommandChannel();
-    const cmd = await awaitCommandChannel(draft.key);
     const cmdName = `${name.replace(/[ /]/g, "_")}_cmd`;
-    expect(cmd.name).toBe(cmdName);
-    expect(cmd.dataType.toString()).toBe("float32");
-    expect((await client.channels.retrieve(cmd.index)).name).toBe(`${cmdName}_time`);
     await screen.findByText(cmdName);
-  });
-
-  it("should create a virtual command channel for a string tag", async () => {
-    const name = uniqueName("mode");
-    const { draft } = await renderEdge([
-      createTag("t1", { name, channel: 1, sparkplugType: "string" }),
-    ]);
-    await addCommandChannel();
-    const cmd = await awaitCommandChannel(draft.key);
-    expect(cmd.virtual).toBe(true);
-    expect(cmd.dataType.toString()).toBe("string");
+    await waitFor(async () =>
+      expect(await retrieveTags(draft.key)).toMatchObject([
+        { commandChannel: 0, commandChannelName: cmdName },
+      ]),
+    );
+    expect(await client.channels.retrieve({ names: [cmdName] })).toEqual([]);
   });
 
   it("should refuse a command channel for a tag with no name", async () => {
@@ -222,22 +202,31 @@ describe("MQTT Edge form", () => {
         ),
       ).toBe(true),
     );
-    expect(await retrieveTags(draft.key)).toMatchObject([{ commandChannel: 0 }]);
+    const [tag] = await retrieveTags(draft.key);
+    expect(tag.commandChannel).toBe(0);
+    expect(tag.commandChannelName).toBeUndefined();
   });
 
   it("should remove the command channel of a tag without deleting it", async () => {
     const cmd = await createDataChannel();
     const { draft } = await renderEdge([
-      createTag("t1", { name: "setpoint", channel: 1, commandChannel: cmd.key }),
+      createTag("t1", {
+        name: "setpoint",
+        channel: 1,
+        commandChannel: cmd.key,
+        commandChannelName: cmd.name,
+      }),
     ]);
     await screen.findByText(cmd.name);
     await openTagMenu();
     expect(screen.queryByText("Add command channel")).toBeNull();
     fireEvent.click(await screen.findByText("Remove command channel"));
     await screen.findByText("No command channel");
-    await waitFor(async () =>
-      expect(await retrieveTags(draft.key)).toMatchObject([{ commandChannel: 0 }]),
-    );
+    await waitFor(async () => {
+      const [tag] = await retrieveTags(draft.key);
+      expect(tag.commandChannel).toBe(0);
+      expect(tag.commandChannelName).toBeUndefined();
+    });
     expect((await client.channels.retrieve(cmd.key)).key).toBe(cmd.key);
   });
 
@@ -294,7 +283,7 @@ describe("MQTT Edge form", () => {
         name: "setpoint",
         channel: ch.key,
         commandChannel: cmd.key,
-        sparkplugType: "float",
+        tagType: "float",
       });
       const { container, dev, draft } = await renderEdge([tag]);
       const created = await deployAndAwaitTask(
@@ -312,14 +301,16 @@ describe("MQTT Edge form", () => {
       });
     });
 
-    it("should drop a command channel that no longer exists", async () => {
+    it("should create the named command channel of a tag, of the type of the tag", async () => {
       const ch = await createDataChannel();
-      const kept = await createDataChannel();
-      const deleted = await createDataChannel();
-      await client.channels.delete(deleted.key);
+      const cmdName = uniqueName("setpoint_cmd");
       const { container, draft } = await renderEdge([
-        createTag("t1", { name: "a", channel: ch.key, commandChannel: kept.key }),
-        createTag("t2", { name: "b", channel: ch.key, commandChannel: deleted.key }),
+        createTag("t1", {
+          name: "setpoint",
+          channel: ch.key,
+          tagType: "float",
+          commandChannelName: cmdName,
+        }),
       ]);
       const created = await deployAndAwaitTask(
         client,
@@ -327,10 +318,57 @@ describe("MQTT Edge form", () => {
         draft.key,
         MQTT.Task.EDGE_SCHEMAS,
       );
-      expect(created.config.tags.map(({ commandChannel }) => commandChannel)).toEqual([
-        kept.key,
-        0,
+      const cmd = await client.channels.retrieve(created.config.tags[0].commandChannel);
+      expect(cmd.name).toBe(cmdName);
+      expect(cmd.dataType.toString()).toBe("float32");
+      expect((await client.channels.retrieve(cmd.index)).name).toBe(`${cmdName}_time`);
+    });
+
+    it("should create a virtual command channel for a string tag", async () => {
+      const ch = await createDataChannel();
+      const { container, draft } = await renderEdge([
+        createTag("t1", {
+          name: "mode",
+          channel: ch.key,
+          tagType: "string",
+          commandChannelName: uniqueName("mode_cmd"),
+        }),
       ]);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.EDGE_SCHEMAS,
+      );
+      const cmd = await client.channels.retrieve(created.config.tags[0].commandChannel);
+      expect(cmd.virtual).toBe(true);
+      expect(cmd.dataType.toString()).toBe("string");
+    });
+
+    it("should create a command channel again when it no longer exists", async () => {
+      const ch = await createDataChannel();
+      const kept = await createDataChannel();
+      const deleted = await createDataChannel();
+      await client.channels.delete(deleted.key);
+      const name = uniqueName("b");
+      const { container, draft } = await renderEdge([
+        createTag("t1", { name: "a", channel: ch.key, commandChannel: kept.key }),
+        createTag("t2", { name, channel: ch.key, commandChannel: deleted.key }),
+        createTag("t3", { name: "c", channel: ch.key }),
+      ]);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.EDGE_SCHEMAS,
+      );
+      const [a, b, c] = created.config.tags;
+      expect(a.commandChannel).toBe(kept.key);
+      expect(c.commandChannel).toBe(0);
+      expect(b.commandChannel).not.toBe(deleted.key);
+      expect((await client.channels.retrieve(b.commandChannel)).name).toBe(
+        `${name}_cmd`,
+      );
     });
   });
 });

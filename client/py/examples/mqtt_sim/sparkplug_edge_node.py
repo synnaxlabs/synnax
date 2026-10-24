@@ -73,13 +73,11 @@ tsk = mqtt.EdgeTask(
     edge_node="Example",
     authority=200,
     tags=[
-        mqtt.EdgeTag(
-            name="temperature", channel=temperature.key, sparkplug_type="double"
-        ),
+        mqtt.EdgeTag(name="temperature", channel=temperature.key, tag_type="double"),
         mqtt.EdgeTag(
             name="setpoint",
             channel=setpoint.key,
-            sparkplug_type="double",
+            tag_type="double",
             command_channel=setpoint_cmd.key,
         ),
     ],

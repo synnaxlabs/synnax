@@ -22,121 +22,33 @@ type Tag struct {
 	DataType DataType
 }
 
-// Edge is the session state of one edge node: its aliases, its birth-death sequence
-// number, and its message sequence number. It is not safe for concurrent use.
+// Edge is the fixed state of one edge node: its ID and its tags with their aliases. It
+// is safe for concurrent use.
 type Edge struct {
-	tags    []Tag
-	aliases map[string]uint64
-	byAlias map[uint64]Tag
-	bdSeq   uint8
-	seq     uint8
+	node NodeID
+	// tags holds the declared tags in alias order.
+	tags  []tag
+	table tagTable
 }
 
-// NewEdge returns the session state of an edge node that declares tags. The alias of
-// each tag is its position in tags, from 1.
-func NewEdge(tags []Tag) *Edge {
-	e := &Edge{
-		tags:    tags,
-		aliases: make(map[string]uint64, len(tags)),
-		byAlias: make(map[uint64]Tag, len(tags)),
-	}
+// NewEdge returns the edge node node that declares tags. The alias of each tag is its
+// position in tags, from 1.
+func NewEdge(node NodeID, tags []Tag) *Edge {
+	e := &Edge{node: node, tags: make([]tag, len(tags)), table: makeTagTable(len(tags))}
 	for i, t := range tags {
-		alias := uint64(i) + 1
-		e.aliases[t.Name] = alias
-		e.byAlias[alias] = t
+		tg := tag{name: t.Name, alias: uint64(i) + 1, dataType: t.DataType}
+		e.tags[i] = tg
+		e.table.byName[tg.name] = tg
+		e.table.byAlias[tg.alias] = tg
 	}
 	return e
 }
 
-func (e *Edge) bdSeqMetric() *pb.Payload_Metric {
-	return &pb.Payload_Metric{
-		Name:     new(BdSeqMetric),
-		Datatype: new(uint32(Int64)),
-		Value:    &pb.Payload_Metric_LongValue{LongValue: uint64(e.bdSeq)},
-	}
+func (e *Edge) topic(
+	t MessageType,
+) string {
+	return Topic{Type: t, Node: e.node}.String()
 }
-
-// Death returns the NDEATH payload of the current session. An edge node sets it as
-// the last will before it connects, and publishes it before a clean disconnect.
-func (e *Edge) Death() ([]byte, error) {
-	return proto.Marshal(&pb.Payload{Metrics: []*pb.Payload_Metric{e.bdSeqMetric()}})
-}
-
-// Birth returns the NBIRTH payload that starts the sequence of the current session.
-// values holds the current value of each tag by name. A tag with no value is null.
-func (e *Edge) Birth(values map[string]Metric, now telem.TimeStamp) ([]byte, error) {
-	e.seq = 0
-	metrics := make([]*pb.Payload_Metric, 0, len(e.tags)+2)
-	metrics = append(metrics, e.bdSeqMetric(), &pb.Payload_Metric{
-		Name:     new(RebirthMetric),
-		Datatype: new(uint32(Boolean)),
-		Value:    &pb.Payload_Metric_BooleanValue{BooleanValue: false},
-	})
-	for _, t := range e.tags {
-		m := &pb.Payload_Metric{
-			Name:      new(t.Name),
-			Alias:     new(e.aliases[t.Name]),
-			Datatype:  new(uint32(t.DataType)),
-			Timestamp: toMillis(now),
-		}
-		if v, ok := values[t.Name]; ok {
-			if v.Timestamp != 0 {
-				m.Timestamp = toMillis(v.Timestamp)
-			}
-			if err := encodeValue(m, t.DataType, v.Value); err != nil {
-				return nil, errors.Wrapf(err, "tag %s", t.Name)
-			}
-		} else {
-			m.IsNull = new(true)
-		}
-		metrics = append(metrics, m)
-	}
-	return e.marshal(metrics, now)
-}
-
-// Data returns an NDATA payload that carries metrics. Each metric names its tag, and
-// the payload identifies the tag by its alias only. A metric with a zero timestamp
-// takes now.
-func (e *Edge) Data(metrics []Metric, now telem.TimeStamp) ([]byte, error) {
-	out := make([]*pb.Payload_Metric, 0, len(metrics))
-	for _, m := range metrics {
-		alias, ok := e.aliases[m.Name]
-		if !ok {
-			return nil, errors.Newf("tag %s is not a tag of the edge node", m.Name)
-		}
-		dt := e.byAlias[alias].DataType
-		pm := &pb.Payload_Metric{
-			Alias:     new(alias),
-			Datatype:  new(uint32(dt)),
-			Timestamp: toMillis(now),
-		}
-		if m.Timestamp != 0 {
-			pm.Timestamp = toMillis(m.Timestamp)
-		}
-		if err := encodeValue(pm, dt, m.Value); err != nil {
-			return nil, errors.Wrapf(err, "tag %s", m.Name)
-		}
-		out = append(out, pm)
-	}
-	return e.marshal(out, now)
-}
-
-func (e *Edge) marshal(
-	metrics []*pb.Payload_Metric,
-	now telem.TimeStamp,
-) ([]byte, error) {
-	seq := uint64(e.seq)
-	e.seq++
-	return proto.Marshal(&pb.Payload{
-		Timestamp: toMillis(now),
-		Metrics:   metrics,
-		Seq:       &seq,
-	})
-}
-
-// EndSession moves to the next birth-death sequence number. An edge node calls it
-// after each connection ends, before it builds the last will of the next one.
-func (e *Edge) EndSession() { e.bdSeq++ }
 
 // Command is what one NCMD message asks of an edge node.
 type Command struct {
@@ -147,41 +59,159 @@ type Command struct {
 	Metrics []Metric
 }
 
-// DecodeCommand parses the payload of an NCMD message.
-func (e *Edge) DecodeCommand(payload []byte) (Command, error) {
-	var p pb.Payload
-	if err := proto.Unmarshal(payload, &p); err != nil {
-		return Command{}, errors.Wrap(err, "invalid command payload")
-	}
+// Command returns what m asks of the edge node. A message that is not an NCMD message
+// to the edge node asks nothing.
+func (e *Edge) Command(m Message) Command {
 	var cmd Command
-	for _, m := range p.Metrics {
-		if m.GetName() == RebirthMetric {
-			cmd.Rebirth = cmd.Rebirth || m.GetBooleanValue()
+	if m.Topic.Type != NCmd || m.Topic.Node != e.node {
+		return cmd
+	}
+	for _, pm := range m.payload.Metrics {
+		if pm.GetName() == RebirthMetric {
+			cmd.Rebirth = cmd.Rebirth || pm.GetBooleanValue()
 			continue
 		}
-		var (
-			t  Tag
-			ok bool
-		)
-		if m.Name != nil && m.GetName() != "" {
-			alias, known := e.aliases[m.GetName()]
-			t, ok = e.byAlias[alias], known
-		} else if m.Alias != nil {
-			t, ok = e.byAlias[m.GetAlias()]
+		if tg, ok := e.table.resolve(pm); ok {
+			cmd.Metrics = append(cmd.Metrics, decodeMetric(m.payload, pm, tg))
+		}
+	}
+	return cmd
+}
+
+// Sequence is the changing state of an edge node: its birth-death sequence number and
+// its message sequence number. It is not safe for concurrent use.
+type Sequence struct {
+	edge  *Edge
+	bdSeq uint8
+	seq   uint8
+}
+
+// NewSequence returns the sequence state of e, before its first session.
+func NewSequence(e *Edge) *Sequence { return &Sequence{edge: e} }
+
+func (s *Sequence) bdSeqMetric() *pb.Payload_Metric {
+	return &pb.Payload_Metric{
+		Name:     new(BdSeqMetric),
+		Datatype: new(uint32(Int64)),
+		Value:    &pb.Payload_Metric_LongValue{LongValue: uint64(s.bdSeq)},
+	}
+}
+
+// Death returns the NDEATH message of the current session, at quality of service 1. An
+// edge node sets it as the last will before it connects, and publishes it before a
+// clean disconnect.
+func (s *Sequence) Death() (Publication, error) {
+	payload, err := proto.Marshal(
+		&pb.Payload{Metrics: []*pb.Payload_Metric{s.bdSeqMetric()}},
+	)
+	if err != nil {
+		return Publication{}, err
+	}
+	return Publication{Topic: s.edge.topic(NDeath), Payload: payload, QoS: 1}, nil
+}
+
+// Birth returns the NBIRTH message that starts the sequence of the current session.
+// values holds the current value of each tag by name. A tag with no value is null. A
+// birth that fails leaves the sequence as it was.
+func (s *Sequence) Birth(
+	values map[string]Metric,
+	now telem.TimeStamp,
+) (Publication, error) {
+	metrics := make([]*pb.Payload_Metric, 0, len(s.edge.tags)+2)
+	metrics = append(metrics, s.bdSeqMetric(), &pb.Payload_Metric{
+		Name:     new(RebirthMetric),
+		Datatype: new(uint32(Boolean)),
+		Value:    &pb.Payload_Metric_BooleanValue{BooleanValue: false},
+	})
+	for _, t := range s.edge.tags {
+		v, ok := values[t.name]
+		m := &pb.Payload_Metric{
+			Name:      new(t.name),
+			Alias:     new(t.alias),
+			Datatype:  new(uint32(t.dataType)),
+			Timestamp: toMillis(stampOr(v.Timestamp, now)),
 		}
 		if !ok {
+			m.IsNull = new(true)
+		} else if err := encodeValue(m, t.dataType, v.Value); err != nil {
+			return Publication{}, errors.Wrapf(err, "tag %s", t.name)
+		}
+		metrics = append(metrics, m)
+	}
+	payload, err := marshal(metrics, now, 0)
+	if err != nil {
+		return Publication{}, err
+	}
+	s.seq = 1
+	return Publication{Topic: s.edge.topic(NBirth), Payload: payload}, nil
+}
+
+// Data returns an NDATA message that carries the metrics that fit their tags, and those
+// metrics. Each metric names its tag, and the message identifies the tag by its alias
+// only. A metric with a zero timestamp takes now. The error names each metric that Data
+// leaves out. When Data leaves out every metric, the payload is nil and the sequence
+// does not move.
+func (s *Sequence) Data(
+	metrics []Metric,
+	now telem.TimeStamp,
+) (pub Publication, carried []Metric, err error) {
+	out := make([]*pb.Payload_Metric, 0, len(metrics))
+	carried = make([]Metric, 0, len(metrics))
+	for _, m := range metrics {
+		pm := &pb.Payload_Metric{Timestamp: toMillis(stampOr(m.Timestamp, now))}
+		tg, encodeErr := s.edge.encode(pm, m)
+		if encodeErr != nil {
+			err = errors.Join(err, encodeErr)
 			continue
 		}
-		dt := t.DataType
-		if m.Datatype != nil {
-			dt = DataType(m.GetDatatype())
-		}
-		cmd.Metrics = append(cmd.Metrics, Metric{
-			Name:      t.Name,
-			DataType:  dt,
-			Value:     decodeValue(m, dt),
-			Timestamp: timestampOf(&p, m),
-		})
+		pm.Alias, pm.Datatype = new(tg.alias), new(uint32(tg.dataType))
+		out = append(out, pm)
+		carried = append(carried, m)
 	}
-	return cmd, nil
+	if err != nil && len(out) == 0 {
+		return Publication{}, nil, err
+	}
+	payload, marshalErr := marshal(out, now, s.seq)
+	if marshalErr != nil {
+		return Publication{}, nil, marshalErr
+	}
+	s.seq++
+	return Publication{Topic: s.edge.topic(NData), Payload: payload}, carried, err
+}
+
+// EndSession moves to the next birth-death sequence number. An edge node calls it after
+// each connection ends, before it builds the last will of the next one.
+func (s *Sequence) EndSession() { s.bdSeq++ }
+
+// encode sets the value of pm to the value of m as the data type of the tag that m
+// names, and returns that tag.
+func (e *Edge) encode(pm *pb.Payload_Metric, m Metric) (tag, error) {
+	tg, ok := e.table.byName[m.Name]
+	if !ok {
+		return tg, errors.Newf("tag %s is not a tag of the edge node", m.Name)
+	}
+	if err := encodeValue(pm, tg.dataType, m.Value); err != nil {
+		return tg, errors.Wrapf(err, "tag %s", m.Name)
+	}
+	return tg, nil
+}
+
+// stampOr returns stamp, or now when stamp is zero.
+func stampOr(stamp, now telem.TimeStamp) telem.TimeStamp {
+	if stamp == 0 {
+		return now
+	}
+	return stamp
+}
+
+func marshal(
+	metrics []*pb.Payload_Metric,
+	now telem.TimeStamp,
+	seq uint8,
+) ([]byte, error) {
+	return proto.Marshal(&pb.Payload{
+		Timestamp: toMillis(now),
+		Metrics:   metrics,
+		Seq:       new(uint64(seq)),
+	})
 }

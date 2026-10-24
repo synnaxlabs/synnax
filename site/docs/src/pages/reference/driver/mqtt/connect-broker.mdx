@@ -49,7 +49,7 @@ following:
 | `name`                 | string  | Yes      | -       | Human-readable broker name for identification in Console               |
 | `rack`                 | integer | Yes      | -       | Key of the rack of the Core that connects to the broker                |
 | `host`                 | string  | Yes      | -       | Host name or address of the broker (e.g., `192.168.1.50`)              |
-| `port`                 | integer | No       | `0`     | TCP port. `0` selects `1883`, or `8883` when `secure` is `true`        |
+| `port`                 | integer | No       | `1883`  | TCP port, from 1 to 65535. Defaults to `8883` when `secure` is `true`  |
 | `secure`               | boolean | No       | `false` | Connect with TLS                                                       |
 | `verification_skipped` | boolean | No       | `false` | Accept any broker certificate                                          |
 | `ca_file`              | string  | No       | `""`    | Path on the Core host to the CA certificates that verify the broker    |
@@ -58,7 +58,7 @@ following:
 | `username`             | string  | No       | `""`    | Username for the broker                                                |
 | `password`             | string  | No       | `""`    | Password for the broker                                                |
 | `client_id`            | string  | No       | `""`    | MQTT client ID. When empty, Synnax derives a stable ID from the device |
-| `keep_alive`           | integer | No       | `0`     | Keep-alive interval in seconds. `0` selects `30`                       |
+| `keep_alive`           | integer | No       | `30`    | Keep-alive interval in seconds. Must be greater than zero              |
 | `host_id`              | string  | No       | `""`    | [Sparkplug B](/reference/driver/mqtt/sparkplug) host application ID    |
 | `groups`               | array   | No       | `[]`    | [Sparkplug B](/reference/driver/mqtt/sparkplug) groups to browse       |
 

@@ -12,7 +12,6 @@ package json
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-	stderrors "errors"
 	"math"
 	"strconv"
 	"strings"
@@ -98,7 +97,7 @@ var decodeOptions = json.JoinOptions(
 	json.WithUnmarshalers(json.UnmarshalFromFunc(
 		func(dec *jsontext.Decoder, v *any) error {
 			if dec.PeekKind() != '0' {
-				return stderrors.ErrUnsupported
+				return errors.ErrUnsupported
 			}
 			text, err := dec.ReadValue()
 			if err != nil {
@@ -130,13 +129,20 @@ func Marshal(doc any) ([]byte, error) {
 // EnumMap maps string labels in a JSON document to numeric sample values.
 type EnumMap map[string]float64
 
-// SupportsSampleTarget reports whether AppendSample can produce samples of dt.
-func SupportsSampleTarget(dt telem.DataType) bool {
+// CheckToSample returns an error wrapping ErrConversion, naming dt, when AppendSample
+// cannot produce samples of dt.
+func CheckToSample(dt telem.DataType) error {
+	if numeric(dt) || dt == telem.TimestampT || dt == telem.StringT {
+		return nil
+	}
+	return errors.Wrapf(ErrConversion, "cannot convert a JSON value to %s", dt)
+}
+
+func numeric(dt telem.DataType) bool {
 	switch dt {
 	case telem.Float64T, telem.Float32T,
 		telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T,
-		telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T,
-		telem.TimestampT, telem.StringT:
+		telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T:
 		return true
 	}
 	return false
@@ -144,12 +150,13 @@ func SupportsSampleTarget(dt telem.DataType) bool {
 
 // AppendSample converts value to one sample of dt and appends its series encoding to
 // dst, in the manner of strconv.AppendInt. value is a node of a document from Decode,
-// which keeps full 64-bit integer precision.
+// which keeps full 64-bit integer precision, or a Go int64, uint64, float64, or bool.
 //
 // Numbers, booleans (as 1 and 0), and numeric strings convert to numeric types. A
-// string found in enums converts to its mapped number. Any value converts to a
-// string, as its JSON text when it is not already a string. format applies only when dt
-// is telem.TimestampT.
+// numeric string has the syntax of strconv.ParseFloat, which includes "NaN", "Inf", and
+// hexadecimal floats. A string found in enums converts to its mapped number. Any value
+// converts to a string, as its JSON text when it is not already a string. format
+// applies only when dt is telem.TimestampT.
 //
 // AppendSample returns an error wrapping ErrConversion when the value has a fractional
 // part or is out of bounds for an integer type, or when the value and dt are
@@ -169,16 +176,16 @@ func AppendSample(
 	if marshalErr != nil {
 		text = []byte("<unencodable>")
 	}
-	if msg := err.Error(); msg != "" {
-		return nil, errors.Wrapf(
-			ErrConversion, "cannot convert %s to %s: %s", text, dt, msg,
-		)
+	if errors.Is(err, errIncompatible) {
+		return nil, errors.Wrapf(ErrConversion, "cannot convert %s to %s", text, dt)
 	}
-	return nil, errors.Wrapf(ErrConversion, "cannot convert %s to %s", text, dt)
+	return nil, errors.Wrapf(
+		ErrConversion, "cannot convert %s to %s: %s", text, dt, err.Error(),
+	)
 }
 
 // errIncompatible marks a value whose JSON type can never convert to the target.
-var errIncompatible = errors.New("")
+var errIncompatible = errors.New("incompatible value and data type")
 
 func appendSample(
 	dst []byte,
@@ -196,19 +203,25 @@ func appendSample(
 	}
 	if dt == telem.StringT {
 		if s, ok := value.(string); ok {
-			return append(dst, telem.MarshalVariableSample([]byte(s))...), nil
+			return appendVariableSample(dst, s), nil
 		}
 		text, err := Marshal(value)
 		if err != nil {
 			return dst, err
 		}
-		return append(dst, telem.MarshalVariableSample(text)...), nil
+		return appendVariableSample(dst, text), nil
 	}
 	n, err := toNumber(value, dt, enums)
 	if err != nil {
 		return dst, err
 	}
 	return appendNumber(dst, dt, n)
+}
+
+// appendVariableSample appends sample in the layout of telem.MarshalVariableSample.
+func appendVariableSample[T string | []byte](dst []byte, sample T) []byte {
+	dst = telem.ByteOrder.AppendUint32(dst, uint32(len(sample)))
+	return append(dst, sample...)
 }
 
 // number is a JSON number held in the widest form that represents it exactly.
@@ -333,10 +346,13 @@ func (n number) int64() (int64, error) {
 		}
 		return int64(n.u), nil
 	}
+	if math.IsNaN(n.f) {
+		return 0, errOutOfBounds
+	}
 	if n.f != math.Trunc(n.f) {
 		return 0, errFractional
 	}
-	if math.IsNaN(n.f) || n.f < -two63 || n.f >= two63 {
+	if n.f < -two63 || n.f >= two63 {
 		return 0, errOutOfBounds
 	}
 	return int64(n.f), nil
@@ -349,10 +365,13 @@ func (n number) uint64() (uint64, error) {
 	case kindUint:
 		return n.u, nil
 	}
+	if math.IsNaN(n.f) {
+		return 0, errOutOfBounds
+	}
 	if n.f != math.Trunc(n.f) {
 		return 0, errFractional
 	}
-	if math.IsNaN(n.f) || n.f < 0 || n.f >= two64 {
+	if n.f < 0 || n.f >= two64 {
 		return 0, errOutOfBounds
 	}
 	return uint64(n.f), nil
@@ -464,14 +483,20 @@ func scaleTimeStamp(n number, format TimeFormat) (telem.TimeStamp, error) {
 // space as the date and time separator and a lowercase "z", which RFC 3339 §5.6
 // permits and time.Parse rejects.
 func parseISO8601(text string) (telem.TimeStamp, error) {
-	normalized := []byte(text)
-	if len(normalized) > 10 && (normalized[10] == 't' || normalized[10] == ' ') {
-		normalized[10] = 'T'
+	separator := len(text) > 10 && (text[10] == 't' || text[10] == ' ')
+	last := len(text) - 1
+	zone := last >= 0 && text[last] == 'z'
+	if separator || zone {
+		normalized := []byte(text)
+		if separator {
+			normalized[10] = 'T'
+		}
+		if zone {
+			normalized[last] = 'Z'
+		}
+		text = string(normalized)
 	}
-	if last := len(normalized) - 1; last >= 0 && normalized[last] == 'z' {
-		normalized[last] = 'Z'
-	}
-	t, err := time.Parse(time.RFC3339Nano, string(normalized))
+	t, err := time.Parse(time.RFC3339Nano, text)
 	if err != nil {
 		return 0, errors.Newf("not a valid ISO 8601 timestamp: %s", err.Error())
 	}
@@ -519,17 +544,6 @@ func (t Type) String() string {
 	return "number"
 }
 
-// ZeroValue returns the zero value of t: 0, "", or false.
-func ZeroValue(t Type) any {
-	switch t {
-	case String:
-		return ""
-	case Boolean:
-		return false
-	}
-	return 0
-}
-
 // ReverseEnumMap maps numeric sample values to string labels in a JSON document.
 type ReverseEnumMap map[float64]string
 
@@ -537,11 +551,7 @@ type ReverseEnumMap map[float64]string
 // returns an error wrapping ErrConversion when it cannot: a string sample converts
 // only to String, and timestamps and other non-numeric types do not convert.
 func CheckFromSample(dt telem.DataType, target Type) error {
-	if dt == telem.StringT {
-		if target == String {
-			return nil
-		}
-	} else if dt != telem.TimestampT && SupportsSampleTarget(dt) {
+	if numeric(dt) || (dt == telem.StringT && target == String) {
 		return nil
 	}
 	return errors.Wrapf(ErrConversion, "cannot convert %s to a JSON %s", dt, target)

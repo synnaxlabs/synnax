@@ -64,22 +64,21 @@ online. Each host ID must be in use by one application only.
 Add an entry of type `"sparkplug"` to the `entries` of a
 [read task](/reference/driver/mqtt/read-task).
 
-| Parameter   | Type    | Required | Default     | Description                                                      |
-| ----------- | ------- | -------- | ----------- | ---------------------------------------------------------------- |
-| `type`      | string  | Yes      | -           | `"sparkplug"`                                                    |
-| `group`     | string  | Yes      | -           | See [Identify a tag](#identify-a-tag)                            |
-| `edge_node` | string  | Yes      | -           | See [Identify a tag](#identify-a-tag)                            |
-| `device`    | string  | No       | `""`        | See [Identify a tag](#identify-a-tag)                            |
-| `tag`       | string  | Yes      | -           | See [Identify a tag](#identify-a-tag)                            |
-| `channel`   | integer | Yes      | -           | Key of the Synnax channel to write to                            |
-| `index`     | integer | No       | `0`         | Key of the index channel of `channel`. `0` for a virtual channel |
-| `data_type` | string  | No       | `"float64"` | Data type of the channel                                         |
-| `disabled`  | boolean | No       | `false`     | Excludes the entry from the task                                 |
+| Parameter   | Type    | Required | Default     | Description                           |
+| ----------- | ------- | -------- | ----------- | ------------------------------------- |
+| `type`      | string  | Yes      | -           | `"sparkplug"`                         |
+| `group`     | string  | Yes      | -           | See [Identify a tag](#identify-a-tag) |
+| `edge_node` | string  | Yes      | -           | See [Identify a tag](#identify-a-tag) |
+| `device`    | string  | No       | `""`        | See [Identify a tag](#identify-a-tag) |
+| `tag`       | string  | Yes      | -           | See [Identify a tag](#identify-a-tag) |
+| `channel`   | integer | Yes      | -           | Key of the Synnax channel to write to |
+| `data_type` | string  | No       | `"float64"` | Data type of the channel              |
+| `disabled`  | boolean | No       | `false`     | Excludes the entry from the task      |
 
 Each value of a tag carries the time at which the edge node took it, and the task writes
-that time to the index channel. Tags change at different times, so give each tag an
-index channel of its own. The task drops a value whose timestamp is not after the last
-one it wrote, and shows a warning.
+that time to the index channel of `channel`. Tags change at different times, so give
+each tag an index channel of its own. The task drops a value whose timestamp is not
+after the last one it wrote, and shows a warning.
 
 The task converts each value to the data type of the channel. It supports the integer,
 `Float`, `Double`, `Boolean`, `String`, `Text`, `UUID`, and `DateTime` data types of
@@ -108,21 +107,21 @@ Add a target of type `"sparkplug"` to the `targets` of a
 [write task](/reference/driver/mqtt/write-task). Each value written to the command
 channel becomes one `NCMD` message, or one `DCMD` message for a tag of a device.
 
-| Parameter        | Type    | Required | Default    | Description                                       |
-| ---------------- | ------- | -------- | ---------- | ------------------------------------------------- |
-| `type`           | string  | Yes      | -          | `"sparkplug"`                                     |
-| `group`          | string  | Yes      | -          | See [Identify a tag](#identify-a-tag)             |
-| `edge_node`      | string  | Yes      | -          | See [Identify a tag](#identify-a-tag)             |
-| `device`         | string  | No       | `""`       | See [Identify a tag](#identify-a-tag)             |
-| `tag`            | string  | Yes      | -          | See [Identify a tag](#identify-a-tag)             |
-| `channel`        | integer | Yes      | -          | Key of the command channel                        |
-| `sparkplug_type` | string  | No       | `"double"` | Data type that the edge node declares for the tag |
-| `disabled`       | boolean | No       | `false`    | Excludes the target from the task                 |
+| Parameter   | Type    | Required | Default    | Description                                       |
+| ----------- | ------- | -------- | ---------- | ------------------------------------------------- |
+| `type`      | string  | Yes      | -          | `"sparkplug"`                                     |
+| `group`     | string  | Yes      | -          | See [Identify a tag](#identify-a-tag)             |
+| `edge_node` | string  | Yes      | -          | See [Identify a tag](#identify-a-tag)             |
+| `device`    | string  | No       | `""`       | See [Identify a tag](#identify-a-tag)             |
+| `tag`       | string  | Yes      | -          | See [Identify a tag](#identify-a-tag)             |
+| `channel`   | integer | Yes      | -          | Key of the command channel                        |
+| `tag_type`  | string  | No       | `"double"` | Data type that the edge node declares for the tag |
+| `disabled`  | boolean | No       | `false`    | Excludes the target from the task                 |
 
-`sparkplug_type` is one of `int8`, `int16`, `int32`, `int64`, `uint8`, `uint16`,
-`uint32`, `uint64`, `float`, `double`, `boolean`, `string`, or `date_time`. The task
-rejects a command channel whose data type can never fit, such as a string channel for a
-`double` tag. It drops a value that is out of range for the type, and shows a warning.
+`tag_type` is one of `int8`, `int16`, `int32`, `int64`, `uint8`, `uint16`, `uint32`,
+`uint64`, `float`, `double`, `boolean`, `string`, or `date_time`. The task rejects a
+command channel whose data type can never fit, such as a string channel for a `double`
+tag. It drops a value that is out of range for the type, and shows a warning.
 
 <Note.Note variant="info" className="compact">
   Sparkplug B sends every command at quality of service 0, and it has no reply. To
@@ -152,7 +151,7 @@ Each tag:
 | ----------------- | ------- | -------- | ---------- | -------------------------------------------------------------------- |
 | `name`            | string  | Yes      | -          | Name of the tag (e.g., `Motor/RPM`)                                  |
 | `channel`         | integer | Yes      | -          | Key of the Synnax channel that the tag publishes                     |
-| `sparkplug_type`  | string  | No       | `"double"` | Data type that the tag declares                                      |
+| `tag_type`        | string  | No       | `"double"` | Data type that the tag declares                                      |
 | `command_channel` | integer | No       | `0`        | Key of the channel that takes commands for the tag. `0` rejects them |
 | `disabled`        | boolean | No       | `false`    | Excludes the tag from the task                                       |
 
@@ -235,7 +234,6 @@ task = sy.mqtt.ReadTask(
             edge_node="Line1",
             tag="temperature",
             channel=temperature.key,
-            index=temperature.index,
             data_type="float64",
         ),
         # A tag of the device Pump1
@@ -245,7 +243,6 @@ task = sy.mqtt.ReadTask(
             device="Pump1",
             tag="speed",
             channel=speed.key,
-            index=speed.index,
             data_type="float32",
         ),
     ],
@@ -293,7 +290,7 @@ task = sy.mqtt.WriteTask(
             device="Pump1",
             tag="setpoint",
             channel=cmd.key,
-            sparkplug_type="double",
+            tag_type="double",
         ),
     ],
 )
@@ -343,13 +340,11 @@ task = sy.mqtt.EdgeTask(
     edge_node="Line1",
     authority=200,
     tags=[
-        sy.mqtt.EdgeTag(
-            name="temperature", channel=temperature.key, sparkplug_type="double"
-        ),
+        sy.mqtt.EdgeTag(name="temperature", channel=temperature.key, tag_type="double"),
         sy.mqtt.EdgeTag(
             name="setpoint",
             channel=setpoint.key,
-            sparkplug_type="double",
+            tag_type="double",
             command_channel=setpoint_cmd.key,
         ),
     ],

@@ -34,6 +34,7 @@ import {
   ZERO_PROPERTIES,
 } from "@/feature/mqtt/device/types";
 import { TEST_CONNECTION_COMMAND_TYPE } from "@/feature/mqtt/task/types";
+import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { type Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
@@ -63,7 +64,7 @@ const beforeSave = async ({
   PDevice.FormSchema<typeof SCHEMAS>
 >) => {
   const scanTask = await retrieveScanTask(client, get<rack.Key>("rack").value);
-  // Command arguments skip case conversion on the wire; the driver reads snake case.
+  // Command arguments skip case conversion on the wire; the Core reads snake case.
   const properties = caseconv.camelToSnake(get<Properties>("properties").value, {
     schema: SCHEMAS.properties,
   });
@@ -87,6 +88,7 @@ const beforeSave = async ({
 
 export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
   ({ deviceKey, close }) => {
+    const { capture } = Analytics.use();
     const {
       form,
       save,
@@ -95,7 +97,10 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
     } = useForm({
       query: deviceKey == null ? null : { key: deviceKey },
       beforeSave,
-      afterSave: useCallback(() => close(), [close]),
+      afterSave: useCallback(() => {
+        if (deviceKey == null) capture("device_connected", { integration: "mqtt" });
+        close();
+      }, [capture, close, deviceKey]),
     });
 
     const secure = Form.useFieldValue<
@@ -121,11 +126,9 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
                   label="Host"
                   inputProps={HOST_INPUT_PROPS}
                 />
-                <Form.NumericField
-                  path="properties.port"
-                  label="Port"
-                  inputProps={secure ? SECURE_PORT_INPUT_PROPS : PORT_INPUT_PROPS}
-                />
+                <Form.Field<number | undefined> path="properties.port" label="Port">
+                  {secure ? renderSecurePort : renderPort}
+                </Form.Field>
                 <Form.SwitchField path="properties.secure" label="TLS" />
               </Flex.Box>
               <Divider.Divider x />
@@ -180,11 +183,12 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
                   label="Client ID"
                   inputProps={CLIENT_ID_INPUT_PROPS}
                 />
-                <Form.NumericField
+                <Form.Field<number | undefined>
                   path="properties.keepAlive"
                   label="Keep alive"
-                  inputProps={KEEP_ALIVE_INPUT_PROPS}
-                />
+                >
+                  {renderKeepAlive}
+                </Form.Field>
               </Flex.Box>
               <Divider.Divider x />
             </Flex.Box>
@@ -277,10 +281,8 @@ const HOST_INPUT_PROPS = {
   placeholder: "broker.example.com",
 } as const;
 
-// A port of 0 selects the default, which the placeholder names.
+// An empty port selects the default, which the placeholder names.
 const PORT_INPUT_PROPS = {
-  bounds: { lower: 0, upper: 65535 },
-  emptyValue: 0,
   placeholder: "1883",
   style: { width: "23rem" },
 } as const;
@@ -300,9 +302,20 @@ const CLIENT_ID_INPUT_PROPS = {
 } as const;
 
 const KEEP_ALIVE_INPUT_PROPS = {
-  bounds: { lower: 0, upper: Infinity },
-  emptyValue: 0,
   endContent: "s",
   placeholder: "30",
   style: { width: "23rem" },
 } as const;
+
+const createOptionalNumericRenderProp = (
+  props: Omit<Input.NumericProps, "value" | "onChange" | "onClear">,
+) =>
+  Component.renderProp((p: Input.Control<number | undefined>) => (
+    <Input.Numeric {...p} {...props} onClear={() => p.onChange(undefined)} />
+  ));
+
+const renderPort = createOptionalNumericRenderProp(PORT_INPUT_PROPS);
+
+const renderSecurePort = createOptionalNumericRenderProp(SECURE_PORT_INPUT_PROPS);
+
+const renderKeepAlive = createOptionalNumericRenderProp(KEEP_ALIVE_INPUT_PROPS);

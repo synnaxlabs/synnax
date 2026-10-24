@@ -27,22 +27,27 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Sink sends the frames that a WriteTask streams from the Core to hardware or a
-// network service.
+// Sink opens the writes of a WriteTask.
 type Sink interface {
-	// Start acquires what the sink needs to send frames.
-	Start(ctx context.Context) error
-	// Write sends one frame. For an error that matches ErrTemporary the task warns,
-	// drops the frame, and keeps running: a command that waits out an outage is
-	// stale when it arrives. Any other error stops the task.
+	// Open acquires what the writes of one run need and returns the Writer that owns
+	// it. Its error answers the start command.
+	Open(ctx context.Context) (Writer, error)
+}
+
+// Writer sends the frames that one run of a WriteTask streams from the Core to hardware
+// or a network service. The task calls Write and Health from different goroutines.
+type Writer interface {
+	// Write sends one frame. For an error that matches ErrTemporary or ErrDegraded the
+	// task warns, drops the frame, and keeps running: a command that waits out an
+	// outage is stale when it arrives. Any other error stops the task.
 	Write(ctx context.Context, fr framer.Frame) error
-	// Health blocks until the health of the sink changes or ctx is cancelled. A nil
-	// error reports a healthy sink. For an error that matches ErrTemporary the task
+	// Health blocks until the health of the writer changes or ctx is cancelled. A nil
+	// error reports a healthy writer. For an error that matches ErrTemporary the task
 	// warns until the next nil error. Any other error stops the task.
 	Health(ctx context.Context) error
-	// Stop releases what Start acquired. The task calls it after the last Write
-	// returns.
-	Stop() error
+	// Close releases what Open acquired. The task calls it after the last Write and
+	// Health return.
+	Close() error
 }
 
 // WriteTaskConfig is the configuration for a WriteTask.
@@ -107,9 +112,7 @@ func (c WriteTaskConfig) Validate() error {
 // task status. Safe for concurrent use.
 type WriteTask struct {
 	*Runner
-	// streamer is opened by a start and consumed by the run that follows it.
-	streamer framer.Streamer
-	cfg      WriteTaskConfig
+	cfg WriteTaskConfig
 }
 
 var _ Task = (*WriteTask)(nil)
@@ -127,38 +130,43 @@ func NewWriteTask(cfgs ...WriteTaskConfig) (*WriteTask, error) {
 		Instrumentation: cfg.Instrumentation,
 		Task:            cfg.Task,
 		Open:            t.open,
-		Run:             t.run,
 	})
 	return t, err
 }
 
-func (t *WriteTask) open(ctx context.Context) (err error) {
-	if err = t.cfg.Sink.Start(ctx); err != nil {
-		return err
+func (t *WriteTask) open(ctx context.Context) (func(context.Context) error, error) {
+	w, err := t.cfg.Sink.Open(ctx)
+	if err != nil {
+		return nil, err
 	}
-	if t.streamer, err = t.cfg.Framer.NewStreamer(
+	streamer, err := t.cfg.Framer.NewStreamer(
 		ctx, framer.StreamerConfig{Keys: t.cfg.Channels},
-	); err != nil {
-		return errors.Combine(err, t.cfg.Sink.Stop())
+	)
+	if err != nil {
+		return nil, errors.Combine(err, w.Close())
 	}
-	return nil
+	return func(ctx context.Context) error { return t.run(ctx, w, streamer) }, nil
 }
 
-func (t *WriteTask) run(ctx context.Context) (err error) {
-	defer func() { err = errors.Combine(err, t.cfg.Sink.Stop()) }()
+func (t *WriteTask) run(
+	ctx context.Context,
+	w Writer,
+	streamer framer.Streamer,
+) (err error) {
+	defer func() { err = errors.Combine(err, w.Close()) }()
 	var (
 		requests  = confluence.NewStream[framer.StreamerRequest]()
 		responses = confluence.NewStream[framer.StreamerResponse](10)
 	)
-	t.streamer.InFrom(requests)
-	t.streamer.OutTo(responses)
+	streamer.InFrom(requests)
+	streamer.OutTo(responses)
 	// A routine never starts under a cancelled context, and then never closes its
 	// outlets. The streamer runs apart from ctx, so the drain below always ends.
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.cfg.Instrumentation),
 	)
 	defer cancel()
-	t.streamer.Flow(
+	streamer.Flow(
 		sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic(),
 	)
 	var (
@@ -167,7 +175,7 @@ func (t *WriteTask) run(ctx context.Context) (err error) {
 	)
 	sCtx.Go(func(context.Context) error {
 		for {
-			hErr := t.cfg.Sink.Health(healthCtx)
+			hErr := w.Health(healthCtx)
 			if healthCtx.Err() != nil {
 				return nil
 			}
@@ -202,8 +210,8 @@ func (t *WriteTask) run(ctx context.Context) (err error) {
 			if res.Frame.Empty() {
 				continue
 			}
-			wErr := t.cfg.Sink.Write(ctx, res.Frame)
-			if wErr != nil && !errors.Is(wErr, ErrTemporary) {
+			wErr := w.Write(ctx, res.Frame)
+			if wErr != nil && !errors.IsAny(wErr, ErrTemporary, ErrDegraded) {
 				return wErr
 			}
 			t.Report(ctx, wErr)

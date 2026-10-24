@@ -11,6 +11,7 @@ package driver_test
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 	"time"
 	"uuid"
@@ -36,21 +37,24 @@ type readResult struct {
 	frame framer.Frame
 }
 
-// queueSource is a driver.Source that returns the results a spec queues.
+// queueSource is a driver.Source whose Reader returns the results a spec queues.
 type queueSource struct {
-	startErr error
-	results  chan readResult
-	starts   atomic.Int32
-	stops    atomic.Int32
+	openErr error
+	results chan readResult
+	opens   atomic.Int32
+	closes  atomic.Int32
 }
 
 func newQueueSource() *queueSource {
 	return &queueSource{results: make(chan readResult, 10)}
 }
 
-func (s *queueSource) Start(context.Context) error {
-	s.starts.Add(1)
-	return s.startErr
+func (s *queueSource) Open(context.Context) (driver.Reader, error) {
+	s.opens.Add(1)
+	if s.openErr != nil {
+		return nil, s.openErr
+	}
+	return s, nil
 }
 
 func (s *queueSource) Read(ctx context.Context) (framer.Frame, error) {
@@ -62,8 +66,8 @@ func (s *queueSource) Read(ctx context.Context) (framer.Frame, error) {
 	}
 }
 
-func (s *queueSource) Stop() error {
-	s.stops.Add(1)
+func (s *queueSource) Close() error {
+	s.closes.Add(1)
 	return nil
 }
 
@@ -116,11 +120,13 @@ var _ = Describe("ReadTask", func() {
 	}
 
 	retrieve := func(ctx context.Context) task.Status {
-		var stat task.Status
-		_ = statusSvc.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-			Entry(&stat).Exec(ctx, nil)
-		return stat
+		GinkgoHelper()
+		return retrieveStatus[task.StatusDetails](ctx, t.OntologyID().String())
+	}
+
+	// name formats ch as an error message names it.
+	name := func(ch channel.Channel) string {
+		return fmt.Sprintf("[%s]<%d>", ch.Name, ch.Key())
 	}
 
 	samples := func(seconds ...telem.TimeStamp) readResult {
@@ -192,7 +198,7 @@ var _ = Describe("ReadTask", func() {
 				Expect(stopped.Message).To(Equal("Task stopped successfully"))
 				Expect(stopped.Details.Running).To(BeFalse())
 				Expect(stopped.Details.Cmd).To(Equal("cmd-2"))
-				Expect(src.stops.Load()).To(BeEquivalentTo(1))
+				Expect(src.closes.Load()).To(BeEquivalentTo(1))
 
 				iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
 					Keys:   []channel.Key{dataCh.Key()},
@@ -205,13 +211,13 @@ var _ = Describe("ReadTask", func() {
 			},
 		)
 
-		It("Should answer a start for a running task without a second source start",
+		It("Should answer a start for a running task without a second source open",
 			func(ctx SpecContext) {
 				rt := open(breaker.InfiniteRetries)
 				Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
 				Expect(rt.Exec(ctx, task.Command{Type: "start", Key: "cmd-3"})).
 					To(Succeed())
-				Expect(src.starts.Load()).To(BeEquivalentTo(1))
+				Expect(src.opens.Load()).To(BeEquivalentTo(1))
 				stat := retrieve(ctx)
 				Expect(stat.Details.Cmd).To(Equal("cmd-3"))
 				Expect(stat.Details.Running).To(BeTrue())
@@ -225,15 +231,15 @@ var _ = Describe("ReadTask", func() {
 			stat := retrieve(ctx)
 			Expect(stat.Details.Cmd).To(Equal("cmd-4"))
 			Expect(stat.Details.Running).To(BeFalse())
-			Expect(src.stops.Load()).To(BeZero())
+			Expect(src.closes.Load()).To(BeZero())
 		})
 
-		It("Should answer the start with the error of a source that fails to start",
+		It("Should answer the start with the error of a source that fails to open",
 			func(ctx SpecContext) {
-				src.startErr = errors.New("broker refused the connection")
+				src.openErr = errors.New("broker refused the connection")
 				rt := open(breaker.InfiniteRetries)
 				Expect(rt.Exec(ctx, task.Command{Type: "start", Key: "cmd-5"})).
-					To(MatchError(ContainSubstring("broker refused the connection")))
+					To(MatchError("broker refused the connection"))
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("broker refused the connection"))
@@ -254,7 +260,7 @@ var _ = Describe("ReadTask", func() {
 			rt := open(breaker.InfiniteRetries)
 			Expect(rt.Start(ctx, "cmd-6")).To(Succeed())
 			Expect(rt.Stop(false)).To(Succeed())
-			Expect(src.stops.Load()).To(BeEquivalentTo(1))
+			Expect(src.closes.Load()).To(BeEquivalentTo(1))
 			stat := retrieve(ctx)
 			Expect(stat.Message).To(Equal("Task started successfully"))
 		})
@@ -266,13 +272,14 @@ var _ = Describe("ReadTask", func() {
 				rt := open(breaker.InfiniteRetries)
 				Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
 				src.results <- readResult{
-					err: errors.Wrap(driver.ErrTemporary, "broker connection lost"),
+					err: errors.Mark(
+						errors.New("broker connection lost"), driver.ErrTemporary,
+					),
 				}
 				Eventually(func(g Gomega) {
 					stat := retrieve(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).
-						To(ContainSubstring("broker connection lost"))
+					g.Expect(stat.Message).To(Equal("broker connection lost"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).Should(Succeed())
 				src.results <- readResult{}
@@ -289,12 +296,14 @@ var _ = Describe("ReadTask", func() {
 				rt := open(breaker.InfiniteRetries)
 				Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
 				degraded := samples(1)
-				degraded.err = errors.Wrap(driver.ErrDegraded, "dropped 4 messages")
+				degraded.err = errors.Mark(
+					errors.New("dropped 4 messages"), driver.ErrDegraded,
+				)
 				src.results <- degraded
 				Eventually(func(g Gomega) {
 					stat := retrieve(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(ContainSubstring("dropped 4 messages"))
+					g.Expect(stat.Message).To(Equal("dropped 4 messages"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).Should(Succeed())
 				src.results <- samples(2)
@@ -322,7 +331,9 @@ var _ = Describe("ReadTask", func() {
 				})
 				Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
 				src.results <- readResult{
-					err: errors.Wrap(driver.ErrTemporary, "broker connection lost"),
+					err: errors.Mark(
+						errors.New("broker connection lost"), driver.ErrTemporary,
+					),
 				}
 				Eventually(func() status.Variant { return retrieve(ctx).Variant }).
 					Should(Equal(status.VariantWarning))
@@ -337,15 +348,18 @@ var _ = Describe("ReadTask", func() {
 			func(ctx SpecContext) {
 				rt := open(1)
 				Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
-				lost := errors.Wrap(driver.ErrTemporary, "broker connection lost")
+				lost := errors.Mark(
+					errors.New("broker connection lost"), driver.ErrTemporary,
+				)
 				src.results <- readResult{err: lost}
 				src.results <- readResult{err: lost}
 				Eventually(func(g Gomega) {
 					stat := retrieve(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("broker connection lost"))
 					g.Expect(stat.Details.Running).To(BeFalse())
 				}).Should(Succeed())
-				Expect(src.stops.Load()).To(BeEquivalentTo(1))
+				Expect(src.closes.Load()).To(BeEquivalentTo(1))
 			},
 		)
 
@@ -361,27 +375,61 @@ var _ = Describe("ReadTask", func() {
 					g.Expect(stat.Details.Running).To(BeFalse())
 					g.Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
 				}).Should(Succeed())
-				Eventually(src.stops.Load).Should(BeEquivalentTo(1))
+				Eventually(src.closes.Load).Should(BeEquivalentTo(1))
 
 				Expect(rt.Exec(ctx, task.Command{Type: "start", Key: "cmd-7"})).
 					To(Succeed())
-				Expect(src.starts.Load()).To(BeEquivalentTo(2))
+				Expect(src.opens.Load()).To(BeEquivalentTo(2))
 				Expect(retrieve(ctx).Details.Running).To(BeTrue())
 			},
 		)
 
-		It("Should stop when a frame fails to write", func(ctx SpecContext) {
-			rt := open(breaker.InfiniteRetries)
-			Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
-			// A frame that writes the index without its data channel is invalid.
-			src.results <- readResult{frame: frame.NewUnary(
-				idxCh.Key(), telem.NewSeriesSecondsTSV(1),
-			)}
-			Eventually(func(g Gomega) {
-				stat := retrieve(ctx)
-				g.Expect(stat.Variant).To(Equal(status.VariantError))
-				g.Expect(stat.Details.Running).To(BeFalse())
-			}).Should(Succeed())
-		})
+		It("Should stop while the source waits when the Core rejects a frame",
+			func(ctx SpecContext) {
+				rt := open(breaker.InfiniteRetries)
+				Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
+				// A frame that writes the index without its data channel is invalid.
+				src.results <- readResult{frame: frame.NewUnary(
+					idxCh.Key(), telem.NewSeriesSecondsTSV(1),
+				)}
+				Eventually(func(g Gomega) {
+					stat := retrieve(ctx)
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal(fmt.Sprintf(
+						"frame must have exactly one series for each data channel "+
+							"associated with index %s, but is missing a series for "+
+							"channel %s: validation error",
+						name(idxCh), name(dataCh),
+					)))
+					g.Expect(stat.Details.Running).To(BeFalse())
+				}).Should(Succeed())
+				Eventually(src.closes.Load).Should(BeEquivalentTo(1))
+			},
+		)
+
+		It("Should stop while the source waits when a frame has the wrong data type",
+			func(ctx SpecContext) {
+				rt := open(breaker.InfiniteRetries)
+				Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
+				src.results <- readResult{frame: frame.NewMulti(
+					[]channel.Key{idxCh.Key(), dataCh.Key()},
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(1),
+						telem.NewSeriesV[int32](1),
+					},
+				)}
+				Eventually(func(g Gomega) {
+					stat := retrieve(ctx)
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal(fmt.Sprintf(
+						"channel %s: expected data type float32, got int32: "+
+							"validation error",
+						name(dataCh),
+					)))
+					g.Expect(stat.Details.Running).To(BeFalse())
+				}).Should(Succeed())
+				Eventually(src.closes.Load).Should(BeEquivalentTo(1))
+			},
+		)
 	})
 })

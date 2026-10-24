@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package sparkplug implements the Sparkplug B payloads, topics, and host session
-// state. It has no MQTT client: the caller moves the messages.
+// Package sparkplug implements the Sparkplug B payloads, topics, and the session state
+// of a host application and of an edge node. It has no MQTT client: the caller moves
+// the messages.
 package sparkplug
 
 import (
@@ -37,9 +38,9 @@ const (
 	State  MessageType = "STATE"
 )
 
-// Session reports whether a message of type t is part of the session of an edge node:
+// InSession reports whether a message of type t is part of the session of an edge node:
 // a birth, a death, or data. Only such messages change the state of a host.
-func (t MessageType) Session() bool {
+func (t MessageType) InSession() bool {
 	switch t {
 	case NBirth, NDeath, DBirth, DDeath, NData, DData:
 		return true
@@ -47,7 +48,8 @@ func (t MessageType) Session() bool {
 	return false
 }
 
-// hasDevice reports whether a topic of type t ends with a device ID.
+// hasDevice returns whether a topic of type t ends with a device ID. ok is false for a
+// type that no topic of an edge node or a device carries.
 func (t MessageType) hasDevice() (device, ok bool) {
 	switch t {
 	case DBirth, DDeath, DData, DCmd:
@@ -81,6 +83,19 @@ func (n NodeID) Validate() error {
 func (n NodeID) Filters() []string {
 	node := Namespace + "/" + n.Group + "/+/" + n.EdgeNode
 	return []string{node, node + "/+"}
+}
+
+// GroupFilters returns the topic filters that match every message of the edge nodes of
+// groups. No groups match the whole namespace.
+func GroupFilters(groups []string) []string {
+	if len(groups) == 0 {
+		return []string{Namespace + "/#"}
+	}
+	filters := make([]string, len(groups))
+	for i, g := range groups {
+		filters[i] = Namespace + "/" + g + "/#"
+	}
+	return filters
 }
 
 // ValidateID checks that id can be one level of a Sparkplug B topic. field names the

@@ -39,6 +39,7 @@ import math
 import time
 
 from examples.mqtt_sim import sparkplug
+from examples.mqtt_sim import sparkplug_b_pb2 as pb
 from examples.mqtt_sim.broker import Broker
 from examples.simulators.device_sim import DeviceSim
 from synnax import mqtt
@@ -60,11 +61,11 @@ async def run_server(host: str, port: int, rate_hz: float = 10) -> None:
             broker.publish(f"plant/{name}/state", payload, retain=True)
 
     broker.on_message(echo)
-    temperature = sparkplug.Tag("temperature", sparkplug.DOUBLE, 0.0)
-    counter = sparkplug.Tag("count", sparkplug.INT64, 0)
-    running = sparkplug.Tag("running", sparkplug.BOOLEAN, False)
-    speed = sparkplug.Tag("speed", sparkplug.FLOAT, 0.0)
-    setpoint = sparkplug.Tag("setpoint", sparkplug.DOUBLE, 0.0)
+    temperature = sparkplug.Tag("temperature", pb.Double, 0.0)
+    counter = sparkplug.Tag("count", pb.Int64, 0)
+    running = sparkplug.Tag("running", pb.Boolean, False)
+    speed = sparkplug.Tag("speed", pb.Float, 0.0)
+    setpoint = sparkplug.Tag("setpoint", pb.Double, 0.0)
     edge_node = sparkplug.EdgeNode(
         broker,
         SPARKPLUG_GROUP,

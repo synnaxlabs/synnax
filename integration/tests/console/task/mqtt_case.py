@@ -7,40 +7,34 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
-
 from examples.mqtt_sim import MQTTSim
 
 import synnax as sy
 from console.task.mqtt import MQTTTask
 from console.task_page import TaskPage
+from synnax import mqtt
 from tests.console.task.task_case import ConsoleTaskCase
 from tests.driver.mqtt_task import CORE_RACK_NAME
 from tests.driver.task import assert_sample_counts_in_range, collect_samples
 
-
-def _key(item: dict[str, Any], *names: str) -> int:
-    """Return the first of ``names`` held by a config item, in either key case."""
-    for name in names:
-        value = item.get(name)
-        if isinstance(value, int) and value != 0:
-            return value
-    return 0
+_Source = (
+    mqtt.PlainReadEntry
+    | mqtt.SparkplugReadEntry
+    | mqtt.PlainWriteTarget
+    | mqtt.SparkplugWriteTarget
+)
 
 
-def _items(task: sy.Task) -> list[dict[str, Any]]:
-    """Return the entries, targets, or tags of an MQTT task config.
+def _sources(task: sy.Task) -> list[_Source]:
+    """Return the entries of a read task or the targets of a write task.
 
-    :raises TypeError: If the group is not a list of objects.
+    :raises ValueError: If the task is not an MQTT read or write task.
     """
-    for group in ("entries", "targets", "tags"):
-        items = task.config.get(group)
-        if items is None:
-            continue
-        if not isinstance(items, list) or not all(isinstance(i, dict) for i in items):
-            raise TypeError(f"task config {group} is not a list of objects")
-        return items
-    return []
+    if task.type == mqtt.ReadTask.TYPE:
+        return list(mqtt.ReadTask(task).config.entries)
+    if task.type == mqtt.WriteTask.TYPE:
+        return list(mqtt.WriteTask(task).config.targets)
+    raise ValueError(f"{task.type!r} is not an MQTT read or write task")
 
 
 class MQTTCase(ConsoleTaskCase):
@@ -55,49 +49,59 @@ class MQTTCase(ConsoleTaskCase):
     TASK_DURATION = 3 * sy.TimeSpan.SECOND
 
     def select_broker(self, page: MQTTTask) -> None:
-        """Select the simulator's broker and wait for its Browser."""
+        """Select the simulator's broker and wait for the form body."""
         page.select_broker(self.device_name)
 
     @staticmethod
     def channel_keys(task: sy.Task) -> list[int]:
-        """Return every Synnax channel key an MQTT task config points at."""
+        """Return every Synnax channel key an MQTT task config points at.
+
+        :raises ValueError: If the task is not an MQTT task.
+        """
         keys: list[int] = []
-        for item in _items(task):
-            channel = item.get("channel")
-            if isinstance(channel, dict):
-                channel = channel.get("channel")
-            if isinstance(channel, int) and channel != 0:
-                keys.append(channel)
-            keys.extend(_key(f, "channel") for f in item.get("fields", []))
-            command = _key(item, "command_channel", "commandChannel")
-            if command != 0:
-                keys.append(command)
+        if task.type == mqtt.EdgeTask.TYPE:
+            for tag in mqtt.EdgeTask(task).config.tags:
+                keys.extend((tag.channel, tag.command_channel))
+            return [k for k in keys if k != 0]
+        for source in _sources(task):
+            if isinstance(source, mqtt.PlainReadEntry):
+                keys.extend(f.channel for f in source.fields)
+            elif isinstance(source, mqtt.PlainWriteTarget):
+                keys.append(source.channel.channel)
+            else:
+                keys.append(source.channel)
         return [k for k in keys if k != 0]
 
     @staticmethod
     def data_channel_keys(task: sy.Task) -> list[int]:
         """Return the channels of the enabled entries and fields of a read task."""
         keys: list[int] = []
-        for entry in _items(task):
-            if entry.get("disabled"):
+        for entry in mqtt.ReadTask(task).config.entries:
+            if entry.disabled:
                 continue
-            if entry.get("type") == "sparkplug":
-                keys.append(_key(entry, "channel"))
+            if isinstance(entry, mqtt.SparkplugReadEntry):
+                keys.append(entry.channel)
                 continue
-            keys.extend(
-                _key(f, "channel") for f in entry["fields"] if not f.get("disabled")
-            )
+            keys.extend(f.channel for f in entry.fields if not f.disabled)
         return [k for k in keys if k != 0]
 
     @staticmethod
     def topics(task: sy.Task) -> set[str]:
         """Return the topics of the plain entries or targets of a task."""
-        return {item["topic"] for item in _items(task) if item.get("type") == "plain"}
+        return {
+            s.topic
+            for s in _sources(task)
+            if isinstance(s, mqtt.PlainReadEntry | mqtt.PlainWriteTarget)
+        }
 
     @staticmethod
     def tags(task: sy.Task) -> set[str]:
         """Return the tags of the Sparkplug B entries or targets of a task."""
-        return {item["tag"] for item in _items(task) if item.get("type") == "sparkplug"}
+        return {
+            s.tag
+            for s in _sources(task)
+            if isinstance(s, mqtt.SparkplugReadEntry | mqtt.SparkplugWriteTarget)
+        }
 
     def assert_sample_count(self, page: TaskPage, keys: list[int]) -> None:
         """Hold the running task, stop it from the form, then check each channel

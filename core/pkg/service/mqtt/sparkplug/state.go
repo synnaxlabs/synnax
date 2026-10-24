@@ -15,17 +15,17 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// StateTopic returns the topic of the STATE messages of the host application hostID.
-func StateTopic(hostID string) string {
-	return Topic{Type: State, HostID: hostID}.String()
-}
-
-// EncodeState returns the JSON payload of a STATE message. A host application
-// publishes it retained at quality of service 1. The offline payload in the last will
-// and the online payload that follows the connect carry the same timestamp.
-func EncodeState(online bool, timestamp telem.TimeStamp) []byte {
+// EncodeState returns the STATE message of the host application hostID, retained at
+// quality of service 1. The offline message in the last will and the online message
+// that follows the connect carry the same timestamp.
+func EncodeState(hostID string, online bool, timestamp telem.TimeStamp) Publication {
 	b := strconv.AppendBool([]byte(`{"online":`), online)
 	b = append(b, `,"timestamp":`...)
-	b = strconv.AppendUint(b, uint64(timestamp/millisecond), 10)
-	return append(b, '}')
+	b = strconv.AppendUint(b, uint64(timestamp/telem.MillisecondTS), 10)
+	return Publication{
+		Topic:    Topic{Type: State, HostID: hostID}.String(),
+		Payload:  append(b, '}'),
+		QoS:      1,
+		Retained: true,
+	}
 }

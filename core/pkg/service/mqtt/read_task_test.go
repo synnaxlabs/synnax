@@ -192,7 +192,7 @@ var _ = Describe("Read task", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(ContainSubstring(
+					g.Expect(stat.Message).To(Equal(
 						"rejected a message on topic plant/line4: " +
 							"field b: no value at /b",
 					))
@@ -243,6 +243,37 @@ var _ = Describe("Read task", func() {
 		)
 	})
 
+	Describe("Batching", func() {
+		It("Should write the messages that wait on the queue in one frame",
+			func(ctx SpecContext) {
+				const topics = 50
+				var (
+					channels = make([]channel.Channel, topics)
+					keys     = make(channel.Keys, topics)
+					entries  = make([]map[string]any, topics)
+				)
+				for i := range topics {
+					channels[i] = createVirtual(ctx, telem.Int64T)
+					keys[i] = channels[i].Key()
+					topic := "plant/batch/" + strconv.Itoa(i)
+					entries[i] = plainEntry(topic, field("v", channels[i], ""))
+					broker.publish(topic, strconv.Itoa(i), true)
+				}
+				streamer := stream(ctx, keys)
+				start(ctx, readConfig(dev, entries...))
+				var frames, samples int
+				for samples < topics {
+					for series := range streamer.receive().Series() {
+						samples += int(series.Len())
+					}
+					frames++
+				}
+				Expect(samples).To(Equal(topics))
+				Expect(frames).To(BeNumerically("<", topics/2))
+			},
+		)
+	})
+
 	Describe("Overload", func() {
 		It("Should drop the oldest messages of a full queue and warn",
 			func(ctx SpecContext) {
@@ -258,8 +289,9 @@ var _ = Describe("Read task", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(ContainSubstring(
-						"messages arrive faster than the task can write them",
+					g.Expect(stat.Message).To(Equal(
+						"messages arrive faster than the task can write them, and " +
+							"the oldest are dropped",
 					))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).Should(Succeed())
@@ -354,8 +386,7 @@ var _ = Describe("Read task", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).
-						To(ContainSubstring("broker is not connected"))
+					g.Expect(stat.Message).To(Equal("broker is not connected"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}, 5*time.Second).Should(Succeed())
 				broker = startBroker(port)
@@ -390,8 +421,7 @@ var _ = Describe("Read task", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).
-						To(ContainSubstring("broker is not connected"))
+					g.Expect(stat.Message).To(Equal("broker is not connected"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).Should(Succeed())
 				broker = startBroker(port)
@@ -430,112 +460,155 @@ var _ = Describe("Read task", func() {
 			Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 		}
 
-		It("Should reject a task with no broker", func(ctx SpecContext) {
-			expectRejected(ctx, msgpack.EncodedJSON{}, "device: a broker is required")
-		})
-
-		It("Should reject a broker that does not exist", func(ctx SpecContext) {
-			expectRejected(
-				ctx,
-				msgpack.EncodedJSON{"device": "missing"},
-				"device: broker missing does not exist",
-			)
-		})
-
-		It("Should reject a device that is not a broker", func(ctx SpecContext) {
-			other := device.Device{
-				Key:      "not-a-broker",
-				Rack:     rackKey,
-				Location: "here",
-				Name:     "Card",
-				Make:     "ni",
-				Model:    "9205",
-			}
-			Expect(deviceSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
-			expectRejected(
-				ctx,
-				msgpack.EncodedJSON{"device": other.Key},
-				"device: Card is not an MQTT broker",
-			)
-		})
-
-		It("Should reject a task with no enabled entries", func(ctx SpecContext) {
-			_, data := createIndexed(ctx, telem.Float64T)
-			entry := plainEntry("plant/x", field("v", data[0], ""))
-			entry["disabled"] = true
-			expectRejected(
-				ctx, readConfig(dev, entry), "entries: the task has no enabled entries",
-			)
-		})
-
-		It("Should reject a topic with a wildcard", func(ctx SpecContext) {
-			_, data := createIndexed(ctx, telem.Float64T)
-			expectRejected(
-				ctx,
-				readConfig(dev, plainEntry("plant/+/temp", field("v", data[0], ""))),
-				"topic plant/+/temp: must not hold the wildcards + or #",
-			)
-		})
-
-		It("Should reject a channel that does not exist", func(ctx SpecContext) {
-			missing := map[string]any{
-				"key": "v", "name": "v", "channel": 4000000, "pointer": "",
-			}
-			expectRejected(
-				ctx,
-				readConfig(dev, plainEntry("plant/x", missing)),
-				"field v of topic plant/x: channel 4000000 does not exist",
-			)
-		})
-
-		It("Should reject fields of one topic on different indexes",
-			func(ctx SpecContext) {
-				_, a := createIndexed(ctx, telem.Float64T)
-				_, b := createIndexed(ctx, telem.Float64T)
-				expectRejected(
-					ctx,
-					readConfig(dev, plainEntry(
+		DescribeTable(
+			"Should reject a config that is not valid",
+			func(
+				ctx SpecContext,
+				build func(ctx context.Context) (msgpack.EncodedJSON, string),
+			) {
+				cfg, message := build(ctx)
+				expectRejected(ctx, cfg, message)
+			},
+			Entry("no broker", func(context.Context) (msgpack.EncodedJSON, string) {
+				return msgpack.EncodedJSON{}, "device: a broker is required"
+			}),
+			Entry("a broker that does not exist",
+				func(context.Context) (msgpack.EncodedJSON, string) {
+					return msgpack.EncodedJSON{"device": "missing"},
+						"device: broker missing does not exist"
+				},
+			),
+			Entry("a device that is not a broker",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					other := device.Device{
+						Key:      "not-a-broker",
+						Rack:     rackKey,
+						Location: "here",
+						Name:     "Card",
+						Make:     "ni",
+						Model:    "9205",
+					}
+					Expect(deviceSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+					return msgpack.EncodedJSON{"device": other.Key},
+						"device: Card is not an MQTT broker"
+				},
+			),
+			Entry("no enabled entries",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.Float64T)
+					entry := plainEntry("plant/x", field("v", data[0], ""))
+					entry["disabled"] = true
+					return readConfig(dev, entry),
+						"entries: the task has no enabled entries"
+				},
+			),
+			Entry("a null entry", func(context.Context) (msgpack.EncodedJSON, string) {
+				return msgpack.EncodedJSON{"device": dev.Key, "entries": []any{nil}},
+					"entries: an entry is null"
+			}),
+			Entry("a topic with a wildcard",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.Float64T)
+					return readConfig(
+						dev, plainEntry("plant/+/temp", field("v", data[0], "")),
+					), "topic plant/+/temp: must not hold the wildcards + or #"
+				},
+			),
+			Entry("a topic that appears two times",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
+					return readConfig(
+						dev,
+						plainEntry("plant/x", field("a", data[0], "/a")),
+						plainEntry("plant/x", field("b", data[1], "/b")),
+					), "entries: topic plant/x appears more than once"
+				},
+			),
+			Entry("a channel that does not exist",
+				func(context.Context) (msgpack.EncodedJSON, string) {
+					missing := map[string]any{
+						"key": "v", "name": "v", "channel": 4000000, "pointer": "",
+					}
+					return readConfig(dev, plainEntry("plant/x", missing)),
+						"field v of topic plant/x: channel 4000000 does not exist"
+				},
+			),
+			Entry("a channel of a data type that a field cannot write",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.UUIDT)
+					return readConfig(dev, plainEntry("plant/x", field("v", ch, ""))),
+						"field v of topic plant/x: channel " + ch.Name +
+							": cannot convert a JSON value to uuid"
+				},
+			),
+			Entry("fields of one topic on different indexes",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, a := createIndexed(ctx, telem.Float64T)
+					_, b := createIndexed(ctx, telem.Float64T)
+					return readConfig(dev, plainEntry(
 						"plant/x", field("a", a[0], "/a"), field("b", b[0], "/b"),
-					)),
-					"every channel of a topic must share one index channel",
-				)
-			},
+					)), "every channel of a topic must share one index channel"
+				},
+			),
+			Entry("two topics that write to one channel",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.Float64T)
+					return readConfig(
+						dev,
+						plainEntry("plant/x", field("v", data[0], "")),
+						plainEntry("plant/y", field("v", data[0], "")),
+					), "write to the same channel"
+				},
+			),
+			Entry("a timestamp field with no time format",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					idx, _ := createIndexed(ctx)
+					entry := plainEntry("plant/x", field("time", idx, "/ts"))
+					entry["index"] = "time"
+					return readConfig(dev, entry),
+						"a timestamp channel requires a time format"
+				},
+			),
+			Entry("an index field that does not exist",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.Float64T)
+					entry := plainEntry("plant/x", field("v", data[0], "/v"))
+					entry["index"] = "time"
+					return readConfig(dev, entry),
+						"topic plant/x: index field time does not exist or is disabled"
+				},
+			),
+			Entry("an index field that is disabled",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					idx, data := createIndexed(ctx, telem.Float64T)
+					time := field("time", idx, "/ts")
+					time["time_format"] = "unix_ms"
+					time["disabled"] = true
+					entry := plainEntry("plant/x", time, field("v", data[0], "/v"))
+					entry["index"] = "time"
+					return readConfig(dev, entry),
+						"topic plant/x: index field time does not exist or is disabled"
+				},
+			),
+			Entry("an index field on a channel that is not an index",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.Float64T)
+					entry := plainEntry("plant/x", field("v", data[0], "/v"))
+					entry["index"] = "v"
+					return readConfig(dev, entry),
+						"field v of topic plant/x: " +
+							"the index field must write to an index channel"
+				},
+			),
+			Entry("an invalid JSON Pointer",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.Float64T)
+					return readConfig(
+						dev, plainEntry("plant/x", field("v", data[0], "no-slash")),
+					), "field v of topic plant/x"
+				},
+			),
 		)
-
-		It("Should reject two topics that write to one channel", func(ctx SpecContext) {
-			_, data := createIndexed(ctx, telem.Float64T)
-			expectRejected(
-				ctx,
-				readConfig(
-					dev,
-					plainEntry("plant/x", field("v", data[0], "")),
-					plainEntry("plant/y", field("v", data[0], "")),
-				),
-				"write to the same channel",
-			)
-		})
-
-		It("Should reject a timestamp field with no time format",
-			func(ctx SpecContext) {
-				idx, _ := createIndexed(ctx)
-				entry := plainEntry("plant/x", field("time", idx, "/ts"))
-				entry["index"] = "time"
-				expectRejected(
-					ctx,
-					readConfig(dev, entry),
-					"a timestamp channel requires a time format",
-				)
-			},
-		)
-
-		It("Should reject an invalid JSON Pointer", func(ctx SpecContext) {
-			_, data := createIndexed(ctx, telem.Float64T)
-			expectRejected(
-				ctx,
-				readConfig(dev, plainEntry("plant/x", field("v", data[0], "no-slash"))),
-				"field v of topic plant/x",
-			)
-		})
 
 		It("Should not handle a task type of another integration",
 			func(ctx SpecContext) {

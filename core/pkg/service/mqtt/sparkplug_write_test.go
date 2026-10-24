@@ -11,6 +11,7 @@ package mqtt_test
 
 import (
 	"context"
+	"math"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,18 +35,18 @@ import (
 
 // tagTarget returns the config of one Sparkplug B write target.
 func tagTarget(
-	group, edgeNode, dev, tag, sparkplugType string,
+	group, edgeNode, dev, tag, tagType string,
 	ch channel.Channel,
 ) map[string]any {
 	return map[string]any{
-		"key":            group + "/" + edgeNode + "/" + dev + "/" + tag,
-		"type":           "sparkplug",
-		"group":          group,
-		"edge_node":      edgeNode,
-		"device":         dev,
-		"tag":            tag,
-		"sparkplug_type": sparkplugType,
-		"channel":        ch.Key(),
+		"key":       group + "/" + edgeNode + "/" + dev + "/" + tag,
+		"type":      "sparkplug",
+		"group":     group,
+		"edge_node": edgeNode,
+		"device":    dev,
+		"tag":       tag,
+		"tag_type":  tagType,
+		"channel":   ch.Key(),
 	}
 }
 
@@ -160,13 +161,13 @@ var _ = Describe("Sparkplug B write targets", func() {
 			func(
 				ctx SpecContext,
 				series telem.Series,
-				sparkplugType string,
+				tagType string,
 				dataType sparkplug.DataType,
 				value types.GomegaMatcher,
 			) {
 				ch := createVirtual(ctx, series.DataType)
 				start(ctx, writeConfig(dev, tagTarget(
-					"plant", "line1", "", "tag", sparkplugType, ch,
+					"plant", "line1", "", "tag", tagType, ch,
 				)))
 				command(ctx, ch, series, func(g Gomega) {
 					g.Expect(node.received()).ToNot(BeEmpty())
@@ -206,6 +207,32 @@ var _ = Describe("Sparkplug B write targets", func() {
 				telem.NewSeriesV(1700000000123*telem.MillisecondTS),
 				"date_time", sparkplug.DateTime,
 				Equal(&pb.Payload_Metric_LongValue{LongValue: 1700000000123}),
+			),
+			Entry("a NaN float64 as double",
+				telem.NewSeriesV(math.NaN()), "double", sparkplug.Double,
+				HaveField("DoubleValue", Satisfy(math.IsNaN)),
+			),
+			Entry("+Inf float64 as double",
+				telem.NewSeriesV(math.Inf(1)), "double", sparkplug.Double,
+				Equal(&pb.Payload_Metric_DoubleValue{DoubleValue: math.Inf(1)}),
+			),
+			Entry("-Inf float64 as double",
+				telem.NewSeriesV(math.Inf(-1)), "double", sparkplug.Double,
+				Equal(&pb.Payload_Metric_DoubleValue{DoubleValue: math.Inf(-1)}),
+			),
+			Entry("a NaN float32 as float",
+				telem.NewSeriesV(float32(math.NaN())), "float", sparkplug.Float,
+				HaveField("FloatValue", Satisfy(func(f float32) bool {
+					return math.IsNaN(float64(f))
+				})),
+			),
+			Entry("+Inf float32 as float",
+				telem.NewSeriesV(float32(math.Inf(1))), "float", sparkplug.Float,
+				Equal(&pb.Payload_Metric_FloatValue{FloatValue: float32(math.Inf(1))}),
+			),
+			Entry("-Inf float64 as float",
+				telem.NewSeriesV(math.Inf(-1)), "float", sparkplug.Float,
+				Equal(&pb.Payload_Metric_FloatValue{FloatValue: float32(math.Inf(-1))}),
 			),
 		)
 
@@ -357,12 +384,12 @@ var _ = Describe("Sparkplug B write targets", func() {
 		)
 
 		DescribeTable("Should reject a channel that its data type cannot carry",
-			func(ctx SpecContext, dt telem.DataType, sparkplugType, name string) {
+			func(ctx SpecContext, dt telem.DataType, tagType, name string) {
 				ch := createVirtual(ctx, dt)
 				expectRejected(
 					ctx,
 					writeConfig(dev, tagTarget(
-						"plant", "line1", "pump", "speed", sparkplugType, ch,
+						"plant", "line1", "pump", "speed", tagType, ch,
 					)),
 					"tag plant/line1/pump/speed: channel "+ch.Name+" of type "+
 						string(dt)+" cannot be sent as "+name,
@@ -371,6 +398,8 @@ var _ = Describe("Sparkplug B write targets", func() {
 			Entry("a string channel as double", telem.StringT, "double", "Double"),
 			Entry("a float64 channel as string", telem.Float64T, "string", "String"),
 			Entry("a timestamp channel as int64", telem.TimestampT, "int64", "Int64"),
+			Entry("a json channel as string", telem.JSONT, "string", "String"),
+			Entry("a uuid channel as string", telem.UUIDT, "string", "String"),
 		)
 	})
 })

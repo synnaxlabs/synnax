@@ -9,23 +9,27 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import { channel, mqtt, type Synnax as Client } from "@synnaxlabs/client";
+import { channel, mqtt } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Telem } from "@synnaxlabs/pluto";
-import { DataType, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback, useMemo } from "react";
+import { DataType, deep, primitive } from "@synnaxlabs/x";
+import { type FC, useCallback } from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
 import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
-import { useDiscoverModal } from "@/feature/mqtt/task/discover/Discover";
-import { ENTRIES_PATH, namePrefix } from "@/feature/mqtt/task/entries";
+import { createDiscoverModal, type Kind } from "@/feature/mqtt/task/discover/Discover";
+import {
+  createEntry,
+  createSparkplugEntry,
+  ENTRIES_PATH,
+  namePrefix,
+} from "@/feature/mqtt/task/entries";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
@@ -33,10 +37,8 @@ import {
   sparkplugPropertiesKey,
 } from "@/feature/mqtt/task/sparkplug";
 import { SparkplugTagFields } from "@/feature/mqtt/task/SparkplugTagFields";
-import { TimeFormatField } from "@/feature/mqtt/task/TimeFormatField";
 import {
   deployReadConfigZ,
-  HIDDEN_DATA_TYPES,
   type PlainReadEntry,
   READ_SCHEMAS,
   READ_TYPE,
@@ -47,7 +49,6 @@ import {
 } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -62,39 +63,6 @@ const Properties = () => (
 );
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
-
-const renderTelemSelectDataType = Component.renderProp(
-  (p: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType {...p} hideDataTypes={HIDDEN_DATA_TYPES} location="bottom" />
-  ),
-);
-
-interface BinderProps {
-  device: Device;
-  entryKey: string;
-}
-
-/**
- * Binds a plain entry's fields to the channels the device stores for its topic.
- * Mounted for every entry, as the details pane renders only the selected one.
- */
-const FieldBinder = ({ device, entryKey }: BinderProps) => {
-  const path = `${ENTRIES_PATH}.${entryKey}`;
-  const topic = PForm.useFieldValue<string>(`${path}.topic`);
-  const indexKey = PForm.useFieldValue<string>(`${path}.index`);
-  const resolve = useCallback(
-    (field: ReadField) => {
-      const props = device.properties.read[topic];
-      if (props == null) return { channel: 0 };
-      return {
-        channel:
-          field.key === indexKey ? props.index : (props.channels[field.pointer] ?? 0),
-      };
-    },
-    [device, topic, indexKey],
-  );
-  return <Task.BindChannels<ReadField> path={`${path}.fields`} resolve={resolve} />;
-};
 
 type TimingMode = "arrival" | "payload";
 
@@ -144,7 +112,10 @@ const TimestampFields: FC<{ path: string }> = ({ path }) => {
             padHelpText={false}
             inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
           />
-          <TimeFormatField path={`${path}.fields.${index}.timeFormat`} label="Format" />
+          <Task.Payload.TimeFormatField
+            path={`${path}.fields.${index}.timeFormat`}
+            label="Format"
+          />
         </>
       )}
     </>
@@ -177,17 +148,8 @@ const PlainEntryPane: FC<{ path: string }> = ({ path }) => (
   </PForm.Sections>
 );
 
+// A Sparkplug B DateTime tag reads into a timestamp channel.
 const SPARKPLUG_HIDDEN_DATA_TYPES = [DataType.UUID, DataType.JSON, DataType.BYTES];
-
-const renderSparkplugSelectDataType = Component.renderProp(
-  (p: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType
-      {...p}
-      hideDataTypes={SPARKPLUG_HIDDEN_DATA_TYPES}
-      location="bottom"
-    />
-  ),
-);
 
 interface PaneProps {
   path: string;
@@ -196,7 +158,6 @@ interface PaneProps {
 
 const SparkplugEntryPane: FC<PaneProps> = ({ path, deviceName }) => {
   const entry = PForm.useFieldValue<SparkplugReadEntry>(path);
-  const bound = entry.channel !== 0;
   return (
     <PForm.Sections>
       <PForm.Section title="Tag">
@@ -208,14 +169,11 @@ const SparkplugEntryPane: FC<PaneProps> = ({ path, deviceName }) => {
           namePath={`${path}.name`}
           defaultName={sparkplugChannelName(deviceName, entry)}
         />
-        <PForm.Field<string>
+        <Task.Payload.DataTypeField
           path={`${path}.dataType`}
-          label="Data type"
-          padHelpText={false}
-          helpText={bound ? "Set on the channel" : undefined}
-        >
-          {(p) => renderSparkplugSelectDataType({ ...p, disabled: bound })}
-        </PForm.Field>
+          channel={entry.channel}
+          hideDataTypes={SPARKPLUG_HIDDEN_DATA_TYPES}
+        />
       </PForm.Section>
     </PForm.Sections>
   );
@@ -239,7 +197,6 @@ interface FieldPaneProps extends Task.Views.FieldProps, Pick<PaneProps, "deviceN
 const FieldPane: FC<FieldPaneProps> = ({ groupKey, path, deviceName }) => {
   const { channel: fieldChannel, pointer } = PForm.useFieldValue<ReadField>(path);
   const topic = PForm.useFieldValue<string>(`${ENTRIES_PATH}.${groupKey}.topic`);
-  const bound = fieldChannel !== 0;
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
@@ -250,14 +207,10 @@ const FieldPane: FC<FieldPaneProps> = ({ groupKey, path, deviceName }) => {
             padHelpText={false}
             inputProps={POINTER_INPUT_PROPS}
           />
-          <PForm.Field<string>
+          <Task.Payload.DataTypeField
             path={`${path}.dataType`}
-            label="Data type"
-            padHelpText={false}
-            helpText={bound ? "Set on the channel" : undefined}
-          >
-            {(p) => renderTelemSelectDataType({ ...p, disabled: bound })}
-          </PForm.Field>
+            channel={fieldChannel}
+          />
           <Task.ChannelNameField
             channel={fieldChannel}
             namePath={`${path}.name`}
@@ -266,20 +219,38 @@ const FieldPane: FC<FieldPaneProps> = ({ groupKey, path, deviceName }) => {
             }
           />
         </PForm.Section>
-        <PForm.Section title="Enum mapping">
-          <PlatformForm.KeyValueEditor
-            path={`${path}.enumValues`}
-            keyField="label"
-            keyPlaceholder="String (e.g. ON)"
-            valueType="number"
-          />
-        </PForm.Section>
+        <Task.Payload.EnumMappingSection path={`${path}.enumValues`} />
       </PForm.Sections>
     </Flex.Box>
   );
 };
 
 const createField = (): ReadField => mqtt.readFieldZ.parse({});
+
+const DISCOVER_KIND: Kind<ReadEntry> = {
+  title: "Add data",
+  hint: "Select the values to record. Each one becomes a channel.",
+  noun: "channel",
+  // A topic that the task reads comes back as its entry, with the new fields added.
+  create: ({ topics, tags }, entries) => [
+    ...[...topics].map(([topic, { leaves, pointers }]): ReadEntry => {
+      const fields = leaves
+        .filter((l) => pointers.has(l.pointer))
+        .map((l) => ({ ...l, disabled: false }));
+      const existing = entries.find(
+        (e): e is PlainReadEntry => e.type === "plain" && e.topic === topic,
+      );
+      return existing == null
+        ? { ...createEntry(), topic, fields }
+        : { ...existing, fields: [...existing.fields, ...fields] };
+    }),
+    ...[...tags.values()].map((t) => createSparkplugEntry(t)),
+  ],
+  createTopic: (topic) => ({ ...createEntry(), topic }),
+  createTag: () => createSparkplugEntry(),
+};
+
+const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 
 const entryLabel = Component.renderProp(({ path }: Task.Views.GroupProps) => (
   <EntryLabel path={path} />
@@ -288,38 +259,19 @@ const entryLabel = Component.renderProp(({ path }: Task.Views.GroupProps) => (
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const entries = PForm.useFieldValue<ReadEntry[]>(ENTRIES_PATH);
   const discover = useDiscoverModal();
-  const kinds = useMemo<Task.Views.GroupKind<ReadEntry>[]>(
-    () => [
-      {
-        name: "data",
-        create: async () => (await discover({ device, entries })) ?? [],
-      },
-    ],
-    [discover, device, entries],
+  const createEntries = async () => (await discover({ device, entries })) ?? [];
+  const entryDetails = ({ path }: Task.Views.GroupProps) => (
+    <EntryPane path={path} deviceName={device.name} />
   );
-  const entryDetails = useCallback(
-    ({ path }: Task.Views.GroupProps) => (
-      <EntryPane path={path} deviceName={device.name} />
-    ),
-    [device.name],
-  );
-  const fieldDetails = useCallback(
-    ({ groupKey, fieldKey, path }: Task.Views.FieldProps) => (
-      <FieldPane
-        groupKey={groupKey}
-        fieldKey={fieldKey}
-        path={path}
-        deviceName={device.name}
-      />
-    ),
-    [device.name],
+  const fieldDetails = (props: Task.Views.FieldProps) => (
+    <FieldPane {...props} deviceName={device.name} />
   );
 
   const resolve = useCallback(
     (entry: ReadEntry) => {
       if (entry.type !== "sparkplug") return {};
       const props = device.properties.read[sparkplugPropertiesKey(entry)];
-      return { channel: props?.channels[""] ?? 0, index: props?.index ?? 0 };
+      return { channel: props?.channels[""] ?? 0 };
     },
     [device],
   );
@@ -331,9 +283,11 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
         listTitle="Entries"
         emptyMessage="No entries"
         placeholder="Select an entry or field to configure"
-        groupKinds={kinds}
+        addLabel="Add data"
+        createGroups={createEntries}
         createField={createField}
         emptyPointerLabel="Whole payload"
+        groupsSwitchable
         groupLabel={entryLabel}
         groupDetails={entryDetails}
         fieldDetails={fieldDetails}
@@ -341,7 +295,14 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
       <Task.BindChannels<ReadEntry> path={ENTRIES_PATH} resolve={resolve} />
       {entries.map(
         ({ key, type }) =>
-          type === "plain" && <FieldBinder key={key} device={device} entryKey={key} />,
+          type === "plain" && (
+            <Task.BindReadChannels
+              key={key}
+              path={`${ENTRIES_PATH}.${key}`}
+              propertiesKeyField="topic"
+              read={device.properties.read}
+            />
+          ),
       )}
     </Flex.Box>
   );
@@ -362,53 +323,46 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   return { name: "MQTT read task", type: READ_TYPE, config: cfg };
 };
 
-/** @returns true when it stored new channels in the properties of the device. */
-const configureSparkplugEntry = async (
-  client: Client,
-  dev: Device,
-  entry: SparkplugReadEntry,
-): Promise<boolean> => {
-  const propertiesKey = sparkplugPropertiesKey(entry);
-  const storedKey = dev.properties.read[propertiesKey]?.channels[""];
-  for (const key of [entry.channel, storedKey]) {
-    const ch = await Task.retrieveChannel(client, key);
-    if (ch == null) continue;
-    entry.channel = ch.key;
-    entry.index = ch.index;
-    return false;
-  }
-  const name = primitive.isNonZero(entry.name)
-    ? entry.name
-    : sparkplugChannelName(dev.name, entry);
-  const ch = await Task.createChannel(client, name, entry.dataType);
-  entry.channel = ch.key;
-  entry.index = ch.index;
-  dev.properties.read[propertiesKey] = { index: ch.index, channels: { "": ch.key } };
-  return true;
-};
-
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
-  let modified = false;
+  const saved = deep.copy(dev.properties);
   try {
     for (const entry of config.entries) {
       if (entry.disabled) continue;
       if (entry.type === "sparkplug") {
-        if (await configureSparkplugEntry(client, dev, entry)) modified = true;
+        const name = primitive.isNonZero(entry.name)
+          ? entry.name
+          : sparkplugChannelName(dev.name, entry);
+        // A tag reads whole into one channel, as the field at the empty pointer.
+        const field = {
+          key: entry.key,
+          pointer: "",
+          channel: entry.channel,
+          name,
+          dataType: entry.dataType,
+        };
+        await Task.configureReadChannels({
+          client,
+          read: dev.properties.read,
+          propertiesKey: sparkplugPropertiesKey(entry),
+          fields: [field],
+          namePrefix: name,
+          indexKey: "",
+        });
+        entry.channel = field.channel;
         continue;
       }
-      dev.properties.read[entry.topic] ??= { index: 0, channels: {} };
-      const changed = await Task.configureReadChannels({
+      await Task.configureReadChannels({
         client,
-        props: dev.properties.read[entry.topic],
+        read: dev.properties.read,
+        propertiesKey: entry.topic,
         fields: entry.fields,
         namePrefix: namePrefix(dev.name, entry.topic),
         indexKey: entry.index,
       });
-      modified ||= changed;
     }
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (!deep.equal(saved, dev.properties)) await client.devices.create(dev, SCHEMAS);
   }
   return [config, dev.rack];
 };

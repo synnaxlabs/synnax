@@ -19,9 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -51,8 +49,6 @@ type alertTask struct {
 	factoryCfg FactoryConfig
 	task       task.Task
 	cfg        TaskConfig
-	// disconnect ends the status observation of the current run.
-	disconnect observe.Disconnect
 	// alertsByStatus holds the enabled alerts by the status they watch.
 	alertsByStatus map[status.Key]Alert
 }
@@ -82,20 +78,17 @@ func newAlertTask(
 		Instrumentation: factoryCfg.Instrumentation,
 		Task:            t,
 		Open:            at.open,
-		Run:             at.run,
 	})
 	return at, err
 }
 
-func (t *alertTask) open(context.Context) error {
-	t.disconnect = t.factoryCfg.Status.Observe().OnChange(t.handleStatusChange)
-	return nil
-}
-
-func (t *alertTask) run(ctx context.Context) error {
-	<-ctx.Done()
-	t.disconnect()
-	return nil
+func (t *alertTask) open(context.Context) (func(context.Context) error, error) {
+	disconnect := t.factoryCfg.Status.Observe().OnChange(t.handleStatusChange)
+	return func(ctx context.Context) error {
+		<-ctx.Done()
+		disconnect()
+		return nil
+	}, nil
 }
 
 func (t *alertTask) handleStatusChange(
@@ -174,8 +167,8 @@ func mapSeverity(variant status.Variant, errorsCritical bool) string {
 	}
 }
 
-// sendEvent sends event and reports the result as the health of the task: a failed
-// send warns until the next send succeeds.
+// sendEvent sends event. A failed send sets an error status on the task that stays
+// until the next start or stop.
 func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
 	resp, err := t.factoryCfg.Sender.SendEvent(ctx, event)
 	if err != nil {
@@ -185,12 +178,9 @@ func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
 			zap.Any("event", event),
 			zap.Error(err),
 		)
-		t.Report(ctx, errors.Wrapf(
-			driver.ErrTemporary, "failed to send PagerDuty event: %s", err.Error(),
-		))
+		t.ReportError(ctx, "Failed to send PagerDuty event: "+err.Error())
 		return
 	}
-	t.Report(ctx, nil)
 	t.factoryCfg.L.Debug(
 		"PagerDuty event sent successfully",
 		zap.Any("event", event),

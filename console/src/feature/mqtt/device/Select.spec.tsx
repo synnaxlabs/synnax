@@ -13,7 +13,8 @@ import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
-import { createTestDevice, renderWithDeviceForm } from "@/platform/device/testutil";
+import { createBroker } from "@/feature/mqtt/testutil";
+import { renderWithDeviceForm } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
 import { findDialogTrigger, uniqueName } from "@/testutil";
 
@@ -42,13 +43,7 @@ describe("MQTT Device.Select", () => {
 
   it("should open the connect modal when an unconfigured MQTT broker is selected", async () => {
     const client = createTestClient();
-    const dev = await createTestDevice(client, {
-      name: uniqueName("mqtt_broker"),
-      make: MQTT.Device.MAKE,
-      model: "MQTT broker",
-      properties: MQTT.Device.ZERO_PROPERTIES,
-      configured: false,
-    });
+    const dev = await createBroker(client, { configured: false });
     await renderSelect(client);
     fireEvent.click(await findDialogTrigger());
     fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {

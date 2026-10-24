@@ -11,10 +11,12 @@ package mqtt_test
 
 import (
 	"context"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -25,16 +27,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func newFactory(queueSize int) driver.Factory {
 	GinkgoHelper()
-	return MustSucceed(mqtt.NewFactory(mqtt.FactoryConfig{
+	return MustOpen(mqtt.OpenFactory(mqtt.FactoryConfig{
 		Device:  deviceSvc,
 		Channel: channelSvc,
 		Framer:  framerSvc,
@@ -52,6 +57,7 @@ func createRack(ctx context.Context) rack.Key {
 }
 
 // createBrokerDevice creates a broker device that points at port on the local host.
+// The properties of the device name no port when port is zero.
 func createBrokerDevice(
 	ctx context.Context,
 	rackKey rack.Key,
@@ -62,7 +68,9 @@ func createBrokerDevice(
 	if properties == nil {
 		properties = msgpack.EncodedJSON{}
 	}
-	properties["port"] = port
+	if port != 0 {
+		properties["port"] = port
+	}
 	dev := device.Device{
 		Key:        uuid.New().String(),
 		Rack:       rackKey,
@@ -72,8 +80,17 @@ func createBrokerDevice(
 		Model:      "broker",
 		Properties: properties,
 	}
-	Expect(deviceSvc.NewWriter(nil).Create(ctx, &dev)).To(Succeed())
+	writeDevice(ctx, &dev)
 	return dev
+}
+
+// writeDevice creates or updates dev in one transaction, as the API does, so the
+// device and its status change together.
+func writeDevice(ctx context.Context, dev *device.Device) {
+	GinkgoHelper()
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return deviceSvc.NewWriter(tx).Create(ctx, dev)
+	})).To(Succeed())
 }
 
 // createIndexed creates an index channel and one data channel of each data type.
@@ -135,25 +152,106 @@ func configure(ctx context.Context, f driver.Factory, t task.Task) driver.Task {
 func taskStatus(ctx context.Context, t task.Task) task.Status {
 	GinkgoHelper()
 	var stat task.Status
-	err := statusSvc.NewRetrieve[task.StatusDetails]().
-		Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-		Entry(&stat).Exec(ctx, nil)
-	if !errors.Is(err, query.ErrNotFound) {
-		Expect(err).ToNot(HaveOccurred())
-	}
+	Expect(errors.Skip(
+		statusSvc.NewRetrieve[task.StatusDetails]().
+			Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+			Entry(&stat).
+			Exec(ctx, nil),
+		query.ErrNotFound,
+	)).To(Succeed())
 	return stat
+}
+
+// answer runs cmd on a scan task and returns the status that answers it.
+func answer(
+	ctx context.Context,
+	configured driver.Task,
+	t task.Task,
+	cmd task.Command,
+) task.Status {
+	GinkgoHelper()
+	Expect(configured.Exec(ctx, cmd)).To(Succeed())
+	return answered(ctx, t, cmd.Key)
+}
+
+// answered waits for the status of t that answers the command with key cmdKey, and
+// returns it.
+func answered(ctx context.Context, t task.Task, cmdKey string) task.Status {
+	GinkgoHelper()
+	var stat task.Status
+	Eventually(func(g Gomega) {
+		stat = taskStatus(ctx, t)
+		g.Expect(stat.Details.Cmd).To(Equal(cmdKey))
+	}).WithTimeout(10 * time.Second).Should(Succeed())
+	return stat
+}
+
+// testStreamer receives the frames written to a set of channels.
+type testStreamer struct {
+	responses <-chan framer.StreamerResponse
+	// probe is the channel that tells when the streamer connects.
+	probe channel.Key
+}
+
+// stream opens a streamer on keys that receives every frame written after it returns.
+// The streamer closes at the end of the spec.
+func stream(ctx context.Context, keys channel.Keys) testStreamer {
+	GinkgoHelper()
+	probe := createVirtual(ctx, telem.Int64T).Key()
+	streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
+		Keys: append(keys, probe),
+	}))
+	var (
+		requests  = confluence.NewStream[framer.StreamerRequest]()
+		responses = confluence.NewStream[framer.StreamerResponse](1024)
+	)
+	streamer.InFrom(requests)
+	streamer.OutTo(responses)
+	sCtx, cancel := signal.Isolated()
+	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	DeferCleanup(func() {
+		requests.Close()
+		confluence.Drain(responses)
+		cancel()
+		Expect(sCtx.Wait()).To(Succeed())
+	})
+	// A streamer misses the frames written before it connects.
+	w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+		Keys:  channel.Keys{probe},
+		Start: telem.Now(),
+	}))
+	Eventually(func(g Gomega) {
+		g.Expect(w.Write(frame.NewUnary(probe, telem.NewSeriesV[int64](1)))).
+			To(BeTrue())
+		g.Expect(responses.Outlet()).To(Receive())
+	}).Should(Succeed())
+	Expect(w.Close()).To(Succeed())
+	return testStreamer{responses: responses.Outlet(), probe: probe}
+}
+
+// receive returns the next frame written to the channels of s.
+func (s testStreamer) receive() framer.Frame {
+	GinkgoHelper()
+	for {
+		var res framer.StreamerResponse
+		Eventually(s.responses).Should(Receive(&res))
+		if res.Frame.Get(s.probe).Len() == 0 {
+			return res.Frame
+		}
+	}
 }
 
 // deviceStatus returns the status of dev, or the zero status when it has none.
 func deviceStatus(ctx context.Context, dev device.Device) device.Status {
 	GinkgoHelper()
 	var stat device.Status
-	err := statusSvc.NewRetrieve[device.StatusDetails]().
-		Where(status.MatchKeys[device.StatusDetails](dev.OntologyID().String())).
-		Entry(&stat).Exec(ctx, nil)
-	if !errors.Is(err, query.ErrNotFound) {
-		Expect(err).ToNot(HaveOccurred())
-	}
+	Expect(errors.Skip(
+		statusSvc.NewRetrieve[device.StatusDetails]().
+			Where(status.MatchKeys[device.StatusDetails](dev.OntologyID().String())).
+			Entry(&stat).
+			Exec(ctx, nil),
+		query.ErrNotFound,
+	)).To(Succeed())
 	return stat
 }
 

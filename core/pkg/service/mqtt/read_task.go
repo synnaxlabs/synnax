@@ -114,12 +114,8 @@ func newReadTopic(
 				f.Channel,
 			)
 		}
-		if !xjson.SupportsSampleTarget(ch.DataType) {
-			return t, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: channel %s has the unsupported data type %s",
-				path, ch.Name, ch.DataType,
-			)
+		if err := xjson.CheckToSample(ch.DataType); err != nil {
+			return t, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
 		}
 		pointer, err := xjson.ParsePointer(f.Pointer)
 		if err != nil {
@@ -192,10 +188,10 @@ func newReadTopic(
 	return t, nil
 }
 
-// convert turns one payload into a frame of one sample for each channel of the
-// topic. It converts every field or none, because a frame that writes to an index
-// must hold every channel of that index.
-func (t readTopic) convert(msg message) (framer.Frame, telem.TimeStamp, error) {
+// convert turns one payload into one sample for each channel of the topic, as a series
+// in the order of keys. It converts every field or none, because a frame that writes to
+// an index must hold every channel of that index.
+func (t readTopic) convert(msg message) ([]telem.Series, telem.TimeStamp, error) {
 	doc, err := xjson.Decode(msg.payload)
 	if err != nil {
 		// A payload that is not JSON is taken as a bare string, such as ON.
@@ -211,13 +207,11 @@ func (t readTopic) convert(msg message) (framer.Frame, telem.TimeStamp, error) {
 	for i, f := range t.fields {
 		value, ok := f.pointer.Get(doc)
 		if !ok {
-			return framer.Frame{}, 0, errors.Newf(
-				"field %s: no value at %s", f.name, f.pointer,
-			)
+			return nil, 0, errors.Newf("field %s: no value at %s", f.name, f.pointer)
 		}
 		data, err := xjson.AppendSample(nil, f.dataType, value, f.format, f.enums)
 		if err != nil {
-			return framer.Frame{}, 0, errors.Wrapf(err, "field %s", f.name)
+			return nil, 0, errors.Wrapf(err, "field %s", f.name)
 		}
 		if i == t.indexField {
 			stamp = telem.TimeStamp(telem.ByteOrder.Uint64(data))
@@ -228,18 +222,74 @@ func (t readTopic) convert(msg message) (framer.Frame, telem.TimeStamp, error) {
 	if t.index != 0 {
 		series[0].Data = telem.ByteOrder.AppendUint64(nil, uint64(stamp))
 	}
-	return frame.NewMulti(t.keys, series), stamp, nil
+	return series, stamp, nil
+}
+
+// batch gathers the samples of many messages into one frame, with one series for each
+// channel.
+type batch struct {
+	keys   channel.Keys
+	series []telem.Series
+	// at is the position in series of each channel.
+	at map[channel.Key]int
+}
+
+// append adds data, samples of the data type dt, to the series of key.
+func (b *batch) append(key channel.Key, dt telem.DataType, data []byte) {
+	i, ok := b.at[key]
+	if !ok {
+		if b.at == nil {
+			b.at = make(map[channel.Key]int)
+		}
+		i, b.at[key] = len(b.series), len(b.series)
+		b.keys = append(b.keys, key)
+		b.series = append(b.series, telem.Series{DataType: dt})
+	}
+	b.series[i].Data = append(b.series[i].Data, data...)
+}
+
+func (b *batch) frame() framer.Frame {
+	if len(b.keys) == 0 {
+		return framer.Frame{}
+	}
+	return frame.NewMulti(b.keys, b.series)
 }
 
 // readSource is the driver.Source of an MQTT read task.
 type readSource struct {
-	pool       *pool
-	attachment *attachment
-	topics     map[string]readTopic
+	pool   *pool
+	topics map[string]readTopic
 	// tags holds the Sparkplug B tags of the task.
 	tags map[tagID]readTag
-	// lastStamp is the last timestamp written to each index channel.
+	// lastStamp is the last timestamp written to each index channel, by any run.
 	lastStamp map[channel.Key]telem.TimeStamp
+	// broker is the key of the broker device.
+	broker    device.Key
+	queueSize int
+	// birthGrace is how long an edge node has to publish a birth before it is offline.
+	birthGrace time.Duration
+}
+
+var _ driver.Source = (*readSource)(nil)
+
+// Open implements driver.Source.
+func (s *readSource) Open(ctx context.Context) (driver.Reader, error) {
+	a, err := s.pool.attach(ctx, s.broker, s.queueSize)
+	if err != nil {
+		return nil, err
+	}
+	r := &reader{readSource: s, attachment: a, offline: make(set.Set[tagScope])}
+	if err = r.subscribe(ctx); err != nil {
+		s.pool.release(s.broker, a)
+		return nil, err
+	}
+	return r, nil
+}
+
+// reader is the driver.Reader of one run of an MQTT read task.
+type reader struct {
+	*readSource
+	attachment *attachment
 	// awaited holds the edge nodes that have until awaitedUntil to publish a birth.
 	awaited      set.Set[sparkplug.NodeID]
 	awaitedUntil time.Time
@@ -252,38 +302,24 @@ type readSource struct {
 		err   error
 		until time.Time
 	}
-	dev       device.Device
-	queueSize int
-	// birthGrace is how long an edge node has to publish a birth before it is
-	// offline.
-	birthGrace time.Duration
 	// dropped is the drop count of the attachment that was last reported.
 	dropped uint64
 }
 
-var _ driver.Source = (*readSource)(nil)
+var _ driver.Reader = (*reader)(nil)
 
-// Start implements driver.Source.
-func (s *readSource) Start(ctx context.Context) (err error) {
-	if s.attachment, err = s.pool.attach(s.dev, s.queueSize); err != nil {
+func (r *reader) subscribe(ctx context.Context) error {
+	if err := r.attachment.settle(ctx); err != nil {
 		return err
 	}
-	s.dropped = 0
-	if err = s.attachment.settle(ctx); err != nil {
-		s.pool.release(s.dev.Key, s.attachment)
-		return err
-	}
-	for _, t := range s.topics {
-		if err = s.attachment.subscribe(ctx, t.topic, t.qos); err != nil {
-			s.pool.release(s.dev.Key, s.attachment)
+	for _, t := range r.topics {
+		if err := r.attachment.subscribe(ctx, t.topic, t.qos); err != nil {
 			return err
 		}
 	}
-	s.offline = make(set.Set[tagScope])
-	s.await(time.Now())
-	for node := range s.awaited {
-		if err = s.attachment.follow(ctx, node); err != nil {
-			s.pool.release(s.dev.Key, s.attachment)
+	r.await(time.Now())
+	for node := range r.awaited {
+		if err := r.attachment.follow(ctx, node); err != nil {
 			return err
 		}
 	}
@@ -292,189 +328,189 @@ func (s *readSource) Start(ctx context.Context) (err error) {
 
 // await gives every edge node of the task the time of birthGrace to publish a birth. A
 // task that connects has missed the last birth of each one.
-func (s *readSource) await(now time.Time) {
-	s.awaited = make(set.Set[sparkplug.NodeID])
-	for id := range s.tags {
-		s.awaited.Add(id.node)
+func (r *reader) await(now time.Time) {
+	r.awaited = make(set.Set[sparkplug.NodeID])
+	for id := range r.tags {
+		r.awaited.Add(id.node)
 	}
-	s.awaitedUntil = now.Add(s.birthGrace)
+	r.awaitedUntil = now.Add(r.birthGrace)
 }
 
-// Stop implements driver.Source.
-func (s *readSource) Stop() error {
-	s.pool.release(s.dev.Key, s.attachment)
+// Close implements driver.Reader.
+func (r *reader) Close() error {
+	r.pool.release(r.broker, r.attachment)
 	return nil
 }
 
-// Read implements driver.Source.
-func (s *readSource) Read(ctx context.Context) (framer.Frame, error) {
+// Read implements driver.Reader. It returns every message that waits on the queue, up
+// to the size of the queue, in one frame.
+func (r *reader) Read(ctx context.Context) (framer.Frame, error) {
 	waitCtx := ctx
-	if deadline, ok := s.deadline(); ok {
+	if deadline, ok := r.deadline(); ok {
 		// The deadline wakes a quiet task, so that it can change its warning.
 		var cancel context.CancelFunc
 		waitCtx, cancel = context.WithDeadline(ctx, deadline)
 		defer cancel()
 	}
-	msg, err := s.attachment.next(waitCtx)
+	msg, err := r.attachment.next(waitCtx)
 	now := time.Now()
 	if err != nil {
 		if ctx.Err() == nil && errors.Is(err, context.DeadlineExceeded) {
-			s.expire(now)
-			return framer.Frame{}, s.health()
+			r.expire(now)
+			return framer.Frame{}, r.health()
 		}
 		return framer.Frame{}, err
 	}
-	if dropped := s.attachment.dropped.Load(); dropped != s.dropped {
-		s.dropped = dropped
-		s.degrade(now, errors.New(
+	var b batch
+	r.apply(now, msg, &b)
+	for range r.queueSize - 1 {
+		msg, ok := r.attachment.poll()
+		if !ok {
+			break
+		}
+		r.apply(now, msg, &b)
+	}
+	if dropped := r.attachment.dropped.Load(); dropped != r.dropped {
+		r.dropped = dropped
+		r.degrade(now, errors.New(
 			"messages arrive faster than the task can write them, and the oldest "+
 				"are dropped",
 		))
 	}
-	var fr framer.Frame
+	r.expire(now)
+	return b.frame(), r.health()
+}
+
+// apply adds the samples of msg to b.
+func (r *reader) apply(now time.Time, msg message, b *batch) {
 	switch {
 	case msg.sparkplug != nil:
-		fr = s.convertEvent(now, msg)
+		r.convertEvent(now, msg, b)
 	case msg.topic == "":
 		// The connection is back, and the births of the outage are lost.
-		s.await(now)
+		r.await(now)
 	default:
-		fr = s.convert(now, msg)
+		r.convert(now, msg, b)
 	}
-	s.expire(now)
-	return fr, s.health()
 }
 
 // deadline returns the next time at which the warning of the task changes with no
 // message.
-func (s *readSource) deadline() (deadline time.Time, ok bool) {
-	if s.degraded.err != nil {
-		deadline, ok = s.degraded.until, true
+func (r *reader) deadline() (deadline time.Time, ok bool) {
+	if r.degraded.err != nil {
+		deadline, ok = r.degraded.until, true
 	}
-	if len(s.awaited) > 0 && (!ok || s.awaitedUntil.Before(deadline)) {
-		deadline, ok = s.awaitedUntil, true
+	if len(r.awaited) > 0 && (!ok || r.awaitedUntil.Before(deadline)) {
+		deadline, ok = r.awaitedUntil, true
 	}
 	return deadline, ok
 }
 
 // expire ends the warning of a data loss that is over, and takes the edge nodes that
 // gave no birth in time as offline.
-func (s *readSource) expire(now time.Time) {
-	if s.degraded.err != nil && !now.Before(s.degraded.until) {
-		s.degraded.err = nil
+func (r *reader) expire(now time.Time) {
+	if r.degraded.err != nil && !now.Before(r.degraded.until) {
+		r.degraded.err = nil
 	}
-	if len(s.awaited) > 0 && !now.Before(s.awaitedUntil) {
-		for node := range s.awaited {
-			s.offline.Add(tagScope{node: node})
+	if len(r.awaited) > 0 && !now.Before(r.awaitedUntil) {
+		for node := range r.awaited {
+			r.offline.Add(tagScope{node: node})
 		}
-		clear(s.awaited)
-		s.refreshOffline()
+		clear(r.awaited)
+		r.refreshOffline()
 	}
 }
 
 // health returns the warning of the task, or nil for a task with none.
-func (s *readSource) health() error {
-	if s.degraded.err != nil {
-		return s.degraded.err
+func (r *reader) health() error {
+	if r.degraded.err != nil {
+		return r.degraded.err
 	}
-	return s.offlineErr
+	return r.offlineErr
 }
 
-// refreshOffline rebuilds the offline warning after s.offline changes.
-func (s *readSource) refreshOffline() {
-	if len(s.offline) == 0 {
-		s.offlineErr = nil
+// refreshOffline rebuilds the offline warning after r.offline changes.
+func (r *reader) refreshOffline() {
+	if len(r.offline) == 0 {
+		r.offlineErr = nil
 		return
 	}
-	scopes := make([]string, 0, len(s.offline))
-	for scope := range s.offline {
+	scopes := make([]string, 0, len(r.offline))
+	for scope := range r.offline {
 		scopes = append(scopes, scope.String())
 	}
 	slices.Sort(scopes)
-	s.offlineErr = errors.Wrapf(
-		driver.ErrDegraded, "%s is offline", strings.Join(scopes, ", "),
+	r.offlineErr = errors.Mark(
+		errors.Newf("%s is offline", strings.Join(scopes, ", ")), driver.ErrDegraded,
 	)
 }
 
 // degrade starts or extends the warning of the task. The warning keeps its first
 // text for as long as it lasts, so that a burst of losses writes one status.
-func (s *readSource) degrade(now time.Time, err error) {
-	if s.degraded.err == nil {
-		s.degraded.err = errors.Wrap(driver.ErrDegraded, err.Error())
+func (r *reader) degrade(now time.Time, err error) {
+	if r.degraded.err == nil {
+		r.degraded.err = errors.Mark(err, driver.ErrDegraded)
 	}
-	s.degraded.until = now.Add(degradedHold)
+	r.degraded.until = now.Add(degradedHold)
 }
 
-// convert returns the frame of msg, or an empty frame for a message that carries
-// nothing to write.
-func (s *readSource) convert(now time.Time, msg message) framer.Frame {
-	t, ok := s.topics[msg.topic]
+// convert adds the samples of msg to b. A message that carries nothing to write adds
+// none.
+func (r *reader) convert(now time.Time, msg message, b *batch) {
+	t, ok := r.topics[msg.topic]
 	if !ok || (msg.retained && t.retainedIgnored) {
-		return framer.Frame{}
+		return
 	}
-	fr, stamp, err := t.convert(msg)
+	series, stamp, err := t.convert(msg)
 	if err != nil {
-		s.degrade(now, errors.Wrapf(err, "rejected a message on topic %s", t.topic))
-		return framer.Frame{}
+		r.degrade(now, errors.Wrapf(err, "rejected a message on topic %s", t.topic))
+		return
 	}
 	if t.index != 0 {
 		// An index takes timestamps in rising order only.
-		if stamp <= s.lastStamp[t.index] {
-			s.degrade(now, errors.Newf(
+		if stamp <= r.lastStamp[t.index] {
+			r.degrade(now, errors.Newf(
 				"rejected a message on topic %s: its timestamp is not after the "+
 					"last one written",
 				t.topic,
 			))
-			return framer.Frame{}
+			return
 		}
-		s.lastStamp[t.index] = stamp
+		r.lastStamp[t.index] = stamp
 	}
-	return fr
+	for i, key := range t.keys {
+		b.append(key, series[i].DataType, series[i].Data)
+	}
 }
 
 // convertEvent applies one Sparkplug B message: a birth or a death changes which edge
-// nodes are offline, and the values of the tags of the task become a frame.
-func (s *readSource) convertEvent(now time.Time, msg message) framer.Frame {
+// nodes are offline, and the values of the tags of the task go into b.
+func (r *reader) convertEvent(now time.Time, msg message, b *batch) {
 	ev := msg.sparkplug
 	scope := tagScope{node: ev.Node, device: ev.Device}
 	birth := false
 	switch ev.Type {
 	case sparkplug.NDeath, sparkplug.DDeath:
-		if s.reads(scope) {
-			s.offline.Add(scope)
-			s.refreshOffline()
+		if r.reads(scope) {
+			r.offline.Add(scope)
+			r.refreshOffline()
 		}
-		return framer.Frame{}
+		return
 	case sparkplug.NBirth, sparkplug.DBirth:
 		birth = true
-		delete(s.awaited, ev.Node)
-		delete(s.offline, scope)
-		s.refreshOffline()
-		s.checkBirth(now, scope, ev.Metrics)
-	}
-	var (
-		keys   channel.Keys
-		series []telem.Series
-		// at is the position in series of each channel.
-		at = make(map[channel.Key]int)
-	)
-	add := func(key channel.Key, dt telem.DataType) *telem.Series {
-		i, ok := at[key]
-		if !ok {
-			i, at[key] = len(series), len(series)
-			keys = append(keys, key)
-			series = append(series, telem.Series{DataType: dt})
-		}
-		return &series[i]
+		delete(r.awaited, ev.Node)
+		delete(r.offline, scope)
+		r.refreshOffline()
+		r.checkBirth(now, scope, ev.Metrics)
 	}
 	for _, m := range ev.Metrics {
-		t, ok := s.tags[tagID{tagScope: scope, name: m.Name}]
+		t, ok := r.tags[tagID{tagScope: scope, name: m.Name}]
 		if !ok || m.Value == nil || m.Historical {
 			continue
 		}
-		data, err := t.appendSample(nil, m.Value)
+		data, err := sparkplug.AppendSample(nil, t.dataType, m.Value)
 		if err != nil {
-			s.degrade(now, errors.Wrapf(err, "rejected a value of %s", t))
+			r.degrade(now, errors.Wrapf(err, "rejected a value of %s", t))
 			continue
 		}
 		if t.index != 0 {
@@ -484,9 +520,9 @@ func (s *readSource) convertEvent(now time.Time, msg message) framer.Frame {
 			}
 			// An index takes timestamps in rising order only. A birth repeats values
 			// that the task may have, so a stale one is no loss.
-			if stamp <= s.lastStamp[t.index] {
+			if stamp <= r.lastStamp[t.index] {
 				if !birth {
-					s.degrade(now, errors.Newf(
+					r.degrade(now, errors.Newf(
 						"rejected a value of %s: its timestamp is not after the last "+
 							"one written",
 						t,
@@ -494,23 +530,21 @@ func (s *readSource) convertEvent(now time.Time, msg message) framer.Frame {
 				}
 				continue
 			}
-			s.lastStamp[t.index] = stamp
-			index := add(t.index, telem.TimestampT)
-			index.Data = telem.ByteOrder.AppendUint64(index.Data, uint64(stamp))
+			r.lastStamp[t.index] = stamp
+			b.append(
+				t.index,
+				telem.TimestampT,
+				telem.ByteOrder.AppendUint64(nil, uint64(stamp)),
+			)
 		}
-		values := add(t.channel, t.dataType)
-		values.Data = append(values.Data, data...)
+		b.append(t.channel, t.dataType, data)
 	}
-	if len(keys) == 0 {
-		return framer.Frame{}
-	}
-	return frame.NewMulti(keys, series)
 }
 
 // reads reports whether the task has a tag in scope, or, for an edge node, in one of
 // its devices.
-func (s *readSource) reads(scope tagScope) bool {
-	for id := range s.tags {
+func (r *reader) reads(scope tagScope) bool {
+	for id := range r.tags {
 		if id.node == scope.node && (scope.device == "" || id.device == scope.device) {
 			return true
 		}
@@ -519,7 +553,7 @@ func (s *readSource) reads(scope tagScope) bool {
 }
 
 // checkBirth warns about the tags of the task that the birth of scope did not declare.
-func (s *readSource) checkBirth(
+func (r *reader) checkBirth(
 	now time.Time,
 	scope tagScope,
 	metrics []sparkplug.Metric,
@@ -528,12 +562,12 @@ func (s *readSource) checkBirth(
 	for _, m := range metrics {
 		declared.Add(m.Name)
 	}
-	for id := range s.tags {
+	for id := range r.tags {
 		if id.tagScope != scope {
 			continue
 		}
 		if !declared.Contains(id.name) {
-			s.degrade(now, errors.Newf("%s is not in the birth of its %s", id, scope))
+			r.degrade(now, errors.Newf("%s is not in the birth of its %s", id, scope))
 		}
 	}
 }

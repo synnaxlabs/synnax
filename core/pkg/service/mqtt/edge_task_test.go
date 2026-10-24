@@ -11,6 +11,8 @@ package mqtt_test
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"slices"
 	"time"
 	"uuid"
@@ -37,12 +39,12 @@ import (
 )
 
 // edgeTag returns the config of one tag of an edge node task.
-func edgeTag(name string, ch channel.Channel, sparkplugType string) map[string]any {
+func edgeTag(name string, ch channel.Channel, tagType string) map[string]any {
 	return map[string]any{
-		"key":            name,
-		"name":           name,
-		"channel":        ch.Key(),
-		"sparkplug_type": sparkplugType,
+		"key":      name,
+		"name":     name,
+		"channel":  ch.Key(),
+		"tag_type": tagType,
 	}
 }
 
@@ -357,16 +359,43 @@ var _ = Describe("Edge task", func() {
 			},
 		)
 
+		It("Should leave out a sample that does not fit its tag and keep the rest",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx, telem.Float64T)
+				_, t := start(ctx, edgeConfig(dev, edgeTag("count", ch, "int32")))
+				streamValue(ctx, channel.Channel{}, ch, telem.NewSeriesV(2.0, 1.5))
+				m := host.data()[0]
+				Expect(m.payload.Metrics).To(HaveLen(1))
+				Expect(m.payload.Metrics[0].GetValue()).To(Equal(
+					&pb.Payload_Metric_IntValue{IntValue: 2},
+				))
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx, t)
+					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+					g.Expect(stat.Message).To(Equal(
+						"tag count: 1.5 as Int32: value does not fit the data type: " +
+							"validation error",
+					))
+				}).Should(Succeed())
+				// The birth carries the last value that fit.
+				host.sendRebirth()
+				Eventually(host.births).Should(HaveLen(2))
+				Expect(host.births()[1].metric("count").GetValue()).To(Equal(
+					&pb.Payload_Metric_IntValue{IntValue: 2},
+				))
+			},
+		)
+
 		DescribeTable("Should encode a sample as the Sparkplug B data type of its tag",
 			func(
 				ctx SpecContext,
 				series telem.Series,
-				sparkplugType string,
+				tagType string,
 				dataType sparkplug.DataType,
 				value types.GomegaMatcher,
 			) {
 				ch := createVirtual(ctx, series.DataType)
-				start(ctx, edgeConfig(dev, edgeTag("tag", ch, sparkplugType)))
+				start(ctx, edgeConfig(dev, edgeTag("tag", ch, tagType)))
 				Expect(host.births()[0].metric("tag").GetDatatype()).
 					To(BeEquivalentTo(dataType))
 				streamValue(ctx, channel.Channel{}, ch, series)
@@ -395,6 +424,32 @@ var _ = Describe("Edge task", func() {
 				telem.NewSeriesV(1700000000123*telem.MillisecondTS),
 				"date_time", sparkplug.DateTime,
 				Equal(&pb.Payload_Metric_LongValue{LongValue: 1700000000123}),
+			),
+			Entry("a NaN float64 as double",
+				telem.NewSeriesV(math.NaN()), "double", sparkplug.Double,
+				HaveField("DoubleValue", Satisfy(math.IsNaN)),
+			),
+			Entry("+Inf float64 as double",
+				telem.NewSeriesV(math.Inf(1)), "double", sparkplug.Double,
+				Equal(&pb.Payload_Metric_DoubleValue{DoubleValue: math.Inf(1)}),
+			),
+			Entry("-Inf float64 as double",
+				telem.NewSeriesV(math.Inf(-1)), "double", sparkplug.Double,
+				Equal(&pb.Payload_Metric_DoubleValue{DoubleValue: math.Inf(-1)}),
+			),
+			Entry("a NaN float32 as float",
+				telem.NewSeriesV(float32(math.NaN())), "float", sparkplug.Float,
+				HaveField("FloatValue", Satisfy(func(f float32) bool {
+					return math.IsNaN(float64(f))
+				})),
+			),
+			Entry("+Inf float32 as float",
+				telem.NewSeriesV(float32(math.Inf(1))), "float", sparkplug.Float,
+				Equal(&pb.Payload_Metric_FloatValue{FloatValue: float32(math.Inf(1))}),
+			),
+			Entry("-Inf float64 as float",
+				telem.NewSeriesV(math.Inf(-1)), "float", sparkplug.Float,
+				Equal(&pb.Payload_Metric_FloatValue{FloatValue: float32(math.Inf(-1))}),
 			),
 		)
 
@@ -513,9 +568,30 @@ var _ = Describe("Edge task", func() {
 			Entry("an int32 into a float64 channel",
 				telem.Float64T, int32(-3), telem.NewSeriesV(-3.0),
 			),
-			Entry("a numeric string into a float64 channel",
-				telem.Float64T, "2.5", telem.NewSeriesV(2.5),
+			Entry("a NaN into a float64 channel",
+				telem.Float64T, nan, telem.NewSeriesV(nan),
 			),
+			Entry("+Inf into a float32 channel",
+				telem.Float32T, math.Inf(1), telem.NewSeriesV(float32(math.Inf(1))),
+			),
+			Entry("-Inf into a float64 channel",
+				telem.Float64T, math.Inf(-1), telem.NewSeriesV(math.Inf(-1)),
+			),
+		)
+
+		It("Should not write a command value that the channel cannot take",
+			func(ctx SpecContext) {
+				_, cmdData := createIndexed(ctx, telem.Float64T)
+				start(ctx, edgeConfig(dev, commandTag(
+					"setpoint", createVirtual(ctx, telem.Float64T), cmdData[0],
+				)))
+				host.sendCommand(commandMetric("setpoint", 0, "2.5"))
+				host.sendCommand(commandMetric("setpoint", 0, 4.0))
+				Eventually(func() int64 { return stored(ctx, cmdData[0]).Len() }).
+					Should(BeEquivalentTo(1))
+				Expect(stored(ctx, cmdData[0])).
+					To(telem.MatchSeriesData(telem.NewSeriesV(4.0)))
+			},
 		)
 
 		It("Should write with the authority of the config", func(ctx SpecContext) {
@@ -844,6 +920,21 @@ var _ = Describe("Edge task", func() {
 						"tags: tag temp appears more than once"
 				},
 			),
+			Entry("two tags that write to the same command channel",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Float64T)
+					cmd := createVirtual(ctx, telem.Float64T)
+					temp := edgeTag("temp", ch, "double")
+					temp["command_channel"] = cmd.Key()
+					flow := edgeTag("flow", ch, "double")
+					flow["command_channel"] = cmd.Key()
+					return edgeConfig(dev, temp, flow), fmt.Sprintf(
+						"tags: tag temp and tag flow write to the same command "+
+							"channel %d",
+						cmd.Key(),
+					)
+				},
+			),
 			Entry("a command channel that does not exist",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					tag := edgeTag("temp", createVirtual(ctx, telem.Float64T), "double")
@@ -851,6 +942,24 @@ var _ = Describe("Edge task", func() {
 					return edgeConfig(dev, tag),
 						"command channel: tag plant/line1/temp: " +
 							"channel 999999 does not exist"
+				},
+			),
+			Entry("a command channel of a type that the tag does not fit",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					cmd := createVirtual(ctx, telem.StringT)
+					tag := edgeTag("temp", createVirtual(ctx, telem.Float64T), "double")
+					tag["command_channel"] = cmd.Key()
+					return edgeConfig(dev, tag),
+						"tag temp: command channel " + cmd.Name +
+							" of type string cannot take values of Double"
+				},
+			),
+			Entry("a json channel as string",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.JSONT)
+					return edgeConfig(dev, edgeTag("temp", ch, "string")),
+						"tag temp: channel " + ch.Name +
+							" of type json cannot be sent as String"
 				},
 			),
 			Entry("a command channel that cannot take the values",

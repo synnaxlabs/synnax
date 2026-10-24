@@ -214,7 +214,7 @@ var _ = Describe("Write task", func() {
 					Expect(doc).To(HaveKeyWithValue("unit", "rpm"))
 					Expect(doc).To(HaveKeyWithValue("priority", BeEquivalentTo(3)))
 					id := doc["id"].(string)
-					Expect(uuid.Parse(id)).Error().ToNot(HaveOccurred())
+					MustSucceed(uuid.Parse(id))
 					ids = append(ids, id)
 				}
 				Expect(lo.Uniq(ids)).To(HaveLen(len(ids)))
@@ -281,7 +281,10 @@ var _ = Describe("Write task", func() {
 				command(ctx, ch, telem.NewSeriesV(math.NaN()), func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(ContainSubstring("value is not finite"))
+					g.Expect(stat.Message).To(Equal(
+						"target plant/nan: cannot convert NaN to JSON: value is not " +
+							"finite: json conversion failed: validation error",
+					))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				})
 				command(ctx, ch, telem.NewSeriesV(7.0), func(g Gomega) {
@@ -304,8 +307,7 @@ var _ = Describe("Write task", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).
-						To(ContainSubstring("broker is not connected"))
+					g.Expect(stat.Message).To(Equal("broker is not connected"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}, 5*time.Second).Should(Succeed())
 				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
@@ -347,95 +349,99 @@ var _ = Describe("Write task", func() {
 			Expect(stat.Details.Cmd).To(Equal("configure"))
 		}
 
-		It("Should reject a task with no enabled targets", func(ctx SpecContext) {
-			ch := createVirtual(ctx, telem.Float64T)
-			disabled := plainTarget("plant/x", ch, "", "number")
-			disabled["disabled"] = true
-			expectRejected(
-				ctx, writeConfig(dev, disabled),
-				"targets: the task has no enabled targets",
-			)
-		})
-
-		It("Should reject a topic that holds a wildcard", func(ctx SpecContext) {
-			ch := createVirtual(ctx, telem.Float64T)
-			expectRejected(
-				ctx, writeConfig(dev, plainTarget("plant/+/set", ch, "", "number")),
-				"topic plant/+/set: must not hold the wildcards + or #",
-			)
-		})
-
-		It("Should reject a channel that does not exist", func(ctx SpecContext) {
-			ch := channel.Channel{Name: "missing", DataType: telem.Float64T}
-			expectRejected(
-				ctx, writeConfig(dev, plainTarget("plant/x", ch, "", "number")),
-				"target plant/x: channel 0 does not exist",
-			)
-		})
-
-		It("Should reject a JSON type the channel cannot convert to",
-			func(ctx SpecContext) {
-				ch := createVirtual(ctx, telem.StringT)
-				expectRejected(
-					ctx, writeConfig(dev, plainTarget("plant/x", ch, "", "number")),
-					"target plant/x: channel "+ch.Name+
-						": cannot convert string to a JSON number",
-				)
+		DescribeTable(
+			"Should reject a config that is not valid",
+			func(
+				ctx SpecContext,
+				build func(ctx context.Context) (msgpack.EncodedJSON, string),
+			) {
+				cfg, message := build(ctx)
+				expectRejected(ctx, cfg, message)
 			},
-		)
-
-		It("Should reject enum values for a JSON type that is not string",
-			func(ctx SpecContext) {
-				ch := createVirtual(ctx, telem.Uint8T)
-				target := plainTarget("plant/x", ch, "/v", "number")
-				target["channel"].(map[string]any)["enum_values"] = []any{
-					map[string]any{"label": "open", "value": 1},
-				}
-				expectRejected(
-					ctx, writeConfig(dev, target),
-					"target plant/x: enum values require the string JSON type",
-				)
-			},
-		)
-
-		It("Should reject extra fields next to a root pointer", func(ctx SpecContext) {
-			ch := createVirtual(ctx, telem.Float64T)
-			expectRejected(
-				ctx,
-				writeConfig(dev, plainTarget(
-					"plant/x", ch, "", "number", staticField("/unit", "string", "rpm"),
-				)),
-				"a channel value that is the whole payload allows no other fields",
-			)
-		})
-
-		It("Should reject a static value that is not of its JSON type",
-			func(ctx SpecContext) {
-				ch := createVirtual(ctx, telem.Float64T)
-				expectRejected(
-					ctx,
-					writeConfig(dev, plainTarget(
+			Entry("no enabled targets",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Float64T)
+					disabled := plainTarget("plant/x", ch, "", "number")
+					disabled["disabled"] = true
+					return writeConfig(dev, disabled),
+						"targets: the task has no enabled targets"
+				},
+			),
+			Entry("a null target", func(context.Context) (msgpack.EncodedJSON, string) {
+				return msgpack.EncodedJSON{"device": dev.Key, "targets": []any{nil}},
+					"targets: a target is null"
+			}),
+			Entry("a null field",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Float64T)
+					target := plainTarget("plant/x", ch, "/v", "number")
+					target["fields"] = []any{nil}
+					return writeConfig(dev, target), "target plant/x: a field is null"
+				},
+			),
+			Entry("a topic that holds a wildcard",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Float64T)
+					target := plainTarget("plant/+/set", ch, "", "number")
+					return writeConfig(dev, target),
+						"topic plant/+/set: must not hold the wildcards + or #"
+				},
+			),
+			Entry("a channel that does not exist",
+				func(context.Context) (msgpack.EncodedJSON, string) {
+					ch := channel.Channel{Name: "missing", DataType: telem.Float64T}
+					return writeConfig(dev, plainTarget("plant/x", ch, "", "number")),
+						"target plant/x: channel 0 does not exist"
+				},
+			),
+			Entry("a JSON type the channel cannot convert to",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.StringT)
+					return writeConfig(dev, plainTarget("plant/x", ch, "", "number")),
+						"target plant/x: channel " + ch.Name +
+							": cannot convert string to a JSON number"
+				},
+			),
+			Entry("enum values for a JSON type that is not string",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Uint8T)
+					target := plainTarget("plant/x", ch, "/v", "number")
+					target["channel"].(map[string]any)["enum_values"] = []any{
+						map[string]any{"label": "open", "value": 1},
+					}
+					return writeConfig(dev, target),
+						"target plant/x: enum values require the string JSON type"
+				},
+			),
+			Entry("extra fields next to a root pointer",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Float64T)
+					unit := staticField("/unit", "string", "rpm")
+					target := plainTarget("plant/x", ch, "", "number", unit)
+					return writeConfig(dev, target),
+						"a channel value that is the whole payload " +
+							"allows no other fields"
+				},
+			),
+			Entry("a static value that is not of its JSON type",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Float64T)
+					return writeConfig(dev, plainTarget(
 						"plant/x", ch, "/v", "number",
 						staticField("/unit", "number", "rpm"),
-					)),
-					"target plant/x: static value at /unit is not a number",
-				)
-			},
-		)
-
-		It("Should reject fields whose pointers block each other",
-			func(ctx SpecContext) {
-				ch := createVirtual(ctx, telem.Float64T)
-				expectRejected(
-					ctx,
-					writeConfig(dev, plainTarget(
-						"plant/x", ch, "/unit/value", "number",
-						staticField("/unit", "string", "rpm"),
-					)),
-					"target plant/x: cannot set /unit/value: "+
-						"a scalar value blocks the path",
-				)
-			},
+					)), "target plant/x: static value at /unit is not a number"
+				},
+			),
+			Entry("fields whose pointers block each other",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Float64T)
+					unit := staticField("/unit", "string", "rpm")
+					target := plainTarget("plant/x", ch, "/unit/value", "number", unit)
+					return writeConfig(dev, target),
+						"target plant/x: cannot set /unit/value: " +
+							"a scalar value blocks the path"
+				},
+			),
 		)
 	})
 })

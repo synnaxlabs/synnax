@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
-	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug/pb"
 	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -44,12 +43,19 @@ const (
 	disconnectQuiesce = 250 * time.Millisecond
 	// stateTimeout bounds the offline STATE message of a connection that stops.
 	stateTimeout = time.Second
-	// rebirthBacklog is the count of rebirth requests that can wait to be sent.
-	rebirthBacklog = 64
 )
 
-// errNotConnected is a temporary error: the connection connects again on its own.
-var errNotConnected = errors.Wrap(driver.ErrTemporary, "broker is not connected")
+var (
+	// errNotConnected is a temporary error: the connection connects again on its own.
+	errNotConnected = errors.Mark(
+		errors.New("broker is not connected"), driver.ErrTemporary,
+	)
+	// errBrokerTimeout is the temporary error of a broker that does not answer an
+	// operation in time.
+	errBrokerTimeout = errors.Mark(
+		errors.New("timed out waiting for the broker"), driver.ErrTemporary,
+	)
+)
 
 // message is one message received from a broker.
 type message struct {
@@ -68,24 +74,14 @@ type message struct {
 type subscription struct {
 	attachments set.Set[*attachment]
 	qos         byte
-	// sparkplug is true for the filter of an edge node. Its messages reach the
-	// attachments decoded, through the host session, and never as they arrived.
-	sparkplug bool
-}
-
-// rebirthRequest asks for a rebirth request to node.
-type rebirthRequest struct {
-	node sparkplug.NodeID
-	// forced sends the request to a node that the host already holds a birth of.
-	forced bool
 }
 
 // connection is the one MQTT client that the tasks of a broker device share. It
 // connects again after a loss, subscribes again after each connect, and gives each
 // attachment its own bounded queue. Safe for concurrent use.
 type connection struct {
-	// rebirths holds the rebirth requests that the connect loop sends.
-	rebirths chan rebirthRequest
+	// rebirths wakes the connect loop to send the rebirth requests of the host session.
+	rebirths chan struct{}
 	ins      alamos.Instrumentation
 	// clock stamps arrivals in rising order. Only the delivery goroutine uses it.
 	clock telem.MonoClock
@@ -112,6 +108,9 @@ type connection struct {
 		subs        map[string]*subscription
 		attachments set.Set[*attachment]
 		cfg         clientConfig
+		// configErr is the error of the last read of the properties of the broker
+		// device. Nil when the connection took them.
+		configErr error
 		sync.Mutex
 	}
 }
@@ -120,9 +119,8 @@ func newConnection(
 	ins alamos.Instrumentation,
 	rebirthInterval time.Duration,
 ) *connection {
-	c := &connection{ins: ins, rebirths: make(chan rebirthRequest, rebirthBacklog)}
-	c.mu.host = sparkplug.NewHost()
-	c.mu.host.RebirthInterval = rebirthInterval
+	c := &connection{ins: ins, rebirths: make(chan struct{}, 1)}
+	c.mu.host = sparkplug.NewHost(rebirthInterval)
 	c.mu.nodes = make(map[sparkplug.NodeID]set.Set[*attachment])
 	c.mu.subs = make(map[string]*subscription)
 	c.mu.attachments = make(set.Set[*attachment])
@@ -160,6 +158,14 @@ func (c *connection) configure(cfg clientConfig) {
 		c.run(ctx, cfg, sync.OnceFunc(func() { close(settled) }))
 		return nil
 	}, signal.RecoverWithErrOnPanic())
+}
+
+// current reports whether the connect loop runs with cfg. It ignores the TLS config of
+// cfg, which tlsID identifies.
+func (c *connection) current(cfg clientConfig) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.mu.stop != nil && c.mu.cfg.equal(cfg)
 }
 
 func (cfg clientConfig) equal(other clientConfig) bool {
@@ -275,18 +281,30 @@ func reconnect(ctx context.Context, ins alamos.Instrumentation, hooks reconnectH
 	}
 }
 
-// serve sends rebirth requests through client until ctx is cancelled or the
-// connection is lost.
+// serve sends the rebirth requests of the host session through client until ctx is
+// cancelled or the connection is lost.
 func (c *connection) serve(ctx context.Context, client paho.Client, lost <-chan error) {
+	held := time.NewTimer(time.Hour)
+	held.Stop()
+	defer held.Stop()
 	for {
+		c.mu.Lock()
+		due, wait := c.mu.host.TakeRebirths(time.Now())
+		c.mu.Unlock()
+		for _, node := range due {
+			c.requestRebirth(ctx, client, node)
+		}
+		if wait > 0 {
+			held.Reset(wait)
+		}
 		select {
 		case <-ctx.Done():
 			return
 		case err := <-lost:
 			c.ins.L.Warn("lost the connection to the MQTT broker", zap.Error(err))
 			return
-		case req := <-c.rebirths:
-			c.requestRebirth(ctx, client, req)
+		case <-c.rebirths:
+		case <-held.C:
 		}
 	}
 }
@@ -301,8 +319,8 @@ func withStateWill(
 	if hostID == "" {
 		return opts
 	}
-	payload := sparkplug.EncodeState(false, stamp)
-	return opts.SetBinaryWill(sparkplug.StateTopic(hostID), payload, 1, true)
+	will := sparkplug.EncodeState(hostID, false, stamp)
+	return opts.SetBinaryWill(will.Topic, will.Payload, will.QoS, will.Retained)
 }
 
 func (c *connection) publishState(
@@ -315,50 +333,35 @@ func (c *connection) publishState(
 	if hostID == "" {
 		return
 	}
-	payload := sparkplug.EncodeState(online, stamp)
-	err := wait(ctx, client.Publish(sparkplug.StateTopic(hostID), 1, true, payload))
+	pub := sparkplug.EncodeState(hostID, online, stamp)
+	err := wait(ctx, client.Publish(pub.Topic, pub.QoS, pub.Retained, pub.Payload))
 	if err != nil && ctx.Err() == nil {
 		c.ins.L.Warn("failed to publish the Sparkplug B STATE message", zap.Error(err))
 	}
 }
 
-// queueRebirth asks the connect loop for a rebirth request. A full backlog drops the
-// request: the next message of the edge node asks again.
-func (c *connection) queueRebirth(req rebirthRequest) {
+// wakeRebirths tells the connect loop that the host session holds a rebirth request.
+func (c *connection) wakeRebirths() {
 	select {
-	case c.rebirths <- req:
+	case c.rebirths <- struct{}{}:
 	default:
 	}
 }
 
-// requestRebirth sends a rebirth request to the edge node of req, no more often than
-// the host session allows. A request that comes too early is queued again for later.
+// requestRebirth sends a rebirth request to node.
 func (c *connection) requestRebirth(
 	ctx context.Context,
 	client paho.Client,
-	req rebirthRequest,
+	node sparkplug.NodeID,
 ) {
-	c.mu.Lock()
-	_, followed := c.mu.nodes[req.node]
-	if !followed || (!req.forced && c.mu.host.Born(req.node)) {
-		c.mu.Unlock()
-		return
-	}
-	left := c.mu.host.TakeRebirth(req.node, time.Now())
-	c.mu.Unlock()
-	if left > 0 {
-		time.AfterFunc(left, func() { c.queueRebirth(req) })
-		return
-	}
-	payload, err := sparkplug.EncodeRebirth(telem.Now())
+	pub, err := sparkplug.EncodeRebirth(node, telem.Now())
 	if err == nil {
-		topic := sparkplug.CommandTopic(req.node, "").String()
-		err = wait(ctx, client.Publish(topic, 0, false, payload))
+		err = wait(ctx, client.Publish(pub.Topic, pub.QoS, pub.Retained, pub.Payload))
 	}
 	if err != nil && ctx.Err() == nil {
 		c.ins.L.Warn(
 			"failed to request a Sparkplug B rebirth",
-			zap.Stringer("node", req.node),
+			zap.Stringer("node", node),
 			zap.Error(err),
 		)
 	}
@@ -374,21 +377,14 @@ func (c *connection) setClient(ctx context.Context, client paho.Client) {
 	for filter, sub := range c.mu.subs {
 		filters[filter] = sub.qos
 	}
-	var nodes []sparkplug.NodeID
 	if client != nil {
 		c.mu.host.Reset()
-		for node := range c.mu.nodes {
-			nodes = append(nodes, node)
-		}
 	}
 	c.mu.Unlock()
 	if client != nil && len(filters) > 0 {
 		if err := wait(ctx, client.SubscribeMultiple(filters, nil)); err != nil {
 			c.ins.L.Error("failed to subscribe after connect", zap.Error(err))
 		}
-	}
-	for _, node := range nodes {
-		c.queueRebirth(rebirthRequest{node: node})
 	}
 	c.notify()
 }
@@ -404,11 +400,11 @@ func (c *connection) onMessage(_ paho.Client, m paho.Message) {
 		retained: m.Retained(),
 	}
 	var (
-		topic   sparkplug.Topic
-		payload *pb.Payload
+		decoded   sparkplug.Message
+		inSession bool
 	)
 	if strings.HasPrefix(msg.topic, sparkplug.Namespace+"/") {
-		topic, payload = c.decodeSparkplug(msg)
+		decoded, inSession = c.decodeSparkplug(msg)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -417,40 +413,35 @@ func (c *connection) onMessage(_ paho.Client, m paho.Message) {
 			a.enqueue(msg)
 		}
 	}
-	if payload != nil {
-		c.onSparkplugMessage(topic, payload, msg.received)
+	if inSession {
+		c.onSparkplugMessage(decoded, msg.received)
 	}
 }
 
-// decodeSparkplug parses a message of the Sparkplug B namespace. It returns a nil
-// payload for a message that no host session applies.
-func (c *connection) decodeSparkplug(msg message) (sparkplug.Topic, *pb.Payload) {
+// decodeSparkplug parses a message of the Sparkplug B namespace. ok is false for a
+// message that no host session applies.
+func (c *connection) decodeSparkplug(msg message) (m sparkplug.Message, ok bool) {
 	topic, err := sparkplug.ParseTopic(msg.topic)
-	if err != nil || !topic.Type.Session() {
-		return topic, nil
+	if err != nil || !topic.Type.InSession() {
+		return m, false
 	}
-	payload, err := sparkplug.DecodePayload(topic, msg.payload)
-	if err != nil {
+	if m, err = sparkplug.Decode(topic, msg.payload); err != nil {
 		c.ins.L.Debug("dropped a Sparkplug B message", zap.Error(err))
-		return topic, nil
+		return m, false
 	}
-	return topic, payload
+	return m, true
 }
 
 // onSparkplugMessage runs a decoded message through the host session and gives the
 // result to the attachments that follow its edge node. The caller holds c.mu.
-func (c *connection) onSparkplugMessage(
-	topic sparkplug.Topic,
-	payload *pb.Payload,
-	received telem.TimeStamp,
-) {
-	attachments, followed := c.mu.nodes[topic.Node]
+func (c *connection) onSparkplugMessage(m sparkplug.Message, received telem.TimeStamp) {
+	attachments, followed := c.mu.nodes[m.Topic.Node]
 	if !followed {
 		return
 	}
-	ev := c.mu.host.Handle(topic, payload)
+	ev := c.mu.host.Handle(m)
 	if ev.Rebirth {
-		c.queueRebirth(rebirthRequest{node: topic.Node})
+		c.wakeRebirths()
 	}
 	if ev.Type == "" {
 		return
@@ -471,6 +462,13 @@ func (c *connection) notify() {
 		default:
 		}
 	}
+}
+
+// unused reports whether c has no attachments.
+func (c *connection) unused() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.mu.attachments) == 0
 }
 
 func (c *connection) connected() bool {
@@ -574,6 +572,17 @@ func (a *attachment) next(ctx context.Context) (message, error) {
 	}
 }
 
+// poll returns a message that waits on the queue, with no wait. ok is false for an
+// empty queue.
+func (a *attachment) poll() (msg message, ok bool) {
+	select {
+	case msg = <-a.queue:
+		return msg, true
+	default:
+		return message{}, false
+	}
+}
+
 // settle blocks until the first connection attempt to the broker ends, so that the
 // state the attachment reports first is a known one.
 func (a *attachment) settle(ctx context.Context) error {
@@ -586,12 +595,6 @@ func (a *attachment) settle(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-}
-
-// subscribe adds filter to the attachment. The connection holds one subscription for
-// each filter, at the highest quality of service that an attachment asked for.
-func (a *attachment) subscribe(ctx context.Context, filter string, qos byte) error {
-	return a.subscribeFilter(ctx, filter, qos, false)
 }
 
 // follow makes the attachment receive the decoded messages of node. It asks the node
@@ -608,29 +611,26 @@ func (a *attachment) follow(ctx context.Context, node sparkplug.NodeID) error {
 	attachments.Add(a)
 	c.mu.Unlock()
 	for _, filter := range node.Filters() {
-		if err := a.subscribeFilter(ctx, filter, 0, true); err != nil {
+		if err := a.subscribe(ctx, filter, 0); err != nil {
 			return err
 		}
 	}
-	c.queueRebirth(rebirthRequest{node: node, forced: true})
+	c.mu.Lock()
+	c.mu.host.WantRebirth(node)
+	c.mu.Unlock()
+	c.wakeRebirths()
 	return nil
 }
 
-func (a *attachment) subscribeFilter(
-	ctx context.Context,
-	filter string,
-	qos byte,
-	isSparkplug bool,
-) error {
+// subscribe adds filter to the attachment. The connection holds one subscription for
+// each filter, at the highest quality of service that an attachment asked for.
+func (a *attachment) subscribe(ctx context.Context, filter string, qos byte) error {
 	c := a.conn
 	c.mu.Lock()
 	a.filters.Add(filter)
 	sub, ok := c.mu.subs[filter]
 	if !ok {
-		sub = &subscription{
-			attachments: make(set.Set[*attachment]),
-			sparkplug:   isSparkplug,
-		}
+		sub = &subscription{attachments: make(set.Set[*attachment])}
 		c.mu.subs[filter] = sub
 	}
 	sub.attachments.Add(a)
@@ -712,45 +712,57 @@ func wait(ctx context.Context, token paho.Token) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-timer.C:
-		return errors.Wrap(driver.ErrTemporary, "timed out waiting for the broker")
+		return errBrokerTimeout
 	}
 }
 
 // pool holds the shared connection of each broker device. Safe for concurrent use.
 type pool struct {
-	ins   alamos.Instrumentation
-	conns map[device.Key]*connection
+	ins     alamos.Instrumentation
+	devices *device.Service
+	conns   map[device.Key]*connection
 	// rebirthInterval is the shortest time between two Sparkplug B rebirth requests to
 	// one edge node.
 	rebirthInterval time.Duration
 	mu              sync.Mutex
 }
 
-func newPool(ins alamos.Instrumentation, rebirthInterval time.Duration) *pool {
+func newPool(
+	ins alamos.Instrumentation,
+	devices *device.Service,
+	rebirthInterval time.Duration,
+) *pool {
 	return &pool{
 		ins:             ins,
+		devices:         devices,
 		conns:           make(map[device.Key]*connection),
 		rebirthInterval: rebirthInterval,
 	}
 }
 
-// attach returns an attachment to the connection of dev. It opens the connection for
-// the first attachment, and points an open connection at the current properties of
-// dev.
-func (p *pool) attach(dev device.Device, queueSize int) (*attachment, error) {
-	cfg, err := newClientConfig(dev)
-	if err != nil {
-		return nil, err
-	}
+// attach returns an attachment to the connection of the broker device key. It opens the
+// connection for the first attachment, and points an open connection at the current
+// properties of the device.
+func (p *pool) attach(
+	ctx context.Context,
+	key device.Key,
+	queueSize int,
+) (*attachment, error) {
 	for {
-		conn := p.connection(dev.Key)
+		conn := p.connection(key)
 		conn.lifecycle.Lock()
 		if conn.lifecycle.closed {
 			// The last attachment left between the lookup and the lock.
 			conn.lifecycle.Unlock()
 			continue
 		}
-		conn.configure(cfg)
+		if err := p.refresh(ctx, conn, key); err != nil {
+			if conn.unused() {
+				p.discard(key, conn)
+			}
+			conn.lifecycle.Unlock()
+			return nil, err
+		}
 		a := conn.attach(queueSize)
 		conn.lifecycle.Unlock()
 		return a, nil
@@ -770,26 +782,99 @@ func (p *pool) connection(key device.Key) *connection {
 	return conn
 }
 
-// state reports whether dev has an open connection and whether it is connected. It
-// first points an open connection at the current properties of dev.
-func (p *pool) state(dev device.Device) (open, connected bool, err error) {
+// state reports whether the broker device key has an open connection and whether it is
+// connected. err is the error of the last time the connection read the properties of
+// the device.
+func (p *pool) state(key device.Key) (open, connected bool, err error) {
 	p.mu.Lock()
-	conn, ok := p.conns[dev.Key]
+	conn, ok := p.conns[key]
 	p.mu.Unlock()
 	if !ok {
 		return false, false, nil
 	}
-	cfg, err := newClientConfig(dev)
-	if err != nil {
-		return true, false, err
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+	return conn.mu.stop != nil, conn.mu.client != nil, conn.mu.configErr
+}
+
+// reconfigure points the open connection of the broker device key at the current
+// properties of the device. It does nothing for a device with no open connection. On an
+// error the connection keeps its configuration, and state reports the error.
+func (p *pool) reconfigure(ctx context.Context, key device.Key) {
+	p.mu.Lock()
+	conn, ok := p.conns[key]
+	p.mu.Unlock()
+	if !ok {
+		return
 	}
 	conn.lifecycle.Lock()
 	defer conn.lifecycle.Unlock()
 	if conn.lifecycle.closed {
-		return false, false, nil
+		return
+	}
+	if err := p.refresh(ctx, conn, key); err != nil && ctx.Err() == nil {
+		conn.ins.L.Warn(
+			"the connection cannot take the properties of the broker device",
+			zap.Error(err),
+		)
+	}
+}
+
+// refresh points conn at the current properties of the broker device key, and reads the
+// TLS files of the device only when those properties changed. The caller holds
+// conn.lifecycle, so a refresh that starts later reads a later version of the device.
+func (p *pool) refresh(
+	ctx context.Context,
+	conn *connection,
+	key device.Key,
+) (err error) {
+	defer func() {
+		conn.mu.Lock()
+		conn.mu.configErr = err
+		conn.mu.Unlock()
+	}()
+	var dev device.Device
+	if err = p.devices.NewRetrieve().
+		Where(device.MatchKeys(key)).
+		Entry(&dev).
+		Exec(ctx, nil); err != nil {
+		return err
+	}
+	props, err := parseProperties(dev)
+	if err != nil {
+		return err
+	}
+	cfg, err := newClientSettings(dev, props)
+	if err != nil || conn.current(cfg) {
+		return err
+	}
+	if cfg.tls, err = loadTLS(props); err != nil {
+		return err
 	}
 	conn.configure(cfg)
-	return true, conn.connected(), nil
+	return nil
+}
+
+// release closes a, and closes its connection when a was the last attachment.
+func (p *pool) release(key device.Key, a *attachment) {
+	conn := a.conn
+	conn.lifecycle.Lock()
+	defer conn.lifecycle.Unlock()
+	if a.close() {
+		p.discard(key, conn)
+	}
+}
+
+// discard closes conn, which has no attachments, and removes it from the pool. The
+// caller holds conn.lifecycle.
+func (p *pool) discard(key device.Key, conn *connection) {
+	conn.close()
+	conn.lifecycle.closed = true
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.conns[key] == conn {
+		delete(p.conns, key)
+	}
 }
 
 // newClientOptions returns the options that every client of the broker of cfg uses.
@@ -893,21 +978,4 @@ func dial(
 		}
 	})
 	return conn, nil
-}
-
-// release closes a, and closes its connection when a was the last attachment.
-func (p *pool) release(key device.Key, a *attachment) {
-	conn := a.conn
-	conn.lifecycle.Lock()
-	defer conn.lifecycle.Unlock()
-	if !a.close() {
-		return
-	}
-	conn.close()
-	conn.lifecycle.closed = true
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if p.conns[key] == conn {
-		delete(p.conns, key)
-	}
 }

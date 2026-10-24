@@ -26,17 +26,6 @@ MODEL = "MQTT broker"
 INTEGRATION = "mqtt"
 
 
-def _follow_device_rack(
-    internal: task.Task, device_client: device.Client, key: device.Key
-) -> device.Device:
-    """Puts a task that has no rack on the rack of its broker device. MQTT tasks run
-    on the driver inside the Core, which only runs the tasks of its own rack."""
-    dev = device_client.retrieve(key=key)
-    if internal.rack == 0:
-        internal.rack = dev.rack
-    return dev
-
-
 class ReadTask(
     task.StarterStopperMixin, task.JSONConfigMixin[ReadConfig], task.Protocol
 ):
@@ -76,9 +65,6 @@ class ReadTask(
             entries=entries if entries is not None else [],
         )
 
-    def update_device_properties(self, device_client: device.Client) -> device.Device:
-        return _follow_device_rack(self._internal, device_client, self.config.device)
-
 
 class WriteTask(
     task.StarterStopperMixin, task.JSONConfigMixin[WriteConfig], task.Protocol
@@ -114,9 +100,6 @@ class WriteTask(
             auto_start=auto_start,
             targets=targets if targets is not None else [],
         )
-
-    def update_device_properties(self, device_client: device.Client) -> device.Device:
-        return _follow_device_rack(self._internal, device_client, self.config.device)
 
 
 class EdgeTask(
@@ -164,9 +147,6 @@ class EdgeTask(
             tags=tags if tags is not None else [],
         )
 
-    def update_device_properties(self, device_client: device.Client) -> device.Device:
-        return _follow_device_rack(self._internal, device_client, self.config.device)
-
 
 class Device(device.Device):
     """An MQTT broker device.
@@ -178,7 +158,8 @@ class Device(device.Device):
         broker = sy.mqtt.Device(host="127.0.0.1", rack=rack.key, name="Broker")
 
     :param host: Host name or address of the broker.
-    :param port: TCP port of the broker. Zero selects 1883, or 8883 when secure.
+    :param port: TCP port of the broker, from 1 to 65535. None selects 1883, or 8883
+        when secure.
     :param secure: Whether to connect with TLS.
     :param verification_skipped: Whether to accept any broker certificate.
     :param ca_file: Path on the Core host to the CA certificates that verify the
@@ -188,7 +169,7 @@ class Device(device.Device):
     :param username: Optional username.
     :param password: Optional password.
     :param client_id: MQTT client ID. Empty derives one from the device key.
-    :param keep_alive: MQTT keep-alive interval in seconds. Zero selects 30.
+    :param keep_alive: MQTT keep-alive interval in seconds, above zero. None selects 30.
     :param host_id: Sparkplug B host application ID. When set, the Core publishes its
         STATE message under this ID. Empty makes the Core a passive host.
     :param groups: Sparkplug B group IDs to browse. Empty browses every group.
@@ -196,13 +177,14 @@ class Device(device.Device):
     :param rack: Key of the rack of the driver inside the Core.
     :param key: Unique key. Auto-generated if empty.
     :param configured: Whether the device has been configured.
+    :raises ValueError: If port or keep_alive is out of range.
     """
 
     def __init__(
         self,
         *,
         host: str,
-        port: int = 0,
+        port: int | None = None,
         secure: bool = False,
         verification_skipped: bool = False,
         ca_file: str = "",
@@ -211,7 +193,7 @@ class Device(device.Device):
         username: str = "",
         password: str = "",
         client_id: str = "",
-        keep_alive: int = 0,
+        keep_alive: int | None = None,
         host_id: str = "",
         groups: list[str] | None = None,
         name: str = "",
@@ -221,11 +203,27 @@ class Device(device.Device):
     ):
         if not key:
             key = str(uuid4())
-        if not 0 <= port <= 65535:
-            raise ValueError("port must be 0 to 65535")
-        if keep_alive < 0:
-            raise ValueError("keep_alive must not be negative")
+        if port is not None and not 1 <= port <= 65535:
+            raise ValueError("port must be 1 to 65535")
+        if keep_alive is not None and keep_alive <= 0:
+            raise ValueError("keep_alive must be positive")
         sparkplug_groups: list[JsonValue] = list(groups) if groups is not None else []
+        properties: dict[str, JsonValue] = {
+            "secure": secure,
+            "verification_skipped": verification_skipped,
+            "ca_file": ca_file,
+            "cert_file": cert_file,
+            "key_file": key_file,
+            "username": username,
+            "password": password,
+            "client_id": client_id,
+            "sparkplug": {"host_id": host_id, "groups": sparkplug_groups},
+            "version": 1,
+        }
+        if port is not None:
+            properties["port"] = port
+        if keep_alive is not None:
+            properties["keep_alive"] = keep_alive
         super().__init__(
             key=key,
             location=host,
@@ -234,21 +232,5 @@ class Device(device.Device):
             make=MAKE,
             model=MODEL,
             configured=configured,
-            properties={
-                "port": port,
-                "secure": secure,
-                "verification_skipped": verification_skipped,
-                "ca_file": ca_file,
-                "cert_file": cert_file,
-                "key_file": key_file,
-                "username": username,
-                "password": password,
-                "client_id": client_id,
-                "keep_alive": keep_alive,
-                "sparkplug": {
-                    "host_id": host_id,
-                    "groups": sparkplug_groups,
-                },
-                "version": 1,
-            },
+            properties=properties,
         )

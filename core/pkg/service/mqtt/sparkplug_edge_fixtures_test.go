@@ -150,7 +150,7 @@ func (h *testHost) send(payload []byte) {
 // sendRebirth asks the edge node for its birth again.
 func (h *testHost) sendRebirth() {
 	GinkgoHelper()
-	h.send(MustSucceed(sparkplug.EncodeRebirth(telem.Now())))
+	h.send(MustSucceed(sparkplug.EncodeRebirth(h.node, telem.Now())).Payload)
 }
 
 // sendCommand sends one NCMD that carries metrics.

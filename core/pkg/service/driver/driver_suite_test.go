@@ -34,6 +34,7 @@ import (
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -133,6 +134,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	taskWriter = taskService.NewWriter(nil)
 })
+
+// retrieveStatus returns the status stored under key, or the zero status when none is
+// stored.
+func retrieveStatus[D any](ctx context.Context, key status.Key) status.Status[D] {
+	GinkgoHelper()
+	var stat status.Status[D]
+	Expect(errors.Skip(
+		statusSvc.NewRetrieve[D]().
+			Where(status.MatchKeys[D](key)).
+			Entry(&stat).
+			Exec(ctx, nil),
+		query.ErrNotFound,
+	)).To(Succeed())
+	return stat
+}
 
 // mockFactory is a test implementation of driver.Factory.
 type mockFactory struct {

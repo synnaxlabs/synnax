@@ -7,38 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Tree } from "@synnaxlabs/lyra/tree";
-import { Synnax } from "@synnaxlabs/pluto";
-import { type record, unique } from "@synnaxlabs/x";
-import {
-  type Dispatch,
-  type ReactElement,
-  type ReactNode,
-  type SetStateAction,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { type Tree } from "@synnaxlabs/lyra/tree";
+import { id, unique } from "@synnaxlabs/x";
+import pluralize from "pluralize";
+import { type ReactNode, useMemo, useState } from "react";
 
 import { browseTopics, type KeyedTopic } from "@/feature/mqtt/device/browse";
 import { type Device } from "@/feature/mqtt/device/types";
-import {
-  ITEM_HEIGHT,
-  LISTENING,
-  Picker,
-  plural,
-  type SkeletonItem,
-  TreeSkeleton,
-} from "@/feature/mqtt/task/discover/Picker";
+import { Picker } from "@/feature/mqtt/task/discover/picker";
 import {
   PaneHeader,
   PaneSkeleton,
@@ -47,7 +29,11 @@ import {
 } from "@/feature/mqtt/task/discover/Values";
 import { leavesOf, pointerLabel, sampleAt } from "@/feature/mqtt/task/entries";
 import { isSparkplugTopic } from "@/feature/mqtt/task/sparkplug";
-import { type ReadEntry, type ReadField } from "@/feature/mqtt/task/types";
+import {
+  type ReadEntry,
+  type ReadField,
+  type WriteTarget,
+} from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 
@@ -72,11 +58,13 @@ interface ListedTopic extends KeyedTopic {
   leaves: ReadField[];
 }
 
+const NO_TOPICS: ListedTopic[] = [];
+
 interface Listing {
+  /** Names the listen, so each one opens a fresh, fully expanded tree. */
+  key: string;
   topics: ListedTopic[];
   truncated: boolean;
-  /** Counts listens, so each one opens a fresh, fully expanded tree. */
-  version: number;
 }
 
 interface Folder {
@@ -141,11 +129,19 @@ const branchPaths = (topics: ListedTopic[]): string[] =>
     }),
   );
 
-/** The values a click on a topic picks: its numbers and booleans, or all of them. */
-const defaultPointers = (leaves: ReadField[], taken?: Set<string>): Set<string> => {
+/**
+ * The values a click on a topic picks: its numbers and booleans, or all of them. A
+ * single pick takes the first.
+ */
+const defaultPointers = (
+  leaves: ReadField[],
+  taken: Set<string> | undefined,
+  single: boolean,
+): Set<string> => {
   const free = leaves.filter((l) => taken?.has(l.pointer) !== true);
   const scalars = free.filter((l) => !l.disabled);
-  return new Set((scalars.length > 0 ? scalars : free).map((l) => l.pointer));
+  const picked = scalars.length > 0 ? scalars : free;
+  return new Set((single ? picked.slice(0, 1) : picked).map((l) => l.pointer));
 };
 
 /** The values picked from one topic, with the fields they came from. */
@@ -156,21 +152,17 @@ export interface TopicPick {
 
 export type TopicPicks = Map<string, TopicPick>;
 
-/** The fields of each topic the task reads already. */
+/** The pointers that each topic of the task takes. */
 type Taken = Map<string, Set<string>>;
 
 const freeCount = (t: ListedTopic, taken: Taken) =>
   t.leaves.filter((l) => taken.get(t.topic)?.has(l.pointer) !== true).length;
 
-interface ItemProps extends Tree.ItemRenderProps<string> {
-  folder: Folder;
-  picks: TopicPicks;
-  taken: Taken;
-  onPick: (folder: Folder) => void;
-}
-
-const Item = ({ folder, picks, taken, onPick, ...props }: ItemProps) => {
-  const { topic, topics } = folder;
+const toItem = (
+  { name, path, topic, topics }: Folder,
+  picks: TopicPicks,
+  taken: Taken,
+): Picker.TreeItem => {
   const pickable = topics.filter((t) => freeCount(t, taken) > 0);
   const all = pickable.length > 0 && pickable.every((t) => picks.has(t.topic));
   const values = topics.reduce(
@@ -181,111 +173,41 @@ const Item = ({ folder, picks, taken, onPick, ...props }: ItemProps) => {
   if (values > 0) meta = `${values} selected`;
   else if (topic != null && taken.has(topic.topic)) meta = "In task";
   else if (topic == null) meta = String(topics.length);
-  return (
-    <Tree.Item {...props} className={CSS.BE("mqtt-discover", "item")}>
-      <Input.Checkbox
-        value={all}
-        indeterminate={!all && values > 0}
-        onChange={() => onPick(folder)}
-        disabled={pickable.length === 0}
-        size="small"
-        aria-label={`Pick ${folder.name}`}
-      />
-      <Text.Text
-        level="small"
-        weight={500}
-        color={10}
-        overflow="ellipsis"
-        className={CSS.BE("mqtt-discover", "code")}
-      >
-        {folder.name === "" ? "(empty level)" : folder.name}
-      </Text.Text>
-      <Text.Text
-        level="small"
-        className={CSS.cls(
-          CSS.BE("mqtt-discover", "meta"),
-          values > 0 && CSS.M("picked"),
-        )}
-      >
-        {meta}
-      </Text.Text>
-    </Tree.Item>
-  );
+  let picked: Picker.TreeItem["picked"] = "none";
+  if (all) picked = "all";
+  else if (values > 0) picked = "some";
+  return {
+    key: path,
+    name: name === "" ? "(empty level)" : name,
+    meta,
+    picked,
+    disabled: pickable.length === 0,
+    folder: topic == null,
+  };
 };
 
-interface TopicTreeProps {
-  folders: Folder[];
-  initialExpanded: string[];
-  active: string | null;
-  onActiveChange: (path: string) => void;
-  picks: TopicPicks;
-  taken: Taken;
-  onPick: (folder: Folder) => void;
-  emptyContent: ReactElement;
-}
-
-const TopicTree = ({
-  folders,
-  initialExpanded,
-  active,
-  onActiveChange,
-  picks,
-  taken,
-  onPick,
-  emptyContent,
-}: TopicTreeProps) => {
-  const paths = useMemo(() => byPath(folders), [folders]);
-  const nodes = useMemo(() => toNodes(folders), [folders]);
-  const tree = Tree.use({ nodes, initialExpanded, toggleOn: "caret" });
-  const { toggle } = tree;
-  const handleSelect = useCallback<
-    Tree.TreeProps<string, record.Keyed<string>>["onSelect"]
-  >(
-    (_, { clicked }) => {
-      if (clicked == null) return;
-      onActiveChange(clicked);
-      if (paths.get(clicked)?.topic == null) toggle(clicked);
-    },
-    [paths, onActiveChange, toggle],
-  );
-  const renderItem = useCallback<Component.RenderProp<Tree.ItemRenderProps<string>>>(
-    ({ key, ...props }) => {
-      const folder = paths.get(props.itemKey);
-      if (folder == null) return null;
-      return (
-        <Item
-          key={key}
-          {...props}
-          folder={folder}
-          picks={picks}
-          taken={taken}
-          onPick={onPick}
-        />
-      );
-    },
-    [paths, picks, taken, onPick],
-  );
-  return (
-    <Tree.Tree<string, record.Keyed<string>>
-      {...tree}
-      selected={active == null ? [] : [active]}
-      onSelect={handleSelect}
-      itemHeight={ITEM_HEIGHT}
-      emptyContent={emptyContent}
-    >
-      {renderItem}
-    </Tree.Tree>
-  );
+const toItems = (
+  folders: Folder[],
+  picks: TopicPicks,
+  taken: Taken,
+  into: Picker.TreeItem[] = [],
+): Picker.TreeItem[] => {
+  for (const f of folders) {
+    into.push(toItem(f, picks, taken));
+    toItems(f.children, picks, taken, into);
+  }
+  return into;
 };
 
 interface TopicValuesProps {
   topic: ListedTopic;
-  picked: Set<string>;
+  value: Set<string>;
   taken: Set<string>;
-  onChange: (pointers: Set<string>) => void;
+  single: boolean;
+  onChange: (value: Set<string>) => void;
 }
 
-const TopicValues = ({ topic, picked, taken, onChange }: TopicValuesProps) => {
+const TopicValues = ({ topic, value, taken, single, onChange }: TopicValuesProps) => {
   const [raw, setRaw] = useState(false);
   const { leaves } = topic;
   const free = leaves.filter((l) => !taken.has(l.pointer)).map((l) => l.pointer);
@@ -302,15 +224,18 @@ const TopicValues = ({ topic, picked, taken, onChange }: TopicValuesProps) => {
         title={topic.topic}
         note={topic.retained ? "Retained" : undefined}
         free={free.length}
-        picked={picked.size}
-        onPickAll={() => onChange(new Set(free))}
+        picked={value.size}
+        onPickAll={single ? undefined : () => onChange(new Set(free))}
         onClear={() => onChange(new Set())}
       />
       <Values
         noun="Field"
         groups={[{ values }]}
-        picked={[...picked]}
-        onPickedChange={(keys) => onChange(new Set(keys))}
+        value={[...value]}
+        // A single pick replaces the one before.
+        onChange={(keys) =>
+          onChange(new Set(single ? keys.filter((k) => !value.has(k)).slice(-1) : keys))
+        }
       />
       <Flex.Box y align="start" className={CSS.BE("mqtt-discover", "raw")}>
         <Button.Button variant="text" size="small" onClick={() => setRaw((r) => !r)}>
@@ -331,7 +256,7 @@ const NOTHING_PUBLISHED =
   "Nothing published while Synnax listened. Add a rarely published topic by name.";
 
 // Two folders of topics.
-const SKELETON: SkeletonItem[] = [
+const SKELETON: Picker.SkeletonItem[] = [
   [0, "12ch"],
   [1, "17ch"],
   [1, "10ch"],
@@ -343,11 +268,12 @@ const SKELETON: SkeletonItem[] = [
 
 export interface TopicPickerProps {
   device: Device;
-  entries: ReadEntry[];
-  hidden: boolean;
-  tabs: ReactElement;
-  picks: TopicPicks;
-  onPicksChange: Dispatch<SetStateAction<TopicPicks>>;
+  /** What the task holds now. */
+  entries: (ReadEntry | WriteTarget)[];
+  /** Each topic takes one value, and a topic that the task holds takes none. */
+  single?: boolean;
+  value: TopicPicks;
+  onChange: (value: TopicPicks) => void;
   onAddByName: (topic: string) => void;
 }
 
@@ -355,57 +281,44 @@ export interface TopicPickerProps {
 export const TopicPicker = ({
   device,
   entries,
-  hidden,
-  tabs,
-  picks,
-  onPicksChange,
+  single = false,
+  value,
+  onChange,
   onAddByName,
 }: TopicPickerProps) => {
-  const client = Synnax.use();
   const [search, setSearch] = useState("");
   const [scope, setScope] = useState("");
   const [scopeDraft, setScopeDraft] = useState("");
-  const [listing, setListing] = useState<Listing | null>(null);
-  const [error, setError] = useState<status.Status | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [round, setRound] = useState(0);
-  const [active, setActive] = useState<string | null>(null);
-
-  useAsyncEffect(
-    async (signal) => {
-      setLoading(true);
-      setError(null);
-      try {
-        if (client == null) throw new DisconnectedError();
-        const r = await browseTopics(client, device, toFilter(scope));
-        if (signal.aborted) return;
-        const topics = r.topics
-          // Sparkplug B payloads are not JSON. They have a tab of their own.
-          .filter((t) => !isSparkplugTopic(t.topic))
-          .map((t) => ({ ...t, leaves: leavesOf(t.payload) }));
-        setListing((prev) => ({
-          topics,
-          truncated: r.truncated,
-          version: (prev?.version ?? 0) + 1,
-        }));
-        setActive((prev) => prev ?? topics[0]?.topic ?? null);
-      } catch (e) {
-        if (!signal.aborted) setError(status.fromException(e, "Could not listen"));
-      } finally {
-        if (!signal.aborted) setLoading(false);
-      }
+  const [selected, setSelected] = useState<string | null>(null);
+  const { result, listen } = Picker.useListen<Listing>(
+    async (client) => {
+      const r = await browseTopics(client, device, toFilter(scope));
+      const topics = r.topics
+        // Sparkplug B payloads are not JSON. They have a tab of their own.
+        .filter((t) => !isSparkplugTopic(t.topic))
+        .map((t) => ({ ...t, leaves: leavesOf(t.payload) }));
+      return { key: id.create(), topics, truncated: r.truncated };
     },
-    [client, device, scope, round],
+    [device, scope],
   );
+  const listing = result.data;
+  const topics = listing?.topics ?? NO_TOPICS;
 
   const taken = useMemo<Taken>(() => {
-    const m: Taken = new Map();
-    for (const e of entries)
-      if (e.type === "plain") m.set(e.topic, new Set(e.fields.map((f) => f.pointer)));
-    return m;
-  }, [entries]);
+    const plain = entries.flatMap((e) => (e.type === "plain" ? [e] : []));
+    if (!single)
+      return new Map(
+        plain.map((e) => [e.topic, new Set(e.fields.map((f) => f.pointer))]),
+      );
+    // A target holds a whole topic, so one in the task takes all its values.
+    const held = new Set(plain.map((e) => e.topic));
+    return new Map(
+      topics
+        .filter((t) => held.has(t.topic))
+        .map((t) => [t.topic, new Set(t.leaves.map((l) => l.pointer))]),
+    );
+  }, [entries, single, topics]);
 
-  const topics = useMemo(() => listing?.topics ?? [], [listing]);
   const trimmed = search.trim();
   const q = trimmed.toLowerCase();
   const visible = useMemo(
@@ -413,42 +326,40 @@ export const TopicPicker = ({
     [topics, q],
   );
   const folders = useMemo(() => buildFolders(visible), [visible]);
+  const paths = useMemo(() => byPath(folders), [folders]);
+  const nodes = useMemo(() => toNodes(folders), [folders]);
+  const items = useMemo(() => toItems(folders, value, taken), [folders, value, taken]);
   const initialExpanded = useMemo(() => branchPaths(topics), [topics]);
+  const active = selected ?? topics[0]?.topic ?? null;
   const activeTopic = topics.find((t) => t.topic === active) ?? null;
 
-  const handlePick = useCallback(
-    (folder: Folder) => {
-      const pickable = folder.topics.filter((t) => freeCount(t, taken) > 0);
-      const all = pickable.length > 0 && pickable.every((t) => picks.has(t.topic));
-      onPicksChange((prev) => {
-        const next = new Map(prev);
-        for (const t of pickable) {
-          const pointers = all
-            ? new Set<string>()
-            : defaultPointers(t.leaves, taken.get(t.topic));
-          if (pointers.size === 0) next.delete(t.topic);
-          else next.set(t.topic, { leaves: t.leaves, pointers });
-        }
-        return next;
-      });
-      if (folder.topic != null) setActive(folder.path);
-    },
-    [taken, picks, onPicksChange],
-  );
+  const handlePick = (path: string) => {
+    const folder = paths.get(path);
+    if (folder == null) throw new Error(`No topic level at ${path}`);
+    const pickable = folder.topics.filter((t) => freeCount(t, taken) > 0);
+    const all = pickable.length > 0 && pickable.every((t) => value.has(t.topic));
+    const next = new Map(value);
+    for (const t of pickable) {
+      const pointers = all
+        ? new Set<string>()
+        : defaultPointers(t.leaves, taken.get(t.topic), single);
+      if (pointers.size === 0) next.delete(t.topic);
+      else next.set(t.topic, { leaves: t.leaves, pointers });
+    }
+    onChange(next);
+    if (folder.topic != null) setSelected(folder.path);
+  };
 
   let tree: ReactNode;
-  if (error != null) tree = <Status.Summary center status={error} />;
-  else if (listing == null) tree = <TreeSkeleton items={SKELETON} />;
-  else
+  if (listing != null)
     tree = (
-      <TopicTree
-        key={listing.version}
-        folders={folders}
+      <Picker.Tree
+        key={listing.key}
+        nodes={nodes}
+        items={items}
         initialExpanded={initialExpanded}
         active={active}
-        onActiveChange={setActive}
-        picks={picks}
-        taken={taken}
+        onActivate={setSelected}
         onPick={handlePick}
         emptyContent={
           <Empty.Action
@@ -458,9 +369,13 @@ export const TopicPicker = ({
         }
       />
     );
+  else if (result.variant === "loading")
+    tree = <Picker.TreeSkeleton items={SKELETON} />;
+  else tree = <Status.Summary center status={result.status} />;
 
-  let statusText = plural(topics.length, "topic");
-  if (loading) statusText = LISTENING;
+  const loading = result.variant === "loading";
+  let statusText = pluralize("topic", topics.length, true);
+  if (loading) statusText = Picker.LISTENING;
   else if (listing?.truncated === true) statusText += ", list is full";
 
   let pane: ReactNode;
@@ -469,19 +384,18 @@ export const TopicPicker = ({
       <TopicValues
         key={activeTopic.topic}
         topic={activeTopic}
-        picked={picks.get(activeTopic.topic)?.pointers ?? new Set()}
+        value={value.get(activeTopic.topic)?.pointers ?? new Set()}
         taken={taken.get(activeTopic.topic) ?? new Set()}
-        onChange={(pointers) =>
-          onPicksChange((prev) => {
-            const next = new Map(prev);
-            if (pointers.size === 0) next.delete(activeTopic.topic);
-            else next.set(activeTopic.topic, { leaves: activeTopic.leaves, pointers });
-            return next;
-          })
-        }
+        single={single}
+        onChange={(pointers) => {
+          const next = new Map(value);
+          if (pointers.size === 0) next.delete(activeTopic.topic);
+          else next.set(activeTopic.topic, { leaves: activeTopic.leaves, pointers });
+          onChange(next);
+        }}
       />
     );
-  else if (listing == null && error == null) pane = <PaneSkeleton noun="Field" />;
+  else if (listing == null && loading) pane = <PaneSkeleton noun="Field" />;
   else
     pane = (
       <Empty.Action
@@ -490,63 +404,55 @@ export const TopicPicker = ({
       />
     );
 
-  const side = (
-    <>
-      <Input.Text
-        value={search}
-        onChange={setSearch}
-        size="small"
-        placeholder="Search topics"
-        startContent={<Icon.Search />}
-        className={CSS.BE("mqtt-discover", "search")}
-      />
-      <Flex.Box y empty className={CSS.BE("mqtt-discover", "tree")}>
-        {tree}
-      </Flex.Box>
-      {(listing?.truncated === true || scope !== "") && (
-        <Flex.Box y gap="small" className={CSS.BE("mqtt-discover", "scope")}>
-          <Text.Text level="small" color={9}>
-            Only list topics under
-          </Text.Text>
-          <Flex.Box x gap="small">
-            <Input.Text
-              value={scopeDraft}
-              onChange={setScopeDraft}
-              size="small"
-              placeholder="plant/line1"
-              className={CSS.BE("mqtt-discover", "code")}
-            />
-            <Button.Button
-              variant="outlined"
-              size="small"
-              onClick={() => setScope(scopeDraft.trim())}
-            >
-              Listen
-            </Button.Button>
-          </Flex.Box>
-        </Flex.Box>
-      )}
-      <Button.Button
-        variant="text"
-        size="small"
-        className={CSS.BE("mqtt-discover", "add")}
-        onClick={() => onAddByName(trimmed)}
-      >
-        <Icon.Add />
-        {trimmed === "" ? "Add a topic by name" : `Add “${trimmed}” as a topic`}
-      </Button.Button>
-    </>
-  );
-
   return (
-    <Picker
-      tabs={tabs}
-      status={statusText}
-      loading={loading}
-      hidden={hidden}
-      onRefresh={() => setRound((r) => r + 1)}
-      side={side}
-      pane={pane}
-    />
+    <>
+      <Picker.Status status={statusText} loading={loading} onListen={listen} />
+      <Picker.Side>
+        <Input.Text
+          value={search}
+          onChange={setSearch}
+          size="small"
+          placeholder="Search topics"
+          startContent={<Icon.Search />}
+          className={CSS.BE("mqtt-discover", "search")}
+        />
+        <Flex.Box y empty className={CSS.BE("mqtt-discover", "tree")}>
+          {tree}
+        </Flex.Box>
+        {(listing?.truncated === true || scope !== "") && (
+          <Flex.Box y gap="small" className={CSS.BE("mqtt-discover", "scope")}>
+            <Text.Text level="small" color={9}>
+              Only list topics under
+            </Text.Text>
+            <Flex.Box x gap="small">
+              <Input.Text
+                value={scopeDraft}
+                onChange={setScopeDraft}
+                size="small"
+                placeholder="plant/line1"
+                className={CSS.BE("mqtt-discover", "code")}
+              />
+              <Button.Button
+                variant="outlined"
+                size="small"
+                onClick={() => setScope(scopeDraft.trim())}
+              >
+                Listen
+              </Button.Button>
+            </Flex.Box>
+          </Flex.Box>
+        )}
+        <Button.Button
+          variant="text"
+          size="small"
+          className={CSS.BE("mqtt-discover", "add")}
+          onClick={() => onAddByName(trimmed)}
+        >
+          <Icon.Add />
+          {trimmed === "" ? "Add a topic by name" : `Add “${trimmed}” as a topic`}
+        </Button.Button>
+      </Picker.Side>
+      <Picker.Pane>{pane}</Picker.Pane>
+    </>
   );
 };

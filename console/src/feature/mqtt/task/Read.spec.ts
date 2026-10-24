@@ -9,7 +9,7 @@
 
 import { channel, mqtt, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
@@ -20,7 +20,7 @@ import {
   renderTaskFormTab,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { getSwitchInput, uniqueName } from "@/testutil";
+import { findDialogTriggerByText, getSwitchInput, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -316,7 +316,156 @@ describe("MQTT Read form", () => {
       expect(dialog.getByText("In task")).toBeTruthy();
       fireEvent.click(dialog.getByRole("button", { name: "Cancel" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-      expect(await retrieveEntries(draft.key)).toHaveLength(1);
+      await act(async () => {});
+      expect(screen.getAllByRole("treeitem", { name: /flow/ })).toHaveLength(1);
+    });
+
+    // Opens the dialog over a broker whose scan task answers the first browse.
+    const openOnTopics = async (topics: object[], truncated = false) => {
+      const { dev, draft } = await renderRead();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddData();
+      const cmd = await scanner.answer({ data: { topics, truncated } });
+      return { dialog, draft, scanner, cmd };
+    };
+
+    const summarizeFields = (entries: MQTT.Task.ReadEntry[]) =>
+      Object.fromEntries(
+        entries.flatMap((e) =>
+          e.type === "plain"
+            ? [
+                [
+                  e.topic,
+                  e.fields.map(({ pointer, dataType }) => ({ pointer, dataType })),
+                ],
+              ]
+            : [],
+        ),
+      );
+
+    it("should scope the browse to the topics under the typed level", async () => {
+      const { dialog, scanner, cmd } = await openOnTopics(TOPICS, true);
+      expect(cmd.args).toMatchObject({ filter: "#" });
+      fireEvent.change(await dialog.findByPlaceholderText("plant/line1"), {
+        target: { value: "plant/line1/" },
+      });
+      fireEvent.click(dialog.getByRole("button", { name: "Listen" }));
+      const scoped = await scanner.answer({ data: { topics: [], truncated: false } });
+      scanner.close();
+      expect(scoped.args).toMatchObject({ filter: "plant/line1/#" });
+    });
+
+    it("should leave Sparkplug B topics out of the topic list", async () => {
+      const { dialog, scanner } = await openOnTopics([
+        ...TOPICS,
+        { topic: "spBv1.0/plant/NBIRTH/line1", payload: "", retained: false },
+      ]);
+      scanner.close();
+      await dialog.findByRole("checkbox", { name: "Pick temperature" });
+      expect(dialog.queryByText("spBv1.0")).toBeNull();
+    });
+
+    it("should add a field of the JSON type at the pointer of each scalar", async () => {
+      const { dialog, draft, scanner } = await openOnTopics([
+        { topic: "plant/bare", payload: "23.4", retained: false },
+        { topic: "plant/valve", payload: '{"open": true}', retained: false },
+        {
+          topic: "plant/pump",
+          payload: '{"outlet": {"flow/rate~avg": 1.2}, "samples": [1], "error": null}',
+          retained: false,
+        },
+        {
+          topic: "plant/mode",
+          payload: '{"state": "ON", "mode": "AUTO"}',
+          retained: false,
+        },
+      ]);
+      scanner.close();
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick plant" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 5 channels" }));
+      await waitFor(async () =>
+        expect(summarizeFields(await retrieveEntries(draft.key))).toEqual({
+          "plant/bare": [{ pointer: "", dataType: "float64" }],
+          "plant/valve": [{ pointer: "/open", dataType: "uint8" }],
+          "plant/pump": [{ pointer: "/outlet/flow~1rate~0avg", dataType: "float64" }],
+          "plant/mode": [
+            { pointer: "/state", dataType: "string" },
+            { pointer: "/mode", dataType: "string" },
+          ],
+        }),
+      );
+      const keys = (await retrieveEntries(draft.key)).flatMap((e) =>
+        e.type === "plain" ? e.fields.map(({ key }) => key) : [],
+      );
+      expect(new Set(keys).size).toBe(5);
+    });
+
+    it("should offer a non-JSON payload whole and skip an empty one", async () => {
+      const { dialog, draft, scanner } = await openOnTopics([
+        { topic: "plant/raw", payload: "not json", retained: false },
+        { topic: "plant/cut", payload: '{"temperature": 21.', retained: false },
+        { topic: "plant/empty", payload: "", retained: false },
+      ]);
+      scanner.close();
+      await dialog.findByRole("checkbox", { name: "Pick raw" });
+      expect(
+        dialog.getByRole<HTMLInputElement>("checkbox", { name: "Pick empty" }).disabled,
+      ).toBe(true);
+      fireEvent.click(dialog.getByRole("checkbox", { name: "Pick plant" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 channels" }));
+      await waitFor(async () =>
+        expect(summarizeFields(await retrieveEntries(draft.key))).toEqual({
+          "plant/raw": [{ pointer: "", dataType: "string" }],
+          "plant/cut": [{ pointer: "", dataType: "string" }],
+        }),
+      );
+    });
+
+    it("should map each Sparkplug B data type to a Synnax data type", async () => {
+      const browsed = [...mqtt.SPARKPLUG_DATA_TYPES, "Text", "UUID"];
+      const tags = [
+        ...browsed.map((dataType) => ({ ...TAG, name: dataType, dataType })),
+        { ...TAG, name: "set", dataType: "DataSet", supported: false },
+      ];
+      const { dev, draft } = await renderRead();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddData();
+      await scanner.answer({ data: { topics: [], truncated: false } });
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      await scanner.answer({ data: { nodes: NODES, tags: [] } });
+      await scanner.answer({ data: { nodes: [], tags } });
+      scanner.close();
+      await dialog.findByRole("checkbox", { name: "Record int8" });
+      fireEvent.click(dialog.getByRole("checkbox", { name: "Pick line1" }));
+      fireEvent.click(
+        await dialog.findByRole("button", { name: `Add ${browsed.length} channels` }),
+      );
+      await waitFor(async () => {
+        const entries = await retrieveEntries(draft.key);
+        expect(
+          Object.fromEntries(
+            entries.flatMap((e) =>
+              e.type === "sparkplug" ? [[e.tag, e.dataType]] : [],
+            ),
+          ),
+        ).toEqual({
+          int8: "int8",
+          int16: "int16",
+          int32: "int32",
+          int64: "int64",
+          uint8: "uint8",
+          uint16: "uint16",
+          uint32: "uint32",
+          uint64: "uint64",
+          float: "float32",
+          double: "float64",
+          boolean: "uint8",
+          string: "string",
+          date_time: "timestamp",
+          Text: "string",
+          UUID: "string",
+        });
+      });
     });
   });
 
@@ -358,29 +507,32 @@ describe("MQTT Read form", () => {
       );
     });
 
-    it("should lock the data type of a tag that has a channel", async () => {
+    it("should lock the data type of a tag to that of its channel", async () => {
       const ch = await client.channels.create({
         name: uniqueName("mqtt_tag"),
         dataType: "string",
         virtual: true,
       });
-      await renderRead([createTagEntry("s1", "mode", { channel: ch.key })]);
+      await renderRead([
+        createTagEntry("s1", "mode", { channel: ch.key, dataType: "float64" }),
+      ]);
       fireEvent.click(await screen.findByRole("treeitem", { name: /mode/ }));
       await screen.findByDisplayValue(ch.name);
       expect(screen.getByText("Set on the channel")).toBeTruthy();
+      await findDialogTriggerByText("String");
     });
 
     it("should duplicate a tag with no channels", async () => {
       const { draft } = await renderRead([
-        createTagEntry("s1", "flow", { channel: 12, index: 11 }),
+        createTagEntry("s1", "flow", { channel: 12, name: "flow_ch" }),
       ]);
       fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /flow/ }));
       fireEvent.click(await screen.findByText("Duplicate"));
       await waitFor(async () => {
         const entries = await retrieveEntries(draft.key);
         expect(entries).toMatchObject([
-          { key: "s1", channel: 12, index: 11 },
-          { tag: "flow", channel: 0, index: 0 },
+          { key: "s1", channel: 12, name: "flow_ch" },
+          { tag: "flow", channel: 0, name: "" },
         ]);
         expect(entries[1].key).not.toBe("s1");
       });
@@ -453,7 +605,7 @@ describe("MQTT Read form", () => {
       const entry = createTagEntry("s1", "flow");
       const draft = await renderOnBroker(
         {
-          [MQTT.Task.sparkplugPropertiesKey(entry)]: {
+          "spBv1.0/plant/line1//flow": {
             index: index.key,
             channels: { "": data.key },
           },
@@ -461,9 +613,7 @@ describe("MQTT Read form", () => {
         [entry],
       );
       await waitFor(async () =>
-        expect(await retrieveEntries(draft.key)).toMatchObject([
-          { channel: data.key, index: index.key },
-        ]),
+        expect(await retrieveEntries(draft.key)).toMatchObject([{ channel: data.key }]),
       );
       fireEvent.click(await screen.findByRole("treeitem", { name: /flow/ }));
       fireEvent.change(await screen.findByPlaceholderText("oven/temperature"), {
@@ -471,7 +621,7 @@ describe("MQTT Read form", () => {
       });
       await waitFor(async () =>
         expect(await retrieveEntries(draft.key)).toMatchObject([
-          { tag: "level", channel: 0, index: 0 },
+          { tag: "level", channel: 0 },
         ]),
       );
     });
@@ -514,26 +664,61 @@ describe("MQTT Read form", () => {
       const [deviceTag, nodeTag] = created.config.entries;
       if (deviceTag.type !== "sparkplug" || nodeTag.type !== "sparkplug")
         throw new Error("expected Sparkplug B entries");
-      expect(nodeTag.index).not.toBe(deviceTag.index);
+      const dataCh = await client.channels.retrieve(deviceTag.channel);
+      const flowCh = await client.channels.retrieve(nodeTag.channel);
+      expect(flowCh.index).not.toBe(dataCh.index);
       expect(updated.properties.read).toEqual({
         "spBv1.0/plant/line1/ovenA/zone 1/temperature": {
-          index: deviceTag.index,
+          index: dataCh.index,
           channels: { "": deviceTag.channel },
         },
         "spBv1.0/plant/line1//flow": {
-          index: nodeTag.index,
+          index: flowCh.index,
           channels: { "": nodeTag.channel },
         },
       });
       const prefix = `${dev.name}_plant_line1_ovenA_zone_1_temperature`;
-      const dataCh = await client.channels.retrieve(deviceTag.channel);
       expect(dataCh.name).toBe(prefix);
-      expect(dataCh.index).toBe(deviceTag.index);
-      const indexCh = await client.channels.retrieve(deviceTag.index);
+      const indexCh = await client.channels.retrieve(dataCh.index);
       expect(indexCh.name).toBe(`${prefix}_time`);
-      const flowCh = await client.channels.retrieve(nodeTag.channel);
       expect(flowCh.name).toBe(`${dev.name}_plant_line1_flow`);
       expect(flowCh.dataType.toString()).toBe("float32");
+    });
+
+    it("should keep a device tag apart from a node tag naming the device", async () => {
+      const { container, dev, draft } = await renderRead([
+        createTagEntry("s1", "temperature", {
+          device: "ovenA",
+          name: uniqueName("device_tag"),
+        }),
+        createTagEntry("s2", "ovenA/temperature", { name: uniqueName("node_tag") }),
+      ]);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.READ_SCHEMAS,
+      );
+      const [deviceTag, nodeTag] = created.config.entries;
+      if (deviceTag.type !== "sparkplug" || nodeTag.type !== "sparkplug")
+        throw new Error("expected Sparkplug B entries");
+      expect(deviceTag.channel).not.toBe(nodeTag.channel);
+      const updated = await client.devices.retrieve({
+        key: dev.key,
+        schemas: MQTT.Device.SCHEMAS,
+      });
+      const indexOf = async (key: number) =>
+        (await client.channels.retrieve(key)).index;
+      expect(updated.properties.read).toEqual({
+        "spBv1.0/plant/line1/ovenA/temperature": {
+          index: await indexOf(deviceTag.channel),
+          channels: { "": deviceTag.channel },
+        },
+        "spBv1.0/plant/line1//ovenA/temperature": {
+          index: await indexOf(nodeTag.channel),
+          channels: { "": nodeTag.channel },
+        },
+      });
     });
 
     it("should give the channels the name of the entry", async () => {
@@ -549,13 +734,14 @@ describe("MQTT Read form", () => {
       );
       const [entry] = created.config.entries;
       if (entry.type !== "sparkplug") throw new Error("expected a Sparkplug B entry");
-      expect((await client.channels.retrieve(entry.channel)).name).toBe(name);
-      expect((await client.channels.retrieve(entry.index)).name).toBe(`${name}_time`);
+      const dataCh = await client.channels.retrieve(entry.channel);
+      expect(dataCh.name).toBe(name);
+      expect((await client.channels.retrieve(dataCh.index)).name).toBe(`${name}_time`);
     });
 
     it("should create a virtual channel with no index for a string tag", async () => {
       const { container, dev, draft } = await renderRead([
-        createTagEntry("s1", "mode", { dataType: "string", index: 7 }),
+        createTagEntry("s1", "mode", { dataType: "string" }),
       ]);
       const created = await deployAndAwaitTask(
         client,
@@ -565,7 +751,6 @@ describe("MQTT Read form", () => {
       );
       const [entry] = created.config.entries;
       if (entry.type !== "sparkplug") throw new Error("expected a Sparkplug B entry");
-      expect(entry.index).toBe(0);
       expect((await client.channels.retrieve(entry.channel)).virtual).toBe(true);
       const updated = await client.devices.retrieve({
         key: dev.key,
@@ -599,11 +784,11 @@ describe("MQTT Read form", () => {
         MQTT.Task.READ_SCHEMAS,
       );
       expect(created.config.entries).toMatchObject([
-        { key: "s2", channel: stored.channel, index: stored.index },
+        { key: "s2", channel: stored.channel },
       ]);
     });
 
-    it("should take the index of a tag from its live channel", async () => {
+    it("should keep the live channel of a tag without storing it on the device", async () => {
       const idxCh = await client.channels.create({
         name: uniqueName("mqtt_idx"),
         dataType: "timestamp",
@@ -623,14 +808,53 @@ describe("MQTT Read form", () => {
         draft.key,
         MQTT.Task.READ_SCHEMAS,
       );
-      expect(created.config.entries).toMatchObject([
-        { channel: dataCh.key, index: idxCh.key },
-      ]);
+      expect(created.config.entries).toMatchObject([{ channel: dataCh.key }]);
       const updated = await client.devices.retrieve({
         key: dev.key,
         schemas: MQTT.Device.SCHEMAS,
       });
       expect(updated.properties.read).toEqual({});
+    });
+
+    it("should create a channel for a tag on its stored index when its channel is gone", async () => {
+      const idxCh = await client.channels.create({
+        name: uniqueName("mqtt_idx"),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const gone = await client.channels.create({
+        name: uniqueName("mqtt_data"),
+        dataType: "float64",
+        index: idxCh.key,
+      });
+      await client.channels.delete(gone.key);
+      const dev = await createBroker(client, {
+        properties: {
+          read: {
+            "spBv1.0/plant/line1//flow": {
+              index: idxCh.key,
+              channels: { "": gone.key },
+            },
+          },
+        },
+      });
+      const draft = await createDraft(
+        client,
+        createReadConfig(dev.key, [createTagEntry("s1", "flow")]),
+      );
+      const { container } = await renderTaskFormTab(MQTT.Task.Read, {
+        client,
+        taskKey: draft.key,
+      });
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.READ_SCHEMAS,
+      );
+      const [entry] = created.config.entries;
+      if (entry.type !== "sparkplug") throw new Error("expected a Sparkplug B entry");
+      expect((await client.channels.retrieve(entry.channel)).index).toBe(idxCh.key);
     });
 
     it("should create index and data channels and persist them to the device", async () => {
@@ -671,6 +895,27 @@ describe("MQTT Read form", () => {
       if (entry.type !== "plain") throw new Error("expected a plain entry");
       expect(entry.fields.find((f) => f.key === "f1")?.channel).toBe(dataKey);
       expect(entry.fields.find((f) => f.key === "tf")?.channel).toBe(topicProps.index);
+    });
+
+    it("should save the channels it created when a later channel fails", async () => {
+      const { container, dev } = await renderRead([
+        createReadEntry("e1", "plant/oven", {
+          fields: [
+            createReadField("f1", "/temperature"),
+            createReadField("f2", "/pressure", { name: "bad name" }),
+          ],
+        }),
+      ]);
+      await clickDeploy(container);
+      await waitFor(async () => {
+        const updated = await client.devices.retrieve({
+          key: dev.key,
+          schemas: MQTT.Device.SCHEMAS,
+        });
+        const props = updated.properties.read["plant/oven"];
+        expect(props.index).toBeGreaterThan(0);
+        expect(Object.keys(props.channels)).toEqual(["/temperature"]);
+      });
     });
 
     it("should map the payload timestamp typed in the form to the index channel", async () => {
@@ -794,6 +1039,43 @@ describe("MQTT Read form", () => {
       const [entry] = created.config.entries;
       if (entry.type !== "plain") throw new Error("expected a plain entry");
       expect(entry.fields[0].channel).toBe(dataCh.key);
+    });
+
+    it("should put a new field on the index of a live field channel of its topic", async () => {
+      const dev = await createBroker(client);
+      const idxCh = await client.channels.create({
+        name: uniqueName("mqtt_idx"),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const dataCh = await client.channels.create({
+        name: uniqueName("mqtt_data"),
+        dataType: "float64",
+        index: idxCh.key,
+      });
+      const config = createReadConfig(dev.key, [
+        createReadEntry("e1", "plant/oven", {
+          fields: [
+            { ...createReadField("f1", "/live"), channel: dataCh.key },
+            createReadField("f2", "/temperature"),
+          ],
+        }),
+      ]);
+      const draft = await createDraft(client, config);
+      const { container } = await renderTaskFormTab(MQTT.Task.Read, {
+        client,
+        taskKey: draft.key,
+      });
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.READ_SCHEMAS,
+      );
+      const [entry] = created.config.entries;
+      if (entry.type !== "plain") throw new Error("expected a plain entry");
+      const added = await client.channels.retrieve(entry.fields[1].channel);
+      expect(added.index).toBe(idxCh.key);
     });
 
     it("should recover the index from an existing data channel when the stored index is gone", async () => {

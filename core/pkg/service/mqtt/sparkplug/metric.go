@@ -10,12 +10,9 @@
 package sparkplug
 
 import (
-	"math"
-
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug/pb"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -57,11 +54,23 @@ func (t DataType) Supported() bool {
 // String returns the name that the Sparkplug B specification gives the type.
 func (t DataType) String() string { return pb.DataType(t).String() }
 
+// bits returns the width of an integer type.
+func (t DataType) bits() int {
+	switch t {
+	case Int8, UInt8:
+		return 8
+	case Int16, UInt16:
+		return 16
+	case Int32, UInt32:
+		return 32
+	}
+	return 64
+}
+
 // Metric is one value of one tag.
 type Metric struct {
-	// Value is an int64, a uint64, a float64, a bool, a string, or, for DateTime, a
-	// telem.TimeStamp. It is nil for a null value and for a data type with no Go form.
-	Value any
+	// Value is nil for a null value and for a data type with no Value form.
+	Value Value
 	Name  string
 	// Timestamp is the acquisition time. Zero when the message gave none.
 	Timestamp telem.TimeStamp
@@ -70,10 +79,62 @@ type Metric struct {
 	Historical bool
 }
 
-const millisecond = telem.TimeStamp(1e6)
+// tag is what an edge node declares about one tag.
+type tag struct {
+	name     string
+	alias    uint64
+	dataType DataType
+}
 
-// decodeValue returns the Go form of the value of m as the data type dt.
-func decodeValue(m *pb.Payload_Metric, dt DataType) any {
+// tagTable holds the tags of an edge node, or of one of its devices.
+type tagTable struct {
+	byName  map[string]tag
+	byAlias map[uint64]tag
+}
+
+func makeTagTable(size int) tagTable {
+	return tagTable{
+		byName:  make(map[string]tag, size),
+		byAlias: make(map[uint64]tag, size),
+	}
+}
+
+// resolve returns the tag that m names: by its name when it has one, else by its
+// alias.
+func (t tagTable) resolve(m *pb.Payload_Metric) (tag, bool) {
+	if name := m.GetName(); name != "" {
+		tg, ok := t.byName[name]
+		return tg, ok
+	}
+	if m.Alias != nil {
+		tg, ok := t.byAlias[m.GetAlias()]
+		return tg, ok
+	}
+	return tag{}, false
+}
+
+// decodeMetric returns the Go form of m, a metric of tg in payload p. A data type on m
+// overrides the one that tg declares.
+func decodeMetric(p *pb.Payload, m *pb.Payload_Metric, tg tag) Metric {
+	dt := tg.dataType
+	if m.Datatype != nil {
+		dt = DataType(m.GetDatatype())
+	}
+	stamp := p.GetTimestamp()
+	if m.Timestamp != nil {
+		stamp = m.GetTimestamp()
+	}
+	return Metric{
+		Name:       tg.name,
+		DataType:   dt,
+		Value:      decodeValue(m, dt),
+		Timestamp:  telem.TimeStamp(stamp) * telem.MillisecondTS,
+		Historical: m.GetIsHistorical(),
+	}
+}
+
+// decodeValue returns the value of m as the data type dt.
+func decodeValue(m *pb.Payload_Metric, dt DataType) Value {
 	if m.GetIsNull() {
 		return nil
 	}
@@ -92,60 +153,57 @@ func decodeValue(m *pb.Payload_Metric, dt DataType) any {
 	switch dt {
 	case Int8:
 		if integer {
-			return int64(int8(bits))
+			return IntValue(int8(bits))
 		}
 	case Int16:
 		if integer {
-			return int64(int16(bits))
+			return IntValue(int16(bits))
 		}
 	case Int32:
 		if integer {
-			return int64(int32(bits))
+			return IntValue(int32(bits))
 		}
 	case Int64:
 		if integer {
-			return int64(bits)
+			return IntValue(bits)
 		}
 	case UInt8, UInt16, UInt32, UInt64:
 		if integer {
-			return bits
+			return UintValue(bits)
 		}
 	case DateTime:
 		if integer {
-			return telem.TimeStamp(bits) * millisecond
+			return DateTimeValue(telem.TimeStamp(bits) * telem.MillisecondTS)
 		}
 	case Float:
 		if v, ok := m.GetValue().(*pb.Payload_Metric_FloatValue); ok {
-			return float64(v.FloatValue)
+			return FloatValue(v.FloatValue)
 		}
 	case Double:
 		if v, ok := m.GetValue().(*pb.Payload_Metric_DoubleValue); ok {
-			return v.DoubleValue
+			return FloatValue(v.DoubleValue)
 		}
 	case Boolean:
 		if v, ok := m.GetValue().(*pb.Payload_Metric_BooleanValue); ok {
-			return v.BooleanValue
+			return BoolValue(v.BooleanValue)
 		}
 	case String, Text, UUID:
 		if v, ok := m.GetValue().(*pb.Payload_Metric_StringValue); ok {
-			return v.StringValue
+			return StringValue(v.StringValue)
 		}
 	}
 	return nil
 }
 
-// errValue is returned when a value cannot be sent as a data type.
-var errValue = errors.Wrap(validate.ErrValidation, "value does not fit the data type")
-
-// encodeValue sets the value of m to value as the data type dt. value has one of the
-// Go forms of Metric.Value.
-func encodeValue(m *pb.Payload_Metric, dt DataType, value any) error {
+// encodeValue sets the value of m to v as the data type dt. A number or a Boolean
+// converts to any numeric type or to Boolean when it fits.
+func encodeValue(m *pb.Payload_Metric, dt DataType, v Value) error {
+	n, isNumber := toNumber(v)
 	switch dt {
 	case Int8, Int16, Int32, Int64:
-		i, ok := toInt64(value)
-		lo, hi := intBounds(dt)
-		if !ok || i < lo || i > hi {
-			return errors.Wrapf(errValue, "%v as %s", value, dt)
+		i, ok := n.int64()
+		if !isNumber || !ok || !fitsInt(i, dt.bits()) {
+			return misfit(v, dt)
 		}
 		if dt == Int64 {
 			m.Value = &pb.Payload_Metric_LongValue{LongValue: uint64(i)}
@@ -153,157 +211,92 @@ func encodeValue(m *pb.Payload_Metric, dt DataType, value any) error {
 			m.Value = &pb.Payload_Metric_IntValue{IntValue: uint32(int32(i))}
 		}
 	case UInt8, UInt16, UInt32, UInt64:
-		u, ok := toUint64(value)
-		if !ok || u > uintMax(dt) {
-			return errors.Wrapf(errValue, "%v as %s", value, dt)
+		u, ok := n.uint64()
+		if !isNumber || !ok || !fitsUint(u, dt.bits()) {
+			return misfit(v, dt)
 		}
 		if dt == UInt64 {
 			m.Value = &pb.Payload_Metric_LongValue{LongValue: u}
 		} else {
 			m.Value = &pb.Payload_Metric_IntValue{IntValue: uint32(u)}
 		}
-	case DateTime:
-		ts, ok := value.(telem.TimeStamp)
-		if !ok || ts < 0 {
-			return errors.Wrapf(errValue, "%v as %s", value, dt)
-		}
-		m.Value = &pb.Payload_Metric_LongValue{LongValue: uint64(ts / millisecond)}
 	case Float:
-		f, ok := toFloat64(value)
-		// A finite value past the float32 range would go out as an infinity.
-		if !ok || (math.Abs(f) > math.MaxFloat32 && !math.IsInf(f, 0)) {
-			return errors.Wrapf(errValue, "%v as %s", value, dt)
+		f, ok := n.float32()
+		if !isNumber || !ok {
+			return misfit(v, dt)
 		}
-		m.Value = &pb.Payload_Metric_FloatValue{FloatValue: float32(f)}
+		m.Value = &pb.Payload_Metric_FloatValue{FloatValue: f}
 	case Double:
-		f, ok := toFloat64(value)
-		if !ok {
-			return errors.Wrapf(errValue, "%v as %s", value, dt)
+		if !isNumber {
+			return misfit(v, dt)
 		}
-		m.Value = &pb.Payload_Metric_DoubleValue{DoubleValue: f}
+		m.Value = &pb.Payload_Metric_DoubleValue{DoubleValue: n.float64()}
 	case Boolean:
-		b, ok := value.(bool)
-		if !ok {
-			f, isNumber := toFloat64(value)
-			if !isNumber {
-				return errors.Wrapf(errValue, "%v as %s", value, dt)
-			}
-			b = f != 0
+		if !isNumber {
+			return misfit(v, dt)
 		}
-		m.Value = &pb.Payload_Metric_BooleanValue{BooleanValue: b}
+		m.Value = &pb.Payload_Metric_BooleanValue{BooleanValue: n.float64() != 0}
 	case String, Text, UUID:
-		s, ok := value.(string)
+		s, ok := v.(StringValue)
 		if !ok {
-			return errors.Wrapf(errValue, "%v as %s", value, dt)
+			return misfit(v, dt)
 		}
-		m.Value = &pb.Payload_Metric_StringValue{StringValue: s}
+		m.Value = &pb.Payload_Metric_StringValue{StringValue: string(s)}
+	case DateTime:
+		ts, ok := v.(DateTimeValue)
+		if !ok || ts < 0 {
+			return misfit(v, dt)
+		}
+		m.Value = &pb.Payload_Metric_LongValue{
+			LongValue: uint64(telem.TimeStamp(ts) / telem.MillisecondTS),
+		}
 	default:
 		return errors.Wrapf(errValue, "%s is not supported", dt)
 	}
 	return nil
 }
 
-func intBounds(dt DataType) (lo, hi int64) {
-	switch dt {
-	case Int8:
-		return math.MinInt8, math.MaxInt8
-	case Int16:
-		return math.MinInt16, math.MaxInt16
-	case Int32:
-		return math.MinInt32, math.MaxInt32
-	}
-	return math.MinInt64, math.MaxInt64
+func toMillis(ts telem.TimeStamp) *uint64 {
+	return new(uint64(ts / telem.MillisecondTS))
 }
 
-func uintMax(dt DataType) uint64 {
-	switch dt {
-	case UInt8:
-		return math.MaxUint8
-	case UInt16:
-		return math.MaxUint16
-	case UInt32:
-		return math.MaxUint32
-	}
-	return math.MaxUint64
-}
-
-// toInt64 converts a whole number to an int64.
-func toInt64(value any) (int64, bool) {
-	switch v := value.(type) {
-	case int64:
-		return v, true
-	case uint64:
-		return int64(v), v <= math.MaxInt64
-	case float64:
-		return int64(v), v == math.Trunc(v) && v >= -(1<<63) && v < 1<<63
-	case bool:
-		if v {
-			return 1, true
-		}
-		return 0, true
-	}
-	return 0, false
-}
-
-// toUint64 converts a whole number that is not negative to a uint64.
-func toUint64(value any) (uint64, bool) {
-	switch v := value.(type) {
-	case uint64:
-		return v, true
-	case int64:
-		return uint64(v), v >= 0
-	case float64:
-		return uint64(v), v == math.Trunc(v) && v >= 0 && v < 1<<64
-	case bool:
-		if v {
-			return 1, true
-		}
-		return 0, true
-	}
-	return 0, false
-}
-
-func toFloat64(value any) (float64, bool) {
-	switch v := value.(type) {
-	case float64:
-		return v, true
-	case int64:
-		return float64(v), true
-	case uint64:
-		return float64(v), true
-	case bool:
-		if v {
-			return 1, true
-		}
-		return 0, true
-	}
-	return 0, false
-}
-
-func toMillis(ts telem.TimeStamp) *uint64 { return new(uint64(ts / millisecond)) }
-
-// EncodeCommand returns the payload of an NCMD or DCMD message that writes the value
-// of m to the tag that m names. A command carries no sequence number.
-func EncodeCommand(m Metric, now telem.TimeStamp) ([]byte, error) {
+// EncodeCommand returns the NCMD message, or the DCMD message when device is not empty,
+// that writes the value of m to the tag of node that m names. A command carries no
+// sequence number.
+func EncodeCommand(
+	node NodeID,
+	device string,
+	m Metric,
+	now telem.TimeStamp,
+) (Publication, error) {
 	metric := &pb.Payload_Metric{
 		Name:      new(m.Name),
 		Timestamp: toMillis(now),
 		Datatype:  new(uint32(m.DataType)),
 	}
 	if err := encodeValue(metric, m.DataType, m.Value); err != nil {
-		return nil, errors.Wrapf(err, "tag %s", m.Name)
+		return Publication{}, errors.Wrapf(err, "tag %s", m.Name)
 	}
-	return proto.Marshal(&pb.Payload{
+	payload, err := proto.Marshal(&pb.Payload{
 		Timestamp: toMillis(now),
 		Metrics:   []*pb.Payload_Metric{metric},
 	})
+	if err != nil {
+		return Publication{}, err
+	}
+	return Publication{
+		Topic:   CommandTopic(node, device).String(),
+		Payload: payload,
+	}, nil
 }
 
-// EncodeRebirth returns the payload of the NCMD message that asks an edge node to
-// publish its birth messages again.
-func EncodeRebirth(now telem.TimeStamp) ([]byte, error) {
+// EncodeRebirth returns the NCMD message that asks node to publish its birth messages
+// again.
+func EncodeRebirth(node NodeID, now telem.TimeStamp) (Publication, error) {
 	return EncodeCommand(
-		Metric{Name: RebirthMetric, DataType: Boolean, Value: true},
+		node,
+		"",
+		Metric{Name: RebirthMetric, DataType: Boolean, Value: BoolValue(true)},
 		now,
 	)
 }

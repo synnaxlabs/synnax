@@ -35,19 +35,34 @@ const (
 	defaultKeepAlive  = 30 * time.Second
 )
 
-// SparkplugProperties are the Sparkplug B settings of a broker device.
-type SparkplugProperties struct {
+// sparkplugProperties are the Sparkplug B settings of a broker device.
+type sparkplugProperties struct {
 	// HostID makes the Core a Sparkplug B host application with this ID: it publishes
 	// a retained STATE message. Empty keeps the Core passive.
 	HostID string `json:"host_id"`
-	// Groups limits the Sparkplug B subscription to these group IDs. Empty takes
-	// every group.
+	// Groups are the group IDs that a browse for edge nodes listens to when it names no
+	// group. Empty listens to every group.
 	Groups []string `json:"groups"`
 }
 
-// Properties are the connection settings stored in the properties of a broker
-// device. The host is the location of the device.
-type Properties struct {
+// validate checks that every ID of p can be a level of a Sparkplug B topic.
+func (p sparkplugProperties) validate() error {
+	if p.HostID != "" {
+		if err := sparkplug.ValidateID("sparkplug.host_id", p.HostID); err != nil {
+			return err
+		}
+	}
+	for _, g := range p.Groups {
+		if err := sparkplug.ValidateID("sparkplug.groups", g); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// properties are the connection settings stored in the properties of a broker device.
+// The host is the location of the device.
+type properties struct {
 	// CAFile is the path on the Core host to the CA certificates that verify the
 	// broker. Empty uses the system roots.
 	CAFile string `json:"ca_file"`
@@ -59,11 +74,13 @@ type Properties struct {
 	Password string `json:"password"`
 	// ClientID is the MQTT client ID. Empty derives one from the device key.
 	ClientID  string              `json:"client_id"`
-	Sparkplug SparkplugProperties `json:"sparkplug"`
-	// Port is the TCP port of the broker. Zero selects 1883, or 8883 when Secure.
-	Port int `json:"port"`
-	// KeepAlive is the MQTT keep-alive interval in seconds. Zero selects 30.
-	KeepAlive int `json:"keep_alive"`
+	Sparkplug sparkplugProperties `json:"sparkplug"`
+	// Port is the TCP port of the broker, from 1 to 65535. Nil selects 1883, or 8883
+	// when Secure.
+	Port *int `json:"port"`
+	// KeepAlive is the MQTT keep-alive interval in seconds, which must be positive. Nil
+	// selects 30.
+	KeepAlive *int `json:"keep_alive"`
 	// Secure is true when the connection uses TLS.
 	Secure bool `json:"secure"`
 	// VerificationSkipped is true when the client accepts any broker certificate.
@@ -86,8 +103,8 @@ type clientConfig struct {
 
 // parseProperties decodes the properties of dev. The error wraps
 // validate.ErrValidation.
-func parseProperties(dev device.Device) (Properties, error) {
-	var props Properties
+func parseProperties(dev device.Device) (properties, error) {
+	var props properties
 	if err := dev.Properties.Unmarshal(&props); err != nil {
 		return props, errors.Wrapf(
 			validate.ErrValidation, "invalid broker properties: %s", err.Error(),
@@ -96,8 +113,9 @@ func parseProperties(dev device.Device) (Properties, error) {
 	return props, nil
 }
 
-// newClientConfig parses and validates the properties of dev. Errors wrap
-// validate.ErrValidation, except for certificate files that fail to load.
+// newClientConfig parses and validates the properties of dev, and loads the TLS files
+// that they name. Errors wrap validate.ErrValidation, except for certificate files that
+// fail to load.
 func newClientConfig(dev device.Device) (clientConfig, error) {
 	props, err := parseProperties(dev)
 	if err != nil {
@@ -108,11 +126,32 @@ func newClientConfig(dev device.Device) (clientConfig, error) {
 
 // newClientConfigOf validates props, the decoded properties of dev, and returns the
 // config of its client.
-func newClientConfigOf(dev device.Device, props Properties) (clientConfig, error) {
+func newClientConfigOf(dev device.Device, props properties) (clientConfig, error) {
+	cfg, err := newClientSettings(dev, props)
+	if err != nil {
+		return clientConfig{}, err
+	}
+	if cfg.tls, err = loadTLS(props); err != nil {
+		return clientConfig{}, err
+	}
+	return cfg, nil
+}
+
+// newClientSettings validates props, the decoded properties of dev, and returns the
+// config of its client with no TLS config. It reads no files.
+func newClientSettings(dev device.Device, props properties) (clientConfig, error) {
 	v := validate.New("mqtt.properties")
 	v.NotEmptyString("location", dev.Location)
-	v.Ternary("port", props.Port < 0 || props.Port > 65535, "must be 0 to 65535")
-	v.Ternary("keep_alive", props.KeepAlive < 0, "must not be negative")
+	v.Ternary(
+		"port",
+		props.Port != nil && (*props.Port < 1 || *props.Port > 65535),
+		"must be 1 to 65535",
+	)
+	v.Ternary(
+		"keep_alive",
+		props.KeepAlive != nil && *props.KeepAlive < 1,
+		"must be positive",
+	)
 	v.Ternary(
 		"key_file",
 		(props.CertFile == "") != (props.KeyFile == ""),
@@ -123,36 +162,25 @@ func newClientConfigOf(dev device.Device, props Properties) (clientConfig, error
 			validate.ErrValidation, "invalid broker properties: %s", err.Error(),
 		)
 	}
-	if props.Sparkplug.HostID != "" {
-		if err := sparkplug.ValidateID(
-			"sparkplug.host_id", props.Sparkplug.HostID,
-		); err != nil {
-			return clientConfig{}, errors.Wrapf(
-				validate.ErrValidation, "invalid broker properties: %s", err.Error(),
-			)
-		}
+	if err := props.Sparkplug.validate(); err != nil {
+		return clientConfig{}, errors.Wrap(err, "invalid broker properties")
 	}
 	cfg := clientConfig{
 		hostID:    props.Sparkplug.HostID,
 		clientID:  props.ClientID,
 		username:  props.Username,
 		password:  props.Password,
-		keepAlive: time.Duration(props.KeepAlive) * time.Second,
+		keepAlive: defaultKeepAlive,
 	}
 	if cfg.clientID == "" {
 		cfg.clientID = deriveClientID(dev.Key)
 	}
-	if cfg.keepAlive == 0 {
-		cfg.keepAlive = defaultKeepAlive
+	if props.KeepAlive != nil {
+		cfg.keepAlive = time.Duration(*props.KeepAlive) * time.Second
 	}
-	port, scheme := props.Port, "tcp"
+	port, scheme := defaultPort, "tcp"
 	if props.Secure {
-		scheme = "ssl"
-		tlsCfg, err := newTLSConfig(props)
-		if err != nil {
-			return clientConfig{}, err
-		}
-		cfg.tls = tlsCfg
+		port, scheme = defaultSecurePort, "ssl"
 		cfg.tlsID = strings.Join([]string{
 			props.CAFile,
 			props.CertFile,
@@ -160,11 +188,8 @@ func newClientConfigOf(dev device.Device, props Properties) (clientConfig, error
 			strconv.FormatBool(props.VerificationSkipped),
 		}, "|")
 	}
-	if port == 0 {
-		port = defaultPort
-		if props.Secure {
-			port = defaultSecurePort
-		}
+	if props.Port != nil {
+		port = *props.Port
 	}
 	cfg.url = scheme + "://" + net.JoinHostPort(dev.Location, strconv.Itoa(port))
 	return cfg, nil
@@ -177,7 +202,11 @@ func deriveClientID(seed string) string {
 	return "synnax-" + hex.EncodeToString(sum[:8])
 }
 
-func newTLSConfig(props Properties) (*tls.Config, error) {
+// loadTLS returns the TLS config of props, or nil for a connection with no TLS.
+func loadTLS(props properties) (*tls.Config, error) {
+	if !props.Secure {
+		return nil, nil
+	}
 	cfg := &tls.Config{
 		MinVersion:         tls.VersionTLS12,
 		InsecureSkipVerify: props.VerificationSkipped,

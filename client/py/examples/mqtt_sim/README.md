@@ -86,3 +86,20 @@ for a tag sets the value of that tag.
 |         | `running`     | `boolean` |
 | `Pump1` | `speed`       | `float`   |
 | `Pump1` | `setpoint`    | `double`  |
+
+## Sparkplug B bindings
+
+`sparkplug_b_pb2.py` and `sparkplug_b_pb2.pyi` are generated from the Sparkplug B schema
+that the Core uses. To generate them again, run these commands from the repository root:
+
+```bash
+uvx --from grpcio-tools==1.84.1 python -m grpc_tools.protoc \
+  -I core/pkg/service/mqtt/sparkplug/pb \
+  --python_out=client/py/examples/mqtt_sim \
+  --pyi_out=client/py/examples/mqtt_sim \
+  sparkplug_b.proto
+scripts/update_copyrights.sh
+```
+
+Then copy the Eclipse Public License notice from `sparkplug_b.proto` to the top of both
+files, under the Synnax header.

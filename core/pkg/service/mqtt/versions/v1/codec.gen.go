@@ -238,8 +238,14 @@ func (et EdgeTag) EncodeOrc(w *orc.Writer) error {
 	w.Bool(et.Disabled)
 	w.String(et.Name)
 	w.Uint32(uint32(et.Channel))
-	w.String(string(et.SparkplugType))
+	w.String(string(et.TagType))
 	w.Uint32(uint32(et.CommandChannel))
+	if et.CommandChannelName != nil {
+		w.Bool(true)
+		w.String(*et.CommandChannelName)
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -267,7 +273,7 @@ func (et *EdgeTag) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		et.SparkplugType = SparkplugDataType(rawV)
+		et.TagType = SparkplugDataType(rawV)
 	}
 	{
 		rawV, err := r.Uint32()
@@ -275,6 +281,19 @@ func (et *EdgeTag) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		et.CommandChannel = channel.Key(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			et.CommandChannelName = &hv
+		}
 	}
 	return nil
 }
@@ -383,7 +402,6 @@ func (re ReadEntry) EncodeOrc(w *orc.Writer) error {
 		w.String(v.Device)
 		w.String(v.Tag)
 		w.Uint32(uint32(v.Channel))
-		w.Uint32(uint32(v.Index))
 		w.String(v.Name)
 		w.String(string(v.DataType))
 	default:
@@ -462,13 +480,6 @@ func (re *ReadEntry) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.Channel = channel.Key(rawV)
-		}
-		{
-			rawV, err := r.Uint32()
-			if err != nil {
-				return err
-			}
-			v.Index = channel.Key(rawV)
 		}
 		if v.Name, err = r.String(); err != nil {
 			return err
@@ -788,7 +799,7 @@ func (wt WriteTarget) EncodeOrc(w *orc.Writer) error {
 		w.String(v.EdgeNode)
 		w.String(v.Device)
 		w.String(v.Tag)
-		w.String(string(v.SparkplugType))
+		w.String(string(v.TagType))
 		w.Uint32(uint32(v.Channel))
 		w.String(v.Name)
 	default:
@@ -866,7 +877,7 @@ func (wt *WriteTarget) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			v.SparkplugType = SparkplugDataType(rawV)
+			v.TagType = SparkplugDataType(rawV)
 		}
 		{
 			rawV, err := r.Uint32()

@@ -157,9 +157,6 @@ ReadEntry union on type extends BaseReadEntry {
         channel   channel.Key = 0 {
             @doc value "is the Synnax channel the tag value is written to."
         }
-        index     channel.Key = 0 {
-            @doc value "is the index channel that takes the tag timestamp."
-        }
         name      string = "" {
             @doc value "is the human-readable name of the channel."
         }
@@ -230,8 +227,8 @@ ChannelField struct {
     }
     time_format TimeFormat?    {
         @doc value """
-            is the output encoding when the command channel holds timestamps. Required
-            for timestamp channels.
+            is the output encoding when the command channel holds timestamps. An unset
+            format is ISO 8601.
         """
     }
     enum_values EnumEntry[]    {
@@ -335,7 +332,7 @@ WriteTarget union on type extends BaseWriteTarget {
         tag            string = "" {
             @doc value "is the name of the tag to command."
         }
-        sparkplug_type SparkplugDataType = double {
+        tag_type       SparkplugDataType = double {
             @doc value "is the Sparkplug B data type the command value is sent as."
         }
         channel        channel.Key = 0 {
@@ -391,13 +388,19 @@ EdgeTag struct {
     channel         channel.Key = 0 {
         @doc value "is the Synnax channel whose value the tag publishes."
     }
-    sparkplug_type  SparkplugDataType = double {
+    tag_type        SparkplugDataType = double {
         @doc value "is the Sparkplug B data type the tag is published as."
     }
     command_channel channel.Key = 0 {
         @doc value """
             is the Synnax channel that takes values written to the tag. Zero when the
             tag rejects writes.
+        """
+    }
+    command_channel_name string? {
+        @doc value """
+            is the name of the command channel that the Console creates at configure
+            when the tag has none. Absent when the tag rejects writes.
         """
     }
 
