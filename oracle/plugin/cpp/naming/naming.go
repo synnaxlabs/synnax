@@ -17,6 +17,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/internal/casing"
+	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -93,6 +94,25 @@ func PBNamespace(pbOutputPath, namespace string) string {
 	}
 
 	return fmt.Sprintf("::%s::%s::pb", prefix, namespace)
+}
+
+// VariantPBNamespace returns the C++ namespace of the protobuf message a union variant
+// translates against, and the header that declares it. An inline variant's message
+// belongs to its union, and any other variant's to its payload struct. cpp/types
+// declares the variant's proto members and cpp/pb defines them, so both MUST derive the
+// message here.
+func VariantPBNamespace(
+	union resolution.Type,
+	v resolution.UnionVariant,
+	payload resolution.Type,
+) (namespace, header string) {
+	owner := union
+	if !v.Inline {
+		owner = payload
+	}
+	path := output.GetPBPath(owner)
+	return PBNamespace(path, owner.Namespace),
+		fmt.Sprintf("%s/%s.pb.h", path, owner.Namespace)
 }
 
 // PBName returns the type's @pb name override, or its declared name.
