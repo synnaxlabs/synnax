@@ -89,8 +89,8 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             addStatus({
               variant: "error",
               name: core.name,
-              message: "Failed to connect to Core",
-              description: status.message,
+              message: status.message,
+              description: status.description,
             });
         } finally {
           setTesting(null);
