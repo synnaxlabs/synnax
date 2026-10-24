@@ -169,18 +169,19 @@ export class Controller
     return missing;
   }
 
-  // doAcquire and doRelease report their own failures as statuses.
   acquire(): void {
     this.acquireExplicit = true;
-    this.doAcquire().catch((error: unknown) =>
-      this.internal.instrumentation.L.error("failed to acquire control", { error }),
-    );
+    this.internal.runAsync(() => this.doAcquire(), {
+      message: "Failed to acquire control",
+      name: this.state.name,
+    });
   }
 
   release(): void {
-    this.doRelease().catch((error: unknown) =>
-      this.internal.instrumentation.L.error("failed to release control", { error }),
-    );
+    this.internal.runAsync(() => this.doRelease(), {
+      message: "Failed to release control",
+      name: this.state.name,
+    });
   }
 
   private async doAcquire(): Promise<void> {
