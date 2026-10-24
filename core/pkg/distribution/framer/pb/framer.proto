@@ -32,23 +32,7 @@ message IteratorRequest {
   int64 chunk_size = 7;
   int32 seq_num = 8;
   reserved 9;
-  Reduction reduction = 10;
-}
-
-message Reduction {
-  oneof variant {
-    StrideReduction stride = 1;
-    LimitReduction limit = 2;
-  }
-}
-
-message StrideReduction {
-  uint32 factor = 1;
-}
-
-message LimitReduction {
-  string aggregation = 1;
-  uint32 point_limit = 2;
+  .x.telem.pb.Reduction reduction = 10;
 }
 
 message IteratorResponse {
