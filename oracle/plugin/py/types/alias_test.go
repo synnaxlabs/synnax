@@ -42,6 +42,11 @@ Box struct<T> {
 	hidden bool
 }
 
+Pair struct<A, B> {
+	first  A
+	second B
+}
+
 Code uint32
 `
 
@@ -53,6 +58,9 @@ import "schemas/base"
 Labeled = base.Labeled
 Box<T> = base.Box<T>
 TextBox = base.Box<string>
+Swapped<A, B> = base.Pair<B, A>
+Unswapped<A, B> = Swapped<B, A>
+Loose<T? = string> = base.Box<T>
 Code = base.Code
 Stamp = base.Stamp
 Key = base.Key
@@ -130,7 +138,22 @@ var _ = Describe("Python aliases", func() {
 			Panel struct {
 				box Box<string>
 			}
-		`, "box: Box[str]\n"),
+		`, "box: base.Box[str]\n"),
+		Entry("a generic alias that reorders its type parameters", `
+			Panel struct {
+				pair Swapped<int32, string>
+			}
+		`, "pair: base.Pair[str, int]\n"),
+		Entry("an alias of a generic alias that reorders its type parameters", `
+			Panel struct {
+				pair Unswapped<int32, string>
+			}
+		`, "pair: base.Pair[int, str]\n"),
+		Entry("a generic alias whose type arguments bind only defaulted parameters", `
+			Panel struct<D? = string> {
+				loose Loose<D>
+			}
+		`, "loose: Loose\n"),
 		Entry("a generic parent inlined for a redeclared field", `
 			Panel struct extends Box<string> {
 				hidden bool?

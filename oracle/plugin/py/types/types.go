@@ -1517,7 +1517,7 @@ func typeToPython(
 	}
 
 	pyName := getPyName(resolved)
-	switch resolved.Form.(type) {
+	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
 		if resolved.Namespace != data.Namespace {
 			outputPath := output.GetPath(resolved, "py")
@@ -1552,6 +1552,20 @@ func typeToPython(
 		return pyName
 
 	case resolution.AliasForm:
+		// A generic TypeAlias binds its arguments in the order its type variables first
+		// appear in the target, not in the declared order. A use that binds a type
+		// parameter without a default names the target instead.
+		args := trimNilTypeArgs(typeRef.TypeArgs)
+		if slices.ContainsFunc(
+			form.TypeParams[:min(len(args), len(form.TypeParams))],
+			func(tp resolution.TypeParam) bool { return !tp.HasDefault() },
+		) {
+			target := resolution.SubstituteTypeRef(
+				form.Target,
+				resolution.TypeArgMap(form.TypeParams, args),
+			)
+			return typeToPython(target, table, data)
+		}
 		if resolved.Namespace != data.Namespace {
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
@@ -1560,7 +1574,7 @@ func typeToPython(
 			modulePath := toPythonModulePath(outputPath)
 			pyName = addCrossNamespaceImport(modulePath, pyName, data)
 		}
-		return pyName + typeArgsToPython(resolved, typeRef.TypeArgs, table, data)
+		return pyName
 
 	case resolution.UnionForm:
 		if resolved.Namespace != data.Namespace {
