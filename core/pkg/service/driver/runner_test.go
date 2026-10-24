@@ -11,6 +11,7 @@ package driver_test
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"uuid"
 
@@ -203,12 +204,20 @@ var _ = Describe("Runner", func() {
 				fail := make(chan struct{})
 				var runs atomic.Int32
 				r := openOn(gorp.Wrap(gated), func(ctx context.Context) error {
-					if runs.Add(1) == 1 {
-						<-fail
-						return errors.New("boom")
+					if runs.Add(1) > 1 {
+						return waitRun(ctx)
 					}
-					return waitRun(ctx)
+					select {
+					case <-fail:
+						return errors.New("boom")
+					case <-ctx.Done():
+						return nil
+					}
 				})
+				// Cleanup runs in reverse, so a failed spec opens the gate before the
+				// stop waits on the run that holds it.
+				release := sync.OnceFunc(func() { close(gated.release) })
+				DeferCleanup(release)
 				Expect(r.Start(ctx, "cmd-1")).To(Succeed())
 				gated.gated.Store(true)
 				close(fail)
@@ -216,7 +225,7 @@ var _ = Describe("Runner", func() {
 				started := make(chan error, 1)
 				go func() { started <- r.Start(ctx, "cmd-2") }()
 				Consistently(started).ShouldNot(Receive())
-				close(gated.release)
+				release()
 				Eventually(started).Should(Receive(BeNil()))
 				stat := retrieve(ctx)
 				Expect(stat.Details.Running).To(BeTrue())
