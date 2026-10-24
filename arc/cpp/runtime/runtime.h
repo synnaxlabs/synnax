@@ -263,8 +263,13 @@ inline std::vector<x::control::Authority> build_authorities(
     return authorities;
 }
 
-inline std::pair<std::shared_ptr<Runtime>, x::errors::Error>
-load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
+/// @brief builds a runtime for cfg.program. node_error_handler receives the errors that
+/// nodes raise, along with the node. error_handler receives every other error.
+inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(
+    const Config &cfg,
+    errors::Handler error_handler = errors::noop_handler,
+    scheduler::ErrorHandler node_error_handler = scheduler::noop_handler
+) {
     if (auto err = scheduler::validate(cfg.program.root); err) return {nullptr, err};
     std::set<types::ChannelKey> reads;
     std::set<types::ChannelKey> writes;
@@ -364,7 +369,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     auto sched = std::make_unique<scheduler::Scheduler>(
         cfg.program,
         nodes,
-        error_handler
+        std::move(node_error_handler)
     );
     auto loop = loop::create(loop_cfg, cfg.rt_handle);
     return {

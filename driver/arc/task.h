@@ -191,15 +191,21 @@ public:
             .rt_handle = rt_handle,
         };
 
+        const auto fail = [task_ptr = task.get()](const x::errors::Error &err) {
+            task_ptr->state.send_error(err, "Failed to run Arc program");
+            task_ptr->runtime->close_outputs();
+        };
         auto [rt, err] = ::arc::runtime::load(
             runtime_cfg,
-            [task_ptr = task.get()](const x::errors::Error &err) {
+            fail,
+            [task_ptr = task.get(),
+             fail](const ::arc::ir::Node &node, const x::errors::Error &err) {
+                const auto description = "The " + node.type +
+                                         " node failed: " + err.data;
                 if (err.matches(::arc::runtime::errors::WARNING))
-                    task_ptr->state.send_warning("Node failed", err.data);
-                else {
-                    task_ptr->state.send_error(err, "Failed to run Arc program");
-                    task_ptr->runtime->close_outputs();
-                }
+                    task_ptr->state.send_warning("Node failed", description);
+                else
+                    fail(x::errors::Error(err, description));
             }
         );
         if (err) return {nullptr, err};
