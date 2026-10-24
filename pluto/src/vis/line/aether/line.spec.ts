@@ -38,6 +38,7 @@ import {
   type DrawOperation,
   Line,
   type LineProps,
+  type State,
 } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/test";
@@ -562,7 +563,7 @@ describe("line", () => {
       dataToDecimalScale: scale.XY.IDENTITY,
     };
 
-    const mount = (x: Series[], y: Series[]) => {
+    const mount = (x: Series[], y: Series[], state: Partial<State> = {}) => {
       const { gl, calls } = canvasTest.createGL();
       const xSource = createSource(x);
       const ySource = createSource(y);
@@ -580,6 +581,7 @@ describe("line", () => {
               x: sourceSpec(xSource),
               y: sourceSpec(ySource),
               color: color.construct("#ff0000"),
+              ...state,
             },
           },
         },
@@ -596,7 +598,16 @@ describe("line", () => {
               c.args[0] === canvasTest.GL_ENUMS.LINE_STRIP,
           )
           .map((c) => [Number(c.args[1]), Number(c.args[2])]);
-      return { line: h.child<Line>("line"), calls, draws, strips, xSource, ySource };
+      const remove = () => h.deleteChild("line");
+      return {
+        line: h.child<Line>("line"),
+        calls,
+        draws,
+        strips,
+        remove,
+        xSource,
+        ySource,
+      };
     };
 
     const X1 = series([0, 1, 2], 0n, { start: 0, end: 100 });
@@ -682,6 +693,129 @@ describe("line", () => {
           [canvasTest.GL_ENUMS.LINE_STRIP, 2],
           [canvasTest.GL_ENUMS.LINE_STRIP, 2],
         ]);
+      });
+    });
+
+    describe("reduction", () => {
+      const N = 8000;
+      const RANGE = { start: 0, end: 100 };
+      const wave = (i: number): number => Math.sin(i / 10);
+      const ramp = (length: number, alignment = 0n): Series =>
+        series(
+          Array.from({ length }, (_, i) => i),
+          alignment,
+          RANGE,
+        );
+      const waves = (length: number, alignment = 0n): Series =>
+        series(
+          Array.from({ length }, (_, i) => wave(i)),
+          alignment,
+          RANGE,
+        );
+      // The region shows x from lower to upper across 800 pixels.
+      const showing = (lower: number, upper: number): LineProps => ({
+        ...PROPS,
+        dataToDecimalScale: new scale.XY(
+          scale.Scale.scale<number>(lower, upper).scale(0, 1),
+        ),
+      });
+      const uploads = (m: ReturnType<typeof mount>): number[][] =>
+        m.calls
+          .filter((c) => c.op === "bufferData" && c.args[1] instanceof ArrayBuffer)
+          .map((c) => Array.from(new Float32Array(c.args[1] as ArrayBuffer)));
+      const deletes = (m: ReturnType<typeof mount>): number =>
+        m.calls.filter((c) => c.op === "deleteBuffer").length;
+
+      it("should draw a dense window at the group size of its pixel density", () => {
+        const m = mount([ramp(N)], [waves(N)]);
+        m.line.render(showing(0, N - 1));
+        // 10 samples per pixel at 2 pixels per group rounds up to groups of 32.
+        expect(m.strips()).toEqual([[0, 2 * (N / 32)]]);
+        expect(uploads(m).every((u) => u.length < N)).toBe(true);
+      });
+
+      it("should draw full resolution when a group holds under two samples", () => {
+        const m = mount([ramp(N)], [waves(N)]);
+        m.line.render(showing(0, N - 1));
+        m.line.render(showing(0, 100));
+        expect(m.strips().at(-1)).toEqual([0, N]);
+        expect(deletes(m)).toBe(2);
+      });
+
+      it("should draw ops of reduced series unchanged", () => {
+        const reduced = (data: number[]) =>
+          new Series({
+            data: new Float32Array(data),
+            dataType: DataType.FLOAT32,
+            alignment: 0n,
+            alignmentMultiple: 2n,
+            timeRange: new TimeRange(0, 50),
+          });
+        const tiles = Array.from({ length: N / 2 }, (_, i) => -2 * i);
+        const raw = (s: Series) =>
+          new Series({
+            data: s.data,
+            dataType: DataType.FLOAT32,
+            alignment: 1n << 32n,
+            timeRange: new TimeRange(50, 100),
+          });
+        const m = mount(
+          [reduced(tiles), raw(ramp(N))],
+          [reduced(tiles), raw(waves(N))],
+        );
+        m.line.render(showing(-N, N - 1));
+        expect(m.strips()).toEqual([
+          [0, N / 2],
+          [0, 2 * (N / 64)],
+        ]);
+      });
+
+      it("should follow a growing buffer and not reduce complete groups again", () => {
+        const createGrowing = () =>
+          Series.alloc({
+            capacity: N,
+            dataType: DataType.FLOAT32,
+            timeRange: new TimeRange(0, 100),
+          });
+        const write = (s: Series, values: number[]) =>
+          s.write(new Series(new Float32Array(values)));
+        const x = createGrowing();
+        const y = createGrowing();
+        const indexes = (from: number, to: number) =>
+          Array.from({ length: to - from }, (_, i) => from + i);
+        write(x, indexes(0, N / 2));
+        write(y, indexes(0, N / 2).map(wave));
+        const m = mount([x], [y]);
+        m.line.render(showing(0, N - 1));
+        expect(m.strips()).toEqual([[0, N / 32]]);
+        // A complete group reduced again would draw the change.
+        (y.data as Float32Array)[0] = 1000;
+        write(x, indexes(N / 2, N / 2 + 10));
+        const tail = indexes(N / 2, N / 2 + 9).map(wave);
+        write(y, [...tail, -5]);
+        m.line.render(showing(0, N - 1));
+        expect(m.strips().at(-1)).toEqual([0, N / 32 + 2]);
+        const drawn = uploads(m).at(-1);
+        expect(drawn?.slice(0, 2)).toEqual([0, Math.fround(wave(16))]);
+        expect(drawn?.slice(-2)).toEqual([Math.fround(Math.max(...tail)), -5]);
+      });
+
+      it("should release its reduced series when deleted", () => {
+        const m = mount([ramp(N)], [waves(N)]);
+        m.line.render(showing(0, N - 1));
+        expect(deletes(m)).toBe(0);
+        m.remove();
+        expect(deletes(m)).toBe(2);
+      });
+
+      it("should reduce by its y source's aggregation and groups per column", () => {
+        const decimated = mount([ramp(N)], [waves(N)]);
+        decimated.ySource.aggregation = () => "decimate";
+        decimated.line.render(showing(0, N - 1));
+        expect(decimated.strips()).toEqual([[0, N / 32]]);
+        const fine = mount([ramp(N)], [waves(N)], { groupsPerColumn: 1 });
+        fine.line.render(showing(0, N - 1));
+        expect(fine.strips()).toEqual([[0, 2 * (N / 16)]]);
       });
     });
 

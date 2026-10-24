@@ -133,6 +133,7 @@ const Line = ({
   visible = true,
 }: LineProps): ReactElement | null => {
   const { key, aggregation, detail, ...line } = useLine({ key: pKey, lineKey });
+  const groupsPerColumn = GROUPS_PER_COLUMN[detail];
   const telemetry = useMemo(() => {
     if (resolved == null) return null;
     const { xChannel, yChannel } = line;
@@ -143,7 +144,7 @@ const Line = ({
         : { timeRange: resolved.timeRange }),
       xChannel,
       aggregation,
-      groupsPerColumn: GROUPS_PER_COLUMN[detail],
+      groupsPerColumn,
     };
     return {
       x: telem.tiledChannelData({
@@ -153,7 +154,7 @@ const Line = ({
       }),
       y: telem.tiledChannelData({ ...props, channel: yChannel }),
     };
-  }, [resolved, line.xChannel, line.yChannel, aggregation, detail]);
+  }, [resolved, line.xChannel, line.yChannel, aggregation, groupsPerColumn]);
   if (telemetry == null) return null;
   return (
     <BaseLine
@@ -162,6 +163,7 @@ const Line = ({
       x={telemetry.x}
       y={telemetry.y}
       visible={visible}
+      groupsPerColumn={groupsPerColumn}
       legendGroup={line.yAxis.toUpperCase()}
       {...line}
     />
