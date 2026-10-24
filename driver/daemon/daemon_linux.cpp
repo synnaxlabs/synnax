@@ -94,7 +94,7 @@ const std::string
 /// tasks at high performance do through /dev/cpu_dma_latency.
 const std::string
     LATENCY_RULE = "KERNEL==\"cpu_dma_latency\", GROUP=\"synnax\", MODE=\"0660\"\n";
-const std::string LATENCY_DEVICES = "--name-match=cpu_dma_latency";
+const std::string LATENCY_MATCH = "--name-match=cpu_dma_latency";
 
 const std::string
     ETHERCAT_RULE_PATH = "/etc/udev/rules.d/99-synnax-driver-ethercat.rules";
@@ -102,14 +102,14 @@ const std::string
 /// @brief lets the synnax group open IgH EtherCAT masters through /dev/EtherCAT*.
 const std::string
     ETHERCAT_RULE = "KERNEL==\"EtherCAT[0-9]*\", GROUP=\"synnax\", MODE=\"0660\"\n";
-const std::string ETHERCAT_DEVICES = "--subsystem-match=EtherCAT";
+const std::string ETHERCAT_MATCH = "--subsystem-match=EtherCAT";
 
 /// @brief reloads the udev rules and applies them to the existing devices that match
-/// the udevadm trigger filter.
-x::errors::Error apply_udev_rules(const std::string &devices) {
+/// the udevadm trigger filter in match.
+x::errors::Error apply_udev_rules(const std::string &match) {
     if (system("udevadm control --reload") != 0)
         return x::errors::Error("Failed to reload udev rules");
-    if (system(("udevadm trigger " + devices).c_str()) != 0)
+    if (system(("udevadm trigger " + match).c_str()) != 0)
         return x::errors::Error("Failed to apply udev rules");
     return x::errors::NIL;
 }
@@ -117,14 +117,14 @@ x::errors::Error apply_udev_rules(const std::string &devices) {
 x::errors::Error install_udev_rule(
     const std::string &path,
     const std::string &rule,
-    const std::string &devices
+    const std::string &match
 ) {
     LOG(INFO) << "Creating udev rule at " << path;
     std::ofstream rule_file(path.c_str());
     if (!rule_file) return x::errors::Error("Failed to create udev rule");
     rule_file << rule;
     rule_file.close();
-    return apply_udev_rules(devices);
+    return apply_udev_rules(match);
 }
 
 x::errors::Error install_service() {
@@ -143,14 +143,10 @@ x::errors::Error install_service() {
     if (auto err = create_system_user()) return err;
     if (auto err = create_env_file()) return err;
     if (auto err = install_binary()) return err;
-    if (auto err = install_udev_rule(LATENCY_RULE_PATH, LATENCY_RULE, LATENCY_DEVICES))
+    if (auto err = install_udev_rule(LATENCY_RULE_PATH, LATENCY_RULE, LATENCY_MATCH))
         LOG(WARNING) << "Arc tasks at high performance cannot keep CPU cores awake: "
                      << err;
-    if (auto err = install_udev_rule(
-            ETHERCAT_RULE_PATH,
-            ETHERCAT_RULE,
-            ETHERCAT_DEVICES
-        ))
+    if (auto err = install_udev_rule(ETHERCAT_RULE_PATH, ETHERCAT_RULE, ETHERCAT_MATCH))
         LOG(WARNING) << "EtherCAT tasks cannot use an IgH master: " << err;
 
     LOG(INFO) << "Creating service file at " << SYSTEMD_SERVICE_PATH;
@@ -184,11 +180,11 @@ x::errors::Error uninstall_service() {
 
     fs::remove(SYSTEMD_SERVICE_PATH);
     if (fs::remove(LATENCY_RULE_PATH)) {
-        if (auto err = apply_udev_rules(LATENCY_DEVICES))
+        if (auto err = apply_udev_rules(LATENCY_MATCH))
             LOG(WARNING) << "Failed to reload udev rules: " << err;
     }
     if (fs::remove(ETHERCAT_RULE_PATH)) {
-        if (auto err = apply_udev_rules(ETHERCAT_DEVICES))
+        if (auto err = apply_udev_rules(ETHERCAT_MATCH))
             LOG(WARNING) << "Failed to reload udev rules: " << err;
     }
 

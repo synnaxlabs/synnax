@@ -61,8 +61,6 @@ std::unique_ptr<master::Manager> default_manager() {
     LOG(INFO) << "[ethercat] IgH unavailable, falling back to SOEM backend";
 #else
     LOG(INFO) << "[ethercat] using SOEM backend";
-#endif
-#ifndef __linux__
     if (!check_pcap_available()) {
         LOG(WARNING) << "[ethercat] " << driver::errors::missing_lib(PCAP_LIBRARY_INFO);
         return nullptr;
