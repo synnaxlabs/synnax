@@ -42,8 +42,8 @@ type Series struct {
 	// channel's data.
 	Alignment Alignment `json:"alignment" msgpack:"alignment"`
 	// AlignmentMultiple is the number of alignment steps between consecutive samples.
-	// It is above one when each sample stands for a group of stored samples. Zero
-	// means one.
+	// It is above one when each sample stands for a group of stored samples. Zero means
+	// one.
 	AlignmentMultiple uint32 `json:"alignment_multiple,omitempty" msgpack:"alignment_multiple,omitempty"`
 	cachedLength      *int64
 }
@@ -245,7 +245,7 @@ func (s Series) Last() Series {
 	return Series{
 		DataType:  s.DataType,
 		Data:      data,
-		Alignment: s.Alignment.AddSamples(uint32(s.Len() - 1)),
+		Alignment: s.Alignment.AddSamples(uint32(s.Len()-1) * s.Multiple()),
 		TimeRange: s.TimeRange,
 	}
 }
@@ -263,8 +263,8 @@ func CopyValue(dst, src Series, dstIdx, srcIdx int) {
 }
 
 // AlignmentBounds returns the alignment bounds of the series. The lower bound is the
-// alignment of the first sample, and the upper bound is the alignment of the last
-// sample + 1. The lower bound is inclusive, while the upper bound is exclusive.
+// alignment of the first sample, and the upper bound is one alignment multiple past the
+// last sample. The lower bound is inclusive, while the upper bound is exclusive.
 func (s Series) AlignmentBounds() AlignmentBounds {
 	return AlignmentBounds{
 		Lower: s.Alignment,
@@ -444,15 +444,20 @@ func NewMultiSeries(series []Series) MultiSeries {
 	return MultiSeries{Series: series}
 }
 
-// AtAlignment returns the value at the given alignment in the MultiSeries.
+// AtAlignment returns the value at the given alignment in the MultiSeries. It panics
+// when no sample sits at the alignment, including an alignment between two samples of a
+// series with an alignment multiple.
 func (ms MultiSeries) AtAlignment[T FixedSample](alignment Alignment) T {
 	for _, s := range ms.Series {
-		if s.AlignmentBounds().Contains(alignment) {
-			return s.ValueAt[T](int(alignment - s.Alignment))
+		if !s.AlignmentBounds().Contains(alignment) {
+			continue
+		}
+		if offset := uint64(alignment - s.Alignment); offset%uint64(s.Multiple()) == 0 {
+			return s.ValueAt[T](int(offset / uint64(s.Multiple())))
 		}
 	}
 	panic(fmt.Sprintf(
-		"alignment %v out of bounds for multi series with alignment bounds %v",
+		"no sample at alignment %v in multi series with alignment bounds %v",
 		alignment,
 		ms.AlignmentBounds(),
 	))
