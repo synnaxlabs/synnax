@@ -12,7 +12,7 @@ import { z } from "zod";
 /** One rule a library document breaks. */
 export const problemZ = z.object({
   /**
-   * The dotted location of the bad value, such as "entries.0.name", or empty for a
+   * The dotted location of the bad value, such as "messages.0.name", or empty for a
    * problem with the whole document.
    */
   path: z.string(),

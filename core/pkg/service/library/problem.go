@@ -19,7 +19,7 @@ import (
 
 // Problem is one rule a library document breaks.
 type Problem struct {
-	// Path is the dotted location of the bad value, such as "entries.0.name". It is
+	// Path is the dotted location of the bad value, such as "messages.0.name". It is
 	// empty for a problem with the whole document.
 	Path string `json:"path" msgpack:"path"`
 	// Message says what is wrong.

@@ -269,8 +269,7 @@ func (u user) missing(prev, next ICD) library.Problems {
 
 // staleTasks returns the tasks that use next whose stamped hash no longer matches the
 // messages they use. It returns a path-scoped validation error for each message or
-// field
-// a task uses and next lacks.
+// field a task uses and next lacks.
 func (w Writer) staleTasks(ctx context.Context, prev, next ICD) ([]task.Task, error) {
 	users, err := w.users(ctx, next)
 	if err != nil {
