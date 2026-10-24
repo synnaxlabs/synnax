@@ -14,7 +14,6 @@
 
 namespace driver::labjack::ljm {
 static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
-    {"LJ_SUCCESS", ""},
     {"LJME_FRAMES_OMITTED_DUE_TO_PACKET_SIZE",
      "Some read/write operation(s) were not sent to the device because the "
      "Feedback command being created was too large for the device, given the "
@@ -29,7 +28,6 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"LJME_DEBUG_LOG_FILE_NOT_OPEN",
      "The message could not be logged because the debug log file has not been "
      "opened."},
-    {"FEATURE_NOT_IMPLEMENTED", ""},
     {"LJME_MODBUS_ERRORS_BEGIN",
      "This indicates where the Modbus error codes start is not a real Modbus "
      "error code."},
@@ -297,13 +295,9 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"FEATURE_NOT_SUPPORTED", "Feature is not supported on this device."},
     {"MODBUS_RSP_OVERFLOW", "Response packet greater than max packet size."},
     {"MODBUS_CMD_OVERFLOW", "Command packet greater than max packet size"},
-    {"MODBUS_STRING_CMD_TOO_BIG", ""},
-    {"MODBUS_STRING_PARAM_TOO_BIG", ""},
-    {"MODBUS_STRING_BAD_NUM_PARAMS", ""},
     {"MODBUS_INVALID_NUM_REGISTERS",
      "Register data types does not match the number of registers in the "
      "request."},
-    {"MODBUS_READ_TOO_LARGE", ""},
     {"MODBUS_NUM_REGS_MUST_BE_EVEN",
      "Register or group of registers requires the access be in an even number "
      "of registers."},
@@ -312,7 +306,6 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"UDP_DISCOVERY_ONLY_MODE_IS_ENABLED",
      "The UDP discovery socket has been set to discovery only. Only a few "
      "registers may be read while in this mode."},
-    {"STARTUP_CONFIG_INVALID_CODE", ""},
     {"STARTUP_CONFIG_INVALID_READ",
      "An attempt was made to read beyond the configuration structure."},
     {"USER_RAM_FIFO_MUST_BE_EMPTY",
@@ -324,8 +317,6 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
      "data was added to the FIFO."},
     {"USER_RAM_FIFO_SIZE_MUST_BE_EVEN",
      "The number of bytes allocated to the FIFO must be even."},
-    {"INTFLASH_ADD_INVALID", ""},
-    {"INTFLASH_CODE_INVALID", ""},
     {"INTFLASH_OP_PROHIBITED",
      "Attempted to read or write a section that is not allowed."},
     {"INTFLASH_SECTION_OVERWRITE",
@@ -356,13 +347,10 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
      "The selected AIN rate configuration is invalid for the desired "
      "resolution index or vise-versa."},
     {"AIN_CHN_DISABLED", "The AIN channel has been disabled"},
-    {"LUA_VM_STATE_NO_CHANGE", ""},
-    {"LUA_INITIALIZATION_ERROR", ""},
     {"LUA_INVALID_NUM_IO_FLOATS",
      "Requested more than the max possible number of IO floats."},
     {"LUA_IO_FLOATMEM_OVERFLOW",
      "Attempt to read/write beyond the currently allocated IO space."},
-    {"LUA_INVALID_MODE", ""},
     {"LUA_IS_RUNNING", "A running script is preventing the requested operation."},
     {"LUA_CODE_BUFFER_EMPTY", "Attempted to run a program that is not present."},
     {"LUA_DEBUG_IS_DISABLED",
@@ -375,8 +363,6 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
      "loaded Lua script is too large."},
     {"SYSTEM_MEMORY_OVERWRITE", "Attempted to overwrite a buffer."},
     {"SYSTEM_REBOOT_CODE_INVALID", "Invalid code supplied when issuing a reboot."},
-    {"SYSTEM_READ_OVERRUN", ""},
-    {"SYSTEM_INVALID_PIN", ""},
     {"SYSTEM_NVRAM_UNAVAILABLE", "NVRAM is not available on this device."},
     {"SYSTEM_NVRAM_INVALID_ADDRESS",
      "The specified NVRAM location is not available on this device."},
@@ -404,7 +390,6 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"WIFI_NOT_ASSOCIATED",
      "WiFi needs to be connected to a network before the requested action can "
      "be performed."},
-    {"HW_DIO_NOT_AVAILABLE", ""},
     {"DIO_SET_TO_ANALOG",
      "The digital line addressed is set to analog. Digital operations cannot "
      "be performed."},
@@ -421,8 +406,6 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
      "Counter D is being used by another system. Typically this is due to a "
      "high speed counter that shares a resource with the stream clock being "
      "enabled while trying to enable stream mode or vise-versa"},
-    {"HW_CIO0_NOT_AVAILABLE", ""},
-    {"HW_CIO1_NOT_AVAILABLE", ""},
     {"HW_DAC1_NOT_AVAILABLE",
      "DAC1 is an active stream out target and therefore unavailable."},
     {"HW_LEDS_NOT_AVAILABLE",
@@ -439,8 +422,6 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
      "A number greater than 16-bits was written to a clock source configured "
      "for 16-bits. Commonly occurs when an incorrect value is applied to "
      "CONFIG_A or CONFIG_B for an output feature such as PWM or pulse output."},
-    {"EF_SET_TO_32BIT", ""},
-    {"EF_SMOOTH_VALUE_OUT_OF_RANGE", ""},
     {"EF_32BIT_REQUIRES_BOTH_CLOCK0and1",
      "Both Clock_Source 1 and Clock_Source 2 must be disabled before enabling "
      "Clock_Source 0."},
@@ -454,7 +435,6 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"EF_LINE_MUST_BE_LOW_BEFORE_STARTING",
      "The DIO line must be set to output low to ensure proper signal "
      "generation."},
-    {"EF_INVALID_DIVISOR", ""},
     {"EF_VALUE_GREATER_THAN_PERIOD",
      "The DIO_EF_CONFIG value written determines a DIO line transition point "
      "relative to the count of a ClockSource. To prevent signal glitches, the "
@@ -463,7 +443,6 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
      "The index of a DIO_EF can not be changed while that DIO_EF is enabled."},
     {"AIN_EF_INVALID_TYPE", "The specified type index is not supported."},
     {"AIN_EF_INVALID_NUM_SAMPLES", "Too many samples specified."},
-    {"AIN_EF_CALCULATION_ERROR", ""},
     {"AIN_EF_CHANNEL_INACTIVE",
      "The AIN_EF channel has not been initialized. To initialize, set the "
      "index configuration to a non-zero value."},
@@ -488,7 +467,6 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
      "excitation circuit."},
     {"STREAM_NEED_AT_LEAST_ONE_CHN", "The list of channels to stream is empty."},
     {"STREAM_CLOCK_BASE_NOT_WRITABLE", "The stream clock base is read only."},
-    {"STREAM_EXTCLK_AND_GATE_MX", ""},
     {"STREAM_IN_SPONTANEOUS_MODE",
      "Stream data can not be read with commands while in spontaneous mode."},
     {"STREAM_USB_PKT_OVERFLOW",
@@ -501,7 +479,6 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"STREAM_SCAN_RATE_INVALID",
      "The scan rate times the number of channels per scan is too great for "
      "this device."},
-    {"STREAM_OUT_BUFF_TOO_BIG", ""},
     {"STREAM_OUT_NUM_INVALID", "An invalid stream out number was specified."},
     {"STREAM_DATA_TYPE_INVALID", "An unsupported data types was specified."},
     {"STREAM_TARGET_CONFIG_INVALID",
@@ -513,12 +490,10 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
      "The specified address cannot be a stream out target."},
     {"STREAM_BUFF_SIZE_INVALID",
      "The specified buffer was either too large or was not a power of 2."},
-    {"STREAM_OUT_BUFF_LOOP_OVERWRITE", ""},
     {"STREAM_OUT_BUFF_DNE",
      "The buffer size must be set before data can be written to it."},
     {"STREAM_SAMPLES_PER_PKT_INVALID",
      "The specified number of samples per packet is too large."},
-    {"STREAM_BUFFER_DNE", ""},
     {"STREAM_NOT_RUNNING", "Stream was already disabled."},
     {"STREAM_SETTLING_INVALID",
      "Specified settling time is greater than the max possible."},
@@ -559,7 +534,6 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
      "The specified Software Watchdog DAC0 configurations are not valid."},
     {"SWDT_DAC1_SETTINGS_INVALID",
      "The specified Software Watchdog DAC1 configurations are not valid."},
-    {"RTC_TIME_INVALID", ""},
     {"RTC_SNTP_TIME_INVALID", "The specified SNTP update interval is too short."},
     {"RTC_NOT_PRESENT",
      "The requested operation can not be performed on units without a "
@@ -593,7 +567,6 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
      "The throttle setting is too low, watchdog may fire. Minimum value = 46000"},
     {"SBUS_COMM_TIME_OUT", "Slave device did not respond."},
     {"SBUS_NO_ACK", "Slave device did not acknowledge the data transfer."},
-    {"SBUS_CUSTOM_MODE_INVALID", ""},
     {"SBUS_INVALID_DIO_NUM", "Attempted to set an invalid pin."},
     {"SBUS_BACKGROUND_SERVICE_ON",
      "Command-response reads can not be used while the background service is "
@@ -689,7 +662,6 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"STREAM_BUFFER_FULL",
      "The stream buffer reached capacity while auto-recovery was disabled. "
      "Stream has been stopped."},
-    {"SELFDIAG_MAIN_OSC_FAIL", ""},
     {"FILE_IO_NOT_FOUND", "The requested file was not found."},
     {"FILE_IO_NO_DISK", "No SD card present or SC card could not be initialized."},
     {"FILE_IO_INVALID_NAME", "The file name is invalid."},
@@ -720,7 +692,7 @@ const x::errors::Error LJME_AUTO_IPS_FILE_NOT_FOUND = CRITICAL_ERROR.sub(
 );
 const auto TEMPORARILY_UNREACHABLE = x::errors::Error(
     TEMPORARY_ERROR.sub("unreachable"),
-    "The device is temporarily unreachable. Will keep trying"
+    "The device is temporarily unreachable. The Driver will keep trying to reach it."
 );
 
 inline x::errors::Error
@@ -730,7 +702,7 @@ parse_error(const std::shared_ptr<ljm::API> &ljm, const int err) {
     char err_msg[LJM_MAX_NAME_SIZE];
     ljm->err_to_string(err, err_msg);
 
-    std::string description;
+    std::string description = "LabJack returned " + std::string(err_msg) + ".";
     if (const auto it = ERROR_DESCRIPTIONS.find(err_msg);
         it != ERROR_DESCRIPTIONS.end())
         description = it->second;

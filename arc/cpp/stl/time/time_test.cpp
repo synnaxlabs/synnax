@@ -289,7 +289,7 @@ TEST(TimeModuleTest, RejectsNonPositiveLiteralSpan) {
         runtime::node::Config(wait.ir, wait.ir.nodes[0], wait.make_node())
     );
     EXPECT_TRUE(result.second.matches(x::errors::VALIDATION));
-    EXPECT_EQ(result.second.data, "duration must be positive, got 0ns");
+    EXPECT_EQ(result.second.data, "The duration parameter must be positive, not 0ns.");
     EXPECT_EQ(factory.shortest_span(), x::telem::TimeSpan::max());
 }
 
@@ -480,7 +480,7 @@ TEST(IntervalTest, ParksAndReportsOnceOnNonPositivePeriod) {
     EXPECT_EQ(deadline_calls, 0);
     ASSERT_EQ(reported.size(), 1);
     EXPECT_TRUE(reported[0].matches(runtime::errors::WARNING));
-    EXPECT_EQ(reported[0].data, "interval period must be positive, got 0ns");
+    EXPECT_EQ(reported[0].data, "The interval period must be positive, not 0ns.");
 }
 
 /// @brief Test that reset re-arms the non-positive period warning.
@@ -872,7 +872,7 @@ TEST(WaitTest, ParksAndReportsOnceOnNonPositiveDuration) {
     EXPECT_EQ(deadline_calls, 0);
     ASSERT_EQ(reported.size(), 1);
     EXPECT_TRUE(reported[0].matches(runtime::errors::WARNING));
-    EXPECT_EQ(reported[0].data, "wait duration must be positive, got 0ns");
+    EXPECT_EQ(reported[0].data, "The wait duration must be positive, not 0ns.");
 }
 
 /// @brief An interval should fire on its deadline and not one nanosecond before it.
