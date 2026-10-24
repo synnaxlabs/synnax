@@ -279,7 +279,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     auto var_st = std::make_shared<stl::stateful::Variables>();
 
     state::Config state_cfg{
-        .ir = (static_cast<ir::IR>(cfg.program)),
+        .ir = static_cast<const ir::IR &>(cfg.program),
         .channels = digests
     };
     auto state = std::make_shared<state::State>(
@@ -334,7 +334,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     node::MultiFactory fact(factories);
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
-    const ir::IR prog = static_cast<ir::IR>(cfg.program);
+    const ir::IR &prog = cfg.program;
     for (const auto &mod_node: cfg.program.nodes) {
         auto [node_state, node_state_err] = state->node(mod_node.key);
         if (node_state_err) return {nullptr, node_state_err};
