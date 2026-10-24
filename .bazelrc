@@ -236,10 +236,13 @@ build:sanitize-ci --test_summary=detailed
 #
 # bazel build --config=clang-tidy <targets> lints every C++ source and header in the
 # targets without compiling them. Each file is its own cached action, and any finding
-# fails it. clang-tidy comes from PATH; install it with scripts/install_clang_tools.sh.
+# fails it. Bazel fetches the clang-tidy that MODULE.bazel pins, and each action takes
+# the binary and its headers as inputs, so a new version lints every file again.
 build:clang-tidy --aspects=@bazel_clang_tidy//clang_tidy:clang_tidy.bzl%clang_tidy_aspect
 build:clang-tidy --output_groups=report
 build:clang-tidy --@bazel_clang_tidy//:clang_tidy_config=//:clang_tidy_config
 build:clang-tidy --@bazel_clang_tidy//:clang_tidy_executable=//:clang_tidy
+build:clang-tidy --@bazel_clang_tidy//:clang_tidy_additional_deps=//:clang_tidy_binary
+build:clang-tidy --@bazel_clang_tidy//:clang_tidy_resource_dir=//:clang_resource_dir
 build:clang-tidy-fix --config=clang-tidy
 build:clang-tidy-fix --@bazel_clang_tidy//:clang_tidy_config=//:clang_tidy_fix_config
