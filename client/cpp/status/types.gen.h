@@ -49,8 +49,7 @@ struct Status {
     /// rack. Empty when the status is not about a named thing.
     std::string name = "";
     /// @brief variant indicates the severity of the status. One of success, info,
-    /// warning,
-    /// error, loading, or disabled.
+    /// warning, error, loading, or disabled.
     std::string variant;
     /// @brief message says what happened in one short line, such as "Failed to start
     /// task"
