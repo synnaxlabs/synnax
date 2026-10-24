@@ -11,7 +11,6 @@ package iterator
 
 import (
 	"context"
-	"slices"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -91,10 +90,11 @@ func (g *groupSizer) count(
 	return counts, iter.Error()
 }
 
-// reducer reduces the series of each response with the group size of its channel. A
-// group cut by the end of a response waits for the next response to complete it, so a
-// read split into pieces reduces the same as one read. The reducer sends the waiting
-// groups before any response that is not data.
+// reducer reduces the series of each response with the group size of its channel. The
+// last reduced series of each channel waits for the next response, and takes the
+// points of a group cut between the two responses. A read split into pieces therefore
+// reduces the same as one read. The reducer sends the waiting series before any
+// response that is not data.
 type reducer struct {
 	confluence.UnarySink[Response]
 	confluence.AbstractUnarySource[Response]
@@ -103,12 +103,20 @@ type reducer struct {
 	// it before forwarding a request with new bounds, so every response to that request
 	// sees the new sizes.
 	groupSizes atomic.Pointer[map[channel.Key]uint32]
-	// tails holds the samples of each channel's last group that are not yet reduced.
-	tails map[channel.Key]telem.MultiSeries
+	// waiting holds the last reduced series of each channel.
+	waiting map[channel.Key]waitingSeries
+}
+
+// waitingSeries is a reduced series that waits for the series after it.
+type waitingSeries struct {
+	series telem.Series
+	// tail summarizes the last group of the series when the series holds only part of
+	// it.
+	tail *telem.Group
 }
 
 func newReducer(agg telem.Aggregation, groupSizes map[channel.Key]uint32) *reducer {
-	r := &reducer{aggregation: agg, tails: make(map[channel.Key]telem.MultiSeries)}
+	r := &reducer{aggregation: agg, waiting: make(map[channel.Key]waitingSeries)}
 	r.groupSizes.Store(&groupSizes)
 	return r
 }
@@ -145,7 +153,7 @@ func (r *reducer) process(res Response) error {
 		}
 		return nil
 	}
-	if len(r.tails) > 0 {
+	if len(r.waiting) > 0 {
 		r.Out.Inlet() <- Response{
 			Variant: ResponseVariantData,
 			Command: res.Command,
@@ -157,90 +165,54 @@ func (r *reducer) process(res Response) error {
 	return nil
 }
 
-// reduce reduces every complete group in fr, joined to the waiting tail of its channel,
-// and keeps the last group of each channel as its new tail.
+// reduce reduces the series of fr and returns the series that no longer wait.
 func (r *reducer) reduce(fr framer.Frame) (framer.Frame, error) {
 	var (
 		sizes = *r.groupSizes.Load()
 		out   = frame.Alloc(fr.Count())
-		done  = make(set.Set[channel.Key], fr.Count())
 	)
-	for _, key := range fr.KeysSlice() {
-		if done.Contains(key) {
-			continue
-		}
-		done.Add(key)
+	for key, s := range fr.Entries() {
 		size, ok := sizes[key]
 		if !ok {
 			return framer.Frame{}, errors.Newf("no group size for channel %v", key)
 		}
-		series := fr.Get(key)
-		if size < 2 || !telem.Reducible(series.DataType()) {
-			for _, s := range series.Series {
-				out = out.Append(key, s)
-			}
+		if size < 2 || !telem.Reducible(s.DataType) {
+			out = out.Append(key, s)
 			continue
 		}
-		series.Series = slices.Concat(r.tails[key].Series, series.Series)
-		head, tail := splitLastGroup(series, size)
-		if len(tail.Series) > 0 {
-			r.tails[key] = tail
-		} else {
-			delete(r.tails, key)
+		// An empty series would end the wait of the series before it.
+		if s.Len() == 0 {
+			continue
 		}
-		for _, s := range head.Reduce(r.aggregation, size).Series {
-			out = out.Append(key, s)
+		next, head, tail := s.ReduceCut(r.aggregation, size)
+		prev, ok := r.waiting[key]
+		if ok && prev.tail != nil && head != nil && prev.tail.Start() == head.Start() {
+			var merged telem.Group
+			prev.series, next, merged = prev.series.AbsorbNext(next, *prev.tail, *head)
+			if next.Len() == 0 {
+				if tail != nil {
+					tail = &merged
+				}
+				r.waiting[key] = waitingSeries{series: prev.series, tail: tail}
+				continue
+			}
 		}
+		if ok {
+			out = out.Append(key, prev.series)
+		}
+		r.waiting[key] = waitingSeries{series: next, tail: tail}
 	}
 	return out, nil
 }
 
-// flush reduces and clears every waiting tail.
+// flush returns and clears every waiting series.
 func (r *reducer) flush() framer.Frame {
-	sizes := *r.groupSizes.Load()
-	out := frame.Alloc(len(r.tails))
-	for key, tail := range r.tails {
-		for _, s := range tail.Reduce(r.aggregation, sizes[key]).Series {
-			out = out.Append(key, s)
-		}
+	out := frame.Alloc(len(r.waiting))
+	for key, w := range r.waiting {
+		out = out.Append(key, w.series)
 	}
-	clear(r.tails)
+	clear(r.waiting)
 	return out
-}
-
-// splitLastGroup splits m before the group of size groupSize that holds its last
-// sample, unless that group is complete. Both parts of a split series keep its time
-// range.
-func splitLastGroup(
-	m telem.MultiSeries,
-	groupSize uint32,
-) (head, tail telem.MultiSeries) {
-	upper := m.AlignmentBounds().Upper
-	if upper.SampleIndex()%groupSize == 0 {
-		return m, telem.MultiSeries{}
-	}
-	cut := telem.GroupStart(
-		telem.NewAlignment(upper.DomainIndex(), upper.SampleIndex()-1),
-		groupSize,
-	)
-	for _, s := range m.Series {
-		switch bounds := s.AlignmentBounds(); {
-		case bounds.Upper <= cut:
-			head.Series = append(head.Series, s)
-		case bounds.Lower >= cut:
-			tail.Series = append(tail.Series, s)
-		default:
-			at := int64(cut.SampleIndex()-s.Alignment.SampleIndex()) *
-				int64(s.DataType.Density())
-			h, t := s, s
-			h.Data = s.Data[:at]
-			t.Data = s.Data[at:]
-			t.Alignment = cut
-			head.Series = append(head.Series, h)
-			tail.Series = append(tail.Series, t)
-		}
-	}
-	return head, tail
 }
 
 // requestPlanner adapts the requests of a reduced read that runs calculations. It
