@@ -13,6 +13,7 @@ import "schemas/synnax/task"
 
 StatusConfig struct extends task.KeyedConfig {
     @doc value  "configures the rack status reporting task, which carries no settings."
+    @go imex    body
     @go marshal
     @go migrate
 }

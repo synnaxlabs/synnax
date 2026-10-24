@@ -199,8 +199,8 @@ ChannelField struct {
     }
     time_format TimeFormat?    {
         @doc value """
-            is the output encoding when the command channel holds timestamps. Required
-            for timestamp channels.
+            is the output encoding when the command channel holds timestamps. An unset
+            format is ISO 8601.
         """
     }
     enum_values EnumEntry[]    {
@@ -301,12 +301,14 @@ WriteConfig struct extends task.StartConfig {
         configures an HTTP write task, which sends an HTTP request whenever a value is
         written to an endpoint's command channel.
     """
+    @go imex    body
     @go marshal
     @go migrate
 }
 
 ScanConfig struct extends task.ScanConfig {
     @doc value  "configures an HTTP scan task."
+    @go imex    body
     @go marshal
     @go migrate
 }

@@ -91,6 +91,36 @@ class Reader:
         :param reduction: keeps every factor-th sample of each channel. Defaults to
             keeping every sample.
         """
+        self._read_file(tr, channels, dest, reduction)
+
+    def read_tdms(
+        self,
+        tr: TimeRange,
+        channels: channel.Params,
+        dest: FilePath,
+        reduction: StrideReduction | None = None,
+    ) -> None:
+        """Reads every sample the given channels hold within tr into an NI TDMS file.
+
+        The Core writes the file. Channels are grouped by the index channel that
+        timestamps them, and each group holds its index channel followed by its other
+        channels. Channels with no index are excluded.
+
+        :param tr: the time range to read.
+        :param channels: the channels to read, by key or by name.
+        :param dest: the path of the TDMS file to write. It must end in .tdms.
+        :param reduction: keeps every factor-th sample of each channel. Defaults to
+            keeping every sample.
+        """
+        self._read_file(tr, channels, dest, reduction)
+
+    def _read_file(
+        self,
+        tr: TimeRange,
+        channels: channel.Params,
+        dest: FilePath,
+        reduction: StrideReduction | None,
+    ) -> None:
         adapter = ReadFrameAdapter(self._retriever)
         adapter.update(channels)
         req = _Request(

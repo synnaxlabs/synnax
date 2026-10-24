@@ -39,8 +39,8 @@ export interface ReadOptions {
   reduction?: Reduction;
 }
 
-/** Options controlling how the Core resolves and formats a CSV read. */
-export interface ReadCSVOptions {
+/** Options controlling how the Core resolves a CSV or TDMS read. */
+export interface ReadFileOptions {
   /** Keeps every factor-th sample of each channel. */
   reduction?: StrideReduction;
 }
@@ -96,7 +96,7 @@ export class Reader {
    *
    * @param tr - the time range to read.
    * @param channels - the channels to read, by key or by name.
-   * @param opts - see {@link ReadCSVOptions}.
+   * @param opts - see {@link ReadFileOptions}.
    * @returns the CSV as a stream of bytes the caller pipes wherever it likes.
    * @throws {NotFoundError} if a channel does not exist.
    * @throws {AccessDeniedError} if the caller may not retrieve a channel or its index.
@@ -105,13 +105,44 @@ export class Reader {
   async readCSV(
     tr: CrudeTimeRange,
     channels: channel.Params,
-    opts: ReadCSVOptions = {},
+    opts: ReadFileOptions = {},
+  ): Promise<ReadableStream<Uint8Array>> {
+    return await this.readFile(tr, channels, "CSV", opts);
+  }
+
+  /**
+   * Reads every sample the given channels hold within tr as an NI TDMS file. Each index
+   * channel heads a group, followed by the float channels it timestamps, which hold NaN
+   * where they have no sample. Every other channel gets a group of its own, holding the
+   * timestamps of its samples, then the samples.
+   *
+   * @param tr - the time range to read.
+   * @param channels - the channels to read, by key or by name.
+   * @param opts - see {@link ReadFileOptions}.
+   * @returns the TDMS file as a stream of bytes the caller pipes wherever it likes.
+   * @throws {NotFoundError} if a channel does not exist.
+   * @throws {AccessDeniedError} if the caller may not retrieve a channel or its index.
+   * @throws {ValidationError} if a channel has no index channel.
+   */
+  async readTDMS(
+    tr: CrudeTimeRange,
+    channels: channel.Params,
+    opts: ReadFileOptions = {},
+  ): Promise<ReadableStream<Uint8Array>> {
+    return await this.readFile(tr, channels, "TDMS", opts);
+  }
+
+  private async readFile(
+    tr: CrudeTimeRange,
+    channels: channel.Params,
+    encoding: FileOptions["encoding"],
+    opts: ReadFileOptions,
   ): Promise<ReadableStream<Uint8Array>> {
     const payloads = await this.retrieveChannels(channels);
     return await this.download(
       payloads.map((c) => c.key),
       tr,
-      "CSV",
+      encoding,
       true,
       opts,
     );
