@@ -12,6 +12,7 @@ import {
   debounce,
   errors,
   MultiSeries,
+  type Reduction,
   type Series,
   TimeRange,
   TimeSpan,
@@ -23,9 +24,9 @@ import { UnexpectedError } from "@/errors";
 import { type Cache } from "@/framer/cache/cache";
 import { type Frame } from "@/framer/frame";
 
-/** A function that reads a telemetry frame from the Synnax cluster. */
+/** Reads a telemetry frame from the Core, reduced when a reduction is given. */
 export interface RemoteReader {
-  (tr: TimeRange, keys: channel.Key[]): Promise<Frame>;
+  (tr: TimeRange, keys: channel.Key[], reduction?: Reduction): Promise<Frame>;
 }
 
 export const DEFAULT_BATCH_DEBOUNCE = TimeSpan.milliseconds(50);

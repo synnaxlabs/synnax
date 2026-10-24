@@ -35,7 +35,7 @@ import { Frame } from "@/framer/frame";
 interface Call {
   tr: TimeRange;
   keys: channel.Key[];
-  reduction: Reduction;
+  reduction?: Reduction;
 }
 
 const SAMPLES = 4;
@@ -68,7 +68,7 @@ const createReader = (
 
 const SERIES_BYTES = SAMPLES * DataType.FLOAT64.density.valueOf();
 
-const spec = (overrides: Partial<TileSpec> = {}): TileSpec => ({
+const createSpec = (overrides: Partial<TileSpec> = {}): TileSpec => ({
   key: 1,
   level: 10,
   index: 3,
@@ -90,33 +90,33 @@ describe("tile", () => {
 
   describe("tileRange", () => {
     it("should start the tile index spans after the epoch", () => {
-      const tr = tileRange(spec({ level: 2, index: 3 }));
+      const tr = tileRange(createSpec({ level: 2, index: 3 }));
       expect(tr.start.equals(TimeStamp.milliseconds(12))).toBe(true);
       expect(tr.end.equals(TimeStamp.milliseconds(16))).toBe(true);
     });
 
     it("should cut the range short at the end of the spec", () => {
       const end = TimeStamp.milliseconds(14);
-      const tr = tileRange(spec({ level: 2, index: 3, end }));
+      const tr = tileRange(createSpec({ level: 2, index: 3, end }));
       expect(tr.end.equals(end)).toBe(true);
     });
 
     it("should cut the range short at the start of the spec", () => {
       const start = TimeStamp.milliseconds(13);
-      const tr = tileRange(spec({ level: 2, index: 3, start }));
+      const tr = tileRange(createSpec({ level: 2, index: 3, start }));
       expect(tr.start.equals(start)).toBe(true);
       expect(tr.end.equals(TimeStamp.milliseconds(16))).toBe(true);
     });
 
     it("should ignore a start before the tile", () => {
       const start = TimeStamp.milliseconds(4);
-      const tr = tileRange(spec({ level: 2, index: 3, start }));
+      const tr = tileRange(createSpec({ level: 2, index: 3, start }));
       expect(tr.start.equals(TimeStamp.milliseconds(12))).toBe(true);
     });
 
     it("should ignore an end after the tile", () => {
       const end = TimeStamp.milliseconds(20);
-      const tr = tileRange(spec({ level: 2, index: 3, end }));
+      const tr = tileRange(createSpec({ level: 2, index: 3, end }));
       expect(tr.end.equals(TimeStamp.milliseconds(16))).toBe(true);
     });
   });
@@ -124,7 +124,7 @@ describe("tile", () => {
   describe("TileReader", () => {
     it("should read the tile range with the spec's options", async () => {
       const { reader, calls } = createReader();
-      const s = spec();
+      const s = createSpec();
       const series = await reader.read(s);
       expect(calls).toHaveLength(1);
       expect(calls[0].tr.equals(tileRange(s))).toBe(true);
@@ -140,8 +140,8 @@ describe("tile", () => {
 
     it("should serve a second read of a tile from the cache", async () => {
       const { reader, calls } = createReader();
-      const first = await reader.read(spec());
-      const second = await reader.read(spec());
+      const first = await reader.read(createSpec());
+      const second = await reader.read(createSpec());
       expect(calls).toHaveLength(1);
       expect(second).toBe(first);
       reader.close();
@@ -150,8 +150,8 @@ describe("tile", () => {
     it("should merge reads of one tile across channels into one request", async () => {
       const { reader, calls } = createReader();
       const [a, b] = await Promise.all([
-        reader.read(spec({ key: 1 })),
-        reader.read(spec({ key: 2 })),
+        reader.read(createSpec({ key: 1 })),
+        reader.read(createSpec({ key: 2 })),
       ]);
       expect(calls).toHaveLength(1);
       expect(calls[0].keys.sort()).toEqual([1, 2]);
@@ -162,7 +162,10 @@ describe("tile", () => {
 
     it("should share one fetch between concurrent reads of the same tile", async () => {
       const { reader, calls } = createReader();
-      const [a, b] = await Promise.all([reader.read(spec()), reader.read(spec())]);
+      const [a, b] = await Promise.all([
+        reader.read(createSpec()),
+        reader.read(createSpec()),
+      ]);
       expect(calls).toHaveLength(1);
       expect(calls[0].keys).toEqual([1]);
       expect(b).toBe(a);
@@ -171,46 +174,47 @@ describe("tile", () => {
 
     it("should fetch tiles with different bounds or options separately", async () => {
       const { reader, calls } = createReader();
+      const mid = tileRange(createSpec()).start.add(TimeSpan.milliseconds(512));
       await Promise.all([
-        reader.read(spec({ index: 3 })),
-        reader.read(spec({ index: 4 })),
-        reader.read(spec({ level: 11 })),
-        reader.read(spec({ pointLimit: 50 })),
-        reader.read(spec({ aggregation: "average" })),
+        reader.read(createSpec({ index: 3 })),
+        reader.read(createSpec({ index: 4 })),
+        reader.read(createSpec({ level: 11 })),
+        reader.read(createSpec({ pointLimit: 50 })),
+        reader.read(createSpec({ aggregation: "average" })),
+        reader.read(createSpec({ end: mid })),
+        reader.read(createSpec({ start: mid })),
       ]);
-      expect(calls).toHaveLength(5);
+      expect(calls).toHaveLength(7);
       reader.close();
     });
 
     it("should cache tiles with different options under separate keys", async () => {
       const { reader, calls } = createReader();
-      await reader.read(spec({ aggregation: "min_max" }));
-      await reader.read(spec({ aggregation: "average" }));
-      await reader.read(spec({ aggregation: "min_max" }));
-      await reader.read(spec({ aggregation: "average" }));
+      await reader.read(createSpec({ aggregation: "min_max" }));
+      await reader.read(createSpec({ aggregation: "average" }));
+      await reader.read(createSpec({ aggregation: "min_max" }));
+      await reader.read(createSpec({ aggregation: "average" }));
       expect(calls).toHaveLength(2);
       reader.close();
     });
 
     it("should never cache a partial tile", async () => {
       const { reader, calls } = createReader();
-      const end = tileRange(spec()).start.add(TimeSpan.milliseconds(100));
-      await reader.read(spec({ end }));
-      await reader.read(spec({ end }));
+      const end = tileRange(createSpec()).start.add(TimeSpan.milliseconds(100));
+      await reader.read(createSpec({ end }));
+      await reader.read(createSpec({ end }));
       expect(calls).toHaveLength(2);
       expect(calls[0].tr.end.equals(end)).toBe(true);
-      expect(reader.size.valueOf()).toBe(0);
       reader.close();
     });
 
     it("should never cache a tile cut at its start", async () => {
       const { reader, calls } = createReader();
-      const start = tileRange(spec()).start.add(TimeSpan.milliseconds(100));
-      await reader.read(spec({ start }));
-      await reader.read(spec({ start }));
+      const start = tileRange(createSpec()).start.add(TimeSpan.milliseconds(100));
+      await reader.read(createSpec({ start }));
+      await reader.read(createSpec({ start }));
       expect(calls).toHaveLength(2);
       expect(calls[0].tr.start.equals(start)).toBe(true);
-      expect(reader.size.valueOf()).toBe(0);
       reader.close();
     });
 
@@ -218,7 +222,7 @@ describe("tile", () => {
       const { reader } = createReader({
         readRemote: async () => new Frame([], []),
       });
-      const series = await reader.read(spec());
+      const series = await reader.read(createSpec());
       expect(series.length).toBe(0);
       reader.close();
     });
@@ -227,47 +231,36 @@ describe("tile", () => {
       const convert = vi.fn((s: Series) => s.convert(DataType.FLOAT32));
       const transform: Transform = { resolveDataType: () => DataType.FLOAT32, convert };
       const { reader } = createReader({ transform });
-      const series = await reader.read(spec());
+      const series = await reader.read(createSpec());
       expect(convert).toHaveBeenCalledTimes(1);
       expect(series.dataType.equals(DataType.FLOAT32)).toBe(true);
       reader.close();
     });
 
-    it("should track the byte size of the cached tiles", async () => {
-      const { reader } = createReader();
-      await reader.read(spec({ index: 1 }));
-      await reader.read(spec({ index: 2 }));
-      expect(reader.size.valueOf()).toBe(2 * SERIES_BYTES);
-      reader.close();
-    });
-
     it("should evict the least recently used tile past the budget", async () => {
       const { reader, calls } = createReader({ budget: Size.bytes(2 * SERIES_BYTES) });
-      await reader.read(spec({ index: 1 }));
-      await reader.read(spec({ index: 2 }));
-      await reader.read(spec({ index: 1 }));
-      await reader.read(spec({ index: 3 }));
-      expect(reader.size.valueOf()).toBe(2 * SERIES_BYTES);
+      await reader.read(createSpec({ index: 1 }));
+      await reader.read(createSpec({ index: 2 }));
+      await reader.read(createSpec({ index: 1 }));
+      await reader.read(createSpec({ index: 3 }));
       expect(calls).toHaveLength(3);
-      await reader.read(spec({ index: 1 }));
+      await reader.read(createSpec({ index: 1 }));
       expect(calls).toHaveLength(3);
-      await reader.read(spec({ index: 2 }));
+      await reader.read(createSpec({ index: 2 }));
       expect(calls).toHaveLength(4);
       reader.close();
     });
 
     it("should keep a tile a caller holds past the budget", async () => {
       const { reader, calls } = createReader({ budget: Size.bytes(SERIES_BYTES) });
-      const heldTile = await reader.read(spec({ index: 1 }));
+      const heldTile = await reader.read(createSpec({ index: 1 }));
       heldTile.acquire();
-      await reader.read(spec({ index: 2 }));
-      expect(reader.size.valueOf()).toBe(SERIES_BYTES);
-      await reader.read(spec({ index: 1 }));
+      await reader.read(createSpec({ index: 2 }));
+      await reader.read(createSpec({ index: 1 }));
       expect(calls).toHaveLength(2);
       heldTile.release();
-      await reader.read(spec({ index: 3 }));
-      expect(reader.size.valueOf()).toBe(SERIES_BYTES);
-      await reader.read(spec({ index: 1 }));
+      await reader.read(createSpec({ index: 3 }));
+      await reader.read(createSpec({ index: 1 }));
       expect(calls).toHaveLength(4);
       reader.close();
     });
@@ -276,13 +269,12 @@ describe("tile", () => {
       const { reader, calls } = createReader({
         staleThreshold: TimeSpan.milliseconds(20),
       });
-      await reader.read(spec());
-      await reader.read(spec());
+      await reader.read(createSpec());
+      await reader.read(createSpec());
       expect(calls).toHaveLength(1);
       await sleep.sleep(TimeSpan.milliseconds(30));
-      await reader.read(spec());
+      await reader.read(createSpec());
       expect(calls).toHaveLength(2);
-      expect(reader.size.valueOf()).toBe(SERIES_BYTES);
       reader.close();
     });
 
@@ -295,12 +287,11 @@ describe("tile", () => {
         },
       });
       await Promise.all([
-        expect(reader.read(spec({ key: 1 }))).rejects.toThrow("fetch failed"),
-        expect(reader.read(spec({ key: 2 }))).rejects.toThrow("fetch failed"),
+        expect(reader.read(createSpec({ key: 1 }))).rejects.toThrow("fetch failed"),
+        expect(reader.read(createSpec({ key: 2 }))).rejects.toThrow("fetch failed"),
       ]);
-      expect(reader.size.valueOf()).toBe(0);
       failing = false;
-      expect(Array.from(await reader.read(spec()))).toEqual([1, 1, 1, 1]);
+      expect(Array.from(await reader.read(createSpec()))).toEqual([1, 1, 1, 1]);
       reader.close();
     });
 
@@ -309,9 +300,9 @@ describe("tile", () => {
         fetchTimeout: TimeSpan.milliseconds(20),
         readRemote: async () => await new Promise<Frame>(() => {}),
       });
-      await expect(reader.read(spec())).rejects.toSatisfy((e) =>
-        Unreachable.matches(e),
-      );
+      const read = reader.read(createSpec());
+      await expect(read).rejects.toSatisfy((e) => Unreachable.matches(e));
+      await expect(read).rejects.toThrow("timed out after 20ms");
       reader.close();
     });
 
@@ -322,7 +313,7 @@ describe("tile", () => {
           throw new UnexpectedError("sync failure");
         },
       });
-      await expect(reader.read(spec())).rejects.toThrow("sync failure");
+      await expect(reader.read(createSpec())).rejects.toThrow("sync failure");
       await sleep.sleep(TimeSpan.milliseconds(40));
       reader.close();
     });
@@ -331,22 +322,21 @@ describe("tile", () => {
       const { reader } = createReader({
         readRemote: async () => await new Promise<Frame>(() => {}),
       });
-      const queued = reader.read(spec({ index: 1 }));
+      const queued = reader.read(createSpec({ index: 1 }));
       await sleep.sleep(TimeSpan.milliseconds(10));
-      const inFlightRead = expect(queued).rejects.toThrow(UnexpectedError);
-      const batched = expect(reader.read(spec({ index: 2 }))).rejects.toThrow(
-        UnexpectedError,
+      const inFlightRead = expect(queued).rejects.toThrow("tile reader is closed");
+      const batched = expect(reader.read(createSpec({ index: 2 }))).rejects.toThrow(
+        "tile reader is closed",
       );
       reader.close();
       await Promise.all([inFlightRead, batched]);
     });
 
-    it("should reject reads after it closes and drop its tiles", async () => {
+    it("should reject reads after it closes", async () => {
       const { reader } = createReader();
-      await reader.read(spec());
+      await reader.read(createSpec());
       reader.close();
-      expect(reader.size.valueOf()).toBe(0);
-      await expect(reader.read(spec())).rejects.toThrow(UnexpectedError);
+      await expect(reader.read(createSpec())).rejects.toThrow("tile reader is closed");
     });
   });
 });

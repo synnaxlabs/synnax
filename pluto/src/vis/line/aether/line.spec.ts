@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type channel } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import {
   bounds,
   box,
   color,
   type CrudeTimeRange,
   DataType,
+  id,
   MultiSeries,
   scale,
   Series,
@@ -20,17 +23,18 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { type telem } from "@/telem/aether";
+import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
 import { renderAether } from "@/testutil/renderAether";
 import {
   bridgeVertices,
   buildDrawOperations,
   Context,
+  DEFAULT_OVERLAP_THRESHOLD,
   type DrawOperation,
   Line,
   type LineProps,
@@ -538,14 +542,17 @@ describe("line", () => {
         timeRange: new TimeRange(timeRange.start, timeRange.end),
       });
 
-    const sourceSpec = (data: Series[]): telem.SeriesSourceSpec => ({
+    const createSource = (data: Series[]) =>
+      telemTest.source<[bounds.Bounds, MultiSeries]>([
+        bounds.max(data.map((s) => s.bounds)),
+        new MultiSeries(data),
+      ]);
+
+    const sourceSpec = (
+      source: telemTest.TestSource<[bounds.Bounds, MultiSeries]>,
+    ): telem.SeriesSourceSpec => ({
       type: telemTest.TestSource.TYPE,
-      props: {
-        testId: telemTest.source([
-          bounds.max(data.map((s) => s.bounds)),
-          new MultiSeries(data),
-        ]).id,
-      },
+      props: { testId: source.id },
       variant: "source",
       valueType: "series",
     });
@@ -557,6 +564,8 @@ describe("line", () => {
 
     const mount = (x: Series[], y: Series[]) => {
       const { gl, calls } = canvasTest.createGL();
+      const xSource = createSource(x);
+      const ySource = createSource(y);
       const recorder = canvasTest.record();
       (recorder as { gl: unknown }).gl = gl;
       recorder.resize(PROPS.region, 1);
@@ -568,8 +577,8 @@ describe("line", () => {
           line: {
             type: Line.TYPE,
             state: {
-              x: sourceSpec(x),
-              y: sourceSpec(y),
+              x: sourceSpec(xSource),
+              y: sourceSpec(ySource),
               color: color.construct("#ff0000"),
             },
           },
@@ -587,13 +596,24 @@ describe("line", () => {
               c.args[0] === canvasTest.GL_ENUMS.LINE_STRIP,
           )
           .map((c) => [Number(c.args[1]), Number(c.args[2])]);
-      return { line: h.child<Line>("line"), calls, draws, strips };
+      return { line: h.child<Line>("line"), calls, draws, strips, xSource, ySource };
     };
 
     const X1 = series([0, 1, 2], 0n, { start: 0, end: 100 });
     const Y1 = series([10, 20, 30], 0n, { start: 0, end: 100 });
     const X2 = series([5, 6], 10n, { start: 200, end: 300 });
     const Y2 = series([40, 50], 10n, { start: 200, end: 300 });
+
+    it("should pass the x range the region shows to its sources", () => {
+      const m = mount([X1], [Y1]);
+      const values = [vi.spyOn(m.xSource, "value"), vi.spyOn(m.ySource, "value")];
+      const x = scale.Scale.scale<number>(100, 300).scale(0, 1);
+      const props: LineProps = { ...PROPS, dataToDecimalScale: new scale.XY(x) };
+      m.line.render(props);
+      m.line.findByXValue(props, 1);
+      const view = { view: { bounds: { lower: 100, upper: 300 }, width: 800 } };
+      values.forEach((value) => expect(value.mock.calls).toEqual([[view], [view]]));
+    });
 
     describe("render", () => {
       it("should draw one strip per domain and no bridge for a single domain", () => {
@@ -695,6 +715,118 @@ describe("line", () => {
         const m = mount([X1], [y]);
         expect(m.line.findByXValue(PROPS, 1).value.x).toBeNaN();
       });
+
+      it("should return a NaN y for a y series of another alignment multiple", () => {
+        const y = new Series({
+          data: new Float32Array([10, 20]),
+          alignment: 0n,
+          alignmentMultiple: 2n,
+          timeRange: new TimeRange(0, 100),
+        });
+        const m = mount([X1], [y]);
+        expect(m.line.findByXValue(PROPS, 1).value.y).toBeNaN();
+      });
+    });
+  });
+
+  describe("TiledChannelData against a Core", () => {
+    const synnax = createTestClient();
+    const feed = synnax.openFeed();
+    const client: telem.Client = {
+      feed,
+      channels: synnax.channels,
+      now: () => TimeStamp.now(),
+    };
+    afterAll(async () => await feed.close());
+
+    const COUNT = 10_000;
+
+    // Writes COUNT samples one millisecond apart. Data sample i holds sin(i / 100).
+    const writeChannels = async () => {
+      const time = await synnax.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const data = await synnax.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        index: time.key,
+      });
+      const start = TimeStamp.seconds(1_000_000);
+      await synnax.write(start, {
+        [time.key]: Array.from({ length: COUNT }, (_, i) =>
+          start.add(TimeSpan.milliseconds(i)),
+        ),
+        [data.key]: Array.from({ length: COUNT }, (_, i) => Math.sin(i / 100)),
+      });
+      const home = new TimeRange(start, start.add(TimeSpan.milliseconds(COUNT)));
+      return { data, home };
+    };
+
+    const create = (props: Partial<telem.TiledChannelDataProps>) =>
+      new telem.TiledChannelData(client, props, undefined, undefined, TimeSpan.ZERO);
+
+    const createPair = (dataKey: channel.Key, home: TimeRange) => ({
+      x: create({ channel: dataKey, useIndexOfChannel: true, timeRange: home }),
+      y: create({ channel: dataKey, timeRange: home }),
+    });
+
+    const settle = async (...sources: telem.TiledChannelData[]): Promise<void> =>
+      await expect.poll(() => sources.every((s) => !s.loading())).toBe(true);
+
+    const drawn = (x: MultiSeries, y: MultiSeries) =>
+      buildDrawOperations(x, y, DEFAULT_OVERLAP_THRESHOLD);
+
+    it("should pair every reduced x sample with a y sample", async () => {
+      const { data, home } = await writeChannels();
+      const { x, y } = createPair(data.key, home);
+      await settle(x, y);
+      const [xBounds, xs] = x.value();
+      const [, ys] = y.value();
+      expect(xBounds).toEqual(home.numericBounds);
+      expect(xs.length).toBe(ys.length);
+      expect(xs.length).toBeLessThan(COUNT);
+      expect(xs.series.map((s) => s.alignment)).toEqual(
+        ys.series.map((s) => s.alignment),
+      );
+      expect(ys.series.every((s) => s.alignmentMultiple > 1n)).toBe(true);
+      const ops = drawn(xs, ys);
+      expect(ops.reduce((n, op) => n + op.count, 0)).toBe(ys.length);
+      expect(y.value()[0].upper).toBeCloseTo(1, 3);
+      expect(y.value()[0].lower).toBeCloseTo(-1, 3);
+      x.cleanup();
+      y.cleanup();
+    });
+
+    it("should draw finer tiles for a zoomed view", async () => {
+      const { data, home } = await writeChannels();
+      const { x, y } = createPair(data.key, home);
+      await settle(x, y);
+      const homePoints = y.value()[1].length;
+      const start = Number(home.start.valueOf());
+      const v: telem.View = {
+        bounds: {
+          lower: start,
+          upper: start + Number(TimeSpan.milliseconds(500).valueOf()),
+        },
+        width: 1000,
+      };
+      x.value({ view: v });
+      y.value({ view: v });
+      await expect
+        .poll(
+          () => !x.fetching() && !y.fetching() && y.value({ view: v })[1].length > 0,
+        )
+        .toBe(true);
+      const xs = x.value({ view: v })[1];
+      const ys = y.value({ view: v })[1];
+      expect(ys.series.every((s) => s.alignmentMultiple === 1n)).toBe(true);
+      expect(ys.length).toBeGreaterThanOrEqual(500);
+      expect(ys.length).toBeLessThan(homePoints + 1024);
+      expect(drawn(xs, ys).reduce((n, op) => n + op.count, 0)).toBe(ys.length);
+      x.cleanup();
+      y.cleanup();
     });
   });
 });

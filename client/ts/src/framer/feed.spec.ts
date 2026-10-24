@@ -12,6 +12,7 @@ import {
   DataType,
   id,
   Series,
+  Size,
   sleep,
   TimeRange,
   TimeSpan,
@@ -23,7 +24,7 @@ import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { tileSpan, type TileSpec } from "@/framer/cache/tile";
 import { type Transform } from "@/framer/cache/transform";
-import { Feed, type LatestReader } from "@/framer/feed";
+import { Feed, type FeedProps, type LatestReader } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { createTestClient } from "@/testutil";
 
@@ -447,9 +448,6 @@ describe("feed", () => {
         throw new UnexpectedError("streamer unused");
       },
       readLatest: async () => new Frame([], []),
-      readTileRemote: async () => {
-        throw new UnexpectedError("tile reader unused");
-      },
     });
     const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
     await direct.read(tr, 1);
@@ -469,9 +467,6 @@ describe("feed", () => {
         throw new UnexpectedError("streamer unused");
       },
       readLatest: async () => new Frame([], []),
-      readTileRemote: async () => {
-        throw new UnexpectedError("tile reader unused");
-      },
     });
     const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
     await expect(direct.read(tr, 1)).rejects.toThrow(Unreachable);
@@ -487,9 +482,6 @@ describe("feed", () => {
         throw new Unreachable();
       },
       readLatest: async () => new Frame([], []),
-      readTileRemote: async () => {
-        throw new UnexpectedError("tile reader unused");
-      },
       onRetry: () => {},
     });
     direct.stream(() => {}, [1]);
@@ -605,6 +597,86 @@ describe("feed", () => {
       });
       expect(values.length).toBe(0);
     });
+
+    const TILE: TileSpec = {
+      key: 1,
+      level: LEVEL,
+      index: 3,
+      pointLimit: 100,
+      aggregation: "min_max",
+    };
+
+    // Returns a feed whose remote read counts its calls and answers every key with one
+    // float32 sample equal to the key.
+    const createFeed = (props: Partial<FeedProps> = {}) => {
+      const counter = { calls: 0 };
+      const direct = new Feed({
+        readRemote: async (_, keys) => {
+          counter.calls++;
+          return new Frame(
+            keys,
+            keys.map((k) => new Series({ data: new Float32Array([k]) })),
+          );
+        },
+        openStreamer: async () => {
+          throw new UnexpectedError("streamer unused");
+        },
+        readLatest: async () => new Frame([], []),
+        ...props,
+      });
+      return { direct, counter };
+    };
+
+    it("should forward fetchTimeout to the tile reader", async () => {
+      const { direct } = createFeed({
+        fetchTimeout: TimeSpan.milliseconds(20),
+        readRemote: async () => await new Promise<Frame>(() => {}),
+      });
+      const read = direct.readTile(TILE);
+      await expect(read).rejects.toThrow(Unreachable);
+      await expect(read).rejects.toThrow("timed out after 20ms");
+      await direct.close();
+    });
+
+    it("should apply the configured transform to tiles", async () => {
+      const transform: Transform = {
+        resolveDataType: () => DataType.FLOAT64,
+        convert: (series) => series.convert(DataType.FLOAT64),
+      };
+      const { direct } = createFeed({ transform });
+      const tile = await direct.readTile(TILE);
+      expect(tile.dataType.equals(DataType.FLOAT64)).toBe(true);
+      expect(Array.from(tile)).toEqual([1]);
+      await direct.close();
+    });
+
+    it("should forward staleCoverageThreshold to the tile cache", async () => {
+      const { direct, counter } = createFeed({
+        staleCoverageThreshold: TimeSpan.milliseconds(50),
+      });
+      await direct.readTile(TILE);
+      await direct.readTile(TILE);
+      expect(counter.calls).toBe(1);
+      await sleep.sleep(TimeSpan.milliseconds(60));
+      await direct.readTile(TILE);
+      expect(counter.calls).toBe(2);
+      await direct.close();
+    });
+
+    it("should forward tileBudget to the tile cache", async () => {
+      const { direct, counter } = createFeed({ tileBudget: Size.bytes(4) });
+      await direct.readTile({ ...TILE, index: 1 });
+      await direct.readTile({ ...TILE, index: 2 });
+      await direct.readTile({ ...TILE, index: 1 });
+      expect(counter.calls).toBe(3);
+      await direct.close();
+    });
+
+    it("should reject tile reads after the feed closes", async () => {
+      const { direct } = createFeed();
+      await direct.close();
+      await expect(direct.readTile(TILE)).rejects.toThrow("tile reader is closed");
+    });
   });
 
   describe("readLatest", () => {
@@ -617,9 +689,6 @@ describe("feed", () => {
         },
         openStreamer: async () => {
           throw new UnexpectedError("streamer unused");
-        },
-        readTileRemote: async () => {
-          throw new UnexpectedError("tile reader unused");
         },
       });
 
