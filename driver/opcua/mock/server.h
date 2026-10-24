@@ -331,7 +331,7 @@ public:
     /// expires.
     /// @param timeout maximum time to wait for server readiness.
     /// @return true if server is ready, false if timeout expired.
-    bool wait_until_ready(
+    [[nodiscard]] bool wait_until_ready(
         std::chrono::milliseconds timeout = std::chrono::milliseconds(5000)
     ) const {
         const auto start = std::chrono::steady_clock::now();
