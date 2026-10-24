@@ -40,8 +40,8 @@ interface SetValueOptions {
 
 /**
  * Copies the root and every container on the way to the path's leaf, walking the path
- * the way `deep.set` does. A write at the path then gives each ancestor a new identity
- * and leaves every untouched subtree shared.
+ * the way `deep.set` and `deep.remove` do. A write at the path then gives each ancestor
+ * a new identity and leaves every untouched subtree shared.
  */
 const copyPath = <V>(root: V, path: string): V => {
   const next = shallow.copy(root);

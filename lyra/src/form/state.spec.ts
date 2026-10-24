@@ -191,6 +191,18 @@ describe("State", () => {
         expect(state.values.channels).toEqual([{ key: "b", port: 2 }]);
         expect(channels).toHaveLength(2);
       });
+
+      it("should leave the older value unchanged when a shorter key also matches", () => {
+        const state = new State<z.ZodType<Record<string, object>>>({
+          a: {},
+          "a.b": { x: 1, y: 2 },
+        });
+        const { values } = state;
+        state.remove("a.b.x");
+        expect(state.values).toEqual({ a: {}, "a.b": { y: 2 } });
+        expect(state.values["a.b"]).not.toBe(values["a.b"]);
+        expect(values).toEqual({ a: {}, "a.b": { x: 1, y: 2 } });
+      });
     });
 
     it("should set a top-level value", () => {
