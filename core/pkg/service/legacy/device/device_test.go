@@ -301,7 +301,7 @@ var _ = Describe("Device", func() {
 					Entry(&deviceStatus).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(deviceStatus.Name).To(Equal("New Name"))
-				Expect(deviceStatus.Message).To(ContainSubstring("New Name"))
+				Expect(deviceStatus.Message).To(Equal("Device status unknown"))
 			},
 		)
 
@@ -1133,7 +1133,7 @@ var _ = Describe("Device", func() {
 						Entry(&deviceStatus).
 						Exec(ctx, nil)).To(Succeed())
 					g.Expect(deviceStatus.Variant).To(Equal(status.VariantWarning))
-					g.Expect(deviceStatus.Message).To(ContainSubstring("not running"))
+					g.Expect(deviceStatus.Message).To(Equal("Driver not running"))
 					g.Expect(deviceStatus.Details.Device).To(Equal(d.Key))
 					g.Expect(deviceStatus.Details.Rack).To(Equal(r.Key))
 				}).Should(Succeed())

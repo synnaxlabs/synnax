@@ -33,10 +33,11 @@ type StatusHandler struct {
 	mu  sync.Mutex
 	// stat is the last status sent, seeded at construction before any send.
 	stat task.Status
-	// prior is the variant and message that the active warning replaced.
+	// prior is the status text that the active warning replaced.
 	prior struct {
-		variant status.Variant
-		message string
+		variant     status.Variant
+		message     string
+		description string
 	}
 }
 
@@ -53,18 +54,19 @@ func NewStatusHandler(db *gorp.DB, svc *status.Service, t task.Task) *StatusHand
 }
 
 // Send records a status transition and writes it, answering cmdKey (NoCommand for
-// unsolicited updates). It clears any description a prior transition set.
+// unsolicited updates). It replaces the prior description, so an empty one clears it.
 func (h *StatusHandler) Send(
 	ctx context.Context,
 	cmdKey string,
 	variant status.Variant,
 	running bool,
 	message string,
+	description string,
 ) error {
 	h.mu.Lock()
 	h.stat.Variant = variant
 	h.stat.Message = message
-	h.stat.Description = ""
+	h.stat.Description = description
 	h.stat.Details.Running = running
 	h.stat.Details.Cmd = cmdKey
 	stat := h.stamp()
@@ -85,6 +87,7 @@ func (h *StatusHandler) Warn(ctx context.Context, message, description string) e
 	if !active {
 		h.prior.variant = h.stat.Variant
 		h.prior.message = h.stat.Message
+		h.prior.description = h.stat.Description
 	}
 	h.stat.Variant = status.VariantWarning
 	h.stat.Message = message
@@ -105,7 +108,7 @@ func (h *StatusHandler) ClearWarning(ctx context.Context) error {
 	}
 	h.stat.Variant = h.prior.variant
 	h.stat.Message = h.prior.message
-	h.stat.Description = ""
+	h.stat.Description = h.prior.description
 	h.stat.Details.Cmd = NoCommand
 	stat := h.stamp()
 	h.mu.Unlock()
@@ -191,19 +194,14 @@ func (r ConfigReporter) Report(
 		r.L.Warn("failed to configure task", zap.Stringer("task", t), zap.Error(err))
 		return
 	}
-	details := task.NewStatusDetails(t, false)
-	details.Cmd = cmdKey
-	stat := task.Status{
-		Key:     t.OntologyID().String(),
-		Name:    t.Name,
-		Variant: status.VariantError,
-		Message: err.Error(),
-		Time:    telem.Now(),
-		Details: details,
-	}
-	if sErr := r.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return r.Status.NewWriter(tx).Set(ctx, &stat)
-	}); sErr != nil {
+	if sErr := NewStatusHandler(r.DB, r.Status, t).Send(
+		ctx,
+		cmdKey,
+		status.VariantError,
+		false,
+		"Failed to configure task",
+		err.Error(),
+	); sErr != nil {
 		r.L.Error(
 			"failed to set configuration status",
 			zap.Stringer("task", t),

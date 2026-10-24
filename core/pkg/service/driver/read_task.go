@@ -199,7 +199,7 @@ func (t *ReadTask) run(ctx context.Context, r Reader) (err error) {
 			return stopped()
 		}
 		if errors.Is(err, ErrTemporary) {
-			t.Report(ctx, err)
+			t.Report(ctx, "Failed to read data", err)
 			if !brk.Wait() {
 				if readCtx.Err() != nil {
 					return stopped()
@@ -212,7 +212,7 @@ func (t *ReadTask) run(ctx context.Context, r Reader) (err error) {
 			return err
 		}
 		brk.Reset()
-		t.Report(ctx, err)
+		t.Report(ctx, "Failed to read some data", err)
 		if fr.Empty() {
 			continue
 		}

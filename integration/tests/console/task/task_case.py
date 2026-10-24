@@ -177,7 +177,7 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
 
     def assert_device_required(self, page: TaskPage, label: str) -> None:
         """Deploy without a device; the form blocks it at the ``label`` field."""
-        page.deploy(expect=None)
+        page.deploy(wait=False)
         message = page.field_help_text(label)
         assert message == "Device is required", (
             f"Device field should report it is required, got '{message}'"
@@ -187,7 +187,7 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
     def assert_rates_rejected(self, page: TaskPage) -> None:
         """Deploy with a stream rate above the sample rate; the form blocks it."""
         page.set_parameters(sample_rate=10, stream_rate=100)
-        page.deploy(expect=None)
+        page.deploy(wait=False)
         message = page.field_help_text("Stream rate")
         assert "less than or equal to the sample rate" in message, (
             f"Stream rate field should report the rate conflict, got '{message}'"
@@ -196,7 +196,7 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
 
     def assert_driver_rejects(self, page: TaskPage, label: str) -> None:
         """Deploy; the Driver rejects the task with an error or warning status."""
-        page.deploy(expect=None)
+        page.deploy(wait=False)
         status = page.wait_for_status_level(REJECTED_LEVELS)
         self.log(f"  Correctly rejected ({label}): {status['msg']}")
 

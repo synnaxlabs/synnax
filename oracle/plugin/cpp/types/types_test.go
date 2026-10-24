@@ -24,7 +24,7 @@ import (
 
 func TestCppTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Cpp Types Suite")
+	RunSpecs(t, "Plugin Cpp Types Suite", SuiteConfig())
 }
 
 var _ = Describe("C++ Types Plugin", func() {

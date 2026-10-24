@@ -19,7 +19,7 @@ import (
 
 func TestCppJson(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin C++ JSON Suite")
+	RunSpecs(t, "Plugin C++ JSON Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

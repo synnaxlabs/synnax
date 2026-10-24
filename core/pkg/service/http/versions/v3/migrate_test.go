@@ -18,7 +18,6 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -49,7 +48,7 @@ var _ = Describe("Migration", func() {
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "http_read_config",
-				Migrations: []migrate.Migration{v3.Migration},
+				Migrations: []gorp.Migration{v3.Migration},
 			})).To(Succeed())
 			var got v3.ReadConfig
 			Expect(gorp.NewRetrieve[uuid.UUID, v3.ReadConfig]().

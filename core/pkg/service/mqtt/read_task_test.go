@@ -192,7 +192,8 @@ var _ = Describe("Read task", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal(
+					g.Expect(stat.Message).To(Equal("Failed to read some data"))
+					g.Expect(stat.Description).To(Equal(
 						"rejected a message on topic plant/line4: " +
 							"field b: no value at /b",
 					))
@@ -220,7 +221,7 @@ var _ = Describe("Read task", func() {
 					Should(BeEquivalentTo(2))
 				Expect(stored(ctx, data[0])).
 					To(telem.MatchSeriesData(telem.NewSeriesV[float64](1, 3)))
-				Expect(taskStatus(ctx, t).Message).
+				Expect(taskStatus(ctx, t).Description).
 					To(ContainSubstring(
 						"its timestamp is not after the last one written",
 					))
@@ -289,7 +290,8 @@ var _ = Describe("Read task", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal(
+					g.Expect(stat.Message).To(Equal("Failed to read some data"))
+					g.Expect(stat.Description).To(Equal(
 						"messages arrive faster than the task can write them, and " +
 							"the oldest are dropped",
 					))
@@ -386,7 +388,8 @@ var _ = Describe("Read task", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal("broker is not connected"))
+					g.Expect(stat.Message).To(Equal("Failed to read data"))
+					g.Expect(stat.Description).To(Equal("broker is not connected"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}, 5*time.Second).Should(Succeed())
 				broker = startBroker(port)
@@ -421,7 +424,8 @@ var _ = Describe("Read task", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal("broker is not connected"))
+					g.Expect(stat.Message).To(Equal("Failed to read data"))
+					g.Expect(stat.Description).To(Equal("broker is not connected"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).Should(Succeed())
 				broker = startBroker(port)
@@ -476,7 +480,8 @@ var _ = Describe("Read task", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal(
+					g.Expect(stat.Message).To(Equal("Failed to read data"))
+					g.Expect(stat.Description).To(Equal(
 						"the broker refused the subscription to plant/line9",
 					))
 					g.Expect(stat.Details.Running).To(BeTrue())
@@ -499,7 +504,8 @@ var _ = Describe("Read task", func() {
 			))
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(ContainSubstring(message))
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Description).To(ContainSubstring(message))
 			Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 		}
 

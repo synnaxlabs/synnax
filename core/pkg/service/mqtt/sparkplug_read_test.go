@@ -231,8 +231,9 @@ var _ = Describe("Sparkplug B read entries", func() {
 			node.death()
 			Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
 				HaveField("Variant", status.VariantWarning),
+				HaveField("Message", Equal("Failed to read some data")),
 				HaveField(
-					"Message",
+					"Description",
 					ContainSubstring("edge node plant/line1 is offline"),
 				),
 			))
@@ -252,8 +253,9 @@ var _ = Describe("Sparkplug B read entries", func() {
 			node.deviceDeath("pump")
 			Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
 				HaveField("Variant", status.VariantWarning),
+				HaveField("Message", Equal("Failed to read some data")),
 				HaveField(
-					"Message",
+					"Description",
 					ContainSubstring("device plant/line1/pump is offline"),
 				),
 			))
@@ -273,8 +275,9 @@ var _ = Describe("Sparkplug B read entries", func() {
 				To(Succeed())
 			Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
 				HaveField("Variant", status.VariantWarning),
+				HaveField("Message", Equal("Failed to read some data")),
 				HaveField(
-					"Message",
+					"Description",
 					ContainSubstring("edge node plant/line1 is offline"),
 				),
 			))
@@ -287,7 +290,8 @@ var _ = Describe("Sparkplug B read entries", func() {
 			))
 			Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
 				HaveField("Variant", status.VariantWarning),
-				HaveField("Message", Equal("device plant/line1/pump is offline")),
+				HaveField("Message", Equal("Failed to read some data")),
+				HaveField("Description", Equal("device plant/line1/pump is offline")),
 			))
 		})
 
@@ -308,7 +312,11 @@ var _ = Describe("Sparkplug B read entries", func() {
 				node.birth()
 				Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
 					HaveField("Variant", status.VariantWarning),
-					HaveField("Message", Equal("device plant/line1/pump is offline")),
+					HaveField("Message", Equal("Failed to read some data")),
+					HaveField(
+						"Description",
+						Equal("device plant/line1/pump is offline"),
+					),
 				))
 			},
 		)
@@ -322,7 +330,8 @@ var _ = Describe("Sparkplug B read entries", func() {
 				))
 				Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
 					HaveField("Variant", status.VariantWarning),
-					HaveField("Message", ContainSubstring(
+					HaveField("Message", Equal("Failed to read some data")),
+					HaveField("Description", ContainSubstring(
 						"tag plant/line1/temperature is not in the birth of its edge "+
 							"node plant/line1",
 					)),
@@ -367,7 +376,8 @@ var _ = Describe("Sparkplug B read entries", func() {
 				))
 				Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
 					HaveField("Variant", status.VariantWarning),
-					HaveField("Message", ContainSubstring(
+					HaveField("Message", Equal("Failed to read some data")),
+					HaveField("Description", ContainSubstring(
 						"rejected a value of tag plant/line1/mode",
 					)),
 				))

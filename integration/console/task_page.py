@@ -67,21 +67,20 @@ class TaskPage(ConsolePage):
         """The task name input in the form header, which shows no visible label."""
         return self._pane().get_by_role("textbox", name="Name", exact=True).first
 
-    def deploy(self, expect: str | None = STARTED_MESSAGE) -> None:
+    def deploy(self, wait: bool = True) -> None:
         """Deploy the task from the controls bar.
 
         Play configures, saves, and starts the task.
 
-        :param expect: Status message to wait for after the click. None skips the
-            wait.
+        :param wait: Whether to wait for the started message after the click.
         """
         controls = self._controls()
         self.notifications.close_all()
         play = controls.locator("button:has(.pluto-icon--play)")
         play.wait_for(state="visible", timeout=5000)
         play.click()
-        if expect is not None:
-            self.wait_for_status(expect)
+        if wait:
+            self.wait_for_status(self.STARTED_MESSAGE)
 
     def stop(self) -> None:
         """Stop the task from the controls bar and wait for the stopped message."""

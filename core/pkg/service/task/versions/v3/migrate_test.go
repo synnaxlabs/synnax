@@ -29,7 +29,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -70,7 +69,7 @@ var _ = Describe("NewMigration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "Task",
-			Migrations: []migrate.Migration{
+			Migrations: []gorp.Migration{
 				v3.NewMigration(v3.MigrationConfig{
 					Ontology: otg,
 					Configs:  configs,

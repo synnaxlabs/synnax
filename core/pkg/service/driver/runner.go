@@ -149,12 +149,12 @@ func (r *Runner) end(active *activeRun, err error) bool {
 	}
 	r.mu.active = nil
 	active.cancel()
-	message := "Task stopped"
+	message, description := "Task stopped", ""
 	if err != nil {
-		message = err.Error()
+		message, description = "Failed to run task", err.Error()
 	}
 	if sErr := r.status.Send(
-		context.TODO(), NoCommand, status.VariantError, false, message,
+		context.TODO(), NoCommand, status.VariantError, false, message, description,
 	); sErr != nil {
 		r.cfg.L.Error("failed to write error status", zap.Error(sErr))
 	}
@@ -177,10 +177,14 @@ func (r *Runner) Start(ctx context.Context, cmdKey string) error {
 	}
 	run, err := r.cfg.Open(ctx)
 	if err != nil {
-		return errors.Combine(
-			err,
-			r.status.Send(ctx, cmdKey, status.VariantError, false, err.Error()),
-		)
+		return errors.Combine(err, r.status.Send(
+			ctx,
+			cmdKey,
+			status.VariantError,
+			false,
+			"Failed to start task",
+			err.Error(),
+		))
 	}
 	active := &activeRun{}
 	active.sCtx, active.cancel = signal.Isolated(
@@ -191,9 +195,7 @@ func (r *Runner) Start(ctx context.Context, cmdKey string) error {
 	r.mu.Unlock()
 	// The running status goes out before the run starts, so a run that fails at once
 	// cannot have its error status overwritten.
-	err = r.status.Send(
-		ctx, cmdKey, status.VariantSuccess, true, "Task started successfully",
-	)
+	err = r.status.Send(ctx, cmdKey, status.VariantSuccess, true, "Started task", "")
 	active.sCtx.Go(func(ctx context.Context) error {
 		err := r.runRecovered(ctx, run)
 		// A stop that already released the run waits on this error and reports it.
@@ -254,35 +256,32 @@ func (r *Runner) stop(ctx context.Context, cmdKey string, sendStatus bool) error
 		return err
 	}
 	if err != nil {
-		return errors.Combine(
-			err,
-			r.status.Send(ctx, cmdKey, status.VariantError, false, err.Error()),
-		)
+		return errors.Combine(err, r.status.Send(
+			ctx, cmdKey, status.VariantError, false, "Failed to stop task", err.Error(),
+		))
 	}
-	return r.status.Send(
-		ctx, cmdKey, status.VariantSuccess, false, "Task stopped successfully",
-	)
+	return r.status.Send(ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "")
 }
 
-// Report writes the health of a run to the task status: a warning with the message of a
-// non-nil err, and the status that the warning replaced for a nil err.
-func (r *Runner) Report(ctx context.Context, err error) {
+// Report writes the health of a run to the task status: a warning with message and the
+// text of a non-nil err, and the status that the warning replaced for a nil err.
+func (r *Runner) Report(ctx context.Context, message string, err error) {
 	var sErr error
 	if err == nil {
 		sErr = r.status.ClearWarning(ctx)
 	} else {
-		sErr = r.status.Warn(ctx, err.Error(), "")
+		sErr = r.status.Warn(ctx, message, err.Error())
 	}
 	if sErr != nil {
 		r.cfg.L.Error("failed to write task health status", zap.Error(sErr))
 	}
 }
 
-// ReportError writes an error status with message for a run that keeps running. The
-// status stays until the next start or stop: Report does not clear it.
-func (r *Runner) ReportError(ctx context.Context, message string) {
+// ReportError writes an error status for a run that keeps running. The status stays
+// until the next start or stop: Report does not clear it.
+func (r *Runner) ReportError(ctx context.Context, message, description string) {
 	if err := r.status.Send(
-		ctx, NoCommand, status.VariantError, true, message,
+		ctx, NoCommand, status.VariantError, true, message, description,
 	); err != nil {
 		r.cfg.L.Error("failed to write task error status", zap.Error(err))
 	}

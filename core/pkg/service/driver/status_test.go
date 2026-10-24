@@ -57,12 +57,13 @@ var _ = Describe("StatusHandler", func() {
 				"cmd-1",
 				status.VariantSuccess,
 				true,
-				"Task started successfully",
+				"Started task",
+				"",
 			)).To(Succeed())
 			stat := retrieve(ctx)
 			Expect(stat.Name).To(Equal("handler-test"))
 			Expect(stat.Variant).To(Equal(status.VariantSuccess))
-			Expect(stat.Message).To(Equal("Task started successfully"))
+			Expect(stat.Message).To(Equal("Started task"))
 			Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 			Expect(stat.Details.Running).To(BeTrue())
 			Expect(stat.Details.ConfigHash).To(Equal("hash-1"))
@@ -70,17 +71,33 @@ var _ = Describe("StatusHandler", func() {
 		})
 
 		It("should clear the description a prior warning set", func(ctx SpecContext) {
-			Expect(handler.Warn(ctx, "Runtime error in stage", "details")).To(Succeed())
+			Expect(handler.Warn(ctx, "Failed to run Arc program", "details")).
+				To(Succeed())
 			Expect(handler.Send(
 				ctx,
 				"cmd-2",
 				status.VariantSuccess,
 				false,
-				"Task stopped successfully",
+				"Stopped task",
+				"",
 			)).To(Succeed())
 			stat := retrieve(ctx)
 			Expect(stat.Description).To(BeEmpty())
 			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+		})
+
+		It("should write the description it is given", func(ctx SpecContext) {
+			Expect(handler.Send(
+				ctx,
+				"cmd-3",
+				status.VariantError,
+				false,
+				"Failed to start task",
+				"The device is unreachable.",
+			)).To(Succeed())
+			stat := retrieve(ctx)
+			Expect(stat.Message).To(Equal("Failed to start task"))
+			Expect(stat.Description).To(Equal("The device is unreachable."))
 		})
 
 		It("should keep the name the task was renamed to", func(ctx SpecContext) {
@@ -89,7 +106,8 @@ var _ = Describe("StatusHandler", func() {
 				"cmd-1",
 				status.VariantSuccess,
 				true,
-				"Task started successfully",
+				"Started task",
+				"",
 			)).To(Succeed())
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return statusSvc.NewWriter(tx).
@@ -108,13 +126,14 @@ var _ = Describe("StatusHandler", func() {
 					"cmd-1",
 					status.VariantSuccess,
 					true,
-					"Task started successfully",
+					"Started task",
+					"",
 				)).To(Succeed())
-				Expect(handler.Warn(ctx, "Runtime error in stage", "div by zero")).
+				Expect(handler.Warn(ctx, "Failed to run Arc program", "div by zero")).
 					To(Succeed())
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantWarning))
-				Expect(stat.Message).To(Equal("Runtime error in stage"))
+				Expect(stat.Message).To(Equal("Failed to run Arc program"))
 				Expect(stat.Description).To(Equal("div by zero"))
 				Expect(stat.Details.Running).To(BeTrue())
 				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
@@ -147,9 +166,10 @@ var _ = Describe("StatusHandler", func() {
 				Expect(handler.Send(
 					ctx,
 					"cmd-1",
-					status.VariantSuccess,
+					status.VariantError,
 					true,
-					"Task started successfully",
+					"Failed to send event",
+					"outage",
 				)).To(Succeed())
 				Expect(handler.Warn(ctx, "Broker unreachable", "dial timeout")).
 					To(Succeed())
@@ -157,9 +177,9 @@ var _ = Describe("StatusHandler", func() {
 					To(Succeed())
 				Expect(handler.ClearWarning(ctx)).To(Succeed())
 				stat := retrieve(ctx)
-				Expect(stat.Variant).To(Equal(status.VariantSuccess))
-				Expect(stat.Message).To(Equal("Task started successfully"))
-				Expect(stat.Description).To(BeEmpty())
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to send event"))
+				Expect(stat.Description).To(Equal("outage"))
 				Expect(stat.Details.Running).To(BeTrue())
 				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
 			},
@@ -170,7 +190,8 @@ var _ = Describe("StatusHandler", func() {
 				"cmd-1",
 				status.VariantError,
 				false,
-				"Task failed",
+				"Failed to run task",
+				"boom",
 			)).To(Succeed())
 			Expect(handler.ClearWarning(ctx)).To(Succeed())
 			stat := retrieve(ctx)
@@ -237,7 +258,8 @@ var _ = Describe("StatusHandler", func() {
 					"cmd-1",
 					status.VariantSuccess,
 					true,
-					"Task started successfully",
+					"Started task",
+					"",
 				)).To(Succeed())
 				Expect(handler.Reply(
 					ctx,
@@ -279,7 +301,8 @@ var _ = Describe("StatusHandler", func() {
 			reporter().Report(ctx, t, "cmd-9", false, cfgErr)
 			stat := retrieve(ctx)
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(Equal("bad config"))
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Description).To(Equal("bad config"))
 			Expect(stat.Details.Cmd).To(Equal("cmd-9"))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
@@ -288,7 +311,8 @@ var _ = Describe("StatusHandler", func() {
 				reporter().Report(ctx, t, driver.NoCommand, true, cfgErr)
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("bad config"))
+				Expect(stat.Message).To(Equal("Failed to configure task"))
+				Expect(stat.Description).To(Equal("bad config"))
 				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
 			},
 		)

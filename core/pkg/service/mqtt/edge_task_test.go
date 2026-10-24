@@ -184,13 +184,13 @@ var _ = Describe("Edge task", func() {
 		ctx context.Context,
 		t task.Task,
 		variant status.Variant,
-		message string,
+		description string,
 	) {
 		GinkgoHelper()
 		Eventually(func(g Gomega) {
 			stat := taskStatus(ctx, t)
 			g.Expect(stat.Variant).To(Equal(variant))
-			g.Expect(stat.Message).To(ContainSubstring(message))
+			g.Expect(stat.Description).To(ContainSubstring(description))
 			g.Expect(stat.Details.Running).To(BeTrue())
 		}, 10*time.Second).Should(Succeed())
 	}
@@ -372,7 +372,8 @@ var _ = Describe("Edge task", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal(
+					g.Expect(stat.Message).To(Equal("Failed to write data"))
+					g.Expect(stat.Description).To(Equal(
 						"tag count: 1.5 as Int32: value does not fit the data type: " +
 							"validation error",
 					))
@@ -556,7 +557,8 @@ var _ = Describe("Edge task", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal("the broker refused the " +
+					g.Expect(stat.Message).To(Equal("Failed to write data"))
+					g.Expect(stat.Description).To(Equal("the broker refused the " +
 						"subscription to spBv1.0/plant/NCMD/line1"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}, 10*time.Second).Should(Succeed())
@@ -898,7 +900,8 @@ var _ = Describe("Edge task", func() {
 			))
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(ContainSubstring(message))
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Description).To(ContainSubstring(message))
 			Expect(stat.Details.Cmd).To(Equal("configure"))
 			Expect(broker.clientCount()).To(BeZero())
 		}

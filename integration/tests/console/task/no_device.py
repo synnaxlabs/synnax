@@ -63,7 +63,7 @@ class NoDevice(HardwareCase, ConsoleCase):
         level = status["level"]
 
         level_expected = "disabled"
-        msg_expected = "NI analog read task has not been deployed"
+        msg_expected = "Task not deployed"
 
         assert level_expected == level, (
             f"Task status level <{level}> should be <{level_expected}>"
@@ -74,7 +74,7 @@ class NoDevice(HardwareCase, ConsoleCase):
 
     def configure_without_channels(self, ni_ai: AnalogRead) -> None:
         """Configure without defining channels"""
-        ni_ai.deploy(expect=None)
+        ni_ai.deploy(wait=False)
 
         msg_expected = "Failed to start task"
         assert self.console.notifications.wait_for(msg_expected), (
@@ -107,13 +107,13 @@ class NoDevice(HardwareCase, ConsoleCase):
         )
 
         self.log("Deploying task")
-        ni_ai.deploy(expect=None)
+        ni_ai.deploy(wait=False)
 
         # No Driver answers a start command on this rack, so the Console stands the
         # rack's own problem in for a wait that would never end. The Core stamps a
         # "status unknown" placeholder while the task saves, so the wait keys on the
         # message rather than on the level.
-        ni_ai.wait_for_status(f"Synnax Driver on {rack_name} not running")
+        ni_ai.wait_for_status("Driver not running")
 
         level = ni_ai.status()["level"]
         level_expected = "warning"

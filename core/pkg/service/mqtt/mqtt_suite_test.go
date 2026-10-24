@@ -52,7 +52,7 @@ var (
 
 func TestMQTT(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service MQTT Suite")
+	RunSpecs(t, "Service MQTT Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

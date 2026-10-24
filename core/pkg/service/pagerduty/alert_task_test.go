@@ -356,6 +356,30 @@ var _ = Describe("AlertTask", func() {
 			},
 		)
 
+		It("Should use the status key as the source when the status has no name",
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
+					pd.Alert{Status: "unnamed"},
+				))
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
+
+				tx := db.OpenTx()
+				defer func() { Expect(tx.Close()).To(Succeed()) }()
+				Expect(statusSvc.NewWriter(tx).Set(ctx, &status.Status[any]{
+					Key:     "unnamed",
+					Variant: status.VariantError,
+					Message: "Something broke",
+					Time:    telem.Now(),
+				})).To(Succeed())
+				Expect(tx.Commit(ctx)).To(Succeed())
+
+				Eventually(func() int { return len(sender.getEvents()) }).
+					WithTimeout(2 * time.Second).
+					Should(BeNumerically(">=", 1))
+				Expect(sender.getEvents()[0].Payload.Source).To(Equal("unnamed"))
+			},
+		)
+
 		It("Should use only message as summary when description is empty",
 			func(ctx context.Context) {
 				tsk := configureAndStart(ctx, validConfig(
@@ -414,8 +438,10 @@ var _ = Describe("AlertTask", func() {
 						Exec(ctx, nil)).To(Succeed())
 					return stat
 				}
-				const message = "Failed to send PagerDuty event: " +
-					"simulated PagerDuty outage"
+				const (
+					message     = "Failed to send PagerDuty event"
+					description = "simulated PagerDuty outage"
+				)
 
 				setStatus(ctx, "send-failure", status.VariantError,
 					"Trigger send", nil)
@@ -423,6 +449,7 @@ var _ = Describe("AlertTask", func() {
 					stat := retrieve(g)
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
 					g.Expect(stat.Message).To(Equal(message))
+					g.Expect(stat.Description).To(Equal(description))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).WithTimeout(2 * time.Second).Should(Succeed())
 
@@ -435,6 +462,7 @@ var _ = Describe("AlertTask", func() {
 				stat := retrieve(Default)
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal(message))
+				Expect(stat.Description).To(Equal(description))
 			},
 		)
 	})

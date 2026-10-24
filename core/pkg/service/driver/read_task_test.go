@@ -183,7 +183,7 @@ var _ = Describe("ReadTask", func() {
 					To(Succeed())
 				started := retrieve(ctx)
 				Expect(started.Variant).To(Equal(status.VariantSuccess))
-				Expect(started.Message).To(Equal("Task started successfully"))
+				Expect(started.Message).To(Equal("Started task"))
 				Expect(started.Details.Running).To(BeTrue())
 				Expect(started.Details.Cmd).To(Equal("cmd-1"))
 
@@ -195,7 +195,7 @@ var _ = Describe("ReadTask", func() {
 				Expect(rt.Exec(ctx, task.Command{Type: "stop", Key: "cmd-2"})).
 					To(Succeed())
 				stopped := retrieve(ctx)
-				Expect(stopped.Message).To(Equal("Task stopped successfully"))
+				Expect(stopped.Message).To(Equal("Stopped task"))
 				Expect(stopped.Details.Running).To(BeFalse())
 				Expect(stopped.Details.Cmd).To(Equal("cmd-2"))
 				Expect(src.closes.Load()).To(BeEquivalentTo(1))
@@ -242,7 +242,8 @@ var _ = Describe("ReadTask", func() {
 					To(MatchError("broker refused the connection"))
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("broker refused the connection"))
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Description).To(Equal("broker refused the connection"))
 				Expect(stat.Details.Cmd).To(Equal("cmd-5"))
 				Expect(stat.Details.Running).To(BeFalse())
 			},
@@ -262,7 +263,7 @@ var _ = Describe("ReadTask", func() {
 			Expect(rt.Stop(false)).To(Succeed())
 			Expect(src.closes.Load()).To(BeEquivalentTo(1))
 			stat := retrieve(ctx)
-			Expect(stat.Message).To(Equal("Task started successfully"))
+			Expect(stat.Message).To(Equal("Started task"))
 		})
 	})
 
@@ -279,14 +280,15 @@ var _ = Describe("ReadTask", func() {
 				Eventually(func(g Gomega) {
 					stat := retrieve(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal("broker connection lost"))
+					g.Expect(stat.Message).To(Equal("Failed to read data"))
+					g.Expect(stat.Description).To(Equal("broker connection lost"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).Should(Succeed())
 				src.results <- readResult{}
 				Eventually(func(g Gomega) {
 					stat := retrieve(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantSuccess))
-					g.Expect(stat.Message).To(Equal("Task started successfully"))
+					g.Expect(stat.Message).To(Equal("Started task"))
 				}).Should(Succeed())
 			},
 		)
@@ -303,7 +305,8 @@ var _ = Describe("ReadTask", func() {
 				Eventually(func(g Gomega) {
 					stat := retrieve(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal("dropped 4 messages"))
+					g.Expect(stat.Message).To(Equal("Failed to read some data"))
+					g.Expect(stat.Description).To(Equal("dropped 4 messages"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).Should(Succeed())
 				src.results <- samples(2)
@@ -356,7 +359,8 @@ var _ = Describe("ReadTask", func() {
 				Eventually(func(g Gomega) {
 					stat := retrieve(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
-					g.Expect(stat.Message).To(Equal("broker connection lost"))
+					g.Expect(stat.Message).To(Equal("Failed to run task"))
+					g.Expect(stat.Description).To(Equal("broker connection lost"))
 					g.Expect(stat.Details.Running).To(BeFalse())
 				}).Should(Succeed())
 				Expect(src.closes.Load()).To(BeEquivalentTo(1))
@@ -371,7 +375,8 @@ var _ = Describe("ReadTask", func() {
 				Eventually(func(g Gomega) {
 					stat := retrieve(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
-					g.Expect(stat.Message).To(Equal("payload decoder failed"))
+					g.Expect(stat.Message).To(Equal("Failed to run task"))
+					g.Expect(stat.Description).To(Equal("payload decoder failed"))
 					g.Expect(stat.Details.Running).To(BeFalse())
 					g.Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
 				}).Should(Succeed())
@@ -395,7 +400,8 @@ var _ = Describe("ReadTask", func() {
 				Eventually(func(g Gomega) {
 					stat := retrieve(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
-					g.Expect(stat.Message).To(Equal(fmt.Sprintf(
+					g.Expect(stat.Message).To(Equal("Failed to run task"))
+					g.Expect(stat.Description).To(Equal(fmt.Sprintf(
 						"frame must have exactly one series for each data channel "+
 							"associated with index %s, but is missing a series for "+
 							"channel %s: validation error",
@@ -421,7 +427,8 @@ var _ = Describe("ReadTask", func() {
 				Eventually(func(g Gomega) {
 					stat := retrieve(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
-					g.Expect(stat.Message).To(Equal(fmt.Sprintf(
+					g.Expect(stat.Message).To(Equal("Failed to run task"))
+					g.Expect(stat.Description).To(Equal(fmt.Sprintf(
 						"channel %s: expected data type float32, got int32: "+
 							"validation error",
 						name(dataCh),

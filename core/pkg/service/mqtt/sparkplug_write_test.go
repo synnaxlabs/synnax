@@ -300,7 +300,8 @@ var _ = Describe("Sparkplug B write targets", func() {
 				command(ctx, ch, telem.NewSeriesV[int32](300), func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(And(
+					g.Expect(stat.Message).To(Equal("Failed to write data"))
+					g.Expect(stat.Description).To(And(
 						ContainSubstring("tag level"),
 						ContainSubstring("300 as Int8"),
 						ContainSubstring("value does not fit the data type"),
@@ -334,7 +335,8 @@ var _ = Describe("Sparkplug B write targets", func() {
 			))
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(ContainSubstring(message))
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Description).To(ContainSubstring(message))
 			Expect(stat.Details.Cmd).To(Equal("configure"))
 		}
 

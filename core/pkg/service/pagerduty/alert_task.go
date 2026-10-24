@@ -125,6 +125,11 @@ func (t *alertTask) buildTriggerEvent(
 	if s.Description != "" {
 		summary += fmt.Sprintf(": %s", s.Description)
 	}
+	// PagerDuty requires a source, which an unnamed status lacks.
+	source := s.Name
+	if source == "" {
+		source = s.Key
+	}
 	return pagerduty.V2Event{
 		RoutingKey: t.cfg.RoutingKey,
 		Action:     "trigger",
@@ -132,7 +137,7 @@ func (t *alertTask) buildTriggerEvent(
 		Client:     "Synnax",
 		Payload: &pagerduty.V2Payload{
 			Summary:   summary,
-			Source:    s.Name,
+			Source:    source,
 			Severity:  mapSeverity(s.Variant, alertCfg.ErrorsCritical),
 			Timestamp: s.Time.Time().Format(time.RFC3339),
 			Component: alertCfg.Component,
@@ -178,7 +183,7 @@ func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
 			zap.Any("event", event),
 			zap.Error(err),
 		)
-		t.ReportError(ctx, "Failed to send PagerDuty event: "+err.Error())
+		t.ReportError(ctx, "Failed to send PagerDuty event", err.Error())
 		return
 	}
 	t.factoryCfg.L.Debug(

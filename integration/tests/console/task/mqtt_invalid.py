@@ -54,7 +54,7 @@ class MQTTInvalidConfig(MQTTCase):
         page.set_topic(WILDCARD_TOPIC)
         page.add_field(WILDCARD_TOPIC, POINTER)
         page.select_entry(WILDCARD_TOPIC)
-        page.deploy(expect=None)
+        page.deploy(wait=False)
         message = page.field_help_text("Topic")
         assert message == "Topic must not hold the wildcards + or #", (
             f"Topic field should report the wildcard, got '{message}'"
@@ -65,7 +65,7 @@ class MQTTInvalidConfig(MQTTCase):
         self.log("Testing: No enabled entries")
         page.set_topic(TOPIC)
         page.disable_entry(TOPIC)
-        page.deploy(expect=None)
+        page.deploy(wait=False)
         self.assert_not_deployed(page, "no enabled entries")
 
     def test_broker_down(self, page: MQTTRead) -> None:

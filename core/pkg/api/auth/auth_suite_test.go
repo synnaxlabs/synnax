@@ -29,7 +29,7 @@ import (
 
 func TestAPIAuth(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Auth Suite")
+	RunSpecs(t, "API Auth Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

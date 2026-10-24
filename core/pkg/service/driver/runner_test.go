@@ -123,7 +123,7 @@ var _ = Describe("Runner", func() {
 			stat = retrieve(ctx)
 			Expect(stat.Details.Cmd).To(Equal("cmd-3"))
 			Expect(stat.Details.Running).To(BeFalse())
-			Expect(stat.Message).To(Equal("Task stopped successfully"))
+			Expect(stat.Message).To(Equal("Stopped task"))
 		})
 
 		It(
@@ -155,7 +155,8 @@ var _ = Describe("Runner", func() {
 				Expect(r.Start(ctx, "cmd-1")).To(MatchError("port is in use"))
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("port is in use"))
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Description).To(Equal("port is in use"))
 				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 				Expect(stat.Details.Running).To(BeFalse())
 			},
@@ -167,7 +168,8 @@ var _ = Describe("Runner", func() {
 			Eventually(func(g Gomega) {
 				stat := retrieve(ctx)
 				g.Expect(stat.Variant).To(Equal(status.VariantError))
-				g.Expect(stat.Message).To(Equal("boom"))
+				g.Expect(stat.Message).To(Equal("Failed to run task"))
+				g.Expect(stat.Description).To(Equal("boom"))
 				g.Expect(stat.Details.Running).To(BeFalse())
 			}).Should(Succeed())
 		})
@@ -186,7 +188,8 @@ var _ = Describe("Runner", func() {
 				Eventually(func(g Gomega) {
 					stat := retrieve(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
-					g.Expect(stat.Message).To(Equal("task panicked: decoder broke"))
+					g.Expect(stat.Message).To(Equal("Failed to run task"))
+					g.Expect(stat.Description).To(Equal("task panicked: decoder broke"))
 					g.Expect(stat.Details.Running).To(BeFalse())
 				}).Should(Succeed())
 				Expect(r.Start(ctx, "cmd-2")).To(Succeed())
@@ -235,19 +238,21 @@ var _ = Describe("Runner", func() {
 	})
 
 	Describe("Report", func() {
-		It("Should warn with the message of any error and restore the running status",
+		It("Should warn with the text of any error and restore the running status",
 			func(ctx SpecContext) {
 				r := open(waitRun)
 				Expect(r.Start(ctx, "cmd-1")).To(Succeed())
-				r.Report(ctx, errors.New("flaky"))
+				r.Report(ctx, "Failed to read data", errors.New("flaky"))
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantWarning))
-				Expect(stat.Message).To(Equal("flaky"))
+				Expect(stat.Message).To(Equal("Failed to read data"))
+				Expect(stat.Description).To(Equal("flaky"))
 				Expect(stat.Details.Running).To(BeTrue())
-				r.Report(ctx, nil)
+				r.Report(ctx, "Failed to read data", nil)
 				stat = retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
-				Expect(stat.Message).To(Equal("Task started successfully"))
+				Expect(stat.Message).To(Equal("Started task"))
+				Expect(stat.Description).To(BeEmpty())
 			},
 		)
 	})
@@ -257,16 +262,18 @@ var _ = Describe("Runner", func() {
 			func(ctx SpecContext) {
 				r := open(waitRun)
 				Expect(r.Start(ctx, "cmd-1")).To(Succeed())
-				r.ReportError(ctx, "Failed to send event")
+				r.ReportError(ctx, "Failed to send event", "outage")
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to send event"))
+				Expect(stat.Description).To(Equal("outage"))
 				Expect(stat.Details.Running).To(BeTrue())
 				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
-				r.Report(ctx, nil)
+				r.Report(ctx, "Failed to read data", nil)
 				stat = retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to send event"))
+				Expect(stat.Description).To(Equal("outage"))
 			},
 		)
 	})

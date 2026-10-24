@@ -268,11 +268,11 @@ func (t *ScanTask) run(ctx context.Context) error {
 	ticker := time.NewTicker(t.cfg.Interval)
 	defer ticker.Stop()
 	for {
-		if err := t.scan(ctx); err != nil && ctx.Err() == nil {
-			t.Report(ctx, err)
-		} else {
-			t.Report(ctx, nil)
+		err := t.scan(ctx)
+		if ctx.Err() != nil {
+			err = nil
 		}
+		t.Report(ctx, "Failed to scan for devices", err)
 		select {
 		case <-ctx.Done():
 			return nil

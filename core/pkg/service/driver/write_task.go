@@ -214,12 +214,12 @@ func (t *WriteTask) run(
 			if wErr != nil && !errors.IsAny(wErr, ErrTemporary, ErrDegraded) {
 				return wErr
 			}
-			t.Report(ctx, wErr)
+			t.Report(ctx, "Failed to write data", wErr)
 		case hErr := <-health:
 			if hErr != nil && !errors.Is(hErr, ErrTemporary) {
 				return hErr
 			}
-			t.Report(ctx, hErr)
+			t.Report(ctx, "Failed to write data", hErr)
 		}
 	}
 }

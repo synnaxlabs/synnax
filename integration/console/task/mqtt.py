@@ -46,6 +46,10 @@ class MQTTTask(TaskPage):
     """Shared MQTT read and write page. Entries come from the add dialog, which lists
     what the broker publishes."""
 
+    # The Core words the lifecycle statuses of the tasks it runs this way.
+    STARTED_MESSAGE = "Started task"
+    STOPPED_MESSAGE = "Stopped task"
+
     add_label: str
 
     def _rows(self) -> Locator:
@@ -238,6 +242,10 @@ class MQTTWrite(MQTTTask):
 class MQTTEdge(TaskPage):
     """Sparkplug edge node page. Each tag is a row of channel, name, Sparkplug B type,
     and command channel."""
+
+    # The Core words the lifecycle statuses of the tasks it runs this way.
+    STARTED_MESSAGE = "Started task"
+    STOPPED_MESSAGE = "Stopped task"
 
     page_type = "Sparkplug edge node"
     pluto_label: str = ".console-task-configure--mqtt_sparkplug_edge"

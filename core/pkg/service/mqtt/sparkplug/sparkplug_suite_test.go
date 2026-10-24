@@ -19,7 +19,7 @@ import (
 
 func TestSparkplug(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service MQTT Sparkplug Suite")
+	RunSpecs(t, "Service MQTT Sparkplug Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

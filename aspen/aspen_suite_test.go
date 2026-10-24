@@ -19,7 +19,7 @@ import (
 
 func TestAspen(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Aspen Suite")
+	RunSpecs(t, "Aspen Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -281,7 +281,8 @@ var _ = Describe("Write task", func() {
 				command(ctx, ch, telem.NewSeriesV(math.NaN()), func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal(
+					g.Expect(stat.Message).To(Equal("Failed to write data"))
+					g.Expect(stat.Description).To(Equal(
 						"target plant/nan: cannot convert NaN to JSON: value is not " +
 							"finite: json conversion failed: validation error",
 					))
@@ -307,7 +308,8 @@ var _ = Describe("Write task", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal("broker is not connected"))
+					g.Expect(stat.Message).To(Equal("Failed to write data"))
+					g.Expect(stat.Description).To(Equal("broker is not connected"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}, 5*time.Second).Should(Succeed())
 				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
@@ -345,7 +347,8 @@ var _ = Describe("Write task", func() {
 				To(MatchError(ContainSubstring(message)))
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(ContainSubstring(message))
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Description).To(ContainSubstring(message))
 			Expect(stat.Details.Cmd).To(Equal("configure"))
 		}
 

@@ -40,7 +40,7 @@ import (
 
 func TestAPIControl(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Control Suite")
+	RunSpecs(t, "API Control Suite", SuiteConfig())
 }
 
 var (

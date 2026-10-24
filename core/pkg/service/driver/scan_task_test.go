@@ -342,7 +342,8 @@ var _ = Describe("ScanTask", func() {
 			Eventually(func(g Gomega) {
 				stat := taskStatus(ctx)
 				g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-				g.Expect(stat.Message).To(Equal("commit failed"))
+				g.Expect(stat.Message).To(Equal("Failed to scan for devices"))
+				g.Expect(stat.Description).To(Equal("commit failed"))
 				g.Expect(stat.Details.Running).To(BeTrue())
 			}).Should(Succeed())
 			Expect(deviceStatus(ctx, dev).Message).ToNot(Equal("Broker connected"))

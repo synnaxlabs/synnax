@@ -153,7 +153,8 @@ var _ = Describe("Sparkplug B host session", func() {
 				))
 				stat := taskStatus(ctx, t)
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(ContainSubstring(message))
+				Expect(stat.Message).To(Equal("Failed to configure task"))
+				Expect(stat.Description).To(ContainSubstring(message))
 			},
 		)
 
@@ -334,7 +335,8 @@ var _ = Describe("Sparkplug B host session", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal("broker is not connected"))
+					g.Expect(stat.Message).To(Equal("Failed to read data"))
+					g.Expect(stat.Description).To(Equal("broker is not connected"))
 				}, 5*time.Second).Should(Succeed())
 				broker = startBroker(port)
 				// An edge node belongs to one broker, so a new one takes its place.

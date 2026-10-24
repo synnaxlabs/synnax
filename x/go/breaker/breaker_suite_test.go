@@ -19,7 +19,7 @@ import (
 
 func TestBreaker(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Breaker Suite")
+	RunSpecs(t, "Breaker Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

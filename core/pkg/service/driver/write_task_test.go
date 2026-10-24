@@ -155,7 +155,7 @@ var _ = Describe("WriteTask", func() {
 				Expect(wt.Exec(ctx, task.Command{Type: "start", Key: "cmd-1"})).
 					To(Succeed())
 				started := retrieve(ctx)
-				Expect(started.Message).To(Equal("Task started successfully"))
+				Expect(started.Message).To(Equal("Started task"))
 				Expect(started.Details.Running).To(BeTrue())
 				Expect(started.Details.Cmd).To(Equal("cmd-1"))
 
@@ -166,7 +166,7 @@ var _ = Describe("WriteTask", func() {
 				Expect(wt.Exec(ctx, task.Command{Type: "stop", Key: "cmd-2"})).
 					To(Succeed())
 				stopped := retrieve(ctx)
-				Expect(stopped.Message).To(Equal("Task stopped successfully"))
+				Expect(stopped.Message).To(Equal("Stopped task"))
 				Expect(stopped.Details.Running).To(BeFalse())
 				Expect(stopped.Details.Cmd).To(Equal("cmd-2"))
 				Expect(sink.closes.Load()).To(BeEquivalentTo(1))
@@ -181,7 +181,8 @@ var _ = Describe("WriteTask", func() {
 					To(MatchError("broker refused the connection"))
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("broker refused the connection"))
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Description).To(Equal("broker refused the connection"))
 				Expect(stat.Details.Cmd).To(Equal("cmd-3"))
 				Expect(stat.Details.Running).To(BeFalse())
 			},
@@ -228,7 +229,8 @@ var _ = Describe("WriteTask", func() {
 				command(ctx, 1, func(g Gomega) {
 					stat := retrieve(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal("broker connection lost"))
+					g.Expect(stat.Message).To(Equal("Failed to write data"))
+					g.Expect(stat.Description).To(Equal("broker connection lost"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				})
 				sink.writeErr.Store(nil)
@@ -257,7 +259,8 @@ var _ = Describe("WriteTask", func() {
 				Eventually(func(g Gomega) {
 					stat := retrieve(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal("broker connection lost"))
+					g.Expect(stat.Message).To(Equal("Failed to write data"))
+					g.Expect(stat.Description).To(Equal("broker connection lost"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).Should(Succeed())
 				sink.health <- nil
@@ -274,7 +277,9 @@ var _ = Describe("WriteTask", func() {
 				Eventually(func(g Gomega) {
 					stat := retrieve(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
-					g.Expect(stat.Message).To(Equal("broker rejected the credentials"))
+					g.Expect(stat.Message).To(Equal("Failed to run task"))
+					g.Expect(stat.Description).
+						To(Equal("broker rejected the credentials"))
 					g.Expect(stat.Details.Running).To(BeFalse())
 				}).Should(Succeed())
 				Eventually(sink.closes.Load).Should(BeEquivalentTo(1))
@@ -289,7 +294,8 @@ var _ = Describe("WriteTask", func() {
 			command(ctx, 1, func(g Gomega) {
 				stat := retrieve(ctx)
 				g.Expect(stat.Variant).To(Equal(status.VariantError))
-				g.Expect(stat.Message).To(Equal("payload encoder failed"))
+				g.Expect(stat.Message).To(Equal("Failed to run task"))
+				g.Expect(stat.Description).To(Equal("payload encoder failed"))
 				g.Expect(stat.Details.Running).To(BeFalse())
 			})
 			Eventually(sink.closes.Load).Should(BeEquivalentTo(1))
