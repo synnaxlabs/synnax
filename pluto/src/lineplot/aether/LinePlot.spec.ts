@@ -27,7 +27,7 @@ import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { telem } from "@/telem/aether";
 import { buildStack } from "@/testutil/providers";
-import { Context, Line } from "@/vis/line/aether/line";
+import { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/test";
 
@@ -38,7 +38,7 @@ const stubLineStateZ = z.object({
 
 // Line needs a live GL context, so a stub with its TYPE stands in for the walk.
 class StubLine extends aether.Leaf<typeof stubLineStateZ> {
-  static readonly TYPE = Line.TYPE;
+  static readonly TYPE = line.Line.TYPE;
   schema = stubLineStateZ;
 
   get loading(): boolean {
@@ -167,7 +167,7 @@ class LineContextProvider extends aether.Composite<typeof lineContextProviderSta
   schema = lineContextProviderStateZ;
 
   afterUpdate(ctx: aether.Context): void {
-    Context.create(ctx, render.Context.use(ctx));
+    line.Context.create(ctx, render.Context.use(ctx));
   }
 }
 
@@ -215,7 +215,7 @@ describe("LinePlot against a Core", () => {
         [LinePlot.TYPE]: LinePlot,
         [XAxis.TYPE]: XAxis,
         [YAxis.TYPE]: YAxis,
-        [Line.TYPE]: Line,
+        [line.Line.TYPE]: line.Line,
       },
       synnax: { props: TEST_CLIENT_PARAMS },
       render: true,
@@ -232,7 +232,7 @@ describe("LinePlot against a Core", () => {
     setViewport(box.DECIMAL);
     stack.driver.update([...base, "x1"], XAxis.TYPE, { location: "bottom" });
     stack.driver.update([...base, "x1", "y1"], YAxis.TYPE, { location: "left" });
-    stack.driver.update([...base, "x1", "y1", "l1"], Line.TYPE, {
+    stack.driver.update([...base, "x1", "y1", "l1"], line.Line.TYPE, {
       x: telem.tiledChannelData({ ...props, useIndexOfChannel: true }),
       y: telem.tiledChannelData(props),
       color: "#ff0000",
