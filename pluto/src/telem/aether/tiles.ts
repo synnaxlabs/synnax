@@ -65,45 +65,57 @@ export const pointLimit = ({
   return 2 ** Math.ceil(Math.log2(points));
 };
 
-// How many levels above the target a coarse tile may come from.
-const MAX_COARSE_LEVELS = 8;
+const positionKey = ({ level, index }: Position): string => `${level}/${index}`;
 
 /**
- * Chooses the tiles that draw the given slots of a level, from those that are
- * available. Each slot draws its own tile if available, else both its children, else
- * the finest available ancestor whose slots in view hold nothing else. A slot with none
- * of these stays empty. No two chosen tiles overlap.
+ * Chooses the tiles that draw the given slots of a level, from the available ones. Each
+ * slot draws the first of: its own tile, finer tiles that cover it whole, the finest
+ * coarser tile whose slots in view hold nothing else, and finer tiles that cover part
+ * of it. A slot with none of these stays empty. No two chosen tiles overlap.
  * @param level - The level of the slots.
  * @param slots - Ascending indexes of the slots at the level.
- * @param available - Returns true if the tile at the position can be drawn now.
+ * @param available - The tiles that can be drawn now.
  * @returns the chosen tiles in time order.
  */
 export const choose = (
   level: number,
   slots: number[],
-  available: (p: Position) => boolean,
+  available: Position[],
 ): Position[] => {
+  const held = new Set(available.map(positionKey));
+  // above holds each position of the level or finer that has an available tile at or
+  // below it.
+  const above = new Set<string>();
+  for (const p of available)
+    for (let l = p.level, i = p.index; l <= level; l++, i = Math.floor(i / 2))
+      above.add(positionKey({ level: l, index: i }));
+  // finer returns the coarsest available tiles at or below p in time order, and
+  // whether they cover p whole.
+  const finer = (p: Position): [Position[], boolean] => {
+    if (held.has(positionKey(p))) return [[p], true];
+    if (p.level === 0 || !above.has(positionKey(p))) return [[], false];
+    const [first, firstWhole] = finer({ level: p.level - 1, index: 2 * p.index });
+    const [second, secondWhole] = finer({ level: p.level - 1, index: 2 * p.index + 1 });
+    return [[...first, ...second], firstWhole && secondWhole];
+  };
   const chosen = new Map<number, Position[]>();
+  const partial = new Map<number, Position[]>();
   for (const index of slots) {
-    if (available({ level, index })) {
-      chosen.set(index, [{ level, index }]);
-      continue;
-    }
-    if (level === 0) continue;
-    const children = [2 * index, 2 * index + 1].map((i) => ({
-      level: level - 1,
-      index: i,
-    }));
-    if (children.every(available)) chosen.set(index, children);
+    const [tiles, whole] = finer({ level, index });
+    if (whole) chosen.set(index, tiles);
+    else if (tiles.length > 0) partial.set(index, tiles);
   }
-  for (let up = 1; up <= MAX_COARSE_LEVELS; up++)
-    for (const index of slots) {
-      if (chosen.has(index)) continue;
-      const ancestor = { level: level + up, index: Math.floor(index / 2 ** up) };
-      if (!available(ancestor)) continue;
-      const covered = slots.filter((s) => Math.floor(s / 2 ** up) === ancestor.index);
-      if (covered.some((s) => chosen.has(s))) continue;
-      covered.forEach((s, i) => chosen.set(s, i === 0 ? [ancestor] : []));
-    }
+  const coarser = available
+    .filter((p) => p.level > level)
+    .sort((a, b) => a.level - b.level);
+  for (const ancestor of coarser) {
+    const span = 2 ** (ancestor.level - level);
+    const covered = slots.filter((s) => Math.floor(s / span) === ancestor.index);
+    if (covered.length === 0 || covered.some((s) => chosen.has(s))) continue;
+    covered.forEach((s, i) => chosen.set(s, i === 0 ? [ancestor] : []));
+  }
+  partial.forEach((tiles, index) => {
+    if (!chosen.has(index)) chosen.set(index, tiles);
+  });
   return slots.flatMap((s) => chosen.get(s) ?? []);
 };

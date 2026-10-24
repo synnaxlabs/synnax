@@ -2430,6 +2430,23 @@ describe("remote", () => {
       expect(positions(source.value({ view: view(2000, 3000) })[1])).toHaveLength(3);
     });
 
+    it("should draw finer tiles until a zoomed out view's tiles arrive", async () => {
+      const source = create();
+      await settle(source);
+      c.deferred = true;
+      const [, series] = source.value({ view: view(0, 60000) });
+      expect(positions(series)).toEqual([
+        [13, 0],
+        [13, 1],
+      ]);
+      c.resolveAll();
+      await expect.poll(() => source.fetching()).toBe(false);
+      expect(positions(source.value({ view: view(0, 60000) })[1])).toEqual([
+        [15, 0],
+        [15, 1],
+      ]);
+    });
+
     it("should request each tile once while it is pending", async () => {
       const source = create();
       await settle(source);

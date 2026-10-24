@@ -1039,7 +1039,7 @@ export class TiledChannelData
       const chosen = choose(
         l,
         targets.map((t) => t.index),
-        (p) => this.find(p, preferred) != null,
+        [...this.held.values()].map((t) => t.spec),
       ).map((p) => this.find(p, preferred)!);
       chosen.forEach((tile) => out.push(...tile.series.series));
       if (prune) {
