@@ -80,7 +80,11 @@ func (g *groupSizer) count(
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errors.Combine(err, iter.Close()) }()
+	defer func() {
+		if err = errors.Combine(err, iter.Close()); err != nil {
+			counts = nil
+		}
+	}()
 	if !iter.SeekFirst() || !iter.Next(telem.TimeSpanMax) {
 		return counts, iter.Error()
 	}
@@ -243,7 +247,7 @@ func (p *requestPlanner) transform(
 	case CommandSetBounds:
 		sizes, err := p.sizer.resolve(ctx, req.Bounds)
 		if err != nil {
-			return req, false, err
+			return Request{}, false, err
 		}
 		p.reducer.groupSizes.Store(&sizes)
 	}
