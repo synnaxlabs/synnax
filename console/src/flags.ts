@@ -16,6 +16,10 @@
  * `example: IS_DEV || import.meta.env.VITE_FLAG_EXAMPLE === "true", // Owner: Name.
  * Removed in 0.60.`
  */
-export const FLAGS = {} as const satisfies Record<string, boolean>;
+export const FLAGS = {
+  // Owner: Emiliano Bonilla. Removed in 0.61.
+  ethercatStartupParameters:
+    IS_DEV || import.meta.env.VITE_FLAG_ETHERCAT_STARTUP_PARAMETERS === "true",
+} as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;

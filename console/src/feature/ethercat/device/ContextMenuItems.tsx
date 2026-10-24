@@ -15,7 +15,9 @@ import { useCallback } from "react";
 
 import { useEnabledState, useToggleEnabled } from "@/feature/ethercat/device/queries";
 import { useConfigureModal } from "@/feature/ethercat/device/useConfigureModal";
+import { useStartupParametersModal } from "@/feature/ethercat/device/useStartupParametersModal";
 import { Task } from "@/feature/ethercat/task";
+import { FLAGS } from "@/flags";
 import { Device } from "@/platform/device";
 import { type Tree } from "@/platform/tree";
 
@@ -38,6 +40,7 @@ export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
   const { update: toggleEnabled } = useToggleEnabled();
   const configure = useConfigureModal();
   const onConfigure = (deviceKey: device.Key) => configure({ deviceKey });
+  const editStartupParameters = useStartupParametersModal();
 
   const { allDisabled, allEnabled } = useEnabledState({ keys });
 
@@ -60,6 +63,15 @@ export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
         taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
       />
       <Menu.Divider />
+      {FLAGS.ethercatStartupParameters && hasUpdatePermission && keys.length === 1 && (
+        <Menu.Item
+          itemKey="ethercat.startupParameters"
+          onClick={() => editStartupParameters({ deviceKey: keys[0] })}
+        >
+          <Icon.Edit />
+          Edit startup parameters
+        </Menu.Item>
+      )}
       {hasUpdatePermission && !allDisabled && (
         <Menu.Item itemKey="ethercat.disable" onClick={handleDisable}>
           <Icon.Disable />
