@@ -70,8 +70,7 @@ struct Fixture {
 private:
     wasmtime::Instance setup() {
         mod.bind_to(linker, store);
-        auto wasm_mod = wasmtime::Module::compile(engine, std::string(LOGICAL_WAT))
-                            .unwrap();
+        auto wasm_mod = wasmtime::Module::compile(engine, LOGICAL_WAT).unwrap();
         return linker.instantiate(store, wasm_mod).unwrap();
     }
 };

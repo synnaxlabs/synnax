@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <format>
+#include <utility>
 
 #include "absl/log/check.h"
 #include "absl/log/log.h"
@@ -395,7 +396,7 @@ void Engine::rebuild_outputs_locked() {
                 );
     // Two writers can command the same output, so the latest command must land last.
     std::ranges::sort(applied, {}, [](const Applied &a) { return a.command->seq; });
-    std::fill(this->write_staging.begin(), this->write_staging.end(), 0);
+    std::ranges::fill(this->write_staging, 0);
     for (const auto &[entry, offset, command]: applied)
         telem::write_pdo_from_value(
             this->write_staging.data() + offset.byte,
@@ -429,8 +430,8 @@ void Engine::unregister_writer(const size_t id) {
     this->stop_if_idle();
 }
 
-Engine::Engine(std::shared_ptr<master::Master> master, const Config &config):
-    config(config),
+Engine::Engine(std::shared_ptr<master::Master> master, Config config):
+    config(std::move(config)),
     breaker(
         x::breaker::Config{
             .name = "ethercat_engine",

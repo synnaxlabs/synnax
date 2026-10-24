@@ -24,7 +24,7 @@ struct Point {
 struct Node;
 
 struct Node {
-    int value;
+    int value{};
     x::mem::indirect<Node> left;
     x::mem::indirect<Node> right;
 };
@@ -77,6 +77,7 @@ TEST(IndirectTest, CopyConstructionEmpty) {
     EXPECT_FALSE(b);
 }
 
+// NOLINTBEGIN(bugprone-use-after-move): the tests check the moved-from state.
 TEST(IndirectTest, MoveConstruction) {
     x::mem::indirect<int> a(42);
     x::mem::indirect<int> b(std::move(a));
@@ -85,6 +86,7 @@ TEST(IndirectTest, MoveConstruction) {
     EXPECT_EQ(*b, 42);
     EXPECT_FALSE(a); // moved-from state
 }
+// NOLINTEND(bugprone-use-after-move)
 
 TEST(IndirectTest, CopyAssignment) {
     x::mem::indirect<int> a(42);

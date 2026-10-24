@@ -187,10 +187,7 @@ public:
         for (const auto &ch: this->cfg.channels)
             entries.push_back(*ch);
 
-        auto [rdr, err] = this->engine->open_reader(
-            std::move(entries),
-            this->cfg.sample_rate
-        );
+        auto [rdr, err] = this->engine->open_reader(entries, this->cfg.sample_rate);
         if (err) return err;
         this->reader = std::move(rdr);
         return x::errors::NIL;

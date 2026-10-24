@@ -77,7 +77,7 @@ class MockAPI final : public API {
     bool master_deactivate_called_val = false;
 
 public:
-    MockAPI(): API(MockTag{}) { this->request_master_result = this->sentinel_master; }
+    MockAPI(): API(MockTag{}), request_master_result(this->sentinel_master) {}
 
     void set_request_master_result(ec_master_t *result) {
         this->request_master_result = result;
@@ -155,15 +155,23 @@ public:
             state.al_state = al_state;
     }
 
-    bool release_master_called() const { return this->release_master_called_val; }
+    [[nodiscard]] bool release_master_called() const {
+        return this->release_master_called_val;
+    }
 
-    bool master_deactivate_called() const { return this->master_deactivate_called_val; }
+    [[nodiscard]] bool master_deactivate_called() const {
+        return this->master_deactivate_called_val;
+    }
 
-    ec_domain_t *get_output_domain() const { return this->sentinel_output_domain; }
+    [[nodiscard]] ec_domain_t *get_output_domain() const {
+        return this->sentinel_output_domain;
+    }
 
-    ec_domain_t *get_input_domain() const { return this->sentinel_input_domain; }
+    [[nodiscard]] ec_domain_t *get_input_domain() const {
+        return this->sentinel_input_domain;
+    }
 
-    ec_master_t *request_master(unsigned int) const override {
+    [[nodiscard]] ec_master_t *request_master(unsigned int) const override {
         return this->request_master_result;
     }
 

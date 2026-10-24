@@ -47,12 +47,12 @@ std::unique_ptr<master::Manager> default_manager();
 class Factory final : public task::Factory {
     std::shared_ptr<engine::Pool> pool;
 
-    std::pair<common::ConfigureResult, x::errors::Error> configure_read(
+    [[nodiscard]] std::pair<common::ConfigureResult, x::errors::Error> configure_read(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task
     ) const;
 
-    std::pair<common::ConfigureResult, x::errors::Error> configure_write(
+    [[nodiscard]] std::pair<common::ConfigureResult, x::errors::Error> configure_write(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task
     ) const;
@@ -67,7 +67,7 @@ public:
     explicit Factory(std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr);
 
     /// @brief constructs a Factory with custom manager.
-    Factory(
+    explicit Factory(
         std::unique_ptr<master::Manager> manager,
         std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr
     );
@@ -92,10 +92,11 @@ public:
     ) override;
 
     /// @brief checks if a master has an active engine.
-    bool is_interface_active(const std::string &key) const;
+    [[nodiscard]] bool is_interface_active(const std::string &key) const;
 
     /// @brief returns cached slaves for a master.
-    std::vector<slave::Properties> get_cached_slaves(const std::string &key) const;
+    [[nodiscard]] std::vector<slave::Properties>
+    get_cached_slaves(const std::string &key) const;
 };
 
 }

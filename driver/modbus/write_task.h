@@ -176,8 +176,10 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
                 parsed
             );
             if (base.disabled) return;
-            if (base.channel == 0)
-                return ch.field_err("channel", "channel must be specified");
+            if (base.channel == 0) {
+                ch.field_err("channel", "channel must be specified");
+                return;
+            }
             if (const auto *c = std::get_if<
                     ::synnax::modbus::HoldingRegisterWriteChannel>(&parsed))
                 registers.emplace_back(*c, this->conn);

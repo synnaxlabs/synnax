@@ -19,7 +19,7 @@ namespace driver::ethercat::soem {
 
 class SOEMMasterTest : public ::testing::Test {
 protected:
-    MockAPI *mock;
+    MockAPI *mock{};
     std::unique_ptr<Master> master;
 
     void SetUp() override {

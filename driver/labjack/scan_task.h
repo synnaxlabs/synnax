@@ -40,7 +40,7 @@ class Scanner final : public common::Scanner {
     /// @brief the device manager for handling LabJack connections
     std::shared_ptr<device::Manager> device_manager;
 
-    common::ScannerConfig config() const override {
+    [[nodiscard]] common::ScannerConfig config() const override {
         return common::ScannerConfig{.make = MAKE, .log_prefix = SCAN_LOG_PREFIX};
     }
 
@@ -119,8 +119,6 @@ public:
         ScanTaskConfig cfg,
         std::shared_ptr<device::Manager> device_manager
     ):
-        task(std::move(task)),
-        cfg(std::move(cfg)),
-        device_manager(std::move(device_manager)) {}
+        task(std::move(task)), cfg(cfg), device_manager(std::move(device_manager)) {}
 };
 }
