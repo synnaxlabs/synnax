@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { renderToString } from "react-dom/server";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Page } from "@/components/nav/Page";
 import { start } from "@/components/nav/sidebar";
@@ -270,5 +270,16 @@ describe("sidebar", () => {
       swap("/reference/channels/create");
       expect(scrollTop()).toBe(0);
     });
+  });
+
+  // Last, because start adds a second set of document listeners.
+  it("should start when the browser blocks storage", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+    document.body.innerHTML = `<nav class="page-nav">${renderToString(
+      <Page nodes={NODES} currentPage="/reference/channels" />,
+    )}</nav>`;
+    expect(() => start()).not.toThrow();
   });
 });

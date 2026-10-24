@@ -72,7 +72,13 @@ const reveal = (tree: Element): void => {
 
 // Keeps the scroll of the page nav across full page loads in one tab.
 const persistScroll = (tree: Element): void => {
-  const saved = sessionStorage.getItem(SCROLL_KEY);
+  let saved: string | null;
+  try {
+    saved = sessionStorage.getItem(SCROLL_KEY);
+  } catch {
+    // Blocked storage only costs the page nav its scroll on the next page.
+    return;
+  }
   if (saved != null) tree.scrollTop = parseFloat(saved);
   let timer: ReturnType<typeof setTimeout> | null = null;
   tree.addEventListener("scroll", () => {

@@ -30,6 +30,12 @@ const CONTROLS = ".docs-lightbox__close, .docs-lightbox__bar";
 // The speed button cycles through these rates.
 const RATES = [1, 1.5, 2, 0.5];
 
+// A video has no duration to seek in until its metadata loads.
+const seek = (video: HTMLVideoElement, time: number): void => {
+  if (Number.isFinite(video.duration))
+    video.currentTime = Math.min(Math.max(time, 0), video.duration);
+};
+
 const query = <E extends Element>(root: ParentNode, selector: string): E => {
   const el = root.querySelector<E>(selector);
   if (el == null) throw new Error(`no element matches ${selector}`);
@@ -270,7 +276,7 @@ export const start = (): void => {
       !(expanded?.media instanceof HTMLVideoElement)
     )
       return;
-    expanded.media.currentTime = Number(e.target.value) * expanded.media.duration;
+    seek(expanded.media, Number(e.target.value) * expanded.media.duration);
   });
 
   document.addEventListener("keydown", (e) => {
@@ -282,11 +288,7 @@ export const start = (): void => {
       toggle(video);
     } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && onControl == null) {
       e.preventDefault();
-      const step = e.key === "ArrowLeft" ? -STEP : STEP;
-      video.currentTime = Math.min(
-        Math.max(video.currentTime + step, 0),
-        video.duration,
-      );
+      seek(video, video.currentTime + (e.key === "ArrowLeft" ? -STEP : STEP));
     }
   });
 
