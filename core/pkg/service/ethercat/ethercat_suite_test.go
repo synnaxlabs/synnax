@@ -28,7 +28,7 @@ var _ = BeforeSuite(func() {
 
 func TestEthercat(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service EtherCAT Suite")
+	RunSpecs(t, "Service EtherCAT Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -19,7 +19,7 @@ import (
 
 func TestProjectV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Project v0 Suite")
+	RunSpecs(t, "Service Project v0 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

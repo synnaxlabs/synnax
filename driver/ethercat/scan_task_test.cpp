@@ -105,11 +105,13 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = x::json::json::object_t{};
-    cmd.key = 1;
+    cmd.key = '1';
 
     bool handled = scanner.exec(cmd, task, ctx);
     EXPECT_TRUE(handled);
-    EXPECT_FALSE(ctx->statuses.empty());
+    ASSERT_FALSE(ctx->statuses.empty());
+    EXPECT_EQ(ctx->statuses.back().message, "Failed to parse test command");
+    EXPECT_EQ(ctx->statuses.back().description, "interface: This field is required");
 }
 
 TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
@@ -158,7 +160,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "eth0"}};
-    cmd.key = 1;
+    cmd.key = '1';
 
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
@@ -213,7 +215,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "enp3s0"}};
-    cmd.key = 2;
+    cmd.key = '2';
 
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
@@ -244,11 +246,13 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "eth0"}};
-    cmd.key = 3;
+    cmd.key = '3';
 
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
     ASSERT_FALSE(this->ctx->statuses.empty());
     EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(this->ctx->statuses.back().message, "Failed to probe interface");
+    EXPECT_EQ(this->ctx->statuses.back().description, "no interface");
 }
 }

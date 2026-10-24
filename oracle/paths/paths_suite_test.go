@@ -19,7 +19,7 @@ import (
 
 func TestPaths(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Paths Suite")
+	RunSpecs(t, "Paths Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

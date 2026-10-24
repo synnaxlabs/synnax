@@ -195,4 +195,19 @@ describe("Core List", () => {
       expect(nameInput.value).toEqual("");
     });
   });
+
+  it("should show why a Core is unreachable in its status tooltip", async () => {
+    await renderCoreUI(
+      <Core.List value={BRAVO.key} onChange={vi.fn()} />,
+      createCoreState([BRAVO], BRAVO.key),
+    );
+    fireEvent.pointerOver(await screen.findByText("Unreachable"), {
+      pointerType: "mouse",
+    });
+    const tooltip = await screen.findByRole("tooltip");
+    expect(within(tooltip).getByText("Cannot reach Core")).toBeTruthy();
+    expect(
+      within(tooltip).getByText(`Cannot reach Core at ${BRAVO.host}:${BRAVO.port}`),
+    ).toBeTruthy();
+  });
 });

@@ -58,7 +58,7 @@ TEST(ScanTask, testConnection) {
     EXPECT_EQ(first.key, synnax::task::status_key(t));
     EXPECT_EQ(first.details.cmd, cmd.key);
     EXPECT_EQ(first.details.task, t.key);
-    EXPECT_EQ(first.message, "Connection successful");
+    EXPECT_EQ(first.message, "Connected to device");
 }
 
 TEST(ScanTask, testConfigReturnsCorrectValues) {

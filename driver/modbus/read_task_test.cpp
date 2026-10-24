@@ -359,7 +359,7 @@ TEST(ReadTask, testBasicReadTask) {
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.details.task, tsk.key);
-    EXPECT_EQ(first_state.message, "Task started successfully");
+    EXPECT_EQ(first_state.message, "Started task");
     ASSERT_EVENTUALLY_GE(factory->writer_opens.load(std::memory_order_acquire), 1);
     task.stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
@@ -368,10 +368,10 @@ TEST(ReadTask, testBasicReadTask) {
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.details.task, tsk.key);
-    EXPECT_EQ(second_state.message, "Task stopped successfully");
+    EXPECT_EQ(second_state.message, "Stopped task");
 
     ASSERT_GE(factory->writes->size(), 1);
-    auto &fr = factory->writes->at(0);
+    const auto &fr = factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.contains(data_channel.key), true);
@@ -474,7 +474,7 @@ TEST(ReadTask, testReconnectAfterServerRestart) {
     task.start("start_cmd_2");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses[2].message, "Task started successfully");
+    EXPECT_EQ(ctx->statuses[2].message, "Started task");
     ASSERT_EVENTUALLY_GE(factory->writer_opens.load(std::memory_order_acquire), 2);
     task.stop("stop_cmd_2", true);
 }
@@ -525,7 +525,7 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2); // Data channel + index channel
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.at<uint8_t>(data_channel.key, 0), 1);
@@ -579,7 +579,7 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.at<uint16_t>(data_channel.key, 0), 12345);
@@ -754,7 +754,7 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 4); // 4 data channels + 1 index channel
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.at<uint8_t>(coil_ch.key, 0), 1);
@@ -847,7 +847,7 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 4); // 3 data channels + 1 index channel
     ASSERT_EQ(fr.length(), 1);
     // All three channels should have correct values, including the last one
@@ -915,7 +915,7 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 4); // 3 data channels + 1 index channel
     ASSERT_EQ(fr.length(), 1);
     // All three channels should have correct values, including the last one

@@ -96,7 +96,7 @@ TEST_F(TestScanTask, testBasicScan) {
     EXPECT_EQ(state.variant, synnax::status::VARIANT_SUCCESS);
 
     ASSERT_TRUE(state.details.data.has_value());
-    auto &data = *state.details.data;
+    const auto &data = *state.details.data;
     ASSERT_TRUE(data.contains("channels"));
     auto channels = data.at("channels");
     ASSERT_TRUE(channels.is_array());
@@ -216,7 +216,7 @@ TEST_F(TestScanTask, testTestConnection) {
     EXPECT_EQ(state.key, synnax::task::status_key(task));
     EXPECT_EQ(state.details.cmd, "test_conn_cmd");
     EXPECT_EQ(state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(state.message, "Connection successful");
+    EXPECT_EQ(state.message, "Connected to server");
 }
 
 /// @brief it should return error for invalid connection endpoint.
@@ -253,6 +253,7 @@ TEST_F(TestScanTask, testInvalidConnection) {
     EXPECT_EQ(state.key, synnax::task::status_key(task));
     EXPECT_EQ(state.details.cmd, "invalid_scan_cmd");
     EXPECT_EQ(state.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(state.message, "Failed to connect to server");
 }
 
 /// @brief Tests that Scanner::config() returns correct values.

@@ -13,7 +13,9 @@ import (
 	"context"
 	"io"
 	"iter"
+	"slices"
 
+	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
@@ -27,7 +29,7 @@ import (
 // Reader is NOT safe for concurrent use.
 type Reader[K Key, E Entry[K]] struct {
 	// keyCodec encodes K to prefixed pebble keys and decodes the reverse.
-	keyCodec keyCodec[K, E]
+	keyCodec key.Codec[K]
 	// tx is the underlying transaction this Reader reads through.
 	tx Tx
 }
@@ -37,8 +39,13 @@ func WrapReader[K Key, E Entry[K]](tx Tx) Reader[K, E] {
 	return wrapReader[K, E](tx, nil)
 }
 
+// wrapReader constructs a Reader that decodes keys under prefix. A nil prefix falls
+// back to the prefix of E's table.
 func wrapReader[K Key, E Entry[K]](tx Tx, prefix []byte) Reader[K, E] {
-	return Reader[K, E]{tx: tx, keyCodec: newKeyCodec[K, E](prefix)}
+	if prefix == nil {
+		prefix = key.Prefix[E]()
+	}
+	return Reader[K, E]{tx: tx, keyCodec: key.NewCodec[K](prefix)}
 }
 
 // Get retrieves a single entry from the database. If the entry does not exist,
@@ -58,7 +65,7 @@ func (r *Reader[K, E]) get(
 	key K,
 	entry *E,
 ) ([]byte, io.Closer, error) {
-	b, closer, err := r.tx.Get(ctx, r.keyCodec.encode(key))
+	b, closer, err := r.tx.Get(ctx, r.keyCodec.Encode(key))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -109,8 +116,13 @@ type IterOptions struct {
 
 // OpenIterator opens a new Iterator over the entries in the Reader.
 func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
-	prefixedKey := append(r.keyCodec.prefix, opts.prefix...)
-	base, err := r.tx.OpenIterator(kv.IterPrefix(prefixedKey))
+	prefix := r.keyCodec.Prefix()
+	// Every query of a table shares the codec prefix, so a narrowed prefix needs its
+	// own slice.
+	if len(opts.prefix) > 0 {
+		prefix = slices.Concat(prefix, opts.prefix)
+	}
+	base, err := r.tx.OpenIterator(kv.IterPrefix(prefix))
 	return &Iterator[E]{Iterator: base, codec: r.tx}, err
 }
 

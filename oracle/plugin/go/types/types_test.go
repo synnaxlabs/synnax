@@ -34,7 +34,7 @@ import (
 
 func TestGoTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go Types Suite")
+	RunSpecs(t, "Plugin Go Types Suite", SuiteConfig())
 }
 
 // chainGenerate writes files into a temp repo, analyzes the schema at mainRel
