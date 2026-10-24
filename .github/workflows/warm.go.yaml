@@ -24,6 +24,7 @@ on:
       - freighter/go/**
       - gorp/**
       - x/go/**
+      - .github/scripts/pin_mtimes.py
       - .github/workflows/test.go.yaml
       - .github/workflows/warm.go.yaml
   workflow_dispatch:
