@@ -286,7 +286,7 @@ func (s *Service) Iterate(ctx context.Context, stream IteratorStream) error {
 		iteratorRequestBufferSize,
 	)
 
-	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
 	return sCtx.Wait()
 }
 
