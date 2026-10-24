@@ -359,6 +359,19 @@ jobs:
       windows: *full
     secrets: inherit
 
+  # The EtherCAT bus runs on its own thread, so its suites also run under TSan.
+  driver-tsan:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.driver == 'true'
+    uses: ./.github/workflows/test.cpp.yaml
+    with:
+      apt_packages: libsystemd-dev
+      sanitizers: false
+      targets: //driver/ethercat/...
+      test_flags: --config=tsan
+      test_tags: -hardware
+    secrets: inherit
+
   eslint-config:
     needs: changes
     if: inputs.full || needs.changes.outputs.eslint_config == 'true'
@@ -733,6 +746,7 @@ jobs:
       - docs-site
       - drift
       - driver
+      - driver-tsan
       - eslint-config
       - format
       - foundation
