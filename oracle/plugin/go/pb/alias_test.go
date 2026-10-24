@@ -188,7 +188,10 @@ var _ = Describe("Go PB aliases", func() {
 			Panel struct {
 				edges map<string, Edge>
 			}
-		`, "converted, err := basepb.EdgeToPB(v)", "converted, err := basepb.EdgeFromPB(v)"),
+		`,
+			"converted, err := basepb.EdgeToPB(v)",
+			"converted, err := basepb.EdgeFromPB(v)",
+		),
 		Entry("a generic struct's type argument", `
 			Status struct<D> {
 				key     string

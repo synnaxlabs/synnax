@@ -243,7 +243,9 @@ var _ = Describe("Dealias", func() {
 
 var _ = Describe("Unified fields through aliases", func() {
 	var table *resolution.Table
-	ref := func(name string) resolution.TypeRef { return resolution.TypeRef{Name: name} }
+	ref := func(name string) resolution.TypeRef {
+		return resolution.TypeRef{Name: name}
+	}
 	field := func(name string) resolution.Field {
 		return resolution.Field{Name: name, Type: ref("string")}
 	}

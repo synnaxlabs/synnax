@@ -21,7 +21,9 @@ var _ = Describe("Telem", func() {
 
 	BeforeEach(func() {
 		table = resolution.NewTable()
-		ref := func(name string) resolution.TypeRef { return resolution.TypeRef{Name: name} }
+		ref := func(name string) resolution.TypeRef {
+			return resolution.TypeRef{Name: name}
+		}
 		hand := map[string]resolution.Domain{
 			"ts": {Expressions: resolution.Expressions{{Name: "hand"}}},
 		}

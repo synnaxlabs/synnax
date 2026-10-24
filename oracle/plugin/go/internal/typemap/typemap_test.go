@@ -341,7 +341,9 @@ var _ = Describe("GoTypeRefName", func() {
 			{
 				Name:          "Key",
 				QualifiedName: "test.Key",
-				Form:          resolution.DistinctForm{Base: resolution.TypeRef{Name: "uint32"}},
+				Form: resolution.DistinctForm{
+					Base: resolution.TypeRef{Name: "uint32"},
+				},
 			},
 		} {
 			Expect(table.Add(typ)).To(Succeed())

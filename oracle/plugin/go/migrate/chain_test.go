@@ -1351,7 +1351,8 @@ Panel struct {
 `,
 			true,
 			[]string{
-				"crew, err := lo.MapErr(old.Crew, func(v v0.Member, _ int) (Member, error) {",
+				"crew, err := lo.MapErr(old.Crew, " +
+					"func(v v0.Member, _ int) (Member, error) {",
 			},
 			[]string{"Crew(old)"},
 		),
@@ -1429,7 +1430,8 @@ Outer = Wrapper<string>
 `,
 			true,
 			[]string{
-				"func autoMigrateOuter(ctx context.Context, old v0.Outer) (Outer, error) {\n" +
+				"func autoMigrateOuter(" +
+					"ctx context.Context, old v0.Outer) (Outer, error) {\n" +
 					"\tfirst, err := autoMigrateTag(ctx, old.First)",
 			},
 			nil,

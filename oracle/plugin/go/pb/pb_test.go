@@ -2365,11 +2365,13 @@ var _ = Describe("Go PB Plugin", func() {
 
 					ExpectContent(resp, "translator.gen.go").
 						ToContain(
-							"func DetailsToPBAny(v common.Details) (*anypb.Any, error) {",
+							"func DetailsToPBAny(v common.Details) "+
+								"(*anypb.Any, error) {",
 							"pb, err := commonpb.DetailsToPB(v)",
 							"var pb commonpb.Details",
 							"return commonpb.DetailsFromPB(&pb)",
-							"PairFromPB[common.Details, struct{}](pb.Pair, DetailsFromPBAny, nil)",
+							"PairFromPB[common.Details, struct{}]"+
+								"(pb.Pair, DetailsFromPBAny, nil)",
 						)
 				},
 			)
