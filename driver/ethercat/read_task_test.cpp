@@ -159,6 +159,24 @@ protected:
         };
     }
 
+    /// @brief starts a source that reads the int16 entry at 0x6000:01 into a float64
+    /// channel with the given scale.
+    std::unique_ptr<ReadTaskSource> start_scaled_source(const x::json::json &scale) {
+        const auto data_ch = create_data_channel("scaled", x::telem::FLOAT64_T);
+        auto cfg = create_base_config();
+        cfg["sample_rate"] = 10;
+        cfg["stream_rate"] = 10;
+        auto ch = create_input_channel_config(data_ch, 0x6000, 1, "int16");
+        ch["scale"] = scale;
+        cfg["channels"].push_back(ch);
+        auto parser = x::json::Parser(cfg);
+        ReadTaskConfig task_cfg(client, parser);
+        EXPECT_FALSE(parser.error()) << parser.error().message();
+        auto source = std::make_unique<ReadTaskSource>(engine, std::move(task_cfg));
+        EXPECT_FALSE(source->start());
+        return source;
+    }
+
     synnax::channel::Channel
     create_data_channel(const std::string &name, const x::telem::DataType &data_type) {
         return ASSERT_NIL_P(client->channels.create(
@@ -395,6 +413,28 @@ TEST_F(EtherCATReadTest, ParseConfigRejectsADataTypeWiderThanTheEntry) {
     );
 }
 
+TEST_F(EtherCATReadTest, ParseConfigRejectsAScaledIntegerChannel) {
+    const auto data_ch = create_data_channel("analog", x::telem::INT16_T);
+
+    auto cfg = create_base_config();
+    auto ch = create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    ch["scale"] = {{"type", "linear"}, {"slope", 2}, {"offset", 1}};
+    cfg["channels"].push_back(ch);
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels");
+    EXPECT_EQ(
+        errors[0]["message"],
+        "channel " + data_ch.name +
+            " is int16, but a scaled channel must be float32 or float64. Pick a float "
+            "channel."
+    );
+}
+
 TEST_F(EtherCATReadTest, WriterConfigIncludesAllChannels) {
     auto ch1 = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("ch1"),
@@ -569,6 +609,50 @@ TEST_F(EtherCATReadTest, SourceReadsCorrectValueFromEngine) {
 
     brk.stop();
     ASSERT_NIL(source.stop());
+}
+
+TEST_F(EtherCATReadTest, SourceAppliesALinearScale) {
+    const auto source = start_scaled_source(
+        {{"type", "linear"}, {"slope", 2.5}, {"offset", -10}}
+    );
+    this->mock_master->set_input<int16_t>(0, -40);
+    x::breaker::Breaker brk;
+    brk.start();
+    ASSERT_EVENTUALLY_EQ(
+        [&] {
+            x::telem::Frame frame;
+            source->read(brk, frame);
+            if (frame.empty()) return 0.0;
+            return frame.series->at(0).at<double>(0);
+        }(),
+        -110.0
+    );
+    brk.stop();
+    ASSERT_NIL(source->stop());
+}
+
+TEST_F(EtherCATReadTest, SourceAppliesAMapScale) {
+    const auto source = start_scaled_source(
+        {{"type", "map"},
+         {"pre_scaled_min", 0},
+         {"pre_scaled_max", 32000},
+         {"scaled_min", 0},
+         {"scaled_max", 10}}
+    );
+    this->mock_master->set_input<int16_t>(0, 8000);
+    x::breaker::Breaker brk;
+    brk.start();
+    ASSERT_EVENTUALLY_EQ(
+        [&] {
+            x::telem::Frame frame;
+            source->read(brk, frame);
+            if (frame.empty()) return 0.0;
+            return frame.series->at(0).at<double>(0);
+        }(),
+        2.5
+    );
+    brk.stop();
+    ASSERT_NIL(source->stop());
 }
 
 TEST_F(EtherCATReadTest, SourceReadsMultipleChannelValues) {
