@@ -270,9 +270,11 @@ jobs:
     if: inputs.full || needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.go.yaml
     with:
+      cached: ${{ github.event_name == 'pull_request' }}
       coverage_flag: core
       directory: core
       macos: *full
+      shards: 3
       windows: *full
     secrets: inherit
 
