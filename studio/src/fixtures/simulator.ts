@@ -65,20 +65,21 @@ export const simulator = async ({
     stdio: "ignore",
     detached: true,
   });
+  const stop = async (): Promise<void> => {
+    if (proc.exitCode != null || proc.pid == null) return;
+    // uv runs Python as a child, so signal the whole group.
+    process.kill(-proc.pid, "SIGTERM");
+    await once(proc, "exit");
+  };
   const deadline = Date.now() + READY_TIMEOUT_MS;
   while (!(await portInUse(port))) {
     if (proc.exitCode != null)
       throw new Error(`${protocol} server exited with code ${proc.exitCode}`);
-    if (Date.now() > deadline)
+    if (Date.now() > deadline) {
+      await stop();
       throw new Error(`${protocol} server did not open port ${port} within 30s`);
+    }
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
-  return {
-    stop: async () => {
-      if (proc.exitCode != null || proc.pid == null) return;
-      // uv runs Python as a child, so signal the whole group.
-      process.kill(-proc.pid, "SIGTERM");
-      await once(proc, "exit");
-    },
-  };
+  return { stop };
 };

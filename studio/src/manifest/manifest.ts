@@ -49,6 +49,11 @@ export const entryZ = z.object({
    */
   port: z.int().positive().optional(),
   /**
+   * Produces the entry one at a time, never beside another. For shots that bind a
+   * fixed port besides the core's, such as a simulator whose address the form shows.
+   */
+  serial: z.boolean().optional(),
+  /**
    * Makes the entry a set of stills, which the script saves with `session.still`,
    * instead of a video. Batch writes the stills' regions to `regions`, a path relative
    * to the studio package root, for the docs page that draws them.

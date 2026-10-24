@@ -180,25 +180,53 @@ export default manifest.define([
     id: "client/resources/build-device-driver/console-setup",
     script: "scripts/custom-devices-console-setup.ts",
   },
-  // These run the real Driver against a server from fixtures/simulator.ts.
+  // These run the real Driver against a server from fixtures/simulator.ts, on the port
+  // the form shows.
   {
     id: "device-drivers/modbus/connect-server/modbus-connect",
     script: "scripts/modbus-connect-server.ts",
+    serial: true,
   },
   {
     id: "device-drivers/opc-ua/connect-server/connect-server",
     script: "scripts/opcua-connect-server.ts",
+    serial: true,
   },
-  { id: "hardware/opc-ua/read-task", script: "scripts/opcua-read-task.ts" },
-  { id: "hardware/opc-ua/write-task", script: "scripts/opcua-write-task.ts" },
+  {
+    id: "hardware/opc-ua/read-task",
+    script: "scripts/opcua-read-task.ts",
+    serial: true,
+  },
+  {
+    id: "hardware/opc-ua/write-task",
+    script: "scripts/opcua-write-task.ts",
+    serial: true,
+  },
   {
     id: "device-drivers/http/connect-server/connect-server",
     script: "scripts/http-connect-server.ts",
+    serial: true,
   },
-  { id: "hardware/http/read-task", script: "scripts/http-read-task.ts" },
-  { id: "hardware/http/write-task", script: "scripts/http-write-task.ts" },
-  { id: "hardware/modbus/read-task", script: "scripts/modbus-read-task.ts" },
-  { id: "hardware/modbus/write-task", script: "scripts/modbus-write-task.ts" },
+  {
+    id: "hardware/http/read-task",
+    script: "scripts/http-read-task.ts",
+    serial: true,
+  },
+  {
+    id: "hardware/http/write-task",
+    script: "scripts/http-write-task.ts",
+    serial: true,
+  },
+  {
+    id: "hardware/modbus/read-task",
+    script: "scripts/modbus-read-task.ts",
+    serial: true,
+  },
+  {
+    id: "hardware/modbus/write-task",
+    script: "scripts/modbus-write-task.ts",
+    serial: true,
+  },
   {
     id: "device-drivers/pagerduty/alert-task/create",
     script: "scripts/pagerduty-alert-create.ts",

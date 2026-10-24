@@ -48,7 +48,8 @@ unchanged since their last successful production are skipped.
   --port <n>        core port for the ephemeral cores (default 9095)
   --jobs <n>        entries to produce concurrently (default 1); worker i gets
                     port + i, and its log prints when the entry finishes.
-                    Entries pinning a port produce first, one at a time`;
+                    Entries pinning a port or marked serial produce first,
+                    one at a time`;
 
 const paths = (entry: Entry) => ({
   captureDir: (theme: "light" | "dark") => path.join(OUT_ROOT, entry.id, theme),
@@ -120,8 +121,10 @@ const produceEntry = async ({
     await mkdir(path.join(p.stills, version), { recursive: true });
     for (const [file, data] of Object.entries(stills))
       await writeFile(path.join(p.stills, version, file), data);
+    const regionsFile = path.resolve(ROOT, entry.stills.regions);
+    await mkdir(path.dirname(regionsFile), { recursive: true });
     await writeFile(
-      path.resolve(ROOT, entry.stills.regions),
+      regionsFile,
       `${JSON.stringify({ version, ...JSON.parse(regions[0]) }, null, 2)}\n`,
     );
     console.log(`  wrote ${path.relative(ROOT, p.stills)} and ${entry.stills.regions}`);
@@ -257,7 +260,7 @@ const main = async (): Promise<void> => {
     const stamp = await readStamp(entry.id);
     const present =
       entry.stills != null
-        ? existsSync(p.stills)
+        ? existsSync(p.stills) && existsSync(path.resolve(ROOT, entry.stills.regions))
         : THEMES.every((theme) => existsSync(p.video(theme)));
     const fresh = stamp?.hash === hash && present;
     if (fresh && !values.force) {
@@ -270,8 +273,9 @@ const main = async (): Promise<void> => {
 
   const jobs = Math.max(1, Number(values.jobs ?? 1));
   const basePort = values.port != null ? Number(values.port) : STUDIO_PORT;
-  // Pinned entries all want one port, so they cannot run beside each other.
-  const pooled = jobs > 1 ? stale.filter((e) => e.port == null) : [];
+  // Pinned and serial entries bind fixed ports, so they cannot run beside each other.
+  const pooled =
+    jobs > 1 ? stale.filter((e) => e.port == null && e.serial !== true) : [];
   const serial = stale.filter((e) => !pooled.includes(e));
   for (const entry of serial) {
     console.log(`${entry.id}:`);
