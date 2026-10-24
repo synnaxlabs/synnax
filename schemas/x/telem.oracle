@@ -166,7 +166,6 @@ Aggregation enum {
         average keeps the mean of each group, and decimate keeps the first sample of
         each group.
     """
-    @pb omit
 }
 
 Reduction union on variant {
@@ -196,7 +195,6 @@ Reduction union on variant {
     @doc value """
         selects how a read reduces samples. A read without one keeps every sample.
     """
-    @pb omit
 }
 
 TimestampFormat enum {
