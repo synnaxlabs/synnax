@@ -145,14 +145,18 @@ type Status struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is a unique identifier for this status, auto-generated if not provided.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// name is an optional human-readable name for the status.
+	// name is the name of what the status is about, such as a task, device, or rack.
+	// Empty when the status is not about a named thing.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// variant indicates the severity of the status. One of success, info, warning, error,
 	// loading, or disabled.
 	Variant Variant `protobuf:"varint,3,opt,name=variant,proto3,enum=service.status.pb.Variant" json:"variant,omitempty"`
-	// message is the main message text describing the status.
+	// message says what happened in one short line, such as "Failed to start task" or
+	// "Started task". A status that reports a state names the state instead, such as
+	// "Driver not running".
 	Message string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	// description is an optional detailed description providing additional context.
+	// description says why it happened and what to do now, in full sentences. Raw error
+	// text goes here, never in the message. Empty when the message says enough.
 	Description string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
 	// time is the timestamp when the status was created.
 	Time int64 `protobuf:"varint,6,opt,name=time,proto3" json:"time,omitempty"`

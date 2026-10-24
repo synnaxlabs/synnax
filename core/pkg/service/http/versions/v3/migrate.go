@@ -9,7 +9,7 @@
 
 package v3
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp"
 
 // Migration lifts stored HTTP read task configs from v2 to v3.
 var Migration = gorp.NewEntryMigration(

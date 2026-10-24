@@ -12,6 +12,7 @@
 #include "driver/ethercat/engine/clock.h"
 
 namespace driver::ethercat::engine {
+/// @brief it should map the first distributed clock time to the host time of its cycle.
 TEST(Clock, AnchorsTheFirstTimeToTheHost) {
     Clock clock;
     EXPECT_EQ(
@@ -20,6 +21,8 @@ TEST(Clock, AnchorsTheFirstTimeToTheHost) {
     );
 }
 
+/// @brief it should keep the spacing of the distributed clock when the host time
+/// jitters.
 TEST(Clock, KeepsDCSpacingThroughHostJitter) {
     Clock clock;
     const x::telem::TimeStamp start(x::telem::SECOND);
@@ -31,6 +34,7 @@ TEST(Clock, KeepsDCSpacingThroughHostJitter) {
     );
 }
 
+/// @brief it should anchor again to the host time when the host clock jumps.
 TEST(Clock, ReanchorsWhenTheHostJumps) {
     Clock clock;
     const x::telem::TimeStamp start(x::telem::SECOND);
@@ -41,6 +45,8 @@ TEST(Clock, ReanchorsWhenTheHostJumps) {
     );
 }
 
+/// @brief it should follow a host clock that runs faster than the distributed clock,
+/// within a small error.
 TEST(Clock, FollowsAHostClockThatRunsFaster) {
     Clock clock;
     x::telem::TimeSpan error;

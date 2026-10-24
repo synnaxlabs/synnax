@@ -121,7 +121,7 @@ struct WriteTaskConfig : ::synnax::ni::WriteConfig {
 
     /// @brief returns the configuration necessary for opening a streamer to
     /// receive values form Synnax.
-    [[nodiscard]] std::set<synnax::channel::Key> state_indexes() {
+    [[nodiscard]] std::set<synnax::channel::Key> state_indexes() const {
         return this->state_index_keys;
     }
 

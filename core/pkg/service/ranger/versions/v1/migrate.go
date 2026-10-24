@@ -12,9 +12,9 @@ package v1
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Migration converts every range from the Orc value-color layout (Color stored inline)

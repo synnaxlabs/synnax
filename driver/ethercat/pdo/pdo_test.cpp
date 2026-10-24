@@ -207,6 +207,7 @@ TEST(FindOffset, ReturnsOffsetForExistingEntry) {
     EXPECT_EQ(result->bit, 3);
 }
 
+/// @brief it should return no offset for an entry that is not in the offsets.
 TEST(FindOffset, ReturnsNulloptForMissingEntry) {
     Offsets offsets;
     Entry entry{.slave_position = 1, .index = 0x6000, .sub_index = 1, .is_input = true};
