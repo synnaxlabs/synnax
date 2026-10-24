@@ -13,10 +13,8 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <thread>
-#include <unordered_map>
 #include <vector>
 
 #include "x/cpp/breaker/breaker.h"
@@ -85,27 +83,13 @@ class Engine {
         void push(const uint8_t *image, x::telem::TimeStamp time);
     };
 
-    struct Command {
-        x::telem::SampleValue value;
-        /// @brief the order of this command across all writers and stop values.
-        uint64_t seq;
-    };
-
-    /// @brief the entries of one writer, the last command it sent for each, and the
-    /// value each takes when the writer closes.
+    /// @brief the entries of one writer and the value each takes when the writer
+    /// closes.
     struct Output {
         std::vector<pdo::Entry> entries;
         x::telem::Rate rate;
         std::vector<pdo::Offset> offsets;
-        std::vector<std::optional<Command>> commands;
         std::vector<x::telem::SampleValue> stop_values;
-    };
-
-    /// @brief an output entry a closed writer left at its stop value.
-    struct Parked {
-        pdo::Entry entry;
-        pdo::Offset offset;
-        Command command;
     };
 
     /// @brief what the cycle thread reads each cycle: the bus rate and the readers due
@@ -135,13 +119,10 @@ class Engine {
     std::atomic<uint64_t> schedule_version{0};
 
     std::mutex write_mu;
+    /// @brief holds the latest command or stop value of each output entry. Zeroed when
+    /// the bus starts.
     std::vector<uint8_t> write_staging;
     std::vector<uint8_t> write_active;
-    /// @brief the stop value of each entry a writer closed on. It holds until another
-    /// writer commands the entry or the bus stops. Guarded by mu and write_mu.
-    std::unordered_map<pdo::Key, Parked, pdo::KeyHash> parked;
-    /// @brief the seq of the latest command, guarded by write_mu.
-    uint64_t command_seq = 0;
 
     mutable std::mutex health_mu;
     std::vector<slave::Health> slave_health;
@@ -164,7 +145,6 @@ class Engine {
     /// @brief copies the staged outputs into the process image. Waits for write_mu when
     /// wait is true, and otherwise keeps the last outputs while a writer holds it.
     void write_outputs(bool wait);
-    void rebuild_outputs_locked();
     [[nodiscard]] x::errors::Error cycle_error() const;
     void close_input(const std::shared_ptr<Input> &input);
     void close_output(const std::shared_ptr<Output> &output);

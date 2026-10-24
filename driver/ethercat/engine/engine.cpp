@@ -365,10 +365,6 @@ void Engine::stop_locked() {
     this->cycle_thread.join();
     this->supervisor_thread.join();
     this->master->deactivate();
-    {
-        std::lock_guard write_lock(this->write_mu);
-        this->parked.clear();
-    }
     this->cycle_hz.store(0, std::memory_order_release);
     {
         std::lock_guard lock(this->schedule_mu);
@@ -436,38 +432,6 @@ void Engine::write_outputs(const bool wait) {
     );
 }
 
-void Engine::rebuild_outputs_locked() {
-    struct Applied {
-        const pdo::Entry *entry;
-        pdo::Offset offset;
-        const Command *command;
-    };
-    size_t count = this->parked.size();
-    for (const auto &output: this->outputs)
-        count += output->entries.size();
-    std::vector<Applied> applied;
-    applied.reserve(count);
-    for (const auto &[key, p]: this->parked)
-        applied.push_back({&p.entry, p.offset, &p.command});
-    for (const auto &output: this->outputs)
-        for (size_t i = 0; i < output->entries.size(); ++i)
-            if (output->commands[i])
-                applied.push_back(
-                    {&output->entries[i], output->offsets[i], &*output->commands[i]}
-                );
-    // Writers and stop values can share an output, so the latest command lands last.
-    std::ranges::sort(applied, {}, [](const Applied &a) { return a.command->seq; });
-    std::ranges::fill(this->write_staging, 0);
-    for (const auto &[entry, offset, command]: applied)
-        telem::write_pdo_from_value(
-            this->write_staging.data() + offset.byte,
-            offset.bit,
-            entry->bit_length,
-            entry->data_type,
-            command->value
-        );
-}
-
 x::errors::Error Engine::cycle_error() const {
     std::lock_guard lock(this->cycle_err_mu);
     return this->cycle_err;
@@ -485,17 +449,16 @@ void Engine::close_output(const std::shared_ptr<Output> &output) {
         std::lock_guard write_lock(this->write_mu);
         std::erase(this->outputs, output);
         for (size_t i = 0; i < output->entries.size(); ++i) {
-            const auto &e = output->entries[i];
-            this->parked.insert_or_assign(
-                pdo::Key{e.slave_position, e.index, e.sub_index, e.is_input},
-                Parked{
-                    e,
-                    output->offsets[i],
-                    Command{output->stop_values[i], ++this->command_seq}
-                }
+            const auto &entry = output->entries[i];
+            const auto &offset = output->offsets[i];
+            telem::write_pdo_from_value(
+                this->write_staging.data() + offset.byte,
+                offset.bit,
+                entry.bit_length,
+                entry.data_type,
+                output->stop_values[i]
             );
         }
-        this->rebuild_outputs_locked();
     }
     this->reschedule_locked();
 }
@@ -587,7 +550,6 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         .entries = entries,
         .rate = execution_rate,
         .offsets = std::move(offsets),
-        .commands = std::vector<std::optional<Command>>(entries.size()),
         .stop_values = stop_values,
     });
     this->outputs.push_back(output);

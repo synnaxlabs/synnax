@@ -285,6 +285,34 @@ TEST_F(EngineTest, StopValueOutranksAnEarlierCommandOnASharedOutput) {
     ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
 }
 
+/// @brief it should keep the bits of another writer's entry when a writer closes on the
+/// other half of the same byte.
+TEST_F(EngineTest, ClosingAWriterKeepsTheOtherBitsOfItsByte) {
+    const pdo::Entry low(1, 0x7000, 1, 4, false, x::telem::UINT8_T);
+    const pdo::Entry high(1, 0x7000, 2, 4, false, x::telem::UINT8_T);
+    this->master->add_slave({
+        .position = 1,
+        .vendor_id = 0x1,
+        .product_code = 0x2,
+        .name = "Slave1",
+        .output_pdos = {pdo_of(low), pdo_of(high)},
+    });
+    auto low_writer = ASSERT_NIL_P(this->engine->open_writer(
+        {low},
+        x::telem::Rate(100),
+        {static_cast<uint8_t>(0x3)}
+    ));
+    const auto high_writer = ASSERT_NIL_P(this->engine->open_writer(
+        {high},
+        x::telem::Rate(100),
+        {static_cast<uint8_t>(0)}
+    ));
+    ASSERT_NIL(high_writer->write(0, static_cast<uint8_t>(0xA)));
+    ASSERT_EVENTUALLY_EQ(this->master->get_output<uint8_t>(SLAVE_IMAGE_SIZE), 0xA0);
+    low_writer.reset();
+    ASSERT_EVENTUALLY_EQ(this->master->get_output<uint8_t>(SLAVE_IMAGE_SIZE), 0xA3);
+}
+
 /// @brief it should send the stop values before the bus stops when the last writer
 /// closes.
 TEST_F(EngineTest, LastWriterToCloseSendsItsStopValuesBeforeTheBusStops) {
