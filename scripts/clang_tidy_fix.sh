@@ -20,18 +20,16 @@ if [ "$#" -eq 0 ]; then
     exit 1
 fi
 
-if ! command -v clang-apply-replacements &> /dev/null; then
-    echo "Error: clang-apply-replacements is not installed."
-    exit 1
-fi
-
 root=$(git rev-parse --show-toplevel)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 status=0
 bazel build --config=clang-tidy-fix --keep_going \
-    --build_event_json_file="$tmp/events.json" "$@" || status=$?
+    --build_event_json_file="$tmp/events.json" //:clang_apply_replacements "$@" ||
+    status=$?
+replacements=$(bazel info output_base)/$(bazel cquery --config=clang-tidy-fix \
+    --output_groups=default --output=files //:clang_apply_replacements 2> /dev/null)
 
 # Each action exports its fixes against the sandbox it ran in. Collect the files this
 # build produced and point their paths back at the checkout. A template reports one
@@ -71,5 +69,5 @@ PY
 
 # Two checks can insert at one spot, such as [[nodiscard]] and static. Apply both, and
 # let the next lint run catch any result that does not compile.
-clang-apply-replacements --ignore-insert-conflict --format --style=file "$tmp/fixes"
+"$replacements" --ignore-insert-conflict --format --style=file "$tmp/fixes"
 exit "$status"

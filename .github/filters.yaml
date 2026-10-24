@@ -36,7 +36,7 @@ cpp: &cpp
   - BUILD.bazel
   - scripts/check_clang_format.sh
   - scripts/clang_tidy_wrapper.sh
-  - scripts/install_clang_tools.sh
+  - scripts/install_clang_format.sh
   - scripts/run_bazel.sh
   - scripts/sanitizers/**
 
@@ -344,7 +344,7 @@ oracle_check:
   - pnpm-lock.yaml
   - pnpm-workspace.yaml
   - schemas/**
-  - scripts/install_clang_tools.sh
+  - scripts/install_clang_format.sh
   - uv.lock
 
 protobuf:
