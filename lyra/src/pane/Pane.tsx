@@ -9,7 +9,7 @@
 
 import "@/pane/Pane.css";
 
-import { type ReactElement } from "react";
+import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
@@ -41,6 +41,44 @@ export interface HeaderProps extends BaseHeader.HeaderProps {}
 /** The tinted bar at the top of a pane. */
 export const Header = ({ className, ...rest }: HeaderProps): ReactElement => (
   <BaseHeader.Header className={CSS.cls(CSS.BE("pane", "bar"), className)} {...rest} />
+);
+
+/** Props for {@link Disclosure}. */
+export interface DisclosureProps extends ComponentPropsWithoutRef<"details"> {}
+
+/**
+ * A pane that opens and closes under its {@link Summary}. It is a native `<details>`
+ * element, so it works with no JavaScript, and find in page opens it.
+ *
+ * @example
+ * <Pane.Disclosure>
+ *   <Pane.Summary>Not seeing your hardware?</Pane.Summary>
+ *   <Pane.Item>Check the cable.</Pane.Item>
+ * </Pane.Disclosure>
+ */
+export const Disclosure = ({ className, ...rest }: DisclosureProps): ReactElement => (
+  <details
+    className={CSS.cls(CSS.B("pane"), CSS.BM("pane", "disclosure"), className)}
+    {...rest}
+  />
+);
+
+/** Props for {@link Summary}. */
+export interface SummaryProps extends ComponentPropsWithoutRef<"summary"> {}
+
+/** The bar that opens and closes a {@link Disclosure}. It ends with a caret. */
+export const Summary = ({
+  className,
+  children,
+  ...rest
+}: SummaryProps): ReactElement => (
+  <summary
+    className={CSS.cls(CSS.BE("pane", "bar"), CSS.BE("pane", "summary"), className)}
+    {...rest}
+  >
+    <span className={CSS.BE("pane", "title")}>{children}</span>
+    <Icon.Caret.Right className={CSS.BE("pane", "indicator")} />
+  </summary>
 );
 
 /** Props for {@link Item}. */

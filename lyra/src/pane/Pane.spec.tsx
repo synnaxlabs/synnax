@@ -43,3 +43,41 @@ describe("Pane", () => {
     expect(button.lastElementChild?.classList).toContain("pluto-pane__caret");
   });
 });
+
+describe("Pane.Disclosure", () => {
+  const renderDisclosure = (open?: boolean) =>
+    render(
+      <Pane.Disclosure open={open}>
+        <Pane.Summary>Not seeing your hardware?</Pane.Summary>
+        <Pane.Item>Check the cable.</Pane.Item>
+      </Pane.Disclosure>,
+    );
+
+  it("should render a native details element with its summary first", () => {
+    renderDisclosure();
+    const summary = screen.getByText("Not seeing your hardware?").closest("summary");
+    expect(summary).not.toBeNull();
+    const details = summary?.parentElement;
+    expect(details?.tagName).toBe("DETAILS");
+    expect(details?.firstElementChild).toBe(summary);
+  });
+
+  it("should start closed", () => {
+    renderDisclosure();
+    const details = screen.getByText("Check the cable.").closest("details");
+    expect(details?.open).toBe(false);
+  });
+
+  it("should start open when asked", () => {
+    renderDisclosure(true);
+    const details = screen.getByText("Check the cable.").closest("details");
+    expect(details?.open).toBe(true);
+  });
+
+  it("should open when the summary is clicked", () => {
+    renderDisclosure();
+    fireEvent.click(screen.getByText("Not seeing your hardware?"));
+    const details = screen.getByText("Check the cable.").closest("details");
+    expect(details?.open).toBe(true);
+  });
+});

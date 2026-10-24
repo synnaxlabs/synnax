@@ -118,10 +118,6 @@
       "types": "./dist/dialog/index.d.ts",
       "default": "./dist/dialog/index.js"
     },
-    "./disclosure": {
-      "types": "./dist/disclosure/index.d.ts",
-      "default": "./dist/disclosure/index.js"
-    },
     "./divider": {
       "types": "./dist/divider/index.d.ts",
       "default": "./dist/divider/index.js"

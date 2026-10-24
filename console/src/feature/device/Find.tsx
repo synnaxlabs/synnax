@@ -17,7 +17,6 @@ import {
   TimeSpan,
 } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Disclosure } from "@synnaxlabs/lyra/disclosure";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -200,19 +199,19 @@ interface ChecksProps {
 }
 
 const Checks = ({ checks, open }: ChecksProps): ReactElement => (
-  <Disclosure.Disclosure open={open}>
-    <Disclosure.Summary>
+  <Pane.Disclosure open={open}>
+    <Pane.Summary>
       <Icon.QuestionMark />
       Not seeing your hardware?
-    </Disclosure.Summary>
-    <Disclosure.Content>
+    </Pane.Summary>
+    <Pane.Item>
       <Steps.List level="small" className={CSS.BE("device-find", "steps")}>
         {checks.map((check) => (
           <Steps.Item key={check}>{check}</Steps.Item>
         ))}
       </Steps.List>
-    </Disclosure.Content>
-  </Disclosure.Disclosure>
+    </Pane.Item>
+  </Pane.Disclosure>
 );
 
 export interface FindProps {
