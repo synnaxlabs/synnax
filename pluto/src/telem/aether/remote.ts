@@ -403,6 +403,8 @@ interface LiveWindowConfig {
   failures: FailureReporter;
   breakerConfig?: breaker.Config;
   notify: () => void;
+  /** @returns the data type of the series the source holds, or undefined if none. */
+  dataType: () => DataType | undefined;
   /** Drops everything the source holds when the channel's data type changes. */
   restart: () => void;
 }
@@ -427,16 +429,7 @@ class LiveWindow {
     const handler: framer.StreamHandler = (res) => {
       if (generation !== this.generation) return;
       const series = res.get(ch.key);
-      if (series == null) return;
-      // Held series of the channel's old data type cannot share a MultiSeries with
-      // the new one.
-      const { dataType } = this.data;
-      if (
-        series.series.some((s) => !s.dataType.equals(dataType)) &&
-        this.data.length > 0
-      )
-        return this.config.restart();
-      this.push(series.series);
+      if (series == null || !this.push(series.series)) return;
       if (seam.liveStart == null && series.series.length > 0) {
         seam.liveStart = TimeStamp.min(...series.series.map((s) => s.timeRange.start));
         void this.fillSeam(generation, client, ch.key, seam);
@@ -459,8 +452,7 @@ class LiveWindow {
       const start = this.config.start();
       if (!liveStart.after(start)) return;
       const res = await client.feed.read(new TimeRange(start, liveStart), ch.key);
-      if (generation !== this.generation) return;
-      this.push(res.series);
+      if (generation !== this.generation || !this.push(res.series)) return;
       seam.backfillEnd = liveStart;
       void this.fillSeam(generation, client, ch.key, seam);
     } catch (e) {
@@ -502,8 +494,7 @@ class LiveWindow {
       try {
         const res = await client.feed.read(new TimeRange(backfillEnd, liveStart), key);
         if (generation !== this.generation) return;
-        this.push(res.series);
-        this.config.notify();
+        if (this.push(res.series)) this.config.notify();
         return;
       } catch (e) {
         this.config.failures.report(e, "Failed to read channel data");
@@ -514,8 +505,15 @@ class LiveWindow {
   // feed.read returns the live leading buffer that the stream's first delivery repeats,
   // so series already held by identity are skipped. Consumers assume the array is
   // chronological, so a late back-fill is inserted by time. Alignment would misorder
-  // the buffers of a restarted Core, which resets its leading alignment.
-  private push(series: Series[]): void {
+  // the buffers of a restarted Core, which resets its leading alignment. Returns false
+  // when a series of a new data type restarts the source.
+  private push(series: Series[]): boolean {
+    const held = this.config.dataType();
+    // Series of two data types cannot share a MultiSeries.
+    if (held != null && series.some((s) => !s.dataType.equals(held))) {
+      this.config.restart();
+      return false;
+    }
     for (const s of series) {
       if (this.data.series.includes(s)) continue;
       s.acquire();
@@ -528,6 +526,7 @@ class LiveWindow {
       if (at === -1) this.data.push(s);
       else this.data.series.splice(at, 0, s);
     }
+    return true;
   }
 
   /** Releases the series that end at or before the cutoff. */
@@ -603,6 +602,7 @@ export class StreamChannelData
       failures: this.failures,
       breakerConfig,
       notify: () => this.notify(),
+      dataType: () => this.window.data.series[0]?.dataType,
       restart: () => {
         this.cleanup();
         this.notify();
@@ -903,10 +903,8 @@ export class TiledChannelData
       failures: this.failures,
       breakerConfig,
       notify: () => this.notify(),
-      restart: () => {
-        this.cleanup();
-        this.notify();
-      },
+      dataType: () => this.dataType(),
+      restart: () => this.restart(),
     });
     this.loading_ = true;
   }
@@ -1110,10 +1108,14 @@ export class TiledChannelData
     const generation = this.generation;
     this.pending.add(key);
     client.feed
-      .readTile(spec)
+      .readTile(spec, this.dataType())
       .then((series) => {
         if (generation !== this.generation) return;
         this.pending.delete(key);
+        const held = this.dataType();
+        // Series of two data types cannot share a MultiSeries.
+        if (held != null && series.series.some((s) => !s.dataType.equals(held)))
+          return this.restart();
         series.acquire();
         this.held.set(key, { spec, series });
         this.tileBreaker.reset();
@@ -1190,6 +1192,18 @@ export class TiledChannelData
   private fail(e: unknown): void {
     this.failures.report(e, "Failed to read channel data");
     this.declareLoaded();
+  }
+
+  // The data type of every series the line holds, or undefined when it holds none.
+  private dataType(): DataType | undefined {
+    for (const tile of this.held.values())
+      if (tile.series.series.length > 0) return tile.series.series[0].dataType;
+    return this.window.data.series[0]?.dataType;
+  }
+
+  private restart(): void {
+    this.cleanup();
+    this.notify();
   }
 
   cleanup(): void {
