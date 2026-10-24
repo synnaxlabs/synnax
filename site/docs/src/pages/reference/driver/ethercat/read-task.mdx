@@ -120,8 +120,9 @@ Reads data from a TxPDO using explicit CoE addressing.
 ## Important rules
 
 - **Network constraint** -> All channels must use devices on the same network interface.
-- **Hardware timing** -> EtherCAT timing is deterministic. The sample rate sets the
-  EtherCAT cycle time.
+- **Hardware timing** -> EtherCAT timing is deterministic. The sample rate sets how
+  often the task takes a sample from the bus. See
+  [how the Driver runs a network](/reference/driver/ethercat/get-started#how-the-driver-runs-a-network).
 - **Stream rate** -> For sample rates under 50 Hz, set the stream rate equal to the
   sample rate. Above that, keep the stream rate under 50 Hz.
 
