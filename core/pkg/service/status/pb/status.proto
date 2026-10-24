@@ -48,7 +48,7 @@ message Status {
   // "Started task". A status that reports a state names the state instead, such as
   // "Driver not running".
   string message = 4;
-  // description says why it happened and what to do next, in full sentences. Raw error
+  // description says why it happened and what to do now, in full sentences. Raw error
   // text goes here, never in the message. Empty when the message says enough.
   string description = 5;
   // time is the timestamp when the status was created.

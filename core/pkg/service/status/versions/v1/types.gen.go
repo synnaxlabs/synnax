@@ -49,8 +49,8 @@ type Status[Details any] struct {
 	// "Started task". A status that reports a state names the state instead, such as
 	// "Driver not running".
 	Message string `json:"message" msgpack:"message"`
-	// Description says why it happened and what to do next, in full sentences. Raw
-	// error text goes here, never in the message. Empty when the message says enough.
+	// Description says why it happened and what to do now, in full sentences. Raw error
+	// text goes here, never in the message. Empty when the message says enough.
 	Description string `json:"description" msgpack:"description"`
 	// Time is the timestamp when the status was created.
 	Time telem.TimeStamp `json:"time" msgpack:"time"`

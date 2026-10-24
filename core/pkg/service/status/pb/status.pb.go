@@ -155,7 +155,7 @@ type Status struct {
 	// "Started task". A status that reports a state names the state instead, such as
 	// "Driver not running".
 	Message string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	// description says why it happened and what to do next, in full sentences. Raw error
+	// description says why it happened and what to do now, in full sentences. Raw error
 	// text goes here, never in the message. Empty when the message says enough.
 	Description string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
 	// time is the timestamp when the status was created.

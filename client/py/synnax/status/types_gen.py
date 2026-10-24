@@ -55,7 +55,7 @@ class Status(BaseModel, Generic[Details]):
         message: Says what happened in one short line, such as "Failed to start task" or
             "Started task". A status that reports a state names the state instead, such
             as "Driver not running".
-        description: Says why it happened and what to do next, in full sentences. Raw
+        description: Says why it happened and what to do now, in full sentences. Raw
             error text goes here, never in the message. Empty when the message says
             enough.
         time: Is the timestamp when the status was created.

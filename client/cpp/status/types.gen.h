@@ -55,7 +55,7 @@ struct Status {
     /// task" or "Started task". A status that reports a state names the state instead,
     /// such as "Driver not running".
     std::string message;
-    /// @brief description says why it happened and what to do next, in full sentences.
+    /// @brief description says why it happened and what to do now, in full sentences.
     /// Raw error text goes here, never in the message. Empty when the message says
     /// enough.
     std::string description = "";
