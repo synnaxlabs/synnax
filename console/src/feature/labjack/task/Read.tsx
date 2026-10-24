@@ -24,7 +24,7 @@ import {
   convertReadChannelTypeToPortType,
 } from "@/feature/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
-import { CustomScaleForm, FORMS } from "@/feature/labjack/task/ReadChannelForms";
+import { FORMS } from "@/feature/labjack/task/ReadChannelForms";
 import {
   READ_CHANNEL_TYPE_NAMES,
   SelectReadChannelTypeField,
@@ -38,6 +38,7 @@ import {
   type ReadChannel,
   type ReadChannelType,
   type ReadSchemas,
+  SCALE_SCHEMAS,
 } from "@/feature/labjack/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
@@ -155,7 +156,7 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
       )}
       {"scale" in channel && (
         <PForm.Section title="Scale">
-          <CustomScaleForm prefix={path} />
+          <Task.ScaleForm path={`${path}.scale`} schemas={SCALE_SCHEMAS} />
         </PForm.Section>
       )}
     </PForm.Sections>
