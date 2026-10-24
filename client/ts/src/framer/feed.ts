@@ -24,7 +24,7 @@ import {
   type StreamHandler,
   type Subscription,
 } from "@/framer/cache/streamer";
-import { TileReader, type TileRemoteReader, type TileSpec } from "@/framer/cache/tile";
+import { TileReader, type TileSpec } from "@/framer/cache/tile";
 import { type Frame } from "@/framer/frame";
 import { HardenedStreamer } from "@/framer/hardened";
 import { type StreamOpener } from "@/framer/streamer";
@@ -44,7 +44,6 @@ export interface FeedProps
     Omit<MultiplexedStreamerProps, "cache" | "openStreamer"> {
   openStreamer: StreamOpener;
   readLatest: LatestReader;
-  readTileRemote: TileRemoteReader;
   /**
    * Byte size the tile cache evicts down to. Tiles a caller holds are never evicted.
    * @default Size.megabytes(128)
@@ -57,7 +56,7 @@ export interface FeedProps
 /** The part of {@link FeedProps} a caller sets. The client supplies the rest. */
 export interface FeedOptions extends Omit<
   FeedProps,
-  "readRemote" | "openStreamer" | "readLatest" | "readTileRemote" | "onRetry"
+  "readRemote" | "openStreamer" | "readLatest" | "onRetry"
 > {}
 
 /**
@@ -79,7 +78,6 @@ export class Feed {
       readRemote,
       openStreamer,
       readLatest,
-      readTileRemote,
       tileBudget,
       transform = DEFAULT_STATIC_PROPS.transform,
       instrumentation,
@@ -112,11 +110,12 @@ export class Feed {
       now,
     });
     this.tiles = new TileReader({
-      readRemote: readTileRemote,
+      readRemote,
       transform,
       batchDebounce,
       budget: tileBudget,
       staleThreshold: staleCoverageThreshold,
+      fetchTimeout,
     });
     this.streamer = new MultiplexedStreamer({
       cache: this.cache,
@@ -178,6 +177,7 @@ export class Feed {
    * equal bounds and options within one batch window share a single request, so their
    * series share one group size.
    * @throws {UnexpectedError} if the feed is closed while the read is pending.
+   * @throws {Unreachable} if the fetch serving the read exceeds the fetch timeout.
    */
   async readTile(spec: TileSpec): Promise<MultiSeries> {
     return await this.tiles.read(spec);

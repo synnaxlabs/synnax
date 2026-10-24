@@ -16,7 +16,7 @@ export {
 } from "@/framer/cache/streamer";
 export {
   tileRange,
-  type TileRemoteReader,
+  tileRequestKey,
   tileSpan,
   type TileSpec,
 } from "@/framer/cache/tile";
