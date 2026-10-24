@@ -12,18 +12,31 @@ import "@/schematic/node/general/setpoint/setpoint.css";
 import { type schematic } from "@synnaxlabs/client";
 import { Button as BaseButton } from "@synnaxlabs/lyra/button";
 import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input as BaseInput } from "@synnaxlabs/lyra/input";
-import { type CSSProperties, type ReactElement, useRef, useState } from "react";
+import { color } from "@synnaxlabs/x";
+import {
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
-interface RenderProps
-  extends
-    Partial<Omit<schematic.SetpointNodeConfig, "variant" | "label" | "scale">>,
-    Omit<BaseInput.Control<number>, "value"> {
+interface RenderProps extends Partial<
+  Omit<schematic.SetpointNodeConfig, "variant" | "label" | "scale">
+> {
   className?: string;
   style?: CSSProperties;
+  /** value is the last commanded value, or null when none is known. */
+  value?: number | null;
+  /** readback renders under the field and shows the value the device holds. */
+  readback?: ReactNode;
+  onSend: (value: number) => void;
 }
 
 export const Setpoint = ({
@@ -32,18 +45,41 @@ export const Setpoint = ({
   style,
   units,
   fillColor,
-  onChange,
+  onSend,
   size = "small",
   disabled,
   onClickDelay,
+  value = null,
+  readback,
+  inlineSize,
 }: RenderProps): ReactElement => {
-  const [currValue, setCurrValue] = useState(0);
+  // A draft is a typed value not yet sent. Without one, the field follows the target,
+  // and stays blank while no target is known.
+  const [draft, setDraft] = useState<number | null>(null);
+  const shown = draft ?? value;
+  const dirty = draft != null && draft !== value;
   const inputRef = useRef<HTMLInputElement>(null);
+  const symbolColor = color.rgbaString(fillColor);
+  const mergedStyle = useMemo(
+    () => ({
+      ...style,
+      [CSS.variable("symbol-color")]: symbolColor,
+      [CSS.variable("symbol-field-width")]: inlineSize && `${inlineSize}px`,
+    }),
+    [style, symbolColor, inlineSize],
+  );
   return (
     <Primitive.Div
-      className={CSS.cls(CSS.B("setpoint"), className)}
+      className={CSS.cls(
+        CSS.B("setpoint"),
+        CSS.B("symbol-colored"),
+        CSS.B("symbol-field"),
+        symbolColor != null && CSS.M("colored"),
+        dirty && CSS.M("dirty"),
+        className,
+      )}
       orientation={orientation}
-      style={style}
+      style={mergedStyle}
     >
       <Handle.Boundary orientation={orientation}>
         <Handle.Handle
@@ -75,31 +111,38 @@ export const Setpoint = ({
           id="4"
         />
       </Handle.Boundary>
-      <BaseInput.Numeric
-        ref={inputRef}
-        size={size}
-        value={currValue}
-        onChange={setCurrValue}
-        showDragHandle={false}
-        selectOnFocus
-        endContent={units}
-        color={fillColor}
-        borderWidth={1}
-        disabled={disabled}
-      >
-        <BaseButton.Button
+      <Flex.Box y align="stretch" gap={0}>
+        <BaseInput.Numeric
+          ref={inputRef}
           size={size}
-          variant="filled"
-          onClick={() => onChange(currValue)}
-          onClickDelay={onClickDelay}
-          color={fillColor}
-          // WebKit leaves the input focused on a button press, so the typed value would
-          // never commit. Blurring commits it before the click or hold sends.
-          onMouseDown={() => inputRef.current?.blur()}
+          className={CSS.BE("symbol-field", "control")}
+          value={shown ?? NaN}
+          emptyValue={NaN}
+          onChange={(v) => setDraft(Number.isNaN(v) ? null : v)}
+          showDragHandle={false}
+          selectOnFocus
+          endContent={units === "" ? undefined : units}
+          borderWidth={1}
+          disabled={disabled}
         >
-          Set
-        </BaseButton.Button>
-      </BaseInput.Numeric>
+          <BaseButton.Button
+            size={size}
+            variant="filled"
+            onClick={() => {
+              if (shown == null) return;
+              onSend(shown);
+              setDraft(null);
+            }}
+            onClickDelay={onClickDelay}
+            // WebKit leaves the input focused on a button press, so the typed value
+            // would never commit. Blurring commits it before the click or hold sends.
+            onMouseDown={() => inputRef.current?.blur()}
+          >
+            Set
+          </BaseButton.Button>
+        </BaseInput.Numeric>
+        {readback}
+      </Flex.Box>
     </Primitive.Div>
   );
 };

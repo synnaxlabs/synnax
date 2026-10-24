@@ -10,16 +10,6 @@
  */
 
 .pluto-setpoint {
-    --pluto-border-color: var(--pluto-symbol-display);
-
-    .pluto-input {
-        width: min-content;
-    }
-
-    input {
-        min-width: 12rem;
-    }
-
     .pluto-handle__2 {
         z-index: 5;
     }

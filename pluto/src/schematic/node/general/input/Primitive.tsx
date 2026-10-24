@@ -12,8 +12,16 @@ import "@/schematic/node/general/input/input.css";
 import { type schematic } from "@synnaxlabs/client";
 import { Button as BaseButton } from "@synnaxlabs/lyra/button";
 import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input as BaseInput } from "@synnaxlabs/lyra/input";
-import { type ReactElement, useState } from "react";
+import { color } from "@synnaxlabs/x";
+import {
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+  useMemo,
+  useState,
+} from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -21,26 +29,50 @@ import { Primitive } from "@/schematic/node/common/primitive";
 interface PrimitiveProps extends Partial<
   Omit<schematic.InputNodeConfig, "variant" | "label" | "scale">
 > {
-  initialValue?: string;
+  /** value is the last sent string, or null when none is known. */
+  value?: string | null;
+  /** readback renders under the field and shows the value the device holds. */
+  readback?: ReactNode;
   className?: string;
   onSend?: (value: string) => void;
 }
 
 export const Input = ({
   className,
-  initialValue = "",
+  value = null,
+  readback,
   orientation = "left",
   fillColor,
   size,
   onSend,
   disabled,
   onClickDelay,
+  inlineSize,
 }: PrimitiveProps): ReactElement => {
-  const [value, setValue] = useState(initialValue);
+  // A draft is a typed value not yet sent. Without one, the field follows the target.
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = draft ?? value ?? "";
+  const dirty = draft != null && draft !== value;
+  const symbolColor = color.rgbaString(fillColor);
+  const style = useMemo<CSSProperties>(
+    () => ({
+      [CSS.variable("symbol-color")]: symbolColor,
+      [CSS.variable("symbol-field-width")]: inlineSize && `${inlineSize}px`,
+    }),
+    [symbolColor, inlineSize],
+  );
   return (
     <Primitive.Div
       orientation={orientation}
-      className={CSS.cls(CSS.B("input-symbol"), className)}
+      className={CSS.cls(
+        CSS.B("input-symbol"),
+        CSS.B("symbol-colored"),
+        CSS.B("symbol-field"),
+        symbolColor != null && CSS.M("colored"),
+        dirty && CSS.M("dirty"),
+        className,
+      )}
+      style={style}
     >
       <Handle.Rectangle
         orientation={orientation}
@@ -49,24 +81,29 @@ export const Input = ({
         right={100}
         bottom={100}
       />
-      <BaseInput.Text
-        value={value}
-        onChange={setValue}
-        size={size}
-        borderWidth={1}
-        disabled={disabled}
-        color={fillColor}
-      >
-        <BaseButton.Button
+      <Flex.Box y align="stretch" gap={0}>
+        <BaseInput.Text
+          value={shown}
+          onChange={setDraft}
+          className={CSS.BE("symbol-field", "control")}
           size={size}
-          variant="filled"
-          onClick={() => onSend?.(value)}
-          onClickDelay={onClickDelay}
-          color={fillColor}
+          borderWidth={1}
+          disabled={disabled}
         >
-          Send
-        </BaseButton.Button>
-      </BaseInput.Text>
+          <BaseButton.Button
+            size={size}
+            variant="filled"
+            onClick={() => {
+              onSend?.(shown);
+              setDraft(null);
+            }}
+            onClickDelay={onClickDelay}
+          >
+            Set
+          </BaseButton.Button>
+        </BaseInput.Text>
+        {readback}
+      </Flex.Box>
     </Primitive.Div>
   );
 };

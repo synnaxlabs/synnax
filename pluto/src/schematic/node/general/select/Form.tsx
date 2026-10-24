@@ -18,6 +18,7 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
+import { Staleness } from "@/vis/staleness";
 
 export const colorFallbacks = {
   fillColor: Form.primaryFallback,
@@ -40,6 +41,7 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
 
   return (
     <Base.Sections x>
+      <Form.StateSection />
       <Base.Section title="Command">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
@@ -50,6 +52,9 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
         </Input.Item>
         <Form.ActivationDelayField />
         <Form.ControlChipField />
+      </Base.Section>
+      <Base.Section title="Staleness">
+        <Staleness.Fields />
       </Base.Section>
     </Base.Sections>
   );
