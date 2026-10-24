@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// MigrateLinePlot lifts a v6 line plot to v7, migrating each of its lines.
 func MigrateLinePlot(ctx context.Context, old v6.LinePlot) (LinePlot, error) {
 	return autoMigrateLinePlot(ctx, old)
 }
@@ -28,12 +29,12 @@ func MigrateLine(ctx context.Context, old v6.Line) (Line, error) {
 	if err != nil {
 		return Line{}, err
 	}
-	l.Aggregation = AggregationMinMax
 	if old.DownsampleMode == v6.DownsampleModeAverage {
 		l.Aggregation = AggregationAverage
 	}
-	l.Detail = DetailMedium
+	l.ApplyDefaults()
 	return l, nil
 }
 
+// Migration lifts stored v6 line plots to v7.
 var Migration = gorp.NewEntryMigration("v59_line_reduction", MigrateLinePlot)
