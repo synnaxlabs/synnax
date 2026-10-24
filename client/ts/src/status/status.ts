@@ -187,6 +187,9 @@ const causeChain = (err: Error): string | undefined => {
  */
 export type Heading = string | Pick<Base<Variant>, "message" | "name">;
 
+const joinParts = (parts: Array<string | undefined>, separator: string): string =>
+  parts.filter((part) => part != null && part.length > 0).join(separator);
+
 /**
  * Turns any thrown value into an error status. The heading sets the message and name.
  * The error's own message and its flattened cause chain form the description, and the
@@ -202,14 +205,12 @@ export const fromException = (
   // Probe the original (pre-coercion) value so a non-Error throwable with a custom
   // `toStatus()` method still contributes its status fields.
   const custom = safeToStatus(exc);
-  const reason =
-    custom?.description ??
-    [err.message, causeChain(err)].filter((part) => part != null).join(": ");
+  const reason = custom?.description ?? joinParts([err.message, causeChain(err)], ": ");
   return create<typeof exceptionDetailsSchema, "error">({
     variant: "error",
     name,
     message,
-    description: [custom?.message, reason].filter((part) => part != null).join(". "),
+    description: joinParts([custom?.message, reason], ". "),
     details: { stack: err.stack ?? "", error: cloneSafeError(err), ...custom?.details },
   });
 };

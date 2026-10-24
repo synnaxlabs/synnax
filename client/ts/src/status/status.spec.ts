@@ -784,6 +784,24 @@ describe("fromException", () => {
     expect(s.description).toBe("Failed to parse task config. outer: inner");
   });
 
+  it("should leave out an empty toStatus() description", () => {
+    class EmptyDescriptionError extends Error {
+      toStatus() {
+        return { message: "Failed to connect to server", description: "" };
+      }
+    }
+    const s = status.fromException(new EmptyDescriptionError("boom"), HEADING);
+    expect(s.description).toBe("Failed to connect to server");
+  });
+
+  it("should leave out an empty error message before the cause chain", () => {
+    const s = status.fromException(
+      new Error("", { cause: new Error("inner") }),
+      HEADING,
+    );
+    expect(s.description).toBe("inner");
+  });
+
   it("should merge custom toStatus() details with the stack and original error", () => {
     const { details } = status.fromException(new CustomError("boom"), HEADING);
     expect(details.taskKey).toBe("tk-1");
