@@ -59,11 +59,10 @@ func ArcFromPB(pb *Arc) (arc.Arc, error) {
 		return r, nil
 	}
 	var err error
-	parsedKey, err := uuid.Parse(pb.Key)
+	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
 		return arc.Arc{}, err
 	}
-	r.Key = arc.Key(parsedKey)
 	r.Mode, err = ModeFromPB(pb.Mode)
 	if err != nil {
 		return arc.Arc{}, err

@@ -14,6 +14,7 @@ import (
 	"encoding/json/v2"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/legacy"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
@@ -21,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"

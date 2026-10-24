@@ -14,6 +14,7 @@
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
+#include "x/cpp/telem/mono_clock.h"
 #include "x/cpp/telem/series.h"
 
 namespace driver::common {
@@ -158,7 +159,8 @@ class HardwareTimedSampleClock final : public SampleClock {
 
 public:
     explicit HardwareTimedSampleClock(HardwareTimedSampleClockConfig cfg):
-        cfg(std::move(cfg)), samples_per_chan(cfg.sample_rate / cfg.stream_rate) {
+        cfg(std::move(cfg)),
+        samples_per_chan(this->cfg.sample_rate / this->cfg.stream_rate) {
         this->cfg.validate();
     }
 

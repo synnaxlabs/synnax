@@ -41,7 +41,7 @@ export const useToggleScanner = (rackKey: rack.Key) => {
         );
         addStatus({
           variant: "success",
-          message: `NI device scanning ${disabled ? "disabled" : "enabled"}`,
+          message: `${disabled ? "Disabled" : "Enabled"} NI device scanning`,
         });
       }, "Failed to toggle NI device scanner"),
     [client, addStatus, handleError, rackKey],

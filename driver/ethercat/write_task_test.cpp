@@ -106,7 +106,7 @@ protected:
         return dev;
     }
 
-    synnax::device::Device create_slave_device(
+    [[nodiscard]] synnax::device::Device create_slave_device(
         uint32_t serial,
         const x::json::json &input_pdos,
         const x::json::json &output_pdos
@@ -191,10 +191,11 @@ protected:
     }
 };
 
+/// @brief it should parse a write channel bound to an entry address.
 TEST_F(EtherCATWriteTest, ParseConfigWithEntryChannel) {
     const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
     );
@@ -209,10 +210,11 @@ TEST_F(EtherCATWriteTest, ParseConfigWithEntryChannel) {
     EXPECT_EQ(task_cfg.outputs[0]->data_type, x::telem::INT16_T);
 }
 
+/// @brief it should take the bit length of a write channel from the slave.
 TEST_F(EtherCATWriteTest, ParseConfigTakesBitLengthFromTheSlave) {
     const auto cmd_ch = create_command_channel("cmd", x::telem::FLOAT32_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_output_channel_config(cmd_ch.key, 0x7000, 2, "float32")
     );
@@ -241,7 +243,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithStateChannel) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16", state_ch.key)
     );
@@ -253,6 +255,8 @@ TEST_F(EtherCATWriteTest, ParseConfigWithStateChannel) {
     EXPECT_EQ(task_cfg.state_channels.size(), 1);
 }
 
+/// @brief it should pair each state channel with the command channel that names it, not
+/// with the channel at the same position.
 TEST_F(EtherCATWriteTest, StateChannelPairsWithItsOwnCommandChannel) {
     auto cmd_1 = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("cmd_1"),
@@ -273,7 +277,7 @@ TEST_F(EtherCATWriteTest, StateChannelPairsWithItsOwnCommandChannel) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_output_channel_config(cmd_1.key, 0x7000, 1, "int16")
     );
@@ -302,7 +306,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithMultipleChannels) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_output_channel_config(ch1.key, 0x7000, 1, "int16")
     );
@@ -316,10 +320,11 @@ TEST_F(EtherCATWriteTest, ParseConfigWithMultipleChannels) {
     EXPECT_EQ(task_cfg.outputs.size(), 2);
 }
 
+/// @brief it should report a write channel at an address the slave does not have.
 TEST_F(EtherCATWriteTest, ParseConfigWithAddressMissingFromSlave) {
     const auto cmd_ch = create_command_channel("cmd", x::telem::INT32_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_output_channel_config(cmd_ch.key, 0x7000, 3, "int32")
     );
@@ -336,10 +341,11 @@ TEST_F(EtherCATWriteTest, ParseConfigWithAddressMissingFromSlave) {
     );
 }
 
+/// @brief it should report a write channel whose name was not resolved to an address.
 TEST_F(EtherCATWriteTest, ParseConfigWithUnresolvedChannel) {
     const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_unresolved_output_channel_config(cmd_ch.key, "Analog Output Ch2")
     );
@@ -357,11 +363,13 @@ TEST_F(EtherCATWriteTest, ParseConfigWithUnresolvedChannel) {
     );
 }
 
+/// @brief it should report a second write channel on an entry another channel already
+/// uses.
 TEST_F(EtherCATWriteTest, ParseConfigRejectsTwoChannelsOnOneEntry) {
     const auto ch1 = create_command_channel("ch1", x::telem::INT16_T);
     const auto ch2 = create_command_channel("ch2", x::telem::INT16_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_output_channel_config(ch1.key, 0x7000, 1, "int16")
     );
@@ -381,11 +389,12 @@ TEST_F(EtherCATWriteTest, ParseConfigRejectsTwoChannelsOnOneEntry) {
     );
 }
 
+/// @brief it should allow a disabled write channel on an entry another channel uses.
 TEST_F(EtherCATWriteTest, ParseConfigAllowsADisabledChannelOnAUsedEntry) {
     const auto ch1 = create_command_channel("ch1", x::telem::INT16_T);
     const auto ch2 = create_command_channel("ch2", x::telem::INT16_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_output_channel_config(ch1.key, 0x7000, 1, "int16")
     );
@@ -399,6 +408,8 @@ TEST_F(EtherCATWriteTest, ParseConfigAllowsADisabledChannelOnAUsedEntry) {
     EXPECT_EQ(task_cfg.outputs.size(), 1);
 }
 
+/// @brief it should bind a write channel to each entry of a slave whose entries all
+/// have the same name.
 TEST_F(EtherCATWriteTest, ParseConfigReachesEveryEntryOfASlaveThatRepeatsOneName) {
     x::json::json outputs = x::json::json::array();
     for (int i = 0; i < 8; i++)
@@ -417,7 +428,7 @@ TEST_F(EtherCATWriteTest, ParseConfigReachesEveryEntryOfASlaveThatRepeatsOneName
         outputs
     );
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     for (int i = 0; i < 8; i++) {
         const auto ch = create_command_channel("output", x::telem::UINT8_T);
         cfg["channels"].push_back(
@@ -450,7 +461,7 @@ TEST_F(EtherCATWriteTest, CmdKeysReturnsAllCommandChannels) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_output_channel_config(ch1.key, 0x7000, 1, "int16")
     );
@@ -476,7 +487,7 @@ TEST_F(EtherCATWriteTest, SinkStartRegistersWithEngine) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
     );
@@ -517,10 +528,11 @@ TEST_F(EtherCATWriteTest, InvalidSlaveDevice) {
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
 }
 
+/// @brief it should report a write channel with an unknown type.
 TEST_F(EtherCATWriteTest, ParseConfigReportsAnUnknownChannelType) {
     const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         {{"type", "manual"},
          {"device", slave_device.key},
@@ -541,10 +553,11 @@ TEST_F(EtherCATWriteTest, ParseConfigReportsAnUnknownChannelType) {
     EXPECT_EQ(errors[0]["message"], "unknown WriteChannel type: manual");
 }
 
+/// @brief it should report a write channel whose data type is wider than its entry.
 TEST_F(EtherCATWriteTest, ParseConfigRejectsADataTypeWiderThanTheEntry) {
     const auto cmd_ch = create_command_channel("cmd", x::telem::FLOAT64_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_output_channel_config(cmd_ch.key, 0x7000, 1, "float64")
     );
@@ -736,10 +749,12 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     ASSERT_OCCURRED_AS(sink.start(), errors::TOPOLOGY_MISMATCH);
 }
 
+/// @brief it should fail to start the sink when the bus no longer has a configured
+/// entry.
 TEST_F(EtherCATWriteTest, SinkStartFailsWhenTheBusLacksAnEntry) {
     const auto cmd_ch = create_command_channel("setpoint", x::telem::INT32_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_output_channel_config(cmd_ch.key, 0x7000, 2, "int32")
     );
@@ -776,10 +791,12 @@ TEST_F(EtherCATWriteTest, SinkStartFailsWhenTheBusLacksAnEntry) {
     EXPECT_FALSE(remapped_engine->running());
 }
 
+/// @brief it should fail to start the sink when a configured entry changed its bit
+/// length on the bus.
 TEST_F(EtherCATWriteTest, SinkStartFailsWhenAnEntryChangedBitLength) {
     const auto cmd_ch = create_command_channel("setpoint", x::telem::INT32_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_output_channel_config(cmd_ch.key, 0x7000, 2, "int32")
     );

@@ -14,6 +14,9 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#else
+#include <termios.h>
+#include <unistd.h>
 #endif
 
 #include <iostream>
@@ -50,9 +53,14 @@ inline std::string prompt(
         GetConsoleMode(h_stdin, &mode);
         if (hide_input) SetConsoleMode(h_stdin, mode & (~ENABLE_ECHO_INPUT));
 #else
-        if (hide_input)
-            if (int result = system("stty -echo"); result != 0)
+        termios mode{};
+        const bool hidden = hide_input && tcgetattr(STDIN_FILENO, &mode) == 0;
+        if (hidden) {
+            termios no_echo = mode;
+            no_echo.c_lflag &= ~static_cast<tcflag_t>(ECHO);
+            if (tcsetattr(STDIN_FILENO, TCSANOW, &no_echo) != 0)
                 std::cerr << "warning: failed to hide input" << std::endl;
+        }
 #endif
 
         std::string input;
@@ -64,7 +72,7 @@ inline std::string prompt(
 #ifdef _WIN32
             SetConsoleMode(h_stdin, mode);
 #else
-            if (int result = system("stty echo"); result != 0)
+            if (hidden && tcsetattr(STDIN_FILENO, TCSANOW, &mode) != 0)
                 std::cerr << "warning: failed to restore terminal echo" << std::endl;
 #endif
         }
@@ -123,8 +131,8 @@ inline T prompt(
         "Template parameter T must be an arithmetic type"
     );
     while (true) {
-        std::string prompt_text = message;
-        std::string default_str = "";
+        const std::string &prompt_text = message;
+        std::string default_str;
         if (default_value.has_value()) default_str = std::to_string(*default_value);
         std::string input = prompt(prompt_text, default_str, false, in, out);
         try {

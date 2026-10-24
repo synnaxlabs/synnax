@@ -154,6 +154,8 @@ std::pair<std::string, std::string> only_error(const x::json::Parser &parser) {
 }
 }
 
+/// @brief it should bind an input channel to the entry at its address, with the bit
+/// length from the slave.
 TEST(Input, BindsAUniqueEntryWithBitLengthFromTheSlave) {
     const auto slave = padded_slave();
     const auto j = read_entry(0x6000, 0x11, "uint16");
@@ -171,6 +173,7 @@ TEST(Input, BindsAUniqueEntryWithBitLengthFromTheSlave) {
     ASSERT_EQ(ch->data_type, x::telem::UINT16_T);
 }
 
+/// @brief it should report a data type that is wider than the entry.
 TEST(Input, ReportsADataTypeWiderThanTheEntry) {
     const auto slave = padded_slave();
     const auto j = read_entry(0x6000, 0x11, "float64");
@@ -186,6 +189,7 @@ TEST(Input, ReportsADataTypeWiderThanTheEntry) {
     ASSERT_EQ(ch->index, 0);
 }
 
+/// @brief it should report a data type that is narrower than the entry.
 TEST(Input, ReportsADataTypeNarrowerThanTheEntry) {
     const auto slave = padded_slave();
     const auto j = read_entry(0x6000, 0x11, "int8");
@@ -200,6 +204,7 @@ TEST(Input, ReportsADataTypeNarrowerThanTheEntry) {
     );
 }
 
+/// @brief it should report a data type that is not a number type.
 TEST(Input, ReportsADataTypeTheCyclicExchangeCannotCarry) {
     const auto slave = padded_slave();
     const auto j = read_entry(0x6000, 0x11, "timestamp");
@@ -215,6 +220,7 @@ TEST(Input, ReportsADataTypeTheCyclicExchangeCannotCarry) {
     ASSERT_EQ(ch->index, 0);
 }
 
+/// @brief it should bind no entry when the slave has no entry at the address.
 TEST(Input, BindsNoEntryAtAnAddressTheSlaveDoesNotHave) {
     const auto slave = padded_slave();
     const auto j = read_entry(0x6010, 1);
@@ -225,6 +231,7 @@ TEST(Input, BindsNoEntryAtAnAddressTheSlaveDoesNotHave) {
     ASSERT_EQ(ch->bit_length, 0);
 }
 
+/// @brief it should bind each entry of a slave whose entries all have the same name.
 TEST(Input, BindsEveryEntryOfASlaveThatRepeatsOneName) {
     const auto slave = repeated_name_slave();
     std::set<std::pair<uint16_t, uint8_t>> addresses;
@@ -241,6 +248,7 @@ TEST(Input, BindsEveryEntryOfASlaveThatRepeatsOneName) {
     ASSERT_EQ(addresses.size(), 8);
 }
 
+/// @brief it should report an address at which the slave has no input entry.
 TEST(Input, ReportsAnAddressTheSlaveDoesNotHave) {
     const auto slave = padded_slave();
     const auto j = read_entry(0x6010, 1);
@@ -251,6 +259,7 @@ TEST(Input, ReportsAnAddressTheSlaveDoesNotHave) {
     ASSERT_EQ(message, "slave EL3102 has no input entry at 0x6010:01");
 }
 
+/// @brief it should report the padding address as an address with no entry.
 TEST(Input, ReportsAPaddingAddress) {
     const auto slave = padded_slave();
     const auto j = read_entry(0, 0);
@@ -261,6 +270,8 @@ TEST(Input, ReportsAPaddingAddress) {
     ASSERT_EQ(message, "slave EL3102 has no input entry at 0x0000:00");
 }
 
+/// @brief it should report the address of an output entry as missing for an input
+/// channel.
 TEST(Input, ReportsAnOutputAddressAsMissing) {
     const auto slave = repeated_name_slave();
     const auto j = read_entry(0x7000, 1);
@@ -271,6 +282,8 @@ TEST(Input, ReportsAnOutputAddressAsMissing) {
     ASSERT_EQ(message, "slave EL1008 has no input entry at 0x7000:01");
 }
 
+/// @brief it should list each matching address when an unresolved name matches more
+/// than one entry.
 TEST(Input, ListsEveryAddressOfARepeatedNameWhenUnresolved) {
     const auto slave = repeated_name_slave();
     const auto j = read_unresolved("Input");
@@ -287,6 +300,7 @@ TEST(Input, ListsEveryAddressOfARepeatedNameWhenUnresolved) {
     );
 }
 
+/// @brief it should report an unresolved name that matches no entry on the slave.
 TEST(Input, ReportsAnUnresolvedNameTheSlaveDoesNotHave) {
     const auto slave = padded_slave();
     const auto j = read_unresolved("Analog Input Ch1");
@@ -300,6 +314,7 @@ TEST(Input, ReportsAnUnresolvedNameTheSlaveDoesNotHave) {
     );
 }
 
+/// @brief it should name the address of the one entry that an unresolved name matches.
 TEST(Input, NamesTheOneAddressOfAnUnresolvedName) {
     const auto slave = padded_slave();
     const auto j = read_unresolved("Value");
@@ -313,6 +328,7 @@ TEST(Input, NamesTheOneAddressOfAnUnresolvedName) {
     );
 }
 
+/// @brief it should name an address only once when several PDOs map the same entry.
 TEST(Input, NamesAnAddressThatSeveralPDOsRepeatOnce) {
     slave::Properties slave{.position = 2, .name = "EJ7342"};
     for (uint16_t i = 0; i < 4; i++)
@@ -338,6 +354,8 @@ TEST(Input, NamesAnAddressThatSeveralPDOsRepeatOnce) {
     );
 }
 
+/// @brief it should report no errors for a disabled channel, even when its entry cannot
+/// be bound.
 TEST(Input, DisabledChannelsCarryNoErrors) {
     const auto slave = padded_slave();
     auto unresolved = read_unresolved("Value");
@@ -351,6 +369,7 @@ TEST(Input, DisabledChannelsCarryNoErrors) {
     ASSERT_TRUE(missing_parser.ok()) << missing_parser.error_json().dump();
 }
 
+/// @brief it should keep the disabled flag of a channel.
 TEST(Input, KeepsTheDisabledFlag) {
     const auto slave = padded_slave();
     const auto j = read_entry(0x6000, 1, "uint8", true);
@@ -360,6 +379,7 @@ TEST(Input, KeepsTheDisabledFlag) {
     ASSERT_FALSE(ch->enabled);
 }
 
+/// @brief it should enable a channel when its config has no disabled field.
 TEST(Input, EnabledDefaultsToTrue) {
     const auto slave = padded_slave();
     auto j = read_entry(0x6000, 1);
@@ -385,6 +405,8 @@ TEST(Input, BindRemoteInfoCopiesChannelInformation) {
     ASSERT_EQ(ch->ch.data_type, x::telem::INT16_T);
 }
 
+/// @brief it should bind an output channel to the entry at its address, with the bit
+/// length from the slave.
 TEST(Output, BindsAnEntryWithBitLengthFromTheSlave) {
     const auto slave = repeated_name_slave();
     const auto j = write_entry(0x7030, 1);
@@ -401,6 +423,8 @@ TEST(Output, BindsAnEntryWithBitLengthFromTheSlave) {
     ASSERT_EQ(ch->data_type, x::telem::UINT8_T);
 }
 
+/// @brief it should report the address of an input entry as missing for an output
+/// channel.
 TEST(Output, ReportsAnInputAddressAsMissing) {
     const auto slave = repeated_name_slave();
     const auto j = write_entry(0x6000, 1);
@@ -411,6 +435,7 @@ TEST(Output, ReportsAnInputAddressAsMissing) {
     ASSERT_EQ(message, "slave EL1008 has no output entry at 0x6000:01");
 }
 
+/// @brief it should report a data type that is wider than the entry.
 TEST(Output, ReportsADataTypeWiderThanTheEntry) {
     const auto slave = repeated_name_slave();
     const auto j = write_entry(0x7000, 1, "float32");
@@ -426,6 +451,8 @@ TEST(Output, ReportsADataTypeWiderThanTheEntry) {
     ASSERT_EQ(ch->index, 0);
 }
 
+/// @brief it should list each matching address when an unresolved name matches more
+/// than one entry.
 TEST(Output, ListsEveryAddressOfARepeatedNameWhenUnresolved) {
     auto slave = repeated_name_slave();
     slave.output_pdos.resize(2);
@@ -441,6 +468,7 @@ TEST(Output, ListsEveryAddressOfARepeatedNameWhenUnresolved) {
     );
 }
 
+/// @brief it should report an unresolved name that matches no entry on the slave.
 TEST(Output, ReportsAnUnresolvedNameTheSlaveDoesNotHave) {
     const auto slave = repeated_name_slave();
     const auto j = write_unresolved("Analog Output Ch2");
@@ -464,6 +492,7 @@ TEST(Output, StateKeyDefaultsToZero) {
     ASSERT_EQ(ch->state_key, 0);
 }
 
+/// @brief it should accept channels that use different entries.
 TEST(Claims, AcceptsChannelsOnDistinctEntries) {
     const auto slave = repeated_name_slave();
     Claims claims;
@@ -476,6 +505,8 @@ TEST(Claims, AcceptsChannelsOnDistinctEntries) {
     }
 }
 
+/// @brief it should report a second channel that uses an entry another channel already
+/// uses.
 TEST(Claims, ReportsASecondChannelOnOneEntry) {
     const auto slave = repeated_name_slave();
     Claims claims;
@@ -490,6 +521,7 @@ TEST(Claims, ReportsASecondChannelOnOneEntry) {
     ASSERT_EQ(message, "another channel already uses entry 0x6030:01 on slave EL1008");
 }
 
+/// @brief it should accept channels at the same address on two different slaves.
 TEST(Claims, AcceptsOneAddressOnTwoSlaves) {
     auto first_slave = repeated_name_slave();
     first_slave.position = 1;
@@ -505,6 +537,7 @@ TEST(Claims, AcceptsOneAddressOnTwoSlaves) {
     ASSERT_TRUE(second.ok()) << second.error_json().dump();
 }
 
+/// @brief it should accept an input channel and an output channel at the same address.
 TEST(Claims, SeparatesInputAndOutputEntriesAtOneAddress) {
     slave::Properties slave{
         .position = 1,
@@ -540,6 +573,7 @@ TEST(Claims, SeparatesInputAndOutputEntriesAtOneAddress) {
     ASSERT_TRUE(write_parser.ok()) << write_parser.error_json().dump();
 }
 
+/// @brief it should not claim an entry for a channel that bound no entry.
 TEST(Claims, IgnoresChannelsThatBoundNoEntry) {
     const auto slave = repeated_name_slave();
     Claims claims;

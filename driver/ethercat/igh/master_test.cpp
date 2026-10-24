@@ -117,6 +117,7 @@ TEST_F(IGHMasterTest, InitializeMultipleSlaves) {
     EXPECT_EQ(slaves[1].properties.name, "Slave1");
 }
 
+/// @brief it should configure each enabled slave on activation.
 TEST_F(IGHMasterTest, ActivateConfiguresEveryEnabledSlave) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
@@ -125,6 +126,7 @@ TEST_F(IGHMasterTest, ActivateConfiguresEveryEnabledSlave) {
     EXPECT_EQ(this->mock_api->slave_config_count(), 2u);
 }
 
+/// @brief it should not configure a disabled slave on activation.
 TEST_F(IGHMasterTest, ActivateSkipsDisabledSlave) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
@@ -134,6 +136,8 @@ TEST_F(IGHMasterTest, ActivateSkipsDisabledSlave) {
     EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
 }
 
+/// @brief it should return an activation error that names the slave when its
+/// configuration fails.
 TEST_F(IGHMasterTest, ActivateSlaveConfigFails) {
     this->initialize_with_slave();
     this->mock_api->set_slave_config_fails(true);
@@ -200,6 +204,8 @@ TEST_F(IGHMasterTest, ReceiveWcZeroReturnsError) {
     ASSERT_OCCURRED_AS(this->master_instance->receive(), errors::WORKING_COUNTER_ERROR);
 }
 
+/// @brief it should return a working counter error when the domains report an
+/// incomplete working counter.
 TEST_F(IGHMasterTest, ReceiveWcIncompleteReturnsWorkingCounterError) {
     this->initialize_with_slave();
     this->activate_with_domains();
@@ -273,6 +279,7 @@ TEST_F(IGHMasterTest, OutputDataAfterActivation) {
     EXPECT_EQ(data.size(), 4u);
 }
 
+/// @brief it should report the state of each configured slave.
 TEST_F(IGHMasterTest, CheckReportsEachConfiguredSlave) {
     this->initialize_with_slave();
     this->activate_with_domains();
@@ -286,6 +293,7 @@ TEST_F(IGHMasterTest, CheckReportsEachConfiguredSlave) {
     EXPECT_EQ(health[0], (slave::Health{.position = 0, .state = slave::State::OP}));
 }
 
+/// @brief it should report a slave that is offline as lost.
 TEST_F(IGHMasterTest, CheckReportsOfflineSlaveAsLost) {
     this->initialize_with_slave();
     this->activate_with_domains();
@@ -297,6 +305,7 @@ TEST_F(IGHMasterTest, CheckReportsOfflineSlaveAsLost) {
     EXPECT_TRUE(health[0].lost);
 }
 
+/// @brief it should report a slave with its error flag set as faulted.
 TEST_F(IGHMasterTest, CheckReportsErrorFlagAsFaulted) {
     this->initialize_with_slave();
     this->activate_with_domains();
@@ -311,6 +320,7 @@ TEST_F(IGHMasterTest, CheckReportsErrorFlagAsFaulted) {
     EXPECT_TRUE(health[0].faulted);
 }
 
+/// @brief it should leave a disabled slave out of the health report.
 TEST_F(IGHMasterTest, CheckSkipsDisabledSlave) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");
@@ -365,6 +375,7 @@ TEST_F(IGHMasterTest, SetSlaveEnabledReEnable) {
     EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
 }
 
+/// @brief it should discover padding entries but not register them with the master.
 TEST_F(IGHMasterTest, PaddingIsDiscoveredButNotRegistered) {
     this->mock_api->fake_syncs = {
         {EC_DIR_INPUT,
@@ -385,6 +396,7 @@ TEST_F(IGHMasterTest, PaddingIsDiscoveredButNotRegistered) {
     EXPECT_EQ(this->mock_api->registered_entries, registered);
 }
 
+/// @brief it should fill the data types of live entries from the device registry.
 TEST_F(IGHMasterTest, RegistryFillsDataTypesOfLiveEntries) {
     constexpr uint32_t beckhoff = 0x00000002;
     constexpr uint32_t el3102 = 0x0C1E3052;

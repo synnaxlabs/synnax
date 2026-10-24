@@ -15,8 +15,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
