@@ -14,11 +14,12 @@ import { type border, box, dimensions, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo } from "react";
 
 import { Cell } from "@/table/cells";
-import { Indicator } from "@/table/Indicator";
+import { Indicator, type IndicatorProps } from "@/table/Indicator";
 import { useCell, useDispatch } from "@/table/queries";
 import { Selection } from "@/table/selection";
+import { Shift } from "@/table/shift";
 
-export interface RowProps {
+export interface RowProps extends Pick<IndicatorProps, "itemKey" | "onMovePress"> {
   index: number;
   size: number;
   /** Canvas x coordinate of the row's first cell. */
@@ -32,14 +33,19 @@ export interface RowProps {
   /** True when this is the table's bottom row. */
   last: boolean;
   showIndicator?: boolean;
-  onResize: (size: number, index: number) => void;
+  onResize: (size: number, key: string) => void;
   onSelect: (index: number, ev: React.MouseEvent) => void;
   onCellSelect: (cellKey: string, ev: React.MouseEvent) => void;
+  /** How far the row slides while a move previews where it lands. */
+  shift?: number;
+  /** How far each column slides while a move previews where it lands. */
+  colShifts?: number[];
 }
 
 export const Row = memo(
   ({
     index,
+    itemKey,
     size,
     x,
     y,
@@ -52,6 +58,9 @@ export const Row = memo(
     onResize,
     onSelect,
     onCellSelect,
+    onMovePress,
+    shift = 0,
+    colShifts,
   }: RowProps): ReactElement => {
     const cellXs: number[] = [];
     let xCursor = x;
@@ -90,10 +99,13 @@ export const Row = memo(
           <Indicator
             direction="y"
             index={index}
+            itemKey={itemKey}
             value={size}
             editable={editable}
             onChange={onResize}
             onSelect={onSelect}
+            onMovePress={onMovePress}
+            shift={shift}
           />
         )}
         {cells.map((cellKey, i) => (
@@ -108,6 +120,8 @@ export const Row = memo(
             borderRadius={borderRadii[i]}
             editable={editable}
             onSelect={onCellSelect}
+            shiftX={colShifts?.[i] ?? 0}
+            shiftY={shift}
           />
         ))}
       </tr>
@@ -126,6 +140,8 @@ interface VariantCellProps {
   borderRadius?: border.CrudeRadius;
   editable: boolean;
   onSelect: (cellKey: string, ev: React.MouseEvent) => void;
+  shiftX: number;
+  shiftY: number;
 }
 
 // VariantCell is the bridge between the connected Table and the per-variant
@@ -147,6 +163,8 @@ const VariantCell = memo(
     borderRadius,
     editable,
     onSelect,
+    shiftX,
+    shiftY,
   }: VariantCellProps): ReactElement | null => {
     const cell = useCell({ key: resourceKey, cellKey });
     const selected = Selection.useIsMember(cellKey);
@@ -155,6 +173,7 @@ const VariantCell = memo(
       () => box.construct(xy.construct({ x, y }), dimensions.construct(width, height)),
       [x, y, width, height],
     );
+    const shift = useMemo(() => ({ x: shiftX, y: shiftY }), [shiftX, shiftY]);
     const handleChange = useCallback(
       (config: table.CellConfig) => {
         dispatch({
@@ -167,16 +186,18 @@ const VariantCell = memo(
     if (cell == null) return null;
     const Spec = Cell.resolveSpec(cell.variant);
     return (
-      <Spec.Cell
-        cellKey={cellKey}
-        box={b}
-        borderRadius={borderRadius}
-        selected={selected}
-        editable={editable}
-        onSelect={onSelect}
-        onChange={handleChange}
-        {...cell}
-      />
+      <Shift value={shift}>
+        <Spec.Cell
+          cellKey={cellKey}
+          box={b}
+          borderRadius={borderRadius}
+          selected={selected}
+          editable={editable}
+          onSelect={onSelect}
+          onChange={handleChange}
+          {...cell}
+        />
+      </Shift>
     );
   },
 );
