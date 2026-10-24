@@ -26,8 +26,8 @@ trap 'rm -rf "$tmp"' EXIT
 
 status=0
 bazel build --config=clang-tidy-fix --keep_going \
-    --build_event_json_file="$tmp/events.json" //:clang_apply_replacements "$@" ||
-    status=$?
+    --build_event_json_file="$tmp/events.json" //:clang_apply_replacements "$@" \
+    || status=$?
 replacements=$(bazel info output_base)/$(bazel cquery --config=clang-tidy-fix \
     --output_groups=default --output=files //:clang_apply_replacements 2> /dev/null)
 
