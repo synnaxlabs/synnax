@@ -47,7 +47,8 @@ CLANG_TIDY_REPOS = {
 
 CLANG_TIDY_NO_MATCH = "MODULE.bazel pins no clang-tidy wheel for this platform"
 
-# The pinned clang-tidy files for the host platform, from MODULE.bazel.
+# The pinned clang-tidy files for the host platform, from MODULE.bazel. The lint
+# targets are manual, so a wildcard build on a platform with no wheel still works.
 [
     alias(
         name = name,
@@ -58,6 +59,7 @@ CLANG_TIDY_NO_MATCH = "MODULE.bazel pins no clang-tidy wheel for this platform"
             },
             no_match_error = CLANG_TIDY_NO_MATCH,
         ),
+        tags = ["manual"],
         visibility = ["//visibility:public"],
     )
     for name, target in {
@@ -76,11 +78,13 @@ genrule(
     outs = ["clang_tidy_wrapper.sh"],
     cmd = "sed 's|@CLANG_TIDY@|$(execpath :clang_tidy_binary)|' " +
           "$(execpath scripts/clang_tidy_wrapper.sh) > $@",
+    tags = ["manual"],
 )
 
 sh_binary(
     name = "clang_tidy",
     srcs = [":clang_tidy_wrapper"],
+    tags = ["manual"],
     visibility = ["//visibility:public"],
 )
 
