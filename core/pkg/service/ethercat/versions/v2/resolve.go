@@ -1,0 +1,218 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package v2
+
+import (
+	"context"
+	"encoding/json/v2"
+	"uuid"
+
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
+)
+
+// Devices returns the properties of the EtherCAT devices among keys, read through tx.
+// A key with no EtherCAT device is absent from the result.
+type Devices func(
+	ctx context.Context,
+	tx gorp.Tx,
+	keys []string,
+) (map[string]msgpack.EncodedJSON, error)
+
+// ResolveReadConfig addresses each unresolved channel in cfg to the input entry its
+// slave lists under the channel's entry name. A channel stays unresolved when the name
+// matches no entry, or entries at more than one address.
+func ResolveReadConfig(
+	ctx context.Context,
+	tx gorp.Tx,
+	devices Devices,
+	cfg *ReadConfig,
+) error {
+	slaves, err := readSlaves(
+		ctx,
+		tx,
+		devices,
+		lo.FilterMap(cfg.Channels, func(ch ReadChannel, _ int) (string, bool) {
+			u, ok := ch.Variant.(UnresolvedReadChannel)
+			return u.Device, ok
+		}),
+	)
+	if err != nil {
+		return err
+	}
+	for i, ch := range cfg.Channels {
+		u, ok := ch.Variant.(UnresolvedReadChannel)
+		if !ok {
+			continue
+		}
+		if e, ok := resolve(slaves[u.Device].PDOs.Inputs, u.Pdo); ok {
+			cfg.Channels[i].Variant = EntryReadChannel{
+				BaseReadChannel: u.BaseReadChannel,
+				Index:           e.Index,
+				SubIndex:        e.SubIndex,
+				DataType:        e.DataType,
+			}
+		}
+	}
+	return nil
+}
+
+// ResolveWriteConfig addresses each unresolved channel in cfg to the output entry its
+// slave lists under the channel's entry name. A channel stays unresolved when the name
+// matches no entry, or entries at more than one address.
+func ResolveWriteConfig(
+	ctx context.Context,
+	tx gorp.Tx,
+	devices Devices,
+	cfg *WriteConfig,
+) error {
+	slaves, err := readSlaves(
+		ctx,
+		tx,
+		devices,
+		lo.FilterMap(cfg.Channels, func(ch WriteChannel, _ int) (string, bool) {
+			u, ok := ch.Variant.(UnresolvedWriteChannel)
+			return u.Device, ok
+		}),
+	)
+	if err != nil {
+		return err
+	}
+	for i, ch := range cfg.Channels {
+		u, ok := ch.Variant.(UnresolvedWriteChannel)
+		if !ok {
+			continue
+		}
+		if e, ok := resolve(slaves[u.Device].PDOs.Outputs, u.Pdo); ok {
+			cfg.Channels[i].Variant = EntryWriteChannel{
+				BaseWriteChannel: u.BaseWriteChannel,
+				Index:            e.Index,
+				SubIndex:         e.SubIndex,
+				DataType:         e.DataType,
+			}
+		}
+	}
+	return nil
+}
+
+// NewReadMigration returns the migration that lifts stored read configs to v2 and
+// resolves their channels against devices.
+func NewReadMigration(devices Devices) migrate.Migration {
+	return newMigration(
+		"v60_ethercat_read_entry_address",
+		devices,
+		MigrateReadConfig,
+		ResolveReadConfig,
+	)
+}
+
+// NewWriteMigration returns the migration that lifts stored write configs to v2 and
+// resolves their channels against devices.
+func NewWriteMigration(devices Devices) migrate.Migration {
+	return newMigration(
+		"v60_ethercat_write_entry_address",
+		devices,
+		MigrateWriteConfig,
+		ResolveWriteConfig,
+	)
+}
+
+func newMigration[I, O gorp.Entry[uuid.UUID]](
+	key string,
+	devices Devices,
+	lift func(context.Context, I) (O, error),
+	resolve func(context.Context, gorp.Tx, Devices, *O) error,
+) migrate.Migration {
+	return gorp.NewMigration(
+		key,
+		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+			var olds []I
+			if err := gorp.NewRetrieve[uuid.UUID, I]().
+				Entries(&olds).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
+			news := make([]O, 0, len(olds))
+			for _, old := range olds {
+				cfg, err := lift(ctx, old)
+				if err != nil {
+					return errors.Wrapf(err, "config %s", old.GorpKey())
+				}
+				if err = resolve(ctx, tx, devices, &cfg); err != nil {
+					return errors.Wrapf(err, "config %s", old.GorpKey())
+				}
+				news = append(news, cfg)
+			}
+			return gorp.WrapWriter[uuid.UUID, O](tx).Set(ctx, news...)
+		},
+	)
+}
+
+// entry is one PDO entry that a slave device's scan discovered.
+type entry struct {
+	Name     string         `json:"name"`
+	Index    uint16         `json:"index"`
+	SubIndex uint8          `json:"sub_index"`
+	DataType telem.DataType `json:"data_type"`
+}
+
+// slave is the part of a slave device's properties that lists its PDO entries.
+type slave struct {
+	PDOs struct {
+		Inputs  []entry `json:"inputs"`
+		Outputs []entry `json:"outputs"`
+	} `json:"pdos"`
+}
+
+// resolve returns the entry in entries named name. ok is false when the name matches
+// no entry, or entries at more than one address.
+func resolve(entries []entry, name string) (entry, bool) {
+	matches := lo.UniqBy(
+		lo.Filter(entries, func(e entry, _ int) bool { return e.Name == name }),
+		func(e entry) [2]int { return [2]int{int(e.Index), int(e.SubIndex)} },
+	)
+	if len(matches) != 1 {
+		return entry{}, false
+	}
+	return matches[0], true
+}
+
+func readSlaves(
+	ctx context.Context,
+	tx gorp.Tx,
+	devices Devices,
+	keys []string,
+) (map[string]slave, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	props, err := devices(ctx, tx, lo.Uniq(keys))
+	if err != nil {
+		return nil, err
+	}
+	slaves := make(map[string]slave, len(props))
+	for key, p := range props {
+		b, err := json.Marshal(p)
+		if err != nil {
+			return nil, errors.Wrapf(err, "device %s properties", key)
+		}
+		var s slave
+		if err = json.Unmarshal(b, &s); err != nil {
+			return nil, errors.Wrapf(err, "device %s properties", key)
+		}
+		slaves[key] = s
+	}
+	return slaves, nil
+}
