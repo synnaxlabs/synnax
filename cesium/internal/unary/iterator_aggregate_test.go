@@ -10,6 +10,8 @@
 package unary_test
 
 import (
+	"strconv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/channel"
@@ -21,21 +23,13 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// collect returns the series of fr in order.
-func collect(fr channel.Frame) []telem.Series {
-	series := make([]telem.Series, 0, fr.Count())
-	for _, s := range fr.SeriesI() {
-		series = append(series, s)
-	}
-	return series
-}
-
 var _ = Describe("Aggregated Iteration", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, func() {
 			var (
-				indexDB *unary.DB
-				dataDB  *unary.DB
+				indexDB  *unary.DB
+				dataDB   *unary.DB
+				stringDB *unary.DB
 			)
 			BeforeEach(func(ctx SpecContext) {
 				fs := openFS()
@@ -62,6 +56,17 @@ var _ = Describe("Aggregated Iteration", func() {
 					},
 				}))
 				dataDB.SetIndex(indexDB.Index())
+				stringDB = MustOpen(unary.Open(ctx, unary.Config{
+					FS:        MustSucceed(fs.Sub("string")),
+					MetaCodec: json.Codec,
+					Channel: channel.Channel{
+						Key:      GenerateChannelKey(),
+						Name:     "string",
+						DataType: telem.StringT,
+						Index:    indexKey,
+					},
+				}))
+				stringDB.SetIndex(indexDB.Index())
 			})
 
 			// write writes count samples to the index and data channels starting at
@@ -106,7 +111,7 @@ var _ = Describe("Aggregated Iteration", func() {
 				iter := MustOpen(db.OpenIterator(cfg))
 				Expect(iter.SeekFirst(ctx)).To(BeTrue())
 				Expect(iter.Next(ctx, cfg.Bounds.Span())).To(BeTrue())
-				return collect(iter.Value())
+				return iter.Value().SeriesSlice()
 			}
 
 			// readAuto reads bounds with AutoSpan, returning every series of every
@@ -125,7 +130,7 @@ var _ = Describe("Aggregated Iteration", func() {
 				)
 				for iter.Next(ctx, unary.AutoSpan) {
 					chunks = append(chunks, iter.Len())
-					series = append(series, collect(iter.Value())...)
+					series = append(series, iter.Value().SeriesSlice()...)
 				}
 				Expect(iter.Error()).ToNot(HaveOccurred())
 				return series, chunks
@@ -325,6 +330,48 @@ var _ = Describe("Aggregated Iteration", func() {
 				Expect(values[len(values)-1]).To(Equal(int64(299_701)))
 			})
 
+			It("Should resize groups when the bounds change", func(ctx SpecContext) {
+				write(ctx, telem.SecondTS, 100)
+				cfg := aggregated(
+					telem.SecondTS.Range(101*telem.SecondTS),
+					telem.AggregationMinMax,
+					10,
+				)
+				iter := MustOpen(dataDB.OpenIterator(cfg))
+				Expect(iter.SeekFirst(ctx)).To(BeTrue())
+				Expect(iter.Next(ctx, cfg.Bounds.Span())).To(BeTrue())
+				Expect(iter.Value().SeriesAt(0).AlignmentMultiple).To(Equal(uint32(10)))
+				half := telem.SecondTS.Range(51 * telem.SecondTS)
+				iter.SetBounds(half)
+				Expect(iter.SeekFirst(ctx)).To(BeTrue())
+				Expect(iter.Next(ctx, half.Span())).To(BeTrue())
+				Expect(iter.Value().SeriesAt(0).Unmarshal[int64]()).
+					To(Equal([]int64{1, 10, 11, 20, 21, 30, 31, 40, 41, 50}))
+				Expect(iter.Value().SeriesAt(0).AlignmentMultiple).To(Equal(uint32(5)))
+			})
+
+			It("Should leave a non-numeric channel raw", func(ctx SpecContext) {
+				write(ctx, telem.SecondTS, 100)
+				values := make([]string, 100)
+				for i := range values {
+					values[i] = strconv.Itoa(i + 1)
+				}
+				Expect(unary.Write(
+					ctx,
+					stringDB,
+					telem.SecondTS,
+					telem.NewSeriesV(values...),
+				)).To(Succeed())
+				series := readSpan(ctx, stringDB, aggregated(
+					telem.SecondTS.Range(101*telem.SecondTS),
+					telem.AggregationMinMax,
+					10,
+				))
+				Expect(series).To(HaveLen(1))
+				Expect(series[0].Unmarshal[string]()).To(Equal(values))
+				Expect(series[0].AlignmentMultiple).To(BeZero())
+			})
+
 			It("Should anchor groups at the start of each index domain", func(
 				ctx SpecContext,
 			) {
@@ -495,7 +542,7 @@ var _ = Describe("Aggregated Iteration", func() {
 					var chunks [][]int64
 					for iter.Prev(ctx, unary.AutoSpan) {
 						var values []int64
-						for _, s := range collect(iter.Value()) {
+						for _, s := range iter.Value().SeriesSlice() {
 							values = append(values, s.Unmarshal[int64]()...)
 						}
 						chunks = append(chunks, values)
