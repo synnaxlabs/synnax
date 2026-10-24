@@ -15,8 +15,22 @@ import (
 	. "github.com/synnaxlabs/oracle/testutil"
 )
 
+const aliasTelem = `
+@py output "x/py/x/telem"
+
+TimeStamp int64 {
+	@py hand
+}
+`
+
 const aliasBase = `
+import "schemas/x/telem"
+
 @py output "client/py/synnax/base"
+
+Stamp = telem.TimeStamp
+
+Key = uuid
 
 Labeled struct {
 	label  string
@@ -40,12 +54,18 @@ Labeled = base.Labeled
 Box<T> = base.Box<T>
 TextBox = base.Box<string>
 Code = base.Code
+Stamp = base.Stamp
+Key = base.Key
+Moment Stamp
+Ident Key
 `
 
 var _ = Describe("Python aliases", func() {
 	DescribeTable("Should generate a use of an alias as a use of its target",
 		func(ctx SpecContext, use, expected string) {
-			loader := NewMockFileLoader().Add("schemas/base", aliasBase)
+			loader := NewMockFileLoader().
+				Add("schemas/x/telem", aliasTelem).
+				Add("schemas/base", aliasBase)
 			resp := MustGenerate(
 				ctx,
 				aliasHead+use,
@@ -71,6 +91,31 @@ var _ = Describe("Python aliases", func() {
 				count int32
 			}
 		`, "class Panel(Box[str]):"),
+		Entry("a now default on an alias of a timestamp", `
+			Panel struct {
+				created Stamp = now
+			}
+		`, "created: Stamp = Field(default_factory=telem.TimeStamp.now"),
+		Entry("a now default on a distinct type over an alias of a timestamp", `
+			Panel struct {
+				created Moment = now
+			}
+		`, "created: Moment = Field(default_factory=telem.TimeStamp.now"),
+		Entry("a zero default on an alias of a uuid", `
+			Panel struct {
+				key Key = 0
+			}
+		`, "key: Key = UUID(int=0)\n"),
+		Entry("a zero default on a distinct type over an alias of a uuid", `
+			Panel struct {
+				ident Ident = 0
+			}
+		`, "ident: Ident = UUID(int=0)\n"),
+		Entry("a distinct type over an alias", `
+			Panel struct {
+				created Moment
+			}
+		`, "Moment: TypeAlias = Stamp\n"),
 		Entry("a generic alias's type variable", `
 			Panel struct {
 				count int32

@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/py/keywords"
 	pyprimitives "github.com/synnaxlabs/oracle/plugin/py/primitives"
@@ -559,7 +560,8 @@ func typeDefBaseToPython(
 		data.imports.addTyping("Any")
 		return "Any"
 	}
-	if _, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
+	switch resolved.Form.(type) {
+	case resolution.DistinctForm, resolution.AliasForm:
 		if resolved.Namespace != currentNamespace {
 			ns := resolved.Namespace
 			outputPath := output.GetPath(resolved, "py")
@@ -1100,7 +1102,8 @@ func collectValidation(
 			}
 		case resolution.ValueKindInt:
 			// Type-aware: uuid with default 0 → UUID(int=0)
-			if isUUIDType(typeRef, table) && defaultVal.IntValue == 0 {
+			if resolution.PrimitiveBase(typeRef, table) == "uuid" &&
+				defaultVal.IntValue == 0 {
 				data.imports.addUUID("UUID")
 				constraints = append(constraints, "default=UUID(int=0)")
 			} else if wrapper := resolveDistinctWrapper(typeRef, table, data); wrapper != "" {
@@ -1142,7 +1145,7 @@ func collectValidation(
 			}
 		case resolution.ValueKindIdent:
 			// Handle identifier-based defaults like "now" for timestamps
-			if defaultVal.IdentValue == "now" && isTimestampType(typeRef, table) {
+			if defaultVal.IdentValue == "now" && telem.IsTimeStamp(typeRef, table) {
 				constraints = append(constraints, "default_factory=telem.TimeStamp.now")
 			}
 			// Handle "create" for auto-generating keys. uuid keys generate a UUID
@@ -1398,25 +1401,6 @@ func unionVariantToPython(
 }
 
 // isUUIDType checks if a type reference is or resolves to the uuid primitive type.
-func isUUIDType(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	// Direct uuid primitive
-	if typeRef.Name == "uuid" {
-		return true
-	}
-	// Check if it's a distinct type or alias that resolves to uuid
-	typ, ok := table.Get(typeRef.Name)
-	if !ok {
-		return false
-	}
-	switch form := typ.Form.(type) {
-	case resolution.DistinctForm:
-		return form.Base.Name == "uuid"
-	case resolution.AliasForm:
-		return form.Target.Name == "uuid"
-	}
-	return false
-}
-
 // resolveDistinctWrapper returns the Python type name for a distinct type that wraps
 // a primitive, or empty string if the type is not a distinct wrapper. This is used to
 // wrap default values in the constructor (e.g., TimeSpan(0) instead of just 0).
@@ -1435,28 +1419,6 @@ func resolveDistinctWrapper(
 }
 
 // isTimestampType checks if a type reference is or resolves to a TimeStamp type.
-func isTimestampType(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	name := typeRef.Name
-	// Check for direct TimeStamp reference (with or without namespace)
-	if name == "TimeStamp" || strings.HasSuffix(name, ".TimeStamp") {
-		return true
-	}
-	// Check if it resolves to a TimeStamp
-	typ, ok := table.Get(name)
-	if !ok {
-		return false
-	}
-	switch form := typ.Form.(type) {
-	case resolution.DistinctForm:
-		return form.Base.Name == "TimeStamp" ||
-			strings.HasSuffix(form.Base.Name, ".TimeStamp")
-	case resolution.AliasForm:
-		return form.Target.Name == "TimeStamp" ||
-			strings.HasSuffix(form.Target.Name, ".TimeStamp")
-	}
-	return false
-}
-
 type intBounds struct {
 	min string
 	max string
