@@ -25,13 +25,12 @@ import (
 )
 
 // groupSizer picks the group size of each channel that an iterator reads raw and
-// reduces in the service layer. A channel's group size is the one storage picks for
-// the busiest index the channel depends on, so reads of a channel reduce the same way
-// with or without calculated channels in the request.
+// reduces in the service layer. A channel's group size is the one storage picks for the
+// busiest index the channel depends on, so reads of a channel reduce the same way with
+// or without calculated channels in the request.
 type groupSizer struct {
 	framer *framer.Service
-	// limit is the point limit and aggregation the reduction targets.
-	limit telem.LimitReduction
+	limit  telem.LimitReduction
 	// indexes maps each output channel to the index channels its group size follows.
 	indexes map[channel.Key][]channel.Key
 }
@@ -173,7 +172,7 @@ func (r *reducer) reduce(fr framer.Frame) (framer.Frame, error) {
 		done.Add(key)
 		size, ok := sizes[key]
 		if !ok {
-			return out, errors.Newf("no group size for channel %v", key)
+			return framer.Frame{}, errors.Newf("no group size for channel %v", key)
 		}
 		series := fr.Get(key)
 		if size < 2 || !telem.Reducible(series.DataType()) {
@@ -246,8 +245,8 @@ func splitLastGroup(
 
 // requestPlanner adapts the requests of a reduced read that runs calculations. It
 // re-resolves the reducer's group sizes when a request changes the iterator's bounds,
-// and turns Next with AutoSpan into a read of every remaining sample, so the reply
-// holds exact groups.
+// and turns Next or Prev with AutoSpan into a read of every remaining sample in its
+// direction, so the reply holds exact groups.
 type requestPlanner struct {
 	confluence.LinearTransform[Request, Request]
 	sizer   *groupSizer
@@ -265,7 +264,7 @@ func (p *requestPlanner) transform(
 	req Request,
 ) (Request, bool, error) {
 	switch req.Command {
-	case CommandNext:
+	case CommandNext, CommandPrev:
 		if req.Span == AutoSpan {
 			req.Span = telem.TimeSpanMax
 		}
