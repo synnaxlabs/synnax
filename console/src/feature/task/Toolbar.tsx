@@ -17,6 +17,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
@@ -36,7 +37,6 @@ import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
-import { ExternalStore } from "@/platform/external-store";
 import { Framer } from "@/platform/framer";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
@@ -137,7 +137,7 @@ const Content = () => {
     ({ keys }) => (
       <ContextMenu
         keys={keys}
-        getItems={getItem}
+        getItem={getItem}
         subscribe={subscribe}
         onDelete={handleDelete}
         onStart={handleStart}
@@ -350,7 +350,7 @@ const TaskListItem = ({
   );
 };
 
-interface ContextMenuProps extends ExternalStore.UseItemsParams<task.Key, task.Task> {
+interface ContextMenuProps extends Store.UseItemsProps<task.Key, task.Task> {
   onDelete: (keys: task.Key[]) => void;
   onStart: (keys: task.Key[]) => void;
   onStop: (keys: task.Key[]) => void;
@@ -361,7 +361,7 @@ interface ContextMenuProps extends ExternalStore.UseItemsParams<task.Key, task.T
 
 const ContextMenu = ({
   keys,
-  getItems,
+  getItem,
   subscribe,
   onDelete,
   onStart,
@@ -370,7 +370,7 @@ const ContextMenu = ({
   onEnableDataSaving,
   onDisableDataSaving,
 }: ContextMenuProps) => {
-  const selectedTasks = ExternalStore.useItems({ keys, subscribe, getItems });
+  const selectedTasks = Store.useItems({ keys, subscribe, getItem });
   const activeRange = Range.useResolve();
   const snapshotToActiveRange = useRangeSnapshot();
   const ontologyIDs = task.ontologyID(keys);

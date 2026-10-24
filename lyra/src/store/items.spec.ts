@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { List } from "@synnaxlabs/lyra/list";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { ExternalStore } from "@/platform/external-store";
+import { List } from "@/list";
+import { useItems } from "@/store/items";
 
 interface Entry {
   key: string;
@@ -28,18 +28,14 @@ interface HarnessProps {
 
 const useHarness = ({ keys }: HarnessProps) => {
   const data = List.useMapData<string, Entry>({ initialData: [A, B, C] });
-  const items = ExternalStore.useItems({
-    keys,
-    subscribe: data.subscribe,
-    getItems: data.getItem,
-  });
+  const items = useItems({ keys, subscribe: data.subscribe, getItem: data.getItem });
   return { data, items };
 };
 
 const renderItems = (keys: string[]) =>
   renderHook(useHarness, { initialProps: { keys } });
 
-describe("ExternalStore.useItems", () => {
+describe("useItems", () => {
   it("should re-render with an item's new value when that item changes", () => {
     const { result } = renderItems(["a", "b"]);
     expect(result.current.items).toEqual([A, B]);

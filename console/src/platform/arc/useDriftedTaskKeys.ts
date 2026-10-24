@@ -8,10 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type arc, query, task } from "@synnaxlabs/client";
+import { Store } from "@synnaxlabs/lyra/store";
 import { Synnax } from "@synnaxlabs/pluto";
 import { destructor } from "@synnaxlabs/x";
-
-import { ExternalStore } from "@/platform/external-store";
 
 /**
  * Returns the keys of the cached tasks of the given Arcs that drifted from their
@@ -19,17 +18,14 @@ import { ExternalStore } from "@/platform/external-store";
  */
 export const useDriftedTaskKeys = (keys: arc.Key[]): task.Key[] => {
   const client = Synnax.use();
-  return ExternalStore.useItems({
+  const tasks = Store.useItems({
     keys,
-    subscribe: (handler, key) =>
-      client?.arcs.task.onChange(key, handler) ?? destructor.NOOP,
-    getItems: (arcKeys) =>
+    subscribe: (listener, key) =>
+      client?.arcs.task.onChange(key, listener) ?? destructor.NOOP,
+    getItem: (arcKeys) =>
       arcKeys
         .map((key) => client?.arcs.task.getCached(key))
-        .filter(
-          (tsk): tsk is task.Task =>
-            query.isLive(tsk) && tsk != null && task.drifted(tsk),
-        )
-        .map(({ key }) => key),
+        .filter((tsk): tsk is task.Task => query.isLive(tsk) && tsk != null),
   });
+  return tasks.filter((tsk) => task.drifted(tsk)).map(({ key }) => key);
 };

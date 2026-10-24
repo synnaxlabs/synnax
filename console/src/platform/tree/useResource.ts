@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
+import { Store } from "@synnaxlabs/lyra/store";
 
-import { ExternalStore } from "@/platform/external-store";
 import { type TreeState } from "@/platform/tree/types";
 
 export interface ResourceSource extends Pick<
@@ -25,10 +25,10 @@ export const useResources = (
   { getResource, subscribeResource }: ResourceSource,
   ids: ontology.ID[],
 ): ontology.Resource[] =>
-  ExternalStore.useItems({
+  Store.useItems({
     keys: ontology.idToString(ids),
     subscribe: subscribeResource,
-    getItems: getResource,
+    getItem: getResource,
   });
 
 /**
