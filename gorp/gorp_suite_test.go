@@ -34,7 +34,7 @@ var _ = BeforeSuite(func() {
 
 func TestGorp(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Gorp Suite")
+	RunSpecs(t, "Gorp Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

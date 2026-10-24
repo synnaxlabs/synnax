@@ -19,7 +19,7 @@ import (
 
 func TestChannelV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Channel v0 Suite")
+	RunSpecs(t, "Service Channel v0 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

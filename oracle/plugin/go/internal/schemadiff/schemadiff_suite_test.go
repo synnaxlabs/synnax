@@ -19,7 +19,7 @@ import (
 
 func TestSchemadiff(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Schemadiff Suite")
+	RunSpecs(t, "Schemadiff Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

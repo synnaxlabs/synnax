@@ -25,7 +25,7 @@ import (
 
 func TestGoMarshal(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go Marshal Suite")
+	RunSpecs(t, "Plugin Go Marshal Suite", SuiteConfig())
 }
 
 // unversionedOptions disables the versions/vN requirement for specs that exercise codec

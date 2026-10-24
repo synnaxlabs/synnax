@@ -142,6 +142,33 @@ var _ = Describe("Dispatch", Ordered, func() {
 				},
 			)
 
+			It(
+				"Should clear the description that explained the previous message",
+				func(ctx SpecContext) {
+					key := uuid.New().String()
+					Expect(setStatus(ctx, &status.Status[any]{
+						Key:         key,
+						Name:        "by_key_described",
+						Variant:     status.VariantError,
+						Message:     "old",
+						Description: "The old cause.",
+						Time:        telem.Now(),
+					})).To(Succeed())
+					MustSucceed2(
+						svc.SetByKeyOrName(ctx, key, "new", string(status.VariantInfo)),
+					)
+					var s status.Status[any]
+					Expect(
+						svc.NewRetrieve[any]().
+							Where(status.MatchKeys[any](key)).
+							Entry(&s).
+							Exec(ctx, nil),
+					).To(Succeed())
+					Expect(s.Message).To(Equal("new"))
+					Expect(s.Description).To(BeEmpty())
+				},
+			)
+
 			It("Should match arbitrary (non-UUID) string keys", func(ctx SpecContext) {
 				key := "by_key_plain_string"
 				Expect(setStatus(ctx, &status.Status[any]{
