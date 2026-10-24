@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Unreachable } from "@synnaxlabs/freighter";
 import {
   debounce,
-  errors,
   MultiSeries,
+  type Reduction,
   type Series,
   TimeRange,
   TimeSpan,
@@ -21,11 +20,12 @@ import {
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type Cache } from "@/framer/cache/cache";
+import { withDeadline } from "@/framer/deadline";
 import { type Frame } from "@/framer/frame";
 
-/** A function that reads a telemetry frame from the Synnax cluster. */
+/** Reads a telemetry frame from the Core, reduced when a reduction is given. */
 export interface RemoteReader {
-  (tr: TimeRange, keys: channel.Key[]): Promise<Frame>;
+  (tr: TimeRange, keys: channel.Key[], reduction?: Reduction): Promise<Frame>;
 }
 
 export const DEFAULT_BATCH_DEBOUNCE = TimeSpan.milliseconds(50);
@@ -90,9 +90,6 @@ export class Reader {
   private readonly props: Required<Omit<ReaderProps, "batchDebounce">>;
   private readonly batcher: debounce.Batcher<ReadRequest>;
   private closed = false;
-  // Reads whose fetches are in flight, so close can reject them without waiting on the
-  // fetches themselves.
-  private readonly inFlight = new Set<Tracker>();
 
   constructor(props: ReaderProps) {
     const {
@@ -106,10 +103,7 @@ export class Reader {
     this.props = { readRemote, cache, overlapThreshold, fetchTimeout, now };
     this.batcher = new debounce.Batcher({
       interval: batchDebounce,
-      exec: async (entries) => {
-        if (this.closed) throw new UnexpectedError("telemetry reader is closed");
-        await this.batchRead(entries);
-      },
+      exec: async (entries) => await this.batchRead(entries),
     });
   }
 
@@ -142,7 +136,6 @@ export class Reader {
           if (tracker == null) {
             tracker = { entry, remaining: 0 };
             trackers.set(entry, tracker);
-            this.inFlight.add(tracker);
           }
           const g = batched.find((r) => r.gap.equals(gap, overlapThreshold));
           if (g == null) {
@@ -169,17 +162,22 @@ export class Reader {
     await Promise.all(batched.map(async (b) => await this.fetchGap(b)));
   }
 
-  // Never throws: every outcome, including a deadline expiry and a post-close arrival,
-  // settles through the trackers.
+  // Never throws: every outcome, including a deadline expiry, settles through the
+  // trackers.
   private async fetchGap({ gap, channels, trackers }: BatchFetch): Promise<void> {
-    const { cache, now } = this.props;
+    const { cache, now, readRemote, fetchTimeout } = this.props;
     let failure: unknown;
     const answered = new TimeRange(
       gap.start,
       TimeStamp.min(gap.end, now().sub(COMMIT_MARGIN)),
     );
     try {
-      const frame = await this.fetchWithDeadline(gap, Array.from(channels));
+      const frame = await withDeadline(
+        readRemote(gap, Array.from(channels)),
+        fetchTimeout,
+        () =>
+          `gap read for ${gap.toString()} timed out after ${fetchTimeout.toString()}`,
+      );
       if (!this.closed) {
         // Group series by key in one pass; per-key get() scans the whole frame.
         const grouped = new Map<channel.Key, Series[]>();
@@ -199,41 +197,12 @@ export class Reader {
       failure = err;
     }
     trackers.forEach((tracker) => {
-      // close() already settled it.
-      if (!this.inFlight.has(tracker)) return;
       if (failure != null) tracker.failure ??= failure;
       tracker.remaining--;
       if (tracker.remaining > 0) return;
-      this.inFlight.delete(tracker);
       if (tracker.failure == null) tracker.entry.resolve();
       else tracker.entry.reject(tracker.failure);
     });
-  }
-
-  private async fetchWithDeadline(
-    gap: TimeRange,
-    channels: channel.Key[],
-  ): Promise<Frame> {
-    const { readRemote, fetchTimeout } = this.props;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const deadline = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => {
-        const timeout = fetchTimeout.toString();
-        const message = `gap read for ${gap.toString()} timed out after ${timeout}`;
-        reject(new Unreachable({ message }));
-      }, fetchTimeout.milliseconds);
-    });
-    const fetched = readRemote(gap, channels);
-    try {
-      return await Promise.race([fetched, deadline]);
-    } catch (err) {
-      // The read already failed for its callers; a late settle of the losing fetch must
-      // not surface as an unhandled rejection.
-      fetched.catch(() => {});
-      throw errors.fromUnknown(err);
-    } finally {
-      clearTimeout(timer);
-    }
   }
 
   /**
@@ -242,9 +211,6 @@ export class Reader {
    */
   async close(): Promise<void> {
     this.closed = true;
-    const err = new UnexpectedError("telemetry reader is closed");
-    this.batcher.close(err);
-    this.inFlight.forEach(({ entry }) => entry.reject(err));
-    this.inFlight.clear();
+    this.batcher.close(new UnexpectedError("telemetry reader is closed"));
   }
 }
