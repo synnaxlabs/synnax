@@ -41,9 +41,10 @@ interface Call {
 const SAMPLES = 4;
 
 // Returns a reader whose remote fetch records each call and answers every key with
-// SAMPLES float64 samples equal to the key.
+// samples float64 samples equal to the key.
 const createReader = (
   props: Partial<TileReaderProps> = {},
+  samples: number = SAMPLES,
 ): { reader: TileReader; calls: Call[] } => {
   const calls: Call[] = [];
   const reader = new TileReader({
@@ -55,7 +56,7 @@ const createReader = (
         keys.map(
           (key) =>
             new Series({
-              data: new Float64Array(SAMPLES).fill(key),
+              data: new Float64Array(samples).fill(key),
               timeRange: tr,
             }),
         ),
@@ -66,7 +67,10 @@ const createReader = (
   return { reader, calls };
 };
 
-const SERIES_BYTES = SAMPLES * DataType.FLOAT64.density.valueOf();
+// Budget specs read large tiles, so the fixed overhead of each tile does not change how
+// many fit.
+const LARGE_SAMPLES = 1024;
+const LARGE_BYTES = LARGE_SAMPLES * DataType.FLOAT64.density.valueOf();
 
 const createSpec = (overrides: Partial<TileSpec> = {}): TileSpec => ({
   key: 1,
@@ -285,7 +289,10 @@ describe("tile", () => {
     });
 
     it("should evict the least recently used tile past the budget", async () => {
-      const { reader, calls } = createReader({ budget: Size.bytes(2 * SERIES_BYTES) });
+      const { reader, calls } = createReader(
+        { budget: Size.bytes(2.5 * LARGE_BYTES) },
+        LARGE_SAMPLES,
+      );
       await reader.read(createSpec({ index: 1 }));
       await reader.read(createSpec({ index: 2 }));
       await reader.read(createSpec({ index: 1 }));
@@ -299,7 +306,10 @@ describe("tile", () => {
     });
 
     it("should keep a tile a caller holds past the budget", async () => {
-      const { reader, calls } = createReader({ budget: Size.bytes(SERIES_BYTES) });
+      const { reader, calls } = createReader(
+        { budget: Size.bytes(1.5 * LARGE_BYTES) },
+        LARGE_SAMPLES,
+      );
       const heldTile = await reader.read(createSpec({ index: 1 }));
       heldTile.acquire();
       await reader.read(createSpec({ index: 2 }));
@@ -309,6 +319,23 @@ describe("tile", () => {
       await reader.read(createSpec({ index: 3 }));
       await reader.read(createSpec({ index: 1 }));
       expect(calls).toHaveLength(4);
+      reader.close();
+    });
+
+    it("should evict tiles with no samples past the budget", async () => {
+      let fetches = 0;
+      const { reader } = createReader({
+        budget: Size.bytes(LARGE_BYTES),
+        readRemote: async () => {
+          fetches++;
+          return new Frame([], []);
+        },
+      });
+      await Promise.all(
+        Array.from({ length: 1000 }, (_, index) => reader.read(createSpec({ index }))),
+      );
+      await reader.read(createSpec({ index: 0 }));
+      expect(fetches).toBe(1001);
       reader.close();
     });
 
