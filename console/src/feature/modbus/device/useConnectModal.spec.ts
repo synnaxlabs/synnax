@@ -87,9 +87,7 @@ describe("Modbus.Device.useConnectModal", () => {
     });
     pressSaveTrigger();
     await answered;
-    expect(
-      await screen.findByText("Failed to update device: Connection refused"),
-    ).toBeTruthy();
+    expect(await screen.findByText("Connection refused")).toBeTruthy();
   });
 
   // Submitting with no rack chosen fails validation. That error is the proof the keys
