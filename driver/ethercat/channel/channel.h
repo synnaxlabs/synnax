@@ -201,6 +201,8 @@ struct Output final : Channel {
     synnax::channel::Key command_key;
     /// @brief the key of the Synnax channel to write state feedback to.
     synnax::channel::Key state_key;
+    /// @brief the state channel, bound by the owning task when state_key is set.
+    std::optional<synnax::channel::Channel> state;
 
     Output(
         const ::synnax::ethercat::EntryWriteChannel &cfg,

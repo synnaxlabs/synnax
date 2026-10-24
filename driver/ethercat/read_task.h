@@ -22,6 +22,7 @@
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/channel/channel.h"
 #include "driver/ethercat/engine/engine.h"
+#include "driver/ethercat/telem/telem.h"
 #include "driver/ethercat/topology/topology.h"
 #include "driver/transform/transform.h"
 
@@ -81,16 +82,15 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         BaseReadTaskConfig(cfg) {
         if (this->sample_rate > x::telem::Rate(0) &&
             this->stream_rate > x::telem::Rate(0)) {
-            const double ratio = static_cast<double>(this->sample_rate.hz()) /
-                                 this->stream_rate.hz();
-            if (std::abs(ratio - std::round(ratio)) > 1e-6) {
+            const auto ratio = telem::whole_ratio(this->sample_rate, this->stream_rate);
+            if (!ratio) {
                 cfg.field_err(
                     "stream_rate",
                     "sample_rate must be divisible by stream_rate"
                 );
                 return;
             }
-            this->samples_per_chan = static_cast<size_t>(std::round(ratio));
+            this->samples_per_chan = *ratio;
         }
 
         std::unordered_map<std::string, slave::Properties> slave_cache;
