@@ -1097,7 +1097,7 @@ var _ = Describe("Iterator Behavior", func() {
 
 				DescribeTable(
 					"Should send a fixed span as one response per piece of at most "+
-						"AutoChunkSize samples per index, in time order",
+						"the piece size, summed over the channels, in time order",
 					func(seek, cmd cesium.IteratorCommand) {
 						Expect(pieces(
 							cesium.IteratorConfig{
@@ -1108,8 +1108,7 @@ var _ = Describe("Iterator Behavior", func() {
 									idxB,
 									dataB,
 								},
-								AutoChunkSize: 2,
-							},
+							}.WithPieceSize(8),
 							seek,
 							cmd,
 							10*telem.Second,
@@ -1146,7 +1145,7 @@ var _ = Describe("Iterator Behavior", func() {
 						}
 						Expect(pieces(cfg, seek, cmd, 10*telem.Second, dataA)).
 							To(Equal([][]int64{{10, 30, 50}}))
-						cfg.AutoChunkSize = 2
+						cfg = cfg.WithPieceSize(4)
 						Expect(pieces(cfg, seek, cmd, 10*telem.Second, dataA)).
 							To(Equal([][]int64{{10}, {30}, {50}}))
 					},
@@ -1190,10 +1189,9 @@ var _ = Describe("Iterator Behavior", func() {
 						))).To(Succeed())
 						read := pieces(
 							cesium.IteratorConfig{
-								Bounds:        telem.TimeRangeMax,
-								Channels:      []cesium.ChannelKey{idx, data},
-								AutoChunkSize: 1,
-							},
+								Bounds:   telem.TimeRangeMax,
+								Channels: []cesium.ChannelKey{idx, data},
+							}.WithPieceSize(2),
 							seek,
 							cmd,
 							10*telem.Second,
@@ -1253,7 +1251,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Bounds:        telem.TimeRangeMax,
 						Channels:      []cesium.ChannelKey{idx, data},
 						AutoChunkSize: 1,
-					}))
+					}.WithPieceSize(2)))
 					values := func() []int64 {
 						GinkgoHelper()
 						var out []int64
@@ -1276,14 +1274,21 @@ var _ = Describe("Iterator Behavior", func() {
 
 				It("Should keep the view start of a pieced Next", func() {
 					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
-						Bounds:        telem.TimeRangeMax,
-						Channels:      []cesium.ChannelKey{idxA, dataA},
-						AutoChunkSize: 2,
-					}))
+						Bounds:   telem.TimeRangeMax,
+						Channels: []cesium.ChannelKey{idxA, dataA},
+					}.WithPieceSize(4)))
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(10 * telem.Second)).To(BeTrue())
 					Expect(i.Value().Get(dataA).Series).To(HaveLen(3))
 					Expect(i.Prev(5 * telem.Second)).To(BeFalse())
+					Expect(i.Close()).To(Succeed())
+				})
+
+				It("Should return false for a fixed span with no channels", func() {
+					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+						Bounds: telem.TimeRangeMax,
+					}))
+					Expect(i.Next(10 * telem.Second)).To(BeFalse())
 					Expect(i.Close()).To(Succeed())
 				})
 			})

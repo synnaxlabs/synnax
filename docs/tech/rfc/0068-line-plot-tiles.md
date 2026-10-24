@@ -138,9 +138,9 @@ index domain, so two reads of overlapping bounds cut the same groups.
 
 A fixed-span read without a limit can be large: 12 hours of a 1 kHz channel is about 400
 MB. Cesium sends a fixed-span `Next` or `Prev` in pieces, in time order. Each piece
-holds at most the chunk size of samples of every index and ends at the same time for
-every channel. A limited read is not pieced, because a piece edge would cut its groups,
-and the limit already bounds it.
+holds at most a fixed number of samples, summed over the channels, and ends at the same
+time for every channel. A limited read is not pieced, because a piece edge would cut its
+groups, and the limit already bounds it.
 
 A calculation must see every sample, so a request that runs one reads every channel raw,
 and the service reduces the output. Each channel's group size comes from the concrete
