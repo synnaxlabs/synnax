@@ -25,6 +25,7 @@ import { Access, Ontology, Synnax } from "@synnaxlabs/pluto";
 import { array, type destructor, type observe } from "@synnaxlabs/x";
 import {
   type DragEvent,
+  type FC,
   type ReactElement,
   type ReactNode,
   useCallback,
@@ -49,6 +50,7 @@ import {
   type GetResource,
   type TreeState,
 } from "@/platform/tree/types";
+import { useResources } from "@/platform/tree/useResource";
 import { type Action, type State } from "@/session/store";
 
 interface InternalProps {
@@ -74,6 +76,18 @@ const FallbackContextMenu = (): ReactElement => (
     <ContextMenu.ReloadConsoleItem />
   </ContextMenu.Menu>
 );
+
+interface SelectionContextMenuProps extends ContextMenuProps {
+  menu: FC<ContextMenuProps>;
+}
+
+// A resource deleted while its menu is open stays in the selection. A menu reads every
+// selected resource as present.
+const SelectionContextMenu = ({ menu: M, ...props }: SelectionContextMenuProps) => {
+  const resources = useResources(props.state, props.selection.ids);
+  if (resources.length < props.selection.ids.length) return <FallbackContextMenu />;
+  return <M {...props} />;
+};
 
 const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
   const { itemKey } = rest;
@@ -539,10 +553,14 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       };
 
       const allSameType = ids.every((id) => id.type === firstID.type);
-      if (!allSameType) return <MultipleSelectionContextMenu {...props} />;
-
-      const M = resolveItem(firstID.type).ContextMenu;
-      return M == null ? <FallbackContextMenu /> : <M {...props} />;
+      const M = allSameType
+        ? resolveItem(firstID.type).ContextMenu
+        : MultipleSelectionContextMenu;
+      return M == null ? (
+        <FallbackContextMenu />
+      ) : (
+        <SelectionContextMenu menu={M} {...props} />
+      );
     },
     [client, root, state, selected, nodes, shape, getBaseProps, resolveItem],
   );
