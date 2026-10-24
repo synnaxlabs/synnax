@@ -151,13 +151,7 @@ type IteratorConfig struct {
 	// A limit reduces each channel in Bounds to about PointLimit points. Either way,
 	// every channel on one index keeps the same alignments.
 	Reduction telem.Reduction
-	// pieceSize is the most samples one piece of a fixed-span Next or Prev holds,
-	// summed over Channels. Zero uses the default. Only specs set it.
-	pieceSize int64
 }
-
-// defaultPieceSize keeps a piece at about 64 MB of 8-byte samples.
-const defaultPieceSize int64 = 1 << 23
 
 // Flow implements the confluence.Segment interface.
 func (s *streamIterator) Flow(sCtx signal.Context, opts ...confluence.Option) {

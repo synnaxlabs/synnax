@@ -41,6 +41,7 @@ type options struct {
 	// slowConsumerTimeout bounds how long the relay waits for a streamer to receive a
 	// frame before dropping it.
 	slowConsumerTimeout time.Duration
+	pieceSize           int64
 }
 
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
@@ -51,6 +52,7 @@ func newOptions(dirname string, opts ...Option) (*options, error) {
 		relayBufferSize:     defaultRelayBufferSize,
 		streamBufferSize:    defaultStreamBufferSize,
 		slowConsumerTimeout: defaultSlowConsumerTimeout,
+		pieceSize:           defaultPieceSize,
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -78,6 +80,7 @@ func mergeAndValidateOptions(o *options) error {
 	v.Positive("relay_buffer_size", o.relayBufferSize)
 	v.Positive("stream_buffer_size", o.streamBufferSize)
 	v.Positive("slow_consumer_timeout", o.slowConsumerTimeout)
+	v.Positive("piece_size", o.pieceSize)
 	return v.Error()
 }
 
@@ -120,4 +123,11 @@ func WithStreamBufferSize(size int) Option {
 // streamer to receive a frame before dropping it. Defaults to 20ms.
 func WithSlowConsumerTimeout(timeout time.Duration) Option {
 	return func(o *options) { o.slowConsumerTimeout = timeout }
+}
+
+// WithPieceSize sets the most samples, summed over an iterator's channels, that one
+// response to a fixed-span Next or Prev holds. A run of equal timestamps can exceed it.
+// Defaults to 8,388,608 samples.
+func WithPieceSize(size int64) Option {
+	return func(o *options) { o.pieceSize = size }
 }
