@@ -58,7 +58,7 @@ public:
     virtual void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {}
 
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
-    create(runtime::node::Config &&cfg) override {
+    create(runtime::node::Config &&) override {
         return {nullptr, x::errors::NOT_FOUND};
     }
 

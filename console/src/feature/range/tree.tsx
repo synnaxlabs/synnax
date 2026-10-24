@@ -32,11 +32,14 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   return useCallback(
     (resource) => {
       if (client == null) return;
-      handleError(async () => {
-        const ranges = await client.ranges.retrieve([resource.id.key]);
-        store.dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
-        openTab({ variant: "resource", resource: resource.id });
-      }, `Failed to select ${resource.name}`);
+      handleError(
+        async () => {
+          const ranges = await client.ranges.retrieve([resource.id.key]);
+          store.dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
+          openTab({ variant: "resource", resource: resource.id });
+        },
+        { message: "Failed to select range", name: resource.name },
+      );
     },
     [client, store, openTab, handleError],
   );

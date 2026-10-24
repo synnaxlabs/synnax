@@ -324,7 +324,7 @@ describe("Aggregator", () => {
   });
 
   describe("handleError", () => {
-    it("should create a status from an exception", () => {
+    it("should put the heading in the message and the error in the description", () => {
       const { result } = renderHook(
         () => ({
           add: Status.useErrorHandler(),
@@ -333,12 +333,15 @@ describe("Aggregator", () => {
         { wrapper },
       );
       act(() => {
-        result.current.add(new Error("Test"));
+        result.current.add(new Error("Test"), "Failed to save range");
       });
       expect(result.current.statuses.statuses).toHaveLength(1);
-      expect(result.current.statuses.statuses[0].message).toEqual("Test");
+      const [stat] = result.current.statuses.statuses;
+      expect(stat.name).toEqual("");
+      expect(stat.message).toEqual("Failed to save range");
+      expect(stat.description).toEqual("Test");
     });
-    it("should allow the caller to provide a custom message", () => {
+    it("should allow the caller to name what failed", () => {
       const { result } = renderHook(
         () => ({
           add: Status.useErrorHandler(),
@@ -347,10 +350,16 @@ describe("Aggregator", () => {
         { wrapper },
       );
       act(() => {
-        result.current.add(new Error("Test"), "Custom");
+        result.current.add(new Error("Disk is full"), {
+          message: "Failed to export",
+          name: "Main schematic",
+        });
       });
       expect(result.current.statuses.statuses).toHaveLength(1);
-      expect(result.current.statuses.statuses[0].message).toEqual("Custom");
+      const [stat] = result.current.statuses.statuses;
+      expect(stat.name).toEqual("Main schematic");
+      expect(stat.message).toEqual("Failed to export");
+      expect(stat.description).toEqual("Disk is full");
     });
     it("should allow the caller to pass in an async function", async () => {
       const { result } = renderHook(
@@ -365,11 +374,13 @@ describe("Aggregator", () => {
           result.current.add(async () => {
             resolve();
             throw new Error("Test");
-          });
+          }, "Failed to save range");
         });
       });
       expect(result.current.statuses.statuses).toHaveLength(1);
-      expect(result.current.statuses.statuses[0].message).toEqual("Test");
+      const [stat] = result.current.statuses.statuses;
+      expect(stat.message).toEqual("Failed to save range");
+      expect(stat.description).toEqual("Test");
     });
     it("should print the error through the aggregator's log", () => {
       const log = vi.fn<Status.Log>();
@@ -378,9 +389,9 @@ describe("Aggregator", () => {
           <Status.Aggregator log={log}>{children}</Status.Aggregator>
         ),
       });
-      act(() => result.current(new Error("Test"), "Custom"));
+      act(() => result.current(new Error("Test"), "Failed to save range"));
       expect(log).toHaveBeenCalledExactlyOnceWith(
-        expect.stringContaining("ERROR: Custom"),
+        expect.stringContaining("ERROR: Failed to save range"),
       );
     });
     it("should neither add nor print a skipped error", () => {
@@ -397,7 +408,11 @@ describe("Aggregator", () => {
         },
       );
       const error = new Error("Test");
-      act(() => result.current.add(error, undefined, { matches: (e) => e === error }));
+      act(() =>
+        result.current.add(error, "Failed to save range", {
+          matches: (e) => e === error,
+        }),
+      );
       expect(result.current.statuses.statuses).toHaveLength(0);
       expect(log).not.toHaveBeenCalled();
     });
@@ -413,7 +428,7 @@ describe("Aggregator", () => {
         await new Promise<void>((resolve) => {
           result.current.add(async () => {
             resolve();
-          });
+          }, "Failed to save range");
         });
       });
       expect(result.current.statuses.statuses).toHaveLength(0);

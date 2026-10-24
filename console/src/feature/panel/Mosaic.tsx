@@ -107,10 +107,13 @@ const DeletedContent = ({ name: corpse }: Flux.Tombstone): ReactElement => {
   const handleError = Status.useErrorHandler();
   const name = corpse ?? "This resource";
   const handleRestore = (): void => {
-    handleError(async () => {
-      if (client == null || restore == null) return;
-      await restore({ client, project, resource });
-    }, `Failed to restore ${name}`);
+    handleError(
+      async () => {
+        if (client == null || restore == null) return;
+        await restore({ client, project, resource });
+      },
+      { message: "Failed to restore resource", name: corpse ?? "" },
+    );
   };
   const restorable = client != null && restore != null;
   return (

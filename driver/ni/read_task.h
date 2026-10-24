@@ -94,7 +94,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         )),
         skew_warn_on_count(cfg.field<std::size_t>(
             "skew_warn_on_count",
-            this->sample_rate.hz() // Default to 1 second behind
+            // Default to 1 second behind
+            static_cast<std::size_t>(this->sample_rate.hz())
         )) {
         if (this->channels.empty()) {
             cfg.field_err("channels", "task must have at least one enabled channel");
@@ -108,6 +109,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
         std::vector<synnax::channel::Key> channel_keys;
+        channel_keys.reserve(this->channels.size());
         for (const auto &ch: this->channels)
             channel_keys.push_back(ch->synnax_key);
         auto [channel_vec, err] = client->channels.retrieve(channel_keys);
@@ -132,6 +134,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             devices[device.key] = device;
         } else {
             std::vector<std::string> dev_keys;
+            dev_keys.reserve(this->channels.size());
             for (const auto &ch: this->channels)
                 dev_keys.push_back(ch->dev_key);
             auto [devices_vec, dev_err] = client->devices.retrieve(dev_keys);
@@ -171,10 +174,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         return chs;
     }
 
-    [[nodiscard]] x::errors::Error apply(
-        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-        const TaskHandle handle
-    ) const {
+    [[nodiscard]] x::errors::Error
+    apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle handle) const {
         for (const auto &ch: this->channels)
             if (auto err = ch->apply(dmx, handle)) return err;
         if (this->software_timed) return x::errors::NIL;
@@ -299,7 +300,7 @@ private:
         auto [hw, err] = this->make_hw(this->cfg);
         if (err) return err;
         this->hw_reader = std::move(hw);
-        this->sample_clock->reset();
+        (*this->sample_clock).reset();
         if (const auto start_err = this->hw_reader->start()) {
             this->hw_reader.reset();
             return start_err;
@@ -359,7 +360,7 @@ private:
 
         if (res.error) return res;
         if (prev_read_err) {
-            this->sample_clock->reset();
+            (*this->sample_clock).reset();
             return res;
         }
 
