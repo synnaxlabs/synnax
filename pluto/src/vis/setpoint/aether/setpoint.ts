@@ -39,6 +39,7 @@ export class Setpoint
 {
   static readonly TYPE = "Setpoint";
   static readonly METHODS = methodsZ;
+  static readonly z = stateZ;
 
   schema = stateZ;
   methods = methodsZ;

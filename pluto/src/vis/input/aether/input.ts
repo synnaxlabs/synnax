@@ -38,6 +38,7 @@ export class Input
 {
   static readonly TYPE = "Input";
   static readonly METHODS = methodsZ;
+  static readonly z = stateZ;
 
   schema = stateZ;
   methods = methodsZ;
