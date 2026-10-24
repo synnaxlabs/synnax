@@ -131,7 +131,8 @@ type streamIterator struct {
 	internal []*unary.Iterator
 	// limited is true when the read has a limit reduction. A limited read is never
 	// pieced, because a piece edge would cut its groups.
-	limited bool
+	limited   bool
+	pieceSize int64
 }
 
 // IteratorConfig is the configuration for opening an iterator :). See the fields for
@@ -150,7 +151,13 @@ type IteratorConfig struct {
 	// A limit reduces each channel in Bounds to about PointLimit points. Either way,
 	// every channel on one index keeps the same alignments.
 	Reduction telem.Reduction
+	// pieceSize is the most samples one piece of a fixed-span Next or Prev holds,
+	// summed over Channels. Zero uses the default. Only specs set it.
+	pieceSize int64
 }
+
+// defaultPieceSize keeps a piece at about 64 MB of 8-byte samples.
+const defaultPieceSize int64 = 1 << 23
 
 // Flow implements the confluence.Segment interface.
 func (s *streamIterator) Flow(sCtx signal.Context, opts ...confluence.Option) {
@@ -250,8 +257,8 @@ func (s *streamIterator) execWithResponse(
 }
 
 // readInPieces runs a Next or Prev with a fixed span. It reads the range of each
-// iterator forward in pieces that each hold at most AutoChunkSize samples of every
-// index, or more for a run of equal timestamps. Each piece is one data response that
+// iterator forward in pieces that each hold at most pieceSize samples summed over the
+// channels, or more for a run of equal timestamps. Each piece is one data response that
 // holds every channel's data up to the end of the piece.
 func (s *streamIterator) readInPieces(
 	ctx context.Context,
@@ -260,6 +267,7 @@ func (s *streamIterator) readInPieces(
 	var (
 		ends = make([]telem.TimeStamp, len(s.internal))
 		last telem.TimeStamp
+		n    = max(1, s.pieceSize/int64(max(1, len(s.internal))))
 	)
 	for j, i := range s.internal {
 		tr := i.View().End.SpanRange(req.Span)
@@ -283,7 +291,7 @@ func (s *streamIterator) readInPieces(
 				continue
 			}
 			probed.Add(idx)
-			pieceEnd, err := i.EndAfter(ctx, i.AutoChunkSize)
+			pieceEnd, err := i.EndAfter(ctx, n)
 			if err != nil {
 				return ok, err
 			}
