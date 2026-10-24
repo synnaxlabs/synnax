@@ -44,7 +44,11 @@ const SelectAggregation = (
   props: Select.ButtonsProps<lineplot.Aggregation>,
 ): ReactElement => (
   <Select.Buttons {...props} shrink={0}>
-    <Select.Item itemKey="min_max" size="small" tooltip="Draw the range of each group">
+    <Select.Item
+      itemKey="min_max"
+      size="small"
+      tooltip="Draw the lowest and highest sample of each group"
+    >
       Min/max
     </Select.Item>
     <Select.Item itemKey="average" size="small" tooltip="Draw the mean of each group">
@@ -55,13 +59,17 @@ const SelectAggregation = (
 
 const SelectDetail = (props: Select.ButtonsProps<lineplot.Detail>): ReactElement => (
   <Select.Buttons {...props} shrink={0}>
-    <Select.Item itemKey="low" size="small">
+    <Select.Item itemKey="low" size="small" tooltip="One group per four pixel columns">
       Low
     </Select.Item>
-    <Select.Item itemKey="medium" size="small">
+    <Select.Item
+      itemKey="medium"
+      size="small"
+      tooltip="One group per two pixel columns"
+    >
       Medium
     </Select.Item>
-    <Select.Item itemKey="high" size="small">
+    <Select.Item itemKey="high" size="small" tooltip="One group per pixel column">
       High
     </Select.Item>
   </Select.Buttons>
