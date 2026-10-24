@@ -352,7 +352,7 @@ func renderTestCodecFile(
 					fieldGoName := naming.GetFieldName(f)
 					var expr string
 					var err error
-					if f.Optional && b.isGoPointerField(f.Type) {
+					if f.Optional && !typemap.Nilable(f.Type, b.table) {
 						expr, err = b.optionalExpr(r, f.Type)
 					} else {
 						expr, err = b.valueExpr(r, f.Type)
@@ -564,7 +564,7 @@ func (b *testValueBuilder) buildFieldExprs(
 		fieldGoName := naming.GetFieldName(f)
 		var expr string
 		var err error
-		if f.Optional && b.isGoPointerField(f.Type) {
+		if f.Optional && !typemap.Nilable(f.Type, b.table) {
 			expr, err = b.optionalExpr(resolved, f.Type)
 		} else {
 			expr, err = b.valueExpr(resolved, f.Type)
@@ -727,14 +727,6 @@ func declaredFields(
 	return own
 }
 
-// isGoPointerField reports whether an optional field of the given type is
-// generated as a Go pointer by the types plugin. Slices, maps, and record/any
-// (msgpack.EncodedJSON) are nilable in place and are never pointerized, so only
-// the remaining types take the `new(...)` pointer form for their test value.
-func (b *testValueBuilder) isGoPointerField(ref resolution.TypeRef) bool {
-	return !typemap.Nilable(ref, b.table)
-}
-
 func (b *testValueBuilder) optionalExpr(
 	resolved resolution.Type, ref resolution.TypeRef,
 ) (string, error) {
@@ -834,7 +826,7 @@ func (b *testValueBuilder) valueExpr(
 				}
 				var expr string
 				var err error
-				if f.Optional && b.isGoPointerField(f.Type) {
+				if f.Optional && !typemap.Nilable(f.Type, b.table) {
 					expr, err = b.optionalExpr(r, f.Type)
 				} else {
 					expr, err = b.valueExpr(r, f.Type)
@@ -1108,7 +1100,7 @@ func (b *testValueBuilder) enumExpr(
 func (b *testValueBuilder) typeArgSuffix(args []resolution.TypeRef) (string, error) {
 	var rendered []string
 	for _, arg := range args {
-		if _, ok := arg.Resolve(b.table); !ok || arg.Name == "nil" {
+		if _, ok := arg.Resolve(b.table); !ok {
 			continue
 		}
 		goType, err := typemap.GoTypeRefName(arg, b.table, b.goTypeName)

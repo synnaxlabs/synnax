@@ -717,12 +717,11 @@ var _ = Describe("ResolveGoSliceElemType", func() {
 			},
 		}
 		Expect(table.Add(alias)).To(Succeed())
-		_, err := typemap.ResolveGoSliceElemType(
+		Expect(typemap.ResolveGoSliceElemType(
 			resolution.TypeRef{Name: alias.QualifiedName},
 			table,
 			goTypeName,
-		)
-		Expect(err).To(MatchError(ContainSubstring("cannot resolve type")))
+		)).Error().To(MatchError("cannot resolve type nonexistent"))
 	})
 
 	It("should render a generic element with its type arguments", func() {

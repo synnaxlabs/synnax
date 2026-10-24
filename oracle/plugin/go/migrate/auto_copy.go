@@ -624,7 +624,7 @@ func leafPrimitive(ref resolution.TypeRef, table *resolution.Table) (string, boo
 // isUnionIn reports whether a type reference resolves to a discriminated
 // union within the given table.
 func isUnionIn(ref resolution.TypeRef, table *resolution.Table) bool {
-	resolved, ok := ref.Resolve(table)
+	resolved, _, ok := resolution.Dealias(ref, table)
 	if !ok {
 		return false
 	}

@@ -119,6 +119,7 @@ var aliasTargets = map[string]string{
 	"Edge":        "Edge",
 	"Signal":      "Signal",
 	"Box":         "Box",
+	"Crate":       "Box",
 }
 
 const aliasDecls = `
@@ -135,6 +136,7 @@ ValveList = base.ValveList
 Edge = base.Edge
 Signal = base.Signal
 Box<T> = base.Box<T>
+Crate<T> = Box<T>
 `
 
 // aliasUses puts the aliases in each position where a generator decides what to emit
@@ -168,6 +170,12 @@ Panel struct {
 	hatch   Gate?
 	box     Box<string>
 	crates  Box<Gate>[]
+	crate   Crate<string>
+	byGate  map<string, Gate>
+	byValve map<string, Valve>?
+	byKey   map<Key, Valve>
+	grid    Gates[]
+	lists   ValveList[]
 	@go marshal
 }
 

@@ -369,11 +369,11 @@ func (b *encoderBuilder) processFields(
 			}
 		}
 
-		if f.Optional && !b.isGoNilable(f.Type) {
+		if f.Optional && !typemap.Nilable(f.Type, b.table) {
 			if err := b.processOptional(f, getPath, setPath); err != nil {
 				return err
 			}
-		} else if f.Optional && b.isGoNilable(f.Type) {
+		} else if f.Optional {
 			if err := b.processOptionalNilable(f, getPath, setPath); err != nil {
 				return err
 			}
@@ -1263,10 +1263,6 @@ func (b *encoderBuilder) takeNonNil() bool {
 	known := b.skipNilCheck
 	b.skipNilCheck = false
 	return known
-}
-
-func (b *encoderBuilder) isGoNilable(ref resolution.TypeRef) bool {
-	return typemap.Nilable(ref, b.table)
 }
 
 func (b *encoderBuilder) resolveLeaf(

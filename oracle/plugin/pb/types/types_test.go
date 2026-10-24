@@ -1143,6 +1143,32 @@ var _ = Describe("Protobuf Union Generation", func() {
 		},
 	)
 
+	It(
+		"Should error when a variant names an alias of a struct that omits a field",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			BaseAIChan struct { port int32 }
+			Temp struct extends BaseAIChan {
+				-port
+			}
+			Builtin = Temp
+
+			AIChannel union on type {
+				temp Builtin
+			}
+		`
+			req := MustGenerateRequest(ctx, source, "ni", loader)
+			Expect(p.Generate(req)).Error().To(MatchError(
+				`failed to generate core/pkg/hw/ni/pb: union "AIChannel" ` +
+					`variant "temp" omits inherited field(s) [port], which ` +
+					`protobuf cannot express; drop @pb or the omission`,
+			))
+		},
+	)
+
 	It("Should generate messages for inline variant payloads", func(ctx SpecContext) {
 		source := `
 			@go output "core/pkg/hw/panel"

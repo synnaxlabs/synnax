@@ -669,7 +669,7 @@ func (p *Plugin) processUnion(
 	for _, v := range form.Variants {
 		// The union's bases are one shared message field, not per-variant, so a
 		// variant cannot drop a field from them.
-		if payload, ok := v.Type.Resolve(data.table); ok {
+		if payload, _, ok := resolution.Dealias(v.Type, data.table); ok {
 			if pform, ok := payload.Form.(resolution.StructForm); ok &&
 				len(pform.OmittedFields) > 0 {
 				return messageData{}, errors.Newf(

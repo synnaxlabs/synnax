@@ -621,6 +621,110 @@ Board struct {
 			},
 			[]string{"Tab(old)"},
 		),
+		Entry("copies a field of a union the incoming version aliases",
+			"board",
+			`Link struct {
+	name string
+
+	@go marshal
+}
+
+Edge union on variant {
+	link Link
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	edge Edge
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Link = v0.Link
+Edge = v0.Edge
+
+Board struct {
+	key uuid @key
+	name string
+	edge Edge
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Link struct {
+	name string
+}
+
+Edge union on variant {
+	link Link
+}
+
+Board struct {
+	key uuid @key
+	name string
+	edge Edge
+}
+`,
+			true,
+			[]string{"Edge: old.Edge"},
+			nil,
+		),
+		Entry("leaves a field to the hand-written migration when an alias of a union "+
+			"becomes a struct",
+			"board",
+			`Link struct {
+	name string
+
+	@go marshal
+}
+
+Edge union on variant {
+	link Link
+
+	@go marshal
+}
+
+Wire = Edge
+
+Board struct {
+	key uuid @key
+	wire Wire
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Wire struct {
+	name string
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	wire Wire
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Wire struct {
+	name string
+}
+
+Board struct {
+	key uuid @key
+	wire Wire
+}
+`,
+			true,
+			[]string{"Key: old.Key"},
+			[]string{"autoMigrateWire", "Wire: "},
+		),
 		Entry("pairs variant embeds by declaration when a union drops a base",
 			"board",
 			`Base struct {

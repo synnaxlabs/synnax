@@ -97,6 +97,10 @@ Grade Size
 Fitting Valve
 Box<T> = base.Box<T>
 Crate<T> Box<T>
+Valves Valve[] {
+	@pb name "Valves"
+}
+Doc = record
 `
 
 var _ = Describe("C++ PB aliases", func() {
@@ -137,6 +141,29 @@ var _ = Describe("C++ PB aliases", func() {
 				valves Valve[]
 			}
 		`, "auto [v, err] = item.to_proto();"),
+		Entry("a map of a struct", `
+			Panel struct {
+				byName map<string, Valve>
+			}
+		`, "auto [pb_v, err] = v.to_proto();", "Valve::from_proto(v)"),
+		Entry("a map of a record", `
+			Panel struct {
+				docs map<string, Doc>
+			}
+		`, "x::json::to_struct(v)", "x::json::from_struct(v)"),
+		Entry("a nested array of a struct", `
+			Panel struct {
+				grid Valves[]
+			}
+		`,
+			"auto [v_pb, err] = v.to_proto();",
+			"x::pb::from_proto_repeated<Valve>(inner, wrapper.values())",
+		),
+		Entry("an array wrapper of a struct", `
+			Panel struct {
+				valves Valves
+			}
+		`, "x::pb::from_proto_repeated<Valve>(cpp, pb.values())"),
 		Entry("a distinct type over an alias of a uuid", `
 			Panel struct {
 				key Ident

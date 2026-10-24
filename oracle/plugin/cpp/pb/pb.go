@@ -1428,8 +1428,10 @@ func (p *Plugin) generateMapConversion(
 	}
 
 	valueType := typeRef.TypeArgs[1]
+	// An alias value converts as the type it stands for.
+	value, valueRef, dealiased := resolution.Dealias(valueType, data.table)
 
-	if valueType.Name == "record" {
+	if dealiased && valueRef.Name == "record" {
 		data.AddInternal("x/cpp/json/struct.h")
 		forward = fmt.Sprintf(`for (const auto& [k, v] : this->%s) {
         auto [pb_v, err] = x::json::to_struct(v);
@@ -1444,10 +1446,10 @@ func (p *Plugin) generateMapConversion(
 		return forward, backward
 	}
 
-	if resolved, ok := valueType.Resolve(data.table); ok {
-		if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-			if resolved.Namespace != data.rawNs {
-				targetOutputPath := output.GetPath(resolved, "cpp")
+	if dealiased {
+		if _, isStruct := value.Form.(resolution.StructForm); isStruct {
+			if value.Namespace != data.rawNs {
+				targetOutputPath := output.GetPath(value, "cpp")
 				if targetOutputPath != "" {
 					data.addConversionIncludes(targetOutputPath)
 				}
@@ -1533,7 +1535,7 @@ func (p *Plugin) generateNestedArrayConversion(
 	// primitive-inner path preserves the original `add_values(v)` form.
 	if elemType, ok := arrays.ElementType(typeRef, data.table); ok {
 		if innerElem, ok := arrays.ElementType(elemType, data.table); ok {
-			if innerResolved, ok := innerElem.Resolve(data.table); ok {
+			if innerResolved, _, ok := resolution.Dealias(innerElem, data.table); ok {
 				if _, isStruct := innerResolved.Form.(resolution.StructForm); isStruct {
 					if innerResolved.Namespace != data.rawNs {
 						targetOutputPath := output.GetPath(innerResolved, "cpp")
@@ -1635,7 +1637,7 @@ func (p *Plugin) processArrayWrapperForTranslation(
 
 	elementNeedsConvert := false
 	if !resolution.IsPrimitive(elemType.Name) {
-		if resolved, ok := elemType.Resolve(data.table); ok {
+		if resolved, _, ok := resolution.Dealias(elemType, data.table); ok {
 			_, elementNeedsConvert = resolved.Form.(resolution.StructForm)
 		}
 	}

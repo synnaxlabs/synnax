@@ -126,7 +126,10 @@ var _ = Describe("C++ JSON aliases", func() {
 			Panel struct {
 				gate Gate
 			}
-		`, `j["gate"] = this->gate.to_json();`),
+		`,
+			`j["gate"] = this->gate.to_json();`,
+			`#include "client/cpp/base/json.gen.h"`,
+		),
 		Entry("a distinct array", `
 			Panel struct {
 				list ValveList

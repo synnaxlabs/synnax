@@ -1401,7 +1401,6 @@ func unionVariantToPython(
 	return addCrossNamespaceImport(toPythonModulePath(outputPath), variantName, data)
 }
 
-// isUUIDType checks if a type reference is or resolves to the uuid primitive type.
 // resolveDistinctWrapper returns the Python type name for a distinct type that wraps
 // a primitive, or empty string if the type is not a distinct wrapper. This is used to
 // wrap default values in the constructor (e.g., TimeSpan(0) instead of just 0).
@@ -1419,7 +1418,6 @@ func resolveDistinctWrapper(
 	return typeToPython(typeRef, table, data)
 }
 
-// isTimestampType checks if a type reference is or resolves to a TimeStamp type.
 type intBounds struct {
 	min string
 	max string

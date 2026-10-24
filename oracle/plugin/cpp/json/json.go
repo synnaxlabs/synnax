@@ -442,15 +442,12 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 		return resolved.Name
 	}
 
-	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-		if targetResolved, targetOk := aliasForm.Target.Resolve(data.table); targetOk {
-			if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
-				if targetResolved.Namespace != data.rawNs {
-					targetOutputPath := output.GetPath(targetResolved, "cpp")
-					if targetOutputPath != "" {
-						data.AddInternal(data.jsonInclude(targetOutputPath))
-					}
-				}
+	if _, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+		target, _, ok := resolution.Dealias(typeRef, data.table)
+		_, isStruct := target.Form.(resolution.StructForm)
+		if ok && isStruct && target.Namespace != data.rawNs {
+			if path := output.GetPath(target, "cpp"); path != "" {
+				data.AddInternal(data.jsonInclude(path))
 			}
 		}
 	}
