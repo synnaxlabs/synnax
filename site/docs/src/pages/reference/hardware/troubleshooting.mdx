@@ -1,0 +1,261 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Troubleshoot hardware"
+description: "Fix common problems with the Driver, devices, and tasks."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Edition } from "@/components/edition";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Find the message or symptom that you see, then follow its fix. Each command runs from
+the [command palette](/reference/get-started/ui-overview#search-and-command-palette).
+Some problems show only in the log. In Synnax Desktop, run the "Show logs" command to
+open it. For problems with one integration, see the troubleshooting section on its
+pages.
+
+<Divider.Divider x />
+
+## Restart the Driver
+
+Many fixes end with a Driver restart. How you restart it depends on where it runs:
+
+- **Synnax Desktop** -> run the "Restart Synnax" command.
+- **The embedded Driver of a Core** -> restart the Core.
+- **A standalone Driver** -> run `sudo synnax-driver restart` on Linux, or see
+  [install the Driver](/reference/enterprise/driver/install).
+
+<Divider.Divider x />
+
+## The Driver
+
+### `Driver not running`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Core has not heard from the Driver for a few seconds. The Driver shows this warning
+in the devices toolbar. A task on that Driver shows the same message when you start or
+stop it.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. [Restart the Driver](#restart-the-driver).
+2. Wait for the Driver status to change to "Driver is running".
+
+<Edition.Enterprise>
+
+For a standalone Driver, make sure that the Driver runs on its computer and can reach
+the Core. See [install the Driver](/reference/enterprise/driver/install).
+
+</Edition.Enterprise>
+
+</Problem.Fix>
+</Problem.Body>
+
+### `No response to the start command`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver did not answer the command in 10 seconds. The Driver is running, but the
+device takes too long to start or stop. After 60 seconds, the Driver gives up and the
+status changes to "Failed to complete task operation". The Driver does not run a new
+command for the task until the old command ends, so starting the task again does not
+help.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Check the cable, power, and network of the device.
+2. [Restart the Driver](#restart-the-driver).
+3. Start the task again.
+
+If the status is "Driver not running" instead, see
+[the Driver is not running](#driver-not-running).
+
+</Problem.Fix>
+</Problem.Body>
+
+### `No integration on this Driver handles task type ...`
+
+<Edition.Enterprise>
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver that holds the task does not run the integration of the task, for example a
+Modbus task on a Driver on NI Linux RT. When you start the task, it shows "Failed to
+configure task", with this text in the description. A task stays on the Driver of its
+device.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Connect the device again, with **Connect from** set to a Driver that runs the
+   integration. See
+   [supported integrations](/reference/hardware#supported-integrations).
+2. Create the task again on the new device.
+
+</Problem.Fix>
+</Problem.Body>
+
+</Edition.Enterprise>
+
+<Divider.Divider x />
+
+## Devices
+
+### A device does not show in the devices toolbar
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver skips the device, cannot use it, or does not look for it. A task with no
+device to select shows "No devices connected" in its device list.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **NI device** -> the Driver skips a device that has no name in NI MAX. Give the device
+  a name in NI MAX. The Driver also skips CompactRIO controllers, but it finds the
+  modules in them.
+- **Vendor software** -> NI devices need NI-DAQmx, LabJack devices need LJM, and
+  EtherCAT on Windows needs Npcap. See the setup page of the integration. Install the
+  software, then [restart the Driver](#restart-the-driver).
+- **Operating system** -> NI devices do not work on macOS. LabJack devices work on
+  Windows and macOS only. See
+  [supported integrations](/reference/hardware#supported-integrations).
+- **LabJack on the network** -> the Driver can take about a minute to find it.
+- **Modbus, OPC UA, and HTTP** -> the Driver does not look for these devices. Connect
+  them by hand. See
+  [how devices get into Synnax](/reference/hardware/devices#how-devices-get-into-synnax).
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Device disconnected`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver no longer finds a device that it found before.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Check the cable, power, and network of the device.
+2. Wait for the next scan. The status changes back to "Device present".
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Failed to reach device` or `Failed to reach server`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver cannot connect to a Modbus, OPC UA, or HTTP device.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Make sure that the device is on and on the same network as the Driver.
+2. Right-click the device in the devices toolbar and select **Edit connection**.
+3. Check the address and port, then click **Connect**.
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## Tasks
+
+### A task says the libraries are not installed
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver cannot load the vendor libraries. The task shows "Failed to create task", and
+the description says that the NI-DAQmx and System Configuration libraries or the LabJack
+LJM libraries are not installed on this system. This status shows for a task that you
+imported, or after the software was removed. NI tasks never work on macOS, and LabJack
+tasks never work on Linux.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Install NI-DAQmx or LJM.
+2. [Restart the Driver](#restart-the-driver).
+3. Start the task again.
+
+</Problem.Fix>
+</Problem.Body>
+
+### A task says its device is not configured
+
+<Problem.Body>
+<Problem.Cause>
+
+The device of the task is not configured yet. The task tab shows "... is not
+configured".
+
+</Problem.Cause>
+<Problem.Fix>
+
+Click **Configure ...** in the message, and follow the steps in the dialog.
+
+</Problem.Fix>
+</Problem.Body>
+
+### Values show on a plot but are not stored
+
+<Problem.Body>
+<Problem.Cause>
+
+The task has **Data saving** off.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Turn on **Data saving** in the task tab. See
+[data saving](/reference/hardware/tasks#data-saving).
+
+</Problem.Fix>
+</Problem.Body>
+
+### A running task ignores your edits
+
+<Problem.Body>
+<Problem.Cause>
+
+The task keeps its old configuration until you redeploy it.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Redeploy the task. See
+[apply edits to a running task](/reference/hardware/start-and-stop-tasks#apply-edits-to-a-running-task).
+
+</Problem.Fix>
+</Problem.Body>
+
+### A write task does not change the output
+
+<Problem.Body>
+<Problem.Cause>
+
+Another writer, such as a schematic or an Arc automation, controls the command channel.
+It has a higher authority, or the same authority and it opened first.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Release control in that writer, or give your writer a higher authority. See
+[control authority](/reference/control/authority).
+
+</Problem.Fix>
+</Problem.Body>

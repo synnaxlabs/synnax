@@ -1,0 +1,138 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Channel aliases"
+description: "Give a channel a different name inside one range."
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@/components/note";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A range can give a channel an [alias](/reference/ranges#channel-aliases): a name that
+applies only in that range. Use an alias to give a channel a clear name for one test,
+for example `tank_pressure` for the input `daq_analog_input_1`.
+
+<Divider.Divider x />
+
+## Set an alias
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+1. In the ranges toolbar, right-click a range that is saved to the Core and select **Set
+   as active range**.
+2. In the channels toolbar, right-click a channel and select **Set alias under**
+   followed by the range name.
+3. Type the alias, then press **Enter**.
+
+The channels toolbar shows the alias while its range is active.
+
+<Video id="console/channels/alias" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+burst_test = client.ranges.retrieve(name="Oct 10 Burst Test")
+
+burst_test.set_alias("daq_analog_input_1", "tank_pressure")
+
+# Set several aliases at once
+burst_test.set_alias({"daq_analog_input_2": "tank_temperature"})
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const burstTest = await client.ranges.retrieve("Oct 10 Burst Test");
+
+await burstTest.setAlias("daq_analog_input_1", "tank_pressure");
+
+// List the aliases of the range, keyed by channel key
+const aliases = await burstTest.listAliases();
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+A [child range](/reference/ranges#child-ranges) uses the aliases of its parent. Set an
+alias on the child to replace the alias of the parent in the child.
+
+<Note.Note variant="info">
+  An alias applies only in its range. Outside of the range, Synnax does not find the
+  channel by its alias.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Remove an alias
+
+<Client.Tabs exclude={["python"]}>
+
+  <Fragment slot="console">
+
+Make the range active. In the channels toolbar, right-click the channel and select
+**Remove alias under** followed by the range name. You can select several channels
+first.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const channelKey = await burstTest.resolveAlias("tank_pressure");
+await burstTest.deleteAlias(channelKey);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+The Python client cannot remove an alias.
+
+<Divider.Divider x />
+
+## Read by alias
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+Use the alias as a property or a key of the range. The result is the data of the channel
+in the range:
+
+```python
+burst_test = client.ranges.retrieve(name="Oct 10 Burst Test")
+
+pressure = burst_test.tank_pressure.to_numpy()
+pressure = burst_test["tank_pressure"].to_numpy()
+
+# A regular expression matches channel names and aliases
+for ch in burst_test["^tank"]:
+    print(ch.name, ch.to_numpy().max())
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+Resolve the alias to a channel key, then read the time range of the range:
+
+```typescript
+const burstTest = await client.ranges.retrieve("Oct 10 Burst Test");
+const channelKey = await burstTest.resolveAlias("tank_pressure");
+const data = await client.read(burstTest.timeRange, channelKey);
+```
+
+  </Fragment>
+</Client.Tabs>

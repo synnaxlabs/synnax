@@ -1,0 +1,106 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Read and write range data"
+description: "Read and write the data of a range without exact timestamps."
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A range knows its start and end time, so you can read and write its data without typing
+timestamps.
+
+<Divider.Divider x />
+
+## Read from a range
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+In the ranges toolbar, right-click a range and select **Add to new plot**. The Console
+opens a line plot of the range with no channels. Open the component toolbar and select
+channels in **Y1**.
+
+To add the range to a line plot that is already open, focus the plot, then select **Add
+to active plot**. See [line plots](/reference/visualize/line-plots#choose-a-time-range).
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+Use a channel name or [alias](/reference/ranges/aliases) as a property or a key of the
+range. The result acts as a NumPy array:
+
+```python
+my_range = client.ranges.retrieve(name="My Interesting Test")
+
+data = my_range.my_precise_tc.to_numpy()
+celsius = my_range["my_precise_tc"] - 273.15
+
+# Read several channels as a frame
+frame = client.read(my_range.time_range, ["my_precise_tc", "my_precise_pt"])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const myRange = await client.ranges.retrieve("My Interesting Test");
+
+const data = await myRange.read("my_precise_tc");
+const celsius = Array.from(data, (v) => Number(v) - 273.15);
+
+// Read several channels as a frame
+const frame = await myRange.read(["my_precise_tc", "my_precise_pt"]);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Write to a range
+
+A write to a range starts at the start time of the range. Include the index channel of
+the data with timestamps inside the range.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+my_range = client.ranges.retrieve(name="My Interesting Test")
+start = my_range.time_range.start
+my_range.write(
+    {
+        "my_time": [start + sy.TimeSpan.SECOND * i for i in range(3)],
+        "my_precise_tc": [301.2, 301.5, 301.9],
+    }
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { TimeSpan } from "@synnaxlabs/client";
+
+const myRange = await client.ranges.retrieve("My Interesting Test");
+const start = myRange.timeRange.start;
+await client.write(start, {
+  my_time: [0, 1, 2].map((i) => start.add(TimeSpan.seconds(i))),
+  my_precise_tc: [301.2, 301.5, 301.9],
+});
+```
+
+  </Fragment>
+</Client.Tabs>

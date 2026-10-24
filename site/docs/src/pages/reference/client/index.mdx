@@ -1,0 +1,147 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Client libraries"
+description:
+  "Learn what the Python and TypeScript client libraries do, how they shape data, and
+  which operation to use."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Diagram } from "@/components/diagram";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The Synnax client libraries connect your own Python and TypeScript code to a Synnax
+Core. Use them to write, read, stream, and delete the samples of
+[channels](/reference/channels), and to set up channels, ranges, and tasks from code.
+The clients connect to a Core in [Synnax Enterprise](/reference/enterprise). They cannot
+connect to Synnax Desktop. To start, follow the
+[quick start](/reference/client/quick-start).
+
+In code, samples move in series and frames. A series holds the samples of one channel. A
+frame holds one or more series, keyed by channel:
+
+<Diagram.Block
+  title="The index channel tank_time and the data channel tank_pressure each give a series. One frame holds both series, keyed by channel."
+  nodes={[
+    {
+      key: "time",
+      label: "tank_time",
+      caption: "index channel",
+      icon: Icon.Channel,
+      column: 0,
+    },
+    {
+      key: "pressure",
+      label: "tank_pressure",
+      caption: "data channel",
+      icon: Icon.Channel,
+      column: 0,
+    },
+    {
+      key: "time-series",
+      label: "Series",
+      caption: "timestamps",
+      icon: Icon.Value,
+      column: 1,
+    },
+    {
+      key: "pressure-series",
+      label: "Series",
+      caption: "float32 values",
+      icon: Icon.Value,
+      column: 1,
+    },
+    {
+      key: "frame",
+      label: "Frame",
+      caption: "keyed by channel",
+      icon: Icon.Table,
+      column: 2,
+    },
+  ]}
+  edges={[
+    { from: "time", to: "time-series" },
+    { from: "pressure", to: "pressure-series" },
+    { from: "time-series", to: "frame" },
+    { from: "pressure-series", to: "frame" },
+  ]}
+/>
+
+<Divider.Divider x />
+
+## What the client libraries are for
+
+### Analyze test data
+
+Read the samples of a test run into a pandas DataFrame or a NumPy array, then analyze
+and plot them with the tools you already use. See
+[Read data](/reference/client/read-data).
+
+### Show live data in your own app
+
+A [streamer](/reference/client/stream-data) gets each sample as it arrives. Use it to
+show live values in a web page, send them to another system, or check them in a test
+script.
+
+### Record data from a script
+
+A [writer](/reference/client/write-data) stores samples from a source that Synnax has no
+integration for: an instrument on a serial port, a simulation, or a file. To make the
+source a device in the Console, build a [custom device](/reference/hardware/custom).
+
+### Automate a test from Python
+
+A Python control sequence reads sensors, commands valves, and waits for conditions. See
+[Python control sequences](/reference/control/python/write-sequences).
+
+### Configure Synnax from code
+
+Create many channels, ranges, and tasks with one script, and run it again on each new
+Core. Each capability page has Python and TypeScript tabs, for example
+[Create channels](/reference/channels/create) and
+[Create ranges](/reference/ranges/create).
+
+### Process data as it arrives
+
+Stream samples from some channels, compute new values, and write them to other channels.
+Use code when the work needs a library, a file, or another system. For math on channels
+in the Core, a [calculated channel](/reference/channels/calculated) needs no code.
+
+<Divider.Divider x />
+
+## Data in code
+
+- [Samples](/reference/channels) -> the values of a channel, each at one point in time.
+- [Series](/reference/client/series-and-frames#series) -> the samples of one channel, as
+  a typed array.
+- [Frame](/reference/client/series-and-frames#frames) -> the series of one or more
+  channels, keyed by channel.
+- [Time types](/reference/client/time-types) -> `TimeStamp`, `TimeSpan`, `TimeRange`,
+  and `Rate`, with nanosecond precision.
+
+<Divider.Divider x />
+
+## Operations
+
+| Operation                               | Python                                 | TypeScript                           | Use it to                           |
+| --------------------------------------- | -------------------------------------- | ------------------------------------ | ----------------------------------- |
+| [Write](/reference/client/write-data)   | `open_writer`, `write`                 | `openWriter`, `write`                | Store samples and stream them live. |
+| [Read](/reference/client/read-data)     | `read`, `read_latest`, `open_iterator` | `read`, `readLatest`, `openIterator` | Get samples that the Core stored.   |
+| [Stream](/reference/client/stream-data) | `open_streamer`, `open_async_streamer` | `openStreamer`                       | Get samples as they arrive.         |
+| [Delete](/reference/client/delete-data) | `delete`                               | `delete`                             | Remove the samples in a time range. |
+
+Each operation is a method on the client.
+
+<Divider.Divider x />
+
+## Languages
+
+| Language   | Package                                                                         | Runs on                                                  |
+| ---------- | ------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Python     | [`synnax`](https://pypi.org/project/synnax/) on PyPI                            | Python 3.12 or later                                     |
+| TypeScript | [`@synnaxlabs/client`](https://www.npmjs.com/package/@synnaxlabs/client) on npm | Node.js 22, Chrome 122, Firefox 127, Safari 17, or later |
+
+Use a client with the same major and minor version as your Core, such as client 0.58
+with Core 0.58. The client prints a warning when the versions differ.

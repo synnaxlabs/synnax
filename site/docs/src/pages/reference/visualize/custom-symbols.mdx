@@ -1,0 +1,160 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Create custom symbols"
+description:
+  "Import an SVG drawing as a schematic symbol, color it by state, and share it."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Image, Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A custom symbol is an SVG drawing that you add to a
+[schematic](/reference/visualize/schematics), like a built-in symbol. Use one when your
+hardware has no built-in symbol, such as a special valve or the outline of a vehicle.
+Custom symbols live in symbol groups, which every schematic on the Core can use.
+
+A custom symbol is one of two kinds:
+
+- **Static** -> a drawing only. It does not connect to channels.
+- **Actuator** -> a symbol with a **Base** and an **Active** state, like a built-in
+  valve. It shows the **Active** colors when its
+  [state channel](/reference/hardware/tasks#state-channels) is 1, and it writes to a
+  [command channel](/reference/hardware/tasks#command-channels) when an operator clicks
+  it.
+
+<Divider.Divider x />
+
+## Create a symbol group
+
+1. Open a schematic and turn on editing.
+2. Press **V** to open the component toolbar, then select the **Symbols** tab.
+3. Click <Icon.Add /> (**Create symbol group**).
+4. Enter a name, then click **Save**.
+
+<Video id="console/schematics/symbol-create-group" />
+
+<Divider.Divider x />
+
+## Create a symbol
+
+1. In the **Symbols** tab, select your symbol group.
+2. Click **Create symbol**.
+3. Drop an SVG file on the dialog, or click it to select a file. The file name becomes
+   the **Symbol name**.
+4. Under **States**, select **Static** or **Actuator**.
+5. Under **Colors**, set the **Stroke color** and **Fill color** of each region. For an
+   actuator, select the **Active** state and set its colors too.
+6. Optional: under **Handles**, click <Icon.Add /> to add a connection point. Drag it to
+   the edge of the drawing.
+7. Click **Create**.
+
+After you load a file, you cannot replace it. To use a different drawing, create a new
+symbol.
+
+<Video id="console/schematics/symbol-import-svg" />
+
+<Divider.Divider x />
+
+## Add the symbol to a schematic
+
+In the **Symbols** tab, select the group, then click the symbol or drag it onto the
+schematic.
+
+To connect an actuator to hardware, select it, then set the state and command channels
+on its [**Control** tab](/reference/visualize/schematics#control-tab). When editing is
+off, a click writes 1 when the symbol shows **Base**, and 0 when it shows **Active**.
+
+A placed symbol keeps the kind it had when you placed it. If you change a static symbol
+to an actuator, place it again.
+
+<Divider.Divider x />
+
+## Change the colors of one placed symbol
+
+1. Select the placed symbol.
+2. On the **Style** tab, find **State overrides**.
+3. Set the colors of a region for each state.
+
+The change applies to that symbol only. Click the reset button of a region to use the
+colors of the symbol again.
+
+<Divider.Divider x />
+
+## Edit a symbol
+
+Right-click the symbol in the **Symbols** tab and select **Edit**. You can also select a
+placed symbol and click <Icon.Edit /> on its **Properties** tab. Change the settings,
+then click **Save**.
+
+Every placed copy of the symbol shows the change.
+
+<Divider.Divider x />
+
+## Share symbols
+
+To export, right-click a symbol and select **Export** to save a `.json` file. To export
+a whole group, right-click the group and select **Export** to save a `.zip` file.
+
+To import, select a group and click **Import symbol** to add one or more `.json` files.
+Click **Import symbol group** to add a `.zip` file or its unzipped folder.
+
+An import always makes a new symbol. It does not change a symbol that is already on the
+Core, so importing the same file two times makes two symbols.
+
+<Divider.Divider x />
+
+## Delete symbols and groups
+
+Right-click a symbol or a group and select **Delete**. Deleting a group deletes every
+symbol in it.
+
+A placed copy of a deleted symbol shows **Missing custom symbol**. Select it, then
+choose a different symbol on its **Properties** tab, or create a new one. A symbol that
+you create there replaces every missing copy.
+
+<Divider.Divider x />
+
+## Symbol editor reference
+
+### States
+
+**Static** has one state. **Actuator** has **Base**, shown when the state channel is not
+1, and **Active**, shown when it is 1. The state is active when the value is between 0.9
+and 1.1.
+
+### Colors
+
+Synnax finds the regions of the drawing from its colors. Elements with the same stroke
+and fill are one region, named **Region 1**, **Region 2**, and so on. Each region has a
+**Stroke color** and a **Fill color** for each state.
+
+<Image id="console/schematics/symbol-color-regions" style={{ width: 250 }} />
+
+To move an element to a different region, select the region, then click the element in
+the preview. Click <Icon.Add /> to add a region. Click a region name to rename it.
+
+### Handles
+
+A handle is a point where connection lines attach. Drag a handle in the preview, then
+select the side of the symbol it faces: left, right, top, or bottom.
+
+### Properties
+
+| Field        | Description                                                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------ |
+| Scale        | The size of the symbol when you add it to a schematic, from 5% to 1000%.                         |
+| Scale stroke | When on, lines get thicker as the symbol gets larger. Off by default, so lines keep their width. |
+
+### Preview
+
+Press **=** to zoom in, **-** to zoom out, and **0** to reset the zoom. You can also
+scroll to zoom, and **Shift**+drag or middle-drag to pan. Press **Ctrl+Enter**
+(**Cmd+Enter** on macOS) to save.
+
+### SVG files
+
+Use one SVG file with an `<svg>` root element. Give parts that change color together the
+same stroke and fill colors, so Synnax puts them in one region.

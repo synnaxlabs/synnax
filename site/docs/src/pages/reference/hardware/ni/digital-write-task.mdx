@@ -1,0 +1,163 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "NI digital write task"
+description: "Write command channel values to the digital output lines of an NI device."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An NI digital write task writes the values of command channels to the digital output
+lines of one NI device. For example, a valve on a schematic can switch `port0/line0` of
+a USB-6343 through a relay.
+
+Each line has a command channel and a
+[state channel](/reference/hardware/tasks#write-tasks). Send 1 to turn a line on and 0
+to turn it off.
+
+Before you start, you need a
+[configured device](/reference/hardware/ni/configure-device).
+
+<Divider.Divider x />
+
+## Create an NI digital write task
+
+When you create command channels with a client library, give each one its own index
+channel. A writer that holds several commands on one index must write all of them in
+every frame.
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the device and select **Create digital write
+   task**.
+2. Set **State update rate**.
+3. Click **Add channel**, then enter the port and the line in **Port/Line**.
+4. Click <Icon.Play /> (**Start**).
+
+The Console creates the channels. For a device with the identifier `dev1`, port 0, line
+0 gives the command channel `dev1_do_0_0_cmd` with the index `dev1_do_0_0_cmd_time`, and
+the state channel `dev1_do_0_0_state` with the index `dev1_do_state_time`.
+
+<Video id="hardware/ni/digital-write-task" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Python does not create channels. Create them first.
+
+```python
+import synnax as sy
+from synnax import ni
+
+dev = client.devices.retrieve(key="<device key>")
+state_time = client.channels.create(
+    name="dev1_do_state_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+state = client.channels.create(
+    name="valve_1_state", index=state_time.key, data_type=sy.DataType.UINT8
+)
+cmd_time = client.channels.create(
+    name="valve_1_cmd_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+cmd = client.channels.create(
+    name="valve_1_cmd", index=cmd_time.key, data_type=sy.DataType.UINT8
+)
+
+task = ni.DigitalWriteTask(
+    name="Valves",
+    device=dev.key,
+    channels=[
+        ni.DOChannel(port=0, line=0, cmd_channel=cmd.key, state_channel=state.key)
+    ],
+)
+client.tasks.configure(task)
+task.start()
+```
+
+Python creates the task on the embedded Driver of the Core. For a device on another
+Driver, use the Console or TypeScript.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+TypeScript does not create channels. Create them first, as in the Python example.
+
+```typescript
+import { ni } from "@synnaxlabs/client";
+
+const dev = await client.devices.retrieve({ key: "<device key>" });
+const task = await client.tasks.create({
+  name: "Valves",
+  rack: dev.rack,
+  type: "ni_digital_write",
+  config: ni.digitalWriteConfigZ.parse({
+    device: dev.key,
+    channels: [
+      {
+        port: 0,
+        line: 0,
+        cmdChannel: cmd.key,
+        stateChannel: state.key,
+      },
+    ],
+  }),
+});
+await task.start();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Task options
+
+| Console label     | Python field           | Default | Notes                                                     |
+| ----------------- | ---------------------- | ------- | --------------------------------------------------------- |
+| Device            | `device`               |         | The key of the device.                                    |
+| State update rate | `state_rate`           | 10 Hz   | How often the task writes the state channels.             |
+| Data saving       | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start        | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+
+<Divider.Divider x />
+
+## Channel reference
+
+Each channel has a `cmd_channel` and a `state_channel`. The table shows the Console
+label of each setting, with its Python field under it.
+
+| Setting                                 | Default | Notes                         |
+| --------------------------------------- | ------- | ----------------------------- |
+| Port/Line <small>`port`, `line`</small> | `0`/`0` | The port, and the line in it. |
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item message={"Port ..., line ... has already been used on another channel"}>
+<Problem.Cause>
+
+Two channels use the same line.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the port or the line of one of them.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For other problems, see
+[Configure an NI device](/reference/hardware/ni/configure-device#troubleshooting) and
+[Troubleshoot hardware](/reference/hardware/troubleshooting).

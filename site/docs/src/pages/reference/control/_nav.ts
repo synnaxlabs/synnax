@@ -16,10 +16,22 @@ export const CONTROL_NAV: PageNavNode = {
   name: "Control",
   children: [
     {
-      href: "/reference/control/get-started",
-      name: "Get started",
+      href: "/reference/control",
+      name: "Overview",
+    },
+    {
+      href: "/reference/control/authority",
+      name: "Authority",
+    },
+    {
+      href: "/reference/control/manual",
+      name: "Manual control",
     },
     ARC_NAV,
     PYTHON_SEQUENCES_NAV,
+    {
+      href: "/reference/control/troubleshooting",
+      name: "Troubleshooting",
+    },
   ],
 };

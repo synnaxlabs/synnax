@@ -12,14 +12,15 @@ import { type PageNavNode } from "@/components/nav/tree";
 export const PYTHON_SEQUENCES_NAV: PageNavNode = {
   key: "python",
   name: "Python",
+  edition: "enterprise",
   children: [
     {
-      href: "/reference/control/python/get-started",
-      name: "Get started",
+      href: "/reference/control/python/write-sequences",
+      name: "Write a sequence",
     },
     {
-      href: "/reference/control/python/examples",
-      name: "Examples",
+      href: "/reference/control/python/controller",
+      name: "Controller",
     },
   ],
 };

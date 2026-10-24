@@ -1,0 +1,191 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Configure an EtherCAT device"
+description: "Connect an EtherCAT network to the Driver and configure its modules."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Edition } from "@/components/edition";
+import Platforms from "@/components/hardware/Platforms.astro";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+[EtherCAT](https://www.ethercat.org/) is a fieldbus that runs on a standard Ethernet
+port. The Driver is the EtherCAT master: it finds each module on the network and reads
+and writes the process data of the module, which EtherCAT calls PDOs. Before a task can
+use a module, you configure it.
+
+<Divider.Divider x />
+
+## Prerequisites
+
+<Platforms integration="ethercat" />
+
+- An Ethernet port on the computer that runs the Driver, cabled to the first module. Use
+  a port for EtherCAT only.
+- Packet capture software:
+  - **Windows** -> install [Npcap](https://npcap.com/#download) with **WinPcap
+    API-compatible Mode** turned on. Without this mode, the Driver cannot find Npcap.
+  - **macOS** -> nothing to install. macOS includes libpcap.
+
+<Edition.Enterprise>
+
+On Linux, a standalone Driver needs the file `libpcap.so`. On Debian and Ubuntu, install
+the `libpcap-dev` package. If the
+[IgH EtherCAT Master](https://etherlab.org/en_GB/ethercat) kernel module is loaded, the
+Driver uses it instead.
+
+</Edition.Enterprise>
+
+<Divider.Divider x />
+
+## How the Driver finds modules
+
+The Driver looks for EtherCAT modules on each Ethernet port every few seconds. A module
+shows in the [devices toolbar](/reference/hardware/devices#devices-toolbar) under its
+Driver:
+
+- **Name** -> the name stored in the module, such as `EL3102`, or "EtherCAT Slave
+  \<position\>".
+- **Location** -> the port and the position of the module on the network, such as
+  `en5.Slot 2`.
+
+The Driver gets the PDOs of a module from a built-in catalog of Beckhoff and Dewesoft
+modules, then from the module itself. If it cannot find them, the status of the module
+reads "Failed to discover PDOs", and its description gives the reason. To scan again,
+[restart the Driver](/reference/hardware/troubleshooting#restart-the-driver). A module
+that the scan cannot read is not supported yet. Manual channels on that module read
+wrong values.
+
+<Divider.Divider x />
+
+## Configure a device
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the module and select **Configure**. You can also
+   click **Configure** in the "New slave connected" notification.
+2. Enter a name, then click **Next**.
+3. Enter an [identifier](/reference/hardware/devices#identifiers), then click **Save**.
+
+Configure each module that a task uses.
+
+<Video id="device-drivers/ethercat/configure-device/ethercat-configure" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Find modules and list their PDOs:
+
+```python
+for module in client.devices.retrieve(makes=["ethercat"]):
+    props = module.properties
+    print(module.name, props["network"], props["position"])
+    for pdo in props["pdos"]["inputs"]:
+        print("  in ", pdo["name"], hex(pdo["index"]), pdo["sub_index"], pdo["data_type"])
+    for pdo in props["pdos"]["outputs"]:
+        print("  out", pdo["name"], hex(pdo["index"]), pdo["sub_index"], pdo["data_type"])
+```
+
+Configure modules in the Console.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+Find modules and list their PDOs:
+
+```typescript
+for (const module of await client.devices.retrieve({ makes: ["ethercat"] })) {
+  const { network, position, pdos } = module.properties;
+  console.log(module.name, network, position, JSON.stringify(pdos));
+}
+```
+
+Configure modules in the Console. TypeScript returns device properties in camel case.
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Disable a device
+
+Disable a module to leave it out of the network, for example when it is not cabled yet.
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the module and select **Disable**. To disable
+   several modules, select them first.
+2. The status changes to "Device disabled".
+
+The change applies the next time a task on that port starts. To use the module again,
+right-click it and select **Enable**.
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+module = client.devices.retrieve(key="<module key>")
+module.properties["enabled"] = False
+client.devices.create(module)
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+const module = await client.devices.retrieve({ key: "<module key>" });
+module.properties.enabled = false;
+await client.devices.create(module);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Device properties
+
+| Property                      | Meaning                                                     |
+| ----------------------------- | ----------------------------------------------------------- |
+| `name`                        | The name stored in the module.                              |
+| `vendor_id`, `product_code`   | The vendor and model of the module, as numbers.             |
+| `revision`, `serial`          | The revision and serial number of the module, as numbers.   |
+| `network`                     | The port of the module, such as `en5`. With IgH, `igh:0`.   |
+| `position`                    | The position on the network. Starts at 1, or at 0 with IgH. |
+| `enabled`                     | `false` when the module is [disabled](#disable-a-device).   |
+| `pdos.inputs`, `pdos.outputs` | The PDOs of the module. See below.                          |
+
+Each PDO has a `name`, an `index` and a `sub_index` (its CoE address), a `bit_length`,
+and a `data_type`. TypeScript uses the same fields in camel case, such as `subIndex`.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### No modules show in the devices toolbar
+
+1. Check the cable from the port to the first module, and the power to the modules.
+2. Make sure that no other program uses the port.
+3. Install the packet capture software in the [prerequisites](#prerequisites), then
+   [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+
+### "EtherCAT is unavailable because a required packet capture library is not installed"
+
+A task shows this message when the Driver cannot load the packet capture software.
+Follow the [prerequisites](#prerequisites), then
+[restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+
+### "device ... expected at position ... not found on bus"
+
+The network changed after you created the task. A module moved, or the Driver does not
+find it. Check the cables, then edit the channels of the task to use the modules that
+are on the network now.
+
+For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

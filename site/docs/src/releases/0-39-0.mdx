@@ -8,7 +8,7 @@ import Diagram from "@/components/diagram/Diagram.astro";
 import LabJack from "@/components/releases/LabJack.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 export const components = mdxOverrides;
 
 <Release
@@ -47,15 +47,16 @@ alternative in many situations.
 
 ### NI Linux Real-Time Driver
 
-We've released the [Synnax Driver](/reference/driver/installation) as a separate binary
-for deployment on NI controllers running NI Linux Real-Time. This allows you to acquire
-data, control hardware, and even run embedded sequences directly on a cRIO controller.
+We've released the [Synnax Driver](/reference/enterprise/driver/install) as a separate
+binary for deployment on NI controllers running NI Linux Real-Time. This allows you to
+acquire data, control hardware, and even run embedded sequences directly on a cRIO
+controller.
 
 <Divider.Divider x />
 
 ### NI analog write task
 
-We've added a new [NI analog write task](/reference/driver/ni/analog-write-task) that
+We've added a new [NI analog write task](/reference/hardware/ni/analog-write-task) that
 allows you to write analog data to NI devices. This task is useful for a wide variety of
 applications, such as generating test signals or controlling hardware.
 

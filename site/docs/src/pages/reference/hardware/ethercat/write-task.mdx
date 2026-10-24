@@ -1,0 +1,221 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "EtherCAT write task"
+description: "Write command channel values to the output PDOs of EtherCAT modules."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Channel } from "@/components/channel";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An EtherCAT write task writes the values of command channels to the output PDOs of one
+or more modules on one network. For example, a valve on a schematic can switch an output
+of an EL2004 module.
+
+Each output also has a state channel. The state channel shows the last command that the
+task wrote. The Driver does not read the state back from the module.
+
+Before you start, you need
+[configured modules](/reference/hardware/ethercat/configure-device).
+
+<Divider.Divider x />
+
+## PDO channels
+
+Each channel writes one output PDO, in one of two modes:
+
+- **Automatic (PDO)** -> select the PDO by its name. Use this mode only when the name is
+  unique on the module. An EL2004 names all four outputs `Output`, and automatic mode
+  always writes the first one.
+- **Manual (address)** -> enter the CoE address of the PDO. For example, the EL2004
+  outputs are at `0x7000:01`, `0x7010:01`, `0x7020:01`, and `0x7030:01`, 1 bit each.
+
+All modules in a task must be on the same port. The **Execution rate** sets how often
+the Driver runs the network on that port.
+
+<Divider.Divider x />
+
+## Create an EtherCAT write task
+
+When you create command channels with a client library, give each one its own index
+channel. A writer that holds several commands on one index must write all of them in
+every frame.
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click a module and select **Create write task**.
+2. Set **Execution rate** and **State update rate**.
+3. Click **Add channel**, then select the module in **Slave device**.
+4. Select a **Mode**, then select the **PDO** or enter its address.
+5. Click <Icon.Play /> (**Start**).
+
+The Console creates a command channel and a state channel for each output. For a module
+with the identifier `do1`, an output named `Output` gives `do1_Output_cmd`,
+`do1_Output_cmd_time`, and `do1_Output_state`, with the index `do1_state_time`.
+
+<Video id="hardware/ethercat/write-task" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Python does not create channels. Create them first.
+
+```python
+import synnax as sy
+from synnax import ethercat
+
+module = client.devices.retrieve(key="<module key>")
+cmd_time = client.channels.create(
+    name="valve_1_cmd_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+cmd = client.channels.create(
+    name="valve_1_cmd", index=cmd_time.key, data_type=sy.DataType.UINT8
+)
+state_time = client.channels.create(
+    name="do1_state_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+state = client.channels.create(
+    name="valve_1_state", index=state_time.key, data_type=sy.DataType.UINT8
+)
+
+task = ethercat.WriteTask(
+    name="Valves",
+    channels=[
+        ethercat.ManualWriteChannel(
+            device=module.key,
+            index=0x7000,
+            sub_index=0x01,
+            bit_length=1,
+            data_type="uint8",
+            cmd_channel=cmd.key,
+            state_channel=state.key,
+        )
+    ],
+)
+client.tasks.configure(task)
+task.start()
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+TypeScript does not create channels. Create them first.
+
+```typescript
+import { ethercat } from "@synnaxlabs/client";
+
+const module = await client.devices.retrieve({ key: "<module key>" });
+const cmdTime = await client.channels.create({
+  name: "valve_1_cmd_time",
+  isIndex: true,
+  dataType: "timestamp",
+});
+const cmd = await client.channels.create({
+  name: "valve_1_cmd",
+  index: cmdTime.key,
+  dataType: "uint8",
+});
+
+const task = await client.tasks.create({
+  name: "Valves",
+  rack: module.rack,
+  type: "ethercat_write",
+  config: ethercat.writeConfigZ.parse({
+    channels: [
+      {
+        type: "manual",
+        device: module.key,
+        index: 0x7000,
+        subIndex: 0x01,
+        bitLength: 1,
+        dataType: "uint8",
+        cmdChannel: cmd.key,
+      },
+    ],
+  }),
+});
+await task.start();
+```
+
+In code, the state channel is optional. With no state channel, the task does not report
+the output value.
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Task options
+
+| Console label     | Python field           | Default | Notes                                                     |
+| ----------------- | ---------------------- | ------- | --------------------------------------------------------- |
+| Execution rate    | `execution_rate`       | 1000 Hz | How often the Driver runs the network on the port.        |
+| State update rate | `state_rate`           | 25 Hz   | How often the task writes the state channels.             |
+| Data saving       | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start        | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+
+<Divider.Divider x />
+
+## Channel reference
+
+Each channel has a `device`, the key of the module (**Slave device**), a `cmd_channel`,
+and a `state_channel`. A `state_channel` of 0 means no state channel. Each table shows
+the Console label of a setting, with its Python field under it.
+
+<Channel.Types>
+
+<Channel.Type
+  name="Automatic (PDO)"
+  type="automatic"
+  python="AutomaticWriteChannel"
+>
+
+Writes a PDO entry by its name.
+
+| Setting                  | Default | Notes                                     |
+| ------------------------ | ------- | ----------------------------------------- |
+| PDO <small>`pdo`</small> |         | The PDO name, from the device properties. |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Manual (address)"
+  type="manual"
+  python="ManualWriteChannel"
+>
+
+Writes a PDO entry by its CoE address.
+
+| Setting                                | Default  | Notes                                      |
+| -------------------------------------- | -------- | ------------------------------------------ |
+| Index (hex) <small>`index`</small>     | `0`      | The CoE index, such as `0x7000`.           |
+| Subindex <small>`sub_index`</small>    | `0`      | The CoE subindex, from 0 to 255.           |
+| Bit length <small>`bit_length`</small> | `16`     | The size of the value, from 1 to 255 bits. |
+| Data type <small>`data_type`</small>   | `uint16` | The data type of the command channel.      |
+
+</Channel.Type>
+
+</Channel.Types>
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### A command switches the wrong output
+
+The channel uses automatic mode with a repeated PDO name, so it writes the first PDO
+with that name. Change the channel to manual mode with the address of the output.
+
+### "All slaves must be on the same network"
+
+The task uses modules on two ports. Create one task for each port.
+
+For other problems, see
+[Configure an EtherCAT device](/reference/hardware/ethercat/configure-device#troubleshooting)
+and [Troubleshoot hardware](/reference/hardware/troubleshooting).

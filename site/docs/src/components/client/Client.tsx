@@ -23,7 +23,12 @@ export interface Info {
 
 export const INFO: Info[] = [
   { key: "console", name: "Console", icon: <Icon.Visualize /> },
-  { key: "python", name: "Python", icon: <Icon.Python /> },
-  { key: "typescript", name: "TypeScript", icon: <Icon.TypeScript /> },
+  { key: "python", name: "Python", icon: <Icon.Python />, edition: "enterprise" },
+  {
+    key: "typescript",
+    name: "TypeScript",
+    icon: <Icon.TypeScript />,
+    edition: "enterprise",
+  },
   { key: "arc", name: "Arc", icon: <Icon.Arc />, optional: true },
 ];

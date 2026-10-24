@@ -12,7 +12,7 @@ import { type ReactElement, useCallback, useState } from "react";
 
 import { type VizTab, VizTabs } from "@/components/common/VizTabs";
 
-type Language = "python" | "typescript" | "cpp";
+type Language = "python" | "typescript";
 
 type Operation = "stream" | "write" | "read";
 
@@ -26,7 +26,6 @@ interface SDKShowcaseProps {
 const LANG_TABS: Array<VizTab & { key: Language }> = [
   { key: "python", title: "Python", icon: Icon.Python },
   { key: "typescript", title: "TypeScript", icon: Icon.TypeScript },
-  { key: "cpp", title: "C++", icon: Icon.CPlusPlus },
 ];
 
 const OPERATIONS: Array<{ key: Operation; label: string }> = [

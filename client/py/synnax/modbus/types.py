@@ -44,7 +44,7 @@ class ReadTask(
 ):
     """A read task for sampling data from Modbus TCP devices and writing the data to a
     Synnax cluster. For detailed information on configuring and operating a Modbus read
-    task, see https://docs.synnaxlabs.com/reference/driver/modbus/read-task
+    task, see https://docs.synnaxlabs.com/reference/hardware/modbus/read-task
 
     :param device: The key of the Synnax Modbus device to read from.
     :param name: A human-readable name for the task.
@@ -116,7 +116,7 @@ class WriteTask(
 ):
     """A write task for sending commands to Modbus TCP devices. For detailed
     information on configuring and operating a Modbus write task, see
-    https://docs.synnaxlabs.com/reference/driver/modbus/write-task
+    https://docs.synnaxlabs.com/reference/hardware/modbus/write-task
 
     :param device: The key of the Synnax Modbus device to write to.
     :param name: A human-readable name for the task.

@@ -8,17 +8,16 @@ published: "2024-10-15"
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Text as TextComponent } from "@/components/text";
-import { Table } from "@/components/table";
 import Details from "@/components/details/Details.astro";
-import Diagram from "@/components/diagram/Diagram.astro";
+import { Diagram } from "@/components/diagram";
 import { Image } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Diagram style={{ padding: "20rem" }} variant="boxes">
+<Diagram.Diagram style={{ padding: "20rem" }} variant="boxes">
   <svg
     width="592"
     height="100"
@@ -79,7 +78,7 @@ export const components = mdxOverrides;
       </linearGradient>
     </defs>
   </svg>
-</Diagram>
+</Diagram.Diagram>
 
 In this article we'll compare the performance of Synnax to two other leading time series
 databases: [TimescaleDB](https://www.tigerdata.com/timescaledb) and
@@ -109,11 +108,11 @@ purpose time series workloads, such as user analytics, log data, or financial tr
 
 #### Data model
 
-It follows a [channel](/reference/concepts/overview)-based data model, where every
-sensor, actuator, or data source has its own named bucket of data called a _channel_.
-Synnax's query model is much simpler than the other two databases, and focuses on
-quality integration with programming languages through client libraries. It's well
-suited for scientific and industrial applications.
+It follows a [channel](/reference/channels)-based data model, where every sensor,
+actuator, or data source has its own named bucket of data called a _channel_. Synnax's
+query model is much simpler than the other two databases, and focuses on quality
+integration with programming languages through client libraries. It's well suited for
+scientific and industrial applications.
 
 Synnax supports real-time streaming of data, much like you would find in a tool like
 [Apache Kafka](https://kafka.apache.org/) or a protocol like [MQTT](https://mqtt.org/).
@@ -214,7 +213,7 @@ single machine with the following specifications:
 We'll pull the latest open source versions of each database, which, at the time of
 writing, are:
 
-- [Synnax v0.32](/reference/core/installation?platform=linux)
+- [Synnax v0.32](/reference/enterprise?platform=linux)
 - [InfluxDB v2.7.10](https://www.influxdata.com/downloads)
 - [Timescale v2.17.1](https://github.com/timescale/timescaledb/releases)
 

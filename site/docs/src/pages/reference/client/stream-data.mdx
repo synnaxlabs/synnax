@@ -1,0 +1,313 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Stream data"
+description:
+  "Get samples as the Core receives them with a streamer in the Python and TypeScript
+  clients: read frames, change channels, slow the stream, and close the streamer."
+clients: ["python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Field } from "@/components/field";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A streamer gets samples from the Core as the Core receives them. Use it to process live
+data, to show live values in your own app, or to react to a value in a script. A
+streamer gets only new samples. To get stored samples,
+[read data](/reference/client/read-data). Samples from `client.write` and from writers
+in `persist` mode do not reach streamers, as
+[writer modes](/reference/client/write-data#writer-modes) says.
+
+<Divider.Divider x />
+
+## Open a streamer and read frames
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+with client.open_streamer(["time", "temperature"]) as streamer:
+    for frame in streamer:
+        print(frame["temperature"].to_numpy())
+```
+
+The loop waits for each frame. The `with` block closes the streamer, also when the code
+raises an error.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const streamer = await client.openStreamer(["time", "temperature"]);
+try {
+  for await (const frame of streamer) {
+    console.log(Array.from(frame.get("temperature")));
+  }
+} finally {
+  streamer.close();
+}
+```
+
+The loop waits for each frame. The `finally` block closes the streamer, also when the
+code throws an error.
+
+  </Fragment>
+
+</Client.Tabs>
+
+Each frame holds the samples of one write, as a
+[frame](/reference/client/series-and-frames#frames). A frame can hold samples for only
+some of the channels, so check before you use a channel:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+for frame in streamer:
+    if "temperature" in frame:
+        latest = frame["temperature"][-1]
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+for await (const frame of streamer) {
+  const temperature = frame.get("temperature");
+  if (temperature.length > 0) {
+    const latest = temperature.at(-1);
+  }
+}
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+### Read one frame
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+`read` waits for the next frame. With a timeout, it returns `None` when no frame comes
+in time:
+
+```python
+frame = streamer.read(timeout=5)
+if frame is None:
+    print("No data in 5 seconds")
+```
+
+The timeout is a number of seconds or a `TimeSpan`.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+`read` waits for the next frame:
+
+```typescript
+const frame = await streamer.read();
+```
+
+`read` has no timeout. When the Core sends nothing for 15 seconds, `read` throws, so a
+lost connection does not stop your code.
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Stream with asyncio in Python
+
+`open_async_streamer` gives a streamer for `asyncio` code:
+
+```python
+async with await client.open_async_streamer(["time", "temperature"]) as streamer:
+    async for frame in streamer:
+        print(frame["temperature"].to_numpy())
+```
+
+The async streamer has no per-call timeout on `read`, and it cannot change its channels.
+Both Python streamers detect a lost connection through keep-alive messages. With the
+default `keep_alive` of 5 seconds, a read fails after 15 seconds without a message. The
+TypeScript streamer is always async.
+
+<Divider.Divider x />
+
+## Change the channels
+
+To stream other channels, give the streamer a new list. The list replaces the old
+channels:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+streamer.update_channels(["time", "temperature", "pressure"])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await streamer.update(["time", "temperature", "pressure"]);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Slow the stream
+
+When your code reads more slowly than frames come, the Core drops frames. To get all the
+samples, slow the stream, or read the stored data later. Two options reduce the data:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+streamer = client.open_streamer(
+    ["time", "temperature"], downsample_factor=10, throttle_rate=10
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { Rate } from "@synnaxlabs/client";
+
+const streamer = await client.openStreamer({
+  channels: ["time", "temperature"],
+  downsampleFactor: 10,
+  throttleRate: Rate.hz(10),
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+- <Client.Var py="downsample_factor" ts="downsampleFactor" /> -> keep one of each `N`
+samples in each series. The Core drops the other samples and does not average them. A
+write of fewer than `N` samples is not reduced.
+- <Client.Var py="throttle_rate" ts="throttleRate" /> -> send at most this many frames
+each second. The Core joins the samples between two sends into one frame, so the
+streamer gets all samples in fewer frames.
+
+<Divider.Divider x />
+
+## Close the streamer
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+streamer.close()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+streamer.close();
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+A streamer that you do not close keeps its connection to the Core open.
+
+<Divider.Divider x />
+
+## Streamer options
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+<Field.List>
+
+<Field.Item name="channels" id="python-channels" type="list[str] | list[int]">
+  The names or keys of the channels to stream.
+</Field.Item>
+
+<Field.Item
+  name="downsample_factor"
+  id="python-downsample-factor"
+  type="int"
+  default="1"
+>
+  Keep one of each `downsample_factor` samples in each series.
+</Field.Item>
+
+<Field.Item name="throttle_rate" id="python-throttle-rate" type="float" default="0">
+  The largest number of frames each second, in Hz. With 0, the Core sends each frame
+  when it receives it.
+</Field.Item>
+
+<Field.Item name="keep_alive" id="python-keep-alive" type="CrudeTimeSpan" default="5 s">
+  How often the Core sends a keep-alive message. A read raises a timeout error after
+  three intervals with no message. Use at least 2 seconds, or 0 to turn off the check.
+</Field.Item>
+
+</Field.List>
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+<Field.List>
+
+<Field.Item name="channels" id="typescript-channels" type="string[] | number[]">
+  The names or keys of the channels to stream.
+</Field.Item>
+
+<Field.Item
+  name="downsampleFactor"
+  id="typescript-downsample-factor"
+  type="number"
+  default="1"
+>
+  Keep one of each `downsampleFactor` samples in each series.
+</Field.Item>
+
+<Field.Item name="throttleRate" id="typescript-throttle-rate" type="Rate" default="0">
+  The largest number of frames each second. With 0, the Core sends each frame when it
+  receives it.
+</Field.Item>
+
+<Field.Item name="keepAlive" id="typescript-keep-alive" type="TimeSpan" default="5 s">
+  How often the Core tells the streamer that the connection is alive. When three
+  intervals pass with no message, `read` throws. The value must be at least 2 s. With
+  `TimeSpan.ZERO`, `read` waits with no limit.
+</Field.Item>
+
+</Field.List>
+
+  </Fragment>
+
+</Client.Tabs>

@@ -1,0 +1,78 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "`ranges`"
+description:
+  "Look up ranges.create and ranges.end, which mark a period of time from an Arc
+  automation."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The `ranges` module creates and ends [ranges](/reference/ranges) while an automation
+runs. Import it with `import ranges`. Each function works in a flow and in a function
+body. When a call fails, Synnax shows a warning, gives an empty key, and the automation
+keeps running. For worked examples, see [create ranges in Arc](/reference/ranges/arc).
+
+Both functions are trigger-only: each new input value runs them, whatever the value. To
+run one only when a condition is true, use `=>`. With no input, a function in a stage
+runs once each time the stage starts.
+
+<Divider.Divider x />
+
+## `create`
+
+Creates a range that starts now and has no end. The Console shows it as in progress.
+
+| Parameter | Type  | Required | Default | Meaning                                                                                                                  |
+| --------- | ----- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `name`    | `str` | Yes      |         | The name of the range.                                                                                                   |
+| `parent`  | `str` | No       | `""`    | The key of the parent range. Empty gives a top-level range.                                                              |
+| `color`   | `str` | No       | `""`    | A hex color such as `"#3bc454"`, or `rgb(r, g, b)` or `rgba(r, g, b, a)`. Line plots show only ranges that have a color. |
+
+- Output -> the key of the new range, as a `str`.
+- Function form -> `ranges.create(name, parent, color) str`. `parent` and `color` are
+  optional.
+
+The compiler checks a literal `color` and rejects a value that is not a color.
+
+```arc bodies="start_test"
+import ranges
+
+func start_test() str {
+    return ranges.create("Hotfire", "", "#3bc454")
+}
+```
+
+<Divider.Divider x />
+
+## `end`
+
+Sets the end of a range to now.
+
+| Parameter | Type  | Required | Default | Meaning                      |
+| --------- | ----- | -------- | ------- | ---------------------------- |
+| `key`     | `str` | Yes      |         | The key of the range to end. |
+
+- Output -> the key of the range, as a `str`.
+- Function form -> `ranges.end(key) str`.
+
+In a flow, `key` is a literal or a variable, never a channel. A channel gives the error
+`input value for 'key' must be a literal`. To end a range that the automation created,
+keep its key in a variable:
+
+```arc channels="start_cmd, stop_cmd" bodies="test, run"
+import ranges
+
+sequence test {
+    key $= ""
+    stage run {
+        ranges.create{name="Hotfire", color="#3bc454"} -> key
+        stop_cmd == 1 => next
+    }
+    ranges.end{key=key}
+}
+
+start_cmd == 1 => test
+```

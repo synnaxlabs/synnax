@@ -12,8 +12,8 @@ This directory contains several files:
 - `control_sequence.py`: The main control sequence that runs the pressurization and
   venting process. This sequence also reruns the test with more optimal control bounds.
 - `threshold_detection.py`: A script that will automatically create
-  [ranges](https://docs.synnaxlabs.com/reference/concepts/ranges) when the fuel tank
-  pressure rises above a certain threshold.
+  [ranges](https://docs.synnaxlabs.com/reference/ranges) when the fuel tank pressure
+  rises above a certain threshold.
 - `schematic.json`: An example schematic that can be imported into Console to visualize
   and control the TPC system.
 
@@ -24,20 +24,20 @@ The simulator for this example is located in `examples/simulators/tpc.py`.
 To run the example, make sure you have:
 
 1. A Synnax Core running locally. See the
-   [Quick Start](https://docs.synnaxlabs.com/reference/core/quick-start) guide for more
-   information.
+   [Set up Synnax Enterprise](https://docs.synnaxlabs.com/reference/enterprise) guide
+   for more information.
 2. The Synnax Python client installed. See the
    [Quick Start](https://docs.synnaxlabs.com/reference/client/quick-start) guide for
    more information.
 3. Optionally, the Synnax Console installed and set up to visualize the data generated
    by the control sequence. See the
-   [Getting Started](https://docs.synnaxlabs.com/reference/console/get-started) guide
+   [Connect the Console](https://docs.synnaxlabs.com/reference/enterprise/console) guide
    for more information.
 
 If you are using the Console, you can use a combination of
-[Schematics](https://docs.synnaxlabs.com/reference/console/schematics) and
-[Line Plots](https://docs.synnaxlabs.com/reference/console/line-plots) to visualize the
-state of the system over time.
+[Schematics](https://docs.synnaxlabs.com/reference/visualize/schematics) and
+[Line Plots](https://docs.synnaxlabs.com/reference/visualize/line-plots) to visualize
+the state of the system over time.
 
 Once you have a Synnax Core running, start the TPC simulator in one terminal:
 

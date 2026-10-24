@@ -1,0 +1,38 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// One defined term: an h3, a definition, and an example. The paragraph after the
+// definition renders as the example.
+---
+
+<div class="docs-term">
+    <slot />
+</div>
+
+<style is:global>
+    article .docs-card-grid:has(> .docs-term) {
+        gap: 4rem 6rem;
+    }
+    article .docs-term {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        padding-top: 2.5rem;
+        border-top: var(--pluto-border);
+
+        & > :is(h3, p) {
+            margin: 0;
+        }
+        & > p + p {
+            color: var(--pluto-gray-l8);
+            font-size: var(--pluto-small-size);
+        }
+    }
+</style>

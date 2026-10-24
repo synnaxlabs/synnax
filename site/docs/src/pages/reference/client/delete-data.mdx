@@ -1,0 +1,123 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Delete data"
+description:
+  "Delete the samples of channels in a time range with the Python and TypeScript
+  clients, and learn when the Core rejects a delete."
+clients: ["python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@/components/note";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Delete the samples of one or more channels in a time range. The channels stay, so you
+can write new samples to the time range. To delete a channel, see
+[Rename and delete channels](/reference/channels/rename-and-delete).
+
+<Divider.Divider x />
+
+## Delete a time range
+
+Give `delete` the channels and the time range. The time range includes its start and
+excludes its end.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+from datetime import datetime, timezone
+
+import synnax as sy
+
+tr = sy.TimeRange(
+    datetime(2026, 10, 3, 12, 0, tzinfo=timezone.utc),
+    datetime(2026, 10, 3, 12, 5, tzinfo=timezone.utc),
+)
+client.delete(["temperature", "pressure"], tr)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { TimeRange } from "@synnaxlabs/client";
+
+const tr = new TimeRange(
+  new Date("2026-10-03T12:00:00Z"),
+  new Date("2026-10-03T12:05:00Z"),
+);
+await client.delete(["temperature", "pressure"], tr);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+A delete cannot be undone. After `delete` returns, reads do not return the samples. The
+Core frees the disk space only after a file holds a large amount of deleted data, so a
+small delete can leave the disk use the same.
+
+A delete of a time range with no data does nothing and raises no error.
+
+<Note.Note variant="warning">
+  A name with characters other than letters, digits, and underscores is a regular
+  expression. The Core deletes the data of each channel whose name matches it. For
+  example, `sensor_.*` matches all channels whose names start with `sensor_`.
+</Note.Note>
+
+<Divider.Divider x />
+
+## When the Core rejects a delete
+
+The Core rejects a delete in these cases:
+
+- **An index channel with data that depends on it** -> you cannot delete samples of an
+  index channel while a data channel that it indexes has samples in the time range.
+  Delete the data channels first, or in the same call as the index channel.
+- **An open writer** -> you cannot delete a time range that an open writer can write to.
+  Close the writer first.
+- **A channel key that does not exist** -> the Core deletes nothing and raises a not
+  found error. A channel name that does not exist raises no error: the Core deletes
+  nothing for that name.
+- **No permission** -> your user needs permission to delete the data of each channel.
+  Users with the Viewer role cannot delete data.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+# temperature has samples in the range, so this delete fails.
+client.delete(["time"], tr)
+
+# This delete works, because the data channels are in the same call.
+client.delete(["temperature", "pressure", "time"], tr)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// temperature has samples in the range, so this delete fails.
+await client.delete(["time"], tr);
+
+// This delete works, because the data channels are in the same call.
+await client.delete(["temperature", "pressure", "time"], tr);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+In this example, `time` indexes `temperature` and `pressure`. In one call, the Core
+deletes the data channels before the index channels, whatever their order in the list.
+
+A delete is not atomic. When one channel fails, the Core can already have deleted the
+data of other channels in the call.

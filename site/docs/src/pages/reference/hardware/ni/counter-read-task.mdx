@@ -1,0 +1,471 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "NI counter read task"
+description:
+  "Read frequency, edge counts, pulse widths, and encoder positions from NI counters
+  into channels."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Channel } from "@/components/channel";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An NI counter read task reads the counter inputs of NI devices into channels. A counter
+measures digital pulses: their frequency, their count, their width, or the position and
+speed of an encoder. For example, it can record the speed of a flow meter on `ctr0` of a
+USB-6343.
+
+Before you start, you need
+[configured devices](/reference/hardware/ni/configure-device).
+
+<Divider.Divider x />
+
+## Counters and timing
+
+Each channel reads one counter, set by its **Port**: port 0 is `ctr0`. The pulses come
+in on a PFI terminal. Set **Input terminal** to choose the terminal, or leave it empty
+to use the default terminal of the counter. The device manual lists the counters and
+their terminals.
+
+The Driver reads the counters on the computer clock, at the **Sample rate**. See
+[timing](/reference/hardware/tasks#timing).
+
+<Divider.Divider x />
+
+## Create an NI counter read task
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click a device and select **Create counter read task**.
+2. Set **Sample rate** and **Stream rate**.
+3. Click **Add channel**. In **Source**, select the **Device** and the **Port**.
+4. In **Signal**, select the **Channel type**, then set its fields. See the
+   [channel reference](#channel-reference).
+5. Click <Icon.Play /> (**Start**).
+
+The Console creates the channels. For a device with the identifier `dev1`, counter 0
+gives `dev1_ctr_0`, with the index channel `dev1_ctr_time`.
+
+<Video id="hardware/ni/counter-read-task" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Python does not create channels. Create them first.
+
+```python
+import synnax as sy
+from synnax import ni
+
+dev = client.devices.retrieve(key="<device key>")
+time = client.channels.create(
+    name="dev1_ctr_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+flow = client.channels.create(
+    name="flow_meter_hz", index=time.key, data_type=sy.DataType.FLOAT64
+)
+
+task = ni.CounterReadTask(
+    name="Flow meter",
+    device=dev.key,
+    sample_rate=100,
+    stream_rate=10,
+    channels=[
+        ni.CIFrequencyChannel(port=0, min_val=1, max_val=1000, channel=flow.key)
+    ],
+)
+client.tasks.configure(task)
+task.start()
+```
+
+Python creates the task on the embedded Driver of the Core. For a device on another
+Driver, use the Console or TypeScript. If you open the task in the Console and click
+**Start**, the Console replaces your channels with its own.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+TypeScript does not create channels. Create them first, as in the Python example.
+
+```typescript
+import { ni } from "@synnaxlabs/client";
+
+const dev = await client.devices.retrieve({ key: "<device key>" });
+const task = await client.tasks.create({
+  name: "Flow meter",
+  rack: dev.rack,
+  type: "ni_counter_read",
+  config: ni.counterReadConfigZ.parse({
+    sampleRate: 100,
+    streamRate: 10,
+    channels: [
+      {
+        type: "ci_frequency",
+        device: dev.key,
+        port: 0,
+        minVal: 1,
+        maxVal: 1000,
+        channel: flow.key,
+      },
+    ],
+  }),
+});
+await task.start();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Tare channels
+
+Tare sets the current value of a channel to zero. The task must be running.
+
+1. In the channel list, click **Tare** on a channel. To tare several channels, select
+   them, right-click, and select **Tare**.
+2. The values of those channels start from zero.
+
+<Divider.Divider x />
+
+## Task options
+
+| Console label | Python field           | Default | Notes                                                                    |
+| ------------- | ---------------------- | ------- | ------------------------------------------------------------------------ |
+| Sample rate   | `sample_rate`          | 10 Hz   | Up to 1,000,000 Hz in the Console.                                       |
+| Stream rate   | `stream_rate`          | 5 Hz    | Up to 20,000 Hz. See [read tasks](/reference/hardware/tasks#read-tasks). |
+| Data saving   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving).                |
+| Auto start    | `auto_start`           | Off     | Starts the task each time the Driver starts.                             |
+
+<Divider.Divider x />
+
+## Channel reference
+
+Every channel has a `channel`, the Synnax channel that records the value, a `device`,
+the key of the device (**Device**), and a `port`, the counter number (**Port**). In
+Python, a channel with no `device` uses the `device` of the task.
+
+Each table shows the Console label of a setting, with its Python field under it. The
+**Notes** column lists the values that code uses. The Console shows the same values in
+plain words. Every type except edge count also has **Custom scaling**.
+
+<Channel.Types>
+
+<Channel.Type
+  name="Frequency"
+  type="ci_frequency"
+  group="Pulse"
+  python="CIFrequencyChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1gad7f76a3c13cd1acceb5015cbb57c5743.html" }}
+>
+  <Icon.Wave.Square slot="icon" />
+
+Measures the frequency of a digital signal.
+
+| Setting                                         | Default      | Notes                                                              |
+| ----------------------------------------------- | ------------ | ------------------------------------------------------------------ |
+| Range <small>`min_val`, `max_val`</small>       | `2` to `100` | In **Units**.                                                      |
+| Starting edge <small>`edge`</small>             | `Rising`     | `Rising`, `Falling`.                                               |
+| Units <small>`units`</small>                    | `Hz`         | `Hz`, `Ticks`.                                                     |
+| Input terminal <small>`terminal`</small>        |              | `PFI0` to `PFI15`. Empty uses the default terminal of the counter. |
+| Measurement method <small>`meas_method`</small> | `DynamicAvg` | `LowFreq1Ctr`, `HighFreq2Ctr`, `LargeRng2Ctr`, `DynamicAvg`.       |
+| Measurement time (s) <small>`meas_time`</small> | `0.000006`   | In seconds. Shows for `HighFreq2Ctr`.                              |
+| Divisor <small>`divisor`</small>                | `4`          | Shows for `LargeRng2Ctr`.                                          |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Edge count"
+  type="ci_edge_count"
+  group="Pulse"
+  python="CIEdgeCountChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1ga898d4d3101b616a681bc31199ae37d5f.html" }}
+>
+  <Icon.Value slot="icon" />
+
+Counts the edges of a digital signal.
+
+| Setting                                          | Default   | Notes                                                              |
+| ------------------------------------------------ | --------- | ------------------------------------------------------------------ |
+| Active edge <small>`active_edge`</small>         | `Rising`  | `Rising`, `Falling`.                                               |
+| Count direction <small>`count_direction`</small> | `CountUp` | `CountUp`, `CountDown`, `ExternallyControlled`.                    |
+| Input terminal <small>`terminal`</small>         |           | `PFI0` to `PFI15`. Empty uses the default terminal of the counter. |
+| Initial count <small>`initial_count`</small>     | `0`       | The count when the task starts.                                    |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Period"
+  type="ci_period"
+  group="Pulse"
+  python="CIPeriodChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1gafff33171661e94431afbd5a0abf4f73e.html" }}
+>
+  <Icon.Time slot="icon" />
+
+Measures the period of a digital signal.
+
+| Setting                                         | Default             | Notes                                                              |
+| ----------------------------------------------- | ------------------- | ------------------------------------------------------------------ |
+| Range <small>`min_val`, `max_val`</small>       | `0.000001` to `0.1` | In **Units**.                                                      |
+| Starting edge <small>`starting_edge`</small>    | `Rising`            | `Rising`, `Falling`.                                               |
+| Units <small>`units`</small>                    | `Seconds`           | `Seconds`, `Ticks`.                                                |
+| Input terminal <small>`terminal`</small>        |                     | `PFI0` to `PFI15`. Empty uses the default terminal of the counter. |
+| Measurement method <small>`meas_method`</small> | `DynamicAvg`        | `LowFreq1Ctr`, `HighFreq2Ctr`, `LargeRng2Ctr`, `DynamicAvg`.       |
+| Measurement time (s) <small>`meas_time`</small> | `0.001`             | In seconds. Shows for `HighFreq2Ctr`.                              |
+| Divisor <small>`divisor`</small>                | `4`                 | Shows for `LargeRng2Ctr`.                                          |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Pulse width"
+  type="ci_pulse_width"
+  group="Pulse"
+  python="CIPulseWidthChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1gab7c2c214f995c0b0a065940d739b3168.html" }}
+>
+  <Icon.AutoFitWidth slot="icon" />
+
+Measures the width of a pulse.
+
+| Setting                                      | Default             | Notes                                                              |
+| -------------------------------------------- | ------------------- | ------------------------------------------------------------------ |
+| Range <small>`min_val`, `max_val`</small>    | `0.000001` to `0.1` | In **Scaled units**.                                               |
+| Starting edge <small>`starting_edge`</small> | `Rising`            | `Rising`, `Falling`.                                               |
+| Scaled units <small>`units`</small>          | `Seconds`           | `Seconds`, `Ticks`.                                                |
+| Input terminal <small>`terminal`</small>     |                     | `PFI0` to `PFI15`. Empty uses the default terminal of the counter. |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Semi period"
+  type="ci_semi_period"
+  group="Pulse"
+  python="CISemiPeriodChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1ga7ee9e61ab68edc4c6c72e9bc347a623f.html" }}
+>
+  <Icon.Range slot="icon" />
+
+Measures the time between each edge of a digital signal and the next edge.
+
+| Setting                                   | Default             | Notes                                                              |
+| ----------------------------------------- | ------------------- | ------------------------------------------------------------------ |
+| Range <small>`min_val`, `max_val`</small> | `0.000001` to `0.1` | In **Scaled units**.                                               |
+| Scaled units <small>`units`</small>       | `Seconds`           | `Seconds`, `Ticks`.                                                |
+| <small>`terminal`</small>                 |                     | `PFI0` to `PFI15`. Empty uses the default terminal of the counter. |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Two edge separation"
+  type="ci_two_edge_sep"
+  group="Pulse"
+  python="CITwoEdgeSepChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1ga48a4f962e8752504edea1a0de6e39c74.html" }}
+>
+  <Icon.AutoFitWidth slot="icon" />
+
+Measures the time from an edge on one input to an edge on a second input.
+
+| Setting                                   | Default           | Notes                             |
+| ----------------------------------------- | ----------------- | --------------------------------- |
+| Range <small>`min_val`, `max_val`</small> | `0.000001` to `1` | In **Scaled units**.              |
+| Scaled units <small>`units`</small>       | `Seconds`         | `Seconds`, `Ticks`.               |
+| Edge 1 <small>`first_edge`</small>        | `Rising`          | `Rising`, `Falling`.              |
+| Edge 2 <small>`second_edge`</small>       | `Falling`         | `Rising`, `Falling`.              |
+| <small>`first_terminal`</small>           |                   | The terminal of the first input.  |
+| <small>`second_terminal`</small>          |                   | The terminal of the second input. |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Duty cycle"
+  type="ci_duty_cycle"
+  group="Pulse"
+  python="CIDutyCycleChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1ga038bacad83c2aa098da70bf6ce810c10.html" }}
+>
+  <Icon.Wave.Square slot="icon" />
+
+Measures the duty cycle of a digital signal.
+
+| Setting                                   | Default        | Notes                                                              |
+| ----------------------------------------- | -------------- | ------------------------------------------------------------------ |
+| Range <small>`min_val`, `max_val`</small> | `2` to `10000` | The frequency of the signal, in hertz.                             |
+| Active edge <small>`active_edge`</small>  | `Rising`       | `Rising`, `Falling`.                                               |
+| Input terminal <small>`terminal`</small>  |                | `PFI0` to `PFI15`. Empty uses the default terminal of the counter. |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Position linear"
+  type="ci_position_linear"
+  group="Encoder"
+  python="CIPositionLinearChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels__position_1ga90a24201a424fd7f4a436f45c726c618.html" }}
+>
+  <Icon.Linear slot="icon" />
+
+Measures linear position from an encoder.
+
+| Setting                                          | Default      | Notes                                               |
+| ------------------------------------------------ | ------------ | --------------------------------------------------- |
+| Initial position <small>`initial_pos`</small>    | `0`          | The position when the task starts.                  |
+| Distance / pulse <small>`dist_per_pulse`</small> | `0.000001`   | The distance for each encoder pulse.                |
+| Units <small>`units`</small>                     | `Meters`     | `Meters`, `Inches`, `Ticks`.                        |
+| Input terminal A <small>`terminal_a`</small>     |              | The terminal of the A signal.                       |
+| Input terminal B <small>`terminal_b`</small>     |              | The terminal of the B signal.                       |
+| Decoding type <small>`decoding_type`</small>     | `X4`         | `X1`, `X2`, `X4`, `TwoPulse`.                       |
+| Z index enable <small>`z_index_enabled`</small>  | `false`      | Resets the position at each Z index pulse.          |
+| Z index value <small>`z_index_val`</small>       | `0`          | The position at a Z index pulse.                    |
+| Z index phase <small>`z_index_phase`</small>     | `AHighBHigh` | `AHighBHigh`, `AHighBLow`, `ALowBHigh`, `ALowBLow`. |
+| Input terminal Z <small>`terminal_z`</small>     |              | The terminal of the Z index signal.                 |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Position angular"
+  type="ci_position_angular"
+  group="Encoder"
+  python="CIPositionAngularChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels__position_1ga942ca714baeb63c64fc0136bf61f3c6b.html" }}
+>
+  <Icon.Rotate slot="icon" />
+
+Measures angular position from an encoder.
+
+| Setting                                         | Default      | Notes                                               |
+| ----------------------------------------------- | ------------ | --------------------------------------------------- |
+| Pulses / rev <small>`pulses_per_rev`</small>    | `24`         | Encoder pulses for each revolution.                 |
+| Initial angle <small>`initial_angle`</small>    | `0`          | The angle when the task starts.                     |
+| Units <small>`units`</small>                    | `Degrees`    | `Degrees`, `Radians`, `Ticks`.                      |
+| Input terminal A <small>`terminal_a`</small>    |              | The terminal of the A signal.                       |
+| Input terminal B <small>`terminal_b`</small>    |              | The terminal of the B signal.                       |
+| Decoding type <small>`decoding_type`</small>    | `X4`         | `X1`, `X2`, `X4`, `TwoPulse`.                       |
+| Z index enable <small>`z_index_enabled`</small> | `false`      | Resets the angle at each Z index pulse.             |
+| Z index value <small>`z_index_val`</small>      | `0`          | The angle at a Z index pulse.                       |
+| Z index phase <small>`z_index_phase`</small>    | `AHighBHigh` | `AHighBHigh`, `AHighBLow`, `ALowBHigh`, `ALowBLow`. |
+| Input terminal Z <small>`terminal_z`</small>    |              | The terminal of the Z index signal.                 |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Velocity linear"
+  type="ci_velocity_linear"
+  group="Encoder"
+  python="CIVelocityLinearChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1gaffd68d2994c51dfd10ec8d61f723983f.html" }}
+>
+  <Icon.Linear slot="icon" />
+
+Measures linear velocity from an encoder.
+
+| Setting                                          | Default    | Notes                                |
+| ------------------------------------------------ | ---------- | ------------------------------------ |
+| Range <small>`min_val`, `max_val`</small>        | `0` to `1` | In **Scaled units**.                 |
+| Scaled units <small>`units`</small>              | `m/s`      | `m/s`, `in/s`.                       |
+| Distance / pulse <small>`dist_per_pulse`</small> | `0.001`    | The distance for each encoder pulse. |
+| Decoding type <small>`decoding_type`</small>     | `X4`       | `X1`, `X2`, `X4`, `TwoPulse`.        |
+| Input terminal A <small>`terminal_a`</small>     |            | The terminal of the A signal.        |
+| Input terminal B <small>`terminal_b`</small>     |            | The terminal of the B signal.        |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Velocity angular"
+  type="ci_velocity_angular"
+  group="Encoder"
+  python="CIVelocityAngularChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1ga6bf192a1dff614bfb0055bc94149c860.html" }}
+>
+  <Icon.Rotate slot="icon" />
+
+Measures angular velocity from an encoder.
+
+| Setting                                      | Default    | Notes                               |
+| -------------------------------------------- | ---------- | ----------------------------------- |
+| Range <small>`min_val`, `max_val`</small>    | `0` to `1` | In **Scaled units**.                |
+| Scaled units <small>`units`</small>          | `RPM`      | `RPM`, `Radians/s`, `Degrees/s`.    |
+| Pulses / rev <small>`pulses_per_rev`</small> | `24`       | Encoder pulses for each revolution. |
+| Decoding type <small>`decoding_type`</small> | `X4`       | `X1`, `X2`, `X4`, `TwoPulse`.       |
+| Input terminal A <small>`terminal_a`</small> |            | The terminal of the A signal.       |
+| Input terminal B <small>`terminal_b`</small> |            | The terminal of the B signal.       |
+
+</Channel.Type>
+
+</Channel.Types>
+
+### Custom scaling
+
+Channels with **Custom scaling** convert the raw value before the Driver writes it. In
+the Console, the options are in the **Scale** section of the channel. In code, set
+`custom_scale` to one of these scales:
+
+| Console option | Python class      | Fields                                                                                                                         |
+| -------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| None           | `NoneScale`       | No scaling. This is the default.                                                                                               |
+| Linear         | `LinearScale`     | **Slope** (`slope`, 1) and **Y-intercept** (`y_intercept`, 0).                                                                 |
+| Map            | `MapScale`        | **Pre-scaled min** and **max** to **Scaled min** and **max** (`pre_scaled_min`, `pre_scaled_max`, `scaled_min`, `scaled_max`). |
+| Polynomial     | `PolynomialScale` | **Forward coefficients** (`forward_coeffs`) and **Reverse coefficients** (`reverse_coeffs`), from c0 up.                       |
+| Table          | `TableScale`      | **Pre-scaled** and **Scaled** pairs (`pre_scaled_vals`, `scaled_vals`). A CSV file can fill them.                              |
+
+Every scale except **None** also has **Prescaled units** (`pre_scaled_units`, `Volts`)
+and **Scaled units** (`scaled_units`).
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item message={"Counter port ... has already been used on another channel on the same device"}>
+<Problem.Cause>
+
+Two channels use the same counter of one device.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the port of one of them.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"No device provided for channel ..."}>
+<Problem.Cause>
+
+A Python channel has no `device`, and the task has no `device` either.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set one of them.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Cannot create task with channels from multiple racks"}>
+<Problem.Cause>
+
+The channels use devices on two Drivers.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Create one task for each Driver.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For other problems, see
+[Configure an NI device](/reference/hardware/ni/configure-device#troubleshooting) and
+[Troubleshoot hardware](/reference/hardware/troubleshooting).

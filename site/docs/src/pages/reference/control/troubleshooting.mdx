@@ -1,0 +1,442 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Troubleshoot control"
+description:
+  "Find the cause when a schematic, an Arc automation, or a script cannot control
+  hardware."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Problem } from "@/components/problem";
+export const components = mdxOverrides;
+
+Each entry starts from what you see, then gives the cause and the fix.
+
+<Divider.Divider x />
+
+## Schematics
+
+### The schematic has no control button
+
+<Problem.Body>
+<Problem.Cause>
+
+Your role is Viewer, or the schematic is a snapshot. A viewer cannot control hardware,
+and nobody can control a snapshot.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Ask an administrator for the Operator role or higher. For a snapshot, open the schematic
+that the snapshot came from.
+
+</Problem.Fix>
+</Problem.Body>
+
+### A click on a valve does nothing
+
+<Problem.Body>
+<Problem.Cause>
+
+One of these:
+
+- Editing is on, so the click selects the symbol.
+- The schematic does not have control. Another writer with a higher authority holds the
+  channel, or one with the same authority got it first.
+- The command channel has no write task, or the symbol has no state channel, so the
+  valve never shows as open.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Turn off editing, and take control.
+2. Look at the [control legend](/reference/control/manual#control-legend) to see which
+   writer controls the channel. To take over, see
+   [take absolute control](/reference/control/manual#take-absolute-control-of-one-channel).
+3. Check the channels of the symbol. See
+   [what each symbol writes](/reference/control/manual#what-each-symbol-writes).
+
+</Problem.Fix>
+</Problem.Body>
+
+### `No symbols control any channels.`
+
+<Problem.Body>
+<Problem.Cause>
+
+No symbol on the schematic has a command channel. The notification shows "Failed to
+acquire control", with this text in the description.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Turn on editing, and set a channel in the **Control** tab of each symbol.
+
+</Problem.Fix>
+</Problem.Body>
+
+### The schematic has no Control tab
+
+<Problem.Body>
+<Problem.Cause>
+
+Your role is Operator, or the schematic is a snapshot. Operators cannot edit schematics,
+so they write at authority 1.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Ask an administrator for the Engineer role.
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## Authority
+
+### Synnax drops commands with no error
+
+<Problem.Body>
+<Problem.Cause>
+
+Another writer controls the channel. Synnax drops writes from a writer that does not
+have control. It reports an error only when the writer opens, and only if the writer
+asks for it.
+
+</Problem.Cause>
+<Problem.Fix>
+
+[See which writer controls the channel](/reference/control/authority#see-which-writer-controls-a-channel).
+Then lower its authority, or raise yours above it.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `<writer> has no control authority - it is currently held by <writer>`
+
+<Problem.Body>
+<Problem.Cause>
+
+The writer asked for an error when it opens without control, and another writer holds
+the channel. The Python `client.write` method asks for it.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Stop the other writer, or open yours with a higher authority.
+
+</Problem.Fix>
+</Problem.Body>
+
+### Authority 255 does not take control
+
+<Problem.Body>
+<Problem.Cause>
+
+On a channel with an index, a tie goes to the writer that got control first. A writer at
+255 does not take control from another writer at 255. On a virtual channel, every writer
+at the controlling authority or above it writes.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give automations a lower authority, such as 100, so that operators can take over at 255.
+See [control authority](/reference/control/authority).
+
+</Problem.Fix>
+</Problem.Body>
+
+### An operator takes a channel from an automation, but commands do nothing
+
+<Problem.Body>
+<Problem.Cause>
+
+The automation sets a per-channel authority with no default, such as
+`authority (vent_vlv_cmd 100)`. Its index channels stay at 255. The schematic also
+writes the index channel and loses it, so Synnax drops its writes to every channel on
+that index.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give the authority line a default: `authority (100 vent_vlv_cmd 200)`.
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## Arc automations
+
+### The stage indicator shows a running sequence, but the valves do not move
+
+<Problem.Body>
+<Problem.Cause>
+
+The automation has a lower authority than the schematic. A click on any button takes
+control of every actuated symbol on the schematic, valves included. Synnax then drops
+the commands from the sequence.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Keep the automation authority above the schematic authority, or put the start button on
+a separate schematic. See
+[start a sequence from a schematic](/reference/control/arc/start-from-schematic#start-the-test).
+
+</Problem.Fix>
+</Problem.Body>
+
+### The abort stage runs at the end of a normal run
+
+<Problem.Body>
+<Problem.Cause>
+
+A write, a wait, or a gate step moves on to the next step in the code, also when the
+next step is a named stage. An abort stage right after such a step runs when the steps
+before it finish.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Put the abort stage where no step leads into it, such as after a stage that only leaves
+by name. See
+[steps of a sequence](/reference/control/arc/execution-model#steps-of-a-sequence).
+
+</Problem.Fix>
+</Problem.Body>
+
+### The sequence runs once and never starts again
+
+<Problem.Body>
+<Problem.Cause>
+
+The sequence ends in a stage, so it never stops. A start command to a running sequence
+does nothing.
+
+</Problem.Cause>
+<Problem.Fix>
+
+End the sequence with a write, a wait, or a gate, such as `0 -> vent_vlv_cmd`. See
+[when a sequence stops](/reference/control/arc/execution-model#when-a-sequence-stops).
+
+</Problem.Fix>
+</Problem.Body>
+
+### A transition does not fire when the stage starts
+
+<Problem.Body>
+<Problem.Cause>
+
+A stage reacts only to values that arrive after it starts. A condition such as
+`tank_pt > 300` waits for the next `tank_pt` value, even when the last value was 400.
+
+</Problem.Cause>
+<Problem.Fix>
+
+No fix is necessary when the sensor streams. See
+[entering a stage](/reference/control/arc/execution-model#entering-a-stage).
+
+</Problem.Fix>
+</Problem.Body>
+
+### `The <type> node failed: WASM execution failed in node <key> at sample <i>/<n>: ...`
+
+<Problem.Body>
+<Problem.Cause>
+
+A runtime error, such as an index out of bounds. On a Driver, the status shows "Failed
+to run Arc program" with this text in the description, and the automation stops. On the
+Core, the status shows "Node failed", and the Core drops the cycle and keeps running.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Fix the code. See
+[errors while it runs](/reference/control/arc/execution-model#errors-while-it-runs).
+
+</Problem.Fix>
+</Problem.Body>
+
+### The automation list shows Stopped for a running automation
+
+<Problem.Body>
+<Problem.Cause>
+
+A known bug. The list shows **Stopped** when a running automation has a warning.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Open the automation to see its real status and the warning.
+
+</Problem.Fix>
+</Problem.Body>
+
+### A Driver is not in the list
+
+<Problem.Body>
+<Problem.Cause>
+
+The list shows only Drivers with the `arc` integration turned on. All Drivers have it by
+default, but a Driver configuration can remove it.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Add `arc` to the integrations of the Driver. **Deploy** stays off until you choose a
+Driver.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `undefined symbol: <name>`
+
+<Problem.Body>
+<Problem.Cause>
+
+No channel, variable, or function has that name. Channel names are case sensitive.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Create the channel, or correct the name.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `numeric conditions are deprecated; use an explicit comparison like x != 0`
+
+<Problem.Body>
+<Problem.Cause>
+
+A number is used as a condition, such as `start_cmd => press`.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Compare it: `start_cmd == 1 => press`.
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## Graph editor
+
+### A block appears in the top-left corner
+
+<Problem.Body>
+<Problem.Cause>
+
+A click on a block in the menu puts it at the top-left corner of the graph.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Drag the block from the menu to where you want it.
+
+</Problem.Fix>
+</Problem.Body>
+
+### An Add, Subtract, Multiply, Divide, or Not block does not compile
+
+<Problem.Body>
+<Problem.Cause>
+
+A known bug in these blocks.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Write the expression in a text automation. See
+[compute values from channels](/reference/control/arc/compute-values).
+
+</Problem.Fix>
+</Problem.Body>
+
+### A Change status block fires on every value
+
+<Problem.Body>
+<Problem.Cause>
+
+Graph edges pass every value, true or false.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Connect a **Select** block, and connect each Change status block to its true or false
+output. See [build an alarm](/reference/control/arc/graph-editor#build-an-alarm).
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## Python
+
+### Controller commands do nothing and raise no error
+
+<Problem.Body>
+<Problem.Cause>
+
+Another writer controls the channel. A `Controller` does not ask for an error, so Synnax
+drops its writes.
+
+</Problem.Cause>
+<Problem.Fix>
+
+See [Synnax drops commands with no error](#synnax-drops-commands-with-no-error).
+
+</Problem.Fix>
+</Problem.Body>
+
+### `authorities: authority count must be 1 or equal to channel count`
+
+<Problem.Body>
+<Problem.Cause>
+
+`write_authorities` has more than one value. The controller adds the index channels to
+its write channels, so the counts do not match.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give one authority for all channels. Change it per channel with `set_authority` after
+the controller opens.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Channel ... not found in controller state`
+
+<Problem.Body>
+<Problem.Cause>
+
+The code reads a channel that is not in the `read` list of the controller, or that has
+no value yet.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Add the channel to `read`, or wait for its first value with `wait_until_defined`.
+
+</Problem.Fix>
+</Problem.Body>
+
+### The sequence goes on before the condition is true
+
+<Problem.Body>
+<Problem.Cause>
+
+`wait_until` returns `False` at the timeout. It raises no error.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the return value, and abort when it is `False`.
+
+</Problem.Fix>
+</Problem.Body>

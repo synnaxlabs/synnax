@@ -1,0 +1,144 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Requirements"
+heading: "Synnax Enterprise requirements"
+description:
+  "Operating systems, hardware, and network for the Synnax Core, the Console, and the
+  Driver."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@/components/note";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This page lists what the Synnax Core, the Synnax Console, and the standalone Synnax
+Driver need to run.
+
+<Divider.Divider x />
+
+## Operating systems
+
+|                    | Linux                | Windows    | macOS         |
+| ------------------ | -------------------- | ---------- | ------------- |
+| Core               | x86-64               | x86-64     | Apple silicon |
+| Core in Docker     | `linux/amd64` image  | Docker     | Docker        |
+| Console app        | No                   | Windows 11 | macOS Sequoia |
+| Console in browser | Yes                  | Yes        | Yes           |
+| Standalone Driver  | Yes, and NI Linux RT | Yes        | Yes           |
+
+We test the Console app on Windows 11 and macOS Sequoia. Older versions can work, but we
+do not test them.
+
+Each Core includes the Driver. On Linux, the Driver needs glibc 2.39 or later, which
+Ubuntu 24.04 LTS and later have. On an older distribution, start the Core with
+`--no-driver` and run a [standalone Driver](/reference/enterprise/driver/install) on a
+supported computer.
+
+The device integrations differ by operating system. To see which ones run where, see
+[supported integrations](/reference/hardware#supported-integrations).
+
+<Divider.Divider x />
+
+## Core hardware
+
+The hardware a Core needs depends on how many samples it writes each second.
+
+### Calculate your workload
+
+Multiply the number of channels in each group by its sample rate, then add the groups.
+For example:
+
+- 10 high speed channels at 25 kHz -> 250k samples/s
+- 100 medium speed channels at 100 Hz -> 10k samples/s
+- 20 actuator state channels at 50 Hz -> 1k samples/s
+
+The total is 250k + 10k + 1k = 261k samples/s.
+
+### Minimum hardware for a workload
+
+Use the next row up from your total. These are minimums.
+
+| Throughput (samples/s) | CPU cores | Memory (GB) | Storage (GB) | Storage throughput (MB/s) |
+| ---------------------- | --------- | ----------- | ------------ | ------------------------- |
+| 250k                   | 4         | 8           | 100          | 120                       |
+| 500k                   | 6         | 16          | 200          | 1000                      |
+| 1M                     | 12        | 16          | 500          | 600                       |
+| 2M                     | 16        | 32          | 1000         | 1200                      |
+| 4M                     | 24        | 64          | 2000         | 2400                      |
+
+For mission critical systems, provision at least twice the minimum. The extra room
+covers growth and bursts.
+
+### Storage
+
+Store data on an SSD (M.2, NVMe, or SATA). Channels at 10 kHz or more need one.
+
+### CPU
+
+Use at least four cores for production. Ingestion, streaming, control, and
+[calculated channels](/reference/channels/calculated) all use the CPU. Supported
+families are Intel and AMD x86-64 (Xeon, Core i7 or i9, EPYC, Ryzen) and Apple silicon.
+
+### Memory
+
+Use at least 8 GB of RAM for production.
+
+<Divider.Divider x />
+
+## Console hardware
+
+These requirements apply to the Console app, the Console in a browser, and Synnax
+Desktop.
+
+|         | Minimum                                             | Recommended                                          |
+| ------- | --------------------------------------------------- | ---------------------------------------------------- |
+| CPU     | Intel Core i5 (8th gen) / AMD Ryzen 5 (3000 series) | Intel Core i7 (10th gen) / AMD Ryzen 7 (4000 series) |
+| RAM     | 8 GB                                                | 16 GB or more                                        |
+| Storage | 2 GB available                                      | 4 GB available (SSD recommended)                     |
+| GPU     | NVIDIA GTX 1030 / AMD RX 550                        | NVIDIA RTX 2060 / AMD RX 5600 XT                     |
+| VRAM    | 2 GB                                                | 6 GB or more                                         |
+| Display | 1920x1080                                           | 4K                                                   |
+
+The Console draws plots and schematics on the GPU with WebGL 2. Integrated graphics
+(Intel Iris Xe, AMD Radeon Vega) work, but many high-rate channels, long time ranges, or
+large schematics slow them down.
+
+### Browsers
+
+The Console in a browser needs a current version of Chrome, Edge, or Firefox, or Safari
+17 or later, with hardware acceleration turned on.
+
+<Divider.Divider x />
+
+## Network
+
+The Console, the client libraries, Drivers, and other Cores all reach a Core on one TCP
+port, 9090 by default. A Core with more than one
+[listener](/reference/enterprise/cli-reference#multiple-listeners) uses one port for
+each listener. A standalone Driver opens no ports. It connects to the Core.
+
+A Core listens on its port on every network interface of the computer, whatever host
+`--listen` names. To limit a listener to the computer itself, set `loopback` on it in
+the [configuration file](/reference/enterprise/cli-reference#configuration-files), or
+block the port with a firewall.
+
+To estimate bandwidth, add the write rate to the read rate of each Console or script
+that streams data, then multiply by 16 bytes for each sample. For example, a Core that
+writes 261k samples/s and streams all of them to three Consoles moves about 261k × 4 ×
+16 bytes, or 17 MB/s.
+
+<Note.Note variant="error">
+  Never send control commands over the public internet. Run control systems on an
+  isolated network.
+</Note.Note>
+
+For production control systems:
+
+- **Isolate the network** -> Put the Core on a network that is separate from the
+  corporate network.
+- **Segment traffic** -> Use VLANs or separate networks for control and data
+  acquisition.
+- **Filter access** -> Use a firewall that lets only known computers reach the Core
+  port.
+- **Secure remote access** -> Use a VPN with multi-factor authentication.

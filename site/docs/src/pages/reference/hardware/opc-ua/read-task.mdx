@@ -1,0 +1,301 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "OPC UA read task"
+description:
+  "Read the values of OPC UA nodes at a fixed rate and record them in channels."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An OPC UA read task reads the values of nodes on a server at a fixed rate and records
+them in channels. For example, it can record the tank pressures and pump speeds of a PLC
+50 times a second. The Driver times each read in software.
+
+Before you start, you need a
+[connected OPC UA server](/reference/hardware/opc-ua/connect-server).
+
+<Divider.Divider x />
+
+## Node IDs
+
+Each channel of the task reads one node. A node ID has the form
+`NS=<namespace>;<type>=<identifier>`:
+
+| Type | Identifier | Example                                       |
+| ---- | ---------- | --------------------------------------------- |
+| `I`  | A number   | `NS=2;I=1001`                                 |
+| `S`  | A string   | `NS=2;S=Tank1.Pressure`                       |
+| `G`  | A GUID     | `NS=2;G=09087e75-8e5e-499b-954f-f2a9603db28a` |
+
+Write `NS` and the type in uppercase. The Driver rejects `ns=2;s=Tank1.Pressure`. The
+browser in the Console fills the node IDs for you.
+
+<Divider.Divider x />
+
+## Create an OPC UA read task
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the server and select **Create read task**.
+2. Set **Sample rate** and **Stream rate**.
+3. In the **Browser**, expand the folders of the server.
+4. Drag the variables to read into **Channels**. You can select more than one.
+5. Click <Icon.Play /> (**Start**).
+
+The Console creates a channel for each node, named from the browse name of the node. To
+choose a name, edit the name of the channel before you start. The Console also creates
+an index channel named `<server>_time_for_<task>`, unless one of the channels already
+has an index or you [use server timestamps](#use-server-timestamps).
+
+<Video id="hardware/opc-ua/read-task" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Python does not create channels. Create an index channel and a channel for each node
+first.
+
+```python
+import synnax as sy
+from synnax import opcua
+
+server = client.devices.retrieve(name="Line 1 PLC")
+time = client.channels.create(
+    name="plc_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+pressure = client.channels.create(
+    name="tank_1_pressure", index=time.key, data_type=sy.DataType.FLOAT64
+)
+
+task = opcua.ReadTask(
+    name="Line 1 PLC read",
+    device=server.key,
+    sample_rate=50,
+    stream_rate=25,
+    channels=[
+        opcua.ReadChannel(channel=pressure.key, node_id="NS=2;S=Tank1.Pressure")
+    ],
+)
+client.tasks.configure(task)
+task.start()
+```
+
+Always pass `sample_rate` and `stream_rate`. In Python they default to 10 Hz and 5 Hz,
+not to the Console defaults.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+TypeScript does not create channels. Create an index channel and a channel for each node
+first.
+
+```typescript
+import { opcua } from "@synnaxlabs/client";
+
+const [server] = await client.devices.retrieve({ names: ["Line 1 PLC"] });
+const time = await client.channels.create({
+  name: "plc_time",
+  isIndex: true,
+  dataType: "timestamp",
+});
+const pressure = await client.channels.create({
+  name: "tank_1_pressure",
+  index: time.key,
+  dataType: "float64",
+});
+
+const task = await client.tasks.create({
+  name: "Line 1 PLC read",
+  rack: server.rack,
+  type: "opc_read",
+  config: opcua.readConfigZ.parse({
+    device: server.key,
+    sampleRate: 50,
+    streamRate: 25,
+    channels: [{ channel: pressure.key, nodeId: "NS=2;S=Tank1.Pressure" }],
+  }),
+});
+await task.start();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Read arrays
+
+Some servers buffer fast samples in an array node. To read the arrays:
+
+1. Turn on **Array sampling**.
+2. Set **Array size** to the number of values in each array.
+
+The Driver then reads each node `Sample rate / Array size` times a second, and spreads
+the timestamps of the values evenly over the read period. **Sample rate** must be equal
+to or more than **Array size**. Each array must have exactly **Array size** values, or
+the Driver drops the frame and shows a warning. **Stream rate** does not apply in array
+mode.
+
+<Divider.Divider x />
+
+## Use server timestamps
+
+By default, the Driver gives the values of each read the time halfway through the read
+request. To use the time from the server instead:
+
+1. Add a node with a DateTime value, such as the source time of the PLC, to the task.
+2. Turn on **Use as index** for that channel.
+
+The Driver then uses the value of that node as the timestamp of every channel in the
+task. Only one channel can be the index.
+
+<Divider.Divider x />
+
+## Task options
+
+| Console label  | Python field           | Default                 | Notes                                                                           |
+| -------------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------- |
+| OPC UA server  | `device`               |                         | The key of the server.                                                          |
+| Sample rate    | `sample_rate`          | 50 Hz (10 Hz in Python) | Reads per second. At most 10,000.                                               |
+| Stream rate    | `stream_rate`          | 25 Hz (5 Hz in Python)  | Frames per second sent to the Core. At most the sample rate. Not in array mode. |
+| Array sampling | `array_mode`           | Off                     | See [read arrays](#read-arrays).                                                |
+| Array size     | `array_size`           | 1                       | Values in each array node.                                                      |
+| Data saving    | `data_saving_disabled` | On                      | See [data saving](/reference/hardware/tasks#data-saving).                       |
+| Auto start     | `auto_start`           | Off                     | Starts the task each time the Driver starts.                                    |
+
+TypeScript uses the same fields in camel case, such as `sampleRate`. See
+[timing](/reference/hardware/tasks#timing).
+
+<Divider.Divider x />
+
+## Channel reference
+
+The table shows the Console label of each setting, with its Python field under it.
+
+| Setting                                | Default   | Notes                                                                            |
+| -------------------------------------- | --------- | -------------------------------------------------------------------------------- |
+| Channel name <small>`name`</small>     | Empty     | The name of the channel that the Console creates.                                |
+| <small>`channel`</small>               |           | The key of the channel that records the values.                                  |
+| Node ID <small>`node_id`</small>       |           | See [node IDs](#node-ids).                                                       |
+| Node name <small>`node_name`</small>   | Empty     | The browse name. For display only.                                               |
+| <small>`data_type`</small>             | `float32` | The data type of the channel that the Console creates.                           |
+| Use as index <small>`is_index`</small> | Off       | Shows only for a DateTime node. See [server timestamps](#use-server-timestamps). |
+| Enabled <small>`disabled`</small>      | Off       | A disabled channel is not read.                                                  |
+
+### Data types
+
+The Console creates each channel with the data type of its node:
+
+| OPC UA type | Synnax data type |
+| ----------- | ---------------- |
+| Boolean     | `uint8`          |
+| SByte       | `int8`           |
+| Byte        | `uint8`          |
+| Int16       | `int16`          |
+| UInt16      | `uint16`         |
+| Int32       | `int32`          |
+| UInt32      | `uint32`         |
+| Int64       | `int64`          |
+| UInt64      | `uint64`         |
+| Float       | `float32`        |
+| Double      | `float64`        |
+| String      | `string`         |
+| DateTime    | `timestamp`      |
+| Guid        | `uuid`           |
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item message={"Invalid NodeId format"}>
+<Problem.Cause>
+
+The node ID is not in the form `NS=<namespace>;<type>=<identifier>`.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Write `NS` and the type in uppercase.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... (NS=...): The node id refers to a node that does not exist in the server address space."}>
+<Problem.Cause>
+
+The server has no node with that ID.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Drag the node from the **Browser** again.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["OPC UA array for ... is too small", "... is too large"]}>
+<Problem.Cause>
+
+An array node has a different number of values than **Array size**.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set **Array size** to the length of the array.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Skipped invalid data"}>
+<Problem.Cause>
+
+The server sent a value that the Driver cannot convert. The Driver skips the frame.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the data type of the node.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Channel ... already exists as ..."}>
+<Problem.Cause>
+
+Another task already reads the node into that channel.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Move the channels to one task.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Failed to browse OPC UA nodes"}>
+<Problem.Cause>
+
+The Driver could not browse the server.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the
+[server connection](/reference/hardware/opc-ua/connect-server#troubleshooting).
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

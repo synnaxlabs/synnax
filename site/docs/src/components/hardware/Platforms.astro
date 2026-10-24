@@ -1,0 +1,255 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// The operating systems each Driver integration runs on. With no integration, renders
+// the matrix of every integration; with one, lists where that integration runs.
+
+import { Icon } from "@synnaxlabs/lyra/icon";
+
+import Table from "@/components/table/Table.astro";
+
+const PLATFORMS = [
+    { key: "windows", label: "Windows", icon: Icon.Logo.Windows },
+    { key: "macos", label: "macOS", icon: Icon.Logo.Apple },
+    { key: "linux", label: "Linux", icon: Icon.Logo.Linux },
+    { key: "nilinuxrt", label: "NI Linux RT", icon: Icon.Logo.NI },
+    { key: "docker", label: "Docker", icon: Icon.Logo.Docker },
+] as const;
+
+type Platform = (typeof PLATFORMS)[number]["key"];
+
+interface Integration {
+    name: string;
+    href: string;
+    connects: string;
+    platforms: Record<Platform, boolean>;
+}
+
+const INTEGRATIONS = {
+    ethercat: {
+        name: "EtherCAT",
+        href: "/reference/hardware/ethercat/configure-device",
+        connects: "EtherCAT modules on a network port",
+        platforms: {
+            windows: true,
+            macos: true,
+            linux: true,
+            nilinuxrt: true,
+            docker: false,
+        },
+    },
+    http: {
+        name: "HTTP",
+        href: "/reference/hardware/http/connect-server",
+        connects: "Devices and services with an HTTP JSON API",
+        platforms: {
+            windows: true,
+            macos: true,
+            linux: true,
+            nilinuxrt: true,
+            docker: true,
+        },
+    },
+    labjack: {
+        name: "LabJack",
+        href: "/reference/hardware/labjack/configure-device",
+        connects: "LabJack T-series devices",
+        platforms: {
+            windows: true,
+            macos: true,
+            linux: false,
+            nilinuxrt: false,
+            docker: false,
+        },
+    },
+    modbus: {
+        name: "Modbus",
+        href: "/reference/hardware/modbus/connect-server",
+        connects: "Modbus TCP servers, such as PLCs and I/O modules",
+        platforms: {
+            windows: true,
+            macos: true,
+            linux: true,
+            nilinuxrt: false,
+            docker: true,
+        },
+    },
+    ni: {
+        name: "National Instruments",
+        href: "/reference/hardware/ni/configure-device",
+        connects: "NI-DAQmx devices, such as CompactDAQ and PXI",
+        platforms: {
+            windows: true,
+            macos: false,
+            linux: true,
+            nilinuxrt: true,
+            docker: false,
+        },
+    },
+    opcua: {
+        name: "OPC UA",
+        href: "/reference/hardware/opc-ua/connect-server",
+        connects: "OPC UA servers, such as PLCs and SCADA systems",
+        platforms: {
+            windows: true,
+            macos: true,
+            linux: true,
+            nilinuxrt: true,
+            docker: true,
+        },
+    },
+} satisfies Record<string, Integration>;
+
+export interface Props {
+    integration?: keyof typeof INTEGRATIONS;
+}
+
+const { integration } = Astro.props;
+const platforms = integration == null ? null : INTEGRATIONS[integration].platforms;
+const supported = PLATFORMS.filter(({ key }) => platforms?.[key]);
+const unsupported = PLATFORMS.filter(({ key }) => platforms?.[key] === false);
+---
+
+{integration != null ? (
+    <dl class="docs-platform-list">
+        <dt>Supported</dt>
+        <dd>
+            {supported.map(({ label, icon: PlatformIcon }) => (
+                <span>
+                    <PlatformIcon />
+                    {label}
+                </span>
+            ))}
+        </dd>
+        {unsupported.length > 0 && (
+            <>
+                <dt>Not supported</dt>
+                <dd class="docs-platform-list__none">
+                    {unsupported.map(({ label, icon: PlatformIcon }) => (
+                        <span>
+                            <PlatformIcon />
+                            {label}
+                        </span>
+                    ))}
+                </dd>
+            </>
+        )}
+    </dl>
+) : (
+    <div class="docs-platforms">
+        <Table>
+            <thead>
+                <tr>
+                    <th>Integration</th>
+                    {PLATFORMS.map(({ label, icon: PlatformIcon }) => (
+                        <th>
+                            <span class="docs-platforms-label">
+                                <PlatformIcon />
+                                {label}
+                            </span>
+                        </th>
+                    ))}
+                </tr>
+            </thead>
+            <tbody>
+                {Object.values(INTEGRATIONS).map((row: Integration) => (
+                    <tr>
+                        <td class="docs-platforms-name">
+                            <a href={row.href}>{row.name}</a>
+                            <small>{row.connects}</small>
+                        </td>
+                        {PLATFORMS.map(({ key }) => (
+                            <td class="docs-platforms-mark">
+                                {row.platforms[key] ? (
+                                    <Icon.Check
+                                        className="docs-mark docs-mark--yes"
+                                        aria-label="Supported"
+                                    />
+                                ) : (
+                                    <Icon.Subtract
+                                        className="docs-mark docs-mark--no"
+                                        aria-label="Not supported"
+                                    />
+                                )}
+                            </td>
+                        ))}
+                    </tr>
+                ))}
+            </tbody>
+        </Table>
+    </div>
+)}
+
+<style is:global>
+    /* Matches the label and value columns of a problem entry. */
+    article .docs-platform-list {
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr);
+        align-items: baseline;
+        gap: 1rem 3rem;
+        margin: 0 0 var(--docs-block-gap);
+        font-size: var(--pluto-p-size);
+        line-height: var(--pluto-p-line-height);
+
+        & dt {
+            font-size: var(--pluto-small-size);
+            font-weight: 500;
+            color: var(--pluto-gray-l8);
+        }
+
+        & dd {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem 3rem;
+            margin: 0;
+            color: var(--docs-body-color);
+
+            /* The text sets the baseline, so the label lines up with it. */
+            & span {
+                display: inline-flex;
+                align-items: baseline;
+                gap: 1rem;
+            }
+
+            & svg {
+                align-self: center;
+                color: var(--pluto-gray-l8);
+            }
+        }
+
+        & .docs-platform-list__none {
+            color: var(--pluto-gray-l8);
+        }
+    }
+
+    article .docs-platforms {
+        & th {
+            vertical-align: bottom;
+        }
+        & th:not(:first-child),
+        & td.docs-platforms-mark {
+            text-align: center;
+        }
+        & .docs-platforms-label {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        & td.docs-platforms-name {
+            min-width: 30rem;
+        }
+        @media (max-width: 800px) {
+            & td.docs-platforms-mark {
+                text-align: left;
+            }
+        }
+    }
+</style>

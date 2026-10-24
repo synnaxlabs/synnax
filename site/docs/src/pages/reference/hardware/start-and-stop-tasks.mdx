@@ -1,0 +1,133 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Start and stop tasks"
+description: "Start a task, stop it, and apply edits to a running task."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Start a task to read from or write to hardware. Stop it to release the device. Synnax
+keeps the configuration, so you can start the task again later.
+
+Before you start, you need:
+
+- A task. Each task page shows how to create one, for example the
+  [NI analog read task](/reference/hardware/ni/analog-read-task).
+- A running Driver. Its status in the
+  [devices toolbar](/reference/hardware/devices#statuses) is "Driver is running".
+
+<Divider.Divider x />
+
+## Start a task
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the tasks toolbar, double-click the task to open it in a tab.
+2. At the bottom right of the tab, click <Icon.Play /> (**Start**).
+
+The Console checks the configuration and creates the channels that the task needs. The
+status at the bottom of the tab changes to "Started task". If it shows a warning or an
+error, see [Troubleshoot hardware](/reference/hardware/troubleshooting).
+
+To start a task that already ran, you can also click <Icon.Play /> next to the task in
+the tasks toolbar. This button does not create channels, so use the task tab after you
+add channels.
+
+<Video id="device-drivers/task/task-basic" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+from synnax import ni
+
+# Wrap the task in the class for its type to get start, stop, and run.
+task = ni.AnalogReadTask(internal=client.tasks.retrieve(name="Tank sensors"))
+
+# Start the task and keep it running after the script exits.
+task.start()
+
+# Or run the task only while the block runs.
+with task.run():
+    with client.open_streamer(["tank_pressure"]) as streamer:
+        frame = streamer.read()
+```
+
+`start()` waits up to 5 seconds for the Driver to answer, then raises `TimeoutError`. It
+does not raise when the Driver reports an error, so check the task status in the
+Console. `run()` starts the task and stops it when the block ends, even after an
+exception.
+
+A task that you configure in code with no Driver goes to the embedded Driver of the
+Core.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+const task = await client.tasks.retrieve({ name: "Tank sensors" });
+
+// Start the task and keep it running.
+await task.start();
+
+// Or run the task only while the function runs.
+await task.run(async () => {
+  const streamer = await client.openStreamer(["tank_pressure"]);
+  await streamer.read();
+  streamer.close();
+});
+```
+
+`start()` sends the command and does not wait for the Driver to answer. `run()` starts
+the task, waits for the function, and then stops the task.
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Stop a task
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the tasks toolbar, find the task.
+2. Click <Icon.Stop /> next to the task.
+
+The status changes to "Stopped task". You can also click <Icon.Stop /> (**Stop**) in the
+task tab, or select several tasks, right-click, and select **Stop**.
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+task.stop()
+```
+
+`stop()` waits up to 5 seconds for the Driver to answer, then raises `TimeoutError`.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+await task.stop();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Apply edits to a running task
+
+The task tab saves your edits, but a running task keeps its old configuration. To apply
+the edits, click **Redeploy** in the task tab. The **Redeploy** item in the tasks
+toolbar menu does not create new channels. Changing data saving from the tasks toolbar
+restarts the task by itself.

@@ -1,0 +1,133 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Control"
+description: "Learn what control is in Synnax, what it is for, and which way to use."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Diagram } from "@/components/diagram";
+import { Edition } from "@/components/edition";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+To control hardware in Synnax, you write values to a
+[command channel](/reference/hardware/tasks#command-channels), such as `press_vlv_cmd`.
+A [write task](/reference/hardware/tasks#write-tasks) listens on that channel and sends
+each value to the device: it opens a valve, starts a pump, or changes a setpoint. Most
+write tasks also write what the device did to a
+[state channel](/reference/hardware/tasks#state-channels), such as `press_vlv_state`.
+[Modbus](/reference/hardware/modbus/write-task),
+[OPC UA](/reference/hardware/opc-ua/write-task), and
+[HTTP](/reference/hardware/http/write-task) write tasks have
+[no state channels](/reference/hardware/tasks#outputs-with-no-state-channel), so a
+[read task](/reference/hardware/tasks#read-tasks) on the same device reads the state
+back. For how commands and state work, see
+[write tasks](/reference/hardware/tasks#write-tasks).
+
+An operator writes commands by hand from a schematic. An Arc automation or a Python
+script writes them for you. All three write to channels, not to hardware, so you can
+change a device or a task without a change to the schematic or the code.
+
+<Diagram.Block
+  title="A schematic, an Arc automation, and a Python script write to a command channel. A write task sends each command to the valve and writes the valve state to a state channel."
+  nodes={[
+    { key: "schematic", label: "Schematic", icon: Icon.Schematic, column: 0 },
+    { key: "arc", label: "Arc automation", icon: Icon.Arc, column: 0 },
+    { key: "python", label: "Python script", icon: Icon.Python, column: 0 },
+    {
+      key: "cmd",
+      label: "press_vlv_cmd",
+      caption: "command channel",
+      icon: Icon.Channel,
+      column: 1,
+    },
+    { key: "task", label: "Write task", icon: Icon.Task, column: 2 },
+    { key: "valve", label: "Press valve", icon: Icon.Valve, column: 3 },
+    {
+      key: "state",
+      label: "press_vlv_state",
+      caption: "state channel",
+      icon: Icon.Channel,
+      column: 3,
+    },
+  ]}
+  edges={[
+    { from: "schematic", to: "cmd" },
+    { from: "arc", to: "cmd" },
+    { from: "python", to: "cmd" },
+    { from: "cmd", to: "task" },
+    { from: "task", to: "valve" },
+    { from: "task", to: "state" },
+  ]}
+/>
+
+<Divider.Divider x />
+
+## What control is for
+
+### Open a valve by hand
+
+An operator clicks a valve on a schematic, and the schematic writes to the command
+channel of the valve. See
+[control hardware from a schematic](/reference/control/manual).
+
+### Start a test from a button
+
+A button on a schematic writes to a channel, and an Arc sequence starts when the channel
+becomes true. See
+[start a sequence from a schematic](/reference/control/arc/start-from-schematic).
+
+### Run a test sequence with aborts
+
+An Arc sequence moves through stages, such as pressurize, hold, and vent. In each stage,
+it watches for unsafe values and goes to an abort stage when it finds one. See
+[write a test sequence](/reference/control/arc/test-sequences).
+
+### Hold a value in a band
+
+An Arc automation turns a heater or a valve on below a low limit and off above a high
+limit. See
+[regulate a value with bang-bang control](/reference/control/arc/bang-bang-control).
+
+### Hand control between an operator and an automation
+
+An automation controls the valves at a low authority. An operator takes control at a
+higher authority, and the automation gets control back when the operator releases it.
+See [control authority](/reference/control/authority).
+
+### Build an automation without code
+
+In the graph editor, you connect blocks for channels, comparisons, and statuses instead
+of writing Arc code. See [Arc](/reference/control/arc#text-and-graph-editors).
+
+<Edition.Enterprise>
+
+### Script a sequence in Python
+
+A Python script takes control of channels, sets values, and waits for conditions. See
+[write a control sequence in Python](/reference/control/python/write-sequences).
+
+</Edition.Enterprise>
+
+<Divider.Divider x />
+
+## Ways to control
+
+| Way                                                                                               | Who acts      | Where it runs         | Timing                   | Use it to                                                                                                                |
+| ------------------------------------------------------------------------------------------------- | ------------- | --------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| [Schematic](/reference/control/manual)                                                            | An operator   | The Console           | When the operator clicks | [Command hardware by hand](#open-a-valve-by-hand), and [take over](#hand-control-between-an-operator-and-an-automation). |
+| [Arc automation](/reference/control/arc)                                                          | Your Arc code | A Driver, or the Core | Steady, next to the data | [Run sequences](#run-a-test-sequence-with-aborts), [control loops](#hold-a-value-in-a-band), and checks.                 |
+| [Python script](/reference/control/python/write-sequences) <Edition.Badge edition="enterprise" /> | Your script   | Your computer         | Depends on the network   | [Use Python libraries](#script-a-sequence-in-python), or connect to other software.                                      |
+
+A Python script sends each command over the network to the Synnax Core, so network
+delays change its timing. An Arc automation runs where the data arrives, so its timing
+does not depend on your computer.
+
+<Divider.Divider x />
+
+## Control authority
+
+More than one writer can write to the same command channel, but only one writer at a
+time controls it. Each writer has an authority from 0 to 255, and the writer with the
+highest authority gets control. See [control authority](/reference/control/authority).
