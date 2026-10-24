@@ -112,6 +112,19 @@ TEST_F(IGHMasterTest, InitializeMultipleSlaves) {
     EXPECT_EQ(slaves[1].properties.name, "Slave1");
 }
 
+TEST_F(IGHMasterTest, CountSlavesReportsTheSlavesOnTheBus) {
+    this->initialize_with_slave();
+    this->add_default_slave(1);
+    EXPECT_EQ(ASSERT_NIL_P(this->master_instance->count_slaves()), 2);
+}
+
+TEST_F(IGHMasterTest, CountSlavesFailsBeforeInitialize) {
+    ASSERT_OCCURRED_AS_P(
+        this->master_instance->count_slaves(),
+        errors::MASTER_INIT_ERROR
+    );
+}
+
 TEST_F(IGHMasterTest, ActivateConfiguresEveryEnabledSlave) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");
     this->mock_api->add_slave(1, 0x3333, 0x4444, 1, 2, "S1");

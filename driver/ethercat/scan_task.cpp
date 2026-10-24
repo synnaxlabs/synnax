@@ -15,6 +15,7 @@
 
 #include "x/cpp/telem/telem.h"
 
+#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/scan_task.h"
 
 namespace driver::ethercat {
@@ -81,26 +82,54 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         }
     }
 
+    std::set<std::string> failures;
+    if (const auto err = this->pool->available()) failures.insert(err.data);
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
 
     for (const auto &master_info: masters) {
-        auto [slaves, err] = this->pool->discover_slaves(master_info.key);
-        if (err) {
-            VLOG(1) << SCAN_LOG_PREFIX << "discovery failed for " << master_info.key
-                    << ": " << err.message();
+        const auto &key = master_info.key;
+        if (const auto it = this->next_probes.find(key);
+            it != this->next_probes.end() && scan_ctx.count < it->second)
+            continue;
+        auto [slaves, err] = this->pool->discover_slaves(key);
+        if (err.matches(errors::NO_SLAVES_FOUND)) {
+            this->next_probes[key] = scan_ctx.count + EMPTY_INTERFACE_PROBE_INTERVAL;
             continue;
         }
-
-        if (slaves.empty()) continue;
-
+        this->next_probes.erase(key);
+        if (err) {
+            failures.insert(err.data);
+            continue;
+        }
         for (const auto &slave: slaves)
-            devices.push_back(
-                this->create_slave_device(slave, master_info.key, scan_ctx)
-            );
+            devices.push_back(this->create_slave_device(slave, key, scan_ctx));
     }
 
+    this->report_failures(failures);
     return {devices, x::errors::NIL};
+}
+
+void Scanner::report_failures(const std::set<std::string> &failures) {
+    std::string desc;
+    for (const auto &failure: failures)
+        desc += (desc.empty() ? "" : "; ") + failure;
+    if (desc == this->reported_failures) return;
+    this->reported_failures = desc;
+    synnax::task::Status status{
+        .key = synnax::task::status_key(this->task),
+        .name = this->task.name,
+        .variant = desc.empty() ? synnax::status::VARIANT_SUCCESS
+                                : synnax::status::VARIANT_WARNING,
+        .message = desc.empty() ? "Scanning EtherCAT interfaces"
+                                : "Failed to scan EtherCAT interfaces",
+        .description = desc,
+        .details = synnax::task::StatusDetails{
+            .task = this->task.key,
+            .running = true,
+        },
+    };
+    this->ctx->set_status(status);
 }
 
 bool Scanner::exec(

@@ -569,6 +569,15 @@ x::telem::Rate Engine::cycle_rate() const {
 x::errors::Error Engine::ensure_initialized() const {
     std::lock_guard lock(this->mu);
     if (this->running()) return x::errors::NIL;
+    if (auto err = this->master->initialize()) return err;
+    const auto [count, err] = this->master->count_slaves();
+    if (err) return err;
+    const auto discovered = this->master->slaves().size();
+    if (count == discovered) return x::errors::NIL;
+    LOG(INFO) << "[ethercat] " << count << " slaves answer on "
+              << this->master->interface_name() << " where " << discovered
+              << " were discovered, rediscovering";
+    this->master->deactivate();
     return this->master->initialize();
 }
 

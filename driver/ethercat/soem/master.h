@@ -59,6 +59,8 @@ public:
 
     x::errors::Error initialize() override;
 
+    std::pair<size_t, x::errors::Error> count_slaves() override;
+
     void set_slave_enabled(uint16_t position, bool enabled) override;
 
     x::errors::Error activate() override;

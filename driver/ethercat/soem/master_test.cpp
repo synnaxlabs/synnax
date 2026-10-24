@@ -84,15 +84,35 @@ TEST_F(SOEMMasterTest, InitializeHappyPath) {
 TEST_F(SOEMMasterTest, InitializeInitFails) {
     this->add_default_slave();
     this->mock->init_return = 0;
-    ASSERT_OCCURRED_AS(this->master->initialize(), errors::MASTER_INIT_ERROR);
+    const auto err = this->master->initialize();
+    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
+    EXPECT_FALSE(err.matches(errors::NO_SLAVES_FOUND));
+    EXPECT_EQ(
+        err.data,
+        "cannot open eth0 for raw Ethernet access. Run the Driver as root (or with "
+        "CAP_NET_RAW on Linux), and install Npcap on Windows."
+    );
     EXPECT_TRUE(this->mock->close_called);
 }
 
-TEST_F(SOEMMasterTest, InitializeConfigInitFails) {
-    this->add_default_slave();
+TEST_F(SOEMMasterTest, InitializeReportsAnInterfaceWithNoSlaves) {
     this->mock->config_init_return = 0;
-    ASSERT_OCCURRED_AS(this->master->initialize(), errors::MASTER_INIT_ERROR);
+    const auto err = this->master->initialize();
+    ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    EXPECT_EQ(err.data, "no EtherCAT slaves found on eth0");
     EXPECT_TRUE(this->mock->close_called);
+}
+
+TEST_F(SOEMMasterTest, CountSlavesReportsTheSlavesThatAnswer) {
+    this->initialize_with_slave();
+    this->mock->bus_slaves = 3;
+    EXPECT_EQ(ASSERT_NIL_P(this->master->count_slaves()), 3);
+    this->mock->bus_slaves = 0;
+    EXPECT_EQ(ASSERT_NIL_P(this->master->count_slaves()), 0);
+}
+
+TEST_F(SOEMMasterTest, CountSlavesFailsBeforeInitialize) {
+    ASSERT_OCCURRED_AS_P(this->master->count_slaves(), errors::MASTER_INIT_ERROR);
 }
 
 TEST_F(SOEMMasterTest, InitializeIdempotent) {

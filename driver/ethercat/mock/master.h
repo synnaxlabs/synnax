@@ -31,6 +31,7 @@ class Master final : public master::Master {
     /// @brief the AL status text of each faulted slave.
     std::unordered_map<uint16_t, std::string> faults;
     std::set<uint16_t> disabled_slaves;
+    std::optional<size_t> bus_slaves;
     pdo::Offsets pdo_offset_cache;
     bool initialized;
     bool activated;
@@ -180,6 +181,19 @@ public:
         if (this->inject_init_err) return this->inject_init_err;
         this->initialized = true;
         return x::errors::NIL;
+    }
+
+    std::pair<size_t, x::errors::Error> count_slaves() override {
+        std::lock_guard lock(this->mu);
+        this->calls.push_back("count_slaves");
+        return {this->bus_slaves.value_or(this->slave_list.size()), x::errors::NIL};
+    }
+
+    /// @brief makes count_slaves() report count instead of the number of added slaves,
+    /// as when a slave is plugged in or removed after discovery.
+    void set_bus_slaves(const std::optional<size_t> count) {
+        std::lock_guard lock(this->mu);
+        this->bus_slaves = count;
     }
 
     void set_slave_enabled(const uint16_t position, const bool enabled) override {

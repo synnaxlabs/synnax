@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <atomic>
 #include <thread>
 
@@ -603,6 +604,41 @@ TEST_F(EngineTest, TasksOpenAndCloseWithoutDisturbingRunningOnes) {
 TEST_F(EngineTest, EnsureInitializedIdempotent) {
     ASSERT_NIL(this->engine->ensure_initialized());
     ASSERT_NIL(this->engine->ensure_initialized());
+}
+
+TEST_F(EngineTest, EnsureInitializedKeepsDiscoveryWhenTheBusIsUnchanged) {
+    ASSERT_NIL(this->engine->ensure_initialized());
+    ASSERT_NIL(this->engine->ensure_initialized());
+    const auto calls = this->master->call_log();
+    EXPECT_EQ(std::ranges::count(calls, "deactivate"), 0);
+}
+
+TEST_F(EngineTest, EnsureInitializedRediscoversWhenASlaveIsPluggedIn) {
+    ASSERT_NIL(this->engine->ensure_initialized());
+    this->master->set_bus_slaves(2);
+    ASSERT_NIL(this->engine->ensure_initialized());
+    EXPECT_EQ(
+        this->master->call_log(),
+        (std::vector<std::string>{
+            "initialize",
+            "count_slaves",
+            "initialize",
+            "count_slaves",
+            "deactivate",
+            "initialize",
+        })
+    );
+}
+
+TEST_F(EngineTest, EnsureInitializedDoesNotRediscoverWhileTheBusRuns) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->set_bus_slaves(2);
+    this->master->clear_call_log();
+    ASSERT_NIL(this->engine->ensure_initialized());
+    const auto calls = this->master->call_log();
+    EXPECT_EQ(std::ranges::count(calls, "count_slaves"), 0);
 }
 
 TEST_F(EngineTest, SlavesReturnsDiscoveredSlaves) {

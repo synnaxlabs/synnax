@@ -86,6 +86,8 @@ public:
     std::vector<uint16_t> recovered_slaves;
     /// @brief slaves passed to writestate, in call order.
     std::vector<uint16_t> written_slaves;
+    /// @brief the value count_bus_slaves returns, or nullopt for the slave count.
+    std::optional<int> bus_slaves;
 
 private:
     uint8_t *iomap_ptr = nullptr;
@@ -138,6 +140,10 @@ public:
             lowest = std::min<uint16_t>(lowest, info.state & 0x0F);
         }
         return lowest;
+    }
+
+    int count_bus_slaves() override {
+        return this->bus_slaves.value_or(static_cast<int>(this->slave_infos.size()));
     }
 
     int reconfig_slave(uint16_t slave, int) override {
