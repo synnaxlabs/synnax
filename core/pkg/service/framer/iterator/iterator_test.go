@@ -2584,11 +2584,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(values(v)).To(Equal(groupEnds(ramp(3), 20)))
 				Expect(fr.Get(calc.Index()).AlignmentBounds()).
 					To(Equal(v.AlignmentBounds()))
-				for _, s := range fr.Get(calc.Index()).Series {
-					stamps := s.Unmarshal[telem.TimeStamp]()
-					Expect(s.TimeRange.ContainsStamp(stamps[0])).To(BeTrue())
-					Expect(s.TimeRange.ContainsStamp(stamps[len(stamps)-1])).
-						To(BeTrue())
+				// The Line joins only series whose time ranges do not overlap.
+				for _, m := range []telem.MultiSeries{v, fr.Get(calc.Index())} {
+					Expect(len(m.Series)).To(BeNumerically(">", 1))
+					for k := 1; k < len(m.Series); k++ {
+						Expect(m.Series[k].TimeRange.Start).
+							To(Equal(m.Series[k-1].TimeRange.End))
+					}
 				}
 			})
 

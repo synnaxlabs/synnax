@@ -11,6 +11,7 @@ package unary_test
 
 import (
 	"math"
+	"runtime"
 	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -714,19 +715,77 @@ var _ = Describe("Aggregated Iteration", func() {
 				)
 			})
 
-			It("Should reduce groups larger than one read buffer", func(
-				ctx SpecContext,
-			) {
-				const count = 400_000
-				write(ctx, telem.SecondTS, count)
-				bounds := telem.SecondTS.Range((count + 1) * telem.SecondTS)
-				series := readSpan(
-					ctx,
-					dataDB,
-					aggregated(bounds, telem.AggregationMinMax, 2),
-				)
-				Expect(series[0].Unmarshal[int64]()).To(Equal([]int64{1, count}))
-			})
+			DescribeTable(
+				"Should reduce a group larger than the read buffer within it",
+				func(
+					ctx SpecContext,
+					agg telem.Aggregation,
+					limit uint32,
+					cut int,
+					expected []int64,
+				) {
+					const count = 400_000
+					stamps := make([]telem.TimeStamp, count)
+					values := make([]int64, count)
+					for i := range count {
+						stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
+						values[i] = int64(i) + 1
+					}
+					Expect(
+						unary.Write(ctx, indexDB, stamps[0], telem.NewSeries(stamps)),
+					).To(Succeed())
+					edges := []int{0, count}
+					if cut > 0 {
+						edges = []int{0, cut, count}
+					}
+					for k := 1; k < len(edges); k++ {
+						lo, hi := edges[k-1], edges[k]
+						part := telem.NewSeries(values[lo:hi])
+						Expect(unary.Write(ctx, dataDB, stamps[lo], part)).To(Succeed())
+					}
+					bounds := telem.SecondTS.Range((count + 1) * telem.SecondTS)
+					var before, after runtime.MemStats
+					runtime.ReadMemStats(&before)
+					series := readSpan(ctx, dataDB, aggregated(bounds, agg, limit))
+					runtime.ReadMemStats(&after)
+					Expect(telem.NewMultiSeries(series).Data()).
+						To(Equal(telem.NewSeries(expected).Data))
+					// The group holds 3.2 MB of samples, and each segment read holds
+					// one
+					// buffer of 1 MB.
+					segments := uint64(len(edges) - 1)
+					Expect(after.TotalAlloc - before.TotalAlloc).
+						To(BeNumerically("<", segments*uint64(2*telem.Megabyte)))
+				},
+				Entry(
+					"min_max",
+					telem.AggregationMinMax,
+					uint32(2),
+					0,
+					[]int64{1, 400_000},
+				),
+				Entry(
+					"average",
+					telem.AggregationAverage,
+					uint32(1),
+					0,
+					[]int64{200_000},
+				),
+				Entry(
+					"min_max cut by a write",
+					telem.AggregationMinMax,
+					uint32(2),
+					200_000,
+					[]int64{1, 400_000},
+				),
+				Entry(
+					"average cut by a write",
+					telem.AggregationAverage,
+					uint32(1),
+					200_000,
+					[]int64{200_000},
+				),
+			)
 		})
 	}
 })

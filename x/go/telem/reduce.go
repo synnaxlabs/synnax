@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"math"
 	"math/bits"
+	"slices"
 	"unsafe"
 
 	"github.com/synnaxlabs/x/types"
@@ -63,8 +64,28 @@ func GroupStart(a Alignment, groupSize uint32) Alignment {
 // Reduce returns the series unchanged when groupSize is below 2 or when the data type
 // is not numeric. It panics if the series is already reduced.
 func (s Series) Reduce(agg Aggregation, groupSize uint32) Series {
+	reduced, _, _ := s.reduce(agg, groupSize, false)
+	return reduced
+}
+
+// ReduceCut reduces s as Reduce does. It also summarizes the first and last groups of
+// s when s holds only part of them: head is nil when s starts at the start of a group,
+// and tail is nil when s ends at the end of one. AbsorbNext and AbsorbPrev use the
+// summaries to reduce a group cut between two series once.
+func (s Series) ReduceCut(
+	agg Aggregation,
+	groupSize uint32,
+) (reduced Series, head, tail *Group) {
+	return s.reduce(agg, groupSize, true)
+}
+
+func (s Series) reduce(
+	agg Aggregation,
+	groupSize uint32,
+	cut bool,
+) (Series, *Group, *Group) {
 	if groupSize < 2 || s.Len() == 0 || !Reducible(s.DataType) {
-		return s
+		return s, nil, nil
 	}
 	if s.Multiple() > 1 {
 		panic("telem: cannot reduce a series that is already reduced")
@@ -73,45 +94,53 @@ func (s Series) Reduce(agg Aggregation, groupSize uint32) Series {
 	if agg == AggregationMinMax {
 		multiple = groupSize / 2
 	}
+	data, head, tail := reducerFor(s.DataType).reduce(s, agg, groupSize, cut)
 	return Series{
 		TimeRange:         s.TimeRange,
 		DataType:          s.DataType,
-		Data:              reducerFor(s.DataType).reduce(s, agg, groupSize),
+		Data:              data,
 		Alignment:         GroupStart(s.Alignment, groupSize),
 		AlignmentMultiple: multiple,
-	}
+	}, head, tail
 }
 
-// Reduce joins each run of alignment-contiguous series and reduces it as one series, so
-// that a group split across two series yields one set of points. See Series.Reduce.
-func (m MultiSeries) Reduce(agg Aggregation, groupSize uint32) MultiSeries {
-	if groupSize < 2 || !Reducible(m.DataType()) {
-		return m
+// AbsorbNext reduces the group that s and next each hold part of once, in s. s and next
+// are series reduced with ReduceCut in read order. tail summarizes the part s holds,
+// and head the part next holds. It returns s with the points of the whole group, next
+// without its points of the group, and the summary of the whole group. A float average
+// can differ from a whole read by rounding. It panics unless tail and head summarize
+// parts of the same group.
+//
+// The time ranges do not change, so the points of the group can lie past the end of
+// s's range. When next becomes empty, the range of s extends to the end of next's.
+func (s Series) AbsorbNext(next Series, tail, head Group) (Series, Series, Group) {
+	merged := tail.merge(head)
+	points := merged.data()
+	s.Data = slices.Concat(s.Data[:len(s.Data)-len(points)], points)
+	next.Data = next.Data[len(points):]
+	next.Alignment = next.Alignment.AddSamples(merged.size)
+	if next.Len() == 0 {
+		s.TimeRange.End = next.TimeRange.End
 	}
-	out := MultiSeries{Series: make([]Series, 0, len(m.Series))}
-	for start := 0; start < len(m.Series); {
-		end := start + 1
-		for end < len(m.Series) &&
-			m.Series[end-1].Multiple() == m.Series[end].Multiple() &&
-			m.Series[end-1].AlignmentBounds().Upper == m.Series[end].Alignment {
-			end++
-		}
-		run := m.Series[start]
-		if end-start > 1 {
-			joined := MultiSeries{Series: m.Series[start:end]}
-			run.Data = joined.Data()
-			run.TimeRange = joined.TimeRange()
-		}
-		out.Series = append(out.Series, run.Reduce(agg, groupSize))
-		start = end
-	}
-	return out
+	return s, next, merged
 }
 
-// Group summarizes the samples of one reduction group that a read has passed. A read
-// that cuts a group into parts merges the summaries of the parts, so the group reduces
-// to the same points as when it is read whole. Only a float average can differ, by
-// rounding.
+// AbsorbPrev mirrors AbsorbNext for prev, the series read before s: s takes the points
+// of the group they each hold part of, and prev drops its own. tail summarizes the part
+// of the group that prev holds, and head the part that s holds.
+func (s Series) AbsorbPrev(prev Series, tail, head Group) (Series, Series, Group) {
+	merged := tail.merge(head)
+	points := merged.data()
+	s.Data = slices.Concat(points, s.Data[len(points):])
+	prev.Data = prev.Data[:len(prev.Data)-len(points)]
+	if prev.Len() == 0 {
+		s.TimeRange.Start = prev.TimeRange.Start
+	}
+	return s, prev, merged
+}
+
+// Group summarizes the part of one reduction group that a reduced series holds. See
+// Series.ReduceCut.
 type Group struct {
 	tally
 	start       Alignment
@@ -123,23 +152,11 @@ type Group struct {
 	samples []byte
 }
 
-// Summarize returns the summary of the samples of s for agg in groups of groupSize. It
-// panics if s is empty or its samples span more than one group.
-func (s Series) Summarize(agg Aggregation, groupSize uint32) Group {
-	start := GroupStart(s.Alignment, groupSize)
-	if s.Len() == 0 ||
-		GroupStart(s.Alignment.AddSamples(uint32(s.Len()-1)), groupSize) != start {
-		panic("telem: can only summarize the samples of one group")
-	}
-	return reducerFor(s.DataType).summarize(s, agg, groupSize)
-}
-
 // Start returns the alignment of the first sample position of the group.
 func (g Group) Start() Alignment { return g.start }
 
-// Merge returns the summary of the samples of g followed by those of next. It panics
-// unless next summarizes later samples of the same group under the same aggregation.
-func (g Group) Merge(next Group) Group {
+// merge returns the summary of the samples of g followed by those of next.
+func (g Group) merge(next Group) Group {
 	if g.start != next.start ||
 		g.aggregation != next.aggregation ||
 		g.dataType != next.dataType ||
@@ -149,8 +166,8 @@ func (g Group) Merge(next Group) Group {
 	return reducerFor(g.dataType).merge(g, next)
 }
 
-// Data returns the points the group reduces to, encoded as its data type.
-func (g Group) Data() []byte { return reducerFor(g.dataType).data(g) }
+// data returns the points the group reduces to, encoded as its data type.
+func (g Group) data() []byte { return reducerFor(g.dataType).data(g) }
 
 // tally holds the parts of a group summary that do not depend on the data type. lowAt
 // and highAt are the sample indices of the smallest and largest samples, which are
@@ -342,8 +359,14 @@ func importGroup[T types.SizedNumeric](g Group) summary[T] {
 
 // numericReducer reduces the samples of one data type.
 type numericReducer interface {
-	reduce(s Series, agg Aggregation, groupSize uint32) []byte
-	summarize(s Series, agg Aggregation, groupSize uint32) Group
+	// reduce returns the reduced data of s. When cut is true, it also returns the
+	// summaries of the groups s holds only part of. See Series.ReduceCut.
+	reduce(
+		s Series,
+		agg Aggregation,
+		groupSize uint32,
+		cut bool,
+	) ([]byte, *Group, *Group)
 	merge(a, b Group) Group
 	data(g Group) []byte
 }
@@ -353,7 +376,12 @@ type typedReducer[T types.SizedNumeric] struct {
 	float bool
 }
 
-func (r typedReducer[T]) reduce(s Series, agg Aggregation, groupSize uint32) []byte {
+func (r typedReducer[T]) reduce(
+	s Series,
+	agg Aggregation,
+	groupSize uint32,
+	cut bool,
+) (data []byte, head, tail *Group) {
 	var (
 		in    = xunsafe.CastSlice[byte, T](s.Data)
 		at    = s.Alignment.SampleIndex()
@@ -366,8 +394,25 @@ func (r typedReducer[T]) reduce(s Series, agg Aggregation, groupSize uint32) []b
 	// start is the index in the series where the current group begins. Only the first
 	// group can start before the series.
 	for start := -first; start < len(in); start += size {
-		lo := max(start, 0)
-		group := in[lo:min(start+size, len(in))]
+		lo, hi := max(start, 0), min(start+size, len(in))
+		group := in[lo:hi]
+		if cut && hi-lo < size {
+			sum := summarize(group, at+uint32(lo), agg, groupSize, r.float)
+			out = sum.appendPoints(out, agg, groupSize, r.float)
+			g := sum.export(
+				GroupStart(s.Alignment.AddSamples(uint32(lo)), groupSize),
+				s.DataType,
+				agg,
+				groupSize,
+			)
+			if start < 0 {
+				head = &g
+			}
+			if hi < start+size {
+				tail = &g
+			}
+			continue
+		}
 		switch agg {
 		case AggregationMinMax:
 			low, high, lowAt, highAt, numeric := extremes(group, at+uint32(lo))
@@ -387,17 +432,7 @@ func (r typedReducer[T]) reduce(s Series, agg Aggregation, groupSize uint32) []b
 			panic(fmt.Sprintf("telem: unknown aggregation %q", agg))
 		}
 	}
-	return xunsafe.CastSlice[T, byte](out)
-}
-
-func (r typedReducer[T]) summarize(s Series, agg Aggregation, groupSize uint32) Group {
-	in := xunsafe.CastSlice[byte, T](s.Data)
-	return summarize(in, s.Alignment.SampleIndex(), agg, groupSize, r.float).export(
-		GroupStart(s.Alignment, groupSize),
-		s.DataType,
-		agg,
-		groupSize,
-	)
+	return xunsafe.CastSlice[T, byte](out), head, tail
 }
 
 func (typedReducer[T]) merge(a, b Group) Group {
