@@ -122,7 +122,7 @@ type CheckResponse struct {
 	Problems library.Problems `json:"problems" msgpack:"problems"`
 }
 
-// Check returns every problem in an ICD without storing it.
+// Check returns every problem that would stop an ICD from saving, without storing it.
 func (s *Service) Check(ctx context.Context, req CheckRequest) (CheckResponse, error) {
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
@@ -131,7 +131,11 @@ func (s *Service) Check(ctx context.Context, req CheckRequest) (CheckResponse, e
 	}); err != nil {
 		return CheckResponse{}, err
 	}
-	return CheckResponse{Problems: icd.Check(req.ICD)}, nil
+	problems, err := s.internal.NewWriter(nil).Check(ctx, req.ICD)
+	if err != nil {
+		return CheckResponse{}, err
+	}
+	return CheckResponse{Problems: problems}, nil
 }
 
 type RenameRequest struct {

@@ -11,6 +11,7 @@ package icd
 
 import (
 	"context"
+	"strconv"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -45,11 +46,7 @@ type Writer struct {
 func (w Writer) Create(ctx context.Context, ic *ICD) error {
 	var prev *ICD
 	if ic.Key != uuid.Nil() {
-		var existing ICD
-		err := w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, ICD](ic.Key)).
-			Entry(&existing).
-			Exec(ctx, w.tx)
+		existing, err := w.retrieve(ctx, ic.Key)
 		if err == nil {
 			prev = &existing
 		} else if !errors.Is(err, query.ErrNotFound) {
@@ -103,6 +100,31 @@ func (w Writer) CreateMany(ctx context.Context, ics *[]ICD) error {
 	return nil
 }
 
+// Check returns every problem Create would reject ic for, without storing it: each
+// problem the package-level Check finds, and each message or field that a task uses and
+// ic lacks.
+func (w Writer) Check(ctx context.Context, ic ICD) (library.Problems, error) {
+	problems := Check(ic)
+	if ic.Key == uuid.Nil() {
+		return problems, nil
+	}
+	prev, err := w.retrieve(ctx, ic.Key)
+	if errors.Is(err, query.ErrNotFound) {
+		return problems, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	users, err := w.users(ctx, prev)
+	if err != nil {
+		return nil, err
+	}
+	for _, u := range users {
+		problems = append(problems, u.missing(prev, ic)...)
+	}
+	return problems, nil
+}
+
 // Import replaces the entries of the ICD with the given key by those parsed from data
 // in the given format. Entries and fields keep their keys when their names match (see
 // Merge), and the tasks that use the ICD are rewritten as in Create. Import returns
@@ -118,11 +140,8 @@ func (w Writer) Import(
 	if err != nil {
 		return ICD{}, err
 	}
-	var existing ICD
-	if err = w.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, ICD](key)).
-		Entry(&existing).
-		Exec(ctx, w.tx); err != nil {
+	existing, err := w.retrieve(ctx, key)
+	if err != nil {
 		return ICD{}, err
 	}
 	ic := Merge(existing, entries)
@@ -141,11 +160,8 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 			"name",
 		)
 	}
-	var ic ICD
-	if err := w.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, ICD](key)).
-		Entry(&ic).
-		Exec(ctx, w.tx); err != nil {
+	ic, err := w.retrieve(ctx, key)
+	if err != nil {
 		return err
 	}
 	ic.Name = name
@@ -168,15 +184,28 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }
 
-// staleTasks returns the tasks that use next whose stamped hash no longer matches the
-// entries they use. It returns a validation error when next drops a message or field
-// that one of the tasks uses.
-func (w Writer) staleTasks(ctx context.Context, prev, next ICD) ([]task.Task, error) {
-	users, err := library.Users(ctx, w.tx, w.otg, next.OntologyID())
-	if err != nil || len(users) == 0 {
+func (w Writer) retrieve(ctx context.Context, key Key) (ICD, error) {
+	var ic ICD
+	err := w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, ICD](key)).
+		Entry(&ic).
+		Exec(ctx, w.tx)
+	return ic, err
+}
+
+// user is a task that uses an ICD, with the entries it uses.
+type user struct {
+	task task.Task
+	uses []Use
+}
+
+// users returns each task that uses ic.
+func (w Writer) users(ctx context.Context, ic ICD) ([]user, error) {
+	resources, err := library.Users(ctx, w.tx, w.otg, ic.OntologyID())
+	if err != nil || len(resources) == 0 {
 		return nil, err
 	}
-	keys, err := task.KeysFromOntologyIDs(ontology.ResourceIDs(users))
+	keys, err := task.KeysFromOntologyIDs(ontology.ResourceIDs(resources))
 	if err != nil {
 		return nil, err
 	}
@@ -187,67 +216,90 @@ func (w Writer) staleTasks(ctx context.Context, prev, next ICD) ([]task.Task, er
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	var stale []task.Task
-	for _, t := range tasks {
+	users := make([]user, len(tasks))
+	for i, t := range tasks {
 		uses, err := w.uses(t.Config)
 		if err != nil {
 			return nil, err
 		}
-		if err = checkUses(t, uses, prev, next); err != nil {
-			return nil, err
-		}
-		var ref Reference
-		if err = t.Config.Unmarshal(&ref); err != nil {
-			return nil, err
-		}
-		messages := lo.Map(uses, func(u Use, _ int) EntryKey { return u.Message })
-		hash, err := TaskHash(next, messages)
-		if err != nil {
-			return nil, err
-		}
-		if hash != ref.ICDHash {
-			stale = append(stale, t)
-		}
+		users[i] = user{task: t, uses: uses}
 	}
-	return stale, nil
+	return users, nil
 }
 
-// checkUses returns a validation error, scoped to the "entries" path, when next lacks a
-// message or field that the task uses. It names them from prev.
-func checkUses(t task.Task, uses []Use, prev, next ICD) error {
-	messages := messagesByKey(next)
-	for _, u := range uses {
-		m, ok := messages[u.Message]
-		if !ok {
-			return usesErrorf(
-				"task %q uses message %q, which the ICD no longer has",
-				t.Name,
-				nameOf(prev, u.Message),
-			)
+// missing returns a problem for each message or field that u uses and next lacks,
+// named from prev. A missing message is a problem with the entries, and a missing field
+// one with the fields of its message.
+func (u user) missing(prev, next ICD) library.Problems {
+	indexes := make(map[EntryKey]int)
+	for i, e := range next.Entries {
+		if m, ok := e.Variant.(MessageEntry); ok {
+			indexes[m.Key] = i
 		}
+	}
+	var problems library.Problems
+	for _, use := range u.uses {
+		i, ok := indexes[use.Message]
+		if !ok {
+			problems.Addf(
+				[]string{"entries"},
+				"task %q uses message %q, which the ICD no longer has",
+				u.task.Name,
+				nameOf(prev, use.Message),
+			)
+			continue
+		}
+		m := next.Entries[i].Variant.(MessageEntry)
 		fields := make(set.Set[FieldKey])
 		for _, b := range m.Payload.FieldBases() {
 			fields.Add(b.Key)
 		}
-		for _, f := range u.Fields {
+		for _, f := range use.Fields {
 			if !fields.Contains(f) {
-				return usesErrorf(
+				problems.Addf(
+					[]string{"entries", strconv.Itoa(i), "payload", "fields"},
 					"task %q uses field %q of message %q, which the ICD no longer has",
-					t.Name,
-					fieldNameOf(prev, u.Message, f),
+					u.task.Name,
+					fieldNameOf(prev, use.Message, f),
 					m.Name,
 				)
 			}
 		}
 	}
-	return nil
+	return problems
 }
 
-func usesErrorf(format string, args ...any) error {
-	return validate.PathedError(
-		errors.Wrapf(validate.ErrValidation, format, args...),
-		"entries",
-	)
+// staleTasks returns the tasks that use next whose stamped hash no longer matches the
+// entries they use. It returns a path-scoped validation error for each message or field
+// a task uses and next lacks.
+func (w Writer) staleTasks(ctx context.Context, prev, next ICD) ([]task.Task, error) {
+	users, err := w.users(ctx, next)
+	if err != nil {
+		return nil, err
+	}
+	var missing library.Problems
+	for _, u := range users {
+		missing = append(missing, u.missing(prev, next)...)
+	}
+	if err = missing.Err(); err != nil {
+		return nil, err
+	}
+	var stale []task.Task
+	for _, u := range users {
+		var ref Reference
+		if err = u.task.Config.Unmarshal(&ref); err != nil {
+			return nil, err
+		}
+		messages := lo.Map(u.uses, func(use Use, _ int) EntryKey { return use.Message })
+		hash, err := TaskHash(next, messages)
+		if err != nil {
+			return nil, err
+		}
+		if hash != ref.ICDHash {
+			stale = append(stale, u.task)
+		}
+	}
+	return stale, nil
 }
 
 func messagesByKey(ic ICD) map[EntryKey]MessageEntry {

@@ -4,7 +4,7 @@
   "problems": [
     {
       "path": "entries.0.payload.fields.0.multiplexor",
-      "message": "no field with key 00000000-0000-4000-8000-000000000063 in this message"
+      "message": "the multiplexor is not in this message"
     }
   ],
   "icd": {

@@ -4,7 +4,7 @@
   "problems": [
     {
       "path": "entries.0.payload.fields.0.enumeration",
-      "message": "no enum entry with key 00000000-0000-4000-8000-000000000063 in this ICD"
+      "message": "the enumeration is not in this ICD"
     }
   ],
   "icd": {

@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/library"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -265,11 +266,77 @@ var _ = Describe("Task references", func() {
 				p.Fields = []icd.BinaryField{binaryField("speed", 0, 16)}
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(MatchError(
-				`entries: task "Decoder" uses field "rpm" of message "Status", ` +
-					"which the ICD no longer has: validation error",
+				`entries.0.payload.fields: task "Decoder" uses field "rpm" of message ` +
+					`"Status", which the ICD no longer has: validation error`,
 			))
 		},
 	)
+
+	Describe("Check", func() {
+		It(
+			"Should report a message a task uses that the ICD no longer has",
+			func(ctx SpecContext) {
+				createUsingTask(ctx, "Decoder", ic, status)
+				ic.Entries = ic.Entries[1:]
+				Expect(MustSucceed(svc.NewWriter(tx).Check(ctx, ic))).To(Equal(
+					library.Problems{{
+						Path: "entries",
+						Message: `task "Decoder" uses message "Status", which the ` +
+							"ICD no longer has",
+					}},
+				))
+			},
+		)
+
+		It(
+			"Should report a field a task uses at the fields of its message",
+			func(ctx SpecContext) {
+				createUsingTask(ctx, "Decoder", ic, status)
+				ic.Entries[0].Variant = updateBinary(
+					status,
+					func(p *icd.BinaryPayload) {
+						p.Fields = []icd.BinaryField{binaryField("speed", 0, 16)}
+					},
+				)
+				Expect(MustSucceed(svc.NewWriter(tx).Check(ctx, ic))).To(Equal(
+					library.Problems{{
+						Path: "entries.0.payload.fields",
+						Message: `task "Decoder" uses field "rpm" of message ` +
+							`"Status", which the ICD no longer has`,
+					}},
+				))
+			},
+		)
+
+		It("Should report a problem for every task", func(ctx SpecContext) {
+			createUsingTask(ctx, "Decoder", ic, status)
+			createUsingTask(ctx, "Logger", ic, status)
+			ic.Entries = ic.Entries[1:]
+			Expect(MustSucceed(svc.NewWriter(tx).Check(ctx, ic))).To(ConsistOf(
+				HaveField("Message", ContainSubstring(`task "Decoder"`)),
+				HaveField("Message", ContainSubstring(`task "Logger"`)),
+			))
+		})
+
+		It(
+			"Should report nothing when the ICD keeps what its tasks use",
+			func(ctx SpecContext) {
+				createUsingTask(ctx, "Decoder", ic, status)
+				ic.Entries = ic.Entries[:1]
+				Expect(MustSucceed(svc.NewWriter(tx).Check(ctx, ic))).To(BeEmpty())
+			},
+		)
+
+		It(
+			"Should report only the ICD's own problems when no ICD has its key",
+			func(ctx SpecContext) {
+				unsaved := icd.ICD{Key: uuid.New()}
+				Expect(MustSucceed(svc.NewWriter(tx).Check(ctx, unsaved))).To(Equal(
+					icd.Check(unsaved),
+				))
+			},
+		)
+	})
 
 	It("Should relate a copied task to the ICD", func(ctx SpecContext) {
 		t := createUsingTask(ctx, "Decoder", ic, status)

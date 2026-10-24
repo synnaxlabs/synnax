@@ -143,11 +143,7 @@ func (c *checker) checkMessage(path []string, m MessageEntry, enums set.Set[Entr
 		names.Add(b.Name)
 		c.checkScaling(p, b)
 		if b.Enumeration != nil && !enums.Contains(*b.Enumeration) {
-			c.addf(
-				pathOf(p, "enumeration"),
-				"no enum entry with key %s in this ICD",
-				*b.Enumeration,
-			)
+			c.addf(pathOf(p, "enumeration"), "the enumeration is not in this ICD")
 		}
 		if b.Multiplexor == nil {
 			continue
@@ -193,11 +189,7 @@ func (c *checker) checkMultiplexor(
 	case *b.Multiplexor == b.Key:
 		c.addf(pathOf(path, "multiplexor"), "a field cannot multiplex itself")
 	case !ok:
-		c.addf(
-			pathOf(path, "multiplexor"),
-			"no field with key %s in this message",
-			*b.Multiplexor,
-		)
+		c.addf(pathOf(path, "multiplexor"), "the multiplexor is not in this message")
 	case mux.Float:
 		c.addf(pathOf(path, "multiplexor"), "a multiplexor must be an integer field")
 	case inCycle(b.Key, binary):
@@ -283,8 +275,7 @@ func (c *checker) checkIdentifier(
 		case !ok:
 			c.addf(
 				pathOf(idPath, "field"),
-				"no field with key %s in this message",
-				id.Field,
+				"the identifier field is not in this message",
 			)
 		case f.Float:
 			c.addf(pathOf(idPath, "field"), "the identifier must be an integer field")
