@@ -83,14 +83,16 @@ const link = (op: DrawOperation, first: DrawOperation): Link => ({
   count: op.count,
 });
 
-// Returns the mean of chain samples [lo, hi) on one axis as the Core computes it. A
-// float mean sums each sample over the count. An integer mean rounds down. It sums the
-// quotients and remainders of the samples over the count apart, so no sum passes 2^53.
+// Returns the mean of chain samples [lo, hi) of a group of size samples on one axis, as
+// the Core computes it. A float mean sums each sample over size, then scales a partial
+// group by size over its count. An integer mean rounds down. It sums the quotients and
+// remainders of the samples over the count apart, so no sum passes 2^53.
 const mean = (
   chain: Link[],
   key: "x" | "y",
   lo: number,
   hi: number,
+  size: number,
   float: boolean,
 ): number => {
   const n = hi - lo;
@@ -103,7 +105,7 @@ const mean = (
     for (let i = a.offset + Math.max(lo - base, 0); i < to; i++) {
       const v = a.data[i] + a.shift;
       if (float) {
-        q += v / n;
+        q += v / size;
         continue;
       }
       const d = Math.floor(v / n);
@@ -116,7 +118,7 @@ const mean = (
     }
     base += count;
   }
-  return q;
+  return float && n !== size ? q * (size / n) : q;
 };
 
 // The reduced form of one full-resolution op. The op draws each group that starts in
@@ -261,8 +263,8 @@ class Pair {
         break;
       }
       case "average":
-        out.xs.push(mean(chain, "x", lo, hi, this.x.dataType.isFloat));
-        out.ys.push(mean(chain, "y", lo, hi, this.y.dataType.isFloat));
+        out.xs.push(mean(chain, "x", lo, hi, this.groupSize, this.x.dataType.isFloat));
+        out.ys.push(mean(chain, "y", lo, hi, this.groupSize, this.y.dataType.isFloat));
         break;
       case "decimate": {
         const { x, y } = chain[0];

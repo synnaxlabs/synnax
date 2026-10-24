@@ -183,6 +183,12 @@ describe("Reducer", () => {
       ]);
     });
 
+    it("should scale the mean of a partial group to its count", () => {
+      const y = new Series(new Float64Array([0.1, 0.2, 2.3]));
+      const r = reduceOne(op(ramp(3), y), "average", 4);
+      expect(Array.from(r.y)).toEqual([0.8666666666666665]);
+    });
+
     it("should keep an integer mean exact when the sum passes 2^53", () => {
       const n = 2 ** 22;
       const data = new Uint32Array(n)
