@@ -289,11 +289,6 @@ jobs:
           '' }} -timeout=30m ./...
         working-directory: ${{ inputs.directory }}
 
-      # TEMPORARY: measures the disk a cached run uses without the cleanup above.
-      - name: Print free disk space
-        if: always() && inputs.cached && runner.os == 'Linux'
-        run: df -h /
-
       # Each shard takes every nth suite in path order, which spreads the versions of
       # one service across the shards.
       - name: Test
