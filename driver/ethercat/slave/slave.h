@@ -16,6 +16,7 @@
 #include <optional>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "x/cpp/json/json.h"
@@ -101,9 +102,10 @@ struct StartupParameter {
         param.name = parser.field<std::string>("name", "");
         const auto data_type = parser.field<std::string>("data_type");
         if (parser.errors->size() > errors_before) return param;
-        if (index < 0 || index > std::numeric_limits<uint16_t>::max())
+        if (index < 0 || std::cmp_greater(index, std::numeric_limits<uint16_t>::max()))
             parser.field_err("index", "must be between 0x0000 and 0xFFFF");
-        if (sub_index < 0 || sub_index > std::numeric_limits<uint8_t>::max())
+        if (sub_index < 0 ||
+            std::cmp_greater(sub_index, std::numeric_limits<uint8_t>::max()))
             parser.field_err("sub_index", "must be between 0 and 255");
         param.index = static_cast<uint16_t>(index);
         param.sub_index = static_cast<uint8_t>(sub_index);
@@ -143,7 +145,7 @@ private:
     /// @brief calls f with the C++ type of a numeric data type, returning false for any
     /// other data type.
     template<typename F>
-    static bool visit(const x::telem::DataType &dt, F &&f) {
+    static bool visit(const x::telem::DataType &dt, const F &f) {
         if (dt == x::telem::INT8_T)
             f.template operator()<int8_t>();
         else if (dt == x::telem::INT16_T)
@@ -195,27 +197,27 @@ struct Properties {
     /// @brief network interface the slave is connected to.
     std::string network;
     /// @brief position of the slave on the EtherCAT bus (0-based index).
-    uint16_t position;
+    uint16_t position{};
     /// @brief EtherCAT vendor ID assigned by ETG.
-    uint32_t vendor_id;
+    uint32_t vendor_id{};
     /// @brief product code identifying the slave type.
-    uint32_t product_code;
+    uint32_t product_code{};
     /// @brief revision number for hardware/firmware versioning.
-    uint32_t revision;
+    uint32_t revision{};
     /// @brief serial number of the device (if available).
-    uint32_t serial;
+    uint32_t serial{};
     /// @brief human-readable name of the slave device.
     std::string name;
     /// @brief total input size in bits.
-    uint32_t input_bits;
+    uint32_t input_bits{};
     /// @brief total output size in bits.
-    uint32_t output_bits;
+    uint32_t output_bits{};
     /// @brief discovered input PDOs (TxPDO, slave→master).
     std::vector<pdo::Properties> input_pdos;
     /// @brief discovered output PDOs (RxPDO, master→slave).
     std::vector<pdo::Properties> output_pdos;
     /// @brief true if PDOs were discovered via CoE assignment objects.
-    bool coe_pdo_order_reliable;
+    bool coe_pdo_order_reliable{};
     /// @brief whether the device is enabled or not.
     bool enabled = true;
     /// @brief CoE objects written to the slave before each move to SAFE-OP. Set by the

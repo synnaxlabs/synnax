@@ -105,7 +105,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = x::json::json::object_t{};
-    cmd.key = 1;
+    cmd.key = '1';
 
     bool handled = scanner.exec(cmd, task, ctx);
     EXPECT_TRUE(handled);
@@ -158,7 +158,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "eth0"}};
-    cmd.key = 1;
+    cmd.key = '1';
 
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
@@ -213,7 +213,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "enp3s0"}};
-    cmd.key = 2;
+    cmd.key = '2';
 
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
@@ -244,7 +244,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "eth0"}};
-    cmd.key = 3;
+    cmd.key = '3';
 
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
@@ -306,7 +306,8 @@ protected:
         return dev;
     }
 
-    synnax::device::Status status(const synnax::device::Device &dev) const {
+    [[nodiscard]] synnax::device::Status
+    status(const synnax::device::Device &dev) const {
         return ASSERT_NIL_P(
             this->client->statuses.retrieve<synnax::device::StatusDetails>(
                 synnax::device::status_key(dev)
@@ -315,6 +316,7 @@ protected:
     }
 };
 
+/// @brief it should pass the startup parameters of a changed device to the master.
 TEST_F(EtherCATScanDeviceSetTest, PassesStartupParametersToTheMaster) {
     const auto dev = this->create_slave(
         {{{"index", 0x8000},
@@ -337,6 +339,8 @@ TEST_F(EtherCATScanDeviceSetTest, PassesStartupParametersToTheMaster) {
     EXPECT_EQ(this->status(dev).message, "Device enabled");
 }
 
+/// @brief it should pass the startup parameters of existing devices to the master on
+/// the first scan.
 TEST_F(EtherCATScanDeviceSetTest, FirstScanPassesStartupParametersToTheMaster) {
     const auto dev = this->create_slave(
         {{{"index", 0x8000},
@@ -363,6 +367,8 @@ TEST_F(EtherCATScanDeviceSetTest, FirstScanPassesStartupParametersToTheMaster) {
     );
 }
 
+/// @brief it should pass no startup parameters and report an error status that names
+/// the invalid field.
 TEST_F(EtherCATScanDeviceSetTest, ReportsAnInvalidStartupParameter) {
     const auto dev = this->create_slave(
         {{{"index", 0x8000},

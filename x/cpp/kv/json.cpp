@@ -17,13 +17,14 @@
 #include <sys/stat.h>
 #endif
 #include <filesystem>
+#include <utility>
 
 #include "nlohmann/json.hpp"
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/kv/kv.h"
 
-using json = nlohmann::json;
+using nlohmann::json;
 
 namespace x::kv {
 namespace {
@@ -38,8 +39,8 @@ check_minimum_permissions(const std::filesystem::path &path, const char *context
 }
 }
 
-JSONFile::JSONFile(const std::string &path, const json &data):
-    path(path), data_(data) {}
+JSONFile::JSONFile(const std::string &path, json data):
+    path(path), data_(std::move(data)) {}
 
 std::pair<std::shared_ptr<KV>, errors::Error>
 JSONFile::open_file(const JSONFileConfig &config) {

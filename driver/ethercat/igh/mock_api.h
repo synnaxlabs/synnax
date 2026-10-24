@@ -112,7 +112,7 @@ public:
     /// @brief SDOs added to slave configs, in call order.
     std::vector<SDOWrite> config_sdos;
 
-    MockAPI(): API(MockTag{}) { this->request_master_result = this->sentinel_master; }
+    MockAPI(): API(MockTag{}), request_master_result(this->sentinel_master) {}
 
     void set_sdo_download_abort(uint16_t index, uint8_t sub_index, uint32_t code) {
         this->sdo_download_aborts[{index, sub_index}] = code;
@@ -198,17 +198,27 @@ public:
         this->mock_slaves[position].error_flag = flag;
     }
 
-    size_t slave_config_count() const { return this->created_slave_configs.size(); }
+    [[nodiscard]] size_t slave_config_count() const {
+        return this->created_slave_configs.size();
+    }
 
-    bool release_master_called() const { return this->release_master_called_val; }
+    [[nodiscard]] bool release_master_called() const {
+        return this->release_master_called_val;
+    }
 
-    bool master_deactivate_called() const { return this->master_deactivate_called_val; }
+    [[nodiscard]] bool master_deactivate_called() const {
+        return this->master_deactivate_called_val;
+    }
 
-    ec_domain_t *get_output_domain() const { return this->sentinel_output_domain; }
+    [[nodiscard]] ec_domain_t *get_output_domain() const {
+        return this->sentinel_output_domain;
+    }
 
-    ec_domain_t *get_input_domain() const { return this->sentinel_input_domain; }
+    [[nodiscard]] ec_domain_t *get_input_domain() const {
+        return this->sentinel_input_domain;
+    }
 
-    ec_master_t *request_master(unsigned int) const override {
+    [[nodiscard]] ec_master_t *request_master(unsigned int) const override {
         return this->request_master_result;
     }
 

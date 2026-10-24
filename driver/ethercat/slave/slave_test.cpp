@@ -280,6 +280,7 @@ TEST(PropertiesToJson, SerializesAllFields) {
     ASSERT_EQ(j["pdos"]["outputs"][0]["name"], "Control");
 }
 
+/// @brief it should leave padding entries out of the JSON of a slave.
 TEST(PropertiesToJson, OmitsPaddingEntries) {
     Properties props{
         .input_pdos = {
@@ -304,6 +305,7 @@ parse_parameter(const x::json::json &json) {
     return {param, err["path"], err["message"]};
 }
 
+/// @brief it should parse each field of a startup parameter.
 TEST(StartupParameter, ParsesEachField) {
     const auto [param, path, message] = parse_parameter(
         {{"index", 0x8000},
@@ -325,6 +327,7 @@ TEST(StartupParameter, ParsesEachField) {
     );
 }
 
+/// @brief it should reject an index that does not fit in 16 bits.
 TEST(StartupParameter, RejectsAnIndexAboveSixteenBits) {
     const auto [param, path, message] = parse_parameter(
         {{"index", 0x10000}, {"sub_index", 1}, {"data_type", "uint8"}, {"value", 1}}
@@ -333,6 +336,7 @@ TEST(StartupParameter, RejectsAnIndexAboveSixteenBits) {
     EXPECT_EQ(message, "must be between 0x0000 and 0xFFFF");
 }
 
+/// @brief it should reject a sub-index that does not fit in 8 bits.
 TEST(StartupParameter, RejectsASubIndexAboveEightBits) {
     const auto [param, path, message] = parse_parameter(
         {{"index", 0x8000}, {"sub_index", 256}, {"data_type", "uint8"}, {"value", 1}}
@@ -341,6 +345,7 @@ TEST(StartupParameter, RejectsASubIndexAboveEightBits) {
     EXPECT_EQ(message, "must be between 0 and 255");
 }
 
+/// @brief it should reject a data type that is not numeric.
 TEST(StartupParameter, RejectsANonNumericDataType) {
     const auto [param, path, message] = parse_parameter(
         {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "string"}, {"value", 1}}
@@ -349,6 +354,7 @@ TEST(StartupParameter, RejectsANonNumericDataType) {
     EXPECT_EQ(message, "unsupported data type string");
 }
 
+/// @brief it should reject a value outside the range of its data type.
 TEST(StartupParameter, RejectsAValueOutsideTheDataType) {
     const auto [param, path, message] = parse_parameter(
         {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "uint8"}, {"value", 300}}
@@ -357,6 +363,7 @@ TEST(StartupParameter, RejectsAValueOutsideTheDataType) {
     EXPECT_EQ(message, "300 does not fit in uint8");
 }
 
+/// @brief it should reject a fractional value for an integer data type.
 TEST(StartupParameter, RejectsAFractionForAnIntegerType) {
     const auto [param, path, message] = parse_parameter(
         {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "int16"}, {"value", 1.5}}
@@ -365,6 +372,8 @@ TEST(StartupParameter, RejectsAFractionForAnIntegerType) {
     EXPECT_EQ(message, "1.5 does not fit in int16");
 }
 
+/// @brief it should reject 2^63 for int64, which a double rounds to but int64 cannot
+/// hold.
 TEST(StartupParameter, RejectsTwoToTheSixtyThreeForInt64) {
     const auto [param, path, message] = parse_parameter(
         {{"index", 0x8000},
@@ -376,6 +385,7 @@ TEST(StartupParameter, RejectsTwoToTheSixtyThreeForInt64) {
     EXPECT_EQ(message, "9223372036854775808 does not fit in int64");
 }
 
+/// @brief it should accept the minimum int64 value.
 TEST(StartupParameter, AcceptsTheMinimumInt64) {
     const auto [param, path, message] = parse_parameter(
         {{"index", 0x8000},
@@ -386,6 +396,8 @@ TEST(StartupParameter, AcceptsTheMinimumInt64) {
     EXPECT_EQ(path, "");
 }
 
+/// @brief it should reject 2^64 for uint64, which a double rounds to but uint64 cannot
+/// hold.
 TEST(StartupParameter, RejectsTwoToTheSixtyFourForUint64) {
     const auto [param, path, message] = parse_parameter(
         {{"index", 0x8000},
@@ -397,6 +409,7 @@ TEST(StartupParameter, RejectsTwoToTheSixtyFourForUint64) {
     EXPECT_EQ(message, "18446744073709551616 does not fit in uint64");
 }
 
+/// @brief it should reject a value above the float32 maximum.
 TEST(StartupParameter, RejectsAValueAboveTheFloat32Maximum) {
     const auto [param, path, message] = parse_parameter(
         {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "float32"}, {"value", 1e39}}
@@ -405,6 +418,7 @@ TEST(StartupParameter, RejectsAValueAboveTheFloat32Maximum) {
     EXPECT_EQ(message, "1e+39 does not fit in float32");
 }
 
+/// @brief it should encode the value as the little-endian bytes of its data type.
 TEST(StartupParameter, EncodesLittleEndianBytesOfItsType) {
     EXPECT_EQ(
         (StartupParameter{.data_type = x::telem::UINT16_T, .value = 0x1234}).bytes(),
@@ -420,6 +434,7 @@ TEST(StartupParameter, EncodesLittleEndianBytesOfItsType) {
     );
 }
 
+/// @brief it should parse the startup parameters of a slave.
 TEST(Properties, ParsesStartupParameters) {
     x::json::Parser parser(
         x::json::json{
@@ -446,6 +461,7 @@ TEST(Properties, ParsesStartupParameters) {
     EXPECT_FALSE(props.to_json().contains("startup_parameters"));
 }
 
+/// @brief it should report a field error for each invalid startup parameter.
 TEST(Properties, ReportsEveryInvalidStartupParameter) {
     x::json::Parser parser(
         x::json::json{
@@ -477,6 +493,7 @@ TEST(Properties, ReportsEveryInvalidStartupParameter) {
     EXPECT_EQ(errors[1]["message"], "70000 does not fit in uint16");
 }
 
+/// @brief it should parse a slave that has no startup parameters field.
 TEST(Properties, ParsesWithoutStartupParameters) {
     x::json::Parser parser(
         x::json::json{
