@@ -292,7 +292,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(first_state.message, "Task started successfully");
+    EXPECT_EQ(first_state.message, "Started task");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop_cmd", true);
@@ -301,7 +301,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(second_state.message, "Task stopped successfully");
+    EXPECT_EQ(second_state.message, "Stopped task");
     auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 11);
     ASSERT_EQ(fr.length(), 2); // 50 sample rate, 25 stream rate = 50 / 25 = 2
@@ -633,9 +633,9 @@ TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
     // Verify task lifecycle worked correctly
     ASSERT_GE(ctx->statuses.size(), 2);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses[0].message, "Task started successfully");
+    EXPECT_EQ(ctx->statuses[0].message, "Started task");
     EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses[1].message, "Task stopped successfully");
+    EXPECT_EQ(ctx->statuses[1].message, "Stopped task");
 }
 
 /// @brief it should not write empty frames in unary mode.

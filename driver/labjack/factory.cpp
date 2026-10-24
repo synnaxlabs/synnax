@@ -16,8 +16,8 @@
 #include "driver/labjack/write_task.h"
 
 namespace driver::labjack {
-const std::string NO_LIBS_MSG = "Cannot create task because the LJM Libraries are not "
-                                "installed on this System.";
+const std::string NO_LIBS_DESCRIPTION = "The LabJack LJM libraries are not "
+                                        "installed on this system.";
 
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<device::Manager> &devs,
@@ -91,7 +91,8 @@ bool Factory::check_health(
         .key = synnax::task::status_key(task),
         .name = task.name,
         .variant = synnax::status::VARIANT_ERROR,
-        .message = NO_LIBS_MSG,
+        .message = "Failed to create task",
+        .description = NO_LIBS_DESCRIPTION,
         .details = synnax::task::StatusDetails{
             .task = task.key,
             .running = false,

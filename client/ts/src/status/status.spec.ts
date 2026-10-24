@@ -873,6 +873,40 @@ describe("fromException", () => {
   });
 });
 
+describe("toError", () => {
+  const STATUS = status.create({
+    variant: "error",
+    message: "Failed to connect to server",
+    description: "Connection refused",
+  });
+
+  it("should take its message from the status", () => {
+    expect(status.toError(STATUS).message).toBe("Failed to connect to server");
+  });
+
+  it("should keep the status as its cause", () => {
+    expect(status.toError(STATUS).cause).toBe(STATUS);
+  });
+
+  it("should give back the status message and description from toStatus", () => {
+    expect(status.toError(STATUS).toStatus()).toEqual({
+      message: "Failed to connect to server",
+      description: "Connection refused",
+    });
+  });
+
+  it("should take the name and stack of the error inside an exception status", () => {
+    const inner = new TypeError("boom");
+    const err = status.toError(status.fromException(inner, "Failed to load"));
+    expect(err.name).toBe("TypeError");
+    expect(err.stack).toBe(inner.stack);
+  });
+
+  it("should keep the default name for a status with no inner error", () => {
+    expect(status.toError(STATUS).name).toBe("Error");
+  });
+});
+
 describe("keepVariants", () => {
   it("should return undefined when variant is null", () => {
     expect(status.keepVariants(undefined, "success")).toBeUndefined();

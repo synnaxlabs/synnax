@@ -134,7 +134,12 @@ public:
         }
         if (!this->loop->watch(this->inputs.notifier())) {
             LOG(ERROR) << "[arc.runtime] failed to watch input notifier";
-            this->error_handler(x::errors::Error("failed to watch input notifier"));
+            this->error_handler(
+                x::errors::Error(
+                    x::errors::INTERNAL,
+                    "The runtime failed to watch for input data."
+                )
+            );
             return;
         }
         auto timeout = x::telem::TimeSpan(0);
@@ -173,7 +178,13 @@ public:
                 if (!out.frame.empty() || !out.authority_changes.empty()) {
                     if (!this->outputs.push(std::move(out))) {
                         if (this->outputs.closed()) break;
-                        this->error_handler(errors::QUEUE_FULL_OUTPUT);
+                        this->error_handler(
+                            x::errors::Error(
+                                errors::QUEUE_FULL_OUTPUT,
+                                "The output queue is full, so the program dropped "
+                                "output data."
+                            )
+                        );
                     }
                 }
             }
@@ -214,10 +225,15 @@ public:
     }
 
     x::errors::Error write(x::telem::Frame frame) {
-        if (this->inputs.closed()) return x::errors::Error("runtime closed");
+        if (this->inputs.closed())
+            return x::errors::Error(errors::CLOSED, "The runtime is closed.");
         if (!this->inputs.push(std::move(frame))) {
-            this->error_handler(errors::QUEUE_FULL_INPUT);
-            return errors::QUEUE_FULL_INPUT;
+            const auto err = x::errors::Error(
+                errors::QUEUE_FULL_INPUT,
+                "The input queue is full, so the program dropped input data."
+            );
+            this->error_handler(err);
+            return err;
         }
         return x::errors::NIL;
     }
@@ -247,8 +263,13 @@ inline std::vector<x::control::Authority> build_authorities(
     return authorities;
 }
 
-inline std::pair<std::shared_ptr<Runtime>, x::errors::Error>
-load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
+/// @brief builds a runtime for cfg.program. node_error_handler receives the errors that
+/// nodes raise, along with the node. error_handler receives every other error.
+inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(
+    const Config &cfg,
+    errors::Handler error_handler = errors::noop_handler,
+    scheduler::ErrorHandler node_error_handler = scheduler::noop_handler
+) {
     if (auto err = scheduler::validate(cfg.program.root); err) return {nullptr, err};
     std::set<types::ChannelKey> reads;
     std::set<types::ChannelKey> writes;
@@ -348,7 +369,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     auto sched = std::make_unique<scheduler::Scheduler>(
         cfg.program,
         nodes,
-        error_handler
+        std::move(node_error_handler)
     );
     auto loop = loop::create(loop_cfg, cfg.rt_handle);
     return {

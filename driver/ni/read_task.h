@@ -114,7 +114,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         if (err) {
             cfg.field_err(
                 "channels",
-                "failed to retrieve channels for task: " + err.message()
+                "failed to retrieve channels for task: " + err.data
             );
             return;
         }
@@ -125,7 +125,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (device_err) {
                 cfg.field_err(
                     "device",
-                    "failed to retrieve device for task: " + device_err.message()
+                    "failed to retrieve device for task: " + device_err.data
                 );
                 return;
             }
@@ -138,7 +138,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (dev_err) {
                 cfg.field_err(
                     "device",
-                    "failed to retrieve devices for task: " + dev_err.message()
+                    "failed to retrieve devices for task: " + dev_err.data
                 );
                 return;
             }
@@ -345,7 +345,7 @@ private:
         // hardware-timed tasks.
         if (!this->cfg.software_timed &&
             static_cast<size_t>(std::abs(hw_res.skew)) > this->cfg.skew_warn_on_count)
-            res.warning = common::skew_warning(hw_res.skew);
+            res.warning = common::SKEW_WARNING;
 
         auto prev_read_err = this->curr_read_err;
         this->curr_read_err = translate_error(hw_res.error);

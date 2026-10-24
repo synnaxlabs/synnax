@@ -79,11 +79,11 @@ const beforeSave = async ({
     timeout: TEST_CONNECTION_TIMEOUT,
     args: { connection: get("properties.connection").value },
   });
-  if (state.variant === "error") throw new Error(state.message);
+  if (state.variant === "error") throw status.toError(state);
   // Since we just scanned successfully, we create a default healthy status for the
   // device that can then be overwritten by the scanner if we lose connection.
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
-    message: "Server connected",
+    message: "Device connected",
     variant: "success",
     details: {
       rack: get<rack.Key>("rack").value,
@@ -149,7 +149,10 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
             {variant == "success" ? (
               <Triggers.SaveHelpText action="Connect" noBar />
             ) : (
-              <Status.Summary variant={variant} message={stat.description} />
+              <Status.Summary
+                variant={variant}
+                message={stat.description || stat.message}
+              />
             )}
           </Nav.Bar.Start>
           <Nav.Bar.End>

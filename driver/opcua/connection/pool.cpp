@@ -16,6 +16,12 @@
 #include "driver/opcua/errors/errors.h"
 
 namespace driver::opcua::connection {
+const x::errors::Error BREAKER_OPEN_ERROR(
+    opcua::errors::NO_CONNECTION,
+    "The Driver paused new connections to the server after too many failed attempts "
+    "in a row."
+);
+
 std::pair<Pool::Connection, x::errors::Error>
 Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     const std::string key = cfg.endpoint + "|" + cfg.username + "|" +
@@ -107,14 +113,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         if (breaker.consecutive_failures >= BREAKER_THRESHOLD) {
             if (std::chrono::steady_clock::now() < breaker.cooldown_until) {
                 VLOG(1) << log_prefix << "Circuit breaker open, rejecting connection";
-                return {
-                    Connection(nullptr, nullptr, ""),
-                    x::errors::Error(
-                        opcua::errors::NO_CONNECTION,
-                        "circuit breaker open — too many consecutive "
-                        "connection failures"
-                    )
-                };
+                return {Connection(nullptr, nullptr, ""), BREAKER_OPEN_ERROR};
             }
             // Cooldown expired — allow one probe attempt (half-open).
             VLOG(1) << log_prefix << "Circuit breaker half-open, allowing probe";
@@ -131,14 +130,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         if (breaker.consecutive_failures >= BREAKER_THRESHOLD &&
             std::chrono::steady_clock::now() < breaker.cooldown_until) {
             VLOG(1) << log_prefix << "Circuit breaker open after cleanup, rejecting";
-            return {
-                Connection(nullptr, nullptr, ""),
-                x::errors::Error(
-                    opcua::errors::NO_CONNECTION,
-                    "circuit breaker open — too many consecutive "
-                    "connection failures"
-                )
-            };
+            return {Connection(nullptr, nullptr, ""), BREAKER_OPEN_ERROR};
         }
 
         // If another thread is already connecting, wait for it to finish.
@@ -172,14 +164,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
             // No reusable connection available. If breaker is still tripped,
             // fail fast. Otherwise fall through to connect ourselves.
             if (breaker.consecutive_failures >= BREAKER_THRESHOLD) {
-                return {
-                    Connection(nullptr, nullptr, ""),
-                    x::errors::Error(
-                        opcua::errors::NO_CONNECTION,
-                        "circuit breaker open — connecting thread failed, "
-                        "too many consecutive connection failures"
-                    )
-                };
+                return {Connection(nullptr, nullptr, ""), BREAKER_OPEN_ERROR};
             }
         }
 

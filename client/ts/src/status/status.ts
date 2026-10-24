@@ -215,21 +215,31 @@ export const fromException = (
   return create<typeof exceptionDetailsSchema, "error">(crude);
 };
 
+class ThrownStatus extends Error implements Custom {
+  readonly description: string;
+
+  constructor(s: Status) {
+    super(s.message, { cause: s });
+    this.description = s.description;
+  }
+
+  toStatus(): Pick<Status, "message" | "description"> {
+    return { message: this.message, description: this.description };
+  }
+}
+
 /**
- * Converts an exception-shaped status (one built via {@link fromException}) back into a
- * thrown-shaped {@link Error}. The returned error carries the status's wrapped message,
- * copies `name` and `stack` from the inner error preserved on `details.error`, and
- * stashes the full status on `cause` for callers that need the rich shape. Use this
- * when bridging the status pipeline back into a context that expects a real Error —
- * typically before `throw`-ing across an error boundary.
+ * Converts a status into an {@link Error} to throw. {@link fromException} keeps the
+ * status message and description from it, and the error's cause is the status. A status
+ * built by {@link fromException} also passes on its inner error's name and stack.
  */
-export const toError = (
-  s: Status<typeof exceptionDetailsSchema, z.ZodLiteral<"error">>,
-): Error => {
-  const inner = s.details.error;
-  const err = new Error(s.message, { cause: s });
-  err.name = inner.name;
-  err.stack = inner.stack;
+export const toError = (s: Status): Error & Custom => {
+  const err = new ThrownStatus(s);
+  const inner = detailsOf(s)?.error;
+  if (inner instanceof Error) {
+    err.name = inner.name;
+    err.stack = inner.stack;
+  }
   return err;
 };
 

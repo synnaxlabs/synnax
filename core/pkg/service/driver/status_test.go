@@ -68,7 +68,7 @@ var _ = Describe("StatusHandler", func() {
 		})
 
 		It("should clear the description a prior warning set", func(ctx SpecContext) {
-			Expect(handler.Warn(ctx, "Failed to run Arc program", "details")).
+			Expect(handler.Warn(ctx, "Node failed", "details")).
 				To(Succeed())
 			Expect(handler.Send(
 				ctx,
@@ -126,11 +126,11 @@ var _ = Describe("StatusHandler", func() {
 					"Started task",
 					"",
 				)).To(Succeed())
-				Expect(handler.Warn(ctx, "Failed to run Arc program", "div by zero")).
+				Expect(handler.Warn(ctx, "Node failed", "div by zero")).
 					To(Succeed())
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantWarning))
-				Expect(stat.Message).To(Equal("Failed to run Arc program"))
+				Expect(stat.Message).To(Equal("Node failed"))
 				Expect(stat.Description).To(Equal("div by zero"))
 				Expect(stat.Details.Running).To(BeTrue())
 				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))

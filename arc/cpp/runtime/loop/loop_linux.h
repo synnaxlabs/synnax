@@ -124,6 +124,7 @@ public:
         if (this->epoll_fd_ == -1)
             return this->fail_start(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "Failed to create epoll: " + std::string(strerror(errno))
                 )
             );
@@ -132,6 +133,7 @@ public:
         if (this->event_fd_ == -1)
             return this->fail_start(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "Failed to create eventfd: " + std::string(strerror(errno))
                 )
             );
@@ -142,6 +144,7 @@ public:
         if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->event_fd_, &ev) == -1)
             return this->fail_start(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "Failed to add eventfd to epoll: " + std::string(strerror(errno))
                 )
             );
@@ -166,6 +169,7 @@ public:
         if (this->timer_fd_ == -1)
             return this->fail_start(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "Failed to create timerfd: " + std::string(strerror(errno))
                 )
             );
@@ -174,6 +178,7 @@ public:
         if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->timer_fd_, &ev) == -1)
             return this->fail_start(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "Failed to add timerfd to epoll: " + std::string(strerror(errno))
                 )
             );
