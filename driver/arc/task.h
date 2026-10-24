@@ -195,7 +195,7 @@ public:
             runtime_cfg,
             [task_ptr = task.get()](const x::errors::Error &err) {
                 if (err.matches(::arc::runtime::errors::WARNING))
-                    task_ptr->state.send_warning("Failed to run Arc program", err.data);
+                    task_ptr->state.send_warning("Node failed", err.data);
                 else {
                     task_ptr->state.send_error(err, "Failed to run Arc program");
                     task_ptr->runtime->close_outputs();

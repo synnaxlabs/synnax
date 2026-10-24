@@ -493,7 +493,7 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 	}
 	if setErr := t.status.Warn(
 		ctx,
-		"Failed to run Arc program",
+		"Node failed",
 		fmt.Sprintf("The %s node failed: %v", nodeType, err),
 	); setErr != nil {
 		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
