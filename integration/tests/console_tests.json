@@ -44,6 +44,7 @@
         { "case": "console/schematic/hold_to_actuate" },
         { "case": "console/schematic/alignment" },
         { "case": "console/schematic/multi_edit" },
+        { "case": "console/schematic/change_symbol" },
         { "case": "console/schematic/edit_props" },
         { "case": "console/schematic/select_state_indicator" },
         { "case": "console/table/table_lifecycle" },
