@@ -3,6 +3,7 @@ layout: "@/layouts/Reference.astro"
 title: "Control authority"
 description:
   "Learn how Synnax decides which writer controls a channel, and how to set it."
+clients: ["console", "python", "typescript", "arc"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -122,7 +123,77 @@ controls the valve at each step.
 
 <Divider.Divider x />
 
-## Set authority in an Arc automation
+## Set authority
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+Each schematic writes at one authority, 1 by default. To change it, see
+[set the schematic authority](/reference/control/manual#set-the-schematic-authority).
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+Open a writer with the `authorities` parameter, then change the authority while the
+writer is open.
+
+Pass one authority for every channel, or one authority for each channel:
+
+```python
+writer = client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["press_time", "press_vlv_cmd"],
+    authorities=100,
+)
+```
+
+Change the authority of every channel, or of the channels you name:
+
+```python
+writer.set_authority(200)
+writer.set_authority({"press_time": 255, "press_vlv_cmd": 255})
+```
+
+Set `err_on_unauthorized=True` to make `open_writer` raise an error when a different
+writer controls one of the channels. Writes made later without control still return no
+error.
+
+To control hardware from a script with waits and conditions, see
+[write a control sequence in Python](/reference/control/python/write-sequences).
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+Open a writer with the `authorities` parameter, then change the authority while the
+writer is open.
+
+Pass one authority for every channel, or one authority for each channel:
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["press_time", "press_vlv_cmd"],
+  authorities: 100,
+});
+```
+
+Change the authority of every channel, or of the channels you name:
+
+```typescript
+await writer.setAuthority(200);
+await writer.setAuthority({ press_time: 255, press_vlv_cmd: 255 });
+```
+
+Set `errOnUnauthorized: true` to make `openWriter` throw an error when a different
+writer controls one of the channels. Writes made later without control still return no
+error.
+
+  </Fragment>
+
+  <Fragment slot="arc">
 
 1. In the Arc editor, after the `import` lines, add `authority 100`. It sets the
    authority for every channel that the automation writes.
@@ -169,79 +240,14 @@ To set a different authority on one channel, list it after the default:
 do not list stay at 255, and so do their index channels. An operator who takes a listed
 channel then loses every write to it, because the automation keeps the index (see
 [the index channel rule](#the-index-channel-decides-for-its-data-channels)). See the
-[`control` module](/reference/control/arc/reference/standard-library/control).
-
-<Divider.Divider x />
-
-## Set the authority of a schematic
-
-Each schematic writes at one authority, 1 by default. To change it, see
-[set the schematic authority](/reference/control/manual#set-the-schematic-authority).
-
-<Divider.Divider x />
-
-## Set authority in code
-
-Open a writer with the `authorities` parameter, then change the authority while the
-writer is open.
-
-<Client.Tabs exclude={["console"]}>
-
-  <Fragment slot="python">
-
-Pass one authority for every channel, or one authority for each channel:
-
-```python
-writer = client.open_writer(
-    start=sy.TimeStamp.now(),
-    channels=["press_time", "press_vlv_cmd"],
-    authorities=100,
-)
-```
-
-Change the authority of every channel, or of the channels you name:
-
-```python
-writer.set_authority(200)
-writer.set_authority({"press_time": 255, "press_vlv_cmd": 255})
-```
-
-Set `err_on_unauthorized=True` to make `open_writer` raise an error when a different
-writer controls one of the channels. Writes made later without control still return no
-error.
-
-To control hardware from a script with waits and conditions, see
-[write a control sequence in Python](/reference/control/python/write-sequences).
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-Pass one authority for every channel, or one authority for each channel:
-
-```typescript
-const writer = await client.openWriter({
-  start: TimeStamp.now(),
-  channels: ["press_time", "press_vlv_cmd"],
-  authorities: 100,
-});
-```
-
-Change the authority of every channel, or of the channels you name:
-
-```typescript
-await writer.setAuthority(200);
-await writer.setAuthority({ press_time: 255, press_vlv_cmd: 255 });
-```
-
-Set `errOnUnauthorized: true` to make `openWriter` throw an error when a different
-writer controls one of the channels. Writes made later without control still return no
-error.
+[`control` module](/reference/control/arc/standard-library/control).
 
   </Fragment>
 </Client.Tabs>
 
-### See which writer controls a channel
+<Divider.Divider x />
+
+## See which writer controls a channel
 
 On a schematic, the [control chips](/reference/control/manual#control-chips) and the
 control legend show which writer controls each channel. In code:
@@ -284,8 +290,8 @@ channel.
 | ------------------------------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Schematic                                  | 1       | [Schematic authority](/reference/control/manual#set-the-schematic-authority). Each Console keeps its own value. The schematic does not save it. |
 | Schematic, after a click on a control chip | 255     | Cannot change                                                                                                                                   |
-| Arc automation                             | 255     | [`authority` line](#set-authority-in-an-arc-automation)                                                                                         |
-| Python or TypeScript writer                | 255     | [`authorities` parameter](#set-authority-in-code)                                                                                               |
+| Arc automation                             | 255     | [`authority` line](#set-authority)                                                                                                              |
+| Python or TypeScript writer                | 255     | [`authorities` parameter](#set-authority)                                                                                                       |
 | Read task and write task                   | 255     | Cannot change                                                                                                                                   |
 
 A read task writes the channels it reads at 255, so a script cannot write to them while

@@ -17,6 +17,8 @@ export interface Info {
   name: string;
   icon: Icon.ReactElement;
   edition?: Edition;
+  /** Shows only in tab blocks that fill its slot. */
+  optional?: boolean;
 }
 
 export const INFO: Info[] = [
@@ -28,4 +30,5 @@ export const INFO: Info[] = [
     icon: <Icon.TypeScript />,
     edition: "enterprise",
   },
+  { key: "arc", name: "Arc", icon: <Icon.Arc />, optional: true },
 ];

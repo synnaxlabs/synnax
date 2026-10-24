@@ -29,6 +29,8 @@ export interface TabEntry<K extends string = string> {
   name: string;
   icon?: ReactElement;
   edition?: Edition;
+  /** Shows only in blocks that fill its slot. */
+  optional?: boolean;
 }
 
 /** The props an MDX page passes: one slot per tab, and the tab filters. */
@@ -64,7 +66,10 @@ export const Tabs = <K extends string>({
     return index === -1 ? priority.length : index;
   };
   const shown = tabs
-    .filter(({ tabKey }) => !exclude.includes(tabKey))
+    .filter(
+      ({ tabKey, optional = false }) =>
+        !exclude.includes(tabKey) && (!optional || rest[slotName(tabKey)] != null),
+    )
     .sort((a, b) => rank(a.tabKey) - rank(b.tabKey));
   const editions = [
     ...new Set(shown.flatMap(({ edition }) => (edition == null ? [] : [edition]))),

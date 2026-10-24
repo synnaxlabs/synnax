@@ -101,9 +101,8 @@ smooth the sensor first. See
 
 An automation writes at 255 if you do not set an authority, so an operator cannot take
 control from it. Add `authority 100`, and raise it to 255 only in the abort stage. See
-[control authority](/reference/control/authority#set-authority-in-an-arc-automation).
-Then a start button on a schematic with a higher authority takes the valves from the
-automation. See
+[control authority](/reference/control/authority?client=arc#set-authority). Then a start
+button on a schematic with a higher authority takes the valves from the automation. See
 [troubleshoot control](/reference/control/troubleshooting#the-stage-indicator-shows-a-running-sequence-but-the-valves-do-not-move).
 
 ### Always give the authority line a default
@@ -111,7 +110,7 @@ automation. See
 `authority (vent_vlv_cmd 100)` without a default leaves the other channels, and the
 index channels, at 255. An operator who takes `vent_vlv_cmd` then loses every write to
 it. Write `authority (100 vent_vlv_cmd 200)` instead. See
-[control authority](/reference/control/authority#set-authority-in-an-arc-automation).
+[control authority](/reference/control/authority?client=arc#set-authority).
 
 ### Stop a test before you redeploy
 

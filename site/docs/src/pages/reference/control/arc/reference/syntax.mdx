@@ -164,7 +164,7 @@ The standard library is in modules. Import a module before you use its members.
 | Group | `import ( math  time )` | `math.avg{}`      |
 
 The modules are `control`, `math`, `ranges`, `stable`, `status`, and `time`. See the
-[standard library](/reference/control/arc/reference/standard-library).
+[standard library](/reference/control/arc/standard-library).
 
 ```arc channels="tank_pt, tank_pt_avg, vent_vlv_cmd"
 import (
@@ -204,7 +204,7 @@ repeated channel fails with `duplicate authority for 'vent_vlv_cmd'`.
 
 With no declaration, the automation writes at 255. Always give a default. A per-channel
 form without a default leaves the other channels, and their index channels, at 255. See
-[set authority in an Arc automation](/reference/control/authority#set-authority-in-an-arc-automation).
+[set authority in an Arc automation](/reference/control/authority?client=arc#set-authority).
 
 <Divider.Divider x />
 

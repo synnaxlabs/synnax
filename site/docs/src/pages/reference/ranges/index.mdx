@@ -36,10 +36,10 @@ A test or data engineer uses ranges to find data later. They search for a range 
 or label, plot it next to other runs, and [export it as CSV](/reference/ranges/export).
 They do not have to remember timestamps.
 
-Ranges also mark events outside of tests, such as anomalies, maintenance periods, or
-automated control actions. An
-[Arc automation](/reference/control/arc/reference/standard-library/ranges) can create a
-range when a sequence starts and end it when the sequence stops.
+Ranges also mark events outside of tests, such as anomalies and maintenance periods. An
+Arc automation can create these ranges for you. It can mark each test run, each stage,
+an abort, or each time a value is out of limits. See
+[create ranges in Arc](/reference/ranges/arc).
 
 You can save a range to the Synnax Core, where everyone sees it, or keep it only in your
 Console. See

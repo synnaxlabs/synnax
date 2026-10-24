@@ -135,7 +135,23 @@ export default defineConfig({
     "/reference/control/arc/concepts/stateful-variables":
       "/reference/control/arc/reference/variables",
     "/reference/control/arc/reference/built-ins":
-      "/reference/control/arc/reference/standard-library",
+      "/reference/control/arc/standard-library",
+    "/reference/control/arc/reference/standard-library":
+      "/reference/control/arc/standard-library",
+    "/reference/control/arc/reference/standard-library/control":
+      "/reference/control/arc/standard-library/control",
+    "/reference/control/arc/reference/standard-library/math":
+      "/reference/control/arc/standard-library/math",
+    "/reference/control/arc/reference/standard-library/ranges":
+      "/reference/control/arc/standard-library/ranges",
+    "/reference/control/arc/reference/standard-library/select":
+      "/reference/control/arc/standard-library/select",
+    "/reference/control/arc/reference/standard-library/stable":
+      "/reference/control/arc/standard-library/stable",
+    "/reference/control/arc/reference/standard-library/status":
+      "/reference/control/arc/standard-library/status",
+    "/reference/control/arc/reference/standard-library/time":
+      "/reference/control/arc/standard-library/time",
     "/reference/control/control-authority": "/reference/control/authority",
     "/reference/control/embedded": "/reference/control/arc",
     "/reference/control/embedded/get-started": "/reference/control/arc",

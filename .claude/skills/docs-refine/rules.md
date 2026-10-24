@@ -46,9 +46,9 @@ line.
 - The docs never describe multi-node clusters; they are not supported.
 - One page per task. No "Manage" titles and no catch-all pages that hold many tasks.
 - Exception: a page for one Console component or one hardware task type (line plots,
-  schematics, an NI analog read task) holds that component's tasks as verb h2s, then
-  its reference. The title stays the component noun. A task that needs more than ten
-  steps or its own tutorial gets its own page.
+  schematics, an NI analog read task) holds that component's tasks as verb h2s, then its
+  reference. The title stays the component noun. A task that needs more than ten steps
+  or its own tutorial gets its own page.
 - Each section opens with a concept page. The concept page has a section on what the
   thing is for: short canonical use cases, each linking to the page that shows how.
 - Nav labels drop the section noun ("Create"). Page titles keep it for search ("Create
@@ -58,8 +58,8 @@ line.
   Those belong in the Enterprise section. A reference page may link to a CLI flag.
 - Desktop is the default reader. Pages lead with the Console, and the Console tab comes
   first.
-- The restructured site ships together with Synnax Desktop. Do not hide Desktop pages
-  or content behind a flag, and do not write a fallback for a site without Desktop.
+- The restructured site ships together with Synnax Desktop. Do not hide Desktop pages or
+  content behind a flag, and do not write a fallback for a site without Desktop.
 
 ## Editions and clients
 
@@ -94,8 +94,10 @@ line.
   `next`, or `edition`: order and edition come from the nav.
 - A page behind a flag has `flag:` in front matter and on its nav node.
 - Every page is in the nav. `check-site` fails an orphan page.
-- Tabs: `Client.Tabs` (slots `console`, `python`, `typescript`, `cpp`; `exclude` to drop
-  one), `Platform.Tabs` (slots `Linux`, `Windows`, `macOS`, `Docker`).
+- Tabs: `Client.Tabs` (slots `console`, `python`, `typescript`, `arc`; `exclude` to drop
+  one), `Platform.Tabs` (slots `Linux`, `Windows`, `macOS`, `Docker`). The Arc tab shows
+  only in blocks that fill its `arc` slot. A page with an Arc tab lists `arc` in its
+  `clients` front matter.
 - OS tabs always use `Platform.Tabs` or `Driver.Tabs`, never a hand-built `Tabs` with OS
   names.
 - `Note.Note` variants are `info`, `warning`, and `error` only. Use notes rarely.
@@ -147,3 +149,7 @@ The user's page notes, made general. Apply them in passes over other sections.
   name, and open it with one sentence on why a script does it. Model:
   `channels/find.mdx`. Pages to check: ranges find, data, and aliases; hardware tasks;
   control authority; Enterprise users.
+- Arc is a client. When an Arc automation does the same job as the other tabs, give the
+  block an Arc tab with one short example. Patterns that need several worked examples go
+  on their own page in the section, linked from the tab. Model: `ranges/create.mdx` and
+  `ranges/arc.mdx`.

@@ -22,6 +22,10 @@ export const RANGES_NAV: PageNavNode = {
       name: "Create ranges",
     },
     {
+      href: "/reference/ranges/arc",
+      name: "Arc ranges",
+    },
+    {
       href: "/reference/ranges/find",
       name: "Find ranges",
     },

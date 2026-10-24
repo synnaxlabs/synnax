@@ -2,7 +2,7 @@
 layout: "@/layouts/Reference.astro"
 title: "Statuses"
 description: "Create, set, find, and delete statuses, and read their notifications."
-clients: ["console", "python", "typescript"]
+clients: ["console", "python", "typescript", "arc"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -66,9 +66,28 @@ await client.statuses.set({
 ```
 
   </Fragment>
-</Client.Tabs>
 
-To set a status from an Arc automation, see [Arc alarms](/reference/alarms/arc).
+  <Fragment slot="arc">
+
+An [Arc automation](/reference/control/arc/introduction) sets a status when a condition
+is true. `status.set` finds the status by its key or its name, and creates it when none
+matches:
+
+```arc channels="tank_pressure"
+import status
+
+tank_pressure > 600.0 => status.set{
+    key_or_name="tank-pressure",
+    variant="warning",
+    message="Tank pressure is above 600 psi",
+}
+```
+
+To set the status once for each change, and to clear it, see
+[Arc alarms](/reference/alarms/arc).
+
+  </Fragment>
+</Client.Tabs>
 
 <Divider.Divider x />
 

@@ -173,7 +173,7 @@ sequence press {
     range_key str $= ""
     // ...
     stage pressurize {
-        ranges.create{name="Press test"} -> range_key
+        ranges.create{name="Press test", color="#3bc454"} -> range_key
         // ...
     }
     // ...
@@ -186,7 +186,8 @@ sequence press {
 
 `range_key` is a variable of the sequence. `ranges.create` stores the key of the new
 range in it, and `ranges.end` reads it when `done` starts. Each run shows as a range
-named `Press test`. See [find ranges](/reference/ranges/find).
+named `Press test`. Line plots show only ranges that have a color. For more patterns,
+see [create ranges in Arc](/reference/ranges/arc).
 
 <Divider.Divider x />
 
@@ -210,7 +211,7 @@ sequence press {
         start_cmd == 1 => pressurize
     }
     stage pressurize {
-        ranges.create{name="Press test"} -> range_key
+        ranges.create{name="Press test", color="#3bc454"} -> range_key
         1 -> press_vlv_cmd
         0 -> vent_vlv_cmd
         tank_pt > 450 => abort
@@ -256,4 +257,4 @@ before you redeploy.
 The sequence writes at authority 255, the default, so an operator cannot take control of
 the valves from a schematic. To let them, add `authority 100` after the imports, and
 raise the authority to 255 in `abort`. See
-[set authority in an Arc automation](/reference/control/authority#set-authority-in-an-arc-automation).
+[set authority in an Arc automation](/reference/control/authority?client=arc#set-authority).

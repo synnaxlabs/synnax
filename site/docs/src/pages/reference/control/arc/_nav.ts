@@ -9,6 +9,7 @@
 
 import { type PageNavNode } from "@/components/nav/tree";
 import { REFERENCE_NAV } from "@/pages/reference/control/arc/reference/_nav";
+import { STANDARD_LIBRARY_NAV } from "@/pages/reference/control/arc/standard-library/_nav";
 
 export const ARC_NAV: PageNavNode = {
   key: "arc",
@@ -59,5 +60,6 @@ export const ARC_NAV: PageNavNode = {
       name: "Effective Arc",
     },
     REFERENCE_NAV,
+    STANDARD_LIBRARY_NAV,
   ],
 };

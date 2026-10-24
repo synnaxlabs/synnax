@@ -102,8 +102,7 @@ This section lists the most common diagnostics without a code, not all of them.
 <Problem.Item message={'unknown module "<m>"'}>
   <Problem.Cause>No module has that name.</Problem.Cause>
   <Problem.Fix>
-    Use a module from the [standard
-    library](/reference/control/arc/reference/standard-library).
+    Use a module from the [standard library](/reference/control/arc/standard-library).
   </Problem.Fix>
 </Problem.Item>
 <Problem.Item message={'duplicate import: "<m>" is already imported'}>
@@ -356,8 +355,8 @@ failed to compile function 'f' body: failed to compile return expression: float 
 
 ## Errors while it runs
 
-Errors while an automation runs have no code. Examples are an integer division by zero
-and a failed `status.set` or `ranges` call. On the Core, Synnax shows a warning and the
-automation keeps running. On a Driver, an error stops the automation, and a warning does
-not. For the full rules, see
+Errors while an automation runs have no code. An example is an integer division by zero.
+On the Core, Synnax shows a warning and the automation keeps running. On a Driver, an
+error stops the automation. A failed `status.set` or `ranges` call shows a warning on
+both, and the automation keeps running. For the full rules, see
 [errors while it runs](/reference/control/arc/execution-model#errors-while-it-runs).

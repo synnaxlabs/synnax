@@ -85,7 +85,7 @@ depends on the sample rate of the sensor. Smooth a noisy sensor before you compu
 rate of change: `tank_pt -> ema{alpha=0.1} -> math.derivative{} -> tank_pt_rate`.
 
 `math.avg` is not a moving average. It gives one average for each block of samples. See
-the [`math` module](/reference/control/arc/reference/standard-library/math).
+the [`math` module](/reference/control/arc/standard-library/math).
 
 <Divider.Divider x />
 
@@ -117,4 +117,4 @@ when any of the three sensors gets a new value, after each has a first value.
 - To set a status when a computed value goes out of limits, see
   [alarms in Arc](/reference/alarms/arc).
 - For every function you can use, see the
-  [standard library](/reference/control/arc/reference/standard-library).
+  [standard library](/reference/control/arc/standard-library).

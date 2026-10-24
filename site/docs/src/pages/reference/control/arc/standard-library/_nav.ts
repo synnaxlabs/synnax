@@ -10,35 +10,35 @@
 import { type PageNavNode } from "@/components/nav/tree";
 
 export const STANDARD_LIBRARY_NAV: PageNavNode = {
-  href: "/reference/control/arc/reference/standard-library",
+  href: "/reference/control/arc/standard-library",
   name: "Standard library",
   children: [
     {
-      href: "/reference/control/arc/reference/standard-library/control",
+      href: "/reference/control/arc/standard-library/control",
       name: "`control`",
     },
     {
-      href: "/reference/control/arc/reference/standard-library/math",
+      href: "/reference/control/arc/standard-library/math",
       name: "`math`",
     },
     {
-      href: "/reference/control/arc/reference/standard-library/ranges",
+      href: "/reference/control/arc/standard-library/ranges",
       name: "`ranges`",
     },
     {
-      href: "/reference/control/arc/reference/standard-library/select",
+      href: "/reference/control/arc/standard-library/select",
       name: "`select`",
     },
     {
-      href: "/reference/control/arc/reference/standard-library/stable",
+      href: "/reference/control/arc/standard-library/stable",
       name: "`stable`",
     },
     {
-      href: "/reference/control/arc/reference/standard-library/status",
+      href: "/reference/control/arc/standard-library/status",
       name: "`status`",
     },
     {
-      href: "/reference/control/arc/reference/standard-library/time",
+      href: "/reference/control/arc/standard-library/time",
       name: "`time`",
     },
   ],

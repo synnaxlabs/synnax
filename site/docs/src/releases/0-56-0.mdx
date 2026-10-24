@@ -29,10 +29,10 @@ performance improvements across the platform.
 
 #### Modules
 
-[Modules](/reference/control/arc/reference/standard-library) have now been introduced to
-Arc to better organize the Arc standard library. Modules are now self-contained,
-composable units that can be [imported](/reference/control/arc/reference/syntax#imports)
-and used in other modules. This reduces the number of names in the global namespace.
+[Modules](/reference/control/arc/standard-library) have now been introduced to Arc to
+better organize the Arc standard library. Modules are now self-contained, composable
+units that can be [imported](/reference/control/arc/reference/syntax#imports) and used
+in other modules. This reduces the number of names in the global namespace.
 
 ```arc
 // previously
@@ -62,9 +62,9 @@ f"The time is {time.now()}"
 
 #### Statuses
 
-The [`status` module](/reference/control/arc/reference/standard-library/status) has been
-added to Arc (previously, the `set_status` function). This module now allows for setting
-a status by name instead of just by key:
+The [`status` module](/reference/control/arc/standard-library/status) has been added to
+Arc (previously, the `set_status` function). This module now allows for setting a status
+by name instead of just by key:
 
 ```arc
 status.set("Engine 1 Health", "Low inlet pressure", "warning")
