@@ -34,11 +34,13 @@ import { Triggers } from "@/triggers";
 /**
  * The visual variant of a tab selector.
  *
- * - `default`: rounded chip tabs on a borderless strip; the selected tab carries a
- *   subtle fill.
+ * - `default`: rounded tabs on a borderless strip; the selected tab carries a subtle
+ *   fill.
  * - `pill`: separated outlined rounded buttons.
+ * - `chip`: separated outlined rounded tabs; only the selected one fills, with the same
+ *   subtle fill as `default`.
  */
-export type Variant = "default" | "pill";
+export type Variant = "default" | "pill" | "chip";
 
 /**
  * Where a tab's contents sit along the strip's main axis. Vertical strips always
@@ -66,6 +68,7 @@ interface VariantDefaults {
 const VARIANT_DEFAULTS: Record<Variant, VariantDefaults> = {
   default: { align: "center", sizing: "elastic" },
   pill: { align: "start", sizing: "fixed" },
+  chip: { align: "start", sizing: "content" },
 };
 
 interface ContextValue {
@@ -325,19 +328,22 @@ export interface SelectorOnDropParams extends Haul.OnDropProps {
 
 // align is claimed for the tabs' own alignment; the strip's cross-axis alignment is
 // the Selector's to decide, not a caller's.
-export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop" | "align"> {
+interface StyleProps extends Omit<Flex.BoxProps, "onDrop" | "align" | "wrap"> {
   /** size sets the height of the strip and the typography level of its tabs. */
   size?: Component.Size;
   /**
-   * variant is the chassis its tabs wear: borderless chips on a plain strip, or
-   * separated outlined pills. Everything else about how the strip behaves is a knob
-   * below, which variant only supplies the default for.
+   * variant is the chassis its tabs wear: see {@link Variant}. Everything else about
+   * how the strip behaves is a knob below, which variant only supplies the default for.
    */
   variant?: Variant;
   /** align places a tab's contents along the strip. Defaults per variant. */
   align?: Align;
   /** sizing decides how tabs claim width. Defaults per variant. */
   sizing?: Sizing;
+}
+
+interface DropProps {
+  wrap?: false;
   /**
    * haulType enables drag-and-drop reordering by declaring the Haul item type the
    * strip accepts. When set, dragging an accepted item over the strip opens the slot
@@ -357,6 +363,19 @@ export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop" | "align"> {
    */
   onDrop?: (params: SelectorOnDropParams) => Haul.Item[];
 }
+
+interface WrapProps {
+  /**
+   * wrap lays the tabs out in rows. A wrapping strip takes no drops, because the
+   * insertion index reads one axis.
+   */
+  wrap: true;
+  haulType?: never;
+  canDrop?: never;
+  onDrop?: never;
+}
+
+export type SelectorProps = StyleProps & (DropProps | WrapProps);
 
 /**
  * Selector is the strip that lays out a Frame's tabs. It renders a tablist with
