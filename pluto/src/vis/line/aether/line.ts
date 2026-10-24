@@ -10,6 +10,7 @@
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
+  aggregationZ,
   bounds,
   box,
   color,
@@ -34,6 +35,7 @@ import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 import { seriesOverlap, windowBounds } from "@/vis/line/aether/bounds";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
+import { groupSize, Reducer } from "@/vis/line/aether/reduce";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
 import HYBRID_VERT_SHADER from "@/vis/line/aether/vert_hybrid.glsl?raw";
 import { render } from "@/vis/render";
@@ -45,6 +47,12 @@ export const stateZ = z.object({
   color: color.colorZ,
   strokeWidth: z.number().default(1),
   visible: z.boolean().default(true),
+  aggregation: aggregationZ.default("min_max"),
+  /** The number of aggregation groups the line draws per pixel column. */
+  groupsPerColumn: z
+    .number()
+    .positive()
+    .default(1 / 2),
 });
 
 const safelyGetDataValue = (
@@ -270,6 +278,7 @@ interface InternalState {
   yTelem: telem.SeriesSource;
   stopListeningYTelem?: destructor.Destructor;
   requestRender: render.Requestor;
+  reducer: Reducer;
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
@@ -286,6 +295,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.instrumentation = alamos.useInstrumentation(ctx, "line");
     i.lineCtx = Context.use(ctx);
     i.requestRender = render.useRequestor(ctx);
+    i.reducer ??= new Reducer();
     i.stopListeningXTelem?.();
     i.stopListeningYTelem?.();
     i.stopListeningXTelem = i.xTelem.onChange(() => i.requestRender("data"));
@@ -297,6 +307,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const { internal: i } = this;
     i.xTelem.cleanup?.();
     i.yTelem.cleanup?.();
+    i.reducer.release();
     i.requestRender("layout");
   }
 
@@ -378,15 +389,20 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   render(props: LineProps): void {
     if (this.deleted || !this.state.visible) return;
-    const { xTelem, yTelem, lineCtx: ctx } = this.internal;
+    const { xTelem, yTelem, lineCtx: ctx, reducer } = this.internal;
+    const { aggregation, groupsPerColumn } = this.state;
     const { dataToDecimalScale } = props;
     const valueProps = { view: view(props) };
     const [[, xData], [, yData]] = [xTelem.value(valueProps), yTelem.value(valueProps)];
-    xData.updateGLBuffer(ctx.gl);
-    yData.updateGLBuffer(ctx.gl);
-    if (xData.length === 0 || yData.length === 0) return;
+    const full = buildDrawOperations(xData, yData, DEFAULT_OVERLAP_THRESHOLD);
+    const size = groupSize(full, valueProps.view, groupsPerColumn);
+    const ops = reducer.reduce(full, aggregation, size);
+    if (ops.length === 0) return;
+    ops.forEach(({ x, y }) => {
+      x.updateGLBuffer(ctx.gl);
+      y.updateGLBuffer(ctx.gl);
+    });
     const prog = ctx.getProgram(yData.dataType);
-    const ops = buildDrawOperations(xData, yData, DEFAULT_OVERLAP_THRESHOLD);
     this.internal.instrumentation.L.debug("render", () => ({
       key: this.key,
       scale: dataToDecimalScale.transform,
