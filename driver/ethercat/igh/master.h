@@ -103,7 +103,7 @@ public:
 
     /// @brief reports each configured slave. The IgH master returns slaves that leave
     /// OP to it on its own, so this takes no recovery step.
-    std::vector<slave::Health> check() override;
+    std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
     std::string interface_name() const override;
 

@@ -92,7 +92,7 @@ protected:
     void TearDown() override { this->brk.stop(); }
 
     /// @brief reads n samples of a single 16-bit entry and returns their times.
-    x::telem::Series read_times(const Engine::Reader &reader, const size_t n) {
+    x::telem::Series read_times(Engine::Reader &reader, const size_t n) {
         auto frame = frame_of({x::telem::INT16_T}, n);
         x::telem::Series times(x::telem::TIMESTAMP_T, n);
         const auto err = reader.read(this->brk, frame, times);
@@ -220,6 +220,53 @@ TEST_F(EngineTest, ClosedWriterReturnsItsOutputsToZero) {
     ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), 0);
 }
 
+TEST_F(EngineTest, LastWriterToCloseReturnsItsOutputsToZero) {
+    auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(100))
+    );
+    ASSERT_NIL(writer->write(0, static_cast<int16_t>(0x1234)));
+    ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), 0x1234);
+    writer.reset();
+    ASSERT_FALSE(this->engine->running());
+    EXPECT_EQ(this->master->get_output<int16_t>(I16_BYTE), 0);
+}
+
+TEST_F(EngineTest, ReaderKeepsItsSpacingWhileTheBusRateChanges) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(20), 20)
+    );
+    std::atomic done = false;
+    std::thread churn([&] {
+        while (!done.load()) {
+            {
+                const auto writer = this->engine->open_writer(
+                    {OUT_I16},
+                    x::telem::Rate(1000)
+                );
+                std::this_thread::sleep_for(std::chrono::milliseconds(30));
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        }
+    });
+    const auto times = this->read_times(*reader, 20);
+    done.store(true);
+    churn.join();
+    ASSERT_EQ(times.size(), 20);
+    for (size_t i = 1; i < times.size(); ++i)
+        EXPECT_GE(
+            x::telem::TimeSpan(times.at<int64_t>(i) - times.at<int64_t>(i - 1)),
+            x::telem::MILLISECOND * 25
+        );
+}
+
+TEST_F(EngineTest, ReadRateBelowOneMillihertzIsRejected) {
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(0.0001), 1),
+        errors::RATE_MISMATCH
+    );
+    EXPECT_FALSE(this->engine->running());
+}
+
 TEST_F(EngineTest, OpeningATaskKeepsTheBusRunning) {
     const auto writer = ASSERT_NIL_P(
         this->engine->open_writer({OUT_I16}, x::telem::Rate(100))
@@ -310,7 +357,8 @@ TEST_F(EngineTest, StartRetriesUntilActivationSucceeds) {
         x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
     );
     std::thread recover([this] {
-        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        while (this->master->call_count("activate") < 2)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         this->master->clear_injected_errors();
     });
     const auto reader = ASSERT_NIL_P(
@@ -345,10 +393,11 @@ TEST_F(EngineTest, DroppedSamplesFromFailedCyclesAreAWarning) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
+    const auto receives = this->master->call_count("receive");
     this->master->inject_receive_error(
         x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
     );
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    ASSERT_EVENTUALLY_GE(this->master->call_count("receive"), receives + 3);
     this->master->clear_injected_errors();
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
     const auto warning = reader->warning();
@@ -360,7 +409,7 @@ TEST_F(EngineTest, DroppedSamplesFromFailedCyclesAreAWarning) {
 
 TEST_F(EngineTest, ReaderThatFallsBehindGetsAWarning) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(1000), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
     std::string warning;
     ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
@@ -527,15 +576,15 @@ TEST_F(EngineTest, TasksOpenAndCloseWithoutDisturbingRunningOnes) {
 
     int output_changes = 0;
     for (int i = 0; i < 50; ++i) {
-        auto churn_reader = this->engine->open_reader(
+        const auto churn_reader = ASSERT_NIL_P(this->engine->open_reader(
             {IN_I16, IN_I24},
             x::telem::Rate(i % 2 == 0 ? 200 : 50),
             1
+        ));
+        const auto churn_writer = ASSERT_NIL_P(
+            this->engine->open_writer({OUT_I32}, x::telem::Rate(400))
         );
-        ASSERT_NIL(churn_reader.second);
-        auto churn_writer = this->engine->open_writer({OUT_I32}, x::telem::Rate(400));
-        ASSERT_NIL(churn_writer.second);
-        ASSERT_NIL(churn_writer.first->write(0, static_cast<int32_t>(i)));
+        ASSERT_NIL(churn_writer->write(0, static_cast<int32_t>(i)));
         if (this->master->get_output<int16_t>(I16_BYTE) != 0x1234) output_changes++;
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }

@@ -34,7 +34,7 @@ x::errors::Error Engine::Reader::read(
     const x::breaker::Breaker &brk,
     x::telem::Frame &frame,
     x::telem::Series &times
-) const {
+) {
     auto &in = *this->input;
     const size_t n = in.samples_per_read;
     const auto timeout = in.rate.period() * static_cast<double>(n * 2) +
@@ -65,7 +65,7 @@ x::errors::Error Engine::Reader::read(
         in.head.load(std::memory_order_acquire) - tail
     );
     if (count == 0) {
-        if (in.failed.exchange(0, std::memory_order_relaxed) > 0)
+        if (in.failed_samples.exchange(0, std::memory_order_relaxed) > 0)
             return x::errors::Error(
                 errors::CYCLE_FAILED,
                 "every bus cycle failed: " + this->engine.cycle_error().data
@@ -96,15 +96,17 @@ x::errors::Error Engine::Reader::read(
     return x::errors::NIL;
 }
 
-std::string Engine::Reader::warning() const {
+std::string Engine::Reader::warning() {
     std::string msg;
-    if (const auto n = this->input->failed.exchange(0, std::memory_order_relaxed))
+    if (const auto n = this->input->failed_samples
+                           .exchange(0, std::memory_order_relaxed))
         msg = std::format(
             "dropped {} samples from failed bus cycles: {}",
             n,
             this->engine.cycle_error().data
         );
-    if (const auto n = this->input->overflowed.exchange(0, std::memory_order_relaxed))
+    if (const auto n = this->input->overflowed_samples
+                           .exchange(0, std::memory_order_relaxed))
         msg += std::format(
             "{}dropped {} samples because the task fell behind the bus",
             msg.empty() ? "" : "; ",

@@ -38,6 +38,8 @@ struct MockSlaveInfo {
     bool lost = false;
     /// @brief the state readstate() reports, or nullopt to report the current state.
     std::optional<uint16_t> bus_state;
+    /// @brief the state last requested and not yet reached.
+    std::optional<uint16_t> requested;
 };
 
 /// @brief mock implementation of soem::API for unit testing.
@@ -124,8 +126,15 @@ public:
     int readstate() override {
         this->readstate_count++;
         uint16_t lowest = 0xFF;
-        for (auto &info: this->slave_infos) {
-            if (info.bus_state) info.state = *info.bus_state;
+        for (size_t i = 0; i < this->slave_infos.size(); ++i) {
+            auto &info = this->slave_infos[i];
+            if (info.bus_state)
+                info.state = *info.bus_state;
+            else if (info.requested) {
+                const uint16_t target = *info.requested & 0x0F;
+                info.state = this->reach(static_cast<uint16_t>(i + 1), target);
+                if (info.state == target) info.requested.reset();
+            }
             lowest = std::min<uint16_t>(lowest, info.state & 0x0F);
         }
         return lowest;
@@ -142,15 +151,23 @@ public:
     }
 
     uint16_t statecheck(uint16_t slave, uint16_t reqstate, int) override {
-        auto it = this->statecheck_overrides.find(reqstate);
-        uint16_t state = it != this->statecheck_overrides.end() ? it->second : reqstate;
+        const uint16_t state = this->reach(slave, reqstate);
+        if (slave > 0 && slave <= this->slave_infos.size()) {
+            auto &info = this->slave_infos[slave - 1];
+            info.state = state;
+            if (state == reqstate) info.requested.reset();
+        }
+        return state;
+    }
+
+    /// @brief returns the state a slave reports on one poll while it moves to reqstate.
+    uint16_t reach(const uint16_t slave, const uint16_t reqstate) {
+        const auto it = this->statecheck_overrides.find(reqstate);
         if (auto &pending = this->statecheck_pending_polls[reqstate]; pending > 0) {
             pending--;
-            state = this->slave_state(slave);
+            return this->slave_state(slave);
         }
-        if (slave > 0 && slave <= this->slave_infos.size())
-            this->slave_infos[slave - 1].state = state;
-        return state;
+        return it != this->statecheck_overrides.end() ? it->second : reqstate;
     }
 
     int SDOread(
@@ -208,6 +225,7 @@ public:
     void set_slave_state(uint16_t pos, uint16_t state) override {
         if (pos == 0 || pos > this->slave_infos.size()) return;
         this->state_change_requests.emplace_back(pos, state);
+        this->slave_infos[pos - 1].requested = state;
     }
 
     uint32_t slave_eep_man(uint16_t pos) const override {

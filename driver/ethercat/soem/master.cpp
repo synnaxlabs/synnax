@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
+#include <thread>
+
 #include "absl/log/log.h"
 
 #include "driver/ethercat/errors/errors.h"
@@ -23,8 +26,8 @@ const int STATE_CHANGE_TIMEOUT = static_cast<int>(
 );
 /// Timeout for cyclic process data exchange in microseconds.
 const int PROCESSDATA_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
-/// Time to poll one slave's state between process data exchanges in microseconds.
-const int OP_POLL_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
+/// Time between state reads while slaves move to OP.
+const auto OP_POLL_INTERVAL = x::telem::MILLISECOND;
 /// Timeout for one recovery step on a slave in microseconds.
 const int RECOVERY_TIMEOUT = static_cast<int>(
     (x::telem::MILLISECOND * 500).microseconds()
@@ -220,7 +223,7 @@ std::vector<slave::DiscoveryResult> Master::slaves() const {
     return this->slave_list;
 }
 
-std::vector<slave::Health> Master::check() {
+std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
     this->api->readstate();
     std::vector<slave::Health> health;
     for (int i = 1; i <= this->api->slave_count(); ++i) {
@@ -236,7 +239,7 @@ std::vector<slave::Health> Master::check() {
         );
         if (const auto code = this->api->slave_ALstatuscode(i); h.faulted && code != 0)
             h.al_status = ec_ALstatuscode2string(code);
-        this->recover(static_cast<uint16_t>(i));
+        if (breaker.running()) this->recover(static_cast<uint16_t>(i));
     }
     return health;
 }
@@ -788,23 +791,27 @@ x::errors::Error Master::request_operational() {
     // Slaves with outputs need one valid process data frame before they enter OP.
     this->api->send_processdata(ENABLED_GROUP);
     this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
-    std::vector<uint16_t> pending;
     for (int i = 1; i <= this->api->slave_count(); ++i) {
         if (this->api->slave_group(i) != ENABLED_GROUP) continue;
         this->api->set_slave_state(i, EC_STATE_OPERATIONAL);
         this->api->writestate(i);
-        pending.push_back(i);
     }
-    for (int attempt = 0; attempt < STATE_CHANGE_TIMEOUT / OP_POLL_TIMEOUT; ++attempt) {
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::microseconds(STATE_CHANGE_TIMEOUT);
+    while (true) {
         this->api->send_processdata(ENABLED_GROUP);
         this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
-        std::erase_if(pending, [this](const uint16_t pos) {
-            return this->api->statecheck(pos, EC_STATE_OPERATIONAL, OP_POLL_TIMEOUT) ==
-                   EC_STATE_OPERATIONAL;
-        });
+        this->api->readstate();
+        std::vector<uint16_t> pending;
+        for (int i = 1; i <= this->api->slave_count(); ++i)
+            if (this->api->slave_group(i) == ENABLED_GROUP &&
+                this->api->slave_state(i) != EC_STATE_OPERATIONAL)
+                pending.push_back(i);
         if (pending.empty()) return x::errors::NIL;
+        if (std::chrono::steady_clock::now() >= deadline)
+            return this->state_error(pending, EC_STATE_OPERATIONAL);
+        std::this_thread::sleep_for(OP_POLL_INTERVAL.chrono());
     }
-    return this->state_error(pending, EC_STATE_OPERATIONAL);
 }
 
 x::errors::Error

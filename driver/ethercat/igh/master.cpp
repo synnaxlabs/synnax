@@ -266,7 +266,7 @@ std::vector<slave::DiscoveryResult> Master::slaves() const {
     return this->cached_slaves;
 }
 
-std::vector<slave::Health> Master::check() {
+std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
     std::vector<std::pair<uint16_t, ec_slave_config_t *>> configs;
     {
         std::lock_guard lock(this->mu);

@@ -21,11 +21,15 @@ class IGHMasterTest : public ::testing::Test {
 protected:
     std::shared_ptr<MockAPI> mock_api;
     std::unique_ptr<Master> master_instance;
+    x::breaker::Breaker brk;
 
     void SetUp() override {
         this->mock_api = std::make_shared<MockAPI>();
         this->master_instance = std::make_unique<Master>(this->mock_api, 0);
+        this->brk.start();
     }
+
+    void TearDown() override { this->brk.stop(); }
 
     void add_default_slave(
         uint16_t position = 0,
@@ -272,7 +276,7 @@ TEST_F(IGHMasterTest, CheckReportsEachConfiguredSlave) {
     op.online = 1;
     op.operational = 1;
     this->mock_api->set_slave_config_state(0, op);
-    const auto health = this->master_instance->check();
+    const auto health = this->master_instance->check(this->brk);
     ASSERT_EQ(health.size(), 1u);
     EXPECT_EQ(health[0], (slave::Health{.position = 0, .state = slave::State::OP}));
 }
@@ -283,7 +287,7 @@ TEST_F(IGHMasterTest, CheckReportsOfflineSlaveAsLost) {
     ec_slave_config_state_t offline{};
     offline.al_state = 0x01;
     this->mock_api->set_slave_config_state(0, offline);
-    const auto health = this->master_instance->check();
+    const auto health = this->master_instance->check(this->brk);
     ASSERT_EQ(health.size(), 1u);
     EXPECT_TRUE(health[0].lost);
 }
@@ -296,7 +300,7 @@ TEST_F(IGHMasterTest, CheckReportsErrorFlagAsFaulted) {
     safe_op.online = 1;
     this->mock_api->set_slave_config_state(0, safe_op);
     this->mock_api->set_slave_error_flag(0, 1);
-    const auto health = this->master_instance->check();
+    const auto health = this->master_instance->check(this->brk);
     ASSERT_EQ(health.size(), 1u);
     EXPECT_EQ(health[0].state, slave::State::SAFE_OP);
     EXPECT_TRUE(health[0].faulted);
@@ -308,7 +312,7 @@ TEST_F(IGHMasterTest, CheckSkipsDisabledSlave) {
     ASSERT_NIL(this->master_instance->initialize());
     this->master_instance->set_slave_enabled(1, false);
     this->activate_with_domains();
-    const auto health = this->master_instance->check();
+    const auto health = this->master_instance->check(this->brk);
     ASSERT_EQ(health.size(), 1u);
     EXPECT_EQ(health[0].position, 0);
 }

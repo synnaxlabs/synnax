@@ -21,9 +21,9 @@
 #include "driver/ethercat/master/master.h"
 
 namespace driver::ethercat::mock {
-/// @brief an in-memory master. Inputs set by a test reach the process image on the
-/// next receive(), and outputs become visible to get_output() on the next send(), as
-/// they would on a real bus.
+/// @brief an in-memory master. Inputs set by a test reach the process image on the next
+/// receive(), and outputs become visible to get_output() on the next send(), as they
+/// would on a real bus.
 class Master final : public master::Master {
     std::string iface_name;
     std::vector<slave::DiscoveryResult> slave_list;
@@ -272,9 +272,9 @@ public:
         return this->slave_list;
     }
 
-    /// @brief reports each enabled slave, then returns each faulted or non-OP slave
-    /// to OP unless set_slave_transition_failure() blocks it.
-    std::vector<slave::Health> check() override {
+    /// @brief reports each enabled slave, then returns each faulted or non-OP slave to
+    /// OP unless set_slave_transition_failure() blocks it.
+    std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override {
         std::lock_guard lock(this->mu);
         this->calls.push_back("check");
         std::vector<slave::Health> health;
@@ -289,8 +289,9 @@ public:
                 .al_status = fault != this->faults.end() ? fault->second : "",
             });
             const auto blocked = this->state_transition_failures.find(pos);
-            if (blocked != this->state_transition_failures.end() &&
-                blocked->second == slave::State::OP)
+            if (!breaker.running() ||
+                (blocked != this->state_transition_failures.end() &&
+                 blocked->second == slave::State::OP))
                 continue;
             this->slave_states[pos] = slave::State::OP;
             this->faults.erase(pos);

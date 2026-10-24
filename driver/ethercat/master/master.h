@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
 
 #include "driver/ethercat/pdo/pdo.h"
@@ -63,8 +64,7 @@ public:
     [[nodiscard]] virtual std::span<uint8_t> output_data() = 0;
 
     /// @brief returns the byte and bit offset of a PDO entry in its process image, or
-    /// nullopt when the entry is not mapped. Valid between activate() and
-    /// deactivate().
+    /// nullopt when the entry is not mapped. Valid between activate() and deactivate().
     [[nodiscard]] virtual std::optional<pdo::Offset>
     pdo_offset(const pdo::Entry &entry) const = 0;
 
@@ -72,10 +72,12 @@ public:
     [[nodiscard]] virtual std::vector<slave::DiscoveryResult> slaves() const = 0;
 
     /// @brief reads the condition of each enabled slave and asks each slave that left
-    /// OP to return to it. Safe to call from one thread while another runs receive()
-    /// and send(). Valid between activate() and deactivate().
+    /// OP to return to it. Takes no further recovery step once breaker stops. Safe to
+    /// call from one thread while another runs receive() and send(). Valid between
+    /// activate() and deactivate().
     /// @returns the condition of each enabled slave before any recovery step.
-    [[nodiscard]] virtual std::vector<slave::Health> check() = 0;
+    [[nodiscard]] virtual std::vector<slave::Health>
+    check(const x::breaker::Breaker &breaker) = 0;
 
     /// @brief returns the name of the network interface this master is bound to.
     [[nodiscard]] virtual std::string interface_name() const = 0;

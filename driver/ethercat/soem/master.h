@@ -77,7 +77,7 @@ public:
 
     std::vector<slave::DiscoveryResult> slaves() const override;
 
-    std::vector<slave::Health> check() override;
+    std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
     std::string interface_name() const override;
 
@@ -129,9 +129,9 @@ private:
     /// slaves with a sync manager watchdog see valid outputs.
     x::errors::Error request_operational();
 
-    /// @brief takes one recovery step for a slave that is not in OP, following the
-    /// SOEM ecatcheck sample: acknowledge an error, request OP, reconfigure, or
-    /// restore a slave that lost power.
+    /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
+    /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
+    /// slave that lost power.
     void recover(uint16_t pos);
 
     /// @brief builds the error for enabled slaves that did not reach a state.

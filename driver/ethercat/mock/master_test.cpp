@@ -382,27 +382,35 @@ TEST(MasterIoMap, OutputDataReturnsEmptyBeforeActivation) {
     EXPECT_TRUE(master.output_data().empty());
 }
 
-TEST(MasterCheck, ReportsEachEnabledSlave) {
+class MasterCheckTest : public ::testing::Test {
+protected:
     Master master;
-    master.add_slave(slave::Properties{.position = 0});
-    master.add_slave(slave::Properties{.position = 1});
-    master.set_slave_enabled(1, false);
-    ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
+    x::breaker::Breaker brk;
+
+    void SetUp() override { this->brk.start(); }
+
+    void TearDown() override { this->brk.stop(); }
+};
+
+TEST_F(MasterCheckTest, ReportsEachEnabledSlave) {
+    this->master.add_slave(slave::Properties{.position = 0});
+    this->master.add_slave(slave::Properties{.position = 1});
+    this->master.set_slave_enabled(1, false);
+    ASSERT_NIL(this->master.initialize());
+    ASSERT_NIL(this->master.activate());
     EXPECT_EQ(
-        master.check(),
+        this->master.check(this->brk),
         (std::vector<slave::Health>{{.position = 0, .state = slave::State::OP}})
     );
 }
 
-TEST(MasterCheck, ReportsFaultThenRecoversSlave) {
-    Master master;
-    master.add_slave(slave::Properties{.position = 0});
-    ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
-    master.fault_slave(0, slave::State::SAFE_OP, "Sync manager watchdog");
+TEST_F(MasterCheckTest, ReportsFaultThenRecoversSlave) {
+    this->master.add_slave(slave::Properties{.position = 0});
+    ASSERT_NIL(this->master.initialize());
+    ASSERT_NIL(this->master.activate());
+    this->master.fault_slave(0, slave::State::SAFE_OP, "Sync manager watchdog");
     EXPECT_EQ(
-        master.check(),
+        this->master.check(this->brk),
         (std::vector<slave::Health>{
             {.position = 0,
              .state = slave::State::SAFE_OP,
@@ -410,21 +418,30 @@ TEST(MasterCheck, ReportsFaultThenRecoversSlave) {
              .al_status = "Sync manager watchdog"}
         })
     );
-    EXPECT_EQ(master.slave_state(0), slave::State::OP);
-    EXPECT_TRUE(master.check()[0].operational());
+    EXPECT_EQ(this->master.slave_state(0), slave::State::OP);
+    EXPECT_TRUE(this->master.check(this->brk)[0].operational());
 }
 
-TEST(MasterCheck, KeepsBlockedSlaveOutOfOp) {
-    Master master;
-    master.add_slave(slave::Properties{.position = 0});
-    master.set_slave_transition_failure(0, slave::State::OP);
-    ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
-    EXPECT_EQ(master.check()[0].state, slave::State::SAFE_OP);
-    EXPECT_EQ(master.check()[0].state, slave::State::SAFE_OP);
-    master.clear_transition_failures();
-    master.check();
-    EXPECT_EQ(master.slave_state(0), slave::State::OP);
+TEST_F(MasterCheckTest, KeepsBlockedSlaveOutOfOp) {
+    this->master.add_slave(slave::Properties{.position = 0});
+    this->master.set_slave_transition_failure(0, slave::State::OP);
+    ASSERT_NIL(this->master.initialize());
+    ASSERT_NIL(this->master.activate());
+    EXPECT_EQ(this->master.check(this->brk)[0].state, slave::State::SAFE_OP);
+    EXPECT_EQ(this->master.check(this->brk)[0].state, slave::State::SAFE_OP);
+    this->master.clear_transition_failures();
+    this->master.check(this->brk);
+    EXPECT_EQ(this->master.slave_state(0), slave::State::OP);
+}
+
+TEST_F(MasterCheckTest, TakesNoRecoveryStepOnceBreakerStops) {
+    this->master.add_slave(slave::Properties{.position = 0});
+    ASSERT_NIL(this->master.initialize());
+    ASSERT_NIL(this->master.activate());
+    this->master.fault_slave(0, slave::State::SAFE_OP, "Sync manager watchdog");
+    this->brk.stop();
+    EXPECT_TRUE(this->master.check(this->brk)[0].faulted);
+    EXPECT_EQ(this->master.slave_state(0), slave::State::SAFE_OP);
 }
 
 TEST(MasterCallLog, WasCalledReturnsTrueForCalledMethod) {
