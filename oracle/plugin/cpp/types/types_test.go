@@ -1915,6 +1915,31 @@ var _ = Describe("C++ Types Plugin", func() {
 			)
 
 			It(
+				"Should leave an optional telem-typed field without a value",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					TimeStamp int64 {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						start telem.TimeStamp?
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "out/types.gen.h").
+						ToContain("std::optional<::x::telem::TimeStamp> start;")
+				},
+			)
+
+			It(
 				"Should wrap string defaults in the distinct type's constructor",
 				func(ctx SpecContext) {
 					loader.Add("schemas/telem", `

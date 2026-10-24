@@ -15,7 +15,21 @@ import (
 	. "github.com/synnaxlabs/oracle/testutil"
 )
 
+const aliasTelem = `
+@cpp output "x/cpp/telem"
+
+TimeStamp int64 {
+	@cpp hand
+}
+
+TimeSpan int64 {
+	@cpp hand
+}
+`
+
 const aliasBase = `
+import "schemas/x/telem"
+
 @cpp output "client/cpp/base"
 @go output "core/pkg/service/base"
 @pb
@@ -48,6 +62,10 @@ Credentials struct {
 
 Code uint32
 
+Stamp = telem.TimeStamp
+
+Span = telem.TimeSpan
+
 Signal union on kind {
 	none {}
 	level {
@@ -71,12 +89,17 @@ Valve = base.Valve
 Credentials = base.Credentials
 Code = base.Code
 Signal = base.Signal
+Stamp = base.Stamp
+Span = base.Span
+Moment Stamp
 `
 
 var _ = Describe("C++ aliases", func() {
 	DescribeTable("Should generate a use of an alias as a use of its target",
 		func(ctx SpecContext, use string, expected ...string) {
-			loader := NewMockFileLoader().Add("schemas/base", aliasBase)
+			loader := NewMockFileLoader().
+				Add("schemas/x/telem", aliasTelem).
+				Add("schemas/base", aliasBase)
 			resp := MustGenerate(
 				ctx,
 				aliasHead+use,
@@ -121,6 +144,32 @@ var _ = Describe("C++ aliases", func() {
 				password Credentials
 			}
 		`, "std::string method = ::synnax::base::METHOD_PASSWORD;"),
+		Entry("a now default on an alias of a timestamp", `
+			Panel struct {
+				created Stamp = now
+			}
+		`, "Stamp created = x::telem::TimeStamp::now();"),
+		Entry("a now default on a distinct type over an alias of a timestamp", `
+			Panel struct {
+				created Moment = now
+			}
+		`, "Moment created = x::telem::TimeStamp::now();"),
+		Entry("an alias of a timestamp's zero value", `
+			Panel struct {
+				created Stamp
+			}
+		`, "Stamp created = x::telem::TimeStamp(0);"),
+		Entry("a distinct type over an alias of a timestamp's zero value", `
+			Panel struct {
+				created Moment
+			}
+		`, "Moment created = x::telem::TimeStamp(0);"),
+
+		Entry("an alias of a timespan's zero value", `
+			Panel struct {
+				span Span
+			}
+		`, "Span span = x::telem::TimeSpan(0);"),
 		Entry("a variant payload's proto message", `
 			Node union on variant {
 				valve Valve
