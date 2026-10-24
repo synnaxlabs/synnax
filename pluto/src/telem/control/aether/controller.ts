@@ -138,8 +138,7 @@ export class Controller
   }
 
   afterDelete(): void {
-    const { internal: i } = this;
-    i.runAsync(() => this.doRelease(), "failed to release control");
+    this.release();
   }
 
   /**
@@ -172,11 +171,17 @@ export class Controller
 
   acquire(): void {
     this.acquireExplicit = true;
-    this.internal.runAsync(() => this.doAcquire(), "failed to acquire control");
+    this.internal.runAsync(() => this.doAcquire(), {
+      message: "Failed to acquire control",
+      name: this.state.name,
+    });
   }
 
   release(): void {
-    this.internal.runAsync(() => this.doRelease(), "failed to release control");
+    this.internal.runAsync(() => this.doRelease(), {
+      message: "Failed to release control",
+      name: this.state.name,
+    });
   }
 
   private async doAcquire(): Promise<void> {
@@ -192,25 +197,34 @@ export class Controller
 
   private async doAcquireImpl(): Promise<void> {
     const { client, addStatus } = this.internal;
+    const { name } = this.state;
     if (client == null)
       return addStatus({
-        message: `Failed to acquire control on ${this.state.name}: no Core is connected.`,
         variant: "warning",
+        name,
+        message: "Failed to acquire control",
+        description: "No Core is connected.",
       });
 
     try {
       const missing = await this.updateNeedsControlOf();
       if (missing.length > 0)
         addStatus({
-          message: `Some symbols on ${this.state.name} use channels that no longer exist`,
-          description: missing.map((e) => e.message).join("\n"),
           variant: "warning",
+          name,
+          message: "Skipped deleted channels",
+          description: [
+            "Some symbols use channels that no longer exist.",
+            ...missing.map((e) => e.message),
+          ].join("\n"),
         });
       const needsControlOf = this.state.needsControlOf;
       if (needsControlOf.length === 0)
         return addStatus({
-          message: `Cannot acquire control on ${this.state.name} because there are no channels to control.`,
           variant: "warning",
+          name,
+          message: "Failed to acquire control",
+          description: "No symbols control any channels.",
         });
 
       this.writer = await this.openWriter(client, {
@@ -225,12 +239,9 @@ export class Controller
       this.setState((p) => ({ ...p, status: "acquired" }));
     } catch (err) {
       this.setState((p) => ({ ...p, status: "failed" }));
-      const e = errors.fromUnknown(err);
-      addStatus({
-        variant: "error",
-        message: `Failed to acquire control on ${this.state.name}`,
-        description: e.message,
-      });
+      addStatus(
+        cstatus.fromException(err, { message: "Failed to acquire control", name }),
+      );
     }
   }
 
@@ -238,11 +249,12 @@ export class Controller
     try {
       await this.writer?.close();
     } catch (err) {
-      const e = errors.fromUnknown(err);
-      this.internal.addStatus({
-        message: `Failed to release control on ${this.state.name}: ${e.message}`,
-        variant: "error",
-      });
+      this.internal.addStatus(
+        cstatus.fromException(err, {
+          message: "Failed to release control",
+          name: this.state.name,
+        }),
+      );
     } finally {
       this.setState((p) => ({ ...p, status: "released" }));
       this.writer = undefined;
@@ -431,7 +443,7 @@ export class AcquireChannelControl
       if (ch.index !== 0) keys.push(ch.index);
       if (!acquire) await this.controller.releaseAuthority(keys);
       else await this.controller.setAuthority(keys, this.props.authority);
-    }, "failed to set channel authority");
+    }, "Failed to set channel authority");
   }
 }
 
@@ -481,10 +493,7 @@ export class AuthoritySource
     this.retrieve = new flux.Retrieve({
       definition: retrieveDefinition,
       onChange: () => this.notify?.(),
-      onError: (error) =>
-        runAsync(async () => {
-          throw error;
-        }, "failed to retrieve control state"),
+      onError: (error) => runAsync(error, "Failed to retrieve control state"),
     });
     this.stopListening = colors.onChange(() => this.notify?.());
   }

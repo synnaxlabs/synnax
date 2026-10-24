@@ -25,7 +25,7 @@ import (
 
 func TestTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin TS Types Suite")
+	RunSpecs(t, "Plugin TS Types Suite", SuiteConfig())
 }
 
 var _ = Describe("TS Types Plugin", func() {
@@ -2761,6 +2761,64 @@ var _ = Describe("TS Types Plugin", func() {
 					ToContain("extra:")
 			})
 		})
+
+		DescribeTable("Should instantiate a generic parent with its child's arguments",
+			func(ctx SpecContext, child, expected string) {
+				source := `
+					@ts output "out"
+
+					Box struct<T> {
+						item T
+					}
+
+					Pair struct<K, V> {
+						key   K
+						value V
+					}
+
+					Labeled struct {
+						label string
+					}
+				` + child
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").ToContain(expected)
+			},
+			Entry("a concrete argument", `
+				Panel struct extends Box<string> {
+					count int32
+				}
+			`, "export const panelZ = boxZ(z.string())\n"),
+			Entry("a renamed type parameter", `
+				Crate struct<U> extends Box<U> {
+					count int32
+				}
+			`, "=>\n  boxZ(u)\n"),
+			Entry("a concrete argument in a generic child", `
+				Crate struct<T> extends Box<string> {
+					extra T
+				}
+			`, "=>\n  boxZ(z.string())\n"),
+			Entry("a non-generic parent of a generic child", `
+				Crate struct<T> extends Labeled {
+					extra T
+				}
+			`, "=>\n  labeledZ\n"),
+			Entry("a parent with more parameters than its child", `
+				Crate struct<T> extends Pair<string, T> {
+					extra T
+				}
+			`, "=>\n  pairZ({k: z.string(), v: t})\n"),
+			Entry("reordered type parameters", `
+				Crate struct<K, V> extends Pair<V, K> {
+					count int32
+				}
+			`, "  pairZ({k: v, v: k})\n"),
+			Entry("a second parent", `
+				Panel struct extends Labeled, Box<string> {
+					count int32
+				}
+			`, "export const panelZ = labeledZ.extend(boxZ(z.string()).shape)\n"),
+		)
 
 		Context("multiple files from different namespaces", func() {
 			BeforeEach(func() {

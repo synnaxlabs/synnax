@@ -19,7 +19,7 @@ import (
 
 func TestStable(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "STL Stable Suite")
+	RunSpecs(t, "STL Stable Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -31,20 +31,22 @@ type Writer[K Key, E Entry[K]] struct {
 // WrapWriter wraps the given Tx to provide a strongly typed Writer that
 // does not stage mutations against any secondary indexes.
 func WrapWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
-	return wrapWriter[K, E](tx, nil, nil)
+	w := wrapWriter[K, E](tx, nil, nil)
+	return &w
 }
 
 // wrapWriter constructs a Writer that encodes keys under prefix and stages each Set /
-// Delete against indexes. A nil prefix falls back to the prefix of E's table.
+// Delete against indexes. A nil prefix falls back to the prefix of E's table. It
+// returns a value so that the Writer of a query stays off the heap.
 func wrapWriter[K Key, E Entry[K]](
 	tx Tx,
 	prefix []byte,
 	indexes []Index[K, E],
-) *Writer[K, E] {
+) Writer[K, E] {
 	if prefix == nil {
 		prefix = key.Prefix[E]()
 	}
-	return &Writer[K, E]{
+	return Writer[K, E]{
 		tx:       tx,
 		keyCodec: key.NewCodec[K](prefix),
 		indexes:  indexes,

@@ -353,7 +353,7 @@ TEST(IRTest, testScopeToStringParallel) {
     ASSERT_NE(str.find("parallel"), std::string::npos);
     ASSERT_NE(str.find("gated"), std::string::npos);
     ASSERT_NE(str.find("stratum 0"), std::string::npos);
-    ASSERT_NE(str.find("A"), std::string::npos);
+    ASSERT_NE(str.find('A'), std::string::npos);
 }
 
 /// @brief it should format a sequential Scope with steps and a transition

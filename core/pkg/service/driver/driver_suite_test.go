@@ -51,7 +51,7 @@ var (
 
 func TestDriver(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Driver Suite")
+	RunSpecs(t, "Service Driver Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -163,12 +163,13 @@ func writeConfigFailure(ctx context.Context, t task.Task, cmdKey string, err err
 	details.Cmd = cmdKey
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
-			Key:     t.OntologyID().String(),
-			Name:    t.Name,
-			Time:    telem.Now(),
-			Variant: status.VariantError,
-			Message: err.Error(),
-			Details: details,
+			Key:         t.OntologyID().String(),
+			Name:        t.Name,
+			Time:        telem.Now(),
+			Variant:     status.VariantError,
+			Message:     "Failed to configure task",
+			Description: err.Error(),
+			Details:     details,
 		})
 	})).To(Succeed())
 }

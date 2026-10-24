@@ -11,7 +11,6 @@ package calculation
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/samber/lo"
@@ -201,12 +200,10 @@ func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes)
 		}
 		if err := s.updateCalculation(ctx, ch); err != nil {
 			s.setStatus(ctx, calculator.Status{
-				Key:     ch.Key().String(),
-				Name:    ch.Name,
-				Variant: status.VariantError,
-				Message: fmt.Sprintf(
-					"failed to compile calculation for %s", ch.Name,
-				),
+				Key:         ch.Key().String(),
+				Name:        ch.Name,
+				Variant:     status.VariantError,
+				Message:     "Failed to compile calculation",
 				Description: err.Error(),
 			})
 		} else {
@@ -386,7 +383,7 @@ func (s *Service) updateRequests(
 				Key:         ch.Key().String(),
 				Name:        ch.Name,
 				Variant:     status.VariantError,
-				Message:     fmt.Sprintf("Failed to request calculation for %s", ch),
+				Message:     "Failed to request calculation",
 				Description: err.Error(),
 			})
 		} else {

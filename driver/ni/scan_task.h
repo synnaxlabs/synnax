@@ -135,7 +135,7 @@ class Scanner final : public common::Scanner {
     std::pair<ni::Device, x::errors::Error>
     parse_device(NISysCfgResourceHandle resource) const;
 
-    common::ScannerConfig config() const override {
+    [[nodiscard]] common::ScannerConfig config() const override {
         return common::ScannerConfig{.make = MAKE, .log_prefix = SCAN_LOG_PREFIX};
     }
 
