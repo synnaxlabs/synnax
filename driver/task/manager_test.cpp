@@ -543,7 +543,7 @@ TEST_F(TaskManagerTest, StartForUnhandledTypeAnswersWithError) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "unhandled",
+        .type = ALT_SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task);
@@ -554,7 +554,8 @@ TEST_F(TaskManagerTest, StartForUnhandledTypeAnswersWithError) {
     EXPECT_EQ(s.message, "Failed to configure task");
     EXPECT_EQ(
         s.description,
-        "No integration on this Driver handles task type 'unhandled'."
+        "No integration on this Driver handles task type '" + ALT_SYNTHETIC_TASK_TYPE +
+            "'."
     );
     EXPECT_EQ(s.details.cmd, "start-cmd");
 }
