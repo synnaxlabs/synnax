@@ -14,9 +14,9 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions/v0"
 	authversions "github.com/synnaxlabs/synnax/pkg/service/auth/versions"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
 )
 

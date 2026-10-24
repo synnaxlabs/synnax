@@ -73,27 +73,27 @@ struct Properties {
     /// @brief network interface the slave is connected to.
     std::string network;
     /// @brief position of the slave on the EtherCAT bus (0-based index).
-    uint16_t position;
+    uint16_t position{};
     /// @brief EtherCAT vendor ID assigned by ETG.
-    uint32_t vendor_id;
+    uint32_t vendor_id{};
     /// @brief product code identifying the slave type.
-    uint32_t product_code;
+    uint32_t product_code{};
     /// @brief revision number for hardware/firmware versioning.
-    uint32_t revision;
+    uint32_t revision{};
     /// @brief serial number of the device (if available).
-    uint32_t serial;
+    uint32_t serial{};
     /// @brief human-readable name of the slave device.
     std::string name;
     /// @brief total input size in bits.
-    uint32_t input_bits;
+    uint32_t input_bits{};
     /// @brief total output size in bits.
-    uint32_t output_bits;
+    uint32_t output_bits{};
     /// @brief discovered input PDOs (TxPDO, slave→master).
     std::vector<pdo::Properties> input_pdos;
     /// @brief discovered output PDOs (RxPDO, master→slave).
     std::vector<pdo::Properties> output_pdos;
     /// @brief true if PDOs were discovered via CoE assignment objects.
-    bool coe_pdo_order_reliable;
+    bool coe_pdo_order_reliable{};
     /// @brief whether the device is enabled or not.
     bool enabled = true;
 

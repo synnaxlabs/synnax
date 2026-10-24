@@ -67,25 +67,27 @@ const useCopy = (props: Tree.ContextMenuProps): (() => void) => {
 export const useRangeSnapshot = () => {
   const addStatus = Status.useAdder();
   const rng = Range.useResolve();
-  const buildMessage = useCallback(
-    ({ schematics }: Base.SnapshotParams) =>
-      `${strings.naturalLanguageJoin(
-        array.toArray(schematics).map((s) => s.name),
-        "schematic",
-      )} to ${rng?.name ?? "active range"}`,
-    [rng],
-  );
   const { update } = Base.useSnapshot({
     afterSuccess: useCallback(
-      ({ data }: Flux.AfterSuccessParams<Base.SnapshotParams>) =>
+      ({ data: { schematics } }: Flux.AfterSuccessParams<Base.SnapshotParams>) => {
+        const names = array.toArray(schematics).map((s) => s.name);
+        const joined = strings.naturalLanguageJoin(names);
+        const single = names.length === 1;
         addStatus({
           variant: "success",
-          message: `Snapshotted ${buildMessage(data)}`,
-        }),
-      [buildMessage, addStatus],
+          name: rng?.name ?? "",
+          message: single
+            ? "Snapshotted schematic"
+            : `Snapshotted ${names.length} schematics`,
+          description: single
+            ? `Created a snapshot of ${joined}.`
+            : `Created snapshots of ${joined}.`,
+        });
+      },
+      [rng, addStatus],
     ),
-    afterFailure: ({ status, data }: Flux.AfterFailureParams<Base.SnapshotParams>) =>
-      addStatus({ ...status, message: `Failed to snapshot ${buildMessage(data)}` }),
+    afterFailure: ({ status }: Flux.AfterFailureParams<Base.SnapshotParams>) =>
+      addStatus({ ...status, name: rng?.name ?? "" }),
   });
   return ({ selection: { ids }, state: { getResource } }: Tree.ContextMenuProps) => {
     if (rng == null)

@@ -15,7 +15,7 @@ import (
 	"context"
 	"slices"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to

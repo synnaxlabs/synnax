@@ -138,6 +138,7 @@ export const Login = (): ReactElement => {
                       <Status.Summary
                         variant={connStatus.variant}
                         message={connStatus.message}
+                        description={connStatus.description}
                       />
                     )}
                   </Flex.Box>

@@ -278,6 +278,7 @@ TEST(PropertiesToJson, SerializesAllFields) {
     ASSERT_EQ(j["pdos"]["outputs"][0]["name"], "Control");
 }
 
+/// @brief it should leave padding entries out of the JSON of a slave.
 TEST(PropertiesToJson, OmitsPaddingEntries) {
     Properties props{
         .input_pdos = {
