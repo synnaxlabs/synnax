@@ -13,6 +13,7 @@ import (
 	"context"
 	"io"
 	"iter"
+	"slices"
 
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/change"
@@ -115,8 +116,13 @@ type IterOptions struct {
 
 // OpenIterator opens a new Iterator over the entries in the Reader.
 func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
-	prefixedKey := append(r.keyCodec.Prefix(), opts.prefix...)
-	base, err := r.tx.OpenIterator(kv.IterPrefix(prefixedKey))
+	prefix := r.keyCodec.Prefix()
+	// Every query of a table shares the codec prefix, so a narrowed prefix needs its
+	// own slice.
+	if len(opts.prefix) > 0 {
+		prefix = slices.Concat(prefix, opts.prefix)
+	}
+	base, err := r.tx.OpenIterator(kv.IterPrefix(prefix))
 	return &Iterator[E]{Iterator: base, codec: r.tx}, err
 }
 
