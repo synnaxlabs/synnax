@@ -102,6 +102,45 @@ describe("List", () => {
           );
         });
 
+        const renderPointable = (
+          onHover: () => void,
+          onPointerMove: () => void = vi.fn(),
+        ) =>
+          render(
+            <List.Frame data={["1"]} virtual={context.virtual}>
+              <List.Scroll>
+                <List.Items>
+                  {({ key, ...rest }: List.ItemProps<string>) => (
+                    <List.Item
+                      key={key}
+                      onHover={onHover}
+                      onPointerMove={onPointerMove}
+                      {...rest}
+                    >
+                      {key}
+                    </List.Item>
+                  )}
+                </List.Items>
+              </List.Scroll>
+            </List.Frame>,
+          );
+
+        it("should call onHover when a mouse moves over an item", () => {
+          const onHover = vi.fn();
+          const onPointerMove = vi.fn();
+          const result = renderPointable(onHover, onPointerMove);
+          fireEvent.pointerMove(result.getByText("1"), { pointerType: "mouse" });
+          expect(onHover).toHaveBeenCalledTimes(1);
+          expect(onPointerMove).toHaveBeenCalledTimes(1);
+        });
+
+        it("should not call onHover when a touch moves over an item", () => {
+          const onHover = vi.fn();
+          const result = renderPointable(onHover);
+          fireEvent.pointerMove(result.getByText("1"), { pointerType: "touch" });
+          expect(onHover).not.toHaveBeenCalled();
+        });
+
         it("should allow the caller to provide a custom item getter", () => {
           const ITEMS: record.KeyedNamed<string>[] = [
             { key: "1", name: "one" },

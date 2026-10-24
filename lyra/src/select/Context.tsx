@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useMemo } from "react";
+import { destructor, type record } from "@synnaxlabs/x";
+import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
 
 import { context } from "@/context";
 import { Store } from "@/store";
@@ -49,6 +49,8 @@ export interface ContextProps<K extends record.Key = record.Key>
     SelectionState<K> {
   /** True when clicking the sole selected item changes nothing. */
   reselectNoop?: boolean;
+  /** Moves the hover onto the item under the pointer. */
+  setHover?: (key: K) => void;
 }
 
 /** Return value for {@link useItemState}. */
@@ -64,6 +66,8 @@ export interface UseItemStateReturn {
   sole: boolean;
   hovered: boolean;
   onSelect: () => void;
+  /** Moves the hover onto the item, for when the pointer moves onto it. */
+  onHover: () => void;
 }
 
 // The membership and presence stores are typed at record.Key, so Select asserts its own
@@ -76,6 +80,10 @@ const Sole = Store.createPresence("Selection.Sole");
 const [ReselectNoop, useReselectNoopContext] = context.create<boolean>({
   defaultValue: false,
   displayName: "Select.ReselectNoop",
+});
+const [SetHover, useSetHover] = context.create<(key: record.Key) => void>({
+  defaultValue: destructor.NOOP,
+  displayName: "Select.SetHover",
 });
 
 /**
@@ -90,6 +98,7 @@ export const Context = <K extends record.Key = record.Key>({
   clear,
   hover: hoverValue,
   reselectNoop = false,
+  setHover = destructor.NOOP,
   children,
 }: ContextProps<K>): ReactElement => (
   <Members.Context
@@ -102,7 +111,9 @@ export const Context = <K extends record.Key = record.Key>({
       <Head.Context value={headOf(value)}>
         <Sole.Context value={soleOf(value)}>
           <ReselectNoop value={reselectNoop}>
-            <Hover.Context value={hoverValue}>{children}</Hover.Context>
+            <SetHover value={setHover as (key: record.Key) => void}>
+              <Hover.Context value={hoverValue}>{children}</Hover.Context>
+            </SetHover>
           </ReselectNoop>
         </Sole.Context>
       </Head.Context>
@@ -149,9 +160,19 @@ export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn =
   const head = Head.useIsPresent(key);
   const sole = Sole.useIsPresent(key);
   const hovered = Hover.useIsPresent(key);
+  const setHover = useSetHover();
+  const onHover = useCallback(() => setHover(key), [setHover, key]);
   return useMemo(
-    () => ({ selected: member, focused, head, sole, hovered, onSelect: onItem }),
-    [member, focused, head, sole, hovered, onItem],
+    () => ({
+      selected: member,
+      focused,
+      head,
+      sole,
+      hovered,
+      onSelect: onItem,
+      onHover,
+    }),
+    [member, focused, head, sole, hovered, onItem, onHover],
   );
 };
 
