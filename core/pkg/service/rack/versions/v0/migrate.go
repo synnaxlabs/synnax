@@ -141,7 +141,7 @@ func backfillStatuses(
 				Name:    r.Name,
 				Time:    telem.Now(),
 				Variant: status.VariantWarning,
-				Message: "Status unknown",
+				Message: "Rack status unknown",
 				Details: StatusDetails{Rack: r.Key},
 			})
 		}

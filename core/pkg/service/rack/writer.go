@@ -46,7 +46,7 @@ func resolveStatus(r *Rack) *Status {
 			Name:    r.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantWarning,
-			Message: "Status unknown",
+			Message: "Rack status unknown",
 			Details: StatusDetails{Rack: r.Key},
 		}
 	}

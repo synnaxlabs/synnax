@@ -171,25 +171,19 @@ func (f *factory) setConfigError(
 	cmdKey string,
 	err error,
 ) {
-	details := task.NewStatusDetails(t, false)
-	details.Cmd = cmdKey
-	stat := task.Status{
-		Key:         t.OntologyID().String(),
-		Name:        t.Name,
-		Variant:     status.VariantError,
-		Message:     "Failed to configure task",
-		Description: err.Error(),
-		Time:        telem.Now(),
-		Details:     details,
-	}
-	if setErr := f.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return f.cfg.Status.NewWriter(tx).Set(ctx, &stat)
-	}); setErr != nil {
+	if sErr := driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t).Send(
+		ctx,
+		cmdKey,
+		status.VariantError,
+		false,
+		"Failed to configure task",
+		err.Error(),
+	); sErr != nil {
 		f.cfg.L.Error(
 			"failed to set configuration status for task",
 			zap.Stringer("key", t.Key),
 			zap.String("name", t.Name),
-			zap.Error(setErr),
+			zap.Error(sErr),
 		)
 	}
 }

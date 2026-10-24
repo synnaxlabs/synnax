@@ -101,7 +101,8 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 			Time:    state.lastUpdated,
 			Message: "Driver not running",
 			Description: fmt.Sprintf(
-				"The Core has not heard from the Driver on %s for %s.",
+				"The Core has not heard from the Driver on %s for %s. Check that "+
+					"the Driver is running and can reach the Core.",
 				r.Name,
 				timeSinceAlive.Truncate(telem.Second),
 			),

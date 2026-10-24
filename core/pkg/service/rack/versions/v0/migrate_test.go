@@ -104,7 +104,7 @@ var _ = Describe("Migration", func() {
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
-		Expect(restoredStatus.Message).To(Equal("Status unknown"))
+		Expect(restoredStatus.Message).To(Equal("Rack status unknown"))
 		Expect(restoredStatus.Details.Rack).To(Equal(r.Key))
 	})
 
