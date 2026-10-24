@@ -68,6 +68,7 @@ Writes one RxPDO entry.
 | `data_type`     | string | Yes      | -       | Synnax data type, the same size as the entry |
 | `cmd_channel`   | number | Yes      | -       | Synnax command channel key                   |
 | `state_channel` | number | No       | `0`     | Synnax state channel key                     |
+| `stop_value`    | number | No       | `0`     | Value the entry takes when the task stops    |
 
 </ChannelType>
 
@@ -96,6 +97,10 @@ Console before the task runs.
   load. Typically 10-50 Hz is sufficient.
 - **Execution rate** -> Determines how frequently commands are sent to hardware. Higher
   rates provide more responsive control.
+- **Stop value** -> When the task stops, the Driver sends each stop value to the devices
+  before they leave the operational state. While other tasks keep the network running,
+  the entry holds its stop value until a task commands it. An integer entry needs a
+  whole number that fits it.
 
 <Divider.Divider x />
 
