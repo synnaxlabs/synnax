@@ -55,9 +55,8 @@ export const ContactForm = (): ReactElement => {
         else window.alert("Something went wrong. Please try again later.");
       } catch {
         window.alert("Something went wrong. Please try again later.");
-      } finally {
-        setLoading(false);
       }
+      setLoading(false);
     })();
   };
 
