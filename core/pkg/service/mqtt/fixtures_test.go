@@ -93,6 +93,13 @@ func writeDevice(ctx context.Context, dev *device.Device) {
 	})).To(Succeed())
 }
 
+// editDevice replaces the properties of dev.
+func editDevice(ctx context.Context, dev device.Device, props msgpack.EncodedJSON) {
+	GinkgoHelper()
+	dev.Properties = props
+	writeDevice(ctx, &dev)
+}
+
 // createIndexed creates an index channel and one data channel of each data type.
 func createIndexed(
 	ctx context.Context,

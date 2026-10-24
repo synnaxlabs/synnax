@@ -113,6 +113,23 @@ describe("MQTT Task Types", () => {
       expect(issuesOf(result)).toEqual([]);
     });
 
+    it("should accept disabled entries that are not filled in", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig(
+          entry,
+          {
+            type: "plain",
+            key: "e2",
+            topic: "",
+            disabled: true,
+            fields: [{ key: "f2", pointer: "temperature" }],
+          },
+          { type: "sparkplug", key: "s2", disabled: true },
+        ),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+
     it("should reject a config with no entries", () => {
       const result = MQTT.Task.deployReadConfigZ.safeParse(readConfig());
       expect(issuesOf(result)).toEqual([
@@ -351,6 +368,25 @@ describe("MQTT Task Types", () => {
       expect(issuesOf(result)).toEqual([]);
     });
 
+    it("should accept disabled fields that are not filled in", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig({
+          ...entry,
+          fields: [
+            field,
+            { key: "f2", pointer: "unit", disabled: true },
+            {
+              key: "f3",
+              pointer: "/temperature",
+              dataType: "timestamp",
+              disabled: true,
+            },
+          ],
+        }),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+
     it("should reject an enum label that a field maps twice", () => {
       const result = MQTT.Task.deployReadConfigZ.safeParse(
         readConfig({
@@ -448,6 +484,23 @@ describe("MQTT Task Types", () => {
       expect(issuesOf(result)).toEqual([
         { message: "At least one target must be enabled", path: "targets" },
       ]);
+    });
+
+    it("should accept disabled targets that are not filled in", () => {
+      const result = MQTT.Task.deployWriteConfigZ.safeParse(
+        writeConfig(
+          target,
+          {
+            type: "plain",
+            key: "t2",
+            topic: "",
+            disabled: true,
+            fields: [{ key: "g1", type: "generated", pointer: "", generator: "uuid" }],
+          },
+          { type: "sparkplug", key: "s2", disabled: true },
+        ),
+      );
+      expect(issuesOf(result)).toEqual([]);
     });
 
     it("should accept a Sparkplug B target beside a plain target", () => {
@@ -556,8 +609,41 @@ describe("MQTT Task Types", () => {
       );
       expect(issuesOf(result)).toEqual([
         {
-          message: 'Pointer "/value" is already used by another field',
+          message: 'Pointer "/value" overlaps another field',
           path: "targets.0.fields.0.pointer",
+        },
+      ]);
+    });
+
+    it("should reject an additional field inside the channel value", () => {
+      const result = MQTT.Task.deployWriteConfigZ.safeParse(
+        writeConfig({
+          ...target,
+          fields: [{ key: "s1", type: "static", pointer: "/value/unit", value: "rpm" }],
+        }),
+      );
+      expect(issuesOf(result)).toEqual([
+        {
+          message: 'Pointer "/value/unit" overlaps another field',
+          path: "targets.0.fields.0.pointer",
+        },
+      ]);
+    });
+
+    it("should reject an additional field that holds another field", () => {
+      const result = MQTT.Task.deployWriteConfigZ.safeParse(
+        writeConfig({
+          ...target,
+          fields: [
+            { key: "s1", type: "static", pointer: "/meta/unit", value: "rpm" },
+            { key: "g1", type: "generated", pointer: "/meta", generator: "uuid" },
+          ],
+        }),
+      );
+      expect(issuesOf(result)).toEqual([
+        {
+          message: 'Pointer "/meta" overlaps another field',
+          path: "targets.0.fields.1.pointer",
         },
       ]);
     });
@@ -753,6 +839,13 @@ describe("MQTT Edge Task", () => {
     it("should allow a disabled tag to share a name with an enabled one", () => {
       const result = MQTT.Task.deployEdgeConfigZ.safeParse(
         edgeConfig(tag, { ...tag, key: "t2", disabled: true }),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should accept a disabled tag with no name or channel", () => {
+      const result = MQTT.Task.deployEdgeConfigZ.safeParse(
+        edgeConfig(tag, { key: "t2", disabled: true }),
       );
       expect(issuesOf(result)).toEqual([]);
     });

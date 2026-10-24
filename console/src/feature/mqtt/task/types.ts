@@ -44,6 +44,17 @@ const deployTopicZ = z
   .min(1, "Topic is required")
   .regex(/^[^+#]*$/, "Topic must not hold the wildcards + or #");
 
+// The Core skips disabled items, so only the enabled ones must be complete.
+const validateEnabled =
+  (strict: z.ZodType) => (ctx: z.core.ParsePayload<{ disabled: boolean }[]>) =>
+    ctx.value.forEach((item, i) => {
+      if (item.disabled) return;
+      const result = strict.safeParse(item);
+      if (result.success) return;
+      for (const { message, path } of result.error.issues)
+        ctx.issues.push({ code: "custom", input: item, message, path: [i, ...path] });
+    });
+
 export const READ_TYPE = `${PREFIX}_read`;
 
 export interface ReadField extends mqtt.ReadField {}
@@ -86,7 +97,8 @@ const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
   // A variable-length channel is virtual and has no index.
   const mixed = enabled.some(isVariable) && !enabled.every(isVariable);
   value.fields.forEach((field, i) => {
-    if (mixed && !field.disabled && isVariable(field))
+    if (field.disabled) return;
+    if (mixed && isVariable(field))
       ctx.issues.push({
         code: "custom",
         input: value,
@@ -117,7 +129,9 @@ const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
 const deployPlainReadEntryZ = mqtt.plainReadEntryZ
   .extend({
     topic: deployTopicZ,
-    fields: deployReadFieldZ.array().check(Task.validateReadChannels),
+    fields: mqtt.readFieldZ
+      .array()
+      .check(validateEnabled(deployReadFieldZ), Task.validateReadChannels),
   })
   .check(validateReadEntry);
 
@@ -168,7 +182,9 @@ const validateItems = (label: string) => (ctx: z.core.ParsePayload<Item[]>) => {
 
 export const deployReadConfigZ = mqtt.readConfigZ.extend({
   device: Task.deviceKeyZ,
-  entries: deployReadEntryZ.array().check(validateItems("entry")),
+  entries: mqtt.readEntryZ
+    .array()
+    .check(validateEnabled(deployReadEntryZ), validateItems("entry")),
 });
 
 export const READ_SCHEMAS = {
@@ -213,28 +229,35 @@ const validateChannelField = (ctx: z.core.ParsePayload<ChannelField>) => {
   });
 };
 
+// The Core sets each pointer in turn, so one inside another replaces or blocks it.
+const overlaps = (a: string, b: string) =>
+  a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
+
 const validateWriteTarget = (ctx: z.core.ParsePayload<PlainWriteTarget>) => {
   const { value } = ctx;
   const { channel, fields } = value;
-  if (channel.pointer === "" && fields.length > 0)
-    ctx.issues.push({
-      code: "custom",
-      input: value,
-      message:
-        "An empty channel pointer sends the raw value as the payload, so additional fields are not allowed",
-      path: ["channel", "pointer"],
-    });
-  const pointers = new Set<string>([channel.pointer]);
-  fields.forEach((field, i) => {
-    if (field.pointer === "") return;
-    if (pointers.has(field.pointer))
+  if (channel.pointer === "") {
+    if (fields.length > 0)
       ctx.issues.push({
         code: "custom",
         input: value,
-        message: `Pointer "${field.pointer}" is already used by another field`,
+        message:
+          "An empty channel pointer sends the raw value as the payload, so additional fields are not allowed",
+        path: ["channel", "pointer"],
+      });
+    return;
+  }
+  const pointers = [channel.pointer];
+  fields.forEach((field, i) => {
+    if (field.pointer === "") return;
+    if (pointers.some((pointer) => overlaps(pointer, field.pointer)))
+      ctx.issues.push({
+        code: "custom",
+        input: value,
+        message: `Pointer "${field.pointer}" overlaps another field`,
         path: ["fields", i, "pointer"],
       });
-    else pointers.add(field.pointer);
+    else pointers.push(field.pointer);
   });
 };
 
@@ -262,7 +285,9 @@ const deployWriteTargetZ = z.discriminatedUnion("type", [
 
 export const deployWriteConfigZ = mqtt.writeConfigZ.extend({
   device: Task.deviceKeyZ,
-  targets: deployWriteTargetZ.array().check(validateItems("target")),
+  targets: mqtt.writeTargetZ
+    .array()
+    .check(validateEnabled(deployWriteTargetZ), validateItems("target")),
 });
 
 export const WRITE_SCHEMAS = {
@@ -312,7 +337,7 @@ export const deployEdgeConfigZ = mqtt.edgeConfigZ.extend({
   device: Task.deviceKeyZ,
   group: sparkplugIDZ("Group").min(1, "Group is required"),
   edgeNode: sparkplugIDZ("Edge node").min(1, "Edge node is required"),
-  tags: deployEdgeTagZ.array().check(validateEdgeTags),
+  tags: mqtt.edgeTagZ.array().check(validateEnabled(deployEdgeTagZ), validateEdgeTags),
 });
 
 export const EDGE_SCHEMAS = {

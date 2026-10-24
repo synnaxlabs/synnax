@@ -563,16 +563,13 @@ func (f *Factory) configureEdge(
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
-	clientCfg, err := newClientConfig(dev)
-	if err != nil {
+	if _, err = newClientConfig(dev); err != nil {
 		return nil, cfg.AutoStart, err
 	}
-	// The edge node is its own client, so it needs an ID of its own. Sparkplug B ties
-	// the death message to the last will of one connection.
-	clientCfg.clientID = deriveClientID(dev.Key + "/" + t.Key.String())
 	edge := &edgeNode{
 		ins:       f.cfg.Child(t.Key.String()),
-		cfg:       clientCfg,
+		broker:    dev.Key,
+		devices:   f.cfg.Device,
 		command:   sparkplug.CommandTopic(node, "").String(),
 		tags:      make(map[channel.Key][]publishedTag),
 		byName:    make(map[string]publishedTag),

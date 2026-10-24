@@ -497,6 +497,26 @@ var _ = Describe("Edge task", func() {
 			},
 		)
 
+		It("Should write the commands that it holds when the connection drops",
+			func(ctx SpecContext) {
+				_, cmdData := createIndexed(ctx, telem.Float64T)
+				start(ctx, edgeConfig(dev, commandTag(
+					"setpoint", createVirtual(ctx, telem.Float64T), cmdData[0],
+				)))
+				values := make([]float64, 16)
+				for i := range values {
+					values[i] = float64(i)
+					host.sendCommand(commandMetric("setpoint", 0, values[i]))
+				}
+				Eventually(func() int64 { return stored(ctx, cmdData[0]).Len() }).
+					Should(BeNumerically(">", 0))
+				// No reconnect follows, so a held command is written now or never.
+				broker.stop()
+				Eventually(func() telem.Series { return stored(ctx, cmdData[0]) }).
+					Should(telem.MatchSeriesData(telem.NewSeriesV(values...)))
+			},
+		)
+
 		It("Should write a command by alias to the command channel",
 			func(ctx SpecContext) {
 				_, cmdData := createIndexed(ctx, telem.Float64T)
@@ -737,6 +757,54 @@ var _ = Describe("Edge task", func() {
 			Eventually(host.births, 10*time.Second).Should(HaveLen(1))
 			expectStatus(ctx, t, status.VariantSuccess, "")
 		})
+
+		It("Should move to the broker of an edit with a death on the old one",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx, telem.Float64T)
+				start(ctx, edgeConfig(dev, edgeTag("temp", ch, "double")))
+				moved := startBroker(0)
+				movedHost := startHost(moved, "plant", "line1")
+				editDevice(ctx, dev, msgpack.EncodedJSON{"port": moved.port})
+				Eventually(host.deaths).Should(HaveLen(1))
+				Expect(host.deaths()[0].bdSeq()).To(Equal(uint64(0)))
+				Eventually(movedHost.births, 10*time.Second).Should(HaveLen(1))
+				Expect(movedHost.births()[0].bdSeq()).To(Equal(uint64(1)))
+				Eventually(broker.clientCount).Should(BeZero())
+			},
+		)
+
+		It("Should start with the properties of an edit after its configure",
+			func(ctx SpecContext) {
+				moved := startBroker(0)
+				movedHost := startHost(moved, "plant", "line1")
+				t := newTask(rackKey, mqtt.EdgeTaskType, edgeConfig(
+					dev, edgeTag("temp", createVirtual(ctx, telem.Float64T), "double"),
+				))
+				configured := configure(ctx, factory, t)
+				editDevice(ctx, dev, msgpack.EncodedJSON{"port": moved.port})
+				Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
+					To(Succeed())
+				Eventually(movedHost.births).Should(HaveLen(1))
+				Expect(host.births()).To(BeEmpty())
+			},
+		)
+
+		DescribeTable("Should keep its session through an edit",
+			func(ctx SpecContext, props func() msgpack.EncodedJSON) {
+				ch := createVirtual(ctx, telem.Float64T)
+				start(ctx, edgeConfig(dev, edgeTag("temp", ch, "double")))
+				dev.Name = "Renamed Broker"
+				editDevice(ctx, dev, props())
+				Consistently(host.deaths, 300*time.Millisecond).Should(BeEmpty())
+				Expect(host.births()).To(HaveLen(1))
+			},
+			Entry("that leaves its properties the same", func() msgpack.EncodedJSON {
+				return msgpack.EncodedJSON{"port": broker.port}
+			}),
+			Entry("that it cannot take", func() msgpack.EncodedJSON {
+				return msgpack.EncodedJSON{"port": 0}
+			}),
+		)
 
 		It("Should start and stop many times without a leak", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.Float64T)

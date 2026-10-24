@@ -290,9 +290,9 @@ func (s *readSource) Open(ctx context.Context) (driver.Reader, error) {
 type reader struct {
 	*readSource
 	attachment *attachment
-	// awaited holds the edge nodes that have until awaitedUntil to publish a birth.
-	awaited      set.Set[sparkplug.NodeID]
-	awaitedUntil time.Time
+	// awaited holds the edge nodes and devices that must publish a birth, each with the
+	// time it has until.
+	awaited map[tagScope]time.Time
 	// offline holds the edge nodes and devices with no valid birth, and offlineErr
 	// the warning that names them.
 	offline    set.Set[tagScope]
@@ -318,8 +318,8 @@ func (r *reader) subscribe(ctx context.Context) error {
 		}
 	}
 	r.await(time.Now())
-	for node := range r.awaited {
-		if err := r.attachment.follow(ctx, node); err != nil {
+	for scope := range r.awaited {
+		if err := r.attachment.follow(ctx, scope.node); err != nil {
 			return err
 		}
 	}
@@ -329,11 +329,22 @@ func (r *reader) subscribe(ctx context.Context) error {
 // await gives every edge node of the task the time of birthGrace to publish a birth. A
 // task that connects has missed the last birth of each one.
 func (r *reader) await(now time.Time) {
-	r.awaited = make(set.Set[sparkplug.NodeID])
+	r.awaited = make(map[tagScope]time.Time)
+	until := now.Add(r.birthGrace)
 	for id := range r.tags {
-		r.awaited.Add(id.node)
+		r.awaited[tagScope{node: id.node}] = until
 	}
-	r.awaitedUntil = now.Add(r.birthGrace)
+}
+
+// awaitDevices gives each device of node that the task reads the time of birthGrace to
+// publish a birth. A new session of an edge node needs a new birth of each device.
+func (r *reader) awaitDevices(now time.Time, node sparkplug.NodeID) {
+	until := now.Add(r.birthGrace)
+	for id := range r.tags {
+		if id.node == node && id.device != "" {
+			r.awaited[id.tagScope] = until
+		}
+	}
 }
 
 // Close implements driver.Reader.
@@ -400,23 +411,29 @@ func (r *reader) deadline() (deadline time.Time, ok bool) {
 	if r.degraded.err != nil {
 		deadline, ok = r.degraded.until, true
 	}
-	if len(r.awaited) > 0 && (!ok || r.awaitedUntil.Before(deadline)) {
-		deadline, ok = r.awaitedUntil, true
+	for _, until := range r.awaited {
+		if !ok || until.Before(deadline) {
+			deadline, ok = until, true
+		}
 	}
 	return deadline, ok
 }
 
-// expire ends the warning of a data loss that is over, and takes the edge nodes that
-// gave no birth in time as offline.
+// expire ends the warning of a data loss that is over, and takes the edge nodes and
+// devices that gave no birth in time as offline.
 func (r *reader) expire(now time.Time) {
 	if r.degraded.err != nil && !now.Before(r.degraded.until) {
 		r.degraded.err = nil
 	}
-	if len(r.awaited) > 0 && !now.Before(r.awaitedUntil) {
-		for node := range r.awaited {
-			r.offline.Add(tagScope{node: node})
+	expired := false
+	for scope, until := range r.awaited {
+		if !now.Before(until) {
+			r.offline.Add(scope)
+			delete(r.awaited, scope)
+			expired = true
 		}
-		clear(r.awaited)
+	}
+	if expired {
 		r.refreshOffline()
 	}
 }
@@ -498,8 +515,11 @@ func (r *reader) convertEvent(now time.Time, msg message, b *batch) {
 		return
 	case sparkplug.NBirth, sparkplug.DBirth:
 		birth = true
-		delete(r.awaited, ev.Node)
+		delete(r.awaited, scope)
 		delete(r.offline, scope)
+		if ev.Type == sparkplug.NBirth {
+			r.awaitDevices(now, ev.Node)
+		}
 		r.refreshOffline()
 		r.checkBirth(now, scope, ev.Metrics)
 	}

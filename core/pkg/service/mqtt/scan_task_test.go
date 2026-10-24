@@ -214,19 +214,13 @@ var _ = Describe("Scan task", func() {
 			Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 				To(Succeed())
 		}
-		edit := func(ctx context.Context, dev device.Device, props msgpack.EncodedJSON) {
-			GinkgoHelper()
-			dev.Properties = props
-			writeDevice(ctx, &dev)
-		}
-
 		It("Should reconnect a running task with the new properties, with no scan task",
 			func(ctx SpecContext) {
 				broker := startBroker(0)
 				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
 				startRead(ctx, configureRead(ctx, dev))
 				Eventually(broker.clientCount).Should(Equal(1))
-				edit(ctx, dev, msgpack.EncodedJSON{
+				editDevice(ctx, dev, msgpack.EncodedJSON{
 					"port": broker.port, "client_id": "line-9",
 				})
 				Eventually(broker.connectedIDs).Should(ContainElement("line-9"))
@@ -239,7 +233,7 @@ var _ = Describe("Scan task", func() {
 				broker := startBroker(0)
 				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
 				read := configureRead(ctx, dev)
-				edit(ctx, dev, msgpack.EncodedJSON{
+				editDevice(ctx, dev, msgpack.EncodedJSON{
 					"port": broker.port, "client_id": "line-9",
 				})
 				startRead(ctx, read)
@@ -254,13 +248,13 @@ var _ = Describe("Scan task", func() {
 				broker := startBroker(0)
 				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
 				read := configureRead(ctx, dev)
-				edit(ctx, dev, msgpack.EncodedJSON{"port": 0})
+				editDevice(ctx, dev, msgpack.EncodedJSON{"port": 0})
 				Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 					To(MatchError(
 						"invalid broker properties: port: must be 1 to 65535: " +
 							"validation error",
 					))
-				edit(ctx, dev, msgpack.EncodedJSON{"port": broker.port})
+				editDevice(ctx, dev, msgpack.EncodedJSON{"port": broker.port})
 				startRead(ctx, read)
 				Eventually(broker.clientCount).Should(Equal(1))
 			},
@@ -274,7 +268,7 @@ var _ = Describe("Scan task", func() {
 				first, second := configureRead(ctx, dev), configureRead(ctx, dev)
 				startRead(ctx, first)
 				Eventually(broker.clientCount).Should(Equal(1))
-				edit(ctx, dev, msgpack.EncodedJSON{
+				editDevice(ctx, dev, msgpack.EncodedJSON{
 					"port": broker.port, "client_id": "line-9",
 				})
 				Eventually(broker.connectedIDs).Should(ContainElement("line-9"))
@@ -292,7 +286,7 @@ var _ = Describe("Scan task", func() {
 				startRead(ctx, configureRead(ctx, dev))
 				Eventually(broker.clientCount).Should(Equal(1))
 				scan(ctx)
-				edit(ctx, dev, msgpack.EncodedJSON{
+				editDevice(ctx, dev, msgpack.EncodedJSON{
 					"port": broker.port, "cert_file": "/certs/client.crt",
 				})
 				Eventually(func(g Gomega) {
@@ -304,7 +298,7 @@ var _ = Describe("Scan task", func() {
 					))
 				}).Should(Succeed())
 				Expect(broker.connectedIDs()).To(HaveLen(1))
-				edit(ctx, dev, msgpack.EncodedJSON{"port": broker.port})
+				editDevice(ctx, dev, msgpack.EncodedJSON{"port": broker.port})
 				Eventually(func() status.Variant {
 					return deviceStatus(ctx, dev).Variant
 				}).Should(Equal(status.VariantSuccess))

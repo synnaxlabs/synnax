@@ -11,6 +11,7 @@ package mqtt
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -167,9 +168,21 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 		}
 		t.extras = append(t.extras, extra)
 	}
-	// A payload with a blocked path fails now, not on the first command.
-	if _, err = t.payload(telem.MakeSeries(ch.DataType, 1), 0); err != nil {
-		return t, errors.Wrap(err, path)
+	// A pointer that holds another replaces or blocks the value set there.
+	pointers := []xjson.Pointer{t.pointer}
+	for _, extra := range t.extras {
+		for _, p := range pointers {
+			shorter, longer := p, extra.pointer
+			if len(shorter) > len(longer) {
+				shorter, longer = longer, shorter
+			}
+			if slices.Equal(shorter, longer[:len(shorter)]) {
+				return t, errors.Wrapf(
+					validate.ErrValidation, "%s: two fields set %s", path, shorter,
+				)
+			}
+		}
+		pointers = append(pointers, extra.pointer)
 	}
 	return t, nil
 }

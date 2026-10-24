@@ -164,6 +164,13 @@ func (n *testEdgeNode) setTags(device string, tags ...tagValue) {
 	n.mu.tags[device] = tags
 }
 
+// removeDevice drops device, so the next birth of the edge node leaves it out.
+func (n *testEdgeNode) removeDevice(device string) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	delete(n.mu.tags, device)
+}
+
 func (n *testEdgeNode) setSilent(silent bool) {
 	n.mu.Lock()
 	defer n.mu.Unlock()

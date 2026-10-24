@@ -280,6 +280,39 @@ var _ = Describe("Sparkplug B read entries", func() {
 			))
 		})
 
+		It("Should warn about a device that gives no birth", func(ctx SpecContext) {
+			_, data := createIndexed(ctx, telem.Float64T)
+			t := start(ctx, readConfig(
+				dev, tagEntry("plant", "line1", "pump", "speed", data[0]),
+			))
+			Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
+				HaveField("Variant", status.VariantWarning),
+				HaveField("Message", Equal("device plant/line1/pump is offline")),
+			))
+		})
+
+		It("Should warn about a device that gives no birth after its edge node is "+
+			"born again",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.Float64T)
+				node.setTags("pump", tagValue{
+					name: "speed", alias: 1, value: 1.0, timestamp: 1700000000000,
+				})
+				t := start(ctx, readConfig(
+					dev, tagEntry("plant", "line1", "pump", "speed", data[0]),
+				))
+				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+					Should(BeEquivalentTo(1))
+				node.removeDevice("pump")
+				node.death()
+				node.birth()
+				Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
+					HaveField("Variant", status.VariantWarning),
+					HaveField("Message", Equal("device plant/line1/pump is offline")),
+				))
+			},
+		)
+
 		It("Should warn about a tag that the birth does not declare",
 			func(ctx SpecContext) {
 				_, data := createIndexed(ctx, telem.Float64T)

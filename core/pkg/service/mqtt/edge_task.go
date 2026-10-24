@@ -18,10 +18,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -123,7 +127,9 @@ func (h edgeHealth) err() error {
 // commands it receives to the command channels of its tags.
 type edgeNode struct {
 	ins alamos.Instrumentation
-	cfg clientConfig
+	// broker is the key of the broker device, whose edits the edge node follows.
+	broker  device.Key
+	devices *device.Service
 	// command is the topic of the NCMD messages to the edge node.
 	command   string
 	tags      map[channel.Key][]publishedTag
@@ -148,38 +154,56 @@ type edgeNode struct {
 		// commandErr is the text of the error of the last command. Empty when the
 		// command was written.
 		commandErr string
+		// cfg is the client config of the next connection attempt.
+		cfg clientConfig
+		// restart ends the current connection, so the next one takes cfg. Nil before
+		// the first connection attempt.
+		restart context.CancelFunc
 	}
 }
 
 var _ driver.Sink = (*edgeNode)(nil)
 
-// edgeSession is the driver.Writer of one run of an edge task: the goroutine of its
-// connection and the commands it receives.
+// edgeSession is the driver.Writer of one run of an edge task: the goroutines of its
+// connection and of the commands it receives.
 type edgeSession struct {
 	*edgeNode
-	// commands carries the commands that the message handler received to the serve
-	// loop, which writes them.
+	// commands carries the commands that the message handler received to writeCommands.
 	commands chan sparkplug.Command
 	// rebirths wakes the serve loop to publish the birth again.
 	rebirths chan struct{}
+	// edited wakes followBroker after an edit of the broker device.
+	edited     chan struct{}
+	disconnect observe.Disconnect
 	// changed fires when the state that Health reports may have changed.
 	changed chan struct{}
 	cancel  context.CancelFunc
-	stopped chan struct{}
+	stopped <-chan struct{}
 }
 
 var _ driver.Writer = (*edgeSession)(nil)
 
-// Open implements driver.Sink. It returns after the first connection attempt.
+// Open implements driver.Sink. It connects with the current properties of the broker
+// device, and returns after the first connection attempt. It returns an error when the
+// edge node cannot take those properties.
 func (n *edgeNode) Open(ctx context.Context) (driver.Writer, error) {
 	e := &edgeSession{
 		edgeNode: n,
 		commands: make(chan sparkplug.Command, commandBacklog),
 		rebirths: make(chan struct{}, 1),
+		edited:   make(chan struct{}, 1),
 		changed:  make(chan struct{}, 1),
-		stopped:  make(chan struct{}),
+	}
+	// An edit after the read below wakes followBroker.
+	e.disconnect = n.devices.Observe().OnChange(e.onDeviceChange)
+	cfg, _, err := n.brokerConfig(ctx, clientConfig{})
+	if err != nil {
+		e.disconnect()
+		return nil, err
 	}
 	n.mu.Lock()
+	n.mu.cfg = cfg
+	n.mu.restart = nil
 	n.mu.commandErr = ""
 	n.mu.latest = make(map[string]sparkplug.Metric)
 	n.mu.reported = edgeHealth{connected: true}
@@ -192,15 +216,24 @@ func (n *edgeNode) Open(ctx context.Context) (driver.Writer, error) {
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(e.ins))
 	e.cancel = cancel
 	sCtx.Go(func(ctx context.Context) error {
-		defer close(e.stopped)
 		defer settle()
 		e.run(ctx, settle)
 		return nil
 	}, signal.RecoverWithErrOnPanic())
+	sCtx.Go(func(ctx context.Context) error {
+		e.writeCommands(ctx)
+		return nil
+	}, signal.RecoverWithErrOnPanic())
+	sCtx.Go(func(ctx context.Context) error {
+		e.followBroker(ctx)
+		return nil
+	}, signal.RecoverWithErrOnPanic())
+	e.stopped = sCtx.Stopped()
 	select {
 	case <-settled:
 		return e, nil
 	case <-ctx.Done():
+		e.disconnect()
 		cancel()
 		<-e.stopped
 		return nil, ctx.Err()
@@ -209,19 +242,122 @@ func (n *edgeNode) Open(ctx context.Context) (driver.Writer, error) {
 
 // Close implements driver.Writer.
 func (e *edgeSession) Close() error {
+	e.disconnect()
 	e.cancel()
 	<-e.stopped
 	return nil
 }
 
+// brokerConfig reads the broker device and returns the client config of the edge node.
+// It returns false, and reads no TLS files, when the config matches current.
+func (n *edgeNode) brokerConfig(
+	ctx context.Context,
+	current clientConfig,
+) (clientConfig, bool, error) {
+	var dev device.Device
+	if err := n.devices.NewRetrieve().
+		Where(device.MatchKeys(n.broker)).
+		Entry(&dev).
+		Exec(ctx, nil); err != nil {
+		return clientConfig{}, false, err
+	}
+	props, err := parseProperties(dev)
+	if err != nil {
+		return clientConfig{}, false, err
+	}
+	cfg, err := newClientSettings(dev, props)
+	if err != nil {
+		return clientConfig{}, false, err
+	}
+	// The edge node is its own client, so it needs an ID of its own. Sparkplug B ties
+	// the death message to the last will of one connection.
+	cfg.clientID = deriveClientID(dev.Key + "/" + n.task.Key.String())
+	if cfg.equal(current) {
+		return current, false, nil
+	}
+	if cfg.tls, err = loadTLS(props); err != nil {
+		return clientConfig{}, false, err
+	}
+	return cfg, true, nil
+}
+
+// onDeviceChange runs in the commit of a device change, so it wakes followBroker and
+// never waits.
+func (e *edgeSession) onDeviceChange(
+	_ context.Context,
+	r gorp.TxReader[device.Key, device.Device],
+) {
+	for ch := range r {
+		if ch.Variant != change.VariantSet || ch.Key != e.broker {
+			continue
+		}
+		select {
+		case e.edited <- struct{}{}:
+		default:
+		}
+	}
+}
+
+// followBroker moves the edge node to the new properties of each edit of the broker
+// device until ctx is cancelled. The edge node keeps its config through an edit that it
+// cannot take.
+func (e *edgeSession) followBroker(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-e.edited:
+		}
+		e.mu.Lock()
+		current := e.mu.cfg
+		e.mu.Unlock()
+		cfg, changed, err := e.brokerConfig(ctx, current)
+		if err != nil {
+			if ctx.Err() == nil {
+				e.ins.L.Warn(
+					"the edge node cannot take the properties of the broker device",
+					zap.Error(err),
+				)
+			}
+			continue
+		}
+		if !changed {
+			continue
+		}
+		e.mu.Lock()
+		e.mu.cfg = cfg
+		restart := e.mu.restart
+		e.mu.Unlock()
+		if restart != nil {
+			restart()
+		}
+	}
+}
+
+// run keeps the edge node connected until ctx is cancelled. Each restart ends the
+// current connection with an NDEATH, and the next one takes the current config.
 func (e *edgeSession) run(ctx context.Context, settle func()) {
+	for ctx.Err() == nil {
+		connCtx, restart := context.WithCancel(ctx)
+		e.mu.Lock()
+		e.mu.restart = restart
+		e.mu.Unlock()
+		e.connect(connCtx, settle)
+		restart()
+	}
+}
+
+func (e *edgeSession) connect(ctx context.Context, settle func()) {
 	reconnect(ctx, e.ins, reconnectHooks{
 		options: func(lost chan<- error) *paho.ClientOptions {
 			will, err := e.death()
 			if err != nil {
 				e.ins.L.DPanic("failed to encode the NDEATH message", zap.Error(err))
 			}
-			return newClientOptions(e.cfg).
+			e.mu.Lock()
+			cfg := e.mu.cfg
+			e.mu.Unlock()
+			return newClientOptions(cfg).
 				SetBinaryWill(will.Topic, will.Payload, will.QoS, will.Retained).
 				SetOrderMatters(true).
 				SetDefaultPublishHandler(e.onMessage).
@@ -262,8 +398,7 @@ func (e *edgeSession) run(ctx context.Context, settle func()) {
 	})
 }
 
-// serve writes commands and answers rebirth requests until ctx is cancelled or the
-// connection is lost.
+// serve answers rebirth requests until ctx is cancelled or the connection is lost.
 func (e *edgeSession) serve(
 	ctx context.Context,
 	client paho.Client,
@@ -280,6 +415,18 @@ func (e *edgeSession) serve(
 			if err := e.publishBirth(ctx, client); err != nil && ctx.Err() == nil {
 				e.ins.L.Warn("failed to publish the NBIRTH message", zap.Error(err))
 			}
+		}
+	}
+}
+
+// writeCommands writes each command that the message handler receives until ctx is
+// cancelled. It does not wait for a connection, so no command outlives the one that
+// carried it.
+func (e *edgeSession) writeCommands(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
 		case cmd := <-e.commands:
 			err := e.writeCommand(ctx, cmd)
 			if ctx.Err() != nil {

@@ -432,14 +432,34 @@ var _ = Describe("Write task", func() {
 					)), "target plant/x: static value at /unit is not a number"
 				},
 			),
-			Entry("fields whose pointers block each other",
+			Entry("a field at the parent of the channel value",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
 					unit := staticField("/unit", "string", "rpm")
 					target := plainTarget("plant/x", ch, "/unit/value", "number", unit)
 					return writeConfig(dev, target),
-						"target plant/x: cannot set /unit/value: " +
-							"a scalar value blocks the path"
+						"target plant/x: two fields set /unit"
+				},
+			),
+			Entry("a channel value at the parent of a field",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Float64T)
+					unit := staticField("/reading/unit", "string", "rpm")
+					target := plainTarget("plant/x", ch, "/reading", "number", unit)
+					return writeConfig(dev, target),
+						"target plant/x: two fields set /reading"
+				},
+			),
+			Entry("two fields at one pointer",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Float64T)
+					target := plainTarget(
+						"plant/x", ch, "/v", "number",
+						staticField("/unit", "string", "rpm"),
+						staticField("/unit", "string", "rps"),
+					)
+					return writeConfig(dev, target),
+						"target plant/x: two fields set /unit"
 				},
 			),
 		)
