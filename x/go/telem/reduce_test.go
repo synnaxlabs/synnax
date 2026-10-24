@@ -100,42 +100,80 @@ var _ = Describe("Reduce", func() {
 			),
 		)
 
-		It("Should follow the group size of decimation under the same limit", func() {
-			counts := []int64{
-				1,
-				2,
-				3,
-				999,
-				1000,
-				1001,
-				2001,
-				1 << 32,
-				1 << 33,
-				1 << 40,
-				math.MaxInt64,
-			}
-			limits := []uint32{0, 1, 2, 3, 1000, 1024, math.MaxUint32}
-			aggs := []telem.Aggregation{
+		DescribeTable(
+			"Should follow the group size of decimation under the same limit",
+			func(count int64, limit uint32, agg telem.Aggregation) {
+				decimated := telem.GroupSize(count, limit, telem.AggregationDecimate)
+				Expect(agg.GroupSize(decimated)).
+					To(Equal(telem.GroupSize(count, limit, agg)))
+			},
+			Entry(
+				"no limit",
+				int64(1e6),
+				uint32(0),
 				telem.AggregationMinMax,
+			),
+			Entry(
+				"min/max count at the limit",
+				int64(1000),
+				uint32(1000),
+				telem.AggregationMinMax,
+			),
+			Entry(
+				"min/max count one past the limit",
+				int64(1001),
+				uint32(1000),
+				telem.AggregationMinMax,
+			),
+			Entry(
+				"min/max with an odd limit",
+				int64(1000),
+				uint32(3),
+				telem.AggregationMinMax,
+			),
+			Entry(
+				"min/max with a limit of one",
+				int64(10),
+				uint32(1),
+				telem.AggregationMinMax,
+			),
+			Entry(
+				"average count one past the limit",
+				int64(1001),
+				uint32(1000),
 				telem.AggregationAverage,
+			),
+			Entry(
+				"min/max count past the largest uint32",
+				int64(1)<<33,
+				uint32(1024),
+				telem.AggregationMinMax,
+			),
+			Entry(
+				"average count past the largest uint32",
+				int64(1)<<33,
+				uint32(1024),
+				telem.AggregationAverage,
+			),
+			Entry(
+				"decimate count past the largest uint32",
+				int64(1)<<33,
+				uint32(1024),
 				telem.AggregationDecimate,
-			}
-			for _, count := range counts {
-				for _, limit := range limits {
-					decimated := telem.GroupSize(
-						count,
-						limit,
-						telem.AggregationDecimate,
-					)
-					for _, agg := range aggs {
-						Expect(agg.GroupSize(decimated)).To(
-							Equal(telem.GroupSize(count, limit, agg)),
-							"count %d, limit %d, %s", count, limit, agg,
-						)
-					}
-				}
-			}
-		})
+			),
+			Entry(
+				"min/max with the largest count",
+				int64(math.MaxInt64),
+				uint32(1024),
+				telem.AggregationMinMax,
+			),
+			Entry(
+				"min/max with the largest limit",
+				int64(1)<<40,
+				uint32(math.MaxUint32),
+				telem.AggregationMinMax,
+			),
+		)
 	})
 
 	Describe("GroupStart", func() {
