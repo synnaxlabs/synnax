@@ -134,7 +134,12 @@ public:
         }
         if (!this->loop->watch(this->inputs.notifier())) {
             LOG(ERROR) << "[arc.runtime] failed to watch input notifier";
-            this->error_handler(x::errors::Error("failed to watch input notifier"));
+            this->error_handler(
+                x::errors::Error(
+                    x::errors::INTERNAL,
+                    "The runtime failed to watch for input data."
+                )
+            );
             return;
         }
         auto timeout = x::telem::TimeSpan(0);
@@ -173,7 +178,13 @@ public:
                 if (!out.frame.empty() || !out.authority_changes.empty()) {
                     if (!this->outputs.push(std::move(out))) {
                         if (this->outputs.closed()) break;
-                        this->error_handler(errors::QUEUE_FULL_OUTPUT);
+                        this->error_handler(
+                            x::errors::Error(
+                                errors::QUEUE_FULL_OUTPUT,
+                                "The output queue is full, so the program dropped "
+                                "output data."
+                            )
+                        );
                     }
                 }
             }
@@ -214,10 +225,15 @@ public:
     }
 
     x::errors::Error write(x::telem::Frame frame) {
-        if (this->inputs.closed()) return x::errors::Error("runtime closed");
+        if (this->inputs.closed())
+            return x::errors::Error(errors::CLOSED, "The runtime is closed.");
         if (!this->inputs.push(std::move(frame))) {
-            this->error_handler(errors::QUEUE_FULL_INPUT);
-            return errors::QUEUE_FULL_INPUT;
+            const auto err = x::errors::Error(
+                errors::QUEUE_FULL_INPUT,
+                "The input queue is full, so the program dropped input data."
+            );
+            this->error_handler(err);
+            return err;
         }
         return x::errors::NIL;
     }

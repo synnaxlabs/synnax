@@ -372,7 +372,7 @@ public:
                 auto trap = result.err();
                 auto msg = trap.message();
                 std::string trap_msg(msg.data(), msg.size());
-                return x::errors::Error("WASM execution failed: " + trap_msg);
+                return x::errors::Error(errors::WASM_TRAP, trap_msg);
             }
 
             const auto results = result.ok();
@@ -390,7 +390,10 @@ public:
             const size_t mem_size = mem_span.size();
 
             if (this->base + sizeof(uint64_t) > mem_size)
-                return x::errors::Error("base address out of memory bounds");
+                return x::errors::Error(
+                    errors::WASM_TRAP,
+                    "The base address is out of memory bounds."
+                );
 
             uint64_t dirty_flags = 0;
             memcpy(&dirty_flags, mem_data + base, sizeof(uint64_t));

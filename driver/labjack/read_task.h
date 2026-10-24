@@ -16,6 +16,8 @@
 #include <variant>
 #include <vector>
 
+#include "absl/log/log.h"
+
 #include "client/cpp/labjack/json.gen.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
@@ -431,7 +433,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
         auto [dev, err] = client->devices.retrieve(this->device_key);
         if (err) {
-            parser.field_err("device", "failed to retrieve device: " + err.message());
+            parser.field_err("device", "failed to retrieve device: " + err.data);
             return;
         }
         this->dev_model = dev.model;
@@ -441,10 +443,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             keys.push_back(ch->synnax_key);
         const auto [sy_channels, ch_err] = client->channels.retrieve(keys);
         if (ch_err) {
-            parser.field_err(
-                "channels",
-                "failed to retrieve channels: " + ch_err.message()
-            );
+            parser.field_err("channels", "failed to retrieve channels: " + ch_err.data);
             return;
         }
         size_t i = 0;
@@ -738,11 +737,13 @@ public:
             return res;
         }
         if (static_cast<size_t>(device_scan_backlog) >
-            this->cfg.device_scan_backlog_warn_on_count)
-            res.warning = common::skew_warning(device_scan_backlog);
-        if (static_cast<size_t>(ljm_scan_backlog) >
-            this->cfg.ljm_scan_backlog_warn_on_count)
-            res.warning = common::skew_warning(ljm_scan_backlog);
+                this->cfg.device_scan_backlog_warn_on_count ||
+            static_cast<size_t>(ljm_scan_backlog) >
+                this->cfg.ljm_scan_backlog_warn_on_count) {
+            LOG(WARNING) << "[labjack] scan backlog: device " << device_scan_backlog
+                         << ", LJM " << ljm_scan_backlog;
+            res.warning = common::SKEW_WARNING;
+        }
         const auto end = this->sample_clock.end();
         common::transfer_buf(this->deinterleave(), fr, n_channels, n_samples);
         common::generate_index_data(

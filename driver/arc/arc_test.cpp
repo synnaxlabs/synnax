@@ -1102,7 +1102,7 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
         synnax::status::VARIANT_SUCCESS
     );
     ASSERT_NE(start_status, nullptr) << "Should have a success status after start";
-    expect_status(*start_status, synnax::status::VARIANT_SUCCESS, true, "started");
+    expect_status(*start_status, synnax::status::VARIANT_SUCCESS, true, "Started task");
 
     task->stop("verify_stop", true);
 

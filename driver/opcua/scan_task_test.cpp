@@ -216,7 +216,7 @@ TEST_F(TestScanTask, testTestConnection) {
     EXPECT_EQ(state.key, synnax::task::status_key(task));
     EXPECT_EQ(state.details.cmd, "test_conn_cmd");
     EXPECT_EQ(state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(state.message, "Connection successful");
+    EXPECT_EQ(state.message, "Connected to server");
 }
 
 /// @brief it should return error for invalid connection endpoint.

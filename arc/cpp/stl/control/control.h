@@ -78,7 +78,7 @@ public:
                 nullptr,
                 x::errors::Error(
                     x::errors::VALIDATION,
-                    "set_authority node missing required value parameter"
+                    "The set_authority node is missing its value parameter."
                 )
             };
         return {

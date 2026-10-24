@@ -793,7 +793,7 @@ TEST_F(TaskManagerTest, Timeout) {
         task,
         [](const synnax::task::Status &s) {
             return s.variant == synnax::status::VARIANT_ERROR &&
-                   s.message == "operation timed out";
+                   s.message == "Failed to complete task operation";
         },
         5 * x::telem::SECOND
     );

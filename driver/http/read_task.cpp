@@ -382,7 +382,11 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         }
     }
 
-    if (!warnings.empty()) res.warning = x::strings::join(warnings, "; ");
+    if (!warnings.empty())
+        res.warning = {
+            .message = "Failed to read some data",
+            .description = x::strings::join(warnings, "; "),
+        };
     return res;
 }
 

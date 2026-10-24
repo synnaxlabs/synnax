@@ -103,7 +103,7 @@ class Task final : public task::Task {
         }
 
         void stopped_with_err(const x::errors::Error &err) override {
-            this->task.state.error(err);
+            this->task.state.error(err, "Failed to run Arc program");
             this->task.stop("", true);
         }
     };
@@ -169,15 +169,17 @@ public:
                 {
                     std::make_shared<::driver::arc::status::Module>(
                         ctx->client,
-                        [task_ptr = task.get()](const std::string &message) {
-                            task_ptr->state.send_warning(message);
-                        }
+                        [task_ptr = task.get()](
+                            const std::string &message,
+                            const std::string &description
+                        ) { task_ptr->state.send_warning(message, description); }
                     ),
                     std::make_shared<::driver::arc::ranges::Module>(
                         ctx->client,
-                        [task_ptr = task.get()](const std::string &message) {
-                            task_ptr->state.send_warning(message);
-                        }
+                        [task_ptr = task.get()](
+                            const std::string &message,
+                            const std::string &description
+                        ) { task_ptr->state.send_warning(message, description); }
                     ),
                 },
             .rt_handle = rt_handle,
@@ -187,9 +189,9 @@ public:
             runtime_cfg,
             [task_ptr = task.get()](const x::errors::Error &err) {
                 if (err.matches(::arc::runtime::errors::WARNING))
-                    task_ptr->state.send_warning(err);
+                    task_ptr->state.send_warning("Arc program warning", err.data);
                 else {
-                    task_ptr->state.send_error(err);
+                    task_ptr->state.send_error(err, "Failed to run Arc program");
                     task_ptr->runtime->close_outputs();
                 }
             }

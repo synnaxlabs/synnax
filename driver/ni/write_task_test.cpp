@@ -251,7 +251,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(first_state.message, "Task started successfully");
+    EXPECT_EQ(first_state.message, "Started task");
     ASSERT_EVENTUALLY_GE(
         mock_writer_factory->writer_opens.load(std::memory_order_acquire),
         1
@@ -269,7 +269,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
-    ASSERT_EQ(second_state.message, "Task stopped successfully");
+    ASSERT_EQ(second_state.message, "Stopped task");
 
     auto first = mock_writer_factory->writes
                      ->at(mock_writer_factory->writes->size() - 1)

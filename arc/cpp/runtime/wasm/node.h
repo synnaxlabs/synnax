@@ -210,9 +210,10 @@ public:
             if (err) {
                 ctx.report_error(
                     x::errors::Error(
+                        err,
                         "WASM execution failed in node " + this->ir.key +
-                        " at sample " + std::to_string(i) + "/" +
-                        std::to_string(max_length) + ": " + err.message()
+                            " at sample " + std::to_string(i) + "/" +
+                            std::to_string(max_length) + ": " + err.data
                     )
                 );
                 trapped = true;

@@ -244,8 +244,8 @@ public:
                 nullptr,
                 x::errors::Error(
                     x::errors::VALIDATION,
-                    std::string(cfg.node.type) +
-                        " node missing required channel parameter"
+                    "The " + std::string(cfg.node.type) +
+                        " node is missing its channel parameter."
                 )
             };
         const auto channel_key = ch_sv.has_value()

@@ -494,8 +494,11 @@ TEST(HTTPScanTask, ScanFailsOnNon2xxStatus) {
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(result[0].status->message, "HTTP 503");
-    EXPECT_EQ(result[0].status->description, "Service Unavailable");
+    EXPECT_EQ(result[0].status->message, "Health check failed");
+    EXPECT_EQ(
+        result[0].status->description,
+        "The server responded with HTTP 503: Service Unavailable"
+    );
 
     server.stop();
 }
@@ -1040,7 +1043,7 @@ TEST(HTTPScanTask, TestConnectionSuccess) {
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
     ASSERT_FALSE(ctx->statuses.empty());
     EXPECT_EQ(ctx->statuses.back().variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses.back().message, "Connection successful");
+    EXPECT_EQ(ctx->statuses.back().message, "Connected to server");
 
     server.stop();
 }
@@ -1075,7 +1078,7 @@ TEST(HTTPScanTask, TestConnectionUnreachable) {
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
     ASSERT_FALSE(ctx->statuses.empty());
     EXPECT_EQ(ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(ctx->statuses.back().message, "Failed to execute HTTP request");
+    EXPECT_EQ(ctx->statuses.back().message, "Failed to connect to server");
     EXPECT_NE(
         ctx->statuses.back().description.find("Could not connect to server"),
         std::string::npos
@@ -1179,8 +1182,11 @@ TEST(HTTPScanTask, TestConnectionNon2xxStatus) {
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
     ASSERT_FALSE(ctx->statuses.empty());
     EXPECT_EQ(ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(ctx->statuses.back().message, "HTTP 503");
-    EXPECT_EQ(ctx->statuses.back().description, "Service Unavailable");
+    EXPECT_EQ(ctx->statuses.back().message, "Failed to connect to server");
+    EXPECT_EQ(
+        ctx->statuses.back().description,
+        "The server responded with HTTP 503: Service Unavailable"
+    );
 
     server.stop();
 }

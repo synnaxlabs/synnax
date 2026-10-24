@@ -720,7 +720,7 @@ const x::errors::Error LJME_AUTO_IPS_FILE_NOT_FOUND = CRITICAL_ERROR.sub(
 );
 const auto TEMPORARILY_UNREACHABLE = x::errors::Error(
     TEMPORARY_ERROR.sub("unreachable"),
-    "The device is temporarily unreachable. Will keep trying"
+    "The device is temporarily unreachable. The Driver will keep trying to reach it."
 );
 
 inline x::errors::Error
@@ -730,7 +730,7 @@ parse_error(const std::shared_ptr<ljm::API> &ljm, const int err) {
     char err_msg[LJM_MAX_NAME_SIZE];
     ljm->err_to_string(err, err_msg);
 
-    std::string description;
+    std::string description = "LabJack returned " + std::string(err_msg) + ".";
     if (const auto it = ERROR_DESCRIPTIONS.find(err_msg);
         it != ERROR_DESCRIPTIONS.end())
         description = it->second;

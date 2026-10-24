@@ -94,7 +94,7 @@ const beforeSave = async ({
     timeout: TEST_CONNECTION_TIMEOUT,
     args: { connection, healthCheck },
   });
-  if (state.variant === "error") throw new Error(state.message);
+  if (state.variant === "error") throw new Error(state.description);
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
     message: "Server connected",
     variant: "success",

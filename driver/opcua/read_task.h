@@ -129,13 +129,16 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
         auto [dev, err] = client->devices.retrieve(this->device_key);
         if (err) {
-            parser.field_err("device", "failed to retrieve device: " + err.message());
+            parser.field_err("device", "failed to retrieve device: " + err.data);
             return;
         }
         const auto properties = x::json::Parser(dev.properties);
         this->connection = connection::Config(properties.child("connection"));
         if (properties.error()) {
-            parser.field_err("device", properties.error().message());
+            parser.field_err(
+                "device",
+                common::config_err_description(properties.error())
+            );
             return;
         }
         std::vector<synnax::channel::Key> keys;
@@ -144,10 +147,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             keys.push_back(ch->synnax_key);
         auto [sy_channels, ch_err] = client->channels.retrieve(keys);
         if (ch_err) {
-            parser.field_err(
-                "channels",
-                "failed to retrieve channels: " + ch_err.message()
-            );
+            parser.field_err("channels", "failed to retrieve channels: " + ch_err.data);
             return;
         }
         for (std::size_t i = 0; i < sy_channels.size(); i++) {
@@ -290,17 +290,19 @@ public:
                 this->cfg.array_size,
                 ch->ch.name
             );
-            if (err || written == 0) {
-                std::string
-                    msg = err ? err.message()
-                              : "Invalid OPC UA array data detected for channel " +
-                                    ch->ch.name;
-                error_messages.push_back(msg);
-            }
+            if (err || written == 0)
+                error_messages.push_back(
+                    err ? err.data
+                        : "Invalid OPC UA array data detected for channel " +
+                              ch->ch.name
+                );
         }
         if (!error_messages.empty()) {
             fr.clear();
-            res.warning = x::strings::join(error_messages, "; ");
+            res.warning = {
+                .message = "Skipped invalid data",
+                .description = x::strings::join(error_messages, "; "),
+            };
             return res;
         }
         // Stamping ahead of the clock would make the next run of this task open its
@@ -364,9 +366,11 @@ public:
                 );
                 if (write_err) {
                     skip_sample = true;
-                    res.warning = "Invalid OPC UA data detected for channel " +
-                                  ch->ch.name + ": " + write_err.message() +
-                                  ", skipping frame";
+                    res.warning = {
+                        .message = "Skipped invalid data",
+                        .description = "Invalid OPC UA data detected for channel " +
+                                       ch->ch.name + ": " + write_err.data,
+                    };
                     break;
                 }
             }

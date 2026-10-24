@@ -62,7 +62,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
             .name = dev.name,
             .variant = synnax::status::VARIANT_WARNING,
             .message = "Invalid device properties",
-            .description = parser.error().message(),
+            .description = common::config_err_description(parser.error()),
             .time = x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
@@ -76,7 +76,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
             .name = dev.name,
             .variant = synnax::status::VARIANT_WARNING,
             .message = "Failed to reach device",
-            .description = conn_err.message(),
+            .description = conn_err.data,
             .time = x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
@@ -107,16 +107,18 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
     };
     if (!parser.ok()) {
         status.message = "Failed to parse test command";
+        status.description = common::config_err_description(parser.error());
         status.details.data = parser.error_json();
         return ctx->set_status(status);
     }
     auto [dev, err] = this->devices->acquire(args.connection);
     if (err) {
-        status.message = err.data;
+        status.message = "Failed to connect to device";
+        status.description = err.data;
         return ctx->set_status(status);
     }
     status.variant = synnax::status::VARIANT_SUCCESS;
-    status.message = "Connection successful";
+    status.message = "Connected to device";
     return ctx->set_status(status);
 }
 }

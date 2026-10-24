@@ -95,13 +95,21 @@ namespace {
     return spec;
 }
 
-// recordingReporter pushes reported messages into the provided vector.
-Reporter recordingReporter(std::vector<std::string> *out) {
-    return [out](const std::string &m) { out->emplace_back(m); };
+/// @brief a report captured by recordingReporter.
+struct Report {
+    std::string message;
+    std::string description;
+};
+
+/// @brief returns a reporter that appends each report to out.
+Reporter recordingReporter(std::vector<Report> *out) {
+    return [out](const std::string &message, const std::string &description) {
+        out->push_back({message, description});
+    };
 }
 
 Reporter noopReporter() {
-    return [](const std::string &) {};
+    return [](const std::string &, const std::string &) {};
 }
 
 // Unique per test to avoid cross-run contamination on a shared cluster.
@@ -194,7 +202,7 @@ TEST(StatusModuleTest, ReturnsNotFoundForUnknownType) {
 
 TEST(SetStatusTest, ReadsAVarBoundMessageAtFireTime) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    std::vector<std::string> calls;
+    std::vector<Report> calls;
     const auto name = unique_name("var_msg_");
     const auto f = set_spec().config(
         {name,
@@ -286,7 +294,7 @@ TEST(SetStatusTest, NextWarnsOnInvalidVariant) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto name = unique_name("set_iv_");
 
-    std::vector<std::string> calls;
+    std::vector<Report> calls;
     auto node = make_set_ir_node(name, "msg", "bogus");
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
@@ -302,7 +310,8 @@ TEST(SetStatusTest, NextWarnsOnInvalidVariant) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
     ASSERT_EQ(calls.size(), 1u);
-    EXPECT_NE(calls[0].find("status.set:"), std::string::npos);
+    EXPECT_EQ(calls[0].message, "Failed to set status");
+    EXPECT_FALSE(calls[0].description.empty());
 }
 
 TEST(SetStatusTest, IsOutputTruthyDoesNotThrow) {

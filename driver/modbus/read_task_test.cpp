@@ -359,7 +359,7 @@ TEST(ReadTask, testBasicReadTask) {
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.details.task, tsk.key);
-    EXPECT_EQ(first_state.message, "Task started successfully");
+    EXPECT_EQ(first_state.message, "Started task");
     ASSERT_EVENTUALLY_GE(factory->writer_opens.load(std::memory_order_acquire), 1);
     task.stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
@@ -368,7 +368,7 @@ TEST(ReadTask, testBasicReadTask) {
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.details.task, tsk.key);
-    EXPECT_EQ(second_state.message, "Task stopped successfully");
+    EXPECT_EQ(second_state.message, "Stopped task");
 
     ASSERT_GE(factory->writes->size(), 1);
     auto &fr = factory->writes->at(0);
@@ -474,7 +474,7 @@ TEST(ReadTask, testReconnectAfterServerRestart) {
     task.start("start_cmd_2");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses[2].message, "Task started successfully");
+    EXPECT_EQ(ctx->statuses[2].message, "Started task");
     ASSERT_EVENTUALLY_GE(factory->writer_opens.load(std::memory_order_acquire), 2);
     task.stop("stop_cmd_2", true);
 }

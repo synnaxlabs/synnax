@@ -404,7 +404,8 @@ static bool is_connection_status_code(const UA_StatusCode &status) {
 x::errors::Error parse(const UA_StatusCode &status) {
     if (status == UA_STATUSCODE_GOOD) return x::errors::NIL;
     const std::string status_name = UA_StatusCode_name(status);
-    const std::string message = status_code_description(status);
+    std::string message = status_code_description(status);
+    if (message.empty()) message = "The server returned " + status_name + ".";
     if (is_connection_status_code(status))
         return {UNREACHABLE.sub(status_name), message};
     return {CRITICAL.sub(status_name), message};

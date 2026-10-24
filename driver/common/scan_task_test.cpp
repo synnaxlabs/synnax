@@ -908,7 +908,7 @@ TEST(TestScanTask, testRunningTransitions) {
     scan_task->stop(false);
     ASSERT_EQ(ctx->statuses.size(), 2);
     EXPECT_FALSE(ctx->statuses[1].details.running);
-    EXPECT_EQ(ctx->statuses[1].message, "scan task stopped");
+    EXPECT_EQ(ctx->statuses[1].message, "Stopped scan task");
 }
 
 /// @brief it should come up on a second start after the first one failed. run() exits
@@ -917,7 +917,7 @@ TEST(TestScanTask, testRunningTransitions) {
 TEST(TestScanTask, testStartRecoversAfterFailedStart) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto task = new_test_task_record();
-    const auto start_err = x::errors::Error("scanner unavailable");
+    const auto start_err = x::errors::Error(x::errors::INTERNAL, "scanner unavailable");
     const auto scan_task = new_test_task(ctx, task, {}, {start_err});
 
     synnax::task::Command cmd{
@@ -928,7 +928,8 @@ TEST(TestScanTask, testStartRecoversAfterFailedStart) {
     scan_task->exec(cmd);
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(ctx->statuses[0].message, start_err.message());
+    EXPECT_EQ(ctx->statuses[0].message, "Failed to start scan task");
+    EXPECT_EQ(ctx->statuses[0].description, "scanner unavailable");
     EXPECT_FALSE(ctx->statuses[0].details.running);
     // The thread is over once run() returns, so the pipeline must report stopped.
     ASSERT_EVENTUALLY_FALSE(scan_task->running());
@@ -1014,7 +1015,8 @@ TEST(TestScanTask, testUnknownCommandAnswersWithError) {
     const auto ack = ctx->statuses[0];
     EXPECT_EQ(ack.details.cmd, "unknown_1");
     EXPECT_EQ(ack.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(ack.message, "Unknown command type 'not_a_command'");
+    EXPECT_EQ(ack.message, "Failed to execute command");
+    EXPECT_EQ(ack.description, "Unknown command type 'not_a_command'.");
 }
 
 /// @brief it should not let a scan warning claim the key of the start that

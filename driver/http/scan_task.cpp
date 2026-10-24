@@ -81,6 +81,20 @@ bool Scanner::exec(
     return false;
 }
 
+/// @brief the longest response body excerpt a status description quotes.
+constexpr std::size_t MAX_BODY_EXCERPT = 500;
+
+/// @brief describes a response the server rejected by its status code and the start of
+/// its body.
+static std::string rejection_description(const Response &resp) {
+    auto description = "The server responded with HTTP " +
+                       std::to_string(resp.status_code);
+    if (resp.body.empty()) return description + ".";
+    description += ": " + resp.body.substr(0, MAX_BODY_EXCERPT);
+    if (resp.body.size() > MAX_BODY_EXCERPT) description += "...";
+    return description;
+}
+
 /// @brief validates the response body against an expected response config.
 /// @returns empty string on success, error message on failure.
 static std::string validate_health_response(
@@ -139,7 +153,7 @@ std::optional<Scanner::PreparedHealthCheck> Scanner::prepare_health_check(
             dev,
             synnax::status::VARIANT_WARNING,
             "Invalid device properties",
-            parser.error().message()
+            common::config_err_description(parser.error())
         );
         return std::nullopt;
     }
@@ -164,14 +178,14 @@ void Scanner::process_health_response(
             dev,
             synnax::status::VARIANT_WARNING,
             "Failed to reach server",
-            err.message()
+            err.data
         );
     if (const auto status_err = errors::from_status(resp.status_code))
         return this->set_device_status(
             dev,
             synnax::status::VARIANT_ERROR,
-            "HTTP " + std::to_string(resp.status_code),
-            resp.body
+            "Health check failed",
+            rejection_description(resp)
         );
     if (const auto v_err = validate_health_response(expected_response, resp);
         !v_err.empty())
@@ -200,7 +214,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
     };
     if (!parser.ok()) {
         status.message = "Failed to parse test command";
-        status.description = parser.error().message();
+        status.description = common::config_err_description(parser.error());
         return ctx->set_status(status);
     }
     auto request = device::build_request(args.connection, args.health_check.request);
@@ -208,14 +222,14 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
         request.body = std::move(args.health_check.body);
     auto [resp, err] = this->processor->execute(request);
     if (err) {
-        status.message = "Failed to execute HTTP request";
-        status.description = err.message();
+        status.message = "Failed to connect to server";
+        status.description = err.data;
         return ctx->set_status(status);
     }
     const auto status_err = errors::from_status(resp.status_code);
     if (status_err) {
-        status.message = "HTTP " + std::to_string(resp.status_code);
-        status.description = resp.body;
+        status.message = "Failed to connect to server";
+        status.description = rejection_description(resp);
         return ctx->set_status(status);
     }
 
@@ -229,7 +243,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
         return ctx->set_status(status);
     }
     status.variant = synnax::status::VARIANT_SUCCESS;
-    status.message = "Connection successful";
+    status.message = "Connected to server";
     return ctx->set_status(status);
 }
 }

@@ -104,12 +104,21 @@ namespace {
     return node;
 }
 
-Reporter recordingReporter(std::vector<std::string> *out) {
-    return [out](const std::string &m) { out->emplace_back(m); };
+/// @brief a report captured by recordingReporter.
+struct Report {
+    std::string message;
+    std::string description;
+};
+
+/// @brief returns a reporter that appends each report to out.
+Reporter recordingReporter(std::vector<Report> *out) {
+    return [out](const std::string &message, const std::string &description) {
+        out->push_back({message, description});
+    };
 }
 
 Reporter noopReporter() {
-    return [](const std::string &) {};
+    return [](const std::string &, const std::string &) {};
 }
 
 std::string unique_name(const std::string &prefix) {
@@ -256,7 +265,7 @@ TEST(CreateRangeTest, NextParsesColor) {
 TEST(CreateRangeTest, NextWarnsAndDoesNotCreateOnInvalidColor) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto name = unique_name("cpp_badcolor_");
-    std::vector<std::string> calls;
+    std::vector<Report> calls;
     auto node = make_create_ir_node(name, "", "not-a-color");
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
@@ -274,12 +283,13 @@ TEST(CreateRangeTest, NextWarnsAndDoesNotCreateOnInvalidColor) {
 
     EXPECT_EQ(output_key(s), "");
     ASSERT_EQ(calls.size(), 1u);
-    EXPECT_NE(calls[0].find("ranges.create: invalid color"), std::string::npos);
+    EXPECT_EQ(calls[0].message, "Failed to create range");
+    EXPECT_NE(calls[0].description.find("Invalid color"), std::string::npos);
 }
 
 TEST(CreateRangeTest, NextWarnsAndEmitsEmptyKeyOnInvalidParent) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    std::vector<std::string> calls;
+    std::vector<Report> calls;
     auto node = make_create_ir_node(unique_name("cpp_badparent_"), "not-a-uuid", "");
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
@@ -297,12 +307,13 @@ TEST(CreateRangeTest, NextWarnsAndEmitsEmptyKeyOnInvalidParent) {
 
     EXPECT_EQ(output_key(s), "");
     ASSERT_EQ(calls.size(), 1u);
-    EXPECT_NE(calls[0].find("ranges.create: invalid parent key"), std::string::npos);
+    EXPECT_EQ(calls[0].message, "Failed to create range");
+    EXPECT_NE(calls[0].description.find("Invalid parent key"), std::string::npos);
 }
 
 TEST(CreateRangeTest, ReadsAVarBoundParentAtFireTime) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    std::vector<std::string> calls;
+    std::vector<Report> calls;
     // The configured "" would succeed parentless; only the live slot value
     // can produce this warning.
     const auto f = create_spec().config(
@@ -321,7 +332,8 @@ TEST(CreateRangeTest, ReadsAVarBoundParentAtFireTime) {
     const auto node = f.make_node();
     EXPECT_EQ(std::get<std::string>((*node.output(0)).at(0)), "");
     ASSERT_EQ(calls.size(), 1u);
-    EXPECT_NE(calls[0].find("ranges.create: invalid parent key"), std::string::npos);
+    EXPECT_EQ(calls[0].message, "Failed to create range");
+    EXPECT_NE(calls[0].description.find("Invalid parent key"), std::string::npos);
 }
 
 TEST(EndRangeTest, NextSetsEndToNow) {
@@ -359,7 +371,7 @@ TEST(EndRangeTest, NextSetsEndToNow) {
 
 TEST(EndRangeTest, NextWarnsWhenRangeDoesNotExist) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    std::vector<std::string> calls;
+    std::vector<Report> calls;
     auto node = make_end_ir_node(x::uuid::create().to_string());
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
@@ -377,12 +389,13 @@ TEST(EndRangeTest, NextWarnsWhenRangeDoesNotExist) {
 
     EXPECT_EQ(output_key(s), "");
     ASSERT_EQ(calls.size(), 1u);
-    EXPECT_NE(calls[0].find("ranges.end:"), std::string::npos);
+    EXPECT_EQ(calls[0].message, "Failed to end range");
+    EXPECT_FALSE(calls[0].description.empty());
 }
 
 TEST(EndRangeTest, NextWarnsOnInvalidKey) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    std::vector<std::string> calls;
+    std::vector<Report> calls;
     auto node = make_end_ir_node("not-a-uuid");
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
@@ -398,7 +411,8 @@ TEST(EndRangeTest, NextWarnsOnInvalidKey) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
     ASSERT_EQ(calls.size(), 1u);
-    EXPECT_NE(calls[0].find("ranges.end: invalid range key"), std::string::npos);
+    EXPECT_EQ(calls[0].message, "Failed to end range");
+    EXPECT_NE(calls[0].description.find("Invalid range key"), std::string::npos);
 }
 
 }

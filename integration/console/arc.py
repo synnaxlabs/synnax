@@ -195,8 +195,8 @@ class ArcClient(ResourceClient):
 
         Play deploys and starts a stopped task; a drifted deployment shows a
         Redeploy button instead. Waits for either "Task configured
-        successfully" or "Task started successfully" and retries once on
-        timeout to handle transient driver slowness.
+        successfully" or "Started task" and retries once on timeout to handle
+        transient driver slowness.
         """
         for attempt in range(2):
             controls = self._get_controls()
@@ -209,7 +209,7 @@ class ArcClient(ResourceClient):
                 play_btn.wait_for(state="visible", timeout=5000)
                 play_btn.click()
             configured = controls.locator("text=Task configured successfully")
-            started = controls.locator("text=Task started successfully")
+            started = controls.locator("text=Started task")
             try:
                 configured.or_(started).wait_for(state="visible", timeout=30000)
                 return
@@ -252,7 +252,7 @@ class ArcClient(ResourceClient):
     def stop(self) -> None:
         """Click the Stop button to stop the Arc.
 
-        Waits for the "Task stopped successfully" message to appear.
+        Waits for the "Stopped task" message to appear.
         """
         self._show_arc_panel()
         controls = self._get_controls()
@@ -260,9 +260,7 @@ class ArcClient(ResourceClient):
         stop_btn.wait_for(state="visible", timeout=5000)
         self.notifications.close_all()
         stop_btn.click()
-        controls.locator("text=Task stopped successfully").wait_for(
-            state="visible", timeout=30000
-        )
+        controls.locator("text=Stopped task").wait_for(state="visible", timeout=30000)
 
     def is_running(self) -> bool:
         """Check if the Arc is currently running by looking for the stop button.

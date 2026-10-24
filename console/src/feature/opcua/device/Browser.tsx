@@ -104,12 +104,12 @@ const browseNodes = async (
   id: string,
 ): Promise<ScannedNode[]> => {
   const scanTask = await retrieveScanTask(client, rack);
-  const { details, variant, message } = await scanTask.executeCommandSync({
+  const { details, variant, description } = await scanTask.executeCommandSync({
     type: BROWSE_COMMAND_TYPE,
     timeout: BROWSE_TIMEOUT,
     args: { connection, node_id: id },
   });
-  if (variant !== "success") throw new Error(message);
+  if (variant !== "success") throw new Error(description);
   if (details?.data == null || !("channels" in details.data)) return [];
   return details.data.channels;
 };
