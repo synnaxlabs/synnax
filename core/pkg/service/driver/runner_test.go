@@ -11,6 +11,7 @@ package driver_test
 
 import (
 	"context"
+	"sync/atomic"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -149,7 +150,14 @@ var _ = Describe("Runner", func() {
 
 		It("Should report a run that panics, and open a new run on the next start",
 			func(ctx SpecContext) {
-				r := open(func(context.Context) error { panic("decoder broke") })
+				// Only the first run panics, so the stop at cleanup ends a live run.
+				var runs atomic.Int32
+				r := open(func(ctx context.Context) error {
+					if runs.Add(1) == 1 {
+						panic("decoder broke")
+					}
+					return waitRun(ctx)
+				})
 				Expect(r.Start(ctx, "cmd-1")).To(Succeed())
 				Eventually(func(g Gomega) {
 					stat := retrieve(ctx)
