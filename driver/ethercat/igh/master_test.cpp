@@ -233,6 +233,34 @@ TEST_F(IGHMasterTest, ReceiveOutputZeroInputComplete) {
     ASSERT_OCCURRED_AS(this->master_instance->receive(), errors::WORKING_COUNTER_ERROR);
 }
 
+/// @brief it should not count the zero working counter of an empty output domain on a
+/// bus with only input slaves.
+TEST_F(IGHMasterTest, ReceiveIgnoresEmptyOutputDomain) {
+    this->initialize_with_slave();
+    this->activate_with_domains(0, 16);
+    ec_domain_state_t zero_state{};
+    zero_state.wc_state = EC_WC_ZERO;
+    ec_domain_state_t complete{};
+    complete.wc_state = EC_WC_COMPLETE;
+    this->mock_api->set_output_domain_state(zero_state);
+    this->mock_api->set_input_domain_state(complete);
+    ASSERT_NIL(this->master_instance->receive());
+}
+
+/// @brief it should not count the zero working counter of an empty input domain on a
+/// bus with only output slaves.
+TEST_F(IGHMasterTest, ReceiveIgnoresEmptyInputDomain) {
+    this->initialize_with_slave();
+    this->activate_with_domains(16, 0);
+    ec_domain_state_t zero_state{};
+    zero_state.wc_state = EC_WC_ZERO;
+    ec_domain_state_t complete{};
+    complete.wc_state = EC_WC_COMPLETE;
+    this->mock_api->set_output_domain_state(complete);
+    this->mock_api->set_input_domain_state(zero_state);
+    ASSERT_NIL(this->master_instance->receive());
+}
+
 TEST_F(IGHMasterTest, SendNotActivatedFails) {
     ASSERT_OCCURRED_AS(this->master_instance->send(), errors::CYCLIC_ERROR);
 }

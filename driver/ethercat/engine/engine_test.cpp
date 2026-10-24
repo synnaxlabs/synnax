@@ -1470,6 +1470,15 @@ TEST_F(EngineTest, ReaderRateThatDoesNotDivideTheBusRateIsRejected) {
     EXPECT_EQ(engine->cycle_rate(), x::telem::Rate(1000));
 }
 
+/// @brief it should open a 0.1 Hz reader on a 100 Hz bus, despite the float precision
+/// of a rate.
+TEST_F(EngineTest, TenthHzReaderOpens) {
+    const auto reader = ASSERT_NIL_P(
+        engine->open_reader({pdo::Entry(0, 0x6000, 1, 16, true)}, x::telem::Rate(0.1))
+    );
+    EXPECT_EQ(engine->cycle_rate(), x::telem::Rate(100));
+}
+
 /// @brief it should reject a writer that raises the bus rate to one the rate of an open
 /// reader does not divide, and keep the bus running.
 TEST_F(EngineTest, WriterThatBreaksAnOpenReaderRateIsRejected) {

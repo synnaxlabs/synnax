@@ -33,11 +33,6 @@ x::telem::Rate bus_rate(const x::telem::Rate fastest) {
     if (fastest >= MIN_CYCLE_RATE) return fastest;
     return fastest * std::ceil(MIN_CYCLE_RATE.hz() / fastest.hz());
 }
-
-bool divides(const x::telem::Rate bus, const x::telem::Rate rate) {
-    const double ratio = static_cast<double>(bus.hz()) / rate.hz();
-    return ratio >= 1 && std::abs(ratio - std::round(ratio)) < 1e-6;
-}
 }
 
 void Engine::run() {
@@ -248,7 +243,7 @@ x::errors::Error Engine::validate_rates_locked() const {
     if (fastest.hz() <= 0) return x::errors::NIL;
     const auto rate = bus_rate(fastest);
     for (const auto &reg: this->read_registrations)
-        if (!divides(rate, reg->rate))
+        if (!telem::whole_ratio(rate, reg->rate))
             return x::errors::Error(
                 errors::RATE_MISMATCH,
                 std::format(
