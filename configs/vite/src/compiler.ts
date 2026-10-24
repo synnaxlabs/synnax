@@ -19,7 +19,7 @@ import babel, {
   defineRolldownBabelPreset,
   type RolldownBabelPreset,
 } from "@rolldown/plugin-babel";
-import { type PluginOption } from "vite";
+import { type PluginOption, type ResolvedConfig } from "vite";
 
 const require = createRequire(import.meta.url);
 const COMPILER = require.resolve("babel-plugin-react-compiler");
@@ -75,26 +75,52 @@ const DIST = /[/\\]dist[/\\]/;
 // functions like hooks. A compiled one throws "Invalid hook call" on the worker.
 const WORKER = /[/\\](aether|vis[/\\]render)[/\\].*\.ts$/;
 
-const preset = (build: boolean): RolldownBabelPreset =>
+// Spec files and test helpers never ship, so a spec run compiles them leniently.
+const TEST_CODE = /\.spec\.tsx?$|testutil/i;
+
+interface PresetParams {
+  strict: boolean;
+  applies: (config: ResolvedConfig) => boolean;
+  include?: RegExp[];
+  exclude?: RegExp[];
+}
+
+const preset = ({
+  strict,
+  applies,
+  include,
+  exclude = [],
+}: PresetParams): RolldownBabelPreset =>
   defineRolldownBabelPreset({
     preset: () => ({
-      plugins: [UNSHADOW_SYMBOL, UNWRAP_CASTS, [COMPILER, build ? STRICT : OPTIONS]],
+      plugins: [UNSHADOW_SYMBOL, UNWRAP_CASTS, [COMPILER, strict ? STRICT : OPTIONS]],
     }),
     rolldown: {
-      filter: { id: { exclude: [DIST, WORKER] } },
+      filter: { id: { include, exclude: [DIST, WORKER, ...exclude] } },
       optimizeDeps: { include: ["react/compiler-runtime"] },
-      configResolvedHook: (config) => (config.command === "build") === build,
+      configResolvedHook: applies,
     },
   });
+
+const isBuild = (config: ResolvedConfig): boolean => config.command === "build";
+const isTest = (config: ResolvedConfig): boolean => config.mode === "test";
+
+const PRESETS = [
+  preset({ strict: true, applies: isBuild }),
+  preset({ strict: true, applies: isTest, exclude: [TEST_CODE] }),
+  preset({ strict: false, applies: isTest, include: [TEST_CODE] }),
+  preset({ strict: false, applies: (c) => !isBuild(c) && !isTest(c) }),
+];
 
 /**
  * Compiles components and hooks with the React Compiler. Unlike the preset that
  * `@vitejs/plugin-react` ships, it applies in every environment, so specs run the same
- * compiled code that builds emit. A build fails on a component or hook that the
- * compiler cannot compile; a `"use no memo"` directive opts one out.
+ * compiled code that builds emit. A build or spec run fails on a component or hook that
+ * the compiler cannot compile, outside spec files and test helpers; the dev server
+ * skips it instead. A `"use no memo"` directive opts one out.
  */
 export const reactCompiler = (): PluginOption => [
-  babel({ presets: [preset(true), preset(false)] }),
+  babel({ presets: PRESETS }),
   {
     name: "synnax:react-compiler",
     // Vitest keys its module cache on plugin names, not on how they transform.

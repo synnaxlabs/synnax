@@ -11,59 +11,70 @@ import { type Rule } from "eslint";
 
 const HOOK = /^use([A-Z0-9]|$)/;
 const NAMED = /^(use[A-Z0-9]|[A-Z])/;
+const NAMESPACE = /^[A-Z]/;
 const WRAPPERS = new Set(["memo", "forwardRef"]);
-const CASTS = new Set([
-  "TSAsExpression",
-  "TSSatisfiesExpression",
-  "TSNonNullExpression",
-  "TSTypeAssertion",
-]);
+// The casts that configs/vite/src/compiler.ts removes before the compiler runs.
+const CASTS = new Set(["TSAsExpression", "TSSatisfiesExpression"]);
 const FUNCTIONS = new Set([
   "ArrowFunctionExpression",
   "FunctionExpression",
   "FunctionDeclaration",
 ]);
 
-const calleeName = (callee: Rule.Node): string | null => {
-  if (callee.type === "Identifier") return callee.name;
+/** @returns the hook a call invokes, by React's test: `useX()` or `Space.useX()`. */
+const hookName = (callee: Rule.Node): string | null => {
+  if (callee.type === "Identifier") return HOOK.test(callee.name) ? callee.name : null;
   if (
     callee.type === "MemberExpression" &&
     !callee.computed &&
-    callee.property.type === "Identifier"
+    callee.object.type === "Identifier" &&
+    NAMESPACE.test(callee.object.name) &&
+    callee.property.type === "Identifier" &&
+    HOOK.test(callee.property.name)
   )
     return callee.property.name;
   return null;
 };
 
-const isWrapperCall = (node: Rule.Node): boolean =>
-  node.type === "CallExpression" &&
-  WRAPPERS.has(calleeName(node.callee as Rule.Node) ?? "");
+const uncast = (fn: Rule.Node): Rule.Node => {
+  let node = fn;
+  while (node.parent != null && CASTS.has(node.parent.type)) node = node.parent;
+  return node;
+};
 
-/** @returns the name a binding gives the function, through memo, forwardRef, and casts. */
+/** The compiler compiles a memo or forwardRef callback as a component. */
+const isWrapped = (fn: Rule.Node): boolean => {
+  const { parent } = uncast(fn);
+  if (parent?.type !== "CallExpression") return false;
+  const { callee } = parent;
+  if (callee.type === "Identifier") return WRAPPERS.has(callee.name);
+  return (
+    callee.type === "MemberExpression" &&
+    callee.object.type === "Identifier" &&
+    callee.object.name === "React" &&
+    callee.property.type === "Identifier" &&
+    WRAPPERS.has(callee.property.name)
+  );
+};
+
+/**
+ * @returns the name the compiler reads for the function: its declared name or the
+ * variable it initializes. The compiler skips any other function.
+ */
 const nameOf = (fn: Rule.Node): string | null => {
+  if (fn.type === "FunctionDeclaration") return fn.id?.name ?? null;
+  const node = uncast(fn);
+  const { parent } = node;
   if (
-    (fn.type === "FunctionDeclaration" || fn.type === "FunctionExpression") &&
-    fn.id != null
+    parent?.type === "VariableDeclarator" &&
+    parent.init === node &&
+    parent.id.type === "Identifier"
   )
-    return fn.id.name;
-  let node: Rule.Node = fn;
-  let parent: Rule.Node | null = fn.parent;
-  while (parent != null && (CASTS.has(parent.type) || isWrapperCall(parent))) {
-    node = parent;
-    parent = parent.parent;
-  }
-  if (parent?.type === "VariableDeclarator" && parent.id.type === "Identifier")
     return parent.id.name;
-  if (
-    parent?.type === "AssignmentExpression" &&
-    parent.right === node &&
-    parent.left.type === "Identifier"
-  )
-    return parent.left.name;
   return null;
 };
 
-/** A `useX: () => useY(...)` member only forwards a hook, so it has nothing to cache. */
+/** A `useX: () => useY(...)` member only forwards a hook, so it has nothing to memo. */
 const isForwardingMember = (fn: Rule.Node): boolean => {
   const parent: Rule.Node | null = fn.parent;
   return (
@@ -77,7 +88,8 @@ const isForwardingMember = (fn: Rule.Node): boolean => {
 
 const insideComponentOrHook = (fn: Rule.Node): boolean => {
   for (let node: Rule.Node | null = fn.parent; node != null; node = node.parent)
-    if (FUNCTIONS.has(node.type)) return NAMED.test(nameOf(node) ?? "");
+    if (FUNCTIONS.has(node.type))
+      return isWrapped(node) || NAMED.test(nameOf(node) ?? "");
   return false;
 };
 
@@ -86,13 +98,14 @@ export const namedHookCallers: Rule.RuleModule = {
     type: "problem",
     docs: {
       description:
-        "Require a component or hook name on a function that calls a hook, so the " +
-        "React Compiler compiles it.",
+        "Require a function that calls a hook to be declared or bound to a variable, " +
+        "so the React Compiler compiles it.",
     },
     messages: {
       unnamed:
-        "Name this function as a component or hook: it calls {{hook}}, and the React " +
-        "Compiler skips an unnamed function.",
+        "Declare this function or bind it to a variable with a component or hook " +
+        "name: it calls {{hook}}, and the React Compiler skips a function it cannot " +
+        "name.",
     },
     schema: [],
   },
@@ -103,7 +116,7 @@ export const namedHookCallers: Rule.RuleModule = {
     };
     const exit = (node: Rule.Node): void => {
       const hook = hooks.pop();
-      if (hook == null || nameOf(node) != null) return;
+      if (hook == null || nameOf(node) != null || isWrapped(node)) return;
       if (isForwardingMember(node) || insideComponentOrHook(node)) return;
       context.report({ node, messageId: "unnamed", data: { hook } });
     };
@@ -115,9 +128,9 @@ export const namedHookCallers: Rule.RuleModule = {
       "FunctionExpression:exit": exit,
       "FunctionDeclaration:exit": exit,
       CallExpression: (node) => {
-        const name = calleeName(node.callee as Rule.Node);
-        if (name == null || !HOOK.test(name) || hooks.length === 0) return;
-        hooks[hooks.length - 1] ??= name;
+        const hook = hookName(node.callee as Rule.Node);
+        if (hook == null || hooks.length === 0) return;
+        hooks[hooks.length - 1] ??= hook;
       },
     };
   },

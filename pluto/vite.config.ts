@@ -10,7 +10,7 @@
 /// <reference types="vitest/config" />
 
 import react from "@vitejs/plugin-react";
-import { lib, reactCompiler } from "@synnaxlabs/vite-plugin";
+import { lib } from "@synnaxlabs/vite-plugin";
 import path from "path";
 import { defineConfig, esmExternalRequirePlugin } from "vite";
 
@@ -19,11 +19,9 @@ export default defineConfig({
   plugins: [
     esmExternalRequirePlugin({ external: [/^react(-dom)?(\/.*)?$/] }),
     react(),
-    // Aether worker modules name their functions like hooks but run outside React.
-    reactCompiler(),
     // Pluto's maps are 17MB gzipped, mostly sourcesContent from bundled dependencies,
     // so they stay out of the tarball. Every other package publishes its maps.
-    lib({ name: "pluto", publishSourcemaps: false }),
+    lib({ name: "pluto", publishSourcemaps: false, reactCompiled: true }),
   ],
   build: {
     lib: {

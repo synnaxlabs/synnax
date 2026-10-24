@@ -33,11 +33,15 @@ tester.run("named-hook-callers", namedHookCallers, {
     { code: "const A = () => { useState(0); return null; };" },
     { code: "const A = memo(() => { useState(0); return null; });" },
     { code: "const A = forwardRef((p, r) => { useState(0); return null; });" },
+    { code: "const A = React.memo(() => { useState(0); return null; });" },
+    { code: "export default memo(() => { useState(0); return null; });" },
+    { code: "const A = function B() { useState(0); return null; };" },
     { code: "const useA = (() => use(p)) as UseA;" },
     { code: "const create = () => { const useA = () => useState(0); return useA; };" },
     { code: "const x = { useVisible: () => Access.useGranted(id) };" },
     { code: "const useA = () => items.map((i) => i.useVisible());" },
     { code: "const a = () => items.map((i) => i + 1);" },
+    { code: "class Client { use(m) { this.unary.use(m); } }" },
   ],
   invalid: [
     {
@@ -59,6 +63,26 @@ tester.run("named-hook-callers", namedHookCallers, {
     {
       code: "const create = () => () => use(promise);",
       errors: [unnamed("use", 1, 22)],
+    },
+    {
+      code: "const i = renderProp(function Item(p) { useItem(p.key); return null; });",
+      errors: [unnamed("useItem", 1, 22)],
+    },
+    {
+      code: "let useA; useA = () => useState(0);",
+      errors: [unnamed("useState", 1, 18)],
+    },
+    {
+      code: "const x = { useVisible() { return useA(); } };",
+      errors: [unnamed("useA", 1, 23)],
+    },
+    {
+      code: "const useA = (() => useState(0))!;",
+      errors: [unnamed("useState", 1, 15)],
+    },
+    {
+      code: "const A = Foo.memo(() => { useState(0); return null; });",
+      errors: [unnamed("useState", 1, 20)],
     },
   ],
 });

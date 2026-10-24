@@ -112,16 +112,18 @@ cross-references. Never put types in JSDoc; the signature carries them.
 ## React Compiler
 
 The React Compiler compiles the Console, Pluto, Lyra, and Drift
-(`configs/vite/src/compiler.ts`), in builds and in specs. A build fails on a component
-or hook that the compiler cannot compile, and the `react-hooks` lint rules flag the same
-code in the editor.
+(`configs/vite/src/compiler.ts`), in builds and in specs. A build or spec run fails on a
+component or hook that the compiler cannot compile; spec files, test helpers, and the
+dev server skip it instead. The `react-hooks` lint rules flag most of the same code in
+the editor.
 
 - Name a hook `use` and a capital letter (`useClient`, `useRetrieve`), never bare `use`.
   The compiler caches a call to a bare `use` like a plain function, and the lint rules
   do not catch it.
-- Give every component and hook a name, including one a factory returns or one passed
-  to `Component.renderProp` or `Modals.create`: `const useForm = ...; return useForm;`.
-  The compiler skips an anonymous function.
+- Give every component and hook a name, including one a factory returns or one passed to
+  `Component.renderProp` or `Modals.create`: `const useForm = ...; return useForm;`. The
+  compiler reads a name only from a function or variable declaration, so it skips a
+  named function expression passed as an argument too.
 - Keep render pure. The compiler caches each computation on its inputs, so a clock, a
   ref, a module cache, or an object changed in place goes stale in render without an
   error. Pass the current time in as state, and copy an object instead of changing it.
@@ -135,9 +137,13 @@ code in the editor.
   child that reads without subscribing shows stale data.
 - Write `if (x == null) x = y;` in a component or hook. The compiler cannot compile
   `??=`.
-- Use the `"use no memo"` directive only for an incompatible library, a fixed hook
-  list, or a memo hook that keeps its own cache, with a one-line reason. The lint rules
-  still check the function, so disable the flagged rule on each flagged line.
+- Give a computed object key a plain identifier. The compiler cannot compile a call as a
+  key, so move `[CSS.variable("x", "y")]` to a module constant.
+- Never give a parameter a JSX default (`icon = <Icon.Close />`). Put the element in a
+  module constant.
+- Use the `"use no memo"` directive only for an incompatible library, a fixed hook list,
+  or a memo hook that keeps its own cache, with a one-line reason. The lint rules still
+  check the function, so disable the flagged rule on each flagged line.
 
 ## Testing (Vitest — never Jest)
 
@@ -268,7 +274,7 @@ file the tarball omits. Pluto is the only opt-out; its maps are 17MB gzipped.
 - pnpm catalog: shared versions in `pnpm-workspace.yaml`; use `catalog:` prefix in
   package.json.
 - Turbo build cache issues: `pnpm exec turbo clean`.
-- React 19 (19.1.1) — check for React 18 breaking changes.
+- React 19 (19.3.1) — check for React 18 breaking changes.
 
 ## Visual verification (Playwright MCP)
 
