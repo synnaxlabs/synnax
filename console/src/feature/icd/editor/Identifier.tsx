@@ -12,9 +12,15 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type ReactElement } from "react";
+import { Text } from "@synnaxlabs/lyra/text";
+import { type ReactElement, useId } from "react";
 
-import { OptionalField, parseInteger } from "@/feature/icd/editor/OptionalField";
+import {
+  formatHex,
+  FormattedField,
+  parseInteger,
+} from "@/feature/icd/editor/FormattedField";
+import { CSS } from "@/platform/css";
 
 type Type = icd.IdentifierType | "none";
 
@@ -38,31 +44,70 @@ const create = (
   }
 };
 
-const formatHex = (value: number): string => `0x${value.toString(16).toUpperCase()}`;
+interface FlagProps extends Pick<Form.UseFieldOptions<boolean>, "onChange"> {
+  path: string;
+  label: string;
+  disabled?: boolean;
+}
+
+const Flag = ({ path, label, disabled, onChange }: FlagProps): ReactElement => {
+  const id = useId();
+  const field = Form.useField<boolean>(path, { onChange });
+  return (
+    <Flex.Box x align="center" gap="small">
+      <Input.Checkbox
+        id={id}
+        value={field.value}
+        onChange={field.onChange}
+        preview={field.preview}
+        disabled={disabled}
+      />
+      <Text.Text el="label" htmlFor={id} color={disabled === true ? 8 : undefined}>
+        {label}
+      </Text.Text>
+    </Flex.Box>
+  );
+};
 
 const CANFields = ({ path }: { path: string }): ReactElement => {
   const fd = Form.useFieldValue<boolean>(`${path}.fd`);
   return (
     <>
-      <Form.NumericField path={`${path}.id`} label="ID" />
-      <OptionalField<number>
-        path={`${path}.mask`}
-        label="Mask"
-        placeholder="Exact match"
+      <FormattedField<number>
+        path={`${path}.id`}
+        label="ID"
         format={formatHex}
         parse={parseInteger}
       />
-      <Form.SwitchField path={`${path}.extended`} label="Extended" />
-      <Form.SwitchField
-        path={`${path}.fd`}
-        label="CAN FD"
-        onChange={(fd, { set }) => {
-          if (!fd) set(`${path}.bitrateSwitched`, false);
-        }}
+      <FormattedField<number>
+        path={`${path}.mask`}
+        label="Mask"
+        placeholder="Exact match"
+        optional
+        format={formatHex}
+        parse={parseInteger}
       />
-      {fd && (
-        <Form.SwitchField path={`${path}.bitrateSwitched`} label="Bitrate switch" />
-      )}
+      <Input.Item
+        label="Frame type"
+        padHelpText
+        className={CSS.BE("icd-editor", "wide")}
+      >
+        <Flex.Box x wrap align="center" className={CSS.BE("icd-editor", "flags")}>
+          <Flag path={`${path}.extended`} label="Extended ID" />
+          <Flag
+            path={`${path}.fd`}
+            label="CAN FD"
+            onChange={(next, { set }) => {
+              if (!next) set(`${path}.bitrateSwitched`, false);
+            }}
+          />
+          <Flag
+            path={`${path}.bitrateSwitched`}
+            label="Bitrate switch"
+            disabled={!fd}
+          />
+        </Flex.Box>
+      </Input.Item>
     </>
   );
 };
@@ -102,35 +147,41 @@ export interface IdentifierProps {
   path: string;
 }
 
-/** Edits how a binary message selects the frames that belong to it. */
+/** Picks how a binary message selects the frames that belong to it. */
 export const Identifier = ({ path }: IdentifierProps): ReactElement => {
   const identifierPath = `${path}.identifier`;
   const { set } = Form.useContext();
+  const type = Form.useFieldValue<icd.IdentifierType>(`${identifierPath}.type`, {
+    optional: true,
+  });
+  const fields = Form.useFieldValue<icd.BinaryField[]>(`${path}.fields`);
+  const handleChange = (next: Type) =>
+    set(identifierPath, next === "none" ? undefined : create(next, fields));
+  return (
+    <Input.Item label="Identifier" padHelpText>
+      <Select.Simple<Type>
+        resourceName="identifier"
+        value={type ?? "none"}
+        onChange={handleChange}
+        variant="floating"
+      >
+        {TYPES.map((t) => (
+          <Select.Item key={t} itemKey={t}>
+            {NAMES[t]}
+          </Select.Item>
+        ))}
+      </Select.Simple>
+    </Input.Item>
+  );
+};
+
+/** Edits the values the message's identifier matches frames against. */
+export const IdentifierFields = ({ path }: IdentifierProps): ReactElement | null => {
+  const identifierPath = `${path}.identifier`;
   const identifier = Form.useFieldValue<icd.Identifier>(identifierPath, {
     optional: true,
   });
   const fields = Form.useFieldValue<icd.BinaryField[]>(`${path}.fields`);
-  const handleChange = (type: Type) =>
-    set(identifierPath, type === "none" ? undefined : create(type, fields));
-  return (
-    <Flex.Box x wrap gap="large">
-      <Input.Item label="Identifier" padHelpText>
-        <Select.Simple<Type>
-          resourceName="identifier"
-          value={identifier?.type ?? "none"}
-          onChange={handleChange}
-          variant="floating"
-        >
-          {TYPES.map((type) => (
-            <Select.Item key={type} itemKey={type}>
-              {NAMES[type]}
-            </Select.Item>
-          ))}
-        </Select.Simple>
-      </Input.Item>
-      {identifier != null && (
-        <TypeFields path={identifierPath} type={identifier.type} fields={fields} />
-      )}
-    </Flex.Box>
-  );
+  if (identifier == null) return null;
+  return <TypeFields path={identifierPath} type={identifier.type} fields={fields} />;
 };

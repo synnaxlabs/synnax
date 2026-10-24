@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type icd } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -28,12 +29,13 @@ const encodingOf = (field: Field): Encoding =>
 /** Marks an absent enumeration or multiplexor in a select cell. */
 const NONE = "none";
 
-type Render =
-  "text" | "number" | "byteOrder" | "boolean" | "enumeration" | "multiplexor";
+type Render = "text" | "number" | "byteOrder" | "type" | "enumeration" | "multiplexor";
 
 interface Column<F extends Field> {
   name: string;
   render: Render;
+  /** The column's width in rem. Omitted, it shares what the others leave. */
+  width?: number;
   get(field: F): Input.TableCell;
   set(field: F, cell: Input.TableCell): F;
 }
@@ -48,6 +50,7 @@ const name = <F extends Field>(): Column<F> => ({
 const scale = <F extends Field>(): Column<F> => ({
   name: "Scale",
   render: "number",
+  width: 10,
   get: ({ scale }) => scale,
   set: (f, cell) => ({ ...f, scale: Number(cell) }),
 });
@@ -55,6 +58,7 @@ const scale = <F extends Field>(): Column<F> => ({
 const offset = <F extends Field>(): Column<F> => ({
   name: "Offset",
   render: "number",
+  width: 10,
   get: ({ offset }) => offset,
   set: (f, cell) => ({ ...f, offset: Number(cell) }),
 });
@@ -62,6 +66,7 @@ const offset = <F extends Field>(): Column<F> => ({
 const units = <F extends Field>(): Column<F> => ({
   name: "Units",
   render: "text",
+  width: 10,
   get: ({ units }) => units,
   set: (f, cell) => ({ ...f, units: String(cell) }),
 });
@@ -69,6 +74,7 @@ const units = <F extends Field>(): Column<F> => ({
 const enumeration = <F extends Field>(): Column<F> => ({
   name: "Enumeration",
   render: "enumeration",
+  width: 22,
   get: ({ enumeration }) => enumeration ?? NONE,
   set: (f, cell) => ({ ...f, enumeration: cell === NONE ? undefined : String(cell) }),
 });
@@ -76,6 +82,7 @@ const enumeration = <F extends Field>(): Column<F> => ({
 const multiplexor = <F extends Field>(): Column<F> => ({
   name: "Multiplexor",
   render: "multiplexor",
+  width: 18,
   get: ({ multiplexor }) => multiplexor ?? NONE,
   set: (f, cell) => ({ ...f, multiplexor: cell === NONE ? undefined : String(cell) }),
 });
@@ -90,18 +97,32 @@ const parseIntegers = (text: string): number[] =>
 const multiplexValues = <F extends Field>(): Column<F> => ({
   name: "Multiplex values",
   render: "text",
+  width: 16,
   get: ({ multiplexValues }) => multiplexValues.join(", "),
   set: (f, cell) => ({ ...f, multiplexValues: parseIntegers(String(cell)) }),
 });
 
-const shared = <F extends Field>(): Column<F>[] => [
+const conversion = <F extends Field>(): Column<F>[] => [
   scale(),
   offset(),
   units(),
   enumeration(),
-  multiplexor(),
-  multiplexValues(),
 ];
+
+type ValueType = "unsigned" | "signed" | "float";
+
+const VALUE_TYPE_NAMES: Record<ValueType, string> = {
+  unsigned: "Unsigned",
+  signed: "Signed",
+  float: "Float",
+};
+
+const VALUE_TYPES = Object.keys(VALUE_TYPE_NAMES) as ValueType[];
+
+const valueTypeOf = ({ signed, float }: icd.BinaryField): ValueType => {
+  if (float) return "float";
+  return signed ? "signed" : "unsigned";
+};
 
 const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
   binary: [
@@ -109,54 +130,56 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
     {
       name: "Start bit",
       render: "number",
+      width: 11,
       get: ({ startBit }) => startBit,
       set: (f, cell) => ({ ...f, startBit: Number(cell) }),
     },
     {
       name: "Bit length",
       render: "number",
+      width: 11,
       get: ({ bitLength }) => bitLength,
       set: (f, cell) => ({ ...f, bitLength: Number(cell) }),
     },
     {
       name: "Byte order",
       render: "byteOrder",
+      width: 22,
       get: ({ byteOrder }) => byteOrder,
       set: (f, cell) => ({ ...f, byteOrder: cell as icd.ByteOrder }),
     },
     {
-      name: "Signed",
-      render: "boolean",
-      get: ({ signed }) => Number(signed),
-      set: (f, cell) => ({ ...f, signed: cell === 1 }),
+      name: "Type",
+      render: "type",
+      width: 20,
+      get: valueTypeOf,
+      set: (f, cell) => ({ ...f, signed: cell === "signed", float: cell === "float" }),
     },
-    {
-      name: "Float",
-      render: "boolean",
-      get: ({ float }) => Number(float),
-      set: (f, cell) => ({ ...f, float: cell === 1 }),
-    },
-    ...shared<icd.BinaryField>(),
+    ...conversion<icd.BinaryField>(),
+    multiplexor(),
+    multiplexValues(),
   ],
   delimited: [
     name(),
     {
       name: "Position",
       render: "number",
+      width: 11,
       get: ({ position }) => position,
       set: (f, cell) => ({ ...f, position: Number(cell) }),
     },
-    ...shared<icd.DelimitedTextField>(),
+    ...conversion<icd.DelimitedTextField>(),
   ],
   tagged: [
     name(),
     {
       name: "Tag",
       render: "text",
+      width: 14,
       get: ({ tag }) => tag,
       set: (f, cell) => ({ ...f, tag: String(cell) }),
     },
-    ...shared<icd.TaggedTextField>(),
+    ...conversion<icd.TaggedTextField>(),
   ],
 };
 
@@ -231,28 +254,35 @@ const renderColumn = (
   index: number,
   { enums, fields }: CellContext,
 ): ReactElement<Input.TableColumnProps> => {
-  const { name, render } = column;
+  const { name, render, width } = column;
   switch (render) {
     case "number":
-      return <Input.TableColumn key={index} name={name} />;
+      return <Input.TableColumn key={index} name={name} width={width} />;
     case "text":
-      return <Input.TableColumn key={index} name={name} type="string" />;
-    case "boolean":
+      return <Input.TableColumn key={index} name={name} width={width} type="string" />;
+    case "type":
       return (
-        <Input.TableColumn key={index} name={name}>
-          {({ value, onChange, preview, "aria-label": ariaLabel }) => (
-            <Input.Checkbox
-              value={value === 1}
-              onChange={(checked) => onChange(checked ? 1 : 0)}
+        <Input.TableColumn key={index} name={name} width={width} type="string">
+          {({ value, onChange, preview }) => (
+            <Select.Simple<string>
+              resourceName="type"
+              value={value}
+              onChange={onChange}
               preview={preview}
-              aria-label={ariaLabel}
-            />
+              variant="floating"
+            >
+              {VALUE_TYPES.map((type) => (
+                <Select.Item key={type} itemKey={type}>
+                  {VALUE_TYPE_NAMES[type]}
+                </Select.Item>
+              ))}
+            </Select.Simple>
           )}
         </Input.TableColumn>
       );
     case "byteOrder":
       return (
-        <Input.TableColumn key={index} name={name} type="string">
+        <Input.TableColumn key={index} name={name} width={width} type="string">
           {({ value, onChange, preview }) => (
             <Select.Simple<string>
               resourceName="byte order"
@@ -269,7 +299,7 @@ const renderColumn = (
       );
     case "enumeration":
       return (
-        <Input.TableColumn key={index} name={name} type="string">
+        <Input.TableColumn key={index} name={name} width={width} type="string">
           {({ value, onChange, preview }) => (
             <Select.Simple<string>
               resourceName="enumeration"
@@ -290,7 +320,7 @@ const renderColumn = (
       );
     case "multiplexor":
       return (
-        <Input.TableColumn key={index} name={name} type="string">
+        <Input.TableColumn key={index} name={name} width={width} type="string">
           {({ value, onChange, preview }) => (
             <Select.Simple<string>
               resourceName="multiplexor"
@@ -322,11 +352,10 @@ export interface FieldsProps {
   /** The form path of the message payload. */
   path: string;
   encoding: Encoding;
-  label: string;
 }
 
 /** Edits the fields of one encoding in a message payload as a grid. */
-export const Fields = ({ path, encoding, label }: FieldsProps): ReactElement => {
+export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   const fieldsPath = `${path}.fields`;
   const { set } = Form.useContext();
   const fields = Form.useFieldValue<Field[]>(fieldsPath);
@@ -365,7 +394,7 @@ export const Fields = ({ path, encoding, label }: FieldsProps): ReactElement => 
   let helpText = status?.message;
   if (failing !== -1) helpText = `Field ${failing + 1}: ${helpText}`;
   return (
-    <Input.Item label={label} padHelpText helpText={helpText} status={status?.variant}>
+    <Flex.Box y gap="small">
       <Input.Table
         value={rows}
         onChange={handleChange}
@@ -375,6 +404,9 @@ export const Fields = ({ path, encoding, label }: FieldsProps): ReactElement => 
       >
         {columns.map((column, i) => renderColumn(column, i, { enums, fields }))}
       </Input.Table>
-    </Input.Item>
+      {helpText != null && (
+        <Input.HelpText variant={status?.variant}>{helpText}</Input.HelpText>
+      )}
+    </Flex.Box>
   );
 };

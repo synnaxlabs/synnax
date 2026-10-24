@@ -8,19 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { type icd } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { uuid } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { formatHex } from "@/feature/icd/editor/FormattedField";
 import { useNestedStatus } from "@/feature/icd/editor/useNestedStatus";
+import { Button as PlatformButton } from "@/platform/button";
+import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 
 const KIND_NAMES: Record<icd.EntryType, string> = {
@@ -46,89 +49,142 @@ const createEntry = (kind: icd.EntryType, entries: icd.Entry[]): icd.Entry => {
   return { ...base, kind, payload: { format: "binary", fields: [] } };
 };
 
-interface ItemProps extends List.ItemRenderProps<string> {
-  onRemove: (key: string) => void;
-}
+const count = (n: number, noun: string): string =>
+  `${n} ${n === 1 ? noun : Text.plural(noun)}`;
 
-const Item = ({ onRemove, ...rest }: ItemProps): ReactElement | null => {
-  const { itemKey } = rest;
-  const path = `entries.${itemKey}`;
+const describeMatch = ({ payload }: icd.MessageEntry): string | null => {
+  if (payload.format === "text") return payload.prefix === "" ? null : payload.prefix;
+  const id = payload.identifier;
+  if (id == null) return null;
+  switch (id.type) {
+    case "can":
+      return `CAN ${formatHex(id.id)}`;
+    case "field": {
+      const field = payload.fields.find(({ key }) => key === id.field);
+      return field == null ? null : `${field.name} = ${id.value}`;
+    }
+  }
+};
+
+/** @returns a one-line summary of what an entry holds. */
+const describe = (entry: icd.Entry): string => {
+  if (entry.kind === "enum") return count(entry.values.length, "value");
+  const fields = count(entry.payload.fields.length, "field");
+  const match = describeMatch(entry);
+  return match == null ? fields : `${match} · ${fields}`;
+};
+
+const Item = (props: List.ItemRenderProps<string>): ReactElement | null => {
+  const path = `entries.${props.itemKey}`;
   const entry = Form.useFieldValue<icd.Entry>(path, { optional: true });
   const status = useNestedStatus(path);
   if (entry == null) return null;
   return (
-    <Select.Item {...rest} justify="between" align="center">
-      <Text.Text overflow="ellipsis" gap="small">
+    <Select.Item {...props} justify="between" align="center" gap="small">
+      <Flex.Box x align="center" gap="small" className={CSS.BE("icd-entry", "label")}>
         {KIND_ICONS[entry.kind]}
-        {entry.name}
-      </Text.Text>
-      <Flex.Box x align="center" gap="tiny">
-        {status != null && <Status.Indicator variant={status.variant} />}
-        <Button.Button
-          variant="text"
-          size="small"
-          tooltip={`Remove ${entry.name}`}
-          onClick={(e) => {
-            stopPropagation(e);
-            onRemove(itemKey);
-          }}
-        >
-          <Icon.Close />
-        </Button.Button>
+        <Flex.Box y gap="tiny" className={CSS.BE("icd-entry", "text")}>
+          <Text.Text weight={500} overflow="ellipsis">
+            {entry.name}
+          </Text.Text>
+          <Text.Text level="small" color={8} overflow="ellipsis">
+            {describe(entry)}
+          </Text.Text>
+        </Flex.Box>
       </Flex.Box>
+      {status != null && <Status.Indicator variant={status.variant} />}
     </Select.Item>
   );
 };
 
-export interface EntriesProps {
-  /** The key of the entry the editor shows. */
-  selected: string | null;
-  onSelect: (key: string | null) => void;
+interface ContextMenuProps extends Menu.ContextMenuMenuProps {
+  onRemove: (keys: string[]) => void;
 }
 
-/** Lists the entries of the ICD, and adds and removes them. */
+const ContextMenu = ({ keys, onRemove }: ContextMenuProps): ReactElement => {
+  const { mode } = Form.useContext();
+  return (
+    <PlatformContextMenu.Menu>
+      {mode !== "preview" && keys.length > 0 && (
+        <>
+          <PlatformContextMenu.RemoveItem onClick={() => onRemove(keys)} />
+          <Menu.Divider />
+        </>
+      )}
+      <PlatformContextMenu.ReloadConsoleItem />
+    </PlatformContextMenu.Menu>
+  );
+};
+
+const isEntries = (key: string): boolean => key === "entries";
+
+export interface EntriesProps {
+  /** The keys of the selected entries. The editor shows the first. */
+  selected: string[];
+  onSelect: (keys: string[]) => void;
+}
+
+/**
+ * Lists the entries of the ICD and adds them. Shift selects a range and Cmd toggles an
+ * entry. The context menu removes the selected entries. A problem with the list as a
+ * whole, such as a removed message that a task uses, shows below it.
+ */
 export const Entries = ({ selected, onSelect }: EntriesProps): ReactElement => {
   const entries = Form.useFieldList<string, icd.Entry>("entries");
   const { data, push, remove } = entries;
+  const menuProps = Menu.useContextMenu();
   const handleAdd = (kind: icd.EntryType) => {
     const entry = createEntry(kind, entries.value());
     push(entry);
-    onSelect(entry.key);
+    onSelect([entry.key]);
   };
-  const handleRemove = (key: string) => {
-    const remaining = remove(key);
-    if (key === selected) onSelect(remaining[0] ?? null);
-  };
+  const handleRemove = (keys: string[]) => onSelect(remove(keys).slice(0, 1));
+  const status = useNestedStatus("entries", isEntries);
   return (
-    <Flex.Box y empty className={CSS.BE("icd-editor", "entries")}>
-      <Select.Frame<string, icd.Entry>
-        data={data}
-        value={selected ?? undefined}
-        onChange={onSelect}
-        allowNone={false}
+    <Flex.Box y empty grow className={CSS.BE("icd-editor", "entries")}>
+      <Menu.ContextMenu
+        {...menuProps}
+        menu={(p) => <ContextMenu {...p} onRemove={handleRemove} />}
       >
-        <List.Scroll full="y">
-          <List.Items<string, icd.Entry>
-            emptyContent={
-              <Text.Text center level="small" color={9}>
-                No entries
-              </Text.Text>
-            }
+        <Select.Frame<string, icd.Entry>
+          multiple
+          data={data}
+          value={selected}
+          onChange={onSelect}
+          replaceOnSingle
+          allowNone={false}
+        >
+          <List.Scroll
+            full="y"
+            className={menuProps.className}
+            onContextMenu={menuProps.open}
           >
-            {({ key, ...p }) => <Item key={key} {...p} onRemove={handleRemove} />}
-          </List.Items>
-        </List.Scroll>
-      </Select.Frame>
-      <Flex.Box x gap="small" className={CSS.BE("icd-editor", "add")}>
-        <Button.Button variant="outlined" onClick={() => handleAdd("enum")} grow>
-          <Icon.Add />
-          Add enum
-        </Button.Button>
-        <Button.Button variant="outlined" onClick={() => handleAdd("message")} grow>
-          <Icon.Add />
-          Add message
-        </Button.Button>
-      </Flex.Box>
+            <List.Items<string, icd.Entry>
+              emptyContent={
+                <Text.Text center level="small" color={9}>
+                  No entries
+                </Text.Text>
+              }
+            >
+              {({ key, ...p }) => <Item key={key} {...p} />}
+            </List.Items>
+          </List.Scroll>
+        </Select.Frame>
+      </Menu.ContextMenu>
+      {status != null && (
+        <Input.HelpText
+          variant={status.variant}
+          className={CSS.BE("icd-editor", "entries-status")}
+        >
+          {status.message}
+        </Input.HelpText>
+      )}
+      <PlatformButton.CreateListItem size="small" onClick={() => handleAdd("message")}>
+        Add message
+      </PlatformButton.CreateListItem>
+      <PlatformButton.CreateListItem size="small" onClick={() => handleAdd("enum")}>
+        Add enum
+      </PlatformButton.CreateListItem>
     </Flex.Box>
   );
 };

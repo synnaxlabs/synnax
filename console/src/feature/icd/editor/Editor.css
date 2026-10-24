@@ -9,41 +9,103 @@
  * included in the file licenses/APL.txt.
  */
 
+/* The same page as a task's configure form: a card on the canvas holds the entries and
+   the selected entry's sections. */
 .console-icd-editor {
     width: 100%;
     height: 100%;
-}
-
-.console-icd-editor__header,
-.console-icd-editor__tasks {
-    padding: 1rem 2rem;
+    padding: 0 5rem 3rem;
+    background: var(--pluto-gray-l0);
 }
 
 .console-icd-editor__header {
-    border-bottom: var(--pluto-border-l6);
-}
+    flex-shrink: 0;
+    padding: 3rem 0 2rem;
 
-.console-icd-editor__tasks {
-    border-top: var(--pluto-border-l6);
+    & > .pluto-input__item {
+        min-width: 0;
+        flex: 1 1 0;
+    }
 }
 
 .console-icd-editor__body {
     min-height: 0;
+    border-radius: var(--pluto-border-radius-large);
+    overflow: hidden;
+    background: var(--pluto-gray-l1);
+    border-color: var(--pluto-gray-l6);
+
+    .pluto-header {
+        background: var(--pluto-gray-l2);
+    }
 }
 
-.console-icd-editor__entries {
-    width: 240px;
+.console-icd-editor__tasks {
     flex-shrink: 0;
-    border-right: var(--pluto-border-l6);
+    padding-top: 2rem;
 }
 
-.console-icd-editor__add {
-    padding: 1rem;
+.console-icd-editor__entries-status {
+    padding: 1rem 2rem;
+}
+
+.console-icd-entry__label,
+.console-icd-entry__text {
+    min-width: 0;
 }
 
 .console-icd-editor__entry {
-    flex-grow: 1;
-    min-width: 0;
-    padding: 2rem;
-    overflow: auto;
+    min-height: 0;
+    overflow-y: auto;
+    container-type: inline-size;
+}
+
+/* Two label and control pairs fit on a line. A paired section fills both; elsewhere a
+   control spans both. */
+.console-icd-editor__details {
+    padding: var(--console-details-padding);
+    grid-template-columns: max-content minmax(0, 1fr) max-content minmax(0, 1fr);
+
+    /* Sticky grid cells paint the card's surface. */
+    --pluto-input-table-bg: var(--pluto-gray-l1);
+
+    & .pluto-input__item > :not(.pluto-input-label) {
+        grid-column: 2 / -1;
+    }
+
+    &
+        .console-icd-editor__pairs
+        .pluto-input__item:not(.console-icd-editor__wide):has(> .pluto-input-label)
+        > :not(.pluto-input-label) {
+        grid-column: auto;
+    }
+
+    /* A wide field starts its own line. */
+    & .console-icd-editor__wide > .pluto-input-label {
+        grid-column: 1;
+    }
+}
+
+.console-icd-editor__flags {
+    gap: 0 3rem;
+}
+
+@container (width < 600px) {
+    .console-icd-editor__details {
+        grid-template-columns: max-content minmax(0, 1fr);
+    }
+}
+
+/* Too narrow for a label column: each label sits above its control. */
+@container (width < 420px) {
+    .console-icd-editor__details .pluto-form-section__body > .pluto-input__item {
+        display: flex;
+        flex-direction: column;
+        grid-column: 1 / -1;
+        gap: 0.5rem;
+
+        & > .pluto-input-label {
+            height: auto;
+        }
+    }
 }

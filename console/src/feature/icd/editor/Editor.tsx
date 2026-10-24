@@ -14,6 +14,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, ICD, Library, Panel } from "@synnaxlabs/pluto";
@@ -25,6 +26,7 @@ import { Message } from "@/feature/icd/editor/Message";
 import { Tasks } from "@/feature/icd/editor/Tasks";
 import { useImport } from "@/feature/icd/useImport";
 import { CSS } from "@/platform/css";
+import { Task } from "@/platform/task";
 
 interface EntryProps {
   path: string;
@@ -32,34 +34,47 @@ interface EntryProps {
 
 const Entry = ({ path }: EntryProps): ReactElement => {
   const kind = Form.useFieldValue<icd.EntryType>(`${path}.kind`);
+  return kind === "enum" ? <Enum path={path} /> : <Message path={path} />;
+};
+
+const Title = ({ path }: EntryProps): ReactElement | null => {
+  const name = Form.useFieldValue<string>(`${path}.name`, { optional: true });
   return (
-    <Flex.Box y gap="medium" className={CSS.BE("icd-editor", "entry")}>
-      <Form.TextField path={`${path}.name`} label="Name" />
-      {kind === "enum" ? <Enum path={path} /> : <Message path={path} />}
-    </Flex.Box>
+    <Text.Text weight={500} color={10} overflow="ellipsis">
+      {name}
+    </Text.Text>
   );
 };
 
 interface BodyProps {
-  selected: string | null;
-  onSelect: (key: string | null) => void;
+  selected: string[];
+  onSelect: (keys: string[]) => void;
 }
 
 const Body = ({ selected, onSelect }: BodyProps): ReactElement => {
   const { data } = Form.useFieldList<string, icd.Entry>("entries");
-  // The selected entry can vanish when a save or an import replaces the entries.
-  const current = selected != null && data.includes(selected) ? selected : data[0];
+  // Selected entries can vanish when a save or an import replaces the entries.
+  const present = selected.filter((key) => data.includes(key));
+  const shown = present.length > 0 ? present : data.slice(0, 1);
+  const current = shown.at(0);
+  const path = current == null ? null : `entries.${current}`;
   return (
-    <Flex.Box x grow empty className={CSS.BE("icd-editor", "body")}>
-      <Entries selected={current ?? null} onSelect={onSelect} />
-      {current == null ? (
+    <Task.Views.Panes
+      listTitle="Entries"
+      list={<Entries selected={shown} onSelect={onSelect} />}
+      detailsPath={path}
+      title={path == null ? undefined : <Title path={path} />}
+    >
+      {path == null ? (
         <Flex.Box grow align="center" justify="center">
-          <Text.Text color={9}>Add an enum or a message to start</Text.Text>
+          <Text.Text color={9}>Add a message or an enum to start</Text.Text>
         </Flex.Box>
       ) : (
-        <Entry key={current} path={`entries.${current}`} />
+        <Flex.Box y grow empty className={CSS.BE("icd-editor", "entry")}>
+          <Entry key={current} path={path} />
+        </Flex.Box>
       )}
-    </Flex.Box>
+    </Task.Views.Panes>
   );
 };
 
@@ -89,7 +104,7 @@ interface ContentProps {
 
 const Content = ({ onReload }: ContentProps): ReactElement => {
   const { key } = Panel.useTabResource();
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
   const canEdit = Access.useUpdateGranted(icd.ontologyID(key));
   const { form, save, variant, status } = ICD.useForm({
     query: { key },
@@ -102,29 +117,45 @@ const Content = ({ onReload }: ContentProps): ReactElement => {
   return (
     <Form.Form<typeof ICD.formSchema> {...form}>
       <Flex.Box y empty full className={CSS.B("icd-editor")}>
-        {canEdit && (
-          <Flex.Box
-            x
-            justify="end"
-            gap="small"
-            className={CSS.BE("icd-editor", "header")}
-          >
-            {stale && <Stale onReload={onReload} />}
-            <Button.Button variant="outlined" onClick={() => handleImport(key)}>
-              <Icon.Import />
-              Import
-            </Button.Button>
-            <Button.Button
-              variant="filled"
-              onClick={() => save()}
-              status={variant === "loading" ? "loading" : undefined}
-            >
-              <Icon.Save />
-              Save
-            </Button.Button>
-          </Flex.Box>
-        )}
-        <Body selected={selected} onSelect={setSelected} />
+        <Flex.Box
+          x
+          align="center"
+          justify="between"
+          gap="medium"
+          className={CSS.BE("icd-editor", "header")}
+        >
+          <Form.Field<string> path="name" showLabel={false} padHelpText={false}>
+            {(p) => (
+              <Input.Text
+                variant="text"
+                level="h3"
+                onlyChangeOnBlur
+                aria-label="Name"
+                {...p}
+              />
+            )}
+          </Form.Field>
+          {canEdit && (
+            <Flex.Box x align="center" gap="small">
+              {stale && <Stale onReload={onReload} />}
+              <Button.Button variant="outlined" onClick={() => handleImport(key)}>
+                <Icon.Import />
+                Import
+              </Button.Button>
+              <Button.Button
+                variant="filled"
+                onClick={() => save()}
+                status={variant === "loading" ? "loading" : undefined}
+              >
+                <Icon.Save />
+                Save
+              </Button.Button>
+            </Flex.Box>
+          )}
+        </Flex.Box>
+        <Flex.Box x bordered grow empty className={CSS.BE("icd-editor", "body")}>
+          <Body selected={selected} onSelect={setSelected} />
+        </Flex.Box>
         <Tasks icdKey={key} />
       </Flex.Box>
     </Form.Form>

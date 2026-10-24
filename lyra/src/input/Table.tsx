@@ -44,7 +44,15 @@ export interface TableCellProps<V extends TableCell = TableCell> extends Control
 interface BaseTableColumnProps {
   /** The heading rendered above the column. Omitted for a lone unlabeled column. */
   name?: string;
+  /**
+   * The column's width in rem. Omitted, the column shares the width the others leave,
+   * down to a minimum, past which the grid scrolls.
+   */
+  width?: number;
 }
+
+/** The narrowest a column without a width gets, in rem. */
+const MIN_SHARED_WIDTH = 24;
 
 /**
  * The column's type decides what a new row holds, how pasted text is read, and which
@@ -183,6 +191,7 @@ export const Table = ({
   createRow,
   onRemove,
   className,
+  style,
   ...rest
 }: TableProps): ReactElement => {
   // Paste and keyboard moves land on the focused cell, so the last focus is the anchor.
@@ -198,6 +207,14 @@ export const Table = ({
   const rowName = (index: number): string =>
     rowLabel?.(index) ?? (index + 1).toString();
   const hasHeader = columns.some(({ name }) => name != null);
+  const columnsWidth = columns.reduce(
+    (sum, { width }) => sum + (width ?? MIN_SHARED_WIDTH),
+    0,
+  );
+  const tableStyle: CSS.VarProperties = {
+    "--pluto-input-table-columns": `${columnsWidth}rem`,
+    ...style,
+  };
 
   const handleCellChange = (at: xy.XY, next: TableCell) =>
     onChange(
@@ -240,88 +257,98 @@ export const Table = ({
   };
 
   return (
-    <table
-      ref={table}
-      className={CSS.cls(CSS.BE("input", "table"), className)}
-      onPaste={handlePaste}
-      onKeyDown={handleKeyDown}
-      {...rest}
-    >
-      {hasHeader && (
-        <thead>
-          <tr>
-            {hasGutter && <th className={CSS.BE("input", "table-gutter")} />}
-            {columns.map(({ name }, i) => (
-              <th key={i} scope="col">
-                <Text.Text level="small" weight={450} color={9}>
-                  {name}
-                </Text.Text>
-              </th>
-            ))}
-            <th />
-          </tr>
-        </thead>
-      )}
-      <tbody>
-        {value.map((row, i) => (
-          <tr key={i} className={CSS.M("reveals")}>
-            {hasGutter && (
-              <th scope="row" className={CSS.BE("input", "table-gutter")}>
-                <Text.Text level="small" color={9}>
-                  {rowName(i)}
-                </Text.Text>
-              </th>
-            )}
-            {columns.map((column, j) => (
-              <td key={j} onFocus={() => (anchor.current = { x: j, y: i })}>
-                {renderCell(column, {
-                  value: row[j] ?? emptyCell(column),
-                  onChange: (next) => handleCellChange({ x: j, y: i }, next),
-                  preview,
-                  variant: "shadow",
-                  "aria-label":
-                    column.name == null ? rowName(i) : `${column.name} ${rowName(i)}`,
-                })}
+    <div className={CSS.BE("input", "table-scroll")}>
+      <table
+        ref={table}
+        className={CSS.cls(CSS.BE("input", "table"), className)}
+        style={tableStyle}
+        onPaste={handlePaste}
+        onKeyDown={handleKeyDown}
+        {...rest}
+      >
+        <colgroup>
+          {hasGutter && <col className={CSS.BE("input", "table-gutter")} />}
+          {columns.map(({ width }, i) => (
+            <col key={i} style={width == null ? undefined : { width: `${width}rem` }} />
+          ))}
+          <col className={CSS.BE("input", "table-action")} />
+        </colgroup>
+        {hasHeader && (
+          <thead>
+            <tr>
+              {hasGutter && <th className={CSS.BE("input", "table-gutter")} />}
+              {columns.map(({ name }, i) => (
+                <th key={i} scope="col">
+                  <Text.Text level="small" weight={450} color={9}>
+                    {name}
+                  </Text.Text>
+                </th>
+              ))}
+              <th />
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {value.map((row, i) => (
+            <tr key={i} className={CSS.M("reveals")}>
+              {hasGutter && (
+                <th scope="row" className={CSS.BE("input", "table-gutter")}>
+                  <Text.Text level="small" color={9}>
+                    {rowName(i)}
+                  </Text.Text>
+                </th>
+              )}
+              {columns.map((column, j) => (
+                <td key={j} onFocus={() => (anchor.current = { x: j, y: i })}>
+                  {renderCell(column, {
+                    value: row[j] ?? emptyCell(column),
+                    onChange: (next) => handleCellChange({ x: j, y: i }, next),
+                    preview,
+                    variant: "shadow",
+                    "aria-label":
+                      column.name == null ? rowName(i) : `${column.name} ${rowName(i)}`,
+                  })}
+                </td>
+              ))}
+              <td>
+                {!preview && (
+                  <Button.Button
+                    variant="text"
+                    size="small"
+                    reveal
+                    tooltip={`Remove row ${rowName(i)}`}
+                    onClick={() =>
+                      onRemove != null
+                        ? onRemove(i)
+                        : onChange(value.filter((_, j) => j !== i))
+                    }
+                  >
+                    <Icon.Close />
+                  </Button.Button>
+                )}
               </td>
-            ))}
-            <td>
-              {!preview && (
+            </tr>
+          ))}
+        </tbody>
+        {!preview && (
+          <tfoot>
+            <tr>
+              {hasGutter && <td className={CSS.BE("input", "table-gutter")} />}
+              <td colSpan={columns.length + 1}>
                 <Button.Button
                   variant="text"
                   size="small"
-                  reveal
-                  tooltip={`Remove row ${rowName(i)}`}
-                  onClick={() =>
-                    onRemove != null
-                      ? onRemove(i)
-                      : onChange(value.filter((_, j) => j !== i))
-                  }
+                  textColor={9}
+                  onClick={() => onChange([...value, createRow?.(value) ?? emptyRow()])}
                 >
-                  <Icon.Close />
+                  <Icon.Add />
+                  Add row
                 </Button.Button>
-              )}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-      {!preview && (
-        <tfoot>
-          <tr>
-            {hasGutter && <td className={CSS.BE("input", "table-gutter")} />}
-            <td colSpan={columns.length + 1}>
-              <Button.Button
-                variant="text"
-                size="small"
-                textColor={9}
-                onClick={() => onChange([...value, createRow?.(value) ?? emptyRow()])}
-              >
-                <Icon.Add />
-                Add row
-              </Button.Button>
-            </td>
-          </tr>
-        </tfoot>
-      )}
-    </table>
+              </td>
+            </tr>
+          </tfoot>
+        )}
+      </table>
+    </div>
   );
 };

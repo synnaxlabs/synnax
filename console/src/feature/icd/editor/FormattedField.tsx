@@ -11,32 +11,39 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { type ReactElement } from "react";
 
-export interface OptionalFieldProps<V> {
+export interface FormattedFieldProps<V> {
   path: string;
   label: string;
-  /** Shown while the field is absent. */
-  placeholder: string;
+  /** Shown while the text is empty. */
+  placeholder?: string;
+  /** Shown after the text, such as "ms". */
+  unit?: string;
+  /** Whether clearing the text removes the value. */
+  optional?: boolean;
   format: (value: V) => string;
   /** @returns the value the text holds, or null when it holds none. */
   parse: (text: string) => V | null;
 }
 
 /**
- * A text input for a value the schema lets be absent. Clearing the text removes the
- * value, and text that does not parse leaves the value as it was.
+ * A text input for a value the user writes in a format, such as a hexadecimal ID. The
+ * text commits on blur or Enter, and text that does not parse leaves the value as it
+ * was.
  */
-export const OptionalField = <V,>({
+export const FormattedField = <V,>({
   path,
   label,
   placeholder,
+  unit,
+  optional = false,
   format,
   parse,
-}: OptionalFieldProps<V>): ReactElement => {
+}: FormattedFieldProps<V>): ReactElement => {
   const { set } = Form.useContext();
-  const state = Form.useFieldState<V>(path, { optional: true });
+  const state = Form.useFieldState<V>(path, { optional });
   const value = state?.value;
   const handleChange = (text: string) => {
-    if (text.trim() === "") return set(path, undefined);
+    if (optional && text.trim() === "") return set(path, undefined);
     const parsed = parse(text);
     if (parsed != null) set(path, parsed);
   };
@@ -51,6 +58,8 @@ export const OptionalField = <V,>({
         value={value == null ? "" : format(value)}
         onChange={handleChange}
         placeholder={placeholder}
+        endContent={unit}
+        onlyChangeOnBlur
       />
     </Input.Item>
   );
@@ -58,6 +67,12 @@ export const OptionalField = <V,>({
 
 /** Parses an integer written in decimal or, with a 0x prefix, in hexadecimal. */
 export const parseInteger = (text: string): number | null => {
-  const value = Number(text.trim());
+  const trimmed = text.trim();
+  if (trimmed === "") return null;
+  const value = Number(trimmed);
   return Number.isInteger(value) ? value : null;
 };
+
+/** Formats an integer in hexadecimal with a 0x prefix. */
+export const formatHex = (value: number): string =>
+  `0x${value.toString(16).toUpperCase()}`;

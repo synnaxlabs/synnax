@@ -9,30 +9,53 @@
  * included in the file licenses/APL.txt.
  */
 
+/* The rail marks the rows as the field's own block and brightens while a cell holds
+   focus. As a border it sits outside the scrolled area, so rows never paint over it. It
+   starts at the heading ink, and an empty grid has none. */
+.pluto-input__table-scroll {
+    --pluto-input-table-rail: var(--pluto-gray-l5);
+
+    overflow-x: auto;
+
+    &:has(tbody tr) {
+        border-left: var(--pluto-border-width) solid;
+        border-image: linear-gradient(
+                transparent 1rem,
+                var(--pluto-input-table-rail) 1rem
+            )
+            1;
+    }
+
+    &:focus-within {
+        --pluto-input-table-rail: var(--pluto-gray-l7);
+    }
+}
+
 .pluto-input__table {
+    --pluto-input-table-gutter: 5rem;
+    --pluto-input-table-action: 6rem;
+
     width: 100%;
+
+    /* Past its columns' widths the grid scrolls instead of squeezing them, keeping
+       the row label, the first column, and the remove button in view. */
+    min-width: calc(var(--pluto-input-table-columns) + var(--pluto-input-table-action));
     table-layout: fixed;
     border-collapse: collapse;
 
-    position: relative;
-
-    /* The rail marks the rows as the field's own block and brightens while a
-       cell inside holds focus. Its top starts at the heading ink, skipping
-       the dead space above the first line's centered text. An empty grid
-       renders no rail. */
-    &:has(tbody tr)::before {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 1rem;
-        bottom: 0;
-        width: var(--pluto-border-width);
-        background: var(--pluto-gray-l5);
-        transition: background-color 0.15s ease-out;
+    &:has(col.pluto-input__table-gutter) {
+        min-width: calc(
+            var(--pluto-input-table-columns) + var(--pluto-input-table-action) +
+                var(--pluto-input-table-gutter)
+        );
     }
 
-    &:focus-within::before {
-        background: var(--pluto-gray-l7);
+    & col.pluto-input__table-gutter {
+        width: var(--pluto-input-table-gutter);
+    }
+
+    & col.pluto-input__table-action {
+        width: var(--pluto-input-table-action);
     }
 
     & th,
@@ -46,6 +69,28 @@
     & thead th {
         text-align: left;
         height: var(--pluto-height-small);
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    & tbody td {
+        padding-block: 0.5rem;
+
+        & > .pluto-input {
+            width: 100%;
+        }
+    }
+
+    /* The add row only stands off from rows above it. Alone in an empty grid,
+       it holds the first line so the field's label has a stable anchor. */
+    &:has(tbody tr) tfoot td {
+        padding-top: 0.5rem;
+    }
+
+    & th:last-child,
+    & td:last-child {
+        text-align: right;
     }
 
     /* Column headings sit over the cell text, which shadow inputs inset. */
@@ -55,6 +100,7 @@
 
     /* The first column steps in from the rail. */
     & tr > :first-child {
+        left: 0;
         padding-left: 1.5rem;
     }
 
@@ -63,30 +109,39 @@
         padding-left: 3rem;
     }
 
-    /* The add row only stands off from rows above it. Alone in an empty grid,
-       it holds the first line so the field's label has a stable anchor. */
-    &:has(tbody tr) tfoot td {
-        padding-top: 0.5rem;
-    }
-
-    & tbody td {
-        padding-block: 0.5rem;
-    }
-
     /* The gutter holds the row's label, the action column its remove button. */
     & .pluto-input__table-gutter {
-        width: 5rem;
         text-align: right;
         padding-right: 1rem;
-    }
-
-    & th:last-child,
-    & td:last-child {
-        width: 6rem;
-        text-align: right;
     }
 
     & td:not(:last-child) {
         padding-right: 1rem;
+    }
+
+    & tr > .pluto-input__table-gutter + * {
+        left: var(--pluto-input-table-gutter);
+    }
+
+    & tr > :last-child {
+        right: 0;
+    }
+
+    /* Sticky cells paint the surface under the grid, so rows scroll beneath them. A
+       host that puts the grid on a surface other than the canvas sets
+       --pluto-input-table-bg to match it. */
+    & :is(thead, tbody) tr > :is(:first-child, :last-child),
+    & :is(thead, tbody) tr > .pluto-input__table-gutter + * {
+        position: sticky;
+
+        /* Above the controls in scrolled cells (1, 2 when focused), below an open
+           dropdown (6). */
+        z-index: 3;
+        background: var(--pluto-input-table-bg, var(--pluto-gray-l0));
+    }
+
+    & tfoot td > .pluto-btn {
+        position: sticky;
+        left: var(--pluto-input-table-gutter);
     }
 }

@@ -8,12 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type icd } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { useNestedStatus } from "@/feature/icd/editor/useNestedStatus";
+import { CSS } from "@/platform/css";
 
 /** Appends the value after the largest one, so a new row starts out unique. */
 const createRow = (rows: Input.TableCell[][]): Input.TableCell[] => {
@@ -26,7 +28,7 @@ export interface EnumProps {
   path: string;
 }
 
-/** Edits the values of an enum as a grid of value and name. */
+/** Edits an enum: its name, and its values as a grid of value and name. */
 export const Enum = ({ path }: EnumProps): ReactElement => {
   const valuesPath = `${path}.values`;
   const { set } = Form.useContext();
@@ -43,16 +45,26 @@ export const Enum = ({ path }: EnumProps): ReactElement => {
   let helpText = status?.message;
   if (index != null) helpText = `Value ${index + 1}: ${helpText}`;
   return (
-    <Input.Item label="Values" padHelpText helpText={helpText} status={status?.variant}>
-      <Input.Table
-        value={rows}
-        onChange={handleChange}
-        createRow={createRow}
-        rowLabel={(i) => (i + 1).toString()}
-      >
-        <Input.TableColumn name="Value" />
-        <Input.TableColumn name="Name" type="string" />
-      </Input.Table>
-    </Input.Item>
+    <Form.Sections className={CSS.BE("icd-editor", "details")}>
+      <Form.Section title="Enum">
+        <Form.TextField path={`${path}.name`} label="Name" />
+      </Form.Section>
+      <Form.Section title="Values">
+        <Flex.Box y gap="small">
+          <Input.Table
+            value={rows}
+            onChange={handleChange}
+            createRow={createRow}
+            rowLabel={(i) => (i + 1).toString()}
+          >
+            <Input.TableColumn name="Value" width={16} />
+            <Input.TableColumn name="Name" type="string" />
+          </Input.Table>
+          {helpText != null && (
+            <Input.HelpText variant={status?.variant}>{helpText}</Input.HelpText>
+          )}
+        </Flex.Box>
+      </Form.Section>
+    </Form.Sections>
   );
 };
