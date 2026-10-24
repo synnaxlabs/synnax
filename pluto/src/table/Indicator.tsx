@@ -16,8 +16,10 @@ import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { box, direction } from "@synnaxlabs/x";
+import { box, direction, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo, useRef } from "react";
+
+import { transform } from "@/table/shift";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -34,7 +36,7 @@ export const getCellColumn = (index: number): string => {
   return label;
 };
 
-export interface ColumnIndicatorsProps {
+export interface ColumnIndicatorsProps extends Pick<IndicatorProps, "onMovePress"> {
   columns: number[];
   rows: table.Row[];
   selected: string[];
@@ -42,6 +44,8 @@ export interface ColumnIndicatorsProps {
   onSelect: (index: number, ev: React.MouseEvent) => void;
   onSelectAll: () => void;
   onResize: (size: number, index: number) => void;
+  /** How far each column slides while a move previews where it lands. */
+  shifts?: number[];
 }
 
 export const ColumnIndicators = memo(
@@ -53,6 +57,8 @@ export const ColumnIndicators = memo(
     onSelect,
     onSelectAll,
     onResize,
+    onMovePress,
+    shifts,
   }: ColumnIndicatorsProps): ReactElement => {
     // cellToCol indexes the rows once per layout change so selectedCols can
     // resolve each selected cell to its column in O(1).
@@ -91,6 +97,8 @@ export const ColumnIndicators = memo(
             editable={editable}
             onChange={onResize}
             onSelect={onSelect}
+            onMovePress={onMovePress}
+            shift={shifts?.[i]}
           />
         ))}
       </tr>
@@ -107,6 +115,13 @@ export interface IndicatorProps {
   selected?: boolean;
   onChange: (size: number, index: number) => void;
   onSelect: (index: number, ev: React.MouseEvent) => void;
+  /**
+   * Handles a press on the label, which moves the row or column once the pointer
+   * travels. The label does not move anything when absent.
+   */
+  onMovePress?: (index: number, ev: React.PointerEvent) => void;
+  /** How far the row or column slides while a move previews where it lands. */
+  shift?: number;
 }
 
 export const Indicator = ({
@@ -117,6 +132,8 @@ export const Indicator = ({
   selected = false,
   onChange,
   onSelect,
+  onMovePress,
+  shift = 0,
 }: IndicatorProps): ReactElement => {
   const valueRef = useSyncedRef(value);
   const sizeRef = useRef(value);
@@ -129,7 +146,13 @@ export const Indicator = ({
       [onChange, index, dir],
     ),
   });
-  const style = useMemo(() => ({ [direction.dimension(dir)]: value }), [dir, value]);
+  const style = useMemo(
+    () => ({
+      [direction.dimension(dir)]: value,
+      transform: transform(xy.construct(dir, shift)),
+    }),
+    [dir, value, shift],
+  );
   const label = dir === "x" ? getCellColumn(index) : index + 1;
   return (
     <td
@@ -145,7 +168,16 @@ export const Indicator = ({
       onClick={(e) => onSelect(index, e)}
       onContextMenu={(e) => onSelect(index, e)}
     >
-      <Text.Text full="x" justify="center" align="center" square={false}>
+      <Text.Text
+        className={CSS.cls(
+          CSS.BE("table", "label"),
+          onMovePress != null && Cursor.DRAG_CLASS,
+        )}
+        justify="center"
+        align="center"
+        square={false}
+        onPointerDown={onMovePress == null ? undefined : (e) => onMovePress(index, e)}
+      >
         {label}
       </Text.Text>
       {editable && (
