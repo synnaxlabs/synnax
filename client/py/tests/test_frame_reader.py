@@ -62,6 +62,7 @@ class TestReader:
             sy.TimeRange.MAX, data_ch.key, reduction=sy.StrideReduction(factor=2)
         )
         assert np.array_equal(series, np.arange(0, 10, 2, dtype=np.float64))
+        assert series.series[0].alignment_multiple == 2
 
     def test_read_limited(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax

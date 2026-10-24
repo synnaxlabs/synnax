@@ -22,7 +22,7 @@ import { randomSeries } from "@/util/telem";
 
 const client = createTestClient();
 
-const MAX_DOWNSAMPLE_FACTOR = 2 ** 32 - 1;
+const MAX_FACTOR = 2 ** 32 - 1;
 
 describe("Iterator", () => {
   test("happy path", async () => {
@@ -105,8 +105,8 @@ describe("Iterator", () => {
       await iter.close();
     }
   });
-  describe("downsampling", () => {
-    test("downsample factor 2", async () => {
+  describe("stride", () => {
+    test("should keep every second sample under a factor of 2", async () => {
       const channels = await newIndexedPair(client);
       const [idx_ch, data_ch] = channels;
       const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
@@ -122,16 +122,15 @@ describe("Iterator", () => {
       try {
         expect(await iter.seekFirst()).toBe(true);
         expect(await iter.next(AUTO_SPAN)).toBe(true);
-        // [1, 2, 3, 4, 5, 6, 7, 8] downsampled by 2 = [1, 3, 5, 7]
-        expect(iter.value.get(data_ch.key).data).toEqual(
-          new Float64Array([1, 3, 5, 7]),
-        );
+        const series = iter.value.get(data_ch.key);
+        expect(series.data).toEqual(new Float64Array([1, 3, 5, 7]));
+        expect(series.series[0].alignmentMultiple).toEqual(2n);
         expect(await iter.next(AUTO_SPAN)).toBe(false);
       } finally {
         await iter.close();
       }
     });
-    test("downsample factor 3", async () => {
+    test("should keep every third sample under a factor of 3", async () => {
       const channels = await newIndexedPair(client);
       const [idx_ch, data_ch] = channels;
       const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
@@ -147,14 +146,13 @@ describe("Iterator", () => {
       try {
         expect(await iter.seekFirst()).toBe(true);
         expect(await iter.next(AUTO_SPAN)).toBe(true);
-        // [1, 2, 3, 4, 5, 6, 7, 8, 9] downsampled by 3 = [1, 4, 7]
         expect(iter.value.get(data_ch.key).data).toEqual(new Float64Array([1, 4, 7]));
         expect(await iter.next(AUTO_SPAN)).toBe(false);
       } finally {
         await iter.close();
       }
     });
-    test("no downsample when factor is 1", async () => {
+    test("should keep every sample under a factor of 1", async () => {
       const channels = await newIndexedPair(client);
       const [idx_ch, data_ch] = channels;
       const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
@@ -185,15 +183,15 @@ describe("Iterator", () => {
       test("defaults to no reduction", () => {
         expect(iteratorConfigZ.parse({}).reduction).toBeUndefined();
       });
-      test.each([0, 1, 2, 10, MAX_DOWNSAMPLE_FACTOR])("accepts %i", (factor) => {
+      test.each([0, 1, 2, 10, MAX_FACTOR])("accepts %i", (factor) => {
         expect(iteratorConfigZ.parse(stride(factor)).reduction).toEqual(
           stride(factor).reduction,
         );
       });
       // The wire field is unsigned, so a factor the schema lets through would be
       // reinterpreted by the Core instead of rejected.
-      test.each([-1, 1.5, MAX_DOWNSAMPLE_FACTOR + 1])("rejects %s", (factor) => {
-        expect(() => iteratorConfigZ.parse(stride(factor))).toThrow();
+      test.each([-1, 1.5, MAX_FACTOR + 1])("rejects %s", (factor) => {
+        expect(() => iteratorConfigZ.parse(stride(factor))).toThrow(/factor/);
       });
     });
   });
@@ -261,7 +259,7 @@ describe("Iterator", () => {
         });
       });
       test.each([0, -1, 1.5, 2 ** 32])("rejects a point limit of %s", (pointLimit) => {
-        expect(() => iteratorConfigZ.parse(limit(pointLimit))).toThrow();
+        expect(() => iteratorConfigZ.parse(limit(pointLimit))).toThrow(/pointLimit/);
       });
     });
   });

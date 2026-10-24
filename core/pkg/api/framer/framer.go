@@ -127,8 +127,7 @@ type ReadResponse struct {
 	// requested channels, excluding any the caller already requested. It is empty
 	// unless the request set TimestampsIncluded.
 	Indexes []channel.Channel
-	// Reduction is the request's reduction. Under a stride, sample i of a series sits
-	// at the series' alignment plus i times the factor.
+	// Reduction is the request's reduction.
 	Reduction telem.Reduction
 	// OpenIterator opens an iterator over keys within the read's bounds and under its
 	// reduction. The caller must close it.

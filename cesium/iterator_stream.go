@@ -129,8 +129,9 @@ type streamIterator struct {
 	confluence.UnarySink[IteratorRequest]
 	confluence.AbstractUnarySource[IteratorResponse]
 	internal []*unary.Iterator
-	// reduced is true when the iterator reduces its reads, which bounds their size.
-	reduced bool
+	// limited is true when the read has a limit reduction. A limited read is never
+	// pieced, because a piece edge would cut its groups.
+	limited bool
 }
 
 // IteratorConfig is the configuration for opening an iterator :). See the fields for
@@ -186,19 +187,23 @@ func (s *streamIterator) exec(
 	}
 	switch req.Command {
 	case IteratorCommandNext:
-		if s.reduced || req.Span == AutoSpan {
+		if s.limited || req.Span == AutoSpan {
 			ok = s.execWithResponse(
 				req.SeqNum,
 				func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) },
 			)
 		} else {
-			ok, err = s.nextInPieces(ctx, req.SeqNum, req.Span)
+			ok, err = s.readInPieces(ctx, req)
 		}
 	case IteratorCommandPrev:
-		ok = s.execWithResponse(
-			req.SeqNum,
-			func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) },
-		)
+		if s.limited || req.Span == AutoSpan {
+			ok = s.execWithResponse(
+				req.SeqNum,
+				func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) },
+			)
+		} else {
+			ok, err = s.readInPieces(ctx, req)
+		}
 	case IteratorCommandSeekFirst:
 		ok = s.execWithoutResponse(
 			func(i *unary.Iterator) bool { return i.SeekFirst(ctx) },
@@ -244,22 +249,27 @@ func (s *streamIterator) execWithResponse(
 	return ok
 }
 
-// nextInPieces moves each iterator forward by span in pieces that each hold at most
-// AutoChunkSize samples of every index. It sends one data response per piece, holding
-// every channel's data up to the end of that piece.
-func (s *streamIterator) nextInPieces(
+// readInPieces runs a Next or Prev with a fixed span. It reads the range of each
+// iterator forward in pieces that each hold at most AutoChunkSize samples of every
+// index, or more for a run of equal timestamps. Each piece is one data response that
+// holds every channel's data up to the end of the piece.
+func (s *streamIterator) readInPieces(
 	ctx context.Context,
-	seqNum int,
-	span telem.TimeSpan,
+	req IteratorRequest,
 ) (ok bool, err error) {
 	var (
-		targets = make([]telem.TimeStamp, len(s.internal))
-		started = make([]bool, len(s.internal))
-		last    telem.TimeStamp
+		ends = make([]telem.TimeStamp, len(s.internal))
+		last telem.TimeStamp
 	)
 	for j, i := range s.internal {
-		targets[j] = i.View().End.SpanRange(span).BoundBy(i.Bounds()).End
-		last = max(last, targets[j])
+		tr := i.View().End.SpanRange(req.Span)
+		if req.Command == IteratorCommandPrev {
+			tr = i.View().Start.SpanRange(-req.Span)
+		}
+		tr = tr.BoundBy(i.Bounds())
+		i.MoveTo(ctx, tr.Start)
+		ends[j] = tr.End
+		last = max(last, tr.End)
 	}
 	for {
 		end := last
@@ -269,7 +279,7 @@ func (s *streamIterator) nextInPieces(
 			if i.Channel.IsIndex {
 				idx = i.Channel.Key
 			}
-			if i.View().End >= targets[j] || probed.Contains(idx) {
+			if i.View().End >= ends[j] || probed.Contains(idx) {
 				continue
 			}
 			probed.Add(idx)
@@ -281,36 +291,17 @@ func (s *streamIterator) nextInPieces(
 		}
 		var piece Frame
 		for j, i := range s.internal {
-			stop := min(end, targets[j])
-			if stop <= i.View().End {
-				continue
-			}
-			var read bool
-			if started[j] {
-				read = i.Continue(ctx, stop)
-			} else {
-				read = i.Next(ctx, i.View().End.Span(stop))
-				started[j] = true
-			}
-			if read {
+			stop := min(end, ends[j])
+			if stop > i.View().End && i.Continue(ctx, stop) {
 				ok = true
 				piece = piece.Extend(i.Value())
 			}
 		}
-		s.send(seqNum, piece)
+		s.send(req.SeqNum, piece)
 		if end >= last {
-			break
+			return ok, nil
 		}
 	}
-	var rest Frame
-	for j, i := range s.internal {
-		if !started[j] && i.Next(ctx, span) {
-			ok = true
-			rest = rest.Extend(i.Value())
-		}
-	}
-	s.send(seqNum, rest)
-	return ok, nil
 }
 
 // send sends fr as a data response unless it holds no series.

@@ -195,6 +195,9 @@ var _ = Describe("Iterator", func() {
 					Expect(
 						iter.Value().SeriesAt(0),
 					).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 13, 16, 19, 22)))
+					Expect(
+						iter.Value().SeriesAt(0).AlignmentMultiple,
+					).To(Equal(uint32(3)))
 					Expect(iter.Close()).To(Succeed())
 				})
 			})

@@ -51,7 +51,8 @@ type Config struct {
 	// Reduction reduces the samples of each channel read. A stride keeps the samples
 	// whose alignment is a multiple of its factor. A limit reduces each channel in
 	// Bounds to about PointLimit points. Either way, every channel on one index keeps
-	// the same alignments.
+	// the same alignments. Under a limit, Next and Prev with AutoSpan read every
+	// remaining sample in their direction when the read runs calculations.
 	//
 	// [OPTIONAL]
 	Reduction telem.Reduction `json:"reduction" msgpack:"reduction"`
@@ -123,6 +124,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {
+	cfg.Reduction.ApplyDefaults()
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
@@ -130,6 +132,12 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	calcTransform, sizer, err := s.newCalculationTransform(ctx, &cfg)
 	if err != nil {
 		return nil, err
+	}
+	var sizes map[channel.Key]uint32
+	if sizer != nil {
+		if sizes, err = sizer.resolve(ctx, cfg.Bounds); err != nil {
+			return nil, err
+		}
 	}
 	distCfg := cfg.distribution()
 	if calcTransform != nil {
@@ -162,10 +170,6 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 			routeOutletFrom = "downsampler"
 		}
 		if sizer != nil {
-			sizes, err := sizer.resolve(ctx, cfg.Bounds)
-			if err != nil {
-				return nil, err
-			}
 			r := newReducer(sizer.limit.Aggregation, sizes)
 			p.SetSegment("reducer", r)
 			p.MustConnect[Response](routeOutletFrom, "reducer", 25)

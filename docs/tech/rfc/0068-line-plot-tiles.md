@@ -18,55 +18,37 @@ The selected range stops limiting the data. It becomes the home view: the first 
 the zoom-reset target, and the source of the axis bounds. The user can pan and zoom past
 it, and the plot fetches what the new view needs.
 
-Live data keeps streaming at full resolution. A 1-hour live window on a 1 kHz channel
-loads a few thousand points instead of 3.6 million samples.
+A 1-hour range of a 1 kHz channel loads a few thousand points instead of 3.6 million
+samples. Live data streams at full resolution.
 
 ## 1 Motivation
 
 ### 1.0 A plot loads everything, then draws a fraction of it
 
-A static line plot reads its whole range at full resolution in one call
-(`pluto/src/telem/aether/remote.ts:293`). A live plot back-fills its whole window
-(`remote.ts:450-455`). A day of one 1 kHz channel is 86.4 million samples. The plot can
-show about two points per pixel column, so it draws a few thousand of them. The GPU
-stride that skips the rest is capped at 51
-(`pluto/src/vis/line/aether/line.ts:493-500`).
-
-The cost lands on the user as a wait. PR #2882 made the wait visible: the plot blanks
-and shows "Fetching X of data" until every line finishes
-(`pluto/src/lineplot/aether/LinePlot.ts:176-184`).
+A static line plot reads its whole range at full resolution. A live plot keeps three
+times its window. A day of one 1 kHz channel is 86.4 million samples, but the plot shows
+about two points per pixel column, and a GPU stride capped at 51 skips the rest. The
+plot blanks until every line finishes loading.
 
 ### 1.1 Pan and zoom never fetch
 
-Pan and zoom change only the view box (`pluto/src/viewport/use.ts:366-371`). Nothing in
-the telemetry path reads the view. A test/data engineer who sees a spike at the start of
+Pan and zoom change only the view box. A test engineer who sees a spike at the start of
 a run cannot pan left to see what came before it. They must edit the range, which
 reloads everything.
 
 ### 1.2 The Core can reduce, but only by striding
 
-The iterator takes a `downsampleFactor` that keeps every Nth sample
-(`cesium/internal/unary/iterator.go:34-37`). The Console uses it only for CSV export.
-Every-Nth loses short events. On a 1 kHz pressure channel viewed over a day, each kept
-point stands for about 40,000 samples, and a 5 ms overpressure spike almost never lands
-on a kept sample. A test operator reviewing the run does not see it.
+The iterator's `downsampleFactor` keeps every Nth sample. Over a day of a 1 kHz pressure
+channel, each kept point stands for about 40,000 samples, and a 5 ms overpressure spike
+almost never lands on a kept sample.
 
 ### 1.3 The first attempt
 
-Branch `sy-fidelity-aware-telemetry-reads` (April 2026) tried to keep several detail
-levels of the same data in the alignment-keyed frame cache and join them when drawing.
-It was abandoned for four reasons, and this design answers each:
-
-- **Mixed detail inside one cache**: Joined levels drew lines twice, left holes that
-  were minutes long, and paired x at one detail with y at another. Tiles never mix
-  levels inside a tile (§4.1), and the Core picks one group size per index channel
-  (§4.4).
-- **Data drove the axis bounds**: A narrower fetch shrank the bounds, and the view
-  jumped. Bounds now come from the home view (§4.0).
-- **The first read had no pixel budget**: The first load fetched full resolution. Tiles
-  have a point limit from the first request (§4.2).
-- **Budget flutter refetched**: A few pixels of resize refetched the same range. Tiles
-  sit on a fixed grid, and the point limit is quantized (§4.2).
+A branch from April 2026 kept several detail levels side by side in the alignment-keyed
+frame cache and joined them when drawing. It drew lines twice, left holes minutes long,
+paired x at one detail with y at another, and moved the axis bounds with every fetch.
+Here, a tile never mixes levels (§3.1), one index has one group size (§3.4), and the
+bounds come from the home view (§3.0).
 
 ## 2 Vocabulary
 
@@ -75,7 +57,7 @@ It was abandoned for four reasons, and this design answers each:
 - **View**: The time span the plot shows now.
 - **Tile**: A span of one channel's data at one level, identified by its level and its
   index on the grid.
-- **Level**: A tile size. Level `L` tiles span `BASE * 2^L`, where `BASE` is 1 ms.
+- **Level**: A tile size. Level `L` tiles span `2^L` ms.
 - **Grid**: The tile boundaries of one level. Tile `k` at level `L` spans
   `[k * size(L), (k + 1) * size(L))`, measured from the Unix epoch.
 - **Point limit**: The target number of points the Core returns for one tile.
@@ -85,60 +67,33 @@ It was abandoned for four reasons, and this design answers each:
   values. `average` keeps the mean. `decimate` keeps the first sample.
 - **Detail**: A per-line setting that scales the point limit.
 
-## 3 Principles
+## 3 Design
 
-1. **The home view sets the bounds, never the loaded data**: Loaded data changes with
-   every fetch. Bounds that follow it move the view under the user.
-2. **One tile, one level**: A tile is drawn whole or not at all. Nothing joins two
-   levels inside a tile.
-3. **The plot chooses, the Feed fetches**: Only the plot knows the view and the pixel
-   width, so it chooses tiles on the Aether worker thread. The framer `Feed` owns every
-   fetch and every cached frame (RFC 0055 §3, P6). The `Feed` knows nothing about views
-   or pixels.
-4. **The Core decides the group size**: Only the Core knows how many samples a tile
-   holds. There is no channel rate to compute it from.
-5. **Live data is never reduced**: The newest tile streams at full resolution.
-6. **Every point drawn happened**: A reduced point is a real value of the channel. An XY
-   plot never pairs an x from one sample with a y from another.
+### 3.0 Home view and bounds
 
-## 4 Design
+Each resolved range becomes a line's home view, and the plot's home view is the union of
+its lines' home views. The x-axis bounds are the home view, never the loaded data. The
+y-axis bounds come from the tiles that cover the home view at the home level. Min/max
+tiles hold the true extremes, and the source holds them, so the `Feed` never evicts
+them. Pan is unclamped, so the user can move past the home view, and the line fetches
+tiles there like anywhere else.
 
-### 4.0 Home view and bounds
+### 3.1 Tiles
 
-The Console keeps resolving ranges as it does today
-(`console/src/feature/lineplot/LinePlot.tsx:200-229`). Each resolved range becomes a
-line's home view. The plot's home view is the union of its lines' home views.
+A level's tiles are twice the size of the level below it. The grid is anchored at the
+Unix epoch, so two plots of one channel ask for identical tiles. The plot picks the
+smallest level whose tiles are at least half the view span, so the view covers two or
+three tiles, and fetches every tile that touches the view at that level. A zoom that
+changes the level fetches after the level holds for 150 ms, so a fast zoom does not read
+the levels it passes through.
 
-The x-axis bounds are the home view. Today they come from `line.xBounds()`, which reads
-the loaded data (`pluto/src/lineplot/aether/XAxis.ts:89-93`). The y-axis bounds come
-from the tiles that cover the home view at the home level (§4.2). Min/max tiles hold the
-true extremes, so these bounds are exact. The source pins those tiles, so the Feed never
-evicts them while the line exists.
+Each slot of the view at the chosen level draws its own tile when it is cached, else its
+two child tiles when both are cached, else the finest cached ancestor up to eight levels
+coarser. Else it stays empty until its tile arrives. A tile is drawn whole, and two
+drawn tiles never overlap. A tile whose sample count is under the point limit comes back
+raw, so full resolution is not a special case.
 
-The view box stays a decimal box over the x bounds. Pan is already unclamped
-(`viewport/use.ts:366-371`), so a view outside `[0, 1]` shows time outside the home
-view. The line fetches tiles there like anywhere else.
-
-### 4.1 Tiles
-
-Time is cut into levels. A level's tiles are twice the size of the level below it. The
-grid is fixed per level and anchored at the Unix epoch, so two plots of one channel ask
-for identical tiles.
-
-The plot picks the smallest level whose tiles are at least half the view span. The view
-then covers two or three tiles. It fetches every tile that touches the view at that
-level.
-
-Drawing follows one rule. For each slot of the view at the chosen level, draw the finest
-cached tile that covers the slot. Fall back to a coarser tile when the finer one is not
-cached yet. When zooming out, finer cached tiles fill slots whose coarse tile has not
-arrived. A tile is drawn whole. Two tiles of different levels never overlap on screen,
-because a slot draws exactly one tile.
-
-Full resolution is not a special case. A tile whose sample count is under the point
-limit comes back raw, with a group size of `1`.
-
-### 4.2 Point limit and detail
+### 3.2 Point limit and detail
 
 A line's `detail` sets groups per pixel column:
 
@@ -148,314 +103,185 @@ A line's `detail` sets groups per pixel column:
 | `medium` default | 1 per 2                 |
 | `high`           | 1                       |
 
-`high` with `min_max` is pixel-exact: each column shows its true minimum and maximum.
+The point limit of a tile is its share of the line's pixel width, times groups per
+column, times points per group (2 for `min_max`, 1 otherwise), rounded up to a power of
+two. A resize of a few pixels then keeps the limit, and the cache still hits.
 
-The point limit of a tile is the tile's share of the plot's pixel width, times groups
-per column, times points per group (2 for `min_max`, 1 otherwise). The plot rounds the
-limit up to a power of two. A resize of a few pixels then keeps the same limit, and the
-cache still hits. The limit is part of the tile's cache key.
+### 3.3 Aggregation
 
-### 4.3 Aggregation
+A line's `aggregation` is `min_max` (default) or `average`. A `min_max` group gives its
+minimum and maximum, in the order they occurred, so every spike survives. An `average`
+group gives its mean, in the channel's data type, so a lower `detail` smooths more.
 
-A line's `aggregation` is `min_max` (default) or `average`.
+The index channel is reduced with the same aggregation and group size as its data, so
+every data channel on one index shares one reduced index series, and x pairs with y by
+alignment. A point's time error is under one group: one pixel column at `high`. The
+values stay exact. `decimate` keeps sample `0` of each group. Only XY lines use it
+(§3.7).
 
-- **`min_max`**: Each group gives two points: its minimum and its maximum, in the order
-  they occurred. Every spike survives, because it is the minimum or the maximum of its
-  group.
-- **`average`**: Each group gives one point: its mean. A lower `detail` means larger
-  groups, so more smoothing. The mean keeps the channel's data type, so an integer
-  channel truncates it.
+### 3.4 The Core
 
-The index channel is reduced with the same aggregation and group size as its data. Its
-timestamps rise, so a `min_max` group gives the group's first and last timestamp, and an
-`average` group gives its mean time. Every data channel on one index therefore shares
-one reduced index series, and x pairs with y by alignment.
+The iterator and the `/frame/read` request (RFC 0059) replace `downsample_factor` with
+one `reduction` field, a union of two variants:
 
-A point's time error is under one group: one pixel column at `high`, four at `low`. The
-values stay exact. Only their position inside the group moves.
+- **`stride`**: Keeps the samples whose alignment is a multiple of `factor`, so every
+  channel on one index keeps the same samples.
+- **`limit`**: Reduces each numeric channel in the read bounds to about `point_limit`
+  points, with an `aggregation` of `min_max` (default), `average`, or `decimate`.
+  Non-numeric channels stay raw, so CSV export accepts only a `stride`.
 
-`decimate` is a third aggregation that keeps sample `0` of each group. The line setting
-never offers it. XY plots use it (§4.7).
+Cesium reduces in the unary iterator. Each channel counts the samples of its index
+inside the read bounds with a binary search of the index, so every channel on one index
+gets the same group size: the smallest that brings the count under the limit, rounded up
+to an even size for `min_max`. Groups are anchored at sample `0` of each index domain,
+so two reads of overlapping bounds cut the same groups.
 
-### 4.4 The Core
+A fixed-span read without a limit can be large: 12 hours of a 1 kHz channel is about 400
+MB. Cesium sends a fixed-span `Next` or `Prev` in pieces, in time order. Each piece
+holds at most the chunk size of samples of every index and ends at the same time for
+every channel. A limited read is not pieced, because a piece edge would cut its groups,
+and the limit already bounds it.
 
-The iterator's open config replaces `downsampleFactor` with one `reduction` field. It is
-a union of two variants:
+A calculation must see every sample, so a request that runs one reads every channel raw,
+and the service reduces the output. Each channel's group size comes from the concrete
+indexes it depends on, so a stored channel reduces the same way with or without a
+calculation beside it. The reducer keeps each channel's last group until the next piece
+completes it. The service reads a `Next` or `Prev` with the automatic span as one
+fixed-span read to the end of the bounds, so no chunk edge cuts a group.
 
-- **`stride`**: Keeps every `factor`-th sample. CSV export uses it.
-- **`limit`**: Reduces each channel in the read bounds to about `point_limit` points.
-  Its `aggregation` is `min_max` (default), `average`, or `decimate`. `point_limit` is
-  at least `1`.
+### 3.5 The wire
 
-A request without `reduction` reads raw data. The union makes it impossible to ask for a
-stride and a limit together. The field travels the path SY-4786 built for
-`downsampleFactor`: the TS and Python clients
-(`client/ts/src/framer/iterator.ts:61-65`), the API
-(`core/pkg/api/framer/framer.go:198-203`), the service
-(`core/pkg/service/framer/iterator/service.go:51-65`), the distribution transport
-(`core/pkg/distribution/framer/iterator/transport.go:64-65`), and Cesium
-(`cesium/internal/unary/iterator.go:34-37`). The streamer keeps its own
-`downsampleFactor`.
+A reduced series carries its alignment multiple: sample `i` has alignment
+`alignment + i * alignmentMultiple`. For `min_max` the multiple is `G/2`, so both points
+of a group sit at real sample positions. For a stride it is the factor. Go and Python
+`Series` gain the field TS already had.
 
-The `/frame/read` request (RFC 0059) takes the same `reduction` in place of its
-`downsample_factor`. CSV export accepts only a `stride`. Under a `limit`, a non-numeric
-channel stays raw beside its reduced index, so its samples have no row, and the read
-fails before the first byte.
+The frame codec has one flags byte, with bits 0 to 5 in use. Bit 6 means each series
+carries a 4-byte multiple after its alignment. Bit 7 is reserved: it will mean a second
+flags byte follows, and decoders reject it until then. The Go, TS, and Python codecs
+support bit 6. The C++ codec rejects it, because the C++ client has no iterator. Only a
+reduced read sets the bit, and a shipped client cannot ask for one.
 
-Cesium reduces in the unary iterator, beside the every-Nth path. Each data channel's
-iterator counts the samples of its index channel inside the read bounds, with
-`index.Domain.Distance` (`cesium/internal/index/domain.go:64`). Every channel on one
-index therefore computes the same count and the same group size. Groups are anchored at
-sample `0` of each index domain, so a group's position depends only on its alignment. A
-data domain that starts mid-group stays in phase with its index, and two reads of
-overlapping bounds cut the same groups. A reduced series starts at the alignment of its
-first group, which can sit before the read's lower bound.
+### 3.6 The `Feed`
 
-The group size is the smallest size that brings the count under the limit, rounded up to
-an even number for `min_max`. When the count is already under the limit, the read is
-raw.
+The `Feed` gains `readTile(spec: TileSpec): Promise<MultiSeries>`. A `TileSpec` holds
+the channel key, level, index, point limit, aggregation, and an optional `start` and
+`end` that cut the tile.
 
-Calculated channels are computed from raw data in the service layer, then reduced with
-`MultiSeries.Reduce`. A calculation must see every sample, because a stateful expression
-fed reduced input returns a different signal. Arc gives a calculation's output the
-alignment of its inputs, so the output and its virtual index reduce like stored data.
-The service picks each output's group size from the concrete indexes the calculation
-reads: a `decimate` read with a limit of one point returns one point per domain, with
-the index's sample count as its alignment multiple. A stored channel read beside a
-calculation reduces the same way as when it is read alone.
+- **Batching**: Tile reads with equal bounds and options merge into one `/frame/read`
+  request, so the x and y tiles of one slot share one group size.
+- **Cache**: Keyed by the full spec, apart from the alignment-keyed cache. A cut tile is
+  not cached.
+- **Eviction**: Least recently used, by bytes, under a 128 MB budget. A tile a source
+  holds is never evicted.
+- **Staleness**: A tile expires after 10 minutes, so a write into the past appears.
 
-A raw read of a whole tile can be large: 12 hours of a 1 kHz channel is about 400 MB.
-Cesium therefore sends an unreduced read of a fixed span in pieces. A piece holds at
-most the chunk size of samples of every index, and ends at the same time for every
-channel. Each piece goes out as one response, in time order. The calculation runs on
-each piece. A piece edge can cut a group, so the reducer keeps each channel's last group
-until the next piece completes it, and sends it before the reply's acknowledgement. The
-groups are the same as in a read of one piece. A stride over a calculation continues
-across pieces in the same way. `Next` with the automatic span reads all of the remaining
-bounds of a reduced calculated read, so it returns exact groups in one reply.
+### 3.7 Pluto
 
-### 4.5 The wire
+A new series source, `telem.tiledChannelData`, replaces `channelData` and
+`streamChannelData` for line plots. `ValueProps` gains an optional `view`: the visible
+time span and the line's pixel width. `value()` stays synchronous. It returns the tiles
+cached now, chosen by the rule in §3.1, and starts fetches for missing ones. When a
+fetch lands, the source notifies, and the line renders again.
 
-A reduced series states its group size, so the client can pair x with y and knows when
-data is raw. The TS `Series` already carries `alignmentMultiple`
-(`x/ts/src/telem/series.ts:187`) and slices by it (`series.ts:1111-1121`). Go `Series`
-gains the same field (`x/go/telem/series.go:33-45`). Sample `i` of a series has
-alignment `alignment + i * alignmentMultiple`. For `min_max` the multiple is `G/2`, so
-both points of a group sit at real sample positions.
+A line whose x channel is not an index (an XY line) reads the tiles of its home view
+once, at the home level, cut to the home view, with `decimate`. `min_max` would pair
+values from different samples, while `decimate` keeps each x with its own y. The
+aggregation setting is hidden for these lines.
 
-The frame codec has one flags byte, and bits 0 to 5 are in use
-(`core/pkg/distribution/framer/codec/codec.go:348-353`):
+### 3.8 Live plots
 
-- **Bit 6**: Alignment multiples present. When set, each series carries a 4-byte
-  multiple after its alignment.
-- **Bit 7**: Reserved. When set, a second flags byte follows. Decoders reject a frame
-  with bit 7 set until a later change defines that byte.
-
-All four codecs change together: Go, TS (`client/ts/src/framer/codec.ts:74-79`), Python
-(`client/py/synnax/framer/codec.py:21-26`), and C++ (`client/cpp/framer/codec.cpp`).
-
-The Core sets bit 6 only when a request asks for a limit. A shipped client never asks,
-so it never receives the bit.
-
-### 4.6 The `Feed`
-
-The `Feed` gains one method (NEW):
-
-```ts
-readTile(spec: TileSpec): Promise<MultiSeries>;
-```
-
-`TileSpec` holds the channel key, level, index, point limit, aggregation, and an
-optional `end`. The `Feed` returns the cached tile or fetches it, and the caller
-acquires the result like any `Feed.read` result.
-
-- **Batching**: Tile reads with equal time bounds and options merge into one
-  `/frame/read` request, through the existing reader batcher
-  (`client/ts/src/framer/cache/reader.ts:30`). The x and y tiles of one slot therefore
-  come back from one request with one group size.
-- **Cache**: A tile cache inside `framer/cache`, keyed by the full `TileSpec`. It is
-  separate from the alignment-keyed `Static` cache. Tiles never merge, so they need no
-  insertion plan.
-- **Eviction**: Least recently used, by byte size, under a budget of 128 MB by default.
-  A tile a source holds is never evicted.
-- **Staleness**: A tile expires after the `Static` cache's coverage lifetime
-  (`client/ts/src/framer/cache/static.ts:61`), so a write into the past appears within
-  that window.
-- **Partial tiles**: With `end` set before the tile's upper bound, the result covers
-  only the tile's start up to `end`. The `Feed` does not cache it (§4.8).
-
-### 4.7 Pluto
-
-A new series source, `telem.tiledChannelData` (NEW), replaces `channelData` and
-`streamChannelData` for line plots whose x channel is an index. Its precedent is
-`ChannelData` (`pluto/src/telem/aether/remote.ts:224-305`).
-
-The line tells the source what it shows. `ValueProps`
-(`pluto/src/telem/aether/telem.ts:61`) gains an optional `view`: the visible time span
-and the line's pixel width. `value()` stays synchronous. It returns the tiles that are
-cached now, chosen by the rule in §4.1, and starts fetches for missing tiles. When a
-fetch lands, the source notifies, and the line renders again. The April session reached
-this shape: a hint on `value()` that adds finer data and never narrows what the source
-holds.
-
-A line whose x channel is not an index (an XY plot) keeps `channelData`. It loads the
-home view once and never fetches on pan or zoom. Blocks cut by time do not map to a view
-in x units, and `min_max` would pair values from different samples. The read uses
-`decimate` under the point limit, which keeps each x with its own y. The aggregation
-setting is hidden for these lines.
-
-### 4.8 Live plots
-
-A live line keeps a live window at full resolution: `feed.read` fills it once, and
+A live line keeps a window at full resolution: `feed.read` fills it once, and
 `Feed.stream` extends it. The window starts at the home-level tile boundary at or before
-the start of the home view, so it covers the home view and at most one tile more. Series
-that end before the window's start are released as it moves.
+the start of the home view, and series that end before the start are released as it
+moves. Tiles cover everything before the start. No tile at the home level or finer
+crosses it, and a coarser tile that does is read with `end` set to it. The x and y
+sources compute the start from the clock, so both cut at the same time.
 
-Tiles cover everything before the window's start. The start is a tile boundary at the
-home level and every finer level, so no tile at those levels crosses it. A coarser tile
-that crosses it is read with `end` set to the start, and the `Feed` does not cache it.
-The x and y sources compute the start from the clock, so both cut at the same time.
+### 3.9 Loading
 
-Today a live plot keeps three times its window (`pluto/src/lineplot/LinePlot.tsx:135`).
+On the first load, the plot shows a centered "Fetching…" status. After that, it draws
+every cached tile, and a small spinner in a corner shows while a tile in view loads.
 
-### 4.9 Loading
+### 3.10 Line settings
 
-A plot never blanks when it has something to draw. On the very first load, with no tile
-cached, the plot keeps today's centered "Fetching…" status
-(`pluto/src/lineplot/Viewport.tsx:56-65`). After that, it draws every cached tile, and a
-small spinner in a corner shows while any tile in view is loading. An area with no tile
-at any level stays empty until its tile arrives.
+`schemas/synnax/lineplot.oracle` replaces `downsample` and `downsample_mode` with
+`aggregation` (`min_max` default, or `average`) and `detail` (`medium` default, `low`,
+or `high`), with matching set actions. A 1-50 factor has no meaningful mapping to a
+detail, so the migration gives saved lines the default detail. A line saved with the
+`average` mode takes the `average` aggregation. The per-line `SeriesDownsampler` and the
+GPU stride are deleted.
 
-`LinePlot.render` stops erasing the canvas while lines load
-(`pluto/src/lineplot/aether/LinePlot.ts:176-184`).
+## 4 Implementation phases
 
-### 4.10 Line settings
-
-`schemas/synnax/lineplot.oracle` drops `downsample` and `downsample_mode`
-(`lineplot.oracle:267-275`) and the `SetLineDownsample` and `SetLineDownsampleMode`
-actions (`lineplot.oracle:546-558`). It adds two fields to `Line`:
-
-- **`aggregation`**: `min_max` default, or `average`.
-- **`detail`**: `medium` default, `low`, or `high`.
-
-A 1-50 factor has no meaningful mapping to a detail level, so saved plots take the
-default detail. A line saved with the `average` mode takes the `average` aggregation.
-The Console toolbar (`console/src/feature/lineplot/toolbar/Lines.tsx`) swaps its two
-inputs for the two new ones.
-
-The per-line `SeriesDownsampler` (`pluto/src/telem/aether/transformers.ts:357-409`) and
-the GPU stride (`line.ts:141-177`, `line.ts:493-503`) are deleted.
-
-## 5 Implementation phases
-
-Each phase is one PR into `main`, merged in order. Phases 2 and 3 are the data plane,
-Phase 4 is rendering, and Phase 5 is the user-facing cutover. Phase 4 sits behind the
-Console flag `lineplotTiles` in `console/src/flags.ts`, which Pluto receives as a
-`LinePlot` prop.
+Each phase is one PR into `main`, merged in order. Phase 4 sits behind the Console flag
+`lineplotTiles`.
 
 - **Phase 1: Aether update fix.** Main-thread updates that cross a worker push in flight
   are kept. Tiles push often, so the plot depends on it.
-- **Phase 2: Core reduction.** Go `Series.AlignmentMultiple` and codec bits 6 and 7 in
-  the Go, TS, Python, and C++ codecs. The `reduction` union through Cesium, the
-  distribution layer, the service, the iterator and `/frame/read` APIs, and the TS and
-  Python clients, with CSV export moved to `stride`. `min_max`, `average`, and
-  `decimate` under a point limit in the Cesium unary iterator, with index-anchored
-  groups and one group size per index. Pieced raw reads, and the service-layer path for
-  calculated channels.
-- **Phase 3: Tile cache.** `Feed.readTile` with its cache, batching, eviction budget,
-  staleness, and partial tiles. Live-Core `Feed` specs cover the path end to end. No
-  plot uses it yet.
+- **Phase 2: Core reduction.** Alignment multiples and codec bit 6, the `reduction`
+  union from the clients to Cesium, pieced raw reads, and reduced calculations.
+- **Phase 3: Tile cache.** `Feed.readTile`. No plot uses it yet.
 - **Phase 4: Tiled plots, flagged.** Home-view bounds, `tiledChannelData`, the `view`
-  value prop, the slot drawing rule, the loading behavior of §4.9, the live handoff of
-  §4.8, and `decimate` for XY plots.
-- **Phase 5: Cutover.** The oracle field and action changes, with regenerated code in
-  its own commit, and the toolbar inputs. Tiles turn on, and the flag,
-  `SeriesDownsampler`, the GPU stride, and the #2882 canvas erase are deleted.
+  value prop, loading, the live window, and XY lines.
+- **Phase 5: Cutover.** The line setting changes with their migration and toolbar
+  inputs. Tiles turn on, and the flag and the old downsampling are deleted.
 
-**Compatibility**: Shipped clients never request a limit, so they never see codec bit 6.
-A shipped client that sends `downsampleFactor` to an iterator reads raw data. The
-dropped line fields were in stable releases. Stored plots that carry them decode with
-the fields ignored, and take the new defaults.
+**Compatibility**:
 
-## 6 Resolved decisions
+- A shipped client cannot send a reduction, so it never sees codec bit 6. A shipped
+  client that sends `downsample_factor` to an iterator reads raw data.
+- The TS `openIterator` option `downsampleFactor` and the Python `open_iterator`
+  argument `downsample_factor` shipped in v0.59.3. Both are removed in favor of a
+  `stride` reduction.
+- Stored line plots migrate as §3.10 says.
 
-**6.0 The selected range is a home view, not a data limit.** The alternative keeps the
-view inside the selected range. It is simpler, because fetches stay inside a known span,
-but the user must edit the range to see anything outside it. The trade is real: free pan
-means a plot can ask for data anywhere, so the tile cache needs its eviction budget.
+## 5 Resolved decisions
 
-**6.1 Tiles, not a per-view query.** Grafana re-queries every view at an interval set by
-panel width. plotly-resampler re-aggregates the visible window on every pan and zoom.
-Both are simpler than tiles, but every pan fetches the whole window again, and no result
-is reused. Tiles follow map tile pyramids and the time-series viewers that adopted them:
-HiGlass stores 1D data at doubling resolutions, and Kyrix serves a 100-million-point EEG
-series as tiles. A pan fetches only the new tiles, and zooming out reuses coarse ones.
+**5.0 The selected range is a home view, not a data limit.** Keeping the view inside the
+selected range is simpler, but the user must edit the range to see past it. The trade is
+real: a plot can ask for data anywhere, so the tile cache needs its budget.
 
-**6.2 Several levels in one cache, rejected.** The April branch kept levels side by side
-in the alignment-keyed cache and joined them. Its failure modes are in §1.3.
+**5.1 Tiles, not a per-view query.** Grafana and plotly-resampler query the whole window
+again on every view change. Map tile pyramids, HiGlass, and Kyrix show that tiles work
+for time series: a pan fetches only the new tiles, and zooming out reuses coarse ones.
 
-**6.3 Min/max, not every-Nth.** Every-Nth already exists and needs no new Core code. It
-drops short events, which hides exactly what a test operator reviews a run for. M4
-(VLDB 2014) adds the first and last value of each group and is pixel-exact for lines. It
-costs twice the points of min/max, and at one group per pixel column the extra two
-points fall inside the same column.
+**5.2 Min/max, not every-Nth or M4.** Every-Nth drops short events, which hides what a
+test operator reviews a run for. M4 (VLDB 2014) adds each group's first and last value,
+but at one group per pixel column those points fall inside the same column.
 
-**6.4 Fixed positions inside a group.** Exact times for the minimum and maximum would
-give each data channel its own index series. That breaks the shared-index frame and
-doubles the payload. The error is under one group, which is one pixel column at `high`
-detail.
+**5.3 The Core picks the group size.** The client does not know how many samples a tile
+holds, and a count request before each read costs a second round trip per tile.
 
-**6.5 The Core picks the group size.** The client cannot pick it. It does not know how
-many samples a tile holds, and there is no channel rate. A count endpoint followed by a
-read costs two round trips per tile.
+**5.4 Tiles live in the `Feed`, not in Pluto.** A tile cache in Pluto would be a second
+telemetry cache with its own memory rules, which RFC 0055 removed.
 
-**6.6 Tiles live in the `Feed`, not in Pluto.** A tile cache in Pluto would be quicker
-to build. It would also be a second telemetry cache with its own memory rules beside the
-`Feed`, which RFC 0055 removed.
+**5.5 Smoothing stays, as an aggregation.** A calculated channel with a moving average
+smooths the same amount at every zoom. The trade is real: `average` smooths more when
+zoomed out, as in Grafana and InfluxDB.
 
-**6.7 Smoothing stays, as an aggregation.** Deleting both line settings and sending
-users to a calculated channel with a moving average was considered. The calculated
-channel smooths the same amount at every zoom. Smoothing is a common enough need that it
-stays on the line. The trade is real: `average` smooths more when zoomed out, as in
-Grafana and InfluxDB.
+**5.6 XY lines do not tile.** An XY view is a span of x values, so it does not choose
+tiles. The trade is real: a large XY plot loads its whole home view.
 
-**6.8 A second flags byte behind bit 7.** Using both free bits for this change would
-leave the next codec change with no room. Bit 7 as an extension marker costs one bit
-once.
+**5.7 One `reduction` union, not three fields.** Separate fields allow a stride and a
+limit together, and each layer must reject it. A union cannot state that request.
 
-**6.9 XY plots do not tile.** A tile is a span of time. An XY view is a span of x
-values, so it does not choose tiles. The trade is real: a large XY plot still loads its
-whole home view, reduced by `decimate`.
+**5.8 Pieces in Cesium, not in the service.** Only Cesium knows where each index's
+samples are. Reducing each chunk alone adds two points at every chunk edge. The trade is
+real: the reducer holds one group per channel between pieces.
 
-**6.10 One `reduction` union, not three fields.** Separate `downsampleFactor`,
-`aggregation`, and `point_limit` fields allow a request that sets a stride and a limit
-together, and each layer must reject it. A union cannot state that request. The trade is
-real: the iterator field `downsampleFactor` leaves the wire, and a client that still
-sends it gets raw data.
+**5.9 Tiles read through `/frame/read`, not the iterator.** A tile is one bounded read.
+Through the iterator, it costs a new WebSocket and four exchanges. The trade is real: a
+browser allows six HTTP/1.1 connections to one host, so a burst of tile reads can delay
+other requests.
 
-**6.11 Pieces in Cesium, not in the service.** The service could split a calculated read
-into several smaller reads. Only Cesium knows where each index's samples are, so the
-service cannot cut reads at a sample count, and a second iterator position in the
-service could drift from Cesium's. Reducing each chunk alone was also considered. It
-adds two points at every chunk edge: 2,848 points for a limit of 2,000 at 100,000-sample
-chunks. The trade is real: the reducer holds one group per channel between pieces.
+**5.10 One reduction per request.** Reading the calculations' inputs raw and the other
+channels reduced needs a second distribution iterator and a merge of their replies. The
+trade is real: a plot with a calculated channel reads all its channels raw.
 
-**6.12 Tiles read through `/frame/read`, not the iterator.** A tile is one bounded read,
-the job RFC 0059 gives `/frame/read`. Through the iterator, each tile costs a new
-WebSocket and four exchanges: open, seek, next, and close. The trade is real: a browser
-allows six HTTP/1.1 connections to one host, shared with unary requests, so a burst of
-tile reads can delay other requests to the Core. `Feed.read` already reads plot data
-through `/frame/read` and pays the same cost.
-
-## 7 What this RFC does not cover
+## 6 What this RFC does not cover
 
 - A precomputed pyramid of reduced data in Cesium. The Core reduces at read time.
-- Reduction of live streams. Live data stays at full resolution.
+- Reduction of live streams.
 - Schematic values, tables, and other consumers of `Feed.read`.
 - Prefetching tiles ahead of a pan.
-
-## 8 Open questions
-
-- **Level choice margin**: Whether the plot switches level at exactly half the view span
-  or with hysteresis, so a zoom near the boundary does not switch levels back and forth.
-- **Spinner**: Its position and size.
