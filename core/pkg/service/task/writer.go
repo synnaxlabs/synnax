@@ -38,7 +38,7 @@ type Writer struct {
 
 // resolveStatus returns the status to persist for t. Without a provided status, a task
 // created for the first time provably has no live instance, so it gets a quiet "not
-// deployed" placeholder; an existing task may be running, so its placeholder stays a
+// deployed" placeholder; an existing task can be running, so its placeholder stays a
 // "status unknown" warning.
 func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 	if provided == nil {
