@@ -166,12 +166,17 @@ public:
             return err;
 
         std::vector<pdo::Entry> entries;
+        std::vector<x::telem::SampleValue> stop_values;
         entries.reserve(this->cfg.outputs.size());
-        for (const auto &ch: this->cfg.outputs)
+        stop_values.reserve(this->cfg.outputs.size());
+        for (const auto &ch: this->cfg.outputs) {
             entries.push_back(*ch);
+            stop_values.emplace_back(ch->stop_value);
+        }
         auto [wtr, err] = this->engine->open_writer(
-            std::move(entries),
-            this->cfg.execution_rate
+            entries,
+            this->cfg.execution_rate,
+            stop_values
         );
         if (err) return err;
         this->writer = std::move(wtr);

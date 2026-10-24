@@ -180,7 +180,8 @@ TEST_F(EngineTest, SlowerReaderGetsSamplesAtItsOwnRate) {
 TEST_F(EngineTest, WriteEncodesEachEntryType) {
     const auto writer = ASSERT_NIL_P(this->engine->open_writer(
         {OUT_I16, OUT_I32, OUT_I24, OUT_U4},
-        x::telem::Rate(100)
+        x::telem::Rate(100),
+        {0, 0, 0, 0}
     ));
     {
         const auto tx = writer->open_tx();
@@ -199,36 +200,75 @@ TEST_F(EngineTest, WriteEncodesEachEntryType) {
 
 TEST_F(EngineTest, WriteToUnknownIndexReturnsError) {
     const auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({OUT_I16}, x::telem::Rate(100))
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(100), {0})
     );
     const auto err = writer->write(1, static_cast<int16_t>(0x1234));
     ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
     EXPECT_EQ(err.data, "output index 1 is out of range for 1 registered entries");
 }
 
-TEST_F(EngineTest, ClosedWriterReturnsItsOutputsToZero) {
+TEST_F(EngineTest, ClosedWriterHoldsItsStopValuesWhileTheBusRuns) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 3)
     );
-    auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({OUT_I16}, x::telem::Rate(100))
-    );
+    auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {OUT_I16, OUT_U4},
+        x::telem::Rate(100),
+        {static_cast<int16_t>(-7), static_cast<uint8_t>(0x5)}
+    ));
     ASSERT_NIL(writer->write(0, static_cast<int16_t>(0x1234)));
     ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), 0x1234);
     writer.reset();
-    ASSERT_TRUE(this->engine->running());
-    ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), 0);
+    ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
+    EXPECT_EQ(this->master->get_output<uint8_t>(U4_BYTE) & 0x0F, 0x5);
+    EXPECT_EQ(this->read_times(*reader, 3).size(), 3);
+    EXPECT_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
 }
 
-TEST_F(EngineTest, LastWriterToCloseReturnsItsOutputsToZero) {
-    auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({OUT_I16}, x::telem::Rate(100))
-    );
+TEST_F(EngineTest, LastWriterToCloseSendsItsStopValuesBeforeTheBusStops) {
+    auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {OUT_I16},
+        x::telem::Rate(100),
+        {static_cast<int16_t>(-7)}
+    ));
     ASSERT_NIL(writer->write(0, static_cast<int16_t>(0x1234)));
     ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), 0x1234);
     writer.reset();
     ASSERT_FALSE(this->engine->running());
-    EXPECT_EQ(this->master->get_output<int16_t>(I16_BYTE), 0);
+    EXPECT_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
+}
+
+TEST_F(EngineTest, WriterKeepsTheStopValueAnotherWriterLeftUntilItCommands) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 3)
+    );
+    ASSERT_NIL_P(this->engine->open_writer(
+        {OUT_I16},
+        x::telem::Rate(100),
+        {static_cast<int16_t>(-7)}
+    ));
+    ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
+    auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(100), {0})
+    );
+    EXPECT_EQ(this->read_times(*reader, 3).size(), 3);
+    EXPECT_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
+    ASSERT_NIL(writer->write(0, static_cast<int16_t>(5)));
+    ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), 5);
+    writer.reset();
+    ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), 0);
+}
+
+TEST_F(EngineTest, StopValuesMustMatchTheEntries) {
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_writer(
+            {OUT_I16},
+            x::telem::Rate(100),
+            {static_cast<int16_t>(1), static_cast<int16_t>(2)}
+        ),
+        x::errors::VALIDATION
+    );
+    EXPECT_FALSE(this->engine->running());
 }
 
 TEST_F(EngineTest, ReaderKeepsItsSpacingWhileTheBusRateChanges) {
@@ -241,7 +281,8 @@ TEST_F(EngineTest, ReaderKeepsItsSpacingWhileTheBusRateChanges) {
             {
                 const auto writer = this->engine->open_writer(
                     {OUT_I16},
-                    x::telem::Rate(1000)
+                    x::telem::Rate(1000),
+                    {0}
                 );
                 std::this_thread::sleep_for(std::chrono::milliseconds(30));
             }
@@ -269,7 +310,7 @@ TEST_F(EngineTest, ReadRateBelowOneMillihertzIsRejected) {
 
 TEST_F(EngineTest, OpeningATaskKeepsTheBusRunning) {
     const auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({OUT_I16}, x::telem::Rate(100))
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(100), {0})
     );
     ASSERT_NIL(writer->write(0, static_cast<int16_t>(0x1234)));
     ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), 0x1234);
@@ -319,12 +360,13 @@ TEST_F(EngineTest, EntryOutsideTheImageIsRejected) {
 
 TEST_F(EngineTest, RejectedEntryLeavesTheRunningBusUp) {
     const auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({OUT_I16}, x::telem::Rate(100))
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(100), {0})
     );
     ASSERT_OCCURRED_AS_P(
         this->engine->open_writer(
             {pdo::Entry(0, 0x9999, 1, 16, false, x::telem::INT16_T)},
-            x::telem::Rate(100)
+            x::telem::Rate(100),
+            {0}
         ),
         errors::PDO_MAPPING_ERROR
     );
@@ -444,7 +486,7 @@ TEST_F(EngineTest, BusRateCoversTheFastestWriter) {
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
     const auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({OUT_I16}, x::telem::Rate(250))
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(250), {0})
     );
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(300));
 }
@@ -465,7 +507,7 @@ TEST_F(EngineTest, ReadRatesWithoutASmallCommonMultipleAreRejected) {
 }
 
 TEST_F(EngineTest, WriterAboveTheMaximumRateIsRejected) {
-    const auto res = this->engine->open_writer({OUT_I16}, x::telem::Rate(20000));
+    const auto res = this->engine->open_writer({OUT_I16}, x::telem::Rate(20000), {0});
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
         res.second.data,
@@ -479,7 +521,7 @@ TEST_F(EngineTest, BusSlowsDownWhenAFasterTaskCloses) {
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 5)
     );
     auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({OUT_I16}, x::telem::Rate(1000))
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(1000), {0})
     );
     ASSERT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
     writer.reset();
@@ -538,7 +580,7 @@ TEST_F(EngineTest, HealthIsEmptyWhenTheBusStops) {
 
 TEST_F(EngineTest, TasksOpenAndCloseWithoutDisturbingRunningOnes) {
     const auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({OUT_I16}, x::telem::Rate(100))
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(100), {0})
     );
     ASSERT_NIL(writer->write(0, static_cast<int16_t>(0x1234)));
     const auto reader = ASSERT_NIL_P(
@@ -582,7 +624,7 @@ TEST_F(EngineTest, TasksOpenAndCloseWithoutDisturbingRunningOnes) {
             1
         ));
         const auto churn_writer = ASSERT_NIL_P(
-            this->engine->open_writer({OUT_I32}, x::telem::Rate(400))
+            this->engine->open_writer({OUT_I32}, x::telem::Rate(400), {0})
         );
         ASSERT_NIL(churn_writer->write(0, static_cast<int32_t>(i)));
         if (this->master->get_output<int16_t>(I16_BYTE) != 0x1234) output_changes++;

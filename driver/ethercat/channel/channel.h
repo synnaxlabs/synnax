@@ -10,8 +10,11 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <unordered_set>
 #include <variant>
@@ -186,6 +189,8 @@ struct Output final : Channel {
     synnax::channel::Key command_key;
     /// @brief the key of the Synnax channel to write state feedback to.
     synnax::channel::Key state_key;
+    /// @brief the value the entry takes when the task stops.
+    double stop_value = 0;
 
     Output(
         const ::synnax::ethercat::EntryWriteChannel &cfg,
@@ -195,8 +200,10 @@ struct Output final : Channel {
     ):
         Channel(slave, false, cfg.disabled, cfg.device),
         command_key(cfg.cmd_channel),
-        state_key(cfg.state_channel) {
+        state_key(cfg.state_channel),
+        stop_value(cfg.stop_value) {
         this->bind_entry(cfg.index, cfg.sub_index, cfg.data_type, slave, parser, path);
+        this->check_stop_value(slave, parser, path);
     }
 
     Output(
@@ -209,6 +216,47 @@ struct Output final : Channel {
         command_key(cfg.cmd_channel),
         state_key(cfg.state_channel) {
         this->reject_unresolved(cfg.pdo, slave, parser, path);
+    }
+
+private:
+    /// @brief accumulates a field error under path when the stop value is not a whole
+    /// number that the bound integer entry holds.
+    void check_stop_value(
+        const slave::Properties &slave,
+        const x::json::Parser &parser,
+        const std::string &path
+    ) const {
+        static const std::vector SIGNED_TYPES = {
+            x::telem::INT64_T,
+            x::telem::INT32_T,
+            x::telem::INT16_T,
+            x::telem::INT8_T,
+        };
+        static const std::vector UNSIGNED_TYPES = {
+            x::telem::UINT64_T,
+            x::telem::UINT32_T,
+            x::telem::UINT16_T,
+            x::telem::UINT8_T,
+        };
+        const bool is_signed = this->data_type.matches(SIGNED_TYPES);
+        if (!is_signed && !this->data_type.matches(UNSIGNED_TYPES)) return;
+        const int magnitude_bits = is_signed ? this->bit_length - 1 : this->bit_length;
+        const double min = is_signed ? -std::ldexp(1.0, magnitude_bits) : 0;
+        const double v = this->stop_value;
+        if (v >= min && v < std::ldexp(1.0, magnitude_bits) && v == std::trunc(v))
+            return;
+        const auto max = magnitude_bits == 64 ? std::numeric_limits<uint64_t>::max()
+                                              : (uint64_t{1} << magnitude_bits) - 1;
+        std::ostringstream value;
+        value << v;
+        parser.field_err(
+            path + "stop_value",
+            "stop value " + value.str() + " does not fit entry " +
+                telem::format_index_sub_index(this->index, this->sub_index) +
+                " on slave " + slave.name + ". Pick a whole number from " +
+                (is_signed ? "-" + std::to_string(max + 1) : "0") + " to " +
+                std::to_string(max) + "."
+        );
     }
 };
 

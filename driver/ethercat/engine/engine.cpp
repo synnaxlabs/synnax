@@ -219,7 +219,7 @@ void Engine::run() {
         }
     };
 
-    this->write_outputs();
+    this->write_outputs(false);
     send();
     while (true) {
         if (this->schedule_version.load(std::memory_order_acquire) != version) {
@@ -279,11 +279,11 @@ void Engine::run() {
                 input->push(image, latched_at);
         }
 
-        this->write_outputs();
+        this->write_outputs(false);
         send();
     }
-    // Sends the zeroed outputs of the last writer to close before the slaves leave OP.
-    this->write_outputs();
+    // Sends the stop values of the last writer to close before the slaves leave OP.
+    this->write_outputs(true);
     send();
     if (const auto err = this->master->receive())
         LOG(WARNING) << "[ethercat] last cycle failed on " << iface << ": "
@@ -364,6 +364,10 @@ void Engine::stop_locked() {
     this->cycle_thread.join();
     this->supervisor_thread.join();
     this->master->deactivate();
+    {
+        std::lock_guard write_lock(this->write_mu);
+        this->parked.clear();
+    }
     this->cycle_hz.store(0, std::memory_order_release);
     {
         std::lock_guard lock(this->schedule_mu);
@@ -417,9 +421,10 @@ void Engine::reschedule_locked() {
     this->publish_schedule_locked(rate.first);
 }
 
-void Engine::write_outputs() {
-    if (std::unique_lock lock(this->write_mu, std::try_to_lock); lock.owns_lock())
-        this->write_active = this->write_staging;
+void Engine::write_outputs(const bool wait) {
+    std::unique_lock lock(this->write_mu, std::try_to_lock);
+    if (!lock.owns_lock() && wait) lock.lock();
+    if (lock.owns_lock()) this->write_active = this->write_staging;
     const auto outputs = this->master->output_data();
     std::memcpy(
         outputs.data(),
@@ -430,6 +435,14 @@ void Engine::write_outputs() {
 
 void Engine::rebuild_outputs_locked() {
     std::ranges::fill(this->write_staging, 0);
+    for (const auto &[key, p]: this->parked)
+        telem::write_pdo_from_value(
+            this->write_staging.data() + p.offset.byte,
+            p.offset.bit,
+            p.entry.bit_length,
+            p.entry.data_type,
+            p.value
+        );
     for (const auto &output: this->outputs)
         for (size_t i = 0; i < output->entries.size(); ++i) {
             if (!output->values[i]) continue;
@@ -461,6 +474,13 @@ void Engine::close_output(const std::shared_ptr<Output> &output) {
     {
         std::lock_guard write_lock(this->write_mu);
         std::erase(this->outputs, output);
+        for (size_t i = 0; i < output->entries.size(); ++i) {
+            const auto &e = output->entries[i];
+            this->parked.insert_or_assign(
+                pdo::Key{e.slave_position, e.index, e.sub_index, e.is_input},
+                Parked{e, output->offsets[i], output->stop_values[i]}
+            );
+        }
         this->rebuild_outputs_locked();
     }
     this->reschedule_locked();
@@ -516,8 +536,18 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
 
 std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer(
     const std::vector<pdo::Entry> &entries,
-    const x::telem::Rate execution_rate
+    const x::telem::Rate execution_rate,
+    const std::vector<x::telem::SampleValue> &stop_values
 ) {
+    if (stop_values.size() != entries.size())
+        return {
+            nullptr,
+            x::errors::Error(
+                x::errors::VALIDATION,
+                std::to_string(stop_values.size()) + " stop values for " +
+                    std::to_string(entries.size()) + " entries"
+            )
+        };
     std::lock_guard lock(this->mu);
     auto writes = this->write_rates_locked();
     writes.push_back(execution_rate);
@@ -544,6 +574,7 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         .rate = execution_rate,
         .offsets = std::move(offsets),
         .values = std::vector<std::optional<x::telem::SampleValue>>(entries.size()),
+        .stop_values = stop_values,
     });
     this->outputs.push_back(output);
     this->publish_schedule_locked(rate);
