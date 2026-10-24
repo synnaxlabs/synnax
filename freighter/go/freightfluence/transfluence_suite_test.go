@@ -19,7 +19,7 @@ import (
 
 func TestFreightfluence(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Freightfluence Suite")
+	RunSpecs(t, "Freightfluence Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
