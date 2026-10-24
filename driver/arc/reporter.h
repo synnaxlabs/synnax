@@ -18,6 +18,7 @@ namespace driver::arc {
 /// mirroring the Go-side taskreporter.Reporter so failures land as warnings rather than
 /// silent log lines. The task keeps running. Shared across the Arc driver stdlib
 /// modules.
-using Reporter = std::function<void(const std::string &message)>;
+using Reporter = std::function<
+    void(const std::string &message, const std::string &description)>;
 
 }

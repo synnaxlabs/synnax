@@ -37,7 +37,7 @@ import (
 
 func TestAPIPanel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Panel Suite")
+	RunSpecs(t, "API Panel Suite", SuiteConfig())
 }
 
 var (

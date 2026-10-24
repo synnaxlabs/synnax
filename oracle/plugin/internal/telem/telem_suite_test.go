@@ -19,7 +19,7 @@ import (
 
 func TestTelem(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Telem Suite")
+	RunSpecs(t, "Plugin Telem Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -24,7 +24,7 @@ Windows), and linkopts (`ws2_32.lib`, `Iphlpapi.lib`).
 clang-format (repo-root `.clang-format`: LLVM base, 88-char lines, 4-space indent).
 Format with `scripts/clang_format.sh <path>`, check with
 `scripts/check_clang_format.sh <path>` (see `scripts/CLAUDE.md`); install the pinned
-version via `scripts/install_clang_tools.sh`, never a plain package-manager install.
+version via `scripts/install_clang_format.sh`, never a plain package-manager install.
 Include order: system `<...>`, then vendor, then internal `"..."`. Naming: `PascalCase`
 types, `camelCase`/`snake_case` functions (consistent within a component), `snake_case`
 variables, `UPPER_CASE`/`kPascalCase` constants, lowercase namespaces.
@@ -49,6 +49,9 @@ doc-comment rules in the root CLAUDE.md apply.
 
 clang-tidy (repo-root `.clang-tidy`) runs as a Bazel aspect. Each source and header is
 one cached action, and any finding fails the build. CI lints each component on Ubuntu.
+Bazel fetches the clang-tidy that `MODULE.bazel` pins, so linting needs no install. Pin
+clang-tidy and clang-format (`scripts/install_clang_format.sh`) to one LLVM version, and
+change both in one pull request that fixes the new findings.
 
 ```bash
 bazel build --config=clang-tidy //driver/... # lint

@@ -19,7 +19,7 @@ import (
 
 func TestStdin(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Start Stdin Suite")
+	RunSpecs(t, "Start Stdin Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

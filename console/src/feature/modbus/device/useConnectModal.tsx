@@ -79,12 +79,12 @@ const beforeSave = async ({
     timeout: TEST_CONNECTION_TIMEOUT,
     args: { connection: get("properties.connection").value },
   });
-  if (state.variant === "error") throw new Error(state.message);
+  if (state.variant === "error") throw status.toError(state);
   // Since we just scanned successfully, we create a default healthy status for the
   // device that can then be overwritten by the scanner if we lose connection.
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
     name: get<string>("name").value,
-    message: "Server connected",
+    message: "Device connected",
     variant: "success",
     details: {
       rack: get<rack.Key>("rack").value,

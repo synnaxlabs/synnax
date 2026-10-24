@@ -133,9 +133,15 @@ jobs:
           disk-cache: false
           repository-cache: false
 
-      - name: Install clang tools
+      - name: Set up uv
         if: runner.os == 'Linux' && inputs.directories != ''
-        run: scripts/install_clang_tools.sh
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: latest-known
+
+      - name: Install clang-format
+        if: runner.os == 'Linux' && inputs.directories != ''
+        run: scripts/install_clang_format.sh
 
       - name: Check formatting
         if: runner.os == 'Linux' && inputs.directories != ''
@@ -227,9 +233,6 @@ jobs:
           bazelisk-cache: false
           disk-cache: false
           repository-cache: false
-
-      - name: Install clang-tidy
-        run: scripts/install_clang_tools.sh
 
       # Each clang-tidy action peaks near 1 GB, and the build bots have 16 GB.
       - name: Lint
