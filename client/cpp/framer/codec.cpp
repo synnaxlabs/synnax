@@ -23,6 +23,8 @@ uint8_t CodecFlags::encode() const {
     b = x::binary::set_bit(b, FlagPosition::AllChannelsPresent, all_channels_present);
     b = x::binary::set_bit(b, FlagPosition::EqualAlignments, equal_alignments);
     b = x::binary::set_bit(b, FlagPosition::ZeroAlignments, zero_alignments);
+    b = x::binary::set_bit(b, FlagPosition::MultiplesPresent, multiples_present);
+    b = x::binary::set_bit(b, FlagPosition::Extended, extended);
     return b;
 }
 
@@ -34,6 +36,8 @@ CodecFlags CodecFlags::decode(const uint8_t b) {
     f.all_channels_present = x::binary::get_bit(b, FlagPosition::AllChannelsPresent);
     f.equal_alignments = x::binary::get_bit(b, FlagPosition::EqualAlignments);
     f.zero_alignments = x::binary::get_bit(b, FlagPosition::ZeroAlignments);
+    f.multiples_present = x::binary::get_bit(b, FlagPosition::MultiplesPresent);
+    f.extended = x::binary::get_bit(b, FlagPosition::Extended);
     return f;
 }
 
@@ -315,6 +319,24 @@ Codec::decode(const uint8_t *data, const size_t size) const {
     x::telem::TimeRange ref_tr = {};
     x::telem::Alignment ref_alignment;
     const auto flags = CodecFlags::decode(reader.uint8());
+    if (flags.extended)
+        return {
+            std::move(frame),
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "[framer.codec] - remote sent an extended flags byte, which this "
+                "codec does not support"
+            )
+        };
+    if (flags.multiples_present)
+        return {
+            std::move(frame),
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "[framer.codec] - remote sent alignment multiples, which this codec "
+                "does not support"
+            )
+        };
 
     const auto seq_n = reader.uint32();
     auto state = this->states.at(seq_n);

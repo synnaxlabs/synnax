@@ -70,6 +70,8 @@ const x::errors::Error WRITER_CLOSED = FRAMER_CLOSED.sub("writer");
 
 /// @brief Bit positions for flags in the frame codec
 enum class FlagPosition : uint8_t {
+    Extended = 7,
+    MultiplesPresent = 6,
     ZeroAlignments = 5,
     EqualAlignments = 4,
     EqualLengths = 3,
@@ -86,6 +88,12 @@ struct CodecFlags {
     bool all_channels_present = true;
     bool equal_alignments = true;
     bool zero_alignments = true;
+    /// @brief whether each series carries an alignment multiple. The codec does not
+    /// support multiples, so decode rejects frames that set this flag.
+    bool multiples_present = false;
+    /// @brief whether a second flags byte follows. Reserved; decode rejects frames that
+    /// set it.
+    bool extended = false;
 
     /// @brief Encodes the flags into a byte
     /// @return The encoded flags
