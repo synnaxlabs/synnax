@@ -49,6 +49,20 @@ describe("Clipboard.useCopy", () => {
     );
   });
 
+  it("names the success status after what it is about", async () => {
+    const { result } = await renderCopy();
+    act(() => result.current.copy("localhost:9090", "Core address", "Lab Core"));
+    await waitFor(() =>
+      expect(result.current.notifications.statuses).toContainEqual(
+        expect.objectContaining({
+          variant: "success",
+          name: "Lab Core",
+          message: "Copied Core address to clipboard",
+        }),
+      ),
+    );
+  });
+
   it("reports an error status when the write fails", async () => {
     writeText = stubClipboardWriteText(async () => {
       throw new Error("denied");

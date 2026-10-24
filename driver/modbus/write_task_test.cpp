@@ -244,8 +244,8 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     fr.emplace(int16_ch.key, x::telem::Series(static_cast<int16_t>(-1234)));
     fr.emplace(uint32_ch.key, x::telem::Series(static_cast<uint32_t>(0xDEADBEEF)));
     fr.emplace(int32_ch.key, x::telem::Series(static_cast<int32_t>(-2147483648)));
-    fr.emplace(float32_ch.key, x::telem::Series(static_cast<float>(3.14159f)));
-    fr.emplace(float64_ch.key, x::telem::Series(static_cast<double>(2.71828)));
+    fr.emplace(float32_ch.key, x::telem::Series(3.14159f));
+    fr.emplace(float64_ch.key, x::telem::Series(2.71828));
     reads->push_back(std::move(fr));
 
     mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(

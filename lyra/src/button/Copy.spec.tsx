@@ -247,6 +247,54 @@ describe("Copy", () => {
       expect(lastCall[0].message).toBe("Copied Task B");
     });
 
+    it("should name the success status from a heading", async () => {
+      const spy = vi.fn();
+      const c = render(
+        <Status.Aggregator log={quiet}>
+          <StatusSpy onStatuses={spy} />
+          <Button.Copy
+            text="hello"
+            successMessage={{
+              message: "Copied Python code to clipboard",
+              name: "Run 12",
+            }}
+          />
+        </Status.Aggregator>,
+      );
+      await act(async () => {
+        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+      });
+      const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
+      expect(lastCall).toHaveLength(1);
+      expect(lastCall[0].name).toBe("Run 12");
+      expect(lastCall[0].message).toBe("Copied Python code to clipboard");
+    });
+
+    it("should name the error status from the success heading", async () => {
+      writeText.mockRejectedValue(new Error("Clipboard denied"));
+      const spy = vi.fn();
+      const c = render(
+        <Status.Aggregator log={quiet}>
+          <StatusSpy onStatuses={spy} />
+          <Button.Copy
+            text="hello"
+            successMessage={{
+              message: "Copied Python code to clipboard",
+              name: "Run 12",
+            }}
+          />
+        </Status.Aggregator>,
+      );
+      await act(async () => {
+        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+      });
+      const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
+      expect(lastCall).toHaveLength(1);
+      expect(lastCall[0].variant).toBe("error");
+      expect(lastCall[0].name).toBe("Run 12");
+      expect(lastCall[0].message).toBe("Failed to copy to clipboard");
+    });
+
     it("should not show the check icon when successMessage is provided", async () => {
       const c = render(
         <Status.Aggregator log={quiet}>
@@ -290,7 +338,8 @@ describe("Copy", () => {
       const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
       expect(lastCall).toHaveLength(1);
       expect(lastCall[0].variant).toBe("error");
-      expect(lastCall[0].message).toBe("Failed to copy to the clipboard");
+      expect(lastCall[0].message).toBe("Failed to copy to clipboard");
+      expect(lastCall[0].description).toBe("Clipboard denied");
     });
 
     it("should push an error status when an async text function rejects", async () => {
@@ -308,7 +357,8 @@ describe("Copy", () => {
       const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
       expect(lastCall).toHaveLength(1);
       expect(lastCall[0].variant).toBe("error");
-      expect(lastCall[0].message).toBe("Failed to compute");
+      expect(lastCall[0].message).toBe("Failed to copy to clipboard");
+      expect(lastCall[0].description).toBe("Failed to compute");
     });
   });
 

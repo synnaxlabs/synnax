@@ -163,7 +163,7 @@ protected:
     /// channel with the given scale.
     std::unique_ptr<ReadTaskSource> start_scaled_source(const x::json::json &scale) {
         const auto data_ch = create_data_channel("scaled", x::telem::FLOAT64_T);
-        auto cfg = create_base_config();
+        auto cfg = this->create_base_config();
         cfg["sample_rate"] = 10;
         cfg["stream_rate"] = 10;
         auto ch = create_input_channel_config(data_ch, 0x6000, 1, "int16");
@@ -188,10 +188,11 @@ protected:
     }
 };
 
+/// @brief it should parse a read channel bound to an entry address.
 TEST_F(EtherCATReadTest, ParseConfigWithEntryChannel) {
     const auto data_ch = create_data_channel("analog", x::telem::INT16_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(create_input_channel_config(data_ch, 0x6000, 1, "int16"));
 
     auto parser = x::json::Parser(cfg);
@@ -205,10 +206,11 @@ TEST_F(EtherCATReadTest, ParseConfigWithEntryChannel) {
     EXPECT_EQ(task_cfg.channels[0]->data_type, x::telem::INT16_T);
 }
 
+/// @brief it should take the bit length of a read channel from the slave.
 TEST_F(EtherCATReadTest, ParseConfigTakesBitLengthFromTheSlave) {
     const auto data_ch = create_data_channel("analog", x::telem::FLOAT32_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_input_channel_config(data_ch, 0x6000, 2, "float32")
     );
@@ -237,7 +239,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithMultipleChannels) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(create_input_channel_config(ch1, 0x6000, 1, "int16"));
     cfg["channels"].push_back(create_input_channel_config(ch2, 0x6000, 2, "int32"));
 
@@ -248,7 +250,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithMultipleChannels) {
 }
 
 TEST_F(EtherCATReadTest, ParseConfigWithInvalidChannel) {
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     synnax::channel::Channel invalid_ch;
     invalid_ch.key = 99999;
     cfg["channels"].push_back(
@@ -260,10 +262,11 @@ TEST_F(EtherCATReadTest, ParseConfigWithInvalidChannel) {
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
 }
 
+/// @brief it should report a read channel at an address the slave does not have.
 TEST_F(EtherCATReadTest, ParseConfigWithAddressMissingFromSlave) {
     const auto data_ch = create_data_channel("analog", x::telem::INT32_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(create_input_channel_config(data_ch, 0x6000, 3, "int32"));
 
     auto parser = x::json::Parser(cfg);
@@ -275,10 +278,11 @@ TEST_F(EtherCATReadTest, ParseConfigWithAddressMissingFromSlave) {
     EXPECT_EQ(errors[0]["message"], "slave Test Slave has no input entry at 0x6000:03");
 }
 
+/// @brief it should report a read channel whose name was not resolved to an address.
 TEST_F(EtherCATReadTest, ParseConfigWithUnresolvedChannel) {
     const auto data_ch = create_data_channel("analog", x::telem::INT16_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_unresolved_input_channel_config(data_ch, "Analog Input Ch1")
     );
@@ -296,11 +300,13 @@ TEST_F(EtherCATReadTest, ParseConfigWithUnresolvedChannel) {
     );
 }
 
+/// @brief it should report a second read channel on an entry another channel already
+/// uses.
 TEST_F(EtherCATReadTest, ParseConfigRejectsTwoChannelsOnOneEntry) {
     const auto ch1 = create_data_channel("ch1", x::telem::INT16_T);
     const auto ch2 = create_data_channel("ch2", x::telem::INT16_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(create_input_channel_config(ch1, 0x6000, 1, "int16"));
     cfg["channels"].push_back(create_input_channel_config(ch2, 0x6000, 1, "int16"));
 
@@ -316,11 +322,12 @@ TEST_F(EtherCATReadTest, ParseConfigRejectsTwoChannelsOnOneEntry) {
     );
 }
 
+/// @brief it should allow a disabled read channel on an entry another channel uses.
 TEST_F(EtherCATReadTest, ParseConfigAllowsADisabledChannelOnAUsedEntry) {
     const auto ch1 = create_data_channel("ch1", x::telem::INT16_T);
     const auto ch2 = create_data_channel("ch2", x::telem::INT16_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(create_input_channel_config(ch1, 0x6000, 1, "int16"));
     cfg["channels"].push_back(
         create_input_channel_config(ch2, 0x6000, 1, "int16", true)
@@ -332,6 +339,8 @@ TEST_F(EtherCATReadTest, ParseConfigAllowsADisabledChannelOnAUsedEntry) {
     EXPECT_EQ(task_cfg.channels.size(), 1);
 }
 
+/// @brief it should bind a read channel to each entry of a slave whose entries all have
+/// the same name.
 TEST_F(EtherCATReadTest, ParseConfigReachesEveryEntryOfASlaveThatRepeatsOneName) {
     x::json::json inputs = x::json::json::array();
     for (int i = 0; i < 8; i++)
@@ -351,7 +360,7 @@ TEST_F(EtherCATReadTest, ParseConfigReachesEveryEntryOfASlaveThatRepeatsOneName)
         1
     );
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     for (int i = 0; i < 8; i++) {
         const auto ch = create_data_channel("input", x::telem::UINT8_T);
         cfg["channels"].push_back(
@@ -371,10 +380,11 @@ TEST_F(EtherCATReadTest, ParseConfigReachesEveryEntryOfASlaveThatRepeatsOneName)
     }
 }
 
+/// @brief it should report a read channel with an unknown type.
 TEST_F(EtherCATReadTest, ParseConfigReportsAnUnknownChannelType) {
     const auto data_ch = create_data_channel("analog", x::telem::INT16_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         {{"type", "automatic"},
          {"device", slave_device.key},
@@ -392,10 +402,11 @@ TEST_F(EtherCATReadTest, ParseConfigReportsAnUnknownChannelType) {
     EXPECT_EQ(errors[0]["message"], "unknown ReadChannel type: automatic");
 }
 
+/// @brief it should report a read channel whose data type is wider than its entry.
 TEST_F(EtherCATReadTest, ParseConfigRejectsADataTypeWiderThanTheEntry) {
     const auto data_ch = create_data_channel("analog", x::telem::FLOAT64_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_input_channel_config(data_ch, 0x6000, 1, "float64")
     );
@@ -413,10 +424,12 @@ TEST_F(EtherCATReadTest, ParseConfigRejectsADataTypeWiderThanTheEntry) {
     );
 }
 
+/// @brief it should reject a scaled read channel whose Synnax channel is not a float
+/// type.
 TEST_F(EtherCATReadTest, ParseConfigRejectsAScaledIntegerChannel) {
     const auto data_ch = create_data_channel("analog", x::telem::INT16_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     auto ch = create_input_channel_config(data_ch, 0x6000, 1, "int16");
     ch["scale"] = {{"type", "linear"}, {"slope", 2}, {"offset", 1}};
     cfg["channels"].push_back(ch);
@@ -443,7 +456,7 @@ TEST_F(EtherCATReadTest, WriterConfigIncludesAllChannels) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(create_input_channel_config(ch1, 0x6000, 1, "int16"));
 
     auto parser = x::json::Parser(cfg);
@@ -462,7 +475,7 @@ TEST_F(EtherCATReadTest, SourceStartRegistersWithEngine) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(create_input_channel_config(data_ch, 0x6000, 1, "int16"));
 
     auto parser = x::json::Parser(cfg);
@@ -502,6 +515,8 @@ TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
 }
 
+/// @brief it should accept a stream rate below 1 Hz and read the matching number of
+/// samples for each stream.
 TEST_F(EtherCATReadTest, StreamRateBelowOneHzIsValid) {
     auto data_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("analog"),
@@ -523,6 +538,7 @@ TEST_F(EtherCATReadTest, StreamRateBelowOneHzIsValid) {
     EXPECT_EQ(task_cfg.samples_per_chan, 4);
 }
 
+/// @brief it should reject a stream rate that does not divide the sample rate.
 TEST_F(EtherCATReadTest, StreamRateThatDoesNotDivideSampleRateIsInvalid) {
     auto cfg = this->create_base_config();
     cfg["sample_rate"] = 10;
@@ -600,8 +616,7 @@ TEST_F(EtherCATReadTest, SourceReadsCorrectValueFromEngine) {
         [&] {
             x::telem::Frame frame;
             source.read(brk, frame);
-            if (frame.empty() || frame.series->size() < 1)
-                return static_cast<int16_t>(0);
+            if (frame.empty() || frame.series->empty()) return static_cast<int16_t>(0);
             return frame.series->at(0).at<int16_t>(0);
         }(),
         static_cast<int16_t>(0x5678)
@@ -611,6 +626,7 @@ TEST_F(EtherCATReadTest, SourceReadsCorrectValueFromEngine) {
     ASSERT_NIL(source.stop());
 }
 
+/// @brief it should apply a linear scale to each sample it reads.
 TEST_F(EtherCATReadTest, SourceAppliesALinearScale) {
     const auto source = start_scaled_source(
         {{"type", "linear"}, {"slope", 2.5}, {"offset", -10}}
@@ -631,6 +647,7 @@ TEST_F(EtherCATReadTest, SourceAppliesALinearScale) {
     ASSERT_NIL(source->stop());
 }
 
+/// @brief it should apply a map scale to each sample it reads.
 TEST_F(EtherCATReadTest, SourceAppliesAMapScale) {
     const auto source = start_scaled_source(
         {{"type", "map"},
@@ -768,10 +785,12 @@ TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
     ASSERT_OCCURRED_AS(source.start(), errors::TOPOLOGY_MISMATCH);
 }
 
+/// @brief it should fail to start the source when the bus no longer has a configured
+/// entry.
 TEST_F(EtherCATReadTest, SourceStartFailsWhenTheBusLacksAnEntry) {
     const auto data_ch = create_data_channel("sensor", x::telem::INT32_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(create_input_channel_config(data_ch, 0x6000, 2, "int32"));
 
     auto parser = x::json::Parser(cfg);
@@ -806,10 +825,12 @@ TEST_F(EtherCATReadTest, SourceStartFailsWhenTheBusLacksAnEntry) {
     EXPECT_FALSE(remapped_engine->running());
 }
 
+/// @brief it should fail to start the source when a configured entry changed its bit
+/// length on the bus.
 TEST_F(EtherCATReadTest, SourceStartFailsWhenAnEntryChangedBitLength) {
     const auto data_ch = create_data_channel("sensor", x::telem::INT32_T);
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(create_input_channel_config(data_ch, 0x6000, 2, "int32"));
 
     auto parser = x::json::Parser(cfg);

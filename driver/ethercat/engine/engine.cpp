@@ -11,6 +11,7 @@
 #include <cmath>
 #include <format>
 #include <numeric>
+#include <utility>
 
 #include "absl/log/log.h"
 
@@ -204,7 +205,7 @@ void Engine::run() {
     x::loop::Timer timer;
     uint64_t receive_failures = 0;
     uint64_t send_failures = 0;
-    x::telem::TimeStamp sent_at;
+    x::telem::TimeStamp sent_at{};
 
     const auto send = [&] {
         sent_at = x::telem::TimeStamp::now();
@@ -376,6 +377,7 @@ void Engine::stop_locked() {
 
 std::vector<x::telem::Rate> Engine::read_rates_locked() const {
     std::vector<x::telem::Rate> rates;
+    rates.reserve(this->inputs.size());
     for (const auto &input: this->inputs)
         rates.push_back(input->rate);
     return rates;
@@ -383,6 +385,7 @@ std::vector<x::telem::Rate> Engine::read_rates_locked() const {
 
 std::vector<x::telem::Rate> Engine::write_rates_locked() const {
     std::vector<x::telem::Rate> rates;
+    rates.reserve(this->outputs.size());
     for (const auto &output: this->outputs)
         rates.push_back(output->rate);
     return rates;
@@ -429,20 +432,29 @@ void Engine::write_outputs() {
 }
 
 void Engine::rebuild_outputs_locked() {
-    std::ranges::fill(this->write_staging, 0);
+    struct Applied {
+        const pdo::Entry *entry;
+        pdo::Offset offset;
+        const Command *command;
+    };
+    std::vector<Applied> applied;
     for (const auto &output: this->outputs)
-        for (size_t i = 0; i < output->entries.size(); ++i) {
-            if (!output->values[i]) continue;
-            const auto &entry = output->entries[i];
-            const auto &offset = output->offsets[i];
-            telem::write_pdo_from_value(
-                this->write_staging.data() + offset.byte,
-                offset.bit,
-                entry.bit_length,
-                entry.data_type,
-                *output->values[i]
-            );
-        }
+        for (size_t i = 0; i < output->entries.size(); ++i)
+            if (output->commands[i])
+                applied.push_back(
+                    {&output->entries[i], output->offsets[i], &*output->commands[i]}
+                );
+    // Two writers can command the same output, so the latest command must land last.
+    std::ranges::sort(applied, {}, [](const Applied &a) { return a.command->seq; });
+    std::ranges::fill(this->write_staging, 0);
+    for (const auto &[entry, offset, command]: applied)
+        telem::write_pdo_from_value(
+            this->write_staging.data() + offset.byte,
+            offset.bit,
+            entry->bit_length,
+            entry->data_type,
+            command->value
+        );
 }
 
 x::errors::Error Engine::cycle_error() const {
@@ -466,8 +478,8 @@ void Engine::close_output(const std::shared_ptr<Output> &output) {
     this->reschedule_locked();
 }
 
-Engine::Engine(std::shared_ptr<master::Master> master, const Config &config):
-    config(config), master(std::move(master)) {}
+Engine::Engine(std::shared_ptr<master::Master> master, Config config):
+    config(std::move(config)), master(std::move(master)) {}
 
 Engine::Engine(std::shared_ptr<master::Master> master):
     Engine(std::move(master), Config{}) {}
@@ -543,7 +555,7 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         .entries = entries,
         .rate = execution_rate,
         .offsets = std::move(offsets),
-        .values = std::vector<std::optional<x::telem::SampleValue>>(entries.size()),
+        .commands = std::vector<std::optional<Command>>(entries.size()),
     });
     this->outputs.push_back(output);
     this->publish_schedule_locked(rate);

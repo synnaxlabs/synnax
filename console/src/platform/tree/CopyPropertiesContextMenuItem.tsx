@@ -28,7 +28,7 @@ export const CopyPropertiesContextMenuItem = (
     <Menu.CopyItem
       itemKey="copyData"
       text={getText}
-      successMessage={`Copied properties for ${name} to clipboard`}
+      successMessage={{ message: "Copied properties to clipboard", name }}
     >
       <Icon.JSON />
       Copy properties

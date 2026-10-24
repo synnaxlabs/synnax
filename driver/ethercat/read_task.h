@@ -151,7 +151,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
 
-        static const std::vector FLOAT_TYPES = {x::telem::FLOAT32_T, x::telem::FLOAT64_T};
+        static const std::vector FLOAT_TYPES = {
+            x::telem::FLOAT32_T,
+            x::telem::FLOAT64_T
+        };
         for (size_t i = 0; i < this->channels.size(); i++) {
             auto &ch = *this->channels[i];
             ch.bind_remote_info(synnax_channels[i]);

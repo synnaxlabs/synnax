@@ -91,7 +91,7 @@ export interface CreateParams extends table.New {
   project?: project.Key;
 }
 
-const createDefaultLayout = (): Pick<table.Table, "rows" | "columns" | "cells"> => {
+const createDefaultLayout = (): Pick<table.New, "rows" | "columns" | "cells"> => {
   const cellKeys = [id.create(), id.create(), id.create(), id.create()];
   const config = Cell.defaultConfig("text");
   return {

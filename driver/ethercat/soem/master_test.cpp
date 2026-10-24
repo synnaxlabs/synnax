@@ -21,7 +21,7 @@ namespace driver::ethercat::soem {
 
 class SOEMMasterTest : public ::testing::Test {
 protected:
-    MockAPI *mock;
+    MockAPI *mock{};
     std::unique_ptr<Master> master;
     x::breaker::Breaker brk;
 
@@ -102,6 +102,8 @@ TEST_F(SOEMMasterTest, InitializeIdempotent) {
     ASSERT_NIL(this->master->initialize());
 }
 
+/// @brief it should name and type each PDO entry from the CoE object dictionary of the
+/// slave.
 TEST_F(SOEMMasterTest, CoEDiscoveryUsesEntryNamesAndDataTypes) {
     MockSlaveInfo slave;
     slave.state = EC_STATE_PRE_OP;
@@ -134,6 +136,7 @@ TEST_F(SOEMMasterTest, CoEDiscoveryUsesEntryNamesAndDataTypes) {
     EXPECT_EQ(inputs[1].data_type, x::telem::FLOAT32_T);
 }
 
+/// @brief it should type each PDO entry from the data type in the SII of the slave.
 TEST_F(SOEMMasterTest, SIIDiscoveryUsesEntryDataTypes) {
     MockSlaveInfo slave;
     slave.state = EC_STATE_PRE_OP;
@@ -207,6 +210,7 @@ TEST_F(SOEMMasterTest, ActivateOpTransitionFails) {
     ASSERT_OCCURRED_AS(this->master->activate(), errors::STATE_CHANGE_ERROR);
 }
 
+/// @brief it should exchange process data while it waits for the slaves to reach OP.
 TEST_F(SOEMMasterTest, ActivateExchangesProcessDataUntilOperational) {
     this->initialize_with_slave();
     this->mock->obytes = 2;
@@ -238,6 +242,7 @@ TEST_F(SOEMMasterTest, ActivateDisabledSlavesSetGroup) {
     EXPECT_EQ(this->mock->mapped_group, 1);
 }
 
+/// @brief it should not request state changes for a disabled slave.
 TEST_F(SOEMMasterTest, DisabledSlaveStaysOutOfStateTransitions) {
     MockSlaveInfo slave1;
     slave1.state = EC_STATE_PRE_OP;
@@ -258,6 +263,7 @@ TEST_F(SOEMMasterTest, DisabledSlaveStaysOutOfStateTransitions) {
     EXPECT_EQ(this->mock->state_change_requests, expected);
 }
 
+/// @brief it should send and receive process data for the group of enabled slaves only.
 TEST_F(SOEMMasterTest, CyclicExchangeUsesEnabledGroupOnly) {
     this->initialize_with_slave();
     this->activate_master();
@@ -340,6 +346,7 @@ TEST_F(SOEMMasterTest, InputDataAfterActivation) {
 
 ////////////////////// Slave State //////////////////////
 
+/// @brief it should report a slave in OP with one state read and no state writes.
 TEST_F(SOEMMasterTest, CheckReportsOperationalSlave) {
     this->initialize_with_slave();
     this->activate_master();
@@ -353,6 +360,8 @@ TEST_F(SOEMMasterTest, CheckReportsOperationalSlave) {
     EXPECT_TRUE(this->mock->written_slaves.empty());
 }
 
+/// @brief it should report the state a slave was in before the check tries to recover
+/// it.
 TEST_F(SOEMMasterTest, CheckReportsStateBeforeRecovery) {
     this->initialize_with_slave();
     this->activate_master();
@@ -361,6 +370,8 @@ TEST_F(SOEMMasterTest, CheckReportsStateBeforeRecovery) {
     EXPECT_EQ(this->master->check(this->brk)[0].state, slave::State::PRE_OP);
 }
 
+/// @brief it should report a slave in SAFE_OP with an error as faulted and acknowledge
+/// the error.
 TEST_F(SOEMMasterTest, CheckAcknowledgesSafeOpError) {
     this->initialize_with_slave();
     this->activate_master();
@@ -380,6 +391,7 @@ TEST_F(SOEMMasterTest, CheckAcknowledgesSafeOpError) {
     EXPECT_EQ(this->mock->written_slaves, std::vector<uint16_t>{1});
 }
 
+/// @brief it should request OP for a slave in SAFE_OP.
 TEST_F(SOEMMasterTest, CheckRequestsOpFromSafeOp) {
     this->initialize_with_slave();
     this->activate_master();
@@ -392,6 +404,7 @@ TEST_F(SOEMMasterTest, CheckRequestsOpFromSafeOp) {
     EXPECT_EQ(this->mock->written_slaves, std::vector<uint16_t>{1});
 }
 
+/// @brief it should reconfigure a slave that is below SAFE_OP.
 TEST_F(SOEMMasterTest, CheckReconfiguresSlaveBelowSafeOp) {
     this->initialize_with_slave();
     this->activate_master();
@@ -400,6 +413,7 @@ TEST_F(SOEMMasterTest, CheckReconfiguresSlaveBelowSafeOp) {
     EXPECT_EQ(this->mock->reconfigured_slaves, std::vector<uint16_t>{1});
 }
 
+/// @brief it should not reconfigure a slave after the breaker stops.
 TEST_F(SOEMMasterTest, CheckTakesNoRecoveryStepOnceBreakerStops) {
     this->initialize_with_slave();
     this->activate_master();
@@ -409,6 +423,7 @@ TEST_F(SOEMMasterTest, CheckTakesNoRecoveryStepOnceBreakerStops) {
     EXPECT_TRUE(this->mock->reconfigured_slaves.empty());
 }
 
+/// @brief it should mark a slave that does not answer as lost after a failed recovery.
 TEST_F(SOEMMasterTest, CheckMarksSilentSlaveLost) {
     this->initialize_with_slave();
     this->activate_master();
@@ -421,6 +436,7 @@ TEST_F(SOEMMasterTest, CheckMarksSilentSlaveLost) {
     EXPECT_EQ(this->mock->recovered_slaves, (std::vector<uint16_t>{1, 1}));
 }
 
+/// @brief it should recover a lost slave and clear its lost flag.
 TEST_F(SOEMMasterTest, CheckRecoversLostSlave) {
     this->initialize_with_slave();
     this->activate_master();
@@ -431,6 +447,8 @@ TEST_F(SOEMMasterTest, CheckRecoversLostSlave) {
     EXPECT_FALSE(this->mock->slave_infos[0].lost);
 }
 
+/// @brief it should clear the lost flag of a slave that answers again, without a
+/// recovery.
 TEST_F(SOEMMasterTest, CheckFindsLostSlaveThatAnswers) {
     this->initialize_with_slave();
     this->activate_master();
@@ -441,6 +459,8 @@ TEST_F(SOEMMasterTest, CheckFindsLostSlaveThatAnswers) {
     EXPECT_FALSE(this->mock->slave_infos[0].lost);
 }
 
+/// @brief it should leave a disabled slave out of the health report and not write its
+/// state.
 TEST_F(SOEMMasterTest, CheckSkipsDisabledSlave) {
     this->add_default_slave();
     this->add_default_slave();
@@ -539,6 +559,8 @@ void serve_padded_txpdo(MockAPI &mock) {
 }
 }
 
+/// @brief it should keep padding entries and the PDO name when it discovers PDOs
+/// through CoE.
 TEST_F(SOEMMasterTest, CoEDiscoveryKeepsPaddingAndPDOName) {
     this->add_slave(coe_slave(24));
     serve_padded_txpdo(*this->mock);
@@ -555,6 +577,7 @@ TEST_F(SOEMMasterTest, CoEDiscoveryKeepsPaddingAndPDOName) {
     EXPECT_EQ(inputs[2].pdo_name, "Channel 1");
 }
 
+/// @brief it should leave the PDO name empty when the CoE object has no name.
 TEST_F(SOEMMasterTest, CoEDiscoveryWithoutPDOName) {
     this->add_slave(coe_slave(24));
     serve_padded_txpdo(*this->mock);
@@ -565,6 +588,8 @@ TEST_F(SOEMMasterTest, CoEDiscoveryWithoutPDOName) {
     EXPECT_FALSE(inputs[0].pdo_name.has_value());
 }
 
+/// @brief it should keep padding entries and the PDO name when it discovers PDOs
+/// through the SII.
 TEST_F(SOEMMasterTest, SIIDiscoveryKeepsPaddingAndPDOName) {
     MockSlaveInfo slave;
     slave.state = EC_STATE_PRE_OP;
@@ -593,6 +618,7 @@ TEST_F(SOEMMasterTest, SIIDiscoveryKeepsPaddingAndPDOName) {
     EXPECT_EQ(inputs[2].pdo_name, "Channel 1");
 }
 
+/// @brief it should use the mapping read from the slave over the device registry.
 TEST_F(SOEMMasterTest, LiveMappingTakesPrecedenceOverRegistry) {
     auto info = coe_slave(24);
     info.eep_man = BECKHOFF;
@@ -607,6 +633,8 @@ TEST_F(SOEMMasterTest, LiveMappingTakesPrecedenceOverRegistry) {
     EXPECT_EQ(inputs[2].sub_index, 17);
 }
 
+/// @brief it should describe a slave from the device registry when the slave reports no
+/// mapping.
 TEST_F(SOEMMasterTest, RegistryDescribesSlaveWithoutLiveMapping) {
     MockSlaveInfo info;
     info.state = EC_STATE_PRE_OP;
@@ -620,6 +648,7 @@ TEST_F(SOEMMasterTest, RegistryDescribesSlaveWithoutLiveMapping) {
     EXPECT_TRUE(slave.status.pdo_discovery_error.empty());
 }
 
+/// @brief it should count padding when it computes entry offsets.
 TEST_F(SOEMMasterTest, OffsetsCountPadding) {
     this->add_slave(coe_slave(24));
     serve_padded_txpdo(*this->mock);
@@ -634,6 +663,8 @@ TEST_F(SOEMMasterTest, OffsetsCountPadding) {
     EXPECT_EQ(offset.bit, 0);
 }
 
+/// @brief it should return a mapping error for a slave whose discovered entries do not
+/// match the bits it maps.
 TEST_F(SOEMMasterTest, SlaveWhoseLayoutDisagreesWithMappingHasNoOffsets) {
     this->add_slave(coe_slave(16));
     serve_padded_txpdo(*this->mock);

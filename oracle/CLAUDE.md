@@ -101,11 +101,12 @@ or generator logic and schemas disagree.
   history. Earlier version packages predate Core export and get no constant. The
   envelope version and migration chain are never hand-maintained; hand
   `versions/imex.go` files route `> legacy.LastVersion` envelopes to the ladder and keep
-  only frozen Console-era decoding. `@go imex body` marks a type another resource
-  exports, such as a task config inside a task file: no `Export`, several types may
-  share a package, and each gets an exported `<Type>Ladder` (`imex.Ladder`) over body
-  blobs. A version that redeclares a marked type must declare its exported
-  `Migrate<Type>` step.
+  only frozen Console-era decoding, which builds the first exported shape and enters the
+  ladder through the generated `liftFirst`, so a version bump never edits it.
+  `@go imex body` marks a type another resource exports, such as a task config inside a
+  task file: no `Export`, several types may share a package, and each gets an exported
+  `<Type>Ladder` (`imex.Ladder`) over body blobs. A version that redeclares a marked
+  type must declare its exported `Migrate<Type>` step.
 
 ## Field optionality
 

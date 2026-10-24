@@ -117,6 +117,8 @@ TEST_F(DEWESoftDevicesTest, RevisionFallbackWorks) {
     EXPECT_TRUE(found) << "Revision fallback should work";
 }
 
+/// @brief it should fill the data type of a live entry from the registry entry at the
+/// same index, sub-index, and bit length.
 TEST_F(BeckhoffDevicesTest, FillDataTypesUsesRegistryEntryAtSameAddress) {
     constexpr uint32_t el3102 = 0x0C1E3052;
     ASSERT_TRUE(lookup_device_pdos(BECKHOFF_VENDOR_ID, el3102, 1, this->slave));
@@ -141,6 +143,8 @@ TEST_F(BeckhoffDevicesTest, FillDataTypesUsesRegistryEntryAtSameAddress) {
     EXPECT_EQ(live.input_pdos[1].data_type, x::telem::UINT8_T);
 }
 
+/// @brief it should leave the data type of a live entry unknown when the registry entry
+/// at its address has another bit length.
 TEST_F(BeckhoffDevicesTest, FillDataTypesSkipsEntryOfOtherBitLength) {
     constexpr uint32_t el3102 = 0x0C1E3052;
     ASSERT_TRUE(lookup_device_pdos(BECKHOFF_VENDOR_ID, el3102, 1, this->slave));

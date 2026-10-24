@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
@@ -25,14 +26,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// openDevices opens a device service on db and creates two slaves on its embedded
-// rack: "slave" with a unique input and output name, and "el1008" with eight inputs
-// named "Input".
+// openDevices opens a device service on db and creates three slaves on its embedded
+// rack: "slave" with a unique input and output name, "el1008" with eight inputs named
+// "Input", and "malformed" with PDOs that do not decode.
 func openDevices(ctx SpecContext, db *gorp.DB) *device.Service {
 	GinkgoHelper()
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
@@ -105,6 +105,15 @@ func openDevices(ctx SpecContext, db *gorp.DB) *device.Service {
 			Make:       "ethercat",
 			Model:      "EL1008",
 			Properties: msgpack.EncodedJSON{"pdos": map[string]any{"inputs": inputs}},
+		},
+		{
+			Key:        "malformed",
+			Rack:       rackSvc.EmbeddedKey,
+			Location:   "eth0.3",
+			Name:       "EL2008",
+			Make:       "ethercat",
+			Model:      "EL2008",
+			Properties: msgpack.EncodedJSON{"pdos": "garbage"},
 		},
 	}
 	Expect(devices.NewWriter(nil).CreateMany(ctx, &slaves)).To(Succeed())
@@ -275,6 +284,22 @@ var _ = Describe("Service", func() {
 			Entry("on a name the slave repeats", "el1008", "Input"),
 			Entry("on a missing device", "gone", "Value"),
 		)
+
+		It("Should reject an unresolved channel on a slave with malformed PDOs", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":   "unresolved",
+					"key":    "a",
+					"device": "malformed",
+					"pdo":    "Value",
+				}},
+			})).To(SatisfyAll(
+				MatchError(ContainSubstring("device malformed properties: json: ")),
+				MatchError(ContainSubstring(`within "/pdos"`)),
+			))
+		})
 
 		It("Should address an unresolved write channel by its slave's output", func(
 			ctx SpecContext,
