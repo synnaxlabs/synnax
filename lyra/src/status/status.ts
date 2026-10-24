@@ -23,9 +23,18 @@ export type Variant = z.infer<typeof variantZ>;
 
 interface Base<V extends Variant> {
   key: string;
+  /** The name of what the status is about. Empty when it is not about a named thing. */
   name: string;
   variant: V;
+  /**
+   * What happened, in one short line, such as "Failed to save file" or "Saved file". A
+   * status that reports a state names the state instead, such as "Disconnected".
+   */
   message: string;
+  /**
+   * Why it happened and what to do now, in full sentences. Raw error text goes here,
+   * never in the message. Empty when the message says enough.
+   */
   description: string;
   time: TimeStamp;
 }

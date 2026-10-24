@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"iter"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"go.uber.org/zap"
 )

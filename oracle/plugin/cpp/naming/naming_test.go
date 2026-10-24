@@ -124,6 +124,51 @@ var _ = Describe("PBNamespace", func() {
 	)
 })
 
+var _ = Describe("VariantPBNamespace", func() {
+	pbType := func(name, namespace, goOutput string) resolution.Type {
+		return resolution.Type{
+			Name:      name,
+			Namespace: namespace,
+			Domains: map[string]resolution.Domain{
+				"go": {
+					Name: "go",
+					Expressions: resolution.Expressions{{
+						Name:   "output",
+						Values: []resolution.ExpressionValue{{StringValue: goOutput}},
+					}},
+				},
+				"pb": {Name: "pb"},
+			},
+		}
+	}
+	union := pbType("Node", "graph", "core/pkg/service/graph")
+	payload := pbType("Valve", "base", "core/pkg/service/base")
+
+	DescribeTable("should derive the message owner from the variant",
+		func(inline bool, expectedNamespace, expectedHeader string) {
+			namespace, header := naming.VariantPBNamespace(
+				union,
+				resolution.UnionVariant{Name: "valve", Inline: inline},
+				payload,
+			)
+			Expect(namespace).To(Equal(expectedNamespace))
+			Expect(header).To(Equal(expectedHeader))
+		},
+		Entry(
+			"an inline variant belongs to its union",
+			true,
+			"::service::graph::pb",
+			"core/pkg/service/graph/pb/graph.pb.h",
+		),
+		Entry(
+			"a referenced variant belongs to its payload",
+			false,
+			"::service::base::pb",
+			"core/pkg/service/base/pb/base.pb.h",
+		),
+	)
+})
+
 var _ = Describe("PBName", func() {
 	It("should return the @pb name override", func() {
 		typ := resolution.Type{

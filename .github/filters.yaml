@@ -86,9 +86,16 @@ cesium: &cesium
   - *x_go
   - cesium/**
 
+gorp: &gorp
+  - *alamos_go
+  - *go
+  - *x_go
+  - gorp/**
+
 freighter_go: &freighter_go
   - *alamos_go
   - *go
+  - *gorp
   - *x_go
   - freighter/go/**
 
@@ -128,6 +135,7 @@ core: &core
   - *cesium
   - *freighter_go
   - *go
+  - *gorp
   - *x_go
   - core/**
 

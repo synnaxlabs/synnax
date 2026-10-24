@@ -932,6 +932,27 @@ var _ = Describe("Python Types Plugin", func() {
 			},
 		)
 		It(
+			"Should substitute a generic parent's type arguments into inlined fields",
+			func(ctx SpecContext) {
+				source := `
+				@py output "out"
+
+				Box struct<T> {
+					item   T
+					hidden bool
+				}
+
+				Child struct extends Box<string> {
+					hidden bool?
+				}
+			`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").ToContain(
+					"class Child(BaseModel):\n    item: str\n",
+				)
+			},
+		)
+		It(
 			"Should still inherit when child only adds fields without overriding",
 			func(ctx SpecContext) {
 				source := `
