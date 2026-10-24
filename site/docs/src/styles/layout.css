@@ -394,6 +394,11 @@ article {
         position: relative;
     }
 
+    .docs-image,
+    .docs-video > video {
+        cursor: zoom-in;
+    }
+
     /* A lead-in sentence sits close to the block it introduces. Themed images render
        inside a picture, and videos inside a play button wrapper. A table keeps the full
        gap: its header is text, so a close lead-in reads as one more line. */
@@ -441,6 +446,11 @@ article {
         & > p:has(+ :is(video, img, .docs-picture, .docs-video)) {
             margin-bottom: 0;
         }
+
+        & > .docs-video > .docs-video__progress {
+            inset: 0 calc(-1 * var(--docs-block-padding));
+            border-radius: 0;
+        }
     }
 
     /* Touch devices play a video on a tap, so a paused one shows a play button. */
@@ -460,9 +470,55 @@ article {
         pointer-events: none;
     }
 
+    /* Shows how far the loop has played, so a reader sees where a recording starts. It
+       clips to the video's rounded corners. */
+    .docs-video__progress {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        border-radius: 1rem;
+        pointer-events: none;
+
+        & > .pluto-progress {
+            position: absolute;
+            bottom: 0;
+        }
+    }
+
+    .docs-video__controls {
+        position: absolute;
+        right: 2rem;
+        bottom: 2.5rem;
+        opacity: 0;
+        transition: opacity 0.15s;
+    }
+
+    .docs-video:is(:hover, :focus-within) > .docs-video__controls {
+        opacity: 1;
+    }
+
+    .docs-video__pause-button,
+    .docs-video--playing .docs-video__play-button {
+        display: none;
+    }
+
+    .docs-video--playing .docs-video__pause-button {
+        display: flex;
+    }
+
+    /* A tap plays or pauses a video on a touch device, so only the expand button sits
+       in the corner. */
     @media (hover: none) and (pointer: coarse) {
         .docs-video:not(.docs-video--playing) > .docs-video__play {
             display: grid;
+        }
+
+        .docs-video__controls {
+            opacity: 1;
+
+            & > :is(.docs-video__play-button, .docs-video__pause-button) {
+                display: none;
+            }
         }
     }
 

@@ -9,6 +9,7 @@
 // included in the file licenses/APL.txt.
 
 import Header from "@/components/layout/Header.astro";
+import Lightbox from "@/components/media/Lightbox.astro";
 import "@/styles/main.css";
 import PostHog from "@/components/analytics/PostHog.astro";
 import { ClientRouter } from "astro:transitions";
@@ -108,10 +109,12 @@ const FOOTER_COLUMNS = [
             )}
         </main>
         <Footer home="https://synnaxlabs.com" columns={FOOTER_COLUMNS} />
+        <Lightbox />
     </body>
     <script>
         import { QUERY as CLIENT_QUERY } from "@/components/client/choice";
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
+        import { start as startLightbox } from "@/components/media/lightbox";
         import { start as startVideos } from "@/components/media/video";
         import { start as startCollapse } from "@/components/nav/collapse";
         import { start as startOnThisPage } from "@/components/nav/onThisPage";
@@ -125,6 +128,7 @@ const FOOTER_COLUMNS = [
         startSidebar();
         startCollapse();
         startVideos();
+        startLightbox();
         // Before the tabs, so the outline hears the first tab change.
         startOnThisPage();
         startTabs({ client: CLIENT_QUERY, platform: PLATFORM_QUERY, context: {} });
