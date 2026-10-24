@@ -80,6 +80,7 @@ jobs:
       freighter_integration: ${{ steps.filter.outputs.freighter_integration }}
       freighter_py: ${{ steps.filter.outputs.freighter_py }}
       freighter_ts: ${{ steps.filter.outputs.freighter_ts }}
+      gorp: ${{ steps.filter.outputs.gorp }}
       integration: ${{ steps.filter.outputs.integration }}
       knip: ${{ steps.filter.outputs.knip }}
       lint_integration: ${{ steps.filter.outputs.lint_integration }}
@@ -148,6 +149,7 @@ jobs:
       needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
+      clang_tidy: true
       core_image: ${{ needs.core-image.outputs.image }}
       directories: arc/cpp
       macos: *full
@@ -212,6 +214,7 @@ jobs:
       needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
+      clang_tidy: true
       core_image: ${{ needs.core-image.outputs.image }}
       directories: client/cpp client/clib
       macos: *full
@@ -349,6 +352,7 @@ jobs:
     uses: ./.github/workflows/test.cpp.yaml
     with:
       apt_packages: libsystemd-dev
+      clang_tidy: true
       core_image: ${{ needs.core-image.outputs.image }}
       directories: driver
       macos: *full
@@ -387,6 +391,7 @@ jobs:
     if: inputs.full || needs.changes.outputs.freighter_cpp == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
+      clang_tidy: true
       directories: freighter/cpp
       macos: *full
       targets: //freighter/cpp/...
@@ -451,6 +456,17 @@ jobs:
       directory: freighter/ts
       freighter_image: ${{ needs.freighter-image.outputs.image }}
       package: freighter
+    secrets: inherit
+
+  gorp:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.gorp == 'true'
+    uses: ./.github/workflows/test.go.yaml
+    with:
+      coverage_flag: gorp
+      directory: gorp
+      macos: *full
+      windows: *full
     secrets: inherit
 
   integration:
@@ -629,6 +645,7 @@ jobs:
     if: inputs.full || needs.changes.outputs.x_cpp == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
+      clang_tidy: true
       directories: x/cpp
       macos: *full
       targets: //x/cpp/...
@@ -742,6 +759,7 @@ jobs:
       - freighter-integration
       - freighter-py
       - freighter-ts
+      - gorp
       - integration
       - knip
       - lint-integration

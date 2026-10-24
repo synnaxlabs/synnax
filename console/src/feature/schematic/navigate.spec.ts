@@ -219,7 +219,9 @@ describe("Schematic.useHandleNodeClickAction", () => {
       expect(
         result.current.notifications.statuses.some(
           (st) =>
-            st.variant === "error" && st.message === 'Schematic "Target Ref" not found',
+            st.variant === "error" &&
+            st.name === "Target Ref" &&
+            st.message === "Failed to open schematic",
         ),
       ).toBe(true),
     );
@@ -234,13 +236,15 @@ describe("Schematic.useHandleNodeClickAction", () => {
       expect(
         result.current.notifications.statuses.some(
           (st) =>
-            st.variant === "error" && st.message === 'Line plot "Target Ref" not found',
+            st.variant === "error" &&
+            st.name === "Target Ref" &&
+            st.message === "Failed to open line plot",
         ),
       ).toBe(true),
     );
   });
 
-  it("names the reference by its page noun when it has no label", async () => {
+  it("leaves the name empty when the reference has no label", async () => {
     const { result } = await renderNavigateHook({
       configs: {
         n1: offPageConfig(
@@ -255,7 +259,8 @@ describe("Schematic.useHandleNodeClickAction", () => {
         result.current.notifications.statuses.some(
           (st) =>
             st.variant === "error" &&
-            st.message === 'Table "Referenced table" not found',
+            st.name === "" &&
+            st.message === "Failed to open table",
         ),
       ).toBe(true),
     );

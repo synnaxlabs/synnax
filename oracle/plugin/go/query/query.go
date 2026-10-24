@@ -224,7 +224,7 @@ func generateRetrieveFile(
 	imps.AddExternal("context")
 	imps.AddInternal(
 		"gorp",
-		gomod.ResolveImportPath("x/go/gorp", repoRoot, gomod.DefaultModulePrefix),
+		gomod.ResolveImportPath("gorp", repoRoot, gomod.DefaultModulePrefix),
 	)
 
 	// Check if any info needs search imports.
@@ -416,7 +416,7 @@ func retrieveFields(typ resolution.Type, table *resolution.Table) []resolution.F
 	}
 	var fields []resolution.Field
 	for _, ext := range form.Extends {
-		if base, ok := ext.Resolve(table); ok {
+		if base, _, ok := resolution.Dealias(ext, table); ok {
 			fields = append(fields, resolution.UnifiedFields(base, table)...)
 		}
 	}

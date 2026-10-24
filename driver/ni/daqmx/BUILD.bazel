@@ -47,6 +47,8 @@ cc_library(
     hdrs = [
         "nidaqmx.h",
     ],
+    # Vendor SDK headers follow the vendor's conventions.
+    tags = ["no-clang-tidy"],
     deps = [],
 )
 

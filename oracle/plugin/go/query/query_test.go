@@ -116,6 +116,34 @@ var _ = Describe("Go Query Plugin", func() {
 					)
 			})
 
+			It("Should take the key from an aliased base", func(ctx SpecContext) {
+				loader.Add("schemas/base", `
+					@go output "core/pkg/service/base"
+
+					Base struct {
+						key uuid @key
+					}
+				`)
+				source := `
+					import "schemas/base"
+
+					@go output "core/pkg/service/view"
+
+					Base = base.Base
+
+					View union on type extends Base {
+						first {
+							size int32
+						}
+						@ontology type "view"
+						@retrieve
+					}
+				`
+				resp := MustGenerate(ctx, source, "view", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain("gorp.Retrieve[uuid.UUID, View]")
+			})
+
 			It(
 				"Should reject two @retrieve types in one output",
 				func(ctx SpecContext) {

@@ -93,75 +93,75 @@ public:
     ) = 0;
 
     /// @brief returns the number of slaves found.
-    virtual int slave_count() const = 0;
+    [[nodiscard]] virtual int slave_count() const = 0;
 
     /// @brief returns the EtherCAT state of a slave.
-    virtual uint16_t slave_state(uint16_t pos) const = 0;
+    [[nodiscard]] virtual uint16_t slave_state(uint16_t pos) const = 0;
 
     /// @brief sets the EtherCAT state of a slave.
     virtual void set_slave_state(uint16_t pos, uint16_t state) = 0;
 
     /// @brief returns the manufacturer ID from slave EEPROM.
-    virtual uint32_t slave_eep_man(uint16_t pos) const = 0;
+    [[nodiscard]] virtual uint32_t slave_eep_man(uint16_t pos) const = 0;
 
     /// @brief returns the product ID from slave EEPROM.
-    virtual uint32_t slave_eep_id(uint16_t pos) const = 0;
+    [[nodiscard]] virtual uint32_t slave_eep_id(uint16_t pos) const = 0;
 
     /// @brief returns the revision from slave EEPROM.
-    virtual uint32_t slave_eep_rev(uint16_t pos) const = 0;
+    [[nodiscard]] virtual uint32_t slave_eep_rev(uint16_t pos) const = 0;
 
     /// @brief returns the serial number from slave EEPROM.
-    virtual uint32_t slave_eep_ser(uint16_t pos) const = 0;
+    [[nodiscard]] virtual uint32_t slave_eep_ser(uint16_t pos) const = 0;
 
     /// @brief returns the slave name.
-    virtual std::string slave_name(uint16_t pos) const = 0;
+    [[nodiscard]] virtual std::string slave_name(uint16_t pos) const = 0;
 
     /// @brief returns the input bits for a slave.
-    virtual uint16_t slave_Ibits(uint16_t pos) const = 0;
+    [[nodiscard]] virtual uint16_t slave_Ibits(uint16_t pos) const = 0;
 
     /// @brief returns the output bits for a slave.
-    virtual uint16_t slave_Obits(uint16_t pos) const = 0;
+    [[nodiscard]] virtual uint16_t slave_Obits(uint16_t pos) const = 0;
 
     /// @brief returns the group assignment of a slave.
-    virtual uint8_t slave_group(uint16_t pos) const = 0;
+    [[nodiscard]] virtual uint8_t slave_group(uint16_t pos) const = 0;
 
     /// @brief sets the group assignment of a slave.
     virtual void set_slave_group(uint16_t pos, uint8_t group) = 0;
 
     /// @brief returns the output data pointer for a slave.
-    virtual uint8_t *slave_outputs(uint16_t pos) const = 0;
+    [[nodiscard]] virtual uint8_t *slave_outputs(uint16_t pos) const = 0;
 
     /// @brief returns the input data pointer for a slave.
-    virtual uint8_t *slave_inputs(uint16_t pos) const = 0;
+    [[nodiscard]] virtual uint8_t *slave_inputs(uint16_t pos) const = 0;
 
     /// @brief returns the mailbox protocol flags for a slave.
-    virtual uint16_t slave_mbx_proto(uint16_t pos) const = 0;
+    [[nodiscard]] virtual uint16_t slave_mbx_proto(uint16_t pos) const = 0;
 
     /// @brief returns the AL status code for a slave.
-    virtual uint16_t slave_ALstatuscode(uint16_t pos) const = 0;
+    [[nodiscard]] virtual uint16_t slave_ALstatuscode(uint16_t pos) const = 0;
 
     /// @brief returns whether a slave is marked as no longer responding.
-    virtual bool slave_lost(uint16_t pos) const = 0;
+    [[nodiscard]] virtual bool slave_lost(uint16_t pos) const = 0;
 
     /// @brief marks whether a slave no longer responds.
     virtual void set_slave_lost(uint16_t pos, bool lost) = 0;
 
     /// @brief returns the input bytes for a group.
-    virtual uint32_t group_Ibytes(uint8_t grp) const = 0;
+    [[nodiscard]] virtual uint32_t group_Ibytes(uint8_t grp) const = 0;
 
     /// @brief returns the output bytes for a group.
-    virtual uint32_t group_Obytes(uint8_t grp) const = 0;
+    [[nodiscard]] virtual uint32_t group_Obytes(uint8_t grp) const = 0;
 
     /// @brief returns the expected output working counter for a group.
-    virtual uint16_t group_outputsWKC(uint8_t grp) const = 0;
+    [[nodiscard]] virtual uint16_t group_outputsWKC(uint8_t grp) const = 0;
 
     /// @brief returns the expected input working counter for a group.
-    virtual uint16_t group_inputsWKC(uint8_t grp) const = 0;
+    [[nodiscard]] virtual uint16_t group_inputsWKC(uint8_t grp) const = 0;
 };
 
 /// @brief production implementation of soem::API wrapping ecx_contextt.
 class ProdAPI final : public API {
-    ecx_contextt context;
+    ecx_contextt context{};
 
 public:
     ProdAPI() { std::memset(&this->context, 0, sizeof(this->context)); }
@@ -248,9 +248,9 @@ public:
         return ecx_readOEsingle(&this->context, item, sub_index, od_list, oe_list);
     }
 
-    int slave_count() const override { return this->context.slavecount; }
+    [[nodiscard]] int slave_count() const override { return this->context.slavecount; }
 
-    uint16_t slave_state(uint16_t pos) const override {
+    [[nodiscard]] uint16_t slave_state(uint16_t pos) const override {
         return this->context.slavelist[pos].state;
     }
 
@@ -258,35 +258,35 @@ public:
         this->context.slavelist[pos].state = state;
     }
 
-    uint32_t slave_eep_man(uint16_t pos) const override {
+    [[nodiscard]] uint32_t slave_eep_man(uint16_t pos) const override {
         return this->context.slavelist[pos].eep_man;
     }
 
-    uint32_t slave_eep_id(uint16_t pos) const override {
+    [[nodiscard]] uint32_t slave_eep_id(uint16_t pos) const override {
         return this->context.slavelist[pos].eep_id;
     }
 
-    uint32_t slave_eep_rev(uint16_t pos) const override {
+    [[nodiscard]] uint32_t slave_eep_rev(uint16_t pos) const override {
         return this->context.slavelist[pos].eep_rev;
     }
 
-    uint32_t slave_eep_ser(uint16_t pos) const override {
+    [[nodiscard]] uint32_t slave_eep_ser(uint16_t pos) const override {
         return this->context.slavelist[pos].eep_ser;
     }
 
-    std::string slave_name(uint16_t pos) const override {
+    [[nodiscard]] std::string slave_name(uint16_t pos) const override {
         return this->context.slavelist[pos].name;
     }
 
-    uint16_t slave_Ibits(uint16_t pos) const override {
+    [[nodiscard]] uint16_t slave_Ibits(uint16_t pos) const override {
         return this->context.slavelist[pos].Ibits;
     }
 
-    uint16_t slave_Obits(uint16_t pos) const override {
+    [[nodiscard]] uint16_t slave_Obits(uint16_t pos) const override {
         return this->context.slavelist[pos].Obits;
     }
 
-    uint8_t slave_group(uint16_t pos) const override {
+    [[nodiscard]] uint8_t slave_group(uint16_t pos) const override {
         return this->context.slavelist[pos].group;
     }
 
@@ -294,23 +294,23 @@ public:
         this->context.slavelist[pos].group = group;
     }
 
-    uint8_t *slave_outputs(uint16_t pos) const override {
+    [[nodiscard]] uint8_t *slave_outputs(uint16_t pos) const override {
         return this->context.slavelist[pos].outputs;
     }
 
-    uint8_t *slave_inputs(uint16_t pos) const override {
+    [[nodiscard]] uint8_t *slave_inputs(uint16_t pos) const override {
         return this->context.slavelist[pos].inputs;
     }
 
-    uint16_t slave_mbx_proto(uint16_t pos) const override {
+    [[nodiscard]] uint16_t slave_mbx_proto(uint16_t pos) const override {
         return this->context.slavelist[pos].mbx_proto;
     }
 
-    uint16_t slave_ALstatuscode(uint16_t pos) const override {
+    [[nodiscard]] uint16_t slave_ALstatuscode(uint16_t pos) const override {
         return this->context.slavelist[pos].ALstatuscode;
     }
 
-    bool slave_lost(uint16_t pos) const override {
+    [[nodiscard]] bool slave_lost(uint16_t pos) const override {
         return this->context.slavelist[pos].islost;
     }
 
@@ -318,19 +318,19 @@ public:
         this->context.slavelist[pos].islost = lost;
     }
 
-    uint32_t group_Ibytes(uint8_t grp) const override {
+    [[nodiscard]] uint32_t group_Ibytes(uint8_t grp) const override {
         return this->context.grouplist[grp].Ibytes;
     }
 
-    uint32_t group_Obytes(uint8_t grp) const override {
+    [[nodiscard]] uint32_t group_Obytes(uint8_t grp) const override {
         return this->context.grouplist[grp].Obytes;
     }
 
-    uint16_t group_outputsWKC(uint8_t grp) const override {
+    [[nodiscard]] uint16_t group_outputsWKC(uint8_t grp) const override {
         return this->context.grouplist[grp].outputsWKC;
     }
 
-    uint16_t group_inputsWKC(uint8_t grp) const override {
+    [[nodiscard]] uint16_t group_inputsWKC(uint8_t grp) const override {
         return this->context.grouplist[grp].inputsWKC;
     }
 };

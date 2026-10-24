@@ -14,11 +14,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/telem"
