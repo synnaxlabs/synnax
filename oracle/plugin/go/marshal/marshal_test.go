@@ -620,6 +620,36 @@ var _ = Describe("Go Marshal Plugin", func() {
 			)
 		})
 
+		Context("generic struct with an omitted optional type arg", func() {
+			It(
+				"Should instantiate the omitted type arg as struct{}",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/test"
+					@go marshal
+
+					Bin struct<T?> {
+						item T?
+					}
+
+					Panel struct {
+						bare Bin
+						none Bin<nil>
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					ExpectContent(resp, "codec.gen.go").ToContain(
+						"if err := p.Bare.EncodeOrc(w); err != nil { return err }",
+						"if err := p.None.EncodeOrc(w); err != nil { return err }",
+					)
+					ExpectContent(resp, "codec_gen_test.go").ToContain(
+						"Bare: test.Bin[struct{}]{}",
+						"None: test.Bin[struct{}]{}",
+					)
+				},
+			)
+		})
+
 		Context("array field nil preservation", func() {
 			It("Should generate a presence bit before the array length", func() {
 				source := `

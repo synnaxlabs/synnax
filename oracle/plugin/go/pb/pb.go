@@ -1348,21 +1348,6 @@ func (p *Plugin) generateStructConversion(
 	}
 	typeArgs := actualRef.TypeArgs
 
-	if actualForm.IsGeneric() {
-		nonDefaultedParams := resolution.NonDefaultedTypeParams(actualForm.TypeParams)
-		providedArgs := len(typeArgs)
-		if providedArgs < len(nonDefaultedParams) {
-			newTypeArgs := make([]resolution.TypeRef, len(nonDefaultedParams))
-			copy(newTypeArgs, typeArgs)
-			for i := providedArgs; i < len(nonDefaultedParams); i++ {
-				if nonDefaultedParams[i].Optional {
-					newTypeArgs[i] = resolution.TypeRef{Name: "nil"}
-				}
-			}
-			typeArgs = newTypeArgs
-		}
-	}
-
 	if actualForm.IsGeneric() && len(typeArgs) > 0 {
 		return p.generateGenericStructConversion(
 			actualStruct,

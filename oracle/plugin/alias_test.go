@@ -79,6 +79,11 @@ Box struct<T> {
 	@go marshal
 }
 
+Bin struct<U?> {
+	item U?
+	@go marshal
+}
+
 Edge union on variant {
 	pipe Labeled
 	@go marshal
@@ -120,6 +125,8 @@ var aliasTargets = map[string]string{
 	"Signal":      "Signal",
 	"Box":         "Box",
 	"Crate":       "Box",
+	"Bin":         "Bin",
+	"Tub":         "Bin",
 }
 
 const aliasDecls = `
@@ -137,6 +144,8 @@ Edge = base.Edge
 Signal = base.Signal
 Box<T> = base.Box<T>
 Crate<T> = Box<T>
+Bin<U?> = base.Bin<U>
+Tub<U?> = Bin<U>
 `
 
 // aliasUses puts the aliases in each position where a generator decides what to emit
@@ -176,12 +185,22 @@ Panel struct {
 	byKey   map<Key, Valve>
 	grid    Gates[]
 	lists   ValveList[]
+	bin     Bin
+	tub     Tub
 	@go marshal
 }
+
+Plain = Tub
 
 Tray struct<T> {
 	item T
 	box  Box<T>
+	@go marshal
+}
+
+Crib struct<U?> {
+	item U?
+	bin  Bin<U>
 	@go marshal
 }
 

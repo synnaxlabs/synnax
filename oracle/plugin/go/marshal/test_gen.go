@@ -1100,6 +1100,10 @@ func (b *testValueBuilder) enumExpr(
 func (b *testValueBuilder) typeArgSuffix(args []resolution.TypeRef) (string, error) {
 	var rendered []string
 	for _, arg := range args {
+		if arg.Name == "nil" {
+			rendered = append(rendered, "struct{}")
+			continue
+		}
 		if _, ok := arg.Resolve(b.table); !ok {
 			continue
 		}

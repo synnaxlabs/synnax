@@ -739,33 +739,10 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 		result.IsGeneric = len(result.TypeParams) > 0
 		return result
 	case resolution.AliasForm:
-		targetRef := form.Target
-		if targetResolved, ok := targetRef.Resolve(data.table); ok {
-			if targetForm, ok := targetResolved.Form.(resolution.StructForm); ok {
-				nonDefaultedParams := resolution.NonDefaultedTypeParams(
-					targetForm.TypeParams,
-				)
-				providedArgs := len(targetRef.TypeArgs)
-				if providedArgs < len(nonDefaultedParams) {
-					newTypeArgs := make([]resolution.TypeRef, len(nonDefaultedParams))
-					copy(newTypeArgs, targetRef.TypeArgs)
-					for i := providedArgs; i < len(nonDefaultedParams); i++ {
-						if nonDefaultedParams[i].Optional {
-							newTypeArgs[i] = resolution.TypeRef{Name: "nil"}
-						}
-					}
-					targetRef = resolution.TypeRef{
-						Name:     targetRef.Name,
-						TypeArgs: newTypeArgs,
-					}
-				}
-			}
-		}
-		baseType := data.resolver.ResolveTypeRef(targetRef, data.ctx)
 		result := typeDefData{
 			Name:     name,
 			Doc:      doc.Get(td.Domains),
-			BaseType: baseType,
+			BaseType: data.resolver.ResolveTypeRef(form.Target, data.ctx),
 			IsAlias:  true,
 		}
 		for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {

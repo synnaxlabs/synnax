@@ -1703,6 +1703,12 @@ func resolveTypeRef(
 		name,
 	); ok {
 		ref.Name = typ.QualifiedName
+		// An omitted optional type argument is nil.
+		params := resolution.TypeParams(typ.Form)
+		for i := len(ref.TypeArgs); i < len(params) &&
+			params[i].Optional && !params[i].HasDefault(); i++ {
+			ref.TypeArgs = append(ref.TypeArgs, resolution.TypeRef{Name: "nil"})
+		}
 	} else {
 		d := diagnostics.Warningf(nil, "unresolved type: %s", ref.Name)
 		c.report(d)

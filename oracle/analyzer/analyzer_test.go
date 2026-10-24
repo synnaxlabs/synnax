@@ -2777,6 +2777,47 @@ Node union on variant {
 			},
 		)
 
+		DescribeTable(
+			"Should bind an omitted optional type argument to nil",
+			func(ctx SpecContext, ref string, want []string) {
+				source := `
+				Box struct<T?> {
+					value T?
+				}
+				Pair struct<A?, B?> {
+					a A?
+					b B?
+				}
+				Task struct<T?, C = string> {
+					value  T?
+					config C
+				}
+				Crate<T?> = Box<T>
+
+				Wrapper struct {
+					value ` + ref + `
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				form := table.MustGet("test.Wrapper").Form.(resolution.StructForm)
+				var got []string
+				for _, arg := range findField(form.Fields, "value").Type.TypeArgs {
+					got = append(got, arg.Name)
+				}
+				Expect(got).To(Equal(want))
+			},
+			Entry("a bare struct", "Box", []string{"nil"}),
+			Entry("a bound struct", "Box<string>", []string{"string"}),
+			Entry("a partly bound struct", "Pair<string>", []string{"string", "nil"}),
+			Entry(
+				"a struct whose later parameter has a default",
+				"Task",
+				[]string{"nil"},
+			),
+			Entry("a bare alias", "Crate", []string{"nil"}),
+		)
+
 		It("Should parse struct with generic field type", func(ctx SpecContext) {
 			source := `
 				Container struct<T> {
