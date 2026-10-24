@@ -48,7 +48,7 @@ describe("createProvider", () => {
     expect(getByText("Test Child")).toBeDefined();
   });
 
-  it("should allow Aether.use with registered components", async () => {
+  it("should allow Aether.useBidirectional with registered components", async () => {
     const Provider = createProvider({
       [TestLeaf.TYPE]: TestLeaf,
     });

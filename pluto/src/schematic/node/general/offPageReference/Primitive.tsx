@@ -19,8 +19,6 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
 
-const SYMBOL_COLOR = CSS.variable("symbol-color");
-
 export const offPageReferenceTooltip = (
   page?: schematic.Page,
   dblClickNavDisabled?: boolean,
@@ -57,7 +55,7 @@ export const OffPageReference = ({
 
   const swap = direction.construct(orientation) === "y";
   const style = useMemo<CSSProperties>(
-    () => ({ [SYMBOL_COLOR]: color.rgbaString(fillColor) }),
+    () => ({ [Primitive.SYMBOL_COLOR]: color.rgbaString(fillColor) }),
     [fillColor],
   );
 

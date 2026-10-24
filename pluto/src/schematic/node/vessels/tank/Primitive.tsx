@@ -18,8 +18,6 @@ import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
-const SYMBOL_COLOR = CSS.variable("symbol-color");
-
 interface RenderProps extends Partial<
   Pick<
     schematic.TankNodeConfig,
@@ -56,7 +54,7 @@ export const Tank = ({
       width,
       height,
       borderRadius: cssBorderRadius,
-      [SYMBOL_COLOR]: color.rgbaString(strokeColor),
+      [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor),
       backgroundColor: fillCSS,
       borderWidth: strokeWidth,
     }),

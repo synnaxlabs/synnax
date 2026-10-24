@@ -332,7 +332,7 @@ export const createList = <
         );
         queryRef.current = query;
 
-        // The compiler cannot lower a branch inside a try, so the body is a function.
+        // The compiler rejects `?.`, `??`, and `?:` in a try, so the body is a closure.
         const apply = async (): Promise<void> => {
           if (client == null)
             return setResult(nullClientResult<Key[]>(`retrieve ${name}`));
@@ -420,7 +420,7 @@ export const createList = <
     const retrieveSingle = useCallback(
       (key: Key, options: query.FetchOptions = {}) => {
         const { signal } = options;
-        // The compiler cannot lower a branch inside a try, so the body is a function.
+        // The compiler rejects `?.`, `??`, and `?:` in a try, so the body is a closure.
         const apply = async (): Promise<void> => {
           if (client == null || primitive.isZero(key)) return;
           const item = await retrieveByKey({

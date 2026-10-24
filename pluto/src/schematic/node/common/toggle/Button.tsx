@@ -17,8 +17,6 @@ import { type ComponentPropsWithRef, type ReactElement } from "react";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type OrientableProps } from "@/schematic/node/common/primitive/orientable";
 
-const TOGGLE_DELAY = CSS.variable("toggle-delay");
-
 export interface ButtonBaseProps extends Omit<
   ComponentPropsWithRef<"button">,
   "value"
@@ -52,7 +50,7 @@ export const Button = ({
   const delayed = !hold.delay.isZero;
 
   const pStyle = delayed
-    ? { ...style, [TOGGLE_DELAY]: `${hold.delay.seconds.toString()}s` }
+    ? { ...style, [Primitive.TOGGLE_DELAY]: `${hold.delay.seconds.toString()}s` }
     : style;
 
   return (

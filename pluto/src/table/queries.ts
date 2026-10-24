@@ -111,14 +111,14 @@ const { useUpdate: useCreateBase } = Flux.createUpdate<CreateParams, table.Table
     }),
 });
 
-// useCreate creates a new table. If the caller passes no rows or columns,
-// the table opens with a 2x2 grid of empty text cells so the user lands on
-// a usable starter layout instead of a blank canvas.
 const withDefaultLayout = (data: CreateParams): CreateParams =>
   (data.rows?.length ?? 0) === 0 && (data.columns?.length ?? 0) === 0
     ? { ...data, ...createDefaultLayout() }
     : data;
 
+// useCreate creates a new table. If the caller passes no rows or columns,
+// the table opens with a 2x2 grid of empty text cells so the user lands on
+// a usable starter layout instead of a blank canvas.
 export const useCreate: typeof useCreateBase = (args) => {
   const base = useCreateBase(args);
   const baseRef = useSyncedRef(base);

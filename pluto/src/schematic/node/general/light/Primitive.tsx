@@ -17,8 +17,6 @@ import { type ReactElement } from "react";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
-const SYMBOL_COLOR = CSS.variable("symbol-color");
-
 interface RenderProps extends Partial<
   Pick<schematic.LightNodeConfig, "strokeColor" | "onColor" | "orientation" | "scale">
 > {
@@ -59,7 +57,9 @@ export const Light = ({
       <g
         className={CSS.cls(CSS.B("symbol-colored"), CSS.BE("light", "lamp"))}
         style={
-          onColor == null ? undefined : { [SYMBOL_COLOR]: color.rgbaString(onColor) }
+          onColor == null
+            ? undefined
+            : { [Primitive.SYMBOL_COLOR]: color.rgbaString(onColor) }
         }
       >
         <Primitive.Circle cx="32" cy="32" r="30" />

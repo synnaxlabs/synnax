@@ -9,8 +9,8 @@
 
 import { act, render } from "@testing-library/react";
 import { type Node, ReactFlowProvider, useStoreApi } from "@xyflow/react";
-import { type ReactElement } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Profiler, type ReactElement } from "react";
+import { describe, expect, it, vi } from "vitest";
 
 import { Jumps } from "@/schematic/edge/common/jumps";
 import { Path } from "@/schematic/edge/common/path";
@@ -19,10 +19,19 @@ import { diagram } from "@/vis/diagram/aether";
 
 type Store = ReturnType<typeof useStoreApi>;
 
+const SIZE = { width: 40, height: 40 };
+
+// The target sits behind the source, so the edge routes around the source's box.
 const NODES: Node[] = [
-  { id: "a", position: { x: 0, y: 0 }, data: {} },
-  { id: "b", position: { x: 200, y: 100 }, data: {} },
+  { id: "a", position: { x: 0, y: 0 }, measured: SIZE, data: {} },
+  { id: "b", position: { x: -200, y: 100 }, measured: SIZE, data: {} },
+  { id: "c", position: { x: 400, y: 400 }, measured: SIZE, data: {} },
 ];
+
+const updateNode = (store: Store, id: string, change: Partial<Node>): void => {
+  const { nodes, setNodes } = store.getState();
+  setNodes(nodes.map((n) => (n.id === id ? { ...n, ...change } : n)));
+};
 
 const Line = ({ points, crossings }: Segmented.PathProps): ReactElement => (
   <path d={Path.rounded(points, crossings)} />
@@ -37,23 +46,26 @@ const StoreProbe = ({ onStore }: { onStore: (s: Store) => void }): null => {
 
 const renderEdge = () => {
   let store!: Store;
+  let renders = 0;
   const jumps = Jumps.createStore();
   const ui = (edgeKey: string): ReactElement => (
     <ReactFlowProvider defaultNodes={NODES}>
       <StoreProbe onStore={(s) => (store = s)} />
       <Jumps.Context value={jumps}>
         <svg>
-          <spec.Edge
-            key={edgeKey}
-            edgeKey={edgeKey}
-            source={diagram.createEndpoint(0, 0, "right")}
-            target={diagram.createEndpoint(200, 100, "left")}
-            sourceNode="a"
-            targetNode="b"
-            selected={false}
-            config={spec.defaultConfig()}
-            onChange={vi.fn()}
-          />
+          <Profiler id="edge" onRender={() => renders++}>
+            <spec.Edge
+              key={edgeKey}
+              edgeKey={edgeKey}
+              source={diagram.createEndpoint(40, 20, "right")}
+              target={diagram.createEndpoint(-160, 120, "right")}
+              sourceNode="a"
+              targetNode="b"
+              selected={false}
+              config={spec.defaultConfig()}
+              onChange={vi.fn()}
+            />
+          </Profiler>
         </svg>
       </Jumps.Context>
     </ReactFlowProvider>
@@ -61,22 +73,15 @@ const renderEdge = () => {
   const { container, rerender } = render(ui("first"));
   const path = (): string | null =>
     container.querySelector("path")?.getAttribute("d") ?? null;
-  return { store: () => store, path, remount: () => rerender(ui("second")) };
+  return {
+    store: () => store,
+    path,
+    renders: () => renders,
+    remount: () => rerender(ui("second")),
+  };
 };
 
 describe("Segmented", () => {
-  // The edge measures its nodes during render, so they must already be in the DOM.
-  const nodeElements: HTMLElement[] = [];
-  beforeEach(() =>
-    NODES.forEach(({ id }) => {
-      const el = document.createElement("div");
-      el.dataset.id = id;
-      document.body.appendChild(el);
-      nodeElements.push(el);
-    }),
-  );
-  afterEach(() => nodeElements.splice(0).forEach((el) => el.remove()));
-
   it("should draw the edge for the current zoom after the viewport zooms", () => {
     const { store, path, remount } = renderEdge();
     const atStart = path();
@@ -85,5 +90,29 @@ describe("Segmented", () => {
     remount();
     expect(zoomed).toEqual(path());
     expect(zoomed).not.toEqual(atStart);
+  });
+
+  it("should route around a node's new box after the node resizes", () => {
+    const { store, path, remount } = renderEdge();
+    const atStart = path();
+    act(() => updateNode(store(), "a", { measured: { width: 40, height: 120 } }));
+    const resized = path();
+    remount();
+    expect(resized).toEqual(path());
+    expect(resized).not.toEqual(atStart);
+  });
+
+  it("should not re-render when a node it does not connect moves", () => {
+    const { store, renders } = renderEdge();
+    const baseline = renders();
+    act(() => updateNode(store(), "c", { position: { x: 500, y: 500 } }));
+    expect(renders()).toBe(baseline);
+  });
+
+  it("should not re-render when a node it connects keeps the same box", () => {
+    const { store, renders } = renderEdge();
+    const baseline = renders();
+    act(() => updateNode(store(), "a", { measured: { ...SIZE }, selected: true }));
+    expect(renders()).toBe(baseline);
   });
 });

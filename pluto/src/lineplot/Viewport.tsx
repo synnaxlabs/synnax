@@ -35,7 +35,8 @@ export const Viewport = ({
   onChange,
   ...rest
 }: ViewportProps): ReactElement => {
-  const { setViewport, loading, loadingMessage } = useContext("LinePlot.Viewport");
+  const { setViewport, setViewportElement, loading, loadingMessage } =
+    useContext("LinePlot.Viewport");
 
   useLayoutEffect(() => {
     setViewport({ box: initial, mode: "zoom", cursor: xy.ZERO, stage: "start" });
@@ -50,6 +51,12 @@ export const Viewport = ({
   );
 
   const maskProps = Base.useMask({ onChange: handleChange, initial, ref, ...rest });
+
+  const { ref: maskRef } = maskProps;
+  useLayoutEffect(() => {
+    setViewportElement(maskRef.current);
+    return () => setViewportElement(null);
+  }, [maskRef, setViewportElement]);
 
   return (
     <Base.Mask className={CSS.BE("line-plot", "viewport")} {...maskProps}>

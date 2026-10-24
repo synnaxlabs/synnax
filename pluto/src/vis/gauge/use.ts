@@ -53,7 +53,7 @@ export const useAether = ({
     stalenessColor,
     stalenessTimeout,
   });
-  const [, , setState] = Aether.useBidirectional({
+  const { setState } = Aether.useLifecycle({
     aetherKey,
     type: gauge.Gauge.TYPE,
     schema: gauge.Gauge.z,

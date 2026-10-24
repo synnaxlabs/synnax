@@ -9,6 +9,7 @@
 
 import { query, type Synnax as Client } from "@synnaxlabs/client";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { type destructor } from "@synnaxlabs/x";
 import { useLayoutEffect, useRef } from "react";
 
 export interface RetrieveParams<Query extends query.Params> {
@@ -46,8 +47,8 @@ export interface LocalCache<Data> {
   epoch: number;
   inFlight: Map<string, Promise<Data>>;
   settled: Map<string, Settled<Data>>;
-  /** Notified after each fetched answer and each {@link setSettled}. */
-  listeners: Set<() => void>;
+  /** Readers by query hash. Write through {@link subscribeReader}. */
+  listeners: Map<string, Set<() => void>>;
 }
 
 const SETTLED_CAP = 256;
@@ -70,12 +71,31 @@ export const setSettled = <Data>(
     const oldest = settled.keys().next().value;
     if (oldest != null) settled.delete(oldest);
   }
-  notifyReaders(local);
+  notifyReaders(local, hash);
 };
 
-/** Tells the query's readers to re-read the domain cache and the settled entries. */
-export const notifyReaders = <Data>(local: LocalCache<Data>): void =>
-  local.listeners.forEach((l) => l());
+/**
+ * Calls `notify` after each fetched answer and each {@link setSettled} for the query
+ * hash.
+ */
+export const subscribeReader = <Data>(
+  local: LocalCache<Data>,
+  hash: string,
+  notify: () => void,
+): destructor.Destructor => {
+  const readers = local.listeners.get(hash) ?? new Set<() => void>();
+  local.listeners.set(hash, readers);
+  readers.add(notify);
+  return () => {
+    readers.delete(notify);
+    if (readers.size === 0 && local.listeners.get(hash) === readers)
+      local.listeners.delete(hash);
+  };
+};
+
+/** Tells the query's readers to re-read the domain cache and the settled entry. */
+export const notifyReaders = <Data>(local: LocalCache<Data>, hash: string): void =>
+  local.listeners.get(hash)?.forEach((l) => l());
 
 export const localFor = <Data>(
   locals: WeakMap<Client, LocalCache<Data>>,
@@ -88,7 +108,7 @@ export const localFor = <Data>(
       epoch,
       inFlight: new Map(),
       settled: new Map(),
-      listeners: new Set(),
+      listeners: new Map(),
     };
     locals.set(client, local);
     return local;
@@ -144,7 +164,7 @@ export const ensureFetch = <Query extends query.Params, Data>(
         // An answer the domain cache serves is read from there; one that never
         // reaches it is kept locally instead.
         if (getCached?.(params) === undefined) setSettled(local, hash, { data });
-        else notifyReaders(local);
+        else notifyReaders(local, hash);
         local.inFlight.delete(hash);
         return data;
       },
@@ -178,6 +198,8 @@ export interface PendingFetch<Data> {
  * a replayed component's recorded hook list at its `use` call, so an attempt that
  * suspended has to resume through the same promise. Reaching the answer any other
  * way leaves every hook after the read reading a list that has already run out.
+ * @returns a new object on each render, so a compiled caller runs again any call that
+ * takes it, such as {@link promiseFor}.
  */
 export const usePendingFetch = <Query extends query.Params, Data>(
   q: Query | null,

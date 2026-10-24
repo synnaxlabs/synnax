@@ -128,6 +128,7 @@ const Line = ({
 }: LineProps): ReactElement | null => {
   const spec = useLine({ key: pKey, lineKey });
   const { key, ...line } = spec;
+  // JSX takes the rest object, so the compiler counts reads from it as changing later.
   const { xChannel, yChannel } = spec;
   const telemetry = useMemo(() => {
     if (resolved == null) return null;
@@ -158,7 +159,7 @@ const Line = ({
       y: telem.channelData({ timeRange: resolved.timeRange, channel: yChannel }),
     };
   }, [resolved, xChannel, yChannel]);
-  if (line == null || telemetry == null) return null;
+  if (telemetry == null) return null;
   return (
     <BaseLine
       key={key}

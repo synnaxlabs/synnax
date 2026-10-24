@@ -1299,7 +1299,7 @@ describe("useEnsure", () => {
   });
 });
 
-describe("use connection changes", () => {
+describe("useRetrieve connection changes", () => {
   it("surfaces a disconnect that lands after the read resolved", async () => {
     const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
@@ -1637,7 +1637,7 @@ describe("createResultSelector", () => {
     };
   };
 
-  it("should select an answer its fetch put in the cache with no change event", async () => {
+  it("selects an answer its fetch put in the cache with no change event", async () => {
     let cached: Data | undefined;
     const { createResultSelector } = Flux.createRetrieve<{ key: string }, Data>({
       name: "Resource",
@@ -1809,7 +1809,7 @@ describe("useResult", () => {
     };
   };
 
-  it("should read an answer its fetch put in the cache with no change event", async () => {
+  it("reads an answer its fetch put in the cache with no change event", async () => {
     let cached: Data | undefined;
     const { useResult } = Flux.createRetrieve<{ key: string }, Data>({
       name: "Resource",
@@ -1823,6 +1823,32 @@ describe("useResult", () => {
     const { result } = renderHook(() => useResult({ key: "a" }), { wrapper: Wrapper });
     await waitFor(() => expect(result.current.variant).toEqual("success"));
     expect(result.current.data).toEqual({ name: "fetched", value: 2 });
+  });
+
+  it("does not re-read other queries when a fetch answers", async () => {
+    const answers = new Map<string, Data>([["a", { name: "a", value: 1 }]]);
+    const fetched = Promise.withResolvers<Data>();
+    const getCached = vi.fn(({ query }: { query: { key: string } }) =>
+      answers.get(query.key),
+    );
+    const { useResult } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve: async () => await fetched.promise,
+      onChange: () => () => {},
+      getCached,
+    });
+    renderHook(() => useResult({ key: "a" }), { wrapper: Wrapper });
+    const b = renderHook(() => useResult({ key: "b" }), { wrapper: Wrapper });
+    const readsOfA = (): number =>
+      getCached.mock.calls.filter(([{ query }]) => query.key === "a").length;
+    const before = readsOfA();
+    await act(async () => {
+      answers.set("b", { name: "b", value: 2 });
+      fetched.resolve({ name: "b", value: 2 });
+      await fetched.promise;
+    });
+    await waitFor(() => expect(b.result.current.variant).toEqual("success"));
+    expect(readsOfA()).toEqual(before);
   });
 
   it("serves the cached answer without fetching", () => {

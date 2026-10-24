@@ -22,8 +22,6 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
 import { Staleness } from "@/vis/staleness";
 
-const SYMBOL_COLOR = CSS.variable("symbol-color");
-
 interface RenderProps extends Partial<
   Pick<
     schematic.StringDisplayNodeConfig,
@@ -53,7 +51,7 @@ export const StringDisplay = ({
 }: RenderProps): ReactElement => {
   const style = useMemo<CSSProperties>(
     () => ({
-      [SYMBOL_COLOR]: color.rgbaString(strokeColor),
+      [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor),
       width: inlineSize,
       height: Component.HEIGHTS[LEVEL_SIZES[level]],
     }),

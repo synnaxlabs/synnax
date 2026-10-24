@@ -174,13 +174,11 @@ interface QueuedSave {
 interface PersistParams<
   Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
-> extends Pick<
-  UseFormParams<Query, Schema>,
-  "beforeValidate" | "beforeSave" | "afterSave"
-> {
-  name: string;
+>
+  extends
+    Pick<UseFormParams<Query, Schema>, "beforeValidate" | "beforeSave" | "afterSave">,
+    Pick<CreateFormParams<Query, Schema>, "name" | "update"> {
   params: FormBeforeSaveParams<Query, Schema>;
-  update: CreateFormParams<Query, Schema>["update"];
   setResult: Dispatch<SetStateAction<Result<undefined>>>;
   addStatus: Status.Adder;
   signal?: AbortSignal;

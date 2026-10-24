@@ -22,7 +22,7 @@ export interface TooltipProps
 
 export const Tooltip = ({ aetherKey, ...rest }: TooltipProps): ReactElement | null => {
   const cKey = useUniqueKey(aetherKey);
-  const [, , setState] = Aether.useBidirectional({
+  const { setState } = Aether.useLifecycle({
     aetherKey: cKey,
     type: tooltip.Tooltip.TYPE,
     schema: tooltip.tooltipStateZ,

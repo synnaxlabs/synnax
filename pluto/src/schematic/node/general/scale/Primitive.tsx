@@ -12,7 +12,7 @@ import { CSS } from "@synnaxlabs/lyra/css";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
-const SYMBOL_COLOR = CSS.variable("symbol-color");
+import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Partial<
   Pick<
@@ -60,7 +60,7 @@ export const Scale = ({
   const containerStyle = useMemo<CSSProperties>(
     () => ({
       ...CONTAINER_STYLE,
-      [SYMBOL_COLOR]: color.rgbaString(levelColor),
+      [Primitive.SYMBOL_COLOR]: color.rgbaString(levelColor),
     }),
     [levelColor],
   );

@@ -63,9 +63,9 @@ export interface ProviderProps extends PropsWithChildren {
 const ROOT_PATH = ["root"] as const;
 
 /** Roots an Aether tree: owns a {@link Store}, spawns or wraps the worker, and supplies
- * the context that descendant {@link use} / {@link useLifecycle} / {@link Composite}
- * calls read. Re-throws worker-reported errors so the nearest React error boundary can
- * catch them. */
+ * the context that descendant {@link useBidirectional} / {@link useLifecycle} /
+ * {@link Composite} calls read. Re-throws worker-reported errors so the nearest React
+ * error boundary can catch them. */
 export const Provider = ({ children, ...config }: ProviderProps): ReactElement => {
   const [store] = useState(() => new Store(config));
   const subscribeError = useCallback(
@@ -127,11 +127,11 @@ interface UseLifecycleProps<
 }
 
 /** Registers a component with the enclosing {@link Provider}'s {@link Store} and
- * returns the operations needed to drive it. Identity — store, enclosing path, and key —
+ * returns the operations needed to drive it. Identity (store, enclosing path, and key)
  * is fixed on the mounting render; moving a component under a different
- * {@link Composite} needs a remount. Lower-level than {@link use} — does not subscribe
- * React to state changes. Most callers want {@link use} or {@link useUnidirectional}
- * instead. */
+ * {@link Composite} needs a remount. Lower-level than {@link useBidirectional}: it does
+ * not subscribe React to state changes. Most callers want {@link useBidirectional} or
+ * {@link useUnidirectional} instead. */
 export const useLifecycle = <
   StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
@@ -204,7 +204,7 @@ interface ComponentContext {
   path: readonly string[];
 }
 
-/** Tuple returned by {@link use}: `[ctx, state, setState, methods]`. */
+/** Tuple returned by {@link useBidirectional}: `[ctx, state, setState, methods]`. */
 export type UseReturn<
   StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
@@ -236,7 +236,7 @@ export interface UseUnidirectionalReturn<
 
 /** One-way binding for components whose state lives in React. Pushes `state` to the
  * worker on every change (compared with `deep.equal`); worker-side updates do not
- * propagate back. Use {@link use} for bidirectional state. */
+ * propagate back. Use {@link useBidirectional} for bidirectional state. */
 export const useUnidirectional = <
   StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
   Methods extends MethodsSchema = EmptyMethodsSchema,

@@ -13,7 +13,7 @@ import { BaseEdge, type BaseEdgeProps } from "@xyflow/react";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 import { z } from "zod";
 
-const SYMBOL_COLOR = CSS.variable("symbol-color");
+import { Primitive } from "@/schematic/node/common/primitive";
 
 export interface BaseProps extends Omit<BaseEdgeProps, "color"> {
   color?: color.Crude;
@@ -38,7 +38,7 @@ export const Base = ({
     if (rawStroke != null) return { ...baseStyle, stroke: rawStroke };
     return {
       ...baseStyle,
-      [SYMBOL_COLOR]: symbolColor,
+      [Primitive.SYMBOL_COLOR]: symbolColor,
       stroke: "var(--pluto-symbol-display)",
     };
   }, [rawStroke, symbolColor, baseStyle]);

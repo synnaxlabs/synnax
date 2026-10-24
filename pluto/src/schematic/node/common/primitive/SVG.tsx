@@ -22,8 +22,7 @@ import {
 } from "react";
 
 import { type SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
-
-const SYMBOL_COLOR = CSS.variable("symbol-color");
+import { SYMBOL_COLOR } from "@/schematic/node/common/primitive/variables";
 
 export interface SVGProps
   extends

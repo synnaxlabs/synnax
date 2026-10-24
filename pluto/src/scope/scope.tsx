@@ -47,7 +47,7 @@ export interface Instance<K extends record.Key> {
    * it from the surrounding scope. All non-key arguments are forwarded unchanged.
    */
   bindHook: <Args extends record.Keyed<K>, R>(
-    hook: (args: Args) => R,
+    useHook: (args: Args) => R,
   ) => Hook<K, Args, R>;
 }
 

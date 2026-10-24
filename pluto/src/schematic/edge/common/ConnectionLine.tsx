@@ -10,15 +10,14 @@
 import "@/schematic/edge/common/ConnectionLine.css";
 
 import { CSS } from "@synnaxlabs/lyra/css";
-import { type ReactFlowState, useStore } from "@xyflow/react";
+import { useStore } from "@xyflow/react";
 import { type ReactElement } from "react";
 
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
 import { type Diagram } from "@/vis/diagram";
-
-const selectZoom = ({ transform }: ReactFlowState): number => transform[2];
+import { selectZoom } from "@/vis/diagram/util";
 
 export const ConnectionLine = ({
   source,
