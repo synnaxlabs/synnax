@@ -160,7 +160,9 @@ func collect(req *plugin.Request) (collection, error) {
 		c.jsonPaths.Add(path)
 	}
 	for _, path := range c.distinct.Paths() {
-		if lo.SomeBy(c.distinct.Get(path), isVariableLengthArray) {
+		if lo.SomeBy(c.distinct.Get(path), func(t resolution.Type) bool {
+			return isVariableLengthArray(t, req.Resolutions)
+		}) {
 			c.jsonPaths.Add(path)
 		}
 	}
@@ -169,10 +171,13 @@ func collect(req *plugin.Request) (collection, error) {
 
 // isVariableLengthArray reports whether t is a distinct type wrapping a variable-length
 // array, the only distinct form that needs JSON serialization.
-func isVariableLengthArray(t resolution.Type) bool {
+func isVariableLengthArray(t resolution.Type, table *resolution.Table) bool {
 	form, ok := t.Form.(resolution.DistinctForm)
-	return ok && form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 &&
-		form.Base.ArraySize == nil
+	if !ok {
+		return false
+	}
+	base, ok := arrays.Wrapped(form, table)
+	return ok && base.ArraySize == nil
 }
 
 func (p *Plugin) generateFile(
@@ -232,13 +237,13 @@ func (p *Plugin) processArrayWrapper(
 	dt resolution.Type,
 	data *templateData,
 ) *arrayWrapperData {
-	if !isVariableLengthArray(dt) {
+	if !isVariableLengthArray(dt, data.table) {
 		return nil
 	}
-	form := dt.Form.(resolution.DistinctForm)
+	base, _ := arrays.Wrapped(dt.Form.(resolution.DistinctForm), data.table)
 
 	name := domain.GetName(dt, "cpp")
-	elemType := form.Base.TypeArgs[0]
+	elemType := base.TypeArgs[0]
 	elemCppType := p.typeRefToCpp(elemType, data)
 
 	elemNeedsConversion := false
@@ -463,7 +468,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 				}
 			}
 			if includePath == "" {
-				if p.isFixedSizeUint8ArrayType(resolved) {
+				if isFixedSizeUint8ArrayType(resolved, data.table) {
 					headerName := lo.SnakeCase(resolved.Name)
 					includePath = fmt.Sprintf("%s/%s.h", targetOutputPath, headerName)
 				} else {
@@ -529,9 +534,8 @@ func (p *Plugin) parseExprForField(
 	}
 
 	if target, _, ok := resolution.Dealias(typeRef, data.table); ok {
-		if distinctForm, isDistinct := target.Form.(resolution.DistinctForm); isDistinct {
-			if distinctForm.Base.Name == "Array" &&
-				len(distinctForm.Base.TypeArgs) > 0 {
+		if form, isDistinct := target.Form.(resolution.DistinctForm); isDistinct {
+			if _, wraps := arrays.Wrapped(form, data.table); wraps {
 				resolved, _ := typeRef.Resolve(data.table)
 				wrapperType := domain.GetName(resolved, "cpp")
 				if resolved.Namespace != data.rawNs {
@@ -540,6 +544,9 @@ func (p *Plugin) parseExprForField(
 						ns := cppnaming.Namespace(targetOutputPath)
 						wrapperType = fmt.Sprintf("::%s::%s", ns, wrapperType)
 					}
+				}
+				if field.Optional {
+					wrapperType = fmt.Sprintf("std::optional<%s>", wrapperType)
 				}
 				return fmt.Sprintf(`parser.field<%s>("%s")`, wrapperType, jsonName)
 			}
@@ -879,9 +886,16 @@ func (p *Plugin) toJSONExprForField(
 	}
 
 	if target, _, ok := resolution.Dealias(typeRef, data.table); ok {
-		if distinctForm, isDistinct := target.Form.(resolution.DistinctForm); isDistinct {
-			if distinctForm.Base.Name == "Array" &&
-				len(distinctForm.Base.TypeArgs) > 0 {
+		if form, isDistinct := target.Form.(resolution.DistinctForm); isDistinct {
+			if _, wraps := arrays.Wrapped(form, data.table); wraps {
+				if field.Optional {
+					return fmt.Sprintf(
+						`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
+						fieldName,
+						jsonName,
+						fieldName,
+					)
+				}
 				return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
 			}
 		}
@@ -1217,19 +1231,13 @@ func defaultValueForPrimitive(primitive string) string {
 	}
 }
 
-func (p *Plugin) isFixedSizeUint8ArrayType(resolved resolution.Type) bool {
+func isFixedSizeUint8ArrayType(resolved resolution.Type, table *resolution.Table) bool {
 	form, ok := resolved.Form.(resolution.DistinctForm)
 	if !ok {
 		return false
 	}
-	if form.Base.Name != "Array" || form.Base.ArraySize == nil {
-		return false
-	}
-	if len(form.Base.TypeArgs) == 0 {
-		return false
-	}
-	elemType := form.Base.TypeArgs[0]
-	return resolution.IsPrimitive(elemType.Name) && elemType.Name == "uint8"
+	base, ok := arrays.Wrapped(form, table)
+	return ok && base.ArraySize != nil && base.TypeArgs[0].Name == "uint8"
 }
 
 type templateData struct {

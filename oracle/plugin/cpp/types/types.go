@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
 	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -374,14 +375,14 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 		Doc:     doc.Get(td.Domains),
 	}
 
-	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
+	if base, ok := arrays.Wrapped(form, data.table); ok {
 		tdd.IsArrayWrapper = true
-		elemTypeRef := form.Base.TypeArgs[0]
+		elemTypeRef := base.TypeArgs[0]
 		tdd.ElementType = p.typeRefToCpp(elemTypeRef, data)
 		tdd.ElementIsPrimitive = resolution.IsPrimitive(elemTypeRef.Name)
-		if form.Base.ArraySize != nil {
+		if base.ArraySize != nil {
 			tdd.IsFixedSizeArray = true
-			tdd.ArraySize = *form.Base.ArraySize
+			tdd.ArraySize = *base.ArraySize
 			data.AddSystem("array")
 		} else {
 			data.AddSystem("vector")

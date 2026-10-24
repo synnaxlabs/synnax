@@ -170,10 +170,10 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(
-						// Optional (?) wrapper types still use field<> with wrapper
-						// type
-						`parser.field<Params>("inputs")`,
-						`parser.field<Params>("outputs")`,
+						`parser.field<std::optional<Params>>("inputs")`,
+						`parser.field<std::optional<Params>>("outputs")`,
+						`if (this->inputs.has_value()) `+
+							`j["inputs"] = this->inputs->to_json();`,
 					)
 			})
 		})
@@ -408,11 +408,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
-							// FunctionProperties fields use wrapper type (optional uses
-							// bare type)
-							`parser.field<Params>("inputs")`,
-							`parser.field<Params>("outputs")`,
-							`parser.field<Params>("config")`,
+							`parser.field<std::optional<Params>>("inputs")`,
+							`parser.field<std::optional<Params>>("outputs")`,
+							`parser.field<std::optional<Params>>("config")`,
 							// Type fields should use indirect<T> with implicit nullptr
 							// default
 							`parser.field<x::mem::indirect<Type>>("elem")`,

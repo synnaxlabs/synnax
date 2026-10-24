@@ -109,7 +109,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 
 		form, ok := entry.Form.(resolution.DistinctForm)
-		if !ok || form.Base.Name != "Array" {
+		if !ok {
+			continue
+		}
+		if _, wraps := arrays.Wrapped(form, req.Resolutions); !wraps {
 			continue
 		}
 
@@ -341,7 +344,7 @@ func (p *Plugin) generateProto(
 		}
 
 		form, ok := dt.Form.(resolution.DistinctForm)
-		if !ok || form.Base.Name != "Array" {
+		if !ok {
 			continue
 		}
 
@@ -1478,21 +1481,8 @@ func (p *Plugin) isFixedSizeUint8Array(
 	if !ok {
 		return false
 	}
-
-	if form.Base.Name != "Array" || form.Base.ArraySize == nil {
-		return false
-	}
-
-	if len(form.Base.TypeArgs) == 0 {
-		return false
-	}
-
-	elemType := form.Base.TypeArgs[0]
-	if resolution.IsPrimitive(elemType.Name) && elemType.Name == "uint8" {
-		return true
-	}
-
-	return false
+	base, ok := arrays.Wrapped(form, table)
+	return ok && base.ArraySize != nil && base.TypeArgs[0].Name == "uint8"
 }
 
 func (p *Plugin) generateFixedSizeUint8ArrayConversion(
@@ -1617,7 +1607,8 @@ func (p *Plugin) processArrayWrapperForTranslation(
 	form resolution.DistinctForm,
 	data *templateData,
 ) *arrayWrapperTranslatorData {
-	if form.Base.Name != "Array" || len(form.Base.TypeArgs) == 0 {
+	base, ok := arrays.Wrapped(form, data.table)
+	if !ok {
 		return nil
 	}
 
@@ -1626,7 +1617,7 @@ func (p *Plugin) processArrayWrapperForTranslation(
 	pbOutputPath := output.GetPBPath(dt)
 	pbNamespace := naming.PBNamespace(pbOutputPath, dt.Namespace)
 
-	elemType := form.Base.TypeArgs[0]
+	elemType := base.TypeArgs[0]
 	elemCppType := p.typeRefToCppForTranslator(elemType, data)
 
 	elementNeedsConvert := false

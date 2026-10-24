@@ -38,6 +38,8 @@ Stamp = telem.TimeStamp
 
 Span = telem.TimeSpan
 
+Labels = string[]
+
 Labeled struct {
 	label string
 }
@@ -75,6 +77,8 @@ Ident Key
 Stamp = base.Stamp
 Span = base.Span
 Moment Stamp
+Labels = base.Labels
+Names Labels
 `
 
 var _ = Describe("C++ JSON aliases", func() {
@@ -150,7 +154,8 @@ var _ = Describe("C++ JSON aliases", func() {
 			Panel struct {
 				created Stamp?
 			}
-		`, `if (this->created.has_value()) j["created"] = this->created->nanoseconds();`),
+		`, `if (this->created.has_value()) `+
+			`j["created"] = this->created->nanoseconds();`),
 		Entry("a distinct type over an alias of a uuid", `
 			Panel struct {
 				key Ident
@@ -166,6 +171,25 @@ var _ = Describe("C++ JSON aliases", func() {
 				keys Ident[]
 			}
 		`, "for (const auto& item : this->keys) arr.push_back(item.to_json());"),
+		Entry("a distinct type over an alias of an array", `
+			Panel struct {
+				names Names
+			}
+		`,
+			`.names = parser.field<Names>("names"),`,
+			`j["names"] = this->names.to_json();`,
+			"inline Names Names::parse(x::json::Parser parser) {",
+		),
+		Entry("a distinct type over an alias of an array alone in its file", "",
+			"inline Names Names::parse(x::json::Parser parser) {"),
+		Entry("an optional distinct array", `
+			Panel struct {
+				list ValveList?
+			}
+		`,
+			`.list = parser.field<std::optional<ValveList>>("list"),`,
+			`if (this->list.has_value()) j["list"] = this->list->to_json();`,
+		),
 		Entry("a distinct array's elements", `
 			Gates Gate[]
 

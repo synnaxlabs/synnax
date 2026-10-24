@@ -66,6 +66,10 @@ Stamp = telem.TimeStamp
 
 Span = telem.TimeSpan
 
+Labels = string[]
+
+Quad = float64[4]
+
 Signal union on kind {
 	none {}
 	level {
@@ -92,6 +96,10 @@ Signal = base.Signal
 Stamp = base.Stamp
 Span = base.Span
 Moment Stamp
+Labels = base.Labels
+Names Labels
+Quad = base.Quad
+Corners Quad
 `
 
 var _ = Describe("C++ aliases", func() {
@@ -170,6 +178,10 @@ var _ = Describe("C++ aliases", func() {
 				span Span
 			}
 		`, "Span span = x::telem::TimeSpan(0);"),
+		Entry("a distinct type over an alias of an array", "",
+			"struct Names : private std::vector<std::string> {"),
+		Entry("a distinct type over an alias of a fixed-size array", "",
+			"struct Corners : private std::array<double, 4> {"),
 		Entry("a variant payload's proto message", `
 			Node union on variant {
 				valve Valve

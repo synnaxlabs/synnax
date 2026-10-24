@@ -36,6 +36,8 @@ Labels = string[]
 
 Hash uint8[32]
 
+Raw = uint8[16]
+
 Stamp = telem.TimeStamp
 
 Box struct<T> {
@@ -83,6 +85,11 @@ Key = base.Key
 Ident Key
 Labels = base.Labels
 Names Labels
+Tags Labels {
+	@pb name "Tags"
+}
+Raw = base.Raw
+Digest Raw
 Hash = base.Hash
 Stamp = base.Stamp
 Moment Stamp
@@ -153,6 +160,17 @@ var _ = Describe("C++ PB aliases", func() {
 		`,
 			"for (const auto& item : this->names) pb.add_names(item);",
 			"for (const auto& item : pb.names()) cpp.names.push_back(item);",
+		),
+		Entry("a distinct type over an alias of an array with a proto message", "",
+			"pb.add_values(item)",
+			"cpp.push_back(item)",
+		),
+		Entry("a distinct type over an alias of a fixed-size byte array", `
+			Panel struct {
+				digest Digest
+			}
+		`,
+			"pb.set_digest(this->digest.data(), this->digest.size());",
 		),
 		Entry("an optional distinct array", `
 			Panel struct {
