@@ -370,5 +370,73 @@ describe("MQTT Edge form", () => {
         `${name}_cmd`,
       );
     });
+
+    it("should create no command channel for a disabled tag", async () => {
+      const ch = await createDataChannel();
+      const disabledName = uniqueName("b_cmd");
+      const { container, draft } = await renderEdge([
+        createTag("t1", {
+          name: "a",
+          channel: ch.key,
+          commandChannelName: uniqueName("a_cmd"),
+        }),
+        createTag("t2", {
+          name: "b",
+          channel: ch.key,
+          commandChannelName: disabledName,
+          disabled: true,
+        }),
+      ]);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.EDGE_SCHEMAS,
+      );
+      expect(created.config.tags[1].commandChannel).toBe(0);
+      expect(await client.channels.retrieve({ names: [disabledName] })).toEqual([]);
+    });
+
+    it("should reuse the command channel of a failed deploy after the form reopens", async () => {
+      const ch = await createDataChannel();
+      const cmdName = uniqueName("a_cmd");
+      const tag = createTag("t1", {
+        name: "a",
+        channel: ch.key,
+        commandChannelName: cmdName,
+      });
+      const failing = createTag("t2", {
+        name: "b",
+        channel: ch.key,
+        commandChannelName: "bad name",
+      });
+      const first = await renderEdge([tag, failing]);
+      await clickDeploy(first.container);
+      await waitFor(() =>
+        expect(first.statuses.map(({ message }) => message)).toContain(
+          "Failed to start task",
+        ),
+      );
+      first.unmount();
+      const fixed = { ...failing, commandChannelName: uniqueName("b_cmd") };
+      await client.tasks.create(
+        { ...first.draft, config: createEdgeConfig(first.dev.key, [tag, fixed]) },
+        MQTT.Task.EDGE_SCHEMAS,
+      );
+      const { container } = await renderTaskFormTab(MQTT.Task.Edge, {
+        client,
+        taskKey: first.draft.key,
+      });
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        first.draft.key,
+        MQTT.Task.EDGE_SCHEMAS,
+      );
+      const named = await client.channels.retrieve({ names: [cmdName] });
+      expect(named.map(({ key }) => key)).toEqual([
+        created.config.tags[0].commandChannel,
+      ]);
+    });
   });
 });

@@ -86,6 +86,8 @@ export const propertiesZ = z.object({
   sparkplug: sparkplugPropertiesZ.prefault({}),
   read: caseconv.preserveKeys(z.record(z.string(), readTopicPropsZ).default({})),
   write: caseconv.preserveCase(z.record(z.string(), channel.keyZ).default({})),
+  /** The command channels of edge node tags, by tag. */
+  edge: caseconv.preserveCase(z.record(z.string(), channel.keyZ).default({})),
   version: z.literal(1).default(1),
 });
 

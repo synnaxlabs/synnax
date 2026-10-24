@@ -19,13 +19,17 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Channel as PChannel, Synnax } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
 import { SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
-import { fromSparkplugDataType } from "@/feature/mqtt/task/sparkplug";
+import {
+  fromSparkplugDataType,
+  sparkplugPropertiesKey,
+} from "@/feature/mqtt/task/sparkplug";
 import { SparkplugNodeFields } from "@/feature/mqtt/task/SparkplugTagFields";
 import { SparkplugTypeField } from "@/feature/mqtt/task/SparkplugTypeField";
 import {
@@ -229,15 +233,29 @@ const getInitialValues: Task.GetInitialValues<EdgeSchemas> = ({
 
 const onConfigure: Task.OnConfigure<EdgeSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
-  for (const tag of config.tags) {
-    if (!isWritable(tag) || (await Task.channelExists(client, tag.commandChannel)))
-      continue;
-    const cmd = await Task.createChannelWithIndex(
-      client,
-      tag.commandChannelName ?? deriveCommandChannelName(tag),
-      fromSparkplugDataType(tag.tagType),
-    );
-    tag.commandChannel = cmd.key;
+  const saved = deep.copy(dev.properties);
+  const { group, edgeNode } = config;
+  try {
+    for (const tag of config.tags) {
+      if (tag.disabled || !isWritable(tag)) continue;
+      tag.commandChannel = await Task.configureCommandChannel(
+        client,
+        dev.properties.edge,
+        {
+          propertiesKey: sparkplugPropertiesKey({
+            group,
+            edgeNode,
+            device: "",
+            tag: tag.name,
+          }),
+          channel: tag.commandChannel,
+          name: tag.commandChannelName ?? deriveCommandChannelName(tag),
+          dataType: fromSparkplugDataType(tag.tagType),
+        },
+      );
+    }
+  } finally {
+    if (!deep.equal(saved, dev.properties)) await client.devices.create(dev, SCHEMAS);
   }
   return [config, dev.rack];
 };
