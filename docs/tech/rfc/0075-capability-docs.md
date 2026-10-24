@@ -331,8 +331,8 @@ names its precedent in the sections above.
 
 ### 5.8 Desktop timing
 
-Desktop is not released. No flag hides the Desktop pages: the Get started and Desktop
-pages land with the first Desktop release.
+Desktop is not released. No flag hides the Desktop pages: the new sections land with the
+first Desktop release.
 
 ## 6 What this RFC does not cover
 
@@ -355,10 +355,8 @@ pull request copies its files from that branch.
 - **Phase 3: Groundwork.** Computed previous and next links, the orphan check, edition
   markers, the client tab changes, the design system, search, the media lightbox, and
   the 404 pages. No page moves.
-- **Phase 4: Sections.** The sections of §5.1 except Get started, the redirects of §5.5,
-  and the links of §5.6.
-- **Phase 5: Get started and Desktop.** The Get started and Desktop sections and the
-  landing page. Ships with the first Desktop release.
+- **Phase 4: Sections.** Every section of §5.1, the landing page, the redirects of §5.5,
+  and the links of §5.6. Ships with the first Desktop release.
 
 Compatibility: every URL that exists on the live site today, and every URL a shipped
 binary prints, resolves to a page after each phase. The anchors that Cesium prints
