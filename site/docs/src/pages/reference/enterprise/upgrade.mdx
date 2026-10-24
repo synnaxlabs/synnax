@@ -105,18 +105,20 @@ you clear **Install Synnax as a Windows Service**, the installer removes the ser
    docker pull synnaxlabs/synnax:<version>
    ```
 
-2. Remove the old container. The data stays in its volume:
+2. Remove the old container. The data and the certificates stay in their volumes:
 
    ```bash
    docker stop synnax && docker rm synnax
    ```
 
-3. Start a new container with the same volume and flags. The license is bound to the
-   `--mac-address`, so keep the same address:
+3. Start a new container with the same options, volumes, and flags as the old one. The
+   license is bound to the `--mac-address`, so keep the same address. Keep the
+   certificate volume, or `--auto-cert` makes a new CA that your clients do not trust:
 
    ```bash
    docker run -d --name synnax --mac-address 02:5a:00:00:00:01 \
      -p 9090:9090 -v synnax-data:/synnax/synnax-data \
+     -v synnax-certs:/usr/local/synnax/certs \
      synnaxlabs/synnax:<version> <the same flags as before>
    ```
 
