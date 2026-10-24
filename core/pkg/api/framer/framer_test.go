@@ -10,20 +10,83 @@
 package framer_test
 
 import (
+	"fmt"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	fmock "github.com/synnaxlabs/freighter/mock"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Framer", func() {
+	Describe("Iterate", func() {
+		It("Should return the error of an iterator that fails", func(ctx SpecContext) {
+			index := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(channelWriter.Create(ctx, &index)).To(Succeed())
+			data := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				LocalIndex: index.LocalKey,
+			}
+			Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+			keys := channel.Keys{index.Key(), data.Key()}
+			w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  keys,
+			}))
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+				telem.NewSeriesV[float32](1, 2, 3, 4),
+			}))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			calc := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				Expression: fmt.Sprintf("return %s * 2", data.Name),
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			client, server := fmock.NewStreams[
+				apiframer.IteratorRequest,
+				apiframer.IteratorResponse,
+			](ctx)
+			DeferCleanup(client.CloseSend)
+			done := make(chan error, 1)
+			go func() { done <- apiSvc.Iterate(rootCtx(ctx), server) }()
+			Expect(client.Send(apiframer.IteratorRequest{
+				Keys:   channel.Keys{calc.Key()},
+				Bounds: telem.TimeRangeMax,
+				Reduction: telem.Reduction{Variant: telem.LimitReduction{
+					Aggregation: telem.AggregationMinMax,
+					PointLimit:  2,
+				}},
+			})).To(Succeed())
+			Expect(client.Receive()).To(HaveField("Ack", BeTrue()))
+			faultyFS.SetOptions(WithFailReadAt())
+			DeferCleanup(func() { faultyFS.SetOptions() })
+			// Setting bounds counts the samples in them, and the count fails.
+			Expect(client.Send(apiframer.IteratorRequest{
+				Command: apiframer.IteratorCommandSetBounds,
+				Bounds:  telem.TimeRangeMax,
+			})).To(Succeed())
+			Eventually(done).WithTimeout(5 * time.Second).
+				Should(Receive(MatchError(ContainSubstring(ErrFault.Error()))))
+		})
+	})
+
 	Describe("Read", func() {
 		var (
 			index channel.Channel

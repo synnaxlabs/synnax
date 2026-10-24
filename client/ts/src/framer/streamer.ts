@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  EOF,
-  type Stream,
-  Unreachable,
-  type WebSocketClient,
-} from "@synnaxlabs/freighter";
+import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import { errors, Rate, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -20,6 +15,7 @@ import { type channel } from "@/channel";
 import { paramsZ } from "@/channel/payload";
 import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { WSStreamerCodec } from "@/framer/codec";
+import { withDeadline } from "@/framer/deadline";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
@@ -208,24 +204,11 @@ class BaseStreamer implements Streamer {
   private async receiveWithDeadline(): Promise<z.infer<typeof resZ>> {
     const received = this.stream.receive();
     if (!this.armed) return await received;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const deadline = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => {
-        const silence = this.deadline.toString();
-        const message = `streamer received no response for ${silence}`;
-        reject(new Unreachable({ message }));
-      }, this.deadline.milliseconds);
-    });
-    try {
-      return await Promise.race([received, deadline]);
-    } catch (err) {
-      // The read already failed for its caller; a late settle of the losing receive
-      // must not surface as an unhandled rejection.
-      received.catch(() => {});
-      throw errors.fromUnknown(err);
-    } finally {
-      clearTimeout(timer);
-    }
+    return await withDeadline(
+      received,
+      this.deadline,
+      () => `streamer received no response for ${this.deadline.toString()}`,
+    );
   }
 
   async update(channels: channel.Params): Promise<void> {

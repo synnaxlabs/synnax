@@ -164,6 +164,17 @@ var _ = Describe("Translator", func() {
 			}}),
 		)
 
+		It("Should fail to send an unknown aggregation", func(ctx SpecContext) {
+			Expect(t.Forward(ctx, iterator.Request{
+				Reduction: telem.Reduction{Variant: telem.LimitReduction{
+					Aggregation: "median",
+					PointLimit:  512,
+				}},
+			})).Error().To(MatchError(
+				ContainSubstring("unrecognized telem.Aggregation value: median"),
+			))
+		})
+
 		It("Should handle zero-value request", func(ctx SpecContext) {
 			original := iterator.Request{}
 			pb := MustSucceed(t.Forward(ctx, original))
