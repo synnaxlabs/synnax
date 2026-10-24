@@ -2713,11 +2713,11 @@ describe("remote", () => {
       const createLive = (props: Partial<TiledChannelDataProps> = {}) =>
         create({ timeRange: undefined, timeSpan: SPAN, ...props }, clock);
 
-      const raw = (start: number, end: number): Series =>
+      const raw = (start: number, end: number, alignment = BigInt(start)): Series =>
         new Series({
           data: new Float32Array([start, end]),
           timeRange: new TimeRange(TimeStamp.seconds(start), TimeStamp.seconds(end)),
-          alignment: BigInt(start),
+          alignment,
         });
 
       it("should read the live window at full resolution", async () => {
@@ -2813,6 +2813,78 @@ describe("remote", () => {
         await settle(source);
         source.cleanup();
         expect(c.streamDestructorF).toHaveBeenCalled();
+      });
+
+      it("should keep the buffers of a restarted Core after the older ones", async () => {
+        const source = createLive();
+        await settle(source);
+        const before = raw(95, 96, 5n << 32n);
+        const after = raw(97, 98, 0n);
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([before])]]));
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([after])]]));
+        expect(positions(source.value()[1])).toEqual([
+          [95, 96],
+          [97, 98],
+        ]);
+      });
+
+      it("should read the channel again when its data type changes", async () => {
+        const source = createLive();
+        await settle(source);
+        const v = view(75_000, 100_000, 1000);
+        source.value({ view: v });
+        await expect.poll(() => source.fetching()).toBe(false);
+        const tile = c.served.get(`14/4/${DATA_KEY}`)!;
+        const float = raw(95, 96);
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([float])]]));
+        const bytes = new Series({
+          data: new Uint8Array([3, 4]),
+          timeRange: new TimeRange(TimeStamp.seconds(96), TimeStamp.seconds(97)),
+        });
+        const opened = c.streamHandler;
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([bytes])]]));
+        expect(source.value()[1].series).toEqual([]);
+        expect(float.refCount).toBe(0);
+        expect(tile.series[0].refCount).toBe(0);
+        await expect.poll(() => c.streamHandler !== opened).toBe(true);
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([bytes])]]));
+        expect(source.value()[1].series).toEqual([bytes]);
+        source.cleanup();
+      });
+
+      it("should end the back-fill where the stream opened", async () => {
+        let openedAt: TimeStamp | undefined;
+        const { stream } = c.feed;
+        // The clock moves on once the stream opens, so a back-fill that reads it again
+        // overlaps live data.
+        c.feed.stream = (handler) => {
+          openedAt = now;
+          now = now.add(TimeSpan.seconds(1));
+          return stream(handler);
+        };
+        const source = createLive();
+        await settle(source);
+        expect(c.reads.map((r) => r.end)).toEqual([openedAt]);
+      });
+
+      it("should read the span between the back-fill and the first live series", async () => {
+        const source = create({ timeRange: undefined, timeSpan: SPAN }, () =>
+          TimeStamp.now(),
+        );
+        await settle(source);
+        expect(c.reads).toHaveLength(1);
+        const liveStart = c.reads[0].end.add(TimeSpan.milliseconds(200));
+        const live = new Series({
+          data: new Float32Array([1, 2]),
+          timeRange: new TimeRange(liveStart, TimeStamp.MAX),
+        });
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([live])]]));
+        // The seam read waits a second for its samples to commit.
+        await sleep.sleep(TimeSpan.milliseconds(300));
+        expect(c.reads).toHaveLength(1);
+        await expect.poll(() => c.reads.length, { timeout: 3000 }).toBe(2);
+        expect(c.reads[1]).toEqual(new TimeRange(c.reads[0].end, liveStart));
+        source.cleanup();
       });
     });
   });

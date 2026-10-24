@@ -394,6 +394,164 @@ interface Seam {
   filled: boolean;
 }
 
+interface LiveWindowConfig {
+  now: () => TimeStamp;
+  /** @returns where the back-fill starts. */
+  start: () => TimeStamp;
+  /** A held series that ends at or before cutoff() is released. */
+  cutoff: () => TimeStamp;
+  failures: FailureReporter;
+  breakerConfig?: breaker.Config;
+  notify: () => void;
+  /** Drops everything the source holds when the channel's data type changes. */
+  restart: () => void;
+}
+
+/** The newest series of a live source at full resolution, held in time order. */
+class LiveWindow {
+  readonly data = new MultiSeries([]);
+  private generation = 0;
+  private stopStreaming?: destructor.Destructor;
+  private readonly notifier = new sync.Notifier();
+
+  constructor(private readonly config: LiveWindowConfig) {}
+
+  /**
+   * Opens the stream, then back-fills from start(), so a stalled or failed back-fill
+   * never blocks live data. Resolves when the back-fill lands.
+   * @throws {Error} if the back-fill fails. The caller reports the failure.
+   */
+  async open(client: Client, ch: SelectedChannelProperties): Promise<void> {
+    const generation = this.generation;
+    const seam: Seam = { filled: false };
+    const handler: framer.StreamHandler = (res) => {
+      if (generation !== this.generation) return;
+      const series = res.get(ch.key);
+      if (series == null) return;
+      // Held series of the channel's old data type cannot share a MultiSeries with
+      // the new one.
+      const { dataType } = this.data;
+      if (
+        series.series.some((s) => !s.dataType.equals(dataType)) &&
+        this.data.length > 0
+      )
+        return this.config.restart();
+      this.push(series.series);
+      if (seam.liveStart == null && series.series.length > 0) {
+        seam.liveStart = TimeStamp.min(...series.series.map((s) => s.timeRange.start));
+        void this.fillSeam(generation, client, ch.key, seam);
+      }
+      this.config.notify();
+      this.prune();
+    };
+    this.stopStreaming?.();
+    const streamStart = this.config.now();
+    this.stopStreaming = client.feed.stream(handler, [ch.key]).close;
+    if (ch.virtual && !ch.isCalculated) return;
+    try {
+      // The back-fill stops where live data starts: the cache can return a span in
+      // both representations, and overlapping series pair into stray segments.
+      const liveStart = this.data.series.reduce(
+        (start, s) => (s.timeRange.start.before(start) ? s.timeRange.start : start),
+        streamStart,
+      );
+      // Live data held across a long retry can start before the window.
+      const start = this.config.start();
+      if (!liveStart.after(start)) return;
+      const res = await client.feed.read(new TimeRange(start, liveStart), ch.key);
+      if (generation !== this.generation) return;
+      this.push(res.series);
+      seam.backfillEnd = liveStart;
+      void this.fillSeam(generation, client, ch.key, seam);
+    } catch (e) {
+      // Certain calculated channels can fail to read because they need access to
+      // virtual channels that cannot be read from historically.
+      if (
+        e instanceof Error &&
+        (e.message.includes("cannot open iterator on virtual channel") ||
+          e.message.includes("cannot read from free channel"))
+      )
+        console.warn("failed to read calculated channel data", e);
+      else throw errors.fromUnknown(e);
+    }
+  }
+
+  // Reads the span between the back-fill's end and the first streamed series once both
+  // are known. The stream delivers only samples written after it opens, which is later
+  // than the back-fill's end.
+  private async fillSeam(
+    generation: number,
+    client: Client,
+    key: channel.Key,
+    seam: Seam,
+  ): Promise<void> {
+    const { backfillEnd, liveStart } = seam;
+    if (backfillEnd == null || liveStart == null || seam.filled) return;
+    seam.filled = true;
+    if (!liveStart.after(backfillEnd)) return;
+    // Samples written just before the stream opened may still be committing.
+    const settled = liveStart.add(SEAM_SETTLE);
+    const { now } = this.config;
+    // A wake saved by an earlier clear ends a wait early, so recheck the clock.
+    for (let t = now(); t.before(settled); t = now()) {
+      await this.notifier.wait(settled.span(t));
+      if (generation !== this.generation) return;
+    }
+    const brk = newRetryBreaker(this.notifier, this.config.breakerConfig);
+    while (generation === this.generation)
+      try {
+        const res = await client.feed.read(new TimeRange(backfillEnd, liveStart), key);
+        if (generation !== this.generation) return;
+        this.push(res.series);
+        this.config.notify();
+        return;
+      } catch (e) {
+        this.config.failures.report(e, "Failed to read channel data");
+        if (isDefinitive(e) || !(await brk.wait())) return;
+      }
+  }
+
+  // feed.read returns the live leading buffer that the stream's first delivery repeats,
+  // so series already held by identity are skipped. Consumers assume the array is
+  // chronological, so a late back-fill is inserted by time. Alignment would misorder
+  // the buffers of a restarted Core, which resets its leading alignment.
+  private push(series: Series[]): void {
+    for (const s of series) {
+      if (this.data.series.includes(s)) continue;
+      s.acquire();
+      const at = this.data.series.findIndex(
+        (held) =>
+          held.timeRange.start.after(s.timeRange.start) ||
+          (held.timeRange.start.equals(s.timeRange.start) &&
+            held.alignment > s.alignment),
+      );
+      if (at === -1) this.data.push(s);
+      else this.data.series.splice(at, 0, s);
+    }
+  }
+
+  /** Releases the series that end at or before the cutoff. */
+  prune(): void {
+    const cutoff = this.config.cutoff();
+    const kept = this.data.series.filter((s) => {
+      if (s.timeRange.end.after(cutoff)) return true;
+      s.release();
+      return false;
+    });
+    this.data.series.splice(0, this.data.series.length, ...kept);
+  }
+
+  /** Stops the stream and releases every held series. Reads in flight are dropped. */
+  clear(): void {
+    this.generation++;
+    this.notifier.notify();
+    this.stopStreaming?.();
+    this.stopStreaming = undefined;
+    this.data.release();
+    this.data.series.splice(0);
+  }
+}
+
 const streamChannelDataPropsZ = z.object({
   channel: z.number().or(z.string()),
   useIndexOfChannel: z.boolean().default(false),
@@ -409,19 +567,17 @@ export class StreamChannelData
 {
   static readonly TYPE = "dynamic-series-source";
   private readonly client: Client | null;
-  private readonly data: MultiSeries = new MultiSeries([]);
   private readonly now: () => TimeStamp;
   private readonly onStatusChange?: status.Adder;
 
   private channel: SelectedChannelProperties | null = null;
-  private stopStreaming?: destructor.Destructor;
   private valid: boolean = false;
   private readonly skipLoading: boolean;
   private generation = 0;
-  private readonly breakerConfig?: breaker.Config;
   private readonly breaker: breaker.Breaker;
   private readonly retryNotifier = new sync.Notifier();
   private readonly failures: FailureReporter;
+  private readonly window: LiveWindow;
   schema = streamChannelDataPropsZ;
 
   constructor(
@@ -435,12 +591,23 @@ export class StreamChannelData
     this.client = client;
     this.now = now;
     this.onStatusChange = options?.onStatusChange;
-    const { channel, timeSpan } = this.props;
+    const { channel, timeSpan, keepFor } = this.props;
     this.skipLoading = channel === 0 || timeSpan.valueOf() <= LOADING_MIN_SPAN;
     this.loading_ = true;
-    this.breakerConfig = breakerConfig;
     this.breaker = newRetryBreaker(this.retryNotifier, breakerConfig);
     this.failures = new FailureReporter(options?.onStatusChange);
+    this.window = new LiveWindow({
+      now,
+      start: () => now().sub(timeSpan),
+      cutoff: () => now().sub(keepFor ?? timeSpan),
+      failures: this.failures,
+      breakerConfig,
+      notify: () => this.notify(),
+      restart: () => {
+        this.cleanup();
+        this.notify();
+      },
+    });
   }
 
   loading(): boolean {
@@ -451,18 +618,19 @@ export class StreamChannelData
 
   value(): [bounds.Bounds, MultiSeries] {
     const { channel, timeSpan } = this.props;
-    if (channel === 0) return [bounds.INVALID, this.data];
+    const { data } = this.window;
+    if (channel === 0) return [bounds.INVALID, data];
     if (!this.valid) void this.read();
-    const { data, channel: ch } = this;
+    const { channel: ch } = this;
     const now = this.now();
-    if (ch != null && ch.dataType.isVariable) return [bounds.INVALID, this.data];
+    if (ch != null && ch.dataType.isVariable) return [bounds.INVALID, data];
     const filtered = data.series
       .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
       .map((d) => d.bounds);
     const b = bounds.max(filtered);
     if (ch != null && ch.dataType.equals(DataType.TIMESTAMP))
       b.lower = Math.max(b.lower, b.upper - Number(timeSpan.valueOf()));
-    return [b, this.data];
+    return [b, data];
   }
 
   /**
@@ -492,159 +660,33 @@ export class StreamChannelData
       }
   }
 
-  // One full read attempt: it opens the live stream, then runs the historical
-  // back-fill, so a stalled or failed back-fill never blocks live data. Throws the
-  // failure after posting its status.
+  // One full read attempt: it resolves the channel, then opens the live window. Throws
+  // the failure after posting its status.
   private async attempt(generation: number, client: Client): Promise<void> {
-    const { channel, useIndexOfChannel, timeSpan } = this.props;
-    let fetched: SelectedChannelProperties;
-    let streamStart: TimeStamp;
-    const seam: Seam = { filled: false };
+    const { channel, useIndexOfChannel } = this.props;
+    let ch: SelectedChannelProperties;
     try {
-      fetched = await fetchChannelProperties(client, channel, useIndexOfChannel);
-      if (generation !== this.generation) return;
-      this.channel = fetched;
-      const handler: framer.StreamHandler = (res) => {
-        if (generation !== this.generation || this.channel == null) return;
-        const series = res.get(this.channel.key);
-        if (series == null) return;
-        // Held series of the channel's old data type cannot share a MultiSeries with
-        // the new one.
-        const { dataType } = this.data;
-        if (
-          series.series.some((s) => !s.dataType.equals(dataType)) &&
-          this.data.length > 0
-        )
-          return this.restart();
-        this.pushNew(series.series);
-        if (seam.liveStart == null && series.series.length > 0) {
-          seam.liveStart = TimeStamp.min(
-            ...series.series.map((s) => s.timeRange.start),
-          );
-          void this.fillSeam(generation, client, seam);
-        }
-        this.notify();
-        this.gcOutOfRangeData();
-      };
-      this.stopStreaming?.();
-      streamStart = this.now();
-      this.stopStreaming = client.feed.stream(handler, [fetched.key]).close;
+      ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
     } catch (e) {
       this.failures.report(e, "Failed to stream channel data");
       throw errors.fromUnknown(e);
     }
-    if (!fetched.virtual || fetched.isCalculated)
-      try {
-        // The back-fill stops where live data starts: the cache can return a span in
-        // both representations, and overlapping series pair into stray segments.
-        const liveStart = this.data.series.reduce(
-          (start, s) => (s.timeRange.start.before(start) ? s.timeRange.start : start),
-          streamStart,
-        );
-        // Live data held across a long retry can start before the window.
-        const start = this.now().sub(timeSpan);
-        if (liveStart.after(start)) {
-          const res = await client.feed.read(
-            new TimeRange(start, liveStart),
-            fetched.key,
-          );
-          if (generation !== this.generation) return;
-          this.pushNew(res.series);
-          seam.backfillEnd = liveStart;
-          void this.fillSeam(generation, client, seam);
-        }
-      } catch (e) {
-        // Certain calculated channels can fail to read because they need access to
-        // virtual channels that cannot be read from historically.
-        if (
-          e instanceof Error &&
-          (e.message.includes("cannot open iterator on virtual channel") ||
-            e.message.includes("cannot read from free channel"))
-        )
-          console.warn("failed to read calculated channel data", e);
-        else {
-          this.failures.report(e, "Failed to read channel data");
-          throw errors.fromUnknown(e);
-        }
-      }
-    this.notify();
-  }
-
-  // Reads the span between the back-fill's end and the first streamed series once both
-  // are known. The stream delivers only samples written after it opens, which is later
-  // than the back-fill's end.
-  private async fillSeam(
-    generation: number,
-    client: Client,
-    seam: Seam,
-  ): Promise<void> {
-    const { backfillEnd, liveStart } = seam;
-    if (backfillEnd == null || liveStart == null || seam.filled || this.channel == null)
-      return;
-    seam.filled = true;
-    if (!liveStart.after(backfillEnd)) return;
-    const { key } = this.channel;
-    // Samples written just before the stream opened may still be committing.
-    const settled = liveStart.add(SEAM_SETTLE);
-    // A wake saved by an earlier cleanup ends a wait early, so recheck the clock.
-    for (let now = this.now(); now.before(settled); now = this.now()) {
-      await this.retryNotifier.wait(settled.span(now));
-      if (generation !== this.generation) return;
+    if (generation !== this.generation) return;
+    this.channel = ch;
+    try {
+      await this.window.open(client, ch);
+    } catch (e) {
+      this.failures.report(e, "Failed to read channel data");
+      throw errors.fromUnknown(e);
     }
-    const brk = newRetryBreaker(this.retryNotifier, this.breakerConfig);
-    while (generation === this.generation)
-      try {
-        const res = await client.feed.read(new TimeRange(backfillEnd, liveStart), key);
-        if (generation !== this.generation) return;
-        this.pushNew(res.series);
-        this.notify();
-        return;
-      } catch (e) {
-        this.failures.report(e, "Failed to read channel data");
-        if (isDefinitive(e) || !(await brk.wait())) return;
-      }
-  }
-
-  // feed.read returns the live leading buffer that the stream's first delivery repeats,
-  // so series already held by identity are skipped. Consumers assume the array is
-  // chronological, so a late back-fill is inserted by time. Alignment would misorder
-  // the buffers of a restarted Core, which resets its leading alignment.
-  private pushNew(series: Series[]): void {
-    for (const s of series) {
-      if (this.data.series.includes(s)) continue;
-      s.acquire();
-      const at = this.data.series.findIndex(
-        (held) =>
-          held.timeRange.start.after(s.timeRange.start) ||
-          (held.timeRange.start.equals(s.timeRange.start) &&
-            held.alignment > s.alignment),
-      );
-      if (at === -1) this.data.push(s);
-      else this.data.series.splice(at, 0, s);
-    }
-  }
-
-  private gcOutOfRangeData(): void {
-    const threshold = this.now().sub(this.props.keepFor ?? this.props.timeSpan);
-    const toGC = this.data.series.findIndex((d) => d.timeRange.end.before(threshold));
-    if (toGC === -1) return;
-    this.data.series.splice(toGC, 1).forEach((d) => d.release());
-    this.gcOutOfRangeData();
-  }
-
-  // Drops everything held and reads the channel again on the next value() call.
-  private restart(): void {
-    this.cleanup();
-    this.data.series.splice(0);
+    if (generation !== this.generation) return;
     this.notify();
   }
 
   cleanup(): void {
     this.generation++;
     this.retryNotifier.notify();
-    this.stopStreaming?.();
-    this.stopStreaming = undefined;
-    this.data.release();
+    this.window.clear();
     this.valid = false;
     // No notify so a read settling after cleanup cannot wake stale observers.
     this.loading_ = false;
@@ -819,10 +861,9 @@ export class TiledChannelData
   private readonly held = new Map<string, HeldTile>();
   private readonly pending = new Set<string>();
   private width = DEFAULT_WIDTH;
-  // raw holds the acquired full-resolution series of a live line, in time order.
-  private readonly raw = new MultiSeries([]);
+  // window holds a live line's full-resolution series from rawFrom() on.
+  private readonly window: LiveWindow;
   private rawLoaded = false;
-  private stopStreaming?: destructor.Destructor;
   private readonly failures: FailureReporter;
   private readonly retryNotifier = new sync.Notifier();
   // breaker paces retries of the channel and live reads, and tileBreaker paces retries
@@ -855,6 +896,18 @@ export class TiledChannelData
     this.failures = new FailureReporter(options?.onStatusChange);
     this.breaker = newRetryBreaker(this.retryNotifier, breakerConfig);
     this.tileBreaker = newRetryBreaker(this.retryNotifier, breakerConfig);
+    this.window = new LiveWindow({
+      now,
+      start: () => this.rawFrom(),
+      cutoff: () => this.rawFrom(),
+      failures: this.failures,
+      breakerConfig,
+      notify: () => this.notify(),
+      restart: () => {
+        this.cleanup();
+        this.notify();
+      },
+    });
     this.loading_ = true;
   }
 
@@ -1015,8 +1068,8 @@ export class TiledChannelData
       }
     }
     if (this.live) {
-      this.gcRaw();
-      out.push(...this.raw.series);
+      this.window.prune();
+      out.push(...this.window.data.series);
     }
     return new MultiSeries(out);
   }
@@ -1035,7 +1088,8 @@ export class TiledChannelData
   ): bounds.Bounds {
     if (!ch.dataType.equals(DataType.TIMESTAMP) || this.xy) return series.bounds;
     if (!this.live) return home.numericBounds;
-    const latest = this.raw.series.length > 0 ? this.raw.bounds.upper : NaN;
+    const { data } = this.window;
+    const latest = data.series.length > 0 ? data.bounds.upper : NaN;
     const upper = Number.isFinite(latest) ? latest : Number(home.end.valueOf());
     return { lower: upper - Number(home.span.valueOf()), upper };
   }
@@ -1123,57 +1177,12 @@ export class TiledChannelData
     if (generation !== this.generation) return;
     this.channel = ch;
     this.xy = xy;
-    if (this.live) await this.stream(generation, client, ch);
-    if (generation !== this.generation) return;
+    if (this.live) {
+      await this.window.open(client, ch);
+      if (generation !== this.generation) return;
+      this.rawLoaded = true;
+    }
     this.notify();
-  }
-
-  private async stream(
-    generation: number,
-    client: Client,
-    ch: SelectedChannelProperties,
-  ): Promise<void> {
-    const handler: framer.StreamHandler = (res) => {
-      if (generation !== this.generation) return;
-      const series = res.get(ch.key);
-      if (series == null) return;
-      this.pushRaw(series.series);
-      this.notify();
-    };
-    this.stopStreaming?.();
-    this.stopStreaming = client.feed.stream(handler, [ch.key]).close;
-    if (!ch.virtual || ch.isCalculated) {
-      const res = await client.feed.read(
-        new TimeRange(this.rawFrom(), this.now()),
-        ch.key,
-      );
-      if (generation !== this.generation) return;
-      this.pushRaw(res.series);
-    }
-    this.rawLoaded = true;
-  }
-
-  // feed.read returns the live leading buffer that the stream's first delivery repeats,
-  // so series already held by identity are skipped. A late read is inserted by
-  // alignment, keeping the series in time order.
-  private pushRaw(series: Series[]): void {
-    for (const s of series) {
-      if (this.raw.series.includes(s)) continue;
-      s.acquire();
-      const at = this.raw.series.findIndex((held) => held.alignment > s.alignment);
-      if (at === -1) this.raw.push(s);
-      else this.raw.series.splice(at, 0, s);
-    }
-  }
-
-  private gcRaw(): void {
-    const rawFrom = this.rawFrom();
-    const keep = this.raw.series.filter((s) => {
-      if (s.timeRange.end.after(rawFrom)) return true;
-      s.release();
-      return false;
-    });
-    this.raw.series.splice(0, this.raw.series.length, ...keep);
   }
 
   // Declares the home view loaded on the first failure, so retries never hold loading
@@ -1189,15 +1198,12 @@ export class TiledChannelData
     clearTimeout(this.settleTimer);
     this.settleTimer = undefined;
     this.viewLevel = undefined;
-    this.stopStreaming?.();
-    this.stopStreaming = undefined;
+    this.window.clear();
     this.held.forEach((tile) => tile.series.release());
     this.held.clear();
     this.pending.clear();
     this.retrying.clear();
     this.parked.clear();
-    this.raw.release();
-    this.raw.series.splice(0, this.raw.series.length);
     this.valid = false;
     this.channel = null;
     this.loading_ = true;
