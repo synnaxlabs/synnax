@@ -693,25 +693,28 @@ func (p *Plugin) generateFieldConversion(
 			data,
 		)
 	case resolution.DistinctForm:
-		return p.generateDistinctConversion(
-			resolved,
-			form,
-			cppFieldName,
-			pbAccessorName,
-			pbSetter,
-			data,
+		if omit.IsSkipped(resolved, "cpp") {
+			return p.generateHandWrittenConversion(
+				resolved,
+				field.Optional,
+				cppFieldName,
+				pbAccessorName,
+				pbSetter,
+				data,
+			)
+		}
+		// A generated distinct type is a C++ using declaration of its base.
+		field.Type = resolution.SubstituteTypeRef(
+			form.Base,
+			resolution.TypeArgMap(form.TypeParams, typeRef.TypeArgs),
 		)
+		return p.generateFieldConversion(field, cppFieldName, data)
 	case resolution.AliasForm:
-		return p.generateAliasConversion(
-			typeRef,
-			resolved,
-			form,
-			field.Optional,
-			cppFieldName,
-			pbAccessorName,
-			pbSetter,
-			data,
+		field.Type = resolution.SubstituteTypeRef(
+			form.Target,
+			resolution.TypeArgMap(form.TypeParams, typeRef.TypeArgs),
 		)
+		return p.generateFieldConversion(field, cppFieldName, data)
 	default:
 		return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
 			fmt.Sprintf("cpp.%s = pb.%s();", cppFieldName, pbAccessorName)
@@ -1105,14 +1108,15 @@ func (p *Plugin) generateEnumConversion(
 	return forward, backward
 }
 
-func (p *Plugin) generateDistinctConversion(
+// generateHandWrittenConversion converts a type hand-written in C++ through its
+// to_proto and from_proto members.
+func (p *Plugin) generateHandWrittenConversion(
 	resolved resolution.Type,
-	form resolution.DistinctForm,
+	isOptional bool,
 	cppFieldName, pbAccessorName, pbSetter string,
 	data *templateData,
 ) (forward, backward string) {
 	cppName := domain.GetName(resolved, "cpp")
-
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
@@ -1120,180 +1124,28 @@ func (p *Plugin) generateDistinctConversion(
 			cppName = fmt.Sprintf("::%s::%s", ns, cppName)
 		}
 	}
-
-	if omit.IsSkipped(resolved, "cpp") {
-		return fmt.Sprintf("%s(this->%s.to_proto())", pbSetter, cppFieldName),
-			fmt.Sprintf(
-				"cpp.%s = %s::from_proto(pb.%s());",
-				cppFieldName,
-				cppName,
-				pbAccessorName,
-			)
-	}
-
-	if resolution.IsPrimitive(form.Base.Name) {
-		protoType := primitiveToProtoType(form.Base.Name)
+	if isOptional {
 		return fmt.Sprintf(
-				"%s(static_cast<%s>(this->%s))",
+				"if (this->%s.has_value()) %s(this->%s->to_proto())",
+				cppFieldName,
 				pbSetter,
-				protoType,
 				cppFieldName,
 			),
 			fmt.Sprintf(
-				"cpp.%s = %s(pb.%s());",
+				"if (pb.has_%s()) cpp.%s = %s::from_proto(pb.%s());",
+				pbAccessorName,
 				cppFieldName,
 				cppName,
 				pbAccessorName,
 			)
 	}
-
-	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
-		if arrays.IsNested(form.Base, data.table) {
-			return p.generateNestedArrayConversion(
-				cppFieldName,
-				pbAccessorName,
-				form.Base,
-				data,
-			)
-		}
-		elemType := form.Base.TypeArgs[0]
-		return p.generateArrayAliasConversion(
+	return fmt.Sprintf("%s(this->%s.to_proto())", pbSetter, cppFieldName),
+		fmt.Sprintf(
+			"cpp.%s = %s::from_proto(pb.%s());",
 			cppFieldName,
-			pbAccessorName,
-			elemType,
-			false,
-			data,
-		)
-	}
-
-	return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
-		fmt.Sprintf("cpp.%s = pb.%s();", cppFieldName, pbAccessorName)
-}
-
-func (p *Plugin) generateAliasConversion(
-	typeRef resolution.TypeRef,
-	resolved resolution.Type,
-	form resolution.AliasForm,
-	isOptional bool,
-	cppFieldName, pbAccessorName, pbSetter string,
-	data *templateData,
-) (forward, backward string) {
-	target := resolution.SubstituteTypeRef(
-		form.Target,
-		resolution.TypeArgMap(form.TypeParams, typeRef.TypeArgs),
-	)
-	if resolution.IsPrimitive(target.Name) {
-		return p.generatePrimitiveConversion(
-			target.Name,
-			cppFieldName,
-			pbAccessorName,
-			pbSetter,
-			isOptional,
-			data,
-		)
-	}
-
-	if target.Name == "Array" && len(target.TypeArgs) > 0 {
-		if arrays.IsNested(target, data.table) {
-			return p.generateNestedArrayConversion(
-				cppFieldName,
-				pbAccessorName,
-				target,
-				data,
-			)
-		}
-		elemType := target.TypeArgs[0]
-		return p.generateArrayAliasConversion(
-			cppFieldName,
-			pbAccessorName,
-			elemType,
-			isOptional,
-			data,
-		)
-	}
-
-	targetResolved, ok := target.Resolve(data.table)
-	if !ok {
-		return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
-			fmt.Sprintf("cpp.%s = pb.%s();", cppFieldName, pbAccessorName)
-	}
-
-	if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
-		if targetResolved.Namespace != data.rawNs {
-			targetOutputPath := output.GetPath(targetResolved, "cpp")
-			if targetOutputPath != "" {
-				data.addConversionIncludes(targetOutputPath)
-			}
-		}
-		cppType := p.typeRefToCppForTranslator(typeRef, data)
-		if isOptional {
-			forward = fmt.Sprintf(`if (this->%s.has_value()) {
-        auto [v, err] = this->%s->to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_%s() = v;
-    }`, cppFieldName, cppFieldName, pbAccessorName)
-			backward = fmt.Sprintf(`if (pb.has_%s()) {
-        auto [v, err] = %s::from_proto(pb.%s());
-        if (err) return {{}, err};
-        cpp.%s = v;
-    }`, pbAccessorName, cppType, pbAccessorName, cppFieldName)
-		} else {
-			forward = fmt.Sprintf(`{
-        auto [v, err] = this->%s.to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_%s() = v;
-    }`, cppFieldName, pbAccessorName)
-			backward = fmt.Sprintf(`{
-        auto [v, err] = %s::from_proto(pb.%s());
-        if (err) return {{}, err};
-        cpp.%s = v;
-    }`, cppType, pbAccessorName, cppFieldName)
-		}
-		return forward, backward
-	}
-
-	switch targetForm := targetResolved.Form.(type) {
-	case resolution.AliasForm:
-		return p.generateAliasConversion(
-			target,
-			targetResolved,
-			targetForm,
-			isOptional,
-			cppFieldName,
-			pbAccessorName,
-			pbSetter,
-			data,
-		)
-	case resolution.EnumForm:
-		return p.generateEnumConversion(
-			targetResolved,
-			targetForm,
-			cppFieldName,
-			pbAccessorName,
-			pbSetter,
-			data,
-		)
-	case resolution.DistinctForm:
-		return p.generateDistinctConversion(
-			targetResolved,
-			targetForm,
-			cppFieldName,
-			pbAccessorName,
-			pbSetter,
-			data,
-		)
-	case resolution.UnionForm:
-		return p.generateUnionConversion(
-			targetResolved,
-			isOptional,
-			data,
-			cppFieldName,
+			cppName,
 			pbAccessorName,
 		)
-	}
-
-	return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
-		fmt.Sprintf("cpp.%s = pb.%s();", cppFieldName, pbAccessorName)
 }
 
 func (p *Plugin) generateArrayConversion(
@@ -1324,21 +1176,6 @@ func (p *Plugin) generateArrayConversion(
 		pbAccessorName,
 		elemType,
 		field.Optional,
-		data,
-	)
-}
-
-func (p *Plugin) generateArrayAliasConversion(
-	cppFieldName, pbAccessorName string,
-	elemType resolution.TypeRef,
-	isOptional bool,
-	data *templateData,
-) (forward, backward string) {
-	return p.generateArrayElementConversion(
-		cppFieldName,
-		pbAccessorName,
-		elemType,
-		isOptional,
 		data,
 	)
 }
@@ -1813,29 +1650,6 @@ func deriveProtoInclude(pbOutputPath, namespace string) string {
 		return ""
 	}
 	return fmt.Sprintf("%s/%s.pb.h", pbOutputPath, namespace)
-}
-
-func primitiveToProtoType(primitive string) string {
-	switch primitive {
-	case "uint8", "uint12", "uint16", "uint20", "uint32":
-		return "uint32_t"
-	case "uint64":
-		return "uint64_t"
-	case "int8", "int16", "int32":
-		return "int32_t"
-	case "int64":
-		return "int64_t"
-	case "float32":
-		return "float"
-	case "float64":
-		return "double"
-	case "bool":
-		return "bool"
-	case "string":
-		return "std::string"
-	default:
-		return primitive
-	}
 }
 
 type templateData struct {

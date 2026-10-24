@@ -382,10 +382,11 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							// FunctionProperties array alias fields should use add_*
-							"pb.add_inputs()",
-							"pb.add_outputs()",
-							"pb.add_config()",
+							// Optional distinct arrays go through a list wrapper
+							// message.
+							"auto* wrapper = pb.mutable_inputs();",
+							"auto* wrapper = pb.mutable_outputs();",
+							"auto* wrapper = pb.mutable_config();",
 							// Self-referential fields should use has_value() and ->
 							"if (this->elem.has_value())",
 							"if (this->constraint.has_value())",
@@ -1551,7 +1552,7 @@ var _ = Describe("C++ PB Plugin", func() {
 			})
 
 			It(
-				"Should cast through a true distinct (non-alias) primitive wrapper",
+				"Should convert a distinct primitive as its base",
 				func(ctx SpecContext) {
 					source := `
 					@cpp output "client/cpp/types"
@@ -1567,11 +1568,8 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							// generateDistinctConversion primitive branch routes
-							// through primitiveToProtoType — uint16 maps to uint32_t on
-							// the wire.
-							"pb.set_priority(static_cast<uint32_t>(this->priority))",
-							"cpp.priority = Priority(pb.priority())",
+							"pb.set_priority(this->priority);",
+							"cpp.priority = pb.priority();",
 						)
 				},
 			)
