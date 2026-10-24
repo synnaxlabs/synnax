@@ -17,7 +17,9 @@ import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { layers } from "@synnaxlabs/vite-plugin";
 import { defineConfig, envField } from "astro/config";
 
+import { inlineCode } from "./src/util/inlineCode";
 import { outline } from "./src/util/outline";
+import { quantities } from "./src/util/quantities";
 import { listReleaseNotes } from "./src/util/releaseNotes";
 
 // Each version's notes render only inside /releases, so their old routes point at the
@@ -68,7 +70,7 @@ export default defineConfig({
     },
   },
   markdown: {
-    processor: satteri({ hastPlugins: [outline] }),
+    processor: satteri({ hastPlugins: [outline, inlineCode, quantities] }),
     shikiConfig: {
       theme,
       langs: [arcGrammar],
