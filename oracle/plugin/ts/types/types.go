@@ -1872,7 +1872,7 @@ func (p *Plugin) processField(
 				"ReturnType<typeof zod.nullToUndefined<%s>>",
 				fd.ZodSchemaType,
 			)
-		} else if field.Default == nil {
+		} else if field.Default == nil && empty != "" {
 			fd.ZodType = fmt.Sprintf("%s.default(() => %s)", fd.ZodType, empty)
 			fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
 		}
@@ -1912,10 +1912,10 @@ func (p *Plugin) processField(
 	return fd
 }
 
-// isUnionField reports whether a field's type resolves to a discriminated union.
 // aliasedCollectionEmpty returns the empty value of the array, map, or record that ref
-// is an alias of. ok is false when ref is not such an alias, or when a type override
-// replaces its form.
+// is an alias of. empty is blank for an array, whose alias declaration sets its own
+// default. ok is false when ref is not such an alias, or when a type override replaces
+// its form.
 func aliasedCollectionEmpty(
 	ref resolution.TypeRef,
 	typeOverride string,
@@ -1930,13 +1930,14 @@ func aliasedCollectionEmpty(
 	}
 	switch target.Name {
 	case "Array":
-		return "[]", true
+		return "", true
 	case "Map", "record":
 		return "({})", true
 	}
 	return "", false
 }
 
+// isUnionField reports whether a field's type resolves to a discriminated union.
 func isUnionField(field resolution.Field, table *resolution.Table) bool {
 	resolved, _, ok := resolution.Dealias(field.Type, table)
 	if !ok {

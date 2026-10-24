@@ -96,6 +96,7 @@ Labels = base.Labels
 Index = base.Index
 Moment Stamp
 Names string[]
+Quad = float64[4]
 `
 
 const aliasStatus = `
@@ -229,8 +230,9 @@ var _ = Describe("TS aliases", func() {
 		Entry("an alias of a record", "data Data", "data: dataZ.default(() => ({})),"),
 		Entry("an optional alias of a record",
 			"data Data?", "data: zod.nullToUndefined(dataZ),"),
-		Entry("an alias of an array",
-			"labels Labels", "labels: labelsZ.default(() => []),"),
+		Entry("an alias of an array, whose declaration sets the default",
+			"labels Labels", "labels: labelsZ,"),
+		Entry("an alias of a fixed-size array", "corners Quad", "corners: quadZ,"),
 		Entry("an optional alias of an array",
 			"labels Labels?", "labels: zod.nullToUndefined(labelsZ),"),
 		Entry("an alias of a map", "index Index", "index: indexZ.default(() => ({})),"),
