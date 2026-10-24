@@ -222,6 +222,8 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     EXPECT_NE(this->ctx->statuses.back().message.find("3 slaves"), std::string::npos);
 }
 
+/// @brief it should return a permission error from a scan, so the error reaches the
+/// status of the scan task.
 TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
     auto mock_master = std::make_shared<mock::Master>("eth0");
     mock_master->inject_init_error(
@@ -240,6 +242,8 @@ TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
     ASSERT_OCCURRED_AS_P(scanner.scan({}), errors::PERMISSION_DENIED);
 }
 
+/// @brief it should skip an interface that fails to initialize for a reason other than
+/// permission, and return no devices for it.
 TEST_F(EtherCATScanTest, ScanSkipsInterfaceInitError) {
     auto mock_master = std::make_shared<mock::Master>("eth0");
     mock_master->inject_init_error(

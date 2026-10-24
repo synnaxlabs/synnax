@@ -75,6 +75,8 @@ TEST_F(SOEMMasterTest, InitializeHappyPath) {
     EXPECT_EQ(slaves[0].properties.output_bits, 16);
 }
 
+/// @brief it should return the socket check error and not start SOEM when the Driver
+/// cannot open a raw socket.
 TEST_F(SOEMMasterTest, InitializeSocketCheckFails) {
     this->add_default_slave();
     this->mock->check_socket_err = x::errors::Error(

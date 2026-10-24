@@ -11,6 +11,7 @@
 #include <system_error>
 
 #include <arpa/inet.h>
+#include <linux/if_ether.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -21,7 +22,7 @@ namespace driver::ethercat::soem {
 x::errors::Error ProdAPI::check_socket(const char *ifname) {
     const int fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ECAT));
     if (fd >= 0) {
-        close(fd);
+        ::close(fd);
         return x::errors::NIL;
     }
     const std::string iface(ifname);
