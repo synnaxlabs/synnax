@@ -2462,6 +2462,48 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(v.Series[0].Unmarshal[float32]()).To(Equal(groupEnds(totals, 20)))
 		})
 
+		It("Should size the groups of a calculation by its busiest index", func(
+			ctx SpecContext,
+		) {
+			slowIndex := &channel.Channel{
+				Name:     "aggregate_slow_time",
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(channelWriter.Create(ctx, slowIndex)).To(Succeed())
+			slow := &channel.Channel{
+				Name:       "aggregate_slow",
+				DataType:   telem.Float32T,
+				LocalIndex: slowIndex.LocalKey,
+			}
+			Expect(channelWriter.Create(ctx, slow)).To(Succeed())
+			stamps := make([]telem.TimeStamp, 20)
+			for i := range stamps {
+				stamps[i] = telem.TimeStamp(5*(i+1)) * telem.SecondTS
+			}
+			keys := []channel.Key{slowIndex.Key(), slow.Key()}
+			w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start:            5 * telem.SecondTS,
+				Keys:             keys,
+				EnableAutoCommit: new(true),
+			}))
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeries(stamps),
+				telem.NewSeries(make([]float32, 20)),
+			}))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			calc := &channel.Channel{
+				Name:       "aggregate_fast_plus_slow",
+				DataType:   telem.Float32T,
+				Expression: "return aggregate_sensor + aggregate_slow",
+			}
+			Expect(channelWriter.Create(ctx, calc)).To(Succeed())
+			v := read(ctx, aggregated(calc.Key())).Get(calc.Key())
+			Expect(v.Series).To(HaveLen(1))
+			Expect(v.Series[0].Unmarshal[float32]()).To(Equal(groupEnds(ramp(1), 20)))
+			Expect(v.Series[0].AlignmentMultiple).To(Equal(uint32(10)))
+		})
+
 		Describe("Pieces", func() {
 			// values returns the samples of every series in m, in order.
 			values := func(m telem.MultiSeries) []float32 {
@@ -2514,6 +2556,55 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					To(Equal(groupEnds(ramp(4), 20)))
 				Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 				Expect(iter.Close()).To(Succeed())
+			})
+
+			It("Should keep each group inside its domain when read in pieces", func(
+				ctx SpecContext,
+			) {
+				index := &channel.Channel{
+					Name:     "aggregate_split_time",
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}
+				Expect(channelWriter.Create(ctx, index)).To(Succeed())
+				sensor := &channel.Channel{
+					Name:       "aggregate_split",
+					DataType:   telem.Float32T,
+					LocalIndex: index.LocalKey,
+				}
+				Expect(channelWriter.Create(ctx, sensor)).To(Succeed())
+				keys := []channel.Key{index.Key(), sensor.Key()}
+				stamps := make([]telem.TimeStamp, 100)
+				for i := range stamps {
+					stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
+				}
+				all := ramp(1)
+				for _, half := range [][2]int{{0, 50}, {50, 100}} {
+					w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+						Start:            stamps[half[0]],
+						Keys:             keys,
+						EnableAutoCommit: new(true),
+					}))
+					Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+						telem.NewSeries(stamps[half[0]:half[1]]),
+						telem.NewSeries(all[half[0]:half[1]]),
+					}))).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+				}
+				calc := &channel.Channel{
+					Name:       "aggregate_split_doubled",
+					DataType:   telem.Float32T,
+					Expression: "return aggregate_split * 2",
+				}
+				Expect(channelWriter.Create(ctx, calc)).To(Succeed())
+				cfg := aggregated(calc.Key())
+				cfg.ChunkSize = 9
+				v := read(ctx, cfg).Get(calc.Key())
+				doubled := ramp(2)
+				Expect(values(v)).To(Equal(append(
+					groupEnds(doubled[:50], 20),
+					groupEnds(doubled[50:], 20)...,
+				)))
 			})
 
 			It("Should keep the stride of a calculation read in pieces", func(
