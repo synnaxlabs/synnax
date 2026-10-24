@@ -107,7 +107,6 @@ import {
   MdDarkMode,
   MdDataArray,
   MdDataObject,
-  MdDesktopWindows,
   MdEdit,
   MdEditOff,
   MdError,
@@ -557,7 +556,6 @@ export const Reset = wrapSVGIcon(RxReset, "reset");
 export const FillColor = wrapSVGIcon(IoMdColorFill, "fill-color");
 export const StrokeColor = wrapSVGIcon(MdBorderColor, "stroke-color");
 export const Logout = wrapSVGIcon(MdLogout, "logout");
-export const Desktop = wrapSVGIcon(MdDesktopWindows, "desktop");
 export const Dashboard = wrapSVGIcon(RiDashboardFill, "dashboard");
 export const Err = wrapSVGIcon(MdError, "error");
 
@@ -744,7 +742,6 @@ const icons = {
   Dashboard,
   StrokeColor,
   Logout,
-  Desktop,
   Err,
 };
 
