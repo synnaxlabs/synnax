@@ -108,6 +108,18 @@ describe("tour", () => {
   beforeAll(() => {
     vi.stubGlobal("ResizeObserver", Observer);
     Element.prototype.scrollIntoView = scrollIntoView;
+    // Browsers drop the focus of an element as it hides, and jsdom does not. jsdom
+    // also ignores a blur of a hidden element, so the blur comes first.
+    const hidden = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "hidden");
+    Object.defineProperty(HTMLElement.prototype, "hidden", {
+      ...hidden,
+      set(this: HTMLElement, value: boolean) {
+        const focused = document.activeElement;
+        if (value && focused instanceof HTMLElement && this.contains(focused))
+          focused.blur();
+        hidden?.set?.call(this, value);
+      },
+    });
     start();
   });
 
@@ -163,6 +175,28 @@ describe("tour", () => {
     expect(get('[data-progress-group="left"]').classList).toContain(
       "docs-tour--active",
     );
+  });
+
+  it("should move focus to the stills when the focused control hides", () => {
+    control("start").focus();
+    control("start").click();
+    expect(document.activeElement).toBe(get(".docs-tour__stage"));
+    control("end").focus();
+    control("end").click();
+    expect(document.activeElement).toBe(get(".docs-tour__stage"));
+  });
+
+  it("should move focus to the stills when the hotspots of a focused part hide", () => {
+    hotspot(BASE, "channel").focus();
+    hotspot(BASE, "channel").click();
+    expect(document.activeElement).toBe(get(".docs-tour__stage"));
+  });
+
+  it("should keep focus on a control that stays shown", () => {
+    control("start").click();
+    control("next").focus();
+    control("next").click();
+    expect(document.activeElement).toBe(control("next"));
   });
 
   it("should show the still of a step and its hotspots", () => {

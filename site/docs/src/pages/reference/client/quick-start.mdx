@@ -40,8 +40,12 @@ pip install synnax
 
   <Fragment slot="typescript">
 
+The script uses top-level await, so make an ES module project:
+
 ```bash
-npm install @synnaxlabs/client
+npm init -y
+npm pkg set type=module
+npm install @synnaxlabs/client tsx
 ```
 
   </Fragment>

@@ -148,6 +148,9 @@ const show = (root: HTMLElement, still: string): void => {
 
 const go = (tour: Tour, index: number | null): void => {
   const { root } = tour;
+  // The tour's keys listen on its root, so focus must not leave with a hidden control.
+  // Browsers drop the focus of a control as it hides, so record it first.
+  const focused = root.contains(document.activeElement) ? document.activeElement : null;
   root.classList.add(WARM);
   tour.step = index;
   const active = index == null ? null : STEPS[index];
@@ -172,6 +175,7 @@ const go = (tour: Tour, index: number | null): void => {
   }
   for (const el of all(root, "[data-progress-group]"))
     el.classList.toggle(ACTIVE, el.dataset.progressGroup === active?.group);
+  if (focused?.closest("[hidden]") != null) one(root, ".docs-tour__stage").focus();
   requestAnimationFrame(() => place(tour));
 };
 
