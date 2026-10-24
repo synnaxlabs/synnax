@@ -12,8 +12,8 @@ package v1
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
 )
 

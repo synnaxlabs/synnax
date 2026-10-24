@@ -61,7 +61,13 @@ export const Properties = memo((): ReactElement => {
     );
   if (selected.length > 1) return <MultiConfig configByKey={configByKey} />;
   const elKey = selected[0];
-  return <IndividualConfig key={elKey} elKey={elKey} />;
+  const config = configByKey.get(elKey);
+  const symbolKey =
+    config != null && Schematic.Node.isConfig(config)
+      ? Schematic.Node.symbolKey(config)
+      : "";
+  // A symbol's form holds that symbol's config, so a change remounts it.
+  return <IndividualConfig key={`${elKey}:${symbolKey}`} elKey={elKey} />;
 });
 Properties.displayName = "PropertiesControls";
 
@@ -250,8 +256,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
       const pos = box.center(box.construct(el));
       const dist = xy.scale(xy.translation(box.topLeft(nodeElBox), pos), 1 / zoom);
       const match = el.className.match(/react-flow__handle-(\w+)/);
-      if (match == null)
-        throw new Error(`[schematic] - cannot find handle orientation`);
+      if (match == null) throw new Error("Cannot find the handle orientation.");
       const orientation = location.outerZ.parse(match[1]);
       return new Diagram.HandleLayout(dist, orientation);
     });
@@ -283,7 +288,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
             handleLayouts(nodeEl, nodeElBox, zoom),
           );
         } catch (e) {
-          handleError(e, "failed to calculate schematic node layout");
+          handleError(e, "Failed to align symbols");
         }
         return null;
       })
@@ -333,7 +338,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
             handleLayouts(nodeEl, nodeElBox, zoom),
           );
         } catch (e) {
-          handleError(e, "failed to calculate schematic node layout");
+          handleError(e, "Failed to distribute symbols");
         }
         return null;
       })

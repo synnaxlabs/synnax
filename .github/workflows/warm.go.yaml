@@ -22,6 +22,7 @@ on:
       - cesium/**
       - core/**
       - freighter/go/**
+      - gorp/**
       - x/go/**
       - .github/workflows/test.go.yaml
       - .github/workflows/warm.go.yaml

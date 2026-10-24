@@ -44,9 +44,9 @@ struct TaskConfig : ::synnax::task::PersistConfig {
 
     TaskConfig(TaskConfig &&other) noexcept:
         ::synnax::task::PersistConfig(std::move(other)),
-        arc_key(std::move(other.arc_key)),
+        arc_key(other.arc_key),
         program(std::move(other.program)),
-        loop(std::move(other.loop)) {}
+        loop(other.loop) {}
 
     TaskConfig(const TaskConfig &) = delete;
     const TaskConfig &operator=(const TaskConfig &) = delete;
@@ -134,7 +134,7 @@ public:
         const TaskConfig &cfg,
         std::shared_ptr<pipeline::WriterFactory> writer_factory = nullptr,
         std::shared_ptr<pipeline::StreamerFactory> streamer_factory = nullptr,
-        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr
+        const std::shared_ptr<x::thread::rt::Manager> &rt_manager = nullptr
     ) {
         auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
 

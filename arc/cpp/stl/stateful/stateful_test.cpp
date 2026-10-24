@@ -48,7 +48,7 @@ struct Fixture {
     wasmtime::Linker linker;
     wasmtime::Instance instance;
 
-    Fixture(const std::string &wat):
+    explicit Fixture(const std::string &wat):
         vars(std::make_shared<Variables>()),
         series_state(std::make_shared<series::State>()),
         str_state(std::make_shared<strings::State>()),

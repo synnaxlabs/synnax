@@ -38,8 +38,7 @@ struct RegisterValue {
     /// @brief data_type is the data type the register contents are interpreted as.
     ::x::telem::DataType data_type = ::x::telem::DataType("uint8");
     /// @brief bytes_swapped is true when the byte order within each 16-bit word is
-    /// swapped.
-    /// When absent, the device's byte order applies.
+    /// swapped. When absent, the device's byte order applies.
     std::optional<bool> bytes_swapped;
     /// @brief words_swapped is true when the word order of multi-register values is
     /// swapped. When absent, the device's word order applies.

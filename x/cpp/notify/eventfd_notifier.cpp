@@ -48,7 +48,7 @@ public:
 
         const int result = ::poll(&pfd, 1, timeout_ms);
         if (result > 0) {
-            uint64_t val;
+            uint64_t val = 0;
             [[maybe_unused]] auto _ = read(this->event_fd, &val, sizeof(val));
             return true;
         }
@@ -56,7 +56,7 @@ public:
     }
 
     bool poll() override {
-        uint64_t val;
+        uint64_t val = 0;
         return read(this->event_fd, &val, sizeof(val)) == sizeof(val);
     }
 
