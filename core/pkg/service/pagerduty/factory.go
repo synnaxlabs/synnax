@@ -19,9 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // FactoryConfig is the configuration for the PagerDuty factory.
@@ -61,7 +59,10 @@ func (c FactoryConfig) Validate() error {
 	return v.Error()
 }
 
-type factory struct{ cfg FactoryConfig }
+type factory struct {
+	cfg      FactoryConfig
+	reporter driver.ConfigReporter
+}
 
 var _ driver.Factory = (*factory)(nil)
 
@@ -71,7 +72,14 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &factory{cfg: cfg}, nil
+	return &factory{
+		cfg: cfg,
+		reporter: driver.ConfigReporter{
+			DB:              cfg.DB,
+			Status:          cfg.Status,
+			Instrumentation: cfg.Instrumentation,
+		},
+	}, nil
 }
 
 func (f *factory) ConfigureTask(
@@ -84,70 +92,27 @@ func (f *factory) ConfigureTask(
 	}
 	var cfg TaskConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
-		if cmdKey == driver.NoCommand {
-			f.cfg.L.Warn("failed to configure task",
-				zap.Stringer("task", t),
-				zap.Error(err),
-			)
-		} else {
-			f.setConfigStatus(ctx, t, cmdKey, status.VariantError, err.Error())
-		}
+		f.reporter.Report(ctx, t, cmdKey, false, err)
 		return nil, err
 	}
 	if err := validateConfig(cfg); err != nil {
-		if cmdKey == driver.NoCommand && !cfg.AutoStart {
-			f.cfg.L.Warn("failed to configure task",
-				zap.Stringer("task", t),
-				zap.Error(err),
-			)
-		} else {
-			f.setConfigStatus(ctx, t, cmdKey, status.VariantError, err.Error())
-		}
+		f.reporter.Report(ctx, t, cmdKey, cfg.AutoStart, err)
 		return nil, err
 	}
-	pdTask := &alertTask{
-		factoryCfg: f.cfg,
-		task:       t,
-		cfg:        cfg,
-		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
+	pdTask, err := newAlertTask(f.cfg, t, cfg)
+	if err != nil {
+		return nil, err
 	}
 	// A successful configure writes no status: the start that follows it answers the
 	// command, and a "configured" status would answer it first with running false.
 	if cfg.AutoStart {
-		if err := pdTask.start(ctx, driver.NoCommand); err != nil {
+		if err := pdTask.Start(ctx, driver.NoCommand); err != nil {
 			return nil, err
 		}
 	}
 	return pdTask, nil
 }
 
-func (f *factory) setConfigStatus(
-	ctx context.Context,
-	t task.Task,
-	cmdKey string,
-	variant status.Variant,
-	message string,
-) {
-	details := task.NewStatusDetails(t, false)
-	details.Cmd = cmdKey
-	stat := task.Status{
-		Key:     t.OntologyID().String(),
-		Name:    t.Name,
-		Variant: variant,
-		Message: message,
-		Time:    telem.Now(),
-		Details: details,
-	}
-	if err := f.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return f.cfg.Status.NewWriter(tx).Set(ctx, &stat)
-	}); err != nil {
-		f.cfg.L.Error(
-			"failed to set configuration status",
-			zap.Stringer("task", t),
-			zap.Stringer("status", stat),
-			zap.Error(err),
-		)
-	}
-}
+func (f *factory) InitialTasks() []task.Task { return nil }
 
 func (f *factory) Name() string { return "pagerduty" }

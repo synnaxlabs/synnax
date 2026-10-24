@@ -8,8 +8,11 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/task/BindChannels";
+export * from "@/platform/task/BindReadChannels";
 export * from "@/platform/task/ChannelList";
 export * from "@/platform/task/ChannelName";
+export * from "@/platform/task/ChannelNameField";
+export * from "@/platform/task/channels";
 export * from "@/platform/task/controls";
 export * from "@/platform/task/createCommand";
 export * from "@/platform/task/CreateMenuItem";
@@ -18,6 +21,7 @@ export * from "@/platform/task/fields";
 export * from "@/platform/task/Form";
 export * from "@/platform/task/getChannelNameID";
 export * from "@/platform/task/ParentRangeButton";
+export * from "@/platform/task/payload";
 export * from "@/platform/task/Rack";
 export * from "@/platform/task/ReadChannelContextMenuItem";
 export * from "@/platform/task/registry";

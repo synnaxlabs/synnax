@@ -1,0 +1,321 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/feature/mqtt/device/Connect.css";
+
+import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Modal } from "@synnaxlabs/lyra/modal";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
+import { caseconv } from "@synnaxlabs/x";
+import { useCallback } from "react";
+
+import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
+import {
+  type Device,
+  MAKE,
+  type Properties,
+  SCHEMAS,
+  ZERO_PROPERTIES,
+} from "@/feature/mqtt/device/types";
+import { TEST_CONNECTION_COMMAND_TYPE } from "@/feature/mqtt/task/types";
+import { Analytics } from "@/platform/analytics";
+import { CSS } from "@/platform/css";
+import { type Device as PlatformDevice } from "@/platform/device";
+import { Modals } from "@/platform/modals";
+import { Triggers } from "@/platform/triggers";
+
+const INITIAL_VALUES: Device = {
+  key: "",
+  name: "MQTT broker",
+  make: MAKE,
+  model: "MQTT broker",
+  location: "",
+  properties: ZERO_PROPERTIES,
+  rack: 0,
+  configured: true,
+};
+
+const useForm = PDevice.createForm(SCHEMAS, INITIAL_VALUES);
+
+const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
+
+const beforeSave = async ({
+  client,
+  get,
+  set,
+}: Flux.FormBeforeSaveParams<
+  PDevice.RetrieveQuery,
+  PDevice.FormSchema<typeof SCHEMAS>
+>) => {
+  const scanTask = await retrieveScanTask(client, get<rack.Key>("rack").value);
+  // Command arguments skip case conversion on the wire; the Core reads snake case.
+  const properties = caseconv.camelToSnake(get<Properties>("properties").value, {
+    schema: SCHEMAS.properties,
+  });
+  const state = await scanTask.executeCommandSync({
+    type: TEST_CONNECTION_COMMAND_TYPE,
+    timeout: TEST_CONNECTION_TIMEOUT,
+    args: { location: get<string>("location").value, properties },
+  });
+  if (state.variant === "error") throw new Error(state.message);
+  const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
+    message: "Broker connected",
+    variant: "success",
+    details: {
+      rack: get<rack.Key>("rack").value,
+      device: get<device.Key>("key").value,
+    },
+  });
+  set("status", devStatus, { markTouched: false });
+  return true;
+};
+
+export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
+  ({ deviceKey, close }) => {
+    const { capture } = Analytics.use();
+    const {
+      form,
+      save,
+      status: stat,
+      variant,
+    } = useForm({
+      query: deviceKey == null ? null : { key: deviceKey },
+      beforeSave,
+      afterSave: useCallback(() => {
+        if (deviceKey == null) capture("device_connected", { integration: "mqtt" });
+        close();
+      }, [capture, close, deviceKey]),
+    });
+
+    const secure = Form.useFieldValue<
+      boolean,
+      boolean,
+      PDevice.FormSchema<typeof SCHEMAS>
+    >("properties.secure", { ctx: form });
+
+    return (
+      <Modal.Frame className={CSS.B("mqtt-connect")}>
+        <Modal.Header icon={<Icon.Logo.MQTT />}>Broker.Connect</Modal.Header>
+        <Flex.Box className={CSS.B("content")} grow gap="large">
+          <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
+            <Flex.Box gap="small">
+              <Form.TextField path="name" inputProps={NAME_INPUT_PROPS} />
+              <Form.Field<rack.Key> path="rack" label="Connect from" required>
+                {selectRackRenderProp}
+              </Form.Field>
+              <Flex.Box x align="end">
+                <Form.TextField
+                  grow
+                  path="location"
+                  label="Host"
+                  inputProps={HOST_INPUT_PROPS}
+                />
+                <Form.Field<number | undefined> path="properties.port" label="Port">
+                  {secure ? renderSecurePort : renderPort}
+                </Form.Field>
+                <Form.SwitchField path="properties.secure" label="TLS" />
+              </Flex.Box>
+              <Divider.Divider x />
+            </Flex.Box>
+            {secure && (
+              <Flex.Box gap="small">
+                <Form.SwitchField
+                  path="properties.verificationSkipped"
+                  label="Skip certificate verification"
+                  align="start"
+                />
+                <Text.Text level="small" color={9}>
+                  Certificate and key files are paths on the Core host. An empty CA file
+                  uses the system roots.
+                </Text.Text>
+                <Form.TextField
+                  path="properties.caFile"
+                  label="CA file"
+                  inputProps={CA_FILE_INPUT_PROPS}
+                />
+                <Flex.Box x>
+                  <Form.TextField
+                    grow
+                    path="properties.certFile"
+                    label="Client certificate"
+                    inputProps={CERT_FILE_INPUT_PROPS}
+                  />
+                  <Form.TextField
+                    grow
+                    path="properties.keyFile"
+                    label="Client key"
+                    inputProps={KEY_FILE_INPUT_PROPS}
+                  />
+                </Flex.Box>
+                <Divider.Divider x />
+              </Flex.Box>
+            )}
+            <Flex.Box gap="small">
+              <Flex.Box x justify="between">
+                <Form.TextField grow path="properties.username" label="Username" />
+                <Form.TextField
+                  grow
+                  path="properties.password"
+                  label="Password"
+                  inputProps={PASSWORD_INPUT_PROPS}
+                />
+              </Flex.Box>
+              <Flex.Box x align="end">
+                <Form.TextField
+                  grow
+                  path="properties.clientId"
+                  label="Client ID"
+                  inputProps={CLIENT_ID_INPUT_PROPS}
+                />
+                <Form.Field<number | undefined>
+                  path="properties.keepAlive"
+                  label="Keep alive"
+                >
+                  {renderKeepAlive}
+                </Form.Field>
+              </Flex.Box>
+              <Divider.Divider x />
+            </Flex.Box>
+            <Flex.Box gap="small">
+              <Text.Text level="small" weight={500} color={9}>
+                Sparkplug B
+              </Text.Text>
+              <Text.Text level="small" color={9}>
+                Leave the host ID empty for a passive host. Separate groups with commas,
+                or leave them empty to browse all groups.
+              </Text.Text>
+              <Flex.Box x>
+                <Form.TextField
+                  grow
+                  path="properties.sparkplug.hostId"
+                  label="Host ID"
+                  inputProps={HOST_ID_INPUT_PROPS}
+                />
+                <Form.Field<string[]>
+                  grow
+                  path="properties.sparkplug.groups"
+                  label="Groups"
+                >
+                  {groupsRenderProp}
+                </Form.Field>
+              </Flex.Box>
+            </Flex.Box>
+          </Form.Form>
+        </Flex.Box>
+        <Modal.Footer>
+          <Nav.Bar.Start gap="small">
+            {variant == "success" ? (
+              <Triggers.SaveHelpText action="Connect" noBar />
+            ) : (
+              <Status.Summary variant={variant} message={stat.description} />
+            )}
+          </Nav.Bar.Start>
+          <Nav.Bar.End>
+            <Button.Button
+              status={status.keepVariants(variant, "loading")}
+              onClick={() => save()}
+              variant="filled"
+              trigger={Triggers.SAVE}
+            >
+              Connect
+            </Button.Button>
+          </Nav.Bar.End>
+        </Modal.Footer>
+      </Modal.Frame>
+    );
+  },
+);
+
+const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: MAKE };
+
+const selectRackRenderProp = Component.renderProp(
+  (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (
+    <Rack.SelectSingle {...props} initialQuery={INITIAL_RACK_QUERY} />
+  ),
+);
+
+const groupsRenderProp = Component.renderProp(
+  ({ value, onChange, ...rest }: Input.Control<string[]>) => (
+    <Input.Text
+      {...rest}
+      value={value.join(", ")}
+      onChange={(text) => onChange(parseGroups(text))}
+      onlyChangeOnBlur
+      placeholder="All groups"
+    />
+  ),
+);
+
+const parseGroups = (text: string): string[] =>
+  text
+    .split(",")
+    .map((group) => group.trim())
+    .filter((group) => group !== "");
+
+const HOST_ID_INPUT_PROPS = { placeholder: "Passive host" } as const;
+
+const NAME_INPUT_PROPS = {
+  level: "h2",
+  variant: "text",
+  placeholder: "MQTT broker",
+} as const;
+
+const HOST_INPUT_PROPS = {
+  autoFocus: true,
+  placeholder: "broker.example.com",
+} as const;
+
+// An empty port selects the default, which the placeholder names.
+const PORT_INPUT_PROPS = {
+  placeholder: "1883",
+  style: { width: "23rem" },
+} as const;
+
+const SECURE_PORT_INPUT_PROPS = { ...PORT_INPUT_PROPS, placeholder: "8883" } as const;
+
+const CA_FILE_INPUT_PROPS = { placeholder: "/etc/ssl/certs/ca.pem" } as const;
+
+const CERT_FILE_INPUT_PROPS = { placeholder: "/etc/ssl/certs/client.pem" } as const;
+
+const KEY_FILE_INPUT_PROPS = { placeholder: "/etc/ssl/private/client.key" } as const;
+
+const PASSWORD_INPUT_PROPS = { type: "password" } as const;
+
+const CLIENT_ID_INPUT_PROPS = {
+  placeholder: "Derived from the device when empty",
+} as const;
+
+const KEEP_ALIVE_INPUT_PROPS = {
+  endContent: "s",
+  placeholder: "30",
+  style: { width: "23rem" },
+} as const;
+
+const createOptionalNumericRenderProp = (
+  props: Omit<Input.NumericProps, "value" | "onChange" | "onClear">,
+) =>
+  Component.renderProp((p: Input.Control<number | undefined>) => (
+    <Input.Numeric {...p} {...props} onClear={() => p.onChange(undefined)} />
+  ));
+
+const renderPort = createOptionalNumericRenderProp(PORT_INPUT_PROPS);
+
+const renderSecurePort = createOptionalNumericRenderProp(SECURE_PORT_INPUT_PROPS);
+
+const renderKeepAlive = createOptionalNumericRenderProp(KEEP_ALIVE_INPUT_PROPS);

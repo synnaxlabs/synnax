@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Component } from "@synnaxlabs/lyra/component";
+import { Select } from "@synnaxlabs/lyra/select";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -19,6 +20,14 @@ import { getIconButton, queryIconButton } from "@/testutil";
 const listItem = Component.renderProp(({ itemKey }: { itemKey: string }) => (
   <span>item-{itemKey}</span>
 ));
+
+const selectItem = Component.renderProp(
+  ({ itemKey, ...p }: Task.ChannelListItemProps) => (
+    <Select.Item itemKey={itemKey} {...p}>
+      item-{itemKey}
+    </Select.Item>
+  ),
+);
 
 const resolve = () => null;
 
@@ -92,6 +101,40 @@ describe("layouts.List", () => {
     fireEvent.click(getIconButton(container, "add"));
     expect(form.current?.get("config.channels").value).toHaveLength(0);
     expect(screen.getByText("No channels in task")).toBeTruthy();
+  });
+
+  it("should name the list, its empty state, and its add action as told", async () => {
+    const { form } = await renderInTaskForm(
+      <Task.Views.List<Channel>
+        createChannel={() => ({ key: "new", disabled: false })}
+        listItem={listItem}
+        resolve={resolve}
+        title="Tags"
+        emptyContent={<span>No tags</span>}
+        addLabel="Add tag"
+      />,
+      { values: { config: { channels: [] } } },
+    );
+    await screen.findByText("Tags");
+    expect(screen.getByText("No tags")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Add tag" }));
+    await waitFor(() =>
+      expect(form.current?.get("config.channels").value).toHaveLength(1),
+    );
+  });
+
+  it("should offer no duplicate when the list cannot copy a channel", async () => {
+    await renderInTaskForm(
+      <Task.Views.List<Channel>
+        createChannel={() => null}
+        listItem={selectItem}
+        resolve={resolve}
+      />,
+      { values: { config: { channels: [{ key: "a", disabled: false }] } } },
+    );
+    fireEvent.contextMenu(await screen.findByText("item-a"));
+    await screen.findByText("Remove");
+    expect(screen.queryByText("Duplicate")).toBeNull();
   });
 
   it("should hide the add button when the form is in preview", async () => {

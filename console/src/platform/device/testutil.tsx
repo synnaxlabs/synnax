@@ -27,7 +27,8 @@ export interface CreateTestDeviceOptions extends Partial<
 
 /**
  * Creates a rack and a device on the live Core and returns the created device. Names
- * are generated Core-safe unless overridden.
+ * are generated Core-safe unless overridden. Pass the schemas of the make when its
+ * properties hold keys that must keep their case.
  */
 export const createTestDevice = async (
   client: Synnax,
@@ -38,18 +39,22 @@ export const createTestDevice = async (
     make = "make",
     model = "model",
   }: CreateTestDeviceOptions = {},
+  schemas?: device.DeviceSchemas,
 ): Promise<device.Device> => {
   const rack = await client.racks.create({ name: uniqueName("rack") });
-  return await client.devices.create({
-    key: id.create(),
-    name: name ?? uniqueName("device"),
-    rack: rack.key,
-    location: "dev1",
-    make,
-    model,
-    configured,
-    properties,
-  });
+  return await client.devices.create(
+    {
+      key: id.create(),
+      name: name ?? uniqueName("device"),
+      rack: rack.key,
+      location: "dev1",
+      make,
+      model,
+      configured,
+      properties,
+    },
+    schemas,
+  );
 };
 
 /**

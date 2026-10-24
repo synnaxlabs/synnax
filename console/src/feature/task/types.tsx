@@ -14,6 +14,7 @@ import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
+import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
@@ -23,6 +24,7 @@ const PREFIXES = [
   HTTP.Task.PREFIX,
   LabJack.Task.PREFIX,
   Modbus.Task.PREFIX,
+  MQTT.Task.PREFIX,
   NI.Task.PREFIX,
   OPCUA.Task.PREFIX,
   PagerDuty.Task.PREFIX,
@@ -34,6 +36,7 @@ const ICONS: Record<Prefix, Icon.ReactElement> = {
   [HTTP.Task.PREFIX]: <Icon.Logo.HTTP />,
   [LabJack.Task.PREFIX]: <Icon.Logo.LabJack />,
   [Modbus.Task.PREFIX]: <Icon.Logo.Modbus />,
+  [MQTT.Task.PREFIX]: <Icon.Logo.MQTT />,
   [NI.Task.PREFIX]: <Icon.Logo.NI />,
   [OPCUA.Task.PREFIX]: <Icon.Logo.OPCUA />,
   [PagerDuty.Task.PREFIX]: <Icon.Logo.PagerDuty />,
@@ -49,6 +52,7 @@ const PREFIX_NAMES: Record<Prefix, string> = {
   [HTTP.Task.PREFIX]: "HTTP",
   [LabJack.Task.PREFIX]: "LabJack",
   [Modbus.Task.PREFIX]: "Modbus",
+  [MQTT.Task.PREFIX]: "MQTT",
   [NI.Task.PREFIX]: "NI",
   [OPCUA.Task.PREFIX]: "OPC UA",
   [PagerDuty.Task.PREFIX]: "PagerDuty",

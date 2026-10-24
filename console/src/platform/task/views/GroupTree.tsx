@@ -15,10 +15,18 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { id, type record } from "@synnaxlabs/x";
-import { type MouseEvent, type ReactNode, useCallback, useMemo, useState } from "react";
+import {
+  type MouseEvent,
+  type ReactNode,
+  useCallback,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
@@ -34,6 +42,8 @@ export interface GroupField {
   key: string;
   disabled: boolean;
   pointer: string;
+  channel: number;
+  name: string;
 }
 
 /** A set of fields read together and stamped by one index. */
@@ -43,6 +53,9 @@ export interface Group<F extends GroupField> {
   index: string;
   fields: F[];
 }
+
+/** A group with no fields beneath it: it is its own field, read whole. */
+type Leaf = Omit<GroupField, "pointer">;
 
 export interface GroupProps {
   groupKey: string;
@@ -54,59 +67,92 @@ export interface FieldProps extends GroupProps {
   fieldKey: string;
 }
 
-export interface GroupTreeProps<G extends Group<F>, F extends GroupField> {
+export interface GroupTreeProps<
+  G extends Group<F> | Omit<GroupField, "pointer">,
+  F extends GroupField,
+> {
   /** The form path of the group array. */
   path?: string;
   /** Names the groups in the list header: "Endpoints". */
   listTitle: string;
-  /** Names one group in lowercase for the add button and empty state: "endpoint". */
-  groupName: string;
+  /** Fills the tree while it holds no groups: "No endpoints". */
+  emptyMessage: string;
   /** Fills the details pane while nothing is selected. */
   placeholder: string;
-  /** A new group's values, without a key. */
-  createGroup: () => Omit<G, "key">;
+  /** Labels the add button: "Add endpoint". */
+  addLabel: string;
+  /**
+   * Resolves with the groups the add button adds, or none. A group under a key the tree
+   * holds replaces that group. A rejection is reported to the user.
+   */
+  createGroups: () => Promise<G[]>;
   /** A new field's values, without a key. */
   createField: () => Omit<F, "key">;
-  /** Names a group in its tree row and details header. */
+  /** Names a field whose pointer is empty. */
+  emptyPointerLabel?: string;
+  /** Lets each group switch off through a `disabled` flag, which it must then hold. */
+  groupsSwitchable?: boolean;
+  /** Names a group in the tree and in its details header. */
   groupLabel: Component.RenderProp<GroupProps>;
   groupDetails: Component.RenderProp<GroupProps>;
   fieldDetails: Component.RenderProp<FieldProps>;
 }
 
-type Entry = { kind: "group"; groupKey: string } | ({ kind: "field" } & FieldProps);
+type Entry =
+  { kind: "group"; groupKey: string; leaf: boolean } | ({ kind: "field" } & FieldProps);
 
 interface Index {
   nodes: Tree.Node[];
   entries: Map<string, Entry>;
 }
 
+const isBranch = <F extends GroupField>(g: Group<F> | Leaf): g is Group<F> =>
+  "fields" in g;
+
 const isShown = <F extends GroupField>(g: Group<F>, f: F): boolean => f.key !== g.index;
 
-/** Groups as tree nodes with their fields beneath; the index field stays hidden. */
+/** Each group key with the keys of its shown fields, or null for a leaf. */
+type Structure = [string, string[] | null][];
+
+/**
+ * Groups as tree nodes with their fields beneath; the index field stays hidden. Edits
+ * that keep the structure, such as typing in a field, return the same index.
+ */
 const useIndex = <F extends GroupField>(path: string): Index => {
-  // The form writes child paths into the same array, so the array's identity never
-  // changes; the field state's does on every write beneath it.
-  const state = Form.useFieldState<Group<F>[]>(path);
+  const { bind, get } = Form.useContext();
+  const getStructure = useCallback(
+    () =>
+      JSON.stringify(
+        get<(Group<F> | Leaf)[]>(path).value.map((g): Structure[number] => [
+          g.key,
+          isBranch<F>(g)
+            ? g.fields.filter((f) => isShown(g, f)).map((f) => f.key)
+            : null,
+        ]),
+      ),
+    [get, path],
+  );
+  const structure = useSyncExternalStore(bind, getStructure, getStructure);
   return useMemo(() => {
     const entries = new Map<string, Entry>();
-    const nodes = state.value.map((g) => {
-      const groupPath = `${path}.${g.key}`;
-      entries.set(g.key, { kind: "group", groupKey: g.key });
-      const children = g.fields
-        .filter((f) => isShown(g, f))
-        .map((f) => {
-          entries.set(f.key, {
+    const nodes = (JSON.parse(structure) as Structure).map(
+      ([groupKey, fieldKeys]): Tree.Node => {
+        entries.set(groupKey, { kind: "group", groupKey, leaf: fieldKeys == null });
+        if (fieldKeys == null) return { key: groupKey };
+        const children = fieldKeys.map((fieldKey) => {
+          entries.set(fieldKey, {
             kind: "field",
-            groupKey: g.key,
-            fieldKey: f.key,
-            path: `${groupPath}.fields.${f.key}`,
+            groupKey,
+            fieldKey,
+            path: `${path}.${groupKey}.fields.${fieldKey}`,
           });
-          return { key: f.key };
+          return { key: fieldKey };
         });
-      return { key: g.key, children };
-    });
+        return { key: groupKey, children };
+      },
+    );
     return { nodes, entries };
-  }, [path, state]);
+  }, [path, structure]);
 };
 
 const entryPath = (path: string, entry: Entry): string =>
@@ -114,12 +160,26 @@ const entryPath = (path: string, entry: Entry): string =>
 
 interface GroupItemProps extends Tree.ItemRenderProps<string> {
   path: string;
+  leaf: boolean;
   label: Component.RenderProp<GroupProps>;
   onAddField: (groupKey: string) => void;
+  /** Shows the group as switched off. */
+  off?: boolean;
+  /** Trails the item, such as a switch. */
+  children?: ReactNode;
 }
 
-const GroupItem = ({ path, label, onAddField, ...props }: GroupItemProps) => {
+const GroupItem = ({
+  path,
+  leaf,
+  label,
+  onAddField,
+  off = false,
+  children,
+  ...props
+}: GroupItemProps) => {
   const { itemKey } = props;
+  const groupPath = `${path}.${itemKey}`;
   const isPreview = useIsPreview();
   const handleAdd = useCallback(
     (e: MouseEvent) => {
@@ -129,9 +189,16 @@ const GroupItem = ({ path, label, onAddField, ...props }: GroupItemProps) => {
     [onAddField, itemKey],
   );
   return (
-    <Tree.Item {...props} className={CSS.B("group-item")}>
-      {label({ groupKey: itemKey, path: `${path}.${itemKey}` })}
-      {!isPreview && (
+    <Tree.Item
+      {...props}
+      className={CSS.cls(
+        CSS.B("group-item"),
+        leaf && CSS.M("leaf"),
+        off && CSS.M("off"),
+      )}
+    >
+      {label({ groupKey: itemKey, path: groupPath })}
+      {!leaf && !isPreview && (
         <Button.Button
           onClick={handleAdd}
           variant="text"
@@ -144,16 +211,28 @@ const GroupItem = ({ path, label, onAddField, ...props }: GroupItemProps) => {
           <Icon.Add />
         </Button.Button>
       )}
+      {children}
     </Tree.Item>
+  );
+};
+
+const SwitchableGroupItem = (props: Omit<GroupItemProps, "off" | "children">) => {
+  const disabledPath = `${props.path}.${props.itemKey}.disabled`;
+  const disabled = Form.useFieldValue<boolean>(disabledPath);
+  return (
+    <GroupItem {...props} off={disabled}>
+      <EnabledCheckbox path={disabledPath} />
+    </GroupItem>
   );
 };
 
 interface FieldLabelProps extends Pick<Text.TextProps, "level"> {
   path: string;
+  emptyLabel: string;
 }
 
-/** Names a field by its pointer; an empty pointer reads as a new field. */
-const FieldLabel = ({ path, level }: FieldLabelProps) => {
+/** Names a field by its pointer, or by emptyLabel while the pointer is empty. */
+const FieldLabel = ({ path, level, emptyLabel }: FieldLabelProps) => {
   const pointer = Form.useFieldValue<string>(`${path}.pointer`);
   return (
     <Text.Text
@@ -163,23 +242,24 @@ const FieldLabel = ({ path, level }: FieldLabelProps) => {
       overflow="ellipsis"
       className={CSS.B("field-pointer")}
     >
-      {pointer === "" ? "New field" : pointer}
+      {pointer === "" ? emptyLabel : pointer}
     </Text.Text>
   );
 };
 
 interface FieldItemProps extends Tree.ItemRenderProps<string> {
   path: string;
+  emptyLabel: string;
 }
 
-const FieldItem = ({ path, ...props }: FieldItemProps) => {
+const FieldItem = ({ path, emptyLabel, ...props }: FieldItemProps) => {
   const disabled = Form.useFieldValue<boolean>(`${path}.disabled`);
   return (
     <Tree.Item
       {...props}
       className={CSS.cls(CSS.B("field-item"), disabled && CSS.M("off"))}
     >
-      <FieldLabel path={path} level="small" />
+      <FieldLabel path={path} level="small" emptyLabel={emptyLabel} />
       <EnabledCheckbox path={`${path}.disabled`} />
     </Tree.Item>
   );
@@ -193,17 +273,35 @@ const copyField = <F extends GroupField>(f: F, key: string = id.create()): F => 
   key,
 });
 
+/** Copies a group under fresh keys, without its channels. */
+const copyGroup = <F extends GroupField, G extends Group<F> | Leaf>(g: G): G => {
+  if (!isBranch<F>(g)) return { ...g, ...READ_CHANNEL_OVERRIDE, key: id.create() };
+  const keys = new Map(g.fields.map((f) => [f.key, id.create()]));
+  return {
+    ...g,
+    key: id.create(),
+    index: keys.get(g.index) ?? g.index,
+    fields: g.fields.map((f) => copyField(f, keys.get(f.key))),
+  };
+};
+
 /**
  * Lists groups with their fields beneath, beside the details of the selected one. A
  * group's index field is hidden from the tree; the group details edit it.
  */
-export const GroupTree = <G extends Group<F>, F extends GroupField>({
+export const GroupTree = <
+  G extends Group<F> | Omit<GroupField, "pointer">,
+  F extends GroupField,
+>({
   path = "config.groups",
   listTitle,
-  groupName,
+  emptyMessage,
   placeholder,
-  createGroup,
+  addLabel,
+  createGroups,
   createField,
+  emptyPointerLabel = "New field",
+  groupsSwitchable = false,
   groupLabel,
   groupDetails,
   fieldDetails,
@@ -212,6 +310,7 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
   const { nodes, entries } = useIndex<F>(path);
   const ctx = Form.useContext();
   const isPreview = useIsPreview();
+  const handleError = Status.useErrorHandler();
   const [initialExpanded] = useState(() => nodes.map(({ key }) => key));
   // A fold that hides the selected field moves the selection up to its group.
   const handleExpand = useCallback(
@@ -240,22 +339,31 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
   >(
     (keys, { clicked }) => {
       setSelected(keys);
-      if (clicked != null && entries.get(clicked)?.kind === "group") expand(clicked);
+      if (clicked == null) return;
+      const entry = entries.get(clicked);
+      if (entry?.kind === "group" && !entry.leaf) expand(clicked);
     },
     [entries, expand],
   );
 
-  const handleAddGroup = useCallback(() => {
-    const g = { ...createGroup(), key: id.create() } as G;
-    const groups = ctx.get<G[]>(path).value;
-    ctx.set(path, [...groups, g]);
-    setSelected([g.key]);
-    expand(g.key);
-  }, [ctx, expand, createGroup, path]);
+  const handleAddGroups = () =>
+    handleError(async () => {
+      const added = await createGroups();
+      if (added.length === 0) return;
+      const byKey = new Map(added.map((g) => [g.key, g]));
+      const groups = ctx.get<G[]>(path).value.map((g) => {
+        const replacement = byKey.get(g.key);
+        byKey.delete(g.key);
+        return replacement ?? g;
+      });
+      ctx.set(path, [...groups, ...byKey.values()]);
+      setSelected([added[0].key]);
+      for (const g of added) if (isBranch<F>(g)) expand(g.key);
+    });
 
   const handleAddField = useCallback(
     (groupKey: string) => {
-      const g = ctx.get<G>(`${path}.${groupKey}`).value;
+      const g = ctx.get<Group<F>>(`${path}.${groupKey}`).value;
       const shown = g.fields.filter((f) => isShown(g, f));
       const last = shown.at(-1);
       const field =
@@ -275,7 +383,11 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
         path,
         groups
           .filter((g) => !removed.has(g.key))
-          .map((g) => ({ ...g, fields: g.fields.filter((f) => !removed.has(f.key)) })),
+          .map((g) =>
+            isBranch<F>(g)
+              ? { ...g, fields: g.fields.filter((f) => !removed.has(f.key)) }
+              : g,
+          ),
       );
       // Selection moves to the nearest survivor in the visible list, below first.
       const visible = shape.keys;
@@ -298,26 +410,23 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
       const next: G[] = [];
       let first: string | null = null;
       for (const g of groups) {
-        const fields: F[] = [];
-        for (const f of g.fields) {
-          fields.push(f);
-          if (!chosen.has(f.key)) continue;
-          const copy = copyField(f);
-          first ??= copy.key;
-          fields.push(copy);
+        if (!isBranch<F>(g)) next.push(g);
+        else {
+          const fields: F[] = [];
+          for (const f of g.fields) {
+            fields.push(f);
+            if (!chosen.has(f.key)) continue;
+            const copy = copyField(f);
+            first ??= copy.key;
+            fields.push(copy);
+          }
+          next.push({ ...g, fields });
         }
-        next.push({ ...g, fields });
         if (!chosen.has(g.key)) continue;
-        const copiedKeys = new Map(g.fields.map((f) => [f.key, id.create()]));
-        const copy: G = {
-          ...g,
-          key: id.create(),
-          index: copiedKeys.get(g.index) ?? g.index,
-          fields: g.fields.map((f) => copyField(f, copiedKeys.get(f.key))),
-        };
+        const copy = copyGroup<F, G>(g);
         first ??= copy.key;
         next.push(copy);
-        expand(copy.key);
+        if (isBranch<F>(copy)) expand(copy.key);
       }
       ctx.set(path, next);
       if (first != null) setSelected([first]);
@@ -325,41 +434,33 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
     [ctx, expand, path],
   );
 
-  // Only fields carry a disabled flag; a group is dropped, never switched off.
-  const handleSetEnabled = useCallback(
-    (keys: string[], enabled: boolean) => {
-      for (const key of keys) {
-        const entry = entries.get(key);
-        if (entry?.kind === "field") ctx.set(`${entry.path}.disabled`, !enabled);
-      }
-    },
-    [ctx, entries],
-  );
-
   const menuProps = Menu.useContextMenu();
   const menuRenderProp = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps) => {
       const entry = keys.length === 1 ? entries.get(keys[0]) : undefined;
-      const fields = keys
-        .map((key) => entries.get(key))
-        .filter((e) => e?.kind === "field");
-      const disabledOf = (e: Entry) =>
-        ctx.get<boolean>(`${entryPath(path, e)}.disabled`).value;
+      const toggles = keys.flatMap((key) => {
+        const e = entries.get(key);
+        if (e == null || (e.kind === "group" && !groupsSwitchable)) return [];
+        const togglePath = `${entryPath(path, e)}.disabled`;
+        return [{ path: togglePath, disabled: ctx.get<boolean>(togglePath).value }];
+      });
+      const setEnabled = (enabled: boolean) =>
+        toggles.forEach((t) => ctx.set(t.path, !enabled));
       return (
         <ContextMenu
           keys={keys}
           onRemove={handleRemove}
           onDuplicate={handleDuplicate}
           onAddField={
-            entry?.kind === "group" ? () => handleAddField(entry.groupKey) : undefined
+            entry?.kind === "group" && !entry.leaf
+              ? () => handleAddField(entry.groupKey)
+              : undefined
           }
           onEnable={
-            fields.some(disabledOf) ? () => handleSetEnabled(keys, true) : undefined
+            toggles.some((t) => t.disabled) ? () => setEnabled(true) : undefined
           }
           onDisable={
-            fields.some((e) => !disabledOf(e))
-              ? () => handleSetEnabled(keys, false)
-              : undefined
+            toggles.some((t) => !t.disabled) ? () => setEnabled(false) : undefined
           }
         />
       );
@@ -368,10 +469,10 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
       ctx,
       entries,
       path,
+      groupsSwitchable,
       handleRemove,
       handleDuplicate,
       handleAddField,
-      handleSetEnabled,
     ],
   );
 
@@ -379,18 +480,27 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
     ({ key, ...p }: Tree.ItemRenderProps<string>) => {
       const entry = entries.get(p.itemKey);
       if (entry?.kind === "field")
-        return <FieldItem key={key} {...p} path={entry.path} />;
+        return (
+          <FieldItem
+            key={key}
+            {...p}
+            path={entry.path}
+            emptyLabel={emptyPointerLabel}
+          />
+        );
+      const Item = groupsSwitchable ? SwitchableGroupItem : GroupItem;
       return (
-        <GroupItem
+        <Item
           key={key}
           {...p}
           path={path}
+          leaf={entry?.leaf ?? false}
           label={groupLabel}
           onAddField={handleAddField}
         />
       );
     },
-    [entries, handleAddField, groupLabel, path],
+    [entries, handleAddField, groupLabel, emptyPointerLabel, path, groupsSwitchable],
   );
 
   const current = selected.length > 0 ? entries.get(selected[0]) : undefined;
@@ -407,7 +517,7 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
               itemHeight={TREE_ITEM_HEIGHT}
               className={CSS.cls(menuProps.className, CSS.B("group-tree"))}
               onContextMenu={menuProps.open}
-              emptyContent={<Empty.Action message={`No ${groupName}s`} />}
+              emptyContent={<Empty.Action message={emptyMessage} />}
               allowNone={false}
               autoSelectOnNone
             >
@@ -415,8 +525,8 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
             </Tree.Tree>
           </Menu.ContextMenu>
           {!isPreview && (
-            <PlatformButton.CreateListItem size="small" onClick={handleAddGroup}>
-              {`Add ${groupName}`}
+            <PlatformButton.CreateListItem size="small" onClick={handleAddGroups}>
+              {addLabel}
             </PlatformButton.CreateListItem>
           )}
         </>
@@ -429,7 +539,7 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
             path: `${path}.${current.groupKey}`,
           })
         ) : current?.kind === "field" ? (
-          <FieldLabel path={current.path} level="p" />
+          <FieldLabel path={current.path} level="p" emptyLabel={emptyPointerLabel} />
         ) : undefined
       }
     >
