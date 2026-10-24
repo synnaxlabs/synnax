@@ -18,14 +18,15 @@ import (
 	"github.com/cespare/xxhash/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
@@ -85,7 +86,7 @@ var _ = Describe("NewMigration", func() {
 			config.ServiceConfig[arctask.Config]{
 				DB:                 db,
 				Type:               "arc",
-				Version:            1,
+				Ladder:             arcversions.ConfigLadder,
 				SetEntryKey:        (*arctask.Config).SetKey,
 				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
 				ValidateEntry:      (*arctask.Config).Validate,

@@ -136,6 +136,7 @@ ReadConfig struct extends task.ReadConfig {
         configures an EtherCAT read task. Each channel addresses a PDO entry on its own
         slave; all slaves must share one network interface.
     """
+    @go imex    body
     @go marshal
     @go migrate
 }
@@ -157,12 +158,14 @@ WriteConfig struct extends task.PersistConfig {
         configures an EtherCAT write task. Each channel addresses a PDO entry on its own
         slave; all slaves must share one network interface.
     """
+    @go imex    body
     @go marshal
     @go migrate
 }
 
 ScanConfig struct extends task.ScanConfig {
     @doc value  "configures an EtherCAT scan task."
+    @go imex    body
     @go marshal
     @go migrate
 }

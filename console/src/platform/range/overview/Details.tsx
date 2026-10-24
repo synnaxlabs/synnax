@@ -146,7 +146,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               tooltip={`Copy Python code for ${name}`}
               tooltipLocation="bottom"
               variant="text"
-              successMessage={`Copied Python code for ${name} to clipboard`}
+              successMessage={{ message: "Copied Python code to clipboard", name }}
               textColor={9}
             >
               <Icon.Python />
@@ -156,7 +156,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               text={getTypeScriptCode}
               tooltip={`Copy TypeScript code for ${name}`}
               tooltipLocation="bottom"
-              successMessage={`Copied TypeScript code for ${name} to clipboard`}
+              successMessage={{ message: "Copied TypeScript code to clipboard", name }}
               textColor={9}
             >
               <Icon.TypeScript />

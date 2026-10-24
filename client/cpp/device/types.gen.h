@@ -68,18 +68,15 @@ struct Device {
     /// @brief name is a human-readable name for the device.
     std::string name;
     /// @brief configured indicates whether the device has been successfully configured
-    /// and
-    /// is ready for use.
+    /// and is ready for use.
     bool configured = false;
     /// @brief properties contains device-specific configuration properties stored as
-    /// JSON.
-    /// Structure varies by device make and model.
+    /// JSON. Structure varies by device make and model.
     x::json::json::object_t properties;
     /// @brief status is the current operational status of the device.
     std::optional<Status> status;
     /// @brief parent is an optional parent resource ID for hierarchical device
-    /// organization
-    /// (e.g., NI chassis containing modules).
+    /// organization (e.g., NI chassis containing modules).
     std::optional<::synnax::ontology::ID> parent;
 
     static Device parse(x::json::Parser parser);

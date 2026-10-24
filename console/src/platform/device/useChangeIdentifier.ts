@@ -19,9 +19,9 @@ export const { useUpdate: useChangeIdentifier } =
   Flux.createUpdate<ChangeIdentifierParams>({
     name: "device identifier",
     verbs: {
-      present: "change identifier",
-      past: "changed identifier",
-      participle: "changing identifier",
+      present: "change",
+      past: "changed",
+      participle: "changing",
     },
     update: async ({ client, data }) => {
       const { key, identifier } = data;

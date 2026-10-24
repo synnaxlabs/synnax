@@ -27,7 +27,7 @@ namespace fs = std::filesystem;
 namespace driver::daemon {
 const std::string SYSTEMD_SERVICE_PATH = "/etc/systemd/system/synnax-driver.service";
 
-auto SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
+const auto *const SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
 Description=Synnax Driver Service
 Documentation=https://docs.synnaxlabs.com/reference/enterprise/driver/install
 After=network-online.target
@@ -92,6 +92,7 @@ const std::string
 const std::string
     LATENCY_RULE = "KERNEL==\"cpu_dma_latency\", GROUP=\"synnax\", MODE=\"0660\"\n";
 
+// NOLINTBEGIN(bugprone-command-processor): each command is a fixed string.
 x::errors::Error apply_udev_rules() {
     if (system("udevadm control --reload") != 0)
         return x::errors::Error("Failed to reload udev rules");
@@ -288,4 +289,6 @@ x::errors::Error status() {
     if (result != 0) return x::errors::Error("Service is not running");
     return x::errors::NIL;
 }
+
+// NOLINTEND(bugprone-command-processor)
 }

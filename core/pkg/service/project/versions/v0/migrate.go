@@ -9,7 +9,7 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp"
 
 // Migration re-encodes stored workspaces from MessagePack to Orc.
 var Migration = gorp.CodecMigration[Key, Workspace]("msgpack_to_orc")

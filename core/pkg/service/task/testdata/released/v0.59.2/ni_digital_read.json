@@ -1,0 +1,28 @@
+{
+  "auto_start": true,
+  "data_saving_disabled": true,
+  "sample_rate": 543.5,
+  "stream_rate": 54.5,
+  "device": "fixture-ni-digital-read-device",
+  "channels": [
+    {
+      "key": "ch-di-0",
+      "name": "fixture_di_port0_line1",
+      "disabled": false,
+      "channel": 3010,
+      "port": 0,
+      "line": 1
+    },
+    {
+      "name": "fixture_di_port2_line3",
+      "disabled": true,
+      "channel": 3020,
+      "port": 2,
+      "line": 3,
+      "key": "ch-di-1"
+    }
+  ],
+  "name": "ni_digital_read",
+  "version": 2,
+  "type": "ni_digital_read"
+}

@@ -162,9 +162,9 @@ The channel value has these settings:
 | Setting                                   | Default   | Notes                                                |
 | ----------------------------------------- | --------- | ---------------------------------------------------- |
 | Pointer <small>`pointer`</small>          | Empty     | Where the value goes in the body.                    |
-| JSON type <small>`json_type`</small>      | Number    | Number, String, or Boolean.                          |
+| JSON type <small>`json_type`</small>      | Number    | Number, String, or Boolean. Not for timestamps.      |
 | Data type <small>`data_type`</small>      | `float64` | Used only when the Console creates the channel.      |
-| Time format <small>`time_format`</small>  |           | Required for a `timestamp` channel.                  |
+| Time format <small>`time_format`</small>  | `iso8601` | For a `timestamp` channel.                           |
 | Enum mapping <small>`enum_values`</small> | None      | String type only. Maps numbers to labels.            |
 | <small>`channel`</small>                  |           | The command channel. The Console creates it for you. |
 

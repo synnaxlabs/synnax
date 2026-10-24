@@ -28,6 +28,17 @@ bazel_dep(name = "protobuf", version = "36.2")
 bazel_dep(name = "rules_cc", version = "0.2.26")
 bazel_dep(name = "rules_proto_grpc_cpp", version = "5.8.0")
 
+# Runs clang-tidy as an aspect under --config=clang-tidy. The registry does not have it.
+bazel_dep(name = "bazel_clang_tidy", dev_dependency = True)
+bazel_dep(name = "rules_shell", version = "0.6.1", dev_dependency = True)
+
+archive_override(
+    module_name = "bazel_clang_tidy",
+    integrity = "sha256-ltpuk1zMkQRc+SjbxX8iUIonKcUff7P1YXgBew3rmzw=",
+    strip_prefix = "bazel_clang_tidy-c4d35e0d0b838309358e57a2efed831780f85cd0",
+    urls = ["https://github.com/erenon/bazel_clang_tidy/archive/c4d35e0d0b838309358e57a2efed831780f85cd0.tar.gz"],
+)
+
 single_version_override(
     module_name = "grpc",
     patch_strip = 1,

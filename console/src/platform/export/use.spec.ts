@@ -40,7 +40,10 @@ describe("Export.use", () => {
     await waitFor(() =>
       expect(
         result.current.notifications.statuses.some(
-          (s) => s.variant === "error" && s.message === "Failed to export My Plot",
+          (s) =>
+            s.variant === "error" &&
+            s.name === "My Plot" &&
+            s.message === "Failed to export",
         ),
       ).toBe(true),
     );

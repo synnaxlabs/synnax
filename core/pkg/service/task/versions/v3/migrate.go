@@ -16,13 +16,13 @@ import (
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/set"
 	"go.uber.org/zap"
@@ -134,7 +134,7 @@ func migrateConfigsToRecords(
 		}
 		// Stored blobs are all console-era, which every store's legacy rewrite
 		// handles as version 0.
-		converted, err := store.Normalize(0, t.Config)
+		converted, err := store.Normalize(ctx, 0, t.Config)
 		if err != nil {
 			if err := quarantine(
 				ctx, tx, ins, otgW, t, unconvertibleReason(err),

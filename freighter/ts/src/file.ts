@@ -21,9 +21,10 @@ export type UploadBody = ReadableStream<Uint8Array> | Blob | Uint8Array<ArrayBuf
 
 /**
  * The wire encodings a FileTransport can name. ZIP carries a flat archive of named
- * files; JSON carries a single value; CSV carries delimited text.
+ * files; JSON carries a single value; CSV carries delimited text; TDMS carries an NI
+ * TDMS file.
  */
-export type FileEncoding = "JSON" | "ZIP" | "CSV";
+export type FileEncoding = "JSON" | "ZIP" | "CSV" | "TDMS";
 
 /**
  * Options shared by FileTransport.upload and FileTransport.download. Carries the wire

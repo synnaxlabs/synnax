@@ -9,7 +9,7 @@
 
 import { type ontology, panel, project, query, ranger } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
-import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { color, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   act,
   render,
@@ -1346,6 +1346,40 @@ describe("Panel queries", () => {
         await ops.result.current.updateAsync({ key: created.key, name: "name-after" });
       });
       await waitFor(() => expect(result.current).toEqual("name-after"));
+    });
+
+    it("useIcon returns the icon and updates after a set", async () => {
+      const created = await createPanel();
+      const ops = await loadAndUse(created.key, () => Panel.useDispatch());
+      const { result } = await loadAndUse(created.key, () =>
+        Panel.useIcon({ key: created.key }),
+      );
+      expect(result.current).toBeUndefined();
+
+      await act(async () => {
+        await ops.result.current.dispatchAsync({
+          key: created.key,
+          actions: [panel.setIcon({ icon: "valve" })],
+        });
+      });
+      await waitFor(() => expect(result.current).toEqual("valve"));
+    });
+
+    it("useColor returns the color and updates after a set", async () => {
+      const created = await createPanel();
+      const ops = await loadAndUse(created.key, () => Panel.useDispatch());
+      const { result } = await loadAndUse(created.key, () =>
+        Panel.useColor({ key: created.key }),
+      );
+      expect(result.current).toBeUndefined();
+
+      await act(async () => {
+        await ops.result.current.dispatchAsync({
+          key: created.key,
+          actions: [panel.setColor({ color: "#dc136c" })],
+        });
+      });
+      await waitFor(() => expect(result.current).toEqual(color.construct("#dc136c")));
     });
 
     it("useTabLeaf returns the leaf holding the given tab", async () => {
