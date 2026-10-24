@@ -28,20 +28,28 @@ func (a Aggregation) PointsPerGroup() int64 {
 	return 1
 }
 
+// maxGroupSize caps group sizes, because a group never spans an alignment domain.
+const maxGroupSize = math.MaxUint32 - 1
+
 // GroupSize returns the number of samples per group that brings count samples under
-// limit points with the given aggregation. It returns 1, meaning no reduction, when
-// limit is zero or count already fits under limit. Min/max group sizes are always even.
-// The size caps at math.MaxUint32 - 1, because a group never spans an alignment domain.
+// limit points with the given aggregation. Each point stands for count / limit samples,
+// rounded up. It returns 1, meaning no reduction, when limit is zero or count already
+// fits under limit. The size caps at math.MaxUint32 - 1.
 func GroupSize(count int64, limit uint32, agg Aggregation) uint32 {
 	if limit == 0 || count <= int64(limit) {
 		return 1
 	}
-	groups := max(int64(limit)/agg.PointsPerGroup(), 1)
-	size := (count + groups - 1) / groups
-	if agg == AggregationMinMax {
-		size += size % 2
+	return agg.GroupSize(uint32(min((count-1)/int64(limit)+1, maxGroupSize)))
+}
+
+// GroupSize returns the group size of the aggregation for a read that decimation
+// reduces with groups of the given size under the same point limit. Min/max groups are
+// twice as large, because min/max keeps two points per group.
+func (a Aggregation) GroupSize(decimated uint32) uint32 {
+	if decimated <= 1 {
+		return 1
 	}
-	return uint32(min(size, math.MaxUint32-1))
+	return uint32(min(int64(decimated)*a.PointsPerGroup(), maxGroupSize))
 }
 
 // GroupStart returns the alignment of the first sample in the group that contains a.
