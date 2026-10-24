@@ -14,7 +14,6 @@ import {
   errors,
   MultiSeries,
   type Reduction,
-  type Series,
   Size,
   TimeRange,
   TimeSpan,
@@ -23,7 +22,7 @@ import {
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import { DEFAULT_BATCH_DEBOUNCE } from "@/framer/cache/reader";
+import { DEFAULT_BATCH_DEBOUNCE, type RemoteReader } from "@/framer/cache/reader";
 import { DEFAULT_STATIC_PROPS } from "@/framer/cache/static";
 import { IDENTITY_TRANSFORM, type Transform } from "@/framer/cache/transform";
 import { type Frame } from "@/framer/frame";
@@ -48,11 +47,6 @@ export interface TileSpec {
   end?: TimeStamp;
 }
 
-/** Reads the given channels over a time range with the given reduction. */
-export interface TileRemoteReader {
-  (tr: TimeRange, keys: channel.Key[], reduction: Reduction): Promise<Frame>;
-}
-
 /** @returns the span of every tile at the given level. */
 export const tileSpan = (level: number): TimeSpan =>
   new TimeSpan(TimeSpan.MILLISECOND.valueOf() << BigInt(level));
@@ -69,7 +63,7 @@ export const tileRange = ({ level, index, start, end }: TileSpec): TimeRange => 
 
 export interface TileReaderProps {
   /** Reads reduced tiles from the Core. */
-  readRemote: TileRemoteReader;
+  readRemote: RemoteReader;
   /** Applied to every series before it enters the cache. Defaults to identity. */
   transform?: Transform;
   /**
@@ -96,7 +90,7 @@ export interface TileReaderProps {
   fetchTimeout?: TimeSpan;
 }
 
-interface Entry {
+interface CacheEntry {
   series: MultiSeries;
   bytes: number;
   fetchedAt: TimeStamp;
@@ -107,8 +101,11 @@ const DEFAULT_BUDGET = Size.megabytes(128);
 const cacheKey = ({ key, level, index, pointLimit, aggregation }: TileSpec): string =>
   `${key}/${level}/${index}/${pointLimit}/${aggregation}`;
 
-// Reads that share bounds and options share one request.
-const batchKey = (spec: TileSpec): string => {
+/**
+ * @returns a key for the time range and reduction of the tile's read. Specs with equal
+ * keys differ at most in channel, so their reads share one request.
+ */
+export const tileRequestKey = (spec: TileSpec): string => {
   const { level, index, pointLimit, aggregation, start, end } = spec;
   return [level, index, pointLimit, aggregation, start?.valueOf(), end?.valueOf()].join(
     "/",
@@ -120,13 +117,12 @@ const held = (series: MultiSeries): boolean =>
 
 /**
  * Reads reduced tiles of channel data, caching each finished tile under a byte budget.
- * Tiles never merge with each other or with the alignment-keyed cache.
  */
 export class TileReader {
   private readonly props: Required<Omit<TileReaderProps, "batchDebounce">>;
   private readonly batcher: debounce.Batcher<TileSpec, MultiSeries>;
   // Map order is recency order: a hit moves its entry to the end.
-  private readonly entries = new Map<string, Entry>();
+  private readonly tiles = new Map<string, CacheEntry>();
   private readonly pending = new Map<string, Promise<MultiSeries>>();
   private readonly inFlight = new Set<Array<debounce.Entry<TileSpec, MultiSeries>>>();
   private bytes = 0;
@@ -148,11 +144,6 @@ export class TileReader {
     });
   }
 
-  /** @returns the total byte size of the cached tiles. */
-  get size(): Size {
-    return Size.bytes(this.bytes);
-  }
-
   /**
    * Reads the tile, serving it from the cache when a fresh copy is there.
    * @throws {UnexpectedError} if the reader is closed while the read is pending.
@@ -162,13 +153,13 @@ export class TileReader {
     if (this.closed) throw new UnexpectedError("tile reader is closed");
     if (spec.start != null || spec.end != null) return await this.batcher.enqueue(spec);
     const key = cacheKey(spec);
-    const entry = this.entries.get(key);
-    if (entry != null) {
-      this.remove(key, entry);
-      if (TimeStamp.since(entry.fetchedAt).lessThan(this.props.staleThreshold)) {
-        this.entries.set(key, entry);
-        this.bytes += entry.bytes;
-        return entry.series;
+    const cached = this.tiles.get(key);
+    if (cached != null) {
+      this.remove(key, cached);
+      if (TimeStamp.since(cached.fetchedAt).lessThan(this.props.staleThreshold)) {
+        this.tiles.set(key, cached);
+        this.bytes += cached.bytes;
+        return cached.series;
       }
     }
     const pending = this.pending.get(key);
@@ -186,18 +177,18 @@ export class TileReader {
 
   private insert(key: string, series: MultiSeries): void {
     const bytes = series.series.reduce((sum, s) => sum + s.byteLength.valueOf(), 0);
-    this.entries.set(key, { series, bytes, fetchedAt: TimeStamp.now() });
+    this.tiles.set(key, { series, bytes, fetchedAt: TimeStamp.now() });
     this.bytes += bytes;
     const budget = this.props.budget.valueOf();
-    for (const [k, e] of this.entries) {
+    for (const [k, t] of this.tiles) {
       if (this.bytes <= budget) break;
-      if (!held(e.series)) this.remove(k, e);
+      if (!held(t.series)) this.remove(k, t);
     }
   }
 
-  private remove(key: string, entry: Entry): void {
-    this.entries.delete(key);
-    this.bytes -= entry.bytes;
+  private remove(key: string, tile: CacheEntry): void {
+    this.tiles.delete(key);
+    this.bytes -= tile.bytes;
   }
 
   private async batchRead(
@@ -205,7 +196,7 @@ export class TileReader {
   ): Promise<void> {
     const groups = new Map<string, Array<debounce.Entry<TileSpec, MultiSeries>>>();
     entries.forEach((entry) => {
-      const key = batchKey(entry.req);
+      const key = tileRequestKey(entry.req);
       const group = groups.get(key);
       if (group == null) groups.set(key, [entry]);
       else group.push(entry);
@@ -228,16 +219,11 @@ export class TileReader {
         pointLimit: spec.pointLimit,
       });
       if (!this.inFlight.has(group)) return;
-      const grouped = new Map<channel.Key, Series[]>();
-      frame.forEach((k, s) => {
-        const key = k as channel.Key;
-        const converted = transform.convert(s);
-        const existing = grouped.get(key);
-        if (existing == null) grouped.set(key, [converted]);
-        else existing.push(converted);
-      });
       const results = new Map(
-        keys.map((key) => [key, new MultiSeries(grouped.get(key) ?? [])]),
+        keys.map((key) => [
+          key,
+          new MultiSeries(frame.get(key).series.map((s) => transform.convert(s))),
+        ]),
       );
       group.forEach(({ req, resolve }) => resolve(results.get(req.key)!));
     } catch (err) {
@@ -257,7 +243,8 @@ export class TileReader {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const deadline = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
-        const message = `tile read for ${tr.toString()} timed out after ${fetchTimeout.toString()}`;
+        const timeout = fetchTimeout.toString();
+        const message = `tile read for ${tr.toString()} timed out after ${timeout}`;
         reject(new Unreachable({ message }));
       }, fetchTimeout.milliseconds);
     });
@@ -283,7 +270,7 @@ export class TileReader {
     this.batcher.close(err);
     this.inFlight.forEach((group) => group.forEach(({ reject }) => reject(err)));
     this.inFlight.clear();
-    this.entries.clear();
+    this.tiles.clear();
     this.bytes = 0;
   }
 }
