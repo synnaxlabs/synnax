@@ -2884,6 +2884,19 @@ describe("remote", () => {
         ]);
       });
 
+      it("should release older tiles when the view returns to the live window", async () => {
+        const source = createLive();
+        await firstRead(source);
+        const older = view(75_000, 100_000, 1000);
+        source.value({ view: older });
+        await expect.poll(() => source.fetching()).toBe(false);
+        const tile = c.served.get(`14/4/${DATA_KEY}`)!;
+        expect(tile.series[0].refCount).toBe(1);
+        source.value({ view: view(95_000, 100_000, 1000) });
+        expect(tile.series[0].refCount).toBe(0);
+        source.cleanup();
+      });
+
       it("should bound a live index by the span before its latest sample", async () => {
         const source = createLive({ useIndexOfChannel: true });
         await firstRead(source);
