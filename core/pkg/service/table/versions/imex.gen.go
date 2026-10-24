@@ -17,11 +17,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v3"
 )
 
 // Latest is the portable schema version stamped on exported Table envelopes and the
 // highest version import accepts. It equals the resource's current schema version.
-const Latest = v2.Version
+const Latest = v3.Version
 
 // autoDecodeEnvelope decodes a server-exported envelope as its version's Table
 // shape and lifts it through the per-version migration chain to the current shape. A
@@ -37,9 +38,37 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		if err != nil {
 			return Table{}, err
 		}
-		return t2, nil
+		t3, err := v3.MigrateTable(ctx, t2)
+		if err != nil {
+			return Table{}, err
+		}
+		return t3, nil
 	case v2.Version:
+		t2, err := env.Decode[v2.Table](ctx)
+		if err != nil {
+			return Table{}, err
+		}
+		t3, err := v3.MigrateTable(ctx, t2)
+		if err != nil {
+			return Table{}, err
+		}
+		return t3, nil
+	case v3.Version:
 		return env.Decode[Table](ctx)
 	}
 	return Table{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
+}
+
+// liftFirst lifts the first exported Table shape to the current shape. A decoder
+// of an older shape builds the first exported shape and enters the ladder here.
+func liftFirst(ctx context.Context, t1 v1.Table) (Table, error) {
+	t2, err := v2.MigrateTable(ctx, t1)
+	if err != nil {
+		return Table{}, err
+	}
+	t3, err := v3.MigrateTable(ctx, t2)
+	if err != nil {
+		return Table{}, err
+	}
+	return t3, nil
 }

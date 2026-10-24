@@ -107,11 +107,13 @@ Properties find_pdo_slave() {
     };
 }
 
+/// @brief it should find no entry on a slave that has no entries.
 TEST(PropertiesFindPdo, ReturnsNulloptWhenEmpty) {
     Properties props;
     ASSERT_FALSE(props.find_pdo(0x6000, 1, true).has_value());
 }
 
+/// @brief it should find the input entry at an address.
 TEST(PropertiesFindPdo, ReturnsTheInputEntryAtAnAddress) {
     const auto result = find_pdo_slave().find_pdo(0x6000, 0x11, true);
     ASSERT_TRUE(result.has_value());
@@ -119,6 +121,7 @@ TEST(PropertiesFindPdo, ReturnsTheInputEntryAtAnAddress) {
     ASSERT_EQ(result->bit_length, 16);
 }
 
+/// @brief it should find the output entry at an address.
 TEST(PropertiesFindPdo, ReturnsTheOutputEntryAtAnAddress) {
     const auto result = find_pdo_slave().find_pdo(0x7000, 1, false);
     ASSERT_TRUE(result.has_value());
@@ -126,16 +129,19 @@ TEST(PropertiesFindPdo, ReturnsTheOutputEntryAtAnAddress) {
     ASSERT_EQ(result->bit_length, 8);
 }
 
+/// @brief it should find no entry at an address the slave does not have.
 TEST(PropertiesFindPdo, ReturnsNulloptForAnAddressTheSlaveDoesNotHave) {
     ASSERT_FALSE(find_pdo_slave().find_pdo(0x6010, 1, true).has_value());
     ASSERT_FALSE(find_pdo_slave().find_pdo(0x6000, 2, true).has_value());
 }
 
+/// @brief it should search only the entries of the given direction.
 TEST(PropertiesFindPdo, SearchesOnlyTheGivenDirection) {
     ASSERT_FALSE(find_pdo_slave().find_pdo(0x7000, 1, true).has_value());
     ASSERT_FALSE(find_pdo_slave().find_pdo(0x6000, 1, false).has_value());
 }
 
+/// @brief it should never find a padding entry.
 TEST(PropertiesFindPdo, NeverMatchesPadding) {
     ASSERT_FALSE(find_pdo_slave().find_pdo(0, 0, true).has_value());
 }
@@ -267,6 +273,7 @@ TEST(PropertiesToJson, SerializesAllFields) {
     ASSERT_EQ(j["pdos"]["outputs"][0]["name"], "Control");
 }
 
+/// @brief it should leave padding entries out of the JSON of a slave.
 TEST(PropertiesToJson, OmitsPaddingEntries) {
     Properties props{
         .input_pdos = {

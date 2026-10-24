@@ -17,6 +17,8 @@ export const pdoEntryZ = z.object({
   name: z.string(),
   /** pdoName is the name of the PDO that holds the entry, such as "Channel 1". */
   pdoName: z.string().optional(),
+  /** pdoIndex is the index of the PDO that holds the entry, such as 0x1A00. */
+  pdoIndex: z.number().optional(),
   /** index is the CoE object index. */
   index: z.number(),
   /** subIndex is the CoE object sub-index. */

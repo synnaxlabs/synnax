@@ -36,7 +36,10 @@
 #include "arc/cpp/stl/time/time.h"
 
 namespace arc::runtime {
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
+// printed so that a failing run can be replayed.
 std::mt19937 gen_rand = random_generator("Node Tests");
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 std::string random_name(const std::string &prefix) {
     std::uniform_int_distribution<> dis(10000, 99999);
@@ -560,7 +563,7 @@ struct AddProgram {
         const std::uint32_t domain,
         const std::vector<x::telem::TimeStamp> &stamps,
         const std::vector<float> &values
-    ) {
+    ) const {
         auto [src, err] = state->node(source);
         if (err) throw std::runtime_error(err.message());
         auto data = x::telem::Series(values);
@@ -585,13 +588,13 @@ struct AddProgram {
         return !changed_outputs.empty();
     }
 
-    [[nodiscard]] state::Series output() {
+    [[nodiscard]] state::Series output() const {
         auto [n, err] = state->node("add");
         if (err) throw std::runtime_error(err.message());
         return n.output(0);
     }
 
-    [[nodiscard]] state::Series output_time() {
+    [[nodiscard]] state::Series output_time() const {
         auto [n, err] = state->node("add");
         if (err) throw std::runtime_error(err.message());
         return n.output_time(0);
@@ -600,6 +603,7 @@ struct AddProgram {
 
 std::vector<x::telem::TimeStamp> seconds(const std::vector<int64_t> &values) {
     std::vector<x::telem::TimeStamp> out;
+    out.reserve(values.size());
     for (const auto v: values)
         out.emplace_back(v * x::telem::SECOND);
     return out;

@@ -85,13 +85,19 @@ class Engine {
         void push(const uint8_t *image, x::telem::TimeStamp time);
     };
 
-    /// @brief the entries of one writer, the last value it commanded for each, and the
+    struct Command {
+        x::telem::SampleValue value;
+        /// @brief the order of this command across all writers and stop values.
+        uint64_t seq;
+    };
+
+    /// @brief the entries of one writer, the last command it sent for each, and the
     /// value each takes when the writer closes.
     struct Output {
         std::vector<pdo::Entry> entries;
         x::telem::Rate rate;
         std::vector<pdo::Offset> offsets;
-        std::vector<std::optional<x::telem::SampleValue>> values;
+        std::vector<std::optional<Command>> commands;
         std::vector<x::telem::SampleValue> stop_values;
     };
 
@@ -99,7 +105,7 @@ class Engine {
     struct Parked {
         pdo::Entry entry;
         pdo::Offset offset;
-        x::telem::SampleValue value;
+        Command command;
     };
 
     /// @brief what the cycle thread reads each cycle: the bus rate and the readers due
@@ -134,6 +140,8 @@ class Engine {
     /// @brief the stop value of each entry a writer closed on. It holds until another
     /// writer commands the entry or the bus stops. Guarded by mu and write_mu.
     std::unordered_map<pdo::Key, Parked, pdo::KeyHash> parked;
+    /// @brief the seq of the latest command, guarded by write_mu.
+    uint64_t command_seq = 0;
 
     mutable std::mutex health_mu;
     std::vector<slave::Health> slave_health;
@@ -233,7 +241,7 @@ public:
     };
 
     /// @brief constructs an Engine with the given master and configuration.
-    explicit Engine(std::shared_ptr<master::Master> master, const Config &config);
+    explicit Engine(std::shared_ptr<master::Master> master, Config config);
 
     /// @brief constructs an Engine with the given master using default configuration.
     explicit Engine(std::shared_ptr<master::Master> master);

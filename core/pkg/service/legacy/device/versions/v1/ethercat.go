@@ -18,8 +18,8 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // EtherCATChannelMapMigration re-keys the channel maps that released Consoles stored on

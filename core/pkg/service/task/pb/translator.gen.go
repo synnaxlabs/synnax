@@ -47,11 +47,10 @@ func CommandFromPB(pb *Command) (task.Command, error) {
 		return r, nil
 	}
 	var err error
-	parsedTask, err := uuid.Parse(pb.Task)
+	r.Task, err = uuid.Parse(pb.Task)
 	if err != nil {
 		return task.Command{}, err
 	}
-	r.Task = task.Key(parsedTask)
 	r.Args = pb.Args.AsMap()
 	r.Type = pb.Type
 	r.Key = pb.Key
@@ -117,11 +116,10 @@ func StatusDetailsFromPB(
 		return r, nil
 	}
 	var err error
-	parsedTask, err := uuid.Parse(pb.Task)
+	r.Task, err = uuid.Parse(pb.Task)
 	if err != nil {
 		return task.StatusDetails{}, err
 	}
-	r.Task = task.Key(parsedTask)
 	r.Running = pb.Running
 	r.Cmd = pb.Cmd
 	r.ConfigHash = pb.ConfigHash
@@ -201,11 +199,10 @@ func TaskFromPB(
 		return r, nil
 	}
 	var err error
-	parsedKey, err := uuid.Parse(pb.Key)
+	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
 		return task.Task{}, err
 	}
-	r.Key = task.Key(parsedKey)
 	r.Config = pb.Config.AsMap()
 	r.Rack = rack.Key(pb.Rack)
 	r.Name = pb.Name

@@ -11,6 +11,7 @@
 #include <cmath>
 #include <format>
 #include <numeric>
+#include <utility>
 
 #include "absl/log/log.h"
 
@@ -204,7 +205,7 @@ void Engine::run() {
     x::loop::Timer timer;
     uint64_t receive_failures = 0;
     uint64_t send_failures = 0;
-    x::telem::TimeStamp sent_at;
+    x::telem::TimeStamp sent_at{};
 
     const auto send = [&] {
         sent_at = x::telem::TimeStamp::now();
@@ -380,6 +381,7 @@ void Engine::stop_locked() {
 
 std::vector<x::telem::Rate> Engine::read_rates_locked() const {
     std::vector<x::telem::Rate> rates;
+    rates.reserve(this->inputs.size());
     for (const auto &input: this->inputs)
         rates.push_back(input->rate);
     return rates;
@@ -387,6 +389,7 @@ std::vector<x::telem::Rate> Engine::read_rates_locked() const {
 
 std::vector<x::telem::Rate> Engine::write_rates_locked() const {
     std::vector<x::telem::Rate> rates;
+    rates.reserve(this->outputs.size());
     for (const auto &output: this->outputs)
         rates.push_back(output->rate);
     return rates;
@@ -434,28 +437,35 @@ void Engine::write_outputs(const bool wait) {
 }
 
 void Engine::rebuild_outputs_locked() {
-    std::ranges::fill(this->write_staging, 0);
-    for (const auto &[key, p]: this->parked)
-        telem::write_pdo_from_value(
-            this->write_staging.data() + p.offset.byte,
-            p.offset.bit,
-            p.entry.bit_length,
-            p.entry.data_type,
-            p.value
-        );
+    struct Applied {
+        const pdo::Entry *entry;
+        pdo::Offset offset;
+        const Command *command;
+    };
+    size_t count = this->parked.size();
     for (const auto &output: this->outputs)
-        for (size_t i = 0; i < output->entries.size(); ++i) {
-            if (!output->values[i]) continue;
-            const auto &entry = output->entries[i];
-            const auto &offset = output->offsets[i];
-            telem::write_pdo_from_value(
-                this->write_staging.data() + offset.byte,
-                offset.bit,
-                entry.bit_length,
-                entry.data_type,
-                *output->values[i]
-            );
-        }
+        count += output->entries.size();
+    std::vector<Applied> applied;
+    applied.reserve(count);
+    for (const auto &[key, p]: this->parked)
+        applied.push_back({&p.entry, p.offset, &p.command});
+    for (const auto &output: this->outputs)
+        for (size_t i = 0; i < output->entries.size(); ++i)
+            if (output->commands[i])
+                applied.push_back(
+                    {&output->entries[i], output->offsets[i], &*output->commands[i]}
+                );
+    // Writers and stop values can share an output, so the latest command lands last.
+    std::ranges::sort(applied, {}, [](const Applied &a) { return a.command->seq; });
+    std::ranges::fill(this->write_staging, 0);
+    for (const auto &[entry, offset, command]: applied)
+        telem::write_pdo_from_value(
+            this->write_staging.data() + offset.byte,
+            offset.bit,
+            entry->bit_length,
+            entry->data_type,
+            command->value
+        );
 }
 
 x::errors::Error Engine::cycle_error() const {
@@ -478,7 +488,11 @@ void Engine::close_output(const std::shared_ptr<Output> &output) {
             const auto &e = output->entries[i];
             this->parked.insert_or_assign(
                 pdo::Key{e.slave_position, e.index, e.sub_index, e.is_input},
-                Parked{e, output->offsets[i], output->stop_values[i]}
+                Parked{
+                    e,
+                    output->offsets[i],
+                    Command{output->stop_values[i], ++this->command_seq}
+                }
             );
         }
         this->rebuild_outputs_locked();
@@ -486,8 +500,8 @@ void Engine::close_output(const std::shared_ptr<Output> &output) {
     this->reschedule_locked();
 }
 
-Engine::Engine(std::shared_ptr<master::Master> master, const Config &config):
-    config(config), master(std::move(master)) {}
+Engine::Engine(std::shared_ptr<master::Master> master, Config config):
+    config(std::move(config)), master(std::move(master)) {}
 
 Engine::Engine(std::shared_ptr<master::Master> master):
     Engine(std::move(master), Config{}) {}
@@ -573,7 +587,7 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         .entries = entries,
         .rate = execution_rate,
         .offsets = std::move(offsets),
-        .values = std::vector<std::optional<x::telem::SampleValue>>(entries.size()),
+        .commands = std::vector<std::optional<Command>>(entries.size()),
         .stop_values = stop_values,
     });
     this->outputs.push_back(output);

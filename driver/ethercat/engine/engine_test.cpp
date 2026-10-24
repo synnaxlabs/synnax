@@ -101,6 +101,8 @@ protected:
     }
 };
 
+/// @brief it should decode 16-bit, 32-bit, 24-bit, and 4-bit input entries into samples
+/// of their data types.
 TEST_F(EngineTest, ReadDecodesEachEntryType) {
     this->master->set_input<int16_t>(I16_BYTE, 0x1234);
     this->master->set_input<int32_t>(I32_BYTE, static_cast<int32_t>(0xDEADBEEF));
@@ -126,6 +128,7 @@ TEST_F(EngineTest, ReadDecodesEachEntryType) {
     EXPECT_EQ(times.size(), 1);
 }
 
+/// @brief it should read entries from more than one slave into one frame.
 TEST_F(EngineTest, ReadCollectsEntriesFromSeveralSlaves) {
     this->master->add_slave(io_slave(1));
     this->master->set_input<int16_t>(I16_BYTE, 1);
@@ -140,6 +143,8 @@ TEST_F(EngineTest, ReadCollectsEntriesFromSeveralSlaves) {
     EXPECT_EQ(frame.series->at(1).at<int16_t>(0), 2);
 }
 
+/// @brief it should return one sample for each sample period, each with the time of its
+/// cycle.
 TEST_F(EngineTest, ReadReturnsOneSamplePerPeriodWithItsCycleTime) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 10)
@@ -163,6 +168,8 @@ TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {
     EXPECT_EQ(frame.series->at(0).size(), 0);
 }
 
+/// @brief it should give a slower reader samples at its own rate while a faster reader
+/// sets the bus rate.
 TEST_F(EngineTest, SlowerReaderGetsSamplesAtItsOwnRate) {
     const auto fast = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(1000), 1)
@@ -177,6 +184,8 @@ TEST_F(EngineTest, SlowerReaderGetsSamplesAtItsOwnRate) {
     EXPECT_GE(span, x::telem::MILLISECOND * 20);
 }
 
+/// @brief it should encode values into 16-bit, 32-bit, 24-bit, and 4-bit output
+/// entries.
 TEST_F(EngineTest, WriteEncodesEachEntryType) {
     const auto writer = ASSERT_NIL_P(this->engine->open_writer(
         {OUT_I16, OUT_I32, OUT_I24, OUT_U4},
@@ -198,6 +207,8 @@ TEST_F(EngineTest, WriteEncodesEachEntryType) {
     EXPECT_EQ(this->master->get_output<uint8_t>(U4_BYTE) & 0x0F, 0x0F);
 }
 
+/// @brief it should return a PDO mapping error when a write names an index past the
+/// writer's entries.
 TEST_F(EngineTest, WriteToUnknownIndexReturnsError) {
     const auto writer = ASSERT_NIL_P(
         this->engine->open_writer({OUT_I16}, x::telem::Rate(100), {0})
@@ -207,6 +218,8 @@ TEST_F(EngineTest, WriteToUnknownIndexReturnsError) {
     EXPECT_EQ(err.data, "output index 1 is out of range for 1 registered entries");
 }
 
+/// @brief it should set the outputs of a closed writer to its stop values and hold them
+/// while the bus keeps running.
 TEST_F(EngineTest, ClosedWriterHoldsItsStopValuesWhileTheBusRuns) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 3)
@@ -225,6 +238,55 @@ TEST_F(EngineTest, ClosedWriterHoldsItsStopValuesWhileTheBusRuns) {
     EXPECT_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
 }
 
+/// @brief it should keep the latest command on an output that two writers share when a
+/// third writer closes.
+TEST_F(EngineTest, ClosingAWriterKeepsTheLatestCommandOnASharedOutput) {
+    auto first = ASSERT_NIL_P(
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(100), {0})
+    );
+    auto second = ASSERT_NIL_P(
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(100), {0})
+    );
+    auto third = ASSERT_NIL_P(
+        this->engine->open_writer({OUT_I32}, x::telem::Rate(100), {0})
+    );
+    ASSERT_NIL(second->write(0, static_cast<int16_t>(10)));
+    ASSERT_NIL(first->write(0, static_cast<int16_t>(20)));
+    ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), 20);
+
+    third.reset();
+    // The second sample comes from a cycle after the first one wrote its outputs.
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    for (int i = 0; i < 2; ++i) {
+        auto frame = frame_of({x::telem::INT16_T}, 1);
+        x::telem::Series times(x::telem::TIMESTAMP_T, 1);
+        ASSERT_NIL(reader->read(this->brk, frame, times));
+    }
+    EXPECT_EQ(this->master->get_output<int16_t>(I16_BYTE), 20);
+}
+
+/// @brief it should set a shared output to the stop value of a writer that closes after
+/// another writer commanded the output.
+TEST_F(EngineTest, StopValueOutranksAnEarlierCommandOnASharedOutput) {
+    auto first = ASSERT_NIL_P(
+        this->engine->open_writer({OUT_I16}, x::telem::Rate(100), {0})
+    );
+    auto second = ASSERT_NIL_P(this->engine->open_writer(
+        {OUT_I16},
+        x::telem::Rate(100),
+        {static_cast<int16_t>(-7)}
+    ));
+    ASSERT_NIL(first->write(0, static_cast<int16_t>(20)));
+    ASSERT_NIL(second->write(0, static_cast<int16_t>(10)));
+    ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), 10);
+    second.reset();
+    ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
+}
+
+/// @brief it should send the stop values before the bus stops when the last writer
+/// closes.
 TEST_F(EngineTest, LastWriterToCloseSendsItsStopValuesBeforeTheBusStops) {
     auto writer = ASSERT_NIL_P(this->engine->open_writer(
         {OUT_I16},
@@ -238,6 +300,8 @@ TEST_F(EngineTest, LastWriterToCloseSendsItsStopValuesBeforeTheBusStops) {
     EXPECT_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
 }
 
+/// @brief it should keep the stop value a closed writer left on an output until a new
+/// writer commands the output.
 TEST_F(EngineTest, WriterKeepsTheStopValueAnotherWriterLeftUntilItCommands) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 3)
@@ -259,6 +323,8 @@ TEST_F(EngineTest, WriterKeepsTheStopValueAnotherWriterLeftUntilItCommands) {
     ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), 0);
 }
 
+/// @brief it should reject a writer whose stop values do not match its entries one to
+/// one.
 TEST_F(EngineTest, StopValuesMustMatchTheEntries) {
     ASSERT_OCCURRED_AS_P(
         this->engine->open_writer(
@@ -271,6 +337,8 @@ TEST_F(EngineTest, StopValuesMustMatchTheEntries) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should keep the sample spacing of a reader while writers open and close
+/// and change the bus rate.
 TEST_F(EngineTest, ReaderKeepsItsSpacingWhileTheBusRateChanges) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(20), 20)
@@ -300,6 +368,8 @@ TEST_F(EngineTest, ReaderKeepsItsSpacingWhileTheBusRateChanges) {
         );
 }
 
+/// @brief it should reject a reader with a sample rate below 0.001 Hz and not start the
+/// bus.
 TEST_F(EngineTest, ReadRateBelowOneMillihertzIsRejected) {
     ASSERT_OCCURRED_AS_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(0.0001), 1),
@@ -308,6 +378,8 @@ TEST_F(EngineTest, ReadRateBelowOneMillihertzIsRejected) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should open a task without a restart of the bus or a change to the outputs
+/// of other tasks.
 TEST_F(EngineTest, OpeningATaskKeepsTheBusRunning) {
     const auto writer = ASSERT_NIL_P(
         this->engine->open_writer({OUT_I16}, x::telem::Rate(100), {0})
@@ -323,6 +395,8 @@ TEST_F(EngineTest, OpeningATaskKeepsTheBusRunning) {
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
 }
 
+/// @brief it should close a task without a restart of the bus or a gap in the samples
+/// of other tasks.
 TEST_F(EngineTest, ClosingATaskKeepsTheBusRunning) {
     const auto kept = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
@@ -337,6 +411,7 @@ TEST_F(EngineTest, ClosingATaskKeepsTheBusRunning) {
     EXPECT_EQ(this->read_times(*kept, 1).size(), 1);
 }
 
+/// @brief it should stop the bus and deactivate the master when the last task closes.
 TEST_F(EngineTest, BusStopsWhenTheLastTaskCloses) {
     auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
@@ -347,6 +422,8 @@ TEST_F(EngineTest, BusStopsWhenTheLastTaskCloses) {
     EXPECT_EQ(this->master->call_count("deactivate"), 1);
 }
 
+/// @brief it should reject an entry that is not in the process image and not start the
+/// bus.
 TEST_F(EngineTest, EntryOutsideTheImageIsRejected) {
     const auto res = this->engine->open_reader(
         {pdo::Entry(0, 0x9999, 1, 16, true, x::telem::INT16_T)},
@@ -358,6 +435,7 @@ TEST_F(EngineTest, EntryOutsideTheImageIsRejected) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should keep the bus running when it rejects the entry of a new task.
 TEST_F(EngineTest, RejectedEntryLeavesTheRunningBusUp) {
     const auto writer = ASSERT_NIL_P(
         this->engine->open_writer({OUT_I16}, x::telem::Rate(100), {0})
@@ -374,6 +452,8 @@ TEST_F(EngineTest, RejectedEntryLeavesTheRunningBusUp) {
     EXPECT_EQ(this->master->call_count("activate"), 1);
 }
 
+/// @brief it should reject an entry on a disabled slave, because the slave is not in
+/// the process image.
 TEST_F(EngineTest, DisabledSlaveIsNotMapped) {
     this->master->add_slave(io_slave(1));
     this->engine->set_slave_enabled(1, false);
@@ -394,6 +474,8 @@ TEST_F(EngineTest, InitializeErrorPropagates) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should retry activation of the master until it succeeds, then open the
+/// task.
 TEST_F(EngineTest, StartRetriesUntilActivationSucceeds) {
     this->master->inject_activate_error(
         x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
@@ -411,6 +493,8 @@ TEST_F(EngineTest, StartRetriesUntilActivationSucceeds) {
     EXPECT_TRUE(this->engine->running());
 }
 
+/// @brief it should return a temporary error while bus cycles fail, and return samples
+/// again when the cycles recover.
 TEST_F(EngineTest, FailedCyclesReturnATemporaryError) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
@@ -431,6 +515,7 @@ TEST_F(EngineTest, FailedCyclesReturnATemporaryError) {
     ASSERT_EVENTUALLY_NIL(reader->read(this->brk, frame, times));
 }
 
+/// @brief it should report the samples that failed cycles dropped as a warning.
 TEST_F(EngineTest, DroppedSamplesFromFailedCyclesAreAWarning) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
@@ -449,6 +534,8 @@ TEST_F(EngineTest, DroppedSamplesFromFailedCyclesAreAWarning) {
     EXPECT_EQ(reader->warning(), "");
 }
 
+/// @brief it should report the samples a reader dropped because it fell behind the bus
+/// as a warning.
 TEST_F(EngineTest, ReaderThatFallsBehindGetsAWarning) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
@@ -464,6 +551,8 @@ TEST_F(EngineTest, ReaderThatFallsBehindGetsAWarning) {
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
 }
 
+/// @brief it should run the bus at the minimum rate of 100 Hz when every task is
+/// slower.
 TEST_F(EngineTest, SlowTasksRunTheBusAtTheMinimumRate) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(10), 1)
@@ -471,6 +560,7 @@ TEST_F(EngineTest, SlowTasksRunTheBusAtTheMinimumRate) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
 }
 
+/// @brief it should run the bus at the least common multiple of the read rates.
 TEST_F(EngineTest, BusRateIsTheCommonMultipleOfReadRates) {
     const auto a = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(300), 1)
@@ -481,6 +571,8 @@ TEST_F(EngineTest, BusRateIsTheCommonMultipleOfReadRates) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(600));
 }
 
+/// @brief it should run the bus at the smallest multiple of the read rates that is at
+/// least the rate of the fastest writer.
 TEST_F(EngineTest, BusRateCoversTheFastestWriter) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
@@ -491,6 +583,8 @@ TEST_F(EngineTest, BusRateCoversTheFastestWriter) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(300));
 }
 
+/// @brief it should reject a reader when no bus rate up to the maximum is a multiple of
+/// every read rate.
 TEST_F(EngineTest, ReadRatesWithoutASmallCommonMultipleAreRejected) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(997), 1)
@@ -506,6 +600,8 @@ TEST_F(EngineTest, ReadRatesWithoutASmallCommonMultipleAreRejected) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(997));
 }
 
+/// @brief it should reject a writer faster than the maximum bus rate and not start the
+/// bus.
 TEST_F(EngineTest, WriterAboveTheMaximumRateIsRejected) {
     const auto res = this->engine->open_writer({OUT_I16}, x::telem::Rate(20000), {0});
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
@@ -516,6 +612,8 @@ TEST_F(EngineTest, WriterAboveTheMaximumRateIsRejected) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should slow the bus down when the fastest task closes, and keep the sample
+/// spacing of the open readers.
 TEST_F(EngineTest, BusSlowsDownWhenAFasterTaskCloses) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 5)
@@ -532,6 +630,8 @@ TEST_F(EngineTest, BusSlowsDownWhenAFasterTaskCloses) {
     EXPECT_GE(span, x::telem::MILLISECOND * 20);
 }
 
+/// @brief it should report the health of each enabled slave and leave out disabled
+/// slaves.
 TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
     this->master->add_slave(io_slave(1));
     this->engine->set_slave_enabled(1, false);
@@ -545,6 +645,8 @@ TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
     );
 }
 
+/// @brief it should report a faulted slave in its health, then return the slave to OP
+/// while the bus keeps running.
 TEST_F(EngineTest, FaultedSlaveReturnsToOpWhileTheBusRuns) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
@@ -569,6 +671,7 @@ TEST_F(EngineTest, FaultedSlaveReturnsToOpWhileTheBusRuns) {
     EXPECT_EQ(this->master->call_count("activate"), 1);
 }
 
+/// @brief it should report no health when the bus stops.
 TEST_F(EngineTest, HealthIsEmptyWhenTheBusStops) {
     auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
@@ -578,6 +681,8 @@ TEST_F(EngineTest, HealthIsEmptyWhenTheBusStops) {
     EXPECT_TRUE(this->engine->health().empty());
 }
 
+/// @brief it should keep the outputs and samples of running tasks correct while other
+/// tasks open and close.
 TEST_F(EngineTest, TasksOpenAndCloseWithoutDisturbingRunningOnes) {
     const auto writer = ASSERT_NIL_P(
         this->engine->open_writer({OUT_I16}, x::telem::Rate(100), {0})

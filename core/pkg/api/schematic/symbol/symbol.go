@@ -12,6 +12,7 @@ package symbol
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
@@ -22,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/zip"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Service is the API for schematic symbols and the groups that hold them. It enforces
