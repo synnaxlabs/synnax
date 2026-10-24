@@ -11,17 +11,17 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
+import "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
 
 // TabKey uniquely identifies a tab within a panel.
-type TabKey = v1.TabKey
+type TabKey = v2.TabKey
 
 // TabBase carries the identity shared by every tab variant.
-type TabBase = v1.TabBase
+type TabBase = v2.TabBase
 
 // View is an inline, self-describing view with no backing Core document. Used for
 // app-views and tools (docs, explorers, task forms, and the selector pickers).
-type View = v1.View
+type View = v2.View
 
 // Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
 // backing Core document, e.g. a line plot) or a view (an inline, self-describing
@@ -29,50 +29,50 @@ type View = v1.View
 // picker; SetTabResource or SetTabView swaps content in place. Display attributes
 // (name, icon, closability) are resolved at render time from the content. A resource
 // may back at most one tab per panel; views may repeat.
-type Tab = v1.Tab
-type TabVariant = v1.TabVariant
-type TabType = v1.TabType
+type Tab = v2.Tab
+type TabVariant = v2.TabVariant
+type TabType = v2.TabType
 
 const (
 	// ResourceTabType is a tab displaying a backing Core document.
-	ResourceTabType TabType = v1.ResourceTabType
+	ResourceTabType TabType = v2.ResourceTabType
 	// ViewTabType is a tab displaying an inline, self-describing view. Unlike a
 	// resource, a view has no backing Core document: its type alone selects the
 	// renderer. Used for app-views and tools (docs, explorers, task forms, and the
 	// selector pickers).
-	ViewTabType TabType = v1.ViewTabType
+	ViewTabType TabType = v2.ViewTabType
 )
 
 // ResourceTab is a tab displaying a backing Core document.
-type ResourceTab = v1.ResourceTab
+type ResourceTab = v2.ResourceTab
 
 // ViewTab is a tab displaying an inline, self-describing view. Unlike a resource, a
 // view has no backing Core document: its type alone selects the renderer. Used for
 // app-views and tools (docs, explorers, task forms, and the selector pickers).
-type ViewTab = v1.ViewTab
+type ViewTab = v2.ViewTab
 
 // Node is a node in the panel tree: either a leaf displaying a tab strip or an interior
 // split. Nodes are identified by path-derived numeric keys during traversal (1 = root,
 // 2k = first child, 2k+1 = last child).
-type Node = v1.Node
-type NodeVariant = v1.NodeVariant
-type NodeType = v1.NodeType
+type Node = v2.Node
+type NodeVariant = v2.NodeVariant
+type NodeType = v2.NodeType
 
 const (
 	// LeafNodeType is a leaf node in the panel tree displaying a tab strip.
-	LeafNodeType NodeType = v1.LeafNodeType
+	LeafNodeType NodeType = v2.LeafNodeType
 	// SplitNodeType is an interior split node dividing its area between two children.
-	SplitNodeType NodeType = v1.SplitNodeType
+	SplitNodeType NodeType = v2.SplitNodeType
 )
 
 // LeafNode is a leaf node in the panel tree displaying a tab strip.
-type LeafNode = v1.LeafNode
+type LeafNode = v2.LeafNode
 
 // SplitNode is an interior split node dividing its area between two children.
-type SplitNode = v1.SplitNode
+type SplitNode = v2.SplitNode
 
 // Key is a unique identifier for a panel, represented as a UUID.
-type Key = v1.Key
+type Key = v2.Key
 
 // Panel is a project-owned tree of visualization tabs.
-type Panel = v1.Panel
+type Panel = v2.Panel

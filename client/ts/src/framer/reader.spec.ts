@@ -808,4 +808,35 @@ describe("Reader", () => {
       expect(sparseRows).toBe(sparseSamples);
     }, 60_000);
   });
+  describe("TDMS", () => {
+    it("should export the channels and their index as a TDMS file", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(1),
+        channels: [index.key, data.key],
+      });
+      await writer.write({
+        [index.key]: [TimeStamp.seconds(1), TimeStamp.seconds(2)],
+        [data.key]: [10, 20],
+      });
+      await writer.commit();
+      await writer.close();
+      const stream = await client.readTDMS(
+        { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
+        [data.key],
+      );
+      const file = await streamToString(stream);
+      expect(file.startsWith("TDSm")).toBe(true);
+      expect(file).toContain(`/'${index.name}'/'${data.name}'`);
+    });
+  });
 });

@@ -7,10 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/lyra/icon";
+package v2_test
 
-import { Tree } from "@/platform/tree";
+import (
+	"testing"
 
-const TreeItem = Tree.createItem({ type: "panel", icon: <Icon.Panel /> });
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
 
-export const TREE_ITEMS: Tree.Items = { panel: TreeItem };
+func TestModbusV2(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Modbus v2 Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
