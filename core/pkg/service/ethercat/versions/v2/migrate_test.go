@@ -19,7 +19,6 @@ import (
 	"github.com/samber/lo"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -27,58 +26,39 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-type pdoEntry struct {
-	name     string
-	index    uint16
-	subIndex uint8
-	dataType string
-}
-
-func slaveProperties(inputs, outputs []pdoEntry) msgpack.EncodedJSON {
-	list := func(entries []pdoEntry) []any {
-		return lo.Map(entries, func(e pdoEntry, _ int) any {
-			return map[string]any{
-				"name":       e.name,
-				"index":      e.index,
-				"sub_index":  e.subIndex,
-				"bit_length": 8,
-				"data_type":  e.dataType,
-			}
-		})
-	}
-	return msgpack.EncodedJSON{
-		"pdos": map[string]any{"inputs": list(inputs), "outputs": list(outputs)},
-	}
-}
-
-// el1008 has eight entries named "Input", one per PDO.
-func el1008() msgpack.EncodedJSON {
-	inputs := make([]pdoEntry, 8)
+// createEL1008 creates a slave with eight entries named "Input", one per PDO.
+func createEL1008() v2.Slave {
+	inputs := make([]v2.Entry, 8)
 	for i := range inputs {
-		inputs[i] = pdoEntry{
-			name:     "Input",
-			index:    0x6000 + uint16(i)*0x10,
-			subIndex: 1,
-			dataType: "uint8",
+		inputs[i] = v2.Entry{
+			Name:     "Input",
+			Index:    0x6000 + uint16(i)*0x10,
+			SubIndex: 1,
+			DataType: "uint8",
 		}
 	}
-	return slaveProperties(inputs, nil)
+	return v2.Slave{Inputs: inputs}
 }
 
-// mixed lists "Sync error" twice at one address and "Repeated" at two addresses.
-func mixed() msgpack.EncodedJSON {
-	return slaveProperties(
-		[]pdoEntry{
-			{name: "Value", index: 0x6000, subIndex: 0x11, dataType: "int16"},
-			{name: "Sync error", index: 0x1C32, subIndex: 0x20, dataType: "uint8"},
-			{name: "Sync error", index: 0x1C32, subIndex: 0x20, dataType: "uint8"},
+// createMixed creates a slave that lists "Sync error" twice at one address and
+// "Repeated" at two addresses.
+func createMixed() v2.Slave {
+	return v2.Slave{
+		Inputs: []v2.Entry{
+			{Name: "Value", Index: 0x6000, SubIndex: 0x11, DataType: "int16"},
+			{Name: "Sync error", Index: 0x1C32, SubIndex: 0x20, DataType: "uint8"},
+			{Name: "Sync error", Index: 0x1C32, SubIndex: 0x20, DataType: "uint8"},
 		},
-		[]pdoEntry{
-			{name: "Output", index: 0x7000, subIndex: 1, dataType: "uint8"},
-			{name: "Repeated", index: 0x7010, subIndex: 1, dataType: "uint8"},
-			{name: "Repeated", index: 0x7020, subIndex: 1, dataType: "uint8"},
+		Outputs: []v2.Entry{
+			{Name: "Output", Index: 0x7000, SubIndex: 1, DataType: "uint8"},
+			{Name: "Repeated", Index: 0x7010, SubIndex: 1, DataType: "uint8"},
+			{Name: "Repeated", Index: 0x7020, SubIndex: 1, DataType: "uint8"},
 		},
-	)
+	}
+}
+
+func failLookup(context.Context, gorp.Tx, []string) (map[string]v2.Slave, error) {
+	return nil, errors.New("lookup failed")
 }
 
 func unresolvedRead(device, pdo string) v2.ReadChannel {
@@ -118,23 +98,19 @@ func automaticWrite(device, pdo string) v1.WriteChannel {
 var _ = Describe("Migrate", func() {
 	var (
 		requested [][]string
-		props     map[string]msgpack.EncodedJSON
+		stored    map[string]v2.Slave
 	)
-	devices := func(
+	slaves := func(
 		_ context.Context,
 		_ gorp.Tx,
 		keys []string,
-	) (map[string]msgpack.EncodedJSON, error) {
+	) (map[string]v2.Slave, error) {
 		requested = append(requested, keys)
-		return lo.PickByKeys(props, keys), nil
+		return lo.PickByKeys(stored, keys), nil
 	}
 	BeforeEach(func() {
 		requested = nil
-		props = map[string]msgpack.EncodedJSON{
-			"el1008":    el1008(),
-			"mixed":     mixed(),
-			"malformed": {"pdos": "garbage"},
-		}
+		stored = map[string]v2.Slave{"el1008": createEL1008(), "mixed": createMixed()}
 	})
 
 	Describe("MigrateReadChannel", func() {
@@ -238,7 +214,7 @@ var _ = Describe("Migrate", func() {
 		resolveRead := func(ctx SpecContext, channels ...v2.ReadChannel) v2.ReadConfig {
 			GinkgoHelper()
 			cfg := v2.ReadConfig{Channels: channels}
-			Expect(v2.ResolveReadConfig(ctx, nil, devices, &cfg)).To(Succeed())
+			Expect(v2.ResolveReadConfig(ctx, nil, slaves, &cfg)).To(Succeed())
 			return cfg
 		}
 
@@ -283,7 +259,7 @@ var _ = Describe("Migrate", func() {
 			ctx SpecContext,
 		) {
 			entry := v2.ReadChannel{Variant: v2.EntryReadChannel{
-				BaseReadChannel: v1.BaseReadChannel{Key: "k", Device: "malformed"},
+				BaseReadChannel: v1.BaseReadChannel{Key: "k", Device: "mixed"},
 				Index:           0x6010,
 				SubIndex:        2,
 				DataType:        "float32",
@@ -302,30 +278,12 @@ var _ = Describe("Migrate", func() {
 			Expect(requested).To(Equal([][]string{{"mixed", "el1008"}}))
 		})
 
-		It("Should reject a referenced device with malformed properties", func(
-			ctx SpecContext,
-		) {
-			cfg := v2.ReadConfig{
-				Channels: []v2.ReadChannel{unresolvedRead("malformed", "Value")},
-			}
-			Expect(v2.ResolveReadConfig(ctx, nil, devices, &cfg)).To(SatisfyAll(
-				MatchError(ContainSubstring("device malformed properties: json: ")),
-				MatchError(ContainSubstring(`within "/pdos"`)),
-			))
-		})
-
 		It("Should return the error of the device lookup", func(ctx SpecContext) {
 			cfg := v2.ReadConfig{
 				Channels: []v2.ReadChannel{unresolvedRead("mixed", "Value")},
 			}
-			Expect(v2.ResolveReadConfig(
-				ctx,
-				nil,
-				func(context.Context, gorp.Tx, []string) (map[string]msgpack.EncodedJSON, error) {
-					return nil, errors.New("lookup failed")
-				},
-				&cfg,
-			)).To(MatchError("lookup failed"))
+			Expect(v2.ResolveReadConfig(ctx, nil, failLookup, &cfg)).
+				To(MatchError("lookup failed"))
 		})
 	})
 
@@ -336,7 +294,7 @@ var _ = Describe("Migrate", func() {
 		) v2.WriteConfig {
 			GinkgoHelper()
 			cfg := v2.WriteConfig{Channels: channels}
-			Expect(v2.ResolveWriteConfig(ctx, nil, devices, &cfg)).To(Succeed())
+			Expect(v2.ResolveWriteConfig(ctx, nil, slaves, &cfg)).To(Succeed())
 			return cfg
 		}
 
@@ -362,14 +320,12 @@ var _ = Describe("Migrate", func() {
 			Entry("on an input entry name", "Value"),
 		)
 
-		It("Should reject a referenced device with malformed properties", func(
-			ctx SpecContext,
-		) {
+		It("Should return the error of the device lookup", func(ctx SpecContext) {
 			cfg := v2.WriteConfig{
-				Channels: []v2.WriteChannel{unresolvedWrite("malformed", "Output")},
+				Channels: []v2.WriteChannel{unresolvedWrite("mixed", "Output")},
 			}
-			Expect(v2.ResolveWriteConfig(ctx, nil, devices, &cfg)).
-				To(MatchError(ContainSubstring("device malformed properties: json: ")))
+			Expect(v2.ResolveWriteConfig(ctx, nil, failLookup, &cfg)).
+				To(MatchError("lookup failed"))
 		})
 	})
 
@@ -391,7 +347,7 @@ var _ = Describe("Migrate", func() {
 			table := MustOpen(
 				gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v2.ReadConfig]{
 					DB:         db,
-					Migrations: []migrate.Migration{v2.NewReadMigration(devices)},
+					Migrations: []migrate.Migration{v2.NewReadMigration(slaves)},
 				}),
 			)
 			var cfg v2.ReadConfig
@@ -418,7 +374,7 @@ var _ = Describe("Migrate", func() {
 			table := MustOpen(
 				gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v2.WriteConfig]{
 					DB:         db,
-					Migrations: []migrate.Migration{v2.NewWriteMigration(devices)},
+					Migrations: []migrate.Migration{v2.NewWriteMigration(slaves)},
 				}),
 			)
 			var cfg v2.WriteConfig
@@ -431,19 +387,19 @@ var _ = Describe("Migrate", func() {
 			Expect(cfg.Channels[1]).To(Equal(unresolvedWrite("mixed", "Repeated")))
 		})
 
-		It("Should fail when a stored config references a malformed device", func(
+		It("Should fail with the config key when the device lookup fails", func(
 			ctx SpecContext,
 		) {
 			var old v1.ReadConfig
 			old.Key = uuid.New()
-			old.Channels = []v1.ReadChannel{automaticRead("malformed", "Value")}
+			old.Channels = []v1.ReadChannel{automaticRead("mixed", "Value")}
 			Expect(gorp.WrapWriter[uuid.UUID, v1.ReadConfig](db).Set(ctx, old)).
 				To(Succeed())
 			Expect(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v2.ReadConfig]{
 				DB:         db,
-				Migrations: []migrate.Migration{v2.NewReadMigration(devices)},
+				Migrations: []migrate.Migration{v2.NewReadMigration(failLookup)},
 			})).Error().To(MatchError(ContainSubstring(
-				fmt.Sprintf("config %s: device malformed properties", old.Key),
+				fmt.Sprintf("config %s: lookup failed", old.Key),
 			)))
 		})
 	})

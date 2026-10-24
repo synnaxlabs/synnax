@@ -11,8 +11,8 @@ package ethercat
 
 import (
 	"context"
+	"encoding/json/v2"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/legacy"
@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
@@ -77,7 +77,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	devices := slaves(cfg.Device)
+	slaves := slavesOf(cfg.Device)
 	s = &Service{}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
@@ -89,11 +89,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			LegacyVersion:      legacy.LastVersion,
 			Ladder:             versions.ReadConfigLadder,
 			Legacy:             &legacy.Read,
-			Migrations:         []migrate.Migration{v2.NewReadMigration(devices)},
+			Migrations:         []migrate.Migration{v2.NewReadMigration(slaves)},
 			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 			ResolveEntry: func(ctx context.Context, tx gorp.Tx, c *ReadConfig) error {
-				return v2.ResolveReadConfig(ctx, tx, devices, c)
+				return v2.ResolveReadConfig(ctx, tx, slaves, c)
 			},
 		},
 	); !ok(err, s.Read) {
@@ -107,11 +107,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			LegacyVersion:      legacy.LastVersion,
 			Ladder:             versions.WriteConfigLadder,
 			Legacy:             &legacy.Write,
-			Migrations:         []migrate.Migration{v2.NewWriteMigration(devices)},
+			Migrations:         []migrate.Migration{v2.NewWriteMigration(slaves)},
 			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 			ResolveEntry: func(ctx context.Context, tx gorp.Tx, c *WriteConfig) error {
-				return v2.ResolveWriteConfig(ctx, tx, devices, c)
+				return v2.ResolveWriteConfig(ctx, tx, slaves, c)
 			},
 		},
 	); !ok(err, s.Write) {
@@ -143,12 +143,14 @@ func (s *Service) Stores() []config.Store {
 	return []config.Store{s.Read, s.Write, s.Scan}
 }
 
-func slaves(svc *device.Service) v2.Devices {
+// slavesOf reads the PDO entries that the scan of each EtherCAT slave stored in its
+// device properties.
+func slavesOf(svc *device.Service) v2.Slaves {
 	return func(
 		ctx context.Context,
 		tx gorp.Tx,
 		keys []string,
-	) (map[string]msgpack.EncodedJSON, error) {
+	) (map[string]v2.Slave, error) {
 		var devices []device.Device
 		if err := svc.NewRetrieve().
 			Where(device.And(device.MatchKeys(keys...), device.MatchMakes("ethercat"))).
@@ -156,11 +158,20 @@ func slaves(svc *device.Service) v2.Devices {
 			Exec(ctx, tx); err != nil {
 			return nil, err
 		}
-		return lo.SliceToMap(
-			devices,
-			func(d device.Device) (string, msgpack.EncodedJSON) {
-				return d.Key, d.Properties
-			},
-		), nil
+		slaves := make(map[string]v2.Slave, len(devices))
+		for _, d := range devices {
+			var props struct {
+				PDOs v2.Slave `json:"pdos"`
+			}
+			b, err := json.Marshal(d.Properties)
+			if err != nil {
+				return nil, errors.Wrapf(err, "device %s properties", d.Key)
+			}
+			if err = json.Unmarshal(b, &props); err != nil {
+				return nil, errors.Wrapf(err, "device %s properties", d.Key)
+			}
+			slaves[d.Key] = props.PDOs
+		}
+		return slaves, nil
 	}
 }

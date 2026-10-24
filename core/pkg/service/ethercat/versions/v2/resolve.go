@@ -11,25 +11,39 @@ package v2
 
 import (
 	"context"
-	"encoding/json/v2"
 	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
-// Devices returns the properties of the EtherCAT devices among keys, read through tx.
-// A key with no EtherCAT device is absent from the result.
-type Devices func(
-	ctx context.Context,
-	tx gorp.Tx,
-	keys []string,
-) (map[string]msgpack.EncodedJSON, error)
+// Entry is one PDO entry that a slave's scan discovered.
+type Entry struct {
+	// Name is the entry's name, which the slave may repeat across PDOs.
+	Name string `json:"name"`
+	// Index is the object dictionary index of the entry.
+	Index uint16 `json:"index"`
+	// SubIndex is the object dictionary subindex of the entry.
+	SubIndex uint8 `json:"sub_index"`
+	// DataType is the data type of the entry.
+	DataType telem.DataType `json:"data_type"`
+}
+
+// Slave lists the PDO entries of one slave.
+type Slave struct {
+	// Inputs are the entries the slave sends to the master.
+	Inputs []Entry `json:"inputs"`
+	// Outputs are the entries the master sends to the slave.
+	Outputs []Entry `json:"outputs"`
+}
+
+// Slaves returns the slaves among keys, read through tx. A key with no slave is absent
+// from the result.
+type Slaves func(ctx context.Context, tx gorp.Tx, keys []string) (map[string]Slave, error)
 
 // ResolveReadConfig addresses each unresolved channel in cfg to the input entry its
 // slave lists under the channel's entry name. A channel stays unresolved when the name
@@ -37,13 +51,13 @@ type Devices func(
 func ResolveReadConfig(
 	ctx context.Context,
 	tx gorp.Tx,
-	devices Devices,
+	slaves Slaves,
 	cfg *ReadConfig,
 ) error {
-	slaves, err := readSlaves(
+	found, err := readSlaves(
 		ctx,
 		tx,
-		devices,
+		slaves,
 		lo.FilterMap(cfg.Channels, func(ch ReadChannel, _ int) (string, bool) {
 			u, ok := ch.Variant.(UnresolvedReadChannel)
 			return u.Device, ok
@@ -57,7 +71,7 @@ func ResolveReadConfig(
 		if !ok {
 			continue
 		}
-		if e, ok := resolve(slaves[u.Device].PDOs.Inputs, u.Pdo); ok {
+		if e, ok := resolve(found[u.Device].Inputs, u.Pdo); ok {
 			cfg.Channels[i].Variant = EntryReadChannel{
 				BaseReadChannel: u.BaseReadChannel,
 				Index:           e.Index,
@@ -75,13 +89,13 @@ func ResolveReadConfig(
 func ResolveWriteConfig(
 	ctx context.Context,
 	tx gorp.Tx,
-	devices Devices,
+	slaves Slaves,
 	cfg *WriteConfig,
 ) error {
-	slaves, err := readSlaves(
+	found, err := readSlaves(
 		ctx,
 		tx,
-		devices,
+		slaves,
 		lo.FilterMap(cfg.Channels, func(ch WriteChannel, _ int) (string, bool) {
 			u, ok := ch.Variant.(UnresolvedWriteChannel)
 			return u.Device, ok
@@ -95,7 +109,7 @@ func ResolveWriteConfig(
 		if !ok {
 			continue
 		}
-		if e, ok := resolve(slaves[u.Device].PDOs.Outputs, u.Pdo); ok {
+		if e, ok := resolve(found[u.Device].Outputs, u.Pdo); ok {
 			cfg.Channels[i].Variant = EntryWriteChannel{
 				BaseWriteChannel: u.BaseWriteChannel,
 				Index:            e.Index,
@@ -108,22 +122,22 @@ func ResolveWriteConfig(
 }
 
 // NewReadMigration returns the migration that lifts stored read configs to v2 and
-// resolves their channels against devices.
-func NewReadMigration(devices Devices) migrate.Migration {
+// resolves their channels against slaves.
+func NewReadMigration(slaves Slaves) migrate.Migration {
 	return newMigration(
 		"v60_ethercat_read_entry_address",
-		devices,
+		slaves,
 		MigrateReadConfig,
 		ResolveReadConfig,
 	)
 }
 
 // NewWriteMigration returns the migration that lifts stored write configs to v2 and
-// resolves their channels against devices.
-func NewWriteMigration(devices Devices) migrate.Migration {
+// resolves their channels against slaves.
+func NewWriteMigration(slaves Slaves) migrate.Migration {
 	return newMigration(
 		"v60_ethercat_write_entry_address",
-		devices,
+		slaves,
 		MigrateWriteConfig,
 		ResolveWriteConfig,
 	)
@@ -131,9 +145,9 @@ func NewWriteMigration(devices Devices) migrate.Migration {
 
 func newMigration[I, O gorp.Entry[uuid.UUID]](
 	key string,
-	devices Devices,
+	slaves Slaves,
 	lift func(context.Context, I) (O, error),
-	resolve func(context.Context, gorp.Tx, Devices, *O) error,
+	resolve func(context.Context, gorp.Tx, Slaves, *O) error,
 ) migrate.Migration {
 	return gorp.NewMigration(
 		key,
@@ -150,7 +164,7 @@ func newMigration[I, O gorp.Entry[uuid.UUID]](
 				if err != nil {
 					return errors.Wrapf(err, "config %s", old.GorpKey())
 				}
-				if err = resolve(ctx, tx, devices, &cfg); err != nil {
+				if err = resolve(ctx, tx, slaves, &cfg); err != nil {
 					return errors.Wrapf(err, "config %s", old.GorpKey())
 				}
 				news = append(news, cfg)
@@ -160,31 +174,15 @@ func newMigration[I, O gorp.Entry[uuid.UUID]](
 	)
 }
 
-// entry is one PDO entry that a slave device's scan discovered.
-type entry struct {
-	Name     string         `json:"name"`
-	Index    uint16         `json:"index"`
-	SubIndex uint8          `json:"sub_index"`
-	DataType telem.DataType `json:"data_type"`
-}
-
-// slave is the part of a slave device's properties that lists its PDO entries.
-type slave struct {
-	PDOs struct {
-		Inputs  []entry `json:"inputs"`
-		Outputs []entry `json:"outputs"`
-	} `json:"pdos"`
-}
-
 // resolve returns the entry in entries named name. ok is false when the name matches
 // no entry, or entries at more than one address.
-func resolve(entries []entry, name string) (entry, bool) {
+func resolve(entries []Entry, name string) (Entry, bool) {
 	matches := lo.UniqBy(
-		lo.Filter(entries, func(e entry, _ int) bool { return e.Name == name }),
-		func(e entry) [2]int { return [2]int{int(e.Index), int(e.SubIndex)} },
+		lo.Filter(entries, func(e Entry, _ int) bool { return e.Name == name }),
+		func(e Entry) [2]int { return [2]int{int(e.Index), int(e.SubIndex)} },
 	)
 	if len(matches) != 1 {
-		return entry{}, false
+		return Entry{}, false
 	}
 	return matches[0], true
 }
@@ -192,27 +190,11 @@ func resolve(entries []entry, name string) (entry, bool) {
 func readSlaves(
 	ctx context.Context,
 	tx gorp.Tx,
-	devices Devices,
+	slaves Slaves,
 	keys []string,
-) (map[string]slave, error) {
+) (map[string]Slave, error) {
 	if len(keys) == 0 {
 		return nil, nil
 	}
-	props, err := devices(ctx, tx, lo.Uniq(keys))
-	if err != nil {
-		return nil, err
-	}
-	slaves := make(map[string]slave, len(props))
-	for key, p := range props {
-		b, err := json.Marshal(p)
-		if err != nil {
-			return nil, errors.Wrapf(err, "device %s properties", key)
-		}
-		var s slave
-		if err = json.Unmarshal(b, &s); err != nil {
-			return nil, errors.Wrapf(err, "device %s properties", key)
-		}
-		slaves[key] = s
-	}
-	return slaves, nil
+	return slaves(ctx, tx, lo.Uniq(keys))
 }
