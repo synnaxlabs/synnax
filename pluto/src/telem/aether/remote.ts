@@ -790,37 +790,36 @@ export class TiledChannelData
     const preferred = new Map(
       targets.map((t) => [`${t.level}/${t.index}`, framer.tileRequestKey(t)]),
     );
-    const out: Series[] = [];
-    if (targets.length > 0) {
-      const l = targets[0].level;
-      const chosen = choose(
-        l,
-        targets.map((t) => t.index),
-        [...this.held.values()].map((t) => t.spec),
-      ).map((p) => this.find(p, preferred)!);
-      chosen.forEach((tile) => out.push(...tile.series.series));
-      if (prune) {
-        // The home view's tiles stay held, and so do the tiles that stand in for them
-        // until they arrive.
-        const home = this.targets(key, this.home());
-        const homePreferred = new Map(
-          home.map((t) => [`${t.level}/${t.index}`, framer.tileRequestKey(t)]),
-        );
-        const keep = new Set([
-          ...chosen.map((t) => framer.tileRequestKey(t.spec)),
-          ...preferred.values(),
-          ...homePreferred.values(),
-          ...home.flatMap((t) => {
-            const found = this.find(t, homePreferred);
-            return found == null ? [] : [framer.tileRequestKey(found.spec)];
-          }),
-        ]);
-        for (const [tileKey, tile] of this.held)
-          if (!keep.has(tileKey)) {
-            tile.series.release();
-            this.held.delete(tileKey);
-          }
-      }
+    const chosen =
+      targets.length === 0
+        ? []
+        : choose(
+            targets[0].level,
+            targets.map((t) => t.index),
+            [...this.held.values()].map((t) => t.spec),
+          ).map((p) => this.find(p, preferred)!);
+    const out = chosen.flatMap((tile) => tile.series.series);
+    if (prune) {
+      // The home view's tiles stay held, and so do the tiles that stand in for them
+      // until they arrive.
+      const home = this.targets(key, this.home());
+      const homePreferred = new Map(
+        home.map((t) => [`${t.level}/${t.index}`, framer.tileRequestKey(t)]),
+      );
+      const keep = new Set([
+        ...chosen.map((t) => framer.tileRequestKey(t.spec)),
+        ...preferred.values(),
+        ...homePreferred.values(),
+        ...home.flatMap((t) => {
+          const found = this.find(t, homePreferred);
+          return found == null ? [] : [framer.tileRequestKey(found.spec)];
+        }),
+      ]);
+      for (const [tileKey, tile] of this.held)
+        if (!keep.has(tileKey)) {
+          tile.series.release();
+          this.held.delete(tileKey);
+        }
     }
     if (this.live) out.push(...this.window.data.series);
     return new MultiSeries(out);
