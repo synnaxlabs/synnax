@@ -11,7 +11,7 @@ import { channel, ethercat, type task, UnexpectedError } from "@synnaxlabs/clien
 import { caseconv, id } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type SlaveDevice } from "@/feature/ethercat/device/types";
+import { formatIndex, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "ethercat";
@@ -148,7 +148,7 @@ export const resolvePDODataType = (
 export const getPortLabel = (ch: Channel): string =>
   ch.type === "automatic"
     ? ch.pdo || "No PDO"
-    : `0x${ch.index.toString(16).padStart(4, "0")}:${ch.subIndex}`;
+    : `${formatIndex(ch.index)}:${ch.subIndex}`;
 
 /** Generates a safe name for a PDO channel. */
 export const getPDOName = (ch: Channel): string =>

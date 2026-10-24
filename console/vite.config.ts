@@ -133,6 +133,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
+    // Specs run with every flag in src/flags.ts on, so dark code stays tested.
+    env: { VITE_FLAG_ETHERCAT_STARTUP_PARAMETERS: "true" },
     setupFiles: ["src/testutil/setuptests.ts"],
     testTimeout: 15_000,
     // DESKTOP is a build constant, so the specs of each build run as their own project.

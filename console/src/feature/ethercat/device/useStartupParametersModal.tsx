@@ -22,7 +22,7 @@ import {
   useSlave,
   useUpdateStartupParameters,
 } from "@/feature/ethercat/device/queries";
-import { type StartupParameter } from "@/feature/ethercat/device/types";
+import { formatIndex, type StartupParameter } from "@/feature/ethercat/device/types";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
@@ -44,9 +44,6 @@ const HIDDEN_DATA_TYPES = DataType.ALL.filter(
 );
 
 const HEX_INDEX = /^(0x)?[0-9a-f]{1,4}$/i;
-
-const formatIndex = (index: number): string =>
-  `0x${index.toString(16).toUpperCase().padStart(4, "0")}`;
 
 const toRows = (params: StartupParameter[]): Input.TableCell[][] =>
   params.map(({ index, subIndex, dataType, value, name }) => [
@@ -70,7 +67,7 @@ const parseRows = (rows: Input.TableCell[][]): StartupParameter[] | string => {
     if (!HEX_INDEX.test(text))
       return `Row ${i + 1}: the index must be a hexadecimal number such as 0x8000.`;
     params.push({
-      index: Number.parseInt(text.replace(/^0x/i, ""), 16),
+      index: Number.parseInt(text, 16),
       subIndex: Number(subIndex),
       dataType: String(dataType),
       value: Number(value),
@@ -80,15 +77,14 @@ const parseRows = (rows: Input.TableCell[][]): StartupParameter[] | string => {
   return params;
 };
 
-export interface StartupParametersParams {
+interface StartupParametersParams {
   deviceKey: device.Key;
 }
 
-interface StartupParametersProps extends StartupParametersParams {
-  close: () => void;
-}
-
-const StartupParameters = ({ deviceKey, close }: StartupParametersProps) => {
+const StartupParameters = ({
+  deviceKey,
+  close,
+}: Modals.ContentProps<StartupParametersParams, void>) => {
   const slave = useSlave({ key: deviceKey });
   const [rows, setRows] = useState(() => toRows(slave.properties.startupParameters));
   const [error, setError] = useState<string | null>(null);
@@ -120,7 +116,6 @@ const StartupParameters = ({ deviceKey, close }: StartupParametersProps) => {
               <Telem.SelectDataType
                 value={value}
                 onChange={onChange}
-                hideVariableDensity
                 hideDataTypes={HIDDEN_DATA_TYPES}
               />
             )}
@@ -150,6 +145,4 @@ const StartupParameters = ({ deviceKey, close }: StartupParametersProps) => {
   );
 };
 
-export const useStartupParametersModal = Modals.create<StartupParametersParams>(
-  ({ deviceKey, close }) => <StartupParameters deviceKey={deviceKey} close={close} />,
-);
+export const useStartupParametersModal = Modals.create(StartupParameters);

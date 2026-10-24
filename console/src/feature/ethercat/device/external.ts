@@ -12,4 +12,3 @@ export * from "@/feature/ethercat/device/queries";
 export * from "@/feature/ethercat/device/SelectSlave";
 export * from "@/feature/ethercat/device/types";
 export * from "@/feature/ethercat/device/useConfigureModal";
-export * from "@/feature/ethercat/device/useStartupParametersModal";

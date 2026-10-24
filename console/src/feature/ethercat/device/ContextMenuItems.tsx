@@ -34,13 +34,26 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Device.TaskContextMenuItemConfig[] = [
   },
 ];
 
+interface StartupParametersItemProps {
+  deviceKey: device.Key;
+}
+
+const StartupParametersItem = ({ deviceKey }: StartupParametersItemProps) => {
+  const open = useStartupParametersModal();
+  return (
+    <Menu.Item itemKey="ethercat.startupParameters" onClick={() => open({ deviceKey })}>
+      <Icon.Edit />
+      Edit startup parameters
+    </Menu.Item>
+  );
+};
+
 export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
   const keys = props.selection.ids.map((id) => id.key);
   const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(keys));
   const { update: toggleEnabled } = useToggleEnabled();
   const configure = useConfigureModal();
   const onConfigure = (deviceKey: device.Key) => configure({ deviceKey });
-  const editStartupParameters = useStartupParametersModal();
 
   const { allDisabled, allEnabled } = useEnabledState({ keys });
 
@@ -64,13 +77,7 @@ export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
       />
       <Menu.Divider />
       {FLAGS.ethercatStartupParameters && hasUpdatePermission && keys.length === 1 && (
-        <Menu.Item
-          itemKey="ethercat.startupParameters"
-          onClick={() => editStartupParameters({ deviceKey: keys[0] })}
-        >
-          <Icon.Edit />
-          Edit startup parameters
-        </Menu.Item>
+        <StartupParametersItem deviceKey={keys[0]} />
       )}
       {hasUpdatePermission && !allDisabled && (
         <Menu.Item itemKey="ethercat.disable" onClick={handleDisable}>
