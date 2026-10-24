@@ -28,11 +28,11 @@ const x::errors::Error RESOURCE_RESERVED = CRITICAL_ERROR.sub("201105");
 const x::errors::Error ROUTING_ERROR = CRITICAL_ERROR.sub("89130");
 const auto TEMPORARILY_UNREACHABLE = x::errors::Error(
     TEMPORARY_ERROR,
-    "The device is temporarily unreachable. Will keep trying"
+    "The device is temporarily unreachable. The Driver will keep trying to reach it."
 );
 const auto REQUIRES_RESTART = x::errors::Error(
     TEMPORARILY_UNREACHABLE,
-    "Restarting task to recover"
+    "The Driver is restarting the task to recover."
 );
 
 class SugaredAPI {

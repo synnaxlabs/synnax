@@ -29,7 +29,7 @@ import (
 
 func TestSignals(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Signals Suite")
+	RunSpecs(t, "Service Signals Suite", SuiteConfig())
 }
 
 var (

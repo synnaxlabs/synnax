@@ -21,7 +21,6 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -61,7 +60,7 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "View",
-			Migrations: []migrate.Migration{v1.NewMigration(otg)},
+			Migrations: []gorp.Migration{v1.NewMigration(otg)},
 		})).To(Succeed())
 	}
 

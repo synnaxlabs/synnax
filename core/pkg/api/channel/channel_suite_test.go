@@ -36,7 +36,7 @@ import (
 
 func TestAPIChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Channel Suite")
+	RunSpecs(t, "API Channel Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
