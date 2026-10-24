@@ -62,11 +62,10 @@ func RangeFromPB(pb *Range) (ranger.Range, error) {
 		return r, nil
 	}
 	var err error
-	parsedKey, err := uuid.Parse(pb.Key)
+	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
 		return ranger.Range{}, err
 	}
-	r.Key = ranger.Key(parsedKey)
 	r.TimeRange, err = telempb.TimeRangeFromPB(pb.TimeRange)
 	if err != nil {
 		return ranger.Range{}, err

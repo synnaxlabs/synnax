@@ -157,18 +157,21 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
     const channels = get<channel.Key[]>("channels").value;
     const downsampleFactor = get<number>("downsampleFactor").value;
     const name = get<string>("name").value;
-    handleError(async () => {
-      if (client == null) throw new DisconnectedError();
-      const stream = await client.readCSV(timeRange, channels, {
-        reduction: { variant: "stride", factor: downsampleFactor },
-      });
-      await download({
-        stream,
-        name,
-        extension: "csv",
-        onDownloadStart: handleFinish,
-      });
-    }, `Failed to download CSV data for ${name}`);
+    handleError(
+      async () => {
+        if (client == null) throw new DisconnectedError();
+        const stream = await client.readCSV(timeRange, channels, {
+          reduction: { variant: "stride", factor: downsampleFactor },
+        });
+        await download({
+          stream,
+          name,
+          extension: "csv",
+          onDownloadStart: handleFinish,
+        });
+      },
+      { message: "Failed to download CSV data", name },
+    );
   };
   const channelKeys = Form.useFieldValue<channel.Key[]>("channels");
   const isDisabled = channelKeys.length === 0;

@@ -13,8 +13,8 @@ import (
 	"context"
 	"iter"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 )

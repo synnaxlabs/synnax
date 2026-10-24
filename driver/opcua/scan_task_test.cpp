@@ -96,7 +96,7 @@ TEST_F(TestScanTask, testBasicScan) {
     EXPECT_EQ(state.variant, synnax::status::VARIANT_SUCCESS);
 
     ASSERT_TRUE(state.details.data.has_value());
-    auto &data = *state.details.data;
+    const auto &data = *state.details.data;
     ASSERT_TRUE(data.contains("channels"));
     auto channels = data.at("channels");
     ASSERT_TRUE(channels.is_array());

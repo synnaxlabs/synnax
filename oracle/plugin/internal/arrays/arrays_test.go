@@ -191,6 +191,45 @@ var _ = Describe("Arrays", func() {
 		)
 	})
 
+	Describe("Wrapped", func() {
+		DescribeTable("should return the array a distinct type wraps",
+			func(base resolution.TypeRef, elem string, size *int64) {
+				wrapped := MustBeOk(
+					arrays.Wrapped(resolution.DistinctForm{Base: base}, table),
+				)
+				Expect(wrapped.TypeArgs[0].Name).To(Equal(elem))
+				Expect(wrapped.ArraySize).To(Equal(size))
+			},
+			Entry("a direct array", arrayOf("int32", nil), "int32", (*int64)(nil)),
+			Entry(
+				"an alias of an array",
+				resolution.TypeRef{Name: "test.Names"},
+				"string",
+				(*int64)(nil),
+			),
+			Entry(
+				"an alias of a fixed-size array",
+				resolution.TypeRef{Name: "test.MAC"},
+				"uint8",
+				new(int64(6)),
+			),
+		)
+
+		DescribeTable(
+			"should report false for a distinct type over another type",
+			func(base resolution.TypeRef) {
+				_, ok := arrays.Wrapped(resolution.DistinctForm{Base: base}, table)
+				Expect(ok).To(BeFalse())
+			},
+			Entry("a primitive", resolution.TypeRef{Name: "string"}),
+			Entry("a struct", resolution.TypeRef{Name: "test.Label"}),
+			Entry(
+				"a distinct type over an array",
+				resolution.TypeRef{Name: "test.Tags"},
+			),
+		)
+	})
+
 	Describe("IsFixedSizeUint8", func() {
 		DescribeTable("should detect fixed-size uint8 arrays",
 			func(ref resolution.TypeRef, expected bool) {
