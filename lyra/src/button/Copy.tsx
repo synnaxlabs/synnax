@@ -20,12 +20,12 @@ import {
 import { Button, type ButtonProps } from "@/button/Button";
 import { clipboard } from "@/clipboard";
 import { Icon } from "@/icon";
+import { type Status } from "@/status";
 import { useAdder, useErrorHandler } from "@/status/Aggregator";
-import { type Heading } from "@/status/status";
 
 const COPIED_DURATION_MS = TimeSpan.seconds(2).milliseconds;
 
-const toObject = (heading: Heading): Exclude<Heading, string> =>
+const toObject = (heading: Status.Heading): Exclude<Status.Heading, string> =>
   typeof heading === "string" ? { message: heading, name: "" } : heading;
 
 /** Props for {@link Copy}. */
@@ -40,7 +40,7 @@ export interface CopyProps extends ButtonProps {
    * The status shown on success: a message, or a message and the name of what was
    * copied. A failure carries the same name. Omit for no status.
    */
-  successMessage?: Heading | (() => Heading);
+  successMessage?: Status.Heading | (() => Status.Heading);
 }
 
 /**
