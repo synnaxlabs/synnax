@@ -41,7 +41,7 @@ import (
 
 func TestAPIFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Framer Suite")
+	RunSpecs(t, "API Framer Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
