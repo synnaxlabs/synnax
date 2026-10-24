@@ -81,9 +81,9 @@ class LoginForms(ConsoleCase):
         """Refresh connection reports success against the live Core."""
         self.log(f"Refreshing connection for {self.core_name}")
         self.console.cluster.refresh_core(self.core_name)
-        assert self.console.notifications.wait_for(f"Connected to {self.core_name}"), (
-            "refresh should raise a success notification"
-        )
+        assert self.console.notifications.wait_for(
+            "Connected to Core", name=self.core_name
+        ), "refresh should raise a success notification"
         self.console.notifications.close_all()
 
     def test_copy_link(self) -> None:
