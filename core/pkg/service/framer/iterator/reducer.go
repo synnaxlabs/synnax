@@ -39,55 +39,59 @@ func (g *groupSizer) resolve(
 	ctx context.Context,
 	bounds telem.TimeRange,
 ) (map[channel.Key]uint32, error) {
-	counts, err := g.count(ctx, bounds)
+	decimated, err := g.decimate(ctx, bounds)
 	if err != nil {
 		return nil, err
 	}
 	sizes := make(map[channel.Key]uint32, len(g.indexes))
 	for key, indexes := range g.indexes {
-		var count int64
+		var size uint32
 		for _, idx := range indexes {
-			count = max(count, counts[idx])
+			size = max(size, decimated[idx])
 		}
-		sizes[key] = telem.GroupSize(count, g.limit.PointLimit, g.limit.Aggregation)
+		sizes[key] = g.limit.Aggregation.GroupSize(size)
 	}
 	return sizes, nil
 }
 
-// count returns the number of samples each index channel holds in bounds, as storage
-// counts them when it picks a group size. A decimated read with a limit of one point
-// returns one point per domain, labeled with the count as its alignment multiple.
-func (g *groupSizer) count(
+// decimate returns the group size storage picks for each index channel when it
+// decimates the channel over bounds under the point limit. Every series of the read
+// carries that size as its alignment multiple.
+func (g *groupSizer) decimate(
 	ctx context.Context,
 	bounds telem.TimeRange,
-) (counts map[channel.Key]int64, err error) {
+) (sizes map[channel.Key]uint32, err error) {
 	keys := make(set.Set[channel.Key])
 	for _, indexes := range g.indexes {
 		keys.Add(indexes...)
 	}
-	counts = make(map[channel.Key]int64, len(keys))
+	sizes = make(map[channel.Key]uint32, len(keys))
 	if len(keys) == 0 {
-		return counts, nil
+		return sizes, nil
 	}
 	iter, err := g.framer.OpenIterator(ctx, framer.IteratorConfig{
 		Keys:   keys.Slice(),
 		Bounds: bounds,
 		Reduction: telem.Reduction{Variant: telem.LimitReduction{
 			Aggregation: telem.AggregationDecimate,
-			PointLimit:  1,
+			PointLimit:  g.limit.PointLimit,
 		}},
 	})
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errors.Combine(err, iter.Close()) }()
+	defer func() {
+		if err = errors.Combine(err, iter.Close()); err != nil {
+			sizes = nil
+		}
+	}()
 	if !iter.SeekFirst() || !iter.Next(telem.TimeSpanMax) {
-		return counts, iter.Error()
+		return sizes, iter.Error()
 	}
 	for key, s := range iter.Value().Entries() {
-		counts[key] = max(counts[key], int64(s.Multiple()), s.Len())
+		sizes[key] = max(sizes[key], s.Multiple())
 	}
-	return counts, iter.Error()
+	return sizes, iter.Error()
 }
 
 // reducer reduces the series of each response with the group size of its channel. The
@@ -243,7 +247,7 @@ func (p *requestPlanner) transform(
 	case CommandSetBounds:
 		sizes, err := p.sizer.resolve(ctx, req.Bounds)
 		if err != nil {
-			return req, false, err
+			return Request{}, false, err
 		}
 		p.reducer.groupSizes.Store(&sizes)
 	}
