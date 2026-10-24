@@ -152,6 +152,8 @@ jobs:
       docker: false
       driver: true
       console: true
+      # The suite tests the work that flags hide in the Console build.
+      flags_enabled: true
       core: true
       use_simple_artifact_names: true
       driver_ref_run_id: ${{ needs.setup.outputs.DRIVER_REF_RUN_ID }}

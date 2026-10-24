@@ -19,6 +19,7 @@ import { Modbus } from "@/feature/modbus";
 import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
+import { FLAGS } from "@/flags";
 import { type Tree } from "@/platform/tree";
 
 export const makeZ = z.enum([
@@ -32,8 +33,11 @@ export const makeZ = z.enum([
 ]);
 export type Make = z.infer<typeof makeZ>;
 
-export const getMake = (make: unknown): Make | null =>
-  makeZ.safeParse(make).data ?? null;
+// A build with the MQTT flag off handles an MQTT device as a device of an unknown make.
+export const getMake = (make: unknown): Make | null => {
+  const parsed = makeZ.safeParse(make).data ?? null;
+  return parsed === MQTT.Device.MAKE && !FLAGS.mqtt ? null : parsed;
+};
 
 const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
   [EtherCAT.Device.MAKE]: <Icon.Logo.EtherCAT />,

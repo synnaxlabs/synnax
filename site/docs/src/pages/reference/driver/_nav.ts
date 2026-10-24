@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type PageNavNode } from "@/components/nav/Page";
+import { enabled } from "@/flags";
 import { ETHERCAT_NAV } from "@/pages/reference/driver/ethercat/_nav";
 import { HTTP_NAV } from "@/pages/reference/driver/http/_nav";
 import { LABJACK_NAV } from "@/pages/reference/driver/labjack/_nav";
@@ -41,7 +42,7 @@ export const DRIVER_NAV: PageNavNode = {
     HTTP_NAV,
     LABJACK_NAV,
     MODBUS_NAV,
-    MQTT_NAV,
+    ...(enabled("mqtt") ? [MQTT_NAV] : []),
     NI_NAV,
     OPC_UA_NAV,
     PAGERDUTY_NAV,
