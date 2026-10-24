@@ -224,7 +224,7 @@ func generateRetrieveFile(
 	imps.AddExternal("context")
 	imps.AddInternal(
 		"gorp",
-		gomod.ResolveImportPath("x/go/gorp", repoRoot, gomod.DefaultModulePrefix),
+		gomod.ResolveImportPath("gorp", repoRoot, gomod.DefaultModulePrefix),
 	)
 
 	// Check if any info needs search imports.

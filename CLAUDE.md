@@ -8,7 +8,7 @@ telemetry. Monorepo:
 - **TypeScript** (pnpm + Turbo): Console (Tauri app), Pluto (viz), Client, Drift
   (multi-window state), Freighter, X
 - **Go** (per-module, sibling `replace` directives): Core server, Cesium (time-series
-  DB), Aspen (distributed KV), Arc compiler, Oracle
+  DB), Aspen (distributed KV), Gorp (typed KV tables), Arc compiler, Oracle
 - **Python** (uv workspace): client, integration test conductor
 - **C++** (Bazel): driver for hardware (LabJack, NI, OPC UA, Modbus)
 - **Arc** (`/arc/`) spans languages: Go compiler/LSP/runtime, C++ embedded runtime (used
@@ -133,7 +133,7 @@ included (the Aether binding, Aether-cached); only backticked identifiers and pa
 Go, gRPC, HashiCorp, Zod. Prefer referencing the Core as "the Core" / "a Core", instead
 of "server", "node", or "cluster", unless you are specifically writing about behavior of
 multi-node clusters. If you are referring to code paths, then put those in backticks
-`x/go/gorp`.
+`gorp/table.go`.
 
 Prefer using the word "and" instead of an ampersand (&) in prose.
 
