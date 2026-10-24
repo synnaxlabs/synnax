@@ -17,12 +17,12 @@ import { Tree } from "@/platform/tree";
 
 const useDelete = Tree.createUseDelete({
   type: "Role",
-  query: Access.Role.useDelete,
+  useUpdate: Access.Role.useDelete,
   convertKey: String,
 });
 
 const useRename = Tree.createUseRename({
-  query: Access.Role.useRename,
+  useUpdate: Access.Role.useRename,
   ontologyID: access.role.ontologyID,
   convertKey: String,
 });

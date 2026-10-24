@@ -18,7 +18,7 @@ export interface CreateUseDeleteParams<K extends record.Key> {
   type: string;
   icon?: string;
   description?: string;
-  query: Flux.UseUpdate<K | K[]>;
+  useUpdate: Flux.UseUpdate<K | K[]>;
   convertKey: (key: string) => K;
   beforeUpdate?: (
     query: Flux.BeforeUpdateParams<K | K[]> & ContextMenuProps,
@@ -30,7 +30,7 @@ export const createUseDelete = <K extends record.Key>({
   type,
   icon,
   description,
-  query: useQuery,
+  useUpdate,
   convertKey,
   beforeUpdate,
   afterSuccess,
@@ -41,7 +41,7 @@ export const createUseDelete = <K extends record.Key>({
       state: { getResource },
     } = props;
     const confirm = Modals.useConfirmDelete({ type, description, icon });
-    const { update } = useQuery({
+    const { update } = useUpdate({
       beforeUpdate: useCallback(
         async (query: Flux.BeforeUpdateParams<K | K[]>) => {
           const res = await confirm(getResource(ids));

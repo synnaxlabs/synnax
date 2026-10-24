@@ -17,7 +17,7 @@ import { useCallback } from "react";
 import { type ContextMenuProps } from "@/platform/tree/types";
 
 export interface CreateUseRenameParams<K extends record.Key> {
-  query: Flux.UseUpdate<record.KeyedNamed<K>>;
+  useUpdate: Flux.UseUpdate<record.KeyedNamed<K>>;
   ontologyID: (key: K) => ontology.ID;
   convertKey: (key: string) => K;
   beforeUpdate?: (
@@ -27,7 +27,7 @@ export interface CreateUseRenameParams<K extends record.Key> {
 }
 
 export const createUseRename = <K extends record.Key>({
-  query: useQuery,
+  useUpdate,
   ontologyID,
   convertKey,
   beforeUpdate,
@@ -39,7 +39,7 @@ export const createUseRename = <K extends record.Key>({
       },
       state: { getResource },
     } = props;
-    const { update } = useQuery({
+    const { update } = useUpdate({
       beforeUpdate: useCallback(
         async (query: Flux.BeforeUpdateParams<record.KeyedNamed<K>>) => {
           const { data } = query;

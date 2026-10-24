@@ -25,7 +25,7 @@ import { Session } from "@/session";
 const useDelete = Tree.createUseDelete({
   type: "Line plot",
   icon: "LinePlot",
-  query: Base.useDelete,
+  useUpdate: Base.useDelete,
   convertKey: String,
   beforeUpdate: async ({ data, store }) => {
     store.dispatch(Session.LinePlot.remove({ keys: array.toArray(data) }));
@@ -34,7 +34,7 @@ const useDelete = Tree.createUseDelete({
 });
 
 const useRename = Tree.createUseRename({
-  query: Base.useRename,
+  useUpdate: Base.useRename,
   ontologyID: lineplot.ontologyID,
   convertKey: String,
 });

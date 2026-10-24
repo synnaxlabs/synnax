@@ -14,7 +14,7 @@ import { useCallback } from "react";
 
 import { Import } from "@/platform/import";
 
-const useImport = () => {
+const useOnImport = () => {
   const client = Synnax.useClient();
   return useCallback(
     async (bundle: UploadBody) => {
@@ -30,5 +30,5 @@ const useImport = () => {
 export const useImportGroup = Import.createModal({
   header: "Schematic.Symbols.Group.Import",
   resourceName: "symbol group",
-  useOnImport: useImport,
+  useOnImport,
 });

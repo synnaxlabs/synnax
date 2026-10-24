@@ -136,7 +136,7 @@ const Content = () => {
     ({ keys }) => (
       <ContextMenu
         keys={keys}
-        getItem={getItem}
+        getItems={getItem}
         subscribe={subscribe}
         onDelete={handleDelete}
         onStart={handleStart}
@@ -311,12 +311,7 @@ const TaskListItem = ({
   );
 };
 
-interface ContextMenuProps extends Pick<
-  ExternalStore.UseItemsParams<task.Key, task.Task>,
-  "subscribe"
-> {
-  keys: task.Key[];
-  getItem: (keys: task.Key[]) => task.Task[];
+interface ContextMenuProps extends ExternalStore.UseItemsParams<task.Key, task.Task> {
   onDelete: (keys: task.Key[]) => void;
   onStart: (keys: task.Key[]) => void;
   onStop: (keys: task.Key[]) => void;
@@ -327,7 +322,7 @@ interface ContextMenuProps extends Pick<
 
 const ContextMenu = ({
   keys,
-  getItem,
+  getItems,
   subscribe,
   onDelete,
   onStart,
@@ -336,7 +331,7 @@ const ContextMenu = ({
   onEnableDataSaving,
   onDisableDataSaving,
 }: ContextMenuProps) => {
-  const selectedTasks = ExternalStore.useItems({ keys, subscribe, getItems: getItem });
+  const selectedTasks = ExternalStore.useItems({ keys, subscribe, getItems });
   const activeRange = Range.useResolve();
   const snapshotToActiveRange = useRangeSnapshot();
   const ontologyIDs = task.ontologyID(keys);

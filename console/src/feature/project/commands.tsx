@@ -29,7 +29,7 @@ const CreateCommand = Command.create({
   useVisible: useCreateVisible,
 });
 
-const useImport = () => {
+const useOnImport = () => {
   const client = Synnax.useClient();
   const store = Session.useStore();
   return useCallback(
@@ -47,7 +47,7 @@ const useImport = () => {
 const useImportModal = Import.createModal({
   header: "Project.Import",
   resourceName: "project",
-  useOnImport: useImport,
+  useOnImport,
 });
 
 const ImportProjectCommand = Command.create({

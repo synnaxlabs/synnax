@@ -24,7 +24,7 @@ import { Session } from "@/session";
 
 const useDelete = Tree.createUseDelete({
   type: "Log",
-  query: Log.useDelete,
+  useUpdate: Log.useDelete,
   convertKey: String,
   beforeUpdate: async ({ data, store }) => {
     store.dispatch(Session.Log.remove({ keys: array.toArray(data) }));
@@ -33,7 +33,7 @@ const useDelete = Tree.createUseDelete({
 });
 
 const useRename = Tree.createUseRename({
-  query: Log.useRename,
+  useUpdate: Log.useRename,
   ontologyID: log.ontologyID,
   convertKey: String,
 });

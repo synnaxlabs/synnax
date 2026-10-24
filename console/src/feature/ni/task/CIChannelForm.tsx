@@ -436,7 +436,7 @@ const FrequencyForm: FC<FormProps> = ({ prefix }) => {
   );
 };
 
-const PeriodForm: FC<FormProps> = ({ prefix }: FormProps) => {
+const PeriodForm: FC<FormProps> = ({ prefix }) => {
   const { showMeasTime, showDivisor } = useMeasMethodVisibility(prefix);
   return (
     <>
@@ -451,7 +451,7 @@ const PeriodForm: FC<FormProps> = ({ prefix }: FormProps) => {
   );
 };
 
-const LinearPositionForm: FC<FormProps> = ({ prefix }: FormProps) => {
+const LinearPositionForm: FC<FormProps> = ({ prefix }) => {
   const zIndexFieldsDisabled = useZIndexFieldsDisabled(prefix);
   return (
     <>
@@ -469,7 +469,7 @@ const LinearPositionForm: FC<FormProps> = ({ prefix }: FormProps) => {
   );
 };
 
-const AngularPositionForm: FC<FormProps> = ({ prefix }: FormProps) => {
+const AngularPositionForm: FC<FormProps> = ({ prefix }) => {
   const zIndexFieldsDisabled = useZIndexFieldsDisabled(prefix);
   return (
     <>

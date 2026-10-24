@@ -20,8 +20,10 @@ interface ItemProps {
   state: TreeState;
 }
 
-const Item = ({ id, state }: ItemProps): ReactElement => {
-  const { data, name } = useResource(state, id);
+const Item = ({ id, state }: ItemProps): ReactElement | null => {
+  const resource = useResource(state, id);
+  if (resource == null) return null;
+  const { data, name } = resource;
   return (
     <Menu.CopyItem
       itemKey="copyData"

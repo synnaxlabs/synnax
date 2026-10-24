@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import { useSyncExternalStore } from "react";
 
 import { ExternalStore } from "@/platform/external-store";
 import { type TreeState } from "@/platform/tree/types";
@@ -17,21 +16,6 @@ export interface ResourceSource extends Pick<
   TreeState,
   "getResource" | "subscribeResource"
 > {}
-
-/**
- * Returns the tree's resource for the given ID and re-renders when it changes.
- * @throws {NotFoundError} if the tree holds no resource for the ID.
- */
-export const useResource = (
-  { getResource, subscribeResource }: ResourceSource,
-  id: ontology.ID,
-): ontology.Resource => {
-  const key = ontology.idToString(id);
-  return useSyncExternalStore(
-    (handler) => subscribeResource(handler, key),
-    () => getResource(key),
-  );
-};
 
 /**
  * Returns the tree's resources for the given IDs and re-renders when any of them
@@ -46,3 +30,12 @@ export const useResources = (
     subscribe: subscribeResource,
     getItems: getResource,
   });
+
+/**
+ * Returns the tree's resource for the given ID, or undefined once the tree no longer
+ * holds it, and re-renders when it changes.
+ */
+export const useResource = (
+  source: ResourceSource,
+  id: ontology.ID,
+): ontology.Resource | undefined => useResources(source, [id])[0];

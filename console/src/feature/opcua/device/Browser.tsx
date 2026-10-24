@@ -15,7 +15,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Header } from "@synnaxlabs/lyra/header";
-import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
+import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -24,13 +24,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { Synnax, TimeSpan } from "@synnaxlabs/pluto";
 import { array, type optional } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useEffectEvent,
-  useState,
-} from "react";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
 import { type ConnectionConfig, type Device } from "@/feature/opcua/device/types";
@@ -187,8 +181,8 @@ export const Browser = ({ device }: BrowserProps) => {
     expand({ action: "expand", current: [] });
     clearExpanded();
   };
-  const refreshOnMount = useEffectEvent(refresh);
-  useEffect(() => refreshOnMount(), []);
+  const refreshRef = useSyncedRef(refresh);
+  useEffect(() => refreshRef.current(), [refreshRef]);
   let content: ReactElement;
   if (stat?.variant === "error") content = <Status.Summary center status={stat} />;
   else if (initialLoading)

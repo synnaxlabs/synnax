@@ -21,7 +21,7 @@ import { User as PlatformUser } from "@/platform/user";
 
 const useDelete = Tree.createUseDelete({
   type: "User",
-  query: User.useDelete,
+  useUpdate: User.useDelete,
   convertKey: String,
 });
 
@@ -73,8 +73,8 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleAssignRole = useAssignRole();
   const singleResource = ids.length === 1;
   const first = Tree.useResource(state, ids[0]);
-  const isNotCurrentUser = first.name !== client.params.username;
-  const isRootUser = first.data?.root_user === true;
+  const isNotCurrentUser = first != null && first.name !== client.params.username;
+  const isRootUser = first?.data?.root_user === true;
 
   return (
     <ContextMenu.Menu>

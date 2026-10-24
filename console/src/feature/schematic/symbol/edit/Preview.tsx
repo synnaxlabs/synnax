@@ -89,8 +89,10 @@ export const Preview = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const isDark = Base.useTheme().key === "synnaxDark";
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(isDark);
-  useEffect(() => setIsDarkMode(isDark), [isDark]);
+  // The toggle holds until the app theme changes.
+  const [darkMode, setDarkMode] = useState({ app: isDark, dark: isDark });
+  if (darkMode.app !== isDark) setDarkMode({ app: isDark, dark: isDark });
+  const isDarkMode = darkMode.dark;
 
   const [svg, setSVG] = useState<SVGSVGElement | null>(null);
   const form = Form.useContext();
@@ -302,7 +304,7 @@ export const Preview = ({
               <Button.Button
                 variant="text"
                 size="small"
-                onClick={() => setIsDarkMode(!isDarkMode)}
+                onClick={() => setDarkMode({ app: isDark, dark: !isDarkMode })}
               >
                 {isDarkMode ? <Icon.DarkMode /> : <Icon.LightMode />}
               </Button.Button>

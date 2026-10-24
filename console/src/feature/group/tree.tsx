@@ -20,7 +20,7 @@ import { Link } from "@/platform/link";
 import { Tree } from "@/platform/tree";
 
 const useRename = Tree.createUseRename({
-  query: Group.useRename,
+  useUpdate: Group.useRename,
   ontologyID: group.ontologyID,
   convertKey: String,
 });

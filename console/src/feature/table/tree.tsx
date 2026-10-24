@@ -24,7 +24,7 @@ import { Session } from "@/session";
 
 const useDelete = Tree.createUseDelete({
   type: "Table",
-  query: Base.useDelete,
+  useUpdate: Base.useDelete,
   convertKey: String,
   beforeUpdate: async ({ data, store }) => {
     store.dispatch(Session.Table.remove({ keys: array.toArray(data) }));
@@ -33,7 +33,7 @@ const useDelete = Tree.createUseDelete({
 });
 
 const useRename = Tree.createUseRename({
-  query: Base.useRename,
+  useUpdate: Base.useRename,
   ontologyID: table.ontologyID,
   convertKey: String,
 });

@@ -68,6 +68,19 @@ afterEach(async () => {
   await client.racks.delete(createdRacks.splice(0)).catch(ignoreNotFound);
 });
 
+const setRunning = async (t: task.Task, running: boolean, drifted = false) =>
+  await client.statuses.set(
+    createTaskStatus({
+      key: task.statusKey(t.key),
+      details: {
+        task: t.key,
+        running,
+        configHash: drifted ? "stale" : t.configHash,
+        rack: t.rack,
+      },
+    }),
+  );
+
 const createTask = async ({
   config = {},
   running,
@@ -82,18 +95,7 @@ const createTask = async ({
     config,
   });
   createdTasks.push(t.key);
-  if (running != null)
-    await client.statuses.set(
-      createTaskStatus({
-        key: task.statusKey(t.key),
-        details: {
-          task: t.key,
-          running,
-          configHash: drifted === true ? "stale" : t.configHash,
-          rack: t.rack,
-        },
-      }),
-    );
+  if (running != null) await setRunning(t, running, drifted);
   return t;
 };
 
@@ -125,15 +127,10 @@ const awaitTab = async (created: CreatedPanel, type: string): Promise<void> =>
     assertDefined(tab, `no ${type} tab was opened`);
   });
 
-// The task's reported status streams in after the initial list fetch. Reopen the menu
-// until the status-dependent item is present so status-gated flows are deterministic.
+// The task's status streams in after the list fetch, so wait for the item it gates.
 const openContextMenuUntil = async (name: string, text: string): Promise<void> => {
-  await expect
-    .poll(async () => {
-      await openContextMenu(name);
-      return screen.queryByText(text) != null;
-    })
-    .toBe(true);
+  await openContextMenu(name);
+  await screen.findByText(text);
 };
 
 describe("task/Toolbar", () => {
@@ -228,6 +225,15 @@ describe("task/Toolbar", () => {
       } finally {
         streamer.close();
       }
+    });
+
+    it("updates an open menu when the task starts running", async () => {
+      const t = await createTask({ running: false });
+      await renderToolbar();
+      await openContextMenuUntil(t.name, "Start");
+      await setRunning(t, true);
+      expect(await screen.findByText("Stop")).toBeTruthy();
+      expect(screen.queryByText("Start")).toBeNull();
     });
 
     it("redeploys a drifted running task from the context menu", async () => {

@@ -33,12 +33,12 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
 
 const useDelete = Tree.createUseDelete({
   type: "Task",
-  query: Base.useDelete,
+  useUpdate: Base.useDelete,
   convertKey: String,
 });
 
 export const useRename = Tree.createUseRename({
-  query: Base.useRename,
+  useUpdate: Base.useRename,
   ontologyID: task.ontologyID,
   convertKey: String,
 });

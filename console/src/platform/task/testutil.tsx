@@ -517,6 +517,23 @@ export const deployAndAwaitTask = async <S extends task.Schemas = task.Schemas>(
 };
 
 /**
+ * Writes the status a Driver reports while a task runs the config with the given hash.
+ * A hash other than the task's own marks the task as drifted.
+ */
+export const reportTaskRunning = async (
+  client: Client,
+  tsk: task.Task,
+  configHash: string = tsk.configHash,
+): Promise<void> => {
+  await client.statuses.set(
+    createTaskStatus({
+      key: task.statusKey(tsk.key),
+      details: { task: tsk.key, running: true, configHash, rack: tsk.rack },
+    }),
+  );
+};
+
+/**
  * Writes the status a driver reports once a task has stopped. Specs run without a
  * driver, so a start command otherwise leaves the task mid-start forever and the
  * form offers no way to deploy again.

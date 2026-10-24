@@ -49,7 +49,7 @@ const haulItems = (resource: ontology.Resource): Haul.Item[] => {
 };
 
 const useRename = Tree.createUseRename({
-  query: Ranger.useRename,
+  useUpdate: Ranger.useRename,
   ontologyID: ranger.ontologyID,
   convertKey: String,
 });
@@ -57,7 +57,7 @@ const useRename = Tree.createUseRename({
 const useDelete = Tree.createUseDelete({
   type: "Range",
   description: "Deleting a range also deletes its child ranges.",
-  query: Session.Range.useDelete,
+  useUpdate: Session.Range.useDelete,
   convertKey: String,
 });
 

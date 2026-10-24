@@ -24,14 +24,14 @@ import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 const useRename = Tree.createUseRename({
-  query: Arc.useRename,
+  useUpdate: Arc.useRename,
   ontologyID: arc.ontologyID,
   convertKey: String,
 });
 
 const useDelete = Tree.createUseDelete({
   type: "Arc",
-  query: Arc.useDelete,
+  useUpdate: Arc.useDelete,
   convertKey: String,
   beforeUpdate: async ({ data, store }) => {
     store.dispatch(Session.Arc.remove({ keys: array.toArray(data) }));

@@ -46,7 +46,7 @@ import { Session } from "@/session";
 
 const useDelete = Tree.createUseDelete({
   type: "Project",
-  query: Base.useDelete,
+  useUpdate: Base.useDelete,
   convertKey: String,
   afterSuccess: ({ data, store }) => {
     const s = store.getState();
@@ -59,7 +59,7 @@ const useDelete = Tree.createUseDelete({
 });
 
 const useRename = Tree.createUseRename({
-  query: Base.useRename,
+  useUpdate: Base.useRename,
   ontologyID: project.ontologyID,
   convertKey: String,
 });

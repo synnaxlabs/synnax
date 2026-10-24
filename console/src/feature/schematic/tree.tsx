@@ -30,7 +30,7 @@ import { Session } from "@/session";
 
 const useDelete = Tree.createUseDelete({
   type: "Schematic",
-  query: Base.useDelete,
+  useUpdate: Base.useDelete,
   convertKey: String,
   beforeUpdate: async ({ data, store }) => {
     store.dispatch(Session.Schematic.remove({ keys: array.toArray(data) }));
@@ -104,7 +104,7 @@ export const useRangeSnapshot = () => {
 };
 
 const useRename = Tree.createUseRename({
-  query: Base.useRename,
+  useUpdate: Base.useRename,
   ontologyID: schematic.ontologyID,
   convertKey: String,
 });

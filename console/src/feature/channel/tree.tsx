@@ -53,7 +53,7 @@ const allowRename: Tree.AllowRename = ({ data }) => data?.internal !== true;
 
 const useDelete = Tree.createUseDelete({
   type: "Channel",
-  query: PChannel.useDelete,
+  useUpdate: PChannel.useDelete,
   convertKey: Number,
 });
 
@@ -87,7 +87,7 @@ const useSetAlias = ({
 };
 
 const useRename = Tree.createUseRename({
-  query: PChannel.useRename,
+  useUpdate: PChannel.useRename,
   ontologyID: channel.ontologyID,
   convertKey: Number,
 });
