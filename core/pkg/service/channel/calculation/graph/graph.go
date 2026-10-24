@@ -219,7 +219,6 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 				statuses[ch.Key()] = calculation.StatusFromError(
 					ch.Key(),
 					ch.Name,
-					"Failed to compile expression",
 					err,
 				)
 				invalidCount++
@@ -337,12 +336,7 @@ func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 					g.setNodeStatus(
 						ctx,
 						tx,
-						calculation.StatusFromError(
-							ch.Key(),
-							ch.Name,
-							"Failed to compile expression",
-							err,
-						),
+						calculation.StatusFromError(ch.Key(), ch.Name, err),
 					)
 				} else {
 					g.L.Debug("calculated channel inspected",
@@ -498,12 +492,7 @@ func (g *Graph) reconcileQueued(
 				g.setNodeStatus(
 					ctx,
 					tx,
-					calculation.StatusFromError(
-						key,
-						refetched.Name,
-						"Failed to compile expression",
-						err,
-					),
+					calculation.StatusFromError(key, refetched.Name, err),
 				)
 				continue
 			}

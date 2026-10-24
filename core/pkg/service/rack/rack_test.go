@@ -821,7 +821,7 @@ var _ = Describe("Rack", Ordered, func() {
 			r := rack.Rack{Name: "test rack"}
 			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
-			Expect(s.Message).To(Equal("Status unknown"))
+			Expect(s.Message).To(Equal("Rack status unknown"))
 			Expect(s.Variant).To(Equal(status.VariantWarning))
 			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 			Expect(s.Key).To(ContainSubstring(string(ontology.ResourceTypeRack)))
@@ -936,7 +936,8 @@ var _ = Describe("Rack", Ordered, func() {
 					g.Expect(s.Details.Rack).To(Equal(r.Key))
 					g.Expect(s.Description).To(MatchRegexp(
 						`^The Core has not heard from the Driver on dead test rack ` +
-							`for .+\.$`,
+							`for .+\. Check that the Driver is running and can reach ` +
+							`the Core\.$`,
 					))
 				}).Should(Succeed())
 			},
