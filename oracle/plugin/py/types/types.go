@@ -670,10 +670,15 @@ func processStruct(
 			parentFields := make([]resolution.Field, 0)
 			seenFields := make(set.Set[string])
 			for _, extendsRef := range form.Extends {
-				parent, _, _ := resolution.Dealias(extendsRef, table)
+				parent, ext, _ := resolution.Dealias(extendsRef, table)
+				typeArgs := resolution.TypeArgMap(
+					resolution.TypeParams(parent.Form),
+					ext.TypeArgs,
+				)
 				for _, pf := range resolution.UnifiedFields(parent, table) {
 					if !seenFields.Contains(pf.Name) {
 						seenFields.Add(pf.Name)
+						pf.Type = resolution.SubstituteTypeRef(pf.Type, typeArgs)
 						parentFields = append(parentFields, pf)
 					}
 				}

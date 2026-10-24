@@ -24,7 +24,8 @@ Labeled struct {
 }
 
 Box struct<T> {
-	item T
+	item   T
+	hidden bool
 }
 
 Code uint32
@@ -37,6 +38,7 @@ import "schemas/base"
 
 Labeled = base.Labeled
 Box<T> = base.Box<T>
+TextBox = base.Box<string>
 Code = base.Code
 `
 
@@ -84,5 +86,15 @@ var _ = Describe("Python aliases", func() {
 				box Box<string>
 			}
 		`, "box: Box[str]\n"),
+		Entry("a generic parent inlined for a redeclared field", `
+			Panel struct extends Box<string> {
+				hidden bool?
+			}
+		`, "class Panel(BaseModel):\n    item: str\n"),
+		Entry("an instance of a generic parent inlined for a redeclared field", `
+			Panel struct extends TextBox {
+				hidden bool?
+			}
+		`, "class Panel(BaseModel):\n    item: str\n"),
 	)
 })

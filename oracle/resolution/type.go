@@ -556,12 +556,7 @@ func InheritedFields(extends []TypeRef, table *Table) map[string]Field {
 		if !ok {
 			continue
 		}
-		typeArgs := make(map[string]TypeRef, len(parentForm.TypeParams))
-		for i, tp := range parentForm.TypeParams {
-			if i < len(ext.TypeArgs) {
-				typeArgs[tp.Name] = ext.TypeArgs[i]
-			}
-		}
+		typeArgs := TypeArgMap(parentForm.TypeParams, ext.TypeArgs)
 		for _, f := range UnifiedFields(parent, table) {
 			if _, seen := out[f.Name]; seen {
 				continue
