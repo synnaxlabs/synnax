@@ -278,6 +278,52 @@ describe("tile", () => {
       reader.close();
     });
 
+    describe("data type changes", () => {
+      it("should read a cached tile again when the caller holds another data type", async () => {
+        const { reader, calls } = createReader();
+        await reader.read(createSpec());
+        await reader.read(createSpec(), DataType.FLOAT64);
+        expect(calls).toHaveLength(1);
+        await reader.read(createSpec(), DataType.UINT8);
+        expect(calls).toHaveLength(2);
+        reader.close();
+      });
+
+      it("should drop a channel's cached tiles when a fetch returns a new data type", async () => {
+        let dataType = DataType.FLOAT64;
+        const { reader, calls } = createReader({
+          readRemote: async (tr, keys) => {
+            calls.push({ tr, keys });
+            return new Frame(
+              keys,
+              keys.map(
+                (key) =>
+                  new Series({
+                    data: new Array(SAMPLES).fill(key),
+                    dataType,
+                    timeRange: tr,
+                  }),
+              ),
+            );
+          },
+        });
+        await reader.read(createSpec({ index: 1 }));
+        await reader.read(createSpec({ index: 2 }));
+        await reader.read(createSpec({ index: 1, key: 2 }));
+        dataType = DataType.UINT8;
+        const changed = await reader.read(createSpec({ index: 3 }));
+        expect(changed.dataType.equals(DataType.UINT8)).toBe(true);
+        expect(calls).toHaveLength(4);
+        const refetched = await reader.read(createSpec({ index: 1 }));
+        expect(refetched.dataType.equals(DataType.UINT8)).toBe(true);
+        expect(calls).toHaveLength(5);
+        const other = await reader.read(createSpec({ index: 1, key: 2 }));
+        expect(other.dataType.equals(DataType.FLOAT64)).toBe(true);
+        expect(calls).toHaveLength(5);
+        reader.close();
+      });
+    });
+
     it("should reject every read in a failed fetch and cache nothing", async () => {
       let failing = true;
       const { reader } = createReader({
