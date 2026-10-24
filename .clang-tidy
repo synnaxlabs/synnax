@@ -16,8 +16,10 @@
 # - Arrays, casts, varargs, pointer math, and signed bitwise operands: the Driver
 #   speaks C SDKs and binary wire formats.
 # - throwing-static-initialization: every GoogleTest TEST registers a static.
-# - unchecked-optional-access: it cannot see a GoogleTest assertion that an optional
-#   has a value.
+# - unchecked-optional-access: it cannot see a GoogleTest assertion that an optional has
+#   a value.
+# - avoid-c-style-cast: it flags harmless casts such as uint8_t(7). pro-type-cstyle-cast
+#   flags the risky ones.
 # - include-cleaner and inconsistent-declaration-parameter-name: the result differs
 #   between libc++ and libstdc++.
 # - Brace, parameter, literal, and declaration style: clang-format and review own it.
@@ -34,6 +36,7 @@ Checks: |
     cppcoreguidelines-init-variables,
     cppcoreguidelines-missing-std-forward,
     cppcoreguidelines-prefer-member-initializer,
+    cppcoreguidelines-pro-type-cstyle-cast,
     cppcoreguidelines-pro-type-member-init,
     cppcoreguidelines-rvalue-reference-param-not-moved,
     cppcoreguidelines-slicing,
@@ -50,6 +53,7 @@ Checks: |
     -misc-use-internal-linkage,
     modernize-*,
     -modernize-avoid-c-arrays,
+    -modernize-avoid-c-style-cast,
     -modernize-avoid-variadic-functions,
     -modernize-return-braced-init-list,
     -modernize-use-designated-initializers,
@@ -88,5 +92,10 @@ CheckOptions:
     cppcoreguidelines-avoid-non-const-global-variables.IgnoreMacros: true
     misc-override-with-different-visibility.IgnoredFunctions: ::testing::Test::TestBody
     cppcoreguidelines-init-variables.MathHeader: <cmath>
+    # A throw from a destructor or a move ends the process, which is the right result.
+    bugprone-exception-escape.CheckDestructors: false
+    bugprone-exception-escape.CheckMoveMemberFunctions: false
+    # std::lock_guard is fine for one mutex.
+    modernize-use-scoped-lock.WarnOnSingleLocks: false
     # curl's public headers include each other.
     misc-header-include-cycle.IgnoredFilesList: /curl/curl\.h$
