@@ -30,12 +30,6 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
     std::string interface_name;
     /// @brief configured output channels.
     std::vector<std::unique_ptr<channel::Output>> outputs;
-    /// @brief the state channel of each output, keyed by its command channel.
-    /// Dynamically populated by querying the core.
-    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> state_channels;
-    /// @brief index channel keys for state timestamps.
-    /// Dynamically populated by querying the core.
-    std::set<synnax::channel::Key> state_indexes;
     /// @brief cached device properties for topology validation.
     std::unordered_map<std::string, slave::Properties> device_cache;
 
@@ -43,8 +37,6 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
         ::synnax::ethercat::WriteConfig(std::move(other)),
         interface_name(std::move(other.interface_name)),
         outputs(std::move(other.outputs)),
-        state_channels(std::move(other.state_channels)),
-        state_indexes(std::move(other.state_indexes)),
         device_cache(std::move(other.device_cache)) {}
 
     WriteTaskConfig(const WriteTaskConfig &) = delete;
@@ -110,12 +102,8 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
             std::unordered_map<synnax::channel::Key, synnax::channel::Channel> by_key;
             for (auto &ch: state_chs)
                 by_key.emplace(ch.key, std::move(ch));
-            for (const auto &out: this->outputs) {
-                if (out->state_key == 0) continue;
-                const auto &state = by_key.at(out->state_key);
-                this->state_channels[out->command_key] = state;
-                if (state.index != 0) this->state_indexes.insert(state.index);
-            }
+            for (const auto &out: this->outputs)
+                if (out->state_key != 0) out->state = by_key.at(out->state_key);
         }
     }
 
@@ -128,12 +116,13 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
         return {std::move(cfg), parser.error()};
     }
 
-    [[nodiscard]] std::vector<synnax::channel::Key> cmd_keys() const {
-        std::vector<synnax::channel::Key> keys;
-        keys.reserve(this->outputs.size());
-        for (const auto &ch: this->outputs)
-            keys.push_back(ch->command_key);
-        return keys;
+    /// @brief returns the command and state channel of each output.
+    [[nodiscard]] std::vector<common::Sink::Output> output_channels() const {
+        std::vector<common::Sink::Output> outs;
+        outs.reserve(this->outputs.size());
+        for (const auto &out: this->outputs)
+            outs.push_back({out->command_key, out->state});
+        return outs;
     }
 };
 
@@ -145,13 +134,7 @@ class WriteTaskSink final : public common::Sink {
 
 public:
     explicit WriteTaskSink(std::shared_ptr<engine::Engine> eng, WriteTaskConfig cfg):
-        Sink(
-            cfg.state_rate,
-            cfg.state_indexes,
-            cfg.state_channels,
-            cfg.cmd_keys(),
-            cfg.data_saving_disabled
-        ),
+        Sink(cfg.state_rate, cfg.output_channels(), cfg.data_saving_disabled),
         cfg(std::move(cfg)),
         engine(std::move(eng)) {}
 
