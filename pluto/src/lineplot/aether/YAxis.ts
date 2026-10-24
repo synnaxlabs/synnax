@@ -21,7 +21,6 @@ export interface YAxisProps extends AxisRenderProps {
   xDataToDecimalScale: scale.Scale;
   /** Bounds of the parent x axis; y bounds cover only samples inside them. */
   xBounds: bounds.Bounds;
-  exposure: number;
 }
 
 type Children = line.Line | rule.Rule;
@@ -69,14 +68,13 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   }
 
   private renderLines(
-    { xDataToDecimalScale: xScale, plot, canvases, exposure }: YAxisProps,
+    { xDataToDecimalScale: xScale, plot, canvases }: YAxisProps,
     yScale: scale.Scale,
   ): void {
     if (!canvases.includes("gl") || invalidArea(plot)) return;
     const props: line.LineProps = {
       region: plot,
       dataToDecimalScale: new scale.XY(xScale, yScale),
-      exposure,
     };
     this.lines.forEach((el) => el.render(props));
   }
@@ -107,7 +105,6 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
       plot,
       viewport,
       hold,
-      exposure,
     }: Omit<YAxisProps, "canvases">,
     target: number,
   ): line.FindResult[] {
@@ -118,7 +115,7 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     );
     if (error != null) throw error;
     const dataToDecimalScale = new scale.XY(xDataToDecimalScale, yDataToDecimalScale);
-    const props: line.LineProps = { region: plot, dataToDecimalScale, exposure };
+    const props: line.LineProps = { region: plot, dataToDecimalScale };
     return this.lines.map((el) => ({
       ...el.findByXValue(props, target),
       units: this.state.label,
