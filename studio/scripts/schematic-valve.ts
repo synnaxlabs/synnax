@@ -30,33 +30,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       properties.locator("[role='tab']").filter({ hasText: "Control" }).first(),
       { text: true, zoom: false },
     );
-    const bind = async (section: string, channel: string): Promise<void> => {
-      const item = properties
-        .locator(".pluto-form-section")
-        .filter({
-          has: page
-            .locator(".pluto-form-section__header")
-            .getByText(section, { exact: true }),
-        })
-        .locator(".pluto-input__item")
-        .filter({ hasText: "Channel" })
-        .first();
-      await session.click(item.getByText("Select channel", { exact: true }).first(), {
-        zoom: false,
-      });
-      const search = page.getByPlaceholder("Search channels...").first();
-      await session.waitFor(search);
-      await search.fill(channel);
-      const option = page
-        .locator(".pluto-list__item")
-        .filter({ has: page.getByText(channel, { exact: true }) })
-        .first();
-      await session.waitFor(option);
-      await session.click(option, { zoom: false });
-      await session.settle(400);
-    };
-    await bind("State", fixture.state);
-    await bind("Command", fixture.command);
+    await capture.bindChannel(session, "State", fixture.state);
+    await capture.bindChannel(session, "Command", fixture.command);
 
     await capture.deselect(session, { x: 100, y: 290 });
     // Control mode leaves the toolbar on a "not editable" placeholder, so the

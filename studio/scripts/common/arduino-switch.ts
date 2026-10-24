@@ -9,7 +9,7 @@
 
 import { capture, fixtures } from "@/index";
 
-import { channelField, frameLegend } from "./valve-schematic";
+import { frameLegend } from "./valve-schematic";
 
 /**
  * arduinoSwitchScript returns a script for the custom devices tutorial: bind a
@@ -53,7 +53,7 @@ export const arduinoSwitchScript =
       );
       await session.hold(500);
       const bind = async (section: string, channel: string): Promise<void> => {
-        const item = channelField(properties, section);
+        const item = capture.channelField(properties, section);
         await session.click(item.getByText("Select channel", { exact: true }).first(), {
           text: true,
           zoom: false,

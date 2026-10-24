@@ -28,6 +28,8 @@ export interface Modal {
    * focus. Keys typed before then fire the Console's single-key shortcuts.
    */
   focusEditor: () => Promise<void>;
+  /** blurEditor drops editor focus at once, so no caret blinks through a hold. */
+  blurEditor: () => Promise<void>;
   /**
    * typeExpression types the channel prefix, accepts the editor's suggestion with Tab,
    * and types the tail.
@@ -53,7 +55,7 @@ export const setup = async (session: capture.CaptureSession): Promise<Modal> => 
   await capture.resizeToolbar(session, 500);
   await session.moveTo({ x: 800, y: 450 });
 
-  const modal = page.locator(".pluto-dialog__dialog.pluto--modal");
+  const modal = page.locator(capture.MODAL);
   const editor = modal.locator(".console-calculated-editor").first();
   return {
     modal,
@@ -67,11 +69,9 @@ export const setup = async (session: capture.CaptureSession): Promise<Modal> => 
       await session.click(editor);
       await session.waitFor(editor.locator(".monaco-editor.focused"));
     },
-    zoom: async () => {
-      const box = await modal.first().boundingBox();
-      if (box == null) throw new Error("calculated channel modal is not on screen");
-      await session.zoom({ x: box.x + box.width / 2, y: box.y + box.height / 2 }, 1.4);
-    },
+    blurEditor: async () =>
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur()),
+    zoom: async () => await capture.zoomCenter(session, modal.first(), 1.4),
     typeExpression: async (tail, tailMs = 40) => {
       await session.type("return sy_node_1", 40);
       await session.hold(500);
@@ -107,8 +107,7 @@ export const create = async (
   // Slower here so the channel name has time to highlight before Create.
   await m.focusEditor();
   await m.typeExpression(" * 2", 10);
-  // Drop editor focus instantly so the caret does not blink through the hold.
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await m.blurEditor();
   await session.hold(800);
 
   await capture.clickButton(session, "Create");

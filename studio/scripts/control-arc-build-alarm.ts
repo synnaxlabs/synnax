@@ -36,20 +36,6 @@ const createResources = async (): Promise<void> => {
 };
 
 /**
- * zoomCenter zooms on the center of a region wider than a zoomed frame. A rect that
- * wide caps the zoom at 1x, so the camera aims at the center and pans with the cursor.
- */
-const zoomCenter = async (
-  session: capture.CaptureSession,
-  region: Locator,
-  amount: number,
-): Promise<void> => {
-  const box = await region.boundingBox();
-  if (box == null) throw new Error("zoom region is hidden");
-  await session.zoom({ x: box.x + box.width / 2, y: box.y + box.height / 2 }, amount);
-};
-
-/**
  * Docs `control/arc/graph-editor/build-alarm`: in an empty graph-mode Arc automation,
  * drag a telemetry source, a constant, a greater-than operator, a select, and two
  * change-status blocks onto the graph, set their properties, connect them, choose the
@@ -62,7 +48,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.clearPanel(session);
   await capture.clickPanelCreate(session);
   await capture.createComponent(session, "Arc automation");
-  const modal = page.locator(".pluto-dialog__dialog.pluto--modal").first();
+  const modal = page.locator(capture.MODAL).first();
   const name = modal.getByPlaceholder("Name").first();
   await session.waitFor(name);
   await name.fill("Tank pressure alarm");
@@ -182,7 +168,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       .locator(".pluto-input__item")
       .filter({ hasText: new RegExp(`^${label}`) });
 
-  await zoomCenter(session, drawer, 1.4);
+  await capture.zoomCenter(session, drawer, 1.4);
   await configure(source);
   await choose(
     properties.getByText("Select channel", { exact: true }).first(),
@@ -239,7 +225,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(800);
 
   const controls = page.locator(".console-arc-editor__controls").first();
-  await zoomCenter(session, controls.locator(".console-rack-select").first(), 1.5);
+  await capture.zoomCenter(
+    session,
+    controls.locator(".console-rack-select").first(),
+    1.5,
+  );
   await choose(controls.locator(".console-rack-select").first(), "Node 1");
   await session.click(controls.locator("button:has(svg.pluto-icon--play)").first());
   session.endZoom();

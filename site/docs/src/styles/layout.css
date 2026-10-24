@@ -320,8 +320,24 @@ article {
         margin: 0;
     }
 
-    :is(.field-list, .rule-list, .problem-list) {
+    /* Field, problem, and rule lists: a hairline opens the list, and hairlines split
+       its entries. */
+    .docs-entry-list {
         margin: 3rem 0 var(--docs-block-gap);
+        padding: 0;
+        border-top: var(--pluto-border-width) solid var(--pluto-gray-l3);
+        list-style: none;
+
+        & > * {
+            margin: 0;
+            padding: 3rem 0;
+            border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l3);
+        }
+
+        & > :last-child {
+            padding-bottom: 0;
+            border-bottom: none;
+        }
     }
 
     :is(h2, h2.pluto-text) + :is(h3, h3.pluto-text) {
@@ -334,19 +350,13 @@ article {
 
     /* A heading owns the gap below it. */
     :is(h2, h2.pluto-text, h3, h3.pluto-text, h4, h4.pluto-text)
-        + :is(
-            table,
-            .table-wrapper,
-            .pluto-tabs,
-            .field-list,
-            .rule-list,
-            .problem-list
-        ) {
+        + :is(table, .table-wrapper, .pluto-tabs, .docs-entry-list) {
         margin-top: 0;
     }
 
-    /* The label of a Lyra button is a <p> too, but it is not prose. */
-    p:not(.pluto-btn *) {
+    /* A prose paragraph has no class. Lyra text and component paragraphs set their own
+       margins and color. */
+    p:not([class]) {
         margin: 3rem 0;
         color: var(--docs-body-color);
     }
@@ -388,12 +398,12 @@ article {
        inside a picture, and videos inside a play button wrapper. A table keeps the full
        gap: its header is text, so a close lead-in reads as one more line. */
     p:has(+ :is(video, img, .docs-picture, .docs-video, .pluto-tabs)),
-    p:has(+ :is(.field-list, .rule-list, .problem-list)) {
+    p:has(+ .docs-entry-list) {
         margin-bottom: 2rem;
     }
 
     p + :is(video, img, .pluto-tabs),
-    p + :is(.field-list, .rule-list, .problem-list),
+    p + .docs-entry-list,
     p + .docs-picture > img,
     p + .docs-video > video {
         margin-top: 0;

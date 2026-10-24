@@ -10,7 +10,7 @@
 import { capture } from "@/index";
 
 import { pickComponent } from "./common/create-component";
-import { createStand, PARK } from "./common/panels";
+import { createStand } from "./common/panels";
 
 /**
  * Docs `console/panels/open-tab`: click the add button at the right of the tab bar,
@@ -19,7 +19,7 @@ import { createStand, PARK } from "./common/panels";
 export default async (session: capture.CaptureSession): Promise<void> => {
   const stand = await createStand(session);
   try {
-    await session.moveTo(PARK);
+    await session.moveTo(capture.PARK);
 
     session.startRecording();
     await session.hold(1800);
@@ -27,7 +27,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await capture.clickPanelCreate(session);
     await session.waitFor(capture.tab(session.page, "Create component"));
     await pickComponent(session, "Line plot", ".pluto-line-plot");
-    await session.moveTo(PARK);
+    await session.moveTo(capture.PARK);
     await session.hold(2800);
   } finally {
     await stand.stop();

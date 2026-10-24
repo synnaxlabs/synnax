@@ -10,7 +10,7 @@
 
 import { Breadcrumb } from "@/components/article/Breadcrumb";
 import NextPrev from "@/components/article/NextPrev.astro";
-import { Badge } from "@/components/edition/Badge";
+import { Edition } from "@/components/edition";
 import { InlineCode } from "@/components/text/InlineCode";
 import { Text } from "@synnaxlabs/lyra/text";
 const {
@@ -47,7 +47,7 @@ const publishedLabel =
         {showBreadcrumb && url.split("/").length > 2 && (
             <Breadcrumb url={url} title={title} />
         )}
-        {edition && <Badge edition={edition} />}
+        {edition && <Edition.Badge edition={edition} />}
     </div>
     {published && (
         <div class="blog-meta">

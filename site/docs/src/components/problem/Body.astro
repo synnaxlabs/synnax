@@ -7,29 +7,23 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+
+import { Description } from "@synnaxlabs/lyra/description";
 ---
 
-<dl class="problem__body">
+<Description.List className="problem__body">
     <slot />
-</dl>
+</Description.List>
 
 <style is:global>
     .problem__body {
-        display: grid;
-        grid-template-columns: max-content minmax(0, 1fr);
-        align-items: baseline;
-        gap: 1rem 3rem;
         margin: 2rem 0 4rem;
     }
 
-    .problem__label {
-        font-size: var(--pluto-small-size);
-        font-weight: 500;
-        color: var(--pluto-gray-l8);
-    }
-
+    /* A value holds MDX blocks, so it lays them out in block flow, not as a line of
+       text. */
     .problem__value {
-        margin: 0;
+        display: block;
         color: var(--docs-body-color);
 
         & > :first-child {
@@ -45,11 +39,11 @@
     @media (max-width: 600px) {
         .problem__body {
             grid-template-columns: minmax(0, 1fr);
-            gap: 0.5rem;
-        }
+            row-gap: 2rem;
 
-        .problem__value + .problem__label {
-            margin-top: 1.5rem;
+            & > .pluto-description__item {
+                row-gap: 0.5rem;
+            }
         }
     }
 </style>

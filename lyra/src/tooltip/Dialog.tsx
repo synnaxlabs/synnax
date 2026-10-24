@@ -27,6 +27,7 @@ import { type position } from "@/position";
 import { Text } from "@/text";
 import { useConfig } from "@/tooltip/Config";
 import { Frame } from "@/tooltip/Frame";
+import { CLOSE_MS } from "@/tooltip/tooltip";
 import { Triggers } from "@/triggers";
 
 interface ChildProps {
@@ -58,7 +59,6 @@ export interface ExtensionProps {
   hideTooltip?: DialogProps["hide"];
 }
 
-const CLOSE_DURATION = TimeSpan.milliseconds(150);
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 
 /**
@@ -125,7 +125,7 @@ export const Dialog = ({
       closeTimeoutRef.current = null;
       setClosing(false);
       setVisible(false);
-    }, CLOSE_DURATION.milliseconds);
+    }, CLOSE_MS);
   }, []);
   const closeNow = useCallback((): void => close(true), [close]);
 

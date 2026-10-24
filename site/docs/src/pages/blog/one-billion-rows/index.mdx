@@ -12,12 +12,12 @@ import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Text as TextComponent } from "@/components/text";
 import Details from "@/components/details/Details.astro";
-import Diagram from "@/components/diagram/Diagram.astro";
+import { Diagram } from "@/components/diagram";
 import { Image } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Diagram style={{ padding: "20rem" }} variant="boxes">
+<Diagram.Diagram style={{ padding: "20rem" }} variant="boxes">
   <svg
     width="592"
     height="100"
@@ -78,7 +78,7 @@ export const components = mdxOverrides;
       </linearGradient>
     </defs>
   </svg>
-</Diagram>
+</Diagram.Diagram>
 
 In this article we'll compare the performance of Synnax to two other leading time series
 databases: [TimescaleDB](https://www.tigerdata.com/timescaledb) and

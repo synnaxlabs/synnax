@@ -11,23 +11,18 @@ import { capture, fixtures } from "@/index";
 
 import { DRIVER } from "./task";
 
-export interface ConfigureDeviceShot {
-  /** An unconfigured device on the simulated Driver. */
-  device: fixtures.SimulatedDevice;
-  /** The name to give the device. */
-  name: string;
-  /** The identifier to give the device. */
-  identifier: string;
-}
-
 /**
- * configureDeviceScript returns a script that right-clicks an unconfigured device in
- * the devices toolbar, selects Configure, enters a name and an identifier, and saves.
- * The device is simulated, and configuring it needs no Driver.
+ * configureDeviceScript returns a script that right-clicks `device`, an unconfigured
+ * device, in the devices toolbar, selects Configure, enters the name and identifier of
+ * `configured`, and saves. The device is simulated, and configuring it needs no Driver.
+ * Throws when `configured` has no identifier.
  */
 export const configureDeviceScript =
-  ({ device, name, identifier }: ConfigureDeviceShot) =>
+  (device: fixtures.SimulatedDevice, configured: fixtures.SimulatedDevice) =>
   async (session: capture.CaptureSession): Promise<void> => {
+    const { name } = configured;
+    const { identifier } = configured.properties;
+    if (typeof identifier !== "string") throw new Error(`${name} has no identifier`);
     const driver = await fixtures.simulatedDriver({ devices: [device] });
     try {
       const { page } = session;

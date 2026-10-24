@@ -23,6 +23,15 @@ const CREDENTIALS = { username: "synnax", password: "seldon" };
 export const PROJECT = "Synnax";
 
 /**
+ * PARK is a point on the top bar with no control under it, where the cursor rests
+ * clear of the shot. Over a plot, the cursor raises a crosshair.
+ */
+export const PARK = { x: 900, y: 24 };
+
+/** MODAL selects an open modal dialog, such as a create form. */
+export const MODAL = ".pluto-dialog__dialog.pluto--modal";
+
+/**
  * login fills the Console login form, passes the projects screen (selecting or
  * creating `project`), and waits for the workspace shell. Runs before recording
  * starts, so it fills fields directly instead of typing.
@@ -295,6 +304,29 @@ export const openPalette = async (session: CaptureSession): Promise<Locator> => 
  */
 export const field = (page: Page, label: string): Locator =>
   page.getByText(label, { exact: true }).locator("..").locator("input").first();
+
+/**
+ * pickChannel fills the search of the open channel dropdown with `channel` and clicks
+ * the match. It fills instead of typing, so it suits setup, not a recorded beat.
+ */
+export const pickChannel = async (
+  session: CaptureSession,
+  channel: string,
+): Promise<void> => {
+  const { page } = session;
+  const search = page.locator("input[placeholder*='Search']").first();
+  await session.waitFor(search);
+  await search.fill(channel);
+  const item = page
+    .locator(".pluto-list__item:not(.pluto-tree__item)")
+    .filter({ hasText: channel })
+    .first();
+  await session.waitFor(item);
+  await session.click(item.getByText(channel, { exact: true }).first(), {
+    text: true,
+    zoom: false,
+  });
+};
 
 /** clickButton clicks the button whose accessible name is exactly `label`. */
 export const clickButton = async (

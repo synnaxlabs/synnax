@@ -9,6 +9,8 @@
 
 import { capture, fixtures } from "@/index";
 
+import { drawer, resize } from "./common/table";
+
 /**
  * Docs `console/tables/value-cell`: select a cell, press V, change the cell to a
  * value cell, and pick its channel on the Telemetry tab; the cell starts showing
@@ -23,16 +25,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await capture.createComponent(session, "Table");
     await session.waitFor(page.locator(".console-table").first());
     // The default cells are too small to read on camera.
-    const resize = async (name: string, by: { x: number; y: number }) => {
-      const handle = page.getByRole("button", { name, exact: true }).first();
-      const box = await handle.boundingBox();
-      if (box == null) throw new Error(`${name} is not on screen`);
-      const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-      await session.drag(from, { x: from.x + by.x, y: from.y + by.y }, { zoom: false });
-    };
     for (const column of ["A", "B"])
-      await resize(`Resize column ${column}`, { x: 110, y: 0 });
-    for (const row of ["1", "2"]) await resize(`Resize row ${row}`, { x: 0, y: 14 });
+      await resize(session, `Resize column ${column}`, { x: 110, y: 0 });
+    for (const row of ["1", "2"])
+      await resize(session, `Resize row ${row}`, { x: 0, y: 14 });
     // The table opens its toolbar on its own; the shot opens it with V.
     await capture.hideBottomToolbar(session);
     await session.moveTo({ x: 756, y: 500 });
@@ -44,8 +40,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.click(page.locator(".pluto-table__cell").nth(1), { zoom: false });
     await session.hold(600);
     await session.press("v");
-    const drawer = page.locator(".console-nav__drawer.pluto--location-bottom").first();
-    const change = drawer.locator("[aria-label='Change cell type']").first();
+    const toolbar = drawer(page);
+    const change = toolbar.locator("[aria-label='Change cell type']").first();
     await session.waitFor(change);
     await session.hold(900);
 
@@ -58,14 +54,14 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(600);
     await session.click(option, { text: true, zoom: false });
 
-    const telemetry = drawer.getByText("Telemetry", { exact: true }).first();
+    const telemetry = toolbar.getByText("Telemetry", { exact: true }).first();
     await session.waitFor(telemetry);
     await session.hold(600);
     await session.click(telemetry, { text: true, zoom: false });
     await session.hold(500);
 
     const channel = fixture.channels[0];
-    await session.click(drawer.getByText("Select channel", { exact: true }).first(), {
+    await session.click(toolbar.getByText("Select channel", { exact: true }).first(), {
       text: true,
       zoom: false,
     });

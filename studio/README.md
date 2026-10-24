@@ -83,8 +83,10 @@ pnpm run clean --all      # remove out/ entirely
 
 For each entry, batch captures light and dark against fresh ephemeral cores, renders the
 pair to `out/videos/<id>-light.mp4` / `-dark.mp4` (the id's slashes flattened), and
-stamps `out/<id>/produce.json` with a hash of the script and options; unchanged entries
-are skipped on the next run (`--force` overrides). Captured frames run to gigabytes per
+stamps `out/<id>/produce.json` with a hash of the script, the modules it imports from
+`scripts/`, and options; unchanged entries are skipped on the next run (`--force`
+overrides). Engine changes under `src/` leave the hash alone, so re-record by hand with
+`--force` when one changes what a shot shows. Captured frames run to gigabytes per
 theme, so batch prunes them after a successful render (`--keep-frames` retains them for
 `produce --skip-capture` iteration). Draft renders are refused by `pnpm upload` unless
 `--allow-draft` is passed.
@@ -132,11 +134,11 @@ zooms, capture with `--dsf 3`: a 1080p target then allows 2.5x.
 
 Clicks never zoom. Scripts author the camera: `session.zoom(locator)` opens a zoom that
 frames the element's rect plus a margin (amount derived from the rect unless given, and
-capped at the crisp limit either way), and `session.endZoom()` returns to the full
-frame. Inside a zoom, the camera holds its framing while the cursor's targets stay in
-frame, and pans only as far as it must when a target leaves it. The pan starts when the
-cursor departs, so the camera and cursor arrive together. `AUTHORING.md` holds the rules
-for where to zoom.
+capped at the crisp limit either way), a list of locators frames the box around them,
+and `session.endZoom()` returns to the full frame. Inside a zoom, the camera holds its
+framing while the cursor's targets stay in frame, and pans only as far as it must when a
+target leaves it. The pan starts when the cursor departs, so the camera and cursor
+arrive together. `AUTHORING.md` holds the rules for where to zoom.
 
 The synthetic cursor fades out after sitting still for 0.75s and fades back in the
 moment it moves or presses again, matching Screen Studio's idle behavior. The fade is

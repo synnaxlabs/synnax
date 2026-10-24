@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type capture } from "@/index";
+import { capture } from "@/index";
 
-import { createStand, menuItem, mosaicTab, PARK, splitRight } from "./common/panels";
+import { createStand, menuItem, mosaicTab, splitRight } from "./common/panels";
 
 /**
  * Docs `console/panels/focus`: with a line plot and a table side by side, right-click
@@ -21,7 +21,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   try {
     const { page } = session;
     await splitRight(session, stand.table);
-    await session.moveTo(PARK);
+    await session.moveTo(capture.PARK);
     await session.settle(500);
 
     session.startRecording();
@@ -43,7 +43,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       page.locator(".pluto-panel-mosaic__overlaid-leaf").first(),
     );
     await session.waitFor(leaves.nth(1));
-    await session.moveTo(PARK);
+    await session.moveTo(capture.PARK);
     await session.hold(2800);
   } finally {
     await stand.stop();

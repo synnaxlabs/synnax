@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type capture } from "@/index";
+import { capture } from "@/index";
 
-import { createStand, PARK, splitRight } from "./common/panels";
+import { createStand, splitRight } from "./common/panels";
 
 /**
  * Docs `console/panels/split`: drag the table tab to the right third of the panel,
@@ -18,13 +18,13 @@ import { createStand, PARK, splitRight } from "./common/panels";
 export default async (session: capture.CaptureSession): Promise<void> => {
   const stand = await createStand(session);
   try {
-    await session.moveTo(PARK);
+    await session.moveTo(capture.PARK);
 
     session.startRecording();
     await session.hold(1800);
 
     await splitRight(session, stand.table);
-    await session.moveTo(PARK);
+    await session.moveTo(capture.PARK);
     await session.hold(2800);
   } finally {
     await stand.stop();

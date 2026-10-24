@@ -66,10 +66,13 @@ export const routed = (f: string): boolean => !path.basename(f).startsWith("_");
 export const toRoute = (f: string): string =>
   `/${f.replace(/\.(mdx|astro)$/, "").replace(/(^|\/)index$/, "$1")}`;
 
-/** Derives every route from the src/pages file tree. */
+/**
+ * Derives every route from the src/pages file tree. Dynamic routes are left out, since
+ * they serve pages that have files of their own.
+ */
 export const enumerateRoutes = (): string[] => {
   const routes = pageFiles()
-    .filter((f) => /\.(mdx|astro)$/.test(f) && routed(f))
+    .filter((f) => /\.(mdx|astro)$/.test(f) && routed(f) && !f.includes("["))
     .map(toRoute);
   return [...new Set(routes)];
 };

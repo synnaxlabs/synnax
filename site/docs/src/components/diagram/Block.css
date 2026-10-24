@@ -114,32 +114,10 @@
     padding: 0;
     border: none;
     background: none;
-}
 
-/* Each level of nesting steps one gray toward the blocks inside it. */
-.block-diagram__group {
-    fill: var(--pluto-gray-l3);
-}
-
-.block-diagram__border {
-    fill: none;
-    stroke: var(--pluto-gray-l5);
-    stroke-width: 0.5;
-}
-
-.block-diagram--nest [data-depth="1"] > .block-diagram__group {
-    fill: var(--pluto-gray-l2);
-}
-
-.block-diagram__hatch-line {
-    stroke: var(--docs-nest-hatch, var(--pluto-gray-l5));
-    stroke-width: 1;
-}
-
-/* Colored groups: the project is amber, a panel is green, and the blocks keep Block's
-   blue. Labels keep their gray, so their contrast does not change. The hatch mixes the
-   accent into the group's fill, at the share that sets its contrast with the fill. */
-.block-diagram--colored {
+    /* Each level steps one gray toward the blocks and takes its own accent: amber, then
+       green. Labels keep their gray. The hatch mixes the accent into the fill, and the
+       share sets its contrast. */
     [data-depth="0"] {
         --docs-nest-accent: var(--pluto-warning-z);
         --docs-nest-fill: var(--pluto-gray-l3);
@@ -152,16 +130,23 @@
         --docs-nest-mix: 7.6%;
     }
 
-    [data-depth] {
-        --docs-nest-hatch: color-mix(
+    [data-depth] > .block-diagram__group {
+        fill: var(--docs-nest-fill);
+    }
+
+    [data-depth] > .block-diagram__border {
+        fill: none;
+        stroke: color-mix(in srgb, var(--docs-nest-accent) 60%, transparent);
+        stroke-width: 0.5;
+    }
+
+    .block-diagram__hatch-line {
+        stroke: color-mix(
             in srgb,
             var(--docs-nest-accent) var(--docs-nest-mix),
             var(--docs-nest-fill)
         );
-    }
-
-    [data-depth] > .block-diagram__border {
-        stroke: color-mix(in srgb, var(--docs-nest-accent) 60%, transparent);
+        stroke-width: 1;
     }
 
     .block-diagram__header .block-diagram__icon {
@@ -172,7 +157,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-    .block-diagram--colored {
+    .block-diagram--nest {
         [data-depth="0"] {
             --docs-nest-mix: 2.6%;
         }

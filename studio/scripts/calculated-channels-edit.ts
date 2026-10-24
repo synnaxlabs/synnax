@@ -45,7 +45,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.press("Delete");
   await session.hold(300);
   await m.typeExpression(" / 2");
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await m.blurEditor();
   await session.hold(300);
 
   await session.click(m.modal.getByText("Max", { exact: true }).first(), {

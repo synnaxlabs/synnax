@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   editionOf,
+  firstPages,
   groupOf,
   labels,
   neighbors,
@@ -140,6 +141,79 @@ describe("tree", () => {
 
     it("should return undefined for a path outside the tree", () => {
       expect(sectionOf(NODES, "/reference/missing")).toBeUndefined();
+    });
+  });
+
+  describe("firstPages", () => {
+    const GROUPS: PageNavNode[] = [
+      {
+        key: "get-started",
+        name: "Get started",
+        children: [
+          { href: "/reference/", name: "Overview" },
+          { href: "/reference/get-started/concepts", name: "Concepts" },
+        ],
+      },
+      {
+        key: "hardware",
+        name: "Hardware",
+        children: [
+          { href: "/reference/hardware", name: "Overview" },
+          {
+            key: "ni",
+            name: "NI",
+            children: [
+              {
+                key: "devices",
+                name: "Devices",
+                children: [{ href: "/reference/hardware/ni/devices/add", name: "Add" }],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        href: "/reference/arc",
+        name: "Arc",
+        children: [
+          {
+            key: "library",
+            name: "Library",
+            children: [{ href: "/reference/arc/library/math", name: "math" }],
+          },
+        ],
+      },
+    ];
+    const pages = firstPages(GROUPS, "/reference");
+
+    it("should map a group to its first page as the nav writes it", () => {
+      expect(pages.get("/reference/get-started")).toBe("/reference/");
+    });
+
+    it("should skip a group whose route is already a page", () => {
+      expect(pages.has("/reference/hardware")).toBe(false);
+    });
+
+    it("should map a group whose first page sits in a nested group", () => {
+      expect(pages.get("/reference/hardware/ni")).toBe(
+        "/reference/hardware/ni/devices/add",
+      );
+      expect(pages.get("/reference/hardware/ni/devices")).toBe(
+        "/reference/hardware/ni/devices/add",
+      );
+    });
+
+    it("should place a group under a page at the route of the page", () => {
+      expect(pages.get("/reference/arc/library")).toBe("/reference/arc/library/math");
+    });
+
+    it("should map nothing but group routes", () => {
+      expect([...pages.keys()].sort()).toEqual([
+        "/reference/arc/library",
+        "/reference/get-started",
+        "/reference/hardware/ni",
+        "/reference/hardware/ni/devices",
+      ]);
     });
   });
 

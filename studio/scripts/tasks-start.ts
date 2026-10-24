@@ -9,7 +9,6 @@
 
 import { ni, type rack } from "@synnaxlabs/client";
 
-import { configured, NI_USB_6343, simulatedDriver } from "@/fixtures/hardware";
 import { capture, fixtures } from "@/index";
 
 const TASK = "Tank sensors";
@@ -29,7 +28,7 @@ const createTask = async (rackKey: rack.Key): Promise<void> => {
           ni.aiVoltageChannelZ.parse({
             type: "ai_voltage",
             port,
-            device: NI_USB_6343.key,
+            device: fixtures.NI_USB_6343.key,
             minVal: -10,
             maxVal: 10,
           }),
@@ -47,8 +46,10 @@ const createTask = async (rackKey: rack.Key): Promise<void> => {
  * status turns to "Task started successfully". The NI device is simulated.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
-  const driver = await simulatedDriver({
-    devices: [configured(NI_USB_6343, NI_USB_6343.name, "dev1")],
+  const driver = await fixtures.simulatedDriver({
+    devices: [
+      fixtures.configured(fixtures.NI_USB_6343, fixtures.NI_USB_6343.name, "dev1"),
+    ],
   });
   try {
     await createTask(driver.rack);

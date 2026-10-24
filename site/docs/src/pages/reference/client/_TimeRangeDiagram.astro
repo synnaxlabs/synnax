@@ -7,10 +7,13 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+
+import "@/components/diagram/Block.css";
 ---
 
-<figure class="time-range-diagram">
+<figure class="block-diagram">
     <svg
+        class="block-diagram__svg"
         viewBox="0 0 560 168"
         role="img"
         aria-label="Time range A runs from 12:00 to 13:00 and time range B from 13:00 to 14:00. Each time range includes its start and excludes its end, so a sample at 13:00 is in time range B only."
@@ -50,21 +53,9 @@
 </figure>
 
 <style>
-    .time-range-diagram {
-        margin: 3rem 0 var(--docs-block-gap);
-        padding: 3rem 2rem;
-        border: var(--pluto-border);
-        border-radius: 1.5rem;
-        background-color: var(--pluto-gray-l2-30);
-    }
-
     svg {
-        display: block;
         width: 100%;
         max-width: 560px;
-        height: auto;
-        margin: 0 auto;
-        overflow: visible;
     }
 
     .axis {

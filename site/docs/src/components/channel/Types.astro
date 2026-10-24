@@ -13,13 +13,17 @@
 // When no type names a group, the pane holds only the types. A chip shows the icon of
 // its type, and a group shows the icon of its first type.
 
+import { unescape } from "html-escaper";
+
 import { type Group, type Option, Options, Picker } from "@/components/channel/Picker";
 import { toAnchor } from "@/util/anchor";
 
 const html = (await Astro.slots.render("default")).trim();
 
-const optional = (tag: string, name: string): string | undefined =>
-    tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];
+const optional = (tag: string, name: string): string | undefined => {
+    const value = tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];
+    return value == null ? undefined : unescape(value);
+};
 
 const attribute = (tag: string, name: string): string => {
     const value = optional(tag, name);

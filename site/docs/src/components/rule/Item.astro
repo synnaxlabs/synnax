@@ -32,15 +32,7 @@ const { title, id = toAnchor(title) } = Astro.props;
         counter-increment: rule;
         display: grid;
         grid-template-columns: 7rem minmax(0, 1fr);
-        margin: 0;
-        padding: 3.5rem 0;
-        border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l3);
         color: var(--docs-body-color);
-
-        &:last-child {
-            padding-bottom: 0;
-            border-bottom: none;
-        }
     }
 
     .rule-item__number {

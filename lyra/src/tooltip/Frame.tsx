@@ -23,6 +23,7 @@ import { createPortal } from "react-dom";
 import { CSS } from "@/css";
 import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
 import { position } from "@/position";
+import { OFFSET } from "@/tooltip/tooltip";
 import { getRootElement } from "@/util/rootElement";
 
 export interface FrameProps {
@@ -43,7 +44,6 @@ const PREFERENCES: position.LocationPreference[] = [
   { targetCorner: location.CENTER_RIGHT, dialogCorner: location.CENTER_LEFT },
   { targetCorner: location.CENTER_LEFT, dialogCorner: location.CENTER_RIGHT },
 ];
-const OFFSET = 6;
 
 /** The positioned tooltip box, following its anchor and content through resizes. */
 export const Frame = ({

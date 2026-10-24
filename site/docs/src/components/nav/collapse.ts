@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+
 const NAV = ".page-nav";
 const TOGGLE = "[data-page-nav-toggle]";
 const SECTION = ".page-nav-section-header";
@@ -16,11 +18,6 @@ const CLOSING_CLASS = "pluto--closing";
 export const STORAGE_KEY = "docs-page-nav-collapsed";
 /** The key that toggles the sidebar together with Cmd or Ctrl. */
 export const SHORTCUT = "B";
-// Lyra's tooltip timing and offset, so the sidebar matches the Console.
-const DELAY_MS = 700;
-const SKIP_DELAY_MS = 300;
-const CLOSE_MS = 150;
-const OFFSET = 6;
 
 const collapsed = (nav: HTMLElement): boolean => nav.dataset.collapsed != null;
 
@@ -117,7 +114,7 @@ export const start = (): void => {
     const rect = target.getBoundingClientRect();
     const top = rect.top + (rect.height - tip.offsetHeight) / 2;
     // The translate property, since the tooltip's entry animation owns transform.
-    tip.style.translate = `${rect.right + OFFSET}px ${top}px`;
+    tip.style.translate = `${rect.right + Tooltip.OFFSET}px ${top}px`;
   };
 
   const hide = (immediate = false): void => {
@@ -136,7 +133,7 @@ export const start = (): void => {
     closeTimer = setTimeout(() => {
       tip.hidden = true;
       tip.classList.remove(CLOSING_CLASS);
-    }, CLOSE_MS);
+    }, Tooltip.CLOSE_MS);
   };
 
   const toggle = (nav: HTMLElement): void => {
@@ -151,9 +148,9 @@ export const start = (): void => {
     if (target == null || target === anchor || target === anchorOf(e.relatedTarget))
       return;
     clearTimeout(openTimer);
-    if (anchor != null || performance.now() - lastClosed < SKIP_DELAY_MS)
+    if (anchor != null || performance.now() - lastClosed < Tooltip.SKIP_DELAY_MS)
       return show(target);
-    openTimer = setTimeout(() => show(target), DELAY_MS);
+    openTimer = setTimeout(() => show(target), Tooltip.DELAY_MS);
   });
   document.addEventListener("pointerout", (e) => {
     const target = anchorOf(e.target);

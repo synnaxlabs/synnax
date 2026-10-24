@@ -164,6 +164,21 @@ const WORKER_FRAMES = `(() => {
       : new Promise((resolve) => waiters.push({ at: frames + n, resolve }));
 })()`;
 
+/** Edges of the box around a set of rects. */
+interface Bounds {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+const bounds = (rects: Rect[]): Bounds => ({
+  left: Math.min(...rects.map((r) => r.x)),
+  top: Math.min(...rects.map((r) => r.y)),
+  right: Math.max(...rects.map((r) => r.x + r.width)),
+  bottom: Math.max(...rects.map((r) => r.y + r.height)),
+});
+
 /**
  * CaptureSession drives the Console under a stepped virtual clock, saving one
  * lossless PNG per tick while recording and logging every synthetic input event
@@ -385,10 +400,7 @@ export class CaptureSession {
         }
       if (rects.length === 0)
         throw new Error(`region "${region}" of still "${name}" shows nothing`);
-      const left = Math.min(...rects.map((r) => r.x));
-      const top = Math.min(...rects.map((r) => r.y));
-      const right = Math.max(...rects.map((r) => r.x + r.width));
-      const bottom = Math.max(...rects.map((r) => r.y + r.height));
+      const { left, top, right, bottom } = bounds(rects);
       if (left < 0 || top < 0 || right > this.opts.width || bottom > this.opts.height)
         throw new Error(`region "${region}" of still "${name}" runs off the screen`);
       const round = (v: number): number => Math.round(v * 100) / 100;
@@ -684,12 +696,34 @@ export class CaptureSession {
   /**
    * zoom opens a camera zoom framing the target until endZoom (or finish) closes it.
    * When amount is omitted the director derives it from the target's rect: as tight as
-   * the framing margin allows. The director caps every amount at the deepest zoom the
-   * render keeps crisp.
+   * the framing margin allows. A list of locators frames the box around them, no deeper
+   * than amount. The director caps every amount at the deepest zoom the render keeps
+   * crisp. Throws when a target is hidden.
    */
-  async zoom(target: Locator | Point, amount?: number): Promise<void> {
+  async zoom(target: Locator | Locator[] | Point, amount?: number): Promise<void> {
     if (this.openZoom != null) this.endZoom();
     this.clampZoomEnds();
+    if (Array.isArray(target)) {
+      const rects = [];
+      for (const locator of target) {
+        const box = await locator.boundingBox();
+        if (box == null) throw new Error("a zoom target is hidden");
+        rects.push(box);
+      }
+      const { left, top, right, bottom } = bounds(rects);
+      const { width, height } = this.opts;
+      const fit = fitAmount(
+        { x: left, y: top, width: right - left, height: bottom - top },
+        width,
+        height,
+      );
+      this.openZoom = {
+        tick: this.frame,
+        point: { x: (left + right) / 2, y: (top + bottom) / 2 },
+        amount: amount == null ? fit : Math.min(amount, fit),
+      };
+      return;
+    }
     const { point, rect } = await this.resolve(target);
     if (amount == null && rect == null)
       throw new Error("zoom on a bare point requires an explicit amount");

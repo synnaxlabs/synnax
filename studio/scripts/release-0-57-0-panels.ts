@@ -142,7 +142,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(page.locator(".pluto-line-plot").first());
     // Park off the panel: the tab keeps its close button under the pointer, and
     // anywhere on the plot raises the crosshair and its value readout.
-    await session.moveTo({ x: 900, y: 24 });
+    await session.moveTo(capture.PARK);
     await session.hold(2800);
   } finally {
     await fixture.stop();

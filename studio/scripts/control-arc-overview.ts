@@ -9,7 +9,7 @@
 
 import { capture, fixtures } from "@/index";
 
-const AUTOMATION = "Press sequence";
+import { AUTOMATION, channels, createTankIndex } from "./common/press-sequence";
 
 const PROGRAM = `import time
 
@@ -37,19 +37,8 @@ start_cmd == 1 => press
 export default async (session: capture.CaptureSession): Promise<void> => {
   const client = fixtures.connect();
   try {
-    const time = await client.channels.create(
-      { name: "tank_time", isIndex: true, dataType: "timestamp" },
-      { retrieveIfNameExists: true },
-    );
-    await client.channels.create(
-      [
-        { name: "press_vlv_cmd", dataType: "uint8", virtual: true },
-        { name: "vent_vlv_cmd", dataType: "uint8", virtual: true },
-        { name: "start_cmd", dataType: "uint8", virtual: true },
-        { name: "tank_pt", dataType: "float64", index: time.key },
-      ],
-      { retrieveIfNameExists: true },
-    );
+    const time = await createTankIndex(client);
+    await client.channels.create(channels(time.key), { retrieveIfNameExists: true });
   } finally {
     await client.close();
   }

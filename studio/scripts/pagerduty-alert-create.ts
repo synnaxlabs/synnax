@@ -33,9 +33,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.waitFor(form);
   await session.hold(800);
   // The form fills most of the panel, so zoom on a point at its center.
-  const box = await form.boundingBox();
-  if (box == null) throw new Error("PagerDuty alert task form is not on screen");
-  await session.zoom({ x: box.x + box.width / 2, y: box.y + box.height / 2 }, 1.4);
+  await capture.zoomCenter(session, form, 1.4);
 
   await session.click(form.getByPlaceholder(ROUTING_KEY).first());
   session.setSpeed(3);

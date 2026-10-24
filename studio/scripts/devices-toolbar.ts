@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  LABJACK_T7,
-  MODBUS_PLC,
-  NI_USB_6343,
-  simulatedDriver,
-} from "@/fixtures/hardware";
-import { capture } from "@/index";
+import { capture, fixtures } from "@/index";
 
 import { DRIVER } from "./common/task";
 
@@ -23,8 +17,8 @@ import { DRIVER } from "./common/task";
  * The devices are simulated.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
-  const driver = await simulatedDriver({
-    devices: [NI_USB_6343, LABJACK_T7, MODBUS_PLC],
+  const driver = await fixtures.simulatedDriver({
+    devices: [fixtures.NI_USB_6343, fixtures.LABJACK_T7, fixtures.MODBUS_PLC],
   });
   try {
     const { page } = session;
@@ -43,7 +37,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const rack = capture.treeItem(page, "rack:", DRIVER);
     await session.waitFor(rack);
     await session.click(rack, { text: true });
-    const ni = capture.treeItem(page, "device:", NI_USB_6343.name);
+    const ni = capture.treeItem(page, "device:", fixtures.NI_USB_6343.name);
     await session.waitFor(ni);
     await session.zoom(rack, 1.6);
     await session.hold(600);

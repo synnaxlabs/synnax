@@ -26,7 +26,10 @@ interface PageNode extends Base {
   key?: never;
 }
 
-/** A node without a page that holds other nodes. Its key identifies it. */
+/**
+ * A node without a page that holds other nodes. Its key identifies it and is the last
+ * segment of its route.
+ */
 interface GroupNode extends Base {
   key: string;
   href?: never;
@@ -70,6 +73,33 @@ export const neighbors = (nodes: PageNavNode[], path: string): Neighbors => {
   const i = pages.findIndex((node) => normalizeRoute(node.href) === target);
   if (i === -1) return {};
   return { prev: pages[i - 1], next: pages[i + 1] };
+};
+
+// Pairs the route of each group with the href of its first page in reading order.
+const groupStarts = (nodes: PageNavNode[], parent: string): [string, string][] =>
+  nodes.flatMap((node): [string, string][] => {
+    if (isPage(node))
+      return groupStarts(node.children ?? [], normalizeRoute(node.href));
+    const route = `${parent}/${node.key}`;
+    const below = groupStarts(node.children, route);
+    const first = flatten(node.children).find(isPage);
+    return first == null ? below : [[route, first.href], ...below];
+  });
+
+/**
+ * Maps the route of each group to the href of its first page in reading order, skipping
+ * a group whose route is already a page. Base is the route above the top-level groups.
+ */
+export const firstPages = (
+  nodes: PageNavNode[],
+  base: string,
+): ReadonlyMap<string, string> => {
+  const pages = new Set(
+    flatten(nodes)
+      .filter(isPage)
+      .map(({ href }) => normalizeRoute(href)),
+  );
+  return new Map(groupStarts(nodes, base).filter(([route]) => !pages.has(route)));
 };
 
 /**

@@ -91,7 +91,6 @@ export default defineConfig({
     "/guides/sys-admin": "/reference/",
     "/guides/operations": "/reference/",
     "/guides/comparison": "/reference/",
-    "/reference/device-drivers/standalone": "/reference/enterprise/driver/install",
     "/reference/client/advanced": "/reference/client/write-data",
     "/reference/client/advanced/delete-data": "/reference/client/delete-data",
     "/reference/client/advanced/auto-commit": "/reference/client/write-data",

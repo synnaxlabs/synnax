@@ -18,47 +18,47 @@ import { Search as S } from "@/components/search/Search";
 <style is:global>
     .search-box {
         position: relative;
-        max-width: 280px !important;
-        width: 280px !important;
+        max-width: 280px;
+        width: 280px;
 
         & button {
             color: var(--pluto-gray-l8);
-            font-size: var(--pluto-small-size) !important;
+            font-size: var(--pluto-small-size);
             font-weight: 400;
 
             & * {
                 color: var(--pluto-gray-l8);
-                font-size: var(--pluto-small-size) !important;
+                font-size: var(--pluto-small-size);
                 font-weight: 400;
             }
 
             & .pluto-text--keyboard {
-                width: 3.5rem !important;
-                height: 3.5rem !important;
-                background: var(--pluto-gray-l0) !important;
-                border-color: var(--pluto-gray-l5) !important;
+                width: 3.5rem;
+                height: 3.5rem;
+                background: var(--pluto-gray-l0);
+                border-color: var(--pluto-gray-l5);
             }
         }
     }
 
     @media (max-width: 1100px) {
         .search-box {
-            width: auto !important;
-            max-width: none !important;
+            width: auto;
+            max-width: none;
             & button {
-                width: auto !important;
-                min-width: unset !important;
-                justify-content: center !important;
-                font-size: 0 !important;
-                gap: 0 !important;
+                width: auto;
+                min-width: unset;
+                justify-content: center;
+                font-size: 0;
+                gap: 0;
                 aspect-ratio: 1;
-                padding: 0 !important;
+                padding: 0;
             }
             & button > .pluto-icon {
-                font-size: var(--pluto-small-size) !important;
+                font-size: var(--pluto-small-size);
             }
             .pluto-trigger-indicator {
-                display: none !important;
+                display: none;
             }
         }
     }

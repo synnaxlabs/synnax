@@ -9,8 +9,7 @@
 
 import { type Locator } from "playwright";
 
-import { MODBUS_PLC, simulatedDriver } from "@/fixtures/hardware";
-import { capture } from "@/index";
+import { capture, fixtures } from "@/index";
 
 import { DRIVER } from "./common/task";
 
@@ -20,7 +19,7 @@ import { DRIVER } from "./common/task";
  * addresses 3 and 4, then start the task. The server is simulated.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
-  const driver = await simulatedDriver({ devices: [MODBUS_PLC] });
+  const driver = await fixtures.simulatedDriver({ devices: [fixtures.MODBUS_PLC] });
   try {
     const { page } = session;
     await capture.login(session);
@@ -35,7 +34,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const rack = capture.treeItem(page, "rack:", DRIVER);
     await session.waitFor(rack);
     await session.click(rack, { text: true });
-    const plc = capture.treeItem(page, "device:", MODBUS_PLC.name);
+    const plc = capture.treeItem(page, "device:", fixtures.MODBUS_PLC.name);
     await session.waitFor(plc);
     await session.hold(600);
     await session.rightClick(plc, { text: true });

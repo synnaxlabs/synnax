@@ -43,7 +43,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(800);
   await capture.createComponent(session, "Arc automation");
 
-  const modal = page.locator(".pluto-dialog__dialog.pluto--modal").first();
+  const modal = page.locator(capture.MODAL).first();
   const name = modal.getByPlaceholder("Name").first();
   await session.waitFor(name);
   await session.hold(600);

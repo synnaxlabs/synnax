@@ -75,6 +75,29 @@ export const HTTP: Server = {
 };
 
 /**
+ * browseNodes returns task channels that open MyObject in the OPC UA browser and drag
+ * each of `nodes` from it into the channel list.
+ */
+export const browseNodes =
+  (nodes: string[]): TaskShot["channels"] =>
+  async (session, form) => {
+    const browser = form.locator(".console-opc-browser").first();
+    const node = (name: string): Locator =>
+      browser.getByRole("treeitem").filter({ hasText: new RegExp(`^${name}$`) });
+    await session.waitFor(node("MyObject"));
+    await session.click(node("MyObject"), { text: true });
+    const list = form.locator(".console-channel-list").first();
+    for (const name of nodes) {
+      await session.waitFor(node(name));
+      await node(name).scrollIntoViewIfNeeded();
+      await session.hold(400);
+      await session.drag(node(name), list);
+      await session.waitFor(list.getByRole("option").filter({ hasText: name }));
+      await session.hold(500);
+    }
+  };
+
+/**
  * connect runs the connect command of a server, enters its name and the Driver, fills
  * the fields of the protocol, and waits for the Driver to test the connection.
  */
@@ -84,7 +107,7 @@ export const connect = async (
 ): Promise<void> => {
   const { page } = session;
   await capture.commandPalette(session, command);
-  const modal = page.locator(".pluto-dialog__dialog.pluto--modal").first();
+  const modal = page.locator(capture.MODAL).first();
   const nameInput = modal.getByPlaceholder(defaultName).first();
   await session.waitFor(nameInput);
   await session.zoom(modal);

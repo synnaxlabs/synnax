@@ -7,23 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Locator } from "playwright";
-
 import { capture, fixtures } from "@/index";
-
-/**
- * zoomCenter zooms on the center of a region wider than a zoomed frame. A rect that
- * wide caps the zoom at 1x, so the camera aims at the center and pans with the cursor.
- */
-const zoomCenter = async (
-  session: capture.CaptureSession,
-  region: Locator,
-  amount: number,
-): Promise<void> => {
-  const box = await region.boundingBox();
-  if (box == null) throw new Error("zoom region is hidden");
-  await session.zoom({ x: box.x + box.width / 2, y: box.y + box.height / 2 }, amount);
-};
 
 /**
  * Docs `console/logs/example`: create a log, add streaming channels in the
@@ -55,7 +39,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       });
     await session.waitFor(add);
     await session.hold(600);
-    await zoomCenter(session, drawer, 1.4);
+    await capture.zoomCenter(session, drawer, 1.4);
 
     for (const channel of fixture.channels) {
       await session.click(page.getByText("Add channel", { exact: true }).first(), {

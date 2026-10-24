@@ -33,9 +33,8 @@ These come from user review and are not open for reinterpretation.
 - **Create shots start from an empty panel.** `capture.clearPanel` in setup, then
   `capture.clickPanelCreate` on camera so the viewer sees the component selector open.
 - **Form dialogs frame the whole dialog.**
-  `session.zoom(".pluto-dialog__dialog.pluto--modal")` once it opens,
-  `session.endZoom()` at the click that closes it. Never zoom a button that the dialog
-  already covered.
+  `session.zoom(page.locator(capture.MODAL).first())` once it opens, `session.endZoom()`
+  at the click that closes it. Never zoom a button that the dialog already covered.
 - **Context menus never zoom.** The menu and the row it came from must both stay in
   frame.
 - **View-swapping clicks pass `{ zoom: false }`.** A click that replaces the panel
@@ -65,9 +64,11 @@ Every shot has the same four parts.
    area the next beats happen in: a dialog, a toolbar, a panel, a form. Never zoom on
    one button, and never once per click. Let the rect set the depth. An amount on a
    region only makes the zoom shallower: the camera never zooms past the depth at which
-   the region fits. For a region wider than the zoomed frame, such as a toolbar, zoom on
-   a point inside it with an amount from 1.4 to 1.6 (`session.zoom({ x, y }, 1.5)`), and
-   the camera pans to keep each target in frame. Above 1.67x a 1080p render upscales.
+   the region fits. A list of locators frames the box around them
+   (`session.zoom([tank, valve], 1.6)`). For a region wider than the zoomed frame, such
+   as a toolbar, zoom on its center with an amount from 1.4 to 1.6
+   (`capture.zoomCenter(session, region, 1.5)`), and the camera pans to keep each target
+   in frame. Above 1.67x a 1080p render upscales.
 3. **Let the camera pan.** Inside a zoom, the camera holds while the cursor's targets
    stay in frame, and pans only as far as it must when one leaves. Do not open a new
    zoom to follow a dropdown.
@@ -87,7 +88,7 @@ The research behind these rules is in `docs/tech/video-automation/decisions.md`.
 - The inline editable class is `pluto-text--editable`. `CSS.BM` is `block--modifier`,
   not `__`.
 - The range overview's own title input answers `getByPlaceholder("Name")`. Scope modal
-  locators to `.pluto-dialog__dialog.pluto--modal`.
+  locators to `capture.MODAL`.
 - The Axes tab opens on X1, the time axis. Click Y1 before setting bounds.
 - A line plot hold snapshots the axis the moment it turns on, and the empty default is
   an hour-wide window at page load. Wait for real samples (`settleWall`) before clicking

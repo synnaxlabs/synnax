@@ -11,6 +11,8 @@ import path from "node:path";
 
 import { capture } from "@/index";
 
+import { setup } from "./common/symbol-group";
+
 const SVG = path.join(import.meta.dirname, "files", "tank.svg");
 
 /**
@@ -20,34 +22,10 @@ const SVG = path.join(import.meta.dirname, "files", "tank.svg");
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
-  await capture.login(session);
-
-  await capture.createComponent(session, "Schematic");
-  await session.waitFor(page.locator(".pluto-diagram").first());
-  await capture.selectToolbarTab(session, "Symbols");
-
-  // The create symbol action stays disabled while a built-in group is selected.
-  await session.click(capture.toolbarButton(page, "group", "add"), { zoom: false });
-  const groupName = page
-    .locator(".pluto-dialog__dialog.pluto--modal")
-    .getByPlaceholder("Name")
-    .first();
-  await session.waitFor(groupName);
-  await groupName.fill("Test stand");
-  await session.settle(300);
-  await capture.clickButton(session, "Save");
-  await session.waitForHidden(groupName);
-  const group = page
-    .locator(".console-schematic__symbols-group-list [role='tab']")
-    .filter({ hasText: "Test stand" })
-    .first();
-  await session.waitFor(group);
-  await group.scrollIntoViewIfNeeded();
-  await session.click(group, { text: true, zoom: false });
-  await session.settle(600);
+  await setup(session);
 
   await session.click(capture.toolbarButton(page, "schematic", "add"), { zoom: false });
-  const modal = page.locator(".pluto-dialog__dialog.pluto--modal").first();
+  const modal = page.locator(capture.MODAL).first();
   const drop = page.locator(".console-schematic-file-drop").first();
   await session.waitFor(drop);
   // The Console opens a detached file input; the chooser event hands it the file.

@@ -22,6 +22,7 @@ import {
 } from "react";
 
 import { context } from "@/context";
+import { DELAY_MS, SKIP_DELAY_MS } from "@/tooltip/tooltip";
 
 export interface ContextValue {
   delay: CrudeTimeSpan;
@@ -41,8 +42,8 @@ export interface ConfigProps extends PropsWithChildren {
   skipDelay?: CrudeTimeSpan;
 }
 
-const DEFAULT_DELAY = TimeSpan.milliseconds(700);
-const DEFAULT_SKIP_DELAY = TimeSpan.milliseconds(300);
+const DEFAULT_DELAY = TimeSpan.milliseconds(DELAY_MS);
+const DEFAULT_SKIP_DELAY = TimeSpan.milliseconds(SKIP_DELAY_MS);
 
 const [Context, useConfig] = context.create<ContextValue>({
   defaultValue: {

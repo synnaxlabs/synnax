@@ -9,21 +9,7 @@
 
 import { type Locator } from "playwright";
 
-import { capture, director, type fixtures } from "@/index";
-
-/** channelField returns the Channel field of a section in the symbol's Control tab. */
-export const channelField = (properties: Locator, section: string): Locator =>
-  properties
-    .locator(".pluto-form-section")
-    .filter({
-      has: properties
-        .page()
-        .locator(".pluto-form-section__header")
-        .getByText(section, { exact: true }),
-    })
-    .locator(".pluto-input__item")
-    .filter({ hasText: "Channel" })
-    .first();
+import { capture, type fixtures } from "@/index";
 
 export interface ValveSchematicOptions {
   /** Control authority the schematic acquires with. Unset keeps the Console default. */
@@ -54,24 +40,8 @@ export const createValveSchematic = async (
     properties.locator("[role='tab']").filter({ hasText: "Control" }).first(),
     { text: true, zoom: false },
   );
-  const bind = async (section: string, channel: string): Promise<void> => {
-    const item = channelField(properties, section);
-    await session.click(item.getByText("Select channel", { exact: true }).first(), {
-      zoom: false,
-    });
-    const search = page.getByPlaceholder("Search channels...").first();
-    await session.waitFor(search);
-    await search.fill(channel);
-    const option = page
-      .locator(".pluto-list__item")
-      .filter({ has: page.getByText(channel, { exact: true }) })
-      .first();
-    await session.waitFor(option);
-    await session.click(option, { zoom: false });
-    await session.settle(400);
-  };
-  await bind("State", valve.state);
-  await bind("Command", valve.command);
+  await capture.bindChannel(session, "State", valve.state);
+  await capture.bindChannel(session, "Command", valve.command);
 
   await capture.deselect(session, { x: 100, y: 290 });
   if (authority != null) {
@@ -115,22 +85,8 @@ export const frameLegend = async (
   session: capture.CaptureSession,
   valve: Locator,
 ): Promise<{ x: number; y: number }> => {
-  const { page } = session;
-  const [legend, body] = await Promise.all([
-    page.locator(".pluto-legend-entry").first().boundingBox(),
-    valve.boundingBox(),
-  ]);
-  const view = page.viewportSize();
-  if (legend == null || body == null || view == null)
-    throw new Error("legend or valve is hidden");
-  const left = Math.min(legend.x, body.x);
-  const top = Math.min(legend.y, body.y);
-  const right = Math.max(legend.x + legend.width, body.x + body.width);
-  const bottom = Math.max(legend.y + legend.height, body.y + body.height);
-  const both = { x: left, y: top, width: right - left, height: bottom - top };
-  await session.zoom(
-    { x: (left + right) / 2, y: (top + bottom) / 2 },
-    Math.min(1.6, director.fitAmount(both, view.width, view.height)),
-  );
+  await session.zoom([session.page.locator(".pluto-legend-entry").first(), valve], 1.6);
+  const body = await valve.boundingBox();
+  if (body == null) throw new Error("valve is hidden");
   return { x: body.x + body.width / 2 + 180, y: body.y + body.height + 120 };
 };

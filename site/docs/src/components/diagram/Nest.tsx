@@ -32,8 +32,6 @@ export interface NestProps {
   root: NestNode;
   /** Describes the diagram for screen readers. */
   title: string;
-  /** Gives each level of groups its own accent color. */
-  colored?: boolean;
 }
 
 const PADDING = 12;
@@ -189,9 +187,7 @@ const Svg = ({
  * that uses narrowColumns.
  */
 export const Nest = (props: NestProps): ReactElement => (
-  <figure
-    className={`block-diagram block-diagram--nest${props.colored === true ? " block-diagram--colored" : ""}`}
-  >
+  <figure className="block-diagram block-diagram--nest">
     <Svg {...props} columns={wideColumns} variant="wide" />
     <Svg {...props} columns={narrowColumns} variant="narrow" />
   </figure>

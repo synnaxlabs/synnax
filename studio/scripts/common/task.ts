@@ -159,9 +159,11 @@ export const recordTask = async (
 
   // New channels show at the top of the area and "Add channel" sits at its bottom, so
   // the zoom stays shallow enough to frame both.
-  const area = await form.locator(".console-task-channel-form-container").boundingBox();
-  if (area == null) throw new Error("the channel area of the task is not on screen");
-  await session.zoom({ x: area.x + area.width / 2, y: area.y + area.height / 2 }, 1.35);
+  await capture.zoomCenter(
+    session,
+    form.locator(".console-task-channel-form-container"),
+    1.35,
+  );
   await session.hold(400);
   await channels(session, form);
   await session.hold(500);

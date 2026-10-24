@@ -24,6 +24,7 @@ import { zip } from "@synnaxlabs/x";
 
 import { startArc } from "@/fixtures/arc";
 import { connect, type ConnectionOptions } from "@/fixtures/client";
+import { deviceStatus, rackStatus, taskStatus } from "@/fixtures/hardware";
 
 /** Project bundle of the test stand world, with channels referenced by name. */
 const TPC_DIR = path.join(import.meta.dirname, "../../worlds/tpc");
@@ -384,32 +385,11 @@ const report = async (
   client: Synnax,
   { rack, task: acquire }: { rack: rack.Rack; task: task.Task },
 ): Promise<void> => {
-  await client.statuses.set({
-    key: `rack:${rack.key}`,
-    name: rack.name,
-    variant: "success",
-    message: "Driver is running",
-    details: { rack: rack.key },
-  });
-  await client.statuses.set({
-    key: `device:${DAQ_DEVICE}`,
-    name: "NI PXIe-6363",
-    variant: "success",
-    message: "Device present",
-    details: { rack: rack.key, device: DAQ_DEVICE },
-  });
-  await client.statuses.set({
-    key: task.statusKey(acquire.key),
-    name: acquire.name,
-    variant: "success",
-    message: "Task started successfully",
-    details: {
-      task: acquire.key,
-      running: true,
-      configHash: acquire.configHash,
-      rack: rack.key,
-    },
-  });
+  await client.statuses.set(rackStatus(rack));
+  await client.statuses.set(
+    deviceStatus(rack.key, { key: DAQ_DEVICE, name: "NI PXIe-6363" }),
+  );
+  await client.statuses.set(taskStatus(rack.key, acquire, true));
 };
 
 /**

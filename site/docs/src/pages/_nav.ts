@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { labels, type PageNavNode } from "@/components/nav/tree";
+import { firstPages, labels, type PageNavNode } from "@/components/nav/tree";
 import { FLAGS } from "@/flags";
 import { ALARMS_NAV } from "@/pages/reference/alarms/_nav";
 import { CHANNELS_NAV } from "@/pages/reference/channels/_nav";
@@ -49,3 +49,6 @@ const LABELS = labels(REFERENCE_PAGES);
  */
 export const labelOf = (route: string): string | undefined =>
   LABELS.get(normalizeRoute(route));
+
+/** Maps the route of each reference group without a page to the group's first page. */
+export const FIRST_PAGES = firstPages(REFERENCE_PAGES, "/reference");

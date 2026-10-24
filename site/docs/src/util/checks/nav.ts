@@ -17,8 +17,6 @@ import {
 } from "@/util/checks/crawl";
 import { normalizeRoute } from "@/util/route";
 
-// Reference pages written in MDX. Section index.astro files only rewrite to a page, so
-// they need no nav entry.
 const referencePages = (): string[] =>
   pageFiles()
     .filter((f) => f.startsWith("reference/") && f.endsWith(".mdx") && routed(f))

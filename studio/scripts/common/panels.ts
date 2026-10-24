@@ -14,12 +14,6 @@ import { capture, fixtures } from "@/index";
 export const STAND = "Test stand";
 export const NEW_PANEL = "New panel";
 
-/**
- * PARK is a point on the top bar with no control under it. Over a plot, the cursor
- * raises a crosshair.
- */
-export const PARK = { x: 900, y: 24 };
-
 /** pill returns the panel selector's pill for `name`. */
 export const pill = (session: capture.CaptureSession, name: string): Locator =>
   session.page
@@ -55,11 +49,12 @@ export const menuItem = (session: capture.CaptureSession, prefix: string): Locat
     .first();
 
 /** zoomSelector zooms on the panel selector, which the camera pins to the top edge. */
-export const zoomSelector = async (session: capture.CaptureSession): Promise<void> => {
-  const box = await session.page.locator(".console-panel-selector").boundingBox();
-  if (box == null) throw new Error("the panel selector is not on screen");
-  await session.zoom({ x: box.x + box.width / 2, y: box.y + box.height / 2 }, 1.5);
-};
+export const zoomSelector = async (session: capture.CaptureSession): Promise<void> =>
+  await capture.zoomCenter(
+    session,
+    session.page.locator(".console-panel-selector"),
+    1.5,
+  );
 
 /** renamePanel renames a panel off camera through its context menu. */
 export const renamePanel = async (
