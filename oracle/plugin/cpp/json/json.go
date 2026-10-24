@@ -486,6 +486,26 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 	return name
 }
 
+// typeArgsToCpp returns args as a C++ template argument list, leaving out each argument
+// bound to a defaulted parameter in params. It returns "" when no argument is left.
+func (p *Plugin) typeArgsToCpp(
+	params []resolution.TypeParam,
+	args []resolution.TypeRef,
+	data *templateData,
+) string {
+	var out []string
+	for i, arg := range args {
+		if i < len(params) && params[i].HasDefault() {
+			continue
+		}
+		out = append(out, p.typeRefToCpp(arg, data))
+	}
+	if len(out) == 0 {
+		return ""
+	}
+	return "<" + strings.Join(out, ", ") + ">"
+}
+
 func (p *Plugin) parseExprForField(
 	field resolution.Field,
 	cppType string,
@@ -671,23 +691,7 @@ func (p *Plugin) parseExprForField(
 					structType = fmt.Sprintf("::%s::%s", ns, structType)
 				}
 			}
-			if len(typeRef.TypeArgs) > 0 {
-				var args []string
-				for i, arg := range typeRef.TypeArgs {
-					if i < len(structForm.TypeParams) &&
-						structForm.TypeParams[i].HasDefault() {
-						continue
-					}
-					args = append(args, p.typeRefToCpp(arg, data))
-				}
-				if len(args) > 0 {
-					structType = fmt.Sprintf(
-						"%s<%s>",
-						structType,
-						strings.Join(args, ", "),
-					)
-				}
-			}
+			structType += p.typeArgsToCpp(structForm.TypeParams, typeRef.TypeArgs, data)
 			if field.Optional {
 				if isSelfRef {
 					return fmt.Sprintf(
@@ -747,7 +751,7 @@ func (p *Plugin) parseExprForField(
 			}
 			return fmt.Sprintf(`%s(parser.child("%s"))`, parseFn, jsonName)
 		}
-		if _, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 			if target, _, ok := resolution.Dealias(typeRef, data.table); ok {
 				if _, isStruct := target.Form.(resolution.StructForm); isStruct {
 					aliasType := domain.GetName(resolved, "cpp")
@@ -758,6 +762,11 @@ func (p *Plugin) parseExprForField(
 							aliasType = fmt.Sprintf("::%s::%s", ns, aliasType)
 						}
 					}
+					aliasType += p.typeArgsToCpp(
+						aliasForm.TypeParams,
+						typeRef.TypeArgs,
+						data,
+					)
 					if field.Optional {
 						return fmt.Sprintf(
 							`parser.field<std::optional<%s>>("%s")`,

@@ -781,12 +781,19 @@ func (b *testValueBuilder) valueExpr(
 
 	switch form := actual.Form.(type) {
 	case resolution.StructForm:
+		typeArgSuffix := ""
+		if form.IsGeneric() {
+			var err error
+			if typeArgSuffix, err = b.typeArgSuffix(effectiveTypeArgs); err != nil {
+				return "", err
+			}
+		}
 		if b.depth > 2 {
 			goType, err := b.goTypeName(actual)
 			if err != nil {
 				return "", err
 			}
-			return goType + "{}", nil
+			return goType + typeArgSuffix + "{}", nil
 		}
 		b.depth++
 		goName := naming.GetGoName(actual)
@@ -850,23 +857,6 @@ func (b *testValueBuilder) valueExpr(
 				if expr != "" {
 					fieldExprs = append(fieldExprs, fieldGoName+": "+expr)
 				}
-			}
-			// Build type argument list for the generic struct literal.
-			var typeArgStrs []string
-			for _, arg := range effectiveTypeArgs {
-				argResolved, ok := arg.Resolve(b.table)
-				if !ok || arg.Name == "nil" {
-					continue
-				}
-				argGoType, err := b.goTypeName(argResolved)
-				if err != nil {
-					return "", err
-				}
-				typeArgStrs = append(typeArgStrs, argGoType)
-			}
-			typeArgSuffix := ""
-			if len(typeArgStrs) > 0 {
-				typeArgSuffix = "[" + strings.Join(typeArgStrs, ", ") + "]"
 			}
 			b.depth--
 			return b.formatComposite(prefix+goName+typeArgSuffix, fieldExprs), nil
@@ -1124,12 +1114,32 @@ func (b *testValueBuilder) enumExpr(
 	return fmt.Sprintf("%s(%q)", goType, v.Value), nil
 }
 
+// typeArgSuffix renders the type argument list of a generic struct literal, or the
+// empty string when no argument resolves.
+func (b *testValueBuilder) typeArgSuffix(args []resolution.TypeRef) (string, error) {
+	var rendered []string
+	for _, arg := range args {
+		if _, ok := arg.Resolve(b.table); !ok || arg.Name == "nil" {
+			continue
+		}
+		goType, err := typemap.GoTypeRefName(arg, b.table, b.goTypeName)
+		if err != nil {
+			return "", err
+		}
+		rendered = append(rendered, goType)
+	}
+	if len(rendered) == 0 {
+		return "", nil
+	}
+	return "[" + strings.Join(rendered, ", ") + "]", nil
+}
+
 func (b *testValueBuilder) arrayExpr(elemRef resolution.TypeRef) (string, error) {
 	elemType, ok := elemRef.Resolve(b.table)
 	if !ok {
 		return "nil", nil
 	}
-	goType, err := b.goSliceElemType(elemType)
+	goType, err := typemap.ResolveGoSliceElemType(elemRef, b.table, b.goTypeName)
 	if err != nil {
 		return "", err
 	}
@@ -1157,15 +1167,14 @@ func (b *testValueBuilder) mapExpr(keyRef, valRef resolution.TypeRef) (string, e
 	if !ok {
 		return "nil", nil
 	}
-	goKeyType, err := b.goTypeName(keyType)
+	mapType, err := typemap.GoTypeRefName(
+		resolution.TypeRef{Name: "Map", TypeArgs: []resolution.TypeRef{keyRef, valRef}},
+		b.table,
+		b.goTypeName,
+	)
 	if err != nil {
 		return "", err
 	}
-	goValType, err := b.goTypeName(valType)
-	if err != nil {
-		return "", err
-	}
-	mapType := fmt.Sprintf("map[%s]%s", goKeyType, goValType)
 	if b.mode == modeZeroValue || b.mode == modeEmptyCollections {
 		return mapType + "{}", nil
 	}
@@ -1273,10 +1282,6 @@ func (b *testValueBuilder) aliasCollides(importPath, alias string) bool {
 		}
 	}
 	return false
-}
-
-func (b *testValueBuilder) goSliceElemType(typ resolution.Type) (string, error) {
-	return typemap.ResolveGoSliceElemType(typ, b.table, b.goTypeName)
 }
 
 const testCodecTemplate = `// Copyright 2026 Synnax Labs, Inc.

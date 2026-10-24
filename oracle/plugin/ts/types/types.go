@@ -2074,13 +2074,9 @@ func (p *Plugin) typeRefToZodInternal(
 		}
 		target := form.Target
 		if len(typeRef.TypeArgs) > 0 {
-			typeArgMap := make(map[string]resolution.TypeRef)
-			for i, tp := range form.TypeParams {
-				if i < len(typeRef.TypeArgs) {
-					typeArgMap[tp.Name] = typeRef.TypeArgs[i]
-				}
-			}
-			target = resolution.SubstituteTypeRef(target, typeArgMap)
+			target = resolution.SubstituteTypeRef(
+				target, resolution.TypeArgMap(form.TypeParams, typeRef.TypeArgs),
+			)
 		}
 		return p.typeRefToZodInternal(&target, table, data, forStructArg)
 

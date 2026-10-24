@@ -581,6 +581,45 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
+		Context("generic struct instances", func() {
+			It(
+				"Should instantiate a generic struct in each container",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/test"
+					@go marshal
+
+					Valve struct {
+						open bool
+					}
+
+					Box struct<T> {
+						item T
+					}
+
+					Panel struct {
+						boxes  Box<Valve>[]
+						byName map<string, Box<Valve>>
+						spare  Box<Valve>?
+						deep   Box<Box<Valve>>
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					ExpectContent(resp, "codec.gen.go").ToContain(
+						"p.Boxes = make([]Box[Valve], n)",
+						"p.ByName = make(map[string]Box[Valve], n)",
+						"var val Box[Valve]",
+						"var hv Box[Valve]",
+					)
+					ExpectContent(resp, "codec_gen_test.go").ToContain(
+						"Boxes: []test.Box[test.Valve]{test.Box[test.Valve]{",
+						"Spare: new(test.Box[test.Valve]{",
+						"Deep: test.Box[test.Box[test.Valve]]{",
+					)
+				},
+			)
+		})
+
 		Context("array field nil preservation", func() {
 			It("Should generate a presence bit before the array length", func() {
 				source := `

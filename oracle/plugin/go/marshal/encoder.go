@@ -815,7 +815,7 @@ func (b *encoderBuilder) processOptional(
 	}
 
 	// Optional other (pointer to struct/primitive)
-	goType, err := b.goTypeName(resolved)
+	goType, err := typemap.GoTypeRefName(f.Type, b.table, b.goTypeName)
 	if err != nil {
 		return err
 	}
@@ -894,7 +894,7 @@ func (b *encoderBuilder) processArray(
 	if !ok {
 		return errors.Newf("cannot resolve array element type %s", elemRef.Name)
 	}
-	goType, err := b.resolveGoSliceElemType(elemType)
+	goType, err := typemap.ResolveGoSliceElemType(elemRef, b.table, b.goTypeName)
 	if err != nil {
 		return err
 	}
@@ -960,11 +960,11 @@ func (b *encoderBuilder) processMap(
 	if !ok {
 		return errors.Newf("cannot resolve map value type %s", valRef.Name)
 	}
-	goKeyType, err := b.goTypeName(keyType)
+	goKeyType, err := typemap.GoTypeRefName(keyRef, b.table, b.goTypeName)
 	if err != nil {
 		return err
 	}
-	goValType, err := b.goTypeName(valType)
+	goValType, err := typemap.GoTypeRefName(valRef, b.table, b.goTypeName)
 	if err != nil {
 		return err
 	}
@@ -1326,10 +1326,6 @@ func (b *encoderBuilder) aliasUsed(alias string) bool {
 		}
 	}
 	return false
-}
-
-func (b *encoderBuilder) resolveGoSliceElemType(typ resolution.Type) (string, error) {
-	return typemap.ResolveGoSliceElemType(typ, b.table, b.goTypeName)
 }
 
 // --- Template ---

@@ -74,6 +74,11 @@ Code uint32
 
 ValveList Valve[]
 
+Box struct<T> {
+	item T
+	@go marshal
+}
+
 Edge union on variant {
 	pipe Labeled
 	@go marshal
@@ -113,6 +118,7 @@ var aliasTargets = map[string]string{
 	"ValveList":   "ValveList",
 	"Edge":        "Edge",
 	"Signal":      "Signal",
+	"Box":         "Box",
 }
 
 const aliasDecls = `
@@ -128,6 +134,7 @@ Code = base.Code
 ValveList = base.ValveList
 Edge = base.Edge
 Signal = base.Signal
+Box<T> = base.Box<T>
 `
 
 // aliasUses puts the aliases in each position where a generator decides what to emit
@@ -159,6 +166,14 @@ Panel struct {
 	byName  map<string, Edge>
 	pulse   Signal = { kind = "level", value = 1 }
 	hatch   Gate?
+	box     Box<string>
+	crates  Box<Gate>[]
+	@go marshal
+}
+
+Tray struct<T> {
+	item T
+	box  Box<T>
 	@go marshal
 }
 
@@ -195,12 +210,14 @@ var (
 		return schemaName(n)
 	}), "|")
 	aliasRef = regexp.MustCompile(`\b(` + names + `)\b`)
-	// aliasDecl matches the declaration of an alias in Go, TypeScript, Python, and C++.
-	aliasDecl = regexp.MustCompile(`^(` + strings.Join([]string{
-		`type (` + names + `) = `,
-		`export (const|type) (` + names + `|` + schemas + `) = `,
-		`(` + names + `): TypeAlias = `,
-		`using (` + names + `) = `,
+	// aliasDecl matches the whole declaration of an alias in Go, TypeScript, Python,
+	// and
+	// C++, including the lines a generic declaration spans.
+	aliasDecl = regexp.MustCompile(`(?m)^\s*(` + strings.Join([]string{
+		`type (` + names + `)(\[[^\]]*\])? = .*$`,
+		`export (const|type) (` + names + `|` + schemas + `)\b[^;]*;`,
+		`(` + names + `): TypeAlias = .*$`,
+		`(template <[^>]*>\s*)?using (` + names + `) = [^;]*;`,
 	}, "|") + `)`)
 	// qualifiedName matches a reference to a base or test type through its package.
 	qualifiedName = regexp.MustCompile(
@@ -240,12 +257,14 @@ func directUses() string {
 }
 
 // normalizeLines returns the sorted, non-blank lines of generated code with alias
-// declarations dropped and every type spelled as the base type it stands for.
+// declarations dropped, every type spelled as the base type it stands for, and the
+// names of each Python import sorted.
 func normalizeLines(path, content string) []string {
 	var lines []string
+	content = aliasDecl.ReplaceAllString(content, "")
 	for line := range strings.SplitSeq(content, "\n") {
 		line = strings.TrimSpace(line)
-		if line == "" || aliasDecl.MatchString(line) {
+		if line == "" {
 			continue
 		}
 		line = qualifiedName.ReplaceAllString(line, "$3")
@@ -254,6 +273,12 @@ func normalizeLines(path, content string) []string {
 		})
 		if strings.HasSuffix(path, ".h") {
 			line = cppStringEnum.ReplaceAllString(line, "${1}std::string")
+		}
+		if from, imported, ok := strings.Cut(line, " import "); ok &&
+			strings.HasPrefix(from, "from ") {
+			names := strings.Split(imported, ", ")
+			slices.Sort(names)
+			line = from + " import " + strings.Join(names, ", ")
 		}
 		lines = append(lines, line)
 	}

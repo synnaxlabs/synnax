@@ -1756,6 +1756,39 @@ var _ = Describe("C++ PB Plugin", func() {
 				},
 			)
 		})
+
+		Context("generic struct instance field", func() {
+			DescribeTable("Should name the instance by its C++ type arguments",
+				func(ctx SpecContext, arg, expected string) {
+					resp := MustGenerate(ctx, `
+					@cpp output "x/cpp/status"
+					@pb output "x/go/status/pb"
+
+					Valve struct {
+						open bool
+					}
+
+					Box struct<T> {
+						item T
+					}
+
+					Panel struct {
+						box Box<`+arg+`>
+					}
+				`, "status", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").ToContain(
+						"auto [v, err] = " + expected + "::from_proto(pb.box());",
+					)
+				},
+				Entry("a primitive", "string", "Box<std::string>"),
+				Entry(
+					"a map",
+					"map<string, Valve>",
+					"Box<std::unordered_map<std::string, Valve>>",
+				),
+				Entry("a struct", "Valve", "Box<Valve>"),
+			)
+		})
 	})
 })
 

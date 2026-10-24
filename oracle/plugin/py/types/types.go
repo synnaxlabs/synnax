@@ -160,7 +160,11 @@ func generatePyFile(
 		case isAlias:
 			aliasTypeDefs = append(aliasTypeDefs, td)
 		default:
-			data.TypeDefs = append(data.TypeDefs, processTypeDef(td, table, data))
+			tdd, err := processTypeDef(td, table, data)
+			if err != nil {
+				return nil, err
+			}
+			data.TypeDefs = append(data.TypeDefs, tdd)
 		}
 	}
 
@@ -192,9 +196,13 @@ func generatePyFile(
 	for i, typ := range sortedTypes {
 		switch typ.Form.(type) {
 		case resolution.AliasForm, resolution.DistinctForm:
+			tdd, err := processTypeDef(typ, table, data)
+			if err != nil {
+				return nil, err
+			}
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsTypeDef: true,
-				TypeDef:   processTypeDef(typ, table, data),
+				TypeDef:   tdd,
 			})
 		case resolution.StructForm:
 			sd, err := processStruct(typ, table, data, keyFields)
@@ -378,7 +386,7 @@ func processTypeDef(
 	typ resolution.Type,
 	table *resolution.Table,
 	data *templateData,
-) typeDefData {
+) (typeDefData, error) {
 	switch form := typ.Form.(type) {
 	case resolution.DistinctForm:
 		data.imports.addTyping("TypeAlias")
@@ -386,21 +394,73 @@ func processTypeDef(
 			Name:       typ.Name,
 			BaseType:   typeDefBaseToPython(form.Base, typ.Namespace, table, data),
 			IsDistinct: false,
-		}
+		}, nil
 	case resolution.AliasForm:
 		// For alias types, use typeRefToPythonAlias to properly handle struct
 		// references with type arguments (e.g., status.Status<StatusDetails> ->
 		// status.Status[StatusDetails])
 		data.imports.addTyping("TypeAlias")
+		if _, err := declareTypeVars(
+			typ.Name,
+			form.TypeParams,
+			table,
+			data,
+		); err != nil {
+			return typeDefData{}, err
+		}
 		return typeDefData{
 			Name:       typ.Name,
 			BaseType:   typeRefToPythonAlias(form.Target, table, data),
 			IsDistinct: false,
-		}
+		}, nil
 	default:
 		data.imports.addTyping("TypeAlias")
-		return typeDefData{Name: typ.Name, BaseType: "Any", IsDistinct: false}
+		return typeDefData{Name: typ.Name, BaseType: "Any", IsDistinct: false}, nil
 	}
+}
+
+// declareTypeVars declares a module-level TypeVar for each non-defaulted type parameter
+// of the declaration named owner, and returns those parameters. It errors when another
+// declaration in the file declares a TypeVar of the same name differently.
+func declareTypeVars(
+	owner string,
+	params []resolution.TypeParam,
+	table *resolution.Table,
+	data *templateData,
+) ([]typeParamData, error) {
+	var declared []typeParamData
+	for _, tp := range resolution.NonDefaultedTypeParams(params) {
+		tpd := processTypeParam(tp, table, data)
+		declared = append(declared, tpd)
+		tvd := typeVarData{Name: tp.Name, Constraint: tpd.Constraint}
+		// An omitted optional type argument means its bound, or arbitrary JSON when
+		// unbounded. TypeVar defaults need typing_extensions on Python 3.12.
+		if tp.Optional {
+			data.imports.typeVarDefault = true
+			tvd.Default = tpd.Constraint
+			if tvd.Default == "" {
+				data.imports.addPydantic("JsonValue")
+				tvd.Default = "JsonValue"
+			}
+		}
+		// TypeVars are module-level, so declarations in one file share them by name.
+		existing, found := lo.Find(
+			data.TypeVars,
+			func(tv typeVarData) bool { return tv.Name == tp.Name },
+		)
+		if !found {
+			data.TypeVars = append(data.TypeVars, tvd)
+		} else if existing != tvd {
+			return nil, errors.Newf(
+				"type parameter %s of %s conflicts with another %s in the same "+
+					"Python file; rename one of them",
+				tp.Name,
+				owner,
+				tp.Name,
+			)
+		}
+	}
+	return declared, nil
 }
 
 func processTypeParam(
@@ -557,37 +617,11 @@ func processStruct(
 	if len(form.TypeParams) > 0 {
 		sd.IsGeneric = true
 		data.imports.addTyping("Generic")
-		for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
-			tpd := processTypeParam(tp, table, data)
-			sd.TypeParams = append(sd.TypeParams, tpd)
-			tvd := typeVarData{Name: tp.Name, Constraint: tpd.Constraint}
-			// An omitted optional type argument means its bound, or arbitrary JSON when
-			// unbounded. TypeVar defaults need typing_extensions on Python 3.12.
-			if tp.Optional {
-				data.imports.typeVarDefault = true
-				tvd.Default = tpd.Constraint
-				if tvd.Default == "" {
-					data.imports.addPydantic("JsonValue")
-					tvd.Default = "JsonValue"
-				}
-			}
-			// TypeVars are module-level, so structs in one file share them by name.
-			existing, found := lo.Find(
-				data.TypeVars,
-				func(tv typeVarData) bool { return tv.Name == tp.Name },
-			)
-			if !found {
-				data.TypeVars = append(data.TypeVars, tvd)
-			} else if existing != tvd {
-				return structData{}, errors.Newf(
-					"type parameter %s of %s conflicts with another %s in the same "+
-						"Python file; rename one of them",
-					tp.Name,
-					entry.Name,
-					tp.Name,
-				)
-			}
+		params, err := declareTypeVars(entry.Name, form.TypeParams, table, data)
+		if err != nil {
+			return structData{}, err
 		}
+		sd.TypeParams = params
 	}
 
 	// Handle struct aliases (AliasForm)
@@ -1525,21 +1559,7 @@ func typeToPython(
 			modulePath := toPythonModulePath(outputPath)
 			pyName = addCrossNamespaceImport(modulePath, pyName, data)
 		}
-		if typeArgs := trimNilTypeArgs(typeRef.TypeArgs); len(typeArgs) > 0 {
-			structForm := resolved.Form.(resolution.StructForm)
-			var args []string
-			for i, arg := range typeArgs {
-				if i < len(structForm.TypeParams) &&
-					structForm.TypeParams[i].HasDefault() {
-					continue
-				}
-				args = append(args, typeToPython(arg, table, data))
-			}
-			if len(args) > 0 {
-				return fmt.Sprintf("%s[%s]", pyName, strings.Join(args, ", "))
-			}
-		}
-		return pyName
+		return pyName + typeArgsToPython(resolved, typeRef.TypeArgs, table, data)
 
 	case resolution.EnumForm:
 		if resolved.Namespace != data.Namespace {
@@ -1570,9 +1590,9 @@ func typeToPython(
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, pyName, data)
+			pyName = addCrossNamespaceImport(modulePath, pyName, data)
 		}
-		return pyName
+		return pyName + typeArgsToPython(resolved, typeRef.TypeArgs, table, data)
 
 	case resolution.UnionForm:
 		if resolved.Namespace != data.Namespace {
@@ -1647,6 +1667,29 @@ func typeRefToPythonAlias(
 		typeArgs = append(typeArgs, typeToPython(arg, table, data))
 	}
 	return fmt.Sprintf("%s[%s]", baseName, strings.Join(typeArgs, ", "))
+}
+
+// typeArgsToPython renders the type argument list a reference to the generic struct or
+// alias resolved passes, or the empty string when it passes none. Arguments bound to a
+// defaulted type parameter are dropped, as Python declares only the others.
+func typeArgsToPython(
+	resolved resolution.Type,
+	typeArgs []resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	params := resolution.TypeParams(resolved.Form)
+	var args []string
+	for i, arg := range trimNilTypeArgs(typeArgs) {
+		if i < len(params) && params[i].HasDefault() {
+			continue
+		}
+		args = append(args, typeToPython(arg, table, data))
+	}
+	if len(args) == 0 {
+		return ""
+	}
+	return "[" + strings.Join(args, ", ") + "]"
 }
 
 // trimNilTypeArgs drops trailing nil type arguments, so the generic uses its type

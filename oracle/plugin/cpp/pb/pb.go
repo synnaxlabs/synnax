@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/cpp/json"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	"github.com/synnaxlabs/oracle/plugin/cpp/naming"
+	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
@@ -33,6 +34,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
+
+var primitiveMapper = cppprimitives.Mapper()
 
 type Plugin struct{ Options Options }
 
@@ -378,26 +381,11 @@ func (p *Plugin) resolveExtendsType(
 		}
 	}
 
-	if len(extendsRef.TypeArgs) > 0 {
-		args := make([]string, 0, len(extendsRef.TypeArgs))
-		if parentForm, ok := parent.Form.(resolution.StructForm); ok {
-			for i, arg := range extendsRef.TypeArgs {
-				if i < len(parentForm.TypeParams) &&
-					parentForm.TypeParams[i].HasDefault() {
-					continue
-				}
-				args = append(args, p.typeRefToCppForTranslator(arg, data))
-			}
-		} else {
-			// Not a struct form, resolve all args
-			for _, arg := range extendsRef.TypeArgs {
-				args = append(args, p.typeRefToCppForTranslator(arg, data))
-			}
-		}
-		if len(args) > 0 {
-			name = fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
-		}
-	}
+	name += p.typeArgsToCpp(
+		resolution.TypeParams(parent.Form),
+		extendsRef.TypeArgs,
+		data,
+	)
 
 	return name
 }
@@ -715,6 +703,7 @@ func (p *Plugin) generateFieldConversion(
 		)
 	case resolution.AliasForm:
 		return p.generateAliasConversion(
+			typeRef,
 			resolved,
 			form,
 			field.Optional,
@@ -945,6 +934,18 @@ func (p *Plugin) typeRefToCppForTranslator(
 		return typeRef.TypeParam.Name
 	}
 
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) == 2 {
+		return fmt.Sprintf(
+			"std::unordered_map<%s, %s>",
+			p.typeRefToCppForTranslator(typeRef.TypeArgs[0], data),
+			p.typeRefToCppForTranslator(typeRef.TypeArgs[1], data),
+		)
+	}
+	if mapping := primitiveMapper.Map(typeRef.Name); mapping.TargetType != "" &&
+		mapping.TargetType != "void" {
+		return mapping.TargetType
+	}
+
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
 		return typeRef.Name
@@ -967,27 +968,31 @@ func (p *Plugin) typeRefToCppForTranslator(
 		}
 	}
 
-	if len(typeRef.TypeArgs) > 0 {
-		var args []string
-		// Filter type args, skipping those for defaulted params
-		if form, ok := resolved.Form.(resolution.StructForm); ok {
-			for i, arg := range typeRef.TypeArgs {
-				if i < len(form.TypeParams) && form.TypeParams[i].HasDefault() {
-					continue
-				}
-				args = append(args, p.typeRefToCppForTranslator(arg, data))
-			}
-		} else {
-			for _, arg := range typeRef.TypeArgs {
-				args = append(args, p.typeRefToCppForTranslator(arg, data))
-			}
-		}
-		if len(args) > 0 {
-			name = fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
-		}
-	}
+	return name + p.typeArgsToCpp(
+		resolution.TypeParams(resolved.Form),
+		typeRef.TypeArgs,
+		data,
+	)
+}
 
-	return name
+// typeArgsToCpp returns args as a C++ template argument list, leaving out each argument
+// bound to a defaulted parameter in params. It returns "" when no argument is left.
+func (p *Plugin) typeArgsToCpp(
+	params []resolution.TypeParam,
+	args []resolution.TypeRef,
+	data *templateData,
+) string {
+	var out []string
+	for i, arg := range args {
+		if i < len(params) && params[i].HasDefault() {
+			continue
+		}
+		out = append(out, p.typeRefToCppForTranslator(arg, data))
+	}
+	if len(out) == 0 {
+		return ""
+	}
+	return "<" + strings.Join(out, ", ") + ">"
 }
 
 func (p *Plugin) generateTypeParamConversion(
@@ -1166,15 +1171,20 @@ func (p *Plugin) generateDistinctConversion(
 }
 
 func (p *Plugin) generateAliasConversion(
+	typeRef resolution.TypeRef,
 	resolved resolution.Type,
 	form resolution.AliasForm,
 	isOptional bool,
 	cppFieldName, pbAccessorName, pbSetter string,
 	data *templateData,
 ) (forward, backward string) {
-	if resolution.IsPrimitive(form.Target.Name) {
+	target := resolution.SubstituteTypeRef(
+		form.Target,
+		resolution.TypeArgMap(form.TypeParams, typeRef.TypeArgs),
+	)
+	if resolution.IsPrimitive(target.Name) {
 		return p.generatePrimitiveConversion(
-			form.Target.Name,
+			target.Name,
 			cppFieldName,
 			pbAccessorName,
 			pbSetter,
@@ -1183,16 +1193,16 @@ func (p *Plugin) generateAliasConversion(
 		)
 	}
 
-	if form.Target.Name == "Array" && len(form.Target.TypeArgs) > 0 {
-		if arrays.IsNested(form.Target, data.table) {
+	if target.Name == "Array" && len(target.TypeArgs) > 0 {
+		if arrays.IsNested(target, data.table) {
 			return p.generateNestedArrayConversion(
 				cppFieldName,
 				pbAccessorName,
-				form.Target,
+				target,
 				data,
 			)
 		}
-		elemType := form.Target.TypeArgs[0]
+		elemType := target.TypeArgs[0]
 		return p.generateArrayAliasConversion(
 			cppFieldName,
 			pbAccessorName,
@@ -1202,7 +1212,7 @@ func (p *Plugin) generateAliasConversion(
 		)
 	}
 
-	targetResolved, ok := form.Target.Resolve(data.table)
+	targetResolved, ok := target.Resolve(data.table)
 	if !ok {
 		return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
 			fmt.Sprintf("cpp.%s = pb.%s();", cppFieldName, pbAccessorName)
@@ -1215,14 +1225,7 @@ func (p *Plugin) generateAliasConversion(
 				data.addConversionIncludes(targetOutputPath)
 			}
 		}
-		cppType := domain.GetName(resolved, "cpp")
-		if resolved.Namespace != data.rawNs {
-			aliasOutputPath := output.GetPath(resolved, "cpp")
-			if aliasOutputPath != "" {
-				ns := naming.Namespace(aliasOutputPath)
-				cppType = fmt.Sprintf("::%s::%s", ns, cppType)
-			}
-		}
+		cppType := p.typeRefToCppForTranslator(typeRef, data)
 		if isOptional {
 			forward = fmt.Sprintf(`if (this->%s.has_value()) {
         auto [v, err] = this->%s->to_proto();
@@ -1252,6 +1255,7 @@ func (p *Plugin) generateAliasConversion(
 	switch targetForm := targetResolved.Form.(type) {
 	case resolution.AliasForm:
 		return p.generateAliasConversion(
+			target,
 			targetResolved,
 			targetForm,
 			isOptional,

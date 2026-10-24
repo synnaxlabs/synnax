@@ -260,13 +260,7 @@ func Dealias(ref TypeRef, table *Table) (Type, TypeRef, bool) {
 		if !isAlias {
 			return resolved, ref, true
 		}
-		typeArgMap := make(map[string]TypeRef, len(form.TypeParams))
-		for i, tp := range form.TypeParams {
-			if i < len(ref.TypeArgs) {
-				typeArgMap[tp.Name] = ref.TypeArgs[i]
-			}
-		}
-		ref = SubstituteTypeRef(form.Target, typeArgMap)
+		ref = SubstituteTypeRef(form.Target, TypeArgMap(form.TypeParams, ref.TypeArgs))
 	}
 }
 
@@ -505,13 +499,7 @@ func UnifiedFields(typ Type, table *Table) []Field {
 			continue
 		}
 
-		// Build type argument substitution map for this parent
-		typeArgMap := make(map[string]TypeRef)
-		for i, tp := range parentForm.TypeParams {
-			if i < len(extendsRef.TypeArgs) {
-				typeArgMap[tp.Name] = extendsRef.TypeArgs[i]
-			}
-		}
+		typeArgMap := TypeArgMap(parentForm.TypeParams, extendsRef.TypeArgs)
 
 		// Copy parent fields before modifying to avoid mutating the table
 		parentFieldsOrig := UnifiedFields(parent, table)
@@ -676,6 +664,18 @@ func mergeOverrideField(parent, child Field) Field {
 	}
 	out.Domains = domains
 	return out
+}
+
+// TypeArgMap maps each of params to the argument at its position in args, for
+// SubstituteTypeRef. A parameter with no argument is left out.
+func TypeArgMap(params []TypeParam, args []TypeRef) map[string]TypeRef {
+	typeArgMap := make(map[string]TypeRef, len(params))
+	for i, tp := range params {
+		if i < len(args) {
+			typeArgMap[tp.Name] = args[i]
+		}
+	}
+	return typeArgMap
 }
 
 func SubstituteTypeRef(ref TypeRef, typeArgMap map[string]TypeRef) TypeRef {

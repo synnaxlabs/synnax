@@ -69,5 +69,20 @@ var _ = Describe("Python aliases", func() {
 				count int32
 			}
 		`, "class Panel(Box[str]):"),
+		Entry("a generic alias's type variable", `
+			Panel struct {
+				count int32
+			}
+		`, "T = TypeVar(\"T\")\n"),
+		Entry("a generic alias's declaration", `
+			Panel struct {
+				count int32
+			}
+		`, "Box: TypeAlias = base.Box[T]\n"),
+		Entry("a generic alias's type arguments", `
+			Panel struct {
+				box Box<string>
+			}
+		`, "box: Box[str]\n"),
 	)
 })

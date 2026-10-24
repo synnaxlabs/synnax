@@ -387,3 +387,22 @@ var _ = Describe("InheritedFields", func() {
 		Expect(resolution.InheritedFields(nil, table)).To(BeEmpty())
 	})
 })
+
+var _ = Describe("TypeArgMap", func() {
+	params := []resolution.TypeParam{{Name: "K"}, {Name: "V"}}
+
+	DescribeTable("Should map each parameter to the argument at its position",
+		func(args []resolution.TypeRef, expected map[string]resolution.TypeRef) {
+			Expect(resolution.TypeArgMap(params, args)).To(Equal(expected))
+		},
+		Entry("one argument per parameter",
+			[]resolution.TypeRef{{Name: "string"}, {Name: "uuid"}},
+			map[string]resolution.TypeRef{"K": {Name: "string"}, "V": {Name: "uuid"}},
+		),
+		Entry("a missing argument",
+			[]resolution.TypeRef{{Name: "string"}},
+			map[string]resolution.TypeRef{"K": {Name: "string"}},
+		),
+		Entry("no arguments", nil, map[string]resolution.TypeRef{}),
+	)
+})
