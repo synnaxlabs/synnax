@@ -105,28 +105,9 @@ func NewInstrumentedEntry[IK, OK gorp.Key, I gorp.Entry[IK], O gorp.Entry[OK]](
 // Codec returns a migration identified by key that re-encodes every entry of type E
 // with the DB's codec.
 func Codec[K gorp.Key, E gorp.Entry[K]](key string) gorp.Migration {
-	return New(
+	return NewEntry[K, K, E, E](
 		key,
-		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
-			writer := gorp.WrapWriter[K, E](tx)
-			logger := &progressLogger{key: key, ins: ins}
-			iter, err := gorp.WrapReader[K, E](tx).OpenIterator(gorp.IterOptions{})
-			if err != nil {
-				return err
-			}
-			defer func() { err = errors.Combine(err, iter.Close()) }()
-			for iter.First(); iter.Valid(); iter.Next() {
-				v := iter.Value(ctx)
-				logger.logProgress()
-				if err = iter.Error(); err != nil {
-					return err
-				}
-				if err = writer.Set(ctx, *v); err != nil {
-					return err
-				}
-			}
-			return nil
-		},
+		func(_ context.Context, e E) (E, error) { return e, nil },
 	)
 }
 
