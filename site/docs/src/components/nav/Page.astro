@@ -15,7 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 
-import { SHORTCUT, STORAGE_KEY } from "@/components/nav/collapse";
+import { SHORTCUT } from "@/components/nav/collapse";
 import { Page as P } from "@/components/nav/Page";
 import { REFERENCE_PAGES } from "@/pages/_nav";
 
@@ -23,14 +23,6 @@ const TREE_ID = "page-nav-tree";
 ---
 
 <nav class="page-nav" transition:persist>
-    <script is:inline define:vars={{ STORAGE_KEY }}>
-        // Applies a remembered collapse before the first paint, so the page does not
-        // shift once it loads.
-        try {
-            if (localStorage.getItem(STORAGE_KEY) === "true")
-                document.currentScript.parentElement.dataset.collapsed = "";
-        } catch {}
-    </script>
     <div class="page-nav__panel">
         <div class="page-nav__header">
             <Button.Button

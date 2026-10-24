@@ -58,10 +58,10 @@ nav {
    icon keeps its x position in both states, centered in the rail. */
 main {
     --docs-page-nav-width: 45rem;
+}
 
-    &:has(> .page-nav[data-collapsed]) {
-        --docs-page-nav-width: 8rem;
-    }
+:root[data-page-nav-collapsed] main {
+    --docs-page-nav-width: 8rem;
 }
 
 .page-nav {
@@ -126,7 +126,7 @@ main {
     );
 }
 
-.page-nav[data-collapsed] {
+:root[data-page-nav-collapsed] .page-nav {
     .reference-tree {
         overflow-y: hidden;
         scrollbar-width: none;
