@@ -1145,9 +1145,13 @@ func collectValidation(
 			}
 		case resolution.ValueKindIdent:
 			// Handle identifier-based defaults like "now" for timestamps
-			if defaultVal.IdentValue == "now" &&
-				telem.IsTimeStamp(typeRef, table, "py") {
-				constraints = append(constraints, "default_factory=telem.TimeStamp.now")
+			if defaultVal.IdentValue == "now" {
+				if ts, ok := telem.TimeStampRef(typeRef, table, "py"); ok {
+					constraints = append(
+						constraints,
+						"default_factory="+typeToPython(ts, table, data)+".now",
+					)
+				}
 			}
 			// Handle "create" for auto-generating keys. uuid keys generate a UUID
 			// object; string keys generate a stringified UUID. uuid is a string

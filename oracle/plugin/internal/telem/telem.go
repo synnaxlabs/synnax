@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package telem answers whether a type reference denotes a telem type that generators
-// render specially, chasing aliases and distinct bases. Every generator finds these
+// Package telem finds the telem types that generators render specially, chasing aliases
+// and distinct bases. Every generator finds these
 // types through this one package so they cannot drift.
 package telem
 
@@ -27,7 +27,18 @@ func IsTimeStamp(
 	table *resolution.Table,
 	domainName string,
 ) bool {
-	return reaches(typeRef, table, domainName, "TimeStamp")
+	_, ok := TimeStampRef(typeRef, table, domainName)
+	return ok
+}
+
+// TimeStampRef returns the reference to telem's TimeStamp that typeRef denotes, under
+// the rules of IsTimeStamp. ok is false when typeRef does not denote it.
+func TimeStampRef(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+	domainName string,
+) (resolution.TypeRef, bool) {
+	return find(typeRef, table, domainName, "TimeStamp")
 }
 
 // IsTimeSpan is IsTimeStamp for telem's TimeSpan.
@@ -36,7 +47,8 @@ func IsTimeSpan(
 	table *resolution.Table,
 	domainName string,
 ) bool {
-	return reaches(typeRef, table, domainName, "TimeSpan")
+	_, ok := find(typeRef, table, domainName, "TimeSpan")
+	return ok
 }
 
 // IsRate is IsTimeStamp for telem's Rate.
@@ -45,27 +57,28 @@ func IsRate(
 	table *resolution.Table,
 	domainName string,
 ) bool {
-	return reaches(typeRef, table, domainName, "Rate")
+	_, ok := find(typeRef, table, domainName, "Rate")
+	return ok
 }
 
-func reaches(
+func find(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
 	domainName, name string,
-) bool {
+) (resolution.TypeRef, bool) {
 	if typeRef.Name == name || strings.HasSuffix(typeRef.Name, "."+name) {
-		return true
+		return typeRef, true
 	}
 	resolved, ok := typeRef.Resolve(table)
 	if !ok || omit.IsHand(resolved, domainName) {
-		return false
+		return resolution.TypeRef{}, false
 	}
 	switch form := resolved.Form.(type) {
 	case resolution.AliasForm:
-		return reaches(form.Target, table, domainName, name)
+		return find(form.Target, table, domainName, name)
 	case resolution.DistinctForm:
-		return reaches(form.Base, table, domainName, name)
+		return find(form.Base, table, domainName, name)
 	default:
-		return false
+		return resolution.TypeRef{}, false
 	}
 }

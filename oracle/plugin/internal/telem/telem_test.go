@@ -89,6 +89,19 @@ var _ = Describe("Telem", func() {
 		Entry("an unresolved reference", "test.Missing", false),
 	)
 
+	DescribeTable("TimeStampRef",
+		func(name string, expected resolution.TypeRef, expectedOk bool) {
+			ref, ok := telem.TimeStampRef(resolution.TypeRef{Name: name}, table, "ts")
+			Expect(ok).To(Equal(expectedOk))
+			Expect(ref).To(Equal(expected))
+		},
+		Entry("the TimeStamp itself", "telem.TimeStamp",
+			resolution.TypeRef{Name: "telem.TimeStamp"}, true),
+		Entry("an alias of a distinct type over it", "test.Moment",
+			resolution.TypeRef{Name: "telem.TimeStamp"}, true),
+		Entry("the TimeSpan", "telem.TimeSpan", resolution.TypeRef{}, false),
+	)
+
 	DescribeTable("IsTimeSpan",
 		func(name, domainName string, expected bool) {
 			Expect(telem.IsTimeSpan(resolution.TypeRef{Name: name}, table, domainName)).
