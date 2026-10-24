@@ -37,12 +37,13 @@ const pageTitle =
         ? `${cleanTitle} | ${section}`
         : cleanTitle;
 // The home page names the whole site, so its heading is the full title.
-const fullTitle =
-    route === "/reference" && heading != null
-        ? heading
-        : pageTitle
-          ? `${pageTitle} | Synnax`
-          : "Synnax";
+const fullTitle = hidden
+    ? "Page not found | Synnax"
+    : route === "/reference" && heading != null
+      ? heading
+      : pageTitle
+        ? `${pageTitle} | Synnax`
+        : "Synnax";
 
 const FOOTER_COLUMNS = [
     {
