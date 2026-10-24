@@ -199,10 +199,11 @@ jobs:
         shell: powershell
         run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 30
 
+  # GitHub's runners keep the lint off the build bots that the tests need.
   lint:
     name: Lint
     if: inputs.clang_tidy
-    runs-on: ubuntu-build-bot
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - name: Checkout repository
@@ -231,12 +232,8 @@ jobs:
       - name: Install clang-tidy
         run: scripts/install_clang_tools.sh
 
-      # Each clang-tidy action peaks near 1 GB, and the build bots have 16 GB.
+      # Each clang-tidy action peaks near 1 GB, and the runner has 4 cores and 16 GB.
       - name: Lint
         run: >-
-          bazel build $BAZEL_REMOTE_CACHE_FLAGS --jobs=8 --config=clang-tidy
+          bazel build $BAZEL_REMOTE_CACHE_FLAGS --jobs=4 --config=clang-tidy
           --keep_going ${{ inputs.targets }}
-
-      - name: Clean build caches
-        if: always()
-        run: integration/scripts/clean_build_caches.sh 25
