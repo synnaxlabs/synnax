@@ -48,8 +48,7 @@ struct Status {
     /// @brief name is an optional human-readable name for the status.
     std::string name = "";
     /// @brief variant indicates the severity of the status. One of success, info,
-    /// warning,
-    /// error, loading, or disabled.
+    /// warning, error, loading, or disabled.
     std::string variant;
     /// @brief message is the main message text describing the status.
     std::string message;
