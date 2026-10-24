@@ -19,7 +19,7 @@ import (
 
 func TestDeviceV2(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Device v1 Suite")
+	RunSpecs(t, "Service Device v1 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

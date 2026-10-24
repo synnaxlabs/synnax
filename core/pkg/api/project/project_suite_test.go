@@ -40,7 +40,7 @@ import (
 
 func TestAPIProject(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Project Suite")
+	RunSpecs(t, "API Project Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
