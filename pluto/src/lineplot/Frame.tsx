@@ -58,16 +58,26 @@ export interface ContextValue {
   setViewport: (viewport: Viewport.UseEvent) => void;
   addViewportHandler: (handler: Viewport.UseHandler) => destructor.Destructor;
   setHold: (hold: boolean) => void;
-  loading: boolean;
-  fetching: boolean;
-  loadingMessage?: string;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
   displayName: "LinePlot.Context",
   providerName: "LinePlot.Frame",
 });
-export { useContext };
+
+export interface FetchContextValue {
+  loading: boolean;
+  fetching: boolean;
+  loadingMessage?: string;
+}
+
+// Fetch state changes on every pan and zoom, so it has a context of its own.
+const [FetchContext, useFetchContext] = context.create<FetchContextValue>({
+  displayName: "LinePlot.FetchContext",
+  providerName: "LinePlot.Frame",
+});
+
+export { useContext, useFetchContext };
 
 export const useViewport = (handle: Viewport.UseHandler, component: string): void => {
   const { addViewportHandler } = useContext(component);
@@ -257,9 +267,6 @@ export const Frame = ({
       addViewportHandler,
       setHold,
       id,
-      loading,
-      fetching,
-      loadingMessage,
     }),
     [
       id,
@@ -271,10 +278,12 @@ export const Frame = ({
       setViewport,
       addViewportHandler,
       setHold,
-      loading,
-      fetching,
-      loadingMessage,
     ],
+  );
+
+  const fetchContextValue = useMemo<FetchContextValue>(
+    () => ({ loading, fetching, loadingMessage }),
+    [loading, fetching, loadingMessage],
   );
 
   return (
@@ -286,7 +295,9 @@ export const Frame = ({
       {...rest}
     >
       <Context value={contextValue}>
-        <Aether.Composite path={path}>{children}</Aether.Composite>
+        <FetchContext value={fetchContextValue}>
+          <Aether.Composite path={path}>{children}</Aether.Composite>
+        </FetchContext>
       </Context>
     </div>
   );

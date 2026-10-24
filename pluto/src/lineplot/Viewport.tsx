@@ -21,7 +21,7 @@ import {
   useLayoutEffect,
 } from "react";
 
-import { useContext } from "@/lineplot/Frame";
+import { useContext, useFetchContext } from "@/lineplot/Frame";
 import { Viewport as Base } from "@/viewport";
 
 export interface ViewportProps extends PropsWithChildren, Base.UseProps {}
@@ -36,8 +36,8 @@ export const Viewport = ({
   onChange,
   ...rest
 }: ViewportProps): ReactElement => {
-  const { setViewport, loading, fetching, loadingMessage } =
-    useContext("LinePlot.Viewport");
+  const { setViewport } = useContext("LinePlot.Viewport");
+  const { loading, fetching, loadingMessage } = useFetchContext("LinePlot.Viewport");
 
   useLayoutEffect(() => {
     setViewport({ box: initial, mode: "zoom", cursor: xy.ZERO, stage: "start" });
