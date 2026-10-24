@@ -1,0 +1,105 @@
+{
+  "endpoints": [
+    {
+      "path": "/api/v1/fixtureCommand",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "value": "fixture-write-key-456",
+          "name": "xApiKey"
+        }
+      ],
+      "query_params": [
+        {
+          "parameter": "dryRun",
+          "value": "false"
+        }
+      ],
+      "channel": {
+        "pointer": "/command/modeCode",
+        "json_type": "number",
+        "channel": 10110,
+        "name": "fixture_http_mode_cmd",
+        "data_type": "uint8",
+        "enum_values": [
+          {
+            "label": "idle",
+            "value": 1
+          },
+          {
+            "label": "running",
+            "value": 2
+          }
+        ]
+      },
+      "fields": [
+        {
+          "type": "static",
+          "key": "wf-static-str",
+          "pointer": "/command/sourceSystem",
+          "json_type": "string",
+          "value": "fixture-console"
+        },
+        {
+          "json_type": "number",
+          "value": 99.5,
+          "type": "static",
+          "key": "wf-static-num",
+          "pointer": "/command/priorityLevel"
+        },
+        {
+          "time_format": "unix_ms",
+          "type": "generated",
+          "key": "wf-gen-ts",
+          "pointer": "/command/sentAtMs",
+          "generator": "timestamp"
+        },
+        {
+          "type": "generated",
+          "key": "wf-gen-uuid",
+          "pointer": "/command/requestId",
+          "generator": "uuid"
+        }
+      ],
+      "key": "ep-write-put",
+      "disabled": false,
+      "method": "PUT"
+    },
+    {
+      "headers": [
+        {
+          "name": "xTraceId",
+          "value": "fixture-trace"
+        }
+      ],
+      "query_params": [
+        {
+          "value": "us-west-2",
+          "parameter": "regionCode"
+        }
+      ],
+      "channel": {
+        "data_type": "timestamp",
+        "time_format": "iso8601",
+        "enum_values": [],
+        "pointer": "",
+        "json_type": "string",
+        "channel": 10120,
+        "name": "fixture_http_raw_cmd"
+      },
+      "fields": [],
+      "key": "ep-write-patch",
+      "disabled": true,
+      "method": "PATCH",
+      "path": "/api/v1/fixtureState"
+    }
+  ],
+  "type": "http_write",
+  "name": "http_write",
+  "version": 2,
+  "auto_start": true,
+  "device": "fixture-http-write-device"
+}
