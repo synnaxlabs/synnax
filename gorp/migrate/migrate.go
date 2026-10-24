@@ -84,7 +84,6 @@ func NewInstrumentedEntry[IK, OK gorp.Key, I gorp.Entry[IK], O gorp.Entry[OK]](
 			}
 			defer func() { err = errors.Combine(err, iter.Close()) }()
 			for iter.First(); iter.Valid(); iter.Next() {
-				logger.logProgress()
 				old := iter.Value(ctx)
 				if err = iter.Error(); err != nil {
 					return err
@@ -96,6 +95,7 @@ func NewInstrumentedEntry[IK, OK gorp.Key, I gorp.Entry[IK], O gorp.Entry[OK]](
 				if err = writer.Set(ctx, newEntry); err != nil {
 					return err
 				}
+				logger.logProgress()
 			}
 			return err
 		},
@@ -117,13 +117,13 @@ func Codec[K gorp.Key, E gorp.Entry[K]](key string) gorp.Migration {
 			defer func() { err = errors.Combine(err, iter.Close()) }()
 			for iter.First(); iter.Valid(); iter.Next() {
 				v := iter.Value(ctx)
-				logger.logProgress()
 				if err = iter.Error(); err != nil {
 					return err
 				}
 				if err = writer.Set(ctx, *v); err != nil {
 					return err
 				}
+				logger.logProgress()
 			}
 			return nil
 		},
@@ -143,7 +143,9 @@ type progressLogger struct {
 	count int
 }
 
+// logProgress counts one more processed entry and logs at the progress interval.
 func (p *progressLogger) logProgress() {
+	p.count++
 	if p.shouldLogProgress() {
 		p.ins.L.Info(
 			"migration progress",
@@ -156,17 +158,15 @@ func (p *progressLogger) logProgress() {
 // shouldLogProgress returns true at logarithmically spaced intervals (1, 10, 100, 1000)
 // then every 1000 entries after that.
 func (p *progressLogger) shouldLogProgress() bool {
-	if p.count <= 0 {
-		return false
-	}
 	if p.count >= progressMax {
 		return p.count%progressMax == 0
 	}
-	for p.count >= 10 {
-		if p.count%10 != 0 {
+	n := p.count
+	for n >= 10 {
+		if n%10 != 0 {
 			return false
 		}
-		p.count /= 10
+		n /= 10
 	}
-	return p.count == 1
+	return n == 1
 }

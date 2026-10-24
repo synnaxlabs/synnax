@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	. "github.com/synnaxlabs/gorp/testutil"
@@ -25,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap/zapcore"
 )
 
 type entryV1 struct {
@@ -281,6 +283,34 @@ var _ = Describe("Migrate", func() {
 			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("stable"))
 		})
 	})
+
+	DescribeTable("Progress logging",
+		func(ctx SpecContext, migration gorp.Migration) {
+			testDB := OpenGorpMsgpackDB()
+			defer func() { Expect(testDB.Close()).To(Succeed()) }()
+			w := gorp.WrapWriter[int32, entryV1](testDB)
+			for i := range 2000 {
+				Expect(w.Set(ctx, entryV1{ID: int32(i), Data: "data"})).To(Succeed())
+			}
+			ins, logs := ObservedInstrumentation(zapcore.InfoLevel)
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				Instrumentation: ins,
+				DB:              testDB,
+				Namespace:       testNamespace,
+				Migrations:      []gorp.Migration{migration},
+			})).To(Succeed())
+			var counts []int64
+			for _, e := range logs.FilterMessage("migration progress").All() {
+				counts = append(counts, e.ContextMap()["entries"].(int64))
+			}
+			Expect(counts).To(Equal([]int64{1, 10, 100, 1000, 2000}))
+		},
+		Entry("NewEntry", migrate.NewEntry(
+			"entry_progress",
+			func(_ context.Context, old entryV1) (entryV1, error) { return old, nil },
+		)),
+		Entry("Codec", migrate.Codec[int32, entryV1]("codec_progress")),
+	)
 
 	Describe("Error context", func() {
 		It("Should include entry key in transform error", func(ctx SpecContext) {
