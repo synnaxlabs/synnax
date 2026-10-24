@@ -12,7 +12,7 @@ package v0
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // Migration re-encodes stored entries from MessagePack to Orc.

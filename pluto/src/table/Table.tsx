@@ -34,6 +34,7 @@ import { Cell } from "@/table/cells";
 import { useClipboard } from "@/table/clipboard";
 import { DefaultContextMenu, ERASE_TRIGGER } from "@/table/ContextMenu";
 import { ColumnIndicators, INDICATOR_SIZE } from "@/table/Indicator";
+import { Overlay, shifts, steps, useMove } from "@/table/move";
 import {
   cellsInRegion,
   findCellPosition,
@@ -65,6 +66,7 @@ const NAV_KEYS = new Set<Triggers.Key>([
 // column.
 const BASE_ROW_SIZE = table.rowZ.parse({}).size;
 const BASE_COL_SIZE = table.columnZ.parse({}).size;
+const NONE_HIDDEN: string[] = [];
 
 const newDefaultCell = (): table.Cell => ({
   key: id.create(),
@@ -166,24 +168,21 @@ export const Table = ({
     [dispatch, key],
   );
   const removeRow = useCallback(
-    (indices: number[]) => {
-      if (indices.length === 0) return;
-      // Descending order so earlier removes don't shift later indices.
-      const sorted = [...indices].sort((a, b) => b - a);
+    (keys: string[]) => {
+      if (keys.length === 0) return;
       dispatch({
         key,
-        actions: sorted.map((index) => table.removeRow({ index })),
+        actions: keys.map((rowKey) => table.removeRow({ key: rowKey })),
       });
     },
     [dispatch, key],
   );
   const removeCol = useCallback(
-    (indices: number[]) => {
-      if (indices.length === 0) return;
-      const sorted = [...indices].sort((a, b) => b - a);
+    (keys: string[]) => {
+      if (keys.length === 0) return;
       dispatch({
         key,
-        actions: sorted.map((index) => table.removeCol({ index })),
+        actions: keys.map((colKey) => table.removeCol({ key: colKey })),
       });
     },
     [dispatch, key],
@@ -282,6 +281,78 @@ export const Table = ({
   const rowsRef = useSyncedRef(rows);
   const tableElRef = useRef<HTMLTableElement>(null);
 
+  const rowSizes = useMemo(() => rows.map((r) => r.size), [rows]);
+  const colSizes = useMemo(() => columns.map((c) => c.size), [columns]);
+
+  const selectedRows = useMemo(() => {
+    const set = new Set(selected);
+    return rows.flatMap((row) =>
+      row.cells.length > 0 && row.cells.every((k) => set.has(k)) ? [row.key] : [],
+    );
+  }, [rows, selected]);
+  const selectedCols = useMemo(() => {
+    const set = new Set(selected);
+    return columns.flatMap((col, x) =>
+      rows.length > 0 && rows.every((row) => set.has(row.cells[x])) ? [col.key] : [],
+    );
+  }, [rows, columns, selected]);
+
+  // A move selects what it moved. Cell keys travel with their row or column, so the
+  // keys read before the dispatch name the cells at their new position.
+  const finishMove = (cells: string[], actions: table.Action[]): void => {
+    if (actions.length > 0) dispatch({ key, actions });
+    tableElRef.current?.focus({ preventScroll: true });
+    lastSelectedRef.current = cells.at(-1) ?? null;
+    onSelectionChange?.(cells);
+  };
+  const rowMove = useMove({
+    direction: "y",
+    items: rows,
+    selected: selectedRows,
+    ref: tableElRef,
+    onMove: (move) =>
+      finishMove(
+        move.indices.flatMap((y) => rows[y].cells),
+        steps(move).map(({ from, to }) => table.moveRow({ key: rows[from].key, to })),
+      ),
+  });
+  const colMove = useMove({
+    direction: "x",
+    items: columns,
+    selected: selectedCols,
+    ref: tableElRef,
+    onMove: (move) =>
+      finishMove(
+        rows.flatMap((row) => move.indices.flatMap((x) => row.cells[x] ?? [])),
+        steps(move).map(({ from, to }) =>
+          table.moveCol({ key: columns[from].key, to }),
+        ),
+      ),
+  });
+
+  const rowShifts = useMemo(
+    () => (rowMove.move == null ? undefined : shifts(rowSizes, rowMove.move)),
+    [rowMove.move, rowSizes],
+  );
+  const colShifts = useMemo(
+    () => (colMove.move == null ? undefined : shifts(colSizes, colMove.move)),
+    [colMove.move, colSizes],
+  );
+  // The canvas does not slide, so value cells a move displaces draw nothing until it
+  // ends.
+  const hidden = useMemo(() => {
+    if (rowShifts == null && colShifts == null) return NONE_HIDDEN;
+    const keys: string[] = [];
+    rows.forEach((row, y) =>
+      row.cells.forEach((cellKey, x) => {
+        if ((rowShifts?.[y] ?? 0) !== 0 || (colShifts?.[x] ?? 0) !== 0)
+          keys.push(cellKey);
+      }),
+    );
+    return keys;
+  }, [rows, rowShifts, colShifts]);
+  useEffect(() => setState((s) => ({ ...s, hidden })), [hidden]);
+
   // Erase stays bound to the table's own region so Delete pressed elsewhere in the tab
   // cannot wipe cells. Undo and redo are tab-wide, matching the other visualizations.
   Triggers.use({
@@ -335,7 +406,7 @@ export const Table = ({
 
   const handleRowSelect = useCallback(
     (index: number, ev: React.MouseEvent) => {
-      if (!editable) return;
+      if (!editable || rowMove.consumeMoved()) return;
       tableElRef.current?.focus({ preventScroll: true });
       const row = rowsRef.current[index];
       if (row == null) return;
@@ -368,12 +439,12 @@ export const Table = ({
       lastSelectedRef.current = row.cells[row.cells.length - 1] ?? null;
       onSelectionChange?.(row.cells);
     },
-    [editable, onSelectionChange],
+    [editable, onSelectionChange, rowMove.consumeMoved],
   );
 
   const handleColSelect = useCallback(
     (index: number, ev: React.MouseEvent) => {
-      if (!editable) return;
+      if (!editable || colMove.consumeMoved()) return;
       tableElRef.current?.focus({ preventScroll: true });
       const colCells = rowsRef.current
         .map((r) => r.cells[index])
@@ -410,19 +481,21 @@ export const Table = ({
       lastSelectedRef.current = colCells[colCells.length - 1] ?? null;
       onSelectionChange?.(colCells);
     },
-    [editable, onSelectionChange],
+    [editable, onSelectionChange, colMove.consumeMoved],
   );
 
   const handleRowResize = useCallback(
-    (size: number, index: number) => {
-      if (editable) dispatch({ key, actions: [table.resizeRow({ index, size })] });
+    (size: number, rowKey: string) => {
+      if (editable)
+        dispatch({ key, actions: [table.resizeRow({ key: rowKey, size })] });
     },
     [dispatch, editable, key],
   );
 
   const handleColResize = useCallback(
-    (size: number, index: number) => {
-      if (editable) dispatch({ key, actions: [table.resizeCol({ index, size })] });
+    (size: number, colKey: string) => {
+      if (editable)
+        dispatch({ key, actions: [table.resizeCol({ key: colKey, size })] });
     },
     [dispatch, editable, key],
   );
@@ -464,9 +537,8 @@ export const Table = ({
     [editable, onSelectionChange],
   );
 
-  const colSizes = useMemo(() => columns.map((c) => c.size), [columns]);
   const totalCol = colSizes.reduce((a, s) => a + s, 0);
-  const totalRow = rows.reduce((a, r) => a + r.size, 0);
+  const totalRow = rowSizes.reduce((a, s) => a + s, 0);
   const tableStyle = useMemo(
     () => ({ width: totalCol, height: totalRow }),
     [totalCol, totalRow],
@@ -516,7 +588,11 @@ export const Table = ({
       <div ref={canvasRef} className={CSS.BE("table-surface", "canvas")} />
       <div className={CSS.BE("table-surface", "scroll")} onScroll={handleScroll}>
         <div
-          className={CSS.cls(CSS.B("table-frame"), CSS.editable(editable))}
+          className={CSS.cls(
+            CSS.B("table-frame"),
+            CSS.editable(editable),
+            (rowShifts != null || colShifts != null) && CSS.BM("table-frame", "moving"),
+          )}
           style={frameStyle}
           onPointerDown={handlePointerDown}
         >
@@ -535,13 +611,15 @@ export const Table = ({
                   <Selection.Context value={selected}>
                     {showIndicators && (
                       <ColumnIndicators
-                        columns={colSizes}
+                        columns={columns}
                         rows={rows}
                         selected={selected}
                         editable={editable}
                         onSelect={handleColSelect}
                         onSelectAll={handleSelectAll}
                         onResize={handleColResize}
+                        onMovePress={editable ? colMove.press : undefined}
+                        shifts={colShifts}
                       />
                     )}
                     {rows.map((row, rowIndex) => {
@@ -549,8 +627,9 @@ export const Table = ({
                       rowYCursor += row.size;
                       return (
                         <Row
-                          key={rowIndex}
+                          key={row.key}
                           index={rowIndex}
+                          itemKey={row.key}
                           resourceKey={key}
                           cells={row.cells}
                           columns={colSizes}
@@ -563,6 +642,9 @@ export const Table = ({
                           onSelect={handleRowSelect}
                           onResize={handleRowResize}
                           onCellSelect={handleCellSelect}
+                          onMovePress={editable ? rowMove.press : undefined}
+                          shift={rowShifts?.[rowIndex]}
+                          colShifts={colShifts}
                         />
                       );
                     })}
@@ -571,6 +653,24 @@ export const Table = ({
               </tbody>
             </table>
           </Menu.ContextMenu>
+          {rowMove.move != null && rowShifts != null && (
+            <Overlay
+              direction="y"
+              move={rowMove.move}
+              sizes={rowSizes}
+              shifts={rowShifts}
+              span={totalCol}
+            />
+          )}
+          {colMove.move != null && colShifts != null && (
+            <Overlay
+              direction="x"
+              move={colMove.move}
+              sizes={colSizes}
+              shifts={colShifts}
+              span={totalRow}
+            />
+          )}
           {editable && (
             <>
               <AddCountControl

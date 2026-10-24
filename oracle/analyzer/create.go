@@ -115,7 +115,7 @@ func unionCreateOmittedFields(
 ) []string {
 	var omitted []string
 	for _, ext := range form.Extends {
-		base, ok := ext.Resolve(table)
+		base, _, ok := resolution.Dealias(ext, table)
 		if !ok {
 			continue
 		}

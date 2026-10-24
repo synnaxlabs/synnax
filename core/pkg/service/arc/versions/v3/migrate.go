@@ -16,7 +16,7 @@ package v3
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // Migration lifts stored arcs from v1 to v3, converting deploy state to the live

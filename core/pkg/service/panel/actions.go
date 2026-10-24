@@ -25,6 +25,18 @@ func (p RenamePayload) Handle(state Panel) (Panel, error) {
 	return state, nil
 }
 
+// Handle sets the panel's icon. A nil icon resets it.
+func (p SetIconPayload) Handle(state Panel) (Panel, error) {
+	state.Icon = p.Icon
+	return state, nil
+}
+
+// Handle sets the color of the panel's icon. A nil color resets it.
+func (p SetColorPayload) Handle(state Panel) (Panel, error) {
+	state.Color = p.Color
+	return state, nil
+}
+
 // Handle upserts each tab in Tabs, in order, into one destination leaf. A tab
 // whose key is already present always has its content refreshed; it keeps its
 // current position unless the payload carries an explicit placement (TargetTab,

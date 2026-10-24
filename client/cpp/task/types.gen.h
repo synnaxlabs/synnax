@@ -141,8 +141,7 @@ struct Task {
     /// @brief key is the unique identifier for this task.
     Key key;
     /// @brief rack is the key of the rack this task deploys to. Zero for a draft that
-    /// has
-    /// not been assigned a rack; required to start.
+    /// has not been assigned a rack; required to start.
     ::synnax::rack::Key rack = ::synnax::rack::Key(0);
     /// @brief name is a human-readable name for the task.
     std::string name;
@@ -153,9 +152,8 @@ struct Task {
     /// task type.
     x::json::json::object_t config;
     /// @brief config_hash is the Core-assigned hash of config, rewritten on every write
-    /// and
-    /// ignored on writes from clients. Compare against a status's config_hash to detect
-    /// drift.
+    /// and ignored on writes from clients. Compare against a status's config_hash to
+    /// detect drift.
     std::string config_hash = "";
     /// @brief internal is true if this is an internal system task.
     bool internal = false;

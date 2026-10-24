@@ -14,8 +14,8 @@ package password
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Retrieve is used to retrieve Password records from the database using a
