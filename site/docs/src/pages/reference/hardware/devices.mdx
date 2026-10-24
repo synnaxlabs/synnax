@@ -78,13 +78,14 @@ Hover over a status dot to see its message.
 | Message                                        | Shown on                         | Meaning                                                   |
 | ---------------------------------------------- | -------------------------------- | --------------------------------------------------------- |
 | Driver is running                              | Driver                           | The Driver is connected to the Core.                      |
-| Synnax Driver on \<name\> not running          | Driver                           | The Core has not heard from the Driver for a few seconds. |
+| Driver not running                             | Driver                           | The Core has not heard from the Driver for a few seconds. |
 | Device present                                 | NI and LabJack devices           | The Driver found the device.                              |
 | Device connected                               | Modbus and HTTP devices          | The Driver reached the server.                            |
-| Server connected                               | OPC UA and HTTP devices          | The Driver reached the server.                            |
+| Server connected                               | OPC UA devices                   | The Driver reached the server.                            |
 | Failed to reach device, Failed to reach server | Modbus, OPC UA, and HTTP devices | The Driver cannot connect to the server.                  |
-| HTTP \<code\>, Health check validation failed  | HTTP devices                     | The server answered, but the health check failed.         |
+| Health check failed                            | HTTP devices                     | The server answered, but the health check failed.         |
 | Discovered (\<n\> inputs, \<m\> outputs)       | EtherCAT devices                 | The Driver found the module on the network.               |
+| Failed to discover PDOs                        | EtherCAT devices                 | The Driver found the module, but not its PDOs.            |
 | Device disabled, Device enabled                | EtherCAT devices                 | You turned the module off or on for tasks.                |
 | Device disconnected                            | Found devices                    | The Driver no longer finds the device.                    |
 | Device status unknown                          | Any device                       | The device has no status yet.                             |

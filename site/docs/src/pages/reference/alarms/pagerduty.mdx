@@ -42,8 +42,8 @@ key, open **Services** -> **Service Directory** in PagerDuty, select the service
 - Error, warning, and info all send a trigger event. The settings of the PagerDuty
   service decide whether the alert opens an incident and how urgent it is.
 - The summary of the event is the status message, followed by `: ` and the description
-  when there is one. The source is the status name, and the details are the status
-  details.
+  when there is one. The source is the status name, or the key when the name is empty.
+  The details are the status details.
 - The task sends only changes that happen while it runs. It does not send the current
   value of a status when it starts.
 - Deleting the task or a status does not resolve open incidents. Set the statuses to
@@ -92,7 +92,7 @@ client.statuses.set(
         key=STATUS_KEY,
         name="Engine 1",
         variant="success",
-        message="Engine 1 is healthy",
+        message="Running",
     )
 )
 
@@ -119,8 +119,8 @@ with alert_task.run():
             key=STATUS_KEY,
             name="Engine 1",
             variant="error",
-            message="Engine 1 is down",
-            description="Connection to the controller lost",
+            message="Not responding",
+            description="The connection to the controller is lost.",
         )
     )
     sy.sleep(5)
@@ -130,7 +130,7 @@ with alert_task.run():
             key=STATUS_KEY,
             name="Engine 1",
             variant="success",
-            message="Engine 1 recovered",
+            message="Running",
         )
     )
     sy.sleep(3)
@@ -148,7 +148,7 @@ await client.statuses.set({
   key: "engine-1",
   name: "Engine 1",
   variant: "success",
-  message: "Engine 1 is healthy",
+  message: "Running",
 });
 
 const [rack] = await client.racks.retrieve({ integration: "pagerduty" });
@@ -237,8 +237,8 @@ Add an alert, or enable one.
 <Problem.Body>
 <Problem.Cause>
 
-The Core could not send the event to PagerDuty. The rest of the message gives the cause.
-The task keeps running and sends the next change.
+The Core could not send the event to PagerDuty. The description gives the cause. The
+task keeps running and sends the next change.
 
 </Problem.Cause>
 <Problem.Fix>

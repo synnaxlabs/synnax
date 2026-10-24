@@ -13,8 +13,8 @@ import { InlineCode } from "@/components/text/InlineCode";
 import { toAnchor } from "@/util/anchor";
 
 interface Props {
-    /** The exact message the reader sees, or each message that has the same cause. Give
-        this or `symptom`. */
+    /** The exact text the reader sees, in the status message or description, or each
+        text that has the same cause. Give this or `symptom`. */
     message?: string | string[];
     /** What the reader sees, in words, when there is no message. Backticks mark
         code. */
