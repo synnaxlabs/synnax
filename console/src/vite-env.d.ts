@@ -15,6 +15,8 @@ declare const IS_DEV: boolean;
  * layers stay the same for both apps.
  */
 declare const DESKTOP: boolean;
+/** True in dev, Desktop, and spec builds, where every flag in `flags.ts` is on. */
+declare const FLAGS_ON: boolean;
 
 interface MonacoEnvironment {
   getWorker: (moduleId: string, label: string) => Worker;

@@ -21,6 +21,8 @@ const isDev = process.env.VITE_IS_DEV === "true";
 const fromSource = process.env.VITEST == null;
 // Builds Synnax Desktop, the app that bundles and manages its own Core.
 const desktop = process.env.VITE_DESKTOP === "true";
+// Turns on every flag in src/flags.ts, so dark code runs in Desktop and in specs.
+const flagsOn = isDev || desktop || process.env.VITEST != null;
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const DESKTOP_SPECS = "src/**/*.desktop.spec.{ts,tsx}";
 
@@ -123,7 +125,7 @@ export default defineConfig({
     // to enforce the default Vite warning threshold.
     chunkSizeWarningLimit: 10000 /* kbs */,
   },
-  define: { IS_DEV: isDev, DESKTOP: desktop },
+  define: { IS_DEV: isDev, DESKTOP: desktop, FLAGS_ON: flagsOn },
   worker: {
     format: "es",
     // The worker is a separate build and does not inherit `plugins`, so its frames
@@ -133,8 +135,6 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
-    // Specs run with every flag in src/flags.ts on, so dark code stays tested.
-    env: { VITE_FLAG_ETHERCAT_STARTUP_PARAMETERS: "true" },
     setupFiles: ["src/testutil/setuptests.ts"],
     testTimeout: 15_000,
     // DESKTOP is a build constant, so the specs of each build run as their own project.
