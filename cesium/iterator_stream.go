@@ -129,8 +129,9 @@ type streamIterator struct {
 	confluence.UnarySink[IteratorRequest]
 	confluence.AbstractUnarySource[IteratorResponse]
 	internal []*unary.Iterator
-	// reduced is true when the iterator reduces its reads, which bounds their size.
-	reduced bool
+	// limited is true when the read has a limit reduction. A limited read is never
+	// pieced, because a piece edge would cut its groups.
+	limited bool
 }
 
 // IteratorConfig is the configuration for opening an iterator :). See the fields for
@@ -186,7 +187,7 @@ func (s *streamIterator) exec(
 	}
 	switch req.Command {
 	case IteratorCommandNext:
-		if s.reduced || req.Span == AutoSpan {
+		if s.limited || req.Span == AutoSpan {
 			ok = s.execWithResponse(
 				req.SeqNum,
 				func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) },

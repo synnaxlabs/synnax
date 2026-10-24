@@ -1125,6 +1125,25 @@ var _ = Describe("Iterator Behavior", func() {
 				)
 
 				It(
+					"Should split a strided fixed span into pieces that keep the samples "+
+						"of one read",
+					func() {
+						cfg := cesium.IteratorConfig{
+							Bounds:   telem.TimeRangeMax,
+							Channels: []cesium.ChannelKey{idxA, dataA},
+							Reduction: telem.Reduction{
+								Variant: telem.StrideReduction{Factor: 2},
+							},
+						}
+						Expect(nextPieces(cfg, 10*telem.Second, dataA)).
+							To(Equal([][]int64{{10, 30, 50}}))
+						cfg.AutoChunkSize = 2
+						Expect(nextPieces(cfg, 10*telem.Second, dataA)).
+							To(Equal([][]int64{{10}, {30}, {50}}))
+					},
+				)
+
+				It(
 					"Should end each piece after a run of equal timestamps",
 					func(ctx SpecContext) {
 						idx, data := GenerateChannelKey(), GenerateChannelKey()

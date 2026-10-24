@@ -13,6 +13,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 )
 
 func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
@@ -71,8 +72,6 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 		}
 		return nil, channel.NewNotFoundError(key)
 	}
-	return &streamIterator{
-		internal: internal,
-		reduced:  cfg.Reduction.Variant != nil,
-	}, nil
+	_, limited := cfg.Reduction.Variant.(telem.LimitReduction)
+	return &streamIterator{internal: internal, limited: limited}, nil
 }
