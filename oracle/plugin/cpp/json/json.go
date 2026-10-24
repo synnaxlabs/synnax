@@ -1269,8 +1269,9 @@ type arrayWrapperData struct {
 	ElementType string
 	// ElementNeedsConvert is true if element is a struct that needs to_json()/parse().
 	ElementNeedsConvert bool
-	IsFixedSizeArray    bool
-	ArraySize           int64
+	// IsFixedSizeArray is true when the wrapper holds exactly ArraySize elements.
+	IsFixedSizeArray bool
+	ArraySize        int64
 }
 
 type serializerData struct {

@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 // Package telem finds the telem types that generators render specially, chasing aliases
-// and distinct bases. Every generator finds these
-// types through this one package so they cannot drift.
+// and distinct bases. Every generator finds these types through this one package so
+// they cannot drift.
 package telem
 
 import (

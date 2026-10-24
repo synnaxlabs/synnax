@@ -706,7 +706,7 @@ func (p *Plugin) generateFieldConversion(
 				data,
 			)
 		}
-		// A generated distinct type is a C++ using declaration of its base.
+		// A generated distinct type converts as its base.
 		field.Type = resolution.SubstituteTypeRef(
 			form.Base,
 			resolution.TypeArgMap(form.TypeParams, typeRef.TypeArgs),
