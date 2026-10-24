@@ -177,21 +177,37 @@ describe("tile", () => {
     });
 
     describe("a cached tile read with another channel of the tile", () => {
-      it("should resolve once the other channel's fetch lands", async () => {
-        const { reader, calls } = createReader({
-          batchDebounce: TimeSpan.milliseconds(20),
+      it("should read the tile again in one request with the other channel", async () => {
+        const calls: channel.Key[][] = [];
+        // The groups the Core picks follow the samples written into the tile.
+        let multiple = 2n;
+        const reader = new TileReader({
+          batchDebounce: TimeSpan.milliseconds(5),
+          readRemote: async (tr, keys) => {
+            calls.push([...keys].sort());
+            return new Frame(
+              keys,
+              keys.map(
+                () =>
+                  new Series({
+                    data: new Float64Array(SAMPLES),
+                    timeRange: tr,
+                    alignmentMultiple: multiple,
+                  }),
+              ),
+            );
+          },
         });
         await reader.read(createSpec({ key: 1 }));
-        let resolved = false;
-        const cached = reader
-          .read(createSpec({ key: 1 }))
-          .then(() => (resolved = true));
-        const fetched = reader.read(createSpec({ key: 2 }));
-        await sleep.sleep(TimeSpan.milliseconds(5));
-        expect(resolved).toBe(false);
-        await Promise.all([cached, fetched]);
-        expect(calls).toHaveLength(2);
-        expect(calls[1].keys).toEqual([2]);
+        multiple = 4n;
+        const [x, y] = await Promise.all([
+          reader.read(createSpec({ key: 1 })),
+          reader.read(createSpec({ key: 2 })),
+        ]);
+        expect(calls).toEqual([[1], [1, 2]]);
+        expect(x.series[0].alignmentMultiple).toBe(4n);
+        expect(y.series[0].alignmentMultiple).toBe(4n);
+        expect(await reader.read(createSpec({ key: 1 }))).toBe(x);
         reader.close();
       });
 
@@ -319,6 +335,23 @@ describe("tile", () => {
       await reader.read(createSpec({ index: 3 }));
       await reader.read(createSpec({ index: 1 }));
       expect(calls).toHaveLength(4);
+      reader.close();
+    });
+
+    it("should count a tile read again with another channel once against the budget", async () => {
+      const { reader, calls } = createReader(
+        { budget: Size.bytes(3.5 * LARGE_BYTES) },
+        LARGE_SAMPLES,
+      );
+      await reader.read(createSpec({ key: 1, index: 1 }));
+      await Promise.all([
+        reader.read(createSpec({ key: 1, index: 1 })),
+        reader.read(createSpec({ key: 2, index: 1 })),
+      ]);
+      await reader.read(createSpec({ key: 1, index: 2 }));
+      expect(calls).toHaveLength(3);
+      await reader.read(createSpec({ key: 1, index: 1 }));
+      expect(calls).toHaveLength(3);
       reader.close();
     });
 
