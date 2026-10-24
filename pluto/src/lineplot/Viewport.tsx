@@ -10,6 +10,7 @@
 import "@/lineplot/Viewport.css";
 
 import { CSS } from "@synnaxlabs/lyra/css";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { box, xy } from "@synnaxlabs/x";
@@ -20,7 +21,7 @@ import {
   useLayoutEffect,
 } from "react";
 
-import { useContext } from "@/lineplot/Frame";
+import { useContext, useFetchContext } from "@/lineplot/Frame";
 import { Viewport as Base } from "@/viewport";
 
 export interface ViewportProps extends PropsWithChildren, Base.UseProps {}
@@ -35,7 +36,8 @@ export const Viewport = ({
   onChange,
   ...rest
 }: ViewportProps): ReactElement => {
-  const { setViewport, loading, loadingMessage } = useContext("LinePlot.Viewport");
+  const { setViewport } = useContext("LinePlot.Viewport");
+  const { loading, fetching, loadingMessage } = useFetchContext("LinePlot.Viewport");
 
   useLayoutEffect(() => {
     setViewport({ box: initial, mode: "zoom", cursor: xy.ZERO, stage: "start" });
@@ -62,6 +64,9 @@ export const Viewport = ({
             </Text.Text>
           )}
         </Status.Loading>
+      )}
+      {!loading && fetching && (
+        <Icon.Loading className={CSS.BE("line-plot", "fetching")} />
       )}
       {children}
     </Base.Mask>

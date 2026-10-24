@@ -118,6 +118,7 @@ interface LineProps {
   lineKey: string;
   resolved?: ResolvedRange;
   visible?: boolean;
+  tiled?: boolean;
 }
 
 const Line = ({
@@ -125,12 +126,28 @@ const Line = ({
   lineKey,
   resolved,
   visible = true,
+  tiled = false,
 }: LineProps): ReactElement | null => {
   const { key, ...line } = useLine({ key: pKey, lineKey });
   const telemetry = useMemo(() => {
     if (resolved == null) return null;
     const { xChannel, yChannel } = line;
     const hasX = primitive.isNonZero(xChannel);
+    if (tiled) {
+      const home =
+        resolved.variant === "dynamic"
+          ? { timeSpan: resolved.span }
+          : { timeRange: resolved.timeRange };
+      return {
+        x: telem.tiledChannelData({
+          ...home,
+          channel: hasX ? xChannel : yChannel,
+          useIndexOfChannel: !hasX,
+          xChannel,
+        }),
+        y: telem.tiledChannelData({ ...home, channel: yChannel, xChannel }),
+      };
+    }
     if (resolved.variant === "dynamic") {
       const keepFor = Number(resolved.span.valueOf()) * 3;
       const { span: timeSpan } = resolved;
@@ -156,7 +173,7 @@ const Line = ({
       }),
       y: telem.channelData({ timeRange: resolved.timeRange, channel: yChannel }),
     };
-  }, [resolved, line?.xChannel, line?.yChannel]);
+  }, [resolved, tiled, line?.xChannel, line?.yChannel]);
   if (line == null || telemetry == null) return null;
   return (
     <BaseLine
@@ -167,6 +184,8 @@ const Line = ({
       visible={visible}
       legendGroup={line.yAxis.toUpperCase()}
       {...line}
+      // Tiles arrive reduced, so the line must not reduce them again.
+      {...(tiled ? { downsample: 1, downsampleMode: "average" } : {})}
     />
   );
 };
@@ -244,6 +263,7 @@ interface AxisChildrenProps {
   resolvedRanges?: Map<string, ResolvedRange>;
   hiddenLines?: Set<string>;
   onSelectRule?: (key: string) => void;
+  tiled?: boolean;
 }
 
 interface RuleProps {
@@ -318,6 +338,7 @@ const YAxis = ({
   resolvedRanges,
   hiddenLines,
   onSelectRule,
+  tiled,
 }: YAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
   const { axis, lineKeys, channels } = useYAxis({ key, axisKey });
@@ -365,6 +386,7 @@ const YAxis = ({
           lineKey={lineKey}
           resolved={resolvedRanges?.get(lineplot.parseLineKey(lineKey).range)}
           visible={hiddenLines == null || !hiddenLines.has(lineKey)}
+          tiled={tiled}
         />
       ))}
       <Rules pKey={key} axisKey={axisKey} onSelectRule={onSelectRule} />
@@ -385,6 +407,7 @@ const XAxis = ({
   hiddenLines,
   onSelectRule,
   rangeProviderProps,
+  tiled,
 }: XAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
   const handleDrop = useCallback(
@@ -428,6 +451,7 @@ const XAxis = ({
           resolvedRanges={resolvedRanges}
           hiddenLines={hiddenLines}
           onSelectRule={onSelectRule}
+          tiled={tiled}
         />
       ))}
       <Rules pKey={key} axisKey={axisKey} onSelectRule={onSelectRule} />
@@ -475,6 +499,11 @@ export interface LinePlotProps extends FrameProps {
   onSelectRule?: (key: string) => void;
   hiddenLines?: Set<string>;
   onLineVisibleChange?: (lineKey: string, visible: boolean) => void;
+  /**
+   * Draws lines from tiles of reduced data that follow the view, instead of loading
+   * each line's range whole.
+   */
+  tiled?: boolean;
 }
 
 export const LinePlot = ({
@@ -493,6 +522,7 @@ export const LinePlot = ({
   onSelectRule,
   hiddenLines,
   onLineVisibleChange,
+  tiled = false,
   children,
   ref,
   ...rest
@@ -521,6 +551,7 @@ export const LinePlot = ({
           hiddenLines={hiddenLines}
           onSelectRule={onSelectRule}
           rangeProviderProps={rangeProviderProps}
+          tiled={tiled}
         />
       ))}
       <Legend
