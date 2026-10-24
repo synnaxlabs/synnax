@@ -329,6 +329,9 @@ export const Table = ({
         ),
       ),
   });
+  // A method call would make the whole move object, new on each render, a dependency.
+  const consumeRowMoved = rowMove.consumeMoved;
+  const consumeColMoved = colMove.consumeMoved;
 
   const rowShifts = useMemo(
     () => (rowMove.move == null ? undefined : shifts(rowSizes, rowMove.move)),
@@ -406,7 +409,7 @@ export const Table = ({
 
   const handleRowSelect = useCallback(
     (index: number, ev: React.MouseEvent) => {
-      if (!editable || rowMove.consumeMoved()) return;
+      if (!editable || consumeRowMoved()) return;
       tableElRef.current?.focus({ preventScroll: true });
       const row = rowsRef.current[index];
       if (row == null) return;
@@ -439,12 +442,12 @@ export const Table = ({
       lastSelectedRef.current = row.cells[row.cells.length - 1] ?? null;
       onSelectionChange?.(row.cells);
     },
-    [editable, onSelectionChange, rowMove.consumeMoved, rowsRef, selectedRef],
+    [consumeRowMoved, editable, onSelectionChange, rowsRef, selectedRef],
   );
 
   const handleColSelect = useCallback(
     (index: number, ev: React.MouseEvent) => {
-      if (!editable || colMove.consumeMoved()) return;
+      if (!editable || consumeColMoved()) return;
       tableElRef.current?.focus({ preventScroll: true });
       const colCells = rowsRef.current
         .map((r) => r.cells[index])
@@ -481,7 +484,7 @@ export const Table = ({
       lastSelectedRef.current = colCells[colCells.length - 1] ?? null;
       onSelectionChange?.(colCells);
     },
-    [editable, onSelectionChange, colMove.consumeMoved, rowsRef, selectedRef],
+    [consumeColMoved, editable, onSelectionChange, rowsRef, selectedRef],
   );
 
   const handleRowResize = useCallback(
