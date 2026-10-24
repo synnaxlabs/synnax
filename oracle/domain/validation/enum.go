@@ -34,7 +34,7 @@ func ResolveEnumVariant(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
 ) (EnumVariant, bool) {
-	resolved, ok := typeRef.Resolve(table)
+	resolved, _, ok := resolution.Dealias(typeRef, table)
 	if !ok {
 		return EnumVariant{}, false
 	}

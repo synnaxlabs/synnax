@@ -99,7 +99,7 @@ export const Aggregator = ({
  * @returns a handler that turns a caught error into an error status on the enclosing
  * {@link Aggregator}. Use it in place of `console.error` in a UI path.
  *
- * @example handleError(err, "failed to save the range");
+ * @example handleError(err, "Failed to save range");
  */
 export const useErrorHandler = (): ErrorHandler => useHandlers().error;
 
@@ -120,6 +120,9 @@ export interface UseNotificationsReturn<Details extends z.ZodType = z.ZodNever> 
   silence: (key: string) => void;
   silenceAll: () => void;
 }
+
+const identity = ({ variant, name, message, description }: Status): string =>
+  JSON.stringify([variant, name, message, description]);
 
 const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
 const DEFAULT_EXPIRATION_POLL = TimeSpan.seconds(1);
@@ -156,7 +159,7 @@ export const useNotifications = ({
     );
 
     const grouped = active.reduce((acc, status) => {
-      const key = `${status.variant}:${status.message}:${status.name}`;
+      const key = identity(status);
       if (!acc.has(key)) {
         acc.set(key, { ...status, count: 1 });
         return acc;
@@ -180,13 +183,10 @@ export const useNotifications = ({
       const existing = statusesRef.current.find(({ key: k }) => k === key);
       if (!prev.has(key)) next.add(key);
       if (existing != null) {
-        const silenced = statusesRef.current.filter(
-          ({ message, variant, name }) =>
-            message === existing.message &&
-            variant === existing.variant &&
-            name === existing.name,
-        );
-        silenced.forEach((status) => next.add(status.key));
+        const id = identity(existing);
+        statusesRef.current
+          .filter((status) => identity(status) === id)
+          .forEach((status) => next.add(status.key));
       }
       if (next.size == 0) return prev;
       return new Set([...next, ...prev]);

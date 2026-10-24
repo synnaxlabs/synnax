@@ -13,9 +13,9 @@ import (
 	"context"
 	"math"
 
+	"github.com/synnaxlabs/gorp"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // MigrateSchematic lifts a v7 schematic into the v8 shape, dropping each node's

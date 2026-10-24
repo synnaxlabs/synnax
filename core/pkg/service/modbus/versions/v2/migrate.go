@@ -12,8 +12,8 @@ package v2
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v1"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // MigrateRegisterValue keeps a stored true as an explicit override and drops a stored

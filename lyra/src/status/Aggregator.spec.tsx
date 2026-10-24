@@ -95,7 +95,7 @@ describe("Aggregator", () => {
   });
 
   describe("grouping", () => {
-    it("should fold statuses with the same name, message, and variant", () => {
+    it("should fold identical statuses into one", () => {
       const { result } = renderHook(
         () => ({
           add: Status.useAdder(),
@@ -135,6 +135,36 @@ describe("Aggregator", () => {
       expect(statuses.map(({ name }) => name)).toEqual(["3", "2", "1"]);
       statuses.forEach(({ count }) => expect(count).toBe(1));
     });
+
+    it("should keep statuses with distinct descriptions separate", () => {
+      const { result } = renderHook(
+        () => ({
+          add: Status.useAdder(),
+          statuses: Status.useNotifications(),
+        }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.add({
+          variant: "error",
+          message: "Failed to start task",
+          description: "The device is unreachable.",
+        });
+      });
+      act(() => {
+        result.current.add({
+          variant: "error",
+          message: "Failed to start task",
+          description: "The channel no longer exists.",
+        });
+      });
+      const { statuses } = result.current.statuses;
+      expect(statuses.map(({ description }) => description)).toEqual([
+        "The channel no longer exists.",
+        "The device is unreachable.",
+      ]);
+      statuses.forEach(({ count }) => expect(count).toBe(1));
+    });
   });
 
   describe("silence", () => {
@@ -161,7 +191,7 @@ describe("Aggregator", () => {
       expect(result.current.statuses.statuses).toHaveLength(0);
     });
 
-    it("should silence all notifications with the same name, message, and variant", () => {
+    it("should silence all identical notifications at once", () => {
       const { result } = renderHook(
         () => ({
           add: Status.useAdder(),
@@ -169,19 +199,18 @@ describe("Aggregator", () => {
         }),
         { wrapper },
       );
-      // Add multiple notifications with same message and variant
       act(() => {
         result.current.add({
           variant: "success",
           message: "Test",
-          description: "Test 1",
+          description: "Info",
         });
       });
       act(() => {
         result.current.add({
           variant: "success",
           message: "Test",
-          description: "Test 2",
+          description: "Info",
         });
       });
       expect(result.current.statuses.statuses).toHaveLength(1);
@@ -215,6 +244,38 @@ describe("Aggregator", () => {
       });
       expect(result.current.statuses.statuses).toHaveLength(1);
       expect(result.current.statuses.statuses[0].name).toEqual("1");
+    });
+
+    it("should not silence a notification with a different description", () => {
+      const { result } = renderHook(
+        () => ({
+          add: Status.useAdder(),
+          statuses: Status.useNotifications(),
+        }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.add({
+          variant: "error",
+          message: "Failed to start task",
+          description: "The device is unreachable.",
+        });
+      });
+      act(() => {
+        result.current.add({
+          variant: "error",
+          message: "Failed to start task",
+          description: "The channel no longer exists.",
+        });
+      });
+      const key = result.current.statuses.statuses[0].key;
+      act(() => {
+        result.current.statuses.silence(key);
+      });
+      expect(result.current.statuses.statuses).toHaveLength(1);
+      expect(result.current.statuses.statuses[0].description).toEqual(
+        "The device is unreachable.",
+      );
     });
   });
 

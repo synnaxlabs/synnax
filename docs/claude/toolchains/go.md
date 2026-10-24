@@ -2,10 +2,10 @@
 
 ## Modules
 
-`/core/` (server), `/aspen/` (distributed KV), `/cesium/` (time-series DB),
-`/freighter/go/` + `/freighter/integration/` (transport + its test server), `/arc/go/`
-(Arc compiler), `/alamos/go/` (instrumentation), `/oracle/` (schema codegen CLI),
-`/x/go/` (shared utilities).
+`/core/` (server), `/aspen/` (distributed KV), `/cesium/` (time-series DB), `/gorp/`
+(typed KV tables), `/freighter/go/` + `/freighter/integration/` (transport + its test
+server), `/arc/go/` (Arc compiler), `/alamos/go/` (instrumentation), `/oracle/` (schema
+codegen CLI), `/x/go/` (shared utilities).
 
 Modules reference siblings via relative-path `replace` directives in each `go.mod`.
 `go.work` is gitignored but fine for local convenience.
