@@ -3091,8 +3091,8 @@ type structData struct {
 type extendsParentInfo struct {
 	Name     string
 	TypeName string
-	// Schema instantiates the parent's schema with the type arguments the child
-	// passes, e.g. `boxZ(z.string())`.
+	// Schema instantiates the parent's schema with the type arguments the child passes,
+	// e.g. `boxZ(z.string())`.
 	Schema string
 }
 

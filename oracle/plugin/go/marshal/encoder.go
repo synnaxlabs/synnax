@@ -1117,7 +1117,8 @@ func (b *encoderBuilder) processLeaf(
 				ind+fmt.Sprintf("w.Bool(bool(%s))", valPath))
 			b.decodeLine(
 				ind + fmt.Sprintf(
-					"{ rawV, err := r.Bool(); if err != nil { return err }; %s = %s(rawV) }",
+					"{ rawV, err := r.Bool(); if err != nil { return err }; "+
+						"%s = %s(rawV) }",
 					setPath,
 					goTypeCast,
 				),
@@ -1256,8 +1257,8 @@ func (b *encoderBuilder) unwrapType(typ resolution.Type) resolution.Type {
 	return typemap.UnwrapType(typ, b.table)
 }
 
-// takeNonNil reports whether the value about to be encoded is known non-nil, and
-// clears the flag so the value's elements write their own presence bits.
+// takeNonNil reports whether the value about to be encoded is known non-nil, and clears
+// the flag so the value's elements write their own presence bits.
 func (b *encoderBuilder) takeNonNil() bool {
 	known := b.skipNilCheck
 	b.skipNilCheck = false

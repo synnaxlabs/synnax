@@ -211,8 +211,7 @@ var (
 	}), "|")
 	aliasRef = regexp.MustCompile(`\b(` + names + `)\b`)
 	// aliasDecl matches the whole declaration of an alias in Go, TypeScript, Python,
-	// and
-	// C++, including the lines a generic declaration spans.
+	// and C++, including the lines a generic declaration spans.
 	aliasDecl = regexp.MustCompile(`(?m)^\s*(` + strings.Join([]string{
 		`type (` + names + `)(\[[^\]]*\])? = .*$`,
 		`export (const|type) (` + names + `|` + schemas + `)\b[^;]*;`,

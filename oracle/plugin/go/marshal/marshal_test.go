@@ -842,7 +842,8 @@ var _ = Describe("Go Marshal Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").ToContain(
 					"w.Bool(bool(t.Enabled))",
-					"rawV, err := r.Bool(); if err != nil { return err }; t.Enabled = Flag(rawV)",
+					"rawV, err := r.Bool(); if err != nil { return err }; "+
+						"t.Enabled = Flag(rawV)",
 					"w.Bool(bool(*t.Armed))",
 				)
 			})
@@ -875,7 +876,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 		Context("optional bytes field", func() {
 			It(
-				"Should generate a single presence bit without a redundant inner nil check",
+				"Should write a single presence bit without an inner nil check",
 				func() {
 					source := `
 					@go output "core/pkg/test"

@@ -415,8 +415,8 @@ func (p *Plugin) processUnionForTranslation(
 		if !ok {
 			continue
 		}
-		// An alias base keeps its own field name but translates through the struct
-		// it stands for.
+		// An alias base keeps its own field name but translates through the struct it
+		// stands for.
 		target, targetRef, ok := resolution.Dealias(ext, data.table)
 		if !ok {
 			continue

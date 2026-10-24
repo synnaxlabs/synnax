@@ -243,8 +243,8 @@ func (r TypeRef) Resolve(table *Table) (Type, bool) {
 // Dealias follows ref through alias declarations to the type it stands for, and returns
 // that type with the reference to it. A generic alias's type arguments carry over to
 // the target. A distinct type is not an alias, so the walk stops there. ok is false
-// when ref is a bare type parameter, or when ref or an alias target does not resolve
-// or forms a cycle.
+// when ref is a bare type parameter, or when ref or an alias target does not resolve or
+// forms a cycle.
 func Dealias(ref TypeRef, table *Table) (Type, TypeRef, bool) {
 	visited := make(set.Set[string])
 	for {
@@ -441,8 +441,8 @@ func (tp TypeParam) HasDefault() bool {
 	return tp.Default != nil
 }
 
-// TypeParams returns the type parameters form declares, or nil when form cannot
-// declare any.
+// TypeParams returns the type parameters form declares, or nil when form cannot declare
+// any.
 func TypeParams(form TypeForm) []TypeParam {
 	switch f := form.(type) {
 	case StructForm:

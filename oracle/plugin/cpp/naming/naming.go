@@ -99,8 +99,8 @@ func PBNamespace(pbOutputPath, namespace string) string {
 // VariantPBNamespace returns the C++ namespace of the protobuf message a union variant
 // translates against, and the header that declares it. An inline variant's message
 // belongs to its union, and any other variant's to its payload struct. cpp/types
-// declares the variant's proto members and cpp/pb defines them, so both MUST derive
-// the message here.
+// declares the variant's proto members and cpp/pb defines them, so both MUST derive the
+// message here.
 func VariantPBNamespace(
 	union resolution.Type,
 	v resolution.UnionVariant,

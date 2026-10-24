@@ -534,8 +534,8 @@ func (p *Plugin) processUnionForTranslation(
 		if _, isStruct := target.Form.(resolution.StructForm); !isStruct {
 			continue
 		}
-		// An alias base embeds under its own name but translates through the struct
-		// it stands for.
+		// An alias base embeds under its own name but translates through the struct it
+		// stands for.
 		base, _ := ext.Resolve(data.table)
 		prefix, baseName := p.resolvePBTranslatorInfo(target, data)
 		ut.Bases = append(ut.Bases, unionBaseTranslatorData{
@@ -748,8 +748,9 @@ func (p *Plugin) setPtrConversion(
 	if isDistinct {
 		base = dealiasPrimitive(form.Base, data.table).Name
 	}
-	if !resolution.IsPrimitive(base) ||
-		(!isDistinct && !primitiveNeedsConversion(base) && base != "uuid" && base != "any") {
+	// Proto holds these plain primitives as another type.
+	retyped := primitiveNeedsConversion(base) || base == "uuid" || base == "any"
+	if !resolution.IsPrimitive(base) || (!isDistinct && !retyped) {
 		return
 	}
 	fd.NeedsPtrConversion = true
@@ -759,27 +760,30 @@ func (p *Plugin) setPtrConversion(
 	if fd.PBIndirect {
 		pbField = "*" + pbField
 	}
+	var fwd, bwd, cast string
+	var fwdErr, bwdErr bool
 	if isDistinct {
-		fd.ForwardExpr, fd.BackwardExpr, fd.BackwardCast, fd.HasError, fd.HasBackwardError = p.generateTypeDefConversion(
+		fwd, bwd, cast, fwdErr, bwdErr = p.generateTypeDefConversion(
 			resolved,
 			form,
 			data,
 			goField,
 			pbField,
 		)
-		return
+	} else {
+		if base == "uuid" {
+			// A method call dereferences the pointer itself.
+			goField = "r." + fd.GoName
+		}
+		fwd, bwd, fwdErr, bwdErr = p.generatePrimitiveConversion(
+			base,
+			goField,
+			pbField,
+			data,
+		)
 	}
-	if base == "uuid" {
-		// A method call dereferences the pointer itself.
-		goField = "r." + fd.GoName
-	}
-	fd.BackwardCast = ""
-	fd.ForwardExpr, fd.BackwardExpr, fd.HasError, fd.HasBackwardError = p.generatePrimitiveConversion(
-		base,
-		goField,
-		pbField,
-		data,
-	)
+	fd.ForwardExpr, fd.BackwardExpr, fd.BackwardCast = fwd, bwd, cast
+	fd.HasError, fd.HasBackwardError = fwdErr, bwdErr
 }
 
 // buildMapValueConversion returns the per-element conversion data for a Map field whose
@@ -1590,8 +1594,7 @@ func (p *Plugin) generateEnumArrayConversion(
 
 // generateTypeDefConversion converts a distinct type over a primitive. A Go distinct
 // type is a defined type, which has none of its base's methods, so it converts to and
-// from its
-// base around the base's own conversion.
+// from its base around the base's own conversion.
 func (p *Plugin) generateTypeDefConversion(
 	resolved resolution.Type,
 	form resolution.DistinctForm,
