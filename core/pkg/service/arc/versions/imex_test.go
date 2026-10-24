@@ -148,6 +148,16 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(a.Graph.Inputs).To(HaveLen(2))
 	})
 
+	It("Should default a Console state with no mode to graph", func(ctx SpecContext) {
+		a := decode(ctx, "testdata/import_v1_state_modeless.json")
+		Expect(a.Mode).To(Equal(versions.ModeGraph))
+	})
+
+	It("Should default an exported Arc with no mode to graph", func(ctx SpecContext) {
+		a := decode(ctx, "testdata/import_v3_modeless.json")
+		Expect(a.Mode).To(Equal(versions.ModeGraph))
+	})
+
 	It("Should drop the key on the wire", func(ctx SpecContext) {
 		Expect(decode(ctx, "testdata/import_v3.json").Key).To(Equal(uuid.Nil()))
 	})
