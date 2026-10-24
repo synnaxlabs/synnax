@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type Aggregation,
-  bounds,
-  DataType,
-  Series,
-  type TypedArray,
-} from "@synnaxlabs/x";
+import { type Aggregation, bounds, math, Series, type TypedArray } from "@synnaxlabs/x";
 
 import { type telem } from "@/telem/aether";
 import { type DrawOperation } from "@/vis/line/aether/line";
@@ -30,7 +24,10 @@ const SAMPLE_INDEX_MASK = 0xffffffffn;
 const isFullResolution = ({ x, y }: DrawOperation): boolean =>
   x.alignmentMultiple === 1n && y.alignmentMultiple === 1n;
 
-const isFloat32 = (s: Series): boolean => s.dataType.equals(DataType.FLOAT32);
+const startOf = ({ x, xOffset }: DrawOperation): bigint =>
+  x.alignment + BigInt(xOffset);
+
+const endOf = (op: DrawOperation): bigint => startOf(op) + BigInt(op.count);
 
 /**
  * @returns the samples per group that draws the full-resolution ops at groupsPerColumn
@@ -59,69 +56,147 @@ export const groupSize = (
   return Number.isFinite(size) && size >= 2 ? size : 1;
 };
 
-// Returns the mean of the samples in [lo, hi) as the Core computes it. Summing offsets
-// from the minimum keeps the precision of the samples. A UINT8 store truncates the mean
-// as the Core does.
-const mean = (data: NumberArray, lo: number, hi: number, float32: boolean): number => {
-  let min = data[lo];
-  for (let i = lo + 1; i < hi; i++) if (data[i] < min) min = data[i];
-  let sum = 0;
-  for (let i = lo; i < hi; i++)
-    sum += float32 ? Math.fround(data[i] - min) : data[i] - min;
-  const offset = sum / (hi - lo);
-  return min + (float32 ? Math.fround(offset) : offset);
+// The x or y data of one op in a chain, and the shift that moves its values onto the
+// sample offset of the chain's first op.
+interface Axis {
+  data: NumberArray;
+  offset: number;
+  shift: number;
+}
+
+// One op of a chain. A chain is an op followed by the ops whose samples continue it.
+interface Link {
+  x: Axis;
+  y: Axis;
+  count: number;
+}
+
+const axis = (s: Series, offset: number, first: Series): Axis => ({
+  data: s.data as NumberArray,
+  offset,
+  shift: Number(math.sub(s.sampleOffset, first.sampleOffset)),
+});
+
+const link = (op: DrawOperation, first: DrawOperation): Link => ({
+  x: axis(op.x, op.xOffset, first.x),
+  y: axis(op.y, op.yOffset, first.y),
+  count: op.count,
+});
+
+// Returns the mean of chain samples [lo, hi) on one axis as the Core computes it. A
+// float mean sums each sample over the count. An integer mean rounds down. It sums the
+// quotients and remainders of the samples over the count apart, so no sum passes 2^53.
+const mean = (
+  chain: Link[],
+  key: "x" | "y",
+  lo: number,
+  hi: number,
+  float: boolean,
+): number => {
+  const n = hi - lo;
+  let q = 0;
+  let r = 0;
+  let base = 0;
+  for (const { [key]: a, count } of chain) {
+    if (base >= hi) break;
+    const to = a.offset + Math.min(hi - base, count);
+    for (let i = a.offset + Math.max(lo - base, 0); i < to; i++) {
+      const v = a.data[i] + a.shift;
+      if (float) {
+        q += v / n;
+        continue;
+      }
+      const d = Math.floor(v / n);
+      q += d;
+      r += v - d * n;
+      if (r >= n) {
+        q++;
+        r -= n;
+      }
+    }
+    base += count;
+  }
+  return q;
 };
 
-// The reduced form of one full-resolution op. Complete groups are reduced once, and
-// only the trailing partial group is reduced again as the op grows.
+// The reduced form of one full-resolution op. The op draws each group that starts in
+// it, reading past its end into the ops that continue it. With no op before it, it also
+// draws the group it starts inside. Complete groups reduce once. Only a trailing
+// partial group reduces again.
 class Pair {
   private readonly x: Series;
   private readonly y: Series;
-  private readonly xOffset: number;
-  private readonly yOffset: number;
-  private readonly alignment: bigint;
-  private readonly complete: Points = { xs: [], ys: [] };
-  // The op index where the next group starts. It is negative while the first group
-  // starts before the op.
+  private readonly start: bigint;
+  // The op's first sample index within its group.
+  private readonly first: number;
+  // The op index where the first group the op draws starts. It is negative when that
+  // group starts before the op.
+  private origin: number;
+  // The op index where the next group starts.
   private next: number;
+  // The op index where the last complete group ends.
+  private reach = 0;
+  private complete: Points = { xs: [], ys: [] };
   private count = 0;
+  private available = 0;
   private drawn: DrawOperation | null = null;
 
   constructor(
     op: DrawOperation,
     private readonly aggregation: Aggregation,
     private readonly groupSize: number,
+    preceded: boolean,
   ) {
     this.x = op.x;
     this.y = op.y;
-    this.xOffset = op.xOffset;
-    this.yOffset = op.yOffset;
-    const start = op.x.alignment + BigInt(op.xOffset);
-    const first = Number((start & SAMPLE_INDEX_MASK) % BigInt(groupSize));
-    this.alignment = start - BigInt(first);
-    this.next = -first;
+    this.start = startOf(op);
+    this.first = Number((this.start & SAMPLE_INDEX_MASK) % BigInt(groupSize));
+    this.origin = this.originOf(preceded);
+    this.next = this.origin;
   }
 
-  update(count: number): DrawOperation {
-    if (this.drawn != null && count === this.count) return this.drawn;
+  /**
+   * @param chain - The op, then the ops that continue it, up to groupSize samples past
+   * its end where they exist.
+   * @param preceded - Whether an op ends where this op starts.
+   */
+  update(chain: DrawOperation[], preceded: boolean): DrawOperation {
     const { groupSize } = this;
-    const xd = this.x.data as NumberArray;
-    const yd = this.y.data as NumberArray;
-    for (; this.next + groupSize <= count; this.next += groupSize)
+    const { count } = chain[0];
+    const origin = this.originOf(preceded);
+    const groups = Math.ceil((count - origin) / groupSize);
+    // Samples past the last group the op draws do not change its points.
+    const end = groups > 0 ? origin + groups * groupSize : count;
+    let available = 0;
+    for (const op of chain) available += op.count;
+    available = Math.min(available, end);
+    if (
+      this.drawn != null &&
+      origin === this.origin &&
+      count === this.count &&
+      available === this.available
+    )
+      return this.drawn;
+    if (origin !== this.origin || available < this.reach) this.reset(origin);
+    const links = chain.map((op) => link(op, chain[0]));
+    while (this.next < count && this.next + groupSize <= available) {
       this.reduceGroup(
-        xd,
-        yd,
+        links,
         Math.max(this.next, 0),
         this.next + groupSize,
         this.complete,
       );
+      this.next += groupSize;
+      this.reach = this.next;
+    }
     const partial: Points = { xs: [], ys: [] };
     if (this.next < count)
-      this.reduceGroup(xd, yd, Math.max(this.next, 0), count, partial);
+      this.reduceGroup(links, Math.max(this.next, 0), available, partial);
     this.release();
     const x = this.series(this.x, this.complete.xs, partial.xs);
     const y = this.series(this.y, this.complete.ys, partial.ys);
     this.count = count;
+    this.available = available;
     this.drawn = { x, y, xOffset: 0, yOffset: 0, count: x.length };
     return this.drawn;
   }
@@ -132,39 +207,69 @@ class Pair {
     this.drawn = null;
   }
 
-  // Appends the points the aggregation keeps from op samples [lo, hi). min_max and
-  // decimate pick sample indices from y and take x at the same indices.
-  private reduceGroup(
-    xd: NumberArray,
-    yd: NumberArray,
-    lo: number,
-    hi: number,
-    out: Points,
-  ): void {
-    const { xOffset, yOffset } = this;
+  private originOf(preceded: boolean): number {
+    const { first, groupSize } = this;
+    return preceded ? (groupSize - first) % groupSize : -first;
+  }
+
+  private reset(origin: number): void {
+    this.origin = origin;
+    this.next = origin;
+    this.reach = 0;
+    this.complete = { xs: [], ys: [] };
+  }
+
+  // Appends the points the aggregation keeps from chain samples [lo, hi), where lo lies
+  // in the first op. min_max and decimate pick sample indices from y and take x at the
+  // same indices.
+  private reduceGroup(chain: Link[], lo: number, hi: number, out: Points): void {
     switch (this.aggregation) {
       case "min_max": {
-        let minI = lo;
-        let maxI = lo;
-        for (let i = lo + 1; i < hi; i++) {
-          const v = yd[yOffset + i];
-          if (v < yd[yOffset + minI]) minI = i;
-          if (v > yd[yOffset + maxI]) maxI = i;
+        let minK = 0;
+        let maxK = 0;
+        let minX = NaN;
+        let minY = NaN;
+        let maxX = NaN;
+        let maxY = NaN;
+        let k = 0;
+        let base = 0;
+        for (const { x, y, count } of chain) {
+          if (base >= hi) break;
+          const to = Math.min(hi - base, count);
+          for (let i = Math.max(lo - base, 0); i < to; i++, k++) {
+            const v = y.data[y.offset + i] + y.shift;
+            if (k === 0 || v < minY) {
+              minK = k;
+              minX = x.data[x.offset + i] + x.shift;
+              minY = v;
+            }
+            if (k === 0 || v > maxY) {
+              maxK = k;
+              maxX = x.data[x.offset + i] + x.shift;
+              maxY = v;
+            }
+          }
+          base += count;
         }
-        const first = Math.min(minI, maxI);
-        const last = Math.max(minI, maxI);
-        out.xs.push(xd[xOffset + first], xd[xOffset + last]);
-        out.ys.push(yd[yOffset + first], yd[yOffset + last]);
+        if (minK <= maxK) {
+          out.xs.push(minX, maxX);
+          out.ys.push(minY, maxY);
+        } else {
+          out.xs.push(maxX, minX);
+          out.ys.push(maxY, minY);
+        }
         break;
       }
       case "average":
-        out.xs.push(mean(xd, xOffset + lo, xOffset + hi, isFloat32(this.x)));
-        out.ys.push(mean(yd, yOffset + lo, yOffset + hi, isFloat32(this.y)));
+        out.xs.push(mean(chain, "x", lo, hi, this.x.dataType.isFloat));
+        out.ys.push(mean(chain, "y", lo, hi, this.y.dataType.isFloat));
         break;
-      case "decimate":
-        out.xs.push(xd[xOffset + lo]);
-        out.ys.push(yd[yOffset + lo]);
+      case "decimate": {
+        const { x, y } = chain[0];
+        out.xs.push(x.data[x.offset + lo]);
+        out.ys.push(y.data[y.offset + lo]);
         break;
+      }
     }
   }
 
@@ -180,7 +285,7 @@ class Pair {
       dataType: source.dataType,
       timeRange: source.timeRange,
       sampleOffset: source.sampleOffset,
-      alignment: this.alignment,
+      alignment: this.start + BigInt(this.origin),
       alignmentMultiple: BigInt(aggregation === "min_max" ? groupSize / 2 : groupSize),
     });
     s.acquire();
@@ -188,13 +293,35 @@ class Pair {
   }
 }
 
+// Returns the op, then the ops that continue it, until they hold groupSize samples past
+// its end.
+const chainOf = (
+  op: DrawOperation,
+  after: Map<bigint, DrawOperation>,
+  groupSize: number,
+): DrawOperation[] => {
+  const chain = [op];
+  let samples = op.count;
+  let next = after.get(endOf(op));
+  while (next != null && samples < op.count + groupSize) {
+    chain.push(next);
+    samples += next.count;
+    next = after.get(endOf(next));
+  }
+  return chain;
+};
+
 /**
  * Reduces the full-resolution ops of a line with the rules the Core uses for tiles.
  * Groups of groupSize samples sit at sample index multiples of groupSize within each
  * alignment domain. The x and y series of an op reduce as a pair: min_max keeps the
  * samples where y is lowest and highest in a group, in time order, decimate keeps the
  * first sample of a group, and average keeps the mean of x and the mean of y. A group
- * only partly inside an op reduces the samples it holds.
+ * only partly inside the ops reduces the samples it holds.
+ *
+ * Ops whose alignments continue one another reduce as one run of samples. The op a
+ * group starts in draws it, and the first op of a run also draws the group it starts
+ * inside.
  *
  * A reduced pair starts at the alignment of its first group and steps groupSize / 2 per
  * point for min_max, or groupSize otherwise. It keeps the time range and sample offset
@@ -208,9 +335,9 @@ export class Reducer {
 
   /**
    * @param groupSize - The samples per group. It must be even for min_max.
-   * @returns the ops with each full-resolution op replaced by its reduced pair. Ops of
-   * reduced series stay the same, and so does every op when groupSize is below 2. The
-   * pairs of ops not in the list are released.
+   * @returns the ops with each full-resolution op replaced by its reduced pair, or left
+   * out when it draws no group. Ops of reduced series stay the same, and so does every
+   * op when groupSize is below 2. The pairs of ops not in the list are released.
    */
   reduce(
     ops: DrawOperation[],
@@ -222,9 +349,22 @@ export class Reducer {
       this.aggregation = aggregation;
       this.groupSize = groupSize;
     }
+    if (groupSize < 2) return ops;
+    const after = new Map<bigint, DrawOperation>();
+    const ends = new Set<bigint>();
+    for (const op of ops) {
+      if (!isFullResolution(op)) continue;
+      if (!after.has(startOf(op))) after.set(startOf(op), op);
+      ends.add(endOf(op));
+    }
     const drawn = new Set<Pair>();
-    const out = ops.map((op) => {
-      if (groupSize < 2 || !isFullResolution(op)) return op;
+    const out: DrawOperation[] = [];
+    for (const op of ops) {
+      if (!isFullResolution(op)) {
+        out.push(op);
+        continue;
+      }
+      const preceded = ends.has(startOf(op));
       let byY = this.pairs.get(op.x);
       if (byY == null) {
         byY = new Map();
@@ -232,12 +372,13 @@ export class Reducer {
       }
       let pair = byY.get(op.y);
       if (pair == null) {
-        pair = new Pair(op, aggregation, groupSize);
+        pair = new Pair(op, aggregation, groupSize, preceded);
         byY.set(op.y, pair);
       }
       drawn.add(pair);
-      return pair.update(op.count);
-    });
+      const reduced = pair.update(chainOf(op, after, groupSize), preceded);
+      if (reduced.count > 0) out.push(reduced);
+    }
     for (const [x, byY] of this.pairs) {
       for (const [y, pair] of byY)
         if (!drawn.has(pair)) {

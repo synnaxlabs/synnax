@@ -24,6 +24,8 @@ const alignment = (domain: number, sample: number): bigint =>
 
 const f32 = (...values: number[]): number[] => values.map(Math.fround);
 
+const F32_MAX = 3.4028234663852886e38;
+
 const ramp = (length: number, a: bigint = 0n): Series =>
   new Series({
     data: new Float32Array(Array.from({ length }, (_, i) => i)),
@@ -151,11 +153,43 @@ describe("Reducer", () => {
       expect(r.y.alignmentMultiple).toBe(2n);
     });
 
-    it("should round a float32 mean in float32 precision", () => {
+    it("should round a float32 mean to float32 once", () => {
       const y = new Series(new Float32Array([0.1, 0.1, 1]));
       const r = reduceOne(op(ramp(3), y), "average", 4);
-      expect(Array.from(r.y)).toEqual(f32(0.39999998));
+      expect(Array.from(r.y)).toEqual(f32(0.4));
       expect(Array.from(r.x)).toEqual([1]);
+    });
+
+    it.each([
+      ["float32 past its range", new Float32Array([-F32_MAX, F32_MAX]), 0],
+      [
+        "float32 with a mean offset past its range",
+        new Float32Array([-F32_MAX, F32_MAX, F32_MAX]),
+        Math.fround(F32_MAX / 3),
+      ],
+      [
+        "float64 past its range",
+        new Float64Array([-Number.MAX_VALUE, Number.MAX_VALUE]),
+        0,
+      ],
+      ["int8 past its range", new Int8Array([-100, 100]), 0],
+      ["int8 with a mean offset past its range", new Int8Array([-128, 127, 127]), 42],
+      ["int8 with a negative fraction", new Int8Array([-1, -2]), -2],
+      ["int32 past its range", new Int32Array([-(2 ** 31), 2 ** 31 - 1]), -1],
+    ])("should average a group of %s as the Core does", (_, data, mean) => {
+      const y = new Series(data);
+      expect(Array.from(reduceOne(op(ramp(data.length), y), "average", 4).y)).toEqual([
+        mean,
+      ]);
+    });
+
+    it("should keep an integer mean exact when the sum passes 2^53", () => {
+      const n = 2 ** 22;
+      const data = new Uint32Array(n)
+        .fill(2 ** 32 - 3, 0, 3 * 2 ** 20)
+        .fill(1, 3 * 2 ** 20);
+      const r = reduceOne(op(ramp(n), new Series(data)), "average", n);
+      expect(Array.from(r.y)).toEqual([3221225470]);
     });
 
     it("should propagate a NaN in a group", () => {
@@ -190,7 +224,7 @@ describe("Reducer", () => {
       expect(Array.from(minMax.y)).toEqual(f32(0.1, 0.7, 1.0000001e7, -2.5));
       expect(Array.from(minMax.x)).toEqual([0, 2, 4, 6]);
       const average = reduceOne(op(x, y), "average", 4);
-      expect(Array.from(average.y)).toEqual(f32(0.3333333, 5.0000005e6));
+      expect(Array.from(average.y)).toEqual(f32(0.33333334, 5.0000005e6));
       expect(Array.from(average.x)).toEqual([1, 4.5]);
       const decimate = reduceOne(op(x, y), "decimate", 4);
       expect(Array.from(decimate.y)).toEqual(f32(0.1, 1e7));
@@ -251,6 +285,107 @@ describe("Reducer", () => {
   it("should return every op unchanged when a group holds under two samples", () => {
     const o = op(ramp(8), ramp(8));
     expect(reduceOne(o, "min_max", 1)).toBe(o);
+  });
+
+  describe("contiguous ops", () => {
+    const XS = Array.from({ length: 20 }, (_, i) => i);
+    const YS = XS.map((i) => (i * 7) % 11);
+
+    // Returns the ops of XS and YS cut into series at the given sample indices. Each
+    // series past the first holds its values off the given sample offsets.
+    const cut = (at: number[], xOffset = 0, yOffset = 0): DrawOperation[] => {
+      const ends = [...at, XS.length];
+      return ends.map((end, i) => {
+        const start = i === 0 ? 0 : ends[i - 1];
+        const series = (values: number[], offset: number): Series => {
+          const sampleOffset = i === 0 ? 0 : offset;
+          return new Series({
+            data: new Float32Array(
+              values.slice(start, end).map((v) => v - sampleOffset),
+            ),
+            alignment: BigInt(start),
+            sampleOffset,
+          });
+        };
+        return op(series(XS, xOffset), series(YS, yOffset));
+      });
+    };
+    const whole = (aggregation: Aggregation): DrawOperation =>
+      reduceOne(cut([])[0], aggregation, 8);
+    const values = (ops: DrawOperation[], key: "x" | "y"): number[] =>
+      ops.flatMap((o) => Array.from(o[key], Number));
+
+    it.each<Aggregation>(["min_max", "average", "decimate"])(
+      "should reduce %s groups across ops as one run of samples",
+      (aggregation) => {
+        const parts = new Reducer().reduce(cut([10]), aggregation, 8);
+        const w = whole(aggregation);
+        expect(values(parts, "y")).toEqual(Array.from(w.y));
+        expect(values(parts, "x")).toEqual(Array.from(w.x));
+        expect(parts.map((o) => o.y.alignment)).toEqual([0n, 16n]);
+      },
+    );
+
+    it("should reduce a group that spans three or more ops", () => {
+      const parts = new Reducer().reduce(cut([3, 6, 9, 12, 15, 18]), "min_max", 8);
+      expect(values(parts, "y")).toEqual(Array.from(whole("min_max").y));
+      expect(parts.map((o) => o.y.alignment)).toEqual([0n, 8n, 16n]);
+    });
+
+    it.each<Aggregation>(["min_max", "average"])(
+      "should move %s values onto the sample offsets of the op a group starts in",
+      (aggregation) => {
+        const parts = new Reducer().reduce(cut([6], 100, 50), aggregation, 8);
+        expect(values(parts, "y")).toEqual(Array.from(whole(aggregation).y));
+        expect(values(parts, "x")).toEqual(Array.from(whole(aggregation).x));
+      },
+    );
+
+    it("should draw the group an op starts inside once the op before it leaves", () => {
+      const [a, b] = cut([10]);
+      const reducer = new Reducer();
+      reducer.reduce([a, b], "min_max", 8);
+      const r = reducer.reduce([b], "min_max", 8)[0];
+      const alone = reduceOne(b, "min_max", 8);
+      expect(Array.from(r.y)).toEqual(Array.from(alone.y));
+      expect(r.y.alignment).toBe(8n);
+    });
+
+    it("should reduce a group again when the op that continues it leaves", () => {
+      const [a, b] = cut([10]);
+      const reducer = new Reducer();
+      reducer.reduce([a, b], "min_max", 8);
+      const r = reducer.reduce([a], "min_max", 8)[0];
+      expect(Array.from(r.y)).toEqual(Array.from(reduceOne(a, "min_max", 8).y));
+    });
+
+    it("should leave out an op that draws no group", () => {
+      const ops = new Reducer().reduce(cut([3, 6]).slice(0, 2), "min_max", 8);
+      expect(ops).toHaveLength(1);
+    });
+
+    it("should keep a group complete once the ops after it hold its samples", () => {
+      const [a] = cut([6]);
+      const createGrowing = (): Series =>
+        Series.alloc({ capacity: 64, dataType: DataType.FLOAT32, alignment: 6n });
+      const x = createGrowing();
+      const y = createGrowing();
+      const write = (...indices: number[]): void => {
+        x.write(new Series(new Float32Array(indices.map((i) => XS[i]))));
+        y.write(new Series(new Float32Array(indices.map((i) => YS[i]))));
+      };
+      const reducer = new Reducer();
+      write(6);
+      const partial = reducer.reduce([a, op(x, y)], "min_max", 8)[0];
+      write(7, 8);
+      const complete = reducer.reduce([a, op(x, y)], "min_max", 8)[0];
+      expect(complete).not.toBe(partial);
+      expect(Array.from(complete.y)).toEqual(
+        Array.from(whole("min_max").y).slice(0, 2),
+      );
+      write(9);
+      expect(reducer.reduce([a, op(x, y)], "min_max", 8)[0]).toBe(complete);
+    });
   });
 
   describe("growth", () => {
