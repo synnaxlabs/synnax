@@ -29,10 +29,6 @@ struct WriteTaskConfig : ::synnax::ni::WriteConfig {
     /// @brief a map of command channel keys to the configurations for each output
     /// channel in the task.
     std::map<synnax::channel::Key, std::unique_ptr<channel::Output>> channels;
-    /// @brief the index channel keys for all the state channels. This is used
-    /// to make sure we write correct timestamps for each state channel.
-    /// Dynamically populated by querying the core.
-    std::set<synnax::channel::Key> state_index_keys;
     /// @brief a map of channel keys to their index positions within the tasks
     /// write buffer. Dynamically populated during parsing.
     std::unordered_map<synnax::channel::Key, std::size_t> buf_indexes;
@@ -41,7 +37,6 @@ struct WriteTaskConfig : ::synnax::ni::WriteConfig {
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
         ::synnax::ni::WriteConfig(std::move(other)),
         channels(std::move(other.channels)),
-        state_index_keys(std::move(other.state_index_keys)),
         buf_indexes(std::move(other.buf_indexes)) {}
 
     /// @brief delete copy constructor and copy assignment to prevent accidental
@@ -98,31 +93,16 @@ struct WriteTaskConfig : ::synnax::ni::WriteConfig {
         for (const auto &state_ch: state_channels) {
             auto &ch = this->channels[state_to_cmd[state_ch.key]];
             ch->bind_remote_info(state_ch, dev.location);
-            if (state_ch.index != 0) this->state_index_keys.insert(state_ch.index);
         }
     }
 
-    /// @brief returns the state channel of each output, keyed by its command channel.
-    [[nodiscard]] std::unordered_map<synnax::channel::Key, synnax::channel::Channel>
-    state_channels() {
-        std::unordered_map<synnax::channel::Key, synnax::channel::Channel> chs;
+    /// @brief returns the command and state channel of each output.
+    [[nodiscard]] std::vector<common::Sink::Output> output_channels() const {
+        std::vector<common::Sink::Output> outs;
+        outs.reserve(this->channels.size());
         for (const auto &[_, ch]: this->channels)
-            chs[ch->cmd_ch_key] = ch->state_ch;
-        return chs;
-    }
-
-    [[nodiscard]] std::vector<synnax::channel::Key> cmd_channels() {
-        std::vector<synnax::channel::Key> keys;
-        keys.reserve(this->channels.size());
-        for (const auto &[_, ch]: this->channels)
-            keys.push_back(ch->cmd_ch_key);
-        return keys;
-    }
-
-    /// @brief returns the configuration necessary for opening a streamer to
-    /// receive values form Synnax.
-    [[nodiscard]] std::set<synnax::channel::Key> state_indexes() const {
-        return this->state_index_keys;
+            outs.push_back({ch->cmd_ch_key, ch->state_ch});
+        return outs;
     }
 
     /// @brief parses the task from the given configuration, returning an error
@@ -165,13 +145,7 @@ public:
 
     /// @brief constructs a CommandSink bound to the provided parent WriteTask.
     explicit WriteTaskSink(WriteTaskConfig cfg, MakeHardware make_hw):
-        Sink(
-            cfg.state_rate,
-            cfg.state_indexes(),
-            cfg.state_channels(),
-            cfg.cmd_channels(),
-            cfg.data_saving_disabled
-        ),
+        Sink(cfg.state_rate, cfg.output_channels(), cfg.data_saving_disabled),
         cfg(std::move(cfg)),
         make_hw(std::move(make_hw)),
         buf(this->cfg.channels.size()) {}
