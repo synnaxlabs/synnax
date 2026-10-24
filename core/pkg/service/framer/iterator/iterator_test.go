@@ -2353,6 +2353,20 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			),
 		)
 
+		It("Should reduce to min and max when a limit names no aggregation", func(
+			ctx SpecContext,
+		) {
+			v := read(ctx, iterator.Config{
+				Keys:   []channel.Key{sensorCh.Key()},
+				Bounds: bounds,
+				Reduction: telem.Reduction{
+					Variant: telem.LimitReduction{PointLimit: 10},
+				},
+			}).Get(sensorCh.Key())
+			Expect(v.Series).To(HaveLen(1))
+			Expect(v.Series[0].Unmarshal[float32]()).To(Equal(groupEnds(ramp(1), 20)))
+		})
+
 		It("Should reduce concrete channels in storage", func(ctx SpecContext) {
 			fr := read(ctx, aggregated(indexCh.Key(), sensorCh.Key()))
 			v := fr.Get(sensorCh.Key())

@@ -123,6 +123,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {
+	cfg.Reduction.ApplyDefaults()
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
