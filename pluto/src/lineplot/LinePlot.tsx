@@ -10,7 +10,6 @@
 import { type channel, lineplot } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { usePrevious } from "@synnaxlabs/lyra/hooks";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import {
   box,
@@ -448,16 +447,16 @@ const useViewportReset = ({
   hold,
 }: UseViewportResetParams): RefObject<Viewport.UseRefValue | null> => {
   const lineCount = useLineCount({ key });
-  const prevLineCount = usePrevious(lineCount);
-  const prevHold = usePrevious(hold);
   const viewportRef = useRef<Viewport.UseRefValue | null>(null);
+  const prevLineCount = useRef(lineCount);
+  const prevHold = useRef(hold);
   useEffect(() => {
-    if (
-      (prevLineCount === 0 && lineCount !== 0) ||
-      (prevHold === true && hold === false)
-    )
-      viewportRef.current?.reset();
-  }, [lineCount, hold, prevLineCount, prevHold]);
+    const linesAppeared = prevLineCount.current === 0 && lineCount !== 0;
+    const holdReleased = prevHold.current === true && hold === false;
+    prevLineCount.current = lineCount;
+    prevHold.current = hold;
+    if (linesAppeared || holdReleased) viewportRef.current?.reset();
+  }, [lineCount, hold]);
   return viewportRef;
 };
 

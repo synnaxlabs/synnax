@@ -11,12 +11,7 @@ import { act, render, renderHook } from "@testing-library/react";
 import { createElement, type RefObject, useLayoutEffect } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
-import {
-  useCombinedRefs,
-  useCombinedStateAndRef,
-  usePrevious,
-  useSyncedRef,
-} from "@/hooks/ref";
+import { useCombinedRefs, useCombinedStateAndRef, useSyncedRef } from "@/hooks/ref";
 
 describe("useSyncedRef", () => {
   it("should update the ref before a child's layout effect reads it", () => {
@@ -36,20 +31,6 @@ describe("useSyncedRef", () => {
     const { rerender } = render(createElement(Parent, { value: 1 }));
     rerender(createElement(Parent, { value: 2 }));
     expect(seen).toEqual([1, 2]);
-  });
-});
-
-describe("usePrevious", () => {
-  it("should return the prior value in the render where the value changes", () => {
-    const seen: (number | undefined)[] = [];
-    const { rerender } = renderHook(
-      ({ value }) => {
-        seen.push(usePrevious(value));
-      },
-      { initialProps: { value: 1 } },
-    );
-    rerender({ value: 2 });
-    expect(seen).toEqual([undefined, 1, 1, 2]);
   });
 });
 

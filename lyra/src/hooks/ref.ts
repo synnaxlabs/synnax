@@ -13,7 +13,6 @@ import {
   type RefCallback,
   type RefObject,
   useCallback,
-  useEffect,
   useInsertionEffect,
   useRef,
   useState,
@@ -111,15 +110,4 @@ export const useCombinedStateAndRef = <T extends primitive.Value | object>(
   }, []);
 
   return [s, setStateAndRef, ref];
-};
-
-/**
- * @returns the value this hook was given on the previous committed render, or undefined
- * before the first commit. Compare against it to react to a change. A change costs one
- * extra render, in which the hook catches up to the new value.
- */
-export const usePrevious = <T>(value: T): T | undefined => {
-  const [prev, setPrev] = useState<T>();
-  useEffect(() => setPrev(() => value), [value]);
-  return prev;
 };
