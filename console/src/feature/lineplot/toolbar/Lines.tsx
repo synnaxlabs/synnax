@@ -77,6 +77,10 @@ const SelectDetail = (props: Select.ButtonsProps<lineplot.Detail>): ReactElement
 
 const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
   const line = LinePlot.useLine({ lineKey: itemKey });
+  // A line whose x channel is not an index always reads decimated samples.
+  const { data: xIsIndex = true } = Channel.useResultIsIndex(
+    line.xChannel > 0 ? { key: line.xChannel } : null,
+  );
   const dispatch = LinePlot.useSingleDispatch();
 
   const handleLabelChange: Input.Control<string>["onChange"] = (label) =>
@@ -123,7 +127,12 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
         shrink={false}
         tooltip="Stroke width"
       />
-      <SelectAggregation value={line.aggregation} onChange={handleAggregationChange} />
+      {xIsIndex && (
+        <SelectAggregation
+          value={line.aggregation}
+          onChange={handleAggregationChange}
+        />
+      )}
       <SelectDetail value={line.detail} onChange={handleDetailChange} />
       <Color.Swatch
         value={line.pickedColor}
