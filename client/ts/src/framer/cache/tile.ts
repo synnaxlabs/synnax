@@ -7,14 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Unreachable } from "@synnaxlabs/freighter";
 import {
   type Aggregation,
   type DataType,
   debounce,
-  errors,
   MultiSeries,
-  type Reduction,
   Size,
   TimeRange,
   TimeSpan,
@@ -26,7 +23,7 @@ import { UnexpectedError } from "@/errors";
 import { DEFAULT_BATCH_DEBOUNCE, type RemoteReader } from "@/framer/cache/reader";
 import { DEFAULT_STATIC_PROPS } from "@/framer/cache/static";
 import { IDENTITY_TRANSFORM, type Transform } from "@/framer/cache/transform";
-import { type Frame } from "@/framer/frame";
+import { withDeadline } from "@/framer/deadline";
 
 /**
  * Identifies one tile: the samples of one channel inside a fixed span of time, reduced
@@ -129,7 +126,6 @@ export class TileReader {
   // cached tile of the channel shares.
   private readonly dataTypes = new Map<channel.Key, DataType>();
   private readonly pending = new Map<string, Promise<MultiSeries>>();
-  private readonly inFlight = new Set<Array<debounce.Entry<TileSpec, MultiSeries>>>();
   private bytes = 0;
   private closed = false;
 
@@ -232,17 +228,22 @@ export class TileReader {
   private async fetch(
     group: Array<debounce.Entry<TileSpec, MultiSeries>>,
   ): Promise<void> {
-    const { transform } = this.props;
+    const { readRemote, transform, fetchTimeout } = this.props;
     const spec = group[0].req;
+    const tr = tileRange(spec);
     const keys = [...new Set(group.map(({ req }) => req.key))];
-    this.inFlight.add(group);
     try {
-      const frame = await this.fetchWithDeadline(tileRange(spec), keys, {
-        variant: "limit",
-        aggregation: spec.aggregation,
-        pointLimit: spec.pointLimit,
-      });
-      if (!this.inFlight.has(group)) return;
+      const frame = await withDeadline(
+        readRemote(tr, keys, {
+          variant: "limit",
+          aggregation: spec.aggregation,
+          pointLimit: spec.pointLimit,
+        }),
+        fetchTimeout,
+        () =>
+          `tile read for ${tr.toString()} timed out after ${fetchTimeout.toString()}`,
+      );
+      if (this.closed) return;
       const results = new Map(
         keys.map((key) => {
           const series = frame.get(key).series.map((s) => transform.convert(s));
@@ -253,35 +254,6 @@ export class TileReader {
       group.forEach(({ req, resolve }) => resolve(results.get(req.key)!));
     } catch (err) {
       group.forEach(({ reject }) => reject(err));
-    } finally {
-      this.inFlight.delete(group);
-    }
-  }
-
-  private async fetchWithDeadline(
-    tr: TimeRange,
-    keys: channel.Key[],
-    reduction: Reduction,
-  ): Promise<Frame> {
-    const { readRemote, fetchTimeout } = this.props;
-    const fetched = readRemote(tr, keys, reduction);
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const deadline = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => {
-        const timeout = fetchTimeout.toString();
-        const message = `tile read for ${tr.toString()} timed out after ${timeout}`;
-        reject(new Unreachable({ message }));
-      }, fetchTimeout.milliseconds);
-    });
-    try {
-      return await Promise.race([fetched, deadline]);
-    } catch (err) {
-      // The read already failed for its callers; a late settle of the losing fetch must
-      // not surface as an unhandled rejection.
-      fetched.catch(() => {});
-      throw errors.fromUnknown(err);
-    } finally {
-      clearTimeout(timer);
     }
   }
 
@@ -291,10 +263,7 @@ export class TileReader {
    */
   close(): void {
     this.closed = true;
-    const err = new UnexpectedError("tile reader is closed");
-    this.batcher.close(err);
-    this.inFlight.forEach((group) => group.forEach(({ reject }) => reject(err)));
-    this.inFlight.clear();
+    this.batcher.close(new UnexpectedError("tile reader is closed"));
     this.tiles.clear();
     this.dataTypes.clear();
     this.bytes = 0;
