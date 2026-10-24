@@ -39,6 +39,7 @@ cpp: &cpp
 
 go: &go
   - *ci
+  - .github/scripts/pin_mtimes.py
   - .github/workflows/test.go.yaml
   - .golangci.yaml
   - codecov.yaml
