@@ -74,8 +74,11 @@ authorityEntry
 // Function Declarations
 // =============================================================================
 
+// func scale(param f64) {trigger f64} f64 { ... }
+// func helper(param f64) f64 { ... }
 functionDeclaration
-    : FUNC IDENTIFIER inputBlock? LPAREN triggerList? RPAREN outputType? block
+    : FUNC IDENTIFIER LPAREN inputList? RPAREN (LBRACE triggerList? RBRACE)?
+      outputType? block
     ;
 
 triggerList
@@ -100,10 +103,6 @@ namedOutput
     : IDENTIFIER type
     ;
 
-inputBlock
-    : LBRACE inputList? RBRACE
-    ;
-
 inputList
     : input (COMMA input)* COMMA?
     ;
@@ -117,8 +116,8 @@ input
 // =============================================================================
 
 // sequence main { stage precheck { } stage pressurization { } }
-// sequence { 1 -> valve_cmd   wait{duration=2s}   0 -> valve_cmd }
-// sequence { 1 -> valve_cmd, wait{duration=2s}, 0 -> valve_cmd }
+// sequence { 1 -> valve_cmd   wait(duration=2s)   0 -> valve_cmd }
+// sequence { 1 -> valve_cmd, wait(duration=2s), 0 -> valve_cmd }
 sequenceDeclaration
     : SEQUENCE IDENTIFIER? LBRACE (sequenceItem (COMMA? sequenceItem)* COMMA?)? RBRACE
     ;
@@ -190,8 +189,11 @@ routingKey
     | FALSE
     ;
 
+// A name whose '(' touches it is an instantiation, never a bare identifier, so
+// `sensor -> filter(50.0)` is one node while `filter` and `(50.0)` on separate lines
+// stay two items. The guard is a left-edge predicate so prediction sees it.
 flowNode
-    : identifier        // Channel, stage, or sequence name - resolved in analysis
+    : {!p.CalleeTouchesParen()}? identifier // Channel, stage, or sequence name
     | function
     | expression
     | stageDeclaration      // Inline anonymous stage body as a routing target
@@ -204,8 +206,8 @@ identifier
     ;
 
 function
-    : qualifiedIdentifier inputValues
-    | IDENTIFIER inputValues
+    : {p.CalleeTouchesParen()}? qualifiedIdentifier inputValues
+    | {p.CalleeTouchesParen()}? IDENTIFIER inputValues
     ;
 
 // AUTHORITY is a lexer keyword but also a valid module name
@@ -219,9 +221,9 @@ qualifiedIdentifier
     ;
 
 inputValues
-    : LBRACE RBRACE                      // Empty inputs
-    | LBRACE namedInputValues RBRACE     // All named
-    | LBRACE anonymousInputValues RBRACE // All anonymous
+    : LPAREN RPAREN                      // Empty inputs
+    | LPAREN namedInputValues RPAREN     // All named
+    | LPAREN anonymousInputValues RPAREN // All anonymous
     ;
 
 namedInputValues
@@ -234,10 +236,6 @@ namedInputValue
 
 anonymousInputValues
     : expression (COMMA expression)* COMMA?
-    ;
-
-arguments
-    : LPAREN argumentList? RPAREN
     ;
 
 argumentList

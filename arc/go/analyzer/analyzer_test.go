@@ -86,7 +86,7 @@ var _ = Describe("Analyzer Integration", func() {
 			"Should allow variable declaration from a function parameter",
 			func(bCtx SpecContext) {
 				_ = analyzeAndExpect(bCtx, `
-				func testFunc(a i64) {
+				func testFunc() {a i64} {
 					b := a
 				}
 			`)
@@ -269,7 +269,7 @@ var _ = Describe("Analyzer Integration", func() {
 			"Should build correct symbol table for if-else-if chain",
 			func(bCtx SpecContext) {
 				ctx := analyzeAndExpect(bCtx, `
-				func dog(b i64) i64 {
+				func dog() {b i64} i64 {
 					a i64 := 2
 					if b == a {
 						return 2
@@ -297,11 +297,11 @@ var _ = Describe("Analyzer Integration", func() {
 	Describe("Multi-Function Programs", func() {
 		It("Should analyze program with multiple functions", func(bCtx SpecContext) {
 			ctx := analyzeAndExpect(bCtx, `
-				func add(x i64, y i64) i64 {
+				func add() {x i64, y i64} i64 {
 					return x + y
 				}
 
-				func multiply(a i64, b i64) i64 {
+				func multiply() {a i64, b i64} i64 {
 					return a * b
 				}
 			`)
@@ -461,7 +461,7 @@ var _ = Describe("Analyzer Integration", func() {
 				ctx := analyzeAndExpect(bCtx, `
 				LIMIT := 10
 
-				func check(x i64) i64 {
+				func check() {x i64} i64 {
 					return x + LIMIT
 				}
 			`)
@@ -1183,7 +1183,7 @@ var _ = Describe("Analyzer Integration", func() {
 			"Should allow recursion guarded by early return with value",
 			func(bCtx SpecContext) {
 				analyzeAndExpectWithResolver(bCtx, `
-				func factorial(n i64) i64 {
+				func factorial() {n i64} i64 {
 					if n <= 1 {
 						return 1
 					}
@@ -1468,4 +1468,43 @@ var _ = Describe("Analyzer Integration", func() {
 			Expect(*ctx.Diagnostics).To(HaveLen(2))
 		})
 	})
+})
+
+var _ = Describe("Lifted reads in WASM call nodes", func() {
+	It(
+		"Should lift a reassigned stage variable read by an argument",
+		func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+sequence main {
+    stage start {
+        s str := "a"
+        label -> s
+        len(s) -> count
+    }
+}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil,
+				symbol.Symbol{
+					Name: "label",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.String()),
+				},
+				symbol.Symbol{
+					Name: "count",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I64()),
+				},
+			))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			var fn *symbol.Symbol
+			for _, c := range ctx.Scope.Children() {
+				if _, ok := c.AST.(parser.IFunctionContext); ok {
+					fn = c
+				}
+			}
+			Expect(fn).ToNot(BeNil())
+			Expect(MustBeOk(fn.Type.Inputs.Get("s")).Type).To(Equal(types.String()))
+			Expect(fn.FindChild("s").Internal).To(BeTrue())
+		},
+	)
 })

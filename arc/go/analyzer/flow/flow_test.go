@@ -132,7 +132,7 @@ var _ = Describe("Flow Statements", func() {
 				ast := MustSucceed(parser.Parse(`
 func sim_daq() {}
 
-tick{period=50ms} -> sim_daq`))
+tick(period=50ms) -> sim_daq`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, intervalResolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -142,7 +142,7 @@ tick{period=50ms} -> sim_daq`))
 				Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Notes[0].Message,
-				).To(Equal("use sim_daq{} to instantiate the function"))
+				).To(Equal("use sim_daq() to instantiate the function"))
 			},
 		)
 
@@ -161,7 +161,7 @@ sensor_chan -> sim_daq`))
 				Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Notes[0].Message,
-				).To(Equal("use sim_daq{} to instantiate the function"))
+				).To(Equal("use sim_daq() to instantiate the function"))
 			},
 		)
 
@@ -180,7 +180,7 @@ sensor_chan > 100 -> sim_daq`))
 				Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Notes[0].Message,
-				).To(Equal("use sim_daq{} to instantiate the function"))
+				).To(Equal("use sim_daq() to instantiate the function"))
 			},
 		)
 	})
@@ -188,13 +188,13 @@ sensor_chan > 100 -> sim_daq`))
 	Describe("Anonymous Input Values", func() {
 		It("Should accept multiple anonymous input values", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-func transform{scale f64, offset f64} (x f64) f64 {
+func transform(scale f64, offset f64) {x f64} f64 {
     return x * scale + offset
 }
 
-func sink{} () {}
+func sink() {}
 
-sensor_chan -> transform{2.5, 0.1} -> sink{}`))
+sensor_chan -> transform(2.5, 0.1) -> sink()`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -204,9 +204,9 @@ sensor_chan -> transform{2.5, 0.1} -> sink{}`))
 			"Should accept partial anonymous input when trailing params have defaults",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-func controller{setpoint f64, gain f64 = 1.0} () {}
+func controller(setpoint f64, gain f64 = 1.0) {}
 
-sensor_chan -> controller{100.0}`))
+sensor_chan -> controller(100.0)`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -217,13 +217,13 @@ sensor_chan -> controller{100.0}`))
 			"Should detect type mismatch in anonymous input values",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-func filter{threshold f64} (x f64) f64 {
+func filter(threshold f64) {x f64} f64 {
     return x
 }
 
-func sink{} () {}
+func sink() {}
 
-sensor_chan -> filter{"hello"} -> sink{}`))
+sensor_chan -> filter("hello") -> sink()`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -237,13 +237,13 @@ sensor_chan -> filter{"hello"} -> sink{}`))
 
 		It("Should reject too many anonymous input values", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-func filter{threshold f64} (x f64) f64 {
+func filter(threshold f64) {x f64} f64 {
     return x
 }
 
-func sink{} () {}
+func sink() {}
 
-sensor_chan -> filter{5.0, 20, 30} -> sink{}`))
+sensor_chan -> filter(5.0, 20, 30) -> sink()`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -254,9 +254,9 @@ sensor_chan -> filter{5.0, 20, 30} -> sink{}`))
 			"Should reject partial anonymous input missing required params",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-func controller{setpoint f64, gain f64} () {}
+func controller(setpoint f64, gain f64) {}
 
-sensor_chan -> controller{100.0}`))
+sensor_chan -> controller(100.0)`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -269,13 +269,13 @@ sensor_chan -> controller{100.0}`))
 
 		It("Should accept a single anonymous input value", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-func filter{threshold f64} (x f64) f64 {
+func filter(threshold f64) {x f64} f64 {
     return x
 }
 
-func sink{} () {}
+func sink() {}
 
-sensor_chan -> filter{5.0} -> sink{}`))
+sensor_chan -> filter(5.0) -> sink()`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -285,11 +285,11 @@ sensor_chan -> filter{5.0} -> sink{}`))
 			"Should accept a channel identifier as anonymous input value",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-func controller{sensor chan f64, setpoint f64} () {
+func controller(sensor chan f64, setpoint f64) {
     v := sensor
 }
 
-sensor_chan -> controller{sensor_chan, 100.0}`))
+sensor_chan -> controller(sensor_chan, 100.0)`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -300,13 +300,13 @@ sensor_chan -> controller{sensor_chan, 100.0}`))
 			"Should reject zero anonymous input values when params are required",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-func filter{threshold f64} (x f64) f64 {
+func filter(threshold f64) {x f64} f64 {
     return x
 }
 
-func sink{} () {}
+func sink() {}
 
-sensor_chan -> filter{} -> sink{}`))
+sensor_chan -> filter() -> sink()`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -323,9 +323,9 @@ sensor_chan -> filter{} -> sink{}`))
 			"Should accept empty input when all params have defaults",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-func controller{gain f64 = 1.0, offset f64 = 0.0} () {}
+func controller(gain f64 = 1.0, offset f64 = 0.0) {}
 
-sensor_chan -> controller{}`))
+sensor_chan -> controller()`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -336,13 +336,13 @@ sensor_chan -> controller{}`))
 			"Should detect type mismatch in second anonymous input value",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-func transform{scale f64, offset f64} (x f64) f64 {
+func transform(scale f64, offset f64) {x f64} f64 {
     return x * scale + offset
 }
 
-func sink{} () {}
+func sink() {}
 
-sensor_chan -> transform{2.5, "bad"} -> sink{}`))
+sensor_chan -> transform(2.5, "bad") -> sink()`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -389,7 +389,7 @@ sensor_chan -> transform{2.5, "bad"} -> sink{}`))
 				ast := MustSucceed(parser.Parse(`
 sequence main {
     stage done {
-        set_auth{0}
+        set_auth(0)
     }
 }`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, triggerFirstResolver...))
@@ -401,7 +401,7 @@ sequence main {
 		It(
 			"Should bind a positional value while the upstream feeds the trigger",
 			func(bCtx SpecContext) {
-				ast := MustSucceed(parser.Parse(`start_high_cmd -> set_auth{200}`))
+				ast := MustSucceed(parser.Parse(`start_high_cmd -> set_auth(200)`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, triggerFirstResolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -414,7 +414,7 @@ sequence main {
 				ast := MustSucceed(parser.Parse(`
 sequence main {
     stage done {
-        set_auth{0, 1, 2}
+        set_auth(0, 1, 2)
     }
 }`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, triggerFirstResolver...))
@@ -448,38 +448,153 @@ sequence main {
 				Name: "src_chan",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F64()),
+				ID:   20,
 			},
+			{Name: "out_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+			{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.Bool())},
+			{Name: "label", Kind: symbol.KindChannel, Type: types.Chan(types.String())},
+			{Name: "count", Kind: symbol.KindChannel, Type: types.Chan(types.I64())},
+		}
+		analyze := func(
+			bCtx SpecContext,
+			source string,
+		) context.Context[parser.IProgramContext] {
+			GinkgoHelper()
+			ast := MustSucceed(parser.Parse(source))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, wasmResolver...))
+			analyzer.AnalyzeProgram(ctx)
+			return ctx
+		}
+		expressionNode := func(
+			ctx context.Context[parser.IProgramContext],
+		) *symbol.Symbol {
+			GinkgoHelper()
+			sym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
+			Expect(sym.Kind).To(Equal(symbol.KindFunction))
+			Expect(sym.AST).To(BeAssignableToTypeOf(&parser.FunctionContext{}))
+			return sym
 		}
 
+		It("Should register the node as an expression node", func(bCtx SpecContext) {
+			ctx := analyze(bCtx, `compute(src_chan) -> out_chan`)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			sym := expressionNode(ctx)
+			output := MustBeOk(sym.Type.Outputs.Get(ir.DefaultOutputParam))
+			Expect(output.Type).To(Equal(types.F64()))
+			Expect(sym.Channels.Read).To(HaveKeyWithValue(uint32(20), "src_chan"))
+			Expect(*ctx.CallEdges).To(HaveLen(1))
+			Expect((*ctx.CallEdges)[0].Callee.Name).To(Equal("compute"))
+		})
+
+		It("Should type-check the call arguments", func(bCtx SpecContext) {
+			ctx := analyze(bCtx, `src_chan -> compute() -> out_chan`)
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+				"missing required argument for parameter 'input' of func 'compute'",
+			))
+		})
+
+		It("Should check the node output against the sink", func(bCtx SpecContext) {
+			ctx := analyze(bCtx, `compute(src_chan) -> flag`)
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+				"func compute output type f64 does not match channel flag value type " +
+					"bool",
+			))
+		})
+
 		It(
-			"Should reject a WASM function wired as a flow node",
+			"Should feed a downstream func from the node output",
 			func(bCtx SpecContext) {
-				ast := MustSucceed(parser.Parse(`src_chan -> compute{}`))
-				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, wasmResolver...))
-				analyzer.AnalyzeProgram(ctx)
-				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				Expect(
-					ctx.Diagnostics.String(),
-				).To(ContainSubstring("cannot be used as a flow statement"))
+				ctx := analyze(bCtx, `
+func scale(factor f64) {value f64} f64 { return value * factor }
+compute(src_chan) -> scale(factor=2.0) -> out_chan`)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			},
 		)
 
 		It(
-			"Should reject a WASM function invoked as a standalone stage node",
+			"Should check the node output against a downstream trigger",
 			func(bCtx SpecContext) {
-				ast := MustSucceed(parser.Parse(`
-sequence main {
-    stage done {
-        compute{}
-    }
-}`))
-				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, wasmResolver...))
-				analyzer.AnalyzeProgram(ctx)
-				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				Expect(
-					ctx.Diagnostics.String(),
-				).To(ContainSubstring("cannot be used as a flow statement"))
+				ctx := analyze(bCtx, `
+func gate() {value bool} bool { return value }
+compute(src_chan) -> gate() -> flag`)
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+					"upstream value type f64 does not match func 'gate' " +
+						"trigger parameter 'value' type bool",
+				))
 			},
+		)
+
+		It(
+			"Should register a stage node as an expression node",
+			func(bCtx SpecContext) {
+				ctx := analyze(bCtx, `
+sequence main {
+    stage start {
+        compute(src_chan)
+    }
+}`)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				expressionNode(ctx)
+			},
+		)
+
+		It(
+			"Should register a routing entry node as an expression node",
+			func(bCtx SpecContext) {
+				ctx := analyze(bCtx, `
+func demux() {value f64} (high f64, low f64) {
+    if (value > 100.0) {
+        high = value
+    } else {
+        low = value
+    }
+}
+src_chan -> demux() -> {
+    high: compute(src_chan) -> out_chan,
+    low: 0.0 -> out_chan
+}`)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				expressionNode(ctx)
+			},
+		)
+
+		It("Should accept the len builtin as a flow node", func(bCtx SpecContext) {
+			ctx := analyze(bCtx, `len(label) -> count`)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			sym := expressionNode(ctx)
+			output := MustBeOk(sym.Type.Outputs.Get(ir.DefaultOutputParam))
+			Expect(output.Type).To(Equal(types.I64()))
+		})
+
+		It(
+			"Should accept the len builtin with its named input",
+			func(bCtx SpecContext) {
+				ctx := analyze(bCtx, `len(input=label) -> count`)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				expressionNode(ctx)
+			},
+		)
+
+		DescribeTable("Should reject bad arguments to the len builtin",
+			func(bCtx SpecContext, source, message string) {
+				ctx := analyze(bCtx, source)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("unknown named argument",
+				`len(unknown=label) -> count`,
+				"unknown parameter 'unknown' for func 'len'"),
+			Entry("too many positional arguments",
+				`len(label, label) -> count`,
+				"too many arguments for func 'len': expected at most 1"),
+			Entry("duplicate named argument",
+				`len(input=label, input=label) -> count`,
+				"duplicate argument for parameter 'input' of func 'len'"),
+			Entry("too many positional arguments in a func body",
+				`func f() {} i64 {
+    return len(label, label)
+}`,
+				"too many arguments for func 'len': expected at most 1"),
 		)
 	})
 
@@ -490,8 +605,8 @@ sequence main {
 				func(bCtx SpecContext) {
 					ast := MustSucceed(parser.Parse(`
 func source() {}
-func sink(v u8) {}
-source{} -> sink{}`))
+func sink() {v u8} {}
+source() -> sink()`))
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -509,8 +624,8 @@ source{} -> sink{}`))
 func producer() u8 {
     return 1
 }
-func consumer(v f64) {}
-producer{} -> consumer{}`))
+func consumer() {v f64} {}
+producer() -> consumer()`))
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -531,8 +646,8 @@ producer{} -> consumer{}`))
 func producer() f32 psi {
     return 5psi
 }
-func consumer(v f32 bar) {}
-producer{} -> consumer{}`))
+func consumer() {v f32 bar} {}
+producer() -> consumer()`))
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -552,8 +667,8 @@ producer{} -> consumer{}`))
 func source() u8 {
     return 1
 }
-func multi(a u8, b u8) {}
-source{} -> multi{}`))
+func multi() {a u8, b u8} {}
+source() -> multi()`))
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -572,8 +687,8 @@ func splitter() (high f64, low f64) {
     high = 1.0
     low = 0.0
 }
-func consumer(v f64) {}
-splitter{} -> consumer{}`))
+func consumer() {v f64} {}
+splitter() -> consumer()`))
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -591,8 +706,8 @@ splitter{} -> consumer{}`))
 func producer() f64 {
     return 1.0
 }
-func consumer(v f64) {}
-producer{} -> consumer{}`))
+func consumer() {v f64} {}
+producer() -> consumer()`))
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -612,8 +727,8 @@ producer{} -> consumer{}`))
 						},
 					}
 					ast := MustSucceed(parser.Parse(`
-func consumer(v f64) {}
-my_func -> consumer{}`))
+func consumer() {v f64} {}
+my_func -> consumer()`))
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, localResolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -634,8 +749,8 @@ my_func -> consumer{}`))
 						},
 					}
 					ast := MustSucceed(parser.Parse(`
-func consumer(v f64) {}
-int_chan -> consumer{}`))
+func consumer() {v f64} {}
+int_chan -> consumer()`))
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, localResolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -648,7 +763,7 @@ int_chan -> consumer{}`))
 
 		It("Should parse simple channel to func flow", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-			once{} -> processor{}
+			once() -> processor()
 			`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -659,7 +774,7 @@ int_chan -> consumer{}`))
 			"Should return an error when once of the tasks being called is not defined",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			once{} -> processor{}
+			once() -> processor()
 			`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil))
 				analyzer.AnalyzeProgram(ctx)
@@ -679,14 +794,14 @@ int_chan -> consumer{}`))
 			"Should verify func input parameters match the expected signature types",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func controller{setpoint f64, input chan f64, output chan f64} () {
+			func controller(setpoint f64, input chan f64, output chan f64) {
 			    value := input
 			    if value > setpoint {
 			        output = value
 			    }
 			}
 			// This should work - types match
-			sensor_chan -> controller{setpoint=100.0, input=sensor_chan, output=output_chan}`))
+			sensor_chan -> controller(setpoint=100.0, input=sensor_chan, output=output_chan)`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -697,14 +812,14 @@ int_chan -> consumer{}`))
 			"Should detect when func is invoked with missing required parameters",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func filter{threshold f64, input chan f64, output chan f64} () {
+			func filter(threshold f64, input chan f64, output chan f64) {
 			    value := input
 			    if value > threshold {
 			        output = value
 			    }
 			}
 			// Missing 'threshold' and 'output' parameters
-			sensor_chan -> filter{input=sensor_chan}`))
+			sensor_chan -> filter(input=sensor_chan)`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -723,9 +838,9 @@ int_chan -> consumer{}`))
 			"Should allow omitting input param with default value",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func controller{setpoint f64, gain f64 = 1.0} () {}
+			func controller(setpoint f64, gain f64 = 1.0) {}
 
-			sensor_chan -> controller{setpoint=100.0}`))
+			sensor_chan -> controller(setpoint=100.0)`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -734,9 +849,9 @@ int_chan -> consumer{}`))
 
 		It("Should allow overriding input param default value", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-			func controller{setpoint f64, gain f64 = 1.0} () {}
+			func controller(setpoint f64, gain f64 = 1.0) {}
 
-			sensor_chan -> controller{setpoint=100.0, gain=2.5}`))
+			sensor_chan -> controller(setpoint=100.0, gain=2.5)`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -746,9 +861,9 @@ int_chan -> consumer{}`))
 			"Should still require input params without defaults",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func controller{setpoint f64, gain f64 = 1.0} () {}
+			func controller(setpoint f64, gain f64 = 1.0) {}
 
-			sensor_chan -> controller{gain=2.5}`))
+			sensor_chan -> controller(gain=2.5)`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -763,11 +878,11 @@ int_chan -> consumer{}`))
 			"Should detect when func is invoked with extra parameters not in signature",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func simple{input chan f64} () {
+			func simple(input chan f64) {
 			    value := input
 			}
 			// 'extra' is not a valid input parameter for 'simple'
-			sensor_chan -> simple{input=sensor_chan, extra=42.0}`))
+			sensor_chan -> simple(input=sensor_chan, extra=42.0)`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -782,7 +897,7 @@ int_chan -> consumer{}`))
 			"Should detect type mismatch in func input parameters",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func typed_task{threshold f64, count u32, message str, input chan f64} () {
+			func typed_task(threshold f64, count u32, message str, input chan f64) {
 			    value := input
 			    if value > threshold {
 			    // do something
@@ -792,12 +907,12 @@ int_chan -> consumer{}`))
 			// - threshold should be f64, but given str
 			// - count should be u32, but given f64
 			// - message should be str, but given number
-			sensor_chan -> typed_task{
+			sensor_chan -> typed_task(
 			    threshold = "not a number",
 			    count = 3.14,
 			    message = 42,
 			    input = sensor_chan
-			}`))
+			)`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -813,19 +928,19 @@ int_chan -> consumer{}`))
 			"Should accept correct types for func input parameters",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func typed_task{threshold f64, count u32, message str, input chan f64} () {
+			func typed_task(threshold f64, count u32, message str, input chan f64) {
 			    value := input
 			    if value > threshold {
 			    // do something
 			}
 			}
 			// All types match correctly
-			sensor_chan -> typed_task{
+			sensor_chan -> typed_task(
 			    threshold = 100.5,
 			    count = u32(42),
 			    message = "hello",
 			    input = sensor_chan
-			}`))
+			)`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -836,18 +951,18 @@ int_chan -> consumer{}`))
 			"Should allow channels as both sources and targets in flow statements",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func process{input chan f64, output chan f64} () {
+			func process(input chan f64, output chan f64) {
 			    value := input
 			    processed := value * 2.0
 			    output = processed
 			}
 			// Channel as source -> func -> channel as target
-			temp_sensor -> process{input=temp_sensor, output=valve_cmd}
+			temp_sensor -> process(input=temp_sensor, output=valve_cmd)
 			// Direct channel to channel piping (no fn)
 			// This represents a direct connection/pass-through
 			sensor_chan -> output_chan
 			// Channel as source in multi-func flow
-			sensor_chan -> process{input=sensor_chan, output=output_chan} -> valve_cmd`))
+			sensor_chan -> process(input=sensor_chan, output=output_chan) -> valve_cmd`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -858,12 +973,12 @@ int_chan -> consumer{}`))
 			"Should understand channel pass-through triggers tasks on new values",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func logger{value chan f64} () {
+			func logger(value chan f64) {
 			    v := value
 			    // Log the value
 			}
 
-			func controller{temp chan f64, setpoint f64} () {
+			func controller(temp chan f64, setpoint f64) {
 			    current := temp
 			    if current > setpoint {
 			    // Take action
@@ -871,9 +986,9 @@ int_chan -> consumer{}`))
 			}
 			// Channel pass-through - these trigger tasks on channel updates
 			// The channel IS the implicit first parameter to the fn
-			temperature -> controller{temp=temperature, setpoint=100.0}
+			temperature -> controller(temp=temperature, setpoint=100.0)
 			// This is shorthand for: "when sensor_chan gets a value, pass it to logger"
-			sensor_chan -> logger{value=sensor_chan}`))
+			sensor_chan -> logger(value=sensor_chan)`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -884,12 +999,12 @@ int_chan -> consumer{}`))
 			"Should implicitly convert channel sources to on{channel} func invocations",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func display{input chan f64} () {
+			func display(input chan f64) {
 			    value := input
 			    // Display the value
 			}
 			// This channel as source:
-			sensor_chan -> display{input=sensor_chan}`))
+			sensor_chan -> display(input=sensor_chan)`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -910,11 +1025,11 @@ int_chan -> consumer{}`))
 			}
 
 			ast := MustSucceed(parser.Parse(`
-			func display{input chan f64} () {
+			func display(input chan f64) {
 			    value := input
 			}
 			// This should fail because "on" func is not available
-			sensor_chan -> display{input=sensor_chan}`))
+			sensor_chan -> display(input=sensor_chan)`))
 
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, noOnResolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -925,16 +1040,16 @@ int_chan -> consumer{}`))
 			"Should convert expressions in flow statements to anonymous tasks",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-func alarm{} () {}
-func logger{} () {}
+func alarm() {}
+func logger() {}
 // Expression as source - should be converted to anonymous fn
 // The expression "sensor_chan > 100" becomes an anonymous func that:
 // 1. Reads from sensor_chan
 // 2. Evaluates the comparison
 // 3. Outputs u8 (boolean) result
-sensor_chan > 100 -> alarm{}
+sensor_chan > 100 -> alarm()
 // Arithmetic expression
- (sensor_chan * 1.8) + 32.0 -> logger{}`))
+ (sensor_chan * 1.8) + 32.0 -> logger()`))
 
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				// The expressions should be validated successfully
@@ -947,14 +1062,14 @@ sensor_chan > 100 -> alarm{}
 			"Should validate that expressions in flows only reference channels and literals",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-func alarm{} () {}
+func alarm() {}
 
 func setup() {
     threshold := 100 // Variables can only exist in functions/tasks
 }
 // This should fail - can't use variables in flow expressions
 // 'threshold' doesn't exist at the inter-func layer scope
-sensor_chan > threshold -> alarm{}`))
+sensor_chan > threshold -> alarm()`))
 
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
@@ -973,9 +1088,9 @@ sensor_chan > threshold -> alarm{}`))
 				"Should detect output routing table not following a func",
 				func(bCtx SpecContext) {
 					ast := MustSucceed(parser.Parse(`
-func target(v f64) {}
+func target() {v f64} {}
 sensor_chan -> {
-    high: target{}
+    high: target()
 }`))
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 					analyzer.AnalyzeProgram(ctx)
@@ -997,14 +1112,14 @@ sensor_chan -> {
 						},
 					}
 					ast := MustSucceed(parser.Parse(`
-func demux(value f64) (high f64, low f64) {
+func demux() {value f64} (high f64, low f64) {
     high = value
     low = value
 }
 
 some_var f64 := 0.0
 
-sensor_chan -> demux{} -> {
+sensor_chan -> demux() -> {
     high: true -> some_var
 }`))
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, localResolver...))
@@ -1027,7 +1142,7 @@ sensor_chan -> demux{} -> {
 						},
 					}
 					ast := MustSucceed(parser.Parse(`
-func demux(value f64) (high f64, low f64) {
+func demux() {value f64} (high f64, low f64) {
     high = value
     low = value
 }
@@ -1035,7 +1150,7 @@ func demux(value f64) (high f64, low f64) {
 sequence main {
     stage first {
         v := false
-        sensor_chan -> demux{} -> {
+        sensor_chan -> demux() -> {
             high: true -> v
         }
     }
@@ -1062,7 +1177,7 @@ sequence main {
 						},
 					}
 					ast := MustSucceed(parser.Parse(`
-func demux(value f64) (high f64, low f64) {
+func demux() {value f64} (high f64, low f64) {
     high = value
     low = value
 }
@@ -1070,7 +1185,7 @@ func demux(value f64) (high f64, low f64) {
 sequence main {
     stage first {
         sink := out_chan
-        sensor_chan -> demux{} -> {
+        sensor_chan -> demux() -> {
             high: true -> sink
         }
     }
@@ -1092,7 +1207,7 @@ sequence main {
 						},
 					}
 					ast := MustSucceed(parser.Parse(`
-func demux(value f64) (high f64, low f64) {
+func demux() {value f64} (high f64, low f64) {
     high = value
     low = value
 }
@@ -1100,7 +1215,7 @@ func demux(value f64) (high f64, low f64) {
 sequence main {
     stage first {
         v := sensor_chan * 2.0
-        sensor_chan -> demux{} -> {
+        sensor_chan -> demux() -> {
             high: 1.0 -> v
         }
     }
@@ -1125,7 +1240,7 @@ sequence main {
 						},
 					}
 					ast := MustSucceed(parser.Parse(`
-func demux(value f64) (high f64, low f64) {
+func demux() {value f64} (high f64, low f64) {
     high = value
     low = value
 }
@@ -1133,7 +1248,7 @@ func demux(value f64) (high f64, low f64) {
 sequence main {
     stage first {
         v u8 := 0
-        sensor_chan -> demux{} -> {
+        sensor_chan -> demux() -> {
             high: "hello" -> v
         }
     }
@@ -1151,7 +1266,7 @@ sequence main {
 				"Should accept a stage name as a routing table target",
 				func(bCtx SpecContext) {
 					ast := MustSucceed(parser.Parse(`
-func router{} (value f64) (high u8, low u8) {
+func router() {value f64} (high u8, low u8) {
     if (value > 50) {
         high = 1
     } else {
@@ -1161,7 +1276,7 @@ func router{} (value f64) (high u8, low u8) {
 
 sequence main {
     stage first {
-        sensor_chan -> router{} -> {
+        sensor_chan -> router() -> {
             high: true => opt_1,
         }
     }
@@ -1183,7 +1298,7 @@ sequence main {
 
 		It("Should analyze func with multiple named outputs", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-			func demux{threshold f64} (value f32) (high f32, low f32) {
+			func demux(threshold f64) {value f32} (high f32, low f32) {
 			    if (value > f32(threshold)) {
 			        high = value
 			    } else {
@@ -1211,7 +1326,7 @@ sequence main {
 
 		It("Should analyze routing table with named outputs", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-			func demux{threshold f64} (value f64) (high f64, low f64) {
+			func demux(threshold f64) {value f64} (high f64, low f64) {
 			    if (value > threshold) {
 			        high = value
 			    } else {
@@ -1219,12 +1334,12 @@ sequence main {
 			    }
 			}
 
-			func alarm{} (value f64) {}
-			func logger{} (value f64) {}
+			func alarm() {value f64} {}
+			func logger() {value f64} {}
 
-			sensor_chan -> demux{threshold=100.0} -> {
-			    high: 1.0 -> alarm{},
-			    low: 1.0 -> logger{}
+			sensor_chan -> demux(threshold=100.0) -> {
+			    high: 1.0 -> alarm(),
+			    low: 1.0 -> logger()
 			}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -1235,14 +1350,14 @@ sequence main {
 			"Should detect when routing table is used with func without named outputs",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func simple{} (value f64) f64 {
+			func simple() {value f64} f64 {
 			    return value * 2.0
 			}
 
-			func target{} (value f64) {}
+			func target() {value f64} {}
 
-			sensor_chan -> simple{} -> {
-			    output: target{}
+			sensor_chan -> simple() -> {
+			    output: target()
 			}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
@@ -1256,7 +1371,7 @@ sequence main {
 
 		It("Should detect when routing to non-existent output", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -1264,11 +1379,11 @@ sequence main {
 			    }
 			}
 
-			func target{} (value f64) {}
+			func target() {value f64} {}
 
-			sensor_chan -> demux{} -> {
-			    high: 1.0 -> target{},
-			    medium: 1.0 -> target{}
+			sensor_chan -> demux() -> {
+			    high: 1.0 -> target(),
+			    medium: 1.0 -> target()
 			}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -1281,7 +1396,7 @@ sequence main {
 
 		It("Should type-check routing table targets", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -1289,10 +1404,10 @@ sequence main {
 			    }
 			}
 
-			func u32_target{} (value u32) {}
+			func u32_target() {value u32} {}
 
-			sensor_chan -> demux{} -> {
-			    high: "nope" -> u32_target{}
+			sensor_chan -> demux() -> {
+			    high: "nope" -> u32_target()
 			}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -1303,7 +1418,7 @@ sequence main {
 
 		It("Should analyze routing table with chained nodes", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -1311,16 +1426,16 @@ sequence main {
 			    }
 			}
 
-			func multiplier{} (value f64) f64 {
+			func multiplier() {value f64} f64 {
 			    return value * 2.0
 			}
 
-			func alarm{} (value f64) {}
-			func logger{} (value f64) {}
+			func alarm() {value f64} {}
+			func logger() {value f64} {}
 
-			sensor_chan -> demux{} -> {
-			    high: 1.0 -> multiplier{} -> alarm{},
-			    low: 1.0 -> logger{}
+			sensor_chan -> demux() -> {
+			    high: 1.0 -> multiplier() -> alarm(),
+			    low: 1.0 -> logger()
 			}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -1331,7 +1446,7 @@ sequence main {
 			"Should analyze routing table with chained nodes via =>",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -1339,16 +1454,16 @@ sequence main {
 			    }
 			}
 
-			func multiplier{} (value f64) f64 {
+			func multiplier() {value f64} f64 {
 			    return value * 2.0
 			}
 
-			func alarm{} (value f64) {}
-			func logger{} (value f64) {}
+			func alarm() {value f64} {}
+			func logger() {value f64} {}
 
-			sensor_chan -> demux{} -> {
-			    high: 1.0 -> multiplier{} => alarm{},
-			    low: 1.0 -> logger{}
+			sensor_chan -> demux() -> {
+			    high: 1.0 -> multiplier() => alarm(),
+			    low: 1.0 -> logger()
 			}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
@@ -1377,7 +1492,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -1385,7 +1500,7 @@ sequence main {
 			    }
 			}
 
-			sensor_chan -> demux{} -> {
+			sensor_chan -> demux() -> {
 			    high: "above" -> log_str,
 			    low: 1 -> log_num
 			}`))
@@ -1416,7 +1531,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -1424,7 +1539,7 @@ sequence main {
 			    }
 			}
 
-			sensor_chan -> demux{} -> {
+			sensor_chan -> demux() -> {
 			    high: "above" => log_str,
 			    low: 1 => log_num
 			}`))
@@ -1450,7 +1565,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -1458,7 +1573,7 @@ sequence main {
 			    }
 			}
 
-			sensor_chan -> demux{} -> {
+			sensor_chan -> demux() -> {
 			    high: 123 -> log_str,
 			    low: "below" -> log_str
 			}`))
@@ -1487,7 +1602,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -1495,7 +1610,7 @@ sequence main {
 			    }
 			}
 
-			sensor_chan -> demux{} -> {
+			sensor_chan -> demux() -> {
 			    high: 123 => log_str,
 			    low: "below" => log_str
 			}`))
@@ -1518,7 +1633,7 @@ sequence main {
 				source := `
 			import math
 
-			src -> ` + fn + `{} -> sink`
+			src -> ` + fn + `() -> sink`
 				ast := MustSucceed(parser.Parse(source))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
 				analyzer.AnalyzeProgram(ctx)
@@ -1555,7 +1670,7 @@ sequence main {
 				ast := MustSucceed(parser.Parse(`
 			import math
 
-			src -> ` + fn + `{} -> sink`))
+			src -> ` + fn + `() -> sink`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -1596,8 +1711,8 @@ sequence main {
 				ast := MustSucceed(parser.Parse(`
 			import math
 
-			a_f32 -> math.avg{} -> out_f32
-			b_f64 -> math.avg{} -> out_f64`))
+			a_f32 -> math.avg() -> out_f32
+			b_f64 -> math.avg() -> out_f64`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -1620,7 +1735,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -1628,8 +1743,8 @@ sequence main {
 			    }
 			}
 
-			sensor_chan -> demux{} -> {
-			    high: 1.0 -> demux{} -> log_num,
+			sensor_chan -> demux() -> {
+			    high: 1.0 -> demux() -> log_num,
 			    low: 1 -> log_num
 			}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
@@ -1642,7 +1757,7 @@ sequence main {
 		)
 
 		It(
-			"Should accept select{} with boolean discriminator and string-literal chain bodies",
+			"Should accept select() with boolean discriminator and string-literal chain bodies",
 			func(bCtx SpecContext) {
 				customResolver := StaticResolver{
 					{
@@ -1657,7 +1772,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			flag -> select{} -> {
+			flag -> select() -> {
 			    true: "high" -> log_str,
 			    false: "low" -> log_str
 			}`))
@@ -1667,7 +1782,7 @@ sequence main {
 			},
 		)
 
-		It("Should accept select{} with => chain bodies", func(bCtx SpecContext) {
+		It("Should accept select() with => chain bodies", func(bCtx SpecContext) {
 			customResolver := StaticResolver{
 				{
 					Name: "flag",
@@ -1681,7 +1796,7 @@ sequence main {
 				},
 			}
 			ast := MustSucceed(parser.Parse(`
-			flag -> select{} -> {
+			flag -> select() -> {
 			    true: "high" => log_str,
 			    false: "low" => log_str
 			}`))
@@ -1711,7 +1826,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -1719,12 +1834,12 @@ sequence main {
 			    }
 			}
 
-			func pass{} (value f64) f64 {
+			func pass() {value f64} f64 {
 			    return value
 			}
 
-			source_chan -> demux{} -> {
-			    high: feed_chan -> pass{} -> log_num,
+			source_chan -> demux() -> {
+			    high: feed_chan -> pass() -> log_num,
 			    low: 1 -> log_num
 			}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
@@ -1749,7 +1864,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -1757,8 +1872,8 @@ sequence main {
 			    }
 			}
 
-			source_chan -> demux{} -> {
-			    high: unknown_fn{} -> log_num,
+			source_chan -> demux() -> {
+			    high: unknown_fn() -> log_num,
 			    low: 1 -> log_num
 			}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
@@ -1789,7 +1904,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func gate{} (value u8) (yes u8, no u8) {
+			func gate() {value u8} (yes u8, no u8) {
 			    if (value > 0) {
 			        yes = 1
 			    } else {
@@ -1799,7 +1914,7 @@ sequence main {
 
 			sequence main {
 			    stage hold {
-			        flag -> gate{} -> {
+			        flag -> gate() -> {
 			            yes: stage {
 			                "yes_branch_a" -> log_str
 			                "yes_branch_b" -> log_str
@@ -1840,7 +1955,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func gate{} (value u8) (yes u8, no u8) {
+			func gate() {value u8} (yes u8, no u8) {
 			    if (value > 0) {
 			        yes = 1
 			    } else {
@@ -1850,7 +1965,7 @@ sequence main {
 
 			sequence main {
 			    stage hold {
-			        flag -> gate{} -> {
+			        flag -> gate() -> {
 			            yes: sequence {
 			                "yes_step_1" -> log_str
 			                "yes_step_2" -> log_str
@@ -1886,7 +2001,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func gate{} (value u8) (yes u8, no u8) {
+			func gate() {value u8} (yes u8, no u8) {
 			    if (value > 0) {
 			        yes = 1
 			    } else {
@@ -1895,7 +2010,7 @@ sequence main {
 			}
 
 			stage main {
-			    flag -> gate{} -> {
+			    flag -> gate() -> {
 			        yes: stage { "yes_branch" -> log_str },
 			        no: stage { "no_branch" -> log_str }
 			    }
@@ -1933,7 +2048,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func gate{} (value u8) (yes u8, no u8) {
+			func gate() {value u8} (yes u8, no u8) {
 			    if (value > 0) {
 			        yes = 1
 			    } else {
@@ -1942,7 +2057,7 @@ sequence main {
 			}
 
 			stage main {
-			    flag -> gate{} -> {
+			    flag -> gate() -> {
 			        yes: sequence {
 			            "yes_a" -> log_str
 			            "yes_b" -> log_str
@@ -1980,7 +2095,7 @@ sequence main {
 				},
 			}
 			ast := MustSucceed(parser.Parse(`
-			func gate{} (value u8) (yes u8, no u8) {
+			func gate() {value u8} (yes u8, no u8) {
 			    if (value > 0) {
 			        yes = 1
 			    } else {
@@ -1990,7 +2105,7 @@ sequence main {
 
 			sequence main {
 			    stage owner {
-			        flag -> gate{} -> {
+			        flag -> gate() -> {
 			            yes: stage my_step { "yes_branch" -> log_str },
 			            no: stage { "no_branch" -> log_str }
 			        }
@@ -2019,7 +2134,7 @@ sequence main {
 				},
 			}
 			ast := MustSucceed(parser.Parse(`
-			func gate{} (value u8) (yes u8, no u8) {
+			func gate() {value u8} (yes u8, no u8) {
 			    if (value > 0) {
 			        yes = 1
 			    } else {
@@ -2029,7 +2144,7 @@ sequence main {
 
 			sequence main {
 			    stage owner {
-			        flag -> gate{} -> {
+			        flag -> gate() -> {
 			            yes: sequence my_seq { "yes_branch" -> log_str },
 			            no: sequence { "no_branch" -> log_str }
 			        }
@@ -2071,7 +2186,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func gate{} (value u8) (yes u8, no u8) {
+			func gate() {value u8} (yes u8, no u8) {
 			    if (value > 0) {
 			        yes = 1
 			    } else {
@@ -2081,7 +2196,7 @@ sequence main {
 
 			sequence main {
 			    stage owner {
-			        flag -> gate{} -> {
+			        flag -> gate() -> {
 			            yes: stage child { "took_yes" -> log_str },
 			            no: stage { "took_no" -> log_str }
 			        }
@@ -2119,7 +2234,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func gate{} (value u8) (yes u8, no u8) {
+			func gate() {value u8} (yes u8, no u8) {
 			    if (value > 0) {
 			        yes = 1
 			    } else {
@@ -2129,7 +2244,7 @@ sequence main {
 
 			sequence main {
 			    stage hold {
-			        flag -> gate{} -> {
+			        flag -> gate() -> {
 			            yes: stage {
 			                "yes_inline" -> log_str
 			                1 -> log_num
@@ -2160,7 +2275,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func gate{} (value u8) (yes u8, no u8) {
+			func gate() {value u8} (yes u8, no u8) {
 			    if (value > 0) {
 			        yes = 1
 			    } else {
@@ -2170,7 +2285,7 @@ sequence main {
 
 			sequence main {
 			    stage hold {
-			        flag -> gate{} -> {
+			        flag -> gate() -> {
 			            yes: stage {
 			                "wrong_type" -> log_num
 			            }
@@ -2202,7 +2317,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func gate{} (value u8) (yes u8, no u8) {
+			func gate() {value u8} (yes u8, no u8) {
 			    if (value > 0) {
 			        yes = 1
 			    } else {
@@ -2212,7 +2327,7 @@ sequence main {
 
 			sequence main {
 			    stage hold {
-			        flag -> gate{} -> {
+			        flag -> gate() -> {
 			            yes: sequence {
 			                "wrong_type" -> log_num
 			            }
@@ -2244,7 +2359,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func gate{} (value u8) (yes u8, no u8) {
+			func gate() {value u8} (yes u8, no u8) {
 			    if (value > 0) {
 			        yes = 1
 			    } else {
@@ -2254,7 +2369,7 @@ sequence main {
 
 			sequence main {
 			    stage hold {
-			        flag -> gate{} -> {
+			        flag -> gate() -> {
 			            yes: stage {
 			                "hello" -> mystery_chan
 			            }
@@ -2296,7 +2411,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func decide{low f64, high f64} (value f64) (vent u8, press u8, abort u8) {
+			func decide(low f64, high f64) {value f64} (vent u8, press u8, abort u8) {
 			    if (value < low) {
 			        vent = 1
 			    } else if (value <= high) {
@@ -2308,7 +2423,7 @@ sequence main {
 
 			sequence main {
 			    stage hold {
-			        pressure -> decide{low=30.0, high=80.0} -> {
+			        pressure -> decide(low=30.0, high=80.0) -> {
 			            vent: stage { "vent" -> vent_log },
 			            press: sequence {
 			                "press_step_1" -> press_log
@@ -2345,7 +2460,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			func gate{} (value u8) (yes u8, no u8) {
+			func gate() {value u8} (yes u8, no u8) {
 			    if (value > 0) {
 			        yes = 1
 			    } else {
@@ -2355,9 +2470,9 @@ sequence main {
 
 			sequence main {
 			    stage hold {
-			        outer_flag -> gate{} -> {
+			        outer_flag -> gate() -> {
 			            yes: stage {
-			                inner_flag -> gate{} -> {
+			                inner_flag -> gate() -> {
 			                    yes: stage { "inner_yes" -> log_str },
 			                    no: "inner_no" -> log_str
 			                }
@@ -2788,7 +2903,7 @@ sequence main {
 				}
 				ast := MustSucceed(parser.Parse(`
 			outer_flag -> stage {
-			    inner_flag -> select{} -> {
+			    inner_flag -> select() -> {
 			        true: stage { "inner" -> log_str }
 			    }
 			}`))
@@ -2819,7 +2934,7 @@ sequence main {
 					},
 				}
 				ast := MustSucceed(parser.Parse(`
-			outer_flag -> select{} -> {
+			outer_flag -> select() -> {
 			    true: stage {
 			        inner_flag -> stage { "inner" -> log_str }
 			    }
@@ -2832,7 +2947,7 @@ sequence main {
 
 		It("Should route to channels in routing table", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -2840,7 +2955,7 @@ sequence main {
 			    }
 			}
 
-			sensor_chan -> demux{} -> {
+			sensor_chan -> demux() -> {
 			    high: 1.0 -> output_chan,
 			    low: 1.0 -> temp_sensor
 			}`))
@@ -2851,7 +2966,7 @@ sequence main {
 
 		It("Should warn about unassigned outputs", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-			func incomplete{} (value f32) (high f32, low f32) {
+			func incomplete() {value f32} (high f32, low f32) {
 			    if (value > 100.0) {
 			        high = value
 			    }
@@ -2872,7 +2987,7 @@ sequence main {
 			"Should validate input parameters in routing table targets",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -2880,11 +2995,11 @@ sequence main {
 			    }
 			}
 
-			func configurable{threshold f64} (value f64) {}
+			func configurable(threshold f64) {value f64} {}
 
-			sensor_chan -> demux{} -> {
-			    high: 1.0 -> configurable{threshold=50.0},
-			    low: 1.0 -> configurable{}
+			sensor_chan -> demux() -> {
+			    high: 1.0 -> configurable(threshold=50.0),
+			    low: 1.0 -> configurable()
 			}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
@@ -2901,7 +3016,7 @@ sequence main {
 			"Should analyze routing table with parameter mapping",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -2909,14 +3024,14 @@ sequence main {
 			    }
 			}
 
-			func combiner{} (a f64, b f64) f64 {
+			func combiner() {a f64, b f64} f64 {
 			    return a + b
 			}
 
-			sensor_chan -> demux{} -> {
+			sensor_chan -> demux() -> {
 			    high: output_chan: a,
 			    low: temp_sensor: b
-			} -> combiner{}`))
+			} -> combiner()`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -2927,7 +3042,7 @@ sequence main {
 			"Should detect invalid parameter name in routing table",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -2935,13 +3050,13 @@ sequence main {
 			    }
 			}
 
-			func doubler{} (a f64) f64 {
+			func doubler() {a f64} f64 {
 			    return a * 2.0
 			}
 
-			sensor_chan -> demux{} -> {
+			sensor_chan -> demux() -> {
 			    high: output_chan: invalid_param
-			} -> doubler{}`))
+			} -> doubler()`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -2954,7 +3069,7 @@ sequence main {
 
 		It("Should type-check parameter mapping", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -2962,17 +3077,17 @@ sequence main {
 			    }
 			}
 
-			func multiplier{} (value f64) f64 {
+			func multiplier() {value f64} f64 {
 			    return value * 2.0
 			}
 
-			func converter{} (a f32) f64 {
+			func converter() {a f32} f64 {
 			    return f64(a) + 1.0
 			}
 
-			sensor_chan -> demux{} -> {
-			    high: 1.0 -> multiplier{}: a
-			} -> converter{}`))
+			sensor_chan -> demux() -> {
+			    high: 1.0 -> multiplier(): a
+			} -> converter()`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -2984,7 +3099,7 @@ sequence main {
 			"Should analyze routing table with chained processing and parameter mapping",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -2992,22 +3107,22 @@ sequence main {
 			    }
 			}
 
-			func filter{} (value f64) f64 {
+			func filter() {value f64} f64 {
 			    return value
 			}
 
-			func amplifier{} (value f64) f64 {
+			func amplifier() {value f64} f64 {
 			    return value * 10.0
 			}
 
-			func scaler{} (input f64, scale f64) f64 {
+			func scaler() {input f64, scale f64} f64 {
 			    return input * scale
 			}
 
-			sensor_chan -> demux{} -> {
-			    high: 1.0 -> filter{} -> amplifier{}: input,
+			sensor_chan -> demux() -> {
+			    high: 1.0 -> filter() -> amplifier(): input,
 			    low: output_chan: scale
-			} -> scaler{}`))
+			} -> scaler()`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -3018,7 +3133,7 @@ sequence main {
 			"Should require next func when using parameter mapping",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
@@ -3026,7 +3141,7 @@ sequence main {
 			    }
 			}
 
-			sensor_chan -> demux{} -> {
+			sensor_chan -> demux() -> {
 			    high: output_chan: a
 			}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
@@ -3044,14 +3159,14 @@ sequence main {
 				"Should analyze input routing table mapping sources to parameters",
 				func(bCtx SpecContext) {
 					ast := MustSucceed(parser.Parse(`
-				func combiner{} (a f64, b f64) f64 {
+				func combiner() {a f64, b f64} f64 {
 				    return a + b
 				}
 
 				 {
 				    sensor_chan: a,
 				    output_chan: b
-				} -> combiner{}`))
+				} -> combiner()`))
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -3062,13 +3177,13 @@ sequence main {
 				"Should detect when input routing table has invalid parameter name",
 				func(bCtx SpecContext) {
 					ast := MustSucceed(parser.Parse(`
-				func combiner{} (a f64, b f64) f64 {
+				func combiner() {a f64, b f64} f64 {
 				    return a + b
 				}
 
 				 {
 				    sensor_chan: invalid_param
-				} -> combiner{}`))
+				} -> combiner()`))
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -3099,17 +3214,17 @@ sequence main {
 				"Should detect when input routing entry does not end with identifier",
 				func(bCtx SpecContext) {
 					ast := MustSucceed(parser.Parse(`
-				func combiner{} (a f64, b f64) f64 {
+				func combiner() {a f64, b f64} f64 {
 				    return a + b
 				}
 
-				func processor{} () f64 {
+				func processor() f64 {
 				    return 1.0
 				}
 
 				 {
-				    sensor_chan: processor{}
-				} -> combiner{}`))
+				    sensor_chan: processor()
+				} -> combiner()`))
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -3148,13 +3263,13 @@ sequence main {
 			"Should allow standalone function invocation with no required inputs",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func setup{} () {
+			func setup() {
 			// Do something
 			}
 
 			sequence main {
 			    stage start {
-			        setup{}
+			        setup()
 			    }
 			}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
@@ -3167,13 +3282,13 @@ sequence main {
 			"Should detect when standalone function has required inputs without defaults",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func process{} (value f64) {
+			func process() {value f64} {
 			// value is required but has no source
 			}
 
 			sequence main {
 			    stage start {
-			        process{}
+			        process()
 			    }
 			}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
@@ -3190,13 +3305,13 @@ sequence main {
 			"Should allow standalone function with inputs that have default values",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func greet{} (count u8 = 1) {
+			func greet() {count u8 = 1} {
 			// count has a default value, so this is valid
 			}
 
 			sequence main {
 			    stage start {
-			        greet{}
+			        greet()
 			    }
 			}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
@@ -3221,19 +3336,19 @@ sequence main {
 			"Should allow mixing flow statements and single invocations",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func setup{} () {}
-			func process{} (value f32) u8 {
+			func setup() {}
+			func process() {value f32} u8 {
 			    return 1
 			}
 
 			sequence main {
 			    stage start {
-			        setup{}
-			        sensor -> process{} => next
+			        setup()
+			        sensor -> process() => next
 			    }
 
 			    stage running {
-			        sensor -> process{} => next
+			        sensor -> process() => next
 			    }
 			}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
@@ -3248,30 +3363,30 @@ sequence main {
 			"Should compile sequences with stage targets and mixed flow operators",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func threshold{} (val f32) bool {
+			func threshold() {val f32} bool {
 			    return val > 100
 			}
 
-			func prepare{} () u8 {
+			func prepare() u8 {
 			    return 1
 			}
 
-			func recover{} () u8 {
+			func recover() u8 {
 			    return 1
 			}
 
 			sequence main {
 			    stage initialization {
-			        sensor -> prepare{} => next
+			        sensor -> prepare() => next
 			    }
 
 			    stage pressurization {
-			        sensor -> threshold{} => next
-			        pressure -> threshold{} => abort
+			        sensor -> threshold() => next
+			        pressure -> threshold() => abort
 			    }
 
 			    stage abort {
-			        recover{} => initialization
+			        recover() => initialization
 			    }
 			}
 
@@ -3350,8 +3465,8 @@ var _ = Describe("TriggerOnly upstream activation", func() {
 	It("Should accept a void func feeding a TriggerOnly func", func(bCtx SpecContext) {
 		ast := MustSucceed(parser.Parse(`
 		func void_src() {}
-		func sink{value f64} () {}
-		void_src{} -> sink{value=5.0}`))
+		func sink(value f64) {}
+		void_src() -> sink(value=5.0)`))
 		ctx := context.NewRoot(bCtx, ast, NewRoot(nil))
 		analyzer.AnalyzeProgram(ctx)
 		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -3361,8 +3476,8 @@ var _ = Describe("TriggerOnly upstream activation", func() {
 		"Should not type-check a channel upstream against a TriggerOnly func",
 		func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-		func sink{value f64} () {}
-		sensor_chan -> sink{value=5.0}`))
+		func sink(value f64) {}
+		sensor_chan -> sink(value=5.0)`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -3374,8 +3489,8 @@ var _ = Describe("TriggerOnly upstream activation", func() {
 		func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 		func void_src() {}
-		func consumer(v f64) {}
-		void_src{} -> consumer{}`))
+		func consumer() {v f64} {}
+		void_src() -> consumer()`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -3389,8 +3504,8 @@ var _ = Describe("Trigger call-site conflict", func() {
 		"Should flag a param bound by both a named call-site argument and an upstream wire",
 		func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-		func consumer(v f64) {}
-		sensor_chan -> consumer{v=5.0}`))
+		func consumer() {v f64} {}
+		sensor_chan -> consumer(v=5.0)`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -3404,8 +3519,8 @@ var _ = Describe("Trigger call-site conflict", func() {
 		"Should reject a positional argument when the only param is the trigger",
 		func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-		func consumer(v f64) {}
-		sensor_chan -> consumer{5.0}`))
+		func consumer() {v f64} {}
+		sensor_chan -> consumer(5.0)`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -3419,8 +3534,8 @@ var _ = Describe("Trigger call-site conflict", func() {
 var _ = Describe("Duplicate call-site argument", func() {
 	It("Should flag a parameter supplied twice by name", func(bCtx SpecContext) {
 		ast := MustSucceed(parser.Parse(`
-		func sink{v i32}() {}
-		sensor_chan -> sink{v=1, v=2}`))
+		func sink(v i32) {}
+		sensor_chan -> sink(v=1, v=2)`))
 		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 		analyzer.AnalyzeProgram(ctx)
 		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
@@ -3435,10 +3550,10 @@ var _ = Describe("Trigger in select routing branches", func() {
 		"Should not type-check a select branch routing into a TriggerOnly func",
 		func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-		func setter{key_or_name str, message str, variant str} () {}
-		start_cmd -> select{} -> {
-			true: true -> setter{key_or_name="a", message="up", variant="info"},
-			false: true -> setter{key_or_name="b", message="down", variant="info"}
+		func setter(key_or_name str, message str, variant str) {}
+		start_cmd -> select() -> {
+			true: true -> setter(key_or_name="a", message="up", variant="info"),
+			false: true -> setter(key_or_name="b", message="down", variant="info")
 		}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -3450,10 +3565,10 @@ var _ = Describe("Trigger in select routing branches", func() {
 		"Should type-check a select branch routing into a func with a wire-fed input",
 		func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-		func sink(v str) {}
-		start_cmd -> select{} -> {
-			true: true -> sink{},
-			false: true -> sink{}
+		func sink() {v str} {}
+		start_cmd -> select() -> {
+			true: true -> sink(),
+			false: true -> sink()
 		}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -3479,9 +3594,9 @@ var _ = Describe("Trigger in select routing branches", func() {
 			}
 			ast := MustSucceed(parser.Parse(`
 		import time
-		flag -> select{} -> {
-			true: time.now{} -> i64_ch,
-			false: time.now{} -> i64_ch
+		flag -> select() -> {
+			true: time.now() -> i64_ch,
+			false: time.now() -> i64_ch
 		}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
 			analyzer.AnalyzeProgram(ctx)
@@ -3511,43 +3626,43 @@ var _ = Describe("Routing entry strictness", func() {
 		Entry("bare next", `
 			sequence main {
 			    stage first {
-			        flag -> select{} -> { true: next }
+			        flag -> select() -> { true: next }
 			    }
 			    stage second {}
 			}`),
 		Entry("bare channel", `
-			flag -> select{} -> { false: vlv_cmd }`),
+			flag -> select() -> { false: vlv_cmd }`),
 		Entry("bare sequence", `
 			sequence alarm {
 			    stage active {}
 			}
-			flag -> select{} -> { true: alarm }`),
+			flag -> select() -> { true: alarm }`),
 		Entry("bare expression", `
-			flag -> select{} -> { true: 1 }`),
+			flag -> select() -> { true: 1 }`),
 		Entry("bare func invocation", `
-			func alarm{} (value f64) {}
-			flag -> select{} -> { true: alarm{} }`),
+			func alarm() {value f64} {}
+			flag -> select() -> { true: alarm() }`),
 		Entry("bare func invocations on a custom routing func", `
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
 			        low = value
 			    }
 			}
-			func alarm{} (value f64) {}
-			func logger{} (value f64) {}
-			sensor_chan -> demux{} -> { high: alarm{}, low: logger{} }`),
+			func alarm() {value f64} {}
+			func logger() {value f64} {}
+			sensor_chan -> demux() -> { high: alarm(), low: logger() }`),
 	)
 
 	It("Should not feed the routed value into an entry's head func",
 		func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-			func amplify{} (value f64) f64 {
+			func amplify() {value f64} f64 {
 			    return value * 2.0
 			}
-			flag -> select{} -> {
-			    true: amplify{} -> log_str
+			flag -> select() -> {
+			    true: amplify() -> log_str
 			}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(routingResolver))
 			analyzer.AnalyzeProgram(ctx)
@@ -3568,12 +3683,12 @@ var _ = Describe("Routing entry strictness", func() {
 		Entry("boolean transition to next", `
 			sequence main {
 			    stage first {
-			        flag -> select{} -> { true: true => next }
+			        flag -> select() -> { true: true => next }
 			    }
 			    stage second {}
 			}`),
 		Entry("explicit value per branch", `
-			flag -> select{} -> {
+			flag -> select() -> {
 			    true: true -> vlv_cmd,
 			    false: false -> vlv_cmd
 			}`),
@@ -3581,7 +3696,7 @@ var _ = Describe("Routing entry strictness", func() {
 			sequence alarm {
 			    stage active {}
 			}
-			flag -> select{} -> { true: true => alarm }`),
+			flag -> select() -> { true: true => alarm }`),
 	)
 
 	DescribeTable("Should reject '=>' feeding a routing table",
@@ -3600,33 +3715,33 @@ var _ = Describe("Routing entry strictness", func() {
 			)
 		},
 		Entry("top-level select", `
-			flag -> select{} => {
+			flag -> select() => {
 			    true: true -> vlv_cmd,
 			    false: false -> vlv_cmd
 			}`),
 		Entry("select inside a stage", `
 			sequence main {
 			    stage first {
-			        flag -> select{} => { true: true => next }
+			        flag -> select() => { true: true => next }
 			    }
 			    stage second {}
 			}`),
 		Entry("custom routing func", `
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
 			        low = value
 			    }
 			}
-			sensor_chan -> demux{} => {
+			sensor_chan -> demux() => {
 			    high: true -> vlv_cmd,
 			    low: false -> vlv_cmd
 			}`),
 		Entry("inside an inline stage in a routing entry", `
-			flag -> select{} -> {
+			flag -> select() -> {
 			    true: stage {
-			        flag -> select{} => {
+			        flag -> select() => {
 			            true: true -> vlv_cmd
 			        }
 			    }
@@ -3640,37 +3755,37 @@ var _ = Describe("Routing entry strictness", func() {
 			analyzer.AnalyzeProgram(ctx)
 			errs := ctx.Diagnostics.Errors()
 			Expect(errs).To(HaveLen(1))
-			Expect(errs[0].Message).To(ContainSubstring("'=>' cannot feed select{}"))
+			Expect(errs[0].Message).To(ContainSubstring("'=>' cannot feed select()"))
 			line := strings.Split(source, "\n")[errs[0].Range.Start.Line]
 			Expect(int(errs[0].Range.Start.Character)).To(
 				Equal(strings.Index(line, "=>")),
 			)
 		},
 		Entry("channel source", `
-			flag => select{} -> {
+			flag => select() -> {
 			    true: true -> vlv_cmd,
 			    false: false -> vlv_cmd
 			}`),
 		Entry("expression source", `
-			sensor_chan > 100.0 => select{} -> {
+			sensor_chan > 100.0 => select() -> {
 			    true: true -> vlv_cmd,
 			    false: false -> vlv_cmd
 			}`),
 		Entry("inside a stage", `
 			sequence main {
 			    stage first {
-			        flag => select{} -> { true: true => next }
+			        flag => select() -> { true: true => next }
 			    }
 			    stage second {}
 			}`),
 		Entry("inside a routing entry", `
-			flag -> select{} -> {
-			    true: flag => select{}
+			flag -> select() -> {
+			    true: flag => select()
 			}`),
 		Entry("inside an inline stage in a routing entry", `
-			flag -> select{} -> {
+			flag -> select() -> {
 			    true: stage {
-			        flag => select{} -> {
+			        flag => select() -> {
 			            true: true -> vlv_cmd
 			        }
 			    }
@@ -3679,16 +3794,16 @@ var _ = Describe("Routing entry strictness", func() {
 
 	It("Should report every '=>' feeding select", func(bCtx SpecContext) {
 		ast := MustSucceed(parser.Parse(`
-			flag -> select{} -> {
-			    true: flag => select{},
-			    false: flag => select{}
+			flag -> select() -> {
+			    true: flag => select(),
+			    false: flag => select()
 			}`))
 		ctx := context.NewRoot(bCtx, ast, NewRoot(routingResolver))
 		analyzer.AnalyzeProgram(ctx)
 		errs := ctx.Diagnostics.Errors()
 		Expect(errs).To(HaveLen(2))
 		for _, err := range errs {
-			Expect(err.Message).To(ContainSubstring("'=>' cannot feed select{}"))
+			Expect(err.Message).To(ContainSubstring("'=>' cannot feed select()"))
 		}
 	})
 
@@ -3702,15 +3817,15 @@ var _ = Describe("Routing entry strictness", func() {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		},
 		Entry("inline stage body", `
-			flag -> select{} -> {
+			flag -> select() -> {
 			    true: stage { true -> vlv_cmd }
 			}`),
 		Entry("inline sequence body", `
-			flag -> select{} -> {
+			flag -> select() -> {
 			    true: sequence { true -> vlv_cmd }
 			}`),
 		Entry("inline bodies on both branches", `
-			flag -> select{} -> {
+			flag -> select() -> {
 			    true: stage { true -> vlv_cmd },
 			    false: sequence { false -> vlv_cmd }
 			}`),
@@ -3719,20 +3834,20 @@ var _ = Describe("Routing entry strictness", func() {
 	It("Should type-check a param-mapped entry head against the parameter",
 		func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) (high f64, low f64) {
+			func demux() {value f64} (high f64, low f64) {
 			    if (value > 100.0) {
 			        high = value
 			    } else {
 			        low = value
 			    }
 			}
-			func combiner{} (a f64, b f64) f64 {
+			func combiner() {a f64, b f64} f64 {
 			    return a + b
 			}
-			sensor_chan -> demux{} -> {
+			sensor_chan -> demux() -> {
 			    high: log_str: a,
 			    low: 1.0: b
-			} -> combiner{}`))
+			} -> combiner()`))
 			resolver := StaticResolver{
 				{
 					Name: "sensor_chan",
@@ -3809,7 +3924,7 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 			},
 		}),
 		Entry("bool function output into a u8 channel", mismatchCase{
-			source: "func check() bool { return true }\n\ncheck{} -> num_u8",
+			source: "func check() bool { return true }\n\ncheck() -> num_u8",
 			line:   2,
 			substrings: []string{
 				"func check output type bool",
@@ -3825,7 +3940,7 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 			},
 		}),
 		Entry("qualified func output into a bool channel", mismatchCase{
-			source: "import time\ntime.wait{duration=1s} -> flag",
+			source: "import time\ntime.wait(duration=1s) -> flag",
 			line:   1,
 			substrings: []string{
 				"func time.wait output type u8",
@@ -3845,18 +3960,18 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 		Entry("channel to matching channel", "num_f64 -> sink_f64"),
 		Entry(
 			"bool function output to matching bool channel",
-			"func check() bool { return true }\n\ncheck{} -> flag",
+			"func check() bool { return true }\n\ncheck() -> flag",
 		),
 		Entry(
 			"qualified func output to a matching u8 channel",
-			"import time\ntime.wait{duration=1s} -> num_u8",
+			"import time\ntime.wait(duration=1s) -> num_u8",
 		),
 	)
 
 	It(
 		"Should report an unknown qualified func source without a sink mismatch",
 		func(bCtx SpecContext) {
-			ast := MustSucceed(parser.Parse("import time\ntime.nosuch{} -> num_u8"))
+			ast := MustSucceed(parser.Parse("import time\ntime.nosuch() -> num_u8"))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, sinkResolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())

@@ -136,31 +136,8 @@ func compilePostfix(
 	funcCalls := ctx.AST.AllFunctionCallSuffix()
 
 	head, tail := parser.PrimaryNameParts(primary)
-	funcName := parser.PrimaryName(primary)
-	if len(funcCalls) > 0 && funcName != "" {
-		// len(), series.len(), and string.len() are language-level builtins
-		// that require compiler dispatch rather than normal function resolution.
-		// len() is polymorphic, dispatching to series.len or string.len based
-		// on argument type. The qualified forms restrict to a specific type.
-		if funcName == "len" || funcName == "series.len" ||
-			funcName == "string.len" {
-			return compileBuiltinLen(ctx, funcCalls[0], funcName)
-		}
-
-		scope, err := ctx.Scope.Resolve(ctx, head)
-		if err == nil && tail != "" {
-			scope, err = scope.Resolve(ctx, tail)
-		}
-		if err == nil && scope.Kind == symbol.KindFunction {
-			if scope.Exec == symbol.ExecFlow {
-				return types.Type{}, errors.Newf(
-					"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s{}",
-					funcName,
-					funcName,
-				)
-			}
-			return compileFunctionCallExpr(ctx, funcName, scope, funcCalls[0])
-		}
+	if len(funcCalls) > 0 && parser.PrimaryName(primary) != "" {
+		return CompileCall(ctx, head, tail, symbol.CallArguments(funcCalls[0]))
 	}
 
 	currentType, err := compilePrimary(ctx.Child(primary))
@@ -178,30 +155,71 @@ func compilePostfix(
 	return currentType, nil
 }
 
-func compileFunctionCallExpr(
-	ctx context.Context[parser.IPostfixExpressionContext],
-	funcName string,
-	scope *symbol.Symbol,
-	funcCall parser.IFunctionCallSuffixContext,
+// CompileCall emits a call to the function named head.tail with args bound by name or
+// position and defaults for the rest. It returns the default output type.
+func CompileCall[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	head, tail string,
+	args []symbol.Argument,
 ) (types.Type, error) {
-	funcType := scope.Type
-
-	var args []parser.IExpressionContext
-	if argList := funcCall.ArgumentList(); argList != nil {
-		args = argList.AllExpression()
+	funcName := head
+	if tail != "" {
+		funcName = head + "." + tail
 	}
-
-	requiredCount := funcType.Inputs.RequiredCount()
-	totalCount := len(funcType.Inputs)
-	actualCount := len(args)
-	if actualCount < requiredCount || actualCount > totalCount {
+	// len() dispatches on its argument type, so it bypasses symbol resolution.
+	if funcName == "len" || funcName == "series.len" || funcName == "string.len" {
+		return compileBuiltinLen(ctx, args, funcName)
+	}
+	scope, err := ctx.Scope.Resolve(ctx, head)
+	if err == nil && tail != "" {
+		scope, err = scope.Resolve(ctx, tail)
+	}
+	if err != nil {
+		return types.Type{}, err
+	}
+	if scope.Kind != symbol.KindFunction {
+		return types.Type{}, errors.Newf("%s is not a function", funcName)
+	}
+	if scope.Exec == symbol.ExecFlow {
 		return types.Type{}, errors.Newf(
-			"function %s expects %d to %d arguments, got %d",
-			funcName, requiredCount, totalCount, actualCount,
+			"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s()",
+			funcName,
+			funcName,
 		)
 	}
+	return compileFunctionCallExpr(ctx, funcName, scope, args)
+}
 
-	concreteInputs := make(types.Params, len(funcType.Inputs))
+func compileFunctionCallExpr[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	funcName string,
+	scope *symbol.Symbol,
+	args []symbol.Argument,
+) (types.Type, error) {
+	funcType := scope.Type
+	totalCount := len(funcType.Inputs)
+	ordered := make([]parser.IExpressionContext, totalCount)
+	for _, arg := range args {
+		i := arg.Index
+		if arg.Name != "" {
+			i = funcType.Inputs.GetIndex(arg.Name)
+			if i < 0 {
+				return types.Type{}, errors.Newf(
+					"function %s has no parameter %s",
+					funcName, arg.Name,
+				)
+			}
+		}
+		if i >= totalCount {
+			return types.Type{}, errors.Newf(
+				"function %s expects at most %d arguments",
+				funcName, totalCount,
+			)
+		}
+		ordered[i] = arg.Expr
+	}
+
+	concreteInputs := make(types.Params, totalCount)
 	copy(concreteInputs, funcType.Inputs)
 
 	// Track resolved type variables as arguments are compiled so that
@@ -210,8 +228,25 @@ func compileFunctionCallExpr(
 	// then compiles the literal 2 as f32 instead of defaulting to i64).
 	varMap := make(map[string]types.Type)
 
-	for i, arg := range args {
-		paramType := funcType.Inputs[i].Type
+	for i, param := range funcType.Inputs {
+		arg := ordered[i]
+		if arg == nil {
+			if param.Value == nil {
+				return types.Type{}, errors.Newf(
+					"function %s is missing an argument for parameter %s",
+					funcName, param.Name,
+				)
+			}
+			if err := emitLiteralValue(ctx, param.Type, param.Value); err != nil {
+				return types.Type{}, errors.Wrapf(
+					err,
+					"default value for parameter %s",
+					param.Name,
+				)
+			}
+			continue
+		}
+		paramType := param.Type
 		hint := paramType
 		if paramType.Kind == types.KindVariable {
 			if resolved, ok := varMap[paramType.Name]; ok {
@@ -236,16 +271,6 @@ func compileFunctionCallExpr(
 		}
 	}
 
-	for i := actualCount; i < totalCount; i++ {
-		param := funcType.Inputs[i]
-		if err := emitLiteralValue(ctx, param.Type, param.Value); err != nil {
-			return types.Type{}, errors.Wrapf(
-				err,
-				"default value for parameter %s",
-				param.Name,
-			)
-		}
-	}
 	concreteOutputs := make(types.Params, len(funcType.Outputs))
 	copy(concreteOutputs, funcType.Outputs)
 	for i, out := range concreteOutputs {
@@ -449,15 +474,11 @@ func emitLiteralValue[T antlr.ParserRuleContext](
 	return nil
 }
 
-func compileBuiltinLen(
-	ctx context.Context[parser.IPostfixExpressionContext],
-	funcCall parser.IFunctionCallSuffixContext,
+func compileBuiltinLen[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	args []symbol.Argument,
 	funcName string,
 ) (types.Type, error) {
-	var args []parser.IExpressionContext
-	if argList := funcCall.ArgumentList(); argList != nil {
-		args = argList.AllExpression()
-	}
 	if len(args) != 1 {
 		return types.Type{}, errors.Newf(
 			"%s() requires exactly 1 argument, got %d",
@@ -466,7 +487,7 @@ func compileBuiltinLen(
 		)
 	}
 
-	argType, err := Compile(ctx.Child(args[0]))
+	argType, err := Compile(ctx.Child(args[0].Expr))
 	if err != nil {
 		return types.Type{}, errors.Wrap(err, "argument 1 of "+funcName)
 	}

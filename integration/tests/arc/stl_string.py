@@ -13,78 +13,78 @@ from tests.arc.arc import ArcCase
 ARC_STL_STRING_SOURCE = """
 // ──────────────────────────── string.len ─────────────────────────────
 // len(const)
-func len_cc(s str) i64 {
+func len_cc() {s str} i64 {
     return len("hello")
 }
-str_trigger -> len_cc{} -> len_cc_out
+str_trigger -> len_cc() -> len_cc_out
 // len(chan)
-func len_ch(s str) i64 {
+func len_ch() {s str} i64 {
     return len(s)
 }
-str_trigger -> len_ch{} -> len_ch_out
+str_trigger -> len_ch() -> len_ch_out
 // ───────────────────────────── concat (+) ────────────────────────────
 // concat(const, const)
-func concat_cc(s str) i64 {
+func concat_cc() {s str} i64 {
     return len("ab" + "cd")
 }
-str_trigger -> concat_cc{} -> concat_cc_out
+str_trigger -> concat_cc() -> concat_cc_out
 // concat(chan, const)
-func concat_xc(s str) i64 {
+func concat_xc() {s str} i64 {
     return len(s + " world")
 }
-str_trigger -> concat_xc{} -> concat_xc_out
+str_trigger -> concat_xc() -> concat_xc_out
 // concat(const, chan)
-func concat_cx(s str) i64 {
+func concat_cx() {s str} i64 {
     return len("prefix:" + s)
 }
-str_trigger -> concat_cx{} -> concat_cx_out
+str_trigger -> concat_cx() -> concat_cx_out
 // concat(chan, chan)
-func concat_xx(s str) {
+func concat_xx() {s str} {
     concat_xx_out = len(s + str_second)
 }
-str_trigger -> concat_xx{}
+str_trigger -> concat_xx()
 // ───────────────────────────── equal (==) ────────────────────────────
 // equal(const, const)
-func equal_cc(s str) bool {
+func equal_cc() {s str} bool {
     return "abc" == "abc"
 }
-str_trigger -> equal_cc{} -> equal_cc_out
+str_trigger -> equal_cc() -> equal_cc_out
 // equal(chan, const) — match
-func equal_xc_match(s str) bool {
+func equal_xc_match() {s str} bool {
     return s == "hello"
 }
-str_trigger -> equal_xc_match{} -> equal_xc_match_out
+str_trigger -> equal_xc_match() -> equal_xc_match_out
 // equal(chan, const) — mismatch
-func equal_xc_mismatch(s str) bool {
+func equal_xc_mismatch() {s str} bool {
     return s == "world"
 }
-str_trigger -> equal_xc_mismatch{} -> equal_xc_mismatch_out
+str_trigger -> equal_xc_mismatch() -> equal_xc_mismatch_out
 // equal(const, chan)
-func equal_cx(s str) bool {
+func equal_cx() {s str} bool {
     return "hello" == s
 }
-str_trigger -> equal_cx{} -> equal_cx_out
+str_trigger -> equal_cx() -> equal_cx_out
 // equal(chan, chan) — same
-func equal_xx_same(s str) bool {
+func equal_xx_same() {s str} bool {
     return s == s
 }
-str_trigger -> equal_xx_same{} -> equal_xx_same_out
+str_trigger -> equal_xx_same() -> equal_xx_same_out
 // equal(chan, chan) — different
-func equal_xx_diff(s str) {
+func equal_xx_diff() {s str} {
     equal_xx_diff_out = s == str_second
 }
-str_trigger -> equal_xx_diff{}
+str_trigger -> equal_xx_diff()
 // ──────────────────────────────── misc ───────────────────────────────
 // nested concat
-func concat_nested(s str) {
+func concat_nested() {s str} {
     concat_nested_out = len(s + "-" + str_second)
 }
-str_trigger -> concat_nested{}
+str_trigger -> concat_nested()
 // multi-string addition
-func multi_add(s str) {
+func multi_add() {s str} {
     multi_add_out = len(s + str_second + "_suffix" + str_third)
 }
-str_trigger -> multi_add{}
+str_trigger -> multi_add()
 // ──────────────────────── format strings (function) ───────────────────
 // One function exercises constants, local variables, and channel refs.
 func fmt_fn() {
@@ -134,7 +134,7 @@ func fmt_fn() {
     fmt_brace_path_fn_out = rf"C:\logs\{{abc}}.txt"
     fmt_brace_path_int_fn_out = rf"C:\logs\{{{42}}}.txt"
 }
-fmt_trigger -> fmt_fn{}
+fmt_trigger -> fmt_fn()
 // ──────────────────────── format strings (flow) ───────────────────────
 // Constants in flow position.
 fmt_trigger -> f"int: {42}" -> fmt_const_int_flow_out

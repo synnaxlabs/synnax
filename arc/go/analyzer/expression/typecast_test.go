@@ -150,7 +150,7 @@ var _ = Describe("Type Casts", func() {
 			}
 		`),
 		Entry("cast of literal in function call", `
-			func takeFloat(x f32) f32 {
+			func takeFloat() {x f32} f32 {
 				return x
 			}
 

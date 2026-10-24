@@ -695,7 +695,7 @@ var _ = Describe("Expressions", func() {
 		DescribeTable("valid function calls",
 			func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
 			Entry("with correct arguments", `
-				func add(x i32, y i32) i32 {
+				func add() {x i32, y i32} i32 {
 					return x + y
 				}
 
@@ -704,11 +704,11 @@ var _ = Describe("Expressions", func() {
 				}
 			`),
 			Entry("nested function calls", `
-				func double(x i32) i32 {
+				func double() {x i32} i32 {
 					return x * 2
 				}
 
-				func add(x i32, y i32) i32 {
+				func add() {x i32, y i32} i32 {
 					return x + y
 				}
 
@@ -726,7 +726,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`),
 			Entry("expression arguments", `
-				func add(x i32, y i32) i32 {
+				func add() {x i32, y i32} i32 {
 					return x + y
 				}
 
@@ -737,7 +737,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`),
 			Entry("chained function calls", `
-				func identity(x i32) i32 {
+				func identity() {x i32} i32 {
 					return x
 				}
 
@@ -758,7 +758,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`, "undefined symbol: undefinedFunc"),
 			Entry("undefined variable in argument", `
-				func add(x i32, y i32) i32 {
+				func add() {x i32, y i32} i32 {
 					return x + y
 				}
 
@@ -767,7 +767,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`, "undefined symbol"),
 			Entry("too few arguments", `
-				func add(x i32, y i32) i32 {
+				func add() {x i32, y i32} i32 {
 					return x + y
 				}
 
@@ -776,7 +776,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`, "missing required argument"),
 			Entry("too many arguments", `
-				func add(x i32, y i32) i32 {
+				func add() {x i32, y i32} i32 {
 					return x + y
 				}
 
@@ -785,7 +785,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`, "too many arguments"),
 			Entry("no arguments when expected", `
-				func getValue(x i32) i32 {
+				func getValue() {x i32} i32 {
 					return x
 				}
 
@@ -794,7 +794,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`, "missing required argument"),
 			Entry("wrong argument type - string instead of i32", `
-				func add(x i32, y i32) i32 {
+				func add() {x i32, y i32} i32 {
 					return x + y
 				}
 
@@ -803,7 +803,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`, "argument 'y' of 'add'"),
 			Entry("wrong argument type - i32 vs f32 variable", `
-				func process(x f32) f32 {
+				func process() {x f32} f32 {
 					return x * 2.0
 				}
 
@@ -813,7 +813,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`, "argument 'x' of 'process'"),
 			Entry("wrong argument type - integer literal to string parameter", `
-				func greet(name str) {
+				func greet() {name str} {
 				}
 
 				func testFunc() {
@@ -823,7 +823,7 @@ var _ = Describe("Expressions", func() {
 			Entry(
 				"wrong argument type - integer literal to string in standalone call",
 				`
-				func log(msg str) {
+				func log() {msg str} {
 				}
 
 				func testFunc() {
@@ -837,7 +837,7 @@ var _ = Describe("Expressions", func() {
 					return 3.14
 				}
 
-				func needsInt(x i32) i32 {
+				func needsInt() {x i32} i32 {
 					return x + 1
 				}
 
@@ -846,7 +846,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`, "argument 'x' of 'needsInt'"),
 			Entry("wrong arg count in nested call", `
-				func double(x i32) i32 {
+				func double() {x i32} i32 {
 					return x * 2
 				}
 
@@ -861,7 +861,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`, "cannot call non-function"),
 			Entry("calling a parameter as a function", `
-				func testFunc(x i32) i32 {
+				func testFunc() {x i32} i32 {
 					return x()
 				}
 			`, "cannot call non-function"),
@@ -922,7 +922,7 @@ var _ = Describe("Expressions", func() {
 				}
 				sequence main {
 					stage start {
-						tick{duration=1s} => next
+						tick(duration=1s) => next
 					}
 					stage done {}
 				}
@@ -939,7 +939,7 @@ var _ = Describe("Expressions", func() {
 			"Should record a channel read for a chan-typed input parameter",
 			func(specCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-				func f(ch chan f32) f32 {
+				func f() {ch chan f32} f32 {
 					return ch + 1.0
 				}
 			`))
@@ -981,15 +981,15 @@ var _ = Describe("Expressions", func() {
 		DescribeTable("valid optional parameter calls",
 			func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
 			Entry("omit single optional parameter", `
-				func add(x i64, y i64 = 0) i64 { return x + y }
+				func add() {x i64, y i64 = 0} i64 { return x + y }
 				func testFunc() { result := add(10) }
 			`),
 			Entry("provide all arguments including optional", `
-				func add(x i64, y i64 = 0) i64 { return x + y }
+				func add() {x i64, y i64 = 0} i64 { return x + y }
 				func testFunc() { result := add(10, 20) }
 			`),
 			Entry("omit multiple optional parameters", `
-				func sum(a i64, b i64 = 1, c i64 = 2) i64 { return a + b + c }
+				func sum() {a i64, b i64 = 1, c i64 = 2} i64 { return a + b + c }
 				func testFunc() {
 					x := sum(10)
 					y := sum(10, 20)
@@ -997,15 +997,15 @@ var _ = Describe("Expressions", func() {
 				}
 			`),
 			Entry("string default parameter", `
-				func greet(name str = "world") str { return name }
+				func greet() {name str = "world"} str { return name }
 				func testFunc() { result := greet() }
 			`),
 			Entry("all optional parameters", `
-				func defaults(a i64 = 1, b i64 = 2) i64 { return a + b }
+				func defaults() {a i64 = 1, b i64 = 2} i64 { return a + b }
 				func testFunc() { result := defaults() }
 			`),
 			Entry("f64 default parameter", `
-				func scale(x f64, factor f64 = 2.5) f64 { return x * factor }
+				func scale() {x f64, factor f64 = 2.5} f64 { return x * factor }
 				func testFunc() { result := scale(4.0) }
 			`),
 		)
@@ -1015,11 +1015,11 @@ var _ = Describe("Expressions", func() {
 				expectFailure(ctx, code, nil, expectedErrSubstring)
 			},
 			Entry("missing required argument", `
-				func add(x i64, y i64 = 0) i64 { return x + y }
+				func add() {x i64, y i64 = 0} i64 { return x + y }
 				func testFunc() { result := add() }
 			`, "missing required argument"),
 			Entry("too many arguments", `
-				func add(x i64, y i64 = 0) i64 { return x + y }
+				func add() {x i64, y i64 = 0} i64 { return x + y }
 				func testFunc() { result := add(1, 2, 3) }
 			`, "too many arguments"),
 		)
@@ -1035,7 +1035,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`),
 			Entry("function parameters", `
-				func testFunc(x i32, y i32) i32 {
+				func testFunc() {x i32, y i32} i32 {
 					return x + y
 				}
 			`),
@@ -1305,14 +1305,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		It("Should return false for function call expression", func() {
-			ast := MustSucceed(parser.Parse(`
-				func getValue() i32 {
-					return 5
-				}
-				getValue() -> out
-			`))
-			flowNode := ast.AllTopLevelItem()[1].FlowStatement().AllFlowNode()[0]
-			expr := flowNode.Expression()
+			expr := MustSucceed(parser.ParseExpression(`getValue()`))
 			Expect(parser.IsLiteral(expr)).To(BeFalse())
 		})
 
@@ -1518,7 +1511,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`),
 			Entry("series in function parameter", `
-				func sumFirst(arr series i32) i32 {
+				func sumFirst() {arr series i32} i32 {
 					return arr[0]
 				}
 
@@ -1761,7 +1754,7 @@ var _ = Describe("Expressions", func() {
 			"Should propagate failure from function call argument",
 			func(ctx SpecContext) {
 				expectFailure(ctx, `
-				func add(x i32, y i32) i32 {
+				func add() {x i32, y i32} i32 {
 					return x + y
 				}
 				func testFunc() {

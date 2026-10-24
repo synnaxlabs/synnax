@@ -108,10 +108,10 @@ TEST(ArcTests, testCalcDoubling) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func calc(val f32) f32 {\n"
+        .raw = "func calc() {val f32} f32 {\n"
                "    return val * 2\n"
                "}\n" +
-               input_name + " -> calc{} -> " + output_name + "\n"
+               input_name + " -> calc() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -701,8 +701,8 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func divide_by_zero(val i32) i32 { return val / 0 }\n" + input_name +
-               " -> divide_by_zero{} -> " + output_name + "\n"
+        .raw = "func divide_by_zero() {val i32} i32 { return val / 0 }\n" + input_name +
+               " -> divide_by_zero() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -803,11 +803,11 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func maybe_trap(val i32) i32 {\n"
+        .raw = "func maybe_trap() {val i32} i32 {\n"
                "    if val == 0 { return 1 / val }\n"
                "    return val * 2\n"
                "}\n" +
-               input_name + " -> maybe_trap{} -> " + output_name + "\n"
+               input_name + " -> maybe_trap() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -938,8 +938,8 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func double(val f32) f32 { return val * 2 }\n" + input_name +
-               " -> double{} -> " + output_name + "\n"
+        .raw = "func double() {val f32} f32 { return val * 2 }\n" + input_name +
+               " -> double() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -1050,8 +1050,8 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
-               " -> pass{} -> " + output_name + "\n"
+        .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
+               " -> pass() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -1166,8 +1166,8 @@ TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
-               " -> pass{} -> " + output_name + "\n"
+        .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
+               " -> pass() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -1266,8 +1266,8 @@ TEST(ArcEdgeCases, RapidStartStop) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
-               " -> pass{} -> " + output_name + "\n"
+        .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
+               " -> pass() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -1361,8 +1361,8 @@ TEST(ArcEdgeCases, StopWithoutStart) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
-               " -> pass{} -> " + output_name + "\n"
+        .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
+               " -> pass() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -1472,10 +1472,10 @@ TEST(ArcTests, testChannelConfigParam) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func read_data{ch chan f32}(trigger u8) f32 {\n"
+        .raw = "func read_data(ch chan f32) {trigger u8} f32 {\n"
                "    return ch + f32(0.0)\n"
                "}\n" +
-               trigger_name + " -> read_data{ch=" + data_name + "} -> " + output_name +
+               trigger_name + " -> read_data(ch=" + data_name + ") -> " + output_name +
                "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
@@ -1620,7 +1620,7 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
     };
     arc_prog.text = ::arc::text::Text{
         .raw =
-            "func count_rising_test{counter_ch chan f32, max_ch chan f32}(input u8) {\n"
+            "func count_rising_test(counter_ch chan f32, max_ch chan f32) {input u8} {\n"
             "    prev u8 $= input\n"
             "    counter f32 $= 0.0\n"
             "    read_val := max_ch + f32(0.0)\n"
@@ -1633,8 +1633,8 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
             "    counter_ch = counter\n"
             "    prev = input\n"
             "}\n" +
-            input_name + " -> count_rising_test{counter_ch=" + counter_name +
-            ", max_ch=" + max_name + "}\n"
+            input_name + " -> count_rising_test(counter_ch=" + counter_name +
+            ", max_ch=" + max_name + ")\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -1756,8 +1756,8 @@ TEST(ArcEdgeCases, DoubleStart) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
-               " -> pass{} -> " + output_name + "\n"
+        .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
+               " -> pass() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -1853,12 +1853,12 @@ TEST(ArcTests, testRestartResetsState) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func counter(trigger i64) i64 {\n"
+        .raw = "func counter() {trigger i64} i64 {\n"
                "    count $= 0\n"
                "    count = count + trigger\n"
                "    return count\n"
                "}\n" +
-               input_name + " -> counter{} -> " + output_name + "\n"
+               input_name + " -> counter() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -1981,10 +1981,10 @@ TEST(ArcTests, testStaticAuthorityConfig) {
     };
     arc_prog.text = ::arc::text::Text{
         .raw = "authority 200\n"
-               "func calc(val f32) f32 {\n"
+               "func calc() {val f32} f32 {\n"
                "    return val * 2\n"
                "}\n" +
-               input_name + " -> calc{} -> " + output_name + "\n"
+               input_name + " -> calc() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -2101,11 +2101,11 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
                out_a_name +
                " 200\n"
                ")\n"
-               "func calc(val f32) f32 {\n"
+               "func calc() {val f32} f32 {\n"
                "    return val * 2\n"
                "}\n" +
-               input_name + " -> calc{} -> " + out_a_name + "\n" + input_name +
-               " -> calc{} -> " + out_b_name + "\n"
+               input_name + " -> calc() -> " + out_a_name + "\n" + input_name +
+               " -> calc() -> " + out_b_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -2218,7 +2218,7 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
                "        1 -> " +
                valve_cmd_name +
                "\n"
-               "        set_authority{value=150}\n"
+               "        set_authority(value=150)\n"
                "    }\n"
                "}\n"
                "\n" +
@@ -2323,9 +2323,9 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
                "        1 -> " +
                valve_cmd_name +
                "\n"
-               "        set_authority{value=200, channel=" +
+               "        set_authority(value=200, channel=" +
                valve_cmd_name +
-               "}\n"
+               ")\n"
                "    }\n"
                "}\n"
                "\n" +
@@ -2427,11 +2427,11 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func double(val u8) u8 {\n"
+        .raw = "func double() {val u8} u8 {\n"
                "    return val * 2\n"
                "}\n" +
-               input_name + " -> double{} -> " + output_name + "\n" + input_name +
-               " -> set_authority{value=100}\n"
+               input_name + " -> double() -> " + output_name + "\n" + input_name +
+               " -> set_authority(value=100)\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -2540,10 +2540,10 @@ TEST(ArcTests, testWriterOpensWithErrOnUnauthorizedFalse) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func calc(val f32) f32 {\n"
+        .raw = "func calc() {val f32} f32 {\n"
                "    return val * 2\n"
                "}\n" +
-               input_name + " -> calc{} -> " + output_name + "\n"
+               input_name + " -> calc() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -2635,8 +2635,8 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func double(val i32) i32 { return val * 2 }\n" + input_name +
-               " -> double{} -> " + output_name + "\n"
+        .raw = "func double() {val i32} i32 { return val * 2 }\n" + input_name +
+               " -> double() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -2741,10 +2741,10 @@ TEST(ArcTests, testWriterOpensEagerlyBeforeFirstFrame) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func calc(val f32) f32 {\n"
+        .raw = "func calc() {val f32} f32 {\n"
                "    return val * 2\n"
                "}\n" +
-               input_name + " -> calc{} -> " + output_name + "\n"
+               input_name + " -> calc() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -2825,18 +2825,18 @@ TEST(ArcTests, testReadOnlyNoWriteChannels) {
                "    stage on {\n"
                "        " +
                input_name +
-               " > 305 => status.set{\n"
+               " > 305 => status.set(\n"
                "            key_or_name = \"tstill_status\",\n"
                "            message = \"TStill too warm\",\n"
                "            variant = \"error\"\n"
-               "        }\n"
+               "        )\n"
                "        " +
                input_name +
-               " < 305 => status.set{\n"
+               " < 305 => status.set(\n"
                "            key_or_name = \"tstill_status\",\n"
                "            message = \"TStill nominal\",\n"
                "            variant = \"success\"\n"
-               "        }\n"
+               "        )\n"
                "    }\n"
                "}\n"
     };
@@ -2921,7 +2921,7 @@ TEST(ArcTests, testWriteOnlyNoReadChannels) {
                output_name +
                " = 1\n"
                "}\n"
-               "interval{period=100ms} -> write_valve{}\n"
+               "interval(period=100ms) -> write_valve()\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 

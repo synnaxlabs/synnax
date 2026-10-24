@@ -84,44 +84,44 @@ var (
 	avgDoc = doc.New(
 		doc.Paragraph("Computes a running average of input values."),
 		doc.Divider(),
-		doc.Code("arc", "sensor -> math.avg{} -> output"),
+		doc.Code("arc", "sensor -> math.avg() -> output"),
 		doc.Divider(),
 		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
 		doc.Divider(),
 		doc.Code(
 			"arc",
-			"sensor -> math.avg{count=100} -> output\nsensor -> math.avg{duration=5s} -> output",
+			"sensor -> math.avg(count=100) -> output\nsensor -> math.avg(duration=5s) -> output",
 		),
 		doc.Divider(),
 		doc.Paragraph("An optional reset input clears the accumulated average:"),
 		doc.Divider(),
 		doc.Code(
 			"arc",
-			"sensor -> math.avg{} -> output\nreset_signal -> math.avg{}.reset",
+			"sensor -> math.avg() -> output\nreset_signal -> math.avg().reset",
 		),
 	)
 	minDoc = doc.New(
 		doc.Paragraph("Tracks the running minimum of input values."),
 		doc.Divider(),
-		doc.Code("arc", "sensor -> math.min{} -> output"),
+		doc.Code("arc", "sensor -> math.min() -> output"),
 		doc.Divider(),
 		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
 		doc.Divider(),
 		doc.Code(
 			"arc",
-			"sensor -> math.min{count=100} -> output\nsensor -> math.min{duration=5s} -> output",
+			"sensor -> math.min(count=100) -> output\nsensor -> math.min(duration=5s) -> output",
 		),
 	)
 	maxDoc = doc.New(
 		doc.Paragraph("Tracks the running maximum of input values."),
 		doc.Divider(),
-		doc.Code("arc", "sensor -> math.max{} -> output"),
+		doc.Code("arc", "sensor -> math.max() -> output"),
 		doc.Divider(),
 		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
 		doc.Divider(),
 		doc.Code(
 			"arc",
-			"sensor -> math.max{count=100} -> output\nsensor -> math.max{duration=5s} -> output",
+			"sensor -> math.max(count=100) -> output\nsensor -> math.max(duration=5s) -> output",
 		),
 	)
 	derivativeDoc = doc.New(
@@ -129,7 +129,7 @@ var (
 			"Computes the rate of change (derivative) of input values. Output is always f64.",
 		),
 		doc.Divider(),
-		doc.Code("arc", "sensor -> math.derivative{} -> rate_output"),
+		doc.Code("arc", "sensor -> math.derivative() -> rate_output"),
 	)
 	moduleDoc = doc.New(
 		doc.Paragraph(

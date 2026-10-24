@@ -19,7 +19,7 @@
 // Basic usage:
 //
 //	tree, err := parser.Parse(`
-//	    func add(x f64, y f64) f64 {
+//	    func add() {x f64, y f64} f64 {
 //	        return x + y
 //	    }
 //	`)
@@ -94,7 +94,7 @@ func NewLexer(source string, cfg Config) *ArcLexer {
 // Example:
 //
 //	tree, err := parser.Parse(`
-//	    func double(x f64) f64 {
+//	    func double() {x f64} f64 {
 //	        return x * 2
 //	    }
 //	`)
@@ -222,4 +222,18 @@ func (p *ArcParser) TokensAdjacent(prev, next antlr.Token) bool {
 	// GetStart() returns the first character index of the token
 	// Adjacent means next starts exactly where prev ends + 1
 	return prev.GetStop()+1 == next.GetStart()
+}
+
+// CalleeTouchesParen reports whether the upcoming name, bare or dotted, is followed by
+// '(' with no whitespace between them. A flow node instantiates a function only in that
+// case; `name (x)` is a bare name and a separate parenthesized item.
+func (p *ArcParser) CalleeTouchesParen() bool {
+	stream := p.GetTokenStream()
+	nameIndex := 1
+	if dot := stream.LT(2); dot != nil && dot.GetTokenType() == ArcLexerDOT {
+		nameIndex = 3
+	}
+	paren := stream.LT(nameIndex + 1)
+	return paren != nil && paren.GetTokenType() == ArcLexerLPAREN &&
+		p.TokensAdjacent(stream.LT(nameIndex), paren)
 }

@@ -400,7 +400,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 						counter += 1.2
 						%s = counter
 					}
-					interval{period=500ms} -> cat{}
+					interval(period=500ms) -> cat()
 				`, virtCh.Name),
 				}
 
@@ -440,7 +440,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 					Raw: fmt.Sprintf(`
 					sequence seq {
 						stage claim {
-							1 -> set_authority{value=100, channel=%s}
+							1 -> set_authority(value=100, channel=%s)
 						}
 					}
 					%s => seq

@@ -20,13 +20,13 @@ authority (
     vent_vlv_cmd 210
 )
 
-func high_bang{
+func high_bang(
     sensor chan f32,
     set_point f32,
     lower_deadband f32,
     upper_deadband f32,
     abort_threshold f32,
-} () u8 {
+) u8 {
     state u8 $= 0
     if sensor > (set_point + upper_deadband) {
         state = 0
@@ -39,13 +39,13 @@ func high_bang{
     return state
 }
 
-func low_bang{
+func low_bang(
     sensor chan f32,
     set_point f32,
     lower_deadband f32,
     upper_deadband f32,
     abort_threshold f32,
-} () u8 {
+) u8 {
     state u8 $= 0
     if sensor < (set_point - lower_deadband) {
         state = 1
@@ -60,32 +60,32 @@ func low_bang{
 
 sequence bang_bang_controller {
     stage start {
-        set_authority{value=220, channel=press_vlv_cmd}
-        control.set_authority{value=220, channel=vent_vlv_cmd}
-        interval{200ms} -> high_bang{
+        set_authority(value=220, channel=press_vlv_cmd)
+        control.set_authority(value=220, channel=vent_vlv_cmd)
+        interval(200ms) -> high_bang(
             sensor=press_pt,
             set_point=50,
             lower_deadband=5,
             upper_deadband=5,
             abort_threshold=100
-        } -> press_vlv_cmd
-        interval{200ms} -> low_bang{
+        ) -> press_vlv_cmd
+        interval(200ms) -> low_bang(
             sensor=press_pt,
             set_point=10,
             lower_deadband=5,
             upper_deadband=5,
             abort_threshold=100
-        } -> vent_vlv_cmd
+        ) -> vent_vlv_cmd
         bb_stop_cmd => stop
     }
     stage stop {
         0 -> press_vlv_cmd
         0 -> vent_vlv_cmd
-        wait{250ms} => yield
+        wait(250ms) => yield
     }
     stage yield {
-        control.set_authority{value=0, channel=press_vlv_cmd}
-        set_authority{value=0, channel=vent_vlv_cmd}
+        control.set_authority(value=0, channel=press_vlv_cmd)
+        set_authority(value=0, channel=vent_vlv_cmd)
         bb_start_cmd => start
     }
 }
@@ -98,7 +98,7 @@ class BangBangAuthority(ArcCase):
     """Test that a bang-bang controller with per-channel set_authority correctly
     releases and reclaims authority on both channels symmetrically.
 
-    Deliberately mixes bare (set_authority{}) and qualified (control.set_authority{})
+    Deliberately mixes bare (set_authority()) and qualified (control.set_authority())
     syntax to verify both forms work end-to-end through compile and runtime.
 
     Verifies:

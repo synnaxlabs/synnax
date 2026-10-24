@@ -165,7 +165,7 @@ func myFunc() {
 		Entry("duplicate parameter name",
 			diagnosticCase{
 				source: `
-func test(x i32, x i32) {
+func test() {x i32, x i32} {
 }`,
 				expectedMsg:       "name x conflicts",
 				expectedLine:      1,

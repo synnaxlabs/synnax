@@ -119,27 +119,27 @@ var _ = Describe("Formatter", func() {
 		},
 		Entry(
 			"simple function",
-			"func add(x i32,y i32)i32{return x+y}",
-			"func add(x i32, y i32) i32 {\n    return x + y\n}\n",
+			"func add() {x i32,y i32}i32{return x+y}",
+			"func add() {x i32, y i32} i32 {\n    return x + y\n}\n",
 		),
 		Entry(
 			"function with input block inline",
-			"func threshold{limit f64}(value f64)u8{return u8(0)}",
-			"func threshold{limit f64} (value f64) u8 {\n    return u8(0)\n}\n",
+			"func threshold(limit f64){value f64}u8{return u8(0)}",
+			"func threshold(limit f64) {value f64} u8 {\n    return u8(0)\n}\n",
 		),
 		Entry("empty function body", "func noop(){}", "func noop() {}\n"),
 		Entry(
 			"input with 3 params",
-			"func threshold{max f64, min f64, step i32}(value f64) f64 {return value}",
-			"func threshold{max f64, min f64, step i32} (value f64) f64 {\n    return value\n}\n",
+			"func threshold(max f64, min f64, step i32){value f64} f64 {return value}",
+			"func threshold(max f64, min f64, step i32) {value f64} f64 {\n    return value\n}\n",
 		),
 		Entry("input with chan type",
-			"func dispatch{target chan i64}() {}",
-			"func dispatch{target chan i64} () {}\n"),
+			"func dispatch(target chan i64) {}",
+			"func dispatch(target chan i64) {}\n"),
 		Entry(
 			"named multi output",
-			"func divide(a i32, b i32)(quotient i32, remainder i32){return}",
-			"func divide(a i32, b i32) (quotient i32, remainder i32) {\n    return\n}\n",
+			"func divide() {a i32, b i32}(quotient i32, remainder i32){return}",
+			"func divide() {a i32, b i32} (quotient i32, remainder i32) {\n    return\n}\n",
 		),
 		Entry(
 			"single named output",
@@ -274,9 +274,9 @@ var _ = Describe("Formatter", func() {
 		},
 		Entry(
 			"formatted function",
-			"func add(x i32, y i32) i32 {\n    return x + y\n}\n",
+			"func add() {x i32, y i32} i32 {\n    return x + y\n}\n",
 		),
-		Entry("messy input", "func   add(x i32,y i32)i32{return   x+y}"),
+		Entry("messy input", "func   add() {x i32,y i32}i32{return   x+y}"),
 		Entry("complex expressions", "x := (a + b) * (c - d) / (e % f) ^ g"),
 		Entry("deeply nested structures", "func a(){if x>0{if y>0{if z>0{return 1}}}}"),
 		Entry(
@@ -289,11 +289,11 @@ var _ = Describe("Formatter", func() {
 		),
 		Entry(
 			"multiline input block inlined",
-			"func dog{\n    cat chan f32\n} () u8 {\n    return 12\n}",
+			"func dog(\n    cat chan f32\n) u8 {\n    return 12\n}",
 		),
 		Entry(
 			"input block with comment forced multiline",
-			"func dog{\n    cat chan f32, // blue green\n} () u8 {\n    return 12\n}",
+			"func dog(\n    cat chan f32, // blue green\n) u8 {\n    return 12\n}",
 		),
 		Entry(
 			"stage body with trailing comment",
@@ -307,8 +307,8 @@ var _ = Describe("Formatter", func() {
 			"sequences with stages",
 			"sequence s{stage a{x:=1}stage b{y:=2}stage c{z:=3}}",
 		),
-		Entry("input values", "wait{duration=2ms, retries=3}"),
-		Entry("input values in flow", "sensor -> filter{threshold=10} -> output"),
+		Entry("input values", "wait(duration=2ms, retries=3)"),
+		Entry("input values in flow", "sensor -> filter(threshold=10) -> output"),
 		Entry("blank funcs then sequence",
 			"func a() {}\n\nfunc b() {}\n\nsequence s {\n    stage init {}\n}"),
 		Entry("authority blank line before func",
@@ -323,9 +323,9 @@ var _ = Describe("Formatter", func() {
 		Entry("power operator chained", "x := a ^ b ^ c"),
 		Entry("long flow chain", "a -> b -> c -> d -> e -> f -> g"),
 		Entry("input with 3 params",
-			"func threshold{max f64, min f64, step i32}(value f64) f64 {return value}"),
+			"func threshold(max f64, min f64, step i32){value f64} f64 {return value}"),
 		Entry("named multi output",
-			"func divide(a i32, b i32)(quotient i32, remainder i32){return}"),
+			"func divide() {a i32, b i32}(quotient i32, remainder i32){return}"),
 	)
 
 	DescribeTable("Edge Cases",
@@ -376,8 +376,8 @@ var _ = Describe("Formatter", func() {
 		),
 		Entry(
 			"already formatted function with newlines",
-			"func add(x i32, y i32) i32 {\n    return x + y\n}",
-			"func add(x i32, y i32) i32 {\n    return x + y\n}\n",
+			"func add() {x i32, y i32} i32 {\n    return x + y\n}",
+			"func add() {x i32, y i32} i32 {\n    return x + y\n}\n",
 		),
 		Entry(
 			"multiple functions",
@@ -513,14 +513,14 @@ var _ = Describe("Formatter", func() {
 			"a -> b -> c -> d -> e -> f -> g\n",
 		),
 		Entry("flow with multiple input values",
-			"sensor -> filter{threshold=10} -> scale{factor=2} -> output",
-			"sensor -> filter{threshold=10} -> scale{factor=2} -> output\n"),
+			"sensor -> filter(threshold=10) -> scale(factor=2) -> output",
+			"sensor -> filter(threshold=10) -> scale(factor=2) -> output\n"),
 		Entry("dotted identifier with anonymous input in flow stays on one line",
-			`time.interval{1s} -> "hello" -> arc_string_test`,
-			"time.interval{1s} -> \"hello\" -> arc_string_test\n"),
+			`time.interval(1s) -> "hello" -> arc_string_test`,
+			"time.interval(1s) -> \"hello\" -> arc_string_test\n"),
 		Entry("plain identifier with anonymous input in flow stays on one line",
-			"interval{1s} -> output",
-			"interval{1s} -> output\n"),
+			"interval(1s) -> output",
+			"interval(1s) -> output\n"),
 	)
 
 	DescribeTable(
@@ -694,65 +694,65 @@ var _ = Describe("Formatter", func() {
 		},
 		Entry(
 			"short input values inline without spaces around =",
-			"wait{duration=2ms}",
-			"wait{duration=2ms}\n",
+			"wait(duration=2ms)",
+			"wait(duration=2ms)\n",
 		),
 		Entry(
 			"multiple input values inline",
-			"wait{duration=2ms,retries=3}",
-			"wait{duration=2ms, retries=3}\n",
+			"wait(duration=2ms,retries=3)",
+			"wait(duration=2ms, retries=3)\n",
 		),
-		Entry("empty input values inline", "wait{}", "wait{}\n"),
+		Entry("empty input values inline", "wait()", "wait()\n"),
 		Entry(
 			"input values in flow statements",
-			"sensor -> filter{threshold=10} -> output",
-			"sensor -> filter{threshold=10} -> output\n",
+			"sensor -> filter(threshold=10) -> output",
+			"sensor -> filter(threshold=10) -> output\n",
 		),
 		Entry(
-			"function declaration input block inline",
-			"func threshold{limit f64}(value f64)u8{return u8(0)}",
-			"func threshold{limit f64} (value f64) u8 {\n    return u8(0)\n}\n",
+			"function declaration trigger list inline",
+			"func threshold(limit f64){value f64}u8{return u8(0)}",
+			"func threshold(limit f64) {value f64} u8 {\n    return u8(0)\n}\n",
 		),
 		Entry(
 			"nested input values",
-			"x := foo{a=1} + bar{b=2}",
-			"x := foo{a=1} + bar{b=2}\n",
+			"x := foo(a=1) + bar(b=2)",
+			"x := foo(a=1) + bar(b=2)\n",
 		),
 		Entry("multiline anonymous input value collapses to one line",
-			"wait{\n    duration=2ms\n}",
-			"wait{duration=2ms}\n"),
+			"wait(\n    duration=2ms\n)",
+			"wait(duration=2ms)\n"),
 		Entry(
 			"multiline anonymous input value with trailing comma collapses to one line",
-			"wait{\n    duration=2ms,\n}",
-			"wait{duration=2ms}\n",
+			"wait(\n    duration=2ms,\n)",
+			"wait(duration=2ms)\n",
 		),
 		Entry(
 			"multiline anonymous input value with multiple entries collapses to one line",
-			"wait{\n    duration=2ms,\n    retries=3\n}",
-			"wait{duration=2ms, retries=3}\n",
+			"wait(\n    duration=2ms,\n    retries=3\n)",
+			"wait(duration=2ms, retries=3)\n",
 		),
 		Entry(
 			"multiline anonymous input value with trailing comma on last entry collapses to one line",
-			"wait{\n    duration=2ms,\n    retries=3,\n}",
-			"wait{duration=2ms, retries=3}\n",
+			"wait(\n    duration=2ms,\n    retries=3,\n)",
+			"wait(duration=2ms, retries=3)\n",
 		),
 		Entry("multiline anonymous input value in flow collapses to one line",
-			"sensor -> filter{\n    threshold=10\n} -> output",
-			"sensor -> filter{threshold=10} -> output\n"),
+			"sensor -> filter(\n    threshold=10\n) -> output",
+			"sensor -> filter(threshold=10) -> output\n"),
 		Entry(
 			"multiline anonymous input value in stage collapses to one line",
-			"stage run {\n    sensor -> filter{\n        threshold=10\n    } -> output\n}",
-			"stage run {\n    sensor -> filter{threshold=10} -> output\n}\n",
+			"stage run {\n    sensor -> filter(\n        threshold=10\n    ) -> output\n}",
+			"stage run {\n    sensor -> filter(threshold=10) -> output\n}\n",
 		),
 		Entry(
 			"multi-line input values keep = tight (no spaces around =)",
-			"status.set{\n    key_or_name=\"lifecycle_press_alarm\",\n    message=\"Pressure stable above 25 PSI\",\n    variant=\"warning\"\n}",
-			"status.set{\n    key_or_name=\"lifecycle_press_alarm\",\n    message=\"Pressure stable above 25 PSI\",\n    variant=\"warning\"\n}\n",
+			"status.set(\n    key_or_name=\"lifecycle_press_alarm\",\n    message=\"Pressure stable above 25 PSI\",\n    variant=\"warning\"\n)",
+			"status.set(\n    key_or_name=\"lifecycle_press_alarm\",\n    message=\"Pressure stable above 25 PSI\",\n    variant=\"warning\"\n)\n",
 		),
 		Entry(
 			"multi-line input values strip spaces around = from source",
-			"status.set{\n    key_or_name = \"lifecycle_press_alarm\",\n    message = \"Pressure stable above 25 PSI\",\n    variant = \"warning\"\n}",
-			"status.set{\n    key_or_name=\"lifecycle_press_alarm\",\n    message=\"Pressure stable above 25 PSI\",\n    variant=\"warning\"\n}\n",
+			"status.set(\n    key_or_name = \"lifecycle_press_alarm\",\n    message = \"Pressure stable above 25 PSI\",\n    variant = \"warning\"\n)",
+			"status.set(\n    key_or_name=\"lifecycle_press_alarm\",\n    message=\"Pressure stable above 25 PSI\",\n    variant=\"warning\"\n)\n",
 		),
 		Entry("for-loop body is not treated as input values (single binding)",
 			"func f() {\n    for x := data {\n        sum = sum + x\n    }\n}",
@@ -762,46 +762,123 @@ var _ = Describe("Formatter", func() {
 			"func f() {\n    for i, x := data {\n        if x > peak {\n            peak = x\n            peak_idx = i\n        }\n    }\n}",
 			"func f() {\n    for i, x := data {\n        if x > peak {\n            peak = x\n            peak_idx = i\n        }\n    }\n}\n",
 		),
+		Entry(
+			"long call in a func body stays on its line",
+			"func f() {x f64} f64 {\n    return math.clamp(x, "+
+				"lower_bound_of_the_allowed_range, upper_bound_of_the_allowed_range)\n}",
+			"func f() {x f64} f64 {\n    return math.clamp(x, "+
+				"lower_bound_of_the_allowed_range, upper_bound_of_the_allowed_range)\n}\n",
+		),
 	)
 
 	DescribeTable(
-		"Input Block Formatting",
+		"Input List Formatting",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("single param inline", "func foo{x i32}(){}", "func foo{x i32} () {}\n"),
+		Entry("single param inline", "func foo(x i32){}", "func foo(x i32) {}\n"),
 		Entry(
 			"multiple params inline",
-			"func foo{x i32, y f64}(){}",
-			"func foo{x i32, y f64} () {}\n",
+			"func foo(x i32, y f64){}",
+			"func foo(x i32, y f64) {}\n",
 		),
-		Entry("empty input block", "func foo{}(){}", "func foo{} () {}\n"),
+		Entry("empty input block", "func foo(){}", "func foo() {}\n"),
 		Entry(
 			"already inline is idempotent",
-			"func foo{x i32} () {}\n",
-			"func foo{x i32} () {}\n",
+			"func foo(x i32) {}\n",
+			"func foo(x i32) {}\n",
 		),
 		Entry(
 			"multiple params inline is idempotent",
-			"func foo{x i32, y f64} () {}\n",
-			"func foo{x i32, y f64} () {}\n",
+			"func foo(x i32, y f64) {}\n",
+			"func foo(x i32, y f64) {}\n",
 		),
 		Entry(
-			"long input block goes multi-line",
-			"func very_long_function_name_here{very_long_parameter_name_one f64, very_long_parameter_name_two f64}(){}",
-			"func very_long_function_name_here{\n    very_long_parameter_name_one f64,\n    very_long_parameter_name_two f64,\n} () {}\n",
+			"long input list goes multi-line",
+			"func very_long_function_name_here(very_long_parameter_name_one f64, very_long_parameter_name_two f64){}",
+			"func very_long_function_name_here(\n    very_long_parameter_name_one f64,\n    very_long_parameter_name_two f64,\n) {}\n",
 		),
 		Entry("multiline source inlined when short enough",
-			"func dog{\n    cat chan f32\n} () u8 {\n    return 12\n}",
-			"func dog{cat chan f32} () u8 {\n    return 12\n}\n"),
+			"func dog(\n    cat chan f32\n) u8 {\n    return 12\n}",
+			"func dog(cat chan f32) u8 {\n    return 12\n}\n"),
 		Entry(
-			"input block with comment forces multiline",
-			"func dog{\n    cat chan f32 // blue green\n} () u8 {\n    return 12\n}",
-			"func dog{\n    cat chan f32, // blue green\n} () u8 {\n    return 12\n}\n",
+			"input list with comment forces multiline",
+			"func dog(\n    cat chan f32 // blue green\n) u8 {\n    return 12\n}",
+			"func dog(\n    cat chan f32, // blue green\n) u8 {\n    return 12\n}\n",
 		),
-		Entry("input block with comment on single line forces multiline",
-			"func foo{x i32 // param\n} () {}",
-			"func foo{\n    x i32, // param\n} () {}\n"),
+		Entry("input list with comment on single line forces multiline",
+			"func foo(x i32 // param\n) {}",
+			"func foo(\n    x i32, // param\n) {}\n"),
+	)
+
+	DescribeTable(
+		"Trigger List Formatting",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("single trigger inline", "func f(){x i32}{}", "func f() {x i32} {}\n"),
+		Entry(
+			"empty trigger list before an empty body",
+			"func f(){}{}",
+			"func f() {} {}\n",
+		),
+		Entry(
+			"body alone is not a trigger list",
+			"func f(){x := 1}",
+			"func f() {\n    x := 1\n}\n",
+		),
+		Entry(
+			"trigger list before a single output",
+			"func f(a i32){x i32}i32{return x}",
+			"func f(a i32) {x i32} i32 {\n    return x\n}\n",
+		),
+		Entry(
+			"trigger list before a named output",
+			"func f(){x i32}result i32{result = x}",
+			"func f() {x i32} result i32 {\n    result = x\n}\n",
+		),
+		Entry(
+			"trigger list before multiple outputs",
+			"func f(){x i32}(a i32,b i32){return}",
+			"func f() {x i32} (a i32, b i32) {\n    return\n}\n",
+		),
+		Entry(
+			"long trigger list goes multi-line",
+			"func f(){very_long_trigger_name_number_one_of_two f64, very_long_trigger_name_number_two_of_two f64}{}",
+			"func f() {\n    very_long_trigger_name_number_one_of_two f64,\n    very_long_trigger_name_number_two_of_two f64,\n} {}\n",
+		),
+		Entry(
+			"multiline trigger list inlined when short enough",
+			"func f() {\n    x i32\n} {}",
+			"func f() {x i32} {}\n",
+		),
+		Entry(
+			"trigger list with comment forces multiline",
+			"func f() {\n    x i32 // the trigger\n} {}",
+			"func f() {\n    x i32, // the trigger\n} {}\n",
+		),
+	)
+
+	DescribeTable(
+		"Flow Node Parens",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry(
+			"a gap before the paren is kept, the name is a bare node",
+			"sensor -> filter (50.0) -> out",
+			"sensor -> filter (50.0) -> out\n",
+		),
+		Entry(
+			"a paren on the next line stays there",
+			"sensor -> filter\n(50.0) -> out",
+			"sensor -> filter\n(50.0) -> out\n",
+		),
+		Entry(
+			"long input values go multi-line without a trailing comma",
+			"status.set(key_or_name=\"lifecycle_press_alarm\", message=\"Pressure stable above 25 PSI\", variant=\"warning\")",
+			"status.set(\n    key_or_name=\"lifecycle_press_alarm\",\n    message=\"Pressure stable above 25 PSI\",\n    variant=\"warning\"\n)\n",
+		),
 	)
 
 	DescribeTable("Stage Body Formatting",
@@ -905,8 +982,8 @@ var _ = Describe("Formatter", func() {
 		},
 		Entry(
 			"short params stay inline",
-			"func foo(x i32, y f64){}",
-			"func foo(x i32, y f64) {}\n",
+			"func foo() {x i32, y f64}{}",
+			"func foo() {x i32, y f64} {}\n",
 		),
 		Entry("empty params no change", "func foo(){}", "func foo() {}\n"),
 	)
