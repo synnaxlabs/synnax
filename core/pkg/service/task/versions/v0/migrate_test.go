@@ -82,7 +82,7 @@ var _ = Describe("Migration", func() {
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
-		Expect(restoredStatus.Message).To(Equal("Task status unknown"))
+		Expect(restoredStatus.Message).To(Equal("Migration Test Task status unknown"))
 		Expect(restoredStatus.Details.Task).To(Equal(t.Key))
 	})
 
