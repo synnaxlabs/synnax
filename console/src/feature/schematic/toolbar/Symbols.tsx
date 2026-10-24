@@ -22,7 +22,15 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Group, Schematic } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  type ReactElement,
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
@@ -37,6 +45,15 @@ const HAUL_DRAG_PROPS: Haul.UseDragProps = {
   type: "Diagram-Elements",
   key: "symbols",
 };
+
+export interface SymbolsChangeProps {
+  /** The symbol that every symbol to change draws, if they all draw the same one. */
+  value?: string;
+  onChange: <V extends Schematic.Node.Variant>(input: Schematic.Node.Input<V>) => void;
+}
+
+const ChangeContext = createContext<SymbolsChangeProps | undefined>(undefined);
+ChangeContext.displayName = "Symbols.ChangeContext";
 
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
@@ -55,6 +72,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
     () => addNode(createParams()),
     [addNode, createParams],
   );
+  const change = use(ChangeContext);
   const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
   const config = useMemo(
     () => (spec == null ? null : Schematic.Node.createConfig({ variant })),
@@ -67,10 +85,11 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
       className={CSS.cls(CSS.BE("schematic-symbols", "button"))}
       align="center"
       gap="tiny"
-      draggable
+      draggable={change == null}
+      selected={change?.value === variant}
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
-      onClick={handleAddNode}
+      onClick={change == null ? handleAddNode : () => change.onChange({ variant })}
       y
       {...props}
     >
@@ -110,11 +129,8 @@ export interface RemoteListItemProps extends List.ItemProps<string> {}
 const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const { itemKey } = props;
   const symbol = List.useItem<string, schematic.symbol.Symbol>(itemKey);
-  const isStatic =
-    symbol?.data?.variant === "static" || symbol?.data?.states?.length === 1;
-  const variant: Schematic.Node.CustomVariant = isStatic
-    ? "custom_static"
-    : "custom_actuator";
+  const variant: Schematic.Node.CustomVariant =
+    symbol == null ? "custom_actuator" : Schematic.Node.customVariant(symbol);
   const Preview = Schematic.Node.REGISTRY[variant].Preview as React.FC<{
     specKey: string;
     scale?: number;
@@ -137,6 +153,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
     () => addNode(createParams()),
     [addNode, createParams],
   );
+  const change = use(ChangeContext);
   const { update: rename } = Schematic.Symbol.useRename();
   const canRename = Access.useUpdateGranted(schematic.symbol.ontologyID(itemKey));
   const handleRename = useCallback(
@@ -151,10 +168,15 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
       className={CSS.cls(CSS.BE("schematic-symbols", "button"))}
       align="center"
       gap="tiny"
-      draggable
+      draggable={change == null}
+      selected={change?.value === itemKey}
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
-      onClick={handleAddNode}
+      onClick={
+        change == null
+          ? handleAddNode
+          : () => change.onChange({ variant, specKey: itemKey })
+      }
       y
       {...props}
     >
@@ -556,7 +578,12 @@ const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement =
   );
 };
 
-export const Symbols = (): ReactElement => {
+export interface SymbolsProps {
+  /** Makes a click on a symbol change the given symbols in place of adding one. */
+  change?: SymbolsChangeProps;
+}
+
+export const Symbols = ({ change }: SymbolsProps): ReactElement => {
   const dispatch = Session.useDispatch();
   const key = Schematic.useKey();
   const groupKey = Session.Schematic.useSelectSelectedSymbolGroup({ key });
@@ -580,26 +607,35 @@ export const Symbols = (): ReactElement => {
     [symbolGroupKey],
   );
   return (
-    <Flex.Box y empty className={CSS.BE("schematic", "symbols")}>
-      <Flex.Box x sharp className={CSS.BE("schematic", "symbols", "group", "list")}>
-        <Input.Text
-          value={searchTerm}
-          onChange={setSearchTerm}
-          placeholder="Search symbols..."
-          startContent={<Icon.Search />}
-          flush
-          className={CSS.BE("schematic", "symbols", "search")}
-        />
-        <GroupList
-          value={groupKey}
-          onChange={setGroupKey}
-          symbolGroupID={symbolGroupID}
-        />
-        {symbolGroupID != null && (
-          <Actions symbolGroupID={symbolGroupID} selectedGroup={groupKey} />
+    <ChangeContext value={change}>
+      <Flex.Box
+        y
+        empty
+        className={CSS.cls(
+          CSS.BE("schematic", "symbols"),
+          change != null && CSS.M("changing"),
         )}
+      >
+        <Flex.Box x sharp className={CSS.BE("schematic", "symbols", "group", "list")}>
+          <Input.Text
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Search symbols..."
+            startContent={<Icon.Search />}
+            flush
+            className={CSS.BE("schematic", "symbols", "search")}
+          />
+          <GroupList
+            value={groupKey}
+            onChange={setGroupKey}
+            symbolGroupID={symbolGroupID}
+          />
+          {symbolGroupID != null && (
+            <Actions symbolGroupID={symbolGroupID} selectedGroup={groupKey} />
+          )}
+        </Flex.Box>
+        {symbolList}
       </Flex.Box>
-      {symbolList}
-    </Flex.Box>
+    </ChangeContext>
   );
 };

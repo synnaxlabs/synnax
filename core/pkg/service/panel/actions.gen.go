@@ -13,6 +13,7 @@ package panel
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
 )
@@ -20,6 +21,8 @@ import (
 const (
 	ActionTypeCreate         = "create"
 	ActionTypeRename         = "rename"
+	ActionTypeSetIcon        = "set_icon"
+	ActionTypeSetColor       = "set_color"
 	ActionTypeInsertTabs     = "insert_tabs"
 	ActionTypeRemoveTab      = "remove_tab"
 	ActionTypeMoveTab        = "move_tab"
@@ -38,6 +41,16 @@ type CreatePayload struct {
 // RenamePayload renames the panel.
 type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
+}
+
+// SetIconPayload sets the panel's icon. Null resets it to the default panel icon.
+type SetIconPayload struct {
+	Icon *string `json:"icon,omitzero" msgpack:"icon,omitempty"`
+}
+
+// SetColorPayload sets the color of the panel's icon. Null lets the theme pick it.
+type SetColorPayload struct {
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
 // InsertTabsPayload inserts tabs into a leaf in order, starting at the given index and
@@ -124,6 +137,8 @@ type Action struct {
 	Type           string                 `json:"type" msgpack:"type"`
 	Create         *CreatePayload         `json:"create,omitzero" msgpack:"create,omitempty"`
 	Rename         *RenamePayload         `json:"rename,omitzero" msgpack:"rename,omitempty"`
+	SetIcon        *SetIconPayload        `json:"set_icon,omitzero" msgpack:"set_icon,omitempty"`
+	SetColor       *SetColorPayload       `json:"set_color,omitzero" msgpack:"set_color,omitempty"`
 	InsertTabs     *InsertTabsPayload     `json:"insert_tabs,omitzero" msgpack:"insert_tabs,omitempty"`
 	RemoveTab      *RemoveTabPayload      `json:"remove_tab,omitzero" msgpack:"remove_tab,omitempty"`
 	MoveTab        *MoveTabPayload        `json:"move_tab,omitzero" msgpack:"move_tab,omitempty"`
@@ -152,6 +167,16 @@ func Reduce(state Panel, actions ...Action) (Panel, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
+		case ActionTypeSetIcon:
+			if a.SetIcon == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetIcon.Handle(state)
+		case ActionTypeSetColor:
+			if a.SetColor == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetColor.Handle(state)
 		case ActionTypeInsertTabs:
 			if a.InsertTabs == nil {
 				return state, union.MissingPayload(a.Type)
@@ -205,6 +230,16 @@ func NewCreateAction(p CreatePayload) Action {
 // NewRenameAction wraps a RenamePayload in an Action envelope.
 func NewRenameAction(p RenamePayload) Action {
 	return Action{Type: ActionTypeRename, Rename: &p}
+}
+
+// NewSetIconAction wraps a SetIconPayload in an Action envelope.
+func NewSetIconAction(p SetIconPayload) Action {
+	return Action{Type: ActionTypeSetIcon, SetIcon: &p}
+}
+
+// NewSetColorAction wraps a SetColorPayload in an Action envelope.
+func NewSetColorAction(p SetColorPayload) Action {
+	return Action{Type: ActionTypeSetColor, SetColor: &p}
 }
 
 // NewInsertTabsAction wraps a InsertTabsPayload in an Action envelope.

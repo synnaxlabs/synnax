@@ -61,7 +61,13 @@ export const Properties = memo((): ReactElement => {
     );
   if (selected.length > 1) return <MultiConfig configByKey={configByKey} />;
   const elKey = selected[0];
-  return <IndividualConfig key={elKey} elKey={elKey} />;
+  const config = configByKey.get(elKey);
+  const symbolKey =
+    config != null && Schematic.Node.isConfig(config)
+      ? Schematic.Node.symbolKey(config)
+      : "";
+  // A symbol's form holds that symbol's config, so a change remounts it.
+  return <IndividualConfig key={`${elKey}:${symbolKey}`} elKey={elKey} />;
 });
 Properties.displayName = "PropertiesControls";
 

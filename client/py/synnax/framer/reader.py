@@ -93,6 +93,36 @@ class Reader:
         :param downsample_factor: keeps one sample in every downsample_factor. A factor
             of 1, the default, keeps every sample.
         """
+        self._read_file(tr, channels, dest, downsample_factor)
+
+    def read_tdms(
+        self,
+        tr: TimeRange,
+        channels: channel.Params,
+        dest: FilePath,
+        downsample_factor: int = 1,
+    ) -> None:
+        """Reads every sample the given channels hold within tr into an NI TDMS file.
+
+        The Core writes the file. Channels are grouped by the index channel that
+        timestamps them, and each group holds its index channel followed by its other
+        channels. Channels with no index are excluded.
+
+        :param tr: the time range to read.
+        :param channels: the channels to read, by key or by name.
+        :param dest: the path of the TDMS file to write. It must end in .tdms.
+        :param downsample_factor: keeps one sample in every downsample_factor. A factor
+            of 1, the default, keeps every sample.
+        """
+        self._read_file(tr, channels, dest, downsample_factor)
+
+    def _read_file(
+        self,
+        tr: TimeRange,
+        channels: channel.Params,
+        dest: FilePath,
+        downsample_factor: int,
+    ) -> None:
         adapter = ReadFrameAdapter(self._retriever)
         adapter.update(channels)
         req = _Request(

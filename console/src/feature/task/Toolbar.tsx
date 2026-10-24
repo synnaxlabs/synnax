@@ -26,7 +26,10 @@ import { useCallback, useState } from "react";
 
 import { useOpenSelector } from "@/feature/task/Selector";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
-import { useSetDataSaving } from "@/feature/task/useSetDataSaving";
+import {
+  type SetDataSavingParams,
+  useSetDataSaving,
+} from "@/feature/task/useSetDataSaving";
 import { Analytics } from "@/platform/analytics";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
@@ -201,6 +204,7 @@ const Content = () => {
                     key={key}
                     {...p}
                     onStopStart={handleListItemStopStart}
+                    onSetDataSaving={setDataSaving}
                     onRename={rename}
                     onEdit={handleEdit}
                   />
@@ -227,12 +231,14 @@ export const TOOLBAR: Nav.Toolbar = {
 
 interface TaskListItemProps extends List.ItemProps<task.Key> {
   onStopStart: (command: PlatformTask.Command, key: task.Key) => void;
+  onSetDataSaving: (params: SetDataSavingParams) => void;
   onRename: (params: { key: task.Key; name: string }) => void;
   onEdit: (key: task.Key) => void;
 }
 
 const TaskListItem = ({
   onStopStart,
+  onSetDataSaving,
   onRename,
   onEdit,
   ...rest
@@ -248,10 +254,19 @@ const TaskListItem = ({
   const isLoading = variant === "loading";
   const isRunning = details?.running === true;
   const isDrifted = task_ != null && task.drifted(task_.payload);
+  const config = task_?.config;
+  const dataSaving =
+    config != null && typeof config === "object" && "dataSavingDisabled" in config
+      ? config.dataSavingDisabled !== true
+      : null;
   if (!isRunning && variant === "success") variant = "info";
   const handleStartStopClick = useCallback(
     () => onStopStart(isRunning ? "stop" : "start", itemKey),
     [isRunning, onStopStart, itemKey],
+  );
+  const handleDataSavingClick = useCallback(
+    () => onSetDataSaving({ key: itemKey, dataSaving: dataSaving !== true }),
+    [dataSaving, onSetDataSaving, itemKey],
   );
   const handleRename = useCallback(
     (name: string) => onRename({ key: itemKey, name }),
@@ -295,6 +310,32 @@ const TaskListItem = ({
           {parseType(task_?.type ?? "")}
         </Text.Text>
       </Flex.Box>
+      {dataSaving != null && (
+        <Button.Button
+          variant="text"
+          size="small"
+          className={CSS.cls(
+            CSS.BE("task", "data-saving"),
+            isRunning &&
+              dataSaving &&
+              !isDrifted &&
+              CSS.BEM("task", "data-saving", "active"),
+          )}
+          textColor={
+            dataSaving ? "var(--pluto-primary-z)" : "var(--pluto-text-disabled)"
+          }
+          preventClick={!hasUpdatePermission}
+          onClick={handleDataSavingClick}
+          onDoubleClick={stopPropagation}
+          tooltip={`Data saving ${dataSaving ? "enabled" : "disabled"}${
+            hasUpdatePermission
+              ? `. Click to ${dataSaving ? "disable" : "enable"}.`
+              : ""
+          }`}
+        >
+          {dataSaving ? <Icon.Database /> : <Icon.DatabaseOff />}
+        </Button.Button>
+      )}
       {canControl && (
         <Button.Button
           variant="outlined"

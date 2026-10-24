@@ -177,6 +177,12 @@ export const useRoot = Scope.bindHook(createSelector(({ root }) => root));
 
 export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
+export const useIcon = Scope.bindHook(createSelector(({ icon }) => icon));
+
+export const useColor = Scope.bindHook(
+  createSelector(({ color }) => color, deep.equal),
+);
+
 export const useTab = bindTabHook(
   createSelector<panel.Tab, TabContentParams>(({ root }, params) =>
     requireTab(root, params),

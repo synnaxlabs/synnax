@@ -94,6 +94,11 @@ const selectActiveToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
 export const useSelectActiveToolbarTab = createSelector(selectActiveToolbarTab);
 export const useGetActiveToolbarTab = createGetter(selectActiveToolbarTab);
 
+const selectChanging = (params: KeyedSelectorParams): boolean =>
+  selectToolbar(params).changing;
+
+export const useSelectChanging = createSelector(selectChanging);
+
 export const selectSelectedSymbolGroup = (params: KeyedSelectorParams): string =>
   selectToolbar(params).selectedSymbolGroup;
 

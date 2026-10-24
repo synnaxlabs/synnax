@@ -31,3 +31,7 @@
 .console-modbus-channel-item {
     width: 100%;
 }
+
+.console-modbus-order > * {
+    width: 22rem;
+}
