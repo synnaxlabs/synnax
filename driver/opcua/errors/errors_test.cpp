@@ -66,7 +66,7 @@ TEST(ErrorTest, testParseErrorConnectionClosed) {
 }
 
 /// @brief it should map a connection status with flag bits set to unreachable error.
-TEST(ErrorTest, testParseErrorConnectionCodeWithFlags) {
+TEST(ErrorTest, ParseErrorConnectionCodeWithFlags) {
     ASSERT_OCCURRED_AS(parse(UA_STATUSCODE_BADTIMEOUT | 0x0400), UNREACHABLE);
 }
 
@@ -86,7 +86,7 @@ TEST(ErrorTest, testParseErrorAccessDenied) {
 }
 
 /// @brief it should describe a status code by its condition when flag bits are set.
-TEST(ErrorTest, testParseErrorDescribesCodeWithFlags) {
+TEST(ErrorTest, ParseErrorDescribesCodeWithFlags) {
     EXPECT_EQ(
         parse(UA_STATUSCODE_BADTIMEOUT | 0x0400).data,
         "The operation timed out."
@@ -94,7 +94,7 @@ TEST(ErrorTest, testParseErrorDescribesCodeWithFlags) {
 }
 
 /// @brief it should describe an unknown status code by its name and hex value.
-TEST(ErrorTest, testParseErrorDescribesUnknownCode) {
+TEST(ErrorTest, ParseErrorDescribesUnknownCode) {
     EXPECT_EQ(
         parse(0x80FF0000).data,
         "The server returned Unknown StatusCode (0x80FF0000)."

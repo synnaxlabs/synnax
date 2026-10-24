@@ -291,7 +291,7 @@ TEST(TestStatusRateLimit, testSuppressesAlternatingSpam) {
 }
 
 /// @brief warnings with the same message but different causes should both go through.
-TEST(TestStatusRateLimit, testAllowsDifferentWarningDescriptions) {
+TEST(TestStatusRateLimit, AllowsDifferentWarningDescriptions) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task);
@@ -304,7 +304,7 @@ TEST(TestStatusRateLimit, testAllowsDifferentWarningDescriptions) {
 }
 
 /// @brief clearing a warning should drop the description that explained it.
-TEST(TestTaskStateHandler, testClearWarningDropsDescription) {
+TEST(TestTaskStateHandler, ClearWarningDropsDescription) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task);
@@ -526,7 +526,7 @@ TEST(TestHandleConfigErr, testErrorWithPendingStart) {
 }
 
 /// @brief a config error should list each field error on its own line.
-TEST(TestHandleConfigErr, testListsFieldErrors) {
+TEST(TestHandleConfigErr, ListsFieldErrors) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     x::json::Parser parser(x::json::json::object());

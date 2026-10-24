@@ -799,7 +799,7 @@ TEST(TestScanTask, TestStatePropagation) {
 }
 
 /// @brief it should key and name the disconnect status of a device that had none.
-TEST(TestScanTask, testDisconnectedDeviceWithoutStatus) {
+TEST(TestScanTask, DisconnectedDeviceWithoutStatus) {
     synnax::device::Device dev;
     dev.key = "device1";
     dev.name = "Device 1";
