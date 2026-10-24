@@ -208,8 +208,8 @@ item restarts a running task, so the change applies at once.
 
 ## Task lifecycle
 
-A new task is a draft. Its status is "\<name\> has not been deployed". The task tab
-saves each edit as you make it.
+A new task is a draft. Its status is "Task not deployed". The task tab saves each edit
+as you make it.
 
 When you click **Start** in the task tab, the Console checks the configuration and
 creates the channels that the task needs. The Driver then builds the task and starts it.
@@ -220,13 +220,13 @@ Edits to a running task do not apply until you
 [redeploy it](/reference/hardware/start-and-stop-tasks#apply-edits-to-a-running-task).
 With **Auto start** on, the task starts each time the Driver starts.
 
-| Status                                            | Meaning                                                |
-| ------------------------------------------------- | ------------------------------------------------------ |
-| \<name\> has not been deployed                    | The task is a draft. It has never started.             |
-| Running start command..., Running stop command... | The Console sent the command and waits for the Driver. |
-| Task started successfully                         | The task is running.                                   |
-| Task stopped successfully                         | The task stopped.                                      |
-| \<name\> status unknown                           | The Core has no status for the task.                   |
+| Status                                      | Meaning                                                |
+| ------------------------------------------- | ------------------------------------------------------ |
+| Task not deployed                           | The task is a draft. It has never started.             |
+| Sending start command, Sending stop command | The Console sent the command and waits for the Driver. |
+| Started task                                | The task is running.                                   |
+| Stopped task                                | The task stopped.                                      |
+| Task status unknown                         | The Core has no status for the task.                   |
 
 The status shows at the bottom of the task tab. Click it to see the details and to copy
 them with **Copy diagnostics**. For device and Driver statuses, see

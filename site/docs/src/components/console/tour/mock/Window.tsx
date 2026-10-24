@@ -795,7 +795,7 @@ const Editor = ({ sequence, simulator }: WindowProps): ReactElement => (
               overflow="wrap"
               className="console-task-status__message-text"
             >
-              Task started successfully
+              Started task
             </Text.Text>
           </Flex.Box>
         </Flex.Box>

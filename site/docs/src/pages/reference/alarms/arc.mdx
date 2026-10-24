@@ -34,7 +34,7 @@ import status
 tank_pressure > 600.0 => status.set{
     key_or_name="tank_pressure_high",
     variant="error",
-    message="Tank pressure is above 600 psi",
+    message="Above 600 psi",
 }
 ```
 
@@ -56,13 +56,13 @@ import status
 tank_pressure > 600.0 -> stable.for{duration=1s} => status.set{
     key_or_name="tank_pressure_high",
     variant="error",
-    message="Tank pressure is above 600 psi",
+    message="Above 600 psi",
 }
 
 tank_pressure < 580.0 -> stable.for{duration=1s} => status.set{
     key_or_name="tank_pressure_high",
     variant="success",
-    message="Tank pressure is below 580 psi",
+    message="Below 580 psi",
 }
 ```
 

@@ -31,7 +31,7 @@ Many fixes end with a Driver restart. How you restart it depends on where it run
 
 ## The Driver
 
-### `Synnax Driver on ... not running`
+### `Driver not running`
 
 <Problem.Body>
 <Problem.Cause>
@@ -73,8 +73,8 @@ task until the old command ends, so starting the task again does not help.
 2. [Restart the Driver](#restart-the-driver).
 3. Start the task again.
 
-If the status is "Synnax Driver on ... not running" instead, see
-[the Driver is not running](#synnax-driver-on--not-running).
+If the status is "Driver not running" instead, see
+[the Driver is not running](#driver-not-running).
 
 </Problem.Fix>
 </Problem.Body>
@@ -177,12 +177,11 @@ The Driver cannot connect to a Modbus, OPC UA, or HTTP device.
 <Problem.Body>
 <Problem.Cause>
 
-The Driver cannot load the vendor libraries. NI tasks show "Cannot create the task
-because the NI-DAQmx and System Configuration libraries are not installed on this
-system". LabJack tasks show "Cannot create task because the LJM Libraries are not
-installed on this System". These messages show for a task that you imported, or after
-the software was removed. NI tasks never work on macOS, and LabJack tasks never work on
-Linux.
+The Driver cannot load the vendor libraries. The task shows "Failed to create task", and
+the description says that the NI-DAQmx and System Configuration libraries or the LabJack
+LJM libraries are not installed on this system. These messages show for a task that you
+imported, or after the software was removed. NI tasks never work on macOS, and LabJack
+tasks never work on Linux.
 
 </Problem.Cause>
 <Problem.Fix>
