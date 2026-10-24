@@ -201,6 +201,10 @@ class Table(ConsolePage):
         cell_index = row * self.get_column_count() + col
         return cells.nth(cell_index)
 
+    def _get_indicator(self, direction: str, index: int) -> Locator:
+        """Get a locator for the indicator of the row ("y") or column ("x") at index."""
+        return self.page.locator(f'td[id^="resizer-{direction}-"]').nth(index)
+
     def get_row_count(self) -> int:
         """Get the number of data rows in the table (excludes the column resizer row)."""
         self.page.locator(DATA_ROW_SELECTOR).first.wait_for(
@@ -228,11 +232,11 @@ class Table(ConsolePage):
 
     def select_row_via_header(self, row: int) -> None:
         """Click the row indicator (left header) to select every cell in the row."""
-        self.page.locator(f'td[id="resizer-y-{row}"]').click()
+        self._get_indicator("y", row).click()
 
     def select_col_via_header(self, col: int) -> None:
         """Click the column indicator (top header) to select every cell in the column."""
-        self.page.locator(f'td[id="resizer-x-{col}"]').click()
+        self._get_indicator("x", col).click()
 
     def add_row_above(self, row: int, col: int = 0) -> None:
         """Insert a row above the row containing the cell at (row, col)."""
@@ -293,7 +297,7 @@ class Table(ConsolePage):
 
         Positive `dx` widens the column; negative narrows it.
         """
-        handle = self.page.locator(f'td[id="resizer-x-{col}"] button')
+        handle = self._get_indicator("x", col).locator("button")
         box = handle.bounding_box()
         if box is None:
             raise ValueError(f"Could not locate resize handle for column {col}")
@@ -306,7 +310,7 @@ class Table(ConsolePage):
 
     def drag_row_resizer(self, row: int, dy: float) -> None:
         """Drag the bottom edge of a row's resize handle by `dy` pixels."""
-        handle = self.page.locator(f'td[id="resizer-y-{row}"] button')
+        handle = self._get_indicator("y", row).locator("button")
         box = handle.bounding_box()
         if box is None:
             raise ValueError(f"Could not locate resize handle for row {row}")
@@ -319,12 +323,12 @@ class Table(ConsolePage):
 
     def get_column_width(self, col: int) -> float:
         """Read the rendered pixel width of a column."""
-        indicator = self.page.locator(f'td[id="resizer-x-{col}"]')
+        indicator = self._get_indicator("x", col)
         return float(indicator.evaluate("el => el.offsetWidth"))
 
     def get_row_height(self, row: int) -> float:
         """Read the rendered pixel height of a row's indicator."""
-        indicator = self.page.locator(f'td[id="resizer-y-{row}"]')
+        indicator = self._get_indicator("y", row)
         return float(indicator.evaluate("el => el.offsetHeight"))
 
     SIZE_LABELS = ("XL", "L", "M", "S", "XS")

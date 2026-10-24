@@ -19,8 +19,12 @@ const RANGE = [...Array(N).keys()];
 const createTable = (): table.Table => ({
   key: "00000000-0000-0000-0000-000000000001",
   name: "t",
-  rows: RANGE.map((y) => ({ size: 40 + y, cells: RANGE.map((x) => `${y}${x}`) })),
-  columns: RANGE.map((x) => ({ size: 80 + x })),
+  rows: RANGE.map((y) => ({
+    key: `r${y}`,
+    size: 40 + y,
+    cells: RANGE.map((x) => `${y}${x}`),
+  })),
+  columns: RANGE.map((x) => ({ key: `c${x}`, size: 80 + x })),
   cells: Object.fromEntries(
     RANGE.flatMap((y) =>
       RANGE.map((x) => [`${y}${x}`, table.cellConfigZ.parse({ variant: "text" })]),
@@ -44,7 +48,9 @@ describe("steps", () => {
     const state = createTable();
     const { next, inverse } = table.reduceAll(
       state,
-      steps(move).map((s) => table.moveRow(s)),
+      steps(move).map(({ from, to }) =>
+        table.moveRow({ key: state.rows[from].key, to }),
+      ),
     );
     expect(next.rows).toEqual(orderOf(move).map((y) => state.rows[y]));
     expect(table.reduceAll(next, inverse).next).toEqual(state);
@@ -54,7 +60,9 @@ describe("steps", () => {
     const state = createTable();
     const { next, inverse } = table.reduceAll(
       state,
-      steps(move).map((s) => table.moveCol(s)),
+      steps(move).map(({ from, to }) =>
+        table.moveCol({ key: state.columns[from].key, to }),
+      ),
     );
     const order = orderOf(move);
     expect(next.columns).toEqual(order.map((x) => state.columns[x]));

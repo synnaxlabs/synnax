@@ -44,16 +44,16 @@ func asText(cfg table.CellConfig) table.TextCellConfig {
 	return MustBeOk(text, ok)
 }
 
-// create2x2 returns a 2x2 table with cells a,b across row 0 and c,d across row 1.
-// Every cell is an empty text cell.
+// create2x2 returns a 2x2 table with cells a,b across row r0 and c,d across row r1, in
+// columns c0 and c1. Every cell is an empty text cell.
 func create2x2() table.Table {
 	return table.Table{
 		Name: "t",
 		Rows: []table.Row{
-			{Size: 30, Cells: []string{"a", "b"}},
-			{Size: 30, Cells: []string{"c", "d"}},
+			{Key: "r0", Size: 30, Cells: []string{"a", "b"}},
+			{Key: "r1", Size: 30, Cells: []string{"c", "d"}},
 		},
-		Columns: []table.Column{{Size: 80}, {Size: 80}},
+		Columns: []table.Column{{Key: "c0", Size: 80}, {Key: "c1", Size: 80}},
 		Cells: map[string]table.CellConfig{
 			"a": textCfg(""),
 			"b": textCfg(""),
@@ -63,8 +63,8 @@ func create2x2() table.Table {
 	}
 }
 
-// create3x3 returns a 3x3 table with cells a..i in row-major order. Every cell
-// is an empty value cell.
+// create3x3 returns a 3x3 table with cells a..i in row-major order, in rows r0..r2 and
+// columns c0..c2. Every cell is an empty value cell.
 func create3x3() table.Table {
 	keys := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i"}
 	cells := make(map[string]table.CellConfig, len(keys))
@@ -74,12 +74,16 @@ func create3x3() table.Table {
 	return table.Table{
 		Name: "t",
 		Rows: []table.Row{
-			{Size: 36, Cells: []string{"a", "b", "c"}},
-			{Size: 36, Cells: []string{"d", "e", "f"}},
-			{Size: 36, Cells: []string{"g", "h", "i"}},
+			{Key: "r0", Size: 36, Cells: []string{"a", "b", "c"}},
+			{Key: "r1", Size: 36, Cells: []string{"d", "e", "f"}},
+			{Key: "r2", Size: 36, Cells: []string{"g", "h", "i"}},
 		},
-		Columns: []table.Column{{Size: 80}, {Size: 80}, {Size: 80}},
-		Cells:   cells,
+		Columns: []table.Column{
+			{Key: "c0", Size: 80},
+			{Key: "c1", Size: 80},
+			{Key: "c2", Size: 80},
+		},
+		Cells: cells,
 	}
 }
 
@@ -100,6 +104,7 @@ var _ = Describe("Reducer", func() {
 			out := MustSucceed(
 				table.Reduce(create2x2(), table.NewAddRowAction(table.AddRowPayload{
 					Index: 2,
+					Key:   "r2",
 					Size:  40,
 					Cells: []table.Cell{
 						cell("e", textCfg("E")),
@@ -108,6 +113,7 @@ var _ = Describe("Reducer", func() {
 				})),
 			)
 			Expect(out.Rows).To(HaveLen(3))
+			Expect(out.Rows[2].Key).To(Equal("r2"))
 			Expect(out.Rows[2].Cells).To(Equal([]string{"e", "f"}))
 			Expect(out.Cells["e"]).To(Equal(textCfg("E")))
 		})
@@ -116,6 +122,7 @@ var _ = Describe("Reducer", func() {
 			out := MustSucceed(
 				table.Reduce(create2x2(), table.NewAddRowAction(table.AddRowPayload{
 					Index: 999,
+					Key:   "r2",
 					Size:  50,
 					Cells: []table.Cell{cell("z", textCfg(""))},
 				})),
@@ -132,6 +139,7 @@ var _ = Describe("Reducer", func() {
 						table.Table{},
 						table.NewAddRowAction(table.AddRowPayload{
 							Index: 0,
+							Key:   "n",
 							Size:  36,
 							Cells: []table.Cell{
 								cell("a", textCfg("")),
@@ -141,8 +149,10 @@ var _ = Describe("Reducer", func() {
 					),
 				)
 				Expect(out.Rows).To(HaveLen(1))
-				Expect(out.Columns).To(HaveLen(2))
-				Expect(out.Columns[0].Size).To(Equal(72.0))
+				Expect(out.Columns).To(Equal([]table.Column{
+					{Key: "n-0000", Size: 72},
+					{Key: "n-0001", Size: 72},
+				}))
 				Expect(out.Rows[0].Cells).To(Equal([]string{"a", "b"}))
 			},
 		)
@@ -153,28 +163,13 @@ var _ = Describe("Reducer", func() {
 			out := MustSucceed(
 				table.Reduce(
 					create2x2(),
-					table.NewRemoveRowAction(table.RemoveRowPayload{
-						Index: 0,
-					}),
+					table.NewRemoveRowAction(table.RemoveRowPayload{Key: "r0"}),
 				),
 			)
 			Expect(out.Rows).To(HaveLen(1))
 			Expect(out.Rows[0].Cells).To(Equal([]string{"c", "d"}))
 			Expect(out.Cells).NotTo(HaveKey("a"))
 			Expect(out.Cells).NotTo(HaveKey("b"))
-		})
-
-		It("Should be a no-op when the index is out of range", func() {
-			out := MustSucceed(
-				table.Reduce(
-					create2x2(),
-					table.NewRemoveRowAction(table.RemoveRowPayload{
-						Index: 99,
-					}),
-				),
-			)
-			Expect(out.Rows).To(HaveLen(2))
-			Expect(out.Cells).To(HaveLen(4))
 		})
 	})
 
@@ -183,6 +178,7 @@ var _ = Describe("Reducer", func() {
 			out := MustSucceed(
 				table.Reduce(create2x2(), table.NewAddColAction(table.AddColPayload{
 					Index: 1,
+					Key:   "m",
 					Size:  90,
 					Cells: []table.Cell{
 						cell("m1", textCfg("M1")),
@@ -191,6 +187,7 @@ var _ = Describe("Reducer", func() {
 				})),
 			)
 			Expect(out.Columns).To(HaveLen(3))
+			Expect(out.Columns[1].Key).To(Equal("m"))
 			Expect(out.Rows[0].Cells).To(Equal([]string{"a", "m1", "b"}))
 			Expect(out.Rows[1].Cells).To(Equal([]string{"c", "m2", "d"}))
 		})
@@ -203,6 +200,7 @@ var _ = Describe("Reducer", func() {
 						table.Table{},
 						table.NewAddColAction(table.AddColPayload{
 							Index: 0,
+							Key:   "n",
 							Size:  72,
 							Cells: []table.Cell{
 								cell("a", textCfg("")),
@@ -212,10 +210,10 @@ var _ = Describe("Reducer", func() {
 					),
 				)
 				Expect(out.Columns).To(HaveLen(1))
-				Expect(out.Rows).To(HaveLen(2))
-				Expect(out.Rows[0].Size).To(Equal(36.0))
-				Expect(out.Rows[0].Cells).To(Equal([]string{"a"}))
-				Expect(out.Rows[1].Cells).To(Equal([]string{"b"}))
+				Expect(out.Rows).To(Equal([]table.Row{
+					{Key: "n-0000", Size: 36, Cells: []string{"a"}},
+					{Key: "n-0001", Size: 36, Cells: []string{"b"}},
+				}))
 			},
 		)
 	})
@@ -227,9 +225,7 @@ var _ = Describe("Reducer", func() {
 				out := MustSucceed(
 					table.Reduce(
 						create2x2(),
-						table.NewRemoveColAction(table.RemoveColPayload{
-							Index: 0,
-						}),
+						table.NewRemoveColAction(table.RemoveColPayload{Key: "c0"}),
 					),
 				)
 				Expect(out.Columns).To(HaveLen(1))
@@ -258,7 +254,7 @@ var _ = Describe("Reducer", func() {
 				"AddRow against two existing columns",
 				create2x2(),
 				table.NewAddRowAction(table.AddRowPayload{
-					Index: 2, Size: 36, CellTemplate: template,
+					Index: 2, Key: "r2", Size: 36, CellTemplate: template,
 				}),
 				[]string{
 					"a",
@@ -268,7 +264,7 @@ var _ = Describe("Reducer", func() {
 			Entry("AddCol against two existing rows",
 				create2x2(),
 				table.NewAddColAction(table.AddColPayload{
-					Index: 2, Size: 72, CellTemplate: template,
+					Index: 2, Key: "c2", Size: 72, CellTemplate: template,
 				}),
 				[]string{"a", "b", "11111111-2222-4333-8444-555555550000"},
 			),
@@ -281,11 +277,11 @@ var _ = Describe("Reducer", func() {
 					table.Reduce(
 						table.Table{},
 						table.NewAddRowAction(table.AddRowPayload{
-							Index: 0, Size: 36, CellTemplate: template,
+							Index: 0, Key: "n", Size: 36, CellTemplate: template,
 						}),
 					),
 				)
-				Expect(out.Columns).To(HaveLen(1))
+				Expect(out.Columns).To(Equal([]table.Column{{Key: "n-0000", Size: 72}}))
 				Expect(out.Rows).To(HaveLen(1))
 				Expect(
 					out.Rows[0].Cells,
@@ -297,9 +293,12 @@ var _ = Describe("Reducer", func() {
 			"Should add a column with no cells when AddCol with a template fires against a row-less table",
 			func() {
 				out := MustSucceed(table.Reduce(table.Table{
-					Columns: []table.Column{{Size: 80}, {Size: 80}},
+					Columns: []table.Column{
+						{Key: "c0", Size: 80},
+						{Key: "c1", Size: 80},
+					},
 				}, table.NewAddColAction(table.AddColPayload{
-					Index: 2, Size: 72, CellTemplate: template,
+					Index: 2, Key: "c2", Size: 72, CellTemplate: template,
 				})))
 				Expect(out.Rows).To(BeEmpty())
 				Expect(out.Columns).To(HaveLen(3))
@@ -311,9 +310,9 @@ var _ = Describe("Reducer", func() {
 			"Should add a row with no cells when AddRow with a template fires against a column-less table",
 			func() {
 				out := MustSucceed(table.Reduce(table.Table{
-					Rows: []table.Row{{Size: 36, Cells: []string{}}},
+					Rows: []table.Row{{Key: "r0", Size: 36, Cells: []string{}}},
 				}, table.NewAddRowAction(table.AddRowPayload{
-					Index: 1, Size: 36, CellTemplate: template,
+					Index: 1, Key: "r1", Size: 36, CellTemplate: template,
 				})))
 				Expect(out.Rows).To(HaveLen(2))
 				Expect(out.Rows[1].Cells).To(BeEmpty())
@@ -334,6 +333,7 @@ var _ = Describe("Reducer", func() {
 			Entry("AddRow",
 				table.NewAddRowAction(table.AddRowPayload{
 					Index: 2,
+					Key:   "r2",
 					Size:  5,
 					Cells: []table.Cell{cell("z", textCfg("")), cell("y", textCfg(""))},
 				}),
@@ -342,25 +342,26 @@ var _ = Describe("Reducer", func() {
 			Entry("AddCol",
 				table.NewAddColAction(table.AddColPayload{
 					Index: 2,
+					Key:   "c2",
 					Size:  0,
 					Cells: []table.Cell{cell("z", textCfg("")), cell("y", textCfg(""))},
 				}),
 				func(t table.Table) float64 { return t.Columns[2].Size },
 			),
 			Entry("ResizeRow",
-				table.NewResizeRowAction(table.ResizeRowPayload{Index: 0, Size: 5}),
+				table.NewResizeRowAction(table.ResizeRowPayload{Key: "r0", Size: 5}),
 				func(t table.Table) float64 { return t.Rows[0].Size },
 			),
 			Entry("ResizeCol",
-				table.NewResizeColAction(table.ResizeColPayload{Index: 0, Size: 0}),
+				table.NewResizeColAction(table.ResizeColPayload{Key: "c0", Size: 0}),
 				func(t table.Table) float64 { return t.Columns[0].Size },
 			),
 		)
 
 		It("Should resize a row and a column independently", func() {
 			out := MustSucceed(table.Reduce(create2x2(),
-				table.NewResizeRowAction(table.ResizeRowPayload{Index: 0, Size: 55}),
-				table.NewResizeColAction(table.ResizeColPayload{Index: 1, Size: 200}),
+				table.NewResizeRowAction(table.ResizeRowPayload{Key: "r0", Size: 55}),
+				table.NewResizeColAction(table.ResizeColPayload{Key: "c1", Size: 200}),
 			))
 			Expect(out.Rows[0].Size).To(Equal(55.0))
 			Expect(out.Columns[1].Size).To(Equal(200.0))
@@ -369,10 +370,10 @@ var _ = Describe("Reducer", func() {
 
 	Describe("MoveRow", func() {
 		DescribeTable("lands the row at the target index",
-			func(from, to uint32, expected [][]string) {
+			func(key string, to uint32, expected [][]string) {
 				out := MustSucceed(table.Reduce(
 					create3x3(),
-					table.NewMoveRowAction(table.MoveRowPayload{From: from, To: to}),
+					table.NewMoveRowAction(table.MoveRowPayload{Key: key, To: to}),
 				))
 				Expect(out.Rows).To(HaveLen(len(expected)))
 				for i, cells := range expected {
@@ -380,46 +381,40 @@ var _ = Describe("Reducer", func() {
 				}
 				Expect(out.Cells).To(HaveLen(9))
 			},
-			Entry("forward", uint32(0), uint32(2), [][]string{
+			Entry("forward", "r0", uint32(2), [][]string{
 				{"d", "e", "f"}, {"g", "h", "i"}, {"a", "b", "c"},
 			}),
-			Entry("backward", uint32(2), uint32(0), [][]string{
+			Entry("backward", "r2", uint32(0), [][]string{
 				{"g", "h", "i"}, {"a", "b", "c"}, {"d", "e", "f"},
 			}),
-			Entry("onto itself", uint32(1), uint32(1), [][]string{
+			Entry("onto itself", "r1", uint32(1), [][]string{
 				{"a", "b", "c"}, {"d", "e", "f"}, {"g", "h", "i"},
 			}),
-			Entry("past the end, clamped to the last row", uint32(0), uint32(99),
+			Entry("past the end, clamped to the last row", "r0", uint32(99),
 				[][]string{{"d", "e", "f"}, {"g", "h", "i"}, {"a", "b", "c"}},
 			),
 		)
 
-		It("Should carry the row's size with it", func() {
+		It("Should carry the row's key and size with it", func() {
 			t := create3x3()
 			t.Rows[0].Size = 50
 			out := MustSucceed(table.Reduce(
 				t,
-				table.NewMoveRowAction(table.MoveRowPayload{From: 0, To: 2}),
+				table.NewMoveRowAction(table.MoveRowPayload{Key: "r0", To: 2}),
 			))
-			Expect(out.Rows[2].Size).To(Equal(50.0))
+			Expect(out.Rows[2]).To(Equal(table.Row{
+				Key: "r0", Size: 50, Cells: []string{"a", "b", "c"},
+			}))
 			Expect(out.Rows[0].Size).To(Equal(36.0))
-		})
-
-		It("Should be a no-op when from is out of range", func() {
-			out := MustSucceed(table.Reduce(
-				create3x3(),
-				table.NewMoveRowAction(table.MoveRowPayload{From: 3, To: 0}),
-			))
-			Expect(out).To(Equal(create3x3()))
 		})
 	})
 
 	Describe("MoveCol", func() {
 		DescribeTable("lands the column at the target index in every row",
-			func(from, to uint32, expected [][]string) {
+			func(key string, to uint32, expected [][]string) {
 				out := MustSucceed(table.Reduce(
 					create3x3(),
-					table.NewMoveColAction(table.MoveColPayload{From: from, To: to}),
+					table.NewMoveColAction(table.MoveColPayload{Key: key, To: to}),
 				))
 				Expect(out.Columns).To(HaveLen(3))
 				for i, cells := range expected {
@@ -427,37 +422,29 @@ var _ = Describe("Reducer", func() {
 				}
 				Expect(out.Cells).To(HaveLen(9))
 			},
-			Entry("forward", uint32(0), uint32(2), [][]string{
+			Entry("forward", "c0", uint32(2), [][]string{
 				{"b", "c", "a"}, {"e", "f", "d"}, {"h", "i", "g"},
 			}),
-			Entry("backward", uint32(2), uint32(0), [][]string{
+			Entry("backward", "c2", uint32(0), [][]string{
 				{"c", "a", "b"}, {"f", "d", "e"}, {"i", "g", "h"},
 			}),
-			Entry("onto itself", uint32(1), uint32(1), [][]string{
+			Entry("onto itself", "c1", uint32(1), [][]string{
 				{"a", "b", "c"}, {"d", "e", "f"}, {"g", "h", "i"},
 			}),
-			Entry("past the end, clamped to the last column", uint32(0), uint32(99),
+			Entry("past the end, clamped to the last column", "c0", uint32(99),
 				[][]string{{"b", "c", "a"}, {"e", "f", "d"}, {"h", "i", "g"}},
 			),
 		)
 
-		It("Should carry the column's size with it", func() {
+		It("Should carry the column's key and size with it", func() {
 			t := create3x3()
 			t.Columns[0].Size = 120
 			out := MustSucceed(table.Reduce(
 				t,
-				table.NewMoveColAction(table.MoveColPayload{From: 0, To: 2}),
+				table.NewMoveColAction(table.MoveColPayload{Key: "c0", To: 2}),
 			))
-			Expect(out.Columns[2].Size).To(Equal(120.0))
+			Expect(out.Columns[2]).To(Equal(table.Column{Key: "c0", Size: 120}))
 			Expect(out.Columns[0].Size).To(Equal(80.0))
-		})
-
-		It("Should be a no-op when from is out of range", func() {
-			out := MustSucceed(table.Reduce(
-				create3x3(),
-				table.NewMoveColAction(table.MoveColPayload{From: 3, To: 0}),
-			))
-			Expect(out).To(Equal(create3x3()))
 		})
 
 		It("Should leave a row missing a cell at either index unchanged", func() {
@@ -465,13 +452,33 @@ var _ = Describe("Reducer", func() {
 			t.Rows[1].Cells = []string{"d", "e"}
 			out := MustSucceed(table.Reduce(
 				t,
-				table.NewMoveColAction(table.MoveColPayload{From: 0, To: 2}),
+				table.NewMoveColAction(table.MoveColPayload{Key: "c0", To: 2}),
 			))
 			Expect(out.Rows[0].Cells).To(Equal([]string{"b", "c", "a"}))
 			Expect(out.Rows[1].Cells).To(Equal([]string{"d", "e"}))
 			Expect(out.Rows[2].Cells).To(Equal([]string{"h", "i", "g"}))
 		})
 	})
+
+	DescribeTable("is a no-op when no row or column has the key",
+		func(action table.Action) {
+			Expect(table.Reduce(create3x3(), action)).To(Equal(create3x3()))
+		},
+		Entry("RemoveRow", table.NewRemoveRowAction(table.RemoveRowPayload{Key: "c0"})),
+		Entry("RemoveCol", table.NewRemoveColAction(table.RemoveColPayload{Key: "r0"})),
+		Entry("ResizeRow", table.NewResizeRowAction(table.ResizeRowPayload{
+			Key: "ghost", Size: 50,
+		})),
+		Entry("ResizeCol", table.NewResizeColAction(table.ResizeColPayload{
+			Key: "ghost", Size: 50,
+		})),
+		Entry("MoveRow", table.NewMoveRowAction(table.MoveRowPayload{
+			Key: "ghost", To: 0,
+		})),
+		Entry("MoveCol", table.NewMoveColAction(table.MoveColPayload{
+			Key: "ghost", To: 0,
+		})),
+	)
 
 	Describe("SetCell", func() {
 		It("Should replace the cell stored under the given key", func() {

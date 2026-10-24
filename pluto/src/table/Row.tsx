@@ -19,7 +19,7 @@ import { useCell, useDispatch } from "@/table/queries";
 import { Selection } from "@/table/selection";
 import { Shift } from "@/table/shift";
 
-export interface RowProps extends Pick<IndicatorProps, "onMovePress"> {
+export interface RowProps extends Pick<IndicatorProps, "itemKey" | "onMovePress"> {
   index: number;
   size: number;
   /** Canvas x coordinate of the row's first cell. */
@@ -33,7 +33,7 @@ export interface RowProps extends Pick<IndicatorProps, "onMovePress"> {
   /** True when this is the table's bottom row. */
   last: boolean;
   showIndicator?: boolean;
-  onResize: (size: number, index: number) => void;
+  onResize: (size: number, key: string) => void;
   onSelect: (index: number, ev: React.MouseEvent) => void;
   onCellSelect: (cellKey: string, ev: React.MouseEvent) => void;
   /** How far the row slides while a move previews where it lands. */
@@ -45,6 +45,7 @@ export interface RowProps extends Pick<IndicatorProps, "onMovePress"> {
 export const Row = memo(
   ({
     index,
+    itemKey,
     size,
     x,
     y,
@@ -93,6 +94,7 @@ export const Row = memo(
           <Indicator
             direction="y"
             index={index}
+            itemKey={itemKey}
             value={size}
             editable={editable}
             onChange={onResize}

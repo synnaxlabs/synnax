@@ -37,13 +37,13 @@ export const getCellColumn = (index: number): string => {
 };
 
 export interface ColumnIndicatorsProps extends Pick<IndicatorProps, "onMovePress"> {
-  columns: number[];
+  columns: table.Column[];
   rows: table.Row[];
   selected: string[];
   editable: boolean;
   onSelect: (index: number, ev: React.MouseEvent) => void;
   onSelectAll: () => void;
-  onResize: (size: number, index: number) => void;
+  onResize: (size: number, key: string) => void;
   /** How far each column slides while a move previews where it lands. */
   shifts?: number[];
 }
@@ -87,12 +87,13 @@ export const ColumnIndicators = memo(
           onClick={onSelectAll}
           onContextMenu={onSelectAll}
         />
-        {columns.map((size, i) => (
+        {columns.map((col, i) => (
           <Indicator
-            key={i}
+            key={col.key}
             direction="x"
             index={i}
-            value={size}
+            itemKey={col.key}
+            value={col.size}
             selected={selectedCols.has(i)}
             editable={editable}
             onChange={onResize}
@@ -110,16 +111,18 @@ ColumnIndicators.displayName = "ColumnIndicators";
 export interface IndicatorProps {
   direction: direction.Direction;
   index: number;
+  /** Key of the row or column. */
+  itemKey: string;
   value: number;
   editable: boolean;
   selected?: boolean;
-  onChange: (size: number, index: number) => void;
+  onChange: (size: number, key: string) => void;
   onSelect: (index: number, ev: React.MouseEvent) => void;
   /**
    * Handles a press on the label, which moves the row or column once the pointer
    * travels. The label does not move anything when absent.
    */
-  onMovePress?: (index: number, ev: React.PointerEvent) => void;
+  onMovePress?: (key: string, ev: React.PointerEvent) => void;
   /** How far the row or column slides while a move previews where it lands. */
   shift?: number;
 }
@@ -127,6 +130,7 @@ export interface IndicatorProps {
 export const Indicator = ({
   direction: dir,
   index,
+  itemKey,
   value,
   editable,
   selected = false,
@@ -142,8 +146,8 @@ export const Indicator = ({
       sizeRef.current = valueRef.current;
     }, []),
     onMove: useCallback(
-      (b: box.Box) => onChange(sizeRef.current + box.dim(b, dir, true), index),
-      [onChange, index, dir],
+      (b: box.Box) => onChange(sizeRef.current + box.dim(b, dir, true), itemKey),
+      [onChange, itemKey, dir],
     ),
   });
   const style = useMemo(
@@ -156,7 +160,7 @@ export const Indicator = ({
   const label = dir === "x" ? getCellColumn(index) : index + 1;
   return (
     <td
-      id={`resizer-${dir}-${index}`}
+      id={`resizer-${dir}-${itemKey}`}
       className={CSS.cls(
         CSS.BE("table", "resizer"),
         CSS.dir(dir),
@@ -176,7 +180,7 @@ export const Indicator = ({
         justify="center"
         align="center"
         square={false}
-        onPointerDown={onMovePress == null ? undefined : (e) => onMovePress(index, e)}
+        onPointerDown={onMovePress == null ? undefined : (e) => onMovePress(itemKey, e)}
       >
         {label}
       </Text.Text>

@@ -26,8 +26,8 @@ var _ = Describe("Writer", func() {
 		GinkgoHelper()
 		s := table.Table{
 			Name:    "test",
-			Rows:    []table.Row{{Size: 30, Cells: []string{"a", "b"}}},
-			Columns: []table.Column{{Size: 80}, {Size: 100}},
+			Rows:    []table.Row{{Key: "r0", Size: 30, Cells: []string{"a", "b"}}},
+			Columns: []table.Column{{Key: "c0", Size: 80}, {Key: "c1", Size: 100}},
 			Cells: map[string]table.CellConfig{
 				"a": textCfg("A"),
 				"b": textCfg("B"),
@@ -50,8 +50,8 @@ var _ = Describe("Writer", func() {
 		It("Should create a Table", func(ctx SpecContext) {
 			t := table.Table{
 				Name:    "test",
-				Rows:    []table.Row{{Size: 30, Cells: []string{"a"}}},
-				Columns: []table.Column{{Size: 80}},
+				Rows:    []table.Row{{Key: "r0", Size: 30, Cells: []string{"a"}}},
+				Columns: []table.Column{{Key: "c0", Size: 80}},
 				Cells: map[string]table.CellConfig{
 					"a": textCfg("hello"),
 				},

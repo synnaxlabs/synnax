@@ -103,7 +103,7 @@ describe("Table", () => {
     // canvas path alongside the DOM transform.
     const created = await client.tables.create(project.key, {
       name: "center_table",
-      rows: [{ size: ROW_SIZE, cells: ["a"] }],
+      rows: [{ key: "r0", size: ROW_SIZE, cells: ["a"] }],
       columns: [{ size: COL_SIZE }],
       cells: { a: { variant: "value", level: "h5", textColor: "#000000" } },
     });
@@ -140,7 +140,7 @@ describe("Table", () => {
     await act(async () => {
       await result.current.dispatchAsync({
         key,
-        actions: [table.resizeRow({ index: 0, size })],
+        actions: [table.resizeRow({ key: "r0", size })],
       });
     });
   };
@@ -492,8 +492,8 @@ describe("Table", () => {
       const project = await client.projects.create({ name: "move" });
       const created = await client.tables.create(project.key, {
         name: "move_table",
-        rows: CELLS.map((cells) => ({ size: ROW_SIZE, cells })),
-        columns: CELLS.map(() => ({ size: COL_SIZE })),
+        rows: CELLS.map((cells, y) => ({ key: `r${y}`, size: ROW_SIZE, cells })),
+        columns: CELLS.map((_, x) => ({ key: `c${x}`, size: COL_SIZE })),
         cells: Object.fromEntries(
           CELLS.flat().map((k) => [k, { variant: "text", value: `cell ${k}` }]),
         ),
@@ -554,6 +554,22 @@ describe("Table", () => {
       await expectStored(tableKey, [CELLS[2], CELLS[0], CELLS[1]]);
     });
 
+    it("should move the dragged row when another session adds a row", async () => {
+      const tableKey = await createGrid();
+      const c = await renderGrid(tableKey, true);
+      press(c.getByText("1"), { x: 5, y: 30 });
+      await frame();
+      const config = table.cellConfigZ.parse({ variant: "text", value: "cell new" });
+      await client.tables.dispatch(tableKey, [
+        table.addRow({ index: 0, size: ROW_SIZE, cells: [{ key: "new", config }] }),
+      ]);
+      await waitFor(() => expect(c.getByText("cell new")).toBeTruthy());
+      fireEvent.pointerMove(window, at({ x: 5, y: 70 }));
+      await frame();
+      release({ x: 5, y: 70 });
+      await expectStored(tableKey, [["new"], CELLS[1], CELLS[0], CELLS[2]]);
+    });
+
     it("should slide the cells to preview where a column lands", async () => {
       const tableKey = await createGrid();
       const c = await renderGrid(tableKey, true);
@@ -568,9 +584,9 @@ describe("Table", () => {
       expect(frameEl()?.classList).toContain("pluto-table-frame--moving");
       expect(transformOf("[id='00']")).toEqual("translate(144px, 0px)");
       expect(transformOf("[id='21']")).toEqual("translate(-72px, 0px)");
-      expect(transformOf("#resizer-x-0")).toEqual("translate(144px, 0px)");
-      expect(transformOf("#resizer-x-2")).toEqual("translate(-72px, 0px)");
-      expect(transformOf("#resizer-y-0")).toEqual("");
+      expect(transformOf("#resizer-x-c0")).toEqual("translate(144px, 0px)");
+      expect(transformOf("#resizer-x-c2")).toEqual("translate(-72px, 0px)");
+      expect(transformOf("#resizer-y-r0")).toEqual("");
       expect(transformOf(".pluto-table-frame__move-source")).toEqual(
         "translate(144px, 0px)",
       );

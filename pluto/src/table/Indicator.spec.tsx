@@ -20,6 +20,7 @@ const renderIndicator = (props: Partial<React.ComponentProps<typeof Indicator>>)
           <Indicator
             direction="x"
             index={0}
+            itemKey="c0"
             value={80}
             editable
             onChange={() => {}}

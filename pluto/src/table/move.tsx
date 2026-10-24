@@ -18,6 +18,7 @@ import {
   type ReactElement,
   type RefObject,
   useCallback,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -33,30 +34,56 @@ export interface Move {
   to: number;
 }
 
+/** A row or column that a move can carry. */
+export interface Item {
+  key: string;
+  size: number;
+}
+
 export interface UseMoveProps {
   /** x moves columns, y moves rows. */
   direction: direction.Direction;
-  /** Sizes of the rows or columns in display order. */
-  sizes: number[];
-  /** Indices of the selected rows or columns. A press on one moves them all. */
-  selected: number[];
+  /** The rows or columns in display order. */
+  items: Item[];
+  /** Keys of the selected rows or columns. A press on one moves them all. */
+  selected: string[];
   /** The table element. Rows and columns start one indicator in from its corner. */
   ref: RefObject<HTMLElement | null>;
-  /** Called on release with the finished move. A cancelled pointer drops the move. */
+  /**
+   * Called on release with the finished move, resolved against the latest items. A
+   * cancelled pointer drops the move.
+   */
   onMove: (move: Move) => void;
 }
 
 export interface UseMoveReturn {
-  /** The move in progress, or null between moves. */
+  /** The move in progress against the latest items, or null between moves. */
   move: Move | null;
-  /** Handles a press on the indicator of the row or column at index. */
-  press: (index: number, e: ReactPointerEvent) => void;
+  /** Handles a press on the indicator of the row or column with the given key. */
+  press: (key: string, e: ReactPointerEvent) => void;
   /** Reports, once, whether the latest press became a move. */
   consumeMoved: () => boolean;
 }
 
+// Held is a move by the keys of what it carries, so it survives the items changing
+// under it.
+interface Held {
+  keys: string[];
+  to: number;
+}
+
 const offsetOf = (sizes: number[], index: number): number =>
   sizes.slice(0, index).reduce((a, s) => a + s, 0);
+
+const indicesOf = (items: Item[], keys: string[]): number[] =>
+  items.flatMap((item, i) => (keys.includes(item.key) ? [i] : []));
+
+// resolve returns where the held items sit in items, or null when none are left.
+const resolve = (items: Item[], { keys, to }: Held): Move | null => {
+  const indices = indicesOf(items, keys);
+  if (indices.length === 0) return null;
+  return { indices, to: Math.min(to, items.length - indices.length) };
+};
 
 // landing returns where the moved items land when their leading edge sits at pos: the
 // number of the rest whose midpoint, with the moved ones lifted out, lies before pos.
@@ -81,69 +108,77 @@ const originOf = (el: HTMLElement, dir: direction.Direction): number =>
 /**
  * Drives moving rows or columns by dragging an indicator. A press on a selected row or
  * column moves every selected one as a block, and a press elsewhere moves just that
- * one. A press that never passes the drag threshold stays a click.
+ * one. A press that never passes the drag threshold stays a click. The move follows its
+ * rows or columns by key, so another session changing the table during the drag never
+ * moves the wrong ones.
  */
 export const useMove = ({
   direction: dir,
-  sizes,
+  items,
   selected,
   ref,
   onMove,
 }: UseMoveProps): UseMoveReturn => {
-  const [move, setMove] = useState<Move | null>(null);
-  const sizesRef = useSyncedRef(sizes);
+  const [held, setHeld] = useState<Held | null>(null);
+  const itemsRef = useSyncedRef(items);
   const selectedRef = useSyncedRef(selected);
   const onMoveRef = useSyncedRef(onMove);
-  const moveRef = useRef<Move>({ indices: [], to: 0 });
-  const pressedRef = useRef(0);
+  const heldRef = useRef<Held | null>(null);
+  const pressedRef = useRef<{ key: string; keys: string[] }>({ key: "", keys: [] });
   // How far the pointer sits past the leading edge of the moved block.
   const grabRef = useRef(0);
   const movedRef = useRef(false);
   const startDrag = Cursor.useDrag({
     onStart: useCallback(
       (start: xy.XY) => {
-        if (ref.current == null) return;
+        const items = itemsRef.current;
+        const { key, keys } = pressedRef.current;
+        const pressed = items.findIndex((item) => item.key === key);
+        if (ref.current == null || pressed === -1) return;
         movedRef.current = true;
-        const sizes = sizesRef.current;
-        const { indices } = moveRef.current;
-        const pressed = pressedRef.current;
+        const sizes = items.map((item) => item.size);
+        const indices = indicesOf(items, keys);
         const before = indices.filter((i) => i < pressed);
         const edge =
           offsetOf(sizes, pressed) - before.reduce((a, i) => a + sizes[i], 0);
         grabRef.current = start[dir] - originOf(ref.current, dir) - edge;
-        moveRef.current = { indices, to: landing(sizes, indices, edge) };
-        setMove(moveRef.current);
+        heldRef.current = { keys, to: landing(sizes, indices, edge) };
+        setHeld(heldRef.current);
         Cursor.setGlobalStyle("grabbing");
       },
       [dir, ref],
     ),
     onMove: useCallback(
       (_: box.Box, __: Triggers.Key, e: PointerEvent) => {
-        if (ref.current == null) return;
-        const { indices, to: prev } = moveRef.current;
+        const current = heldRef.current;
+        if (ref.current == null || current == null) return;
+        const items = itemsRef.current;
+        const move = resolve(items, current);
+        if (move == null) return;
         const pos = xy.construct(e)[dir] - originOf(ref.current, dir) - grabRef.current;
-        const to = landing(sizesRef.current, indices, pos);
-        if (to === prev) return;
-        moveRef.current = { indices, to };
-        setMove(moveRef.current);
+        const sizes = items.map((item) => item.size);
+        const to = landing(sizes, move.indices, pos);
+        if (to === current.to) return;
+        heldRef.current = { keys: current.keys, to };
+        setHeld(heldRef.current);
       },
       [dir, ref],
     ),
     onEnd: useCallback((_: box.Box, __: Triggers.Key, e: PointerEvent) => {
+      const current = heldRef.current;
+      heldRef.current = null;
       Cursor.clearGlobalStyle();
-      setMove(null);
-      if (e.type !== "pointercancel") onMoveRef.current(moveRef.current);
+      setHeld(null);
+      if (current == null || e.type === "pointercancel") return;
+      const move = resolve(itemsRef.current, current);
+      if (move != null) onMoveRef.current(move);
     }, []),
   });
   const press = useCallback(
-    (index: number, e: ReactPointerEvent) => {
+    (key: string, e: ReactPointerEvent) => {
       movedRef.current = false;
-      pressedRef.current = index;
       const selected = selectedRef.current;
-      moveRef.current = {
-        indices: selected.includes(index) ? selected : [index],
-        to: 0,
-      };
+      pressedRef.current = { key, keys: selected.includes(key) ? selected : [key] };
       startDrag(e);
     },
     [startDrag],
@@ -153,6 +188,10 @@ export const useMove = ({
     movedRef.current = false;
     return moved;
   }, []);
+  const move = useMemo(
+    () => (held == null ? null : resolve(items, held)),
+    [held, items],
+  );
   return { move, press, consumeMoved };
 };
 

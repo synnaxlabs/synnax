@@ -168,24 +168,21 @@ export const Table = ({
     [dispatch, key],
   );
   const removeRow = useCallback(
-    (indices: number[]) => {
-      if (indices.length === 0) return;
-      // Descending order so earlier removes don't shift later indices.
-      const sorted = [...indices].sort((a, b) => b - a);
+    (keys: string[]) => {
+      if (keys.length === 0) return;
       dispatch({
         key,
-        actions: sorted.map((index) => table.removeRow({ index })),
+        actions: keys.map((rowKey) => table.removeRow({ key: rowKey })),
       });
     },
     [dispatch, key],
   );
   const removeCol = useCallback(
-    (indices: number[]) => {
-      if (indices.length === 0) return;
-      const sorted = [...indices].sort((a, b) => b - a);
+    (keys: string[]) => {
+      if (keys.length === 0) return;
       dispatch({
         key,
-        actions: sorted.map((index) => table.removeCol({ index })),
+        actions: keys.map((colKey) => table.removeCol({ key: colKey })),
       });
     },
     [dispatch, key],
@@ -289,16 +286,16 @@ export const Table = ({
 
   const selectedRows = useMemo(() => {
     const set = new Set(selected);
-    return rows.flatMap((row, y) =>
-      row.cells.length > 0 && row.cells.every((k) => set.has(k)) ? [y] : [],
+    return rows.flatMap((row) =>
+      row.cells.length > 0 && row.cells.every((k) => set.has(k)) ? [row.key] : [],
     );
   }, [rows, selected]);
   const selectedCols = useMemo(() => {
     const set = new Set(selected);
-    return colSizes.flatMap((_, x) =>
-      rows.length > 0 && rows.every((row) => set.has(row.cells[x])) ? [x] : [],
+    return columns.flatMap((col, x) =>
+      rows.length > 0 && rows.every((row) => set.has(row.cells[x])) ? [col.key] : [],
     );
-  }, [rows, colSizes, selected]);
+  }, [rows, columns, selected]);
 
   // A move selects what it moved. Cell keys travel with their row or column, so the
   // keys read before the dispatch name the cells at their new position.
@@ -310,24 +307,26 @@ export const Table = ({
   };
   const rowMove = useMove({
     direction: "y",
-    sizes: rowSizes,
+    items: rows,
     selected: selectedRows,
     ref: tableElRef,
     onMove: (move) =>
       finishMove(
-        move.indices.flatMap((y) => rows[y]?.cells ?? []),
-        steps(move).map((s) => table.moveRow(s)),
+        move.indices.flatMap((y) => rows[y].cells),
+        steps(move).map(({ from, to }) => table.moveRow({ key: rows[from].key, to })),
       ),
   });
   const colMove = useMove({
     direction: "x",
-    sizes: colSizes,
+    items: columns,
     selected: selectedCols,
     ref: tableElRef,
     onMove: (move) =>
       finishMove(
         rows.flatMap((row) => move.indices.flatMap((x) => row.cells[x] ?? [])),
-        steps(move).map((s) => table.moveCol(s)),
+        steps(move).map(({ from, to }) =>
+          table.moveCol({ key: columns[from].key, to }),
+        ),
       ),
   });
 
@@ -486,15 +485,17 @@ export const Table = ({
   );
 
   const handleRowResize = useCallback(
-    (size: number, index: number) => {
-      if (editable) dispatch({ key, actions: [table.resizeRow({ index, size })] });
+    (size: number, rowKey: string) => {
+      if (editable)
+        dispatch({ key, actions: [table.resizeRow({ key: rowKey, size })] });
     },
     [dispatch, editable, key],
   );
 
   const handleColResize = useCallback(
-    (size: number, index: number) => {
-      if (editable) dispatch({ key, actions: [table.resizeCol({ index, size })] });
+    (size: number, colKey: string) => {
+      if (editable)
+        dispatch({ key, actions: [table.resizeCol({ key: colKey, size })] });
     },
     [dispatch, editable, key],
   );
@@ -610,7 +611,7 @@ export const Table = ({
                   <Selection.Context value={selected}>
                     {showIndicators && (
                       <ColumnIndicators
-                        columns={colSizes}
+                        columns={columns}
                         rows={rows}
                         selected={selected}
                         editable={editable}
@@ -626,8 +627,9 @@ export const Table = ({
                       rowYCursor += row.size;
                       return (
                         <Row
-                          key={rowIndex}
+                          key={row.key}
                           index={rowIndex}
+                          itemKey={row.key}
                           resourceKey={key}
                           cells={row.cells}
                           columns={colSizes}
