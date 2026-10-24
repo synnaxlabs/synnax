@@ -22,19 +22,19 @@ interface PageTarget {
 
 const PAGE_TARGETS: Record<schematic.PageType, PageTarget> = {
   schematic: {
-    noun: "Schematic",
+    noun: "schematic",
     retrieve: (client, key) => client.schematics.retrieve(key),
   },
   lineplot: {
-    noun: "Line plot",
+    noun: "line plot",
     retrieve: (client, key) => client.lineplots.retrieve(key),
   },
   log: {
-    noun: "Log",
+    noun: "log",
     retrieve: (client, key) => client.logs.retrieve(key),
   },
   table: {
-    noun: "Table",
+    noun: "table",
     retrieve: (client, key) => client.tables.retrieve(key),
   },
 };
@@ -65,7 +65,7 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
           await target.retrieve(client, page.key);
           openTab({ variant: "resource", resource: page });
         },
-        { message: `Failed to open ${target.noun.toLowerCase()}`, name: label },
+        { message: `Failed to open ${target.noun}`, name: label },
       );
     },
     [getSchematic, schematicKey, openTab, handleError, client],

@@ -100,7 +100,7 @@ describe("Import.useImportBatch", () => {
         await result.current.importBatch({
           items: [{ name: "notes.txt" }, { name: "a.json" }],
           importItem: async ({ name }) => {
-            if (name === "notes.txt") throw new Error("not a JSON file");
+            if (name === "notes.txt") throw new Error("The file is not JSON.");
             return id;
           },
           onSuccess,
@@ -111,7 +111,7 @@ describe("Import.useImportBatch", () => {
         expect.objectContaining({
           name: "notes.txt",
           message: "Failed to import",
-          description: "not a JSON file",
+          description: "The file is not JSON.",
         }),
       ),
     );

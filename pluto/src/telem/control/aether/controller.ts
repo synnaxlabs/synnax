@@ -138,11 +138,7 @@ export class Controller
   }
 
   afterDelete(): void {
-    const { internal: i } = this;
-    i.runAsync(() => this.doRelease(), {
-      message: "Failed to release control",
-      name: this.state.name,
-    });
+    this.release();
   }
 
   /**
@@ -173,19 +169,18 @@ export class Controller
     return missing;
   }
 
+  // doAcquire and doRelease report their own failures as statuses.
   acquire(): void {
     this.acquireExplicit = true;
-    this.internal.runAsync(() => this.doAcquire(), {
-      message: "Failed to acquire control",
-      name: this.state.name,
-    });
+    this.doAcquire().catch((error: unknown) =>
+      this.internal.instrumentation.L.error("failed to acquire control", { error }),
+    );
   }
 
   release(): void {
-    this.internal.runAsync(() => this.doRelease(), {
-      message: "Failed to release control",
-      name: this.state.name,
-    });
+    this.doRelease().catch((error: unknown) =>
+      this.internal.instrumentation.L.error("failed to release control", { error }),
+    );
   }
 
   private async doAcquire(): Promise<void> {
@@ -217,9 +212,10 @@ export class Controller
           variant: "warning",
           name,
           message: "Skipped deleted channels",
-          description: `Some symbols use channels that no longer exist. ${missing
-            .map((e) => e.message)
-            .join("\n")}`,
+          description: [
+            "Some symbols use channels that no longer exist.",
+            ...missing.map((e) => e.message),
+          ].join("\n"),
         });
       const needsControlOf = this.state.needsControlOf;
       if (needsControlOf.length === 0)

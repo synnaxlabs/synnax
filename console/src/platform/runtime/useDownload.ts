@@ -25,7 +25,7 @@ export interface DownloadParams {
   /** The stream to download. */
   stream: ReadableStream<Uint8Array>;
   /**
-   * The resource name. It titles the save dialog and status messages; its sanitized
+   * The resource name. It titles the save dialog and names the statuses; its sanitized
    * form names the file.
    */
   name: string;

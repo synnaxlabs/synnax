@@ -1744,6 +1744,7 @@ describe("queries", () => {
       streamer.close();
       await waitFor(async () => {
         expect(result.current.variant).toEqual("success");
+        expect(result.current.status.message).toEqual("Sent task commands");
         expect(result.current.data).toHaveLength(1);
       });
     });

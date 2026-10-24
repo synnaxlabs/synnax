@@ -21,7 +21,7 @@ export interface ErrorHandler {
   /** Reports the given error, or runs the given function and reports a rejection. */
   (
     funcOrExc: unknown,
-    heading?: Heading,
+    heading: Heading,
     skip?: errors.Matchable | errors.Matchable[],
   ): void;
 }
@@ -30,7 +30,7 @@ export interface AsyncErrorHandler {
   /** Reports the given error, or runs the given function and reports a rejection. */
   (
     funcOrExc: unknown,
-    heading?: Heading,
+    heading: Heading,
     skip?: errors.Matchable | errors.Matchable[],
   ): Promise<void>;
 }
@@ -42,7 +42,7 @@ export interface Log {
 
 type Skip = errors.Matchable | errors.Matchable[] | undefined;
 
-type Report = (exc: unknown, heading?: Heading, skip?: Skip) => void;
+type Report = (exc: unknown, heading: Heading, skip?: Skip) => void;
 
 const checkSkip = (err: unknown, skip: Skip): boolean => {
   if (Array.isArray(skip)) return skip.some((matcher) => matcher.matches(err));
@@ -63,7 +63,7 @@ const isFunc = (v: unknown): v is () => Promise<void> | void => typeof v === "fu
 const run = async (
   func: () => Promise<void> | void,
   report: Report,
-  heading?: Heading,
+  heading: Heading,
   skip?: Skip,
 ): Promise<void> => {
   try {

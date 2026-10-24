@@ -86,7 +86,7 @@ const useDiagnostics = (state: SupervisorStatus["state"]): Diagnostics | null =>
         const next = await retrieveDiagnostics();
         if (!signal.aborted) setDiagnostics(next);
       } catch (err) {
-        if (!signal.aborted) handleError(err, "Failed to read the diagnostics");
+        if (!signal.aborted) handleError(err, "Failed to read diagnostics");
       }
     },
     [state, handleError],
@@ -103,7 +103,7 @@ const useLog = (): string => {
       handleError(async () => {
         const next = format(await retrieveLogTail());
         if (!stopped) setLog(next);
-      }, "Failed to read the log");
+      }, "Failed to read log");
     refresh();
     const interval = setInterval(refresh, LOG_REFRESH_INTERVAL.milliseconds);
     return () => {
@@ -140,8 +140,8 @@ export const useDiagnosticsModal = Modals.create(() => {
   const addStatus = Status.useAdder();
   const restart = useRestart();
   const reset = useReset();
-  const revealData = useReveal(showData, "Failed to show the data folder");
-  const revealLogs = useReveal(showLogs, "Failed to show the logs");
+  const revealData = useReveal(showData, "Failed to show data folder");
+  const revealLogs = useReveal(showLogs, "Failed to show logs");
   const handleExport = (): void =>
     handleError(async () => {
       const stamp = TimeStamp.now().toString("ISODate", "local");

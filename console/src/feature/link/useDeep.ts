@@ -19,7 +19,7 @@ import { Session } from "@/session";
 
 const BASE_LINK = `${Link.PREFIX}<cluster-key>`;
 
-const INCORRECT_FORMAT_ERROR_MESSAGE = `Links must be of the form ${BASE_LINK} or ${BASE_LINK}/<resource>/<resource-key>`;
+const INCORRECT_FORMAT_ERROR_MESSAGE = `Links must be of the form ${BASE_LINK} or ${BASE_LINK}/<resource>/<resource-key>.`;
 
 const SETTLE_TIMEOUT = TimeSpan.seconds(30);
 
@@ -70,7 +70,7 @@ export const useDeep = (
   const awaitSettled = useWaitFor(
     Session.useSettled(),
     SETTLE_TIMEOUT,
-    "Timed out waiting for the workspace to settle",
+    "Timed out waiting for the workspace to settle.",
   );
   const waitProject = useWaitFor(Session.Project.useSelectIsAnySelected());
   const awaitProject = async (): Promise<void> => {
@@ -116,7 +116,7 @@ export const useDeep = (
       const resourceKey = urlParts[2];
       const handle = handlersRef.current[resource];
       if (handle == null)
-        throw new Error(`Resource type "${resource}" is unknown to Synnax`);
+        throw new Error(`Resource type "${resource}" is unknown to Synnax.`);
       await handle({ client: clientRef.current ?? client, key: resourceKey });
     } catch (e) {
       handleError(e, {

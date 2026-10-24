@@ -22,14 +22,15 @@ export const useRangeSnapshot = () => {
     afterSuccess: useCallback(
       ({ data: { tasks } }: Flux.AfterSuccessParams<Task.SnapshotParams>) => {
         const names = array.toArray(tasks).map((t) => t.name);
+        const joined = strings.naturalLanguageJoin(names);
+        const single = names.length === 1;
         addStatus({
           variant: "success",
           name: rng?.name ?? "",
-          message:
-            names.length === 1
-              ? "Snapshotted task"
-              : `Snapshotted ${names.length} tasks`,
-          description: `Created snapshots of ${strings.naturalLanguageJoin(names)}.`,
+          message: single ? "Snapshotted task" : `Snapshotted ${names.length} tasks`,
+          description: single
+            ? `Created a snapshot of ${joined}.`
+            : `Created snapshots of ${joined}.`,
         });
       },
       [rng, addStatus],

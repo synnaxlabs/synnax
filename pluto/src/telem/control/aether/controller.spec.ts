@@ -315,15 +315,14 @@ describe("control/aether/Controller", SUITE, () => {
     expect([...controller.state.needsControlOf].sort()).toEqual(
       [ch.key, ch.index].sort(),
     );
-    expect(statusesOf(handle)).toContainEqual(
-      expect.objectContaining({
-        name: CONTROLLER_NAME,
-        message: "Skipped deleted channels",
-        description: expect.stringMatching(
-          /^Some symbols use channels that no longer exist\. /,
-        ),
-      }),
-    );
+    expect(statusesOf(handle)).toContainEqual({
+      name: CONTROLLER_NAME,
+      message: "Skipped deleted channels",
+      description: [
+        "Some symbols use channels that no longer exist.",
+        `channel not found matching ${deleted.key}`,
+      ].join("\n"),
+    });
     await expect(controller.set({ [deleted.key]: [1] })).rejects.toThrow();
     await controller.set({ [ch.key]: [1] });
     await expect

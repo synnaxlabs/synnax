@@ -37,7 +37,7 @@ const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const svc = services[id.type];
   if (svc == null) return null;
   const handleSelect = () => {
-    handleError(svc.onClick(entry, { client, openTab }), {
+    handleError(() => svc.onClick(entry, { client, openTab }), {
       message: "Failed to open snapshot",
       name,
     });

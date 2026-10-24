@@ -147,7 +147,7 @@ describe("Schematic.useRangeSnapshot", () => {
             st.variant === "success" &&
             st.name === rng.name &&
             st.message === "Snapshotted schematic" &&
-            st.description === `Created snapshots of ${s.name}.`,
+            st.description === `Created a snapshot of ${s.name}.`,
         ),
       ).toBe(true),
     );

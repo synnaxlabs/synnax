@@ -92,7 +92,7 @@ const MultiConfig = ({ nodes }: MultiElementPropertiesProps): ReactElement => {
             );
             const orientation = el.className.match(/react-flow__handle-(\w+)/)?.[1];
             if (orientation == null || !location.isOuter(orientation))
-              throw new Error(`[arc] - cannot find handle orientation`);
+              throw new Error("Cannot find the handle orientation.");
             return new Diagram.HandleLayout(dist, orientation);
           });
           return new Diagram.NodeLayout(node.key, nodeBox, handles);

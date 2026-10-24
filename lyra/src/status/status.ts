@@ -81,23 +81,22 @@ const causeChain = (err: Error): string | undefined => {
 export type Heading = string | Pick<Base<Variant>, "message" | "name">;
 
 /**
- * Turns any thrown value into an error status. A heading becomes the status message
- * and name, and pushes the error's own message into the description, ahead of its
- * flattened cause chain; the error and its stack ride on the details.
+ * Turns any thrown value into an error status. The heading sets the message and name.
+ * The error's own message and its flattened cause chain form the description, and the
+ * details keep the error and its stack.
  */
 export const fromException = (
   exc: unknown,
-  heading?: Heading,
+  heading: Heading,
 ): Status<typeof exceptionDetailsZ, "error"> => {
   const err = errors.fromUnknown(exc);
-  const chain = causeChain(err);
-  const lead = typeof heading === "string" ? { message: heading, name: "" } : heading;
+  const { message, name } =
+    typeof heading === "string" ? { message: heading, name: "" } : heading;
   return create<typeof exceptionDetailsZ, "error">({
     variant: "error",
-    name: lead?.name ?? "",
-    message: lead?.message ?? err.message,
-    description:
-      lead != null ? [err.message, chain].filter((p) => p != null).join(": ") : chain,
+    name,
+    message,
+    description: [err.message, causeChain(err)].filter((p) => p != null).join(": "),
     details: { stack: err.stack ?? "", error: err },
   });
 };

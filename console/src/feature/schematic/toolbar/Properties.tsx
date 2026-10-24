@@ -250,8 +250,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
       const pos = box.center(box.construct(el));
       const dist = xy.scale(xy.translation(box.topLeft(nodeElBox), pos), 1 / zoom);
       const match = el.className.match(/react-flow__handle-(\w+)/);
-      if (match == null)
-        throw new Error(`[schematic] - cannot find handle orientation`);
+      if (match == null) throw new Error("Cannot find the handle orientation.");
       const orientation = location.outerZ.parse(match[1]);
       return new Diagram.HandleLayout(dist, orientation);
     });

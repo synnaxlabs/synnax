@@ -114,7 +114,12 @@ describe("Import.createModal", () => {
       fakeFileEntry(createFile("notes.txt", "junk")),
     ]);
     await waitFor(() =>
-      expect(statuses.map((s) => s.message)).toContain("Failed to import widget"),
+      expect(statuses).toContainEqual(
+        expect.objectContaining({
+          message: "Failed to import widget",
+          description: "notes.txt is not a .zip file.",
+        }),
+      ),
     );
     expect(importFn).not.toHaveBeenCalled();
     expect(screen.getByText(ZONE_TEXT)).toBeTruthy();
@@ -128,7 +133,12 @@ describe("Import.createModal", () => {
       fakeFileEntry(createFile("b.zip", "{}")),
     ]);
     await waitFor(() =>
-      expect(statuses.map((s) => s.message)).toContain("Failed to import widget"),
+      expect(statuses).toContainEqual(
+        expect.objectContaining({
+          message: "Failed to import widget",
+          description: "Drop a single .zip file or folder.",
+        }),
+      ),
     );
     expect(importFn).not.toHaveBeenCalled();
   });

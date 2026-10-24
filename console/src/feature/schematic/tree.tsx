@@ -71,14 +71,17 @@ export const useRangeSnapshot = () => {
     afterSuccess: useCallback(
       ({ data: { schematics } }: Flux.AfterSuccessParams<Base.SnapshotParams>) => {
         const names = array.toArray(schematics).map((s) => s.name);
+        const joined = strings.naturalLanguageJoin(names);
+        const single = names.length === 1;
         addStatus({
           variant: "success",
           name: rng?.name ?? "",
-          message:
-            names.length === 1
-              ? "Snapshotted schematic"
-              : `Snapshotted ${names.length} schematics`,
-          description: `Created snapshots of ${strings.naturalLanguageJoin(names)}.`,
+          message: single
+            ? "Snapshotted schematic"
+            : `Snapshotted ${names.length} schematics`,
+          description: single
+            ? `Created a snapshot of ${joined}.`
+            : `Created snapshots of ${joined}.`,
         });
       },
       [rng, addStatus],

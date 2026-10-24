@@ -291,6 +291,7 @@ describe("Copy", () => {
       expect(lastCall).toHaveLength(1);
       expect(lastCall[0].variant).toBe("error");
       expect(lastCall[0].message).toBe("Failed to copy to the clipboard");
+      expect(lastCall[0].description).toBe("Clipboard denied");
     });
 
     it("should push an error status when an async text function rejects", async () => {
