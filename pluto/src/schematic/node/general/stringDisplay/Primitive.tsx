@@ -49,13 +49,14 @@ export const StringDisplay = ({
   value,
   stale = false,
 }: RenderProps): ReactElement => {
+  const symbolColor = color.rgbaString(strokeColor);
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: color.rgbaString(strokeColor),
+      [CSS.variable("symbol-color")]: symbolColor,
       width: inlineSize,
       height: Component.HEIGHTS[LEVEL_SIZES[level]],
     }),
-    [strokeColor, inlineSize, level],
+    [symbolColor, inlineSize, level],
   );
   const theme = Theming.use();
   const resolvedTextColor = stale
@@ -63,7 +64,13 @@ export const StringDisplay = ({
     : textColor;
   return (
     <Primitive.Div
-      className={CSS.cls(CSS.B("string-display"), CSS.B("symbol-colored"), className)}
+      className={CSS.cls(
+        CSS.B("string-display"),
+        CSS.B("symbol-colored"),
+        CSS.B("symbol-readout"),
+        symbolColor != null && CSS.M("colored"),
+        className,
+      )}
       style={style}
     >
       <div className={CSS.BE("string-display", "content")}>

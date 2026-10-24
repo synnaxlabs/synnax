@@ -10,16 +10,6 @@
  */
 
 .pluto-input-symbol {
-    --pluto-border-color: var(--pluto-symbol-display);
-
-    .pluto-input {
-        width: min-content;
-    }
-
-    input {
-        min-width: 25rem;
-    }
-
     &.pluto-input-symbol--preview {
         scale: 0.8;
 

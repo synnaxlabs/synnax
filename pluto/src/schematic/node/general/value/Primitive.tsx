@@ -26,7 +26,7 @@ import { Primitive } from "@/schematic/node/common/primitive";
 interface RenderProps extends PropsWithChildren<
   Pick<
     schematic.ValueNodeConfig,
-    "strokeColor" | "textColor" | "orientation" | "units" | "inlineSize"
+    "strokeColor" | "orientation" | "units" | "inlineSize"
   >
 > {
   className?: string;
@@ -37,7 +37,6 @@ interface RenderProps extends PropsWithChildren<
 export const Value = ({
   className,
   strokeColor,
-  textColor,
   dimensions,
   orientation,
   units,
@@ -63,7 +62,13 @@ export const Value = ({
   );
   return (
     <Primitive.Div
-      className={CSS.cls(CSS.B("value"), CSS.B("symbol-colored"), className)}
+      className={CSS.cls(
+        CSS.B("value"),
+        CSS.B("symbol-colored"),
+        CSS.B("symbol-readout"),
+        symbolColor != null && CSS.M("colored"),
+        className,
+      )}
       style={style}
     >
       <div className={CSS.BE("value", "content")} style={contentStyle}>
@@ -76,11 +81,13 @@ export const Value = ({
         right={100}
         bottom={102}
       />
-      <div className={CSS.cls(CSS.BE("value", "units"), CSS.M(unitsLevel))}>
-        <Text.Text level={unitsLevel} color={textColor ?? 11}>
-          {units}
-        </Text.Text>
-      </div>
+      {units.length > 0 && (
+        <div className={CSS.cls(CSS.BE("value", "units"), CSS.M(unitsLevel))}>
+          <Text.Text level={unitsLevel} color={9}>
+            {units}
+          </Text.Text>
+        </div>
+      )}
     </Primitive.Div>
   );
 };

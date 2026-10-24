@@ -26,26 +26,20 @@ describe("select symbol", () => {
 
     const renderSelect = (onSend: (v: number) => void, delay?: number) =>
       render(
-        <Select
-          value="a"
-          options={OPTIONS}
-          onChange={() => {}}
-          onSend={onSend}
-          onClickDelay={delay}
-        />,
+        <Select value="a" options={OPTIONS} onSend={onSend} onClickDelay={delay} />,
       );
 
     it("should send on a plain click without a delay", () => {
       const onSend = vi.fn();
       const { getByText } = renderSelect(onSend);
-      fireEvent.click(getByText("Send"));
+      fireEvent.click(getByText("Set"));
       expect(onSend).toHaveBeenCalledWith(7);
     });
 
     it("should swallow a click shorter than the delay", () => {
       const onSend = vi.fn();
       const { getByText } = renderSelect(onSend, 500);
-      const btn = getByText("Send");
+      const btn = getByText("Set");
       fireEvent.mouseDown(btn);
       fireEvent.mouseUp(document);
       fireEvent.click(btn);
@@ -56,7 +50,7 @@ describe("select symbol", () => {
     it("should send after the delay while the button stays held", () => {
       const onSend = vi.fn();
       const { getByText } = renderSelect(onSend, 500);
-      fireEvent.mouseDown(getByText("Send"));
+      fireEvent.mouseDown(getByText("Set"));
       act(() => {
         vi.advanceTimersByTime(500);
       });

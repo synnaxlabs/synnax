@@ -78,7 +78,6 @@ export const Symbol = ({
       <Label.Label config={label} onChange={onConfigChange} />
       <Value
         strokeColor={strokeColor}
-        textColor={textColor}
         orientation={orientation}
         dimensions={{ height: valueBoxHeight, width: oWidth }}
         inlineSize={inlineSize}

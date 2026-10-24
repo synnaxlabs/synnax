@@ -7,19 +7,74 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import { type channel, type schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { box, type color, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Telem } from "@/schematic/node/common/telem";
 import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
+import { Value as BaseValue } from "@/vis/value";
+
+// READOUT_INSET is the readout's margin, border, and padding.
+const READOUT_INSET = 10;
+
+interface ReadbackProps {
+  nodeKey: string;
+  position?: xy.XY;
+  channel: channel.Key;
+  size: Component.Size;
+  units?: string;
+  stalenessColor?: color.Color;
+  stalenessTimeout?: number;
+}
+
+// Readback draws the actual value on the canvas, so samples never re-render React. The
+// offset moves the canvas text inset onto the readout's padding, under the field.
+const Readback = ({
+  nodeKey,
+  position,
+  channel,
+  size,
+  units,
+  stalenessColor,
+  stalenessTimeout,
+}: ReadbackProps): ReactElement => {
+  const theme = Theming.use();
+  const level = Primitive.readoutLevel(size);
+  const fontHeight = theme.typography[level].size * theme.sizes.base;
+  const offset = xy.construct(
+    READOUT_INSET - 6 - fontHeight * 0.75,
+    Component.HEIGHTS[size],
+  );
+  const telem = useMemo(() => BaseValue.stringSource({ channel }), [channel]);
+  BaseValue.use({
+    aetherKey: `${nodeKey}-readback`,
+    level,
+    color: theme.colors.gray.l10,
+    // The box anchors the text. A zero area would skip the render.
+    box: box.construct(xy.translate(position ?? xy.ZERO, offset), {
+      height: Primitive.readoutHeight(size),
+      width: 1,
+    }),
+    telem,
+    minWidth: 0,
+    stalenessColor,
+    stalenessTimeout,
+  });
+  return <Primitive.Readout size={size} units={units} />;
+};
 
 export const Symbol = ({
   nodeKey,
+  position,
   onConfigChange,
   selected,
   config: {
@@ -28,16 +83,24 @@ export const Symbol = ({
     control,
     units,
     commandChannel,
+    stateChannel,
+    stalenessColor,
+    stalenessTimeout,
     fillColor,
     size,
     disabled,
     onClickDelay,
+    inlineSize,
   },
 }: NodeProps<schematic.SetpointNodeConfig>): ReactElement => {
   const sink = useMemo(() => Telem.numberSink(commandChannel), [commandChannel]);
-  const { set } = BaseSetpoint.use({ aetherKey: nodeKey, sink });
+  const source = useMemo(() => Telem.numberSource(commandChannel), [commandChannel]);
+  const { set, value } = BaseSetpoint.use({ aetherKey: nodeKey, sink, source });
+  const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
+    onConfigChange({ inlineSize }),
+  );
   return (
-    <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected}>
+    <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected} {...resize}>
       <Control.State
         config={control}
         channel={commandChannel}
@@ -45,13 +108,29 @@ export const Symbol = ({
       />
       <Label.Label config={label} onChange={onConfigChange} />
       <Setpoint
-        onChange={set}
+        onSend={set}
+        value={value}
         units={units}
         fillColor={fillColor}
         orientation={orientation}
         disabled={disabled}
         size={size}
         onClickDelay={onClickDelay}
+        inlineSize={inlineSize}
+        readback={
+          stateChannel != null &&
+          stateChannel !== 0 && (
+            <Readback
+              nodeKey={nodeKey}
+              position={position}
+              channel={stateChannel}
+              size={size}
+              units={units}
+              stalenessColor={stalenessColor}
+              stalenessTimeout={stalenessTimeout}
+            />
+          )
+        }
       />
     </Grid.Grid>
   );
