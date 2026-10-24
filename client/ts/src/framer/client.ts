@@ -28,7 +28,7 @@ import { Deleter } from "@/framer/deleter";
 import { Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { AUTO_SPAN, Iterator, type IteratorConfig } from "@/framer/iterator";
-import { type ReadCSVOptions, Reader, type ReadOptions } from "@/framer/reader";
+import { Reader, type ReadFileOptions, type ReadOptions } from "@/framer/reader";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
 import { ontology } from "@/ontology";
@@ -214,7 +214,7 @@ export class Client {
    *
    * @param tr - the time range to read.
    * @param channels - the channels to read, by key or by name.
-   * @param opts - see {@link ReadCSVOptions}.
+   * @param opts - see {@link ReadFileOptions}.
    * @returns the CSV as a stream of bytes.
    * @throws {NotFoundError} if a channel does not exist.
    * @throws {AccessDeniedError} if the caller may not retrieve a channel or its index.
@@ -223,9 +223,30 @@ export class Client {
   async readCSV(
     tr: CrudeTimeRange,
     channels: channel.Params,
-    opts?: ReadCSVOptions,
+    opts?: ReadFileOptions,
   ): Promise<ReadableStream<Uint8Array>> {
     return await this.reader.readCSV(tr, channels, opts);
+  }
+
+  /**
+   * Reads every sample the given channels hold within the time range as an NI TDMS
+   * file. The Core writes the file, so the caller never holds the whole export in
+   * memory.
+   *
+   * @param tr - the time range to read.
+   * @param channels - the channels to read, by key or by name.
+   * @param opts - see {@link ReadFileOptions}.
+   * @returns the TDMS file as a stream of bytes.
+   * @throws {NotFoundError} if a channel does not exist.
+   * @throws {AccessDeniedError} if the caller may not retrieve a channel or its index.
+   * @throws {ValidationError} if a channel has no index channel.
+   */
+  async readTDMS(
+    tr: CrudeTimeRange,
+    channels: channel.Params,
+    opts?: ReadFileOptions,
+  ): Promise<ReadableStream<Uint8Array>> {
+    return await this.reader.readTDMS(tr, channels, opts);
   }
 
   async readLatest(

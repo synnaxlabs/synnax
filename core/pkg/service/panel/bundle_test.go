@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -195,6 +196,30 @@ var _ = Describe("DecodeBundle", func() {
 		Expect(ok).To(BeTrue())
 		Expect(mustResource(lastLeaf.Tabs[0])).
 			To(Equal(minted["propulsion/pressurization.json"]))
+	})
+
+	It("Should keep the panel's icon and color", func(ctx SpecContext) {
+		c := color.MustFromHex("#dc136c")
+		p := panel.Panel{
+			Name: "Controls", Root: leafNode(), Icon: new("valve"), Color: &c,
+		}
+		env := MustSucceed(panel.EncodeBundle(p, nil))
+		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), nil))
+		Expect(decoded.Icon).To(HaveValue(Equal("valve")))
+		Expect(decoded.Color).To(HaveValue(Equal(c)))
+	})
+
+	It("Should import a v1 member, which holds no icon or color", func(
+		ctx SpecContext,
+	) {
+		env := imex.Envelope{Version: 1, Type: "panel", Name: "Controls"}
+		Expect(env.Encode(map[string]any{
+			"root": map[string]any{"variant": "leaf", "tabs": []any{}},
+		})).To(Succeed())
+		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), nil))
+		Expect(decoded.Name).To(Equal("Controls"))
+		Expect(decoded.Icon).To(BeNil())
+		Expect(decoded.Color).To(BeNil())
 	})
 
 	It("Should pass view tabs through unchanged", func(ctx SpecContext) {

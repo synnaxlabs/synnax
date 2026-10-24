@@ -299,6 +299,26 @@ class Client:
         """
         self._reader.read_csv(tr, channels, dest, reduction)
 
+    def read_tdms(
+        self,
+        tr: TimeRange,
+        channels: channel.Params,
+        dest: FilePath,
+        reduction: StrideReduction | None = None,
+    ) -> None:
+        """
+        Reads telemetry from the channels between the two timestamps into an NI TDMS
+        file. The Core writes the file, so the client never holds the whole export in
+        memory.
+
+        :param tr: The time range to read from.
+        :param channels: The keys or names of the channels to read from.
+        :param dest: The path of the TDMS file to write. It must end in .tdms.
+        :param reduction: Keeps every factor-th sample of each channel. Defaults to
+        keeping every sample.
+        """
+        self._reader.read_tdms(tr, channels, dest, reduction)
+
     @overload
     def read_latest(
         self,

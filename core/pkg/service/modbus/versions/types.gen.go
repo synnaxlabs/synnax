@@ -11,73 +11,73 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v1"
+import "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v2"
 
 // RegisterValue interprets one or more 16-bit registers as a single typed value.
-type RegisterValue = v1.RegisterValue
+type RegisterValue = v2.RegisterValue
 
 // BaseReadChannel carries the fields every Modbus read channel shares.
-type BaseReadChannel = v1.BaseReadChannel
+type BaseReadChannel = v2.BaseReadChannel
 
 // ReadChannel is a single Modbus read channel. The type field selects the register
 // space the channel reads from and the fields that accompany it.
-type ReadChannel = v1.ReadChannel
-type ReadChannelVariant = v1.ReadChannelVariant
-type ReadChannelType = v1.ReadChannelType
+type ReadChannel = v2.ReadChannel
+type ReadChannelVariant = v2.ReadChannelVariant
+type ReadChannelType = v2.ReadChannelType
 
 const (
 	// CoilReadChannelType reads a single bit from a coil.
-	CoilReadChannelType ReadChannelType = v1.CoilReadChannelType
+	CoilReadChannelType ReadChannelType = v2.CoilReadChannelType
 	// DiscreteInputReadChannelType reads a single bit from a discrete input.
-	DiscreteInputReadChannelType ReadChannelType = v1.DiscreteInputReadChannelType
+	DiscreteInputReadChannelType ReadChannelType = v2.DiscreteInputReadChannelType
 	// HoldingRegisterReadChannelType reads a typed value from one or more holding
 	// registers.
-	HoldingRegisterReadChannelType ReadChannelType = v1.HoldingRegisterReadChannelType
+	HoldingRegisterReadChannelType ReadChannelType = v2.HoldingRegisterReadChannelType
 	// InputRegisterReadChannelType reads a typed value from one or more input
 	// registers.
-	InputRegisterReadChannelType ReadChannelType = v1.InputRegisterReadChannelType
+	InputRegisterReadChannelType ReadChannelType = v2.InputRegisterReadChannelType
 )
 
 // CoilReadChannel reads a single bit from a coil.
-type CoilReadChannel = v1.CoilReadChannel
+type CoilReadChannel = v2.CoilReadChannel
 
 // DiscreteInputReadChannel reads a single bit from a discrete input.
-type DiscreteInputReadChannel = v1.DiscreteInputReadChannel
+type DiscreteInputReadChannel = v2.DiscreteInputReadChannel
 
 // HoldingRegisterReadChannel reads a typed value from one or more holding registers.
-type HoldingRegisterReadChannel = v1.HoldingRegisterReadChannel
+type HoldingRegisterReadChannel = v2.HoldingRegisterReadChannel
 
 // InputRegisterReadChannel reads a typed value from one or more input registers.
-type InputRegisterReadChannel = v1.InputRegisterReadChannel
+type InputRegisterReadChannel = v2.InputRegisterReadChannel
 
 // BaseWriteChannel carries the fields every Modbus write channel shares.
-type BaseWriteChannel = v1.BaseWriteChannel
+type BaseWriteChannel = v2.BaseWriteChannel
 
 // WriteChannel is a single Modbus write channel. The type field selects the register
 // space the channel writes to and the fields that accompany it.
-type WriteChannel = v1.WriteChannel
-type WriteChannelVariant = v1.WriteChannelVariant
-type WriteChannelType = v1.WriteChannelType
+type WriteChannel = v2.WriteChannel
+type WriteChannelVariant = v2.WriteChannelVariant
+type WriteChannelType = v2.WriteChannelType
 
 const (
 	// CoilWriteChannelType writes a single bit to a coil.
-	CoilWriteChannelType WriteChannelType = v1.CoilWriteChannelType
+	CoilWriteChannelType WriteChannelType = v2.CoilWriteChannelType
 	// HoldingRegisterWriteChannelType writes a typed value to one or more holding
 	// registers.
-	HoldingRegisterWriteChannelType WriteChannelType = v1.HoldingRegisterWriteChannelType
+	HoldingRegisterWriteChannelType WriteChannelType = v2.HoldingRegisterWriteChannelType
 )
 
 // CoilWriteChannel writes a single bit to a coil.
-type CoilWriteChannel = v1.CoilWriteChannel
+type CoilWriteChannel = v2.CoilWriteChannel
 
 // HoldingRegisterWriteChannel writes a typed value to one or more holding registers.
-type HoldingRegisterWriteChannel = v1.HoldingRegisterWriteChannel
+type HoldingRegisterWriteChannel = v2.HoldingRegisterWriteChannel
 
 // ReadConfig configures a Modbus read task.
-type ReadConfig = v1.ReadConfig
+type ReadConfig = v2.ReadConfig
 
 // WriteConfig configures a Modbus write task.
-type WriteConfig = v1.WriteConfig
+type WriteConfig = v2.WriteConfig
 
 // ScanConfig configures a Modbus scan task.
-type ScanConfig = v1.ScanConfig
+type ScanConfig = v2.ScanConfig
