@@ -18,7 +18,7 @@ namespace driver::ni::syscfg {
 class SugaredAPI {
     std::shared_ptr<API> syscfg;
 
-    x::errors::Error process_error(NISysCfgStatus status) const;
+    [[nodiscard]] x::errors::Error process_error(NISysCfgStatus status) const;
 
 public:
     explicit SugaredAPI(std::shared_ptr<API> syscfg): syscfg(std::move(syscfg)) {}

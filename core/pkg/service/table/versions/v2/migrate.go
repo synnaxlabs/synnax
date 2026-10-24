@@ -13,10 +13,10 @@ import (
 	"context"
 	"encoding/json/v2"
 
+	"github.com/synnaxlabs/gorp"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // MigrateTable transforms the previous Table snapshot (v1) into the v2 strongly-typed

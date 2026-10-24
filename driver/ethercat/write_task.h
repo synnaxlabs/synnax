@@ -161,10 +161,7 @@ public:
         entries.reserve(this->cfg.outputs.size());
         for (const auto &ch: this->cfg.outputs)
             entries.push_back(*ch);
-        auto [wtr, err] = this->engine->open_writer(
-            std::move(entries),
-            this->cfg.execution_rate
-        );
+        auto [wtr, err] = this->engine->open_writer(entries, this->cfg.execution_rate);
         if (err) return err;
         this->writer = std::move(wtr);
         return x::errors::NIL;

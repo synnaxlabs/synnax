@@ -320,7 +320,7 @@ describe("Rack", () => {
           details: { rack: r.key },
         });
       try {
-        await client.statuses.set(impostor("task", "Running start command..."));
+        await client.statuses.set(impostor("task", "Sending start command"));
         await client.statuses.set(impostor("device", "Device reconnecting..."));
         await client.statuses.set(
           status.create<typeof rack.statusDetailsZ>({
@@ -331,7 +331,7 @@ describe("Rack", () => {
           }),
         );
         await expect.poll(() => seen.at(-1)).toBe("Driver alive");
-        expect(seen).not.toContain("Running start command...");
+        expect(seen).not.toContain("Sending start command");
         expect(seen).not.toContain("Device reconnecting...");
       } finally {
         stop();

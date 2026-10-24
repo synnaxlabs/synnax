@@ -15,7 +15,7 @@ import (
 	"context"
 	"slices"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // Retrieve is used to retrieve Group records from the database using a

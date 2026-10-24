@@ -50,13 +50,13 @@ public:
         if (this->fd >= 0) close(this->fd);
     }
 
-    bool ok() const { return this->bound; }
+    [[nodiscard]] bool ok() const { return this->bound; }
 
     /// @brief appends any pending datagrams to the received buffer, newline-joined, and
     /// returns everything received so far.
     const std::string &drain() {
         char buf[512];
-        ssize_t n;
+        ssize_t n = 0;
         while ((n = recv(this->fd, buf, sizeof(buf), MSG_DONTWAIT)) > 0) {
             this->received.append(buf, static_cast<size_t>(n));
             this->received.push_back('\n');
@@ -69,7 +69,7 @@ public:
         const auto deadline = std::chrono::steady_clock::now() +
                               std::chrono::seconds(5);
         while (std::chrono::steady_clock::now() < deadline) {
-            if (this->drain().find(needle) != std::string::npos) return true;
+            if (this->drain().contains(needle)) return true;
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
         return false;

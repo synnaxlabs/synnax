@@ -172,6 +172,8 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Log, error)",
 					"case v3.Version:",
 					"return env.Decode[Log](ctx)",
+					"func liftFirst(ctx context.Context, t3 v3.Log) (Log, error) {\n"+
+						"\treturn t3, nil\n}",
 				).
 					ToBeValidGoSource()
 				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").ToContain(
@@ -308,6 +310,10 @@ Symbol struct {
 					"t2, err := env.Decode[v2.Log](ctx)",
 					"t3, err := v3.MigrateLog(ctx, t2)",
 					"return t3, nil",
+					"func liftFirst(ctx context.Context, t2 v2.Log) (Log, error) {\n"+
+						"\tt3, err := v3.MigrateLog(ctx, t2)\n"+
+						"\tif err != nil {\n\t\treturn Log{}, err\n\t}\n"+
+						"\treturn t3, nil\n}",
 				).
 					ToBeValidGoSource()
 			},
@@ -337,6 +343,8 @@ Symbol struct {
 					"case v2.Version:",
 					"t2, err := env.Decode[v2.Log](ctx)",
 					"return t2, nil",
+					"func liftFirst(ctx context.Context, t2 v2.Log) (Log, error) {\n"+
+						"\treturn t2, nil\n}",
 				).
 					ToBeValidGoSource()
 			},
@@ -494,7 +502,7 @@ ScanConfig struct {
 						"version)",
 					`return ReadConfig{}, imex.NewErrUnsupportedVersion(`+
 						`"modbus.ReadConfig", version, Latest)`,
-				).ToBeValidGoSource()
+				).ToNotContain("liftFirst").ToBeValidGoSource()
 			})
 
 			It(

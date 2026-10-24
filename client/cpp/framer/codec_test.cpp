@@ -390,7 +390,7 @@ TEST(CodecTests, EncodeMismatchedDataType) {
     std::vector<uint8_t> encoded;
     auto err = codec.encode(frame, encoded);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_TRUE(err.message().find("data type") != std::string::npos);
+    ASSERT_TRUE(err.message().contains("data type"));
 }
 
 /// @brief it should accept an int64 series for a timestamp channel, mirroring the
@@ -450,6 +450,6 @@ TEST(CodecTests, EncodeFrameUnknownKey) {
     auto err = codec.encode(frame, encoded);
 
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_TRUE(err.message().find("extra key") != std::string::npos);
+    ASSERT_TRUE(err.message().contains("extra key"));
 }
 }

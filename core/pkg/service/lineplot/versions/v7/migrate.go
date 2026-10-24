@@ -12,8 +12,8 @@ package v7
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // MigrateLinePlot lifts a v6 line plot to v7, migrating each of its lines.

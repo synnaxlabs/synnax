@@ -18,10 +18,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
