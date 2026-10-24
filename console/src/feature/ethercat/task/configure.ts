@@ -7,13 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
+import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { errors, primitive } from "@synnaxlabs/x";
 
 import * as Device from "@/feature/ethercat/device/types";
 import {
-  channelMapKey,
-  getChannelByMapKey,
+  addressKey,
+  DIRECTIONS,
+  entryAt,
+  type EntryChannel,
+  getUnresolvedMessage,
+  hasEntry,
+  type PDOType,
   type ReadChannel,
   type WriteChannel,
 } from "@/feature/ethercat/task/types";
@@ -24,15 +29,55 @@ type Channel = ReadChannel | WriteChannel;
 export interface SlaveValidationResult<C extends Channel> {
   slaves: Device.SlaveDevice[];
   rack: number;
-  channelsBySlaveKey: Map<string, C[]>;
+  channelsBySlaveKey: Map<string, Extract<C, EntryChannel>[]>;
 }
 
+const validateEntries = <C extends Channel>(
+  slave: Device.SlaveDevice,
+  channels: C[],
+  pdoType: PDOType,
+): Extract<C, EntryChannel>[] => {
+  const used = new Set<string>();
+  const entries = slave.properties.pdos[pdoType];
+  return channels
+    .filter((ch) => !ch.disabled)
+    .map((ch) => {
+      if (ch.type === "unresolved")
+        throw new Error(getUnresolvedMessage(ch.pdo, slave, pdoType));
+      if (!hasEntry(ch))
+        throw new Error(
+          `A channel on slave ${slave.name} has no entry. Pick an entry.`,
+        );
+      const address = ethercat.formatAddress(ch);
+      if (entryAt(entries, ch) == null)
+        throw new Error(
+          `Slave ${slave.name} has no ${DIRECTIONS[pdoType]} entry at ${address}. ` +
+            "Pick an entry.",
+        );
+      const key = addressKey(ch);
+      if (used.has(key))
+        throw new Error(
+          `More than one channel uses entry ${address} on slave ${slave.name}. ` +
+            "Pick a different entry for one of them.",
+        );
+      used.add(key);
+      return ch;
+    });
+};
+
+/**
+ * Retrieves the slaves the channels use and checks the entries of the enabled channels.
+ * @returns the slaves, their rack, and the enabled channels of each slave.
+ * @throws {Error} if the slaves are on different networks, or if an enabled channel
+ * has no entry, an entry its slave lacks, or an entry another channel uses.
+ */
 export const retrieveAndValidateSlaves = async <C extends Channel>(
   client: Synnax,
   channels: C[],
+  pdoType: PDOType,
 ): Promise<SlaveValidationResult<C>> => {
   const slaveKeys = [...new Set(channels.map((ch) => ch.device))];
-  if (slaveKeys.length === 0) throw new Error("No channels configured");
+  if (slaveKeys.length === 0) throw new Error("No channels configured. Add a channel.");
 
   const slaves = await client.devices.retrieve({
     keys: slaveKeys,
@@ -44,17 +89,24 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
   const networks = [...new Set(slaves.map((s) => s.properties.network))];
   if (networks.length > 1)
     throw new Error(
-      `All slaves must be on the same network. Found: ${networks.join(", ")}`,
+      `All slaves must be on the same network. Found: ${networks.join(", ")}. ` +
+        "Pick slaves on one network.",
     );
   if (networks.length === 0 || !networks[0])
-    throw new Error("No network found for the selected slaves");
+    throw new Error(
+      "No network found for the selected slaves. Scan the network again.",
+    );
 
-  const channelsBySlaveKey = new Map<string, C[]>();
-  for (const ch of channels) {
-    const existing = channelsBySlaveKey.get(ch.device) ?? [];
-    existing.push(ch);
-    channelsBySlaveKey.set(ch.device, existing);
-  }
+  const channelsBySlaveKey = new Map<string, Extract<C, EntryChannel>[]>();
+  for (const slave of slaves)
+    channelsBySlaveKey.set(
+      slave.key,
+      validateEntries(
+        slave,
+        channels.filter((ch) => ch.device === slave.key),
+        pdoType,
+      ),
+    );
 
   return { slaves, rack: slaves[0].rack, channelsBySlaveKey };
 };
@@ -96,16 +148,15 @@ export const checkOrCreateIndex = async (
   return false;
 };
 
-export const findChannelsToCreate = async <C extends Channel>(
+export const findChannelsToCreate = async <C extends EntryChannel>(
   client: Synnax,
   channels: C[],
   existingChannels: Record<string, number>,
-  keySuffix = "",
+  mapKey: (ch: C) => string = addressKey,
 ): Promise<C[]> => {
   const toCreate: C[] = [];
   for (const ch of channels) {
-    const mapKey = `${channelMapKey(ch)}${keySuffix}`;
-    const existing = getChannelByMapKey(existingChannels, mapKey);
+    const existing = existingChannels[mapKey(ch)] ?? 0;
     if (existing === 0) {
       toCreate.push(ch);
       continue;
