@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <vector>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/test/test.h"
@@ -496,6 +498,160 @@ TEST_F(SOEMMasterTest, SetSlaveDisabledThenReEnabled) {
     this->mock->ibytes = 4;
     ASSERT_NIL(this->master->activate());
     EXPECT_EQ(this->mock->slave_infos[0].group, 1);
+}
+
+////////////////////// PDO Layout //////////////////////
+
+namespace {
+/// @brief Beckhoff's vendor ID and the EL1008 product code, which the ESI registry
+/// lists with eight 1-bit inputs.
+constexpr uint32_t BECKHOFF = 0x00000002;
+constexpr uint32_t EL1008 = 0x03F03052;
+
+/// @brief returns a slave that answers CoE requests.
+MockSlaveInfo coe_slave(const uint16_t input_bits) {
+    MockSlaveInfo info;
+    info.state = EC_STATE_PRE_OP;
+    info.eep_man = 0x1234;
+    info.eep_id = 0x5678;
+    info.name = "TestSlave";
+    info.mbx_proto = ECT_MBXPROT_COE;
+    info.Ibits = input_bits;
+    return info;
+}
+
+/// @brief serves one TxPDO, 0x1A00, holding a 1-bit entry, 7 bits of padding, and a
+/// 16-bit entry.
+void serve_padded_txpdo(MockAPI &mock) {
+    mock.sdo_objects = {
+        {{ECT_SDO_TXPDOASSIGN, 0}, 1},
+        {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
+        {{0x1A00, 0}, 3},
+        {{0x1A00, 1}, 0x60000101},
+        {{0x1A00, 2}, 0x00000007},
+        {{0x1A00, 3}, 0x60001110},
+        {{ECT_SDO_RXPDOASSIGN, 0}, 0},
+    };
+    mock.oe_entries = {
+        {{0x6000, 1}, {"Underrange", 0x0001}},
+        {{0x6000, 17}, {"Value", 0x0003}},
+    };
+}
+}
+
+TEST_F(SOEMMasterTest, CoEDiscoveryKeepsPaddingAndPDOName) {
+    this->add_slave(coe_slave(24));
+    serve_padded_txpdo(*this->mock);
+    this->mock->od_names[0x1A00] = "Channel 1";
+    ASSERT_NIL(this->master->initialize());
+
+    const auto inputs = this->master->slaves()[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 3);
+    EXPECT_EQ(inputs[0].name, "Underrange");
+    EXPECT_EQ(inputs[0].pdo_name, "Channel 1");
+    EXPECT_TRUE(inputs[1].is_padding());
+    EXPECT_EQ(inputs[1].bit_length, 7);
+    EXPECT_EQ(inputs[2].sub_index, 17);
+    EXPECT_EQ(inputs[2].pdo_name, "Channel 1");
+}
+
+TEST_F(SOEMMasterTest, CoEDiscoveryWithoutPDOName) {
+    this->add_slave(coe_slave(24));
+    serve_padded_txpdo(*this->mock);
+    ASSERT_NIL(this->master->initialize());
+
+    const auto inputs = this->master->slaves()[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 3);
+    EXPECT_FALSE(inputs[0].pdo_name.has_value());
+}
+
+TEST_F(SOEMMasterTest, SIIDiscoveryKeepsPaddingAndPDOName) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    this->add_slave(slave);
+    constexpr uint16_t start = 0x40;
+    this->mock->sii_categories = {{ECT_SII_PDO, start}};
+    // One TxPDO, 0x1A00 named by string 1, with 0x6000:01 (1 bit, string 2), 7 bits of
+    // padding, and 0x6000:11 (INTEGER16, string 3).
+    const std::vector<uint8_t> category = {
+        16, 0,    0x00, 0x1A, 3, 3, 0, 1, 0, 0,    0x00, 0x60, 1, 2,    0x01, 1, 0,
+        0,  0x00, 0x00, 0,    0, 0, 7, 0, 0, 0x00, 0x60, 17,   3, 0x03, 16,   0, 0,
+    };
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->sii_bytes[start + i] = category[i];
+    this->mock->sii_strings = {{1, "Channel 1"}, {2, "Underrange"}, {3, "Value"}};
+
+    ASSERT_NIL(this->master->initialize());
+
+    const auto inputs = this->master->slaves()[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 3);
+    EXPECT_EQ(inputs[0].name, "Underrange");
+    EXPECT_EQ(inputs[0].pdo_name, "Channel 1");
+    EXPECT_TRUE(inputs[1].is_padding());
+    EXPECT_EQ(inputs[1].bit_length, 7);
+    EXPECT_EQ(inputs[2].name, "Value");
+    EXPECT_EQ(inputs[2].pdo_name, "Channel 1");
+}
+
+TEST_F(SOEMMasterTest, LiveMappingTakesPrecedenceOverRegistry) {
+    auto info = coe_slave(24);
+    info.eep_man = BECKHOFF;
+    info.eep_id = EL1008;
+    this->add_slave(info);
+    serve_padded_txpdo(*this->mock);
+    ASSERT_NIL(this->master->initialize());
+
+    const auto inputs = this->master->slaves()[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 3);
+    EXPECT_EQ(inputs[2].index, 0x6000);
+    EXPECT_EQ(inputs[2].sub_index, 17);
+}
+
+TEST_F(SOEMMasterTest, RegistryDescribesSlaveWithoutLiveMapping) {
+    MockSlaveInfo info;
+    info.state = EC_STATE_PRE_OP;
+    info.eep_man = BECKHOFF;
+    info.eep_id = EL1008;
+    this->add_slave(info);
+    ASSERT_NIL(this->master->initialize());
+
+    const auto slave = this->master->slaves()[0];
+    EXPECT_EQ(slave.properties.input_pdos.size(), 8);
+    EXPECT_TRUE(slave.status.pdo_discovery_error.empty());
+}
+
+TEST_F(SOEMMasterTest, OffsetsCountPadding) {
+    this->add_slave(coe_slave(24));
+    serve_padded_txpdo(*this->mock);
+    ASSERT_NIL(this->master->initialize());
+    this->mock->ibytes = 3;
+    ASSERT_NIL(this->master->activate());
+
+    const auto offset = ASSERT_NIL_P(
+        this->master->pdo_offset(pdo::Entry(1, 0x6000, 17, 16, true, x::telem::INT16_T))
+    );
+    EXPECT_EQ(offset.byte, 1);
+    EXPECT_EQ(offset.bit, 0);
+}
+
+TEST_F(SOEMMasterTest, SlaveWhoseLayoutDisagreesWithMappingHasNoOffsets) {
+    this->add_slave(coe_slave(16));
+    serve_padded_txpdo(*this->mock);
+    ASSERT_NIL(this->master->initialize());
+    this->mock->ibytes = 2;
+    ASSERT_NIL(this->master->activate());
+
+    const auto err = this->master
+                         ->pdo_offset(
+                             pdo::Entry(1, 0x6000, 17, 16, true, x::telem::INT16_T)
+                         )
+                         .second;
+    ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (TestSlave) maps 16 input and 0 output bits, but its discovered PDO "
+        "entries hold 24 and 0"
+    );
 }
 
 }

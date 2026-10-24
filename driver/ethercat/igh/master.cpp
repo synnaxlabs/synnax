@@ -256,7 +256,8 @@ std::span<uint8_t> Master::output_data() {
     return {this->output_domain_data, this->output_sz};
 }
 
-std::optional<pdo::Offset> Master::pdo_offset(const pdo::Entry &entry) const {
+std::pair<pdo::Offset, x::errors::Error>
+Master::pdo_offset(const pdo::Entry &entry) const {
     std::lock_guard lock(this->mu);
     return pdo::find_offset(this->pdo_offsets, entry);
 }
@@ -330,6 +331,7 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
     size_t registered_inputs = 0;
 
     for (const auto &pdo: slave.output_pdos) {
+        if (pdo.is_padding()) continue;
         unsigned int bit_pos = 0;
         const int result = this->api->slave_config_reg_pdo_entry(
             sc,
@@ -359,6 +361,7 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
     }
 
     for (const auto &pdo: slave.input_pdos) {
+        if (pdo.is_padding()) continue;
         unsigned int bit_pos = 0;
         const int result = this->api->slave_config_reg_pdo_entry(
             sc,
@@ -410,21 +413,29 @@ std::string Master::read_pdo_entry_name(
 
 void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
-    auto &status = slave.status;
-    if (esi::lookup_device_pdos(
+    this->read_slave_pdos(slave);
+    if (!props.input_pdos.empty() || !props.output_pdos.empty()) {
+        esi::fill_data_types(props);
+        return;
+    }
+    if (!esi::lookup_device_pdos(
             props.vendor_id,
             props.product_code,
             props.revision,
             props
-        )) {
-        VLOG(1) << "[ethercat.igh] slave " << props.position
-                << " PDOs discovered via ESI: " << props.input_pdos.size()
-                << " inputs, " << props.output_pdos.size() << " outputs";
-        slave.status.pdos_discovered = true;
-        props.coe_pdo_order_reliable = true;
+        ))
         return;
-    }
+    VLOG(1) << "[ethercat.igh] slave " << props.position
+            << " PDOs discovered via ESI: " << props.input_pdos.size() << " inputs, "
+            << props.output_pdos.size() << " outputs";
+    slave.status.pdos_discovered = true;
+    slave.status.pdo_discovery_error.clear();
+    props.coe_pdo_order_reliable = true;
+}
 
+void Master::read_slave_pdos(slave::DiscoveryResult &slave) {
+    auto &props = slave.properties;
+    auto &status = slave.status;
     ec_slave_info_t slave_info;
     if (this->api->master_get_slave(this->ec_master, props.position, &slave_info) !=
         0) {
@@ -468,7 +479,18 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
                     ) != 0)
                     continue;
 
-                if (entry_info.index == 0 && entry_info.subindex == 0) continue;
+                if (entry_info.index == 0) {
+                    pdo::Properties gap{
+                        .pdo_index = pdo_info.index,
+                        .bit_length = entry_info.bit_length,
+                        .is_input = is_input,
+                    };
+                    if (is_input)
+                        props.input_pdos.push_back(gap);
+                    else
+                        props.output_pdos.push_back(gap);
+                    continue;
+                }
 
                 const x::telem::DataType data_type = telem::infer_type_from_bit_length(
                     entry_info.bit_length

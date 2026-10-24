@@ -117,4 +117,47 @@ TEST_F(DEWESoftDevicesTest, RevisionFallbackWorks) {
     EXPECT_TRUE(found) << "Revision fallback should work";
 }
 
+TEST_F(BeckhoffDevicesTest, FillDataTypesUsesRegistryEntryAtSameAddress) {
+    constexpr uint32_t el3102 = 0x0C1E3052;
+    ASSERT_TRUE(lookup_device_pdos(BECKHOFF_VENDOR_ID, el3102, 1, this->slave));
+    const auto known = this->slave.input_pdos.back();
+    slave::Properties live{
+        .vendor_id = BECKHOFF_VENDOR_ID,
+        .product_code = el3102,
+        .revision = 1,
+        .input_pdos = {
+            {.index = known.index,
+             .sub_index = known.sub_index,
+             .bit_length = known.bit_length,
+             .data_type = x::telem::UNKNOWN_T},
+            {.index = 0x7FFF,
+             .sub_index = 1,
+             .bit_length = 8,
+             .data_type = x::telem::UINT8_T},
+        },
+    };
+    fill_data_types(live);
+    EXPECT_EQ(live.input_pdos[0].data_type, known.data_type);
+    EXPECT_EQ(live.input_pdos[1].data_type, x::telem::UINT8_T);
+}
+
+TEST_F(BeckhoffDevicesTest, FillDataTypesSkipsEntryOfOtherBitLength) {
+    constexpr uint32_t el3102 = 0x0C1E3052;
+    ASSERT_TRUE(lookup_device_pdos(BECKHOFF_VENDOR_ID, el3102, 1, this->slave));
+    const auto known = this->slave.input_pdos.back();
+    slave::Properties live{
+        .vendor_id = BECKHOFF_VENDOR_ID,
+        .product_code = el3102,
+        .revision = 1,
+        .input_pdos = {
+            {.index = known.index,
+             .sub_index = known.sub_index,
+             .bit_length = static_cast<uint8_t>(known.bit_length + 8),
+             .data_type = x::telem::UNKNOWN_T},
+        },
+    };
+    fill_data_types(live);
+    EXPECT_EQ(live.input_pdos[0].data_type, x::telem::UNKNOWN_T);
+}
+
 }

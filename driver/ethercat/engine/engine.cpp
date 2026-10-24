@@ -110,21 +110,9 @@ std::pair<std::vector<pdo::Offset>, x::errors::Error> resolve_offsets(
     std::vector<pdo::Offset> offsets;
     offsets.reserve(entries.size());
     for (const auto &entry: entries) {
-        const auto name = telem::format_index_sub_index(entry.index, entry.sub_index);
-        const auto offset = master.pdo_offset(entry);
-        if (!offset)
-            return {
-                {},
-                x::errors::Error(
-                    errors::PDO_MAPPING_ERROR,
-                    std::format(
-                        "PDO {} is not in the process image of slave {}",
-                        name,
-                        entry.slave_position
-                    )
-                )
-            };
-        if (offset->byte + telem::pdo_required_bytes(offset->bit, entry.bit_length) >
+        const auto [offset, err] = master.pdo_offset(entry);
+        if (err) return {{}, err};
+        if (offset.byte + telem::pdo_required_bytes(offset.bit, entry.bit_length) >
             image_size)
             return {
                 {},
@@ -132,12 +120,12 @@ std::pair<std::vector<pdo::Offset>, x::errors::Error> resolve_offsets(
                     errors::PDO_MAPPING_ERROR,
                     std::format(
                         "PDO {} on slave {} lies outside the process image",
-                        name,
+                        telem::format_index_sub_index(entry.index, entry.sub_index),
                         entry.slave_position
                     )
                 )
             };
-        offsets.push_back(*offset);
+        offsets.push_back(offset);
     }
     return {offsets, x::errors::NIL};
 }

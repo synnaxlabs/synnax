@@ -139,9 +139,13 @@ synnax::device::Device Scanner::create_slave_device(
         status_variant = synnax::status::VARIANT_DISABLED;
     } else if (sts.pdos_discovered) {
         if (sts.pdo_discovery_error.empty()) {
-            status_msg = "Discovered (" + std::to_string(props.input_pdos.size()) +
-                         " inputs, " + std::to_string(props.output_pdos.size()) +
-                         " outputs)";
+            const auto objects = [](const std::vector<pdo::Properties> &pdos) {
+                return std::to_string(std::ranges::count_if(pdos, [](const auto &p) {
+                    return !p.is_padding();
+                }));
+            };
+            status_msg = "Discovered (" + objects(props.input_pdos) + " inputs, " +
+                         objects(props.output_pdos) + " outputs)";
             status_variant = synnax::status::VARIANT_SUCCESS;
         } else {
             status_msg = "Discovered with warning: " + sts.pdo_discovery_error + ". " +

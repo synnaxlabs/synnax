@@ -202,6 +202,30 @@ bool lookup_device_pdos(
     return true;
 }
 
+void fill_data_types(slave::Properties &slave) {
+    slave::Properties registry{};
+    if (!lookup_device_pdos(
+            slave.vendor_id,
+            slave.product_code,
+            slave.revision,
+            registry
+        ))
+        return;
+    const auto fill = [](std::vector<pdo::Properties> &entries,
+                         const std::vector<pdo::Properties> &known) {
+        for (auto &entry: entries) {
+            const auto it = std::ranges::find_if(known, [&entry](const auto &k) {
+                return k.index == entry.index && k.sub_index == entry.sub_index &&
+                       k.bit_length == entry.bit_length;
+            });
+            if (!entry.is_padding() && it != known.end())
+                entry.data_type = it->data_type;
+        }
+    };
+    fill(slave.input_pdos, registry.input_pdos);
+    fill(slave.output_pdos, registry.output_pdos);
+}
+
 std::optional<std::string_view> vendor_name(const uint32_t vendor_id) {
     const auto *vends = vendors();
     const uint32_t count = header()->vendor_count;

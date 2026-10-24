@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstring>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "driver/ethercat/igh/api.h"
@@ -77,6 +78,21 @@ class MockAPI final : public API {
     bool master_deactivate_called_val = false;
 
 public:
+    /// @brief one PDO a fake sync manager reports during discovery.
+    struct FakePDO {
+        uint16_t index;
+        std::vector<ec_pdo_entry_info_t> entries;
+    };
+    /// @brief one sync manager the fake reports during discovery.
+    struct FakeSync {
+        ec_direction_t dir;
+        std::vector<FakePDO> pdos;
+    };
+    /// @brief sync managers reported for every slave during discovery.
+    std::vector<FakeSync> fake_syncs;
+    /// @brief (index, sub_index) pairs passed to slave_config_reg_pdo_entry.
+    std::vector<std::pair<uint16_t, uint8_t>> registered_entries;
+
     MockAPI(): API(MockTag{}) { this->request_master_result = this->sentinel_master; }
 
     void set_request_master_result(ec_master_t *result) {
@@ -244,6 +260,7 @@ public:
     ) const override {
         if (slave_position >= this->mock_slaves.size()) return -1;
         *slave_info = this->mock_slaves[slave_position];
+        slave_info->sync_count = static_cast<uint8_t>(this->fake_syncs.size());
         return 0;
     }
 
@@ -283,12 +300,13 @@ public:
 
     int slave_config_reg_pdo_entry(
         ec_slave_config_t *,
-        uint16_t,
-        uint8_t,
+        uint16_t index,
+        uint8_t sub_index,
         ec_domain_t *domain,
         unsigned int *bit_position
     ) const override {
         auto *self = const_cast<MockAPI *>(this);
+        self->registered_entries.emplace_back(index, sub_index);
         *bit_position = 0;
         if (domain == this->sentinel_output_domain) {
             size_t offset = self->output_domain_offset;
@@ -303,31 +321,46 @@ public:
     int master_get_sync_manager(
         ec_master_t *,
         uint16_t,
-        uint8_t,
-        ec_sync_info_t *
+        uint8_t sync_index,
+        ec_sync_info_t *sync
     ) const override {
-        return -1;
+        if (sync_index >= this->fake_syncs.size()) return -1;
+        const auto &fake = this->fake_syncs[sync_index];
+        sync->index = sync_index;
+        sync->dir = fake.dir;
+        sync->n_pdos = static_cast<unsigned int>(fake.pdos.size());
+        return 0;
     }
 
     int master_get_pdo(
         ec_master_t *,
         uint16_t,
-        uint8_t,
-        uint16_t,
-        ec_pdo_info_t *
+        uint8_t sync_index,
+        uint16_t pos,
+        ec_pdo_info_t *pdo
     ) const override {
-        return -1;
+        if (sync_index >= this->fake_syncs.size()) return -1;
+        const auto &pdos = this->fake_syncs[sync_index].pdos;
+        if (pos >= pdos.size()) return -1;
+        pdo->index = pdos[pos].index;
+        pdo->n_entries = static_cast<unsigned int>(pdos[pos].entries.size());
+        return 0;
     }
 
     int master_get_pdo_entry(
         ec_master_t *,
         uint16_t,
-        uint8_t,
-        uint16_t,
-        uint16_t,
-        ec_pdo_entry_info_t *
+        uint8_t sync_index,
+        uint16_t pdo_pos,
+        uint16_t entry_pos,
+        ec_pdo_entry_info_t *entry
     ) const override {
-        return -1;
+        if (sync_index >= this->fake_syncs.size()) return -1;
+        const auto &pdos = this->fake_syncs[sync_index].pdos;
+        if (pdo_pos >= pdos.size() || entry_pos >= pdos[pdo_pos].entries.size())
+            return -1;
+        *entry = pdos[pdo_pos].entries[entry_pos];
+        return 0;
     }
 };
 

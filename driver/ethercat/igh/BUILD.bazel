@@ -65,6 +65,7 @@ cc_test(
         ":igh",
         ":mock_api",
         "//driver/ethercat/errors",
+        "//driver/ethercat/esi",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

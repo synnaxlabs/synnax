@@ -10,7 +10,9 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/json/json.h"
+#include "x/cpp/test/test.h"
 
+#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/pdo/pdo.h"
 
 namespace driver::ethercat::pdo {
@@ -201,16 +203,17 @@ TEST(FindOffset, ReturnsOffsetForExistingEntry) {
     Offsets offsets;
     offsets[Key{1, 0x6000, 1, true}] = {10, 3};
     Entry entry{.slave_position = 1, .index = 0x6000, .sub_index = 1, .is_input = true};
-    const auto result = find_offset(offsets, entry);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->byte, 10);
-    EXPECT_EQ(result->bit, 3);
+    const auto result = ASSERT_NIL_P(find_offset(offsets, entry));
+    EXPECT_EQ(result.byte, 10);
+    EXPECT_EQ(result.bit, 3);
 }
 
-TEST(FindOffset, ReturnsNulloptForMissingEntry) {
+TEST(FindOffset, ReturnsMappingErrorForMissingEntry) {
     Offsets offsets;
     Entry entry{.slave_position = 1, .index = 0x6000, .sub_index = 1, .is_input = true};
-    EXPECT_FALSE(find_offset(offsets, entry).has_value());
+    const auto err = find_offset(offsets, entry).second;
+    ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
+    EXPECT_EQ(err.data, "PDO 0x6000:01 is not in the process image of slave 1");
 }
 
 TEST(ComputeOffsetsProperties, ByteAlignedOffsets) {
@@ -358,5 +361,65 @@ TEST(PDOPropertiesTest, JSONRoundTrip) {
     EXPECT_EQ(json["bit_length"], 32);
     EXPECT_EQ(json["name"], "Velocity");
     EXPECT_EQ(json["data_type"], "int32");
+}
+
+TEST(PDOPropertiesTest, PDONameRoundTrip) {
+    x::json::Parser parser(std::string(R"({
+        "pdo_index": 6656,
+        "index": 24576,
+        "sub_index": 1,
+        "bit_length": 1,
+        "name": "Input",
+        "pdo_name": "Channel 1",
+        "data_type": "uint8"
+    })"));
+    const auto props = Properties::parse(parser, true);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(props.pdo_name, "Channel 1");
+    EXPECT_EQ(props.to_json()["pdo_name"], "Channel 1");
+}
+
+TEST(PDOPropertiesTest, PDONameAbsent) {
+    x::json::Parser parser(std::string(R"({
+        "pdo_index": 6656,
+        "index": 24576,
+        "sub_index": 1,
+        "bit_length": 1,
+        "name": "Input",
+        "data_type": "uint8"
+    })"));
+    const auto props = Properties::parse(parser, true);
+    ASSERT_NIL(parser.error());
+    EXPECT_FALSE(props.pdo_name.has_value());
+    EXPECT_FALSE(props.to_json().contains("pdo_name"));
+}
+
+TEST(PDOPropertiesTest, IsPadding) {
+    EXPECT_TRUE((Properties{.index = 0, .bit_length = 7}).is_padding());
+    EXPECT_FALSE((Properties{.index = 0x6000, .sub_index = 1}).is_padding());
+}
+
+TEST(ComputeOffsetsProperties, PaddingShiftsLaterEntries) {
+    Offsets offsets;
+    const std::vector<Properties> pdos = {
+        {.index = 0x6000, .sub_index = 1, .bit_length = 1},
+        {.index = 0, .bit_length = 7},
+        {.index = 0x6000, .sub_index = 17, .bit_length = 16},
+    };
+    compute_offsets(offsets, 1, pdos, true, 0);
+
+    EXPECT_FALSE(offsets.contains(Key{1, 0, 0, true}));
+    const auto value = offsets.at(Key{1, 0x6000, 17, true});
+    EXPECT_EQ(value.byte, 1);
+    EXPECT_EQ(value.bit, 0);
+}
+
+TEST(TotalBits, CountsPadding) {
+    const std::vector<Properties> pdos = {
+        {.index = 0x6000, .sub_index = 1, .bit_length = 1},
+        {.index = 0, .bit_length = 7},
+        {.index = 0x6000, .sub_index = 17, .bit_length = 16},
+    };
+    EXPECT_EQ(total_bits(pdos), 24);
 }
 }
