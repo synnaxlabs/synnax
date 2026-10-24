@@ -30,14 +30,18 @@ method and parameter, see the
 
 ## Start the simulator
 
-The Python client includes a press simulator, so you can run this page with no hardware.
-The simulator creates the channels `press_vlv_cmd`, `vent_vlv_cmd`, and `press_pt`. When
-the press valve is open, `press_pt` goes up by about 20 each second. When the vent valve
-is open, it goes down by the same amount.
+The [Python examples](/reference/client/examples) include a press simulator, so you can
+run this page with no hardware. The simulator creates the channels `press_vlv_cmd`,
+`vent_vlv_cmd`, and `press_pt`. When the press valve is open, `press_pt` goes up by
+about 20 each second. When the vent valve is open, it goes down by the same amount.
 
-In a separate terminal, start the simulator and keep it running:
+The examples are in the Synnax repository, not in the installed client. In a separate
+terminal, get the repository, start the simulator from the `client/py` folder, and keep
+it running:
 
 ```bash
+git clone https://github.com/synnaxlabs/synnax.git
+cd synnax/client/py
 python -m examples.simulators.press
 ```
 
