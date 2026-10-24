@@ -326,15 +326,13 @@ move.
 | Site checks                      | `src/util/checks/main.ts`, `links.ts`     |
 
 NEW: the `edition` field on `PageNavNode`, the `components/edition/` package, the
-switcher's stored choice, computed previous and next links, the orphan check, and the
-`desktop` flag. Each names its precedent in the sections above.
+switcher's stored choice, computed previous and next links, and the orphan check. Each
+names its precedent in the sections above.
 
-### 5.8 The Desktop flag
+### 5.8 Desktop timing
 
-Desktop is not released. A `desktop` flag in `FLAGS` hides the two Desktop pages from
-production and switches the Get started page between its Desktop-first body and the
-current Enterprise install body, through `enabled("desktop")`. Previews show the Desktop
-version. The release removes the flag and the Enterprise body.
+Desktop is not released. No flag hides the Desktop pages: the new sections land with the
+first Desktop release.
 
 ## 6 What this RFC does not cover
 
@@ -349,33 +347,16 @@ version. The release removes the flag and the Enterprise body.
 
 ## 7 Implementation phases
 
-Each phase is one pull request into `main`. A move and a content rewrite of the same
-section land as separate phases when the move is mechanical.
+Each phase is one pull request into `main`. The work was built on one branch, and each
+pull request copies its files from that branch.
 
-- **Phase 1: Nav order.** Computed previous and next links, the 181 front matter lines
-  deleted, the orphan check, `installing-certificates` added to the nav.
-- **Phase 2: Edition markers.** The `edition` nav field and page badge, the tab marker,
-  `<Edition.Enterprise>`, the stored switcher choice. Current Core, client, and users
-  pages get marked.
-- **Phase 3: Enterprise section.** Moves and the one merged Core setup page, redirects,
-  `installation` redirected to it.
-- **Phase 4: Channels section.**
-- **Phase 5: Ranges section**, with the new export page.
-- **Phase 6: Hardware move.** `driver/*` to `hardware/*`, redirects, links. Mechanical.
-- **Phase 7: Hardware content.** Vendor prerequisite blocks rewritten for the embedded
-  Driver, `custom` page moved.
-- **Phase 8: Visualize section**, with `ui-overview` moved to Get started.
-- **Phase 9: Control section.** Manual control page, merged authority page.
-- **Phase 10: Alarms section.** Statuses page, merged redlines, Arc alarms and PagerDuty
-  moved.
-- **Phase 11: Client libraries and Concepts removal.** Reads, writes, and streams
-  merged; `concepts/` deleted; dead-URL redirects of §5.5.
-- **Phase 12: Product links.** The code changes of §5.6.
-- **Phase 13: Get started.** Desktop-first body behind the `desktop` flag, editions
-  page, first run, Desktop install and upkeep pages.
-- **Phase 14: Desktop release.** Flag removed, `installation` redirected to the Desktop
-  install page, and the Desktop download button moved from the `next` to the `stable`
-  release channel. Ships with the first Desktop release.
+- **Phase 1: Lyra.** Chip tabs, and one hover for the pointer and the arrow keys.
+- **Phase 2: Studio.** The capture scripts for the docs videos.
+- **Phase 3: Groundwork.** Computed previous and next links, the orphan check, edition
+  markers, the client tab changes, the design system, search, the media lightbox, and
+  the 404 pages. No page moves.
+- **Phase 4: Sections.** Every section of §5.1, the landing page, the redirects of §5.5,
+  and the links of §5.6. Ships with the first Desktop release.
 
 Compatibility: every URL that exists on the live site today, and every URL a shipped
 binary prints, resolves to a page after each phase. The anchors that Cesium prints
