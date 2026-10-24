@@ -225,6 +225,8 @@ import {
   TbColumnInsertLeft,
   TbColumnInsertRight,
   TbColumnRemove,
+  TbDatabase,
+  TbDatabaseOff,
   TbDecimal,
   TbEraser,
   TbLayoutSidebar,
@@ -462,6 +464,8 @@ export const Connect = wrapSVGIcon(TbPlugConnected, "connect");
 export const Disconnect = wrapSVGIcon(TbPlugConnectedX, "disconnect");
 export const Hardware = wrapSVGIcon(MdHardware, "hardware");
 export const Save = wrapSVGIcon(MdSaveAlt, "save");
+export const Database = wrapSVGIcon(TbDatabase, "database");
+export const DatabaseOff = wrapSVGIcon(TbDatabaseOff, "database-off");
 export const Task = wrapSVGIcon(TbRadarFilled, "task");
 export const Computer = wrapSVGIcon(MdComputer, "computer");
 export const Link = wrapSVGIcon(MdLink, "link");
@@ -652,6 +656,8 @@ const icons = {
   Disconnect,
   Hardware,
   Save,
+  Database,
+  DatabaseOff,
   Task,
   Device,
   Computer,
