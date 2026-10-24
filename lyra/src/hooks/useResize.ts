@@ -48,7 +48,7 @@ export const useResize = <E extends HTMLElement>(
   opts: UseResizeOpts = {},
 ): RefCallback<E> => {
   const { triggers = [], debounce = 0, enabled = true } = opts;
-  const debounceSpan = new TimeSpan(debounce).valueOf();
+  const debouncePeriod = new TimeSpan(debounce).valueOf();
   const prev = useRef<box.Box>(box.ZERO);
   const ref = useRef<E | null>(null);
   const obs = useRef<ResizeObserver | null>(null);
@@ -65,11 +65,11 @@ export const useResize = <E extends HTMLElement>(
           prev.current = next;
           onResize(next, ref.current as E);
         }
-      }, debounceSpan);
+      }, debouncePeriod);
       obs.current = new ResizeObserver(deb);
       obs.current.observe(el);
     },
-    [memoTriggers, onResize, debounceSpan],
+    [memoTriggers, onResize, debouncePeriod],
   );
 
   useEffect(() => {

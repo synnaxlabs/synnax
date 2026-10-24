@@ -14,10 +14,11 @@ import {
   type TimeSpan as XTimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useEffect, useState } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
+import { useNow } from "@/hooks";
 import { Icon } from "@/icon";
 import { type Action, type BaseProps, Editor } from "@/input/time/Editor";
 import {
@@ -86,19 +87,6 @@ const resolveAnchors = (
   return anchors;
 };
 
-/** @returns the current time, refreshed when the local day turns. */
-const useToday = (): TimeStamp => {
-  const [now, setNow] = useState(() => TimeStamp.now());
-  useEffect(() => {
-    const date = now.date();
-    const midnight = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
-    const delay = midnight.getTime() - date.getTime();
-    const t = setTimeout(() => setNow(TimeStamp.now()), delay);
-    return () => clearTimeout(t);
-  }, [now]);
-  return now;
-};
-
 const describeOffset = (value: TimeStamp, from: TimeStamp): string => {
   const span = value.span(from);
   if (span.isZero) return "";
@@ -141,7 +129,7 @@ export const DateTime = ({
   const formatted = stamp?.toPreciseString("local") ?? "";
   const parentStart = parent?.start;
   const language = useLanguage();
-  const today = useToday();
+  const today = useNow(TelemText.nextMidnight);
 
   // Editor memoizes the readings on this function. Anchors resolve on each call, so
   // `now` inside a reading is the moment of the edit.

@@ -194,15 +194,6 @@ const selectModalPosition = (
 };
 
 /**
- * A controlled dropdown dialog component that wraps its children. For the simplest
- * case, use the {@link use} hook (more behavioral details explained there).
- * @param props - The props for the dropdown component. Unlisted props are passed to the
- * parent element.
- * @param props.visible - Whether the dropdown is visible or not. This is a controlled
- * @param props.children - Two children are expected: the dropdown trigger (often a
- * button or input) and the dropdown content.
- */
-/**
  * Pairs a {@link Trigger} with a {@link Dialog}, owning whether it is open and placing
  * it in whatever space the viewport leaves.
  *

@@ -27,7 +27,6 @@ import { z } from "zod";
 
 import { context } from "@/context";
 import { useSyncedRef } from "@/hooks/ref";
-import { compareDeps, useMemoCompare } from "@/memo";
 import { state } from "@/state";
 
 /** Zod schema for a draggable/droppable {@link Item}. */
@@ -423,18 +422,6 @@ export const canDropOfType =
 /** Returns the subset of `entities` whose type is `type`. */
 export const filterByType = (type: string, entities: Item[]): Item[] =>
   entities.filter((entity) => entity.type === type);
-
-/** Memoizes `fn`, pre-filtering its `items` to `type` before it runs. */
-export const useFilterByTypeCallback = (
-  type: string,
-  fn: OnDrop,
-  deps: unknown[],
-): OnDrop =>
-  useMemoCompare(
-    (): OnDrop => (props) => fn({ ...props, items: filterByType(type, props.items) }),
-    compareDeps,
-    [type, ...deps],
-  );
 
 /** Props for a drop handled outside the normal tree; `onDrop` also gets the cursor. */
 export interface UseDropOutsideProps extends Omit<UseDropProps, "onDrop"> {

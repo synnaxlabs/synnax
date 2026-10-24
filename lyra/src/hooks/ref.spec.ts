@@ -7,10 +7,51 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, renderHook } from "@testing-library/react";
+import { act, render, renderHook } from "@testing-library/react";
+import { createElement, type RefObject, useLayoutEffect } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
-import { useCombinedRefs, useCombinedStateAndRef } from "@/hooks/ref";
+import {
+  useCombinedRefs,
+  useCombinedStateAndRef,
+  usePrevious,
+  useSyncedRef,
+} from "@/hooks/ref";
+
+describe("useSyncedRef", () => {
+  it("should update the ref before a child's layout effect reads it", () => {
+    const seen: number[] = [];
+    interface ChildProps {
+      synced: RefObject<number>;
+      value: number;
+    }
+    const Child = ({ synced, value }: ChildProps) => {
+      useLayoutEffect(() => {
+        seen.push(synced.current);
+      }, [synced, value]);
+      return null;
+    };
+    const Parent = ({ value }: { value: number }) =>
+      createElement(Child, { synced: useSyncedRef(value), value });
+    const { rerender } = render(createElement(Parent, { value: 1 }));
+    rerender(createElement(Parent, { value: 2 }));
+    expect(seen).toEqual([1, 2]);
+  });
+});
+
+describe("usePrevious", () => {
+  it("should return the prior value in the render where the value changes", () => {
+    const seen: (number | undefined)[] = [];
+    const { rerender } = renderHook(
+      ({ value }) => {
+        seen.push(usePrevious(value));
+      },
+      { initialProps: { value: 1 } },
+    );
+    rerender({ value: 2 });
+    expect(seen).toEqual([undefined, 1, 1, 2]);
+  });
+});
 
 describe("useCombinedStateAndRef", () => {
   it("should seed both the state and the ref from the initial value", () => {

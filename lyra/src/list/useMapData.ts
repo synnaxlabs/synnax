@@ -12,6 +12,7 @@ import { useCallback, useMemo } from "react";
 
 import { useInitializerRef } from "@/hooks";
 import { type FrameProps } from "@/list/Frame";
+import { Store } from "@/store";
 
 interface GetItem<
   K extends record.Key = record.Key,
@@ -60,15 +61,7 @@ export const useMapData = <
     initialData.forEach((i) => data.set(i.key, i));
     return data;
   });
-  const listenersRef = useInitializerRef(() => new Map<K, Set<() => void>>());
-  const notifyListeners = useCallback(
-    (keys: K[]) => {
-      const notified = new Set<() => void>();
-      keys.forEach((k) => listenersRef.current.get(k)?.forEach((l) => notified.add(l)));
-      notified.forEach((l) => l());
-    },
-    [listenersRef],
-  );
+  const { notifyListeners, subscribe } = Store.useKeyedListeners<K>();
   const setItem = useCallback(
     (item: E | E[]) => {
       const items = array.toArray(item);
@@ -85,23 +78,6 @@ export const useMapData = <
       notifyListeners(keys);
     },
     [dataRef, notifyListeners],
-  );
-  const subscribe = useCallback(
-    (listener: () => void, key?: K) => {
-      if (key == null) return () => {};
-      const listeners = listenersRef.current;
-      let keyed = listeners.get(key);
-      if (keyed == null) {
-        keyed = new Set();
-        listeners.set(key, keyed);
-      }
-      keyed.add(listener);
-      return () => {
-        keyed.delete(listener);
-        if (keyed.size === 0 && listeners.get(key) === keyed) listeners.delete(key);
-      };
-    },
-    [listenersRef],
   );
   const getItem = useCallback(
     (key?: K | K[]) => {

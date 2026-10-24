@@ -15,7 +15,6 @@ import { type ReactElement, useRef } from "react";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Cursor } from "@/cursor";
-import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { type Control } from "@/input/types";
 import { preventDefault } from "@/util/event";
@@ -89,7 +88,6 @@ export const DragButton = ({
   disabled,
   ...rest
 }: DragButtonProps): ReactElement => {
-  const valueRef = useSyncedRef(value);
   // The value a drag scrubs from, held until the drag ends.
   const startRef = useRef<number | null>(null);
   const elRef = useRef<HTMLButtonElement>(null);
@@ -102,7 +100,7 @@ export const DragButton = ({
     dragThreshold != null ? xy.construct(dragThreshold) : null;
 
   const scrub = (b: box.Box, el: HTMLElement): number => {
-    if (startRef.current == null) startRef.current = valueRef.current;
+    if (startRef.current == null) startRef.current = value;
     return calculateValue(
       startRef.current,
       b,
@@ -128,7 +126,7 @@ export const DragButton = ({
     },
   });
 
-  const handleDoubleClick = () => onChange(resetValue ?? valueRef.current);
+  const handleDoubleClick = () => onChange(resetValue ?? value);
 
   return (
     <Button.Button

@@ -52,11 +52,12 @@ export const useSyncedRef = <T>(value: T): RefObject<T> => {
 /**
  * Holds a ref whose value is built on the first render and kept for the component's
  * life. Use it in place of `useRef(expensive())`, which builds a fresh value on every
- * render and throws it away. The initializer must not return null or undefined.
+ * render and throws it away. The value cannot be null or undefined, because the hook
+ * builds it again while it is either.
  *
  * @example const store = useInitializerRef(() => new Store());
  */
-export const useInitializerRef = <T>(initializer: () => T): RefObject<T> => {
+export const useInitializerRef = <T extends {}>(initializer: () => T): RefObject<T> => {
   const ref = useRef<T | null>(null);
   if (ref.current == null) ref.current = initializer();
   return ref as RefObject<T>;

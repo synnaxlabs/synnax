@@ -169,7 +169,7 @@ export const createMembership = (name: string): Membership => {
     return useSyncExternalStore(
       useCallback(
         (onStoreChange) => {
-          const destructors = keys.map((key) => subscribe(() => onStoreChange(), key));
+          const destructors = keys.map((key) => subscribe(onStoreChange, key));
           return () => destructors.forEach((d) => d());
         },
         [keys, subscribe],

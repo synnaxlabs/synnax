@@ -9,10 +9,11 @@
 
 import "@/input/time/Time.css";
 
-import { TimeSpan as XTimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useState } from "react";
+import { TimeSpan as XTimeSpan } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { useNow } from "@/hooks";
 import { type BaseProps, Editor } from "@/input/time/Editor";
 import { roundNumeric } from "@/input/time/grammar";
 import { suggestTimeSpans } from "@/input/time/suggest";
@@ -37,13 +38,7 @@ export const formatTimeSpan = (span: XTimeSpan): string =>
 // The clock always reads to the second, whatever the row's labels resolve to: a
 // coarser cut would show 0s for the first minute of a long range.
 const useElapsed = (since: number | undefined): string | null => {
-  const [now, setNow] = useState(() => TimeStamp.now());
-  useEffect(() => {
-    if (since == null) return;
-    setNow(TimeStamp.now());
-    const i = setInterval(() => setNow(TimeStamp.now()), 1000);
-    return () => clearInterval(i);
-  }, [since]);
+  const now = useNow((now) => (since == null ? null : now.add(XTimeSpan.SECOND)));
   if (since == null) return null;
   return formatTimeSpan(now.span(since).truncate(XTimeSpan.SECOND));
 };

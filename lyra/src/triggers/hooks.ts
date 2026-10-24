@@ -28,7 +28,7 @@ import {
   UNDO,
 } from "@/triggers/triggers";
 
-/** The event {@link use} hands its callback. */
+/** The event {@link useListen} hands its callback. */
 export interface UseEvent {
   target: HTMLElement;
   prevTriggers: Trigger[];
@@ -37,14 +37,14 @@ export interface UseEvent {
   stage: Stage;
   cursor: xy.XY;
   /**
-   * Prevents the event from being dispatched to any remaining Triggers.use
-   * subscribers with a lower priority than the current one. Subscribers at the
-   * same priority that have not yet been notified still receive the event.
+   * Prevents the event from being dispatched to any remaining {@link useListen}
+   * subscribers with a lower priority than the current one. Subscribers at the same
+   * priority that have not yet been notified still receive the event.
    */
   stopPropagation: () => void;
 }
 
-/** Props for {@link use}. */
+/** Props for {@link useListen}. */
 export interface UseProps extends MatchOptions {
   triggers?: Trigger | Trigger[];
   /** Fires only while the cursor sits inside this element. */
@@ -53,9 +53,10 @@ export interface UseProps extends MatchOptions {
   /** Whether the event target must be the region itself, not a descendant. */
   regionMustBeElement?: boolean;
   /**
-   * Withholds events from this subscriber while it resolves false. Use it for conditions
-   * the subscriber itself owns, such as whether its content is editable. Whether the
-   * surrounding view is the one the user is working in belongs in a {@link Scope}.
+   * Withholds events from this subscriber while it resolves false. Use it for
+   * conditions the subscriber itself owns, such as whether its content is editable.
+   * Whether the surrounding view is the one the user is working in belongs in a
+   * {@link Scope}.
    */
   enabled?: Condition;
   /**

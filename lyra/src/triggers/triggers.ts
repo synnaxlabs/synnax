@@ -185,7 +185,7 @@ export type Trigger = Key[];
  */
 export type Stage = "start" | "during" | "end";
 
-/** An event fired when a trigger is activated in Triggers.use. */
+/** An event fired when a trigger is activated in Triggers.useListen. */
 export interface Event {
   /** The target element that the trigger was fired on. */
   target: HTMLElement;

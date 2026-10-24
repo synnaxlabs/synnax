@@ -7,18 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
+import { type PropsWithChildren, useCallback, useMemo, useState } from "react";
 import type z from "zod";
 
 import { context } from "@/context";
-import { useSyncedRef } from "@/hooks";
+import { useNow, useSyncedRef } from "@/hooks";
 import {
   type Adder,
   type AsyncErrorHandler,
@@ -140,13 +134,7 @@ export const useNotifications = ({
 }: UseNotificationsProps = {}): UseNotificationsReturn => {
   const statuses = useContext();
   const [silencedKeys, setSilencedKeys] = useState<Set<string>>(() => new Set());
-  const [now, setNow] = useState(() => TimeStamp.now());
-  const pollMs = new TimeSpan(poll).milliseconds;
-
-  useEffect(() => {
-    const interval = setInterval(() => setNow(TimeStamp.now()), pollMs);
-    return () => clearInterval(interval);
-  }, [pollMs]);
+  const now = useNow((now) => now.add(poll));
 
   const filtered = useMemo(() => {
     const threshold = now.sub(expiration);

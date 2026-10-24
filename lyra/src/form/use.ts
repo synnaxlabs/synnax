@@ -33,7 +33,7 @@ export interface OnChangeParams<Z extends z.ZodType> {
   valid: boolean;
 }
 
-/** Params for {@link use}. */
+/** Params for {@link useState}. */
 export interface UseParams<Z extends z.ZodType> {
   /** The starting values. They are copied, not held. */
   values: z.infer<Z>;

@@ -14,10 +14,12 @@ import {
   TimeStamp,
   type TimeZone,
 } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement } from "react";
 
 import { Flex } from "@/flex";
+import { useNow } from "@/hooks";
 import { Icon } from "@/icon";
+import { nextMidnight } from "@/telem/text/format";
 import { Text } from "@/text";
 
 export interface TimeRangeProps
@@ -27,25 +29,6 @@ export interface TimeRangeProps
   children: CrudeTimeRange;
   displayTimeZone?: TimeZone;
 }
-
-const REFRESH_INTERVAL = TimeSpan.MINUTE;
-
-/**
- * @returns the current time, refreshed every minute and at the given instant, so a
- * label that reads the clock catches up when the day turns or a range starts.
- */
-const useNow = (next: TimeStamp): TimeStamp => {
-  const [now, setNow] = useState(() => TimeStamp.now());
-  const nextValue = next.valueOf();
-  useEffect(() => {
-    const until = new TimeStamp(nextValue);
-    let delay = REFRESH_INTERVAL;
-    if (until.after(now) && until.span(now).lessThan(delay)) delay = until.span(now);
-    const t = setTimeout(() => setNow(TimeStamp.now()), Math.ceil(delay.milliseconds));
-    return () => clearTimeout(t);
-  }, [now, nextValue]);
-  return now;
-};
 
 const formatTime = (
   tr: XTimeRange,
@@ -57,7 +40,7 @@ const formatTime = (
   const startFormat = today ? "time" : "dateTime";
   const startTime = new TimeStamp(tr.start).toString(startFormat, displayTimeZone);
   if (tr.end.equals(TimeStamp.MAX)) {
-    const verb = tr.start.before(now) ? "Started" : "Starts";
+    const verb = tr.start.beforeEq(now) ? "Started" : "Starts";
     return today ? `${verb} today ${startTime}` : `${verb} ${startTime}`;
   }
   const endFormat = tr.end.span(tr.start) < TimeSpan.DAY ? "time" : "dateTime";
@@ -74,7 +57,11 @@ export const TimeRange = ({
   ...rest
 }: TimeRangeProps): ReactElement | null => {
   const tr = new XTimeRange(children).makeValid();
-  const now = useNow(tr.start);
+  // The label changes when the range starts and when the day turns.
+  const now = useNow((now) => {
+    const midnight = nextMidnight(now, displayTimeZone);
+    return tr.start.after(now) ? TimeStamp.min(tr.start, midnight) : midnight;
+  });
   const formattedTime = formatTime(tr, now, displayTimeZone);
   if (formattedTime == null) return null;
   return (

@@ -26,7 +26,7 @@ const useCache = <K, V>(
   areEqual: (prev: K, next: K) => boolean,
   create: () => V,
 ): V => {
-  "use no memo"; // Reads a ref in render. An entry is valid for any render with its key.
+  "use no memo"; // Reads a ref in render. An entry holds for any render with its key.
   const ref = useRef<{ key: K; value: V }>(null);
   /* eslint-disable react-hooks/refs */
   if (ref.current == null || !areEqual(ref.current.key, key))
