@@ -11,6 +11,7 @@ package cesium_test
 
 import (
 	"slices"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1009,11 +1010,25 @@ var _ = Describe("Iterator Behavior", func() {
 			})
 
 			Describe("Pieces", func() {
-				var idxA, dataA, idxB, dataB cesium.ChannelKey
-				BeforeEach(func(ctx SpecContext) {
+				var (
+					idxA, dataA, idxB, dataB cesium.ChannelKey
+					opened                   int
+				)
+				// open opens an empty DB with opts in a new directory of fs.
+				open := func(ctx SpecContext, opts ...cesium.Option) *cesium.DB {
+					GinkgoHelper()
+					opened++
+					sub := MustSucceed(fs.Sub("pieces_" + strconv.Itoa(opened)))
+					return mustOpenDBOnFS(ctx, sub, opts...)
+				}
+				// openAB opens a DB with opts that holds two indexes with a data
+				// channel on each.
+				openAB := func(ctx SpecContext, opts ...cesium.Option) *cesium.DB {
+					GinkgoHelper()
+					pdb := open(ctx, opts...)
 					idxA, dataA = GenerateChannelKey(), GenerateChannelKey()
 					idxB, dataB = GenerateChannelKey(), GenerateChannelKey()
-					Expect(db.CreateChannel(
+					Expect(pdb.CreateChannel(
 						ctx,
 						cesium.Channel{
 							Key:      idxA,
@@ -1040,25 +1055,27 @@ var _ = Describe("Iterator Behavior", func() {
 							DataType: telem.Int64T,
 						},
 					)).To(Succeed())
-					Expect(db.Write(ctx, telem.SecondTS, telem.MultiFrame(
+					Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{idxA, dataA},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6),
 							telem.NewSeriesV[int64](10, 20, 30, 40, 50, 60),
 						},
 					))).To(Succeed())
-					Expect(db.Write(ctx, 2*telem.SecondTS, telem.MultiFrame(
+					Expect(pdb.Write(ctx, 2*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{idxB, dataB},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(2, 4, 6),
 							telem.NewSeriesV[int64](100, 200, 300),
 						},
 					))).To(Succeed())
-				})
+					return pdb
+				}
 
 				// pieces sends seek and then cmd with span, and returns the samples of
 				// the data channels in each data response to cmd.
 				pieces := func(
+					pdb *cesium.DB,
 					cfg cesium.IteratorConfig,
 					seek cesium.IteratorCommand,
 					cmd cesium.IteratorCommand,
@@ -1066,7 +1083,7 @@ var _ = Describe("Iterator Behavior", func() {
 					data ...cesium.ChannelKey,
 				) [][]int64 {
 					GinkgoHelper()
-					it := MustSucceed(db.NewStreamIterator(cfg))
+					it := MustSucceed(pdb.NewStreamIterator(cfg))
 					sCtx, cancel := signal.Isolated()
 					defer cancel()
 					requests, responses := confluence.Attach(it, 1)
@@ -1098,8 +1115,10 @@ var _ = Describe("Iterator Behavior", func() {
 				DescribeTable(
 					"Should send a fixed span as one response per piece of at most "+
 						"the piece size, summed over the channels, in time order",
-					func(seek, cmd cesium.IteratorCommand) {
+					func(ctx SpecContext, seek, cmd cesium.IteratorCommand) {
+						pdb := openAB(ctx, cesium.WithPieceSize(8))
 						Expect(pieces(
+							pdb,
 							cesium.IteratorConfig{
 								Bounds: telem.TimeRangeMax,
 								Channels: []cesium.ChannelKey{
@@ -1108,7 +1127,7 @@ var _ = Describe("Iterator Behavior", func() {
 									idxB,
 									dataB,
 								},
-							}.WithPieceSize(8),
+							},
 							seek,
 							cmd,
 							10*telem.Second,
@@ -1135,18 +1154,21 @@ var _ = Describe("Iterator Behavior", func() {
 				DescribeTable(
 					"Should split a strided fixed span into pieces that keep the samples "+
 						"of one read",
-					func(seek, cmd cesium.IteratorCommand) {
-						cfg := cesium.IteratorConfig{
-							Bounds:   telem.TimeRangeMax,
-							Channels: []cesium.ChannelKey{idxA, dataA},
-							Reduction: telem.Reduction{
-								Variant: telem.StrideReduction{Factor: 2},
-							},
+					func(ctx SpecContext, seek, cmd cesium.IteratorCommand) {
+						read := func(opts ...cesium.Option) [][]int64 {
+							GinkgoHelper()
+							pdb := openAB(ctx, opts...)
+							cfg := cesium.IteratorConfig{
+								Bounds:   telem.TimeRangeMax,
+								Channels: []cesium.ChannelKey{idxA, dataA},
+								Reduction: telem.Reduction{
+									Variant: telem.StrideReduction{Factor: 2},
+								},
+							}
+							return pieces(pdb, cfg, seek, cmd, 10*telem.Second, dataA)
 						}
-						Expect(pieces(cfg, seek, cmd, 10*telem.Second, dataA)).
-							To(Equal([][]int64{{10, 30, 50}}))
-						cfg = cfg.WithPieceSize(4)
-						Expect(pieces(cfg, seek, cmd, 10*telem.Second, dataA)).
+						Expect(read()).To(Equal([][]int64{{10, 30, 50}}))
+						Expect(read(cesium.WithPieceSize(4))).
 							To(Equal([][]int64{{10}, {30}, {50}}))
 					},
 					Entry(
@@ -1164,8 +1186,9 @@ var _ = Describe("Iterator Behavior", func() {
 				DescribeTable(
 					"Should end each piece after a run of equal timestamps",
 					func(ctx SpecContext, seek, cmd cesium.IteratorCommand) {
+						pdb := open(ctx, cesium.WithPieceSize(2))
 						idx, data := GenerateChannelKey(), GenerateChannelKey()
-						Expect(db.CreateChannel(
+						Expect(pdb.CreateChannel(
 							ctx,
 							cesium.Channel{
 								Key:      idx,
@@ -1180,7 +1203,7 @@ var _ = Describe("Iterator Behavior", func() {
 								DataType: telem.Int64T,
 							},
 						)).To(Succeed())
-						Expect(db.Write(ctx, telem.SecondTS, telem.MultiFrame(
+						Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{idx, data},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(1, 2, 2, 2, 3),
@@ -1188,10 +1211,11 @@ var _ = Describe("Iterator Behavior", func() {
 							},
 						))).To(Succeed())
 						read := pieces(
+							pdb,
 							cesium.IteratorConfig{
 								Bounds:   telem.TimeRangeMax,
 								Channels: []cesium.ChannelKey{idx, data},
-							}.WithPieceSize(2),
+							},
 							seek,
 							cmd,
 							10*telem.Second,
@@ -1217,8 +1241,9 @@ var _ = Describe("Iterator Behavior", func() {
 				It("Should continue from a pieced Prev across domains", func(
 					ctx SpecContext,
 				) {
+					pdb := open(ctx, cesium.WithPieceSize(2))
 					idx, data := GenerateChannelKey(), GenerateChannelKey()
-					Expect(db.CreateChannel(
+					Expect(pdb.CreateChannel(
 						ctx,
 						cesium.Channel{
 							Key:      idx,
@@ -1233,25 +1258,25 @@ var _ = Describe("Iterator Behavior", func() {
 							DataType: telem.Int64T,
 						},
 					)).To(Succeed())
-					Expect(db.Write(ctx, telem.SecondTS, telem.MultiFrame(
+					Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{idx, data},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(1, 2, 3),
 							telem.NewSeriesV[int64](1, 2, 3),
 						},
 					))).To(Succeed())
-					Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+					Expect(pdb.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{idx, data},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(10, 11, 12),
 							telem.NewSeriesV[int64](10, 11, 12),
 						},
 					))).To(Succeed())
-					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+					i := MustSucceed(pdb.OpenIterator(cesium.IteratorConfig{
 						Bounds:        telem.TimeRangeMax,
 						Channels:      []cesium.ChannelKey{idx, data},
 						AutoChunkSize: 1,
-					}.WithPieceSize(2)))
+					}))
 					values := func() []int64 {
 						GinkgoHelper()
 						var out []int64
@@ -1272,11 +1297,14 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.Close()).To(Succeed())
 				})
 
-				It("Should keep the view start of a pieced Next", func() {
-					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+				It("Should keep the view start of a pieced Next", func(
+					ctx SpecContext,
+				) {
+					pdb := openAB(ctx, cesium.WithPieceSize(4))
+					i := MustSucceed(pdb.OpenIterator(cesium.IteratorConfig{
 						Bounds:   telem.TimeRangeMax,
 						Channels: []cesium.ChannelKey{idxA, dataA},
-					}.WithPieceSize(4)))
+					}))
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(10 * telem.Second)).To(BeTrue())
 					Expect(i.Value().Get(dataA).Series).To(HaveLen(3))

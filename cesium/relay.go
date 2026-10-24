@@ -42,6 +42,9 @@ const (
 	// defaultSlowConsumerTimeout is the default maximum amount of time the relay will
 	// wait for a consumer to receive a frame before dropping the frame.
 	defaultSlowConsumerTimeout = 20 * time.Millisecond
+	// defaultPieceSize keeps a piece of a fixed-span read at about 64 MB of 8-byte
+	// samples.
+	defaultPieceSize = 1 << 23
 )
 
 func openRelay(sCtx signal.Context, o *options) *relay {
