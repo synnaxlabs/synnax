@@ -111,6 +111,7 @@ var _ = Describe("Writer", func() {
 					table.NewRenameAction(table.RenamePayload{Name: "multi"}),
 					table.NewAddRowAction(table.AddRowPayload{
 						Index: 1,
+						Key:   "r1",
 						Size:  40,
 						Cells: []table.Cell{
 							cell("c", textCfg("")),

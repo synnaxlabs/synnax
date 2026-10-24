@@ -480,6 +480,15 @@ var _ = Describe("Reducer", func() {
 		})),
 	)
 
+	DescribeTable("rejects an added row or column with no key",
+		func(action table.Action) {
+			Expect(table.Reduce(create3x3(), action)).Error().
+				To(MatchError("key: required"))
+		},
+		Entry("AddRow", table.NewAddRowAction(table.AddRowPayload{Size: 40})),
+		Entry("AddCol", table.NewAddColAction(table.AddColPayload{Size: 80})),
+	)
+
 	Describe("SetCell", func() {
 		It("Should replace the cell stored under the given key", func() {
 			out := MustSucceed(

@@ -14,6 +14,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // minCellDim is the floor enforced on row and column sizes.
@@ -80,8 +81,14 @@ func (p RenamePayload) Handle(state Table) (Table, error) {
 // non-nil it replaces Cells with one replica per existing column (or one when the table
 // is empty, which also creates a default column keyed from the row's key). When both
 // are absent against a column-less table, the new row is inserted with no cells. Sizes
-// clamp up to minCellDim; indices clamp down to the end of the rows slice.
+// clamp up to minCellDim; indices clamp down to the end of the rows slice. Returns a
+// validation error if the key is empty.
 func (p AddRowPayload) Handle(state Table) (Table, error) {
+	v := validate.New("table.AddRow")
+	v.NotEmptyString("key", p.Key)
+	if err := v.Error(); err != nil {
+		return Table{}, err
+	}
 	cells := p.Cells
 	if p.CellTemplate != nil {
 		n := len(state.Columns)
@@ -128,8 +135,13 @@ func (p RemoveRowPayload) Handle(state Table) (Table, error) {
 
 // Handle inserts a column with the given key at the given index, mirroring AddRow with
 // axes swapped. Cells whose row index exceeds the row count enter the cells map without
-// being referenced by any row.
+// being referenced by any row. Returns a validation error if the key is empty.
 func (p AddColPayload) Handle(state Table) (Table, error) {
+	v := validate.New("table.AddCol")
+	v.NotEmptyString("key", p.Key)
+	if err := v.Error(); err != nil {
+		return Table{}, err
+	}
 	cells := p.Cells
 	if p.CellTemplate != nil {
 		n := len(state.Rows)
