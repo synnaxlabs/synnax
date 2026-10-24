@@ -23,7 +23,7 @@ Control::Control(
     std::string thread_name
 ):
     Control(
-        std::make_shared<SynnaxStreamerFactory>(std::move(client)),
+        std::make_shared<SynnaxStreamerFactory>(client),
         streamer_config,
         sink,
         breaker_config,

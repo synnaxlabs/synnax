@@ -22,6 +22,8 @@
 #   flags the risky ones.
 # - avoid-endl: a tool that prints to a pipe needs the flush that std::endl does.
 # - use-string-view: it changes return types and leaves callers that append to them.
+# - use-std-numbers: it swaps a literal near pi or e, such as 3.14159, which changes the
+#   value a test checks.
 # - slicing: the Arc runtime copies a Program to its IR on purpose.
 # - inefficient-string-concatenation and use-anyofallof: style only, and the rewrite
 #   reads no better. Frame is not a range, so it cannot take std::ranges::all_of.
@@ -60,6 +62,7 @@ Checks: |
     -modernize-avoid-variadic-functions,
     -modernize-return-braced-init-list,
     -modernize-use-designated-initializers,
+    -modernize-use-std-numbers,
     -modernize-use-std-print,
     -modernize-use-string-view,
     -modernize-use-trailing-return-type,

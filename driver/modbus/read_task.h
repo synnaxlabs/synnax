@@ -185,7 +185,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         x::json::Parser &cfg
     ):
         BaseReadTaskConfig(cfg),
-
         device_key(cfg.field<std::string>("device")),
         samples_per_chan(sample_rate / stream_rate) {
         std::vector<channel::InputRegister> holding_registers;

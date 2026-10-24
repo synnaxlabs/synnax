@@ -105,10 +105,10 @@ public:
     Builder &strata(const std::vector<std::vector<std::string>> &strata_spec) {
         this->prog.root.strata.clear();
         this->prog.root.strata.reserve(strata_spec.size());
-        for (auto &stratum_keys: strata_spec) {
+        for (const auto &stratum_keys: strata_spec) {
             Members layer;
             layer.reserve(stratum_keys.size());
-            for (auto &key: stratum_keys)
+            for (const auto &key: stratum_keys)
                 layer.push_back(node_member(key));
             this->prog.root.strata.push_back(std::move(layer));
         }
@@ -118,14 +118,14 @@ public:
     /// @brief appends a sequential, gated nested Scope to the Root as a
     /// member of its final stratum (creating a stratum if the Root has none).
     /// Each ScopeSpec becomes one step of the sequential scope.
-    Builder &sequence(const std::string &key, std::vector<ScopeSpec> specs) {
+    Builder &sequence(const std::string &key, const std::vector<ScopeSpec> &specs) {
         Scope seq;
         seq.key = key;
         seq.mode = ScopeMode::Sequential;
         seq.liveness = Liveness::Gated;
         seq.steps.reserve(specs.size());
         for (auto &spec: specs)
-            seq.steps.push_back(scope_member_from(std::move(spec)));
+            seq.steps.push_back(scope_member_from(spec));
 
         if (prog.root.strata.empty()) prog.root.strata.emplace_back();
         prog.root.strata.back().push_back(scope_member(std::move(seq)));
@@ -147,15 +147,15 @@ private:
         if (!spec.steps.empty()) {
             nested.mode = ScopeMode::Sequential;
             nested.steps.reserve(spec.steps.size());
-            for (auto &k: spec.steps)
+            for (const auto &k: spec.steps)
                 nested.steps.push_back(node_member(k));
         } else {
             nested.mode = ScopeMode::Parallel;
             nested.strata.reserve(spec.strata.size());
-            for (auto &stratum_keys: spec.strata) {
+            for (const auto &stratum_keys: spec.strata) {
                 Members layer;
                 layer.reserve(stratum_keys.size());
-                for (auto &k: stratum_keys)
+                for (const auto &k: stratum_keys)
                     layer.push_back(node_member(k));
                 nested.strata.push_back(std::move(layer));
             }

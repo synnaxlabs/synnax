@@ -498,7 +498,7 @@ T Parser::parse_value(const std::string &path, const json &j) {
         using U = is_indirect<T>::value_type;
         return x::mem::indirect<U>(parse_value<U>(path, j));
     } else if constexpr (is_map_v<T>) {
-        using K = typename is_map<T>::key_type;
+        using K = is_map<T>::key_type;
         using V = is_map<T>::value_type;
         if (!j.is_object()) {
             field_err(path, "expected an object");

@@ -90,12 +90,7 @@ public:
     /// @brief checks if the error matches the provided type. The error matches if
     /// the provided type is equal to or is a prefix of this errors type.
     [[nodiscard]] bool matches(const std::string &other) const {
-        const auto [loc, _] = std::ranges::mismatch(
-            other,
-
-            type
-
-        );
+        const auto [loc, _] = std::ranges::mismatch(other, type);
         return loc == other.end();
     }
 

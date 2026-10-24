@@ -117,10 +117,7 @@ synnax::device::Device Scanner::create_slave_device(
     const auto &props = slave.properties;
     const auto &sts = slave.status;
     const auto rack_key = this->task.rack;
-    const std::string key = driver::ethercat::Scanner::generate_slave_key(
-        props,
-        master_key
-    );
+    const std::string key = generate_slave_key(props, master_key);
 
     nlohmann::json json_props = get_existing_properties(key, scan_ctx);
     auto slave_props = props.to_json();

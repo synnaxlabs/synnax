@@ -15,7 +15,6 @@
 #include <atomic>
 #include <chrono>
 #include <cstddef>
-#include <numbers>
 #include <string>
 #include <thread>
 #include <utility>
@@ -94,7 +93,6 @@ struct TestNode {
         initial_value(other.initial_value),
         description(std::move(other.description)),
         return_invalid_data(other.return_invalid_data) {
-
         UA_Variant_init(&other.initial_value);
     }
 
@@ -131,8 +129,8 @@ struct ServerConfig {
         UA_Int16 int16_data = 42;
         UA_Int32 int32_data = 12345;
         UA_Int64 int64_data = 12345;
-        UA_Float float_data = std::numbers::pi_v<float>;
-        UA_Double double_data = std::numbers::e;
+        UA_Float float_data = 3.14159f;
+        UA_Double double_data = 2.71828;
         UA_Guid guid_data = {
             0x12345678,
             0x1234,

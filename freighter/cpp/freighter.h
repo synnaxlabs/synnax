@@ -44,7 +44,6 @@ public:
 
     /// @brief Constructs the context with an empty set of parameters.
     Context(std::string protocol, x::url::URL target, const TransportVariant variant):
-
         protocol(std::move(protocol)), target(std::move(target)), variant(variant) {
         params = std::unordered_map<std::string, std::string>();
     }
@@ -73,7 +72,7 @@ public:
     /// @brief Gets the parameter with the given key.
     std::string get(const std::string &key) { return params[key]; }
 
-    bool has(const std::string &key) { return params.contains(key); }
+    bool has(const std::string &key) const { return params.contains(key); }
 
     /// @brief Sets the given parameter to the given value.
     void set(const std::string &key, const std::string &value) { params[key] = value; }

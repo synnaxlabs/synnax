@@ -9,7 +9,6 @@
 
 #include <array>
 #include <iostream>
-#include <numbers>
 
 #include "gtest/gtest.h"
 
@@ -1277,7 +1276,7 @@ TEST(TestSeries, testSetSampleValueAllNumericTypes) {
     Series s_float64(FLOAT64_T, 3);
     for (int i = 1; i <= 3; i++)
         s_float64.write(static_cast<double>(i));
-    SampleValue val_float64 = std::numbers::pi;
+    SampleValue val_float64 = 3.14159;
     s_float64.set(0, val_float64);
     ASSERT_DOUBLE_EQ(s_float64.at<double>(0), 3.14159);
 }

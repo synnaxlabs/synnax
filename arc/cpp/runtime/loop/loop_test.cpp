@@ -1087,7 +1087,7 @@ protected:
 
     void SetUp() override {
         Config config;
-        config.mode = arc::runtime::loop::StaleDeadlineTest::GetParam();
+        config.mode = GetParam();
         this->loop = ASSERT_NIL_P(create_and_start(config));
         this->notifier = x::notify::create();
         ASSERT_TRUE(this->loop->watch(*this->notifier));
@@ -1162,7 +1162,7 @@ protected:
 
     void SetUp() override {
         Config config;
-        config.mode = arc::runtime::loop::IntervalTest::GetParam();
+        config.mode = GetParam();
         config.interval = this->INTERVAL;
         this->loop = ASSERT_NIL_P(create_and_start(config));
         this->breaker.start();
@@ -1285,7 +1285,7 @@ protected:
 
     void SetUp() override {
         Config config;
-        config.mode = arc::runtime::loop::FailedArmTest::GetParam();
+        config.mode = GetParam();
         config.cpu_affinity = CPU_AFFINITY_NONE;
         this->loop = std::make_unique<FailingArmLoop>(config);
         ASSERT_NIL(this->loop->start());
@@ -1775,10 +1775,8 @@ protected:
     x::telem::TimeSpan duration;
 
     void SetUp() override {
-        const auto config = Config().apply_defaults(
-            std::get<0>(arc::runtime::loop::ShortDeadlineTest::GetParam())
-        );
-        this->duration = std::get<1>(arc::runtime::loop::ShortDeadlineTest::GetParam());
+        const auto config = Config().apply_defaults(std::get<0>(GetParam()));
+        this->duration = std::get<1>(GetParam());
         this->loop = ASSERT_NIL_P(create_and_start(config));
         this->breaker.start();
     }

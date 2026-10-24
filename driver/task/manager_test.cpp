@@ -177,7 +177,7 @@ public:
         state->stop_will_reconfigure = will_reconfigure;
     }
 
-    std::vector<std::string> get_cmd_order() const {
+    [[nodiscard]] std::vector<std::string> get_cmd_order() const {
         std::lock_guard lock(state->cmd_order_mu);
         return state->cmd_order;
     }

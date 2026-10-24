@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <mutex>
+#include <ranges>
 #include <thread>
 #include <unordered_set>
 
@@ -456,10 +457,10 @@ public:
             {
                 std::unordered_set<std::string> seen;
                 std::vector<synnax::device::Device> deduped;
-                for (auto it = scanned_devs.rbegin(); it != scanned_devs.rend(); ++it) {
-                    if (seen.contains(it->key)) continue;
-                    seen.insert(it->key);
-                    deduped.push_back(std::move(*it));
+                for (auto &dev: std::views::reverse(scanned_devs)) {
+                    if (seen.contains(dev.key)) continue;
+                    seen.insert(dev.key);
+                    deduped.push_back(std::move(dev));
                 }
                 std::ranges::reverse(deduped);
                 scanned_devs = std::move(deduped);

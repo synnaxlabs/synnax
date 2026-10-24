@@ -212,7 +212,7 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
             "failed to write sequence number"
         );
 
-    if ((flags.equal_lens) && (buf.uint32(static_cast<uint32_t>(cur_data_size)) != 4))
+    if (flags.equal_lens && (buf.uint32(static_cast<uint32_t>(cur_data_size)) != 4))
         return x::errors::Error(x::errors::UNEXPECTED, "failed to write data length");
 
     if (flags.equal_time_ranges && !flags.time_ranges_zero) {

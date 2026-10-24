@@ -275,11 +275,7 @@ public:
     /// @brief Create a new Modbus TCP slave with the given configuration
     /// @param config The slave configuration
     explicit Slave(const SlaveConfig &config):
-        running_(false),
-        ip_address_(config.host),
-        port_(config.port),
-
-        config_(config) {
+        running_(false), ip_address_(config.host), port_(config.port), config_(config) {
         ctx_ = modbus_new_tcp(ip_address_.c_str(), port_);
         if (ctx_ == nullptr) {
             throw std::runtime_error("Failed to create modbus context");

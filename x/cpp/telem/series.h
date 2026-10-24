@@ -699,11 +699,7 @@ public:
     /// @brief constructs the series from a vector of JSON values.
     /// @param values the vector of JSON values to be used.
     explicit Series(const std::vector<json::json> &values):
-        data_type_(JSON_T),
-        cap_(values.size()),
-        cached_byte_size(0),
-        size_(values.size()) {
-
+        data_type_(JSON_T), cap_(values.size()), size_(values.size()) {
         for (const auto &value: values)
             this->cached_byte_size += value.dump().size() + VARIABLE_LENGTH_PREFIX_SIZE;
 

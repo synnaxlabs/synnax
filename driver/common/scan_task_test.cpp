@@ -770,7 +770,7 @@ TEST(TestScanTask, TestStatePropagation) {
     auto &first_states = cluster_api_ptr->propagated_statuses[0];
     ASSERT_EQ(first_states.size(), 2);
 
-    for (auto status: first_states) {
+    for (const auto &status: first_states) {
         if (status.key == "device:device1") {
             ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
             ASSERT_EQ(status.details.rack, 1);
@@ -786,7 +786,7 @@ TEST(TestScanTask, TestStatePropagation) {
     auto &second_states = cluster_api_ptr->propagated_statuses[1];
     ASSERT_EQ(second_states.size(), 2);
 
-    for (auto status: second_states) {
+    for (const auto &status: second_states) {
         if (status.key == "device:device1") {
             ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
             ASSERT_EQ(status.details.rack, 1);

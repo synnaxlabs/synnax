@@ -382,7 +382,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithMixedChannelTypes) {
         false
     ));
 
-    auto cfg = this->create_base_config();
+    auto cfg = create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_output_channel_config(auto_ch.key, "control_word")
     );
@@ -408,7 +408,7 @@ TEST_F(EtherCATWriteTest, SinkWritesDataToEngine) {
         false
     ));
 
-    auto cfg = this->create_base_config();
+    auto cfg = create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_output_channel_config(cmd_ch.key, "control_word")
     );
@@ -444,7 +444,7 @@ TEST_F(EtherCATWriteTest, SinkLastWriteWins) {
         false
     ));
 
-    auto cfg = this->create_base_config();
+    auto cfg = create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_output_channel_config(cmd_ch.key, "control_word")
     );
@@ -486,7 +486,7 @@ TEST_F(EtherCATWriteTest, SinkWritesMultipleChannels) {
         false
     ));
 
-    auto cfg = this->create_base_config();
+    auto cfg = create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_output_channel_config(ch1.key, "control_word")
     );
@@ -523,7 +523,7 @@ TEST_F(EtherCATWriteTest, SinkIgnoresMissingChannelInFrame) {
         false
     ));
 
-    auto cfg = this->create_base_config();
+    auto cfg = create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_output_channel_config(cmd_ch.key, "control_word")
     );
@@ -549,7 +549,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
         false
     ));
 
-    auto cfg = this->create_base_config();
+    auto cfg = create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_output_channel_config(cmd_ch.key, "control_word")
     );

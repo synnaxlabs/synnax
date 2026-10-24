@@ -212,13 +212,9 @@ Scanner::scan(const common::ScannerContext &ctx) {
     }
 
     // Stage 3: Sort chassis before modules for creation ordering, then convert.
-    std::ranges::stable_sort(
-        ni_devices,
-
-        [](const ni::Device &a, const ni::Device &b) {
-            return a.is_chassis > b.is_chassis;
-        }
-    );
+    std::ranges::stable_sort(ni_devices, [](const ni::Device &a, const ni::Device &b) {
+        return a.is_chassis > b.is_chassis;
+    });
 
     std::vector<synnax::device::Device> devices;
     devices.reserve(ni_devices.size());

@@ -77,7 +77,6 @@ Checker::Checker(
     clock_skew_threshold(clock_skew_threshold.abs()),
     running(true) {
     this->_state.client_version = this->client_version;
-
     this->check();
     this->poll_thread = std::thread([this] { this->run(); });
 }

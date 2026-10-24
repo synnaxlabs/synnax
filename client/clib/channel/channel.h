@@ -13,8 +13,10 @@
 
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
+// NOLINTBEGIN(modernize-deprecated-headers): C callers include this header.
+#include <stddef.h>
+#include <stdint.h>
+// NOLINTEND(modernize-deprecated-headers)
 
 #include "client/clib/export.h"
 #include "client/clib/types.h"

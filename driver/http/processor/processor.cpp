@@ -139,10 +139,10 @@ CURL *Processor::create_handle(const Request &req, ActiveTransfer &t) {
 }
 
 Processor::Processor(const x::telem::TimeSpan active_poll_timeout):
-    multi(curl_multi_init()),
     active_poll_timeout_ms(static_cast<int>(active_poll_timeout.milliseconds())) {
     ensure_curl_initialized();
-
+    // NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer): curl inits first.
+    this->multi = curl_multi_init();
     this->io_thread = std::thread([this] { run(); });
 }
 

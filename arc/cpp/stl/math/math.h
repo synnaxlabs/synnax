@@ -218,7 +218,7 @@ private:
     void reduce(const runtime::state::Series &input_data) {
         const auto n = static_cast<int64_t>(input_data->size());
         auto &output = this->state.output(0);
-        const bool fresh = (output->empty());
+        const bool fresh = output->empty();
         switch (this->op) {
             case Op::Avg:
                 this->reduce_avg<T>(input_data, n, fresh);

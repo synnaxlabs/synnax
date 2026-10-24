@@ -155,7 +155,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (ch.index != 0) this->index_keys.insert(ch.index);
             this->channels[i]->ch = ch;
         }
-        for (auto ch: sy_channels) {
+        for (const auto &ch: sy_channels) {
             if (ch.is_index && this->index_keys.contains(ch.key))
                 this->index_keys.erase(ch.key);
         }

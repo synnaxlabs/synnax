@@ -373,7 +373,7 @@ TEST_F(EtherCATReadTest, SourceReadsDataFromEngine) {
         false
     ));
 
-    auto cfg = this->create_base_config();
+    auto cfg = create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_input_channel_config(data_ch, "status_word")
     );
@@ -407,7 +407,7 @@ TEST_F(EtherCATReadTest, SourceReadsCorrectValueFromEngine) {
         false
     ));
 
-    auto cfg = this->create_base_config();
+    auto cfg = create_base_config();
     cfg["sample_rate"] = 10;
     cfg["stream_rate"] = 10;
     cfg["channels"].push_back(
@@ -454,7 +454,7 @@ TEST_F(EtherCATReadTest, SourceReadsMultipleChannelValues) {
         false
     ));
 
-    auto cfg = this->create_base_config();
+    auto cfg = create_base_config();
     cfg["sample_rate"] = 10;
     cfg["stream_rate"] = 10;
     cfg["channels"].push_back(
@@ -506,7 +506,7 @@ TEST_F(EtherCATReadTest, SourceReturnsEmptyFrameWhenBreakerStopped) {
         false
     ));
 
-    auto cfg = this->create_base_config();
+    auto cfg = create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_input_channel_config(data_ch, "status_word")
     );
@@ -536,7 +536,7 @@ TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
         false
     ));
 
-    auto cfg = this->create_base_config();
+    auto cfg = create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_input_channel_config(data_ch, "status_word")
     );
