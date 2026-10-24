@@ -824,6 +824,55 @@ var _ = Describe("Go Marshal Plugin", func() {
 			)
 		})
 
+		Context("distinct bool field", func() {
+			It("Should convert the value to and from bool", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Flag bool
+
+					Test struct {
+						name    string
+						enabled Flag
+						armed   Flag?
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").ToContain(
+					"w.Bool(bool(t.Enabled))",
+					"rawV, err := r.Bool(); if err != nil { return err }; t.Enabled = Flag(rawV)",
+					"w.Bool(bool(*t.Armed))",
+				)
+			})
+		})
+
+		Context("distinct record field", func() {
+			It("Should hold a distinct value in every generated test value",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Doc record
+
+					Test struct {
+						name  string
+						doc   Doc
+						draft Doc?
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					ExpectContent(resp, "codec_gen_test.go").ToContain(
+						"Doc: test.Doc(msgpack.EncodedJSON{}),",
+						"Draft: test.Doc(msgpack.EncodedJSON{}),",
+					)
+				},
+			)
+		})
+
 		Context("optional bytes field", func() {
 			It(
 				"Should generate a single presence bit without a redundant inner nil check",

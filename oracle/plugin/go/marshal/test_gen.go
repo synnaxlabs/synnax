@@ -1068,7 +1068,7 @@ func (b *testValueBuilder) zeroPrimitiveExpr(
 		if qualifier == "" {
 			qualifier = "msgpack"
 		}
-		return qualifier + ".EncodedJSON{}", nil
+		base = qualifier + ".EncodedJSON{}"
 	case "any":
 		return "nil", nil
 	default:

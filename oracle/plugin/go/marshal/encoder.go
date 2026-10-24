@@ -1112,14 +1112,26 @@ func (b *encoderBuilder) processLeaf(
 		)
 
 	case "bool":
-		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("w.Bool(%s)", valPath))
-		b.decodeWithErr(
-			ind + fmt.Sprintf(
-				"if %s, err = r.Bool(); err != nil { return err }",
-				setPath,
-			),
-		)
+		if goTypeCast != "" {
+			b.encodeLines = append(b.encodeLines,
+				ind+fmt.Sprintf("w.Bool(bool(%s))", valPath))
+			b.decodeLine(
+				ind + fmt.Sprintf(
+					"{ rawV, err := r.Bool(); if err != nil { return err }; %s = %s(rawV) }",
+					setPath,
+					goTypeCast,
+				),
+			)
+		} else {
+			b.encodeLines = append(b.encodeLines,
+				ind+fmt.Sprintf("w.Bool(%s)", valPath))
+			b.decodeWithErr(
+				ind + fmt.Sprintf(
+					"if %s, err = r.Bool(); err != nil { return err }",
+					setPath,
+				),
+			)
+		}
 
 	case "int8":
 		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int8", "int8", "int8(%s)")
