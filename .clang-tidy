@@ -111,16 +111,12 @@ CheckOptions:
     # A factory moves the parts of its config that it keeps.
     cppcoreguidelines-rvalue-reference-param-not-moved.AllowPartialMove: true
     cppcoreguidelines-rvalue-reference-param-not-moved.IgnoreUnnamedParams: true
-    # A throw from a destructor or a move ends the process, which is the right result.
-    bugprone-exception-escape.CheckDestructors: false
-    bugprone-exception-escape.CheckMoveMemberFunctions: false
-    # The standard library throws these only for a size past max_size.
-    bugprone-exception-escape.IgnoredExceptions: bad_array_new_length;length_error
+    # These come from a size past max_size or a call to an empty std::function. Each
+    # ends the process, which is the right result.
+    bugprone-exception-escape.IgnoredExceptions: bad_array_new_length,length_error,bad_function_call
     # std::lock_guard is fine for one mutex.
     modernize-use-scoped-lock.WarnOnSingleLocks: false
     # Vendor headers include each other.
     misc-header-include-cycle.IgnoredFilesList: /curl/curl\.h$;(^|/)vendor/
     # std::from_chars takes the end of the range.
     bugprone-suspicious-stringview-data-usage.AllowedCallees: ::std::from_chars
-    # An int8_t sign-extends on purpose.
-    bugprone-signed-char-misuse.CharTypedefsToIgnore: int8_t

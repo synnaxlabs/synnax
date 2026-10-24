@@ -124,7 +124,7 @@ public:
         seq.mode = ScopeMode::Sequential;
         seq.liveness = Liveness::Gated;
         seq.steps.reserve(specs.size());
-        for (auto &spec: specs)
+        for (const auto &spec: specs)
             seq.steps.push_back(scope_member_from(spec));
 
         if (prog.root.strata.empty()) prog.root.strata.emplace_back();

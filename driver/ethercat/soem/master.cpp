@@ -54,6 +54,7 @@ Master::Master(std::unique_ptr<API> api, std::string interface_name):
     activated(false),
     expected_wkc(0) {}
 
+// NOLINTNEXTLINE(bugprone-exception-escape): its strings throw only past max_size.
 Master::~Master() {
     if (this->activated || this->initialized) this->deactivate();
 }

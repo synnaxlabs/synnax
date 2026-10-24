@@ -22,6 +22,37 @@ for arg in "$@"; do
     previous=$arg
 done
 
+# Bazel passes third-party and generated include paths as user paths, so every check
+# runs over their headers before clang-tidy drops the findings. As system paths, the
+# checks skip them, which halves the run time.
+third_party='^(external|vendor|bazel-out)/'
+args=()
+while [ "$#" -gt 0 ]; do
+    case $1 in
+        -iquote | -I)
+            if [[ $2 =~ $third_party ]]; then
+                args+=(-isystem "$2")
+            else
+                args+=("$1" "$2")
+            fi
+            shift 2
+            ;;
+        -I*)
+            if [[ ${1#-I} =~ $third_party ]]; then
+                args+=(-isystem "${1#-I}")
+            else
+                args+=("$1")
+            fi
+            shift
+            ;;
+        *)
+            args+=("$1")
+            shift
+            ;;
+    esac
+done
+set -- "${args[@]}"
+
 # The macOS toolchain passes Xcode path placeholders that only its own compiler wrapper
 # expands.
 if [ "$(uname)" = Darwin ]; then

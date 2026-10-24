@@ -213,6 +213,7 @@ protected:
         connection(nullptr, nullptr, ""),
         request_builder(create_read_request(this->cfg)) {}
 
+public:
     [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
         return this->cfg.writer_config();
     }

@@ -72,7 +72,9 @@ public:
     /// @brief Gets the parameter with the given key.
     std::string get(const std::string &key) { return params[key]; }
 
-    bool has(const std::string &key) const { return params.contains(key); }
+    [[nodiscard]] bool has(const std::string &key) const {
+        return params.contains(key);
+    }
 
     /// @brief Sets the given parameter to the given value.
     void set(const std::string &key, const std::string &value) { params[key] = value; }

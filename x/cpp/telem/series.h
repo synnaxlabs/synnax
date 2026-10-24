@@ -41,12 +41,14 @@ static inline void write_u32_le(std::byte *ptr, uint32_t v) {
 }
 
 namespace x::telem {
+// NOLINTBEGIN(bugprone-signed-char-misuse): an int8_t sign-extends on purpose.
 template<typename DestType, typename SrcType>
 static void cast_to_type(std::byte *dest, SrcType *src, const size_t count) {
     auto *typed_dest = reinterpret_cast<DestType *>(dest);
     for (size_t i = 0; i < count; i++)
         typed_dest[i] = static_cast<DestType>(src[i]);
 }
+// NOLINTEND(bugprone-signed-char-misuse)
 
 template<typename T>
 void output_partial_vector(std::ostream &os, const std::vector<T> &v) {
@@ -748,6 +750,7 @@ public:
     /// treated as an offset from the end of the series.
     /// @param value the value to set. The value will be cast to match the series'
     /// data type.
+    // NOLINTBEGIN(bugprone-signed-char-misuse): an int8_t sign-extends on purpose.
     template<typename NumericType>
     void set(const int &index, const NumericType value) {
         static_assert(
@@ -785,6 +788,7 @@ public:
             );
         }
     }
+    // NOLINTEND(bugprone-signed-char-misuse)
 
     /// @brief sets a TimeStamp at an index.
     /// @param index the index to set the timestamp at. If negative, the index is
