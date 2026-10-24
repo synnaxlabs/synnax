@@ -55,6 +55,24 @@ The scan task runs periodically to detect new devices and update device informat
 
 <Divider.Divider x />
 
+## Device status
+
+While a task uses the network, the status of each device shows its live state. The scan
+task updates it every 5 seconds.
+
+| Status                                    | Meaning                                                                                 |
+| ----------------------------------------- | --------------------------------------------------------------------------------------- |
+| **Operational**                           | The device exchanges data in OP.                                                        |
+| **In SAFE-OP**, **In PRE-OP**             | The device left OP. The Driver is returning it to OP.                                   |
+| **Error in SAFE-OP**, **Error in PRE-OP** | The device reports an error. The status description shows the error text of the device. |
+| **Not responding**                        | The device does not answer. Check its power and cabling.                                |
+| **Device disconnected**                   | The last scan did not find the device.                                                  |
+
+When no task uses the network, the status shows what discovery found, for example
+**Discovered (4 inputs, 2 outputs)**.
+
+<Divider.Divider x />
+
 ## Device properties reference
 
 When a device is discovered, Synnax stores the following properties:
