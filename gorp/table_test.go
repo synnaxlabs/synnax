@@ -146,7 +146,7 @@ var _ = Describe("Table", func() {
 				}
 				Expect(gorp.NewCreate[int32, entry]().
 					Entries(&entries).Exec(ctx, db)).To(Succeed())
-				table := MustSucceed(
+				table := MustOpen(
 					gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
 				)
 				var wg sync.WaitGroup
@@ -163,7 +163,6 @@ var _ = Describe("Table", func() {
 					})
 				}
 				wg.Wait()
-				Expect(table.Close()).To(Succeed())
 			},
 		)
 	})

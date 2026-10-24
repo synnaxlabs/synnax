@@ -10,9 +10,14 @@
 package gorp_test
 
 import (
+	"math"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/kv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -22,6 +27,42 @@ var _ = Describe("Reader", func() {
 		tx = db.OpenTx()
 	})
 	Describe("Iterator", func() {
+		It(
+			"Should add no allocation to the kv iterator of a full scan",
+			func() {
+				reader := gorp.WrapReader[int32, entry](db)
+				var err error
+				open := func() {
+					iter, openErr := reader.OpenIterator(gorp.IterOptions{})
+					if openErr != nil {
+						err = errors.Join(err, openErr)
+						return
+					}
+					err = errors.Join(err, iter.Close())
+				}
+				openKV := func() {
+					iter, openErr := db.OpenIterator(
+						kv.IterPrefix([]byte("gorp.entry")),
+					)
+					if openErr != nil {
+						err = errors.Join(err, openErr)
+						return
+					}
+					err = errors.Join(err, iter.Close())
+				}
+				// Other goroutines only add to a sample, so the least sample is exact.
+				least := func(f func()) float64 {
+					n := math.Inf(1)
+					for range 5 {
+						n = min(n, testing.AllocsPerRun(100, f))
+					}
+					return n
+				}
+				allocs, kvAllocs := least(open), least(openKV)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(allocs).To(Equal(kvAllocs))
+			},
+		)
 		It("Should iterate over entries matching a type", func(ctx SpecContext) {
 			Expect(gorp.NewCreate[int32, entry]().
 				Entries(&[]entry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
