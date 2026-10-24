@@ -1252,32 +1252,16 @@ func (p *Plugin) buildGenericType(
 		return baseName
 	}
 
-	var args []string
 	var typeParams []resolution.TypeParam
 	if targetType != nil {
-		switch form := targetType.Form.(type) {
-		case resolution.StructForm:
-			typeParams = form.TypeParams
-		case resolution.AliasForm:
-			typeParams = form.TypeParams
+		typeParams = resolution.TypeParams(targetType.Form)
+	}
+	var args []string
+	for i, arg := range typeArgs {
+		if i < len(typeParams) && typeParams[i].HasDefault() {
+			continue
 		}
-
-		if len(typeParams) > 0 {
-			for i, arg := range typeArgs {
-				if i < len(typeParams) && typeParams[i].HasDefault() {
-					continue
-				}
-				args = append(args, p.typeRefToCpp(arg, data))
-			}
-		} else {
-			for _, arg := range typeArgs {
-				args = append(args, p.typeRefToCpp(arg, data))
-			}
-		}
-	} else {
-		for _, arg := range typeArgs {
-			args = append(args, p.typeRefToCpp(arg, data))
-		}
+		args = append(args, p.typeRefToCpp(arg, data))
 	}
 
 	if len(args) == 0 {

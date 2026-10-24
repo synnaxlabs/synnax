@@ -31,6 +31,10 @@ Credentials struct {
 	username string
 }
 
+Labeled struct {
+	label string
+}
+
 Signal union on kind {
 	none {}
 	level {
@@ -47,12 +51,13 @@ import "schemas/base"
 Size = base.Size
 Method = base.Method
 Credentials = base.Credentials
+Labeled = base.Labeled
 Signal = base.Signal
 `
 
 var _ = Describe("Go aliases", func() {
 	DescribeTable("Should generate a use of an alias as a use of its target",
-		func(ctx SpecContext, use, expected string) {
+		func(ctx SpecContext, use string, expected ...string) {
 			loader := NewMockFileLoader().Add("schemas/base", aliasBase)
 			resp := MustGenerate(
 				ctx,
@@ -61,7 +66,7 @@ var _ = Describe("Go aliases", func() {
 				loader,
 				types.New(types.DefaultOptions()),
 			)
-			ExpectContent(resp, "test/types.gen.go").ToContain(expected)
+			ExpectContent(resp, "test/types.gen.go").ToContain(expected...)
 		},
 		Entry("a borrowed enum's members", `
 			Proof union on method Method {
@@ -83,5 +88,15 @@ var _ = Describe("Go aliases", func() {
 				signal Signal = none
 			}
 		`, "p.Signal.Variant = base.NoneSignal{}"),
+		Entry("a struct default", `
+			Panel struct {
+				labeled Labeled = { label = "x" }
+			}
+		`, `p.Labeled.Label = "x"`),
+		Entry("a union literal default", `
+			Panel struct {
+				signal Signal = { kind = "level", value = 1 }
+			}
+		`, "v0 := base.LevelSignal{}", "v0.Value = 1"),
 	)
 })

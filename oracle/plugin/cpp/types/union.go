@@ -130,11 +130,11 @@ func (p *Plugin) processUnion(
 				)
 			}
 		}
-		if payload, ok := v.Type.Resolve(data.table); ok {
+		if message, _, ok := resolution.Dealias(v.Type, data.table); ok {
+			payload, _ := v.Type.Resolve(data.table)
 			// The variant translates against its payload message: a synthetic one
 			// for an inline body, the referenced struct's own message otherwise.
 			if ud.HasProto {
-				message, _, _ := resolution.Dealias(v.Type, data.table)
 				ns, header := cppnaming.VariantPBNamespace(entry, v, message)
 				data.AddInternal(header)
 				sd.HasProto = true

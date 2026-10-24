@@ -2011,21 +2011,9 @@ func unifyActionFields(c *analysisCtx, action resolution.Action) []resolution.Fi
 	return append(inherited, action.Fields...)
 }
 
-func typeParamsOf(form resolution.TypeForm) []resolution.TypeParam {
-	switch f := form.(type) {
-	case resolution.StructForm:
-		return f.TypeParams
-	case resolution.AliasForm:
-		return f.TypeParams
-	case resolution.DistinctForm:
-		return f.TypeParams
-	}
-	return nil
-}
-
 func validateTypeParams(c *analysisCtx, typ resolution.Type) {
 	var omittable string
-	for _, tp := range typeParamsOf(typ.Form) {
+	for _, tp := range resolution.TypeParams(typ.Form) {
 		if tp.Default != nil || tp.Optional {
 			omittable = tp.Name
 		} else if omittable != "" {

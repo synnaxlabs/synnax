@@ -26,6 +26,8 @@ Valve struct extends Labeled {
 	open bool
 }
 
+ValveList Valve[]
+
 Edge union on variant {
 	pipe Labeled
 }
@@ -45,6 +47,7 @@ import "schemas/base"
 
 Valve = base.Valve
 Gate = Valve
+ValveList = base.ValveList
 Edge = base.Edge
 Signal = base.Signal
 `
@@ -93,5 +96,20 @@ var _ = Describe("C++ JSON aliases", func() {
 				gate Gate
 			}
 		`, `j["gate"] = this->gate.to_json();`),
+		Entry("a distinct array", `
+			Panel struct {
+				list ValveList
+			}
+		`,
+			`.list = parser.field<ValveList>("list"),`,
+			`j["list"] = this->list.to_json();`,
+		),
+		Entry("a distinct array's elements", `
+			Gates Gate[]
+
+			Panel struct {
+				gates Gates
+			}
+		`, "j.push_back(item.to_json());"),
 	)
 })

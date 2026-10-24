@@ -527,19 +527,16 @@ func (p *Plugin) processUnionForTranslation(
 		PBTypeShort: pbName,
 	}
 	for _, ext := range form.Extends {
-		base, ok := ext.Resolve(data.table)
-		if !ok {
-			return nil, errors.Newf("union %s: unresolved base %s", u.Name, ext.Name)
-		}
-		// An alias base embeds under its own name but translates through the struct
-		// it stands for.
 		target, _, ok := resolution.Dealias(ext, data.table)
 		if !ok {
-			continue
+			return nil, errors.Newf("union %s: unresolved base %s", u.Name, ext.Name)
 		}
 		if _, isStruct := target.Form.(resolution.StructForm); !isStruct {
 			continue
 		}
+		// An alias base embeds under its own name but translates through the struct
+		// it stands for.
+		base, _ := ext.Resolve(data.table)
 		prefix, baseName := p.resolvePBTranslatorInfo(target, data)
 		ut.Bases = append(ut.Bases, unionBaseTranslatorData{
 			GoEmbed:  naming.GetGoName(base),
@@ -549,7 +546,7 @@ func (p *Plugin) processUnionForTranslation(
 		})
 	}
 	for _, v := range form.Variants {
-		payload, ok := v.Type.Resolve(data.table)
+		target, _, ok := resolution.Dealias(v.Type, data.table)
 		if !ok {
 			return nil, errors.Newf(
 				"union %s variant %q: unresolved payload type",
@@ -576,7 +573,7 @@ func (p *Plugin) processUnionForTranslation(
 			vt.PayloadToPB = memberName + "ToPB"
 			vt.PayloadFromPB = memberName + "FromPB"
 		} else {
-			target, _, _ := resolution.Dealias(v.Type, data.table)
+			payload, _ := v.Type.Resolve(data.table)
 			prefix, payloadName := p.resolvePBTranslatorInfo(target, data)
 			vt.PayloadGoField = naming.GetGoName(payload)
 			vt.PayloadToPB = prefix + payloadName + "ToPB"
@@ -713,7 +710,7 @@ func (p *Plugin) processFieldForTranslation(
 	// Optional typedefs over primitives (e.g. *channel.Key <-> *uint32) need the same
 	// deref-convert-readdress treatment.
 	if isOptional && !resolution.IsPrimitive(typeRef.Name) {
-		if resolved, ok := typeRef.Resolve(data.table); ok {
+		if resolved, _, ok := resolution.Dealias(typeRef, data.table); ok {
 			if form, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct &&
 				resolution.IsPrimitive(form.Base.Name) {
 				fd.NeedsPtrConversion = true
@@ -808,7 +805,7 @@ func (p *Plugin) buildMapValueConversion(
 		}
 	}
 
-	resolved, ok := valArg.Resolve(data.table)
+	resolved, _, ok := resolution.Dealias(valArg, data.table)
 	if !ok {
 		return nil
 	}
@@ -1042,20 +1039,9 @@ func (p *Plugin) processDelegationTranslator(
 		)
 	}
 
-	underlyingResolved, ok := form.Base.Resolve(data.table)
+	actualStruct, _, ok := resolution.Dealias(form.Base, data.table)
 	if !ok {
 		return nil, nil
-	}
-
-	actualStruct := underlyingResolved
-	for {
-		if aliasForm, isAlias := actualStruct.Form.(resolution.AliasForm); isAlias {
-			if target, ok := aliasForm.Target.Resolve(data.table); ok {
-				actualStruct = target
-				continue
-			}
-		}
-		break
 	}
 
 	underlyingGoName := naming.GetGoName(actualStruct)
@@ -1236,7 +1222,6 @@ func (p *Plugin) generateFieldConversion(
 	case resolution.StructForm:
 		f, b, c, hasErr := p.generateStructConversion(
 			typeRef,
-			resolved,
 			field.Optional,
 			data,
 			goFieldName,
@@ -1257,7 +1242,6 @@ func (p *Plugin) generateFieldConversion(
 			if _, isStruct := base.Form.(resolution.StructForm); isStruct {
 				f, b, c, hasErr := p.generateStructConversion(
 					typeRef,
-					target,
 					field.Optional,
 					data,
 					goFieldName,
@@ -1342,42 +1326,19 @@ func (p *Plugin) generatePrimitiveConversion(
 
 func (p *Plugin) generateStructConversion(
 	typeRef resolution.TypeRef,
-	resolved resolution.Type,
 	isOptional bool,
 	data *templateData,
 	goField, pbField string,
 ) (forward, backward, backwardCast string, hasError bool) {
-	actualStruct := resolved
-	var typeArgs []resolution.TypeRef
-
-	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-		typeArgs = aliasForm.Target.TypeArgs
-		if target, ok := aliasForm.Target.Resolve(data.table); ok {
-			actualStruct = target
-		}
-	} else {
-		typeArgs = typeRef.TypeArgs
+	actualStruct, actualRef, ok := resolution.Dealias(typeRef, data.table)
+	if !ok {
+		return goField, pbField, "", false
 	}
-
-	for {
-		aliasForm, isAlias := actualStruct.Form.(resolution.AliasForm)
-		if !isAlias {
-			break
-		}
-		if len(typeArgs) == 0 && len(aliasForm.Target.TypeArgs) > 0 {
-			typeArgs = aliasForm.Target.TypeArgs
-		}
-		if target, ok := aliasForm.Target.Resolve(data.table); ok {
-			actualStruct = target
-		} else {
-			break
-		}
-	}
-
 	actualForm, ok := actualStruct.Form.(resolution.StructForm)
 	if !ok {
 		return goField, pbField, "", false
 	}
+	typeArgs := actualRef.TypeArgs
 
 	if actualForm.IsGeneric() {
 		nonDefaultedParams := resolution.NonDefaultedTypeParams(actualForm.TypeParams)
@@ -1471,28 +1432,28 @@ func (p *Plugin) generateGenericStructConversion(
 			continue
 		}
 
-		argResolved, ok := typeArg.Resolve(data.table)
-		if ok {
-			if _, isStruct := argResolved.Form.(resolution.StructForm); isStruct {
-				argGoName := naming.GetGoName(argResolved)
+		arg, _, ok := resolution.Dealias(typeArg, data.table)
+		if ok && isStructForm(arg) {
+			// The Any helpers translate the struct an alias stands for.
+			argGoName := naming.GetGoName(arg)
 
-				p.ensureAnyHelper(argResolved, data)
+			p.ensureAnyHelper(arg, data)
 
-				forwardConverters = append(
-					forwardConverters,
-					fmt.Sprintf("%sToPBAny", argGoName),
-				)
-				backwardConverters = append(
-					backwardConverters,
-					fmt.Sprintf("%sFromPBAny", argGoName),
-				)
+			forwardConverters = append(
+				forwardConverters,
+				fmt.Sprintf("%sToPBAny", argGoName),
+			)
+			backwardConverters = append(
+				backwardConverters,
+				fmt.Sprintf("%sFromPBAny", argGoName),
+			)
 
-				explicitTypeArgs = append(
-					explicitTypeArgs,
-					fmt.Sprintf("%s.%s", data.parentAlias, argGoName),
-				)
-				continue
-			}
+			declared, _ := typeArg.Resolve(data.table)
+			explicitTypeArgs = append(
+				explicitTypeArgs,
+				fmt.Sprintf("%s.%s", data.parentAlias, naming.GetGoName(declared)),
+			)
+			continue
 		}
 		forwardConverters = append(forwardConverters, "nil")
 		backwardConverters = append(backwardConverters, "nil")
@@ -1739,8 +1700,8 @@ func (p *Plugin) generateArrayConversion(
 
 	elemResolved, ok := elemType.Resolve(data.table)
 	// An alias element converts as the type it stands for.
-	elem, elemRef, named := resolution.Dealias(elemType, data.table)
-	if named {
+	elem, elemRef, dealiased := resolution.Dealias(elemType, data.table)
+	if dealiased {
 		if _, isEnum := elem.Form.(resolution.EnumForm); isEnum {
 			if f, b, ok := p.generateEnumArrayConversion(
 				elem,
@@ -1838,7 +1799,7 @@ func (p *Plugin) generateArrayConversion(
 	// Distinct element types over primitive bases require per-element casts:
 	// `[]channel.Key` cannot be assigned to `[]uint32` (and vice-versa), so emit lo.Map
 	// conversions in both directions using the proto/distinct type names.
-	if named {
+	if dealiased {
 		if distinctForm, isDistinct := elem.Form.(resolution.DistinctForm); isDistinct {
 			if resolution.IsPrimitive(distinctForm.Base.Name) &&
 				distinctForm.Base.Name != "uuid" {
@@ -1976,7 +1937,7 @@ func (p *Plugin) generateStructNestedArrayConversion(
 	if !ok {
 		return "", "", false
 	}
-	innerElemResolved, ok := innerElem.Resolve(data.table)
+	innerElemResolved, _, ok := resolution.Dealias(innerElem, data.table)
 	if !ok {
 		return "", "", false
 	}
@@ -1996,7 +1957,7 @@ func (p *Plugin) generateStructNestedArrayConversion(
 	// field.
 	outerGoType := ""
 	if outerResolved, ok := typeRef.Resolve(data.table); ok {
-		if _, isDistinct := outerResolved.Form.(resolution.DistinctForm); isDistinct {
+		if resolution.IsDistinct(typeRef, data.table) {
 			outerGoType = data.parentAlias + "." + outerResolved.Name
 		}
 	}
@@ -2179,7 +2140,7 @@ func toScreamingSnake(s string) string {
 
 // isUnionType reports whether the type reference resolves to a discriminated union.
 func isUnionType(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	resolved, ok := typeRef.Resolve(table)
+	resolved, _, ok := resolution.Dealias(typeRef, table)
 	if !ok {
 		return false
 	}
@@ -2188,37 +2149,22 @@ func isUnionType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 }
 
 func isStructType(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return false
-	}
-	if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-		return true
-	}
-	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-		if target, ok := aliasForm.Target.Resolve(table); ok {
-			_, isStruct := target.Form.(resolution.StructForm)
-			return isStruct
-		}
-	}
-	return false
+	resolved, _, ok := resolution.Dealias(typeRef, table)
+	return ok && isStructForm(resolved)
+}
+
+func isStructForm(t resolution.Type) bool {
+	_, isStruct := t.Form.(resolution.StructForm)
+	return isStruct
 }
 
 func isEnumType(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	resolved, ok := typeRef.Resolve(table)
+	resolved, _, ok := resolution.Dealias(typeRef, table)
 	if !ok {
 		return false
 	}
-	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-		return true
-	}
-	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-		if target, ok := aliasForm.Target.Resolve(table); ok {
-			_, isEnum := target.Form.(resolution.EnumForm)
-			return isEnum
-		}
-	}
-	return false
+	_, isEnum := resolved.Form.(resolution.EnumForm)
+	return isEnum
 }
 
 func (p *Plugin) resolveGoTypeLiteral(

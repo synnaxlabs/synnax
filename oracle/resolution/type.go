@@ -447,6 +447,20 @@ func (tp TypeParam) HasDefault() bool {
 	return tp.Default != nil
 }
 
+// TypeParams returns the type parameters form declares, or nil when form cannot
+// declare any.
+func TypeParams(form TypeForm) []TypeParam {
+	switch f := form.(type) {
+	case StructForm:
+		return f.TypeParams
+	case AliasForm:
+		return f.TypeParams
+	case DistinctForm:
+		return f.TypeParams
+	}
+	return nil
+}
+
 // NonDefaultedTypeParams returns the subset of type params that do NOT have a
 // default value, preserving input order. Languages that can't express literal
 // narrowing or advanced generics (Go, Python, C++, Proto) substitute defaulted

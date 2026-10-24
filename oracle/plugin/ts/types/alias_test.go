@@ -34,6 +34,19 @@ Valve struct extends Labeled {
 Credentials struct {
 	username string
 }
+
+Size enum {
+	small = "small"
+	large = "large"
+}
+
+Sized struct {
+	size Size
+}
+
+Edge union on variant {
+	pipe Labeled
+}
 `
 
 const aliasHead = `
@@ -45,6 +58,20 @@ Labeled = base.Labeled
 Box<T> = base.Box<T>
 Valve = base.Valve
 Credentials = base.Credentials
+Size = base.Size
+Sized = base.Sized
+Edge = base.Edge
+`
+
+const aliasStatus = `
+@ts output "client/ts/src/status"
+
+Status struct<Details?> {
+	key     string = create { @key }
+	details Details?
+	@ts concrete_types
+	@create
+}
 `
 
 var _ = Describe("TS aliases", func() {
@@ -54,11 +81,14 @@ var _ = Describe("TS aliases", func() {
 	)
 
 	BeforeEach(func() {
-		loader = NewMockFileLoader().Add("schemas/base", aliasBase)
+		loader = NewMockFileLoader().
+			Add("schemas/base", aliasBase).
+			Add("schemas/status", aliasStatus)
 		typesPlugin = types.New(types.DefaultOptions())
 	})
 
 	generate := func(ctx SpecContext, use string) *ContentExpectation {
+		GinkgoHelper()
 		resp := MustGenerate(ctx, aliasHead+use, "test", loader, typesPlugin)
 		return ExpectContent(resp, "test/types.gen.ts")
 	}
@@ -116,5 +146,60 @@ var _ = Describe("TS aliases", func() {
 				"export const tankNodeZ = labeledZ.omit({ hidden: true }).extend({",
 			)
 		},
+	)
+
+	It("Should keep an aliased optional union nullable", func(ctx SpecContext) {
+		generate(ctx, `
+			Panel struct {
+				edge Edge?
+			}
+		`).ToContain("edge: zod.nullToUndefined(edgeZ),")
+	})
+
+	It("Should type the fields of an aliased struct default", func(ctx SpecContext) {
+		generate(ctx, `
+			Panel struct {
+				sized Sized = { size = large }
+			}
+		`).ToContain(`sized: sizedZ.prefault({ size: "large" }),`)
+	})
+
+	It("Should constrain a type parameter by an aliased enum", func(ctx SpecContext) {
+		generate(ctx, `
+			Tray struct<T extends Size> {
+				item T
+			}
+		`).ToContain("T extends z.ZodType<Size>")
+	})
+
+	DescribeTable("Should project a create field typed through an alias to its New",
+		func(ctx SpecContext, decls, expected string) {
+			resp := MustGenerate(ctx, `
+			import "schemas/status"
+
+			@ts output "client/ts/src/device"
+
+			DeviceStatusDetails struct {
+				rack int64
+			}
+			`+decls+`
+			Device struct<Properties extends record = record> {
+				key        string = create { @key }
+				properties Properties
+				status     Health?
+				@ts concrete_types
+				@create
+			}
+			`, "device", loader, typesPlugin)
+			ExpectContent(resp, "device/types.gen.ts").ToContain(expected)
+		},
+		Entry("an alias chain", `
+			DeviceStatus = status.Status<DeviceStatusDetails>
+			Health = DeviceStatus
+		`, "status?: status.New<typeof deviceStatusDetailsZ>;"),
+		Entry("an aliased details type", `
+			Info = DeviceStatusDetails
+			Health = status.Status<Info>
+		`, "status?: status.New<typeof infoZ>;"),
 	)
 })

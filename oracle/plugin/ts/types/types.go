@@ -905,13 +905,7 @@ func (p *Plugin) processStruct(
 			// An alias re-exports its target's schema under its own name and type
 			// parameters.
 			parentType, _ := extendsRef.Resolve(table)
-			var parentParams []resolution.TypeParam
-			switch f := parentType.Form.(type) {
-			case resolution.StructForm:
-				parentParams = f.TypeParams
-			case resolution.AliasForm:
-				parentParams = f.TypeParams
-			}
+			parentParams := resolution.TypeParams(parentType.Form)
 
 			parentTSName := domain.GetName(parentType, "ts")
 			schemaName := casing.CamelAcronym(parentTSName) + "Z"
@@ -1367,11 +1361,11 @@ func parentSchemaName(
 // createNewRefForField reports whether field's type resolves to a `@create`-d struct
 // carrying a synthesized `New`, and if so returns the rendered TS type referencing that
 // `New` with the struct's primary details type passed as a zod schema (e.g.
-// "status.New<typeof statusDetailsZ>"). It follows a single alias level (e.g. a
-// `Status<D>` alias to `status.Status<...>`), substituting the alias's type params with
-// the field's type args so the primary details type is the concrete one the field
-// binds. It reports false when the field type does not resolve to a create struct with
-// a synthesized New, or when it is a type param, primitive, array, or map.
+// "status.New<typeof statusDetailsZ>"). It follows aliases (e.g. a `Status<D>` alias to
+// `status.Status<...>`), substituting each alias's type params with the field's type
+// args so the primary details type is the concrete one the field binds. It reports
+// false when the field type does not resolve to a create struct with a synthesized New,
+// or when it is a type param, primitive, array, or map.
 //
 // The details schema ref renders as `typeof <schema>` for a non-generic details struct
 // and `ReturnType<typeof <schema>>` for a generic one (whose schema is a factory
@@ -1386,22 +1380,9 @@ func (p *Plugin) createNewRefForField(
 		ref.Name == "Array" || ref.Name == "Map" {
 		return "", false
 	}
-	resolved, ok := ref.Resolve(table)
+	resolved, ref, ok := resolution.Dealias(ref, table)
 	if !ok {
 		return "", false
-	}
-	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-		argMap := make(map[string]resolution.TypeRef, len(aliasForm.TypeParams))
-		for i, tp := range aliasForm.TypeParams {
-			if i < len(ref.TypeArgs) {
-				argMap[tp.Name] = ref.TypeArgs[i]
-			}
-		}
-		ref = resolution.SubstituteTypeRef(aliasForm.Target, argMap)
-		resolved, ok = ref.Resolve(table)
-		if !ok {
-			return "", false
-		}
 	}
 	if _, isStruct := resolved.Form.(resolution.StructForm); !isStruct {
 		return "", false
@@ -1439,14 +1420,15 @@ func (p *Plugin) detailsSchemaRef(
 	table *resolution.Table,
 	data *templateData,
 ) (string, bool) {
-	resolved, ok := ref.Resolve(table)
+	target, _, ok := resolution.Dealias(ref, table)
 	if !ok {
 		return "", false
 	}
-	form, isStruct := resolved.Form.(resolution.StructForm)
-	if !isStruct {
+	if _, isStruct := target.Form.(resolution.StructForm); !isStruct {
 		return "", false
 	}
+	resolved, _ := ref.Resolve(table)
+	params := resolution.TypeParams(resolved.Form)
 	importLocalHand(
 		resolved,
 		casing.CamelAcronym(domain.GetName(resolved, "ts"))+"Z",
@@ -1458,7 +1440,7 @@ func (p *Plugin) detailsSchemaRef(
 		prefix = ns + "."
 	}
 	schema := prefix + casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
-	if form.IsGeneric() {
+	if len(params) > 0 {
 		return fmt.Sprintf("ReturnType<typeof %s>", schema), true
 	}
 	return fmt.Sprintf("typeof %s", schema), true
@@ -1502,7 +1484,7 @@ func (p *Plugin) processTypeParam(
 		}
 		resolved, ok := tp.Constraint.Resolve(table)
 		if ok {
-			if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
+			if isEnumRef(*tp.Constraint, table) {
 				enumTypeName := lo.Capitalize(fieldCamel(resolved.Name))
 				tpd.Constraint = "z.ZodType<" + enumTypeName + ">"
 			}
@@ -1517,7 +1499,7 @@ func (p *Plugin) processTypeParam(
 		// Handle enum defaults
 		resolved, ok := tp.Default.Resolve(table)
 		if ok {
-			if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
+			if isEnumRef(*tp.Default, table) {
 				enumZodName := casing.CamelAcronym(resolved.Name) + "Z"
 				tpd.Default = "typeof " + enumZodName
 				tpd.DefaultValue = enumZodName
@@ -1604,12 +1586,20 @@ func fallbackForConstraint(
 		return "z.unknown().optional()"
 	}
 	resolved, ok := constraint.Resolve(table)
-	if ok {
-		if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-			return casing.CamelAcronym(resolved.Name) + "Z"
-		}
+	if ok && isEnumRef(*constraint, table) {
+		return casing.CamelAcronym(resolved.Name) + "Z"
 	}
 	return defaultValueToTS(constraint.Name)
+}
+
+// isEnumRef reports whether ref, or the type its aliases stand for, is an enum.
+func isEnumRef(ref resolution.TypeRef, table *resolution.Table) bool {
+	resolved, _, ok := resolution.Dealias(ref, table)
+	if !ok {
+		return false
+	}
+	_, isEnum := resolved.Form.(resolution.EnumForm)
+	return isEnum
 }
 
 func fallbackSchemaTypeForConstraint(
@@ -1620,10 +1610,8 @@ func fallbackSchemaTypeForConstraint(
 		return "z.ZodOptional<z.ZodUnknown>"
 	}
 	resolved, ok := constraint.Resolve(table)
-	if ok {
-		if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-			return "typeof " + casing.CamelAcronym(resolved.Name) + "Z"
-		}
+	if ok && isEnumRef(*constraint, table) {
+		return "typeof " + casing.CamelAcronym(resolved.Name) + "Z"
 	}
 	if m, ok := typeParamMappings[constraint.Name]; ok {
 		return m.zodType
@@ -1918,7 +1906,7 @@ func (p *Plugin) processField(
 
 // isUnionField reports whether a field's type resolves to a discriminated union.
 func isUnionField(field resolution.Field, table *resolution.Table) bool {
-	resolved, ok := field.Type.Resolve(table)
+	resolved, _, ok := resolution.Dealias(field.Type, table)
 	if !ok {
 		return false
 	}
@@ -2929,7 +2917,7 @@ func structFieldsByName(
 	table *resolution.Table,
 ) map[string]resolution.Field {
 	out := map[string]resolution.Field{}
-	resolved, ok := typeRef.Resolve(table)
+	resolved, _, ok := resolution.Dealias(typeRef, table)
 	if !ok {
 		return out
 	}

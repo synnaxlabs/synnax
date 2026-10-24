@@ -40,6 +40,14 @@ Credentials struct {
 
 Code uint32
 
+Details struct {
+	label string
+}
+
+Member struct {
+	key string
+}
+
 Edge union on variant {
 	pipe Labeled
 }
@@ -55,7 +63,10 @@ Key = base.Key
 Size = base.Size
 Labeled = base.Labeled
 Valve = base.Valve
+Gate = Valve
 Credentials = base.Credentials
+Details = base.Details
+Member = base.Member
 Code = base.Code
 Edge = base.Edge
 `
@@ -114,5 +125,46 @@ var _ = Describe("Go PB aliases", func() {
 				circle Credentials
 			}
 		`, "basepb.LabeledToPB(v.Labeled)"),
+		Entry("an optional union", `
+			Panel struct {
+				edge Edge?
+			}
+		`, "val, err := basepb.EdgeFromPB(pb.Edge)", "r.Edge = &val"),
+		Entry("an optional alias of an alias", `
+			Panel struct {
+				gate Gate?
+			}
+		`, "val, err := basepb.ValveFromPB(pb.Gate)", "r.Gate = &val"),
+		Entry("an optional distinct type", `
+			Panel struct {
+				code Code?
+			}
+		`, "v := uint32(*r.Code)", "v := base.Code(*pb.Code)"),
+		Entry("a map of unions", `
+			Panel struct {
+				edges map<string, Edge>
+			}
+		`, "converted, err := basepb.EdgeToPB(v)", "converted, err := basepb.EdgeFromPB(v)"),
+		Entry("a generic struct's type argument", `
+			Status struct<D> {
+				key     string
+				details D
+			}
+
+			Panel struct {
+				status Status<Details>
+			}
+		`, "DetailsToPBAny", "StatusToPB(r.Status, DetailsToPBAny)"),
+		Entry("a nested array's element", `
+			Members = Member[]
+
+			Strata Members[]
+
+			Layers = Strata
+
+			Panel struct {
+				layers Layers
+			}
+		`, "vals, err := basepb.MembersToPB(inner)", "func() (test.Layers, error) {"),
 	)
 })

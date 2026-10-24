@@ -93,7 +93,7 @@ func structDefaultFills(
 	val resolution.ExpressionValue,
 	data *templateData,
 ) []defaultFillData {
-	resolved, ok := structRef.Resolve(data.table)
+	resolved, _, ok := resolution.Dealias(structRef, data.table)
 	if !ok {
 		return nil
 	}
@@ -158,7 +158,7 @@ func unionLiteral(
 	data *templateData,
 	next *int,
 ) ([]string, string, bool) {
-	resolved, ok := typeRef.Resolve(data.table)
+	resolved, unionRef, ok := resolution.Dealias(typeRef, data.table)
 	if !ok {
 		return nil, "", false
 	}
@@ -178,7 +178,7 @@ func unionLiteral(
 		return nil, "", false
 	}
 	fields := resolution.UnifiedVariantFields(resolved, variant, data.table)
-	unionType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
+	unionType := stripPointer(data.resolver.ResolveTypeRef(unionRef, data.ctx))
 	variable := fmt.Sprintf("v%d", *next)
 	*next++
 	setup := []string{
@@ -233,14 +233,14 @@ func literalAssignments(
 			lines = append(lines, setup...)
 			return append(lines, selector+".Variant = "+variable), true
 		}
-		resolved, ok := typeRef.Resolve(data.table)
+		resolved, structRef, ok := resolution.Dealias(typeRef, data.table)
 		if !ok {
 			return nil, false
 		}
 		fields := resolution.UnifiedFields(resolved, data.table)
 		if form, ok := resolved.Form.(resolution.StructForm); ok && form.IsGeneric() {
 			fields = lo.Map(fields, func(f resolution.Field, _ int) resolution.Field {
-				f.Type = bindTypeArgs(f.Type, form.TypeParams, typeRef.TypeArgs, data)
+				f.Type = bindTypeArgs(f.Type, form.TypeParams, structRef.TypeArgs, data)
 				return f
 			})
 		}

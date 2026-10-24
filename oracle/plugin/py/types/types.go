@@ -636,7 +636,7 @@ func processStruct(
 			parentFields := make([]resolution.Field, 0)
 			seenFields := make(set.Set[string])
 			for _, extendsRef := range form.Extends {
-				parent, _ := extendsRef.Resolve(table)
+				parent, _, _ := resolution.Dealias(extendsRef, table)
 				for _, pf := range resolution.UnifiedFields(parent, table) {
 					if !seenFields.Contains(pf.Name) {
 						seenFields.Add(pf.Name)
@@ -827,16 +827,13 @@ func buildExtendsExpr(
 		)
 	}
 
-	// Check if parent is generic
-	parentForm, ok := parent.Form.(resolution.StructForm)
-	if !ok || !parentForm.IsGeneric() {
-		return baseName
-	}
+	// An alias re-exports its target class under its own name and type parameters.
+	params := resolution.TypeParams(parent.Form)
 
 	// Find which parent type params don't have defaults (those are the ones in
 	// Generic[])
 	var activeParamIndices []int
-	for i, tp := range parentForm.TypeParams {
+	for i, tp := range params {
 		if !tp.HasDefault() {
 			activeParamIndices = append(activeParamIndices, i)
 		}
@@ -1392,11 +1389,7 @@ func resolveDistinctWrapper(
 	if resolution.IsPrimitive(typeRef.Name) {
 		return ""
 	}
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return ""
-	}
-	if _, isDistinct := resolved.Form.(resolution.DistinctForm); !isDistinct {
+	if !resolution.IsDistinct(typeRef, table) {
 		return ""
 	}
 	return typeToPython(typeRef, table, data)
