@@ -35,6 +35,14 @@ Labeled struct {
 	label string
 }
 
+Data = record
+
+Blob = bytes
+
+Labels = string[]
+
+Index = map<string, int32>
+
 Signal union on kind {
 	none {}
 	level {
@@ -53,6 +61,10 @@ Method = base.Method
 Credentials = base.Credentials
 Labeled = base.Labeled
 Signal = base.Signal
+Data = base.Data
+Blob = base.Blob
+Labels = base.Labels
+Index = base.Index
 `
 
 var _ = Describe("Go aliases", func() {
@@ -98,5 +110,30 @@ var _ = Describe("Go aliases", func() {
 				signal Signal = { kind = "level", value = 1 }
 			}
 		`, "v0 := base.LevelSignal{}", "v0.Value = 1"),
+		Entry("an optional alias of record", `
+			Panel struct {
+				data Data?
+			}
+		`, "Data Data `"),
+		Entry("an optional alias of bytes", `
+			Panel struct {
+				blob Blob?
+			}
+		`, "Blob Blob `"),
+		Entry("an optional alias of an array", `
+			Panel struct {
+				labels Labels?
+			}
+		`, "Labels Labels `"),
+		Entry("an optional alias of a map", `
+			Panel struct {
+				index Index?
+			}
+		`, "Index Index `"),
+		Entry("an optional alias of a struct", `
+			Panel struct {
+				labeled Labeled?
+			}
+		`, "Labeled *Labeled `"),
 	)
 })

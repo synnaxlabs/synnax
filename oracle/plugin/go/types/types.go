@@ -936,9 +936,7 @@ func processField(field resolution.Field, data *templateData) fieldData {
 		data = data.latest
 	}
 	goType := data.resolver.ResolveTypeRef(field.Type, data.ctx)
-	if field.Optional && !strings.HasPrefix(goType, "[]") &&
-		!strings.HasPrefix(goType, "map[") &&
-		!strings.HasPrefix(goType, "msgpack.EncodedJSON") {
+	if field.Optional && !nilable(field.Type, data) {
 		goType = "*" + goType
 	}
 	return fieldData{
@@ -949,6 +947,17 @@ func processField(field resolution.Field, data *templateData) fieldData {
 		Doc:         doc.Get(field.Domains),
 		WireOmitted: domain.GetStringFromField(field, "go", "wire") == "omit",
 	}
+}
+
+// nilable reports whether ref, through aliases, renders as a Go slice, map, or record,
+// which an optional field holds without a pointer.
+func nilable(ref resolution.TypeRef, data *templateData) bool {
+	if _, target, ok := resolution.Dealias(ref, data.table); ok {
+		ref = target
+	}
+	goType := data.probe().resolver.ResolveTypeRef(ref, data.ctx)
+	return strings.HasPrefix(goType, "[]") || strings.HasPrefix(goType, "map[") ||
+		strings.HasPrefix(goType, "msgpack.EncodedJSON")
 }
 
 func buildGenericType(
