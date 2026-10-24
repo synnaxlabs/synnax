@@ -945,7 +945,7 @@ TEST(HTTPScanTask, ScanHealthCheckNonJSONResponse) {
     EXPECT_EQ(result[0].status->message, "Health check failed");
     const auto &description = result[0].status->description;
     EXPECT_TRUE(description.starts_with("The response body is not valid JSON: "));
-    EXPECT_TRUE(description.ends_with("."));
+    EXPECT_TRUE(description.ends_with('.'));
 
     server.stop();
 }

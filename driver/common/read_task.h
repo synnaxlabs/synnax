@@ -154,7 +154,7 @@ class ReadTask final : public driver::task::Task {
                 if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) {
                     auto description = err.data;
                     if (const auto retry = breaker.next_retry(); !retry.empty()) {
-                        if (!description.empty()) description += " ";
+                        if (!description.empty()) description += ' ';
                         description += "Next " + retry + ".";
                     }
                     LOG(WARNING)
