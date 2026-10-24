@@ -842,6 +842,12 @@ describe("Tabs", () => {
     const ghost = (): HTMLElement | null =>
       document.querySelector(".pluto-tabs__ghost");
 
+    it("should not accept drops on a wrapping strip", () => {
+      // @ts-expect-error - a wrapping strip takes no haulType.
+      const props: Tabs.SelectorProps = { wrap: true, haulType: TAB_TYPE };
+      expect(props.wrap).toBe(true);
+    });
+
     it("should render a ghost slot while dragging an accepted item", () => {
       render(<DragTabs />);
       expect(ghost()).toBeNull();

@@ -328,7 +328,7 @@ export interface SelectorOnDropParams extends Haul.OnDropProps {
 
 // align is claimed for the tabs' own alignment; the strip's cross-axis alignment is
 // the Selector's to decide, not a caller's.
-export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop" | "align"> {
+interface StyleProps extends Omit<Flex.BoxProps, "onDrop" | "align" | "wrap"> {
   /** size sets the height of the strip and the typography level of its tabs. */
   size?: Component.Size;
   /**
@@ -340,6 +340,10 @@ export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop" | "align"> {
   align?: Align;
   /** sizing decides how tabs claim width. Defaults per variant. */
   sizing?: Sizing;
+}
+
+interface DropProps {
+  wrap?: false;
   /**
    * haulType enables drag-and-drop reordering by declaring the Haul item type the
    * strip accepts. When set, dragging an accepted item over the strip opens the slot
@@ -359,6 +363,19 @@ export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop" | "align"> {
    */
   onDrop?: (params: SelectorOnDropParams) => Haul.Item[];
 }
+
+interface WrapProps {
+  /**
+   * wrap lays the tabs out in rows. A wrapping strip takes no drops, because the
+   * insertion index reads one axis.
+   */
+  wrap: true;
+  haulType?: never;
+  canDrop?: never;
+  onDrop?: never;
+}
+
+export type SelectorProps = StyleProps & (DropProps | WrapProps);
 
 /**
  * Selector is the strip that lays out a Frame's tabs. It renders a tablist with
