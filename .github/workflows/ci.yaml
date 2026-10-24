@@ -494,9 +494,10 @@ jobs:
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
 
-      - name: Build the Vite plugin
-        # Knip loads each Vite configuration, and they import the built plugin.
-        run: pnpm turbo build --filter @synnaxlabs/vite-plugin
+      - name: Build the packages that configurations import
+        # Knip loads each Vite configuration. They import the built plugin, and the docs
+        # one loads the Astro configuration, which imports the built Arc grammar.
+        run: pnpm turbo build --filter @synnaxlabs/vite-plugin --filter @synnaxlabs/arc
 
       - name: Check unused code
         run: pnpm knip
