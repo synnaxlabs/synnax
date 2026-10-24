@@ -280,7 +280,7 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 }
 
 // ackFailure acknowledges a start command whose deploy failed without a factory
-// reporting it.
+// reporting it. A t without a name keeps the name of the stored status.
 func (d *Driver) ackFailure(
 	ctx context.Context,
 	t task.Task,
@@ -289,15 +289,28 @@ func (d *Driver) ackFailure(
 ) {
 	details := task.NewStatusDetails(t, false)
 	details.Cmd = cmd.Key
+	stat := task.Status{
+		Key:         task.OntologyID(t.Key).String(),
+		Name:        t.Name,
+		Time:        telem.Now(),
+		Variant:     status.VariantError,
+		Message:     "Failed to start task",
+		Description: err.Error(),
+		Details:     details,
+	}
 	if sErr := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return d.cfg.Status.NewWriter(tx).Set(ctx, &status.Status[task.StatusDetails]{
-			Key:     task.OntologyID(t.Key).String(),
-			Name:    t.Name,
-			Time:    telem.Now(),
-			Variant: status.VariantError,
-			Message: err.Error(),
-			Details: details,
-		})
+		if stat.Name == "" {
+			var prev task.Status
+			if rErr := d.cfg.Status.NewRetrieve[task.StatusDetails]().
+				Where(status.MatchKeys[task.StatusDetails](stat.Key)).
+				Entry(&prev).
+				Exec(ctx, tx); rErr == nil {
+				stat.Name = prev.Name
+			} else if !errors.Is(rErr, query.ErrNotFound) {
+				return rErr
+			}
+		}
+		return d.cfg.Status.NewWriter(tx).Set(ctx, &stat)
 	}); sErr != nil {
 		d.cfg.L.Error("failed to write start failure status", zap.Error(sErr))
 	}

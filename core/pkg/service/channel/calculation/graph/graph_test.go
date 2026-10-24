@@ -1086,7 +1086,7 @@ var _ = Describe("Graph", func() {
 
 				s := expectStatus(ctx, calc.Key())
 				Expect(s.Variant).To(Equal(status.VariantError))
-				Expect(s.Message).To(Equal("invalid expression for st_detail"))
+				Expect(s.Message).To(Equal("Failed to compile expression"))
 				Expect(s.Description).ToNot(BeEmpty())
 				Expect(s.Key).To(Equal(channel.OntologyID(calc.Key()).String()))
 				Expect(s.Name).To(Equal("st_detail"))

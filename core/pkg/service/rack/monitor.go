@@ -99,14 +99,19 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 			Name:    r.Name,
 			Variant: status.VariantWarning,
 			Time:    state.lastUpdated,
-			Message: fmt.Sprintf("Synnax Driver on %s not running", r.Name),
+			Message: "Driver not running",
 			Description: fmt.Sprintf(
-				"Driver was last alive %s seconds ago",
-				timeSinceAlive,
+				"The Core has not heard from the Driver on %s for %s.",
+				r.Name,
+				timeSinceAlive.Truncate(telem.Second),
 			),
 			Details: StatusDetails{Rack: r.Key},
 		}
-		m.L.Warn(stat.Message, zap.Stringer("time_since_alive", timeSinceAlive))
+		m.L.Warn(
+			"driver not running",
+			zap.String("rack", r.Name),
+			zap.Stringer("time_since_alive", timeSinceAlive),
+		)
 		statuses = append(statuses, stat)
 	}
 	m.mu.Unlock()

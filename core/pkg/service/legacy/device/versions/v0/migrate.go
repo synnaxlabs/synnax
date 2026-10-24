@@ -11,7 +11,6 @@ package v0
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -84,7 +83,7 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 							Name:    d.Name,
 							Time:    telem.Now(),
 							Variant: status.VariantWarning,
-							Message: fmt.Sprintf("%s state unknown", d.Name),
+							Message: "Device status unknown",
 							Details: StatusDetails{Rack: d.Rack, Device: d.Key},
 						},
 					)

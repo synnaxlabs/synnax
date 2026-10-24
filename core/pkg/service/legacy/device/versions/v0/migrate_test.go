@@ -91,7 +91,7 @@ var _ = Describe("Migration", func() {
 			Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
 			Expect(
 				restoredStatus.Message,
-			).To(Equal("Migration Test Device state unknown"))
+			).To(Equal("Device status unknown"))
 			Expect(restoredStatus.Details.Device).To(Equal(d.Key))
 			Expect(restoredStatus.Details.Rack).To(Equal(d.Rack))
 		},

@@ -11,7 +11,6 @@ package graph
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"sync"
 
@@ -220,7 +219,7 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 				statuses[ch.Key()] = calculation.StatusFromError(
 					ch.Key(),
 					ch.Name,
-					fmt.Sprintf("invalid expression for %s", ch.Name),
+					"Failed to compile expression",
 					err,
 				)
 				invalidCount++
@@ -341,7 +340,7 @@ func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 						calculation.StatusFromError(
 							ch.Key(),
 							ch.Name,
-							fmt.Sprintf("invalid expression for %s", ch.Name),
+							"Failed to compile expression",
 							err,
 						),
 					)
@@ -502,7 +501,7 @@ func (g *Graph) reconcileQueued(
 					calculation.StatusFromError(
 						key,
 						refetched.Name,
-						fmt.Sprintf("invalid expression for %s", refetched.Name),
+						"Failed to compile expression",
 						err,
 					),
 				)

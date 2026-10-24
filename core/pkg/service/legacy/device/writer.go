@@ -11,7 +11,6 @@ package device
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -41,7 +40,7 @@ func resolveStatus(d *Device, provided *Status) *Status {
 			Name:    d.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantWarning,
-			Message: fmt.Sprintf("%s state unknown", d.Name),
+			Message: "Device status unknown",
 			Details: StatusDetails{Rack: d.Rack, Device: d.Key},
 		}
 	}

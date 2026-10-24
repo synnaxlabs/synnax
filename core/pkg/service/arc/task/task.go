@@ -118,10 +118,24 @@ func (t *impl) start(ctx context.Context, cmdKey string) error {
 		}
 	}
 	if err := t.open(ctx); err != nil {
-		t.setStatus(ctx, cmdKey, status.VariantError, false, err.Error())
+		t.setStatus(
+			ctx,
+			cmdKey,
+			status.VariantError,
+			false,
+			"Failed to start task",
+			err.Error(),
+		)
 		return err
 	}
-	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Task started successfully")
+	t.setStatus(
+		ctx,
+		cmdKey,
+		status.VariantSuccess,
+		true,
+		"Task started successfully",
+		"",
+	)
 	return nil
 }
 
@@ -364,6 +378,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 						driver.NoCommand,
 						status.VariantError,
 						false,
+						"Failed to write channel data",
 						res.Err.Error(),
 					)
 					return res.Err
@@ -418,7 +433,14 @@ func (t *impl) stop(ctx context.Context, cmdKey string, sendStatus bool) error {
 	err := t.release()
 	if err != nil {
 		if sendStatus {
-			t.setStatus(ctx, cmdKey, status.VariantError, false, err.Error())
+			t.setStatus(
+				ctx,
+				cmdKey,
+				status.VariantError,
+				false,
+				"Failed to stop task",
+				err.Error(),
+			)
 		}
 		return err
 	}
@@ -429,6 +451,7 @@ func (t *impl) stop(ctx context.Context, cmdKey string, sendStatus bool) error {
 			status.VariantSuccess,
 			false,
 			"Task stopped successfully",
+			"",
 		)
 	}
 	return nil
@@ -442,6 +465,7 @@ func (t *impl) reporter() taskreporter.Reporter {
 			variant,
 			t.isRunning(),
 			fmt.Sprintf("[%s] %s", t.task.Name, message),
+			"",
 		)
 	}
 }
@@ -452,8 +476,16 @@ func (t *impl) setStatus(
 	variant status.Variant,
 	running bool,
 	message string,
+	description string,
 ) {
-	if err := t.status.Send(ctx, cmdKey, variant, running, message); err != nil {
+	if err := t.status.Send(
+		ctx,
+		cmdKey,
+		variant,
+		running,
+		message,
+		description,
+	); err != nil {
 		t.factoryCfg.L.Error(
 			"failed to set status for Arc task",
 			zap.Stringer("key", t.task.Key),
@@ -470,8 +502,8 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 	}
 	if setErr := t.status.Warn(
 		ctx,
-		fmt.Sprintf("Runtime error in %s", nodeType),
-		err.Error(),
+		"Failed to run Arc program",
+		fmt.Sprintf("The %s node failed: %v", nodeType, err),
 	); setErr != nil {
 		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
 	}

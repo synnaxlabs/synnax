@@ -423,7 +423,8 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
-			Expect(stat.Message).To(ContainSubstring("invalid uuid"))
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Description).To(ContainSubstring("invalid uuid"))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
@@ -449,7 +450,8 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
-			Expect(stat.Message).To(ContainSubstring("not found"))
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Description).To(ContainSubstring("not found"))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
@@ -663,7 +665,8 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("error"))
-				Expect(stat.Message).To(ContainSubstring("not found"))
+				Expect(stat.Message).To(Equal("Failed to configure task"))
+				Expect(stat.Description).To(ContainSubstring("not found"))
 				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
@@ -3322,8 +3325,9 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
-					g.Expect(stat.Message).To(ContainSubstring("Runtime error in"))
-					g.Expect(stat.Message).To(ContainSubstring("divide_test"))
+					g.Expect(stat.Message).To(Equal("Failed to run Arc program"))
+					g.Expect(stat.Description).
+						To(HavePrefix("The divide_test node failed: "))
 					g.Expect(stat.Description).
 						To(ContainSubstring("integer divide by zero"))
 					g.Expect(stat.Details.Running).To(BeTrue())

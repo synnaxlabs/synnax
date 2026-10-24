@@ -633,7 +633,7 @@ var _ = Describe("Driver", func() {
 									Key:     t.OntologyID().String(),
 									Name:    t.Name,
 									Variant: status.VariantSuccess,
-									Message: "Task stopped successfully",
+									Message: "Stopped task",
 									Time:    telem.Now(),
 									Details: task.NewStatusDetails(t, false),
 								}

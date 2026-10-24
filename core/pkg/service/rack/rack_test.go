@@ -927,16 +927,17 @@ var _ = Describe("Rack", Ordered, func() {
 
 				Eventually(func(g Gomega) {
 					s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
-					g.Expect(s.Message).
-						To(Equal("Synnax Driver on dead test rack not running"))
+					g.Expect(s.Message).To(Equal("Driver not running"))
 					g.Expect(s.Variant).To(Equal(status.VariantWarning))
 					g.Expect(s.Time).
 						To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 					g.Expect(s.Key).
 						To(ContainSubstring(string(ontology.ResourceTypeRack)))
 					g.Expect(s.Details.Rack).To(Equal(r.Key))
-					g.Expect(s.Description).
-						To(ContainSubstring("Driver was last alive"))
+					g.Expect(s.Description).To(MatchRegexp(
+						`^The Core has not heard from the Driver on dead test rack ` +
+							`for .+\.$`,
+					))
 				}).Should(Succeed())
 			},
 		)
@@ -968,8 +969,7 @@ var _ = Describe("Rack", Ordered, func() {
 					s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 					g.Expect(s.Message).To(Equal("Running"))
 					g.Expect(s.Variant).To(Equal(status.VariantSuccess))
-					g.Expect(s.Description).
-						ToNot(ContainSubstring("Driver was last alive"))
+					g.Expect(s.Description).To(BeEmpty())
 				}, 50*telem.Millisecond.Duration(), 5*telem.Millisecond.Duration()).Should(Succeed())
 			},
 		)
@@ -1077,8 +1077,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Eventually(func(g Gomega) {
 					s := MustSucceed(after.rack.RetrieveStatus(ctx, r.Key))
 					g.Expect(s.Variant).To(Equal(status.VariantWarning))
-					g.Expect(s.Message).
-						To(Equal("Synnax Driver on restarted rack not running"))
+					g.Expect(s.Message).To(Equal("Driver not running"))
 				}).Should(Succeed())
 			},
 		)
