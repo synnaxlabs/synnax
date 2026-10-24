@@ -365,6 +365,8 @@ TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
 }
 
+/// @brief it should accept a stream rate below 1 Hz and read the matching number of
+/// samples for each stream.
 TEST_F(EtherCATReadTest, StreamRateBelowOneHzIsValid) {
     auto data_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("analog"),
@@ -386,6 +388,7 @@ TEST_F(EtherCATReadTest, StreamRateBelowOneHzIsValid) {
     EXPECT_EQ(task_cfg.samples_per_chan, 4);
 }
 
+/// @brief it should reject a stream rate that does not divide the sample rate.
 TEST_F(EtherCATReadTest, StreamRateThatDoesNotDivideSampleRateIsInvalid) {
     auto cfg = this->create_base_config();
     cfg["sample_rate"] = 10;

@@ -63,7 +63,10 @@ x::errors::Error Engine::Writer::Transaction::write(
         pdo.data_type,
         value
     );
-    this->writer.registration->values[pdo_index] = value;
+    this->writer.registration->commands[pdo_index] = Command{
+        value,
+        ++this->engine.command_seq
+    };
     return x::errors::NIL;
 }
 

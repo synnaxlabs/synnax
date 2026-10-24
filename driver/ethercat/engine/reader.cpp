@@ -51,7 +51,6 @@ x::errors::Error Engine::Reader::read(
     const x::breaker::Breaker &brk,
     const x::telem::Frame &frame
 ) const {
-    uint64_t observed_epoch = 0;
     {
         std::unique_lock lock(this->engine.notify_mu);
         const auto timeout = x::telem::MILLISECOND * 200;
@@ -59,12 +58,10 @@ x::errors::Error Engine::Reader::read(
             lock,
             timeout.chrono(),
             [&] {
-                observed_epoch = this->engine.read_epoch.epoch.load(
-                    std::memory_order_acquire
-                );
                 return !this->engine.breaker.running() || !brk.running() ||
                        this->engine.restarting.load(std::memory_order_acquire) ||
-                       observed_epoch > this->last_seen_epoch;
+                       this->engine.read_epoch.epoch.load(std::memory_order_acquire) >
+                           this->last_seen_epoch;
             }
         );
         if (!notified)
@@ -81,17 +78,16 @@ x::errors::Error Engine::Reader::read(
     if (!this->engine.breaker.running())
         return x::errors::Error(errors::CYCLIC_ERROR, "engine stopped unexpectedly");
 
-    this->last_seen_epoch = observed_epoch;
-
-    if (!this->engine.inputs_valid.load(std::memory_order_acquire))
-        return this->engine.invalid_inputs_error();
-
     if (this->engine.config_gen.load(std::memory_order_acquire) != this->my_config_gen)
         this->refresh_pdos();
 
+    uint64_t epoch = 0;
+    bool valid = false;
     while (true) {
         const uint64_t s0 = this->engine.read_seq.seq.load(std::memory_order_acquire);
         if (s0 & 1) continue;
+        epoch = this->engine.read_epoch.epoch.load(std::memory_order_relaxed);
+        valid = this->engine.inputs_valid.load(std::memory_order_relaxed);
         const uint8_t *ptr = this->engine.shared_input_ptr.load(
             std::memory_order_relaxed
         );
@@ -106,6 +102,8 @@ x::errors::Error Engine::Reader::read(
         std::atomic_thread_fence(std::memory_order_acquire);
         if (this->engine.read_seq.seq.load(std::memory_order_relaxed) == s0) break;
     }
+    this->last_seen_epoch = epoch;
+    if (!valid) return this->engine.invalid_inputs_error();
 
     if (this->engine.config_gen.load(std::memory_order_acquire) != this->my_config_gen)
         return x::errors::Error(errors::ENGINE_RESTARTING, "engine restarting");

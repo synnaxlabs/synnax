@@ -94,6 +94,8 @@ TEST_F(SOEMMasterTest, InitializeIdempotent) {
     ASSERT_NIL(this->master->initialize());
 }
 
+/// @brief it should name and type each PDO entry from the CoE object dictionary of the
+/// slave.
 TEST_F(SOEMMasterTest, CoEDiscoveryUsesEntryNamesAndDataTypes) {
     MockSlaveInfo slave;
     slave.state = EC_STATE_PRE_OP;
@@ -126,6 +128,7 @@ TEST_F(SOEMMasterTest, CoEDiscoveryUsesEntryNamesAndDataTypes) {
     EXPECT_EQ(inputs[1].data_type, x::telem::FLOAT32_T);
 }
 
+/// @brief it should type each PDO entry from the data type in the SII of the slave.
 TEST_F(SOEMMasterTest, SIIDiscoveryUsesEntryDataTypes) {
     MockSlaveInfo slave;
     slave.state = EC_STATE_PRE_OP;
@@ -199,6 +202,7 @@ TEST_F(SOEMMasterTest, ActivateOpTransitionFails) {
     ASSERT_OCCURRED_AS(this->master->activate(), errors::STATE_CHANGE_ERROR);
 }
 
+/// @brief it should exchange process data while it waits for the slaves to reach OP.
 TEST_F(SOEMMasterTest, ActivateExchangesProcessDataUntilOperational) {
     this->initialize_with_slave();
     this->mock->obytes = 2;
@@ -230,6 +234,7 @@ TEST_F(SOEMMasterTest, ActivateDisabledSlavesSetGroup) {
     EXPECT_EQ(this->mock->mapped_group, 1);
 }
 
+/// @brief it should not request state changes for a disabled slave.
 TEST_F(SOEMMasterTest, DisabledSlaveStaysOutOfStateTransitions) {
     MockSlaveInfo slave1;
     slave1.state = EC_STATE_PRE_OP;
@@ -250,6 +255,7 @@ TEST_F(SOEMMasterTest, DisabledSlaveStaysOutOfStateTransitions) {
     EXPECT_EQ(this->mock->state_change_requests, expected);
 }
 
+/// @brief it should send and receive process data for the group of enabled slaves only.
 TEST_F(SOEMMasterTest, CyclicExchangeUsesEnabledGroupOnly) {
     this->initialize_with_slave();
     this->activate_master();

@@ -102,7 +102,6 @@ void Engine::run() {
                           << receive_error_count << " errors";
                 had_receive_error = false;
                 receive_error_count = 0;
-                this->inputs_valid.store(true, std::memory_order_release);
             }
             this->publish_inputs(this->master->input_data());
         }
@@ -188,7 +187,6 @@ x::errors::Error Engine::reconfigure_locked() {
         return fail(err);
     }
     this->update_cycle_time_locked();
-    this->inputs_valid.store(true, std::memory_order_release);
     this->restarting = false;
     this->breaker.start();
     this->run_thread = std::thread(&Engine::run, this);
@@ -290,14 +288,18 @@ void Engine::publish_inputs(const std::span<const uint8_t> src) {
     this->read_seq.seq.fetch_add(1, std::memory_order_relaxed);
     std::atomic_thread_fence(std::memory_order_release);
     std::memcpy(ptr, src.data(), n);
+    this->inputs_valid.store(true, std::memory_order_relaxed);
+    this->read_epoch.epoch.fetch_add(1, std::memory_order_relaxed);
     this->read_seq.seq.fetch_add(1, std::memory_order_release);
-    this->read_epoch.epoch.fetch_add(1, std::memory_order_release);
     this->read_cv.notify_all();
 }
 
 void Engine::invalidate_inputs() {
-    this->inputs_valid.store(false, std::memory_order_release);
-    this->read_epoch.epoch.fetch_add(1, std::memory_order_release);
+    this->read_seq.seq.fetch_add(1, std::memory_order_relaxed);
+    std::atomic_thread_fence(std::memory_order_release);
+    this->inputs_valid.store(false, std::memory_order_relaxed);
+    this->read_epoch.epoch.fetch_add(1, std::memory_order_relaxed);
+    this->read_seq.seq.fetch_add(1, std::memory_order_release);
     this->read_cv.notify_all();
 }
 
@@ -341,6 +343,7 @@ void Engine::update_read_offsets_locked() {
     std::atomic_thread_fence(std::memory_order_release);
     this->shared_input_ptr.store(new_buf.get(), std::memory_order_relaxed);
     this->shared_input_size.store(input_size, std::memory_order_relaxed);
+    this->inputs_valid.store(true, std::memory_order_relaxed);
     this->read_seq.seq.fetch_add(1, std::memory_order_release);
     this->shared_input_prev = std::move(this->shared_input_current);
     this->shared_input_current = std::move(new_buf);
@@ -378,20 +381,29 @@ x::errors::Error Engine::update_write_offsets_locked(const size_t total_size) {
 }
 
 void Engine::rebuild_outputs_locked() {
-    std::fill(this->write_staging.begin(), this->write_staging.end(), 0);
+    struct Applied {
+        const pdo::Entry *entry;
+        pdo::Offset offset;
+        const Command *command;
+    };
+    std::vector<Applied> applied;
     for (const auto &reg: this->write_registrations)
-        for (size_t i = 0; i < reg->entries.size(); ++i) {
-            if (!reg->values[i]) continue;
-            const auto &entry = reg->entries[i];
-            const auto &offset = reg->offsets[i];
-            telem::write_pdo_from_value(
-                this->write_staging.data() + offset.byte,
-                offset.bit,
-                entry.bit_length,
-                entry.data_type,
-                *reg->values[i]
-            );
-        }
+        for (size_t i = 0; i < reg->entries.size(); ++i)
+            if (reg->commands[i])
+                applied.push_back(
+                    {&reg->entries[i], reg->offsets[i], &*reg->commands[i]}
+                );
+    // Two writers can command the same output, so the latest command must land last.
+    std::ranges::sort(applied, {}, [](const Applied &a) { return a.command->seq; });
+    std::fill(this->write_staging.begin(), this->write_staging.end(), 0);
+    for (const auto &[entry, offset, command]: applied)
+        telem::write_pdo_from_value(
+            this->write_staging.data() + offset.byte,
+            offset.bit,
+            entry->bit_length,
+            entry->data_type,
+            command->value
+        );
 }
 
 void Engine::unregister_reader(const size_t id) {
@@ -467,7 +479,7 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         entries,
         {},
         execution_rate,
-        std::vector<std::optional<x::telem::SampleValue>>(entries.size())
+        std::vector<std::optional<Command>>(entries.size())
     });
     if (auto err = this->add(reg, false); err) return {nullptr, err};
     return {std::make_unique<Writer>(*this, reg_id, std::move(reg)), x::errors::NIL};

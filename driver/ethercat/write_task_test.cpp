@@ -240,6 +240,8 @@ TEST_F(EtherCATWriteTest, ParseConfigWithStateChannel) {
     EXPECT_EQ(task_cfg.state_channels.size(), 1);
 }
 
+/// @brief it should pair each state channel with the command channel that names it, not
+/// with the channel at the same position.
 TEST_F(EtherCATWriteTest, StateChannelPairsWithItsOwnCommandChannel) {
     auto cmd_1 = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("cmd_1"),

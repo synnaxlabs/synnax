@@ -196,6 +196,8 @@ TEST_F(IGHMasterTest, ReceiveWcZeroReturnsError) {
     ASSERT_OCCURRED_AS(this->master_instance->receive(), errors::WORKING_COUNTER_ERROR);
 }
 
+/// @brief it should return a working counter error when the domains report an
+/// incomplete working counter.
 TEST_F(IGHMasterTest, ReceiveWcIncompleteReturnsWorkingCounterError) {
     this->initialize_with_slave();
     this->activate_with_domains();

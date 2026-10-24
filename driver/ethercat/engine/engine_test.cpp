@@ -8,10 +8,13 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <future>
 #include <thread>
+#include <utility>
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/test/test.h"
 
@@ -1258,6 +1261,8 @@ TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
     EXPECT_TRUE(slaves.empty());
     EXPECT_FALSE(pool.is_active("eth0"));
 }
+/// @brief it should move a commanded output value to the output's new offset when a
+/// reconfigure shifts the output image.
 TEST_F(EngineTest, CommandedValueMovesWithItsOffsetOnReconfigure) {
     auto writer = ASSERT_NIL_P(engine->open_writer(
         {pdo::Entry(0, 0x7000, 1, 16, false, x::telem::INT16_T)},
@@ -1281,6 +1286,8 @@ TEST_F(EngineTest, CommandedValueMovesWithItsOffsetOnReconfigure) {
     EXPECT_EQ(this->mock_master->get_output<int16_t>(0), 0);
 }
 
+/// @brief it should set the outputs of a closed writer to zero while the bus keeps
+/// running.
 TEST_F(EngineTest, ClosedWriterReturnsItsOutputsToZero) {
     auto reader = ASSERT_NIL_P(
         engine->open_reader({pdo::Entry(0, 0x6000, 1, 16, true)}, x::telem::Rate(100))
@@ -1301,6 +1308,35 @@ TEST_F(EngineTest, ClosedWriterReturnsItsOutputsToZero) {
     ASSERT_EVENTUALLY_EQ(this->mock_master->get_output<int16_t>(0), 0);
 }
 
+/// @brief it should keep the latest command on an output that two writers share when
+/// the output image is rebuilt.
+TEST_F(EngineTest, RebuildKeepsTheLatestCommandOnASharedOutput) {
+    const pdo::Entry output(0, 0x7000, 1, 16, false, x::telem::INT16_T);
+    auto first = ASSERT_NIL_P(engine->open_writer({output}, x::telem::Rate(100)));
+    auto second = ASSERT_NIL_P(engine->open_writer({output}, x::telem::Rate(100)));
+    ASSERT_NIL(second->write(0, static_cast<int16_t>(10)));
+    ASSERT_NIL(first->write(0, static_cast<int16_t>(20)));
+    const auto byte = this->mock_master->pdo_offset(output).byte;
+    ASSERT_EVENTUALLY_EQ(this->mock_master->get_output<int16_t>(byte), 20);
+
+    auto reader = ASSERT_NIL_P(
+        engine->open_reader({pdo::Entry(0, 0x6000, 1, 16, true)}, x::telem::Rate(100))
+    );
+    x::breaker::Breaker brk;
+    brk.start();
+    x::telem::Frame frame(1, x::telem::Series(x::telem::UINT16_T, 1));
+    ASSERT_NIL(reader->read(brk, frame));
+    brk.stop();
+    EXPECT_EQ(
+        this->mock_master->get_output<int16_t>(
+            this->mock_master->pdo_offset(output).byte
+        ),
+        20
+    );
+}
+
+/// @brief it should return a PDO mapping error when a write names an index past the
+/// writer's entries.
 TEST_F(EngineTest, WriteToUnknownIndexReturnsError) {
     auto writer = ASSERT_NIL_P(engine->open_writer(
         {pdo::Entry(0, 0x7000, 1, 16, false, x::telem::INT16_T)},
@@ -1311,6 +1347,8 @@ TEST_F(EngineTest, WriteToUnknownIndexReturnsError) {
     EXPECT_EQ(err.data, "output index 1 is out of range for 1 registered entries");
 }
 
+/// @brief it should return a temporary error instead of the previous inputs while bus
+/// cycles fail, and return inputs again when the cycles recover.
 TEST_F(EngineTest, FailedCycleReturnsTemporaryErrorInsteadOfStaleInputs) {
     auto reader = ASSERT_NIL_P(
         engine->open_reader({pdo::Entry(0, 0x6000, 1, 16, true)}, x::telem::Rate(100))
@@ -1337,6 +1375,60 @@ TEST_F(EngineTest, FailedCycleReturnsTemporaryErrorInsteadOfStaleInputs) {
     brk.stop();
 }
 
+/// @brief it should drop the inputs of a failed cycle when a reader resumes while the
+/// next cycle copies its recovered inputs.
+TEST_F(EngineTest, ReaderResumingDuringRecoveryDoesNotReturnPreFailureInputs) {
+    std::atomic<bool> armed = false;
+    std::atomic<bool> paused = false;
+    std::promise<void> resume;
+    const auto resumed = resume.get_future().share();
+    bool resume_sent = false;
+    const auto resume_engine = [&] {
+        if (!std::exchange(resume_sent, true)) resume.set_value();
+    };
+    this->mock_master->set_input_data_hook([&] {
+        if (!armed.exchange(false)) return;
+        paused = true;
+        resumed.wait();
+    });
+
+    const pdo::Entry input(0, 0x6000, 1, 16, true, x::telem::UINT16_T);
+    auto observer = ASSERT_NIL_P(engine->open_reader({input}, x::telem::Rate(100)));
+    auto reader = ASSERT_NIL_P(engine->open_reader({input}, x::telem::Rate(100)));
+    const x::defer::defer cleanup(resume_engine);
+    x::breaker::Breaker brk;
+    brk.start();
+    const auto read = [&](const Engine::Reader &r) {
+        x::telem::Frame frame(1, x::telem::Series(x::telem::UINT16_T, 1));
+        const auto err = r.read(brk, frame);
+        const uint16_t value = err ? 0 : frame.series->at(0).at<uint16_t>(0);
+        return std::pair{value, err};
+    };
+    const auto byte = this->mock_master->pdo_offset(input).byte;
+    this->mock_master->set_input<uint16_t>(byte, 0x1111);
+    ASSERT_EVENTUALLY_EQ(read(*reader).first, 0x1111);
+
+    this->mock_master->inject_receive_error(
+        x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
+    );
+    ASSERT_EVENTUALLY_TRUE(read(*reader).second.matches(errors::CYCLE_FAILED));
+    this->mock_master->set_input<uint16_t>(byte, 0x2222);
+    // Two more failed cycles, so the reader has an unread epoch.
+    ASSERT_OCCURRED_AS(read(*observer).second, errors::CYCLE_FAILED);
+    ASSERT_OCCURRED_AS(read(*observer).second, errors::CYCLE_FAILED);
+
+    armed = true;
+    this->mock_master->clear_injected_errors();
+    ASSERT_EVENTUALLY_TRUE(paused.load());
+    ASSERT_OCCURRED_AS(read(*reader).second, errors::CYCLE_FAILED);
+
+    resume_engine();
+    ASSERT_EVENTUALLY_EQ(read(*reader).first, 0x2222);
+    brk.stop();
+}
+
+/// @brief it should run the bus at the minimum rate of 100 Hz when every task is
+/// slower.
 TEST_F(EngineTest, SlowTasksRunTheBusAtTheMinimumRate) {
     auto reader = ASSERT_NIL_P(
         engine->open_reader({pdo::Entry(0, 0x6000, 1, 16, true)}, x::telem::Rate(10))
@@ -1344,6 +1436,7 @@ TEST_F(EngineTest, SlowTasksRunTheBusAtTheMinimumRate) {
     EXPECT_EQ(engine->cycle_rate(), x::telem::Rate(100));
 }
 
+/// @brief it should keep the bus rate after the fastest task closes.
 TEST_F(EngineTest, CycleRateKeepsTheRunningRateAfterAFasterTaskCloses) {
     auto reader = ASSERT_NIL_P(
         engine->open_reader({pdo::Entry(0, 0x6000, 1, 16, true)}, x::telem::Rate(100))
@@ -1357,6 +1450,8 @@ TEST_F(EngineTest, CycleRateKeepsTheRunningRateAfterAFasterTaskCloses) {
     EXPECT_EQ(engine->cycle_rate(), x::telem::Rate(1000));
 }
 
+/// @brief it should reject a reader whose sample rate does not divide the bus rate, and
+/// keep the bus rate.
 TEST_F(EngineTest, ReaderRateThatDoesNotDivideTheBusRateIsRejected) {
     auto writer = ASSERT_NIL_P(engine->open_writer(
         {pdo::Entry(0, 0x7000, 1, 16, false, x::telem::INT16_T)},
@@ -1375,6 +1470,8 @@ TEST_F(EngineTest, ReaderRateThatDoesNotDivideTheBusRateIsRejected) {
     EXPECT_EQ(engine->cycle_rate(), x::telem::Rate(1000));
 }
 
+/// @brief it should reject a writer that raises the bus rate to one the rate of an open
+/// reader does not divide, and keep the bus running.
 TEST_F(EngineTest, WriterThatBreaksAnOpenReaderRateIsRejected) {
     auto reader = ASSERT_NIL_P(
         engine->open_reader({pdo::Entry(0, 0x6000, 1, 16, true)}, x::telem::Rate(3))

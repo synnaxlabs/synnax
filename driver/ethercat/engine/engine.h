@@ -43,14 +43,20 @@ struct Config {
 class Engine {
     Config config;
 
+    struct Command {
+        x::telem::SampleValue value;
+        /// @brief the order of this command across all writers.
+        uint64_t seq;
+    };
+
     struct Registration {
         size_t id;
         std::vector<pdo::Entry> entries;
         std::vector<pdo::Offset> offsets;
         x::telem::Rate rate;
-        /// @brief the last value a writer commanded for each entry, re-applied when
-        /// the output image is rebuilt.
-        std::vector<std::optional<x::telem::SampleValue>> values;
+        /// @brief the last command for each entry, re-applied when the output image is
+        /// rebuilt.
+        std::vector<std::optional<Command>> commands;
     };
 
     std::atomic<size_t> next_id = 0;
@@ -83,6 +89,8 @@ class Engine {
     mutable std::mutex write_mu;
     std::vector<uint8_t> write_staging;
     std::vector<uint8_t> write_active;
+    /// @brief the seq of the latest command, guarded by write_mu.
+    uint64_t command_seq = 0;
     // Shared pointers allow writers to refresh offsets after reconfigure,
     // mirroring the reader pattern.
     std::vector<std::shared_ptr<Registration>> write_registrations;
@@ -92,7 +100,8 @@ class Engine {
     alignas(64) std::atomic<uint64_t> config_gen{0};
     x::breaker::Breaker breaker;
 
-    /// @brief false while the latest cycle failed and its inputs were dropped.
+    /// @brief false while the latest cycle failed and its inputs were dropped. Written
+    /// with the input image and read_epoch, inside the read_seq write.
     std::atomic<bool> inputs_valid{true};
     mutable std::mutex cycle_err_mu;
     /// @brief why the latest cycle failed, guarded by cycle_err_mu.
