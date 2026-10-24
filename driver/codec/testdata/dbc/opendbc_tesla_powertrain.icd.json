@@ -1,9 +1,8 @@
 {
   "key": "00000000-0000-4000-8000-000000000000",
   "name": "opendbc_tesla_powertrain",
-  "entries": [
+  "messages": [
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000001",
       "name": "DI_torque1",
       "payload": {
@@ -23,7 +22,6 @@
             "scale": 0.25,
             "offset": 0,
             "units": "Nm",
-            "enumeration": "00000000-0000-4000-8000-000000000051",
             "multiplex_values": [],
             "min": -750,
             "max": 750,
@@ -52,7 +50,6 @@
             "scale": 0.25,
             "offset": 0,
             "units": "Nm",
-            "enumeration": "00000000-0000-4000-8000-000000000052",
             "multiplex_values": [],
             "min": -750,
             "max": 750,
@@ -68,7 +65,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000053",
             "multiplex_values": [],
             "start_bit": 29,
             "bit_length": 3,
@@ -82,7 +78,6 @@
             "scale": 1,
             "offset": 0,
             "units": "RPM",
-            "enumeration": "00000000-0000-4000-8000-000000000054",
             "multiplex_values": [],
             "min": -17000,
             "max": 17000,
@@ -98,7 +93,6 @@
             "scale": 0.4,
             "offset": 0,
             "units": "%",
-            "enumeration": "00000000-0000-4000-8000-000000000055",
             "multiplex_values": [],
             "min": 0,
             "max": 100,
@@ -125,7 +119,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000009",
       "name": "DI_torque2",
       "payload": {
@@ -145,7 +138,6 @@
             "scale": 0.5,
             "offset": 0,
             "units": "Nm",
-            "enumeration": "00000000-0000-4000-8000-000000000056",
             "multiplex_values": [],
             "min": -750,
             "max": 750,
@@ -161,7 +153,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000057",
             "multiplex_values": [],
             "start_bit": 12,
             "bit_length": 3,
@@ -175,7 +166,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000058",
             "multiplex_values": [],
             "start_bit": 15,
             "bit_length": 1,
@@ -189,7 +179,6 @@
             "scale": 0.05,
             "offset": -25,
             "units": "MPH",
-            "enumeration": "00000000-0000-4000-8000-000000000059",
             "multiplex_values": [],
             "min": -25,
             "max": 179.75,
@@ -205,7 +194,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000005a",
             "multiplex_values": [],
             "start_bit": 28,
             "bit_length": 3,
@@ -219,7 +207,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000005b",
             "multiplex_values": [],
             "start_bit": 31,
             "bit_length": 1,
@@ -246,7 +233,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000005c",
             "multiplex_values": [],
             "start_bit": 36,
             "bit_length": 2,
@@ -260,7 +246,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000005d",
             "multiplex_values": [],
             "start_bit": 38,
             "bit_length": 1,
@@ -274,7 +259,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000005e",
             "multiplex_values": [],
             "start_bit": 39,
             "bit_length": 1,
@@ -299,7 +283,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000015",
       "name": "BrakeMessage",
       "payload": {
@@ -319,7 +302,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000005f",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -333,7 +315,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000017",
       "name": "STW_ACTN_RQ",
       "payload": {
@@ -353,7 +334,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000060",
             "multiplex_values": [],
             "start_bit": 0,
             "bit_length": 6,
@@ -393,7 +373,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000061",
             "multiplex_values": [],
             "min": 0,
             "max": 200,
@@ -409,7 +388,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000062",
             "multiplex_values": [],
             "start_bit": 16,
             "bit_length": 2,
@@ -423,7 +401,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000063",
             "multiplex_values": [],
             "start_bit": 18,
             "bit_length": 2,
@@ -437,7 +414,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000064",
             "multiplex_values": [],
             "start_bit": 20,
             "bit_length": 2,
@@ -451,7 +427,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000065",
             "multiplex_values": [],
             "start_bit": 22,
             "bit_length": 2,
@@ -465,7 +440,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000066",
             "multiplex_values": [],
             "start_bit": 24,
             "bit_length": 3,
@@ -492,7 +466,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000067",
             "multiplex_values": [],
             "start_bit": 28,
             "bit_length": 2,
@@ -506,7 +479,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000068",
             "multiplex_values": [],
             "start_bit": 30,
             "bit_length": 2,
@@ -520,7 +492,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000069",
             "multiplex_values": [],
             "start_bit": 32,
             "bit_length": 1,
@@ -534,7 +505,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000006a",
             "multiplex_values": [],
             "start_bit": 33,
             "bit_length": 1,
@@ -561,7 +531,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000006b",
             "multiplex_values": [],
             "start_bit": 35,
             "bit_length": 1,
@@ -575,7 +544,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000006c",
             "multiplex_values": [],
             "start_bit": 36,
             "bit_length": 1,
@@ -732,7 +700,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000006d",
             "multiplex_values": [],
             "start_bit": 48,
             "bit_length": 3,
@@ -772,7 +739,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000037",
       "name": "DI_state",
       "payload": {
@@ -792,7 +758,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000006e",
             "multiplex_values": [],
             "start_bit": 0,
             "bit_length": 3,
@@ -806,7 +771,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000006f",
             "multiplex_values": [],
             "start_bit": 3,
             "bit_length": 3,
@@ -859,7 +823,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000070",
             "multiplex_values": [],
             "start_bit": 9,
             "bit_length": 3,
@@ -873,7 +836,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000071",
             "multiplex_values": [],
             "start_bit": 12,
             "bit_length": 4,
@@ -887,7 +849,6 @@
             "scale": 0.1,
             "offset": 0,
             "units": "speed",
-            "enumeration": "00000000-0000-4000-8000-000000000072",
             "multiplex_values": [],
             "min": 0,
             "max": 150,
@@ -903,7 +864,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000073",
             "multiplex_values": [],
             "start_bit": 28,
             "bit_length": 3,
@@ -917,7 +877,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000074",
             "multiplex_values": [],
             "min": 0,
             "max": 1,
@@ -948,7 +907,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000075",
             "multiplex_values": [],
             "start_bit": 41,
             "bit_length": 3,
@@ -975,7 +933,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000076",
             "multiplex_values": [],
             "min": 0,
             "max": 250,
@@ -1002,7 +959,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000047",
       "name": "DAS_control",
       "payload": {
@@ -1022,7 +978,6 @@
             "scale": 0.1,
             "offset": 0,
             "units": "kph",
-            "enumeration": "00000000-0000-4000-8000-000000000077",
             "multiplex_values": [],
             "min": 0,
             "max": 409.4,
@@ -1038,7 +993,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000078",
             "multiplex_values": [],
             "start_bit": 12,
             "bit_length": 4,
@@ -1052,7 +1006,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000079",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -1068,7 +1021,6 @@
             "scale": 0.03,
             "offset": -15.232,
             "units": "m/s^3",
-            "enumeration": "00000000-0000-4000-8000-00000000007a",
             "multiplex_values": [],
             "min": -15.232,
             "max": 0.098,
@@ -1084,7 +1036,6 @@
             "scale": 0.059,
             "offset": 0,
             "units": "m/s^3",
-            "enumeration": "00000000-0000-4000-8000-00000000007b",
             "multiplex_values": [],
             "min": 0,
             "max": 15.045,
@@ -1100,7 +1051,6 @@
             "scale": 0.04,
             "offset": -15,
             "units": "m/s^2",
-            "enumeration": "00000000-0000-4000-8000-00000000007c",
             "multiplex_values": [],
             "min": -15,
             "max": 5.44,
@@ -1116,7 +1066,6 @@
             "scale": 0.04,
             "offset": -15,
             "units": "m/s^2",
-            "enumeration": "00000000-0000-4000-8000-00000000007d",
             "multiplex_values": [],
             "min": -15,
             "max": 5.44,
@@ -1154,969 +1103,6 @@
           }
         ]
       }
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000051",
-      "name": "DI_torque1.DI_torqueDriver",
-      "values": [
-        {
-          "value": -4096,
-          "name": "SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000052",
-      "name": "DI_torque1.DI_torqueMotor",
-      "values": [
-        {
-          "value": -4096,
-          "name": "SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000053",
-      "name": "DI_torque1.DI_soptState",
-      "values": [
-        {
-          "value": 7,
-          "name": "SOPT_TEST_SNA"
-        },
-        {
-          "value": 4,
-          "name": "SOPT_TEST_NOT_RUN"
-        },
-        {
-          "value": 3,
-          "name": "SOPT_TEST_PASSED"
-        },
-        {
-          "value": 2,
-          "name": "SOPT_TEST_FAILED"
-        },
-        {
-          "value": 1,
-          "name": "SOPT_TEST_IN_PROGRESS"
-        },
-        {
-          "value": 0,
-          "name": "SOPT_PRE_TEST"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000054",
-      "name": "DI_torque1.DI_motorRPM",
-      "values": [
-        {
-          "value": -32768,
-          "name": "SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000055",
-      "name": "DI_torque1.DI_pedalPos",
-      "values": [
-        {
-          "value": 255,
-          "name": "SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000056",
-      "name": "DI_torque2.DI_torqueEstimate",
-      "values": [
-        {
-          "value": -2048,
-          "name": "SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000057",
-      "name": "DI_torque2.DI_gear",
-      "values": [
-        {
-          "value": 7,
-          "name": "DI_GEAR_SNA"
-        },
-        {
-          "value": 4,
-          "name": "DI_GEAR_D"
-        },
-        {
-          "value": 3,
-          "name": "DI_GEAR_N"
-        },
-        {
-          "value": 2,
-          "name": "DI_GEAR_R"
-        },
-        {
-          "value": 1,
-          "name": "DI_GEAR_P"
-        },
-        {
-          "value": 0,
-          "name": "DI_GEAR_INVALID"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000058",
-      "name": "DI_torque2.DI_brakePedal",
-      "values": [
-        {
-          "value": 1,
-          "name": "Applied"
-        },
-        {
-          "value": 0,
-          "name": "Not_applied"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000059",
-      "name": "DI_torque2.DI_vehicleSpeed",
-      "values": [
-        {
-          "value": 4095,
-          "name": "SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000005a",
-      "name": "DI_torque2.DI_gearRequest",
-      "values": [
-        {
-          "value": 7,
-          "name": "DI_GEAR_SNA"
-        },
-        {
-          "value": 4,
-          "name": "DI_GEAR_D"
-        },
-        {
-          "value": 3,
-          "name": "DI_GEAR_N"
-        },
-        {
-          "value": 2,
-          "name": "DI_GEAR_R"
-        },
-        {
-          "value": 1,
-          "name": "DI_GEAR_P"
-        },
-        {
-          "value": 0,
-          "name": "DI_GEAR_INVALID"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000005b",
-      "name": "DI_torque2.DI_torqueInterfaceFailure",
-      "values": [
-        {
-          "value": 1,
-          "name": "TORQUE_INTERFACE_FAILED"
-        },
-        {
-          "value": 0,
-          "name": "TORQUE_INTERFACE_NORMAL"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000005c",
-      "name": "DI_torque2.DI_brakePedalState",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 2,
-          "name": "INVALID"
-        },
-        {
-          "value": 1,
-          "name": "ON"
-        },
-        {
-          "value": 0,
-          "name": "OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000005d",
-      "name": "DI_torque2.DI_epbParkRequest",
-      "values": [
-        {
-          "value": 1,
-          "name": "Park_requested"
-        },
-        {
-          "value": 0,
-          "name": "No_request"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000005e",
-      "name": "DI_torque2.DI_epbInterfaceReady",
-      "values": [
-        {
-          "value": 1,
-          "name": "EPB_INTERFACE_READY"
-        },
-        {
-          "value": 0,
-          "name": "EPB_INTERFACE_NOT_READY"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000005f",
-      "name": "BrakeMessage.driverBrakeStatus",
-      "values": [
-        {
-          "value": 2,
-          "name": "APPLIED"
-        },
-        {
-          "value": 1,
-          "name": "NOT_APPLIED"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000060",
-      "name": "STW_ACTN_RQ.SpdCtrlLvr_Stat",
-      "values": [
-        {
-          "value": 32,
-          "name": "DN_1ST"
-        },
-        {
-          "value": 16,
-          "name": "UP_1ST"
-        },
-        {
-          "value": 8,
-          "name": "DN_2ND"
-        },
-        {
-          "value": 4,
-          "name": "UP_2ND"
-        },
-        {
-          "value": 2,
-          "name": "RWD"
-        },
-        {
-          "value": 1,
-          "name": "FWD"
-        },
-        {
-          "value": 0,
-          "name": "IDLE"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000061",
-      "name": "STW_ACTN_RQ.DTR_Dist_Rq",
-      "values": [
-        {
-          "value": 255,
-          "name": "SNA"
-        },
-        {
-          "value": 200,
-          "name": "ACC_DIST_7"
-        },
-        {
-          "value": 166,
-          "name": "ACC_DIST_6"
-        },
-        {
-          "value": 133,
-          "name": "ACC_DIST_5"
-        },
-        {
-          "value": 100,
-          "name": "ACC_DIST_4"
-        },
-        {
-          "value": 66,
-          "name": "ACC_DIST_3"
-        },
-        {
-          "value": 33,
-          "name": "ACC_DIST_2"
-        },
-        {
-          "value": 0,
-          "name": "ACC_DIST_1"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000062",
-      "name": "STW_ACTN_RQ.TurnIndLvr_Stat",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 2,
-          "name": "RIGHT"
-        },
-        {
-          "value": 1,
-          "name": "LEFT"
-        },
-        {
-          "value": 0,
-          "name": "IDLE"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000063",
-      "name": "STW_ACTN_RQ.HiBmLvr_Stat",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 2,
-          "name": "HIBM_FLSH_ON_PSD"
-        },
-        {
-          "value": 1,
-          "name": "HIBM_ON_PSD"
-        },
-        {
-          "value": 0,
-          "name": "IDLE"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000064",
-      "name": "STW_ACTN_RQ.WprWashSw_Psd",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 2,
-          "name": "WASH"
-        },
-        {
-          "value": 1,
-          "name": "TIPWIPE"
-        },
-        {
-          "value": 0,
-          "name": "NPSD"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000065",
-      "name": "STW_ACTN_RQ.WprWash_R_Sw_Posn_V2",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 2,
-          "name": "WASH"
-        },
-        {
-          "value": 1,
-          "name": "INTERVAL"
-        },
-        {
-          "value": 0,
-          "name": "OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000066",
-      "name": "STW_ACTN_RQ.StW_Lvr_Stat",
-      "values": [
-        {
-          "value": 4,
-          "name": "STW_BACK"
-        },
-        {
-          "value": 3,
-          "name": "STW_FWD"
-        },
-        {
-          "value": 2,
-          "name": "STW_DOWN"
-        },
-        {
-          "value": 1,
-          "name": "STW_UP"
-        },
-        {
-          "value": 0,
-          "name": "NPSD"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000067",
-      "name": "STW_ACTN_RQ.StW_Cond_Psd",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 2,
-          "name": "DOWN"
-        },
-        {
-          "value": 1,
-          "name": "UP"
-        },
-        {
-          "value": 0,
-          "name": "NPSD"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000068",
-      "name": "STW_ACTN_RQ.HrnSw_Psd",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 2,
-          "name": "NDEF2"
-        },
-        {
-          "value": 1,
-          "name": "PSD"
-        },
-        {
-          "value": 0,
-          "name": "NPSD"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000069",
-      "name": "STW_ACTN_RQ.StW_Sw00_Psd",
-      "values": [
-        {
-          "value": 1,
-          "name": "PRESSED"
-        },
-        {
-          "value": 0,
-          "name": "NOT_PRESSED_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000006a",
-      "name": "STW_ACTN_RQ.StW_Sw01_Psd",
-      "values": [
-        {
-          "value": 1,
-          "name": "PRESSED"
-        },
-        {
-          "value": 0,
-          "name": "NOT_PRESSED_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000006b",
-      "name": "STW_ACTN_RQ.StW_Sw03_Psd",
-      "values": [
-        {
-          "value": 1,
-          "name": "PRESSED"
-        },
-        {
-          "value": 0,
-          "name": "NOT_PRESSED_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000006c",
-      "name": "STW_ACTN_RQ.StW_Sw04_Psd",
-      "values": [
-        {
-          "value": 1,
-          "name": "PRESSED"
-        },
-        {
-          "value": 0,
-          "name": "NOT_PRESSED_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000006d",
-      "name": "STW_ACTN_RQ.WprSw6Posn",
-      "values": [
-        {
-          "value": 7,
-          "name": "SNA"
-        },
-        {
-          "value": 6,
-          "name": "STAGE2"
-        },
-        {
-          "value": 5,
-          "name": "STAGE1"
-        },
-        {
-          "value": 4,
-          "name": "INTERVAL4"
-        },
-        {
-          "value": 3,
-          "name": "INTERVAL3"
-        },
-        {
-          "value": 2,
-          "name": "INTERVAL2"
-        },
-        {
-          "value": 1,
-          "name": "INTERVAL1"
-        },
-        {
-          "value": 0,
-          "name": "OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000006e",
-      "name": "DI_state.DI_systemState",
-      "values": [
-        {
-          "value": 3,
-          "name": "ABORT"
-        },
-        {
-          "value": 4,
-          "name": "ENABLE"
-        },
-        {
-          "value": 2,
-          "name": "FAULT"
-        },
-        {
-          "value": 1,
-          "name": "STANDBY"
-        },
-        {
-          "value": 0,
-          "name": "UNAVAILABLE"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000006f",
-      "name": "DI_state.DI_vehicleHoldState",
-      "values": [
-        {
-          "value": 2,
-          "name": "BLEND_IN"
-        },
-        {
-          "value": 4,
-          "name": "BLEND_OUT"
-        },
-        {
-          "value": 6,
-          "name": "FAULT"
-        },
-        {
-          "value": 7,
-          "name": "INIT"
-        },
-        {
-          "value": 5,
-          "name": "PARK"
-        },
-        {
-          "value": 1,
-          "name": "STANDBY"
-        },
-        {
-          "value": 3,
-          "name": "STANDSTILL"
-        },
-        {
-          "value": 0,
-          "name": "UNAVAILABLE"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000070",
-      "name": "DI_state.DI_state",
-      "values": [
-        {
-          "value": 3,
-          "name": "ABORT"
-        },
-        {
-          "value": 4,
-          "name": "ENABLE"
-        },
-        {
-          "value": 2,
-          "name": "FAULT"
-        },
-        {
-          "value": 1,
-          "name": "STANDBY"
-        },
-        {
-          "value": 0,
-          "name": "UNAVAILABLE"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000071",
-      "name": "DI_state.DI_cruiseState",
-      "values": [
-        {
-          "value": 2,
-          "name": "ENABLED"
-        },
-        {
-          "value": 5,
-          "name": "FAULT"
-        },
-        {
-          "value": 0,
-          "name": "OFF"
-        },
-        {
-          "value": 4,
-          "name": "OVERRIDE"
-        },
-        {
-          "value": 7,
-          "name": "PRE_CANCEL"
-        },
-        {
-          "value": 6,
-          "name": "PRE_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "STANDBY"
-        },
-        {
-          "value": 3,
-          "name": "STANDSTILL"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000072",
-      "name": "DI_state.DI_analogSpeed",
-      "values": [
-        {
-          "value": 4095,
-          "name": "SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000073",
-      "name": "DI_state.DI_immobilizerState",
-      "values": [
-        {
-          "value": 2,
-          "name": "AUTHENTICATING"
-        },
-        {
-          "value": 3,
-          "name": "DISARMED"
-        },
-        {
-          "value": 6,
-          "name": "FAULT"
-        },
-        {
-          "value": 4,
-          "name": "IDLE"
-        },
-        {
-          "value": 0,
-          "name": "INIT_SNA"
-        },
-        {
-          "value": 1,
-          "name": "REQUEST"
-        },
-        {
-          "value": 5,
-          "name": "RESET"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000074",
-      "name": "DI_state.DI_speedUnits",
-      "values": [
-        {
-          "value": 1,
-          "name": "KPH"
-        },
-        {
-          "value": 0,
-          "name": "MPH"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000075",
-      "name": "DI_state.DI_aebState",
-      "values": [
-        {
-          "value": 2,
-          "name": "ENABLED"
-        },
-        {
-          "value": 4,
-          "name": "FAULT"
-        },
-        {
-          "value": 7,
-          "name": "SNA"
-        },
-        {
-          "value": 1,
-          "name": "STANDBY"
-        },
-        {
-          "value": 3,
-          "name": "STANDSTILL"
-        },
-        {
-          "value": 0,
-          "name": "UNAVAILABLE"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000076",
-      "name": "DI_state.DI_digitalSpeed",
-      "values": [
-        {
-          "value": 255,
-          "name": "SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000077",
-      "name": "DAS_control.DAS_setSpeed",
-      "values": [
-        {
-          "value": 4095,
-          "name": "SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000078",
-      "name": "DAS_control.DAS_accState",
-      "values": [
-        {
-          "value": 15,
-          "name": "FAULT_SNA"
-        },
-        {
-          "value": 13,
-          "name": "ACC_CANCEL_GENERIC_SILENT"
-        },
-        {
-          "value": 11,
-          "name": "APC_SELFPARK_START"
-        },
-        {
-          "value": 10,
-          "name": "APC_UNPARK_COMPLETE"
-        },
-        {
-          "value": 9,
-          "name": "APC_PAUSE"
-        },
-        {
-          "value": 8,
-          "name": "APC_ABORT"
-        },
-        {
-          "value": 7,
-          "name": "APC_COMPLETE"
-        },
-        {
-          "value": 6,
-          "name": "APC_FORWARD"
-        },
-        {
-          "value": 5,
-          "name": "APC_BACKWARD"
-        },
-        {
-          "value": 4,
-          "name": "ACC_ON"
-        },
-        {
-          "value": 3,
-          "name": "ACC_HOLD"
-        },
-        {
-          "value": 0,
-          "name": "ACC_CANCEL_GENERIC"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000079",
-      "name": "DAS_control.DAS_aebEvent",
-      "values": [
-        {
-          "value": 3,
-          "name": "AEB_SNA"
-        },
-        {
-          "value": 2,
-          "name": "AEB_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "AEB_ACTIVE"
-        },
-        {
-          "value": 0,
-          "name": "AEB_NOT_ACTIVE"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000007a",
-      "name": "DAS_control.DAS_jerkMin",
-      "values": [
-        {
-          "value": 511,
-          "name": "SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000007b",
-      "name": "DAS_control.DAS_jerkMax",
-      "values": [
-        {
-          "value": 255,
-          "name": "SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000007c",
-      "name": "DAS_control.DAS_accelMin",
-      "values": [
-        {
-          "value": 511,
-          "name": "SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000007d",
-      "name": "DAS_control.DAS_accelMax",
-      "values": [
-        {
-          "value": 511,
-          "name": "SNA"
-        }
-      ]
     }
   ],
   "hash": ""

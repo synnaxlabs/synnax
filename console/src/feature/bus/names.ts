@@ -19,11 +19,11 @@ interface Selector {
 }
 
 /** @returns the multiplexors that select a field, outermost first. */
-const selectorsOf = (entry: icd.MessageEntry, field: icd.BaseField): Selector[] => {
+const selectorsOf = (definition: icd.Message, field: icd.BaseField): Selector[] => {
   if (field.multiplexor == null) return [];
-  const multiplexor = fieldOf(entry, field.multiplexor);
+  const multiplexor = fieldOf(definition, field.multiplexor);
   const values = [...new Set(field.multiplexValues)].sort((a, b) => a - b);
-  return [...selectorsOf(entry, multiplexor), { multiplexor, values }];
+  return [...selectorsOf(definition, multiplexor), { multiplexor, values }];
 };
 
 /**
@@ -35,14 +35,14 @@ const selectorsOf = (entry: icd.MessageEntry, field: icd.BaseField): Selector[] 
  */
 export const indexName = (
   device: string,
-  entry: icd.MessageEntry,
+  definition: icd.Message,
   field: icd.FieldKey,
 ): string => {
-  const base = `${safe(device)}_${safe(entry.name)}`;
-  const selectors = selectorsOf(entry, fieldOf(entry, field));
+  const base = `${safe(device)}_${safe(definition.name)}`;
+  const selectors = selectorsOf(definition, fieldOf(definition, field));
   if (selectors.length === 0) return `${base}_time`;
   const multiplexors = new Set(
-    entry.payload.fields.flatMap((f) => f.multiplexor ?? []),
+    definition.payload.fields.flatMap((f) => f.multiplexor ?? []),
   );
   const group =
     multiplexors.size === 1

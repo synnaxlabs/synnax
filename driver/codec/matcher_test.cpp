@@ -24,12 +24,12 @@ namespace driver::codec {
 namespace {
 namespace icd = synnax::icd;
 
-icd::MessageEntry message(
+icd::Message message(
     std::optional<icd::Identifier> identifier,
     const std::string &name = "message",
     std::vector<icd::BinaryField> fields = {}
 ) {
-    icd::MessageEntry m;
+    icd::Message m;
     m.key = x::uuid::create();
     m.name = name;
     m.payload = icd::BinaryPayload{
@@ -39,25 +39,22 @@ icd::MessageEntry message(
     return m;
 }
 
-icd::MessageEntry
+icd::Message
 can(const std::uint32_t id,
     const bool extended = false,
     const std::optional<std::uint32_t> mask = std::nullopt) {
-    return message(
-        icd::CanIdentifier{.id = id, .extended = extended, .mask = mask}
-    );
+    return message(icd::CanIdentifier{.id = id, .extended = extended, .mask = mask});
 }
 
-icd::MessageEntry
-prefixed(const std::string &prefix, const std::string &name = "message") {
-    icd::MessageEntry m;
+icd::Message prefixed(const std::string &prefix, const std::string &name = "message") {
+    icd::Message m;
     m.key = x::uuid::create();
     m.name = name;
     m.payload = icd::TextPayload{.prefix = prefix};
     return m;
 }
 
-icd::MessageEntry header(
+icd::Message header(
     const std::int32_t value,
     const std::string &name = "message",
     const std::uint8_t bit_length = 8
@@ -218,9 +215,7 @@ TEST(Matcher, RejectsAFloatHeaderField) {
 namespace driver::codec {
 TEST(Matcher, RejectsAHeaderFieldThatIsNotInTheMessage) {
     auto m = header(1);
-    std::get<icd::FieldIdentifier>(
-        *std::get<icd::BinaryPayload>(m.payload).identifier
-    )
+    std::get<icd::FieldIdentifier>(*std::get<icd::BinaryPayload>(m.payload).identifier)
         .field = x::uuid::create();
     const std::vector messages = {m};
     const auto [_, err] = Matcher::compile(messages);

@@ -1,9 +1,8 @@
 {
   "key": "00000000-0000-4000-8000-000000000000",
   "name": "opendbc_tesla_model3_vehicle",
-  "entries": [
+  "messages": [
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000001",
       "name": "VCLEFT_switchStatus",
       "payload": {
@@ -23,7 +22,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000dd",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -56,7 +54,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000de",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -137,7 +134,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000df",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -170,7 +166,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000e0",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -187,7 +182,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000e1",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [1],
             "min": 0,
@@ -204,7 +198,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000e2",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -253,7 +246,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000e3",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [1],
             "min": 0,
@@ -270,7 +262,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000e4",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -287,7 +278,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000e5",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [1],
             "min": 0,
@@ -384,7 +374,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000e6",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -401,7 +390,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000e7",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -450,7 +438,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000e8",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -483,7 +470,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000e9",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -500,7 +486,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000ea",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -517,7 +502,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000eb",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -566,7 +550,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000ec",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [1],
             "min": 0,
@@ -583,7 +566,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000ed",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -616,7 +598,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000ee",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [1],
             "min": 0,
@@ -633,7 +614,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000ef",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [1],
             "min": 0,
@@ -666,7 +646,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000f0",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -683,7 +662,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000f1",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -700,7 +678,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000f2",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -733,7 +710,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000f3",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -750,7 +726,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000f4",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -767,7 +742,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000f5",
             "multiplexor": "00000000-0000-4000-8000-000000000034",
             "multiplex_values": [0],
             "min": 0,
@@ -848,7 +822,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000f6",
             "multiplex_values": [],
             "min": 0,
             "max": 2,
@@ -894,7 +867,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000037",
       "name": "VCRIGHT_doorStatus",
       "payload": {
@@ -929,7 +901,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000f7",
             "multiplex_values": [],
             "min": 0,
             "max": 8,
@@ -945,7 +916,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000f8",
             "multiplex_values": [],
             "min": 0,
             "max": 4,
@@ -961,7 +931,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000f9",
             "multiplex_values": [],
             "min": 0,
             "max": 8,
@@ -1007,7 +976,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000fa",
             "multiplex_values": [],
             "min": 0,
             "max": 5,
@@ -1038,7 +1006,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000fb",
             "multiplex_values": [],
             "min": 0,
             "max": 4,
@@ -1129,7 +1096,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000fc",
             "multiplex_values": [],
             "min": 0,
             "max": 8,
@@ -1233,7 +1199,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000004d",
       "name": "SCCM_leftStalk",
       "payload": {
@@ -1268,7 +1233,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000fd",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -1284,7 +1248,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000fe",
             "multiplex_values": [],
             "min": 0,
             "max": 5,
@@ -1330,7 +1293,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-0000000000ff",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -1344,7 +1306,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000054",
       "name": "DI_systemStatus",
       "payload": {
@@ -1364,7 +1325,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000100",
             "multiplex_values": [],
             "min": 0,
             "max": 2,
@@ -1410,7 +1370,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000101",
             "multiplex_values": [],
             "min": 0,
             "max": 1,
@@ -1426,7 +1385,6 @@
             "scale": 0.4,
             "offset": 0,
             "units": "%",
-            "enumeration": "00000000-0000-4000-8000-000000000102",
             "multiplex_values": [],
             "min": 0,
             "max": 100,
@@ -1442,7 +1400,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000103",
             "multiplex_values": [],
             "min": 0,
             "max": 7,
@@ -1458,7 +1415,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000104",
             "multiplex_values": [],
             "min": 0,
             "max": 5,
@@ -1474,7 +1430,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000105",
             "multiplex_values": [],
             "min": 0,
             "max": 2,
@@ -1505,7 +1460,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000106",
             "multiplex_values": [],
             "min": 0,
             "max": 5,
@@ -1521,7 +1475,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000107",
             "multiplex_values": [],
             "min": 0,
             "max": 6,
@@ -1552,7 +1505,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000108",
             "multiplex_values": [],
             "min": 0,
             "max": 2,
@@ -1566,7 +1518,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000062",
       "name": "VCRIGHT_status",
       "payload": {
@@ -1616,7 +1567,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000109",
             "multiplex_values": [],
             "min": 0,
             "max": 4,
@@ -1647,7 +1597,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000010a",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -1678,7 +1627,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000010b",
             "multiplex_values": [],
             "min": 0,
             "max": 4,
@@ -1737,7 +1685,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000006d",
       "name": "SCCM_rightStalk",
       "payload": {
@@ -1802,7 +1749,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000010c",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -1833,7 +1779,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000010d",
             "multiplex_values": [],
             "min": 0,
             "max": 6,
@@ -1847,7 +1792,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000074",
       "name": "SCCM_steeringAngleSensor",
       "payload": {
@@ -1867,7 +1811,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000010e",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -1928,7 +1871,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000010f",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -2017,7 +1959,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000007f",
       "name": "VCLEFT_doorStatus",
       "payload": {
@@ -2067,7 +2008,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000110",
             "multiplex_values": [],
             "min": 0,
             "max": 5,
@@ -2173,7 +2113,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000111",
             "multiplex_values": [],
             "min": 0,
             "max": 8,
@@ -2219,7 +2158,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000112",
             "multiplex_values": [],
             "min": 0,
             "max": 4,
@@ -2265,7 +2203,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000113",
             "multiplex_values": [],
             "min": 0,
             "max": 4,
@@ -2311,7 +2248,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000114",
             "multiplex_values": [],
             "min": 0,
             "max": 8,
@@ -2327,7 +2263,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000115",
             "multiplex_values": [],
             "min": 0,
             "max": 4,
@@ -2341,7 +2276,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000094",
       "name": "STW_ACTN_RQ",
       "payload": {
@@ -2361,7 +2295,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000116",
             "multiplex_values": [],
             "start_bit": 0,
             "bit_length": 6,
@@ -2401,7 +2334,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000117",
             "multiplex_values": [],
             "min": 0,
             "max": 200,
@@ -2417,7 +2349,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000118",
             "multiplex_values": [],
             "start_bit": 16,
             "bit_length": 2,
@@ -2431,7 +2362,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000119",
             "multiplex_values": [],
             "start_bit": 18,
             "bit_length": 2,
@@ -2445,7 +2375,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000011a",
             "multiplex_values": [],
             "start_bit": 20,
             "bit_length": 2,
@@ -2459,7 +2388,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000011b",
             "multiplex_values": [],
             "start_bit": 22,
             "bit_length": 2,
@@ -2473,7 +2401,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000011c",
             "multiplex_values": [],
             "start_bit": 24,
             "bit_length": 3,
@@ -2500,7 +2427,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000011d",
             "multiplex_values": [],
             "start_bit": 28,
             "bit_length": 2,
@@ -2514,7 +2440,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000011e",
             "multiplex_values": [],
             "start_bit": 30,
             "bit_length": 2,
@@ -2528,7 +2453,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000011f",
             "multiplex_values": [],
             "start_bit": 32,
             "bit_length": 1,
@@ -2542,7 +2466,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000120",
             "multiplex_values": [],
             "start_bit": 33,
             "bit_length": 1,
@@ -2569,7 +2492,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000121",
             "multiplex_values": [],
             "start_bit": 35,
             "bit_length": 1,
@@ -2583,7 +2505,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000122",
             "multiplex_values": [],
             "start_bit": 36,
             "bit_length": 1,
@@ -2740,7 +2661,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000123",
             "multiplex_values": [],
             "start_bit": 48,
             "bit_length": 3,
@@ -2780,7 +2700,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-0000000000b4",
       "name": "DAS_bodyControls",
       "payload": {
@@ -2800,7 +2719,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000124",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -2816,7 +2734,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000125",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -2832,7 +2749,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000126",
             "multiplex_values": [],
             "min": 0,
             "max": 15,
@@ -2848,7 +2764,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000127",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -2864,7 +2779,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000128",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -2880,7 +2794,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000129",
             "multiplex_values": [],
             "min": 0,
             "max": 2,
@@ -2896,7 +2809,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000012a",
             "multiplex_values": [],
             "min": 0,
             "max": 8,
@@ -2970,7 +2882,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-0000000000c0",
       "name": "ID3F5VCFRONT_lighting",
       "payload": {
@@ -3020,7 +2931,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000012b",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -3051,7 +2961,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000012c",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -3067,7 +2976,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000012d",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -3083,7 +2991,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000012e",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -3099,7 +3006,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000012f",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -3115,7 +3021,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000130",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -3131,7 +3036,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000131",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -3147,7 +3051,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000132",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -3163,7 +3066,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000133",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -3179,7 +3081,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000134",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -3195,7 +3096,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000135",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -3211,7 +3111,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000136",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -3227,7 +3126,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000137",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -3243,7 +3141,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000138",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -3259,7 +3156,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000139",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -3275,7 +3171,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000013a",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -3351,7 +3246,6 @@
             "scale": 0.5,
             "offset": 0,
             "units": "%",
-            "enumeration": "00000000-0000-4000-8000-00000000013b",
             "multiplex_values": [],
             "min": 0,
             "max": 127,
@@ -3367,7 +3261,6 @@
             "scale": 0.5,
             "offset": 0,
             "units": "%",
-            "enumeration": "00000000-0000-4000-8000-00000000013c",
             "multiplex_values": [],
             "min": 0,
             "max": 127,
@@ -3383,7 +3276,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000013d",
             "multiplex_values": [],
             "min": 0,
             "max": 8,
@@ -3399,7 +3291,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000013e",
             "multiplex_values": [],
             "min": 0,
             "max": 2,
@@ -3415,7 +3306,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000013f",
             "multiplex_values": [],
             "min": 0,
             "max": 2,
@@ -3427,2515 +3317,6 @@
           }
         ]
       }
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000dd",
-      "name": "VCLEFT_switchStatus.VCLEFT_frontBuckleSwitch",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000de",
-      "name": "VCLEFT_switchStatus.VCLEFT_frontSeatTrackBack",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000df",
-      "name": "VCLEFT_switchStatus.VCLEFT_rightMirrorTilt",
-      "values": [
-        {
-          "value": 4,
-          "name": "MIRROR_TILT_LEFT"
-        },
-        {
-          "value": 2,
-          "name": "MIRROR_TILT_UP"
-        },
-        {
-          "value": 3,
-          "name": "MIRROR_TILT_RIGHT"
-        },
-        {
-          "value": 0,
-          "name": "MIRROR_TILT_STOP"
-        },
-        {
-          "value": 1,
-          "name": "MIRROR_TILT_DOWN"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000e0",
-      "name": "VCLEFT_switchStatus.VCLEFT_frontOccupancySwitch",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000e1",
-      "name": "VCLEFT_switchStatus.VCLEFT_swcRightTiltLeft",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000e2",
-      "name": "VCLEFT_switchStatus.VCLEFT_rearRightOccupancySwitch",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000e3",
-      "name": "VCLEFT_switchStatus.VCLEFT_swcLeftTiltRight",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000e4",
-      "name": "VCLEFT_switchStatus.VCLEFT_frontSeatBackrestForward",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000e5",
-      "name": "VCLEFT_switchStatus.VCLEFT_swcRightTiltRight",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000e6",
-      "name": "VCLEFT_switchStatus.VCLEFT_frontSeatLumbarIn",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000e7",
-      "name": "VCLEFT_switchStatus.VCLEFT_frontSeatLiftUp",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000e8",
-      "name": "VCLEFT_switchStatus.VCLEFT_frontSeatLumbarDown",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000e9",
-      "name": "VCLEFT_switchStatus.VCLEFT_frontSeatTiltDown",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000ea",
-      "name": "VCLEFT_switchStatus.VCLEFT_frontSeatTrackForward",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000eb",
-      "name": "VCLEFT_switchStatus.VCLEFT_rearLeftBuckleSwitch",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000ec",
-      "name": "VCLEFT_switchStatus.VCLEFT_swcRightPressed",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000ed",
-      "name": "VCLEFT_switchStatus.VCLEFT_frontSeatLumbarOut",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000ee",
-      "name": "VCLEFT_switchStatus.VCLEFT_swcLeftTiltLeft",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000ef",
-      "name": "VCLEFT_switchStatus.VCLEFT_swcLeftPressed",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000f0",
-      "name": "VCLEFT_switchStatus.VCLEFT_frontSeatTiltUp",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000f1",
-      "name": "VCLEFT_switchStatus.VCLEFT_rearLeftOccupancySwitch",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000f2",
-      "name": "VCLEFT_switchStatus.VCLEFT_frontSeatBackrestBack",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000f3",
-      "name": "VCLEFT_switchStatus.VCLEFT_rearCenterOccupancySwitch",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000f4",
-      "name": "VCLEFT_switchStatus.VCLEFT_frontSeatLumbarUp",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000f5",
-      "name": "VCLEFT_switchStatus.VCLEFT_frontSeatLiftDown",
-      "values": [
-        {
-          "value": 2,
-          "name": "SWITCH_ON"
-        },
-        {
-          "value": 0,
-          "name": "SWITCH_SNA"
-        },
-        {
-          "value": 3,
-          "name": "SWITCH_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "SWITCH_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000f6",
-      "name": "VCLEFT_switchStatus.VCLEFT_switchStatusIndex",
-      "values": [
-        {
-          "value": 1,
-          "name": "VCLEFT_SWITCH_STATUS_INDEX_1"
-        },
-        {
-          "value": 2,
-          "name": "VCLEFT_SWITCH_STATUS_INDEX_INVALID"
-        },
-        {
-          "value": 0,
-          "name": "VCLEFT_SWITCH_STATUS_INDEX_0"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000f7",
-      "name": "VCRIGHT_doorStatus.VCRIGHT_trunkLatchStatus",
-      "values": [
-        {
-          "value": 8,
-          "name": "LATCH_FAULT"
-        },
-        {
-          "value": 2,
-          "name": "LATCH_CLOSED"
-        },
-        {
-          "value": 1,
-          "name": "LATCH_OPENED"
-        },
-        {
-          "value": 3,
-          "name": "LATCH_CLOSING"
-        },
-        {
-          "value": 7,
-          "name": "LATCH_DEFAULT"
-        },
-        {
-          "value": 4,
-          "name": "LATCH_OPENING"
-        },
-        {
-          "value": 5,
-          "name": "LATCH_AJAR"
-        },
-        {
-          "value": 6,
-          "name": "LATCH_TIMEOUT"
-        },
-        {
-          "value": 0,
-          "name": "LATCH_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000f8",
-      "name": "VCRIGHT_doorStatus.VCRIGHT_mirrorFoldState",
-      "values": [
-        {
-          "value": 4,
-          "name": "MIRROR_FOLD_STATE_UNFOLDING"
-        },
-        {
-          "value": 1,
-          "name": "MIRROR_FOLD_STATE_FOLDED"
-        },
-        {
-          "value": 3,
-          "name": "MIRROR_FOLD_STATE_FOLDING"
-        },
-        {
-          "value": 0,
-          "name": "MIRROR_FOLD_STATE_UNKNOWN"
-        },
-        {
-          "value": 2,
-          "name": "MIRROR_FOLD_STATE_UNFOLDED"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000f9",
-      "name": "VCRIGHT_doorStatus.VCRIGHT_rearLatchStatus",
-      "values": [
-        {
-          "value": 8,
-          "name": "LATCH_FAULT"
-        },
-        {
-          "value": 2,
-          "name": "LATCH_CLOSED"
-        },
-        {
-          "value": 1,
-          "name": "LATCH_OPENED"
-        },
-        {
-          "value": 3,
-          "name": "LATCH_CLOSING"
-        },
-        {
-          "value": 7,
-          "name": "LATCH_DEFAULT"
-        },
-        {
-          "value": 4,
-          "name": "LATCH_OPENING"
-        },
-        {
-          "value": 5,
-          "name": "LATCH_AJAR"
-        },
-        {
-          "value": 6,
-          "name": "LATCH_TIMEOUT"
-        },
-        {
-          "value": 0,
-          "name": "LATCH_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000fa",
-      "name": "VCRIGHT_doorStatus.VCRIGHT_mirrorRecallState",
-      "values": [
-        {
-          "value": 5,
-          "name": "MIRROR_RECALL_STATE_RECALLING_STOPPED"
-        },
-        {
-          "value": 2,
-          "name": "MIRROR_RECALL_STATE_RECALLING_AXIS_2"
-        },
-        {
-          "value": 0,
-          "name": "MIRROR_RECALL_STATE_INIT"
-        },
-        {
-          "value": 3,
-          "name": "MIRROR_RECALL_STATE_RECALLING_COMPLETE"
-        },
-        {
-          "value": 4,
-          "name": "MIRROR_RECALL_STATE_RECALLING_FAILED"
-        },
-        {
-          "value": 1,
-          "name": "MIRROR_RECALL_STATE_RECALLING_AXIS_1"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000fb",
-      "name": "VCRIGHT_doorStatus.VCRIGHT_mirrorState",
-      "values": [
-        {
-          "value": 3,
-          "name": "MIRROR_STATE_FOLD_UNFOLD"
-        },
-        {
-          "value": 1,
-          "name": "MIRROR_STATE_TILT_X"
-        },
-        {
-          "value": 0,
-          "name": "MIRROR_STATE_IDLE"
-        },
-        {
-          "value": 2,
-          "name": "MIRROR_STATE_TILT_Y"
-        },
-        {
-          "value": 4,
-          "name": "MIRROR_STATE_RECALL"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000fc",
-      "name": "VCRIGHT_doorStatus.VCRIGHT_frontLatchStatus",
-      "values": [
-        {
-          "value": 8,
-          "name": "LATCH_FAULT"
-        },
-        {
-          "value": 2,
-          "name": "LATCH_CLOSED"
-        },
-        {
-          "value": 1,
-          "name": "LATCH_OPENED"
-        },
-        {
-          "value": 3,
-          "name": "LATCH_CLOSING"
-        },
-        {
-          "value": 7,
-          "name": "LATCH_DEFAULT"
-        },
-        {
-          "value": 4,
-          "name": "LATCH_OPENING"
-        },
-        {
-          "value": 5,
-          "name": "LATCH_AJAR"
-        },
-        {
-          "value": 6,
-          "name": "LATCH_TIMEOUT"
-        },
-        {
-          "value": 0,
-          "name": "LATCH_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000fd",
-      "name": "SCCM_leftStalk.SCCM_washWipeButtonStatus",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 0,
-          "name": "NOT_PRESSED"
-        },
-        {
-          "value": 2,
-          "name": "2ND_DETENT"
-        },
-        {
-          "value": 1,
-          "name": "1ST_DETENT"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000fe",
-      "name": "SCCM_leftStalk.SCCM_turnIndicatorStalkStatus",
-      "values": [
-        {
-          "value": 3,
-          "name": "DOWN_1"
-        },
-        {
-          "value": 5,
-          "name": "SNA"
-        },
-        {
-          "value": 0,
-          "name": "IDLE"
-        },
-        {
-          "value": 1,
-          "name": "UP_1"
-        },
-        {
-          "value": 4,
-          "name": "DOWN_2"
-        },
-        {
-          "value": 2,
-          "name": "UP_2"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-0000000000ff",
-      "name": "SCCM_leftStalk.SCCM_highBeamStalkStatus",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 0,
-          "name": "IDLE"
-        },
-        {
-          "value": 1,
-          "name": "PULL"
-        },
-        {
-          "value": 2,
-          "name": "PUSH"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000100",
-      "name": "DI_systemStatus.DI_epbRequest",
-      "values": [
-        {
-          "value": 0,
-          "name": "DI_EPBREQUEST_NO_REQUEST"
-        },
-        {
-          "value": 1,
-          "name": "DI_EPBREQUEST_PARK"
-        },
-        {
-          "value": 2,
-          "name": "DI_EPBREQUEST_UNPARK"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000101",
-      "name": "DI_systemStatus.DI_keepAliveRequest",
-      "values": [
-        {
-          "value": 1,
-          "name": "KEEP_ALIVE"
-        },
-        {
-          "value": 0,
-          "name": "NO_REQUEST"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000102",
-      "name": "DI_systemStatus.DI_accelPedalPos",
-      "values": [
-        {
-          "value": 255,
-          "name": "SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000103",
-      "name": "DI_systemStatus.DI_gear",
-      "values": [
-        {
-          "value": 1,
-          "name": "DI_GEAR_P"
-        },
-        {
-          "value": 0,
-          "name": "DI_GEAR_INVALID"
-        },
-        {
-          "value": 7,
-          "name": "DI_GEAR_SNA"
-        },
-        {
-          "value": 2,
-          "name": "DI_GEAR_R"
-        },
-        {
-          "value": 3,
-          "name": "DI_GEAR_N"
-        },
-        {
-          "value": 4,
-          "name": "DI_GEAR_D"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000104",
-      "name": "DI_systemStatus.DI_tractionControlMode",
-      "values": [
-        {
-          "value": 0,
-          "name": "TC_NORMAL"
-        },
-        {
-          "value": 1,
-          "name": "TC_SLIP_START"
-        },
-        {
-          "value": 4,
-          "name": "TC_ROLLS_MODE"
-        },
-        {
-          "value": 2,
-          "name": "TC_DEV_MODE_1"
-        },
-        {
-          "value": 5,
-          "name": "TC_DYNO_MODE"
-        },
-        {
-          "value": 3,
-          "name": "TC_DEV_MODE_2"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000105",
-      "name": "DI_systemStatus.DI_trackModeState",
-      "values": [
-        {
-          "value": 0,
-          "name": "TRACK_MODE_UNAVAILABLE"
-        },
-        {
-          "value": 1,
-          "name": "TRACK_MODE_AVAILABLE"
-        },
-        {
-          "value": 2,
-          "name": "TRACK_MODE_ON"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000106",
-      "name": "DI_systemStatus.DI_systemState",
-      "values": [
-        {
-          "value": 5,
-          "name": "DI_SYS_ENABLE"
-        },
-        {
-          "value": 1,
-          "name": "DI_SYS_IDLE"
-        },
-        {
-          "value": 2,
-          "name": "DI_SYS_STANDBY"
-        },
-        {
-          "value": 0,
-          "name": "DI_SYS_UNAVAILABLE"
-        },
-        {
-          "value": 3,
-          "name": "DI_SYS_FAULT"
-        },
-        {
-          "value": 4,
-          "name": "DI_SYS_ABORT"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000107",
-      "name": "DI_systemStatus.DI_immobilizerState",
-      "values": [
-        {
-          "value": 2,
-          "name": "DI_IMM_STATE_AUTHENTICATING"
-        },
-        {
-          "value": 0,
-          "name": "DI_IMM_STATE_INIT_SNA"
-        },
-        {
-          "value": 3,
-          "name": "DI_IMM_STATE_DISARMED"
-        },
-        {
-          "value": 4,
-          "name": "DI_IMM_STATE_IDLE"
-        },
-        {
-          "value": 6,
-          "name": "DI_IMM_STATE_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "DI_IMM_STATE_REQUEST"
-        },
-        {
-          "value": 5,
-          "name": "DI_IMM_STATE_RESET"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000108",
-      "name": "DI_systemStatus.DI_brakePedalState",
-      "values": [
-        {
-          "value": 2,
-          "name": "INVALID"
-        },
-        {
-          "value": 0,
-          "name": "OFF"
-        },
-        {
-          "value": 1,
-          "name": "ON"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000109",
-      "name": "VCRIGHT_status.VCRIGHT_rearDefrostState",
-      "values": [
-        {
-          "value": 2,
-          "name": "HEATER_STATE_OFF"
-        },
-        {
-          "value": 4,
-          "name": "HEATER_STATE_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "HEATER_STATE_ON"
-        },
-        {
-          "value": 0,
-          "name": "HEATER_STATE_SNA"
-        },
-        {
-          "value": 3,
-          "name": "HEATER_STATE_OFF_UNAVAILABLE"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000010a",
-      "name": "VCRIGHT_status.VCRIGHT_vehiclePowerStateDBG",
-      "values": [
-        {
-          "value": 3,
-          "name": "VEHICLE_POWER_STATE_DRIVE"
-        },
-        {
-          "value": 1,
-          "name": "VEHICLE_POWER_STATE_CONDITIONING"
-        },
-        {
-          "value": 2,
-          "name": "VEHICLE_POWER_STATE_ACCESSORY"
-        },
-        {
-          "value": 0,
-          "name": "VEHICLE_POWER_STATE_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000010b",
-      "name": "VCRIGHT_status.VCRIGHT_mirrorHeatState",
-      "values": [
-        {
-          "value": 2,
-          "name": "HEATER_STATE_OFF"
-        },
-        {
-          "value": 4,
-          "name": "HEATER_STATE_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "HEATER_STATE_ON"
-        },
-        {
-          "value": 0,
-          "name": "HEATER_STATE_SNA"
-        },
-        {
-          "value": 3,
-          "name": "HEATER_STATE_OFF_UNAVAILABLE"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000010c",
-      "name": "SCCM_rightStalk.SCCM_parkButtonStatus",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 0,
-          "name": "NOT_PRESSED"
-        },
-        {
-          "value": 2,
-          "name": "INIT"
-        },
-        {
-          "value": 1,
-          "name": "PRESSED"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000010d",
-      "name": "SCCM_rightStalk.SCCM_rightStalkStatus",
-      "values": [
-        {
-          "value": 3,
-          "name": "DOWN_1"
-        },
-        {
-          "value": 6,
-          "name": "SNA"
-        },
-        {
-          "value": 0,
-          "name": "IDLE"
-        },
-        {
-          "value": 5,
-          "name": "INIT"
-        },
-        {
-          "value": 1,
-          "name": "UP_1"
-        },
-        {
-          "value": 4,
-          "name": "DOWN_2"
-        },
-        {
-          "value": 2,
-          "name": "UP_2"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000010e",
-      "name": "SCCM_steeringAngleSensor.SCCM_steeringAngleValidity",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 2,
-          "name": "INIT"
-        },
-        {
-          "value": 0,
-          "name": "INVALID"
-        },
-        {
-          "value": 1,
-          "name": "VALID"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000010f",
-      "name": "SCCM_steeringAngleSensor.SCCM_steeringAngleSensorStatus",
-      "values": [
-        {
-          "value": 0,
-          "name": "OK"
-        },
-        {
-          "value": 1,
-          "name": "INIT"
-        },
-        {
-          "value": 2,
-          "name": "ERROR"
-        },
-        {
-          "value": 3,
-          "name": "ERROR_INIT"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000110",
-      "name": "VCLEFT_doorStatus.VCLEFT_mirrorRecallState",
-      "values": [
-        {
-          "value": 5,
-          "name": "MIRROR_RECALL_STATE_RECALLING_STOPPED"
-        },
-        {
-          "value": 2,
-          "name": "MIRROR_RECALL_STATE_RECALLING_AXIS_2"
-        },
-        {
-          "value": 0,
-          "name": "MIRROR_RECALL_STATE_INIT"
-        },
-        {
-          "value": 3,
-          "name": "MIRROR_RECALL_STATE_RECALLING_COMPLETE"
-        },
-        {
-          "value": 4,
-          "name": "MIRROR_RECALL_STATE_RECALLING_FAILED"
-        },
-        {
-          "value": 1,
-          "name": "MIRROR_RECALL_STATE_RECALLING_AXIS_1"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000111",
-      "name": "VCLEFT_doorStatus.VCLEFT_rearLatchStatus",
-      "values": [
-        {
-          "value": 8,
-          "name": "LATCH_FAULT"
-        },
-        {
-          "value": 2,
-          "name": "LATCH_CLOSED"
-        },
-        {
-          "value": 1,
-          "name": "LATCH_OPENED"
-        },
-        {
-          "value": 3,
-          "name": "LATCH_CLOSING"
-        },
-        {
-          "value": 7,
-          "name": "LATCH_DEFAULT"
-        },
-        {
-          "value": 4,
-          "name": "LATCH_OPENING"
-        },
-        {
-          "value": 5,
-          "name": "LATCH_AJAR"
-        },
-        {
-          "value": 6,
-          "name": "LATCH_TIMEOUT"
-        },
-        {
-          "value": 0,
-          "name": "LATCH_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000112",
-      "name": "VCLEFT_doorStatus.VCLEFT_mirrorState",
-      "values": [
-        {
-          "value": 3,
-          "name": "MIRROR_STATE_FOLD_UNFOLD"
-        },
-        {
-          "value": 1,
-          "name": "MIRROR_STATE_TILT_X"
-        },
-        {
-          "value": 0,
-          "name": "MIRROR_STATE_IDLE"
-        },
-        {
-          "value": 2,
-          "name": "MIRROR_STATE_TILT_Y"
-        },
-        {
-          "value": 4,
-          "name": "MIRROR_STATE_RECALL"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000113",
-      "name": "VCLEFT_doorStatus.VCLEFT_mirrorHeatState",
-      "values": [
-        {
-          "value": 2,
-          "name": "HEATER_STATE_OFF"
-        },
-        {
-          "value": 4,
-          "name": "HEATER_STATE_FAULT"
-        },
-        {
-          "value": 1,
-          "name": "HEATER_STATE_ON"
-        },
-        {
-          "value": 0,
-          "name": "HEATER_STATE_SNA"
-        },
-        {
-          "value": 3,
-          "name": "HEATER_STATE_OFF_UNAVAILABLE"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000114",
-      "name": "VCLEFT_doorStatus.VCLEFT_frontLatchStatus",
-      "values": [
-        {
-          "value": 8,
-          "name": "LATCH_FAULT"
-        },
-        {
-          "value": 2,
-          "name": "LATCH_CLOSED"
-        },
-        {
-          "value": 1,
-          "name": "LATCH_OPENED"
-        },
-        {
-          "value": 3,
-          "name": "LATCH_CLOSING"
-        },
-        {
-          "value": 7,
-          "name": "LATCH_DEFAULT"
-        },
-        {
-          "value": 4,
-          "name": "LATCH_OPENING"
-        },
-        {
-          "value": 5,
-          "name": "LATCH_AJAR"
-        },
-        {
-          "value": 6,
-          "name": "LATCH_TIMEOUT"
-        },
-        {
-          "value": 0,
-          "name": "LATCH_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000115",
-      "name": "VCLEFT_doorStatus.VCLEFT_mirrorFoldState",
-      "values": [
-        {
-          "value": 4,
-          "name": "MIRROR_FOLD_STATE_UNFOLDING"
-        },
-        {
-          "value": 1,
-          "name": "MIRROR_FOLD_STATE_FOLDED"
-        },
-        {
-          "value": 3,
-          "name": "MIRROR_FOLD_STATE_FOLDING"
-        },
-        {
-          "value": 0,
-          "name": "MIRROR_FOLD_STATE_UNKNOWN"
-        },
-        {
-          "value": 2,
-          "name": "MIRROR_FOLD_STATE_UNFOLDED"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000116",
-      "name": "STW_ACTN_RQ.SpdCtrlLvr_Stat",
-      "values": [
-        {
-          "value": 32,
-          "name": "DN_1ST"
-        },
-        {
-          "value": 16,
-          "name": "UP_1ST"
-        },
-        {
-          "value": 8,
-          "name": "DN_2ND"
-        },
-        {
-          "value": 4,
-          "name": "UP_2ND"
-        },
-        {
-          "value": 2,
-          "name": "RWD"
-        },
-        {
-          "value": 1,
-          "name": "FWD"
-        },
-        {
-          "value": 0,
-          "name": "IDLE"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000117",
-      "name": "STW_ACTN_RQ.DTR_Dist_Rq",
-      "values": [
-        {
-          "value": 255,
-          "name": "SNA"
-        },
-        {
-          "value": 200,
-          "name": "ACC_DIST_7"
-        },
-        {
-          "value": 166,
-          "name": "ACC_DIST_6"
-        },
-        {
-          "value": 133,
-          "name": "ACC_DIST_5"
-        },
-        {
-          "value": 100,
-          "name": "ACC_DIST_4"
-        },
-        {
-          "value": 66,
-          "name": "ACC_DIST_3"
-        },
-        {
-          "value": 33,
-          "name": "ACC_DIST_2"
-        },
-        {
-          "value": 0,
-          "name": "ACC_DIST_1"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000118",
-      "name": "STW_ACTN_RQ.TurnIndLvr_Stat",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 2,
-          "name": "RIGHT"
-        },
-        {
-          "value": 1,
-          "name": "LEFT"
-        },
-        {
-          "value": 0,
-          "name": "IDLE"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000119",
-      "name": "STW_ACTN_RQ.HiBmLvr_Stat",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 2,
-          "name": "HIBM_FLSH_ON_PSD"
-        },
-        {
-          "value": 1,
-          "name": "HIBM_ON_PSD"
-        },
-        {
-          "value": 0,
-          "name": "IDLE"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000011a",
-      "name": "STW_ACTN_RQ.WprWashSw_Psd",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 2,
-          "name": "WASH"
-        },
-        {
-          "value": 1,
-          "name": "TIPWIPE"
-        },
-        {
-          "value": 0,
-          "name": "NPSD"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000011b",
-      "name": "STW_ACTN_RQ.WprWash_R_Sw_Posn_V2",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 2,
-          "name": "WASH"
-        },
-        {
-          "value": 1,
-          "name": "INTERVAL"
-        },
-        {
-          "value": 0,
-          "name": "OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000011c",
-      "name": "STW_ACTN_RQ.StW_Lvr_Stat",
-      "values": [
-        {
-          "value": 4,
-          "name": "STW_BACK"
-        },
-        {
-          "value": 3,
-          "name": "STW_FWD"
-        },
-        {
-          "value": 2,
-          "name": "STW_DOWN"
-        },
-        {
-          "value": 1,
-          "name": "STW_UP"
-        },
-        {
-          "value": 0,
-          "name": "NPSD"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000011d",
-      "name": "STW_ACTN_RQ.StW_Cond_Psd",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 2,
-          "name": "DOWN"
-        },
-        {
-          "value": 1,
-          "name": "UP"
-        },
-        {
-          "value": 0,
-          "name": "NPSD"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000011e",
-      "name": "STW_ACTN_RQ.HrnSw_Psd",
-      "values": [
-        {
-          "value": 3,
-          "name": "SNA"
-        },
-        {
-          "value": 2,
-          "name": "NDEF2"
-        },
-        {
-          "value": 1,
-          "name": "PSD"
-        },
-        {
-          "value": 0,
-          "name": "NPSD"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000011f",
-      "name": "STW_ACTN_RQ.StW_Sw00_Psd",
-      "values": [
-        {
-          "value": 1,
-          "name": "PRESSED"
-        },
-        {
-          "value": 0,
-          "name": "NOT_PRESSED_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000120",
-      "name": "STW_ACTN_RQ.StW_Sw01_Psd",
-      "values": [
-        {
-          "value": 1,
-          "name": "PRESSED"
-        },
-        {
-          "value": 0,
-          "name": "NOT_PRESSED_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000121",
-      "name": "STW_ACTN_RQ.StW_Sw03_Psd",
-      "values": [
-        {
-          "value": 1,
-          "name": "PRESSED"
-        },
-        {
-          "value": 0,
-          "name": "NOT_PRESSED_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000122",
-      "name": "STW_ACTN_RQ.StW_Sw04_Psd",
-      "values": [
-        {
-          "value": 1,
-          "name": "PRESSED"
-        },
-        {
-          "value": 0,
-          "name": "NOT_PRESSED_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000123",
-      "name": "STW_ACTN_RQ.WprSw6Posn",
-      "values": [
-        {
-          "value": 7,
-          "name": "SNA"
-        },
-        {
-          "value": 6,
-          "name": "STAGE2"
-        },
-        {
-          "value": 5,
-          "name": "STAGE1"
-        },
-        {
-          "value": 4,
-          "name": "INTERVAL4"
-        },
-        {
-          "value": 3,
-          "name": "INTERVAL3"
-        },
-        {
-          "value": 2,
-          "name": "INTERVAL2"
-        },
-        {
-          "value": 1,
-          "name": "INTERVAL1"
-        },
-        {
-          "value": 0,
-          "name": "OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000124",
-      "name": "DAS_bodyControls.DAS_headlightRequest",
-      "values": [
-        {
-          "value": 3,
-          "name": "DAS_HEADLIGHT_REQUEST_INVALID"
-        },
-        {
-          "value": 1,
-          "name": "DAS_HEADLIGHT_REQUEST_ON"
-        },
-        {
-          "value": 0,
-          "name": "DAS_HEADLIGHT_REQUEST_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000125",
-      "name": "DAS_bodyControls.DAS_hazardLightRequest",
-      "values": [
-        {
-          "value": 3,
-          "name": "DAS_REQUEST_HAZARDS_SNA"
-        },
-        {
-          "value": 2,
-          "name": "DAS_REQUEST_HAZARDS_UNUSED"
-        },
-        {
-          "value": 0,
-          "name": "DAS_REQUEST_HAZARDS_OFF"
-        },
-        {
-          "value": 1,
-          "name": "DAS_REQUEST_HAZARDS_ON"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000126",
-      "name": "DAS_bodyControls.DAS_wiperSpeed",
-      "values": [
-        {
-          "value": 3,
-          "name": "DAS_WIPER_SPEED_3"
-        },
-        {
-          "value": 12,
-          "name": "DAS_WIPER_SPEED_12"
-        },
-        {
-          "value": 8,
-          "name": "DAS_WIPER_SPEED_8"
-        },
-        {
-          "value": 14,
-          "name": "DAS_WIPER_SPEED_14"
-        },
-        {
-          "value": 5,
-          "name": "DAS_WIPER_SPEED_5"
-        },
-        {
-          "value": 13,
-          "name": "DAS_WIPER_SPEED_13"
-        },
-        {
-          "value": 2,
-          "name": "DAS_WIPER_SPEED_2"
-        },
-        {
-          "value": 0,
-          "name": "DAS_WIPER_SPEED_OFF"
-        },
-        {
-          "value": 4,
-          "name": "DAS_WIPER_SPEED_4"
-        },
-        {
-          "value": 1,
-          "name": "DAS_WIPER_SPEED_1"
-        },
-        {
-          "value": 15,
-          "name": "DAS_WIPER_SPEED_INVALID"
-        },
-        {
-          "value": 10,
-          "name": "DAS_WIPER_SPEED_10"
-        },
-        {
-          "value": 11,
-          "name": "DAS_WIPER_SPEED_11"
-        },
-        {
-          "value": 7,
-          "name": "DAS_WIPER_SPEED_7"
-        },
-        {
-          "value": 9,
-          "name": "DAS_WIPER_SPEED_9"
-        },
-        {
-          "value": 6,
-          "name": "DAS_WIPER_SPEED_6"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000127",
-      "name": "DAS_bodyControls.DAS_turnIndicatorRequest",
-      "values": [
-        {
-          "value": 0,
-          "name": "DAS_TURN_INDICATOR_NONE"
-        },
-        {
-          "value": 2,
-          "name": "DAS_TURN_INDICATOR_RIGHT"
-        },
-        {
-          "value": 3,
-          "name": "DAS_TURN_INDICATOR_CANCEL"
-        },
-        {
-          "value": 1,
-          "name": "DAS_TURN_INDICATOR_LEFT"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000128",
-      "name": "DAS_bodyControls.DAS_highLowBeamDecision",
-      "values": [
-        {
-          "value": 2,
-          "name": "DAS_HIGH_BEAM_ON"
-        },
-        {
-          "value": 1,
-          "name": "DAS_HIGH_BEAM_OFF"
-        },
-        {
-          "value": 3,
-          "name": "DAS_HIGH_BEAM_SNA"
-        },
-        {
-          "value": 0,
-          "name": "DAS_HIGH_BEAM_UNDECIDED"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000129",
-      "name": "DAS_bodyControls.DAS_heaterRequest",
-      "values": [
-        {
-          "value": 0,
-          "name": "DAS_HEATER_SNA"
-        },
-        {
-          "value": 2,
-          "name": "DAS_HEATER_ON"
-        },
-        {
-          "value": 1,
-          "name": "DAS_HEATER_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000012a",
-      "name": "DAS_bodyControls.DAS_turnIndicatorRequestReason",
-      "values": [
-        {
-          "value": 8,
-          "name": "DAS_ACTIVE_COMMANDED_LANE_CHANGE"
-        },
-        {
-          "value": 4,
-          "name": "DAS_CANCEL_LANE_CHANGE"
-        },
-        {
-          "value": 6,
-          "name": "DAS_ACTIVE_MERGE"
-        },
-        {
-          "value": 2,
-          "name": "DAS_ACTIVE_SPEED_LANE_CHANGE"
-        },
-        {
-          "value": 5,
-          "name": "DAS_CANCEL_FORK"
-        },
-        {
-          "value": 0,
-          "name": "DAS_NONE"
-        },
-        {
-          "value": 3,
-          "name": "DAS_ACTIVE_FORK"
-        },
-        {
-          "value": 7,
-          "name": "DAS_CANCEL_MERGE"
-        },
-        {
-          "value": 1,
-          "name": "DAS_ACTIVE_NAV_LANE_CHANGE"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000012b",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_simLatchingStalk",
-      "values": [
-        {
-          "value": 0,
-          "name": "SIMULATED_LATCHING_STALK_IDLE"
-        },
-        {
-          "value": 1,
-          "name": "SIMULATED_LATCHING_STALK_LEFT"
-        },
-        {
-          "value": 2,
-          "name": "SIMULATED_LATCHING_STALK_RIGHT"
-        },
-        {
-          "value": 3,
-          "name": "SIMULATED_LATCHING_STALK_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000012c",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_parkRightStatus",
-      "values": [
-        {
-          "value": 2,
-          "name": "LIGHT_FAULT"
-        },
-        {
-          "value": 0,
-          "name": "LIGHT_OFF"
-        },
-        {
-          "value": 1,
-          "name": "LIGHT_ON"
-        },
-        {
-          "value": 3,
-          "name": "LIGHT_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000012d",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_parkLeftStatus",
-      "values": [
-        {
-          "value": 2,
-          "name": "LIGHT_FAULT"
-        },
-        {
-          "value": 0,
-          "name": "LIGHT_OFF"
-        },
-        {
-          "value": 1,
-          "name": "LIGHT_ON"
-        },
-        {
-          "value": 3,
-          "name": "LIGHT_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000012e",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_turnSignalRightStatus",
-      "values": [
-        {
-          "value": 2,
-          "name": "LIGHT_FAULT"
-        },
-        {
-          "value": 0,
-          "name": "LIGHT_OFF"
-        },
-        {
-          "value": 1,
-          "name": "LIGHT_ON"
-        },
-        {
-          "value": 3,
-          "name": "LIGHT_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000012f",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_turnSignalLeftStatus",
-      "values": [
-        {
-          "value": 2,
-          "name": "LIGHT_FAULT"
-        },
-        {
-          "value": 0,
-          "name": "LIGHT_OFF"
-        },
-        {
-          "value": 1,
-          "name": "LIGHT_ON"
-        },
-        {
-          "value": 3,
-          "name": "LIGHT_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000130",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_sideRepeaterRightStatus",
-      "values": [
-        {
-          "value": 2,
-          "name": "LIGHT_FAULT"
-        },
-        {
-          "value": 0,
-          "name": "LIGHT_OFF"
-        },
-        {
-          "value": 1,
-          "name": "LIGHT_ON"
-        },
-        {
-          "value": 3,
-          "name": "LIGHT_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000131",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_sideRepeaterLeftStatus",
-      "values": [
-        {
-          "value": 2,
-          "name": "LIGHT_FAULT"
-        },
-        {
-          "value": 0,
-          "name": "LIGHT_OFF"
-        },
-        {
-          "value": 1,
-          "name": "LIGHT_ON"
-        },
-        {
-          "value": 3,
-          "name": "LIGHT_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000132",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_sideMarkersStatus",
-      "values": [
-        {
-          "value": 2,
-          "name": "LIGHT_FAULT"
-        },
-        {
-          "value": 0,
-          "name": "LIGHT_OFF"
-        },
-        {
-          "value": 1,
-          "name": "LIGHT_ON"
-        },
-        {
-          "value": 3,
-          "name": "LIGHT_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000133",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_fogRightStatus",
-      "values": [
-        {
-          "value": 2,
-          "name": "LIGHT_FAULT"
-        },
-        {
-          "value": 0,
-          "name": "LIGHT_OFF"
-        },
-        {
-          "value": 1,
-          "name": "LIGHT_ON"
-        },
-        {
-          "value": 3,
-          "name": "LIGHT_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000134",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_fogLeftStatus",
-      "values": [
-        {
-          "value": 2,
-          "name": "LIGHT_FAULT"
-        },
-        {
-          "value": 0,
-          "name": "LIGHT_OFF"
-        },
-        {
-          "value": 1,
-          "name": "LIGHT_ON"
-        },
-        {
-          "value": 3,
-          "name": "LIGHT_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000135",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_DRLRightStatus",
-      "values": [
-        {
-          "value": 2,
-          "name": "LIGHT_FAULT"
-        },
-        {
-          "value": 0,
-          "name": "LIGHT_OFF"
-        },
-        {
-          "value": 1,
-          "name": "LIGHT_ON"
-        },
-        {
-          "value": 3,
-          "name": "LIGHT_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000136",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_DRLLeftStatus",
-      "values": [
-        {
-          "value": 2,
-          "name": "LIGHT_FAULT"
-        },
-        {
-          "value": 0,
-          "name": "LIGHT_OFF"
-        },
-        {
-          "value": 1,
-          "name": "LIGHT_ON"
-        },
-        {
-          "value": 3,
-          "name": "LIGHT_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000137",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_highBeamRightStatus",
-      "values": [
-        {
-          "value": 2,
-          "name": "LIGHT_FAULT"
-        },
-        {
-          "value": 0,
-          "name": "LIGHT_OFF"
-        },
-        {
-          "value": 1,
-          "name": "LIGHT_ON"
-        },
-        {
-          "value": 3,
-          "name": "LIGHT_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000138",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_highBeamLeftStatus",
-      "values": [
-        {
-          "value": 2,
-          "name": "LIGHT_FAULT"
-        },
-        {
-          "value": 0,
-          "name": "LIGHT_OFF"
-        },
-        {
-          "value": 1,
-          "name": "LIGHT_ON"
-        },
-        {
-          "value": 3,
-          "name": "LIGHT_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000139",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_lowBeamRightStatus",
-      "values": [
-        {
-          "value": 2,
-          "name": "LIGHT_FAULT"
-        },
-        {
-          "value": 0,
-          "name": "LIGHT_OFF"
-        },
-        {
-          "value": 1,
-          "name": "LIGHT_ON"
-        },
-        {
-          "value": 3,
-          "name": "LIGHT_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000013a",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_lowBeamLeftStatus",
-      "values": [
-        {
-          "value": 2,
-          "name": "LIGHT_FAULT"
-        },
-        {
-          "value": 0,
-          "name": "LIGHT_OFF"
-        },
-        {
-          "value": 1,
-          "name": "LIGHT_ON"
-        },
-        {
-          "value": 3,
-          "name": "LIGHT_SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000013b",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_switchLightingBrightness",
-      "values": [
-        {
-          "value": 255,
-          "name": "SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000013c",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_ambientLightingBrightnes",
-      "values": [
-        {
-          "value": 255,
-          "name": "SNA"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000013d",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_hazardLightRequest",
-      "values": [
-        {
-          "value": 1,
-          "name": "HAZARD_REQUEST_BUTTON"
-        },
-        {
-          "value": 6,
-          "name": "HAZARD_REQUEST_CAR_ALARM"
-        },
-        {
-          "value": 5,
-          "name": "HAZARD_REQUEST_CRASH"
-        },
-        {
-          "value": 7,
-          "name": "HAZARD_REQUEST_DAS"
-        },
-        {
-          "value": 2,
-          "name": "HAZARD_REQUEST_LOCK"
-        },
-        {
-          "value": 4,
-          "name": "HAZARD_REQUEST_MISLOCK"
-        },
-        {
-          "value": 0,
-          "name": "HAZARD_REQUEST_NONE"
-        },
-        {
-          "value": 8,
-          "name": "HAZARD_REQUEST_UDS"
-        },
-        {
-          "value": 3,
-          "name": "HAZARD_REQUEST_UNLOCK"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000013e",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_indicatorRightRequest",
-      "values": [
-        {
-          "value": 2,
-          "name": "TURN_SIGNAL_ACTIVE_HIGH"
-        },
-        {
-          "value": 1,
-          "name": "TURN_SIGNAL_ACTIVE_LOW"
-        },
-        {
-          "value": 0,
-          "name": "TURN_SIGNAL_OFF"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000013f",
-      "name": "ID3F5VCFRONT_lighting.VCFRONT_indicatorLeftRequest",
-      "values": [
-        {
-          "value": 2,
-          "name": "TURN_SIGNAL_ACTIVE_HIGH"
-        },
-        {
-          "value": 1,
-          "name": "TURN_SIGNAL_ACTIVE_LOW"
-        },
-        {
-          "value": 0,
-          "name": "TURN_SIGNAL_OFF"
-        }
-      ]
     }
   ],
   "hash": ""

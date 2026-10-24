@@ -51,7 +51,7 @@ const (
 	utf8BOM      = "\ufeff"
 )
 
-func parseCSV(data []byte) ([]versions.Entry, error) {
+func parseCSV(data []byte) ([]versions.Message, error) {
 	r := csv.NewReader(bytes.NewReader(bytes.TrimPrefix(data, []byte(utf8BOM))))
 	r.FieldsPerRecord = -1
 	rows, err := r.ReadAll()
@@ -65,7 +65,7 @@ func parseCSV(data []byte) ([]versions.Entry, error) {
 	return parseTable(rows)
 }
 
-func parseXLSX(data []byte) (entries []versions.Entry, err error) {
+func parseXLSX(data []byte) (messages []versions.Message, err error) {
 	f, err := excelize.OpenReader(
 		bytes.NewReader(data),
 		excelize.Options{UnzipSizeLimit: maxUnzipSize},
@@ -131,7 +131,7 @@ func (a *attr[T]) merge(column string, row int, v T) error {
 }
 
 type tableMessage struct {
-	entry    versions.MessageEntry
+	message  versions.Message
 	payload  versions.BinaryPayload
 	id       attr[uint32]
 	extended attr[bool]
@@ -146,7 +146,7 @@ type table struct {
 	byName   map[string]*tableMessage
 }
 
-func parseTable(rows [][]string) ([]versions.Entry, error) {
+func parseTable(rows [][]string) ([]versions.Message, error) {
 	if len(rows) == 0 {
 		return nil, dataErrorf("missing header row")
 	}
@@ -162,7 +162,7 @@ func parseTable(rows [][]string) ([]versions.Entry, error) {
 			return nil, err
 		}
 	}
-	entries := make([]versions.Entry, 0, len(t.messages))
+	messages := make([]versions.Message, 0, len(t.messages))
 	for _, m := range t.messages {
 		if m.id.set {
 			extended := m.id.value > maxStandardID
@@ -179,13 +179,13 @@ func parseTable(rows [][]string) ([]versions.Entry, error) {
 		if m.length.set {
 			m.payload.Length = new(m.length.value)
 		}
-		m.entry.Payload = versions.Payload{Variant: m.payload}
+		m.message.Payload = versions.Payload{Variant: m.payload}
 		if m.period.set {
-			m.entry.Period = new(m.period.value)
+			m.message.Period = new(m.period.value)
 		}
-		entries = append(entries, versions.Entry{Variant: m.entry})
+		messages = append(messages, m.message)
 	}
-	return entries, nil
+	return messages, nil
 }
 
 func (t *table) readHeader(cells []string) error {
@@ -237,7 +237,7 @@ func (t *table) readRow(row int, cells []string) error {
 	}
 	m, ok := t.byName[name]
 	if !ok {
-		m = &tableMessage{entry: versions.MessageEntry{Key: uuid.New(), Name: name}}
+		m = &tableMessage{message: versions.Message{Key: uuid.New(), Name: name}}
 		t.messages = append(t.messages, m)
 		t.byName[name] = m
 	}

@@ -18,37 +18,12 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (be BaseEntry) EncodeOrc(w *orc.Writer) error {
-	w.Write(be.Key[:])
-	w.String(be.Name)
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (be *BaseEntry) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if _, err := r.Read(be.Key[:]); err != nil {
-		return err
-	}
-	if be.Name, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
 func (bf BaseField) EncodeOrc(w *orc.Writer) error {
 	w.Write(bf.Key[:])
 	w.String(bf.Name)
 	w.Float64(float64(bf.Scale))
 	w.Float64(float64(bf.Offset))
 	w.String(bf.Units)
-	if bf.Enumeration != nil {
-		w.Bool(true)
-		w.Write((*bf.Enumeration)[:])
-	} else {
-		w.Bool(false)
-	}
 	if bf.Multiplexor != nil {
 		w.Bool(true)
 		w.Write((*bf.Multiplexor)[:])
@@ -94,19 +69,6 @@ func (bf *BaseField) DecodeOrc(r *orc.Reader) error {
 	}
 	if bf.Units, err = r.String(); err != nil {
 		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv EntryKey
-			if _, err := r.Read(hv[:]); err != nil {
-				return err
-			}
-			bf.Enumeration = &hv
-		}
 	}
 	{
 		present, err := r.Bool()
@@ -175,12 +137,6 @@ func (bf BinaryField) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(bf.Scale))
 	w.Float64(float64(bf.Offset))
 	w.String(bf.Units)
-	if bf.Enumeration != nil {
-		w.Bool(true)
-		w.Write((*bf.Enumeration)[:])
-	} else {
-		w.Bool(false)
-	}
 	if bf.Multiplexor != nil {
 		w.Bool(true)
 		w.Write((*bf.Multiplexor)[:])
@@ -231,19 +187,6 @@ func (bf *BinaryField) DecodeOrc(r *orc.Reader) error {
 	}
 	if bf.Units, err = r.String(); err != nil {
 		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv EntryKey
-			if _, err := r.Read(hv[:]); err != nil {
-				return err
-			}
-			bf.Enumeration = &hv
-		}
 	}
 	{
 		present, err := r.Bool()
@@ -325,152 +268,14 @@ func (bf *BinaryField) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (e Entry) EncodeOrc(w *orc.Writer) error {
-	switch v := e.Variant.(type) {
-	case EnumEntry:
-		w.String("enum")
-		if err := v.BaseEntry.EncodeOrc(w); err != nil {
-			return err
-		}
-		w.Bool(v.Values != nil)
-		if v.Values != nil {
-			w.Uint32(uint32(len(v.Values)))
-			for i := range v.Values {
-				if err := v.Values[i].EncodeOrc(w); err != nil {
-					return err
-				}
-			}
-		}
-	case MessageEntry:
-		w.String("message")
-		if err := v.BaseEntry.EncodeOrc(w); err != nil {
-			return err
-		}
-		if err := v.Payload.EncodeOrc(w); err != nil {
-			return err
-		}
-		if v.Period != nil {
-			w.Bool(true)
-			w.Int64(int64(*v.Period))
-		} else {
-			w.Bool(false)
-		}
-		if v.Query != nil {
-			w.Bool(true)
-			w.String(*v.Query)
-		} else {
-			w.Bool(false)
-		}
-	default:
-		return errors.Newf("Entry: nil or unknown variant %T", e.Variant)
-	}
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (e *Entry) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
-	if err != nil {
-		return err
-	}
-	switch tag {
-	case "enum":
-		var v EnumEntry
-		if err := v.BaseEntry.DecodeOrc(r); err != nil {
-			return err
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				n, err := r.CollectionLen()
-				if err != nil {
-					return err
-				}
-				v.Values = make([]EnumValue, n)
-				for i := range v.Values {
-					if err = v.Values[i].DecodeOrc(r); err != nil {
-						return err
-					}
-				}
-			}
-		}
-		e.Variant = v
-	case "message":
-		var v MessageEntry
-		if err := v.BaseEntry.DecodeOrc(r); err != nil {
-			return err
-		}
-		if err = v.Payload.DecodeOrc(r); err != nil {
-			return err
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv telem.TimeSpan
-				{
-					rawV, err := r.Int64()
-					if err != nil {
-						return err
-					}
-					hv = telem.TimeSpan(rawV)
-				}
-				v.Period = &hv
-			}
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv string
-				if hv, err = r.String(); err != nil {
-					return err
-				}
-				v.Query = &hv
-			}
-		}
-		e.Variant = v
-	default:
-		return errors.Newf("Entry: unknown variant %q", tag)
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (ev EnumValue) EncodeOrc(w *orc.Writer) error {
-	w.Int32(int32(ev.Value))
-	w.String(ev.Name)
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (ev *EnumValue) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if ev.Value, err = r.Int32(); err != nil {
-		return err
-	}
-	if ev.Name, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
 func (icd ICD) EncodeOrc(w *orc.Writer) error {
 	w.Write(icd.Key[:])
 	w.String(icd.Name)
-	w.Bool(icd.Entries != nil)
-	if icd.Entries != nil {
-		w.Uint32(uint32(len(icd.Entries)))
-		for i := range icd.Entries {
-			if err := icd.Entries[i].EncodeOrc(w); err != nil {
+	w.Bool(icd.Messages != nil)
+	if icd.Messages != nil {
+		w.Uint32(uint32(len(icd.Messages)))
+		for i := range icd.Messages {
+			if err := icd.Messages[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
@@ -498,9 +303,9 @@ func (icd *ICD) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			icd.Entries = make([]Entry, n)
-			for i := range icd.Entries {
-				if err = icd.Entries[i].DecodeOrc(r); err != nil {
+			icd.Messages = make([]Message, n)
+			for i := range icd.Messages {
+				if err = icd.Messages[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -583,6 +388,73 @@ func (iv *Identifier) DecodeOrc(r *orc.Reader) error {
 		iv.Variant = v
 	default:
 		return errors.Newf("Identifier: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (mv Message) EncodeOrc(w *orc.Writer) error {
+	w.Write(mv.Key[:])
+	w.String(mv.Name)
+	if err := mv.Payload.EncodeOrc(w); err != nil {
+		return err
+	}
+	if mv.Period != nil {
+		w.Bool(true)
+		w.Int64(int64(*mv.Period))
+	} else {
+		w.Bool(false)
+	}
+	if mv.Query != nil {
+		w.Bool(true)
+		w.String(*mv.Query)
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (mv *Message) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(mv.Key[:]); err != nil {
+		return err
+	}
+	if mv.Name, err = r.String(); err != nil {
+		return err
+	}
+	if err = mv.Payload.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv telem.TimeSpan
+			{
+				rawV, err := r.Int64()
+				if err != nil {
+					return err
+				}
+				hv = telem.TimeSpan(rawV)
+			}
+			mv.Period = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			mv.Query = &hv
+		}
 	}
 	return nil
 }

@@ -28,8 +28,8 @@ func field(name string, startBit uint16) icd.BinaryField {
 	}
 }
 
-func message(name string, fields ...icd.BinaryField) icd.MessageEntry {
-	return icd.MessageEntry{
+func message(name string, fields ...icd.BinaryField) icd.Message {
+	return icd.Message{
 		Key:     uuid.New(),
 		Name:    name,
 		Payload: icd.Payload{Variant: icd.BinaryPayload{Fields: fields}},
@@ -37,7 +37,7 @@ func message(name string, fields ...icd.BinaryField) icd.MessageEntry {
 }
 
 // identify returns m identified by the raw value 1 of the field with the given key.
-func identify(m icd.MessageEntry, field icd.FieldKey) icd.MessageEntry {
+func identify(m icd.Message, field icd.FieldKey) icd.Message {
 	p := binaryPayload(m)
 	p.Identifier = &icd.Identifier{
 		Variant: icd.FieldIdentifier{Field: field, Value: 1},
@@ -46,97 +46,65 @@ func identify(m icd.MessageEntry, field icd.FieldKey) icd.MessageEntry {
 	return m
 }
 
-func enum(name string, values ...icd.EnumValue) icd.EnumEntry {
-	return icd.EnumEntry{
-		Key:    uuid.New(),
-		Name:   name,
-		Values: values,
-	}
-}
-
-func entries(variants ...icd.EntryVariant) []icd.Entry {
-	out := make([]icd.Entry, len(variants))
-	for i, v := range variants {
-		out[i] = icd.Entry{Variant: v}
-	}
-	return out
-}
-
 var _ = Describe("Merge", func() {
 	DescribeTable("Should keep every key when the same file is imported again",
 		func(name string) {
 			data, _ := readFixture(name)
 			first := icd.ICD{
-				Key:     uuid.New(),
-				Name:    "Bus",
-				Entries: MustSucceed(icd.Parse(icd.FormatDBC, data)),
+				Key:      uuid.New(),
+				Name:     "Bus",
+				Messages: MustSucceed(icd.Parse(icd.FormatDBC, data)),
 			}
 			Expect(
 				icd.Merge(first, MustSucceed(icd.Parse(icd.FormatDBC, data))),
 			).To(Equal(first))
 		},
-		Entry("enum references", "basic"),
+		Entry("value tables", "basic"),
 		Entry("multiplexor references", "extended_multiplexed"),
 	)
 
-	It("Should drop missing entries and fields and add new ones", func() {
+	It("Should drop missing messages and fields and add new ones", func() {
 		oldRPM, oldTemp := field("rpm", 0), field("temp", 8)
 		oldEngine := message("Engine", oldRPM, oldTemp)
-		oldGear := enum("Gear", icd.EnumValue{Value: 0, Name: "Park"})
 		existing := icd.ICD{
-			Key:     uuid.New(),
-			Name:    "Bus",
-			Entries: entries(oldEngine, message("Brakes"), oldGear),
+			Key:      uuid.New(),
+			Name:     "Bus",
+			Messages: []icd.Message{oldEngine, message("Brakes")},
 		}
 		newRPM, newLoad := field("rpm", 16), field("load", 24)
 		newEngine := message("Engine", newRPM, newLoad)
-		newGear := enum("Gear", icd.EnumValue{Value: 1, Name: "Drive"})
 		newDoors := message("Doors")
-		merged := icd.Merge(existing, entries(newEngine, newGear, newDoors))
+		merged := icd.Merge(existing, []icd.Message{newEngine, newDoors})
 		Expect(merged.Key).To(Equal(existing.Key))
 		Expect(merged.Name).To(Equal("Bus"))
-		Expect(merged.Entries).To(HaveLen(3))
-		engine := messageNamed(merged.Entries, "Engine")
+		Expect(merged.Messages).To(HaveLen(2))
+		engine := messageNamed(merged.Messages, "Engine")
 		Expect(engine.Key).To(Equal(oldEngine.Key))
 		fields := binaryFields(engine)
 		Expect(fields).To(HaveLen(2))
 		Expect(fields[0].Key).To(Equal(oldRPM.Key))
 		Expect(fields[0].StartBit).To(Equal(uint16(16)))
 		Expect(fields[1].Key).To(Equal(newLoad.Key))
-		gear := enumNamed(merged.Entries, "Gear")
-		Expect(gear.Key).To(Equal(oldGear.Key))
-		Expect(gear.Values).To(Equal(newGear.Values))
-		Expect(messageNamed(merged.Entries, "Doors").Key).To(Equal(newDoors.Key))
+		Expect(messageNamed(merged.Messages, "Doors").Key).To(Equal(newDoors.Key))
 	})
 
 	It("Should rewrite references to the kept keys", func() {
 		oldMode, oldValue := field("mode", 0), field("value", 8)
-		oldStatus := enum("Status")
 		oldMessage := identify(message("Frame", oldMode, oldValue), oldMode.Key)
-		existing := icd.ICD{Entries: entries(oldMessage, oldStatus)}
+		existing := icd.ICD{Messages: []icd.Message{oldMessage}}
 		newMode, newValue := field("mode", 0), field("value", 8)
-		newStatus := enum("Status")
-		newValue.Enumeration = new(newStatus.Key)
 		newValue.Multiplexor = new(newMode.Key)
 		newValue.MultiplexValues = []int32{1}
 		newMessage := identify(message("Frame", newMode, newValue), newMode.Key)
-		merged := icd.Merge(existing, entries(newMessage, newStatus))
-		frame := messageNamed(merged.Entries, "Frame")
+		merged := icd.Merge(existing, []icd.Message{newMessage})
+		frame := messageNamed(merged.Messages, "Frame")
 		value := fieldNamed(frame, "value")
-		Expect(*value.Enumeration).To(Equal(oldStatus.Key))
 		Expect(*value.Multiplexor).To(Equal(oldMode.Key))
 		Expect(binaryPayload(frame).Identifier.Variant).To(Equal(
 			icd.FieldIdentifier{Field: oldMode.Key, Value: 1},
 		))
 		Expect(*newValue.Multiplexor).To(Equal(newMode.Key))
 		Expect(binaryFields(newMessage)[1].Key).To(Equal(newValue.Key))
-	})
-
-	It("Should not match entries of different kinds", func() {
-		old := enum("Engine")
-		imported := message("Engine")
-		merged := icd.Merge(icd.ICD{Entries: entries(old)}, entries(imported))
-		Expect(messageNamed(merged.Entries, "Engine").Key).To(Equal(imported.Key))
 	})
 
 	It("Should keep the keys of text fields", func() {
@@ -146,8 +114,8 @@ var _ = Describe("Merge", func() {
 				Tag:       name + "=",
 			}}
 		}
-		line := func(fields ...icd.TextField) icd.MessageEntry {
-			return icd.MessageEntry{
+		line := func(fields ...icd.TextField) icd.Message {
+			return icd.Message{
 				Key:  uuid.New(),
 				Name: "Line",
 				Payload: icd.Payload{Variant: icd.TextPayload{
@@ -158,8 +126,11 @@ var _ = Describe("Merge", func() {
 		}
 		old := line(tagged("temp"))
 		imported := line(tagged("temp"), tagged("rh"))
-		merged := icd.Merge(icd.ICD{Entries: entries(old)}, entries(imported))
-		fields := messageNamed(merged.Entries, "Line").Payload.FieldBases()
+		merged := icd.Merge(
+			icd.ICD{Messages: []icd.Message{old}},
+			[]icd.Message{imported},
+		)
+		fields := messageNamed(merged.Messages, "Line").Payload.FieldBases()
 		Expect(fields).To(HaveLen(2))
 		Expect(fields[0].Key).To(Equal(old.Payload.FieldBases()[0].Key))
 		Expect(fields[1].Key).To(Equal(imported.Payload.FieldBases()[1].Key))

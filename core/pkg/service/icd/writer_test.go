@@ -21,13 +21,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func enumEntry(name string, values ...icd.EnumValue) icd.Entry {
-	return icd.Entry{Variant: icd.EnumEntry{
-		Name:   name,
-		Values: values,
-	}}
-}
-
 func binaryField(name string, startBit uint16, bitLength uint8) icd.BinaryField {
 	return icd.BinaryField{
 		Name: name, Scale: 1,
@@ -37,17 +30,15 @@ func binaryField(name string, startBit uint16, bitLength uint8) icd.BinaryField 
 	}
 }
 
-func messageEntry(m icd.MessageEntry) icd.Entry { return icd.Entry{Variant: m} }
-
-func binaryMessage(name string, fields ...icd.BinaryField) icd.MessageEntry {
-	return icd.MessageEntry{
+func binaryMessage(name string, fields ...icd.BinaryField) icd.Message {
+	return icd.Message{
 		Name:    name,
 		Payload: icd.Payload{Variant: icd.BinaryPayload{Fields: fields}},
 	}
 }
 
-func textMessage(name string, fields ...icd.TextField) icd.MessageEntry {
-	return icd.MessageEntry{
+func textMessage(name string, fields ...icd.TextField) icd.Message {
+	return icd.Message{
 		Name: name,
 		Payload: icd.Payload{Variant: icd.TextPayload{
 			Delimiter: ",",
@@ -58,39 +49,35 @@ func textMessage(name string, fields ...icd.TextField) icd.MessageEntry {
 
 // updateBinary returns m with its binary payload changed by update.
 func updateBinary(
-	m icd.MessageEntry,
+	m icd.Message,
 	update func(*icd.BinaryPayload),
-) icd.MessageEntry {
+) icd.Message {
 	p := binaryPayloadOf(m)
 	update(&p)
 	m.Payload.Variant = p
 	return m
 }
 
-func canMessage(name string, id uint32, fields ...icd.BinaryField) icd.MessageEntry {
+func canMessage(name string, id uint32, fields ...icd.BinaryField) icd.Message {
 	return updateBinary(binaryMessage(name, fields...), func(p *icd.BinaryPayload) {
 		p.Identifier = &icd.Identifier{Variant: icd.CanIdentifier{ID: id}}
 		p.Length = new(uint16(8))
 	})
 }
 
-func messageOf(ic icd.ICD, i int) icd.MessageEntry {
-	return ic.Entries[i].Variant.(icd.MessageEntry)
-}
-
-func binaryPayloadOf(m icd.MessageEntry) icd.BinaryPayload {
+func binaryPayloadOf(m icd.Message) icd.BinaryPayload {
 	return m.Payload.Variant.(icd.BinaryPayload)
 }
 
-func binaryFieldOf(m icd.MessageEntry, i int) icd.BinaryField {
+func binaryFieldOf(m icd.Message, i int) icd.BinaryField {
 	return binaryPayloadOf(m).Fields[i]
 }
 
 // setScale returns a copy of ic with the scale of the first field of message i set.
 func setScale(ic icd.ICD, i int, scale float64) icd.ICD {
-	ic.Entries = append([]icd.Entry(nil), ic.Entries...)
-	ic.Entries[i].Variant = updateBinary(
-		messageOf(ic, i),
+	ic.Messages = append([]icd.Message(nil), ic.Messages...)
+	ic.Messages[i] = updateBinary(
+		ic.Messages[i],
 		func(p *icd.BinaryPayload) {
 			p.Fields = append([]icd.BinaryField(nil), p.Fields...)
 			p.Fields[0].Scale = scale
@@ -112,23 +99,17 @@ func retrieveICD(ctx SpecContext, key icd.Key) icd.ICD {
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It(
-			"Should create an ICD with keys for it, its entries, and fields",
+			"Should create an ICD with keys for it, its messages, and fields",
 			func(ctx SpecContext) {
 				ic := icd.ICD{
 					Name: "Engine",
-					Entries: []icd.Entry{
-						enumEntry("State", icd.EnumValue{Value: 0, Name: "Off"}),
-						messageEntry(
-							canMessage("Status", 0x100, binaryField("rpm", 0, 16)),
-						),
+					Messages: []icd.Message{
+						canMessage("Status", 0x100, binaryField("rpm", 0, 16)),
 					},
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
 				Expect(ic.Key).ToNot(Equal(uuid.Nil()))
-				Expect(
-					ic.Entries[0].Variant.(icd.EnumEntry).Key,
-				).ToNot(Equal(uuid.Nil()))
-				m := messageOf(ic, 1)
+				m := ic.Messages[0]
 				Expect(m.Key).ToNot(Equal(uuid.Nil()))
 				Expect(binaryFieldOf(m, 0).Key).ToNot(Equal(uuid.Nil()))
 				Expect(retrieveICD(ctx, ic.Key)).To(Equal(ic))
@@ -156,9 +137,9 @@ var _ = Describe("Writer", func() {
 					Name: "temperature", Scale: 2,
 					Position: 1,
 				}})
-				ic := icd.ICD{Name: "Sensor", Entries: []icd.Entry{messageEntry(m)}}
+				ic := icd.ICD{Name: "Sensor", Messages: []icd.Message{m}}
 				Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
-				res := messageOf(retrieveICD(ctx, ic.Key), 0).Payload.Variant.(icd.TextPayload)
+				res := retrieveICD(ctx, ic.Key).Messages[0].Payload.Variant.(icd.TextPayload)
 				Expect(res.Delimiter).To(Equal(","))
 				Expect(
 					res.Fields[0].Variant.(icd.DelimitedTextField).Scale,
@@ -179,38 +160,36 @@ var _ = Describe("Writer", func() {
 		})
 
 		It(
-			"Should keep entry and field keys when replacing an ICD",
+			"Should keep message and field keys when replacing an ICD",
 			func(ctx SpecContext) {
 				ic := icd.ICD{
 					Name: "Replace",
-					Entries: []icd.Entry{
-						messageEntry(
-							canMessage("Status", 0x100, binaryField("rpm", 0, 16)),
-						),
+					Messages: []icd.Message{
+						canMessage("Status", 0x100, binaryField("rpm", 0, 16)),
 					},
 				}
 				w := svc.NewWriter(tx)
 				Expect(w.Create(ctx, &ic)).To(Succeed())
-				entryKey := messageOf(ic, 0).Key
-				fieldKey := binaryFieldOf(messageOf(ic, 0), 0).Key
+				messageKey := ic.Messages[0].Key
+				fieldKey := binaryFieldOf(ic.Messages[0], 0).Key
 				ic = setScale(ic, 0, 0.25)
 				Expect(w.Create(ctx, &ic)).To(Succeed())
-				Expect(messageOf(ic, 0).Key).To(Equal(entryKey))
-				Expect(binaryFieldOf(messageOf(ic, 0), 0).Key).To(Equal(fieldKey))
-				Expect(binaryFieldOf(messageOf(ic, 0), 0).Scale).To(Equal(0.25))
+				Expect(ic.Messages[0].Key).To(Equal(messageKey))
+				Expect(binaryFieldOf(ic.Messages[0], 0).Key).To(Equal(fieldKey))
+				Expect(binaryFieldOf(ic.Messages[0], 0).Scale).To(Equal(0.25))
 			},
 		)
 
 		It(
 			"Should refuse an ICD with every problem Check finds",
 			func(ctx SpecContext) {
-				ic := icd.ICD{Entries: []icd.Entry{
-					enumEntry("State"),
-					enumEntry("State"),
+				ic := icd.ICD{Messages: []icd.Message{
+					binaryMessage("State"),
+					binaryMessage("State"),
 				}}
 				Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(MatchError(
 					"name: required: validation error\n" +
-						`entries.1.name: duplicate entry name "State": validation error`,
+						`messages.1.name: duplicate message name "State": validation error`,
 				))
 				Expect(svc.NewRetrieve().
 					Where(icd.MatchKeys(ic.Key)).
@@ -224,10 +203,8 @@ var _ = Describe("Writer", func() {
 		BeforeEach(func(ctx SpecContext) {
 			ic = icd.ICD{
 				Name: "Shared",
-				Entries: []icd.Entry{
-					messageEntry(
-						canMessage("Status", 0x100, binaryField("rpm", 0, 16)),
-					),
+				Messages: []icd.Message{
+					canMessage("Status", 0x100, binaryField("rpm", 0, 16)),
 				},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
@@ -244,7 +221,7 @@ var _ = Describe("Writer", func() {
 					MatchError("ICD Shared: changed since it was read"),
 				))
 				stored := retrieveICD(ctx, ic.Key)
-				Expect(binaryFieldOf(messageOf(stored, 0), 0).Scale).To(Equal(0.5))
+				Expect(binaryFieldOf(stored.Messages[0], 0).Scale).To(Equal(0.5))
 			},
 		)
 
@@ -262,7 +239,7 @@ var _ = Describe("Writer", func() {
 				Expect(w.Create(ctx, &ic)).To(Succeed())
 				ic = setScale(ic, 0, 3)
 				Expect(w.Create(ctx, &ic)).To(Succeed())
-				Expect(binaryFieldOf(messageOf(retrieveICD(ctx, ic.Key), 0), 0).Scale).
+				Expect(binaryFieldOf(retrieveICD(ctx, ic.Key).Messages[0], 0).Scale).
 					To(Equal(3.0))
 			},
 		)

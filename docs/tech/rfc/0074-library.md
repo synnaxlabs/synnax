@@ -13,8 +13,8 @@ other resources reference its entries by key instead of keeping their own copy. 
 library is a toolkit, not one resource: it gives storage, keys, references, change
 tracking, delete protection, checks, and an editor frame to domain services, and each
 domain builds its own library type on it. The first library type is the ICD (interface
-control document), which holds bus messages and the enums they use. RFC 0075 defines the
-messages.
+control document), which holds the messages a device sends and receives. RFC 0075
+defines the messages.
 
 ## 1 Motivation
 
@@ -44,8 +44,7 @@ in a document apart from the session that uses it (§4).
 - **Entry**: One definition in a library, with a key and a name.
 - **Reference**: A resource field that points at a library and records the hash of the
   entries it uses.
-- **ICD**: The library type for bus and device integrations. It holds messages and
-  enums.
+- **ICD**: The library type for bus and device integrations. It holds messages.
 
 In prose, "library" means this resource. Arc's standard library keeps its full name.
 
@@ -72,10 +71,10 @@ COSMOS keeps packet definitions apart from the interfaces that carry them. Yamcs
 one XTCE mission database for every link. Ballard, Alta, and AIT keep ARINC 429 and 1553
 definitions in XML that the SDK and the analyzer GUI share. Figma libraries hold colors,
 text styles, and components, and many files reuse them. We align with all of them on a
-shared document apart from its consumers. We align with DBC on keeping messages and the
-value tables they use in one document. We deviate from Figma on publishing: Figma
-consumers see a library change only after it is published, and our libraries apply every
-edit directly (§8.3).
+shared document apart from its consumers. We deviate from DBC on value tables: an ICD
+holds only messages (§8.4). We deviate from Figma on publishing: Figma consumers see a
+library change only after it is published, and our libraries apply every edit directly
+(§8.3).
 
 ## 5 Design
 
@@ -108,33 +107,22 @@ toolkit for the rest.
 
 ### 5.1 The ICD
 
-`core/pkg/service/icd` owns the ICD. An ICD has a key, a name, and a list of entries. An
-entry is an enum or a message:
+`core/pkg/service/icd` owns the ICD. An ICD has a key, a name, and a list of messages:
 
 ```
 ICD struct {
-    key     Key = create { @key }
-    name    string { @validate min_length 1 }
-    entries Entry[] = []
-}
-
-Entry union on kind extends BaseEntry {
-    enum    { values EnumValue[] = [] }
-    message { ... }   // RFC 0075
-}
-
-EnumValue struct {
-    value int32 = 0
-    name  string
+    key      Key = create { @key }
+    name     string { @validate min_length 1 }
+    messages Message[] = []   // RFC 0075
 }
 ```
 
-Entry names are unique within an ICD. Enum values and names are each unique within one
-enum. `schemas/synnax/icd.oracle` generates Go, TS, Python, C++, and protobuf, as
-`schemas/synnax/arc.oracle:19-23` does. `icd` is appended last to `ResourceType`, so the
-protobuf enum numbers of existing types do not change.
+Message keys and names are unique within an ICD. `schemas/synnax/icd.oracle` generates
+Go, TS, Python, C++, and protobuf, as `schemas/synnax/arc.oracle:19-23` does. `icd` is
+appended last to `ResourceType`, so the protobuf enum numbers of existing types do not
+change.
 
-- **Ontology**: type `icd`, with a search index over ICD and entry names.
+- **Ontology**: type `icd`, with a search index over ICD names.
 - **Access**: the `icd` object joins `allObjects` and the Engineer edit list in
   `core/pkg/service/access/rbac/builtin/builtin.go:19,88`. The Host policy
   (`builtin.go:117`) gains read access, as it has for `arc`, so a Driver can read an
@@ -172,8 +160,8 @@ Reference struct {
 The ICD is optional, so a task draft can exist before the user picks one. The Driver
 retrieves the ICD by key when the task configures, following `driver/arc/task.h:63`.
 
-The hash covers only the entries the task uses: its messages and the enums they
-reference. The ICD's name and its other entries do not contribute.
+The hash covers only the messages the task uses. The ICD's name and its other messages
+do not contribute.
 
 - **On task write**: the integration's config store stamps the hash through a
   `ResolveEntry` hook on `core/pkg/service/task/config`, and writes the `uses`
@@ -187,11 +175,11 @@ reference. The ICD's name and its other entries do not contribute.
 
 A changed hash changes the task's config hash (`core/pkg/service/task/writer.go:140`):
 
-- **The Console shows drift**: a running task whose entries changed is flagged through
+- **The Console shows drift**: a running task whose messages changed is flagged through
   `task.drifted` (`client/ts/src/task/client.ts:75`).
 - **The next start loads the edit**: the Driver reconfigures on a changed config hash
   (`driver/task/manager.cpp:278-283`).
-- **A run can show what decoded its data**: the hash names the entries the task used.
+- **A run can show what decoded its data**: the hash names the messages the task used.
 
 ### 5.4 Live check
 
@@ -210,10 +198,10 @@ ICD never lose an edit without seeing it.
 
 - **Tree**: ICDs appear in the resource tree with rename, export, and delete, following
   `console/src/feature/table/tree.tsx:41-96`.
-- **Tab**: an ICD opens in a tab with a messages grid and an enums grid, built on the
-  toolkit's editor frame.
-- **Grid**: each grid uses Lyra `Input.Table` (`lyra/src/input/Table.tsx:172`), which
-  already pastes CSV and TSV blocks.
+- **Tab**: an ICD opens in a tab laid out like a task's configure form: the list of
+  messages beside the selected message's fields, built on the toolkit's editor frame.
+- **Grid**: the fields grid uses Lyra `Input.Table` (`lyra/src/input/Table.tsx:172`),
+  which already pastes CSV and TSV blocks.
 - **Problems**: the live check marks each bad cell with its message.
 - **Usage**: the tab lists the tasks that use the ICD, from the `uses` traversal.
 
@@ -223,10 +211,9 @@ integrations ship (RFC 0075).
 ## 6 What this RFC does not cover
 
 - **Messages, bus decoding, and ICD file import**: RFC 0075.
-- **Other library types**: calibration tables, state maps, and color sets each come with
-  the domain that uses them, built on the toolkit.
-- **Channel metadata**: channels gain no units or enum reference. A consumer that wants
-  an enum's names reads the ICD.
+- **Other library types**: calibration tables, state maps, color sets, and enums each
+  come with the domain that uses them, built on the toolkit.
+- **Channel metadata**: channels gain no units or enum reference.
 
 ## 7 Implementation phases
 
@@ -268,25 +255,22 @@ indicator, and a publish step to every edit. Direct edit keeps the model to one 
 The entry hash and task drift flag (§5.3) show when a running task used older content,
 and the stale-save check (§5.5) stops silent lost edits.
 
-**8.4 Messages and enums in one ICD.** Splitting them forces a DBC import into two
-libraries that reference each other. DBC files already carry messages and the value
-tables they use together.
+**8.4 Only messages in an ICD, not messages and enums.** An enum names the values of a
+field, and a schematic symbol or a channel needs the same names. Inside an ICD, those
+consumers would reference a bus document to read a state list. An ICD with one kind of
+entry also needs no kind union, so no client dispatches on kind. The trade is real: a
+DBC import drops its value tables and value descriptions.
 
 **8.5 A `uses` relationship, not `ParentOf`.** Arc is the parent of its task
 (`core/pkg/service/arc/writer.go:213-218`) because the task exists to run it. A task
 does not belong to a library it reads, and one library may serve many tasks, which would
 crowd the resource tree.
 
-**8.6 A hash of the entries a task uses, not the whole library.** A whole-library hash
+**8.6 A hash of the messages a task uses, not the whole library.** A whole-library hash
 rewrites, flags, and restarts every task on any edit, even an edit to a message the task
-never reads. The cost is that the domain chooses the entries, because only it knows what
-a task uses.
+never reads. The cost is that the domain chooses what to hash, because only it knows
+what a task uses.
 
 **8.7 A check route, not client-side rules or a language server.** Rules written in the
 Console drift from the Core's. A language server fits text documents, not grids. A check
 route reuses the Core's rules and returns every problem at once.
-
-## 9 Open questions
-
-- **State maps and ICD enums**: whether schematic state maps reuse ICD enums or become
-  their own library type.

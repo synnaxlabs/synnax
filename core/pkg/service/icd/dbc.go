@@ -13,7 +13,6 @@ import (
 	"maps"
 	"math"
 	"slices"
-	"strconv"
 	"strings"
 	"uuid"
 
@@ -53,18 +52,18 @@ const (
 	destinationMask = 0x0000FF00
 )
 
-// parseDBC parses a DBC file into one message entry per BO_ definition, with a CAN
-// identifier and a binary field per signal, followed by one enum entry per value table
-// and per signal whose value descriptions match no value table. Extended multiplexing
-// (m<N>M markers and SG_MUL_VAL_ ranges) is supported. A message is CAN FD when its
-// VFrameFormat says so, when it is longer than 8 bytes, or, in a file with no
-// VFrameFormat, when the BusType is CAN FD. A CAN FD message switches bitrates when its
-// CANFD_BRS is 1. A J1939 group matches frames by its parameter group number, and also
-// by its addresses when other messages share the group. A signal keeps its [min|max]
-// range unless both are zero. Messages and signals take their long names when the file
-// gives them. Every entry and field gets a new key. Errors are scoped to the "data"
-// path and name the line.
-func parseDBC(data []byte) ([]versions.Entry, error) {
+// parseDBC parses a DBC file into one message per BO_ definition, with a CAN identifier
+// and a binary field per signal. Value tables and value descriptions are skipped.
+// Extended multiplexing (m<N>M markers and SG_MUL_VAL_ ranges) is supported. A message
+// is CAN FD when its VFrameFormat says so, when it is longer than 8 bytes, or, in a
+// file
+// with no VFrameFormat, when the BusType is CAN FD. A CAN FD message switches bitrates
+// when its CANFD_BRS is 1. A J1939 group matches frames by its parameter group number,
+// and also by its addresses when other messages share the group. A signal keeps its
+// [min|max] range unless both are zero. Messages and signals take their long names when
+// the file gives them. Every message and field gets a new key. Errors are scoped to the
+// "data" path and name the line.
+func parseDBC(data []byte) ([]versions.Message, error) {
 	defs, err := dbc.Parse(data)
 	if err != nil {
 		return nil, dataErrorf("%s", err)
@@ -73,7 +72,7 @@ func parseDBC(data []byte) ([]versions.Entry, error) {
 	if err != nil {
 		return nil, err
 	}
-	return f.entries()
+	return f.toMessages()
 }
 
 type signalRef struct {
@@ -141,14 +140,12 @@ type attrRef struct {
 type dbcFile struct {
 	mux           map[signalRef]muxSpec
 	messages      []*dbc.MessageDef
-	tables        []*dbc.ValueTableDef
 	attrs         map[dbc.Identifier]*dbc.AttributeDef
 	networkAttrs  set.Set[dbc.Identifier]
 	defaults      map[dbc.Identifier]*dbc.AttributeDefaultValueDef
 	values        map[attrRef]*dbc.AttributeValueForObjectDef
 	networkValues map[dbc.Identifier]*dbc.AttributeValueForObjectDef
 	valueTypes    map[signalRef]*dbc.SignalValueTypeDef
-	choices       map[signalRef]*dbc.ValueDescriptionsDef
 	messageNames  map[dbc.MessageID]string
 	signalNames   map[signalRef]string
 	// groupMasks holds the identifier mask of each J1939 message.
@@ -164,7 +161,6 @@ func newDBCFile(defs []dbc.Def) (dbcFile, error) {
 		values:        make(map[attrRef]*dbc.AttributeValueForObjectDef),
 		networkValues: make(map[dbc.Identifier]*dbc.AttributeValueForObjectDef),
 		valueTypes:    make(map[signalRef]*dbc.SignalValueTypeDef),
-		choices:       make(map[signalRef]*dbc.ValueDescriptionsDef),
 		messageNames:  make(map[dbc.MessageID]string),
 		signalNames:   make(map[signalRef]string),
 	}
@@ -174,8 +170,6 @@ func newDBCFile(defs []dbc.Def) (dbcFile, error) {
 			if d.Name != independentSignals {
 				f.messages = append(f.messages, d)
 			}
-		case *dbc.ValueTableDef:
-			f.tables = append(f.tables, d)
 		case *dbc.AttributeDef:
 			switch d.ObjectType {
 			case dbc.ObjectTypeMessage:
@@ -202,10 +196,6 @@ func newDBCFile(defs []dbc.Def) (dbcFile, error) {
 			}
 		case *dbc.SignalValueTypeDef:
 			f.valueTypes[signalRef{message: d.MessageID, signal: string(d.SignalName)}] = d
-		case *dbc.ValueDescriptionsDef:
-			if d.ObjectType == dbc.ObjectTypeSignal {
-				f.choices[signalRef{message: d.MessageID, signal: string(d.SignalName)}] = d
-			}
 		case *dbc.MultiplexedValuesDef:
 			ref := signalRef{message: d.MessageID, signal: string(d.SignalName)}
 			if _, dup := f.mux[ref]; dup {
@@ -260,36 +250,15 @@ func (f dbcFile) isJ1939(id dbc.MessageID) bool {
 		format == "" && f.networkString(attrProtocol) == protocolJ1939)
 }
 
-func (f dbcFile) entries() ([]versions.Entry, error) {
-	var (
-		entries = make([]versions.Entry, 0, len(f.messages))
-		enums   = make([]versions.Entry, 0, len(f.tables))
-		tables  = make([]versions.EnumEntry, 0, len(f.tables))
-		used    = make(set.Set[signalRef])
-	)
-	for _, t := range f.tables {
-		values, err := enumValues(
-			"value table "+string(t.TableName),
-			t.ValueDescriptions,
-		)
-		if err != nil {
-			return nil, err
-		}
-		e := versions.EnumEntry{
-			Key:    uuid.New(),
-			Name:   string(t.TableName),
-			Values: values,
-		}
-		tables = append(tables, e)
-		enums = append(enums, versions.Entry{Variant: e})
-	}
+func (f dbcFile) toMessages() ([]versions.Message, error) {
+	messages := make([]versions.Message, 0, len(f.messages))
+	used := make(set.Set[signalRef])
 	for _, m := range f.messages {
-		msg, signalEnums, err := f.message(m, tables, used)
+		msg, err := f.message(m, used)
 		if err != nil {
 			return nil, err
 		}
-		entries = append(entries, versions.Entry{Variant: msg})
-		enums = append(enums, signalEnums...)
+		messages = append(messages, msg)
 	}
 	refs := slices.SortedFunc(maps.Keys(f.mux), func(a, b signalRef) int {
 		return f.mux[a].line - f.mux[b].line
@@ -304,16 +273,15 @@ func (f dbcFile) entries() ([]versions.Entry, error) {
 			)
 		}
 	}
-	return append(entries, enums...), nil
+	return messages, nil
 }
 
 func (f dbcFile) message(
 	m *dbc.MessageDef,
-	tables []versions.EnumEntry,
 	used set.Set[signalRef],
-) (versions.MessageEntry, []versions.Entry, error) {
+) (versions.Message, error) {
 	if err := m.MessageID.Validate(); err != nil {
-		return versions.MessageEntry{}, nil, dataErrorf(
+		return versions.Message{}, dataErrorf(
 			"line %d: %s in message %s",
 			m.Pos.Line,
 			err,
@@ -321,7 +289,7 @@ func (f dbcFile) message(
 		)
 	}
 	if m.Size > math.MaxUint16 {
-		return versions.MessageEntry{}, nil, dataErrorf(
+		return versions.Message{}, dataErrorf(
 			"line %d: message %s is longer than %d bytes",
 			m.Pos.Line,
 			m.Name,
@@ -330,7 +298,7 @@ func (f dbcFile) message(
 	}
 	period, err := f.period(m)
 	if err != nil {
-		return versions.MessageEntry{}, nil, err
+		return versions.Message{}, err
 	}
 	payload := versions.BinaryPayload{
 		Identifier: &versions.Identifier{Variant: f.identifier(m)},
@@ -345,7 +313,7 @@ func (f dbcFile) message(
 	var switches []string
 	for _, s := range m.Signals {
 		if _, ok := keys[string(s.Name)]; ok {
-			return versions.MessageEntry{}, nil, dataErrorf(
+			return versions.Message{}, dataErrorf(
 				"line %d: message %s has more than one signal named %s",
 				s.Pos.Line,
 				m.Name,
@@ -357,29 +325,11 @@ func (f dbcFile) message(
 			switches = append(switches, string(s.Name))
 		}
 	}
-	var enums []versions.Entry
 	for _, s := range m.Signals {
 		ref := signalRef{message: m.MessageID, signal: string(s.Name)}
 		field, err := f.field(m, s, ref, keys[ref.signal])
 		if err != nil {
-			return versions.MessageEntry{}, nil, err
-		}
-		if vd, ok := f.choices[ref]; ok {
-			values, err := enumValues("signal "+ref.signal, vd.ValueDescriptions)
-			if err != nil {
-				return versions.MessageEntry{}, nil, err
-			}
-			key, ok := matchTable(tables, values)
-			if !ok {
-				e := versions.EnumEntry{
-					Key:    uuid.New(),
-					Name:   name + "." + field.Name,
-					Values: values,
-				}
-				enums = append(enums, versions.Entry{Variant: e})
-				key = e.Key
-			}
-			field.Enumeration = &key
+			return versions.Message{}, err
 		}
 		// Some tools mark a multiplexed switch with M alone and name its multiplexor
 		// in an SG_MUL_VAL_ line.
@@ -387,19 +337,19 @@ func (f dbcFile) message(
 		if s.IsMultiplexed || (s.IsMultiplexerSwitch && named) {
 			mux, values, err := f.multiplexor(m, s, switches, keys, used)
 			if err != nil {
-				return versions.MessageEntry{}, nil, err
+				return versions.Message{}, err
 			}
 			field.Multiplexor = new(keys[mux])
 			field.MultiplexValues = values
 		}
 		payload.Fields = append(payload.Fields, field)
 	}
-	return versions.MessageEntry{
+	return versions.Message{
 		Key:     uuid.New(),
 		Name:    name,
 		Payload: versions.Payload{Variant: payload},
 		Period:  period,
-	}, enums, nil
+	}, nil
 }
 
 func (f dbcFile) field(
@@ -653,57 +603,4 @@ func (f dbcFile) networkString(name dbc.Identifier) string {
 		return d.DefaultStringValue
 	}
 	return ""
-}
-
-// enumValues converts the value descriptions of owner, a named signal or value table,
-// to enum values. A name that repeats gets its value appended, since enum value names
-// must be unique.
-func enumValues(
-	owner string,
-	descs []dbc.ValueDescriptionDef,
-) ([]versions.EnumValue, error) {
-	values := make([]versions.EnumValue, 0, len(descs))
-	names := make(set.Set[string], len(descs))
-	for _, d := range descs {
-		if d.Value != math.Trunc(d.Value) ||
-			d.Value < math.MinInt32 ||
-			d.Value > math.MaxInt32 {
-			return nil, dataErrorf(
-				"line %d: value %v of %s is not an int32",
-				d.Pos.Line,
-				d.Value,
-				owner,
-			)
-		}
-		v := int32(d.Value)
-		name := d.Description
-		if names.Contains(name) {
-			name += " (" + strconv.Itoa(int(v)) + ")"
-		}
-		names.Add(name)
-		values = append(values, versions.EnumValue{Value: v, Name: name})
-	}
-	return values, nil
-}
-
-// matchTable returns the key of the value table that holds exactly the given values.
-func matchTable(
-	tables []versions.EnumEntry,
-	values []versions.EnumValue,
-) (versions.EntryKey, bool) {
-	want := valueMap(values)
-	for _, t := range tables {
-		if maps.Equal(valueMap(t.Values), want) {
-			return t.Key, true
-		}
-	}
-	return uuid.Nil(), false
-}
-
-func valueMap(values []versions.EnumValue) map[int32]string {
-	m := make(map[int32]string, len(values))
-	for _, v := range values {
-		m[v.Value] = v.Name
-	}
-	return m
 }

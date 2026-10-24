@@ -26,33 +26,23 @@ import { Button as PlatformButton } from "@/platform/button";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 
-const KIND_NAMES: Record<icd.EntryType, string> = {
-  enum: "Enum",
-  message: "Message",
+const uniqueName = (messages: icd.Message[]): string => {
+  const names = new Set(messages.map(({ name }) => name));
+  let i = messages.length + 1;
+  while (names.has(`Message ${i}`)) i++;
+  return `Message ${i}`;
 };
 
-const KIND_ICONS: Record<icd.EntryType, Icon.ReactElement> = {
-  enum: <Icon.Constant />,
-  message: <Icon.Binary />,
-};
-
-const uniqueName = (kind: icd.EntryType, entries: icd.Entry[]): string => {
-  const names = new Set(entries.map(({ name }) => name));
-  let i = entries.length + 1;
-  while (names.has(`${KIND_NAMES[kind]} ${i}`)) i++;
-  return `${KIND_NAMES[kind]} ${i}`;
-};
-
-const createEntry = (kind: icd.EntryType, entries: icd.Entry[]): icd.Entry => {
-  const base = { key: uuid.create(), name: uniqueName(kind, entries) };
-  if (kind === "enum") return { ...base, kind, values: [] };
-  return { ...base, kind, payload: { format: "binary", fields: [] } };
-};
+const createMessage = (messages: icd.Message[]): icd.Message => ({
+  key: uuid.create(),
+  name: uniqueName(messages),
+  payload: { format: "binary", fields: [] },
+});
 
 const count = (n: number, noun: string): string =>
   `${n} ${n === 1 ? noun : Text.plural(noun)}`;
 
-const describeMatch = ({ payload }: icd.MessageEntry): string | null => {
+const describeMatch = ({ payload }: icd.Message): string | null => {
   if (payload.format === "text") return payload.prefix === "" ? null : payload.prefix;
   const id = payload.identifier;
   if (id == null) return null;
@@ -66,29 +56,28 @@ const describeMatch = ({ payload }: icd.MessageEntry): string | null => {
   }
 };
 
-/** @returns a one-line summary of what an entry holds. */
-const describe = (entry: icd.Entry): string => {
-  if (entry.kind === "enum") return count(entry.values.length, "value");
-  const fields = count(entry.payload.fields.length, "field");
-  const match = describeMatch(entry);
+/** @returns a one-line summary of how frames match a message and what it holds. */
+const describe = (message: icd.Message): string => {
+  const fields = count(message.payload.fields.length, "field");
+  const match = describeMatch(message);
   return match == null ? fields : `${match} · ${fields}`;
 };
 
 const Item = (props: List.ItemRenderProps<string>): ReactElement | null => {
-  const path = `entries.${props.itemKey}`;
-  const entry = Form.useFieldValue<icd.Entry>(path, { optional: true });
+  const path = `messages.${props.itemKey}`;
+  const message = Form.useFieldValue<icd.Message>(path, { optional: true });
   const status = useNestedStatus(path);
-  if (entry == null) return null;
+  if (message == null) return null;
   return (
     <Select.Item {...props} justify="between" align="center" gap="small">
-      <Flex.Box x align="center" gap="small" className={CSS.BE("icd-entry", "label")}>
-        {KIND_ICONS[entry.kind]}
-        <Flex.Box y gap="tiny" className={CSS.BE("icd-entry", "text")}>
+      <Flex.Box x align="center" gap="small" className={CSS.BE("icd-message", "label")}>
+        <Icon.Binary />
+        <Flex.Box y gap="tiny" className={CSS.BE("icd-message", "text")}>
           <Text.Text weight={500} overflow="ellipsis">
-            {entry.name}
+            {message.name}
           </Text.Text>
           <Text.Text level="small" color={8} overflow="ellipsis">
-            {describe(entry)}
+            {describe(message)}
           </Text.Text>
         </Flex.Box>
       </Flex.Box>
@@ -116,37 +105,37 @@ const ContextMenu = ({ keys, onRemove }: ContextMenuProps): ReactElement => {
   );
 };
 
-const isEntries = (key: string): boolean => key === "entries";
+const isMessages = (key: string): boolean => key === "messages";
 
-export interface EntriesProps {
-  /** The keys of the selected entries. The editor shows the first. */
+export interface MessagesProps {
+  /** The keys of the selected messages. The editor shows the first. */
   selected: string[];
   onSelect: (keys: string[]) => void;
 }
 
 /**
- * Lists the entries of the ICD and adds them. Shift selects a range and Cmd toggles an
- * entry. The context menu removes the selected entries. A problem with the list as a
- * whole, such as a removed message that a task uses, shows below it.
+ * Lists the messages of the ICD and adds them. Shift selects a range and Cmd toggles a
+ * message. The context menu removes the selected messages. A problem with the list as
+ * a whole, such as a removed message that a task uses, shows below it.
  */
-export const Entries = ({ selected, onSelect }: EntriesProps): ReactElement => {
-  const entries = Form.useFieldList<string, icd.Entry>("entries");
-  const { data, push, remove } = entries;
+export const Messages = ({ selected, onSelect }: MessagesProps): ReactElement => {
+  const messages = Form.useFieldList<string, icd.Message>("messages");
+  const { data, push, remove } = messages;
   const menuProps = Menu.useContextMenu();
-  const handleAdd = (kind: icd.EntryType) => {
-    const entry = createEntry(kind, entries.value());
-    push(entry);
-    onSelect([entry.key]);
+  const handleAdd = () => {
+    const message = createMessage(messages.value());
+    push(message);
+    onSelect([message.key]);
   };
   const handleRemove = (keys: string[]) => onSelect(remove(keys).slice(0, 1));
-  const status = useNestedStatus("entries", isEntries);
+  const status = useNestedStatus("messages", isMessages);
   return (
-    <Flex.Box y empty grow className={CSS.BE("icd-editor", "entries")}>
+    <Flex.Box y empty grow className={CSS.BE("icd-editor", "messages")}>
       <Menu.ContextMenu
         {...menuProps}
         menu={(p) => <ContextMenu {...p} onRemove={handleRemove} />}
       >
-        <Select.Frame<string, icd.Entry>
+        <Select.Frame<string, icd.Message>
           multiple
           data={data}
           value={selected}
@@ -159,10 +148,10 @@ export const Entries = ({ selected, onSelect }: EntriesProps): ReactElement => {
             className={menuProps.className}
             onContextMenu={menuProps.open}
           >
-            <List.Items<string, icd.Entry>
+            <List.Items<string, icd.Message>
               emptyContent={
                 <Text.Text center level="small" color={9}>
-                  No entries
+                  No messages
                 </Text.Text>
               }
             >
@@ -174,16 +163,13 @@ export const Entries = ({ selected, onSelect }: EntriesProps): ReactElement => {
       {status != null && (
         <Input.HelpText
           variant={status.variant}
-          className={CSS.BE("icd-editor", "entries-status")}
+          className={CSS.BE("icd-editor", "messages-status")}
         >
           {status.message}
         </Input.HelpText>
       )}
-      <PlatformButton.CreateListItem size="small" onClick={() => handleAdd("message")}>
+      <PlatformButton.CreateListItem size="small" onClick={handleAdd}>
         Add message
-      </PlatformButton.CreateListItem>
-      <PlatformButton.CreateListItem size="small" onClick={() => handleAdd("enum")}>
-        Add enum
       </PlatformButton.CreateListItem>
     </Flex.Box>
   );

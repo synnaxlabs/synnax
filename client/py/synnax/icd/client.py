@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
-from synnax.icd.types_gen import ICD, Entry, Key
+from synnax.icd.types_gen import ICD, Key, Message
 from x.lists import normalize
 
 
@@ -22,7 +22,7 @@ class Problem(BaseModel):
     """A problem that a check finds in an ICD."""
 
     path: str = ""
-    """The dotted location of the bad value, such as "entries.0.name". It is empty for
+    """The dotted location of the bad value, such as "messages.0.name". It is empty for
     a problem with the whole ICD."""
     message: str
     """What is wrong."""
@@ -82,8 +82,7 @@ class Client:
     """Client for creating, checking, retrieving, and deleting ICDs on a Synnax cluster.
 
     An ICD (interface control document) holds the messages a device sends and receives
-    on a bus or byte stream, and the enums that name their values. Tasks reference an
-    ICD by key.
+    on a bus or byte stream. Tasks reference an ICD by key.
     """
 
     _client: UnaryClient
@@ -102,7 +101,7 @@ class Client:
         self,
         *,
         name: str,
-        entries: list[Entry] | None = None,
+        messages: list[Message] | None = None,
     ) -> ICD: ...
 
     @overload
@@ -116,23 +115,23 @@ class Client:
         icds: ICD | list[ICD] | None = None,
         *,
         name: str = "",
-        entries: list[Entry] | None = None,
+        messages: list[Message] | None = None,
     ) -> ICD | list[ICD]:
         """Create one or more ICDs, or replace those whose keys already exist. A
         replacement must carry the hash of the ICD as the caller read it.
 
         :param icds: A single ICD or a list of them. When omitted, an ICD is created
-            from the ``name`` and ``entries`` keyword arguments.
+            from the ``name`` and ``messages`` keyword arguments.
         :param name: The name of the ICD to create when ``icds`` is omitted.
-        :param entries: The entries of the ICD to create when ``icds`` is omitted.
+        :param messages: The messages of the ICD to create when ``icds`` is omitted.
         :returns: The created ICD, or a list of created ICDs when ``icds`` is a list.
             Each carries the hash the Core stored.
-        :raises ValidationError: If an ICD or one of its entries is invalid.
+        :raises ValidationError: If an ICD or one of its messages is invalid.
         :raises StaleError: If an ICD changed since the caller read it.
         """
         is_single = not isinstance(icds, list)
         if icds is None:
-            icds = [ICD(name=name, entries=entries if entries is not None else [])]
+            icds = [ICD(name=name, messages=messages if messages is not None else [])]
         req = _CreateRequest(icds=normalize(icds))
         res = self._client.send("/icd/create", req, _CreateResponse)
         return res.icds[0] if is_single else res.icds
@@ -163,8 +162,9 @@ class Client:
         self._client.send("/icd/rename", _RenameRequest(key=key, name=name), Empty)
 
     def import_file(self, key: Key, data: bytes, format: ImportFormat) -> ICD:
-        """Import an interface control document file into an ICD. Entries that match
-        existing ones by name keep their keys, so tasks that use them keep working.
+        """Import an interface control document file into an ICD. Messages and fields
+        that match existing ones by name keep their keys, so tasks that use them keep
+        working.
 
         :param key: The key of the ICD to import into.
         :param data: The contents of the file.

@@ -20,24 +20,18 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, ICD, Library, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
-import { Entries } from "@/feature/icd/editor/Entries";
-import { Enum } from "@/feature/icd/editor/Enum";
 import { Message } from "@/feature/icd/editor/Message";
+import { Messages } from "@/feature/icd/editor/Messages";
 import { Tasks } from "@/feature/icd/editor/Tasks";
 import { useImport } from "@/feature/icd/useImport";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
-interface EntryProps {
+interface TitleProps {
   path: string;
 }
 
-const Entry = ({ path }: EntryProps): ReactElement => {
-  const kind = Form.useFieldValue<icd.EntryType>(`${path}.kind`);
-  return kind === "enum" ? <Enum path={path} /> : <Message path={path} />;
-};
-
-const Title = ({ path }: EntryProps): ReactElement | null => {
+const Title = ({ path }: TitleProps): ReactElement | null => {
   const name = Form.useFieldValue<string>(`${path}.name`, { optional: true });
   return (
     <Text.Text weight={500} color={10} overflow="ellipsis">
@@ -52,26 +46,26 @@ interface BodyProps {
 }
 
 const Body = ({ selected, onSelect }: BodyProps): ReactElement => {
-  const { data } = Form.useFieldList<string, icd.Entry>("entries");
-  // Selected entries can vanish when a save or an import replaces the entries.
+  const { data } = Form.useFieldList<string, icd.Message>("messages");
+  // Selected messages can vanish when a save or an import replaces the messages.
   const present = selected.filter((key) => data.includes(key));
   const shown = present.length > 0 ? present : data.slice(0, 1);
   const current = shown.at(0);
-  const path = current == null ? null : `entries.${current}`;
+  const path = current == null ? null : `messages.${current}`;
   return (
     <Task.Views.Panes
-      listTitle="Entries"
-      list={<Entries selected={shown} onSelect={onSelect} />}
+      listTitle="Messages"
+      list={<Messages selected={shown} onSelect={onSelect} />}
       detailsPath={path}
       title={path == null ? undefined : <Title path={path} />}
     >
       {path == null ? (
         <Flex.Box grow align="center" justify="center">
-          <Text.Text color={9}>Add a message or an enum to start</Text.Text>
+          <Text.Text color={9}>Add a message to start</Text.Text>
         </Flex.Box>
       ) : (
-        <Flex.Box y grow empty className={CSS.BE("icd-editor", "entry")}>
-          <Entry key={current} path={path} />
+        <Flex.Box y grow empty className={CSS.BE("icd-editor", "message")}>
+          <Message key={current} path={path} />
         </Flex.Box>
       )}
     </Task.Views.Panes>
@@ -108,7 +102,7 @@ const Content = ({ onReload }: ContentProps): ReactElement => {
   const canEdit = Access.useUpdateGranted(icd.ontologyID(key));
   const { form, save, variant, status } = ICD.useForm({
     query: { key },
-    initialValues: { key, name: "", entries: [], hash: "" },
+    initialValues: { key, name: "", messages: [], hash: "" },
     mode: canEdit ? "normal" : "preview",
   });
   Library.useCheck({ form, check });

@@ -78,7 +78,7 @@ TEST_F(TCPFactory, ConfiguresAWriteTask) {
     const auto ic = core.create_icd(
         {text_message("set", {tagged_field("v", "VOLT ")})}
     );
-    const auto &m = std::get<synnax::icd::MessageEntry>(ic.entries[0]);
+    const auto &m = ic.messages[0];
     const auto cmd = create_virtual_channel(*core.client, x::telem::FLOAT64_T);
     synnax::tcp::WriteConfig cfg;
     cfg.device = this->create_device();
@@ -125,7 +125,7 @@ TEST_F(TCPFactory, SharesOneConnectionBetweenTheTasksOfADevice) {
     static_cast<::synnax::bus::ReadConfig &>(read_cfg) = core.read_config(ic, dev);
     read_cfg.messages.resize(1);
     const auto data = read_cfg.messages[0].fields[0].channel;
-    const auto &set = std::get<synnax::icd::MessageEntry>(ic.entries[1]);
+    const auto &set = ic.messages[1];
     const auto cmd = create_virtual_channel(*core.client, x::telem::FLOAT64_T);
     synnax::tcp::WriteConfig write_cfg;
     write_cfg.device = dev;

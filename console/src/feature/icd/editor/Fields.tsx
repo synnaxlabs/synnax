@@ -26,10 +26,10 @@ type FieldOf<E extends Encoding> = E extends "binary"
 const encodingOf = (field: Field): Encoding =>
   "encoding" in field ? field.encoding : "binary";
 
-/** Marks an absent enumeration or multiplexor in a select cell. */
+/** Marks an absent multiplexor in a select cell. */
 const NONE = "none";
 
-type Render = "text" | "number" | "byteOrder" | "type" | "enumeration" | "multiplexor";
+type Render = "text" | "number" | "byteOrder" | "type" | "multiplexor";
 
 interface Column<F extends Field> {
   name: string;
@@ -71,14 +71,6 @@ const units = <F extends Field>(): Column<F> => ({
   set: (f, cell) => ({ ...f, units: String(cell) }),
 });
 
-const enumeration = <F extends Field>(): Column<F> => ({
-  name: "Enumeration",
-  render: "enumeration",
-  width: 22,
-  get: ({ enumeration }) => enumeration ?? NONE,
-  set: (f, cell) => ({ ...f, enumeration: cell === NONE ? undefined : String(cell) }),
-});
-
 const multiplexor = <F extends Field>(): Column<F> => ({
   name: "Multiplexor",
   render: "multiplexor",
@@ -102,12 +94,7 @@ const multiplexValues = <F extends Field>(): Column<F> => ({
   set: (f, cell) => ({ ...f, multiplexValues: parseIntegers(String(cell)) }),
 });
 
-const conversion = <F extends Field>(): Column<F>[] => [
-  scale(),
-  offset(),
-  units(),
-  enumeration(),
-];
+const conversion = <F extends Field>(): Column<F>[] => [scale(), offset(), units()];
 
 type ValueType = "unsigned" | "signed" | "float";
 
@@ -244,15 +231,10 @@ const mergeFields = (all: Field[], encoding: Encoding, updated: Field[]): Field[
   return [...merged, ...updated.slice(i)];
 };
 
-interface CellContext {
-  enums: icd.EnumEntry[];
-  fields: Field[];
-}
-
 const renderColumn = (
   column: Column<Field>,
   index: number,
-  { enums, fields }: CellContext,
+  fields: Field[],
 ): ReactElement<Input.TableColumnProps> => {
   const { name, render, width } = column;
   switch (render) {
@@ -293,27 +275,6 @@ const renderColumn = (
             >
               <Select.Item itemKey="little_endian">Little endian</Select.Item>
               <Select.Item itemKey="big_endian">Big endian</Select.Item>
-            </Select.Simple>
-          )}
-        </Input.TableColumn>
-      );
-    case "enumeration":
-      return (
-        <Input.TableColumn key={index} name={name} width={width} type="string">
-          {({ value, onChange, preview }) => (
-            <Select.Simple<string>
-              resourceName="enumeration"
-              value={value}
-              onChange={onChange}
-              preview={preview}
-              variant="floating"
-            >
-              <Select.Item itemKey={NONE}>None</Select.Item>
-              {enums.map(({ key, name }) => (
-                <Select.Item key={key} itemKey={key}>
-                  {name}
-                </Select.Item>
-              ))}
             </Select.Simple>
           )}
         </Input.TableColumn>
@@ -359,11 +320,6 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   const fieldsPath = `${path}.fields`;
   const { set } = Form.useContext();
   const fields = Form.useFieldValue<Field[]>(fieldsPath);
-  const entries = Form.useFieldValue<icd.Entry[]>("entries");
-  const enums = useMemo(
-    () => entries.filter((e): e is icd.EnumEntry => e.kind === "enum"),
-    [entries],
-  );
   const columns = COLUMNS[encoding] as Column<Field>[];
   const own = useMemo(
     () => fields.filter((f) => encodingOf(f) === encoding),
@@ -402,7 +358,7 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
         createRow={createRow}
         rowLabel={(i) => (i + 1).toString()}
       >
-        {columns.map((column, i) => renderColumn(column, i, { enums, fields }))}
+        {columns.map((column, i) => renderColumn(column, i, fields))}
       </Input.Table>
       {helpText != null && (
         <Input.HelpText variant={status?.variant}>{helpText}</Input.HelpText>

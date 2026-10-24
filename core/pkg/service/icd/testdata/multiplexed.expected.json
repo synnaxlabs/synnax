@@ -18,16 +18,6 @@
           "scale": 1.0,
           "offset": 0.0,
           "units": "",
-          "choices": [
-            {
-              "value": 0,
-              "name": "Thermal"
-            },
-            {
-              "value": 1,
-              "name": "Atmospheric"
-            }
-          ],
           "multiplexor": null,
           "multiplex_values": [],
           "min": 0,
@@ -43,7 +33,6 @@
           "scale": 0.1,
           "offset": 0.0,
           "units": "degC",
-          "choices": null,
           "multiplexor": "Mode",
           "multiplex_values": [0],
           "min": -3276.8,
@@ -59,7 +48,6 @@
           "scale": 0.5,
           "offset": 0.0,
           "units": "kPa",
-          "choices": null,
           "multiplexor": "Mode",
           "multiplex_values": [1],
           "min": 0,
@@ -75,7 +63,6 @@
           "scale": 1.0,
           "offset": 0.0,
           "units": "%",
-          "choices": null,
           "multiplexor": "Mode",
           "multiplex_values": [1],
           "min": 0,
@@ -91,7 +78,6 @@
           "scale": 1.0,
           "offset": 0.0,
           "units": "s",
-          "choices": null,
           "multiplexor": null,
           "multiplex_values": [],
           "min": 0,
@@ -99,6 +85,5 @@
         }
       ]
     }
-  ],
-  "value_tables": {}
+  ]
 }

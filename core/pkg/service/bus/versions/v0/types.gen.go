@@ -37,8 +37,8 @@ type ReadField struct {
 // ReadMessage is one ICD message a read task decodes. Fields share an index only when
 // the same multiplexor values select them.
 type ReadMessage struct {
-	// Message is the key of the message entry in the task's ICD.
-	Message icd.EntryKey `json:"message" msgpack:"message"`
+	// Message is the key of the message in the task's ICD.
+	Message icd.MessageKey `json:"message" msgpack:"message"`
 	// Disabled is true when the task ignores the message.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// Fields are the fields of the message the task writes to channels.
@@ -57,8 +57,8 @@ type WriteField struct {
 // WriteMessage is one ICD message a write task encodes. A message with a period is sent
 // on that period, and one without is sent when a command channel changes.
 type WriteMessage struct {
-	// Message is the key of the message entry in the task's ICD.
-	Message icd.EntryKey `json:"message" msgpack:"message"`
+	// Message is the key of the message in the task's ICD.
+	Message icd.MessageKey `json:"message" msgpack:"message"`
 	// Disabled is true when the task does not send the message.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// Fields are the fields of the message driven by command channels.

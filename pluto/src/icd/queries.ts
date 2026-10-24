@@ -114,7 +114,7 @@ export const formSchema = icd.icdZ;
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   key: "",
   name: "",
-  entries: [],
+  messages: [],
   hash: "",
 };
 
@@ -122,7 +122,7 @@ const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
  * Edits one ICD. A save checks the ICD first, puts each problem on the field it names,
  * and fails with a ValidationError when there are any. Otherwise it writes the whole
  * ICD with the hash the form read, so the Core replaces it and assigns keys to new
- * entries and fields. The save fails with a StaleError when the ICD changed since the
+ * messages and fields. The save fails with a StaleError when the ICD changed since the
  * form read it.
  */
 export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({

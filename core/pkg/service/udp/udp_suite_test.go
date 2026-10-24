@@ -46,9 +46,9 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 func createICD(
 	ctx context.Context,
 	task uuid.UUID,
-) (icd.ICD, icd.MessageEntry) {
+) (icd.ICD, icd.Message) {
 	GinkgoHelper()
-	m := icd.MessageEntry{
+	m := icd.Message{
 		Key: uuid.New(), Name: "Status",
 		Payload: icd.Payload{Variant: icd.BinaryPayload{
 			Fields: []icd.BinaryField{
@@ -57,9 +57,9 @@ func createICD(
 		}},
 	}
 	ic := icd.ICD{
-		Key:     uuid.New(),
-		Name:    "Bus",
-		Entries: []icd.Entry{{Variant: m}},
+		Key:      uuid.New(),
+		Name:     "Bus",
+		Messages: []icd.Message{m},
 	}
 	Expect(gorp.NewCreate[icd.Key, icd.ICD]().
 		Entry(&ic).

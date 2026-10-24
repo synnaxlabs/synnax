@@ -43,12 +43,12 @@ interface DeployParams<S extends task.Schemas> {
 }
 
 const expectMessage = (
-  messages: { message: icd.EntryKey; fields: { field: icd.EntryKey }[] }[],
-  entry: icd.MessageEntry,
+  messages: { message: icd.MessageKey; fields: { field: icd.MessageKey }[] }[],
+  definition: icd.Message,
 ) => {
-  expect(messages.map((m) => m.message)).toEqual([entry.key]);
+  expect(messages.map((m) => m.message)).toEqual([definition.key]);
   expect(messages[0].fields.map((f) => f.field)).toEqual(
-    entry.payload.fields.map((f) => f.key),
+    definition.payload.fields.map((f) => f.key),
   );
 };
 

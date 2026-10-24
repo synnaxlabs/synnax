@@ -158,7 +158,7 @@ var _ = Describe("ICD", func() {
 				apiicd.ImportRequest{Key: ic.Key, Format: icd.FormatDBC, Data: data},
 			))
 			Expect(res.ICD.Key).To(Equal(ic.Key))
-			Expect(res.ICD.Entries).ToNot(BeEmpty())
+			Expect(res.ICD.Messages).ToNot(BeEmpty())
 		})
 
 		It("Should reject an import that is not granted", func(ctx SpecContext) {

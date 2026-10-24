@@ -11,47 +11,30 @@ package icd
 
 import "github.com/synnaxlabs/synnax/pkg/service/icd/versions"
 
-// Merge returns existing with its entries replaced by imported. An imported entry that
-// matches an existing entry of the same kind by name keeps the existing key, and each
-// field of a matched message keeps the key of the existing field with its name. All
-// other values come from imported, and existing entries and fields that imported does
-// not hold are dropped. References between imported entries and fields are rewritten
-// to the kept keys. Merge does not modify its arguments.
-func Merge(existing versions.ICD, imported []versions.Entry) versions.ICD {
-	old := make(map[string]versions.Entry, len(existing.Entries))
-	for _, e := range existing.Entries {
-		old[e.Base().Name] = e
+// Merge returns existing with its messages replaced by imported. An imported message
+// that matches an existing message by name keeps the existing key, and each of its
+// fields keeps the key of the existing field with its name. All other values come from
+// imported, and existing messages and fields that imported does not hold are dropped.
+// References between imported fields are rewritten to the kept keys. Merge does not
+// modify its arguments.
+func Merge(existing versions.ICD, imported []versions.Message) versions.ICD {
+	old := make(map[string]versions.Message, len(existing.Messages))
+	for _, m := range existing.Messages {
+		old[m.Name] = m
 	}
-	var (
-		entryKeys = make(map[versions.EntryKey]versions.EntryKey)
-		fieldKeys = make(map[versions.FieldKey]versions.FieldKey)
-		entries   = make([]versions.Entry, len(imported))
-	)
-	for i, e := range imported {
-		switch v := e.Variant.(type) {
-		case versions.EnumEntry:
-			if match, ok := old[v.Name].Variant.(versions.EnumEntry); ok {
-				entryKeys[v.Key] = match.Key
-				v.Key = match.Key
-			}
-			entries[i] = versions.Entry{Variant: v}
-		case versions.MessageEntry:
-			if match, ok := old[v.Name].Variant.(versions.MessageEntry); ok {
-				entryKeys[v.Key] = match.Key
-				v.Key = match.Key
-				keepFieldKeys(&v.Payload, match.Payload, fieldKeys)
-			}
-			entries[i] = versions.Entry{Variant: v}
-		default:
-			entries[i] = e
+	fieldKeys := make(map[versions.FieldKey]versions.FieldKey)
+	messages := make([]versions.Message, len(imported))
+	for i, m := range imported {
+		if match, ok := old[m.Name]; ok {
+			m.Key = match.Key
+			keepFieldKeys(&m.Payload, match.Payload, fieldKeys)
 		}
+		messages[i] = m
 	}
-	for i, e := range entries {
-		if m, ok := e.Variant.(versions.MessageEntry); ok {
-			entries[i].Variant = remap(m, entryKeys, fieldKeys)
-		}
+	for i, m := range messages {
+		messages[i] = remap(m, fieldKeys)
 	}
-	existing.Entries = entries
+	existing.Messages = messages
 	return existing
 }
 
@@ -74,12 +57,11 @@ func keepFieldKeys(
 	})
 }
 
-// remap rewrites the entry and field references of m through the given key maps.
+// remap rewrites the field references of m through the given key map.
 func remap(
-	m versions.MessageEntry,
-	entryKeys map[versions.EntryKey]versions.EntryKey,
+	m versions.Message,
 	fieldKeys map[versions.FieldKey]versions.FieldKey,
-) versions.MessageEntry {
+) versions.Message {
 	if p, ok := m.Payload.Variant.(versions.BinaryPayload); ok && p.Identifier != nil {
 		if id, ok := p.Identifier.Variant.(versions.FieldIdentifier); ok {
 			if key, ok := fieldKeys[id.Field]; ok {
@@ -90,11 +72,6 @@ func remap(
 		}
 	}
 	m.Payload.UpdateFieldBases(func(b *versions.BaseField) {
-		if b.Enumeration != nil {
-			if key, ok := entryKeys[*b.Enumeration]; ok {
-				b.Enumeration = &key
-			}
-		}
 		if b.Multiplexor != nil {
 			if key, ok := fieldKeys[*b.Multiplexor]; ok {
 				b.Multiplexor = &key

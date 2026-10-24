@@ -130,15 +130,10 @@ class DisconnectModbus(DisconnectTask[sy.modbus.ReadTask], ModbusReadMixed):
     """
 
 
-def with_period(entries: list[icd.Entry]) -> list[icd.Entry]:
-    """Returns entries with PERIOD on every message, so a task warns once a message
-    stops arriving."""
-    return [
-        e.model_copy(update={"period": PERIOD})
-        if isinstance(e, icd.MessageEntry)
-        else e
-        for e in entries
-    ]
+def with_period(messages: list[icd.Message]) -> list[icd.Message]:
+    """Returns the messages with PERIOD, so a task warns once a message stops
+    arriving."""
+    return [m.model_copy(update={"period": PERIOD}) for m in messages]
 
 
 class BusDisconnect(BusCase, ABC):
@@ -209,8 +204,8 @@ class DisconnectUDP(BusDisconnect, UDPRead):
     unplugged = MISSED
     absent = NOTHING_RECEIVED
 
-    def create_entries(self) -> list[icd.Entry]:
-        return with_period(super().create_entries())
+    def create_messages(self) -> list[icd.Message]:
+        return with_period(super().create_messages())
 
 
 class DisconnectCAN(BusDisconnect, CANRead):
@@ -220,5 +215,5 @@ class DisconnectCAN(BusDisconnect, CANRead):
     unplugged = MISSED
     absent = NOTHING_RECEIVED
 
-    def create_entries(self) -> list[icd.Entry]:
-        return with_period(super().create_entries())
+    def create_messages(self) -> list[icd.Message]:
+        return with_period(super().create_messages())

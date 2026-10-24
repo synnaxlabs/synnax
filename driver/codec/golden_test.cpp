@@ -41,7 +41,7 @@ using json = nlohmann::json;
 /// ICD, and the vectors cantools decodes and encodes for each message it can.
 struct Golden {
     std::string file;
-    std::vector<icd::MessageEntry> messages;
+    std::vector<icd::Message> messages;
     /// @brief vectors holds the vectors of each message, or nullopt when cantools
     /// skipped it.
     std::vector<std::optional<json>> vectors;
@@ -72,7 +72,7 @@ std::vector<std::uint8_t> from_hex(const std::string &hex) {
 
 /// @returns a signal that cantools decodes and the message has no field for, or an
 /// empty string.
-std::string unknown_signal(const icd::MessageEntry &m, const json &vectors) {
+std::string unknown_signal(const icd::Message &m, const json &vectors) {
     const auto &fs = std::get<icd::BinaryPayload>(m.payload).fields;
     for (const auto &v: vectors)
         for (const auto &[name, _]: v["values"].items())
@@ -110,31 +110,29 @@ std::vector<Golden> load() {
         std::map<std::string, json> by_name;
         for (const auto &m: vectors["messages"])
             by_name[m["name"].get<std::string>()] = m["vectors"];
-        for (const auto &e: ic.entries) {
-            const auto *m = std::get_if<icd::MessageEntry>(&e);
-            if (m == nullptr) continue;
-            g.messages.push_back(*m);
-            const auto it = by_name.find(m->name);
+        for (const auto &m: ic.messages) {
+            g.messages.push_back(m);
+            const auto it = by_name.find(m.name);
             if (it != by_name.end()) {
-                const auto unknown = unknown_signal(*m, it->second);
+                const auto unknown = unknown_signal(m, it->second);
                 if (unknown.empty())
                     g.vectors.emplace_back(it->second);
                 else {
                     g.vectors.emplace_back(std::nullopt);
-                    g.problems.push_back(m->name + " has no field " + unknown);
+                    g.problems.push_back(m.name + " has no field " + unknown);
                 }
                 by_name.erase(it);
                 continue;
             }
             g.vectors.emplace_back(std::nullopt);
-            if (skipped.contains(m->name))
-                std::cout << g.file << ": cantools skipped " << m->name << ": "
-                          << skipped[m->name].get<std::string>() << "\n";
+            if (skipped.contains(m.name))
+                std::cout << g.file << ": cantools skipped " << m.name << ": "
+                          << skipped[m.name].get<std::string>() << "\n";
             else if (skipped.contains(g.file))
                 std::cout << g.file << ": cantools skipped the file: "
                           << skipped[g.file].get<std::string>() << "\n";
             else
-                g.problems.push_back("cantools has no message " + m->name);
+                g.problems.push_back("cantools has no message " + m.name);
         }
         for (const auto &[name, _]: by_name)
             g.problems.push_back("the ICD has no message " + name);
@@ -143,7 +141,7 @@ std::vector<Golden> load() {
     return out;
 }
 
-const std::vector<icd::BinaryField> &fields(const icd::MessageEntry &m) {
+const std::vector<icd::BinaryField> &fields(const icd::Message &m) {
     return std::get<icd::BinaryPayload>(m.payload).fields;
 }
 
@@ -280,9 +278,7 @@ TEST(GoldenVectors, MatchEachMessageByItsCANIdentifier) {
         // CompileEveryMessageTheImporterAccepts reports the error.
         if (err) continue;
         for (std::size_t i = 0; i < g.messages.size(); i++) {
-            const auto &payload = std::get<icd::BinaryPayload>(
-                g.messages[i].payload
-            );
+            const auto &payload = std::get<icd::BinaryPayload>(g.messages[i].payload);
             const auto &id = std::get<icd::CanIdentifier>(*payload.identifier);
             const auto match = matcher.match(id.id, id.extended);
             if (!match.has_value()) {
@@ -291,8 +287,7 @@ TEST(GoldenVectors, MatchEachMessageByItsCANIdentifier) {
             }
             EXPECT_EQ(
                 std::get<icd::CanIdentifier>(
-                    *std::get<icd::BinaryPayload>(g.messages[*match].payload)
-                         .identifier
+                    *std::get<icd::BinaryPayload>(g.messages[*match].payload).identifier
                 )
                     .id,
                 id.id

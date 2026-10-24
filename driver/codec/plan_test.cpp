@@ -42,18 +42,14 @@ icd::BinaryField binary(
     return f;
 }
 
-icd::BinaryField multiplexed(
-    icd::BinaryField f,
-    const icd::BinaryField &mux,
-    const std::int32_t value
-) {
+icd::BinaryField
+multiplexed(icd::BinaryField f, const icd::BinaryField &mux, const std::int32_t value) {
     f.multiplexor = mux.key;
     f.multiplex_values = {value};
     return f;
 }
 
-icd::DelimitedTextField
-delimited(const std::string &name, const std::uint32_t pos) {
+icd::DelimitedTextField delimited(const std::string &name, const std::uint32_t pos) {
     icd::DelimitedTextField f;
     f.key = x::uuid::create();
     f.name = name;
@@ -69,20 +65,20 @@ icd::TaggedTextField tagged(const std::string &name, const std::string &tag) {
     return f;
 }
 
-icd::MessageEntry message(
+icd::Message message(
     std::vector<icd::BinaryField> fields,
     const std::optional<std::uint16_t> length = std::nullopt
 ) {
-    icd::MessageEntry m;
+    icd::Message m;
     m.key = x::uuid::create();
     m.name = "message";
     m.payload = icd::BinaryPayload{.length = length, .fields = std::move(fields)};
     return m;
 }
 
-icd::MessageEntry
+icd::Message
 text(std::vector<icd::TextField> fields, const std::string &delimiter = ",") {
-    icd::MessageEntry m;
+    icd::Message m;
     m.key = x::uuid::create();
     m.name = "message";
     m.payload = icd::TextPayload{

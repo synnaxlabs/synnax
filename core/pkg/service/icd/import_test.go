@@ -39,8 +39,8 @@ var _ = Describe("Import", func() {
 	BeforeEach(func(ctx SpecContext) {
 		ic = icd.ICD{
 			Name: "Bus",
-			Entries: []icd.Entry{
-				messageEntry(canMessage("Engine", 0x100, binaryField("Rpm", 0, 16))),
+			Messages: []icd.Message{
+				canMessage("Engine", 0x100, binaryField("Rpm", 0, 16)),
 			},
 		}
 		Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
@@ -55,15 +55,14 @@ var _ = Describe("Import", func() {
 		return svc.NewWriter(tx).Import(ctx, key, format, []byte(data))
 	}
 
-	It("Should replace the entries of the ICD", func(ctx SpecContext) {
+	It("Should replace the messages of the ICD", func(ctx SpecContext) {
 		res := MustSucceed(importICD(ctx, ic.Key, icd.FormatDBC, importDBC))
 		Expect(res.Key).To(Equal(ic.Key))
 		Expect(res.Name).To(Equal("Bus"))
-		Expect(res.Entries).To(HaveLen(2))
-		m := messageOf(res, 0)
+		Expect(res.Messages).To(HaveLen(1))
+		m := res.Messages[0]
 		Expect(m.Name).To(Equal("Engine"))
-		gear := res.Entries[1].Variant.(icd.EnumEntry)
-		Expect(*binaryFieldOf(m, 1).Enumeration).To(Equal(gear.Key))
+		Expect(binaryFieldOf(m, 1).Name).To(Equal("Gear"))
 		Expect(retrieveICD(ctx, ic.Key)).To(Equal(res))
 	})
 
@@ -74,9 +73,9 @@ var _ = Describe("Import", func() {
 	})
 
 	It("Should rewrite each task whose messages change", func(ctx SpecContext) {
-		t := createUsingTask(ctx, "Decoder", ic, messageOf(ic, 0))
+		t := createUsingTask(ctx, "Decoder", ic, ic.Messages[0])
 		res := MustSucceed(importICD(ctx, ic.Key, icd.FormatDBC, importDBC))
-		hash := MustSucceed(icd.TaskHash(res, []icd.EntryKey{messageOf(res, 0).Key}))
+		hash := MustSucceed(icd.TaskHash(res, []icd.MessageKey{res.Messages[0].Key}))
 		Expect(hash).ToNot(Equal(t.Config["icd_hash"]))
 		config := retrieveTask(ctx, t.Key).Config
 		Expect(config).To(HaveKeyWithValue("icd_hash", hash))
@@ -92,7 +91,7 @@ var _ = Describe("Import", func() {
 		csv := "message,field,start_bit,bit_length\nm,a,0,8\nm,a,8,8\n"
 		Expect(importICD(ctx, ic.Key, icd.FormatCSV, csv)).Error().To(MatchError(
 			ContainSubstring(
-				`entries.0.payload.fields.1.name: duplicate field name "a": ` +
+				`messages.0.payload.fields.1.name: duplicate field name "a": ` +
 					"validation error",
 			),
 		))

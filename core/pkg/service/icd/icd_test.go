@@ -23,9 +23,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// checkImport fails t unless err is a validation error at the data path, or the entries
-// have unique keys, references that resolve, finite numbers, and positive periods.
-func checkImport(t *testing.T, entries []icd.Entry, err error) {
+// checkImport fails t unless err is a validation error at the data path, or the
+// messages have unique keys, references that resolve, finite numbers, and positive
+// periods.
+func checkImport(t *testing.T, messages []icd.Message, err error) {
 	t.Helper()
 	if err != nil {
 		var pathErr validate.PathError
@@ -35,27 +36,12 @@ func checkImport(t *testing.T, entries []icd.Entry, err error) {
 		}
 		return
 	}
-	keys := make(set.Set[icd.EntryKey], len(entries))
-	enums := make(set.Set[icd.EntryKey])
-	var messages []icd.MessageEntry
-	for _, e := range entries {
-		var key icd.EntryKey
-		switch v := e.Variant.(type) {
-		case icd.EnumEntry:
-			key = v.Key
-			enums.Add(key)
-		case icd.MessageEntry:
-			key = v.Key
-			messages = append(messages, v)
-		default:
-			t.Fatalf("unexpected entry %T", v)
-		}
-		if keys.Contains(key) {
-			t.Fatalf("duplicate entry key %s", key)
-		}
-		keys.Add(key)
-	}
+	keys := make(set.Set[icd.MessageKey], len(messages))
 	for _, m := range messages {
+		if keys.Contains(m.Key) {
+			t.Fatalf("duplicate message key %s", m.Key)
+		}
+		keys.Add(m.Key)
 		if m.Period != nil && *m.Period <= 0 {
 			t.Fatalf("message %s has period %s", m.Name, *m.Period)
 		}
@@ -80,9 +66,6 @@ func checkImport(t *testing.T, entries []icd.Entry, err error) {
 					)
 				}
 			}
-			if f.Enumeration != nil && !enums.Contains(*f.Enumeration) {
-				t.Fatalf("field %s.%s has no enum entry", m.Name, f.Name)
-			}
 			if f.Multiplexor != nil && !fields.Contains(*f.Multiplexor) {
 				t.Fatalf("field %s.%s has no multiplexor field", m.Name, f.Name)
 			}
@@ -92,9 +75,8 @@ func checkImport(t *testing.T, entries []icd.Entry, err error) {
 
 var _ = Describe("Parse", func() {
 	DescribeTable("Should parse each format",
-		func(format icd.Format, data func() []byte, messages int) {
-			entries := MustSucceed(icd.Parse(format, data()))
-			Expect(messagesOf(entries)).To(HaveLen(messages))
+		func(format icd.Format, data func() []byte, count int) {
+			Expect(MustSucceed(icd.Parse(format, data()))).To(HaveLen(count))
 		},
 		Entry("DBC", icd.FormatDBC, func() []byte {
 			data, _ := readFixture("basic")

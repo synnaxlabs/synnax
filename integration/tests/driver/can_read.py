@@ -39,9 +39,9 @@ class CANRead(CANCase):
     fast: Bound
     slow: Bound
 
-    def create_entries(self) -> list[icd.Entry]:
+    def create_messages(self) -> list[icd.Message]:
         return [
-            icd.MessageEntry(
+            icd.Message(
                 name="fast",
                 payload=icd.BinaryPayload(
                     identifier=icd.CanIdentifier(id=can_frames.FAST_ID),
@@ -73,7 +73,7 @@ class CANRead(CANCase):
                     ],
                 ),
             ),
-            icd.MessageEntry(
+            icd.Message(
                 name="slow",
                 payload=icd.BinaryPayload(
                     identifier=icd.CanIdentifier(

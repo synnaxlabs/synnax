@@ -34,10 +34,7 @@ const icd::BaseField &base(const icd::BinaryField &field) {
 }
 
 const icd::BaseField &base(const icd::TextField &field) {
-    return std::visit(
-        [](const auto &f) -> const icd::BaseField & { return f; },
-        field
-    );
+    return std::visit([](const auto &f) -> const icd::BaseField & { return f; }, field);
 }
 
 x::errors::Error validate_scaling(const icd::BaseField &field) {
@@ -374,7 +371,7 @@ void Plan::set_raw(
         values.set(slot, raw);
 }
 
-std::pair<Plan, x::errors::Error> Plan::compile(const icd::MessageEntry &message) {
+std::pair<Plan, x::errors::Error> Plan::compile(const icd::Message &message) {
     std::vector<icd::FieldKey> keys;
     std::visit(
         [&keys](const auto &payload) {
@@ -387,10 +384,8 @@ std::pair<Plan, x::errors::Error> Plan::compile(const icd::MessageEntry &message
     return compile(message, keys);
 }
 
-std::pair<Plan, x::errors::Error> Plan::compile(
-    const icd::MessageEntry &message,
-    const std::vector<icd::FieldKey> &keys
-) {
+std::pair<Plan, x::errors::Error>
+Plan::compile(const icd::Message &message, const std::vector<icd::FieldKey> &keys) {
     Plan plan;
     plan.keys = keys;
     auto err = std::visit(

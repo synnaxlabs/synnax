@@ -27,14 +27,13 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-// withoutKeys returns entries with every entry and field key cleared.
-func withoutKeys(entries []icd.Entry) []icd.Entry {
-	out := make([]icd.Entry, len(entries))
-	for i, e := range entries {
-		m := e.Variant.(icd.MessageEntry)
+// withoutKeys returns messages with every message and field key cleared.
+func withoutKeys(messages []icd.Message) []icd.Message {
+	out := make([]icd.Message, len(messages))
+	for i, m := range messages {
 		m.Key = uuid.Nil()
 		m.Payload.UpdateFieldBases(func(b *icd.BaseField) { b.Key = uuid.Nil() })
-		out[i] = icd.Entry{Variant: m}
+		out[i] = m
 	}
 	return out
 }
@@ -45,8 +44,8 @@ func tableMessage(
 	length *uint16,
 	period *telem.TimeSpan,
 	fields ...icd.BinaryField,
-) icd.Entry {
-	return icd.Entry{Variant: icd.MessageEntry{
+) icd.Message {
+	return icd.Message{
 		Name: name,
 		Payload: icd.Payload{Variant: icd.BinaryPayload{
 			Identifier: id,
@@ -54,7 +53,7 @@ func tableMessage(
 			Fields:     fields,
 		}},
 		Period: period,
-	}}
+	}
 }
 
 func canID(id uint32, extended bool) *icd.Identifier {
@@ -63,8 +62,8 @@ func canID(id uint32, extended bool) *icd.Identifier {
 	}
 }
 
-// tableEntries are the entries of tableRows.
-var tableEntries = []icd.Entry{
+// tableMessages are the messages of tableRows.
+var tableMessages = []icd.Message{
 	tableMessage(
 		"Engine",
 		canID(0x100, false),
@@ -283,8 +282,8 @@ func FuzzParseCSV(f *testing.F) {
 		),
 	)
 	f.Fuzz(func(t *testing.T, data []byte) {
-		entries, err := icd.Parse(icd.FormatCSV, data)
-		checkImport(t, entries, err)
+		messages, err := icd.Parse(icd.FormatCSV, data)
+		checkImport(t, messages, err)
 	})
 }
 
@@ -299,8 +298,8 @@ func FuzzParseXLSX(f *testing.F) {
 		f.Add(data)
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		entries, err := icd.Parse(icd.FormatXLSX, data)
-		checkImport(t, entries, err)
+		messages, err := icd.Parse(icd.FormatXLSX, data)
+		checkImport(t, messages, err)
 	})
 }
 
@@ -322,29 +321,29 @@ func FuzzParseXLSXSheet(f *testing.F) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		entries, err := icd.Parse(icd.FormatXLSX, data)
-		checkImport(t, entries, err)
+		messages, err := icd.Parse(icd.FormatXLSX, data)
+		checkImport(t, messages, err)
 	})
 }
 
 var _ = Describe("Parse CSV", func() {
-	It("Should group the rows of each message into one message entry", func() {
-		entries := MustSucceed(icd.Parse(icd.FormatCSV, toCSV(tableRows)))
-		Expect(withoutKeys(entries)).To(Equal(tableEntries))
+	It("Should group the rows of each message into one message", func() {
+		messages := MustSucceed(icd.Parse(icd.FormatCSV, toCSV(tableRows)))
+		Expect(withoutKeys(messages)).To(Equal(tableMessages))
 	})
 
 	It("Should give every message and field a key", func() {
-		entries := MustSucceed(icd.Parse(icd.FormatCSV, toCSV(tableRows)))
-		m := messagesOf(entries)[0]
+		messages := MustSucceed(icd.Parse(icd.FormatCSV, toCSV(tableRows)))
+		m := messages[0]
 		Expect(m.Key).ToNot(Equal(uuid.Nil()))
 		Expect(binaryFields(m)[0].Key).ToNot(Equal(uuid.Nil()))
 	})
 
 	It("Should skip a leading byte order mark", func() {
-		entries := MustSucceed(
+		messages := MustSucceed(
 			icd.Parse(icd.FormatCSV, append([]byte("\ufeff"), toCSV(tableRows)...)),
 		)
-		Expect(withoutKeys(entries)).To(Equal(tableEntries))
+		Expect(withoutKeys(messages)).To(Equal(tableMessages))
 	})
 
 	It("Should report the line of malformed CSV", func() {
@@ -434,8 +433,8 @@ var _ = Describe("Parse CSV", func() {
 var _ = Describe("Parse XLSX", func() {
 	It("Should parse the table in the first sheet", func() {
 		other := [][]string{{"Color"}, {"red"}}
-		entries := MustSucceed(icd.Parse(icd.FormatXLSX, toXLSX(tableRows, other)))
-		Expect(withoutKeys(entries)).To(Equal(tableEntries))
+		messages := MustSucceed(icd.Parse(icd.FormatXLSX, toXLSX(tableRows, other)))
+		Expect(withoutKeys(messages)).To(Equal(tableMessages))
 	})
 
 	It("Should read the value of a numeric cell, not its formatted text", func() {
@@ -445,10 +444,10 @@ var _ = Describe("Parse XLSX", func() {
 		})
 		style := MustSucceed(f.NewStyle(&excelize.Style{CustomNumFmt: new("0.0")}))
 		Expect(f.SetCellStyle("Sheet1", "C2", "F2", style)).To(Succeed())
-		entries := MustSucceed(
+		messages := MustSucceed(
 			icd.Parse(icd.FormatXLSX, MustSucceed(f.WriteToBuffer()).Bytes()),
 		)
-		a := binaryFields(messagesOf(entries)[0])[0]
+		a := binaryFields(messages[0])[0]
 		Expect(a.StartBit).To(Equal(uint16(8)))
 		Expect(a.Scale).To(Equal(0.001))
 		Expect(a.Offset).To(Equal(0.125))

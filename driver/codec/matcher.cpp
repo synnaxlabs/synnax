@@ -25,12 +25,12 @@ std::uint32_t exact_key(const std::uint32_t id, const bool extended) {
     return extended ? id | EXTENDED_KEY_BIT : id;
 }
 
-x::errors::Error message_error(const icd::MessageEntry &m, const std::string &msg) {
+x::errors::Error message_error(const icd::Message &m, const std::string &msg) {
     return x::errors::Error(CONFIG_ERROR, "message " + m.name + ": " + msg);
 }
 
 x::errors::Error duplicate(
-    const std::span<const icd::MessageEntry> messages,
+    const std::span<const icd::Message> messages,
     const std::size_t first,
     const std::size_t second,
     const std::string &what
@@ -51,7 +51,7 @@ find_field(const icd::BinaryPayload &payload, const icd::FieldKey &key) {
 }
 
 std::pair<Matcher, x::errors::Error>
-Matcher::compile(const std::span<const icd::MessageEntry> messages) {
+Matcher::compile(const std::span<const icd::Message> messages) {
     Matcher m;
     for (std::size_t i = 0; i < messages.size(); i++) {
         const auto &msg = messages[i];

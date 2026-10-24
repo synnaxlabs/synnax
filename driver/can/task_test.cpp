@@ -345,7 +345,7 @@ protected:
 };
 
 /// @returns the ICD messages of the vcan read case.
-std::vector<synnax::icd::MessageEntry> read_messages() {
+std::vector<synnax::icd::Message> read_messages() {
     auto sine_field = binary_field("sine", 16, 16);
     sine_field.signed_ = true;
     sine_field.scale = SINE_SCALE;
@@ -382,8 +382,7 @@ std::vector<synnax::icd::MessageEntry> read_messages() {
 
 /// @brief resolves a CAN write config over messages. The fields of the messages map
 /// in order to command channels numbered from 7.
-bus::WriteConfig
-write_config(const std::vector<synnax::icd::MessageEntry> &messages) {
+bus::WriteConfig write_config(const std::vector<synnax::icd::Message> &messages) {
     ::synnax::bus::WriteConfig cfg;
     cfg.device = "dev";
     std::vector<synnax::channel::Channel> channels;
@@ -412,7 +411,7 @@ write_config(const std::vector<synnax::icd::MessageEntry> &messages) {
 }
 
 /// @returns the command and heartbeat messages of the vcan write case.
-std::vector<synnax::icd::MessageEntry> write_messages() {
+std::vector<synnax::icd::Message> write_messages() {
     auto setpoint = binary_field("setpoint", 0, 16);
     setpoint.scale = 0.5;
     auto trim = binary_field("trim", 16, 8);
@@ -451,7 +450,7 @@ bus::ReadConfig status_read_config() {
 }
 
 /// @returns a message, cmd, whose first byte v comes from channel 7.
-synnax::icd::MessageEntry command_message() {
+synnax::icd::Message command_message() {
     return binary_message(
         "cmd",
         {binary_field("v", 0)},

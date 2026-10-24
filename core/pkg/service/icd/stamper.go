@@ -25,8 +25,8 @@ import (
 // Use is one message a task config uses, with the fields of it the task reads or
 // writes.
 type Use struct {
-	// Message is the key of the message entry.
-	Message EntryKey
+	// Message is the key of the message.
+	Message MessageKey
 	// Fields are the keys of the fields the task uses.
 	Fields []FieldKey
 }
@@ -51,7 +51,7 @@ func (s Stamper) Stamp(
 	tx gorp.Tx,
 	taskKey uuid.UUID,
 	ref *Reference,
-	messages []EntryKey,
+	messages []MessageKey,
 ) (ICD, error) {
 	tx = gorp.OverrideTx(s.DB, tx)
 	w := s.Ontology.NewWriter(tx)

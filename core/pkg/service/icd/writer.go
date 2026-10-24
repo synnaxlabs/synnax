@@ -38,10 +38,10 @@ type Writer struct {
 
 // Create creates the ICD, or replaces it when an ICD with its key exists. A replacement
 // must carry the Hash of the ICD as the writer read it, or Create returns an error
-// wrapping library.ErrStale. Create assigns keys to the ICD, its entries, and their
+// wrapping library.ErrStale. Create assigns keys to the ICD, its messages, and their
 // fields where absent, and sets Hash to the hash of the stored ICD. It returns a
 // path-scoped validation error for each problem Check finds, and when a replacement
-// drops a message or field that a task uses. Each task whose used entries change is
+// drops a message or field that a task uses. Each task whose used messages change is
 // rewritten, so its config carries their new hash.
 func (w Writer) Create(ctx context.Context, ic *ICD) error {
 	var prev *ICD
@@ -125,8 +125,8 @@ func (w Writer) Check(ctx context.Context, ic ICD) (library.Problems, error) {
 	return problems, nil
 }
 
-// Import replaces the entries of the ICD with the given key by those parsed from data
-// in the given format. Entries and fields keep their keys when their names match (see
+// Import replaces the messages of the ICD with the given key by those parsed from data
+// in the given format. Messages and fields keep their keys when their names match (see
 // Merge), and the tasks that use the ICD are rewritten as in Create. Import returns
 // the updated ICD, a path-scoped validation error when data or the result is invalid,
 // and an error wrapping query.ErrNotFound when no ICD has the key.
@@ -136,7 +136,7 @@ func (w Writer) Import(
 	format Format,
 	data []byte,
 ) (ICD, error) {
-	entries, err := Parse(format, data)
+	messages, err := Parse(format, data)
 	if err != nil {
 		return ICD{}, err
 	}
@@ -144,7 +144,7 @@ func (w Writer) Import(
 	if err != nil {
 		return ICD{}, err
 	}
-	ic := Merge(existing, entries)
+	ic := Merge(existing, messages)
 	if err = w.Create(ctx, &ic); err != nil {
 		return ICD{}, err
 	}
@@ -193,7 +193,7 @@ func (w Writer) retrieve(ctx context.Context, key Key) (ICD, error) {
 	return ic, err
 }
 
-// user is a task that uses an ICD, with the entries it uses.
+// user is a task that uses an ICD, with the messages it uses.
 type user struct {
 	task task.Task
 	uses []Use
@@ -228,28 +228,26 @@ func (w Writer) users(ctx context.Context, ic ICD) ([]user, error) {
 }
 
 // missing returns a problem for each message or field that u uses and next lacks,
-// named from prev. A missing message is a problem with the entries, and a missing field
-// one with the fields of its message.
+// named from prev. A missing message is a problem with the messages, and a missing
+// field one with the fields of its message.
 func (u user) missing(prev, next ICD) library.Problems {
-	indexes := make(map[EntryKey]int)
-	for i, e := range next.Entries {
-		if m, ok := e.Variant.(MessageEntry); ok {
-			indexes[m.Key] = i
-		}
+	indexes := make(map[MessageKey]int, len(next.Messages))
+	for i, m := range next.Messages {
+		indexes[m.Key] = i
 	}
 	var problems library.Problems
 	for _, use := range u.uses {
 		i, ok := indexes[use.Message]
 		if !ok {
 			problems.Addf(
-				[]string{"entries"},
+				[]string{"messages"},
 				"task %q uses message %q, which the ICD no longer has",
 				u.task.Name,
 				nameOf(prev, use.Message),
 			)
 			continue
 		}
-		m := next.Entries[i].Variant.(MessageEntry)
+		m := next.Messages[i]
 		fields := make(set.Set[FieldKey])
 		for _, b := range m.Payload.FieldBases() {
 			fields.Add(b.Key)
@@ -257,7 +255,7 @@ func (u user) missing(prev, next ICD) library.Problems {
 		for _, f := range use.Fields {
 			if !fields.Contains(f) {
 				problems.Addf(
-					[]string{"entries", strconv.Itoa(i), "payload", "fields"},
+					[]string{"messages", strconv.Itoa(i), "payload", "fields"},
 					"task %q uses field %q of message %q, which the ICD no longer has",
 					u.task.Name,
 					fieldNameOf(prev, use.Message, f),
@@ -270,7 +268,8 @@ func (u user) missing(prev, next ICD) library.Problems {
 }
 
 // staleTasks returns the tasks that use next whose stamped hash no longer matches the
-// entries they use. It returns a path-scoped validation error for each message or field
+// messages they use. It returns a path-scoped validation error for each message or
+// field
 // a task uses and next lacks.
 func (w Writer) staleTasks(ctx context.Context, prev, next ICD) ([]task.Task, error) {
 	users, err := w.users(ctx, next)
@@ -290,7 +289,10 @@ func (w Writer) staleTasks(ctx context.Context, prev, next ICD) ([]task.Task, er
 		if err = u.task.Config.Unmarshal(&ref); err != nil {
 			return nil, err
 		}
-		messages := lo.Map(u.uses, func(use Use, _ int) EntryKey { return use.Message })
+		messages := lo.Map(
+			u.uses,
+			func(use Use, _ int) MessageKey { return use.Message },
+		)
 		hash, err := TaskHash(next, messages)
 		if err != nil {
 			return nil, err
@@ -302,20 +304,15 @@ func (w Writer) staleTasks(ctx context.Context, prev, next ICD) ([]task.Task, er
 	return stale, nil
 }
 
-func messagesByKey(ic ICD) map[EntryKey]MessageEntry {
-	messages := make(map[EntryKey]MessageEntry)
-	for _, e := range ic.Entries {
-		if m, ok := e.Variant.(MessageEntry); ok {
-			messages[m.Key] = m
-		}
-	}
-	return messages
+// messageOf returns the message with the given key in ic.
+func messageOf(ic ICD, key MessageKey) (Message, bool) {
+	return lo.Find(ic.Messages, func(m Message) bool { return m.Key == key })
 }
 
 // nameOf returns the name of the message with the given key in ic, or the key when ic
 // has no such message.
-func nameOf(ic ICD, key EntryKey) string {
-	if m, ok := messagesByKey(ic)[key]; ok {
+func nameOf(ic ICD, key MessageKey) string {
+	if m, ok := messageOf(ic, key); ok {
 		return m.Name
 	}
 	return key.String()
@@ -323,8 +320,9 @@ func nameOf(ic ICD, key EntryKey) string {
 
 // fieldNameOf returns the name of the field with the given key in the message with the
 // given key in ic, or the field key when ic has no such field.
-func fieldNameOf(ic ICD, message EntryKey, field FieldKey) string {
-	for _, b := range messagesByKey(ic)[message].Payload.FieldBases() {
+func fieldNameOf(ic ICD, message MessageKey, field FieldKey) string {
+	m, _ := messageOf(ic, message)
+	for _, b := range m.Payload.FieldBases() {
 		if b.Key == field {
 			return b.Name
 		}
@@ -332,28 +330,18 @@ func fieldNameOf(ic ICD, message EntryKey, field FieldKey) string {
 	return field.String()
 }
 
-// assignKeys gives a new key to every entry and field that has none. It skips entries
-// and fields with no kind or encoding, which Check rejects.
+// assignKeys gives a new key to every message and field that has none. It skips text
+// fields with no encoding, which Check rejects.
 func assignKeys(ic *ICD) {
-	for i := range ic.Entries {
-		e := &ic.Entries[i]
-		if e.Variant == nil {
-			continue
-		}
-		b := e.Base()
-		if b.Key == uuid.Nil() {
-			b.Key = uuid.New()
-			e.SetBase(b)
-		}
-		m, ok := e.Variant.(MessageEntry)
-		if !ok {
-			continue
+	for i := range ic.Messages {
+		m := &ic.Messages[i]
+		if m.Key == uuid.Nil() {
+			m.Key = uuid.New()
 		}
 		m.Payload.UpdateFieldBases(func(fb *BaseField) {
 			if fb.Key == uuid.Nil() {
 				fb.Key = uuid.New()
 			}
 		})
-		e.Variant = m
 	}
 }

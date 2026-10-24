@@ -22,7 +22,7 @@ using ChannelMap = std::unordered_map<synnax::channel::Key, synnax::channel::Cha
 
 /// @returns the parts every field of the message shares, in field order.
 std::vector<const synnax::icd::BaseField *>
-field_bases(const synnax::icd::MessageEntry &message) {
+field_bases(const synnax::icd::Message &message) {
     std::vector<const synnax::icd::BaseField *> bases;
     if (const auto *b = std::get_if<synnax::icd::BinaryPayload>(&message.payload))
         for (const auto &f: b->fields)
@@ -38,12 +38,10 @@ field_bases(const synnax::icd::MessageEntry &message) {
     return bases;
 }
 
-const synnax::icd::MessageEntry *
-find_message(const synnax::icd::ICD &ic, const synnax::icd::EntryKey &key) {
-    for (const auto &entry: ic.entries)
-        if (const auto *m = std::get_if<synnax::icd::MessageEntry>(&entry);
-            m != nullptr && m->key == key)
-            return m;
+const synnax::icd::Message *
+find_message(const synnax::icd::ICD &ic, const synnax::icd::MessageKey &key) {
+    for (const auto &m: ic.messages)
+        if (m.key == key) return &m;
     return nullptr;
 }
 
@@ -70,7 +68,7 @@ std::string field_path(const std::size_t message, const std::size_t field) {
 void check_medium(
     const x::json::Parser &parser,
     const std::size_t index,
-    const synnax::icd::MessageEntry &message,
+    const synnax::icd::Message &message,
     const Medium medium
 ) {
     const bool can = medium == Medium::CAN;
@@ -143,7 +141,7 @@ const synnax::channel::Channel *find_channel(
 /// stores, so a layout the Driver cannot compile is a bug in one of the two, and the
 /// error is x::errors::INTERNAL.
 std::pair<codec::Plan, x::errors::Error> compile_plan(
-    const synnax::icd::MessageEntry &message,
+    const synnax::icd::Message &message,
     const std::optional<std::vector<synnax::icd::FieldKey>> &keys = std::nullopt
 ) {
     auto [plan, err] = keys.has_value() ? codec::Plan::compile(message, *keys)
@@ -339,28 +337,28 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::resolve(
     for (std::size_t i = 0; i < cfg.messages.size(); i++) {
         const auto &m = cfg.messages[i];
         if (m.disabled) continue;
-        const auto *entry = find_message(ic, m.message);
-        if (entry == nullptr) {
+        const auto *def = find_message(ic, m.message);
+        if (def == nullptr) {
             parser.field_err(
                 path(i, "message"),
                 "message " + m.message.to_string() + " is not in ICD " + ic.name
             );
             continue;
         }
-        check_medium(parser, i, *entry, medium);
-        if (medium == Medium::CAN && entry->query.has_value())
+        check_medium(parser, i, *def, medium);
+        if (medium == Medium::CAN && def->query.has_value())
             parser.field_err(
                 path(i, "message"),
-                "message " + entry->name + " has a query, which a CAN bus cannot send"
+                "message " + def->name + " has a query, which a CAN bus cannot send"
             );
-        ReadMessage msg{.entry = *entry};
-        if (entry->query.has_value())
+        ReadMessage msg{.definition = *def};
+        if (def->query.has_value())
             msg.period = poll.rate.period();
-        else if (entry->period.has_value())
-            msg.period = *entry->period;
+        else if (def->period.has_value())
+            msg.period = *def->period;
         if (m.fields.empty())
             parser.field_err(path(i, "fields"), "at least one field is required");
-        const auto bases = field_bases(*entry);
+        const auto bases = field_bases(*def);
         std::vector<synnax::icd::FieldKey> keys;
         std::map<synnax::channel::Key, std::size_t> groups;
         for (std::size_t j = 0; j < m.fields.size(); j++) {
@@ -369,7 +367,7 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::resolve(
             if (!field) {
                 parser.field_err(
                     field_path(i, j),
-                    "field " + f.field.to_string() + " is not in message " + entry->name
+                    "field " + f.field.to_string() + " is not in message " + def->name
                 );
                 continue;
             }
@@ -415,16 +413,16 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::resolve(
             msg.channels.push_back(*ch);
         }
         if (!parser.ok()) continue;
-        auto [plan, plan_err] = compile_plan(*entry, keys);
+        auto [plan, plan_err] = compile_plan(*def, keys);
         if (plan_err) return {std::move(out), plan_err};
         msg.plan = std::move(plan);
-        if (entry->query.has_value()) {
+        if (def->query.has_value()) {
             auto query = std::vector<std::uint8_t>(
-                entry->query->begin(),
-                entry->query->end()
+                def->query->begin(),
+                def->query->end()
             );
-            if (std::holds_alternative<synnax::icd::BinaryPayload>(entry->payload)) {
-                auto [bytes, err] = unescape(*entry->query);
+            if (std::holds_alternative<synnax::icd::BinaryPayload>(def->payload)) {
+                auto [bytes, err] = unescape(*def->query);
                 if (err) parser.field_err(path(i, "message"), err);
                 query = std::move(bytes);
             }
@@ -433,13 +431,15 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::resolve(
                 if (const auto err = out.framer->encode(query, wire))
                     parser.field_err(
                         path(i, "message"),
-                        "query of " + entry->name +
+                        "query of " + def->name +
                             " does not fit the framing: " + err.data
                     );
                 query = std::move(wire);
             }
             msg.query = std::move(query);
-            auto [reply, reply_err] = codec::Matcher::compile(std::span(&msg.entry, 1));
+            auto [reply, reply_err] = codec::Matcher::compile(
+                std::span(&msg.definition, 1)
+            );
             if (reply_err) parser.field_err(path(i, "message"), reply_err);
             msg.reply = std::move(reply);
             out.polled.push_back(out.messages.size());
@@ -457,9 +457,9 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::resolve(
     }
     if (!parser.ok()) return {std::move(out), x::errors::NIL};
 
-    std::vector<synnax::icd::MessageEntry> streamed;
+    std::vector<synnax::icd::Message> streamed;
     for (const auto i: out.streamed)
-        streamed.push_back(out.messages[i].entry);
+        streamed.push_back(out.messages[i].definition);
     auto [matcher, err] = codec::Matcher::compile(streamed);
     if (err) parser.field_err("messages", err);
     out.matcher = std::move(matcher);
@@ -510,41 +510,41 @@ std::pair<WriteConfig, x::errors::Error> WriteConfig::resolve(
     for (std::size_t i = 0; i < cfg.messages.size(); i++) {
         const auto &m = cfg.messages[i];
         if (m.disabled) continue;
-        const auto *entry = find_message(ic, m.message);
-        if (entry == nullptr) {
+        const auto *def = find_message(ic, m.message);
+        if (def == nullptr) {
             parser.field_err(
                 path(i, "message"),
                 "message " + m.message.to_string() + " is not in ICD " + ic.name
             );
             continue;
         }
-        check_medium(parser, i, *entry, medium);
-        const auto *binary = std::get_if<synnax::icd::BinaryPayload>(&entry->payload);
+        check_medium(parser, i, *def, medium);
+        const auto *binary = std::get_if<synnax::icd::BinaryPayload>(&def->payload);
         if (medium == Medium::CAN && binary != nullptr &&
             !binary->identifier.has_value())
             parser.field_err(
                 path(i, "message"),
-                "message " + entry->name + " needs a CAN identifier to send with"
+                "message " + def->name + " needs a CAN identifier to send with"
             );
-        if (entry->period.has_value() && *entry->period <= x::telem::TimeSpan::ZERO())
+        if (def->period.has_value() && *def->period <= x::telem::TimeSpan::ZERO())
             parser.field_err(
                 path(i, "message"),
-                "message " + entry->name + " has a period of " +
-                    entry->period->to_string() + ", which must be positive"
+                "message " + def->name + " has a period of " +
+                    def->period->to_string() + ", which must be positive"
             );
-        if (m.fields.empty() && !entry->period.has_value())
+        if (m.fields.empty() && !def->period.has_value())
             parser.field_err(
                 path(i, "fields"),
-                "message " + entry->name +
+                "message " + def->name +
                     " has no period, so it needs at least one field"
             );
-        auto [plan, plan_err] = compile_plan(*entry);
+        auto [plan, plan_err] = compile_plan(*def);
         if (plan_err) return {std::move(out), plan_err};
-        WriteMessage msg{.entry = *entry, .plan = std::move(plan)};
+        WriteMessage msg{.definition = *def, .plan = std::move(plan)};
         msg.initial = msg.plan.values();
         for (std::size_t s = 0; s < msg.plan.size(); s++)
             msg.plan.set_raw(msg.initial, s, 0);
-        const auto bases = field_bases(*entry);
+        const auto bases = field_bases(*def);
         std::set<std::size_t> bound;
         for (std::size_t j = 0; j < m.fields.size(); j++) {
             const auto &f = m.fields[j];
@@ -552,7 +552,7 @@ std::pair<WriteConfig, x::errors::Error> WriteConfig::resolve(
             if (!slot) {
                 parser.field_err(
                     field_path(i, j),
-                    "field " + f.field.to_string() + " is not in message " + entry->name
+                    "field " + f.field.to_string() + " is not in message " + def->name
                 );
                 continue;
             }
@@ -571,7 +571,7 @@ std::pair<WriteConfig, x::errors::Error> WriteConfig::resolve(
             if (commands.insert(ch->key).second) out.commands.push_back(ch->key);
         }
         if (binary == nullptr)
-            msg.prefix = std::get<synnax::icd::TextPayload>(entry->payload).prefix;
+            msg.prefix = std::get<synnax::icd::TextPayload>(def->payload).prefix;
         else if (binary->identifier.has_value())
             if (const auto *id = std::get_if<synnax::icd::FieldIdentifier>(
                     &*binary->identifier

@@ -16,14 +16,11 @@ import "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 // Key is a unique identifier for an ICD.
 type Key = v0.Key
 
-// EntryKey is a unique identifier for an entry within an ICD.
-type EntryKey = v0.EntryKey
+// MessageKey is a unique identifier for a message within an ICD.
+type MessageKey = v0.MessageKey
 
 // FieldKey is a unique identifier for a field within a message.
 type FieldKey = v0.FieldKey
-
-// EnumValue maps one integer value of an enum to a name.
-type EnumValue = v0.EnumValue
 
 // ByteOrder is the byte order of a multi-byte binary field.
 type ByteOrder = v0.ByteOrder
@@ -93,29 +90,11 @@ type BinaryPayload = v0.BinaryPayload
 // TextPayload is a payload of one text line.
 type TextPayload = v0.TextPayload
 
-// BaseEntry carries the parts every ICD entry shares.
-type BaseEntry = v0.BaseEntry
-
-// Entry is one typed item in an ICD.
-type Entry = v0.Entry
-type EntryVariant = v0.EntryVariant
-type EntryType = v0.EntryType
-
-const (
-	// EnumEntryType maps integer values to names.
-	EnumEntryType EntryType = v0.EnumEntryType
-	// MessageEntryType is a frame layout on a bus or byte stream.
-	MessageEntryType EntryType = v0.MessageEntryType
-)
-
-// EnumEntry maps integer values to names.
-type EnumEntry = v0.EnumEntry
-
-// MessageEntry is a frame layout on a bus or byte stream.
-type MessageEntry = v0.MessageEntry
+// Message is a frame layout on a bus or byte stream.
+type Message = v0.Message
 
 // ICD is an interface control document: the messages a device sends and receives on a
-// bus or byte stream, and the enums that name their values.
+// bus or byte stream.
 type ICD = v0.ICD
 
 // Reference is embedded in the config of a task that uses an ICD. A task uses at most

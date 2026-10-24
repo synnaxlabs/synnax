@@ -64,16 +64,16 @@ export interface CreateTasksParams<
   writeChecks?: Check<z.infer<W>>[];
 }
 
-const createReadMessage = (entry: icd.MessageEntry): bus.ReadMessage =>
+const createReadMessage = (definition: icd.Message): bus.ReadMessage =>
   bus.readMessageZ.parse({
-    message: entry.key,
-    fields: entry.payload.fields.map((f) => ({ field: f.key })),
+    message: definition.key,
+    fields: definition.payload.fields.map((f) => ({ field: f.key })),
   });
 
-const createWriteMessage = (entry: icd.MessageEntry): bus.WriteMessage =>
+const createWriteMessage = (definition: icd.Message): bus.WriteMessage =>
   bus.writeMessageZ.parse({
-    message: entry.key,
-    fields: entry.payload.fields.map((f) => ({ field: f.key })),
+    message: definition.key,
+    fields: definition.payload.fields.map((f) => ({ field: f.key })),
   });
 
 const readDetails = Component.renderProp(ReadDetails);

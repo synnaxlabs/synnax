@@ -46,11 +46,11 @@ positions(const std::size_t start, const std::size_t length, const bool big) {
     return out;
 }
 
-icd::MessageEntry message(
+icd::Message create_message(
     std::vector<icd::BinaryField> fields,
     const std::optional<std::uint16_t> length
 ) {
-    icd::MessageEntry m;
+    icd::Message m;
     m.key = x::uuid::create();
     m.name = "message";
     m.payload = icd::BinaryPayload{.length = length, .fields = std::move(fields)};
@@ -61,7 +61,7 @@ icd::MessageEntry message(
 /// every value survives an encode and decode.
 class Layout {
 public:
-    icd::MessageEntry entry;
+    icd::Message message;
     /// @brief parent is the index of each field's multiplexor in fields, or nullopt.
     std::vector<std::optional<std::size_t>> parent;
 
@@ -83,7 +83,10 @@ public:
             }
             this->add(f, by);
         }
-        this->entry = message(this->fields, static_cast<std::uint16_t>(this->length));
+        this->message = create_message(
+            this->fields,
+            static_cast<std::uint16_t>(this->length)
+        );
     }
 
     [[nodiscard]] const std::vector<icd::BinaryField> &all() const {
@@ -265,7 +268,7 @@ TEST(PlanProperty, DecodeHandlesAnyPayloadForAnyLayout) {
         }
         std::optional<std::uint16_t> length;
         if (rng() % 2 == 0) length = static_cast<std::uint16_t>(rng() % 80);
-        const auto [plan, err] = Plan::compile(message(fields, length));
+        const auto [plan, err] = Plan::compile(create_message(fields, length));
         if (err) {
             ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
             continue;
@@ -292,7 +295,7 @@ TEST(PlanProperty, DecodeHandlesAnyTextLine) {
         const auto count = rng() % 5 + 1;
         for (std::size_t i = 0; i < count; i++)
             payload.fields.push_back(random_text_field(rng, i));
-        icd::MessageEntry m;
+        icd::Message m;
         m.key = x::uuid::create();
         m.payload = payload;
         const auto plan = ASSERT_NIL_P(Plan::compile(m));
@@ -318,7 +321,7 @@ TEST(PlanProperty, DecodeReturnsTheEncodedValue) {
     for (int l = 0; l < 300; l++) {
         const Layout layout(rng);
         const auto &fields = layout.all();
-        const auto plan = ASSERT_NIL_P(Plan::compile(layout.entry));
+        const auto plan = ASSERT_NIL_P(Plan::compile(layout.message));
         auto values = plan.values();
         auto decoded = plan.values();
         for (int i = 0; i < 20; i++) {
@@ -372,7 +375,7 @@ TEST(PlanProperty, DecodeReturnsTheEncodedTextValue) {
         const auto count = rng() % 5 + 1;
         for (std::size_t i = 0; i < count; i++)
             payload.fields.push_back(random_text_field(rng, i));
-        icd::MessageEntry m;
+        icd::Message m;
         m.key = x::uuid::create();
         m.payload = payload;
         const auto plan = ASSERT_NIL_P(Plan::compile(m));

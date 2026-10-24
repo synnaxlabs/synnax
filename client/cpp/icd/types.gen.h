@@ -28,11 +28,10 @@
 
 namespace synnax::icd {
 
-struct EnumValue;
 struct Reference;
-struct BaseEntry;
 struct BaseField;
 struct BinaryField;
+struct Message;
 struct ICD;
 
 constexpr const char *BYTE_ORDER_LITTLE_ENDIAN = "little_endian";
@@ -40,26 +39,9 @@ constexpr const char *BYTE_ORDER_BIG_ENDIAN = "big_endian";
 
 using Key = x::uuid::UUID;
 
-using EntryKey = x::uuid::UUID;
+using MessageKey = x::uuid::UUID;
 
 using FieldKey = x::uuid::UUID;
-
-/// @brief EnumValue maps one integer value of an enum to a name.
-struct EnumValue {
-    /// @brief value is the integer value.
-    std::int32_t value = 0;
-    /// @brief name is the name of the value.
-    std::string name;
-
-    static EnumValue parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::icd::pb::EnumValue;
-    [[nodiscard]] std::pair<::service::icd::pb::EnumValue, x::errors::Error>
-    to_proto() const;
-    static std::pair<EnumValue, x::errors::Error>
-    from_proto(const ::service::icd::pb::EnumValue &pb);
-};
 
 /// @brief Reference is embedded in the config of a task that uses an ICD. A task uses
 /// at most one ICD.
@@ -68,7 +50,7 @@ struct Reference {
     /// the
     /// task uses no ICD yet.
     std::optional<Key> icd;
-    /// @brief icd_hash is the hash of the ICD entries the task uses, stamped by the
+    /// @brief icd_hash is the hash of the ICD messages the task uses, stamped by the
     /// Core
     /// when the task or the ICD is written.
     std::string icd_hash = "";
@@ -83,23 +65,6 @@ struct Reference {
     from_proto(const ::service::icd::pb::Reference &pb);
 };
 
-/// @brief BaseEntry carries the parts every ICD entry shares.
-struct BaseEntry {
-    /// @brief key is the unique identifier for the entry within its ICD.
-    EntryKey key;
-    /// @brief name is the name of the entry, unique within its ICD.
-    std::string name;
-
-    static BaseEntry parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::icd::pb::BaseEntry;
-    [[nodiscard]] std::pair<::service::icd::pb::BaseEntry, x::errors::Error>
-    to_proto() const;
-    static std::pair<BaseEntry, x::errors::Error>
-    from_proto(const ::service::icd::pb::BaseEntry &pb);
-};
-
 /// @brief BaseField carries the parts every message field shares.
 struct BaseField {
     /// @brief key is the unique identifier for the field within its message.
@@ -112,10 +77,6 @@ struct BaseField {
     double offset = 0;
     /// @brief units is the engineering unit of the decoded value.
     std::string units = "";
-    /// @brief enumeration is the key of the enum entry that names the field's raw
-    /// values.
-    /// When absent the field has no named values.
-    std::optional<EntryKey> enumeration;
     /// @brief multiplexor is the key of the field that selects whether this field is
     /// present. When absent the field is always present.
     std::optional<FieldKey> multiplexor;
@@ -321,25 +282,12 @@ to_proto(const Payload &value);
 std::pair<Payload, x::errors::Error>
 payload_from_proto(const ::service::icd::pb::Payload &pb);
 
-/// @brief EnumEntry maps integer values to names.
-struct EnumEntry : public BaseEntry {
-    std::string kind = "enum";
-    /// @brief values are the named values of the enum.
-    std::vector<EnumValue> values = {};
-
-    static EnumEntry parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::icd::pb::EntryEnumPayload;
-    [[nodiscard]] std::pair<::service::icd::pb::EntryEnumPayload, x::errors::Error>
-    to_proto() const;
-    static std::pair<EnumEntry, x::errors::Error>
-    from_proto(const ::service::icd::pb::EntryEnumPayload &pb);
-};
-
-/// @brief MessageEntry is a frame layout on a bus or byte stream.
-struct MessageEntry : public BaseEntry {
-    std::string kind = "message";
+/// @brief Message is a frame layout on a bus or byte stream.
+struct Message {
+    /// @brief key is the unique identifier for the message within its ICD.
+    MessageKey key;
+    /// @brief name is the name of the message, unique within its ICD.
+    std::string name;
     /// @brief payload is the layout of the message's payload.
     Payload payload;
     /// @brief period is the transmit period. When absent a write task sends the message
@@ -350,36 +298,26 @@ struct MessageEntry : public BaseEntry {
     /// hold escaped bytes. When absent the device sends the message unprompted.
     std::optional<std::string> query;
 
-    static MessageEntry parse(x::json::Parser parser);
+    static Message parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::icd::pb::EntryMessagePayload;
-    [[nodiscard]] std::pair<::service::icd::pb::EntryMessagePayload, x::errors::Error>
+    using proto_type = ::service::icd::pb::Message;
+    [[nodiscard]] std::pair<::service::icd::pb::Message, x::errors::Error>
     to_proto() const;
-    static std::pair<MessageEntry, x::errors::Error>
-    from_proto(const ::service::icd::pb::EntryMessagePayload &pb);
+    static std::pair<Message, x::errors::Error>
+    from_proto(const ::service::icd::pb::Message &pb);
 };
 
-/// @brief Entry is one typed item in an ICD.
-using Entry = std::variant<EnumEntry, MessageEntry>;
-
-Entry parse_entry(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const Entry &value);
-[[nodiscard]] std::pair<::service::icd::pb::Entry, x::errors::Error>
-to_proto(const Entry &value);
-std::pair<Entry, x::errors::Error>
-entry_from_proto(const ::service::icd::pb::Entry &pb);
-
 /// @brief ICD is an interface control document: the messages a device sends and
-/// receives on a bus or byte stream, and the enums that name their values.
+/// receives on a bus or byte stream.
 struct ICD {
     /// @brief key is the unique identifier for the ICD.
     Key key;
     /// @brief name is a human-readable name for the ICD.
     std::string name;
-    /// @brief entries are the messages and enums the ICD holds.
-    std::vector<Entry> entries = {};
-    /// @brief hash is the hash of the entries as the Core last stored them. A write
+    /// @brief messages are the messages the ICD holds.
+    std::vector<Message> messages = {};
+    /// @brief hash is the hash of the messages as the Core last stored them. A write
     /// sends
     /// the hash it read, and the Core rejects the write when the ICD changed since.
     std::string hash = "";

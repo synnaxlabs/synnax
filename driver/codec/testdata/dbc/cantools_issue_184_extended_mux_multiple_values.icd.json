@@ -1,9 +1,8 @@
 {
   "key": "00000000-0000-4000-8000-000000000000",
   "name": "cantools_issue_184_extended_mux_multiple_values",
-  "entries": [
+  "messages": [
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000001",
       "name": "ext_MUX_multiple_values",
       "payload": {

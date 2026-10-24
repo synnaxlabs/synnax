@@ -42,7 +42,7 @@ struct Harness {
     /// @param bindings maps each command channel to the index of the field it drives in
     /// message.
     Harness(
-        const synnax::icd::MessageEntry &message,
+        const synnax::icd::Message &message,
         const std::vector<std::pair<synnax::channel::Key, std::size_t>> &bindings,
         const std::optional<::synnax::bus::Framing> &framing,
         x::telem::NowFunc now = steady_now

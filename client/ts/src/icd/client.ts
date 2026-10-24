@@ -101,7 +101,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
   /**
    * Creates the given ICDs, or replaces those whose keys already exist. A replacement
    * must carry the hash of the ICD as the caller read it.
-   * @throws {ValidationError} if an ICD or one of its entries is invalid.
+   * @throws {ValidationError} if an ICD or one of its messages is invalid.
    * @throws {StaleError} if a replaced ICD changed since the caller read it.
    */
   async create(icd: New, opts?: query.WriteOptions<ICD[]>): Promise<ICD>;
@@ -152,8 +152,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
   }
 
   /**
-   * Replaces the entries of an ICD with those parsed from an interface control
-   * document. Entries and fields that match by name keep their keys.
+   * Replaces the messages of an ICD with those parsed from an interface control
+   * document. Messages and fields that match by name keep their keys.
    * @param key - The key of the ICD to import into.
    * @param data - The raw bytes of the document.
    * @param format - The file format of the document.

@@ -88,67 +88,61 @@ var _ = Describe("Check", func() {
 		sig.Scale = 0
 		sig.Multiplexor = new(mux.Key)
 		sig.MultiplexValues = []int32{16}
-		ic := icd.ICD{Entries: []icd.Entry{
-			messageEntry(canMessage("M", 0x800, mux, sig)),
-			enumEntry("M"),
+		ic := icd.ICD{Messages: []icd.Message{
+			canMessage("M", 0x800, mux, sig),
+			binaryMessage("M"),
 		}}
 		Expect(icd.Check(ic)).To(ConsistOf(
 			library.Problem{Path: "name", Message: "required"},
 			library.Problem{
-				Path:    "entries.0.payload.fields.1.scale",
+				Path:    "messages.0.payload.fields.1.scale",
 				Message: "scale must be finite and non-zero",
 			},
 			library.Problem{
-				Path:    "entries.0.payload.fields.1.multiplex_values.0",
+				Path:    "messages.0.payload.fields.1.multiplex_values.0",
 				Message: `value 16 does not fit the multiplexor "mux"`,
 			},
 			library.Problem{
-				Path:    "entries.0.payload.identifier.id",
+				Path:    "messages.0.payload.identifier.id",
 				Message: "id 0x800 exceeds the maximum 0x7FF",
 			},
 			library.Problem{
-				Path:    "entries.1.name",
-				Message: `duplicate entry name "M"`,
+				Path:    "messages.1.name",
+				Message: `duplicate message name "M"`,
 			},
 		))
 	})
 
 	It("Should join every problem into the error a save returns", func() {
-		problems := icd.Check(icd.ICD{Entries: []icd.Entry{enumEntry("")}})
+		problems := icd.Check(icd.ICD{Messages: []icd.Message{binaryMessage("")}})
 		Expect(problems.Err()).To(MatchError(
 			"name: required: validation error\n" +
-				"entries.0.name: required: validation error",
+				"messages.0.name: required: validation error",
 		))
 	})
 
-	DescribeTable("Should require a kind, format, encoding, or type",
+	DescribeTable("Should require a format, encoding, or type",
 		func(ic icd.ICD, path, message string) {
 			Expect(icd.Check(ic)).To(ConsistOf(
 				library.Problem{Path: path, Message: message},
 			))
 		},
-		Entry("entry without a kind",
-			icd.ICD{Name: "L", Entries: []icd.Entry{{}}},
-			"entries.0", "kind is required",
-		),
 		Entry("message without a format",
-			icd.ICD{Name: "L", Entries: []icd.Entry{messageEntry(icd.MessageEntry{
-				Name: "M",
-			})}},
-			"entries.0.payload", "format is required",
+			icd.ICD{Name: "L", Messages: []icd.Message{{Name: "M"}}},
+			"messages.0.payload", "format is required",
 		),
 		Entry("text field without an encoding",
-			icd.ICD{Name: "L", Entries: []icd.Entry{
-				messageEntry(textMessage("M", icd.TextField{})),
+			icd.ICD{Name: "L", Messages: []icd.Message{
+				textMessage("M", icd.TextField{}),
 			}},
-			"entries.0.payload.fields.0", "encoding is required",
+			"messages.0.payload.fields.0", "encoding is required",
 		),
 		Entry("identifier without a type",
-			icd.ICD{Name: "L", Entries: []icd.Entry{messageEntry(updateBinary(
+			icd.ICD{Name: "L", Messages: []icd.Message{updateBinary(
 				binaryMessage("M", binaryField("a", 0, 8)),
 				func(p *icd.BinaryPayload) { p.Identifier = &icd.Identifier{} },
-			))}},
-			"entries.0.payload.identifier", "type is required",
+			)}},
+			"messages.0.payload.identifier", "type is required",
 		),
 	)
 
@@ -156,12 +150,12 @@ var _ = Describe("Check", func() {
 		func(update func(*icd.BinaryField), path, message string) {
 			f := binaryField("a", 0, 8)
 			update(&f)
-			ic := icd.ICD{Name: "L", Entries: []icd.Entry{
-				messageEntry(canMessage("M", 1, f)),
+			ic := icd.ICD{Name: "L", Messages: []icd.Message{
+				canMessage("M", 1, f),
 			}}
 			Expect(icd.Check(ic)).To(ConsistOf(
 				library.Problem{
-					Path:    "entries.0.payload.fields.0." + path,
+					Path:    "messages.0.payload.fields.0." + path,
 					Message: message,
 				},
 			))
@@ -184,12 +178,10 @@ var _ = Describe("Check", func() {
 		),
 	)
 
-	It("Should not count entries and fields without keys as duplicates", func() {
-		ic := icd.ICD{Name: "L", Entries: []icd.Entry{
-			messageEntry(
-				canMessage("A", 1, binaryField("a", 0, 8), binaryField("b", 8, 8)),
-			),
-			messageEntry(canMessage("B", 2, binaryField("a", 0, 8))),
+	It("Should not count messages and fields without keys as duplicates", func() {
+		ic := icd.ICD{Name: "L", Messages: []icd.Message{
+			canMessage("A", 1, binaryField("a", 0, 8), binaryField("b", 8, 8)),
+			canMessage("B", 2, binaryField("a", 0, 8)),
 		}}
 		Expect(icd.Check(ic)).To(BeEmpty())
 	})

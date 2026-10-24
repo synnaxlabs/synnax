@@ -28,8 +28,7 @@ import (
 // expectedFile is the shape testdata/generate.py writes from the cantools decoding of
 // a DBC file.
 type expectedFile struct {
-	Messages    []expectedMessage          `json:"messages"`
-	ValueTables map[string][]icd.EnumValue `json:"value_tables"`
+	Messages []expectedMessage `json:"messages"`
 }
 
 type expectedMessage struct {
@@ -43,80 +42,45 @@ type expectedMessage struct {
 }
 
 type expectedField struct {
-	Name            string          `json:"name"`
-	StartBit        uint16          `json:"start_bit"`
-	BitLength       uint8           `json:"bit_length"`
-	ByteOrder       icd.ByteOrder   `json:"byte_order"`
-	Signed          bool            `json:"signed"`
-	Float           bool            `json:"float"`
-	Scale           float64         `json:"scale"`
-	Offset          float64         `json:"offset"`
-	Units           string          `json:"units"`
-	Choices         []icd.EnumValue `json:"choices"`
-	Multiplexor     *string         `json:"multiplexor"`
-	MultiplexValues []int32         `json:"multiplex_values"`
-	Min             *float64        `json:"min"`
-	Max             *float64        `json:"max"`
+	Name            string        `json:"name"`
+	StartBit        uint16        `json:"start_bit"`
+	BitLength       uint8         `json:"bit_length"`
+	ByteOrder       icd.ByteOrder `json:"byte_order"`
+	Signed          bool          `json:"signed"`
+	Float           bool          `json:"float"`
+	Scale           float64       `json:"scale"`
+	Offset          float64       `json:"offset"`
+	Units           string        `json:"units"`
+	Multiplexor     *string       `json:"multiplexor"`
+	MultiplexValues []int32       `json:"multiplex_values"`
+	Min             *float64      `json:"min"`
+	Max             *float64      `json:"max"`
 }
 
-func messagesOf(entries []icd.Entry) []icd.MessageEntry {
-	var messages []icd.MessageEntry
-	for _, e := range entries {
-		if m, ok := e.Variant.(icd.MessageEntry); ok {
-			messages = append(messages, m)
-		}
-	}
-	return messages
-}
-
-func messageNamed(entries []icd.Entry, name string) icd.MessageEntry {
+func messageNamed(messages []icd.Message, name string) icd.Message {
 	GinkgoHelper()
-	for _, m := range messagesOf(entries) {
+	for _, m := range messages {
 		if m.Name == name {
 			return m
 		}
 	}
 	Fail("no message named " + name)
-	return icd.MessageEntry{}
+	return icd.Message{}
 }
 
-func enumWhere(
-	entries []icd.Entry,
-	match func(icd.EnumEntry) bool,
-) icd.EnumEntry {
-	GinkgoHelper()
-	for _, e := range entries {
-		if en, ok := e.Variant.(icd.EnumEntry); ok && match(en) {
-			return en
-		}
-	}
-	Fail("no matching enum entry")
-	return icd.EnumEntry{}
-}
-
-func enumNamed(entries []icd.Entry, name string) icd.EnumEntry {
-	GinkgoHelper()
-	return enumWhere(entries, func(e icd.EnumEntry) bool { return e.Name == name })
-}
-
-func enumWithKey(entries []icd.Entry, key icd.EntryKey) icd.EnumEntry {
-	GinkgoHelper()
-	return enumWhere(entries, func(e icd.EnumEntry) bool { return e.Key == key })
-}
-
-func binaryPayload(m icd.MessageEntry) icd.BinaryPayload {
+func binaryPayload(m icd.Message) icd.BinaryPayload {
 	return m.Payload.Variant.(icd.BinaryPayload)
 }
 
-func canIdentifier(m icd.MessageEntry) icd.CanIdentifier {
+func canIdentifier(m icd.Message) icd.CanIdentifier {
 	return binaryPayload(m).Identifier.Variant.(icd.CanIdentifier)
 }
 
-func binaryFields(m icd.MessageEntry) []icd.BinaryField {
+func binaryFields(m icd.Message) []icd.BinaryField {
 	return binaryPayload(m).Fields
 }
 
-func fieldNamed(m icd.MessageEntry, name string) icd.BinaryField {
+func fieldNamed(m icd.Message, name string) icd.BinaryField {
 	GinkgoHelper()
 	for _, f := range binaryFields(m) {
 		if f.Name == name {
@@ -128,10 +92,10 @@ func fieldNamed(m icd.MessageEntry, name string) icd.BinaryField {
 }
 
 // toExpected converts parsed messages to the shape of the cantools decoding.
-func toExpected(entries []icd.Entry) []expectedMessage {
+func toExpected(messages []icd.Message) []expectedMessage {
 	GinkgoHelper()
 	var out []expectedMessage
-	for _, m := range messagesOf(entries) {
+	for _, m := range messages {
 		p := binaryPayload(m)
 		id := p.Identifier.Variant.(icd.CanIdentifier)
 		em := expectedMessage{
@@ -163,9 +127,6 @@ func toExpected(entries []icd.Entry) []expectedMessage {
 				MultiplexValues: append([]int32{}, f.MultiplexValues...),
 				Min:             f.Min,
 				Max:             f.Max,
-			}
-			if f.Enumeration != nil {
-				ef.Choices = enumWithKey(entries, *f.Enumeration).Values
 			}
 			if f.Multiplexor != nil {
 				ef.Multiplexor = new(names[*f.Multiplexor])
@@ -211,8 +172,8 @@ BA_ "ProtocolType" "J1939";
 BA_ "VFrameFormat" BO_ 2364539904 3;
 `))
 	f.Fuzz(func(t *testing.T, data []byte) {
-		entries, err := icd.Parse(icd.FormatDBC, data)
-		checkImport(t, entries, err)
+		messages, err := icd.Parse(icd.FormatDBC, data)
+		checkImport(t, messages, err)
 	})
 }
 
@@ -229,13 +190,10 @@ BU_: Ecu
 var _ = Describe("Parse DBC", func() {
 	DescribeTable("Should decode each message as cantools does", func(name string) {
 		data, want := readFixture(name)
-		entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
-		Expect(toExpected(entries)).To(Equal(want.Messages))
-		for table, values := range want.ValueTables {
-			Expect(enumNamed(entries, table).Values).To(Equal(values))
-		}
+		messages := MustSucceed(icd.Parse(icd.FormatDBC, data))
+		Expect(toExpected(messages)).To(Equal(want.Messages))
 	},
-		Entry("ids, byte orders, floats, units, value tables, and periods", "basic"),
+		Entry("ids, byte orders, floats, units, and periods", "basic"),
 		Entry("simple multiplexing", "multiplexed"),
 		Entry("extended multiplexing with SG_MUL_VAL_ ranges", "extended_multiplexed"),
 	)
@@ -248,32 +206,18 @@ var _ = Describe("Parse DBC", func() {
 		).To(Equal(want.Messages))
 	})
 
-	It("Should reference a value table whose values match a signal's", func() {
+	It("Should give every message and field a distinct key", func() {
 		data, _ := readFixture("basic")
-		entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
-		gear := fieldNamed(messageNamed(entries, "Engine"), "Gear")
-		Expect(*gear.Enumeration).To(Equal(enumNamed(entries, "GearTable").Key))
-		state := fieldNamed(messageNamed(entries, "Battery"), "State")
-		Expect(*state.Enumeration).To(Equal(enumNamed(entries, "Battery.State").Key))
-	})
-
-	It("Should give every entry and field a distinct key", func() {
-		data, _ := readFixture("basic")
-		entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
-		keys := make(set.Set[icd.EntryKey])
-		for _, e := range entries {
-			switch v := e.Variant.(type) {
-			case icd.EnumEntry:
-				keys.Add(v.Key)
-			case icd.MessageEntry:
-				keys.Add(v.Key)
-				for _, f := range binaryFields(v) {
-					keys.Add(f.Key)
-				}
+		messages := MustSucceed(icd.Parse(icd.FormatDBC, data))
+		keys := make(set.Set[icd.MessageKey])
+		for _, m := range messages {
+			keys.Add(m.Key)
+			for _, f := range binaryFields(m) {
+				keys.Add(f.Key)
 			}
 		}
-		Expect(entries).To(HaveLen(7))
-		Expect(keys).To(HaveLen(7 + 13))
+		Expect(messages).To(HaveLen(5))
+		Expect(keys).To(HaveLen(5 + 13))
 	})
 
 	It("Should read a VFrameFormat defined as an INT attribute", func() {
@@ -336,10 +280,10 @@ BO_ 257 Classic: 8 Ecu
  SG_ B : 0|8@1+ (1,0) [0|255] "" Ecu
 
 ` + body)
-			entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
-			Expect(canIdentifier(messageNamed(entries, "M")).BitrateSwitched).
+			messages := MustSucceed(icd.Parse(icd.FormatDBC, data))
+			Expect(canIdentifier(messageNamed(messages, "M")).BitrateSwitched).
 				To(Equal(switched))
-			Expect(canIdentifier(messageNamed(entries, "Classic")).BitrateSwitched).
+			Expect(canIdentifier(messageNamed(messages, "Classic")).BitrateSwitched).
 				To(BeFalse())
 		},
 		Entry("from the default of an ENUM attribute",
@@ -432,9 +376,9 @@ BO_ %d M2: 8 Ecu
  SG_ B : 0|8@1+ (1,0) [0|255] "" Ecu
 
 `, first|1<<31, second|1<<31) + j1939Formats)
-			entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
+			messages := MustSucceed(icd.Parse(icd.FormatDBC, data))
 			for name, id := range map[string]uint32{"M1": first, "M2": second} {
-				Expect(canIdentifier(messageNamed(entries, name))).To(Equal(
+				Expect(canIdentifier(messageNamed(messages, name))).To(Equal(
 					icd.CanIdentifier{ID: id, Extended: true, Mask: new(mask)},
 				))
 			}
@@ -476,20 +420,6 @@ BA_ "GenMsgCycleTime" BO_ 256 20;
 		Expect(m.Period).To(Equal(new(20 * telem.Millisecond)))
 	})
 
-	It("Should append the value to a repeated value description", func() {
-		data := []byte(dbcHeader + `BO_ 256 Engine: 8 Ecu
- SG_ Mode : 0|8@1+ (1,0) [0|255] "" Ecu
-
-VAL_ 256 Mode 0 "Off" 1 "Reserved" 2 "Reserved" ;
-`)
-		entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
-		Expect(enumNamed(entries, "Engine.Mode").Values).To(Equal([]icd.EnumValue{
-			{Value: 0, Name: "Off"},
-			{Value: 1, Name: "Reserved"},
-			{Value: 2, Name: "Reserved (2)"},
-		}))
-	})
-
 	It("Should not read definitions inside a multi-line comment", func() {
 		data := []byte(dbcHeader + `BO_ 256 Engine: 8 Ecu
  SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
@@ -506,7 +436,7 @@ and ends here.";
 			To(HaveLen(1))
 	})
 
-	It("Should name messages, signals, and their enums by their long names", func() {
+	It("Should name messages and signals by their long names", func() {
 		data := []byte(dbcHeader + `BO_ 256 Engine_Stat: 8 Ecu
  SG_ Mode : 0|8@1+ (1,0) [0|0] "" Ecu
  SG_ Rpm : 8|8@1+ (1,0) [0|0] "" Ecu
@@ -522,21 +452,14 @@ BA_ "SystemMessageLongSymbol" BO_ 256 "Engine_Status_From_The_Engine_Control_Uni
 BA_ "SystemSignalLongSymbol" SG_ 256 Mode "Operating_Mode_Of_The_Engine_Control_Unit";
 BA_ "SystemSignalLongSymbol" SG_ 256 Gear "";
 BA_ "SystemSignalLongSymbol" SG_ 256 T "Multiplexor_Of_The_Engine_Status_Message";
-VAL_ 256 Mode 0 "Off" 1 "On" ;
 `)
-		entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
-		m := messageNamed(entries, "Engine_Status_From_The_Engine_Control_Unit")
-		mode := fieldNamed(m, "Operating_Mode_Of_The_Engine_Control_Unit")
+		messages := MustSucceed(icd.Parse(icd.FormatDBC, data))
+		m := messageNamed(messages, "Engine_Status_From_The_Engine_Control_Unit")
+		fieldNamed(m, "Operating_Mode_Of_The_Engine_Control_Unit")
 		fieldNamed(m, "Rpm")
 		fieldNamed(m, "Gear")
 		t := fieldNamed(m, "Multiplexor_Of_The_Engine_Status_Message")
 		Expect(fieldNamed(m, "U").Multiplexor).To(Equal(new(t.Key)))
-		e := enumNamed(
-			entries,
-			"Engine_Status_From_The_Engine_Control_Unit."+
-				"Operating_Mode_Of_The_Engine_Control_Unit",
-		)
-		Expect(mode.Enumeration).To(Equal(new(e.Key)))
 	})
 
 	It("Should accept signals that end at the last bit of the message", func() {
@@ -577,7 +500,7 @@ SG_MUL_VAL_ 2147483904 T S 0-0;
 BO_ 256 M: 8 Ecu
  SG_ B : 0|8@1+ (1,0) [0|0] "" Ecu
 `)
-			messages := messagesOf(MustSucceed(icd.Parse(icd.FormatDBC, data)))
+			messages := MustSucceed(icd.Parse(icd.FormatDBC, data))
 			Expect(messages).To(HaveLen(1))
 			Expect(messages[0].Name).To(Equal("M"))
 		},
@@ -658,11 +581,6 @@ SG_MUL_VAL_ 256 A Missing 0-0;
 
 SIG_VALTYPE_ 256 A : 1;
 `, "line 12: signal A is a 32-bit float but has 16 bits"),
-		Entry("a value description past int32", `BO_ 256 Engine: 8 Ecu
- SG_ A : 0|40@1+ (1,0) [0|0] "" Ecu
-
-VAL_ 256 A 4294967296 "Big" ;
-`, "line 12: value 4.294967296e+09 of signal A is not an int32"),
 		Entry("a negative cycle time", `BO_ 256 Engine: 8 Ecu
  SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
 

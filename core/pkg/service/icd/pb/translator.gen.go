@@ -19,52 +19,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// EnumValueToPB converts EnumValue to EnumValue.
-func EnumValueToPB(r icd.EnumValue) (*EnumValue, error) {
-	pb := &EnumValue{
-		Value: r.Value,
-		Name:  r.Name,
-	}
-	return pb, nil
-}
-
-// EnumValueFromPB converts EnumValue to EnumValue.
-func EnumValueFromPB(pb *EnumValue) (icd.EnumValue, error) {
-	var r icd.EnumValue
-	if pb == nil {
-		return r, nil
-	}
-	r.Value = pb.Value
-	r.Name = pb.Name
-	return r, nil
-}
-
-// EnumValuesToPB converts a slice of EnumValue to EnumValue.
-func EnumValuesToPB(rs []icd.EnumValue) ([]*EnumValue, error) {
-	result := make([]*EnumValue, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = EnumValueToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// EnumValuesFromPB converts a slice of EnumValue to EnumValue.
-func EnumValuesFromPB(pbs []*EnumValue) ([]icd.EnumValue, error) {
-	result := make([]icd.EnumValue, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = EnumValueFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // BaseFieldToPB converts BaseField to BaseField.
 func BaseFieldToPB(r icd.BaseField) (*BaseField, error) {
 	pb := &BaseField{
@@ -74,10 +28,6 @@ func BaseFieldToPB(r icd.BaseField) (*BaseField, error) {
 		Units:           r.Units,
 		MultiplexValues: r.MultiplexValues,
 		Key:             r.Key.String(),
-	}
-	if r.Enumeration != nil {
-		v := (*r.Enumeration).String()
-		pb.Enumeration = &v
 	}
 	if r.Multiplexor != nil {
 		v := (*r.Multiplexor).String()
@@ -109,14 +59,6 @@ func BaseFieldFromPB(pb *BaseField) (icd.BaseField, error) {
 	r.Offset = pb.Offset
 	r.Units = pb.Units
 	r.MultiplexValues = pb.MultiplexValues
-	if pb.Enumeration != nil {
-		parsed, err := uuid.Parse(*pb.Enumeration)
-		if err != nil {
-			return icd.BaseField{}, err
-		}
-		v := parsed
-		r.Enumeration = &v
-	}
 	if pb.Multiplexor != nil {
 		parsed, err := uuid.Parse(*pb.Multiplexor)
 		if err != nil {
@@ -179,10 +121,6 @@ func BinaryFieldToPB(r icd.BinaryField) (*BinaryField, error) {
 		Key:             r.Key.String(),
 		ByteOrder:       byteOrderVal,
 	}
-	if r.Enumeration != nil {
-		v := (*r.Enumeration).String()
-		pb.Enumeration = &v
-	}
 	if r.Multiplexor != nil {
 		v := (*r.Multiplexor).String()
 		pb.Multiplexor = &v
@@ -221,14 +159,6 @@ func BinaryFieldFromPB(pb *BinaryField) (icd.BinaryField, error) {
 	r.BitLength = uint8(pb.BitLength)
 	r.Signed = pb.Signed
 	r.Float = pb.Float
-	if pb.Enumeration != nil {
-		parsed, err := uuid.Parse(*pb.Enumeration)
-		if err != nil {
-			return icd.BinaryField{}, err
-		}
-		v := parsed
-		r.Enumeration = &v
-	}
 	if pb.Multiplexor != nil {
 		parsed, err := uuid.Parse(*pb.Multiplexor)
 		if err != nil {
@@ -272,37 +202,60 @@ func BinaryFieldsFromPB(pbs []*BinaryField) ([]icd.BinaryField, error) {
 	return result, nil
 }
 
-// BaseEntryToPB converts BaseEntry to BaseEntry.
-func BaseEntryToPB(r icd.BaseEntry) (*BaseEntry, error) {
-	pb := &BaseEntry{
-		Name: r.Name,
-		Key:  r.Key.String(),
+// MessageToPB converts Message to Message.
+func MessageToPB(r icd.Message) (*Message, error) {
+	payloadVal, err := PayloadToPB(r.Payload)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Message{
+		Name:    r.Name,
+		Key:     r.Key.String(),
+		Payload: payloadVal,
+	}
+	if r.Period != nil {
+		v := int64(*r.Period)
+		pb.Period = &v
+	}
+	if r.Query != nil {
+		pb.Query = r.Query
 	}
 	return pb, nil
 }
 
-// BaseEntryFromPB converts BaseEntry to BaseEntry.
-func BaseEntryFromPB(pb *BaseEntry) (icd.BaseEntry, error) {
-	var r icd.BaseEntry
+// MessageFromPB converts Message to Message.
+func MessageFromPB(pb *Message) (icd.Message, error) {
+	var r icd.Message
 	if pb == nil {
 		return r, nil
 	}
 	var err error
 	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
-		return icd.BaseEntry{}, err
+		return icd.Message{}, err
 	}
-	r.Key = icd.EntryKey(parsedKey)
+	r.Key = icd.MessageKey(parsedKey)
+	r.Payload, err = PayloadFromPB(pb.Payload)
+	if err != nil {
+		return icd.Message{}, err
+	}
 	r.Name = pb.Name
+	if pb.Period != nil {
+		v := telem.TimeSpan(*pb.Period)
+		r.Period = &v
+	}
+	if pb.Query != nil {
+		r.Query = pb.Query
+	}
 	return r, nil
 }
 
-// BaseEntriesToPB converts a slice of BaseEntry to BaseEntry.
-func BaseEntriesToPB(rs []icd.BaseEntry) ([]*BaseEntry, error) {
-	result := make([]*BaseEntry, len(rs))
+// MessagesToPB converts a slice of Message to Message.
+func MessagesToPB(rs []icd.Message) ([]*Message, error) {
+	result := make([]*Message, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = BaseEntryToPB(rs[i])
+		result[i], err = MessageToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -310,12 +263,12 @@ func BaseEntriesToPB(rs []icd.BaseEntry) ([]*BaseEntry, error) {
 	return result, nil
 }
 
-// BaseEntriesFromPB converts a slice of BaseEntry to BaseEntry.
-func BaseEntriesFromPB(pbs []*BaseEntry) ([]icd.BaseEntry, error) {
-	result := make([]icd.BaseEntry, len(pbs))
+// MessagesFromPB converts a slice of Message to Message.
+func MessagesFromPB(pbs []*Message) ([]icd.Message, error) {
+	result := make([]icd.Message, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = BaseEntryFromPB(pb)
+		result[i], err = MessageFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -325,15 +278,15 @@ func BaseEntriesFromPB(pbs []*BaseEntry) ([]icd.BaseEntry, error) {
 
 // ICDToPB converts ICD to ICD.
 func ICDToPB(r icd.ICD) (*ICD, error) {
-	entriesVal, err := EntriesToPB(r.Entries)
+	messagesVal, err := MessagesToPB(r.Messages)
 	if err != nil {
 		return nil, err
 	}
 	pb := &ICD{
-		Name:    r.Name,
-		Hash:    r.Hash,
-		Key:     r.Key.String(),
-		Entries: entriesVal,
+		Name:     r.Name,
+		Hash:     r.Hash,
+		Key:      r.Key.String(),
+		Messages: messagesVal,
 	}
 	return pb, nil
 }
@@ -350,7 +303,7 @@ func ICDFromPB(pb *ICD) (icd.ICD, error) {
 		return icd.ICD{}, err
 	}
 	r.Key = icd.Key(parsedKey)
-	r.Entries, err = EntriesFromPB(pb.Entries)
+	r.Messages, err = MessagesFromPB(pb.Messages)
 	if err != nil {
 		return icd.ICD{}, err
 	}
@@ -766,124 +719,6 @@ func TextPayloadsFromPB(pbs []*PayloadTextPayload) ([]icd.TextPayload, error) {
 	return result, nil
 }
 
-// EnumEntryToPB converts EnumEntry to EntryEnumPayload.
-func EnumEntryToPB(r icd.EnumEntry) (*EntryEnumPayload, error) {
-	valuesVal, err := EnumValuesToPB(r.Values)
-	if err != nil {
-		return nil, err
-	}
-	pb := &EntryEnumPayload{
-		Values: valuesVal,
-	}
-	return pb, nil
-}
-
-// EnumEntryFromPB converts EntryEnumPayload to EnumEntry.
-func EnumEntryFromPB(pb *EntryEnumPayload) (icd.EnumEntry, error) {
-	var r icd.EnumEntry
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.Values, err = EnumValuesFromPB(pb.Values)
-	if err != nil {
-		return icd.EnumEntry{}, err
-	}
-	return r, nil
-}
-
-// EnumEntriesToPB converts a slice of EnumEntry to EntryEnumPayload.
-func EnumEntriesToPB(rs []icd.EnumEntry) ([]*EntryEnumPayload, error) {
-	result := make([]*EntryEnumPayload, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = EnumEntryToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// EnumEntriesFromPB converts a slice of EntryEnumPayload to EnumEntry.
-func EnumEntriesFromPB(pbs []*EntryEnumPayload) ([]icd.EnumEntry, error) {
-	result := make([]icd.EnumEntry, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = EnumEntryFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// MessageEntryToPB converts MessageEntry to EntryMessagePayload.
-func MessageEntryToPB(r icd.MessageEntry) (*EntryMessagePayload, error) {
-	payloadVal, err := PayloadToPB(r.Payload)
-	if err != nil {
-		return nil, err
-	}
-	pb := &EntryMessagePayload{
-		Payload: payloadVal,
-	}
-	if r.Period != nil {
-		v := int64(*r.Period)
-		pb.Period = &v
-	}
-	if r.Query != nil {
-		pb.Query = r.Query
-	}
-	return pb, nil
-}
-
-// MessageEntryFromPB converts EntryMessagePayload to MessageEntry.
-func MessageEntryFromPB(pb *EntryMessagePayload) (icd.MessageEntry, error) {
-	var r icd.MessageEntry
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.Payload, err = PayloadFromPB(pb.Payload)
-	if err != nil {
-		return icd.MessageEntry{}, err
-	}
-	if pb.Period != nil {
-		v := telem.TimeSpan(*pb.Period)
-		r.Period = &v
-	}
-	if pb.Query != nil {
-		r.Query = pb.Query
-	}
-	return r, nil
-}
-
-// MessageEntriesToPB converts a slice of MessageEntry to EntryMessagePayload.
-func MessageEntriesToPB(rs []icd.MessageEntry) ([]*EntryMessagePayload, error) {
-	result := make([]*EntryMessagePayload, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = MessageEntryToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// MessageEntriesFromPB converts a slice of EntryMessagePayload to MessageEntry.
-func MessageEntriesFromPB(pbs []*EntryMessagePayload) ([]icd.MessageEntry, error) {
-	result := make([]icd.MessageEntry, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = MessageEntryFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // IdentifierToPB converts Identifier to Identifier.
 func IdentifierToPB(r icd.Identifier) (*Identifier, error) {
 	if r.Variant == nil {
@@ -1121,98 +956,6 @@ func PayloadsFromPB(pbs []*Payload) ([]icd.Payload, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = PayloadFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// EntryToPB converts Entry to Entry.
-func EntryToPB(r icd.Entry) (*Entry, error) {
-	if r.Variant == nil {
-		return nil, nil
-	}
-	pb := &Entry{}
-	switch v := r.Variant.(type) {
-	case icd.EnumEntry:
-		inner, err := EnumEntryToPB(v)
-		if err != nil {
-			return nil, err
-		}
-		pb.BaseEntry, err = BaseEntryToPB(v.BaseEntry)
-		if err != nil {
-			return nil, err
-		}
-		pb.Variant = &Entry_Enum{Enum: inner}
-	case icd.MessageEntry:
-		inner, err := MessageEntryToPB(v)
-		if err != nil {
-			return nil, err
-		}
-		pb.BaseEntry, err = BaseEntryToPB(v.BaseEntry)
-		if err != nil {
-			return nil, err
-		}
-		pb.Variant = &Entry_Message{Message: inner}
-	default:
-		return nil, errors.Newf("Entry: unknown variant %T", r.Variant)
-	}
-	return pb, nil
-}
-
-// EntryFromPB converts Entry to Entry.
-func EntryFromPB(pb *Entry) (icd.Entry, error) {
-	var r icd.Entry
-	if pb == nil {
-		return r, nil
-	}
-	switch v := pb.Variant.(type) {
-	case *Entry_Enum:
-		inner, err := EnumEntryFromPB(v.Enum)
-		if err != nil {
-			return r, err
-		}
-		m := inner
-		m.BaseEntry, err = BaseEntryFromPB(pb.BaseEntry)
-		if err != nil {
-			return r, err
-		}
-		r.Variant = m
-	case *Entry_Message:
-		inner, err := MessageEntryFromPB(v.Message)
-		if err != nil {
-			return r, err
-		}
-		m := inner
-		m.BaseEntry, err = BaseEntryFromPB(pb.BaseEntry)
-		if err != nil {
-			return r, err
-		}
-		r.Variant = m
-	}
-	return r, nil
-}
-
-// EntriesToPB converts a slice of Entry to Entry.
-func EntriesToPB(rs []icd.Entry) ([]*Entry, error) {
-	result := make([]*Entry, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = EntryToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// EntriesFromPB converts a slice of Entry to Entry.
-func EntriesFromPB(pbs []*Entry) ([]icd.Entry, error) {
-	result := make([]icd.Entry, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = EntryFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

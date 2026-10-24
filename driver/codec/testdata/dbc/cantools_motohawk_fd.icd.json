@@ -1,9 +1,8 @@
 {
   "key": "00000000-0000-4000-8000-000000000000",
   "name": "cantools_motohawk_fd",
-  "entries": [
+  "messages": [
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000001",
       "name": "ExampleMessage",
       "payload": {
@@ -53,7 +52,6 @@
             "scale": 1,
             "offset": 0,
             "units": "-",
-            "enumeration": "00000000-0000-4000-8000-000000000005",
             "multiplex_values": [],
             "start_bit": 7,
             "bit_length": 1,
@@ -63,21 +61,6 @@
           }
         ]
       }
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000005",
-      "name": "ExampleMessage.Enable",
-      "values": [
-        {
-          "value": 0,
-          "name": "Disabled"
-        },
-        {
-          "value": 1,
-          "name": "Enabled"
-        }
-      ]
     }
   ],
   "hash": ""

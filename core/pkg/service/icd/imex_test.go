@@ -25,15 +25,14 @@ import (
 
 var _ = Describe("ImEx", func() {
 	It("Should never match a legacy file", func() {
-		Expect(svc.Match(map[string]any{"entries": []any{}})).To(BeFalse())
+		Expect(svc.Match(map[string]any{"messages": []any{}})).To(BeFalse())
 	})
 
 	It("Should round trip an ICD through export and import", func(ctx SpecContext) {
 		ic := icd.ICD{
 			Name: "Exported",
-			Entries: []icd.Entry{
-				enumEntry("State", icd.EnumValue{Value: 1, Name: "On"}),
-				messageEntry(canMessage("Status", 0x100, binaryField("rpm", 0, 16))),
+			Messages: []icd.Message{
+				canMessage("Status", 0x100, binaryField("rpm", 0, 16)),
 			},
 		}
 		Expect(svc.NewWriter(nil).Create(ctx, &ic)).To(Succeed())

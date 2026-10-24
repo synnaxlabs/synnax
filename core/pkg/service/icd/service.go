@@ -39,7 +39,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Task rewrites the tasks that use an ICD when the entries they use change.
+	// Task rewrites the tasks that use an ICD when the messages they use change.
 	//
 	// [REQUIRED]
 	Task *task.Service

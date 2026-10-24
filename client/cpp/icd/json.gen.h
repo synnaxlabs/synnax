@@ -22,20 +22,6 @@
 
 namespace synnax::icd {
 
-inline EnumValue EnumValue::parse(x::json::Parser parser) {
-    return EnumValue{
-        .value = parser.field<std::int32_t>("value", 0),
-        .name = parser.field<std::string>("name"),
-    };
-}
-
-inline x::json::json EnumValue::to_json() const {
-    x::json::json j;
-    j["value"] = this->value;
-    j["name"] = this->name;
-    return j;
-}
-
 inline BaseField BaseField::parse(x::json::Parser parser) {
     return BaseField{
         .key = parser.field<FieldKey>("key", x::uuid::create()),
@@ -43,7 +29,6 @@ inline BaseField BaseField::parse(x::json::Parser parser) {
         .scale = parser.field<double>("scale", 1),
         .offset = parser.field<double>("offset", 0),
         .units = parser.field<std::string>("units", ""),
-        .enumeration = parser.field<std::optional<EntryKey>>("enumeration"),
         .multiplexor = parser.field<std::optional<FieldKey>>("multiplexor"),
         .multiplex_values = parser.field<std::vector<std::int32_t>>(
             "multiplex_values",
@@ -61,7 +46,6 @@ inline x::json::json BaseField::to_json() const {
     j["scale"] = this->scale;
     j["offset"] = this->offset;
     j["units"] = this->units;
-    if (this->enumeration.has_value()) j["enumeration"] = this->enumeration->to_json();
     if (this->multiplexor.has_value()) j["multiplexor"] = this->multiplexor->to_json();
     j["multiplex_values"] = this->multiplex_values;
     j["min"] = this->min;
@@ -92,17 +76,23 @@ inline x::json::json BinaryField::to_json() const {
     return j;
 }
 
-inline BaseEntry BaseEntry::parse(x::json::Parser parser) {
-    return BaseEntry{
-        .key = parser.field<EntryKey>("key", x::uuid::create()),
+inline Message Message::parse(x::json::Parser parser) {
+    return Message{
+        .key = parser.field<MessageKey>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
+        .payload = parse_payload(parser.child("payload")),
+        .period = parser.field<std::optional<::x::telem::TimeSpan>>("period"),
+        .query = parser.field<std::optional<std::string>>("query"),
     };
 }
 
-inline x::json::json BaseEntry::to_json() const {
+inline x::json::json Message::to_json() const {
     x::json::json j;
     j["key"] = this->key.to_json();
     j["name"] = this->name;
+    j["payload"] = ::synnax::icd::to_json(this->payload);
+    if (this->period.has_value()) j["period"] = this->period->nanoseconds();
+    j["query"] = this->query;
     return j;
 }
 
@@ -110,15 +100,10 @@ inline ICD ICD::parse(x::json::Parser parser) {
     return ICD{
         .key = parser.field<Key>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
-        .entries =
-            [&] {
-                std::vector<Entry> result;
-                if (parser.has("entries"))
-                    parser.iter("entries", [&result](x::json::Parser &p) {
-                        result.push_back(parse_entry(p));
-                    });
-                return result;
-            }(),
+        .messages = parser.field<std::vector<Message>>(
+            "messages",
+            std::vector<Message>{}
+        ),
         .hash = parser.field<std::string>("hash", ""),
     };
 }
@@ -127,12 +112,7 @@ inline x::json::json ICD::to_json() const {
     x::json::json j;
     j["key"] = this->key.to_json();
     j["name"] = this->name;
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->entries)
-            arr.push_back(::synnax::icd::to_json(item));
-        j["entries"] = arr;
-    }
+    j["messages"] = x::json::to_array(this->messages);
     j["hash"] = this->hash;
     return j;
 }
@@ -279,47 +259,6 @@ inline x::json::json TextPayload::to_json() const {
     return j;
 }
 
-inline EnumEntry EnumEntry::parse(x::json::Parser parser) {
-    EnumEntry result;
-    static_cast<BaseEntry &>(result) = BaseEntry::parse(parser);
-    result.values = parser.field<std::vector<EnumValue>>(
-        "values",
-        std::vector<EnumValue>{}
-    );
-    result.kind = parser.field<std::string>("kind");
-    return result;
-}
-
-inline x::json::json EnumEntry::to_json() const {
-    x::json::json j;
-    for (const auto base = BaseEntry::to_json(); const auto &[k, v]: base.items())
-        j[k] = v;
-    j["values"] = x::json::to_array(this->values);
-    j["kind"] = this->kind;
-    return j;
-}
-
-inline MessageEntry MessageEntry::parse(x::json::Parser parser) {
-    MessageEntry result;
-    static_cast<BaseEntry &>(result) = BaseEntry::parse(parser);
-    result.payload = parse_payload(parser.child("payload"));
-    result.period = parser.field<std::optional<::x::telem::TimeSpan>>("period");
-    result.query = parser.field<std::optional<std::string>>("query");
-    result.kind = parser.field<std::string>("kind");
-    return result;
-}
-
-inline x::json::json MessageEntry::to_json() const {
-    x::json::json j;
-    for (const auto base = BaseEntry::to_json(); const auto &[k, v]: base.items())
-        j[k] = v;
-    j["payload"] = ::synnax::icd::to_json(this->payload);
-    if (this->period.has_value()) j["period"] = this->period->nanoseconds();
-    j["query"] = this->query;
-    j["kind"] = this->kind;
-    return j;
-}
-
 inline Identifier parse_identifier(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
     if (discriminator == "can") return CanIdentifier::parse(parser);
@@ -353,18 +292,6 @@ inline Payload parse_payload(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const Payload &value) {
-    return std::visit([](const auto &v) { return v.to_json(); }, value);
-}
-
-inline Entry parse_entry(x::json::Parser parser) {
-    const auto discriminator = parser.field<std::string>("kind");
-    if (discriminator == "enum") return EnumEntry::parse(parser);
-    if (discriminator == "message") return MessageEntry::parse(parser);
-    parser.field_err("kind", "unknown Entry kind: " + discriminator);
-    return {};
-}
-
-inline x::json::json to_json(const Entry &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

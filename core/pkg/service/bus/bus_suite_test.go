@@ -67,8 +67,8 @@ func multiplexed(
 
 // polled returns a message the task queries with query, whose reply carries no
 // identifier.
-func polled(name, query string, fields ...icd.BinaryField) icd.MessageEntry {
-	return icd.MessageEntry{
+func polled(name, query string, fields ...icd.BinaryField) icd.Message {
+	return icd.Message{
 		Key: uuid.New(), Name: name,
 		Payload: icd.Payload{Variant: icd.BinaryPayload{Fields: fields}},
 		Query:   &query,
@@ -79,8 +79,8 @@ func canMessage(
 	name string,
 	id uint32,
 	fields ...icd.BinaryField,
-) icd.MessageEntry {
-	return icd.MessageEntry{
+) icd.Message {
+	return icd.Message{
 		Key: uuid.New(), Name: name,
 		Payload: icd.Payload{Variant: icd.BinaryPayload{
 			Identifier: &icd.Identifier{Variant: icd.CanIdentifier{ID: id}},

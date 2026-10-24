@@ -1,9 +1,8 @@
 {
   "key": "00000000-0000-4000-8000-000000000000",
   "name": "opendbc_vw_meb",
-  "entries": [
+  "messages": [
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000001",
       "name": "MEB_HVEM_01",
       "payload": {
@@ -276,7 +275,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000013",
       "name": "ESC_51",
       "payload": {
@@ -534,7 +532,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000024",
       "name": "Motor_51",
       "payload": {
@@ -642,7 +639,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000002b",
       "name": "EA_02",
       "payload": {
@@ -840,7 +836,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000038",
       "name": "TA_01",
       "payload": {
@@ -933,7 +928,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000003e",
       "name": "ACC_19",
       "payload": {
@@ -1583,7 +1577,6 @@
             "scale": 1,
             "offset": 0,
             "units": "Unit_Meter",
-            "enumeration": "00000000-0000-4000-8000-00000000006f",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -1670,33 +1663,6 @@
           }
         ]
       }
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000006f",
-      "name": "ACC_19.ACC_Events",
-      "values": [
-        {
-          "value": 3,
-          "name": "Starting_Available"
-        },
-        {
-          "value": 0,
-          "name": "None"
-        },
-        {
-          "value": 5,
-          "name": "Speed_Limit_Camera"
-        },
-        {
-          "value": 9,
-          "name": "Street_Type"
-        },
-        {
-          "value": 4,
-          "name": "Speed_Limit_in_Nav"
-        }
-      ]
     }
   ],
   "hash": ""

@@ -101,7 +101,9 @@ x::errors::Error Sink::write(x::telem::Frame &frame) {
                 const auto &b = m.bindings[binding];
                 auto &s = this->states[message];
                 if (const auto err = m.plan.set(s.values, b.slot, value)) {
-                    this->warnings.add(m.entry.name + "." + b.field + ": " + err.data);
+                    this->warnings.add(
+                        m.definition.name + "." + b.field + ": " + err.data
+                    );
                     continue;
                 }
                 if (!s.seen[b.slot]) {
@@ -112,7 +114,7 @@ x::errors::Error Sink::write(x::telem::Frame &frame) {
             }
         }
         for (const auto message: changed)
-            if (!this->cfg.messages[message].entry.period.has_value())
+            if (!this->cfg.messages[message].definition.period.has_value())
                 this->enqueue(message);
         this->report();
     }
@@ -133,7 +135,7 @@ void Sink::enqueue(const std::size_t message) {
             reinterpret_cast<const char *>(payload.data()),
             payload.size()
         );
-        const auto &delimiter = std::get<synnax::icd::TextPayload>(m.entry.payload)
+        const auto &delimiter = std::get<synnax::icd::TextPayload>(m.definition.payload)
                                     .delimiter;
         if (prefix.ends_with(delimiter) && body.starts_with(delimiter))
             prefix.remove_suffix(delimiter.size());
@@ -142,7 +144,7 @@ void Sink::enqueue(const std::size_t message) {
     if (this->cfg.framer == nullptr) return this->push(message, std::move(payload));
     std::vector<std::uint8_t> wire;
     if (const auto err = this->cfg.framer->encode(payload, wire)) {
-        this->warnings.add(m.entry.name + ": " + err.data);
+        this->warnings.add(m.definition.name + ": " + err.data);
         return;
     }
     this->push(message, std::move(wire));
@@ -163,7 +165,9 @@ void Sink::report() {
         std::vector<std::string> fields;
         for (const auto &b: m.bindings)
             if (!s.seen[b.slot]) fields.push_back(b.field);
-        out.push_back(m.entry.name + " waits for " + x::strings::join(fields, ", "));
+        out.push_back(
+            m.definition.name + " waits for " + x::strings::join(fields, ", ")
+        );
     }
     if (this->fatal) out.push_back(this->fatal.data);
     if (this->failure)
@@ -185,7 +189,7 @@ void Sink::report() {
 x::telem::TimeStamp Sink::schedule(const x::telem::TimeStamp now) {
     auto next = x::telem::TimeStamp::max();
     for (std::size_t i = 0; i < this->cfg.messages.size(); i++) {
-        const auto &period = this->cfg.messages[i].entry.period;
+        const auto &period = this->cfg.messages[i].definition.period;
         if (!period.has_value()) continue;
         auto &s = this->states[i];
         if (now >= s.due) {

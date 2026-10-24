@@ -89,7 +89,7 @@ const bindFields = async (client: Synnax, unbound: Unbound[]): Promise<void> => 
 interface Context {
   device: string;
   rack: rack.Key;
-  messages: Map<icd.EntryKey, icd.MessageEntry>;
+  messages: Map<icd.MessageKey, icd.Message>;
   existing: Set<channel.Key>;
 }
 
@@ -108,10 +108,10 @@ const openContext = async (
   return { device: dev.name, rack: dev.rack, messages: messagesOf(ic), existing };
 };
 
-const entryOf = (ctx: Context, m: Message): icd.MessageEntry => {
-  const entry = ctx.messages.get(m.message);
-  if (entry == null) throw new Error(`Message ${m.message} is not in the ICD`);
-  return entry;
+const definitionOf = (ctx: Context, m: Message): icd.Message => {
+  const definition = ctx.messages.get(m.message);
+  if (definition == null) throw new Error(`Message ${m.message} is not in the ICD`);
+  return definition;
 };
 
 /**
@@ -131,16 +131,16 @@ export const configureRead = async <C extends bus.ReadConfig>(
   const ctx = await openContext(client, config, keys);
   const fields = config.messages.flatMap((m) => {
     if (m.disabled) return [];
-    const entry = entryOf(ctx, m);
-    return m.fields.map((field) => ({ field, entry }));
+    const definition = definitionOf(ctx, m);
+    return m.fields.map((field) => ({ field, definition }));
   });
   const raw = rawName(ctx.device);
   const rawMissing = !ctx.existing.has(config.raw);
   const unindexed = fields
     .filter(({ field }) => !ctx.existing.has(field.index))
-    .map(({ field, entry }) => ({
+    .map(({ field, definition }) => ({
       field,
-      name: indexName(ctx.device, entry, field.field),
+      name: indexName(ctx.device, definition, field.field),
     }));
   const keyOf = await createChannels(client, [
     ...(rawMissing ? [{ name: raw, dataType: DataType.BYTES, virtual: true }] : []),
@@ -154,12 +154,12 @@ export const configureRead = async <C extends bus.ReadConfig>(
     client,
     fields
       .filter(({ field }) => !ctx.existing.has(field.channel))
-      .map(({ field, entry }) => ({
+      .map(({ field, definition }) => ({
         field,
         name: fieldChannelName(
           ctx.device,
-          entry.name,
-          fieldOf(entry, field.field).name,
+          definition.name,
+          fieldOf(definition, field.field).name,
         ),
         index: field.index,
       })),
@@ -181,22 +181,24 @@ export const configureWrite = async <C extends bus.WriteConfig>(
   const pending = config.messages.flatMap((m) => {
     if (m.disabled) return [];
     const fields = m.fields.filter((f) => !ctx.existing.has(f.channel));
-    return fields.length === 0 ? [] : [{ entry: entryOf(ctx, m), fields }];
+    return fields.length === 0 ? [] : [{ definition: definitionOf(ctx, m), fields }];
   });
   const indexOf = await createChannels(
     client,
-    pending.map(({ entry }) => newIndex(commandIndexName(ctx.device, entry.name))),
+    pending.map(({ definition }) =>
+      newIndex(commandIndexName(ctx.device, definition.name)),
+    ),
   );
   await bindFields(
     client,
-    pending.flatMap(({ entry, fields }) => {
-      const index = indexOf(commandIndexName(ctx.device, entry.name));
+    pending.flatMap(({ definition, fields }) => {
+      const index = indexOf(commandIndexName(ctx.device, definition.name));
       return fields.map((field) => ({
         field,
         name: commandChannelName(
           ctx.device,
-          entry.name,
-          fieldOf(entry, field.field).name,
+          definition.name,
+          fieldOf(definition, field.field).name,
         ),
         index,
       }));

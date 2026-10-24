@@ -23,16 +23,7 @@ const client = createTestClient();
 const createICD = async (name: string = `icd-${id.create()}`) =>
   await client.icds.create({
     name,
-    entries: [
-      {
-        kind: "enum",
-        name: "State",
-        values: [
-          { value: 0, name: "Off" },
-          { value: 1, name: "On" },
-        ],
-      },
-    ],
+    messages: [{ name: "State", payload: { format: "binary" } }],
   });
 
 describe("ICD queries", () => {
@@ -48,7 +39,7 @@ describe("ICD queries", () => {
         wrapper,
       });
       await waitFor(() => expect(result.current?.key).toEqual(ic.key));
-      expect(result.current?.entries).toEqual(ic.entries);
+      expect(result.current?.messages).toEqual(ic.messages);
     });
   });
 
@@ -114,7 +105,7 @@ describe("ICD queries", () => {
   });
 
   describe("useImport", () => {
-    it("should replace the entries of an ICD with an import", async () => {
+    it("should replace the messages of an ICD with an import", async () => {
       const ic = await createICD();
       const csv = "message,field,start_bit,bit_length\nEngine,Rpm,0,16";
       const { result } = renderHook(() => ICD.useImport(), { wrapper });
@@ -126,7 +117,7 @@ describe("ICD queries", () => {
         });
       });
       const retrieved = await client.icds.retrieve({ key: ic.key });
-      expect(retrieved.entries.map((e) => e.name)).toEqual(["Engine"]);
+      expect(retrieved.messages.map((m) => m.name)).toEqual(["Engine"]);
     });
   });
 
@@ -137,12 +128,11 @@ describe("ICD queries", () => {
         () => ICD.useForm({ query: { key: ic.key } }),
         { wrapper },
       );
-      expect(result.current.form.value().entries).toEqual(ic.entries);
+      expect(result.current.form.value().messages).toEqual(ic.messages);
       act(() =>
-        result.current.form.set("entries", [
-          ...ic.entries,
+        result.current.form.set("messages", [
+          ...ic.messages,
           {
-            kind: "message",
             key: uuid.create(),
             name: "Status",
             payload: {
@@ -170,31 +160,33 @@ describe("ICD queries", () => {
         expect(await result.current.saveAsync()).toBe(true);
       });
       const retrieved = await client.icds.retrieve({ key: ic.key });
-      expect(retrieved.entries).toEqual(result.current.form.value().entries);
-      expect(retrieved.entries.map((e) => e.name)).toEqual(["State", "Status"]);
+      expect(retrieved.messages).toEqual(result.current.form.value().messages);
+      expect(retrieved.messages.map((m) => m.name)).toEqual(["State", "Status"]);
     });
 
     it("should put each problem on the field it names and not save", async () => {
       const ic = await createICD();
-      const [state] = ic.entries;
+      const [state] = ic.messages;
       const { result } = await renderHookSuspended(
         () => ICD.useForm({ query: { key: ic.key } }),
         { wrapper },
       );
       act(() =>
-        result.current.form.set("entries", [state, { ...state, key: uuid.create() }]),
+        result.current.form.set("messages", [state, { ...state, key: uuid.create() }]),
       );
       await act(async () => {
         expect(await result.current.saveAsync()).toBe(false);
       });
-      const second = result.current.form.value().entries[1].key;
-      const status = result.current.form.get(`entries.${second}.name`).status;
+      const second = result.current.form.value().messages[1].key;
+      const status = result.current.form.get(`messages.${second}.name`).status;
       expect(status).toMatchObject({
         variant: "error",
-        message: 'duplicate entry name "State"',
+        message: 'duplicate message name "State"',
       });
       expect(result.current.status.description).toEqual("The ICD has 1 problem");
-      expect((await client.icds.retrieve({ key: ic.key })).entries).toEqual(ic.entries);
+      expect((await client.icds.retrieve({ key: ic.key })).messages).toEqual(
+        ic.messages,
+      );
     });
 
     it("should reject a save when the ICD changed elsewhere", async () => {
@@ -203,15 +195,15 @@ describe("ICD queries", () => {
         () => ICD.useForm({ query: { key: ic.key } }),
         { wrapper },
       );
-      await client.icds.create({ ...ic, entries: [] });
-      act(() => result.current.form.set(`entries.${ic.entries[0].key}.name`, "Mode"));
+      await client.icds.create({ ...ic, messages: [] });
+      act(() => result.current.form.set(`messages.${ic.messages[0].key}.name`, "Mode"));
       await act(async () => {
         expect(await result.current.saveAsync()).toBe(false);
       });
       const { status } = result.current;
       assert(status.variant === "error");
       expect(StaleError.matches(status.details.error)).toBe(true);
-      expect((await client.icds.retrieve({ key: ic.key })).entries).toEqual([]);
+      expect((await client.icds.retrieve({ key: ic.key })).messages).toEqual([]);
     });
 
     it("should save after a rename made elsewhere", async () => {
@@ -222,13 +214,13 @@ describe("ICD queries", () => {
       );
       await client.icds.rename(ic.key, "Renamed");
       await waitFor(() => expect(result.current.form.value().name).toEqual("Renamed"));
-      act(() => result.current.form.set(`entries.${ic.entries[0].key}.name`, "Mode"));
+      act(() => result.current.form.set(`messages.${ic.messages[0].key}.name`, "Mode"));
       await act(async () => {
         expect(await result.current.saveAsync()).toBe(true);
       });
       const retrieved = await client.icds.retrieve({ key: ic.key });
       expect(retrieved.name).toEqual("Renamed");
-      expect(retrieved.entries[0].name).toEqual("Mode");
+      expect(retrieved.messages[0].name).toEqual("Mode");
     });
 
     it("should take a rename made elsewhere", async () => {

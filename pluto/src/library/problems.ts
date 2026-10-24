@@ -12,7 +12,7 @@ import { type Form } from "@synnaxlabs/lyra/form";
 import { caseconv, deep } from "@synnaxlabs/x";
 
 /**
- * Rewrites a dotted path from the Core, such as "entries.2.bit_length", into the form
+ * Rewrites a dotted path from the Core, such as "messages.2.bit_length", into the form
  * path of the value it names: camel case parts, and element keys in place of array
  * indexes.
  */

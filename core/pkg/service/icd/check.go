@@ -27,41 +27,25 @@ const (
 )
 
 // Check returns every problem in the ICD: the rules its schema declares and the rules
-// that span entries and fields, such as unique names, references between entries and
-// fields, and the limits of each bus. A save refuses an ICD with problems. Entries and
-// fields with no key do not count as duplicates, as a save assigns their keys.
+// that span messages and fields, such as unique names, references between fields, and
+// the limits of each bus. A save refuses an ICD with problems. Messages and fields with
+// no key do not count as duplicates, as a save assigns their keys.
 func Check(ic ICD) library.Problems {
 	c := checker{problems: library.Problems{}}
 	c.problems.AddError(ic.Validate())
-	enums := make(set.Set[EntryKey])
-	for _, e := range ic.Entries {
-		if en, ok := e.Variant.(EnumEntry); ok {
-			enums.Add(en.Key)
+	keys := make(set.Set[MessageKey], len(ic.Messages))
+	names := make(set.Set[string], len(ic.Messages))
+	for i, m := range ic.Messages {
+		path := []string{"messages", strconv.Itoa(i)}
+		if m.Key != uuid.Nil() && keys.Contains(m.Key) {
+			c.addf(pathOf(path, "key"), "duplicate message key %s", m.Key)
 		}
-	}
-	keys := make(set.Set[EntryKey], len(ic.Entries))
-	names := make(set.Set[string], len(ic.Entries))
-	for i, e := range ic.Entries {
-		path := []string{"entries", strconv.Itoa(i)}
-		if e.Variant == nil {
-			c.addf(path, "kind is required")
-			continue
+		keys.Add(m.Key)
+		if m.Name != "" && names.Contains(m.Name) {
+			c.addf(pathOf(path, "name"), "duplicate message name %q", m.Name)
 		}
-		base := e.Base()
-		if base.Key != uuid.Nil() && keys.Contains(base.Key) {
-			c.addf(pathOf(path, "key"), "duplicate entry key %s", base.Key)
-		}
-		keys.Add(base.Key)
-		if base.Name != "" && names.Contains(base.Name) {
-			c.addf(pathOf(path, "name"), "duplicate entry name %q", base.Name)
-		}
-		names.Add(base.Name)
-		switch v := e.Variant.(type) {
-		case EnumEntry:
-			c.checkEnum(path, v)
-		case MessageEntry:
-			c.checkMessage(path, v, enums)
-		}
+		names.Add(m.Name)
+		c.checkMessage(path, m)
 	}
 	return c.problems
 }
@@ -79,23 +63,7 @@ func pathOf(parent []string, segments ...string) []string {
 	)
 }
 
-func (c *checker) checkEnum(path []string, e EnumEntry) {
-	values := make(set.Set[int32], len(e.Values))
-	names := make(set.Set[string], len(e.Values))
-	for i, ev := range e.Values {
-		p := pathOf(path, "values", strconv.Itoa(i))
-		if values.Contains(ev.Value) {
-			c.addf(pathOf(p, "value"), "duplicate value %d", ev.Value)
-		}
-		values.Add(ev.Value)
-		if ev.Name != "" && names.Contains(ev.Name) {
-			c.addf(pathOf(p, "name"), "duplicate name %q", ev.Name)
-		}
-		names.Add(ev.Name)
-	}
-}
-
-func (c *checker) checkMessage(path []string, m MessageEntry, enums set.Set[EntryKey]) {
+func (c *checker) checkMessage(path []string, m Message) {
 	if m.Period != nil && *m.Period <= 0 {
 		c.addf(pathOf(path, "period"), "period must be positive")
 	}
@@ -142,9 +110,6 @@ func (c *checker) checkMessage(path []string, m MessageEntry, enums set.Set[Entr
 		}
 		names.Add(b.Name)
 		c.checkScaling(p, b)
-		if b.Enumeration != nil && !enums.Contains(*b.Enumeration) {
-			c.addf(pathOf(p, "enumeration"), "the enumeration is not in this ICD")
-		}
 		if b.Multiplexor == nil {
 			continue
 		}

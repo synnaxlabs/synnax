@@ -27,7 +27,7 @@ import (
 
 // usingConfig returns the config of a task that uses the given messages of an ICD,
 // with all the fields of each.
-func usingConfig(ic icd.ICD, messages ...icd.MessageEntry) msgpack.EncodedJSON {
+func usingConfig(ic icd.ICD, messages ...icd.Message) msgpack.EncodedJSON {
 	uses := make([]any, len(messages))
 	for i, m := range messages {
 		fields := make([]any, 0)
@@ -43,7 +43,7 @@ func createUsingTask(
 	ctx context.Context,
 	name string,
 	ic icd.ICD,
-	messages ...icd.MessageEntry,
+	messages ...icd.Message,
 ) task.Task {
 	GinkgoHelper()
 	t := task.Task{
@@ -94,27 +94,25 @@ func retrieveUses(ctx context.Context, t task.Task) []ontology.Relationship {
 var _ = Describe("Task references", func() {
 	var (
 		ic            icd.ICD
-		status, brake icd.MessageEntry
+		status, brake icd.Message
 	)
 	BeforeEach(func(ctx SpecContext) {
 		ic = icd.ICD{
 			Name: "Bus",
-			Entries: []icd.Entry{
-				messageEntry(canMessage("Status", 0x100, binaryField("rpm", 0, 16))),
-				messageEntry(
-					canMessage("Brake", 0x200, binaryField("pressure", 0, 16)),
-				),
+			Messages: []icd.Message{
+				canMessage("Status", 0x100, binaryField("rpm", 0, 16)),
+				canMessage("Brake", 0x200, binaryField("pressure", 0, 16)),
 			},
 		}
 		Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
-		status, brake = messageOf(ic, 0), messageOf(ic, 1)
+		status, brake = ic.Messages[0], ic.Messages[1]
 	})
 
 	It(
-		"Should stamp the hash of the entries a task uses into its config",
+		"Should stamp the hash of the messages a task uses into its config",
 		func(ctx SpecContext) {
 			t := createUsingTask(ctx, "Decoder", ic, status)
-			hash := MustSucceed(icd.TaskHash(ic, []icd.EntryKey{status.Key}))
+			hash := MustSucceed(icd.TaskHash(ic, []icd.MessageKey{status.Key}))
 			Expect(t.Config).To(HaveKeyWithValue("icd_hash", hash))
 			Expect(
 				retrieveTask(ctx, t.Key).Config,
@@ -191,7 +189,7 @@ var _ = Describe("Task references", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
 			for _, t := range []task.Task{first, second} {
 				res := retrieveTask(ctx, t.Key)
-				used := []icd.EntryKey{status.Key}
+				used := []icd.MessageKey{status.Key}
 				if t.Key == second.Key {
 					used = append(used, brake.Key)
 				}
@@ -250,9 +248,9 @@ var _ = Describe("Task references", func() {
 		"Should refuse a save that drops a message a task uses",
 		func(ctx SpecContext) {
 			createUsingTask(ctx, "Decoder", ic, status)
-			ic.Entries = ic.Entries[1:]
+			ic.Messages = ic.Messages[1:]
 			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(MatchError(
-				`entries: task "Decoder" uses message "Status", which the ICD no ` +
+				`messages: task "Decoder" uses message "Status", which the ICD no ` +
 					"longer has: validation error",
 			))
 		},
@@ -262,11 +260,11 @@ var _ = Describe("Task references", func() {
 		"Should refuse a save that drops a field a task uses",
 		func(ctx SpecContext) {
 			createUsingTask(ctx, "Decoder", ic, status)
-			ic.Entries[0].Variant = updateBinary(status, func(p *icd.BinaryPayload) {
+			ic.Messages[0] = updateBinary(status, func(p *icd.BinaryPayload) {
 				p.Fields = []icd.BinaryField{binaryField("speed", 0, 16)}
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(MatchError(
-				`entries.0.payload.fields: task "Decoder" uses field "rpm" of message ` +
+				`messages.0.payload.fields: task "Decoder" uses field "rpm" of message ` +
 					`"Status", which the ICD no longer has: validation error`,
 			))
 		},
@@ -277,10 +275,10 @@ var _ = Describe("Task references", func() {
 			"Should report a message a task uses that the ICD no longer has",
 			func(ctx SpecContext) {
 				createUsingTask(ctx, "Decoder", ic, status)
-				ic.Entries = ic.Entries[1:]
+				ic.Messages = ic.Messages[1:]
 				Expect(MustSucceed(svc.NewWriter(tx).Check(ctx, ic))).To(Equal(
 					library.Problems{{
-						Path: "entries",
+						Path: "messages",
 						Message: `task "Decoder" uses message "Status", which the ` +
 							"ICD no longer has",
 					}},
@@ -292,7 +290,7 @@ var _ = Describe("Task references", func() {
 			"Should report a field a task uses at the fields of its message",
 			func(ctx SpecContext) {
 				createUsingTask(ctx, "Decoder", ic, status)
-				ic.Entries[0].Variant = updateBinary(
+				ic.Messages[0] = updateBinary(
 					status,
 					func(p *icd.BinaryPayload) {
 						p.Fields = []icd.BinaryField{binaryField("speed", 0, 16)}
@@ -300,7 +298,7 @@ var _ = Describe("Task references", func() {
 				)
 				Expect(MustSucceed(svc.NewWriter(tx).Check(ctx, ic))).To(Equal(
 					library.Problems{{
-						Path: "entries.0.payload.fields",
+						Path: "messages.0.payload.fields",
 						Message: `task "Decoder" uses field "rpm" of message ` +
 							`"Status", which the ICD no longer has`,
 					}},
@@ -311,7 +309,7 @@ var _ = Describe("Task references", func() {
 		It("Should report a problem for every task", func(ctx SpecContext) {
 			createUsingTask(ctx, "Decoder", ic, status)
 			createUsingTask(ctx, "Logger", ic, status)
-			ic.Entries = ic.Entries[1:]
+			ic.Messages = ic.Messages[1:]
 			Expect(MustSucceed(svc.NewWriter(tx).Check(ctx, ic))).To(ConsistOf(
 				HaveField("Message", ContainSubstring(`task "Decoder"`)),
 				HaveField("Message", ContainSubstring(`task "Logger"`)),
@@ -322,7 +320,7 @@ var _ = Describe("Task references", func() {
 			"Should report nothing when the ICD keeps what its tasks use",
 			func(ctx SpecContext) {
 				createUsingTask(ctx, "Decoder", ic, status)
-				ic.Entries = ic.Entries[:1]
+				ic.Messages = ic.Messages[:1]
 				Expect(MustSucceed(svc.NewWriter(tx).Check(ctx, ic))).To(BeEmpty())
 			},
 		)

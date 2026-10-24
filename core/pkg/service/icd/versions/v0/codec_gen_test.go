@@ -24,40 +24,20 @@ import (
 )
 
 var (
-	fullyPopulatedBaseEntry = v0.BaseEntry{
-		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name: "test_2",
-	}
 	fullyPopulatedBaseField = v0.BaseField{
 		Key:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:            "test_2",
 		Scale:           3.5,
 		Offset:          4.5,
 		Units:           "test_5",
-		Enumeration:     new(v0.EntryKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-		Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-		MultiplexValues: []int32{9},
-		Min:             new(float64(9.5)),
-		Max:             new(float64(10.5)),
+		Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+		MultiplexValues: []int32{8},
+		Min:             new(float64(8.5)),
+		Max:             new(float64(9.5)),
 	}
 )
 
 var _ = Describe("Codec", func() {
-	Describe("BaseEntry", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v0.BaseEntry) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.BaseEntry
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedBaseEntry),
-			Entry("zero values", v0.BaseEntry{Key: uuid.Nil(), Name: ""}),
-		)
-	})
 	Describe("BaseField", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v0.BaseField) {
@@ -76,7 +56,6 @@ var _ = Describe("Codec", func() {
 				Scale:           0,
 				Offset:          0,
 				Units:           "",
-				Enumeration:     nil,
 				Multiplexor:     nil,
 				MultiplexValues: []int32{},
 				Min:             nil,
@@ -88,11 +67,10 @@ var _ = Describe("Codec", func() {
 				Scale:           3.5,
 				Offset:          4.5,
 				Units:           "test_5",
-				Enumeration:     new(v0.EntryKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-				Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+				Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 				MultiplexValues: []int32{},
-				Min:             new(float64(9.5)),
-				Max:             new(float64(10.5)),
+				Min:             new(float64(8.5)),
+				Max:             new(float64(9.5)),
 			}),
 		)
 	})
@@ -113,16 +91,15 @@ var _ = Describe("Codec", func() {
 				Scale:           3.5,
 				Offset:          4.5,
 				Units:           "test_5",
-				Enumeration:     new(v0.EntryKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-				Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-				MultiplexValues: []int32{9},
-				Min:             new(float64(9.5)),
-				Max:             new(float64(10.5)),
-				StartBit:        12,
-				BitLength:       13,
+				Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+				MultiplexValues: []int32{8},
+				Min:             new(float64(8.5)),
+				Max:             new(float64(9.5)),
+				StartBit:        11,
+				BitLength:       12,
 				ByteOrder:       v0.ByteOrder("little_endian"),
-				Signed:          false,
-				Float:           true,
+				Signed:          true,
+				Float:           false,
 			}),
 			Entry("zero values", v0.BinaryField{
 				Key:             uuid.Nil(),
@@ -130,7 +107,6 @@ var _ = Describe("Codec", func() {
 				Scale:           0,
 				Offset:          0,
 				Units:           "",
-				Enumeration:     nil,
 				Multiplexor:     nil,
 				MultiplexValues: []int32{},
 				Min:             nil,
@@ -147,83 +123,16 @@ var _ = Describe("Codec", func() {
 				Scale:           3.5,
 				Offset:          4.5,
 				Units:           "test_5",
-				Enumeration:     new(v0.EntryKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-				Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+				Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 				MultiplexValues: []int32{},
-				Min:             new(float64(9.5)),
-				Max:             new(float64(10.5)),
-				StartBit:        12,
-				BitLength:       13,
+				Min:             new(float64(8.5)),
+				Max:             new(float64(9.5)),
+				StartBit:        11,
+				BitLength:       12,
 				ByteOrder:       v0.ByteOrder("little_endian"),
-				Signed:          false,
-				Float:           true,
+				Signed:          true,
+				Float:           false,
 			}),
-		)
-	})
-	Describe("Entry", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v0.Entry) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.Entry
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("enum variant", v0.Entry{Variant: v0.EnumEntry{
-				BaseEntry: fullyPopulatedBaseEntry,
-				Values:    []v0.EnumValue{{Value: 3, Name: "test_3"}},
-			}}),
-			Entry("message variant", v0.Entry{Variant: v0.MessageEntry{
-				BaseEntry: fullyPopulatedBaseEntry,
-				Payload: v0.Payload{Variant: v0.BinaryPayload{
-					Length: new(uint16(3)),
-					Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
-						ID:              5,
-						Extended:        true,
-						Fd:              false,
-						BitrateSwitched: true,
-						Mask:            new(uint32(9)),
-					}}),
-					Fields: []v0.BinaryField{
-						{
-							Key:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
-							Name:            "test_11",
-							Scale:           12.5,
-							Offset:          13.5,
-							Units:           "test_14",
-							Enumeration:     new(v0.EntryKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
-							Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
-							MultiplexValues: []int32{18},
-							Min:             new(float64(18.5)),
-							Max:             new(float64(19.5)),
-							StartBit:        21,
-							BitLength:       22,
-							ByteOrder:       v0.ByteOrder("little_endian"),
-							Signed:          true,
-							Float:           false,
-						},
-					},
-				}},
-				Period: new(telem.TimeSpan(26)),
-				Query:  new(string("test_26")),
-			}}),
-		)
-	})
-	Describe("EnumValue", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v0.EnumValue) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.EnumValue
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v0.EnumValue{Value: 2, Name: "test_2"}),
-			Entry("zero values", v0.EnumValue{Value: 0, Name: ""}),
 		)
 	})
 	Describe("ICD", func() {
@@ -240,25 +149,55 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v0.ICD{
 				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name: "test_2",
-				Entries: []v0.Entry{
-					{Variant: v0.EnumEntry{
-						BaseEntry: fullyPopulatedBaseEntry,
-						Values:    []v0.EnumValue{{Value: 6, Name: "test_6"}},
-					}},
+				Messages: []v0.Message{
+					{
+						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+						Name: "test_5",
+						Payload: v0.Payload{Variant: v0.BinaryPayload{
+							Length: new(uint16(8)),
+							Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
+								ID:              10,
+								Extended:        false,
+								Fd:              true,
+								BitrateSwitched: false,
+								Mask:            new(uint32(14)),
+							}}),
+							Fields: []v0.BinaryField{
+								{
+									Key:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
+									Name:            "test_16",
+									Scale:           17.5,
+									Offset:          18.5,
+									Units:           "test_19",
+									Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+									MultiplexValues: []int32{22},
+									Min:             new(float64(22.5)),
+									Max:             new(float64(23.5)),
+									StartBit:        25,
+									BitLength:       26,
+									ByteOrder:       v0.ByteOrder("little_endian"),
+									Signed:          true,
+									Float:           false,
+								},
+							},
+						}},
+						Period: new(telem.TimeSpan(30)),
+						Query:  new(string("test_30")),
+					},
 				},
-				Hash: "test_7",
+				Hash: "test_31",
 			}),
 			Entry("zero values", v0.ICD{
-				Key:     uuid.Nil(),
-				Name:    "",
-				Entries: []v0.Entry{},
-				Hash:    "",
+				Key:      uuid.Nil(),
+				Name:     "",
+				Messages: []v0.Message{},
+				Hash:     "",
 			}),
 			Entry("empty collections", v0.ICD{
-				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:    "test_2",
-				Entries: []v0.Entry{},
-				Hash:    "test_4",
+				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:     "test_2",
+				Messages: []v0.Message{},
+				Hash:     "test_4",
 			}),
 		)
 	})
@@ -284,6 +223,64 @@ var _ = Describe("Codec", func() {
 				Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Value: 3,
 			}}),
+		)
+	})
+	Describe("Message", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Message) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Message
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.Message{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+				Payload: v0.Payload{Variant: v0.BinaryPayload{
+					Length: new(uint16(5)),
+					Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
+						ID:              7,
+						Extended:        true,
+						Fd:              false,
+						BitrateSwitched: true,
+						Mask:            new(uint32(11)),
+					}}),
+					Fields: []v0.BinaryField{
+						{
+							Key:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+							Name:            "test_13",
+							Scale:           14.5,
+							Offset:          15.5,
+							Units:           "test_16",
+							Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"))),
+							MultiplexValues: []int32{19},
+							Min:             new(float64(19.5)),
+							Max:             new(float64(20.5)),
+							StartBit:        22,
+							BitLength:       23,
+							ByteOrder:       v0.ByteOrder("little_endian"),
+							Signed:          false,
+							Float:           true,
+						},
+					},
+				}},
+				Period: new(telem.TimeSpan(27)),
+				Query:  new(string("test_27")),
+			}),
+			Entry("zero values", v0.Message{
+				Key:  uuid.Nil(),
+				Name: "",
+				Payload: v0.Payload{Variant: v0.BinaryPayload{
+					Length:     nil,
+					Identifier: nil,
+					Fields:     []v0.BinaryField{},
+				}},
+				Period: nil,
+				Query:  nil,
+			}),
 		)
 	})
 	Describe("Payload", func() {
@@ -313,16 +310,15 @@ var _ = Describe("Codec", func() {
 						Scale:           11.5,
 						Offset:          12.5,
 						Units:           "test_13",
-						Enumeration:     new(v0.EntryKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
-						Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
-						MultiplexValues: []int32{17},
-						Min:             new(float64(17.5)),
-						Max:             new(float64(18.5)),
-						StartBit:        20,
-						BitLength:       21,
+						Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+						MultiplexValues: []int32{16},
+						Min:             new(float64(16.5)),
+						Max:             new(float64(17.5)),
+						StartBit:        19,
+						BitLength:       20,
 						ByteOrder:       v0.ByteOrder("little_endian"),
-						Signed:          false,
-						Float:           true,
+						Signed:          true,
+						Float:           false,
 					},
 				},
 			}}),
@@ -368,23 +364,6 @@ var _ = Describe("Codec", func() {
 	})
 })
 
-func BenchmarkEncodeDecodeBaseEntry(b *testing.B) {
-	seed := fullyPopulatedBaseEntry
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v0.BaseEntry
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeBaseField(b *testing.B) {
 	seed := fullyPopulatedBaseField
 	w := orc.NewWriter(0)
@@ -409,16 +388,15 @@ func BenchmarkEncodeDecodeBinaryField(b *testing.B) {
 		Scale:           3.5,
 		Offset:          4.5,
 		Units:           "test_5",
-		Enumeration:     new(v0.EntryKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-		Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-		MultiplexValues: []int32{9},
-		Min:             new(float64(9.5)),
-		Max:             new(float64(10.5)),
-		StartBit:        12,
-		BitLength:       13,
+		Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+		MultiplexValues: []int32{8},
+		Min:             new(float64(8.5)),
+		Max:             new(float64(9.5)),
+		StartBit:        11,
+		BitLength:       12,
 		ByteOrder:       v0.ByteOrder("little_endian"),
-		Signed:          false,
-		Float:           true,
+		Signed:          true,
+		Float:           false,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -435,54 +413,47 @@ func BenchmarkEncodeDecodeBinaryField(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeEntry(b *testing.B) {
-	seed := v0.Entry{Variant: v0.EnumEntry{
-		BaseEntry: fullyPopulatedBaseEntry,
-		Values:    []v0.EnumValue{{Value: 3, Name: "test_3"}},
-	}}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v0.Entry
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeEnumValue(b *testing.B) {
-	seed := v0.EnumValue{Value: 2, Name: "test_2"}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v0.EnumValue
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeICD(b *testing.B) {
 	seed := v0.ICD{
 		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name: "test_2",
-		Entries: []v0.Entry{
-			{Variant: v0.EnumEntry{
-				BaseEntry: fullyPopulatedBaseEntry,
-				Values:    []v0.EnumValue{{Value: 6, Name: "test_6"}},
-			}},
+		Messages: []v0.Message{
+			{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+				Name: "test_5",
+				Payload: v0.Payload{Variant: v0.BinaryPayload{
+					Length: new(uint16(8)),
+					Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
+						ID:              10,
+						Extended:        false,
+						Fd:              true,
+						BitrateSwitched: false,
+						Mask:            new(uint32(14)),
+					}}),
+					Fields: []v0.BinaryField{
+						{
+							Key:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
+							Name:            "test_16",
+							Scale:           17.5,
+							Offset:          18.5,
+							Units:           "test_19",
+							Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+							MultiplexValues: []int32{22},
+							Min:             new(float64(22.5)),
+							Max:             new(float64(23.5)),
+							StartBit:        25,
+							BitLength:       26,
+							ByteOrder:       v0.ByteOrder("little_endian"),
+							Signed:          true,
+							Float:           false,
+						},
+					},
+				}},
+				Period: new(telem.TimeSpan(30)),
+				Query:  new(string("test_30")),
+			},
 		},
-		Hash: "test_7",
+		Hash: "test_31",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -522,6 +493,56 @@ func BenchmarkEncodeDecodeIdentifier(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeMessage(b *testing.B) {
+	seed := v0.Message{
+		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name: "test_2",
+		Payload: v0.Payload{Variant: v0.BinaryPayload{
+			Length: new(uint16(5)),
+			Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
+				ID:              7,
+				Extended:        true,
+				Fd:              false,
+				BitrateSwitched: true,
+				Mask:            new(uint32(11)),
+			}}),
+			Fields: []v0.BinaryField{
+				{
+					Key:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+					Name:            "test_13",
+					Scale:           14.5,
+					Offset:          15.5,
+					Units:           "test_16",
+					Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"))),
+					MultiplexValues: []int32{19},
+					Min:             new(float64(19.5)),
+					Max:             new(float64(20.5)),
+					StartBit:        22,
+					BitLength:       23,
+					ByteOrder:       v0.ByteOrder("little_endian"),
+					Signed:          false,
+					Float:           true,
+				},
+			},
+		}},
+		Period: new(telem.TimeSpan(27)),
+		Query:  new(string("test_27")),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.Message
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodePayload(b *testing.B) {
 	seed := v0.Payload{Variant: v0.BinaryPayload{
 		Length: new(uint16(2)),
@@ -539,16 +560,15 @@ func BenchmarkEncodeDecodePayload(b *testing.B) {
 				Scale:           11.5,
 				Offset:          12.5,
 				Units:           "test_13",
-				Enumeration:     new(v0.EntryKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
-				Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
-				MultiplexValues: []int32{17},
-				Min:             new(float64(17.5)),
-				Max:             new(float64(18.5)),
-				StartBit:        20,
-				BitLength:       21,
+				Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+				MultiplexValues: []int32{16},
+				Min:             new(float64(16.5)),
+				Max:             new(float64(17.5)),
+				StartBit:        19,
+				BitLength:       20,
 				ByteOrder:       v0.ByteOrder("little_endian"),
-				Signed:          false,
-				Float:           true,
+				Signed:          true,
+				Float:           false,
 			},
 		},
 	}}
@@ -604,45 +624,6 @@ func BenchmarkEncodeDecodeTextField(b *testing.B) {
 	}
 }
 
-func FuzzDecodeBaseEntry(f *testing.F) {
-	{
-		seed := fullyPopulatedBaseEntry
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.BaseEntry{Key: uuid.Nil(), Name: ""}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.BaseEntry
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v0.BaseEntry
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeBaseField(f *testing.F) {
 	{
 		seed := fullyPopulatedBaseField
@@ -659,7 +640,6 @@ func FuzzDecodeBaseField(f *testing.F) {
 			Scale:           0,
 			Offset:          0,
 			Units:           "",
-			Enumeration:     nil,
 			Multiplexor:     nil,
 			MultiplexValues: []int32{},
 			Min:             nil,
@@ -678,11 +658,10 @@ func FuzzDecodeBaseField(f *testing.F) {
 			Scale:           3.5,
 			Offset:          4.5,
 			Units:           "test_5",
-			Enumeration:     new(v0.EntryKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-			Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+			Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 			MultiplexValues: []int32{},
-			Min:             new(float64(9.5)),
-			Max:             new(float64(10.5)),
+			Min:             new(float64(8.5)),
+			Max:             new(float64(9.5)),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -720,16 +699,15 @@ func FuzzDecodeBinaryField(f *testing.F) {
 			Scale:           3.5,
 			Offset:          4.5,
 			Units:           "test_5",
-			Enumeration:     new(v0.EntryKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-			Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-			MultiplexValues: []int32{9},
-			Min:             new(float64(9.5)),
-			Max:             new(float64(10.5)),
-			StartBit:        12,
-			BitLength:       13,
+			Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+			MultiplexValues: []int32{8},
+			Min:             new(float64(8.5)),
+			Max:             new(float64(9.5)),
+			StartBit:        11,
+			BitLength:       12,
 			ByteOrder:       v0.ByteOrder("little_endian"),
-			Signed:          false,
-			Float:           true,
+			Signed:          true,
+			Float:           false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -744,7 +722,6 @@ func FuzzDecodeBinaryField(f *testing.F) {
 			Scale:           0,
 			Offset:          0,
 			Units:           "",
-			Enumeration:     nil,
 			Multiplexor:     nil,
 			MultiplexValues: []int32{},
 			Min:             nil,
@@ -768,16 +745,15 @@ func FuzzDecodeBinaryField(f *testing.F) {
 			Scale:           3.5,
 			Offset:          4.5,
 			Units:           "test_5",
-			Enumeration:     new(v0.EntryKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-			Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+			Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 			MultiplexValues: []int32{},
-			Min:             new(float64(9.5)),
-			Max:             new(float64(10.5)),
-			StartBit:        12,
-			BitLength:       13,
+			Min:             new(float64(8.5)),
+			Max:             new(float64(9.5)),
+			StartBit:        11,
+			BitLength:       12,
 			ByteOrder:       v0.ByteOrder("little_endian"),
-			Signed:          false,
-			Float:           true,
+			Signed:          true,
+			Float:           false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -807,132 +783,48 @@ func FuzzDecodeBinaryField(f *testing.F) {
 	})
 }
 
-func FuzzDecodeEntry(f *testing.F) {
-	{
-		seed := v0.Entry{Variant: v0.EnumEntry{
-			BaseEntry: fullyPopulatedBaseEntry,
-			Values:    []v0.EnumValue{{Value: 3, Name: "test_3"}},
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.Entry{Variant: v0.MessageEntry{
-			BaseEntry: fullyPopulatedBaseEntry,
-			Payload: v0.Payload{Variant: v0.BinaryPayload{
-				Length: new(uint16(3)),
-				Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
-					ID:              5,
-					Extended:        true,
-					Fd:              false,
-					BitrateSwitched: true,
-					Mask:            new(uint32(9)),
-				}}),
-				Fields: []v0.BinaryField{
-					{
-						Key:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
-						Name:            "test_11",
-						Scale:           12.5,
-						Offset:          13.5,
-						Units:           "test_14",
-						Enumeration:     new(v0.EntryKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
-						Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
-						MultiplexValues: []int32{18},
-						Min:             new(float64(18.5)),
-						Max:             new(float64(19.5)),
-						StartBit:        21,
-						BitLength:       22,
-						ByteOrder:       v0.ByteOrder("little_endian"),
-						Signed:          true,
-						Float:           false,
-					},
-				},
-			}},
-			Period: new(telem.TimeSpan(26)),
-			Query:  new(string("test_26")),
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.Entry
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v0.Entry
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeEnumValue(f *testing.F) {
-	{
-		seed := v0.EnumValue{Value: 2, Name: "test_2"}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.EnumValue{Value: 0, Name: ""}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.EnumValue
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v0.EnumValue
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeICD(f *testing.F) {
 	{
 		seed := v0.ICD{
 			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name: "test_2",
-			Entries: []v0.Entry{
-				{Variant: v0.EnumEntry{
-					BaseEntry: fullyPopulatedBaseEntry,
-					Values:    []v0.EnumValue{{Value: 6, Name: "test_6"}},
-				}},
+			Messages: []v0.Message{
+				{
+					Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+					Name: "test_5",
+					Payload: v0.Payload{Variant: v0.BinaryPayload{
+						Length: new(uint16(8)),
+						Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
+							ID:              10,
+							Extended:        false,
+							Fd:              true,
+							BitrateSwitched: false,
+							Mask:            new(uint32(14)),
+						}}),
+						Fields: []v0.BinaryField{
+							{
+								Key:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
+								Name:            "test_16",
+								Scale:           17.5,
+								Offset:          18.5,
+								Units:           "test_19",
+								Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+								MultiplexValues: []int32{22},
+								Min:             new(float64(22.5)),
+								Max:             new(float64(23.5)),
+								StartBit:        25,
+								BitLength:       26,
+								ByteOrder:       v0.ByteOrder("little_endian"),
+								Signed:          true,
+								Float:           false,
+							},
+						},
+					}},
+					Period: new(telem.TimeSpan(30)),
+					Query:  new(string("test_30")),
+				},
 			},
-			Hash: "test_7",
+			Hash: "test_31",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -942,10 +834,10 @@ func FuzzDecodeICD(f *testing.F) {
 	}
 	{
 		seed := v0.ICD{
-			Key:     uuid.Nil(),
-			Name:    "",
-			Entries: []v0.Entry{},
-			Hash:    "",
+			Key:      uuid.Nil(),
+			Name:     "",
+			Messages: []v0.Message{},
+			Hash:     "",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -955,10 +847,10 @@ func FuzzDecodeICD(f *testing.F) {
 	}
 	{
 		seed := v0.ICD{
-			Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name:    "test_2",
-			Entries: []v0.Entry{},
-			Hash:    "test_4",
+			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:     "test_2",
+			Messages: []v0.Message{},
+			Hash:     "test_4",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1036,6 +928,88 @@ func FuzzDecodeIdentifier(f *testing.F) {
 	})
 }
 
+func FuzzDecodeMessage(f *testing.F) {
+	{
+		seed := v0.Message{
+			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name: "test_2",
+			Payload: v0.Payload{Variant: v0.BinaryPayload{
+				Length: new(uint16(5)),
+				Identifier: new(v0.Identifier{Variant: v0.CanIdentifier{
+					ID:              7,
+					Extended:        true,
+					Fd:              false,
+					BitrateSwitched: true,
+					Mask:            new(uint32(11)),
+				}}),
+				Fields: []v0.BinaryField{
+					{
+						Key:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+						Name:            "test_13",
+						Scale:           14.5,
+						Offset:          15.5,
+						Units:           "test_16",
+						Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"))),
+						MultiplexValues: []int32{19},
+						Min:             new(float64(19.5)),
+						Max:             new(float64(20.5)),
+						StartBit:        22,
+						BitLength:       23,
+						ByteOrder:       v0.ByteOrder("little_endian"),
+						Signed:          false,
+						Float:           true,
+					},
+				},
+			}},
+			Period: new(telem.TimeSpan(27)),
+			Query:  new(string("test_27")),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Message{
+			Key:  uuid.Nil(),
+			Name: "",
+			Payload: v0.Payload{Variant: v0.BinaryPayload{
+				Length:     nil,
+				Identifier: nil,
+				Fields:     []v0.BinaryField{},
+			}},
+			Period: nil,
+			Query:  nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.Message
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.Message
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodePayload(f *testing.F) {
 	{
 		seed := v0.Payload{Variant: v0.BinaryPayload{
@@ -1054,16 +1028,15 @@ func FuzzDecodePayload(f *testing.F) {
 					Scale:           11.5,
 					Offset:          12.5,
 					Units:           "test_13",
-					Enumeration:     new(v0.EntryKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
-					Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
-					MultiplexValues: []int32{17},
-					Min:             new(float64(17.5)),
-					Max:             new(float64(18.5)),
-					StartBit:        20,
-					BitLength:       21,
+					Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+					MultiplexValues: []int32{16},
+					Min:             new(float64(16.5)),
+					Max:             new(float64(17.5)),
+					StartBit:        19,
+					BitLength:       20,
 					ByteOrder:       v0.ByteOrder("little_endian"),
-					Signed:          false,
-					Float:           true,
+					Signed:          true,
+					Float:           false,
 				},
 			},
 		}}

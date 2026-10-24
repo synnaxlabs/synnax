@@ -18,7 +18,6 @@
           "scale": 0.25,
           "offset": 0.0,
           "units": "rpm",
-          "choices": null,
           "multiplexor": null,
           "multiplex_values": [],
           "min": 0,
@@ -34,7 +33,6 @@
           "scale": 1.0,
           "offset": -40.0,
           "units": "degC",
-          "choices": null,
           "multiplexor": null,
           "multiplex_values": [],
           "min": -168,
@@ -50,24 +48,6 @@
           "scale": 1.0,
           "offset": 0.0,
           "units": "",
-          "choices": [
-            {
-              "value": 0,
-              "name": "Park"
-            },
-            {
-              "value": 1,
-              "name": "Reverse"
-            },
-            {
-              "value": 2,
-              "name": "Neutral"
-            },
-            {
-              "value": 3,
-              "name": "Drive"
-            }
-          ],
           "multiplexor": null,
           "multiplex_values": [],
           "min": 0,
@@ -83,7 +63,6 @@
           "scale": 0.1,
           "offset": 0.0,
           "units": "%",
-          "choices": null,
           "multiplexor": null,
           "multiplex_values": [],
           "min": 0,
@@ -109,7 +88,6 @@
           "scale": 0.01,
           "offset": 0.0,
           "units": "V",
-          "choices": null,
           "multiplexor": null,
           "multiplex_values": [],
           "min": 0,
@@ -125,7 +103,6 @@
           "scale": 0.1,
           "offset": 0.0,
           "units": "A",
-          "choices": null,
           "multiplexor": null,
           "multiplex_values": [],
           "min": -204.8,
@@ -141,24 +118,6 @@
           "scale": 1.0,
           "offset": 0.0,
           "units": "",
-          "choices": [
-            {
-              "value": 0,
-              "name": "Idle"
-            },
-            {
-              "value": 1,
-              "name": "Charging"
-            },
-            {
-              "value": 2,
-              "name": "Discharging"
-            },
-            {
-              "value": 15,
-              "name": "Fault"
-            }
-          ],
           "multiplexor": null,
           "multiplex_values": [],
           "min": 0,
@@ -174,7 +133,6 @@
           "scale": 1.0,
           "offset": 0.0,
           "units": "%",
-          "choices": null,
           "multiplexor": null,
           "multiplex_values": [],
           "min": 0,
@@ -200,7 +158,6 @@
           "scale": 1.0,
           "offset": 0.0,
           "units": "m/s^2",
-          "choices": null,
           "multiplexor": null,
           "multiplex_values": [],
           "min": -100,
@@ -216,7 +173,6 @@
           "scale": 1.0,
           "offset": 0.0,
           "units": "m/s^2",
-          "choices": null,
           "multiplexor": null,
           "multiplex_values": [],
           "min": -100,
@@ -242,7 +198,6 @@
           "scale": 1.0,
           "offset": 0.0,
           "units": "deg",
-          "choices": null,
           "multiplexor": null,
           "multiplex_values": [],
           "min": -90,
@@ -268,7 +223,6 @@
           "scale": 1.0,
           "offset": 0.0,
           "units": "",
-          "choices": null,
           "multiplexor": null,
           "multiplex_values": [],
           "min": 0,
@@ -284,7 +238,6 @@
           "scale": 1.0,
           "offset": 0.0,
           "units": "",
-          "choices": null,
           "multiplexor": null,
           "multiplex_values": [],
           "min": 0,
@@ -292,25 +245,5 @@
         }
       ]
     }
-  ],
-  "value_tables": {
-    "GearTable": [
-      {
-        "value": 0,
-        "name": "Park"
-      },
-      {
-        "value": 1,
-        "name": "Reverse"
-      },
-      {
-        "value": 2,
-        "name": "Neutral"
-      },
-      {
-        "value": 3,
-        "name": "Drive"
-      }
-    ]
-  }
+  ]
 }

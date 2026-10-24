@@ -23,8 +23,8 @@ var _ = Describe("Resolver", func() {
 	var (
 		resolver bus.Resolver
 		ic       icd.ICD
-		status   icd.MessageEntry
-		command  icd.MessageEntry
+		status   icd.Message
+		command  icd.Message
 		rpm      icd.BinaryField
 		temp     icd.BinaryField
 		throttle icd.BinaryField
@@ -38,14 +38,8 @@ var _ = Describe("Resolver", func() {
 		status = canMessage("Status", 0x100, rpm, temp)
 		command = canMessage("Command", 0x200, throttle)
 		ic = icd.ICD{
-			Name: "Engine",
-			Entries: []icd.Entry{
-				{Variant: status},
-				{Variant: command},
-				{Variant: icd.EnumEntry{
-					BaseEntry: icd.BaseEntry{Key: uuid.New(), Name: "Mode"},
-				}},
-			},
+			Name:     "Engine",
+			Messages: []icd.Message{status, command},
 		}
 		task = uuid.New()
 		createICD(ctx, &ic, task)
@@ -98,7 +92,7 @@ var _ = Describe("Resolver", func() {
 				})
 				Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
 				Expect(cfg.ICDHash).To(Equal(MustSucceed(
-					icd.TaskHash(ic, []icd.EntryKey{status.Key}),
+					icd.TaskHash(ic, []icd.MessageKey{status.Key}),
 				)))
 			},
 		)
@@ -113,13 +107,6 @@ var _ = Describe("Resolver", func() {
 				"messages.1.message: message " + missing.String() +
 					" is not in the ICD: validation error",
 			)))
-		})
-
-		It("Should reject an enum entry used as a message", func(ctx SpecContext) {
-			enum := ic.Entries[2].Variant.(icd.EnumEntry)
-			cfg := readConfig(bus.ReadMessage{Message: enum.Key})
-			Expect(resolver.Read(ctx, tx, task, &cfg)).
-				To(MatchError(ContainSubstring("messages.0.message")))
 		})
 
 		It("Should reject a field of another message", func(ctx SpecContext) {
@@ -176,7 +163,7 @@ var _ = Describe("Resolver", func() {
 
 	Describe("Read indexes", func() {
 		var (
-			battery             icd.MessageEntry
+			battery             icd.Message
 			mode, volt, current icd.BinaryField
 			temp1, temp2, humid icd.BinaryField
 		)
@@ -190,7 +177,7 @@ var _ = Describe("Resolver", func() {
 			battery = canMessage(
 				"Battery", 0x300, mode, volt, current, temp1, temp2, humid,
 			)
-			ic.Entries = append(ic.Entries, icd.Entry{Variant: battery})
+			ic.Messages = append(ic.Messages, battery)
 			task = uuid.New()
 			createICD(ctx, &ic, task)
 		})
@@ -319,9 +306,9 @@ var _ = Describe("Resolver", func() {
 
 	Describe("Read replies", func() {
 		var (
-			reading icd.MessageEntry
-			labeled icd.MessageEntry
-			line    icd.MessageEntry
+			reading icd.Message
+			labeled icd.Message
+			line    icd.Message
 			value   icd.BinaryField
 			level   icd.BinaryField
 		)
@@ -333,18 +320,18 @@ var _ = Describe("Resolver", func() {
 			query := "LEVEL?"
 			labeled.Query = &query
 			lineQuery := "MEAS?"
-			line = icd.MessageEntry{
+			line = icd.Message{
 				Key: uuid.New(), Name: "Line",
 				Payload: icd.Payload{Variant: icd.TextPayload{
 					Delimiter: ",",
 				}},
 				Query: &lineQuery,
 			}
-			ic.Entries = append(
-				ic.Entries,
-				icd.Entry{Variant: reading},
-				icd.Entry{Variant: labeled},
-				icd.Entry{Variant: line},
+			ic.Messages = append(
+				ic.Messages,
+				reading,
+				labeled,
+				line,
 			)
 			task = uuid.New()
 			createICD(ctx, &ic, task)
@@ -430,7 +417,7 @@ var _ = Describe("Resolver", func() {
 				}
 				Expect(resolver.Write(ctx, tx, task, &cfg)).To(Succeed())
 				Expect(cfg.ICDHash).To(Equal(MustSucceed(
-					icd.TaskHash(ic, []icd.EntryKey{command.Key}),
+					icd.TaskHash(ic, []icd.MessageKey{command.Key}),
 				)))
 			},
 		)

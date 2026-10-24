@@ -17,8 +17,8 @@ export const client = createTestClient();
 /** A CSV import that holds one message, Engine, with one field, Rpm. */
 export const ENGINE_CSV = "message,field,start_bit,bit_length\nEngine,Rpm,0,16";
 
-/** Creates an ICD on the Core with a unique name and the given entries. */
+/** Creates an ICD on the Core with a unique name and the given messages. */
 export const createICD = async (
-  entries: icd.Entry[] = [],
+  messages: icd.Message[] = [],
   c: Client = client,
-): Promise<icd.ICD> => await c.icds.create({ name: uniqueName("icd"), entries });
+): Promise<icd.ICD> => await c.icds.create({ name: uniqueName("icd"), messages });

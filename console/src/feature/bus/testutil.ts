@@ -24,26 +24,25 @@ import { uniqueName } from "@/testutil";
 export interface BusICD {
   icd: icd.ICD;
   /** A CAN message with the binary fields Rpm and Temp. */
-  engine: icd.MessageEntry;
+  engine: icd.Message;
   /** A CAN message with the binary field Pressure. */
-  brake: icd.MessageEntry;
+  brake: icd.Message;
   /** A text message matched by prefix S, with the delimited fields Volts and Amps. */
-  status: icd.MessageEntry;
+  status: icd.Message;
 }
 
-const findMessage = (ic: icd.ICD, name: string): icd.MessageEntry => {
-  const entry = ic.entries.find((e) => e.kind === "message" && e.name === name);
-  if (entry?.kind !== "message") throw new Error(`message ${name} not found`);
-  return entry;
+const findMessage = (ic: icd.ICD, name: string): icd.Message => {
+  const message = ic.messages.find((m) => m.name === name);
+  if (message == null) throw new Error(`message ${name} not found`);
+  return message;
 };
 
 /** Creates an ICD holding two CAN messages and one text message. */
 export const createBusICD = async (client: Synnax): Promise<BusICD> => {
   const ic = await client.icds.create({
     name: uniqueName("bus_icd"),
-    entries: [
+    messages: [
       {
-        kind: "message",
         name: "Engine",
         payload: {
           format: "binary",
@@ -56,7 +55,6 @@ export const createBusICD = async (client: Synnax): Promise<BusICD> => {
         },
       },
       {
-        kind: "message",
         name: "Brake",
         payload: {
           format: "binary",
@@ -66,7 +64,6 @@ export const createBusICD = async (client: Synnax): Promise<BusICD> => {
         },
       },
       {
-        kind: "message",
         name: "Status",
         payload: {
           format: "text",
@@ -139,10 +136,10 @@ export const findFieldRow = async (name: string): Promise<HTMLElement> => {
   return row;
 };
 
-/** Creates the config entry of a task message that binds every field of entry. */
-export const createMessage = (entry: icd.MessageEntry) => ({
-  message: entry.key,
-  fields: entry.payload.fields.map((f) => ({ field: f.key })),
+/** Creates the config message of a task that binds every field of definition. */
+export const createMessage = (definition: icd.Message) => ({
+  message: definition.key,
+  fields: definition.payload.fields.map((f) => ({ field: f.key })),
 });
 
 /** Commits value into the text or numeric input with the given label. */

@@ -1,9 +1,8 @@
 {
   "key": "00000000-0000-4000-8000-000000000000",
   "name": "cantools_floating_point_use_float",
-  "entries": [
+  "messages": [
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000001",
       "name": "Message1",
       "payload": {
@@ -34,7 +33,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000003",
       "name": "Message2",
       "payload": {
@@ -78,7 +76,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000006",
       "name": "Message3",
       "payload": {

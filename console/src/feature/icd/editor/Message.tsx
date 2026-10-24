@@ -55,7 +55,7 @@ const FieldsStatus = ({ path }: FieldsStatusProps): ReactElement | null => {
 };
 
 export interface MessageProps {
-  /** The form path of the message entry. */
+  /** The form path of the message. */
   path: string;
 }
 

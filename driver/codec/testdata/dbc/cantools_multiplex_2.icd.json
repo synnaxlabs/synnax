@@ -1,9 +1,8 @@
 {
   "key": "00000000-0000-4000-8000-000000000000",
   "name": "cantools_multiplex_2",
-  "entries": [
+  "messages": [
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000001",
       "name": "Shared",
       "payload": {
@@ -63,7 +62,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000005",
       "name": "Normal",
       "payload": {
@@ -123,7 +121,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000009",
       "name": "Extended",
       "payload": {
@@ -266,7 +263,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000013",
       "name": "ExtendedTypes",
       "payload": {

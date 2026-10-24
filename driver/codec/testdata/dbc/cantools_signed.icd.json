@@ -1,9 +1,8 @@
 {
   "key": "00000000-0000-4000-8000-000000000000",
   "name": "cantools_signed",
-  "entries": [
+  "messages": [
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000001",
       "name": "Message378910",
       "payload": {
@@ -125,7 +124,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000000a",
       "name": "Message63big_1",
       "payload": {
@@ -156,7 +154,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000000c",
       "name": "Message63_1",
       "payload": {
@@ -187,7 +184,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000000e",
       "name": "Message63big",
       "payload": {
@@ -218,7 +214,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000010",
       "name": "Message63",
       "payload": {
@@ -249,7 +244,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000012",
       "name": "Message32big",
       "payload": {
@@ -280,7 +274,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000014",
       "name": "Message33big",
       "payload": {
@@ -311,7 +304,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000016",
       "name": "Message64big",
       "payload": {
@@ -342,7 +334,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000018",
       "name": "Message64",
       "payload": {
@@ -375,7 +366,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000001a",
       "name": "Message33",
       "payload": {
@@ -408,7 +398,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000001c",
       "name": "Message32",
       "payload": {

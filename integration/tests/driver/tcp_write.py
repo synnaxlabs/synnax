@@ -39,9 +39,9 @@ class SetpointsCase(BusCase):
     sim_classes = [SCPISim]
     commands: dict[str, int]
 
-    def create_entries(self) -> list[icd.Entry]:
+    def create_messages(self) -> list[icd.Message]:
         return [
-            icd.MessageEntry(
+            icd.Message(
                 name="setpoints",
                 payload=icd.TextPayload(
                     delimiter=";",

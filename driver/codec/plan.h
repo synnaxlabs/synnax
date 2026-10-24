@@ -108,14 +108,14 @@ public:
     /// @brief compiles a plan whose slots are every field of the message, in order.
     /// @returns CONFIG_ERROR when the message layout is invalid.
     static std::pair<Plan, x::errors::Error>
-    compile(const synnax::icd::MessageEntry &message);
+    compile(const synnax::icd::Message &message);
 
     /// @brief compiles a plan whose slots are the given fields, in the given order.
     /// Multiplexors of the given fields are resolved even when not in keys.
     /// @returns CONFIG_ERROR when a key is missing or duplicated, or when the layout of
     /// a field the plan needs is invalid.
     static std::pair<Plan, x::errors::Error> compile(
-        const synnax::icd::MessageEntry &message,
+        const synnax::icd::Message &message,
         const std::vector<synnax::icd::FieldKey> &keys
     );
 

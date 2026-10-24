@@ -146,8 +146,8 @@ export const FRAMING_SCHEMAS: {
  * the same multiplexor values select them.
  */
 export const readMessageZ = z.object({
-  /** message is the key of the message entry in the task's ICD. */
-  message: icd.entryKeyZ,
+  /** message is the key of the message in the task's ICD. */
+  message: icd.messageKeyZ,
   /** disabled is true when the task ignores the message. */
   disabled: z.boolean().default(false),
   /** fields are the fields of the message the task writes to channels. */
@@ -160,8 +160,8 @@ export interface ReadMessage extends z.infer<typeof readMessageZ> {}
  * on that period, and one without is sent when a command channel changes.
  */
 export const writeMessageZ = z.object({
-  /** message is the key of the message entry in the task's ICD. */
-  message: icd.entryKeyZ,
+  /** message is the key of the message in the task's ICD. */
+  message: icd.messageKeyZ,
   /** disabled is true when the task does not send the message. */
   disabled: z.boolean().default(false),
   /** fields are the fields of the message driven by command channels. */

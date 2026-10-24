@@ -34,9 +34,9 @@ class SerialWrite(SerialCase):
     prefix = "serial_write"
     commands: dict[str, int]
 
-    def create_entries(self) -> list[icd.Entry]:
+    def create_messages(self) -> list[icd.Message]:
         return [
-            icd.MessageEntry(
+            icd.Message(
                 name="command",
                 payload=icd.BinaryPayload(
                     length=6,

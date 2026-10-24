@@ -25,27 +25,11 @@ import (
 // Key is a unique identifier for an ICD.
 type Key = uuid.UUID
 
-// EntryKey is a unique identifier for an entry within an ICD.
-type EntryKey = uuid.UUID
+// MessageKey is a unique identifier for a message within an ICD.
+type MessageKey = uuid.UUID
 
 // FieldKey is a unique identifier for a field within a message.
 type FieldKey = uuid.UUID
-
-// EnumValue maps one integer value of an enum to a name.
-type EnumValue struct {
-	// Value is the integer value.
-	Value int32 `json:"value" msgpack:"value"`
-	// Name is the name of the value.
-	Name string `json:"name" msgpack:"name"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (e EnumValue) Validate() error {
-	v := validate.New("EnumValue")
-	v.NotEmptyString("name", e.Name)
-	return v.Error()
-}
 
 // ByteOrder is the byte order of a multi-byte binary field.
 type ByteOrder string
@@ -177,9 +161,6 @@ type BaseField struct {
 	Offset float64 `json:"offset" msgpack:"offset"`
 	// Units is the engineering unit of the decoded value.
 	Units string `json:"units" msgpack:"units"`
-	// Enumeration is the key of the enum entry that names the field's raw values. When
-	// absent the field has no named values.
-	Enumeration *EntryKey `json:"enumeration,omitzero" msgpack:"enumeration,omitempty"`
 	// Multiplexor is the key of the field that selects whether this field is present.
 	// When absent the field is always present.
 	Multiplexor *FieldKey `json:"multiplexor,omitzero" msgpack:"multiplexor,omitempty"`
@@ -551,56 +532,12 @@ func (u Payload) Validate() error {
 	return nil
 }
 
-// BaseEntry carries the parts every ICD entry shares.
-type BaseEntry struct {
-	// Key is the unique identifier for the entry within its ICD.
-	Key EntryKey `json:"key" msgpack:"key"`
-	// Name is the name of the entry, unique within its ICD.
+// Message is a frame layout on a bus or byte stream.
+type Message struct {
+	// Key is the unique identifier for the message within its ICD.
+	Key MessageKey `json:"key" msgpack:"key"`
+	// Name is the name of the message, unique within its ICD.
 	Name string `json:"name" msgpack:"name"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (b BaseEntry) Validate() error {
-	v := validate.New("BaseEntry")
-	v.NotEmptyString("name", b.Name)
-	return v.Error()
-}
-
-type EntryType string
-
-const (
-	EnumEntryType    EntryType = "enum"
-	MessageEntryType EntryType = "message"
-)
-
-type EntryVariant interface {
-	isEntryVariant()
-}
-
-// EnumEntry maps integer values to names.
-type EnumEntry struct {
-	BaseEntry
-	// Values are the named values of the enum.
-	Values []EnumValue `json:"values" msgpack:"values"`
-}
-
-func (EnumEntry) isEntryVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (e EnumEntry) Validate() error {
-	v := validate.New("EnumEntry")
-	v.Exec(e.BaseEntry.Validate)
-	for i := range e.Values {
-		v.Exec(func() error { return validate.PathedError(e.Values[i].Validate(), "values", strconv.Itoa(i)) })
-	}
-	return v.Error()
-}
-
-// MessageEntry is a frame layout on a bus or byte stream.
-type MessageEntry struct {
-	BaseEntry
 	// Payload is the layout of the message's payload.
 	Payload Payload `json:"payload" msgpack:"payload"`
 	// Period is the transmit period. When absent a write task sends the message when
@@ -611,123 +548,38 @@ type MessageEntry struct {
 	Query *string `json:"query,omitzero" msgpack:"query,omitempty"`
 }
 
-func (MessageEntry) isEntryVariant() {}
-
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (m *MessageEntry) ApplyDefaults() {
+func (m *Message) ApplyDefaults() {
 	m.Payload.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (m MessageEntry) Validate() error {
-	v := validate.New("MessageEntry")
-	v.Exec(m.BaseEntry.Validate)
+func (m Message) Validate() error {
+	v := validate.New("Message")
+	v.NotEmptyString("name", m.Name)
 	v.Exec(func() error { return validate.PathedError(m.Payload.Validate(), "payload") })
 	return v.Error()
 }
 
-// Entry is one typed item in an ICD.
-type Entry struct {
-	Variant EntryVariant
-}
-
-// MarshalJSONTo encodes the active variant with its "kind" tag injected.
-func (u Entry) MarshalJSONTo(enc *jsontext.Encoder) error {
-	switch v := u.Variant.(type) {
-	case nil:
-		return enc.WriteToken(jsontext.Null)
-	case EnumEntry:
-		return json.MarshalEncode(enc, struct {
-			Type EntryType `json:"kind"`
-			EnumEntry
-		}{Type: EnumEntryType, EnumEntry: v})
-	case MessageEntry:
-		return json.MarshalEncode(enc, struct {
-			Type EntryType `json:"kind"`
-			MessageEntry
-		}{Type: MessageEntryType, MessageEntry: v})
-	default:
-		return errors.Newf("Entry: unknown variant %T", v)
-	}
-}
-
-// UnmarshalJSONFrom decodes the variant selected by the "kind" field.
-func (u *Entry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	data, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	if data.Kind() == 'n' {
-		u.Variant = nil
-		return nil
-	}
-	opts := dec.Options()
-	var disc struct {
-		Type EntryType `json:"kind"`
-	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case EnumEntryType:
-		var v EnumEntry
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v
-	case MessageEntryType:
-		var v MessageEntry
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("Entry: unknown kind %q", disc.Type)
-	}
-	return nil
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *Entry) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case MessageEntry:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
-func (u Entry) Validate() error {
-	switch variant := u.Variant.(type) {
-	case EnumEntry:
-		return variant.Validate()
-	case MessageEntry:
-		return variant.Validate()
-	}
-	return nil
-}
-
 // ICD is an interface control document: the messages a device sends and receives on a
-// bus or byte stream, and the enums that name their values.
+// bus or byte stream.
 type ICD struct {
 	// Key is the unique identifier for the ICD.
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the ICD.
 	Name string `json:"name" msgpack:"name"`
-	// Entries are the messages and enums the ICD holds.
-	Entries []Entry `json:"entries" msgpack:"entries"`
-	// Hash is the hash of the entries as the Core last stored them. A write sends the
+	// Messages are the messages the ICD holds.
+	Messages []Message `json:"messages" msgpack:"messages"`
+	// Hash is the hash of the messages as the Core last stored them. A write sends the
 	// hash it read, and the Core rejects the write when the ICD changed since.
 	Hash string `json:"hash" msgpack:"hash"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (ic *ICD) ApplyDefaults() {
-	for i := range ic.Entries {
-		ic.Entries[i].ApplyDefaults()
+	for i := range ic.Messages {
+		ic.Messages[i].ApplyDefaults()
 	}
 }
 
@@ -736,8 +588,8 @@ func (ic *ICD) ApplyDefaults() {
 func (ic ICD) Validate() error {
 	v := validate.New("ICD")
 	v.NotEmptyString("name", ic.Name)
-	for i := range ic.Entries {
-		v.Exec(func() error { return validate.PathedError(ic.Entries[i].Validate(), "entries", strconv.Itoa(i)) })
+	for i := range ic.Messages {
+		v.Exec(func() error { return validate.PathedError(ic.Messages[i].Validate(), "messages", strconv.Itoa(i)) })
 	}
 	return v.Error()
 }
@@ -748,7 +600,7 @@ type Reference struct {
 	// ICD is the key of the ICD the task reads its messages from. When absent the task
 	// uses no ICD yet.
 	ICD *Key `json:"icd,omitzero" msgpack:"icd,omitempty"`
-	// ICDHash is the hash of the ICD entries the task uses, stamped by the Core when
+	// ICDHash is the hash of the ICD messages the task uses, stamped by the Core when
 	// the task or the ICD is written.
 	ICDHash string `json:"icd_hash" msgpack:"icd_hash"`
 }

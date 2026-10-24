@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { icd } from "@synnaxlabs/client";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Editor } from "@/feature/icd/editor/Editor";
@@ -21,6 +22,7 @@ import {
   fakePickedFile,
   interceptFilePicker,
   renderSuspended,
+  uniqueName,
 } from "@/testutil";
 
 const renderEditor = async (ic: icd.ICD): Promise<void> => {
@@ -65,47 +67,100 @@ const createBinaryField = (name: string, startBit: number): icd.BinaryField => (
   multiplexValues: [],
 });
 
-const createMessage = (fields: icd.BinaryField[]): icd.MessageEntry => ({
+const createMessage = (
+  fields: icd.BinaryField[],
+  name: string = "Engine",
+): icd.Message => ({
   key: uuid.create(),
-  kind: "message",
-  name: "Engine",
+  name,
   payload: { format: "binary", fields },
 });
 
-const createStateEnum = (): icd.EnumEntry => ({
-  key: uuid.create(),
-  kind: "enum",
-  name: "State",
-  values: [
-    { value: 0, name: "Off" },
-    { value: 1, name: "On" },
-  ],
-});
+const retrieveMessage = async (key: icd.Key): Promise<icd.Message> => {
+  const [message] = (await client.icds.retrieve({ key })).messages;
+  return message;
+};
 
-const retrieveMessage = async (key: icd.Key): Promise<icd.MessageEntry> => {
-  const [entry] = (await client.icds.retrieve({ key })).entries;
-  if (entry.kind !== "message") throw new Error("expected a message entry");
-  return entry;
+const retrieveNames = async (key: icd.Key): Promise<string[]> =>
+  (await client.icds.retrieve({ key })).messages.map(({ name }) => name);
+
+const findMessageItem = async (name: string): Promise<HTMLElement> => {
+  const texts = await screen.findAllByText(name);
+  const item = texts
+    .map((t) => t.closest<HTMLElement>(`.${Menu.CONTEXT_TARGET}`))
+    .find((el) => el != null);
+  if (item == null) throw new Error(`no message in the list is named ${name}`);
+  return item;
+};
+
+const removeFromContextMenu = async (item: HTMLElement): Promise<void> => {
+  await act(async () => {
+    fireEvent.contextMenu(item);
+  });
+  fireEvent.click(await screen.findByText("Remove"));
 };
 
 describe("ICD editor", () => {
-  it("should save an edited enum value to the Core", async () => {
+  it("should add a message with a unique name", async () => {
+    const ic = await createICD([createMessage([], "Message 1")]);
+    await renderEditor(ic);
+    await findMessageItem("Message 1");
+    fireEvent.click(screen.getByRole("button", { name: "Add message" }));
+    await findMessageItem("Message 2");
+    await save();
+    await waitFor(async () =>
+      expect(await retrieveNames(ic.key)).toEqual(["Message 1", "Message 2"]),
+    );
+  });
+
+  it("should remove the selected messages from the context menu", async () => {
     const ic = await createICD([
-      {
-        key: uuid.create(),
-        kind: "enum",
-        name: "State",
-        values: [{ value: 0, name: "Off" }],
-      },
+      createMessage([], "A"),
+      createMessage([], "B"),
+      createMessage([], "C"),
     ]);
     await renderEditor(ic);
-    await commit("Name", 1, "Idle");
+    await findMessageItem("A");
+    const c = await findMessageItem("C");
+    fireEvent.keyDown(document.body, { code: "Control" });
+    fireEvent.click(c);
+    fireEvent.keyUp(document.body, { code: "Control" });
+    await removeFromContextMenu(c);
+    await waitFor(() => expect(screen.queryByText("A")).toBeNull());
+    expect(screen.queryByText("C")).toBeNull();
     await save();
-    await waitFor(async () => {
-      const [entry] = (await client.icds.retrieve({ key: ic.key })).entries;
-      if (entry.kind !== "enum") throw new Error("expected an enum entry");
-      expect(entry.values).toEqual([{ value: 0, name: "Idle" }]);
+    await waitFor(async () => expect(await retrieveNames(ic.key)).toEqual(["B"]));
+  });
+
+  it("should show that a task uses a removed message, with no save", async () => {
+    const rpm = createBinaryField("Rpm", 0);
+    const ic = await createICD([createMessage([rpm])]);
+    const [engine] = ic.messages;
+    await client.tasks.create({
+      name: uniqueName("can_read"),
+      type: "can_read",
+      config: {
+        icd: ic.key,
+        messages: [{ message: engine.key, fields: [{ field: rpm.key }] }],
+      },
     });
+    await renderEditor(ic);
+    await removeFromContextMenu(await findMessageItem("Engine"));
+    expect(
+      await screen.findByText(/uses message "Engine", which the ICD no longer has/),
+    ).toBeTruthy();
+  });
+
+  it("should save a send period in milliseconds", async () => {
+    const ic = await createICD([createMessage([createBinaryField("Rpm", 0)])]);
+    await renderEditor(ic);
+    const period = await screen.findByLabelText("Send period");
+    fireEvent.change(period, { target: { value: "100" } });
+    fireEvent.blur(period);
+    await save();
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).period?.milliseconds).toEqual(100),
+    );
   });
 
   it("should keep field keys when a field is edited", async () => {
@@ -163,7 +218,8 @@ describe("ICD editor", () => {
     const brs = await screen.findByLabelText<HTMLInputElement>("Bitrate switch");
     expect(brs.checked).toBe(true);
     fireEvent.click(screen.getByLabelText("CAN FD"));
-    await waitFor(() => expect(screen.queryByLabelText("Bitrate switch")).toBeNull());
+    await waitFor(() => expect(brs.checked).toBe(false));
+    expect(brs.disabled).toBe(true);
     await save();
     await waitFor(async () => {
       expect((await retrieveMessage(ic.key)).payload).toMatchObject({
@@ -190,24 +246,6 @@ describe("ICD editor", () => {
     });
   });
 
-  it("should show a Core validation error on the enum value it names", async () => {
-    const ic = await createICD([
-      {
-        key: uuid.create(),
-        kind: "enum",
-        name: "State",
-        values: [
-          { value: 0, name: "Off" },
-          { value: 1, name: "On" },
-        ],
-      },
-    ]);
-    await renderEditor(ic);
-    await commit("Value", 2, "0");
-    await save();
-    expect(await screen.findByText(/^Value 2: duplicate value 0/)).toBeTruthy();
-  });
-
   it("should show a Core validation error on the field it names", async () => {
     const ic = await createICD([
       createMessage([createBinaryField("Rpm", 0), createBinaryField("Temp", 8)]),
@@ -221,43 +259,56 @@ describe("ICD editor", () => {
   });
 
   it("should mark a problem shortly after an edit, with no save", async () => {
-    const ic = await createICD([createStateEnum()]);
+    const ic = await createICD([
+      createMessage([createBinaryField("Rpm", 0), createBinaryField("Temp", 8)]),
+    ]);
     await renderEditor(ic);
-    await commit("Value", 2, "0");
-    expect(await screen.findByText(/^Value 2: duplicate value 0/)).toBeTruthy();
+    await commit("Scale", 2, "0");
+    expect(
+      await screen.findByText(/^Field 2: scale must be finite and non-zero/),
+    ).toBeTruthy();
   });
 
   it("should mark a blank name shortly after an edit, with no save", async () => {
-    const ic = await createICD([createStateEnum()]);
+    const ic = await createICD([
+      createMessage([createBinaryField("Rpm", 0), createBinaryField("Temp", 8)]),
+    ]);
     await renderEditor(ic);
     await commit("Name", 2, "");
     expect(
       await screen.findByText(
-        /^Value 2: Too small: expected string to have >=1 characters/,
+        /^Field 2: Too small: expected string to have >=1 characters/,
       ),
     ).toBeTruthy();
   });
 
   it("should clear the mark when an edit fixes the problem", async () => {
-    const ic = await createICD([createStateEnum()]);
+    const ic = await createICD([
+      createMessage([createBinaryField("Rpm", 0), createBinaryField("Temp", 8)]),
+    ]);
     await renderEditor(ic);
-    await commit("Value", 2, "0");
-    await screen.findByText(/^Value 2: duplicate value 0/);
-    await commit("Value", 2, "2");
+    await commit("Scale", 2, "0");
+    await screen.findByText(/^Field 2: scale must be finite and non-zero/);
+    await commit("Scale", 2, "2");
     await waitFor(() =>
-      expect(screen.queryByText(/^Value 2: duplicate value 0/)).toBeNull(),
+      expect(screen.queryByText(/^Field 2: scale must be finite/)).toBeNull(),
     );
   });
 
   it("should offer a reload when the ICD changed after it opened", async () => {
-    const ic = await createICD([createStateEnum()]);
+    const rpm = createBinaryField("Rpm", 0);
+    const ic = await createICD([createMessage([rpm])]);
     await renderEditor(ic);
     await screen.findByLabelText("Name 1");
-    const [state] = ic.entries;
-    if (state.kind !== "enum") throw new Error("expected an enum entry");
+    const [engine] = ic.messages;
     await client.icds.create({
       ...ic,
-      entries: [{ ...state, values: [{ value: 0, name: "Stopped" }] }],
+      messages: [
+        {
+          ...engine,
+          payload: { format: "binary", fields: [{ ...rpm, name: "Speed" }] },
+        },
+      ],
     });
     await commit("Name", 1, "Idle");
     await save();
@@ -265,18 +316,18 @@ describe("ICD editor", () => {
       await screen.findByText("This ICD changed after you opened it"),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Reload" }));
-    await waitFor(() => expect(cell("Name", 1).value).toBe("Stopped"));
+    await waitFor(() => expect(cell("Name", 1).value).toBe("Speed"));
     expect(screen.queryByText("This ICD changed after you opened it")).toBeNull();
   });
 
-  it("should show the entries of an imported file", async () => {
+  it("should show the messages of an imported file", async () => {
     const picker = interceptFilePicker();
     const ic = await createICD();
     await renderEditor(ic);
     fireEvent.click(await screen.findByRole("button", { name: "Import" }));
     await waitFor(() => expect(picker.lastInput()).toBeDefined());
     picker.selectFiles([fakePickedFile("engine.csv", ENGINE_CSV)]);
-    expect(await screen.findByText("Engine")).toBeTruthy();
+    await findMessageItem("Engine");
     expect(cell("Name", 1).value).toBe("Rpm");
   });
 });

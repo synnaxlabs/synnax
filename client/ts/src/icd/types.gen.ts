@@ -18,20 +18,11 @@ export const BYTE_ORDERS = ["little_endian", "big_endian"] as const;
 export const byteOrderZ = z.enum(BYTE_ORDERS);
 export type ByteOrder = z.infer<typeof byteOrderZ>;
 
-/** EnumValue maps one integer value of an enum to a name. */
-export const enumValueZ = z.object({
-  /** value is the integer value. */
-  value: z.int32().default(0),
-  /** name is the name of the value. */
-  name: z.string().min(1),
-});
-export interface EnumValue extends z.infer<typeof enumValueZ> {}
-
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-export const entryKeyZ = z.uuid();
-export type EntryKey = z.infer<typeof entryKeyZ>;
+export const messageKeyZ = z.uuid();
+export type MessageKey = z.infer<typeof messageKeyZ>;
 
 export const fieldKeyZ = z.uuid();
 export type FieldKey = z.infer<typeof fieldKeyZ>;
@@ -47,21 +38,12 @@ export const referenceZ = z.object({
    */
   icd: keyZ.optional(),
   /**
-   * icdHash is the hash of the ICD entries the task uses, stamped by the Core when the
+   * icdHash is the hash of the ICD messages the task uses, stamped by the Core when the
    * task or the ICD is written.
    */
   icdHash: z.string().default(""),
 });
 export interface Reference extends z.infer<typeof referenceZ> {}
-
-/** BaseEntry carries the parts every ICD entry shares. */
-export const baseEntryZ = z.object({
-  /** key is the unique identifier for the entry within its ICD. */
-  key: entryKeyZ.default(uuid.create),
-  /** name is the name of the entry, unique within its ICD. */
-  name: z.string().min(1),
-});
-export interface BaseEntry extends z.infer<typeof baseEntryZ> {}
 
 /** BaseField carries the parts every message field shares. */
 export const baseFieldZ = z.object({
@@ -75,11 +57,6 @@ export const baseFieldZ = z.object({
   offset: z.number().default(0),
   /** units is the engineering unit of the decoded value. */
   units: z.string().default(""),
-  /**
-   * enumeration is the key of the enum entry that names the field's raw values. When
-   * absent the field has no named values.
-   */
-  enumeration: entryKeyZ.optional(),
   /**
    * multiplexor is the key of the field that selects whether this field is present.
    * When absent the field is always present.
@@ -241,17 +218,12 @@ export const PAYLOAD_SCHEMAS: {
   text: textPayloadZ,
 };
 
-/** EnumEntry maps integer values to names. */
-export const enumEntryZ = baseEntryZ.extend({
-  kind: z.literal("enum"),
-  /** values are the named values of the enum. */
-  values: enumValueZ.array().default(() => []),
-});
-export interface EnumEntry extends z.infer<typeof enumEntryZ> {}
-
-/** MessageEntry is a frame layout on a bus or byte stream. */
-export const messageEntryZ = baseEntryZ.extend({
-  kind: z.literal("message"),
+/** Message is a frame layout on a bus or byte stream. */
+export const messageZ = z.object({
+  /** key is the unique identifier for the message within its ICD. */
+  key: messageKeyZ.default(uuid.create),
+  /** name is the name of the message, unique within its ICD. */
+  name: z.string().min(1),
   /** payload is the layout of the message's payload. */
   payload: payloadZ,
   /**
@@ -265,36 +237,21 @@ export const messageEntryZ = baseEntryZ.extend({
    */
   query: z.string().optional(),
 });
-export interface MessageEntry extends z.infer<typeof messageEntryZ> {}
-
-export const ENTRY_TYPES = ["enum", "message"] as const;
-export const entryTypeZ = z.enum(ENTRY_TYPES);
-export type EntryType = z.infer<typeof entryTypeZ>;
-
-/** Entry is one typed item in an ICD. */
-export const entryZ = z.discriminatedUnion("kind", [enumEntryZ, messageEntryZ]);
-export type Entry = EnumEntry | MessageEntry;
-
-export const ENTRY_SCHEMAS: {
-  [K in EntryType]: z.ZodType<Extract<Entry, { kind: K }>>;
-} = {
-  enum: enumEntryZ,
-  message: messageEntryZ,
-};
+export interface Message extends z.infer<typeof messageZ> {}
 
 /**
  * ICD is an interface control document: the messages a device sends and receives on a
- * bus or byte stream, and the enums that name their values.
+ * bus or byte stream.
  */
 export const icdZ = z.object({
   /** key is the unique identifier for the ICD. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the ICD. */
   name: z.string().min(1),
-  /** entries are the messages and enums the ICD holds. */
-  entries: entryZ.array().default(() => []),
+  /** messages are the messages the ICD holds. */
+  messages: messageZ.array().default(() => []),
   /**
-   * hash is the hash of the entries as the Core last stored them. A write sends the
+   * hash is the hash of the messages as the Core last stored them. A write sends the
    * hash it read, and the Core rejects the write when the ICD changed since.
    */
   hash: z.string().default(""),

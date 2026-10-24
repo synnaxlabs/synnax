@@ -131,12 +131,12 @@ class ReadMessage(BaseModel):
     multiplexor values select them.
 
     Attributes:
-        message: Is the key of the message entry in the task's ICD.
+        message: Is the key of the message in the task's ICD.
         disabled: Is true when the task ignores the message.
         fields: Are the fields of the message the task writes to channels.
     """
 
-    message: icd_.EntryKey
+    message: icd_.MessageKey
     disabled: bool = False
     fields: list[ReadField] = Field(default_factory=list)
 
@@ -146,12 +146,12 @@ class WriteMessage(BaseModel):
     period, and one without is sent when a command channel changes.
 
     Attributes:
-        message: Is the key of the message entry in the task's ICD.
+        message: Is the key of the message in the task's ICD.
         disabled: Is true when the task does not send the message.
         fields: Are the fields of the message driven by command channels.
     """
 
-    message: icd_.EntryKey
+    message: icd_.MessageKey
     disabled: bool = False
     fields: list[WriteField] = Field(default_factory=list)
 

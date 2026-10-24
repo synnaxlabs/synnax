@@ -42,9 +42,9 @@ class CANWrite(CANCase):
     commands: dict[str, int]
     beat: dict[str, int]
 
-    def create_entries(self) -> list[icd.Entry]:
+    def create_messages(self) -> list[icd.Message]:
         return [
-            icd.MessageEntry(
+            icd.Message(
                 name="command",
                 payload=icd.BinaryPayload(
                     identifier=icd.CanIdentifier(id=COMMAND_ID),
@@ -60,7 +60,7 @@ class CANWrite(CANCase):
                     ],
                 ),
             ),
-            icd.MessageEntry(
+            icd.Message(
                 name="heartbeat",
                 period=HEARTBEAT_PERIOD,
                 payload=icd.BinaryPayload(

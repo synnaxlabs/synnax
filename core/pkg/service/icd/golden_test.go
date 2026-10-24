@@ -43,9 +43,9 @@ func goldenEntries() []TableEntry {
 	return entries
 }
 
-// deterministicKeys replaces every entry and field key with one numbered by its order
+// deterministicKeys replaces every message and field key with one numbered by its order
 // in the ICD, so that the same DBC always imports to the same JSON.
-func deterministicKeys(entries []icd.Entry) []icd.Entry {
+func deterministicKeys(messages []icd.Message) []icd.Message {
 	GinkgoHelper()
 	keys := make(map[uuid.UUID]uuid.UUID)
 	next := func(old uuid.UUID) uuid.UUID {
@@ -53,42 +53,23 @@ func deterministicKeys(entries []icd.Entry) []icd.Entry {
 		keys[old] = k
 		return k
 	}
-	ref := func(old *uuid.UUID) *uuid.UUID {
-		if old == nil {
-			return nil
-		}
-		k, ok := keys[*old]
-		Expect(ok).To(BeTrue(), "key %s names no entry or field", *old)
-		return &k
-	}
-	out := make([]icd.Entry, len(entries))
-	for i, e := range entries {
-		switch v := e.Variant.(type) {
-		case icd.EnumEntry:
-			v.Key = next(v.Key)
-			out[i] = icd.Entry{Variant: v}
-		case icd.MessageEntry:
-			v.Key = next(v.Key)
-			p := v.Payload.Variant.(icd.BinaryPayload)
-			p.Fields = append([]icd.BinaryField{}, p.Fields...)
-			for j := range p.Fields {
-				p.Fields[j].Key = next(p.Fields[j].Key)
-			}
-			v.Payload = icd.Payload{Variant: p}
-			out[i] = icd.Entry{Variant: v}
-		}
-	}
-	for i, e := range out {
-		v, ok := e.Variant.(icd.MessageEntry)
-		if !ok {
-			continue
-		}
-		p := v.Payload.Variant.(icd.BinaryPayload)
+	out := make([]icd.Message, len(messages))
+	for i, m := range messages {
+		m.Key = next(m.Key)
+		p := m.Payload.Variant.(icd.BinaryPayload)
+		p.Fields = append([]icd.BinaryField{}, p.Fields...)
 		for j := range p.Fields {
-			p.Fields[j].Multiplexor = ref(p.Fields[j].Multiplexor)
-			p.Fields[j].Enumeration = ref(p.Fields[j].Enumeration)
+			p.Fields[j].Key = next(p.Fields[j].Key)
 		}
-		out[i] = icd.Entry{Variant: v}
+		for j := range p.Fields {
+			if mux := p.Fields[j].Multiplexor; mux != nil {
+				k, ok := keys[*mux]
+				Expect(ok).To(BeTrue(), "multiplexor %s names no field", *mux)
+				p.Fields[j].Multiplexor = &k
+			}
+		}
+		m.Payload = icd.Payload{Variant: p}
+		out[i] = m
 	}
 	return out
 }
@@ -99,12 +80,12 @@ var _ = Describe("Golden ICDs", func() {
 		"Should import each DBC to its golden ICD JSON",
 		func(path string) {
 			data := MustSucceed(os.ReadFile(path))
-			entries := MustSucceed(icd.Parse(icd.FormatDBC, data))
+			messages := MustSucceed(icd.Parse(icd.FormatDBC, data))
 			name := strings.TrimSuffix(filepath.Base(path), ".dbc")
 			ic := icd.ICD{
-				Key:     uuid.MustParse("00000000-0000-4000-8000-000000000000"),
-				Name:    name,
-				Entries: deterministicKeys(entries),
+				Key:      uuid.MustParse("00000000-0000-4000-8000-000000000000"),
+				Name:     name,
+				Messages: deterministicKeys(messages),
 			}
 			got := MustSucceed(json.Marshal(ic, jsontext.WithIndent("  ")))
 			golden := strings.TrimSuffix(path, ".dbc") + ".icd.json"

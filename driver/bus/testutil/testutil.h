@@ -104,12 +104,12 @@ tagged_field(const std::string &name, const std::string &tag) {
 }
 
 /// @returns a binary message with a new key.
-inline synnax::icd::MessageEntry binary_message(
+inline synnax::icd::Message binary_message(
     const std::string &name,
     std::vector<synnax::icd::BinaryField> fields,
     std::optional<synnax::icd::Identifier> identifier = std::nullopt
 ) {
-    synnax::icd::MessageEntry m;
+    synnax::icd::Message m;
     m.key = x::uuid::create();
     m.name = name;
     m.payload = synnax::icd::BinaryPayload{
@@ -121,13 +121,13 @@ inline synnax::icd::MessageEntry binary_message(
 
 /// @returns a text message with a new key that matches lines starting with prefix,
 /// split on delimiter.
-inline synnax::icd::MessageEntry text_message(
+inline synnax::icd::Message text_message(
     const std::string &name,
     std::vector<synnax::icd::TextField> fields,
     const std::string &prefix = "",
     const std::string &delimiter = ","
 ) {
-    synnax::icd::MessageEntry m;
+    synnax::icd::Message m;
     m.key = x::uuid::create();
     m.name = name;
     m.payload = synnax::icd::TextPayload{
@@ -139,13 +139,13 @@ inline synnax::icd::MessageEntry text_message(
 }
 
 /// @returns the binary payload of the message.
-inline synnax::icd::BinaryPayload &binary(synnax::icd::MessageEntry &message) {
+inline synnax::icd::BinaryPayload &binary(synnax::icd::Message &message) {
     return std::get<synnax::icd::BinaryPayload>(message.payload);
 }
 
 /// @returns the parts every field of the message shares, in order.
 inline std::vector<const synnax::icd::BaseField *>
-field_bases(const synnax::icd::MessageEntry &message) {
+field_bases(const synnax::icd::Message &message) {
     std::vector<const synnax::icd::BaseField *> bases;
     if (const auto *b = std::get_if<synnax::icd::BinaryPayload>(&message.payload))
         for (const auto &f: b->fields)
@@ -163,17 +163,16 @@ field_bases(const synnax::icd::MessageEntry &message) {
 
 /// @returns the key of field i of the message.
 inline synnax::icd::FieldKey
-field_key(const synnax::icd::MessageEntry &message, const std::size_t i) {
+field_key(const synnax::icd::Message &message, const std::size_t i) {
     return field_bases(message).at(i)->key;
 }
 
 /// @returns an ICD holding messages.
-inline synnax::icd::ICD create_icd(std::vector<synnax::icd::MessageEntry> messages) {
+inline synnax::icd::ICD create_icd(std::vector<synnax::icd::Message> messages) {
     synnax::icd::ICD ic;
     ic.key = x::uuid::create();
     ic.name = "test";
-    for (auto &m: messages)
-        ic.entries.emplace_back(std::move(m));
+    ic.messages = std::move(messages);
     return ic;
 }
 
@@ -402,7 +401,7 @@ public:
 /// @param channels channels to add to the generated ones, such as a raw channel. A
 /// channel with the key of a generated one replaces it.
 inline ReadConfig read_config(
-    const std::vector<synnax::icd::MessageEntry> &messages,
+    const std::vector<synnax::icd::Message> &messages,
     const std::optional<::synnax::bus::Framing> &framing,
     const std::function<void(::synnax::bus::ReadConfig &)> &edit = nullptr,
     const ::synnax::bus::PollConfig &poll = {},
@@ -446,7 +445,7 @@ inline ReadConfig read_config(
 /// @brief resolves a write config over one message.
 /// @param bindings maps each command channel to the index of the field it drives.
 inline WriteConfig write_config(
-    const synnax::icd::MessageEntry &message,
+    const synnax::icd::Message &message,
     const std::vector<std::pair<synnax::channel::Key, std::size_t>> &bindings,
     const std::optional<::synnax::bus::Framing> &framing,
     const Medium medium = Medium::BYTES

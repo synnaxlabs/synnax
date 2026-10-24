@@ -68,7 +68,7 @@ protected:
     /// on device from a new virtual channel.
     synnax::can::WriteConfig
     write_config(const synnax::icd::ICD &ic, const std::string &device) {
-        const auto &m = std::get<synnax::icd::MessageEntry>(ic.entries[0]);
+        const auto &m = ic.messages[0];
         const auto cmd = create_virtual_channel(*core.client, x::telem::FLOAT64_T);
         synnax::can::WriteConfig cfg;
         cfg.device = device;
@@ -81,7 +81,7 @@ protected:
     }
 };
 
-synnax::icd::MessageEntry
+synnax::icd::Message
 can_message(const std::uint32_t id, const std::uint16_t length = 1) {
     auto m = binary_message(
         "m",

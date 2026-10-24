@@ -1,9 +1,8 @@
 {
   "key": "00000000-0000-4000-8000-000000000000",
   "name": "cantools_multiplex_choices",
-  "entries": [
+  "messages": [
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000001",
       "name": "Message1",
       "payload": {
@@ -122,7 +121,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000021",
             "multiplexor": "00000000-0000-4000-8000-00000000000d",
             "multiplex_values": [8, 16, 24],
             "start_bit": 24,
@@ -179,7 +177,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000022",
             "multiplex_values": [],
             "start_bit": 2,
             "bit_length": 6,
@@ -191,7 +188,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000000e",
       "name": "Message2",
       "payload": {
@@ -366,7 +362,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000023",
             "multiplex_values": [],
             "start_bit": 2,
             "bit_length": 6,
@@ -378,7 +373,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000001b",
       "name": "Message3",
       "payload": {
@@ -464,63 +458,6 @@
           }
         ]
       }
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000021",
-      "name": "Message1.BIT_L",
-      "values": [
-        {
-          "value": 0,
-          "name": "Off"
-        },
-        {
-          "value": 1,
-          "name": "On"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000022",
-      "name": "Message1.Multiplexor",
-      "values": [
-        {
-          "value": 8,
-          "name": "MULTIPLEXOR_8"
-        },
-        {
-          "value": 16,
-          "name": "MULTIPLEXOR_16"
-        },
-        {
-          "value": 24,
-          "name": "MULTIPLEXOR_24"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000023",
-      "name": "Message2.Multiplexor",
-      "values": [
-        {
-          "value": 4,
-          "name": "MULTIPLEXOR_4_NO_SIGNALS"
-        },
-        {
-          "value": 8,
-          "name": "MULTIPLEXOR_8"
-        },
-        {
-          "value": 16,
-          "name": "MULTIPLEXOR_16"
-        },
-        {
-          "value": 24,
-          "name": "MULTIPLEXOR_24"
-        }
-      ]
     }
   ],
   "hash": ""

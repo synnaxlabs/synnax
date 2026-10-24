@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 // Package icd stores interface control documents (ICDs): the messages a device sends
-// and receives on a bus or byte stream, and the enums that name their values. It checks
-// each ICD, stamps the tasks that use one, and imports entries from DBC files and field
-// tables.
+// and receives on a bus or byte stream. It checks each ICD, stamps the tasks that use
+// one, and imports messages from DBC files and field tables.
 package icd
 
 import (
@@ -31,18 +30,18 @@ const (
 	// field, start_bit, bit_length, byte_order, signed, float, scale, offset, units,
 	// min, and max. The message, field, start_bit, and bit_length columns are
 	// required. Each other row is one binary field, and the rows of one message form
-	// one message entry, with a CAN identifier when an id is present.
+	// one message, with a CAN identifier when an id is present.
 	FormatCSV Format = "csv"
 	// FormatXLSX is a field table, laid out as for FormatCSV, in the first sheet of an
 	// Excel workbook. A numeric cell is read as its value, whatever its number format.
 	FormatXLSX Format = "xlsx"
 )
 
-// Parse parses data in the given format into ICD entries. Every entry and field
-// gets a new key, so references between them resolve. It returns an error scoped to
+// Parse parses data in the given format into ICD messages. Every message and field
+// gets a new key, so references between fields resolve. It returns an error scoped to
 // the "format" path when the format is unknown, and one scoped to the "data" path,
 // naming the line or row, when data is invalid.
-func Parse(format Format, data []byte) ([]versions.Entry, error) {
+func Parse(format Format, data []byte) ([]versions.Message, error) {
 	switch format {
 	case FormatDBC:
 		return parseDBC(data)

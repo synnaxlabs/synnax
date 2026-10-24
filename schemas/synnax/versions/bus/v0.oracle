@@ -29,13 +29,13 @@ ReadField struct {
 }
 
 ReadMessage struct {
-    message  icd.EntryKey {
-        @doc value "is the key of the message entry in the task's ICD."
+    message  icd.MessageKey {
+        @doc value "is the key of the message in the task's ICD."
     }
     disabled bool = false {
         @doc value "is true when the task ignores the message."
     }
-    fields   ReadField[]  {
+    fields   ReadField[]    {
         @doc value "are the fields of the message the task writes to channels."
     }
 
@@ -62,13 +62,13 @@ WriteField struct {
 }
 
 WriteMessage struct {
-    message  icd.EntryKey {
-        @doc value "is the key of the message entry in the task's ICD."
+    message  icd.MessageKey {
+        @doc value "is the key of the message in the task's ICD."
     }
     disabled bool = false {
         @doc value "is true when the task does not send the message."
     }
-    fields   WriteField[] {
+    fields   WriteField[]   {
         @doc value "are the fields of the message driven by command channels."
     }
 

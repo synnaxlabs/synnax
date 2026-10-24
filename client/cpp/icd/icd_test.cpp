@@ -17,26 +17,19 @@
 
 namespace synnax::icd {
 namespace {
-/// @brief creates an ICD that holds an enum and a CAN message whose binary field names
-/// its values with the enum.
+/// @brief creates an ICD that holds a CAN message with one binary field.
 ICD create_can_icd(const std::string &name) {
-    EnumEntry state;
-    state.key = x::uuid::create();
-    state.name = "state";
-    state.values = {{.value = 0, .name = "idle"}, {.value = 1, .name = "running"}};
-
     BinaryField speed;
     speed.key = x::uuid::create();
     speed.name = "speed";
     speed.scale = 0.5;
     speed.units = "rpm";
-    speed.enumeration = state.key;
     speed.start_bit = 8;
     speed.bit_length = 16;
     speed.byte_order = BYTE_ORDER_BIG_ENDIAN;
     speed.signed_ = true;
 
-    MessageEntry status;
+    Message status;
     status.key = x::uuid::create();
     status.name = "status";
     status.payload = BinaryPayload{
@@ -45,11 +38,11 @@ ICD create_can_icd(const std::string &name) {
         .fields = {speed},
     };
 
-    return ICD{.name = name, .entries = {state, status}};
+    return ICD{.name = name, .messages = {status}};
 }
 }
 
-/// @brief it should create an ICD and retrieve its enum and message entries.
+/// @brief it should create an ICD and retrieve its messages.
 TEST(ICDTests, testCreateAndRetrieve) {
     const auto client = new_test_client();
     auto ic = create_can_icd("create_retrieve");
@@ -58,17 +51,10 @@ TEST(ICDTests, testCreateAndRetrieve) {
     const auto retrieved = ASSERT_NIL_P(client.icds.retrieve(ic.key));
     ASSERT_EQ(retrieved.key, ic.key);
     ASSERT_EQ(retrieved.name, "create_retrieve");
-    ASSERT_EQ(retrieved.entries.size(), 2);
+    ASSERT_EQ(retrieved.messages.size(), 1);
 
-    const auto &state = std::get<EnumEntry>(retrieved.entries[0]);
-    const auto &original_state = std::get<EnumEntry>(ic.entries[0]);
-    ASSERT_EQ(state.key, original_state.key);
-    ASSERT_EQ(state.name, "state");
-    ASSERT_EQ(state.values.size(), 2);
-    ASSERT_EQ(state.values[1].value, 1);
-    ASSERT_EQ(state.values[1].name, "running");
-
-    const auto &status = std::get<MessageEntry>(retrieved.entries[1]);
+    const auto &status = retrieved.messages[0];
+    ASSERT_EQ(status.key, ic.messages[0].key);
     ASSERT_EQ(status.name, "status");
     const auto &payload = std::get<BinaryPayload>(status.payload);
     ASSERT_TRUE(payload.identifier.has_value());
@@ -81,7 +67,6 @@ TEST(ICDTests, testCreateAndRetrieve) {
     ASSERT_EQ(speed.name, "speed");
     ASSERT_EQ(speed.scale, 0.5);
     ASSERT_EQ(speed.units, "rpm");
-    ASSERT_EQ(speed.enumeration, original_state.key);
     ASSERT_EQ(speed.start_bit, 8);
     ASSERT_EQ(speed.bit_length, 16);
     ASSERT_EQ(speed.byte_order, BYTE_ORDER_BIG_ENDIAN);

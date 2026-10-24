@@ -28,21 +28,9 @@ ByteOrder = Literal["little_endian", "big_endian"]
 
 Key: TypeAlias = UUID
 
-EntryKey: TypeAlias = UUID
+MessageKey: TypeAlias = UUID
 
 FieldKey: TypeAlias = UUID
-
-
-class EnumValue(BaseModel):
-    """Maps one integer value of an enum to a name.
-
-    Attributes:
-        value: Is the integer value.
-        name: Is the name of the value.
-    """
-
-    value: int = Field(default=0, ge=-2147483648, le=2147483647)
-    name: str = Field(min_length=1)
 
 
 class Reference(BaseModel):
@@ -52,24 +40,12 @@ class Reference(BaseModel):
     Attributes:
         icd: Is the key of the ICD the task reads its messages from. When absent the
             task uses no ICD yet.
-        icd_hash: Is the hash of the ICD entries the task uses, stamped by the Core when
-            the task or the ICD is written.
+        icd_hash: Is the hash of the ICD messages the task uses, stamped by the Core
+            when the task or the ICD is written.
     """
 
     icd: Key | None = None
     icd_hash: str = ""
-
-
-class BaseEntry(BaseModel):
-    """Carries the parts every ICD entry shares.
-
-    Attributes:
-        key: Is the unique identifier for the entry within its ICD.
-        name: Is the name of the entry, unique within its ICD.
-    """
-
-    key: EntryKey = Field(default_factory=uuid4)
-    name: str = Field(min_length=1)
 
 
 class BaseField(BaseModel):
@@ -81,8 +57,6 @@ class BaseField(BaseModel):
         scale: Multiplies the raw value on decode.
         offset: Is added to the scaled value on decode.
         units: Is the engineering unit of the decoded value.
-        enumeration: Is the key of the enum entry that names the field's raw values.
-            When absent the field has no named values.
         multiplexor: Is the key of the field that selects whether this field is present.
             When absent the field is always present.
         multiplex_values: Are the raw values of the multiplexor for which this field is
@@ -98,7 +72,6 @@ class BaseField(BaseModel):
     scale: float = 1
     offset: float = 0
     units: str = ""
-    enumeration: EntryKey | None = None
     multiplexor: FieldKey | None = None
     multiplex_values: list[int] = Field(default_factory=list)
     min: float | None = None
@@ -197,17 +170,21 @@ Payload = Annotated[
 ]
 
 
-class EnumEntry(BaseEntry):
-    """Maps integer values to names."""
+class Message(BaseModel):
+    """Is a frame layout on a bus or byte stream.
 
-    kind: Literal["enum"] = "enum"
-    values: list[EnumValue] = Field(default_factory=list)
+    Attributes:
+        key: Is the unique identifier for the message within its ICD.
+        name: Is the name of the message, unique within its ICD.
+        payload: Is the layout of the message's payload.
+        period: Is the transmit period. When absent a write task sends the message when
+            one of its command channels changes.
+        query: Is the request a polling task sends to get the message. Binary messages
+            hold escaped bytes. When absent the device sends the message unprompted.
+    """
 
-
-class MessageEntry(BaseEntry):
-    """Is a frame layout on a bus or byte stream."""
-
-    kind: Literal["message"] = "message"
+    key: MessageKey = Field(default_factory=uuid4)
+    name: str = Field(min_length=1)
     payload: Payload
     period: telem.TimeSpan | None = Field(
         default=None, ge=-9223372036854775808, le=9223372036854775807
@@ -215,28 +192,21 @@ class MessageEntry(BaseEntry):
     query: str | None = None
 
 
-# Is one typed item in an ICD.
-Entry = Annotated[
-    EnumEntry | MessageEntry,
-    Field(discriminator="kind"),
-]
-
-
 class ICD(BaseModel):
     """Is an interface control document: the messages a device sends and receives on a
-    bus or byte stream, and the enums that name their values.
+    bus or byte stream.
 
     Attributes:
         key: Is the unique identifier for the ICD.
         name: Is a human-readable name for the ICD.
-        entries: Are the messages and enums the ICD holds.
-        hash: Is the hash of the entries as the Core last stored them. A write sends the
-            hash it read, and the Core rejects the write when the ICD changed since.
+        messages: Are the messages the ICD holds.
+        hash: Is the hash of the messages as the Core last stored them. A write sends
+            the hash it read, and the Core rejects the write when the ICD changed since.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
-    entries: list[Entry] = Field(default_factory=list)
+    messages: list[Message] = Field(default_factory=list)
     hash: str = ""
 
     def __hash__(self) -> int:

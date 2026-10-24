@@ -19,38 +19,6 @@ import (
 )
 
 var _ = Describe("Base", func() {
-	Describe("Entry", func() {
-		DescribeTable("Should get and set the base of each kind",
-			func(variant v0.EntryVariant) {
-				e := v0.Entry{Variant: variant}
-				b := v0.BaseEntry{Key: uuid.New(), Name: "State"}
-				e.SetBase(b)
-				Expect(e.Base()).To(Equal(b))
-				Expect(e.Variant).To(BeAssignableToTypeOf(variant))
-			},
-			Entry("enum", v0.EnumEntry{}),
-			Entry("message", v0.MessageEntry{
-				Payload: v0.Payload{Variant: v0.TextPayload{}},
-			}),
-		)
-
-		It("Should keep the rest of the variant when setting the base", func() {
-			payload := v0.Payload{Variant: v0.TextPayload{Delimiter: ";"}}
-			e := v0.Entry{Variant: v0.MessageEntry{Payload: payload}}
-			e.SetBase(v0.BaseEntry{Name: "Status"})
-			Expect(e.Variant.(v0.MessageEntry).Payload).To(Equal(payload))
-		})
-
-		It("Should return a zero base for an entry with no kind", func() {
-			Expect(v0.Entry{}.Base()).To(Equal(v0.BaseEntry{}))
-		})
-
-		It("Should panic when setting the base of an entry with no kind", func() {
-			Expect(func() { (&v0.Entry{}).SetBase(v0.BaseEntry{}) }).
-				To(PanicWith(MatchError("entry has no kind: <nil>")))
-		})
-	})
-
 	Describe("TextField", func() {
 		DescribeTable("Should get and set the base of each encoding",
 			func(variant v0.TextFieldVariant) {

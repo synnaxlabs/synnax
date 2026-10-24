@@ -13,24 +13,12 @@ Key = uuid {
     @doc value "is a unique identifier for an ICD."
 }
 
-EntryKey = uuid {
-    @doc value "is a unique identifier for an entry within an ICD."
+MessageKey = uuid {
+    @doc value "is a unique identifier for a message within an ICD."
 }
 
 FieldKey = uuid {
     @doc value "is a unique identifier for a field within a message."
-}
-
-EnumValue struct {
-    value int32 = 0 {
-        @doc value "is the integer value."
-    }
-    name  string {
-        @doc value "is the name of the value."
-    }
-
-    @doc value  "maps one integer value of an enum to a name."
-    @go marshal
 }
 
 ByteOrder enum {
@@ -93,12 +81,6 @@ BaseField struct {
     }
     units            string = "" {
         @doc value "is the engineering unit of the decoded value."
-    }
-    enumeration      EntryKey? {
-        @doc value """
-            is the key of the enum entry that names the field's raw values. When absent
-            the field has no named values.
-        """
     }
     multiplexor      FieldKey? {
         @doc value """
@@ -215,71 +197,54 @@ Payload union on format {
     @go marshal
 }
 
-BaseEntry struct {
-    key  EntryKey = create {
-        @doc value "is the unique identifier for the entry within its ICD."
+Message struct {
+    key     MessageKey = create {
+        @doc value "is the unique identifier for the message within its ICD."
     }
-    name string   {
-        @doc value "is the name of the entry, unique within its ICD."
+    name    string          {
+        @doc value "is the name of the message, unique within its ICD."
     }
-
-    @doc value  "carries the parts every ICD entry shares."
-    @go marshal
-}
-
-Entry union on kind extends BaseEntry {
-    enum {
-        values EnumValue[] = [] {
-            @doc value "are the named values of the enum."
-        }
-
-        @doc value "maps integer values to names."
+    payload Payload         {
+        @doc value "is the layout of the message's payload."
     }
-    message {
-        payload Payload         {
-            @doc value "is the layout of the message's payload."
-        }
-        period  telem.TimeSpan? {
-            @doc value """
-                is the transmit period. When absent a write task sends the message when
-                one of its command channels changes.
-            """
-        }
-        query   string?         {
-            @doc value """
-                is the request a polling task sends to get the message. Binary messages
-                hold escaped bytes. When absent the device sends the message unprompted.
-            """
-        }
-
-        @doc value "is a frame layout on a bus or byte stream."
+    period  telem.TimeSpan? {
+        @doc value """
+            is the transmit period. When absent a write task sends the message when one
+            of its command channels changes.
+        """
+    }
+    query   string?         {
+        @doc value """
+            is the request a polling task sends to get the message. Binary messages hold
+            escaped bytes. When absent the device sends the message unprompted.
+        """
     }
 
-    @doc value  "is one typed item in an ICD."
+    @doc value  "is a frame layout on a bus or byte stream."
     @go marshal
 }
 
 ICD struct {
-    key     Key = create {
+    key      Key = create {
         @doc value "is the unique identifier for the ICD."
         @key
     }
-    name    string  {
+    name     string    {
         @doc value "is a human-readable name for the ICD."
     }
-    entries Entry[] = [] {
-        @doc value "are the messages and enums the ICD holds."
+    messages Message[] = [] {
+        @doc value "are the messages the ICD holds."
     }
-    hash    string = "" {
+    hash     string = "" {
         @doc value """
-            is the hash of the entries as the Core last stored them. A write sends the
+            is the hash of the messages as the Core last stored them. A write sends the
             hash it read, and the Core rejects the write when the ICD changed since.
         """
     }
 
     @doc value  """
         is an interface control document: the messages a device sends and receives on a
-        bus or byte stream, and the enums that name their values.
+        bus or byte stream.
     """
     @go imex
     @go marshal
@@ -295,7 +260,7 @@ Reference struct {
     }
     icd_hash string = "" {
         @doc value """
-            is the hash of the ICD entries the task uses, stamped by the Core when the
+            is the hash of the ICD messages the task uses, stamped by the Core when the
             task or the ICD is written.
         """
     }

@@ -1,9 +1,8 @@
 {
   "key": "00000000-0000-4000-8000-000000000000",
   "name": "opendbc_rivian_park_assist_can",
-  "entries": [
+  "messages": [
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000001",
       "name": "WheelButtons",
       "payload": {
@@ -141,7 +140,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000000a",
       "name": "BSM_BlindSpotIndicator",
       "payload": {
@@ -191,7 +189,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000000f",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -207,7 +204,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000010",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -219,44 +215,6 @@
           }
         ]
       }
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000000f",
-      "name": "BSM_BlindSpotIndicator.BSM_BlindSpotIndicator_Left",
-      "values": [
-        {
-          "value": 0,
-          "name": "OFF"
-        },
-        {
-          "value": 1,
-          "name": "OBJECT_DETECTED"
-        },
-        {
-          "value": 2,
-          "name": "ACTIVE_WARNING"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000010",
-      "name": "BSM_BlindSpotIndicator.BSM_BlindSpotIndicator_Right",
-      "values": [
-        {
-          "value": 0,
-          "name": "OFF"
-        },
-        {
-          "value": 1,
-          "name": "OBJECT_DETECTED"
-        },
-        {
-          "value": 2,
-          "name": "ACTIVE_WARNING"
-        }
-      ]
     }
   ],
   "hash": ""

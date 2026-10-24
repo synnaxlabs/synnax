@@ -15,33 +15,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Base returns the parts every entry kind shares, or the zero BaseEntry when e has no
-// kind.
-func (e Entry) Base() BaseEntry {
-	switch v := e.Variant.(type) {
-	case EnumEntry:
-		return v.BaseEntry
-	case MessageEntry:
-		return v.BaseEntry
-	default:
-		return BaseEntry{}
-	}
-}
-
-// SetBase replaces the parts every entry kind shares. It panics when e has no kind.
-func (e *Entry) SetBase(b BaseEntry) {
-	switch v := e.Variant.(type) {
-	case EnumEntry:
-		v.BaseEntry = b
-		e.Variant = v
-	case MessageEntry:
-		v.BaseEntry = b
-		e.Variant = v
-	default:
-		panic(errors.Newf("entry has no kind: %T", v))
-	}
-}
-
 // Base returns the parts every text field encoding shares, or the zero BaseField when f
 // has no encoding.
 func (f TextField) Base() BaseField {

@@ -35,10 +35,8 @@ struct Core {
     synnax::rack::Rack rack = ASSERT_NIL_P(this->client->racks.create("bus_test"));
 
     /// @returns the ICD holding messages, created in the Core.
-    synnax::icd::ICD create_icd(std::vector<synnax::icd::MessageEntry> messages) const {
-        synnax::icd::ICD ic{.name = "bus_test"};
-        for (auto &m: messages)
-            ic.entries.emplace_back(std::move(m));
+    synnax::icd::ICD create_icd(std::vector<synnax::icd::Message> messages) const {
+        synnax::icd::ICD ic{.name = "bus_test", .messages = std::move(messages)};
         const auto err = this->client->icds.create(ic);
         EXPECT_FALSE(err) << err;
         return ic;
@@ -70,19 +68,17 @@ struct Core {
         cfg.device = device;
         cfg.icd = ic.key;
         cfg.data_saving_disabled = true;
-        for (const auto &e: ic.entries) {
-            const auto *m = std::get_if<synnax::icd::MessageEntry>(&e);
-            if (m == nullptr) continue;
+        for (const auto &m: ic.messages) {
             const auto idx = ASSERT_NIL_P(this->client->channels.create(
-                make_unique_channel_name(m->name + "_time"),
+                make_unique_channel_name(m.name + "_time"),
                 x::telem::TIMESTAMP_T,
                 0,
                 true
             ));
-            ::synnax::bus::ReadMessage rm{.message = m->key};
-            for (const auto *f: field_bases(*m)) {
+            ::synnax::bus::ReadMessage rm{.message = m.key};
+            for (const auto *f: field_bases(m)) {
                 const auto ch = ASSERT_NIL_P(this->client->channels.create(
-                    make_unique_channel_name(m->name + "_" + f->name),
+                    make_unique_channel_name(m.name + "_" + f->name),
                     x::telem::FLOAT64_T,
                     idx.key,
                     false

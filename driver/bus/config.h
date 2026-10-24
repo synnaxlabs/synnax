@@ -71,8 +71,8 @@ struct Group {
 
 /// @brief an ICD message a read task decodes.
 struct ReadMessage {
-    /// @brief the message's ICD entry.
-    synnax::icd::MessageEntry entry;
+    /// @brief the message as its ICD defines it.
+    synnax::icd::Message definition;
     /// @brief decodes the message. Its slots follow the configured fields.
     codec::Plan plan;
     /// @brief the fields of the message grouped by index channel.
@@ -158,8 +158,8 @@ struct Binding {
 
 /// @brief an ICD message a write task encodes.
 struct WriteMessage {
-    /// @brief the message's ICD entry.
-    synnax::icd::MessageEntry entry;
+    /// @brief the message as its ICD defines it.
+    synnax::icd::Message definition;
     /// @brief encodes the message. Its slots are every field of the message, in order.
     codec::Plan plan;
     /// @brief binds command channels to slots.

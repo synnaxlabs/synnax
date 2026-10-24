@@ -1,9 +1,8 @@
 {
   "key": "00000000-0000-4000-8000-000000000000",
   "name": "opendbc_toyota_nodsu_pt",
-  "entries": [
+  "messages": [
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000001",
       "name": "STEERING_LTA",
       "payload": {
@@ -38,7 +37,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000028",
             "multiplex_values": [],
             "min": 0,
             "max": 3,
@@ -202,7 +200,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000000e",
       "name": "BRAKE_MODULE",
       "payload": {
@@ -265,7 +262,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000012",
       "name": "EPS_STATUS",
       "payload": {
@@ -285,7 +281,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-000000000029",
             "multiplex_values": [],
             "min": 0,
             "max": 15,
@@ -301,7 +296,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000002a",
             "multiplex_values": [],
             "min": 0,
             "max": 127,
@@ -317,7 +311,6 @@
             "scale": 1,
             "offset": 0,
             "units": "",
-            "enumeration": "00000000-0000-4000-8000-00000000002b",
             "multiplex_values": [],
             "min": 0,
             "max": 31,
@@ -361,7 +354,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000018",
       "name": "LTA_RELATED",
       "payload": {
@@ -499,7 +491,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000021",
       "name": "BSM",
       "payload": {
@@ -605,106 +596,6 @@
           }
         ]
       }
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000028",
-      "name": "STEERING_LTA.SETME_X3",
-      "values": [
-        {
-          "value": 3,
-          "name": "TSS 2.0"
-        },
-        {
-          "value": 1,
-          "name": "TSS 2.5 or 2022 RAV4"
-        },
-        {
-          "value": 0,
-          "name": "TSS 2.0 on Alphard, Highlander, NX"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000029",
-      "name": "EPS_STATUS.IPAS_STATE",
-      "values": [
-        {
-          "value": 5,
-          "name": "override"
-        },
-        {
-          "value": 3,
-          "name": "enabled"
-        },
-        {
-          "value": 1,
-          "name": "disabled"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000002a",
-      "name": "EPS_STATUS.LKA_STATE",
-      "values": [
-        {
-          "value": 25,
-          "name": "temporary_fault"
-        },
-        {
-          "value": 17,
-          "name": "permanent_fault"
-        },
-        {
-          "value": 11,
-          "name": "lka_missing_unavailable2"
-        },
-        {
-          "value": 9,
-          "name": "temporary_fault2"
-        },
-        {
-          "value": 5,
-          "name": "active"
-        },
-        {
-          "value": 3,
-          "name": "lka_missing_unavailable"
-        },
-        {
-          "value": 1,
-          "name": "standby"
-        }
-      ]
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-00000000002b",
-      "name": "EPS_STATUS.LTA_STATE",
-      "values": [
-        {
-          "value": 25,
-          "name": "temporary_fault"
-        },
-        {
-          "value": 9,
-          "name": "temporary_fault2"
-        },
-        {
-          "value": 5,
-          "name": "active"
-        },
-        {
-          "value": 3,
-          "name": "lta_missing_unavailable"
-        },
-        {
-          "value": 1,
-          "name": "standby"
-        }
-      ]
     }
   ],
   "hash": ""

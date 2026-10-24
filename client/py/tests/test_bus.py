@@ -22,8 +22,8 @@ POLLED = [sy.serial, sy.tcp, sy.udp]
 def create_icd(client: sy.Synnax) -> sy.ICD:
     return client.icds.create(
         name="Bus",
-        entries=[
-            sy.icd.MessageEntry(
+        messages=[
+            sy.icd.Message(
                 name="Status",
                 payload=sy.icd.BinaryPayload(
                     identifier=sy.icd.CanIdentifier(id=0x100),
@@ -129,10 +129,9 @@ class TestBusTasks:
     def test_create_stamps_icd_hash(
         self, client: sy.Synnax, integration: ModuleType
     ) -> None:
-        """Should stamp the hash of the ICD entries a task uses into its config."""
+        """Should stamp the hash of the ICD messages a task uses into its config."""
         ic = create_icd(client)
-        message = ic.entries[0]
-        assert isinstance(message, sy.icd.MessageEntry)
+        message = ic.messages[0]
         t = integration.ReadTask(
             name="Reader",
             icd=ic.key,

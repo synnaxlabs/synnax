@@ -46,7 +46,7 @@ def typed_message(
     type_start_bit: int,
     length: int,
     fields: list[icd.BinaryField],
-) -> icd.MessageEntry:
+) -> icd.Message:
     """Returns a binary message identified by the value of a one-byte type field.
 
     :param type_value: The raw type value that selects this message.
@@ -55,7 +55,7 @@ def typed_message(
     :param fields: The fields after the type field.
     """
     kind = icd.BinaryField(name="type", start_bit=type_start_bit, bit_length=8)
-    return icd.MessageEntry(
+    return icd.Message(
         name=name,
         payload=icd.BinaryPayload(
             identifier=icd.FieldIdentifier(field=kind.key, value=type_value),
@@ -205,7 +205,7 @@ def assert_no_new_samples(
 class BusCase(SimulatorCase):
     """Runs one bus task against the simulator in sim_classes.
 
-    Setup creates an ICD from create_entries, then the task from create_task, and
+    Setup creates an ICD from create_messages, then the task from create_task, and
     configures the task. Teardown deletes the task, the channels made through
     create_index and create_channel, and the ICD.
     """
@@ -217,18 +217,18 @@ class BusCase(SimulatorCase):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._created_channels: list[int] = []
-        self._messages: dict[str, icd.MessageEntry] = {}
+        self._messages: dict[str, icd.Message] = {}
         self.bounds: list[Bound] = []
 
     @abstractmethod
-    def create_entries(self) -> list[icd.Entry]:
-        """Returns the ICD entries the task uses."""
+    def create_messages(self) -> list[icd.Message]:
+        """Returns the ICD messages the task uses."""
 
     @abstractmethod
     def create_task(self, device: sy.Device, icd_key: icd.Key) -> Task:
         """Returns the task to configure.
 
-        :param icd_key: The key of the ICD made from create_entries.
+        :param icd_key: The key of the ICD made from create_messages.
         """
 
     def unsupported(self) -> str | None:
@@ -242,12 +242,10 @@ class BusCase(SimulatorCase):
             return
         super().setup()
         created = self.client.icds.create(
-            name=f"{type(self).__name__} ICD", entries=self.create_entries()
+            name=f"{type(self).__name__} ICD", messages=self.create_messages()
         )
         self.icd_key = created.key
-        self._messages = {
-            e.name: e for e in created.entries if isinstance(e, icd.MessageEntry)
-        }
+        self._messages = {m.name: m for m in created.messages}
         device = self.client.devices.retrieve(name=self.device_name)
         task = self.create_task(device, created.key)
         self.client.tasks.configure(task)
@@ -315,26 +313,26 @@ class BusCase(SimulatorCase):
 
         :param data_types: The data type of each field's channel. FLOAT64 when absent.
         """
-        entry = self._messages[message]
+        definition = self._messages[message]
         types = data_types or {}
-        index = self.create_index(f"{self.prefix}_{entry.name}_time")
-        keys = {f.name: f.key for f in entry.payload.fields}
+        index = self.create_index(f"{self.prefix}_{definition.name}_time")
+        keys = {f.name: f.key for f in definition.payload.fields}
         channels = {
             name: self.create_channel(
-                f"{self.prefix}_{entry.name}_{name}",
+                f"{self.prefix}_{definition.name}_{name}",
                 types.get(name, sy.DataType.FLOAT64),
                 index,
             )
             for name in fields
         }
         read = bus.ReadMessage(
-            message=entry.key,
+            message=definition.key,
             fields=[
                 bus.ReadField(field=keys[name], channel=key, index=index)
                 for name, key in channels.items()
             ],
         )
-        bound = Bound(message=entry.name, index=index, fields=channels)
+        bound = Bound(message=definition.name, index=index, fields=channels)
         self.bounds.append(bound)
         return read, bound
 
@@ -342,17 +340,19 @@ class BusCase(SimulatorCase):
         self, message: str, fields: list[str]
     ) -> tuple[bus.WriteMessage, dict[str, int]]:
         """Creates a FLOAT64 command channel for each named field of a message."""
-        entry = self._messages[message]
-        index = self.create_index(f"{self.prefix}_{entry.name}_cmd_time")
-        keys = {f.name: f.key for f in entry.payload.fields}
+        definition = self._messages[message]
+        index = self.create_index(f"{self.prefix}_{definition.name}_cmd_time")
+        keys = {f.name: f.key for f in definition.payload.fields}
         channels = {
             name: self.create_channel(
-                f"{self.prefix}_{entry.name}_{name}_cmd", sy.DataType.FLOAT64, index
+                f"{self.prefix}_{definition.name}_{name}_cmd",
+                sy.DataType.FLOAT64,
+                index,
             )
             for name in fields
         }
         write = bus.WriteMessage(
-            message=entry.key,
+            message=definition.key,
             fields=[
                 bus.WriteField(field=keys[name], channel=key)
                 for name, key in channels.items()

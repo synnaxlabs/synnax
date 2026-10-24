@@ -68,7 +68,7 @@ var _ = Describe("Service", func() {
 			})).To(Succeed())
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["icd_hash"]).To(Equal(MustSucceed(
-				icd.TaskHash(ic, []icd.EntryKey{m.Key}),
+				icd.TaskHash(ic, []icd.MessageKey{m.Key}),
 			)))
 		})
 

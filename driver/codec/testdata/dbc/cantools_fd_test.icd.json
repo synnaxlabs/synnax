@@ -1,9 +1,8 @@
 {
   "key": "00000000-0000-4000-8000-000000000000",
   "name": "cantools_fd_test",
-  "entries": [
+  "messages": [
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000001",
       "name": "TestMsg_Ex",
       "payload": {
@@ -34,7 +33,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000003",
       "name": "TestMsg_Std",
       "payload": {
@@ -65,7 +63,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000005",
       "name": "TestMsg_FDStd",
       "payload": {
@@ -96,7 +93,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000007",
       "name": "TestMsg_FDEx",
       "payload": {

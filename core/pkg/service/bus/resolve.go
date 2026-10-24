@@ -27,7 +27,7 @@ import (
 // Resolver completes bus task configs from the ICD they reference. Config stores call
 // it before storing a config.
 type Resolver struct {
-	// Stamper stamps the hash of the ICD entries the config uses into the config and
+	// Stamper stamps the hash of the ICD messages the config uses into the config and
 	// relates the task to the ICD.
 	Stamper icd.Stamper
 }
@@ -57,7 +57,7 @@ func (r Resolver) Read(
 	taskKey uuid.UUID,
 	cfg *ReadConfig,
 ) error {
-	keys := lo.Map(cfg.Messages, func(m ReadMessage, _ int) icd.EntryKey {
+	keys := lo.Map(cfg.Messages, func(m ReadMessage, _ int) icd.MessageKey {
 		return m.Message
 	})
 	messages, err := r.stamp(ctx, tx, taskKey, &cfg.Reference, keys)
@@ -90,7 +90,7 @@ func (r Resolver) Write(
 	taskKey uuid.UUID,
 	cfg *WriteConfig,
 ) error {
-	keys := lo.Map(cfg.Messages, func(m WriteMessage, _ int) icd.EntryKey {
+	keys := lo.Map(cfg.Messages, func(m WriteMessage, _ int) icd.MessageKey {
 		return m.Message
 	})
 	messages, err := r.stamp(ctx, tx, taskKey, &cfg.Reference, keys)
@@ -113,8 +113,8 @@ func (r Resolver) stamp(
 	tx gorp.Tx,
 	taskKey uuid.UUID,
 	ref *icd.Reference,
-	keys []icd.EntryKey,
-) (map[icd.EntryKey]icd.MessageEntry, error) {
+	keys []icd.MessageKey,
+) (map[icd.MessageKey]icd.Message, error) {
 	if ref.ICD == nil && len(keys) > 0 {
 		return nil, validate.PathedError(errors.Wrap(
 			validate.ErrValidation, "select an ICD before choosing messages",
@@ -124,19 +124,16 @@ func (r Resolver) stamp(
 	if err != nil {
 		return nil, err
 	}
-	messages := make(map[icd.EntryKey]icd.MessageEntry)
-	for _, e := range ic.Entries {
-		if m, ok := e.Variant.(icd.MessageEntry); ok {
-			messages[m.Key] = m
-		}
-	}
-	return messages, nil
+	return lo.KeyBy(
+		ic.Messages,
+		func(m icd.Message) icd.MessageKey { return m.Key },
+	), nil
 }
 
 func checkMessage(
-	messages map[icd.EntryKey]icd.MessageEntry,
+	messages map[icd.MessageKey]icd.Message,
 	index int,
-	key icd.EntryKey,
+	key icd.MessageKey,
 	fields []icd.FieldKey,
 ) error {
 	path := "messages." + strconv.Itoa(index)
@@ -163,7 +160,7 @@ func checkMessage(
 
 // stamp is the first field a read config stamps on an index.
 type stamp struct {
-	message icd.MessageEntry
+	message icd.Message
 	field   icd.BaseField
 }
 
@@ -173,7 +170,7 @@ type stamp struct {
 // select.
 func checkIndexes(
 	stamps map[channel.Key]stamp,
-	m icd.MessageEntry,
+	m icd.Message,
 	i int,
 	fields []ReadField,
 ) error {
@@ -228,7 +225,7 @@ func samePresence(a, b icd.BaseField) bool {
 // has a reply with no identifier and the config also reads a message the device sends
 // unprompted, since nothing would tell the two apart.
 func checkReplies(
-	messages map[icd.EntryKey]icd.MessageEntry,
+	messages map[icd.MessageKey]icd.Message,
 	reads []ReadMessage,
 ) error {
 	streamed := lo.ContainsBy(reads, func(m ReadMessage) bool {
@@ -238,15 +235,15 @@ func checkReplies(
 		return nil
 	}
 	for i, m := range reads {
-		entry := messages[m.Message]
-		if m.Disabled || entry.Query == nil || labeled(entry.Payload) {
+		msg := messages[m.Message]
+		if m.Disabled || msg.Query == nil || labeled(msg.Payload) {
 			continue
 		}
 		return validate.PathedError(errors.Wrapf(
 			validate.ErrValidation,
 			"message %s has a reply with no identifier, so it cannot share the task "+
 				"with messages the device sends unprompted",
-			entry.Name,
+			msg.Name,
 		), "messages."+strconv.Itoa(i)+".message")
 	}
 	return nil

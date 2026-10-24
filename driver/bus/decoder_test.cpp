@@ -25,7 +25,7 @@ using namespace testutil;
 namespace {
 /// @returns a message whose field mux selects field a when it is 0 and field b when it
 /// is 1.
-synnax::icd::MessageEntry multiplexed() {
+synnax::icd::Message multiplexed() {
     auto mux = binary_field("mux", 0);
     auto a = binary_field("a", 8);
     a.multiplexor = mux.key;
@@ -39,7 +39,7 @@ synnax::icd::MessageEntry multiplexed() {
 /// @brief resolves a config that reads every field of message. Field i goes to channel
 /// i + 1, stamped on indexes[i], or on no index when that is zero.
 ReadConfig grouped(
-    const synnax::icd::MessageEntry &message,
+    const synnax::icd::Message &message,
     const std::vector<synnax::channel::Key> &indexes
 ) {
     ::synnax::bus::ReadConfig cfg;
@@ -271,7 +271,7 @@ TEST(Decoder, ExpectsAPolledMessageEveryPollPeriod) {
 }
 
 TEST(Decoder, NamesAtMostThreeMessagesThatMissedPeriods) {
-    std::vector<synnax::icd::MessageEntry> messages;
+    std::vector<synnax::icd::Message> messages;
     for (const auto *name: {"a", "b", "c", "d", "e"}) {
         auto m = text_message(name, {delimited_field("v", 1)}, std::string(name) + ",");
         m.period = x::telem::SECOND;

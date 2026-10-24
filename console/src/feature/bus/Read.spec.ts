@@ -51,11 +51,11 @@ const retrieveRead = async (key: string) =>
  */
 const expectBound = async (
   m: bus.ReadMessage,
-  entry: icd.MessageEntry,
+  definition: icd.Message,
   prefix: string,
   indexes: Record<string, string>,
 ) => {
-  const names = new Map(entry.payload.fields.map((f) => [f.key, f.name]));
+  const names = new Map(definition.payload.fields.map((f) => [f.key, f.name]));
   const bound = await Promise.all(
     m.fields.map(async (f) => {
       const [ch, index] = await Promise.all([
@@ -84,9 +84,8 @@ const createMuxICD = async () => {
   const [muxMode, extMode, sub] = [uuid.create(), uuid.create(), uuid.create()];
   const ic = await client.icds.create({
     name: uniqueName("mux_icd"),
-    entries: [
+    messages: [
       {
-        kind: "message",
         name: "Mux",
         payload: {
           format: "binary",
@@ -103,7 +102,6 @@ const createMuxICD = async () => {
         },
       },
       {
-        kind: "message",
         name: "Ext",
         payload: {
           format: "binary",
@@ -126,9 +124,9 @@ const createMuxICD = async () => {
     ],
   });
   const find = (name: string) => {
-    const entry = ic.entries.find((e) => e.name === name);
-    if (entry?.kind !== "message") throw new Error(`message ${name} not found`);
-    return entry;
+    const message = ic.messages.find((m) => m.name === name);
+    if (message == null) throw new Error(`message ${name} not found`);
+    return message;
   };
   return { icd: ic, mux: find("Mux"), ext: find("Ext") };
 };

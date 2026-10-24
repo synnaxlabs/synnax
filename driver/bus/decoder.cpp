@@ -94,12 +94,12 @@ void Decoder::decode(
     if (p.used == p.values.size()) p.values.push_back(m.plan.values());
     auto &values = p.values[p.used];
     if (const auto err = m.plan.decode(payload, values)) {
-        this->warn(m.entry.name + ": " + err.data);
+        this->warn(m.definition.name + ": " + err.data);
         return;
     }
     if (values.invalid() > 0) {
         this->warn(
-            m.entry.name + ": " + std::to_string(values.invalid()) +
+            m.definition.name + ": " + std::to_string(values.invalid()) +
             " fields did not parse as numbers"
         );
         return;
@@ -109,7 +109,7 @@ void Decoder::decode(
             const auto &ch = m.channels[slot];
             if (values.fits(slot, ch.data_type)) continue;
             this->warn(
-                m.entry.name + ": channel " + ch.name + " of data type " +
+                m.definition.name + ": channel " + ch.name + " of data type " +
                 ch.data_type.name() + " cannot hold " + format(values.get(slot))
             );
             return;
@@ -134,7 +134,7 @@ void Decoder::decode(
 void Decoder::late(const std::size_t message) {
     this->matched = this->now();
     this->warn(
-        "late reply to " + this->cfg.messages[message].entry.name + " discarded"
+        "late reply to " + this->cfg.messages[message].definition.name + " discarded"
     );
 }
 
@@ -190,7 +190,7 @@ std::string Decoder::warning() {
                 continue;
             if (++late > MAX_NAMED) continue;
             out.push_back(
-                m.entry.name + " missed " + std::to_string(MISSED_PERIODS) +
+                m.definition.name + " missed " + std::to_string(MISSED_PERIODS) +
                 " periods (expected every " + m.period.to_string() + ")"
             );
         }

@@ -20,5 +20,5 @@ export const useCreate = (): (() => void) => {
     afterOptimistic: ({ data: { key } }) =>
       openTab({ variant: "resource", resource: icd.ontologyID(key) }),
   });
-  return useCallback(() => update({ name: "ICD", entries: [] }), [update]);
+  return useCallback(() => update({ name: "ICD", messages: [] }), [update]);
 };

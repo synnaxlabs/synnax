@@ -48,7 +48,7 @@ inline x::json::json ReadField::to_json() const {
 
 inline ReadMessage ReadMessage::parse(x::json::Parser parser) {
     return ReadMessage{
-        .message = parser.field<::synnax::icd::EntryKey>("message"),
+        .message = parser.field<::synnax::icd::MessageKey>("message"),
         .disabled = parser.field<bool>("disabled", false),
         .fields = parser.field<std::vector<ReadField>>(
             "fields",
@@ -84,7 +84,7 @@ inline x::json::json WriteField::to_json() const {
 
 inline WriteMessage WriteMessage::parse(x::json::Parser parser) {
     return WriteMessage{
-        .message = parser.field<::synnax::icd::EntryKey>("message"),
+        .message = parser.field<::synnax::icd::MessageKey>("message"),
         .disabled = parser.field<bool>("disabled", false),
         .fields = parser.field<std::vector<WriteField>>(
             "fields",

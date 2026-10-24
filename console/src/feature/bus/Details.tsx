@@ -51,7 +51,7 @@ const ChannelLabel = ({ channel, planned }: ChannelLabelProps): ReactElement => 
 };
 
 interface FieldListProps<B extends bus.WriteField> {
-  entry: icd.MessageEntry;
+  definition: icd.Message;
   value: B[];
   onChange: (value: B[]) => void;
   /** Creates the binding of a newly checked field. */
@@ -65,7 +65,7 @@ interface FieldListProps<B extends bus.WriteField> {
  * has no channel until configure creates one.
  */
 const FieldList = <B extends bus.WriteField>({
-  entry,
+  definition,
   value,
   onChange,
   create,
@@ -77,13 +77,13 @@ const FieldList = <B extends bus.WriteField>({
     const next = new Map(byField);
     if (included) next.set(key, create(key));
     else next.delete(key);
-    onChange(entry.payload.fields.flatMap((f) => next.get(f.key) ?? []));
+    onChange(definition.payload.fields.flatMap((f) => next.get(f.key) ?? []));
   };
   const update = (bound: B) =>
     onChange(value.map((f) => (f.field === bound.field ? bound : f)));
   return (
     <Flex.Box y gap="small" className={CSS.B("bus-fields")}>
-      {entry.payload.fields.map((f) => {
+      {definition.payload.fields.map((f) => {
         const bound = byField.get(f.key);
         return (
           <Flex.Box key={f.key} x align="center" className={CSS.B("bus-field")}>
@@ -105,7 +105,7 @@ const FieldList = <B extends bus.WriteField>({
           </Flex.Box>
         );
       })}
-      {entry.payload.fields.length === 0 && (
+      {definition.payload.fields.length === 0 && (
         <Text.Text status="disabled">The message has no fields</Text.Text>
       )}
     </Flex.Box>
@@ -113,13 +113,13 @@ const FieldList = <B extends bus.WriteField>({
 };
 
 /** Shows the channels a read task writes a message's fields to. */
-export const ReadDetails = ({ path, entry }: DetailsProps): ReactElement => {
+export const ReadDetails = ({ path, definition }: DetailsProps): ReactElement => {
   const device = useDeviceName();
   const fields = Form.useFieldValue<bus.ReadField[]>(`${path}.fields`);
   const plan = (name: string) => (device === "" ? "" : name);
   const indexes = new Map<string, channel.Key>();
   fields.forEach((f) => {
-    const name = indexName(device, entry, f.field);
+    const name = indexName(device, definition, f.field);
     if (f.index !== 0 || !indexes.has(name)) indexes.set(name, f.index);
   });
   return (
@@ -137,14 +137,14 @@ export const ReadDetails = ({ path, entry }: DetailsProps): ReactElement => {
         <Form.Field<bus.ReadField[]> path={`${path}.fields`} showLabel={false}>
           {({ value, onChange }) => (
             <FieldList
-              entry={entry}
+              definition={definition}
               value={value}
               onChange={onChange}
               create={(field) => bus.readFieldZ.parse({ field })}
               binding={(f, bound) => (
                 <ChannelLabel
                   channel={bound.channel}
-                  planned={plan(fieldChannelName(device, entry.name, f.name))}
+                  planned={plan(fieldChannelName(device, definition.name, f.name))}
                 />
               )}
             />
@@ -156,11 +156,11 @@ export const ReadDetails = ({ path, entry }: DetailsProps): ReactElement => {
 };
 
 /** Maps the fields a write task sends to command channels. */
-export const WriteDetails = ({ path, entry }: DetailsProps): ReactElement => {
+export const WriteDetails = ({ path, definition }: DetailsProps): ReactElement => {
   const device = useDeviceName();
   const isPreview = Task.useIsPreview();
   const period =
-    entry.period == null ? "on change" : `every ${entry.period.toString()}`;
+    definition.period == null ? "on change" : `every ${definition.period.toString()}`;
   return (
     <Form.Sections className={CSS.B("bus-details")}>
       <Form.Section title="Fields">
@@ -170,7 +170,7 @@ export const WriteDetails = ({ path, entry }: DetailsProps): ReactElement => {
         <Form.Field<bus.WriteField[]> path={`${path}.fields`} showLabel={false}>
           {({ value, onChange }) => (
             <FieldList
-              entry={entry}
+              definition={definition}
               value={value}
               onChange={onChange}
               create={(field) => bus.writeFieldZ.parse({ field })}
@@ -186,7 +186,7 @@ export const WriteDetails = ({ path, entry }: DetailsProps): ReactElement => {
                   />
                   {bound.channel === 0 && device !== "" && (
                     <Text.Text level="small" color={8}>
-                      {`Creates ${commandChannelName(device, entry.name, f.name)}`}
+                      {`Creates ${commandChannelName(device, definition.name, f.name)}`}
                     </Text.Text>
                   )}
                 </Flex.Box>

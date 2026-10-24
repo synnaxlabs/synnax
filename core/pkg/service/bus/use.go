@@ -19,7 +19,7 @@ import (
 func Uses(config msgpack.EncodedJSON) ([]icd.Use, error) {
 	var cfg struct {
 		Messages []struct {
-			Message icd.EntryKey `json:"message"`
+			Message icd.MessageKey `json:"message"`
 			Fields  []struct {
 				Field icd.FieldKey `json:"field"`
 			} `json:"fields"`

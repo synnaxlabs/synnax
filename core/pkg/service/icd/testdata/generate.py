@@ -18,14 +18,7 @@ import pathlib
 import cantools
 
 
-def enum_values(choices: dict) -> list[dict]:
-    return [{"value": int(v), "name": str(n)} for v, n in choices.items()]
-
-
 def signal_of(s: cantools.database.Signal) -> dict:
-    choices = None
-    if s.choices is not None:
-        choices = enum_values(s.choices)
     return {
         "name": s.name,
         "start_bit": s.start,
@@ -37,7 +30,6 @@ def signal_of(s: cantools.database.Signal) -> dict:
         "scale": float(s.scale),
         "offset": float(s.offset),
         "units": s.unit or "",
-        "choices": choices,
         "multiplexor": s.multiplexer_signal,
         "multiplex_values": sorted(s.multiplexer_ids or []),
         "min": s.minimum,
@@ -61,13 +53,7 @@ def main() -> None:
     here = pathlib.Path(__file__).parent
     for path in sorted(here.glob("*.dbc")):
         db = cantools.database.load_file(path)
-        expected = {
-            "messages": [message_of(m) for m in db.messages],
-            "value_tables": {
-                name: enum_values(table)
-                for name, table in db.dbc.value_tables.items()
-            },
-        }
+        expected = {"messages": [message_of(m) for m in db.messages]}
         out = path.with_suffix(".expected.json")
         out.write_text(json.dumps(expected, indent=2) + "\n")
 

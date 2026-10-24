@@ -50,22 +50,6 @@ byte_order_from_pb(::service::icd::pb::ByteOrder pb) {
     }
 }
 
-inline std::pair<::service::icd::pb::EnumValue, x::errors::Error>
-EnumValue::to_proto() const {
-    ::service::icd::pb::EnumValue pb;
-    pb.set_value(this->value);
-    pb.set_name(this->name);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<EnumValue, x::errors::Error>
-EnumValue::from_proto(const ::service::icd::pb::EnumValue &pb) {
-    EnumValue cpp;
-    cpp.value = pb.value();
-    cpp.name = pb.name();
-    return {cpp, x::errors::NIL};
-}
-
 inline std::pair<::service::icd::pb::BaseField, x::errors::Error>
 BaseField::to_proto() const {
     ::service::icd::pb::BaseField pb;
@@ -74,8 +58,6 @@ BaseField::to_proto() const {
     pb.set_scale(this->scale);
     pb.set_offset(this->offset);
     pb.set_units(this->units);
-    if (this->enumeration.has_value())
-        pb.set_enumeration(this->enumeration->to_string());
     if (this->multiplexor.has_value())
         pb.set_multiplexor(this->multiplexor->to_string());
     for (const auto &item: this->multiplex_values)
@@ -97,11 +79,6 @@ BaseField::from_proto(const ::service::icd::pb::BaseField &pb) {
     cpp.scale = pb.scale();
     cpp.offset = pb.offset();
     cpp.units = pb.units();
-    if (!pb.enumeration().empty()) {
-        auto [v, err] = x::uuid::UUID::parse(pb.enumeration());
-        if (err) return {{}, err};
-        cpp.enumeration = v;
-    }
     if (!pb.multiplexor().empty()) {
         auto [v, err] = x::uuid::UUID::parse(pb.multiplexor());
         if (err) return {{}, err};
@@ -122,8 +99,6 @@ BinaryField::to_proto() const {
     pb.set_scale(this->scale);
     pb.set_offset(this->offset);
     pb.set_units(this->units);
-    if (this->enumeration.has_value())
-        pb.set_enumeration(this->enumeration->to_string());
     if (this->multiplexor.has_value())
         pb.set_multiplexor(this->multiplexor->to_string());
     for (const auto &item: this->multiplex_values)
@@ -154,11 +129,6 @@ BinaryField::from_proto(const ::service::icd::pb::BinaryField &pb) {
     cpp.scale = pb.scale();
     cpp.offset = pb.offset();
     cpp.units = pb.units();
-    if (!pb.enumeration().empty()) {
-        auto [v, err] = x::uuid::UUID::parse(pb.enumeration());
-        if (err) return {{}, err};
-        cpp.enumeration = v;
-    }
     if (!pb.multiplexor().empty()) {
         auto [v, err] = x::uuid::UUID::parse(pb.multiplexor());
         if (err) return {{}, err};
@@ -180,23 +150,37 @@ BinaryField::from_proto(const ::service::icd::pb::BinaryField &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::icd::pb::BaseEntry, x::errors::Error>
-BaseEntry::to_proto() const {
-    ::service::icd::pb::BaseEntry pb;
+inline std::pair<::service::icd::pb::Message, x::errors::Error>
+Message::to_proto() const {
+    ::service::icd::pb::Message pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
+    {
+        auto [v, err] = ::synnax::icd::to_proto(this->payload);
+        if (err) return {{}, err};
+        *pb.mutable_payload() = v;
+    }
+    if (this->period.has_value()) pb.set_period(this->period->to_proto());
+    if (this->query.has_value()) pb.set_query(*this->query);
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<BaseEntry, x::errors::Error>
-BaseEntry::from_proto(const ::service::icd::pb::BaseEntry &pb) {
-    BaseEntry cpp;
+inline std::pair<Message, x::errors::Error>
+Message::from_proto(const ::service::icd::pb::Message &pb) {
+    Message cpp;
     {
         auto [v, err] = x::uuid::UUID::parse(pb.key());
         if (err) return {{}, err};
         cpp.key = v;
     }
     cpp.name = pb.name();
+    {
+        auto [v, err] = ::synnax::icd::payload_from_proto(pb.payload());
+        if (err) return {{}, err};
+        cpp.payload = v;
+    }
+    if (pb.has_period()) cpp.period = ::x::telem::TimeSpan::from_proto(pb.period());
+    if (pb.has_query()) cpp.query = pb.query();
     return {cpp, x::errors::NIL};
 }
 
@@ -204,10 +188,10 @@ inline std::pair<::service::icd::pb::ICD, x::errors::Error> ICD::to_proto() cons
     ::service::icd::pb::ICD pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
-    for (const auto &item: this->entries) {
-        auto [v, err] = ::synnax::icd::to_proto(item);
+    for (const auto &item: this->messages) {
+        auto [v, err] = item.to_proto();
         if (err) return {{}, err};
-        *pb.add_entries() = v;
+        *pb.add_messages() = v;
     }
     pb.set_hash(this->hash);
     return {pb, x::errors::NIL};
@@ -222,11 +206,8 @@ ICD::from_proto(const ::service::icd::pb::ICD &pb) {
         cpp.key = v;
     }
     cpp.name = pb.name();
-    for (const auto &item: pb.entries()) {
-        auto [v, err] = ::synnax::icd::entry_from_proto(item);
-        if (err) return {{}, err};
-        cpp.entries.push_back(v);
-    }
+    if (auto err = x::pb::from_proto_repeated<Message>(cpp.messages, pb.messages()))
+        return {{}, err};
     cpp.hash = pb.hash();
     return {cpp, x::errors::NIL};
 }
@@ -379,51 +360,6 @@ TextPayload::from_proto(const ::service::icd::pb::PayloadTextPayload &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::icd::pb::EntryEnumPayload, x::errors::Error>
-EnumEntry::to_proto() const {
-    ::service::icd::pb::EntryEnumPayload pb;
-    for (const auto &item: this->values) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_values() = v;
-    }
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<EnumEntry, x::errors::Error>
-EnumEntry::from_proto(const ::service::icd::pb::EntryEnumPayload &pb) {
-    EnumEntry cpp;
-    if (auto err = x::pb::from_proto_repeated<EnumValue>(cpp.values, pb.values()))
-        return {{}, err};
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::service::icd::pb::EntryMessagePayload, x::errors::Error>
-MessageEntry::to_proto() const {
-    ::service::icd::pb::EntryMessagePayload pb;
-    {
-        auto [v, err] = ::synnax::icd::to_proto(this->payload);
-        if (err) return {{}, err};
-        *pb.mutable_payload() = v;
-    }
-    if (this->period.has_value()) pb.set_period(this->period->to_proto());
-    if (this->query.has_value()) pb.set_query(*this->query);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<MessageEntry, x::errors::Error>
-MessageEntry::from_proto(const ::service::icd::pb::EntryMessagePayload &pb) {
-    MessageEntry cpp;
-    {
-        auto [v, err] = ::synnax::icd::payload_from_proto(pb.payload());
-        if (err) return {{}, err};
-        cpp.payload = v;
-    }
-    if (pb.has_period()) cpp.period = ::x::telem::TimeSpan::from_proto(pb.period());
-    if (pb.has_query()) cpp.query = pb.query();
-    return {cpp, x::errors::NIL};
-}
-
 inline std::pair<::service::icd::pb::Identifier, x::errors::Error>
 to_proto(const Identifier &value) {
     ::service::icd::pb::Identifier pb;
@@ -555,61 +491,6 @@ payload_from_proto(const ::service::icd::pb::Payload &pb) {
             return {
                 {},
                 x::errors::Error(x::errors::VALIDATION, "Payload: no variant set")
-            };
-    }
-}
-
-inline std::pair<::service::icd::pb::Entry, x::errors::Error>
-to_proto(const Entry &value) {
-    ::service::icd::pb::Entry pb;
-    const auto visit_err = std::visit(
-        [&pb](const auto &v) -> x::errors::Error {
-            using V = std::decay_t<decltype(v)>;
-            auto [inner, err] = v.to_proto();
-            if (err) return err;
-            {
-                auto [base, base_err] = static_cast<const BaseEntry &>(v).to_proto();
-                if (base_err) return base_err;
-                *pb.mutable_base_entry() = base;
-            }
-            if constexpr (std::is_same_v<V, EnumEntry>)
-                *pb.mutable_enum_() = inner;
-            else if constexpr (std::is_same_v<V, MessageEntry>)
-                *pb.mutable_message() = inner;
-            return x::errors::NIL;
-        },
-        value
-    );
-    return {pb, visit_err};
-}
-
-inline std::pair<Entry, x::errors::Error>
-entry_from_proto(const ::service::icd::pb::Entry &pb) {
-    switch (pb.variant_case()) {
-        case ::service::icd::pb::Entry::kEnum: {
-            auto [v, err] = EnumEntry::from_proto(pb.enum_());
-            if (err) return {{}, err};
-            {
-                auto [base, base_err] = BaseEntry::from_proto(pb.base_entry());
-                if (base_err) return {{}, base_err};
-                static_cast<BaseEntry &>(v) = base;
-            }
-            return {v, x::errors::NIL};
-        }
-        case ::service::icd::pb::Entry::kMessage: {
-            auto [v, err] = MessageEntry::from_proto(pb.message());
-            if (err) return {{}, err};
-            {
-                auto [base, base_err] = BaseEntry::from_proto(pb.base_entry());
-                if (base_err) return {{}, base_err};
-                static_cast<BaseEntry &>(v) = base;
-            }
-            return {v, x::errors::NIL};
-        }
-        default:
-            return {
-                {},
-                x::errors::Error(x::errors::VALIDATION, "Entry: no variant set")
             };
     }
 }

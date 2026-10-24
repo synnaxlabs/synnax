@@ -3,9 +3,8 @@
   "icd": {
     "key": "00000000-0000-4000-8000-000000000fff",
     "name": "Fixture",
-    "entries": [
+    "messages": [
       {
-        "kind": "message",
         "key": "00000000-0000-4000-8000-000000000001",
         "name": "Status",
         "payload": {
@@ -47,7 +46,6 @@
         }
       },
       {
-        "kind": "message",
         "key": "00000000-0000-4000-8000-000000000002",
         "name": "Command",
         "payload": {

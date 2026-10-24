@@ -18,17 +18,8 @@ const client = createTestClient();
 
 const createNew = (name: string = "ICD"): icd.New => ({
   name,
-  entries: [
+  messages: [
     {
-      kind: "enum",
-      name: "State",
-      values: [
-        { value: 0, name: "Off" },
-        { value: 1, name: "On" },
-      ],
-    },
-    {
-      kind: "message",
       name: "Status",
       payload: {
         format: "binary",
@@ -72,22 +63,13 @@ describe("icd", () => {
   });
 
   describe("create", () => {
-    it("should create an ICD with an enum and a CAN message", async () => {
+    it("should create an ICD with a CAN message", async () => {
       const ic = await client.icds.create(createNew());
       expect(ic.key).not.toEqual("");
       expect(ic.name).toEqual("ICD");
-      expect(ic.entries).toHaveLength(2);
-      const [en, msg] = ic.entries;
-      expect(en).toMatchObject({
-        kind: "enum",
-        name: "State",
-        values: [
-          { value: 0, name: "Off" },
-          { value: 1, name: "On" },
-        ],
-      });
+      expect(ic.messages).toHaveLength(1);
+      const [msg] = ic.messages;
       expect(msg).toMatchObject({
-        kind: "message",
         name: "Status",
         payload: {
           format: "binary",
@@ -95,7 +77,6 @@ describe("icd", () => {
           length: 8,
         },
       });
-      if (msg.kind !== "message") throw new Error("expected a message entry");
       const { fields } = msg.payload;
       expect(fields).toHaveLength(2);
       expect(fields[1]).toMatchObject({
@@ -106,16 +87,15 @@ describe("icd", () => {
         scale: 0.1,
         units: "degC",
       });
-      const keys = [en.key, msg.key, ...fields.map((f) => f.key)];
+      const keys = [msg.key, ...fields.map((f) => f.key)];
       expect(new Set(keys).size).toEqual(keys.length);
     });
 
     it("should create a text message with the default delimiter", async () => {
       const ic = await client.icds.create({
         name: "Text",
-        entries: [
+        messages: [
           {
-            kind: "message",
             name: "Line",
             payload: {
               format: "text",
@@ -128,9 +108,8 @@ describe("icd", () => {
           },
         ],
       });
-      const [msg] = ic.entries;
+      const [msg] = ic.messages;
       expect(msg).toMatchObject({
-        kind: "message",
         payload: {
           format: "text",
           delimiter: ",",
@@ -151,16 +130,17 @@ describe("icd", () => {
 
     it("should replace an ICD with an existing key", async () => {
       const ic = await client.icds.create(createNew("Engine"));
-      await client.icds.create({ ...ic, entries: [ic.entries[0]] });
+      const [status] = ic.messages;
+      await client.icds.create({ ...ic, messages: [{ ...status, name: "Renamed" }] });
       const retrieved = await client.icds.retrieve(ic.key);
-      expect(retrieved.entries).toHaveLength(1);
-      expect(retrieved.entries[0].key).toEqual(ic.entries[0].key);
+      expect(retrieved.messages).toHaveLength(1);
+      expect(retrieved.messages[0]).toMatchObject({ key: status.key, name: "Renamed" });
     });
 
     it("should reject a replacement that carries a stale hash", async () => {
       const ic = await client.icds.create(createNew("Engine"));
-      await client.icds.create({ ...ic, entries: [ic.entries[0]] });
-      await expect(client.icds.create({ ...ic, entries: [] })).rejects.toEqual(
+      await client.icds.create({ ...ic, messages: [] });
+      await expect(client.icds.create({ ...ic, messages: [] })).rejects.toEqual(
         new StaleError("ICD Engine: changed since it was read"),
       );
     });
@@ -168,20 +148,20 @@ describe("icd", () => {
     it("should accept a replacement read before a rename", async () => {
       const ic = await client.icds.create(createNew());
       await client.icds.rename(ic.key, "Renamed");
-      const saved = await client.icds.create({ ...ic, name: "Renamed", entries: [] });
-      expect(saved.entries).toEqual([]);
+      const saved = await client.icds.create({ ...ic, name: "Renamed", messages: [] });
+      expect(saved.messages).toEqual([]);
     });
 
-    it("should reject duplicate entry names", async () => {
+    it("should reject duplicate message names", async () => {
       const ic = createNew();
-      ic.entries = [
-        { kind: "enum", name: "Mode" },
-        { kind: "enum", name: "Mode" },
+      ic.messages = [
+        { name: "Mode", payload: { format: "binary" } },
+        { name: "Mode", payload: { format: "binary" } },
       ];
       await expect(client.icds.create(ic)).rejects.toThrow(
         new PathError(
-          ["entries", "1", "name"],
-          new ValidationError('duplicate entry name "Mode": validation error'),
+          ["messages", "1", "name"],
+          new ValidationError('duplicate message name "Mode": validation error'),
         ),
       );
     });
@@ -195,11 +175,10 @@ describe("icd", () => {
     it("should return every problem with its path", async () => {
       const problems = await client.icds.check({
         name: "ICD",
-        entries: [
-          { kind: "enum", name: "Mode" },
-          { kind: "enum", name: "Mode" },
+        messages: [
+          { name: "Mode", payload: { format: "binary" } },
+          { name: "Mode", payload: { format: "binary" } },
           {
-            kind: "message",
             name: "Status",
             payload: {
               format: "binary",
@@ -210,9 +189,9 @@ describe("icd", () => {
         ],
       });
       expect(problems).toEqual([
-        { path: "entries.1.name", message: 'duplicate entry name "Mode"' },
+        { path: "messages.1.name", message: 'duplicate message name "Mode"' },
         {
-          path: "entries.2.payload.fields.0.scale",
+          path: "messages.2.payload.fields.0.scale",
           message: "scale must be finite and non-zero",
         },
       ]);
@@ -221,11 +200,11 @@ describe("icd", () => {
     it("should return the problems with a rule of the schema", async () => {
       const problems = await client.icds.check({
         name: "ICD",
-        entries: [{ kind: "enum", name: "Mode", values: [{ value: 0, name: "" }] }],
+        messages: [{ name: "", payload: { format: "binary" } }],
       });
       expect(problems).toEqual([
         {
-          path: "entries.0.values.0.name",
+          path: "messages.0.name",
           message: "Too small: expected string to have >=1 characters",
         },
       ]);
@@ -271,7 +250,7 @@ describe("icd", () => {
       await client.icds.rename(ic.key, "Renamed");
       const retrieved = await client.icds.retrieve(ic.key);
       expect(retrieved.name).toEqual("Renamed");
-      expect(retrieved.entries).toEqual(ic.entries);
+      expect(retrieved.messages).toEqual(ic.messages);
     });
   });
 
@@ -287,9 +266,8 @@ describe("icd", () => {
       ].join("\n");
       const imported = await client.icds.import(ic.key, encode(csv), "csv");
       expect(imported.key).toEqual(ic.key);
-      expect(imported.entries).toHaveLength(1);
-      const [msg] = imported.entries;
-      if (msg.kind !== "message") throw new Error("expected a message entry");
+      expect(imported.messages).toHaveLength(1);
+      const [msg] = imported.messages;
       expect(msg.name).toEqual("Engine");
       expect(msg.payload).toMatchObject({
         format: "binary",
@@ -301,7 +279,7 @@ describe("icd", () => {
       expect(await client.icds.retrieve(ic.key)).toEqual(imported);
     });
 
-    it("should import messages and value tables from a DBC file", async () => {
+    it("should import messages from a DBC file with value tables", async () => {
       const ic = await client.icds.create({ name: "Import" });
       const dbc = [
         'VERSION ""',
@@ -313,16 +291,15 @@ describe("icd", () => {
         "",
       ].join("\n");
       const imported = await client.icds.import(ic.key, encode(dbc), "dbc");
-      const names = imported.entries.map((e) => `${e.kind}:${e.name}`).sort();
-      expect(names).toEqual(["enum:GearTable", "message:Engine"]);
+      expect(imported.messages.map((m) => m.name)).toEqual(["Engine"]);
     });
 
-    it("should keep entry keys across a second import", async () => {
+    it("should keep message keys across a second import", async () => {
       const ic = await client.icds.create({ name: "Import" });
       const csv = encode("message,field,start_bit,bit_length\nEngine,Rpm,0,16");
       const first = await client.icds.import(ic.key, csv, "csv");
       const second = await client.icds.import(ic.key, csv, "csv");
-      expect(second.entries[0].key).toEqual(first.entries[0].key);
+      expect(second.messages[0].key).toEqual(first.messages[0].key);
     });
 
     it("should reject a document that does not parse", async () => {

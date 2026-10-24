@@ -9,13 +9,13 @@
 
 Six new Driver integrations: `can`, `serial`, `tcp`, `udp`, `arinc429`, and `mil1553`.
 Each one is a transport. Every integration reads and writes messages whose bit or text
-layout lives in an ICD (RFC 0074) as `message` entries, and one codec in the Driver
-decodes and encodes them all. Serial and TCP tasks cut byte streams into messages with a
-framing setting. Any byte-stream task can listen to a device that streams or poll a
-device that answers queries, which covers SCPI instruments such as power supplies. A
-write task sends each message on its period and falls silent when it stops. Tasks
-recover from unplugs and dropped links on their own and report what they wait for. The
-Core imports ICDs from DBC, CSV, and XLSX files.
+layout lives in an ICD (RFC 0074) as messages, and one codec in the Driver decodes and
+encodes them all. Serial and TCP tasks cut byte streams into messages with a framing
+setting. Any byte-stream task can listen to a device that streams or poll a device that
+answers queries, which covers SCPI instruments such as power supplies. A write task
+sends each message on its period and falls silent when it stops. Tasks recover from
+unplugs and dropped links on their own and report what they wait for. The Core imports
+ICDs from DBC, CSV, and XLSX files.
 
 ## 1 Motivation
 
@@ -41,7 +41,7 @@ arbitrary widths up to 64 bits, scaling, or text.
 - **Framing**: How a byte stream is cut into messages. Only `serial` and `tcp` need it.
 - **Exchange**: Who speaks first. A streaming device sends on its own. A polled device
   answers a query.
-- **Layout**: Where values sit in a message. A layout is a `message` entry in an ICD.
+- **Layout**: Where values sit in a message. A layout is a message in an ICD.
 - **Message**: An ICD entry with a payload and an optional period and query.
 - **Payload**: The layout of a message in one format: binary, with a length, an
   identifier, and bit fields, or text, with a delimiter, a prefix, and text fields.
@@ -60,7 +60,7 @@ arbitrary widths up to 64 bits, scaling, or text.
 1. **Four independent layers**: Transport, framing, exchange, and layout vary on their
    own. The same power supply sits on serial or TCP. The same ICD arrives over serial or
    UDP. A layer never encodes an assumption about another.
-2. **Layout lives in an ICD**: A task names ICD entries and maps fields to channels. It
+2. **Layout lives in an ICD**: A task names ICD messages and maps fields to channels. It
    never carries a layout of its own.
 3. **One codec**: Every integration decodes and encodes through the same code.
 4. **The Driver runs next to the hardware**: A CAN adapter or a 429 card sits in the rig
@@ -106,10 +106,9 @@ can carry different devices over a rig's life.
 and there is nothing to discover. A `mil1553` task polls as bus controller or only
 listens as a monitor (§5.5).
 
-### 5.1 The `message` kind
+### 5.1 The message
 
-`schemas/synnax/icd.oracle` defines the message as a variant of the ICD entry union (RFC
-0074 §5.1):
+`schemas/synnax/icd.oracle` defines the message, the entry of an ICD (RFC 0074 §5.1):
 
 ```
 Identifier union on type {
@@ -125,8 +124,7 @@ TextField union on encoding extends BaseField {
     delimited { position uint32 }
     tagged    { tag string }
 }  // BaseField: key (uuid), name, scale = 1, offset = 0, units,
-   // enumeration EntryKey?, multiplexor FieldKey?, multiplex_values int32[],
-   // min float64?, max float64?
+   // multiplexor FieldKey?, multiplex_values int32[], min float64?, max float64?
 
 Payload union on format {
     binary {
@@ -141,7 +139,9 @@ Payload union on format {
     }
 }
 
-message {
+Message struct {
+    key     MessageKey = create { @key }
+    name    string { @validate min_length 1 }
     payload Payload
     period  TimeSpan?             // absent: send on change
     query   string?               // absent: the device sends unprompted
@@ -178,8 +178,7 @@ shift, mask, sign extension, and scale. The plan is built once when the task con
 Decode writes each value straight into the series for its channel with
 `x::telem::Series::write_casted`, so the hot path allocates nothing.
 
-Scaling is `value * scale + offset`, applied on decode and inverted on encode. Enums are
-not applied: the channel holds the raw integer.
+Scaling is `value * scale + offset`, applied on decode and inverted on encode.
 
 Modbus and EtherCAT move onto the codec in Phase 2 (§7). Modbus register decoding
 becomes a codec field over the register words. EtherCAT PDO decoding becomes a codec
@@ -309,20 +308,21 @@ latest command channel values of the messages it owns.
 
 ### 5.8 ICD import
 
-The Core imports files into an ICD, adding `message` and `enum` entries:
+The Core imports files into an ICD, adding messages:
 
-- **DBC**: messages, signals, value tables, `GenMsgCycleTime` as the period, `CANFD_BRS`
-  as bitrate switching, and multiplexing, as binary payloads. The parser is a copy of
-  `go.einride.tech/can/pkg/dbc` in `core/pkg/service/icd/internal/dbc`, kept under its
-  MIT license. The copy adds extended multiplexing (`m0M`, `SG_MUL_VAL_`), which the
-  upstream parser rejects, and fixes an upstream bug that skips the line after an
-  unknown definition. `cantools` output is the test oracle for the import specs.
+- **DBC**: messages, signals, `GenMsgCycleTime` as the period, `CANFD_BRS` as bitrate
+  switching, and multiplexing, as binary payloads. Value tables and value descriptions
+  are skipped (RFC 0074 §8.4). The parser is a copy of `go.einride.tech/can/pkg/dbc` in
+  `core/pkg/service/icd/internal/dbc`, kept under its MIT license. The copy adds
+  extended multiplexing (`m0M`, `SG_MUL_VAL_`), which the upstream parser rejects, and
+  fixes an upstream bug that skips the line after an unknown definition. `cantools`
+  output is the test oracle for the import specs.
 - **CSV and XLSX**: one line per field of a binary payload, with columns for message
   name, identifier, start bit, bit length, byte order, sign, scale, offset, units, and
   period. A header line maps columns by name. XLSX parses with `excelize`.
 
 DBC import keeps each signal's `[min|max]` as the field's limits. Importing into an ICD
-that already has entries matches messages by name, and fields by name within their
+that already has messages matches messages by name, and fields by name within their
 message. A match is updated in place and keeps its key, so tasks keep working across ICD
 revisions. A message or field missing from the new file is removed, and a task that used
 it fails validation with an error naming it.
@@ -363,8 +363,8 @@ integration schema (`can`, `serial`, `tcp`, `udp`) extends them and adds its dev
 `Properties`.
 
 - **Read**: `bus.ReadConfig` embeds the ICD `Reference` and lists `messages`. Each
-  message names its ICD entry and the fields it writes, each by field key, channel, and
-  index channel. `raw` is the virtual bytes channel.
+  message names its ICD message and the fields it writes, each by field key, channel,
+  and index channel. `raw` is the virtual bytes channel.
 - **Write**: `bus.WriteConfig` lists messages and maps field keys to command channels. A
   field with no mapping is sent as zero.
 - **Polling**: `bus.PollConfig` holds the poll `rate` and reply `timeout` for `serial`,
@@ -373,7 +373,7 @@ integration schema (`can`, `serial`, `tcp`, `udp`) extends them and adds its dev
   `slip`. `serial` and `tcp` read and write configs carry one, because a write task
   frames what it sends. `udp` needs none.
 
-On every write, the Core stamps the entry hash and rejects a config whose message or
+On every write, the Core stamps the message hash and rejects a config whose message or
 field keys are not in its ICD, whose fields share an index across presence groups, or
 whose unlabeled poll replies share a link with unprompted messages
 (`core/pkg/service/bus/resolve.go`). The Driver never builds a plan from a stale key.

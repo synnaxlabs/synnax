@@ -33,8 +33,8 @@ KELVIN_OFFSET = 273.15
 PRESSURE_SCALE = 1000.0
 
 
-def reading_entry() -> icd.MessageEntry:
-    return icd.MessageEntry(
+def reading_message() -> icd.Message:
+    return icd.Message(
         name="reading",
         query="READ?",
         payload=icd.TextPayload(
@@ -54,8 +54,8 @@ def reading_entry() -> icd.MessageEntry:
     )
 
 
-def output_entry() -> icd.MessageEntry:
-    return icd.MessageEntry(
+def output_message() -> icd.Message:
+    return icd.Message(
         name="output",
         query="MEAS:VOLT?",
         payload=icd.TextPayload(
@@ -104,10 +104,10 @@ class TCPRead(BusCase):
     status: Bound
     output: Bound
 
-    def create_entries(self) -> list[icd.Entry]:
+    def create_messages(self) -> list[icd.Message]:
         return [
-            reading_entry(),
-            icd.MessageEntry(
+            reading_message(),
+            icd.Message(
                 name="status",
                 query="STAT?",
                 payload=icd.TextPayload(
@@ -124,7 +124,7 @@ class TCPRead(BusCase):
                     ]
                 ),
             ),
-            output_entry(),
+            output_message(),
         ]
 
     def create_task(self, device: sy.Device, icd_key: icd.Key) -> tcp.ReadTask:
@@ -183,8 +183,8 @@ class TCPReadTimeout(BusCase):
     prefix = "tcp_read_timeout"
     reading: Bound
 
-    def create_entries(self) -> list[icd.Entry]:
-        return [reading_entry()]
+    def create_messages(self) -> list[icd.Message]:
+        return [reading_message()]
 
     def create_task(self, device: sy.Device, icd_key: icd.Key) -> tcp.ReadTask:
         reading_msg, self.reading = self.bind_read(
@@ -234,8 +234,8 @@ class TCPReadLateReply(BusCase):
     reading: Bound
     output: Bound
 
-    def create_entries(self) -> list[icd.Entry]:
-        return [reading_entry(), output_entry()]
+    def create_messages(self) -> list[icd.Message]:
+        return [reading_message(), output_message()]
 
     def create_task(self, device: sy.Device, icd_key: icd.Key) -> tcp.ReadTask:
         reading_msg, self.reading = self.bind_read(
@@ -284,8 +284,8 @@ class TCPReadSilentPeer(BusCase):
     prefix = "tcp_read_silent"
     reading: Bound
 
-    def create_entries(self) -> list[icd.Entry]:
-        return [reading_entry()]
+    def create_messages(self) -> list[icd.Message]:
+        return [reading_message()]
 
     def create_task(self, device: sy.Device, icd_key: icd.Key) -> tcp.ReadTask:
         reading_msg, self.reading = self.bind_read(

@@ -23,8 +23,8 @@ var _ = Describe("Hash", func() {
 		return icd.ICD{
 			Key:  uuid.New(),
 			Name: "A",
-			Entries: []icd.Entry{
-				enumEntry("State", icd.EnumValue{Value: 1, Name: "On"}),
+			Messages: []icd.Message{
+				canMessage("State", 0x100, binaryField("on", 0, 1)),
 			},
 		}
 	}
@@ -45,63 +45,39 @@ var _ = Describe("Hash", func() {
 		Expect(MustSucceed(icd.Hash(a))).To(Equal(MustSucceed(icd.Hash(b))))
 	})
 
-	It("Should change when an entry changes", func() {
-		a, b := base(), base()
-		b.Entries = []icd.Entry{enumEntry("State", icd.EnumValue{Value: 2, Name: "On"})}
+	It("Should change when a message changes", func() {
+		a := base()
+		b := setScale(a, 0, 0.5)
 		Expect(MustSucceed(icd.Hash(a))).ToNot(Equal(MustSucceed(icd.Hash(b))))
 	})
 })
 
 var _ = Describe("TaskHash", func() {
 	var (
-		ic                     icd.ICD
-		gear, mode             icd.EnumEntry
-		engine, brake, unnamed icd.MessageEntry
+		ic                   icd.ICD
+		engine, brake, other icd.Message
 	)
 	BeforeEach(func() {
-		gear = icd.EnumEntry{
-			Key: uuid.New(), Name: "Gear",
-			Values: []icd.EnumValue{{Value: 0, Name: "Park"}},
-		}
-		mode = icd.EnumEntry{
-			Key: uuid.New(), Name: "Mode",
-			Values: []icd.EnumValue{{Value: 0, Name: "Idle"}},
-		}
-		geared := binaryField("gear", 0, 8)
-		geared.Enumeration = new(gear.Key)
-		engine = canMessage("Engine", 0x100, geared)
+		engine = canMessage("Engine", 0x100, binaryField("gear", 0, 8))
 		engine.Key = uuid.New()
 		brake = canMessage("Brake", 0x200, binaryField("pressure", 0, 16))
 		brake.Key = uuid.New()
-		unnamed = canMessage("Other", 0x300, binaryField("x", 0, 8))
-		unnamed.Key = uuid.New()
+		other = canMessage("Other", 0x300, binaryField("x", 0, 8))
+		other.Key = uuid.New()
 		ic = icd.ICD{
-			Name: "Bus",
-			Entries: []icd.Entry{
-				{Variant: gear},
-				{Variant: mode},
-				messageEntry(engine),
-				messageEntry(brake),
-				messageEntry(unnamed),
-			},
+			Name:     "Bus",
+			Messages: []icd.Message{engine, brake, other},
 		}
 	})
 
-	hash := func(ic icd.ICD, messages ...icd.EntryKey) string {
+	hash := func(ic icd.ICD, messages ...icd.MessageKey) string {
 		GinkgoHelper()
 		return MustSucceed(icd.TaskHash(ic, messages))
 	}
 
 	It("Should not change when an unused message changes", func() {
 		before := hash(ic, engine.Key)
-		ic = setScale(ic, 3, 0.5)
-		Expect(hash(ic, engine.Key)).To(Equal(before))
-	})
-
-	It("Should not change when an unused enum changes", func() {
-		before := hash(ic, engine.Key)
-		mode.Values = append(mode.Values, icd.EnumValue{Value: 1, Name: "Run"})
-		ic.Entries[1] = icd.Entry{Variant: mode}
+		ic = setScale(ic, 1, 0.5)
 		Expect(hash(ic, engine.Key)).To(Equal(before))
 	})
 
@@ -113,21 +89,13 @@ var _ = Describe("TaskHash", func() {
 
 	It("Should change when a used message changes", func() {
 		before := hash(ic, engine.Key)
-		ic = setScale(ic, 2, 0.5)
+		ic = setScale(ic, 0, 0.5)
 		Expect(hash(ic, engine.Key)).ToNot(Equal(before))
 	})
 
-	It("Should change when an enum a used field names changes", func() {
-		before := hash(ic, engine.Key)
-		gear.Values = append(gear.Values, icd.EnumValue{Value: 1, Name: "Drive"})
-		ic.Entries[0] = icd.Entry{Variant: gear}
-		Expect(hash(ic, engine.Key)).ToNot(Equal(before))
-	})
-
-	It("Should not change when the entries are reordered", func() {
+	It("Should not change when the messages are reordered", func() {
 		before := hash(ic, engine.Key, brake.Key)
-		ic.Entries[2], ic.Entries[3] = ic.Entries[3], ic.Entries[2]
-		ic.Entries[0], ic.Entries[1] = ic.Entries[1], ic.Entries[0]
+		ic.Messages[0], ic.Messages[1] = ic.Messages[1], ic.Messages[0]
 		Expect(hash(ic, brake.Key, engine.Key)).To(Equal(before))
 	})
 

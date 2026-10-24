@@ -100,8 +100,8 @@ describe("ICD tree", () => {
     await waitFor(() => expect(picker.lastInput()).toBeDefined());
     picker.selectFiles([fakePickedFile("engine.csv", ENGINE_CSV)]);
     await waitFor(async () => {
-      const { entries } = await client.icds.retrieve({ key: ic.key });
-      expect(entries.map(({ name }) => name)).toEqual(["Engine"]);
+      const { messages } = await client.icds.retrieve({ key: ic.key });
+      expect(messages.map(({ name }) => name)).toEqual(["Engine"]);
     });
   });
 });

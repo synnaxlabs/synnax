@@ -1,26 +1,10 @@
 {
-  "description": "A CAN message with little-endian and big-endian fields, one naming an enum.",
+  "description": "A CAN message with little-endian and big-endian fields.",
   "icd": {
     "key": "00000000-0000-4000-8000-000000000fff",
     "name": "Fixture",
-    "entries": [
+    "messages": [
       {
-        "kind": "enum",
-        "key": "00000000-0000-4000-8000-000000000001",
-        "name": "Gear",
-        "values": [
-          {
-            "value": 0,
-            "name": "Park"
-          },
-          {
-            "value": 1,
-            "name": "Drive"
-          }
-        ]
-      },
-      {
-        "kind": "message",
         "key": "00000000-0000-4000-8000-000000000002",
         "name": "Engine",
         "payload": {
@@ -52,8 +36,7 @@
               "bit_length": 8,
               "byte_order": "little_endian",
               "signed": false,
-              "float": false,
-              "enumeration": "00000000-0000-4000-8000-000000000001"
+              "float": false
             },
             {
               "key": "00000000-0000-4000-8000-00000000000c",

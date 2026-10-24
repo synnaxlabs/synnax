@@ -39,7 +39,7 @@ import (
 const testTaskType = "icd_test"
 
 type testMessage struct {
-	Message icd.EntryKey   `json:"message" msgpack:"message"`
+	Message icd.MessageKey `json:"message" msgpack:"message"`
 	Fields  []icd.FieldKey `json:"fields"  msgpack:"fields"`
 }
 
@@ -175,7 +175,7 @@ var (
 					c *testTaskConfig,
 				) error {
 					stamps++
-					messages := make([]icd.EntryKey, len(c.Messages))
+					messages := make([]icd.MessageKey, len(c.Messages))
 					for i, m := range c.Messages {
 						messages[i] = m.Message
 					}

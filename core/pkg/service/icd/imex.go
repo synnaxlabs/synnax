@@ -24,9 +24,8 @@ var _ imex.ImportExporter = (*Service)(nil)
 func (*Service) Match(map[string]any) bool { return false }
 
 // Import decodes env into a new ICD and persists it on tx. The key on the wire is
-// discarded so every import mints a new resource; entry and field keys are kept, so
-// references between entries survive. opts.Parent is ignored: an ICD is never
-// parented.
+// discarded so every import mints a new resource; message and field keys are kept, so
+// references to them survive. opts.Parent is ignored: an ICD is never parented.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,

@@ -21,14 +21,6 @@ enum ByteOrder {
   BYTE_ORDER_BIG_ENDIAN = 1;
 }
 
-// EnumValue maps one integer value of an enum to a name.
-message EnumValue {
-  // value is the integer value.
-  int32 value = 1;
-  // name is the name of the value.
-  string name = 2;
-}
-
 // BaseField carries the parts every message field shares.
 message BaseField {
   // key is the unique identifier for the field within its message.
@@ -41,21 +33,18 @@ message BaseField {
   double offset = 4;
   // units is the engineering unit of the decoded value.
   string units = 5;
-  // enumeration is the key of the enum entry that names the field's raw values. When
-  // absent the field has no named values.
-  optional string enumeration = 6;
   // multiplexor is the key of the field that selects whether this field is present.
   // When absent the field is always present.
-  optional string multiplexor = 7;
+  optional string multiplexor = 6;
   // multiplex_values are the raw values of the multiplexor for which this field is
   // present.
-  repeated int32 multiplex_values = 8;
+  repeated int32 multiplex_values = 7;
   // min is the smallest decoded value a write task accepts. When absent the field's bit
   // width sets the limit.
-  optional double min = 9;
+  optional double min = 8;
   // max is the largest decoded value a write task accepts. When absent the field's bit
   // width sets the limit.
-  optional double max = 10;
+  optional double max = 9;
 }
 
 // BinaryField is a field read from a bit range of a binary payload.
@@ -70,53 +59,58 @@ message BinaryField {
   double offset = 4;
   // units is the engineering unit of the decoded value.
   string units = 5;
-  // enumeration is the key of the enum entry that names the field's raw values. When
-  // absent the field has no named values.
-  optional string enumeration = 6;
   // multiplexor is the key of the field that selects whether this field is present.
   // When absent the field is always present.
-  optional string multiplexor = 7;
+  optional string multiplexor = 6;
   // multiplex_values are the raw values of the multiplexor for which this field is
   // present.
-  repeated int32 multiplex_values = 8;
+  repeated int32 multiplex_values = 7;
   // min is the smallest decoded value a write task accepts. When absent the field's bit
   // width sets the limit.
-  optional double min = 9;
+  optional double min = 8;
   // max is the largest decoded value a write task accepts. When absent the field's bit
   // width sets the limit.
-  optional double max = 10;
+  optional double max = 9;
   // start_bit is the bit where the field starts, numbered as in a DBC file: the least
   // significant bit for little-endian fields and the most significant bit for
   // big-endian fields.
-  uint32 start_bit = 11;
+  uint32 start_bit = 10;
   // bit_length is the number of bits in the field, from 1 to 64.
-  uint32 bit_length = 12;
+  uint32 bit_length = 11;
   // byte_order is the byte order of the field.
-  ByteOrder byte_order = 13;
+  ByteOrder byte_order = 12;
   // signed is true when the raw value is two's complement.
-  bool signed = 14;
+  bool signed = 13;
   // float is true when the raw bits are an IEEE 754 float of 32 or 64 bits.
-  bool float = 15;
+  bool float = 14;
 }
 
-// BaseEntry carries the parts every ICD entry shares.
-message BaseEntry {
-  // key is the unique identifier for the entry within its ICD.
+// Message is a frame layout on a bus or byte stream.
+message Message {
+  // key is the unique identifier for the message within its ICD.
   string key = 1;
-  // name is the name of the entry, unique within its ICD.
+  // name is the name of the message, unique within its ICD.
   string name = 2;
+  // payload is the layout of the message's payload.
+  Payload payload = 3;
+  // period is the transmit period. When absent a write task sends the message when one
+  // of its command channels changes.
+  optional int64 period = 4;
+  // query is the request a polling task sends to get the message. Binary messages hold
+  // escaped bytes. When absent the device sends the message unprompted.
+  optional string query = 5;
 }
 
 // ICD is an interface control document: the messages a device sends and receives on a
-// bus or byte stream, and the enums that name their values.
+// bus or byte stream.
 message ICD {
   // key is the unique identifier for the ICD.
   string key = 1;
   // name is a human-readable name for the ICD.
   string name = 2;
-  // entries are the messages and enums the ICD holds.
-  repeated Entry entries = 3;
-  // hash is the hash of the entries as the Core last stored them. A write sends the
+  // messages are the messages the ICD holds.
+  repeated Message messages = 3;
+  // hash is the hash of the messages as the Core last stored them. A write sends the
   // hash it read, and the Core rejects the write when the ICD changed since.
   string hash = 4;
 }
@@ -127,8 +121,8 @@ message Reference {
   // icd is the key of the ICD the task reads its messages from. When absent the task
   // uses no ICD yet.
   optional string icd = 1;
-  // icd_hash is the hash of the ICD entries the task uses, stamped by the Core when the
-  // task or the ICD is written.
+  // icd_hash is the hash of the ICD messages the task uses, stamped by the Core when
+  // the task or the ICD is written.
   string icd_hash = 2;
 }
 message IdentifierCanPayload {
@@ -176,20 +170,6 @@ message PayloadTextPayload {
   // fields are the values the line carries.
   repeated TextField fields = 3;
 }
-message EntryEnumPayload {
-  // values are the named values of the enum.
-  repeated EnumValue values = 1;
-}
-message EntryMessagePayload {
-  // payload is the layout of the message's payload.
-  Payload payload = 1;
-  // period is the transmit period. When absent a write task sends the message when one
-  // of its command channels changes.
-  optional int64 period = 2;
-  // query is the request a polling task sends to get the message. Binary messages hold
-  // escaped bytes. When absent the device sends the message unprompted.
-  optional string query = 3;
-}
 
 // Identifier selects which frames on a bus belong to a binary message.
 message Identifier {
@@ -213,14 +193,5 @@ message Payload {
   oneof variant {
     PayloadBinaryPayload binary = 1;
     PayloadTextPayload text = 2;
-  }
-}
-
-// Entry is one typed item in an ICD.
-message Entry {
-  BaseEntry base_entry = 1;
-  oneof variant {
-    EntryEnumPayload enum = 2;
-    EntryMessagePayload message = 3;
   }
 }

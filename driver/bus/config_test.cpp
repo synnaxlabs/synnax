@@ -25,7 +25,7 @@ namespace {
 /// @brief a read config over one text message with one field on channel 2, stamped on
 /// index 1.
 struct ReadFixture {
-    synnax::icd::MessageEntry message = text_message(
+    synnax::icd::Message message = text_message(
         "status",
         {delimited_field("value", 0)}
     );

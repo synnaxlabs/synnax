@@ -33,11 +33,11 @@ import { Task } from "@/platform/task";
 const MESSAGES_PATH = "config.messages";
 
 /**
- * @returns the message entries of the ICD the form's config names, keyed by entry
- * key, and the error that kept them from loading.
+ * @returns the messages of the ICD the form's config names, keyed by message key, and
+ * the error that kept them from loading.
  */
 const useICDMessages = (): {
-  messages: Map<icd.EntryKey, icd.MessageEntry>;
+  messages: Map<icd.MessageKey, icd.Message>;
   error?: string;
 } => {
   const key = Form.useFieldValue<icd.Key>("config.icd", { optional: true });
@@ -47,7 +47,7 @@ const useICDMessages = (): {
 };
 
 /** @returns a short label for how a message is matched on its transport. */
-const describeMatch = ({ payload }: icd.MessageEntry): string => {
+const describeMatch = ({ payload }: icd.Message): string => {
   if (payload.format === "text") return payload.prefix;
   const id = payload.identifier;
   if (id == null) return "";
@@ -59,23 +59,23 @@ const describeMatch = ({ payload }: icd.MessageEntry): string => {
   }
 };
 
-interface MessageItemProps extends List.ItemRenderProps<icd.EntryKey> {
-  entries: Map<icd.EntryKey, icd.MessageEntry>;
-  onRemove: (key: icd.EntryKey) => void;
+interface MessageItemProps extends List.ItemRenderProps<icd.MessageKey> {
+  definitions: Map<icd.MessageKey, icd.Message>;
+  onRemove: (key: icd.MessageKey) => void;
 }
 
-const MessageItem = ({ entries, onRemove, ...props }: MessageItemProps) => {
+const MessageItem = ({ definitions, onRemove, ...props }: MessageItemProps) => {
   const { itemKey, index } = props;
   const isPreview = Task.useIsPreview();
-  const entry = entries.get(itemKey);
+  const definition = definitions.get(itemKey);
   return (
     <Select.Item {...props} justify="between" align="center" x>
       <Flex.Box y gap="tiny" className={CSS.BE("bus-message", "label")}>
         <Text.Text weight={500} overflow="ellipsis">
-          {entry?.name ?? "Unknown message"}
+          {definition?.name ?? "Unknown message"}
         </Text.Text>
         <Text.Text level="small" color={8}>
-          {entry == null ? "" : describeMatch(entry)}
+          {definition == null ? "" : describeMatch(definition)}
         </Text.Text>
       </Flex.Box>
       <Flex.Box x align="center" gap="tiny">
@@ -100,15 +100,18 @@ const MessageItem = ({ entries, onRemove, ...props }: MessageItemProps) => {
 };
 
 interface AddMessageProps {
-  entries: icd.MessageEntry[];
-  onAdd: (entry: icd.MessageEntry) => void;
+  definitions: icd.Message[];
+  onAdd: (definition: icd.Message) => void;
 }
 
 const ADD_TRIGGER_PROPS = { placeholder: "Add message", icon: <Icon.Add /> } as const;
 
 /** Picks an ICD message to add. Carries the status of the messages list. */
-const AddMessage = ({ entries, onAdd }: AddMessageProps) => {
-  const byKey = useMemo(() => new Map(entries.map((e) => [e.key, e])), [entries]);
+const AddMessage = ({ definitions, onAdd }: AddMessageProps) => {
+  const byKey = useMemo(
+    () => new Map(definitions.map((e) => [e.key, e])),
+    [definitions],
+  );
   return (
     <Form.Field<Message[]>
       path={MESSAGES_PATH}
@@ -118,17 +121,17 @@ const AddMessage = ({ entries, onAdd }: AddMessageProps) => {
     >
       {({ preview }) =>
         preview === true ? null : (
-          <Select.Simple<icd.EntryKey>
+          <Select.Simple<icd.MessageKey>
             resourceName="message"
             triggerProps={ADD_TRIGGER_PROPS}
-            onChange={(key: icd.EntryKey) => {
-              const entry = byKey.get(key);
-              if (entry != null) onAdd(entry);
+            onChange={(key: icd.MessageKey) => {
+              const definition = byKey.get(key);
+              if (definition != null) onAdd(definition);
             }}
             emptyContent={<Empty.Action message="No messages to add" />}
           >
-            {entries.map((e) => (
-              <Select.Item<icd.EntryKey> key={e.key} itemKey={e.key}>
+            {definitions.map((e) => (
+              <Select.Item<icd.MessageKey> key={e.key} itemKey={e.key}>
                 {e.name}
               </Select.Item>
             ))}
@@ -143,15 +146,15 @@ const AddMessage = ({ entries, onAdd }: AddMessageProps) => {
 export interface DetailsProps {
   /** The form path of the message in the task's config. */
   path: string;
-  /** The ICD entry of the message. */
-  entry: icd.MessageEntry;
+  /** The message as its ICD defines it. */
+  definition: icd.Message;
 }
 
 export interface MessagesProps {
   /** Whether the task's integration can carry an ICD message. */
   accepts: Accepts;
-  /** Creates the config entry for an ICD message the user adds. */
-  create: (entry: icd.MessageEntry) => Message;
+  /** Creates the config message for an ICD message the user adds. */
+  create: (definition: icd.Message) => Message;
   /** Renders the fields of the selected message. */
   details: Component.RenderProp<DetailsProps>;
 }
@@ -163,27 +166,27 @@ const EMPTY_CONTENT = <Empty.Action message="No messages" />;
  * picker offers the ICD's messages the integration can carry.
  */
 export const Messages = ({ accepts, create, details }: MessagesProps): ReactElement => {
-  const { messages: entries, error } = useICDMessages();
+  const { messages: definitions, error } = useICDMessages();
   const ctx = Form.useContext();
   const messages = Form.useFieldValue<Message[]>(MESSAGES_PATH);
   const keys = useMemo(() => messages.map((m) => m.message), [messages]);
-  const [selected, setSelected] = useState<icd.EntryKey | undefined>(keys[0]);
+  const [selected, setSelected] = useState<icd.MessageKey | undefined>(keys[0]);
   const addable = useMemo(
-    () => [...entries.values()].filter((e) => accepts(e) && !keys.includes(e.key)),
-    [entries, keys, accepts],
+    () => [...definitions.values()].filter((e) => accepts(e) && !keys.includes(e.key)),
+    [definitions, keys, accepts],
   );
   const handleAdd = useCallback(
-    (entry: icd.MessageEntry) => {
+    (definition: icd.Message) => {
       ctx.set(MESSAGES_PATH, [
         ...ctx.get<Message[]>(MESSAGES_PATH).value,
-        create(entry),
+        create(definition),
       ]);
-      setSelected(entry.key);
+      setSelected(definition.key);
     },
     [ctx, create],
   );
   const handleRemove = useCallback(
-    (key: icd.EntryKey) => {
+    (key: icd.MessageKey) => {
       const next = ctx
         .get<Message[]>(MESSAGES_PATH)
         .value.filter((m) => m.message !== key);
@@ -194,26 +197,26 @@ export const Messages = ({ accepts, create, details }: MessagesProps): ReactElem
   );
   const renderItem = useMemo(
     () =>
-      Component.renderProp((p: List.ItemRenderProps<icd.EntryKey>) => (
-        <MessageItem {...p} entries={entries} onRemove={handleRemove} />
+      Component.renderProp((p: List.ItemRenderProps<icd.MessageKey>) => (
+        <MessageItem {...p} definitions={definitions} onRemove={handleRemove} />
       )),
-    [entries, handleRemove],
+    [definitions, handleRemove],
   );
   const index = selected == null ? -1 : keys.indexOf(selected);
   const path = index === -1 ? null : `${MESSAGES_PATH}.${index}`;
-  const entry = selected == null ? undefined : entries.get(selected);
+  const definition = selected == null ? undefined : definitions.get(selected);
   let content: ReactNode;
   if (error != null) content = <Placeholder>{error}</Placeholder>;
   else if (path == null)
     content = <Placeholder>Select a message to configure</Placeholder>;
-  else if (entry == null) content = <Placeholder>Loading message</Placeholder>;
-  else content = details({ path, entry });
+  else if (definition == null) content = <Placeholder>Loading message</Placeholder>;
+  else content = details({ path, definition });
   return (
     <Task.Views.Panes
       listTitle="Messages"
       list={
         <Flex.Box y empty grow className={CSS.B("bus-messages")}>
-          <Select.Frame<icd.EntryKey, undefined>
+          <Select.Frame<icd.MessageKey, undefined>
             data={keys}
             value={selected}
             onChange={setSelected}
@@ -221,16 +224,16 @@ export const Messages = ({ accepts, create, details }: MessagesProps): ReactElem
             autoSelectOnNone
           >
             <List.Scroll full="y">
-              <List.Items<icd.EntryKey> emptyContent={EMPTY_CONTENT}>
+              <List.Items<icd.MessageKey> emptyContent={EMPTY_CONTENT}>
                 {renderItem}
               </List.Items>
             </List.Scroll>
           </Select.Frame>
-          <AddMessage entries={addable} onAdd={handleAdd} />
+          <AddMessage definitions={addable} onAdd={handleAdd} />
         </Flex.Box>
       }
       detailsPath={path}
-      title={entry?.name}
+      title={definition?.name}
     >
       {content}
     </Task.Views.Panes>

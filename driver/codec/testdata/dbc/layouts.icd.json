@@ -1,9 +1,8 @@
 {
   "key": "00000000-0000-4000-8000-000000000000",
   "name": "layouts",
-  "entries": [
+  "messages": [
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000001",
       "name": "LittleEndian",
       "payload": {
@@ -86,7 +85,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000007",
       "name": "LittleEndianWide",
       "payload": {
@@ -156,7 +154,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000000c",
       "name": "BigEndian",
       "payload": {
@@ -265,7 +262,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000014",
       "name": "BigEndianWide",
       "payload": {
@@ -335,7 +331,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000019",
       "name": "Floats",
       "payload": {
@@ -379,7 +374,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000001c",
       "name": "Double",
       "payload": {
@@ -410,7 +404,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000001e",
       "name": "DoubleBigEndian",
       "payload": {
@@ -441,7 +434,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000020",
       "name": "Wide",
       "payload": {
@@ -472,7 +464,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000022",
       "name": "WideBigEndian",
       "payload": {
@@ -503,7 +494,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000024",
       "name": "Multiplexed",
       "payload": {
@@ -589,7 +579,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-00000000002a",
       "name": "ExtendedMultiplexed",
       "payload": {
@@ -689,7 +678,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000031",
       "name": "LongFrame",
       "payload": {
@@ -746,7 +734,6 @@
       }
     },
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000035",
       "name": "EngineController",
       "payload": {

@@ -28,15 +28,8 @@ BO_ 256 EngineStatus: 8 ECU
 def create_icd(name: str = "ICD") -> sy.ICD:
     return sy.ICD(
         name=name,
-        entries=[
-            sy.icd.EnumEntry(
-                name="State",
-                values=[
-                    sy.icd.EnumValue(value=0, name="Off"),
-                    sy.icd.EnumValue(value=1, name="On"),
-                ],
-            ),
-            sy.icd.MessageEntry(
+        messages=[
+            sy.icd.Message(
                 name="Status",
                 payload=sy.icd.BinaryPayload(
                     identifier=sy.icd.CanIdentifier(id=0x101, extended=False, fd=False),
@@ -61,15 +54,12 @@ def create_icd(name: str = "ICD") -> sy.ICD:
 @pytest.mark.icd
 class TestICD:
     def test_create(self, client: sy.Synnax) -> None:
-        """Should create an ICD with an enum and a CAN message."""
+        """Should create an ICD with a CAN message."""
         ic = client.icds.create(create_icd())
         assert ic.name == "ICD"
-        assert len(ic.entries) == 2
-        en, msg = ic.entries
-        assert isinstance(en, sy.icd.EnumEntry)
-        assert en.name == "State"
-        assert [(v.value, v.name) for v in en.values] == [(0, "Off"), (1, "On")]
-        assert isinstance(msg, sy.icd.MessageEntry)
+        assert len(ic.messages) == 1
+        msg = ic.messages[0]
+        assert msg.name == "Status"
         payload = msg.payload
         assert isinstance(payload, sy.icd.BinaryPayload)
         assert payload.identifier == sy.icd.CanIdentifier(
@@ -85,15 +75,15 @@ class TestICD:
         assert temp.signed
         assert temp.scale == 0.1
         assert temp.units == "degC"
-        keys = [en.key, msg.key, *(f.key for f in payload.fields)]
+        keys = [msg.key, *(f.key for f in payload.fields)]
         assert len(set(keys)) == len(keys)
 
     def test_create_text(self, client: sy.Synnax) -> None:
         """Should create a message with a text payload."""
         ic = client.icds.create(
             name="Sensor",
-            entries=[
-                sy.icd.MessageEntry(
+            messages=[
+                sy.icd.Message(
                     name="Line",
                     payload=sy.icd.TextPayload(
                         prefix="$",
@@ -105,9 +95,7 @@ class TestICD:
                 )
             ],
         )
-        msg = ic.entries[0]
-        assert isinstance(msg, sy.icd.MessageEntry)
-        payload = msg.payload
+        payload = ic.messages[0].payload
         assert isinstance(payload, sy.icd.TextPayload)
         assert (payload.delimiter, payload.prefix) == (",", "$")
         temp, rh = payload.fields
@@ -136,9 +124,12 @@ class TestICD:
 
     def test_create_from_kwargs(self, client: sy.Synnax) -> None:
         """Should create an ICD from keyword arguments."""
-        ic = client.icds.create(name="Kwargs", entries=[sy.icd.EnumEntry(name="Mode")])
+        ic = client.icds.create(
+            name="Kwargs",
+            messages=[sy.icd.Message(name="Mode", payload=sy.icd.BinaryPayload())],
+        )
         assert ic.name == "Kwargs"
-        assert [e.name for e in ic.entries] == ["Mode"]
+        assert [m.name for m in ic.messages] == ["Mode"]
 
     def test_create_multiple(self, client: sy.Synnax) -> None:
         """Should create multiple ICDs."""
@@ -150,45 +141,42 @@ class TestICD:
         """Should replace an ICD when the save carries the hash it read."""
         ic = client.icds.create(create_icd())
         read = client.icds.retrieve(key=ic.key)
+        renamed = read.messages[0].model_copy(update={"name": "Renamed"})
         saved = client.icds.create(
-            sy.ICD(
-                key=read.key,
-                name=read.name,
-                entries=[read.entries[0]],
-                hash=read.hash,
-            )
+            sy.ICD(key=read.key, name=read.name, messages=[renamed], hash=read.hash)
         )
         assert saved.hash != read.hash
         retrieved = client.icds.retrieve(key=ic.key)
-        assert len(retrieved.entries) == 1
-        assert retrieved.entries[0].key == ic.entries[0].key
+        assert len(retrieved.messages) == 1
+        assert retrieved.messages[0].key == ic.messages[0].key
+        assert retrieved.messages[0].name == "Renamed"
         assert retrieved.hash == saved.hash
 
     def test_create_stale(self, client: sy.Synnax) -> None:
         """Should reject a save that carries a hash the ICD no longer has."""
         ic = client.icds.create(create_icd("Engine"))
-        other = ic.model_copy(update={"entries": [ic.entries[0]]})
+        other = ic.model_copy(update={"messages": []})
         client.icds.create(other)
         with pytest.raises(sy.StaleError) as exc_info:
             client.icds.create(ic)
         assert str(exc_info.value) == "ICD Engine: changed since it was read"
-        assert client.icds.retrieve(key=ic.key).entries == [ic.entries[0]]
+        assert client.icds.retrieve(key=ic.key).messages == []
 
-    def test_create_duplicate_entry_names(self, client: sy.Synnax) -> None:
-        """Should reject entries that share a name."""
+    def test_create_duplicate_message_names(self, client: sy.Synnax) -> None:
+        """Should reject messages that share a name."""
         ic = sy.ICD(
             name="Duplicates",
-            entries=[
-                sy.icd.EnumEntry(name="Mode"),
-                sy.icd.EnumEntry(name="Mode"),
+            messages=[
+                sy.icd.Message(name="Mode", payload=sy.icd.BinaryPayload()),
+                sy.icd.Message(name="Mode", payload=sy.icd.BinaryPayload()),
             ],
         )
         with pytest.raises(sy.PathError) as exc_info:
             client.icds.create(ic)
-        assert exc_info.value.path == ["entries", "1", "name"]
+        assert exc_info.value.path == ["messages", "1", "name"]
         assert (
             str(exc_info.value)
-            == 'entries.1.name: duplicate entry name "Mode": validation error'
+            == 'messages.1.name: duplicate message name "Mode": validation error'
         )
 
     def test_check_valid(self, client: sy.Synnax) -> None:
@@ -199,9 +187,9 @@ class TestICD:
         """Should return a problem at the path of every bad value."""
         ic = sy.ICD(
             name="Invalid",
-            entries=[
-                sy.icd.EnumEntry(name="Mode"),
-                sy.icd.MessageEntry(
+            messages=[
+                sy.icd.Message(name="Mode", payload=sy.icd.BinaryPayload()),
+                sy.icd.Message(
                     name="Mode",
                     payload=sy.icd.BinaryPayload(
                         identifier=sy.icd.CanIdentifier(id=0x101),
@@ -217,10 +205,10 @@ class TestICD:
         )
         assert client.icds.check(ic) == [
             sy.icd.Problem(
-                path="entries.1.name", message='duplicate entry name "Mode"'
+                path="messages.1.name", message='duplicate message name "Mode"'
             ),
             sy.icd.Problem(
-                path="entries.1.payload.fields.0.scale",
+                path="messages.1.payload.fields.0.scale",
                 message="scale must be finite and non-zero",
             ),
         ]
@@ -260,7 +248,7 @@ class TestICD:
         client.icds.rename(ic.key, "Renamed")
         retrieved = client.icds.retrieve(key=ic.key)
         assert retrieved.name == "Renamed"
-        assert retrieved.entries == ic.entries
+        assert retrieved.messages == ic.messages
 
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete an ICD."""
@@ -278,12 +266,11 @@ class TestICD:
             client.icds.retrieve(keys=keys)
 
     def test_import_dbc(self, client: sy.Synnax) -> None:
-        """Should import the messages and value tables of a DBC file."""
+        """Should import the messages of a DBC file."""
         ic = client.icds.create(name="Vehicle")
         imported = client.icds.import_file(ic.key, DBC, "dbc")
         assert imported.key == ic.key
-        msg = next(e for e in imported.entries if e.name == "EngineStatus")
-        assert isinstance(msg, sy.icd.MessageEntry)
+        msg = next(m for m in imported.messages if m.name == "EngineStatus")
         assert isinstance(msg.payload, sy.icd.BinaryPayload)
         assert msg.payload.identifier == sy.icd.CanIdentifier(id=0x100)
         rpm = msg.payload.fields[0]
@@ -296,11 +283,11 @@ class TestICD:
         )
 
     def test_import_keeps_keys(self, client: sy.Synnax) -> None:
-        """Should keep entry keys when the same file is imported again."""
+        """Should keep message keys when the same file is imported again."""
         ic = client.icds.create(name="Vehicle")
         first = client.icds.import_file(ic.key, DBC, "dbc")
         second = client.icds.import_file(ic.key, DBC, "dbc")
-        assert [e.key for e in first.entries] == [e.key for e in second.entries]
+        assert [m.key for m in first.messages] == [m.key for m in second.messages]
 
     def test_import_invalid(self, client: sy.Synnax) -> None:
         """Should reject a file that does not parse."""

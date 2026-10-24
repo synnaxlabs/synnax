@@ -91,7 +91,7 @@ protected:
     /// device from a new virtual channel.
     [[nodiscard]] synnax::udp::WriteConfig
     write_config(const synnax::icd::ICD &ic, const std::string &device) const {
-        const auto &m = std::get<synnax::icd::MessageEntry>(ic.entries[0]);
+        const auto &m = ic.messages[0];
         const auto cmd = create_virtual_channel(*core.client, x::telem::FLOAT64_T);
         synnax::udp::WriteConfig cfg;
         cfg.device = device;
@@ -106,9 +106,7 @@ protected:
 }
 
 TEST_F(UDPFactory, RejectsAWriteTaskOnADeviceWithNoRemoteHost) {
-    const auto ic = core.create_icd(
-        {binary_message("cmd", {binary_field("v", 0)})}
-    );
+    const auto ic = core.create_icd({binary_message("cmd", {binary_field("v", 0)})});
     const auto cfg = this->write_config(ic, this->create_listening_device());
     EXPECT_EQ(this->configure(WRITE_TASK_TYPE, cfg.to_json()), nullptr);
     const auto errs = this->field_errors();
@@ -190,10 +188,8 @@ TEST_F(UDPFactory, ConfiguresAReadTaskThatStreamsDecodedValues) {
 }
 
 TEST_F(UDPFactory, ConfiguresAWriteTask) {
-    const auto ic = core.create_icd(
-        {binary_message("cmd", {binary_field("v", 0)})}
-    );
-    const auto &m = std::get<synnax::icd::MessageEntry>(ic.entries[0]);
+    const auto ic = core.create_icd({binary_message("cmd", {binary_field("v", 0)})});
+    const auto &m = ic.messages[0];
     const auto cmd = create_virtual_channel(*core.client, x::telem::FLOAT64_T);
     synnax::udp::WriteConfig cfg;
     cfg.device = this->create_device();

@@ -38,7 +38,7 @@ public:
     /// identifier and mask, header field value, or prefix, or when neither has an
     /// identifier or prefix. CONFIG_ERROR when an identifier field is a float.
     static std::pair<Matcher, x::errors::Error>
-    compile(std::span<const synnax::icd::MessageEntry> messages);
+    compile(std::span<const synnax::icd::Message> messages);
 
     /// @brief matches a CAN frame. Exact identifiers are checked first in constant
     /// time, then masked identifiers in declaration order, then the message with no

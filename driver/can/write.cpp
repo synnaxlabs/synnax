@@ -19,13 +19,15 @@ std::vector<Frame>
 frames(const x::json::Parser &parser, const bus::WriteConfig &cfg, const bool fd) {
     std::vector<Frame> out;
     for (const auto &m: cfg.messages) {
-        const auto &payload = std::get<synnax::icd::BinaryPayload>(m.entry.payload);
+        const auto &payload = std::get<synnax::icd::BinaryPayload>(
+            m.definition.payload
+        );
         const auto &id = std::get<synnax::icd::CanIdentifier>(*payload.identifier);
         const auto length = m.plan.length();
         if (length > std::numeric_limits<std::uint8_t>::max()) {
             parser.field_err(
                 "messages",
-                "message " + m.entry.name + " is " + std::to_string(length) +
+                "message " + m.definition.name + " is " + std::to_string(length) +
                     " bytes, longer than any CAN frame"
             );
             continue;
@@ -38,7 +40,10 @@ frames(const x::json::Parser &parser, const bus::WriteConfig &cfg, const bool fd
             .length = static_cast<std::uint8_t>(length),
         };
         if (const auto err = validate(frame, fd))
-            parser.field_err("messages", "message " + m.entry.name + ": " + err.data);
+            parser.field_err(
+                "messages",
+                "message " + m.definition.name + ": " + err.data
+            );
         out.push_back(frame);
     }
     return out;

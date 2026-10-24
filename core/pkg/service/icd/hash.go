@@ -16,37 +16,22 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// Hash returns the hash of the ICD's entries. The Core stores it in the ICD's Hash
+// Hash returns the hash of the ICD's messages. The Core stores it in the ICD's Hash
 // field, and a writer sends the hash it read so the Core can reject a stale save. A
 // rename leaves it unchanged.
-func Hash(ic ICD) (string, error) { return library.Hash(ic.Entries) }
+func Hash(ic ICD) (string, error) { return library.Hash(ic.Messages) }
 
-// TaskHash returns the hash of the entries a task uses: the messages with the given
-// keys and the enums their fields name. It ignores keys of messages the ICD does not
-// hold. Entries hash in key order, so reordering an ICD's entries does not change it.
-func TaskHash(ic ICD, messages []EntryKey) (string, error) {
-	used := set.New(messages...)
-	enums := make(set.Set[EntryKey])
-	var entries []Entry
-	for _, e := range ic.Entries {
-		m, ok := e.Variant.(MessageEntry)
-		if !ok || !used.Contains(m.Key) {
-			continue
-		}
-		entries = append(entries, e)
-		for _, b := range m.Payload.FieldBases() {
-			if b.Enumeration != nil {
-				enums.Add(*b.Enumeration)
-			}
+// TaskHash returns the hash of the messages with the given keys, the ones a task uses.
+// It ignores keys of messages the ICD does not hold. Messages hash in key order, so
+// reordering an ICD's messages does not change it.
+func TaskHash(ic ICD, keys []MessageKey) (string, error) {
+	used := set.New(keys...)
+	var messages []Message
+	for _, m := range ic.Messages {
+		if used.Contains(m.Key) {
+			messages = append(messages, m)
 		}
 	}
-	for _, e := range ic.Entries {
-		if en, ok := e.Variant.(EnumEntry); ok && enums.Contains(en.Key) {
-			entries = append(entries, e)
-		}
-	}
-	slices.SortFunc(entries, func(a, b Entry) int {
-		return a.Base().Key.Compare(b.Base().Key)
-	})
-	return library.Hash(entries)
+	slices.SortFunc(messages, func(a, b Message) int { return a.Key.Compare(b.Key) })
+	return library.Hash(messages)
 }

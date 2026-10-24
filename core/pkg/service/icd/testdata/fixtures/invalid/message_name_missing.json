@@ -1,26 +1,23 @@
 {
-  "description": "An enum value has no name.",
+  "description": "A message has no name.",
   "codec_rejects": false,
   "problems": [
     {
-      "path": "entries.0.values.0.name",
+      "path": "messages.0.name",
       "message": "required"
     }
   ],
   "icd": {
     "key": "00000000-0000-4000-8000-000000000fff",
     "name": "Fixture",
-    "entries": [
+    "messages": [
       {
-        "kind": "enum",
         "key": "00000000-0000-4000-8000-000000000001",
-        "name": "State",
-        "values": [
-          {
-            "value": 0,
-            "name": ""
-          }
-        ]
+        "name": "",
+        "payload": {
+          "format": "binary",
+          "fields": []
+        }
       }
     ],
     "hash": ""

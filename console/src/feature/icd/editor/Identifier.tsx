@@ -52,17 +52,24 @@ interface FlagProps extends Pick<Form.UseFieldOptions<boolean>, "onChange"> {
 
 const Flag = ({ path, label, disabled, onChange }: FlagProps): ReactElement => {
   const id = useId();
+  const labelID = `${id}-label`;
   const field = Form.useField<boolean>(path, { onChange });
   return (
     <Flex.Box x align="center" gap="small">
       <Input.Checkbox
         id={id}
+        aria-labelledby={labelID}
         value={field.value}
         onChange={field.onChange}
         preview={field.preview}
         disabled={disabled}
       />
-      <Text.Text el="label" htmlFor={id} color={disabled === true ? 8 : undefined}>
+      <Text.Text
+        el="label"
+        id={labelID}
+        htmlFor={id}
+        color={disabled === true ? 8 : undefined}
+      >
         {label}
       </Text.Text>
     </Flex.Box>

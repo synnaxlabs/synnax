@@ -29,9 +29,7 @@ protected:
 }
 
 TEST_F(SerialFactory, ConfiguresAReadTaskThatStreamsDecodedValues) {
-    const auto ic = core.create_icd(
-        {text_message("env", {tagged_field("t", "T=")})}
-    );
+    const auto ic = core.create_icd({text_message("env", {tagged_field("t", "T=")})});
     const auto dev = core.create_device(MAKE, this->props().to_json());
     synnax::serial::ReadConfig cfg;
     static_cast<::synnax::bus::ReadConfig &>(cfg) = core.read_config(ic, dev);
@@ -50,9 +48,7 @@ TEST_F(SerialFactory, ConfiguresAReadTaskThatStreamsDecodedValues) {
 }
 
 TEST_F(SerialFactory, RejectsAMessageThatIsNotInTheICD) {
-    const auto ic = core.create_icd(
-        {text_message("env", {tagged_field("t", "T=")})}
-    );
+    const auto ic = core.create_icd({text_message("env", {tagged_field("t", "T=")})});
     const auto dev = core.create_device(MAKE, this->props().to_json());
     synnax::serial::ReadConfig cfg;
     static_cast<::synnax::bus::ReadConfig &>(cfg) = core.read_config(ic, dev);
@@ -76,7 +72,7 @@ TEST_F(SerialFactory, ConfiguresAWriteTask) {
         {text_message("set", {tagged_field("v", "VOLT ")})}
     );
     const auto dev = core.create_device(MAKE, this->props().to_json());
-    const auto &m = std::get<synnax::icd::MessageEntry>(ic.entries[0]);
+    const auto &m = ic.messages[0];
     const auto cmd = create_virtual_channel(*core.client, x::telem::FLOAT64_T);
     synnax::serial::WriteConfig cfg;
     cfg.device = dev;

@@ -37,12 +37,12 @@ describe("Library.useCheck", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
     values = icd.icdZ.parse({
       name: "ICD",
-      entries: [
-        { kind: "enum", name: "Mode" },
-        { kind: "enum", name: "Gear" },
+      messages: [
+        { name: "Mode", payload: { format: "binary" } },
+        { name: "Gear", payload: { format: "binary" } },
       ],
     });
-    mode = `entries.${values.entries[1].key}.name`;
+    mode = `messages.${values.messages[1].key}.name`;
   });
 
   it("should put each problem on the form path it names", async () => {
@@ -53,7 +53,7 @@ describe("Library.useCheck", () => {
     await waitFor(() =>
       expect(result.current.get(mode)?.status).toMatchObject({
         variant: "error",
-        message: 'duplicate entry name "Mode"',
+        message: 'duplicate message name "Mode"',
       }),
     );
   });
@@ -79,7 +79,7 @@ describe("Library.useCheck", () => {
       result.current.set(mode, "ABC");
     });
     await waitFor(() => expect(check).toHaveBeenCalledOnce());
-    expect(check.mock.calls[0][1].entries[1].name).toEqual("ABC");
+    expect(check.mock.calls[0][1].messages[1].name).toEqual("ABC");
   });
 
   it("should drop a result when the form changed while the check ran", async () => {
@@ -89,7 +89,7 @@ describe("Library.useCheck", () => {
       .fn<Check>(async () => [])
       .mockImplementationOnce(async () => {
         await gate;
-        return [{ path: "entries.1.name", message: "out of date" }];
+        return [{ path: "messages.1.name", message: "out of date" }];
       });
     const { result } = renderHook(() => useChecked(values, check), { wrapper });
     act(() => result.current.set(mode, "A"));

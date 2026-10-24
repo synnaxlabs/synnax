@@ -34,6 +34,6 @@ describe("ICD commands", () => {
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(icd.TYPE_ONTOLOGY_ID.type);
     const created = await client.icds.retrieve({ key: tab.resource.key });
-    expect(created).toMatchObject({ name: "ICD", entries: [] });
+    expect(created).toMatchObject({ name: "ICD", messages: [] });
   });
 });

@@ -1,9 +1,8 @@
 {
   "key": "00000000-0000-4000-8000-000000000000",
   "name": "cantools_issue_636_negative_scaling",
-  "entries": [
+  "messages": [
     {
-      "kind": "message",
       "key": "00000000-0000-4000-8000-000000000001",
       "name": "ExampleMessage",
       "payload": {
@@ -23,7 +22,6 @@
             "scale": -0.01,
             "offset": 4100,
             "units": "degK",
-            "enumeration": "00000000-0000-4000-8000-000000000003",
             "multiplex_values": [],
             "min": 4070,
             "max": 4100,
@@ -35,21 +33,6 @@
           }
         ]
       }
-    },
-    {
-      "kind": "enum",
-      "key": "00000000-0000-4000-8000-000000000003",
-      "name": "TempValueTable",
-      "values": [
-        {
-          "value": 4095,
-          "name": "Error"
-        },
-        {
-          "value": 4094,
-          "name": "Init"
-        }
-      ]
     }
   ],
   "hash": ""

@@ -10,12 +10,12 @@
 import { type bus, type icd } from "@synnaxlabs/client";
 import { type z } from "zod";
 
-/** A message entry of a task's config: the fields a read or write task binds. */
+/** A message of a task's config: the fields a read or write task binds. */
 export type Message = bus.ReadMessage | bus.WriteMessage;
 
 /** Whether an integration can carry an ICD message. */
 export interface Accepts {
-  (message: icd.MessageEntry): boolean;
+  (message: icd.Message): boolean;
 }
 
 /**
@@ -27,24 +27,18 @@ export const acceptsStream: Accepts = ({ payload }) =>
   payload.identifier == null ||
   payload.identifier.type === "field";
 
-/** @returns the message entries of an ICD, keyed by entry key. */
-export const messagesOf = (
-  ic: icd.ICD | undefined,
-): Map<icd.EntryKey, icd.MessageEntry> => {
-  const out = new Map<icd.EntryKey, icd.MessageEntry>();
-  ic?.entries.forEach((e) => {
-    if (e.kind === "message") out.set(e.key, e);
-  });
-  return out;
-};
+/** @returns the messages of an ICD, keyed by message key. */
+export const messagesOf = (ic: icd.ICD | undefined): Map<icd.MessageKey, icd.Message> =>
+  new Map((ic?.messages ?? []).map((m) => [m.key, m]));
 
 /**
- * @returns the field of a message entry with the key.
+ * @returns the field of an ICD message with the key.
  * @throws {Error} if the message has no such field.
  */
-export const fieldOf = (entry: icd.MessageEntry, key: icd.FieldKey): icd.BaseField => {
-  const field = entry.payload.fields.find((f) => f.key === key);
-  if (field == null) throw new Error(`Field ${key} is not in message ${entry.name}`);
+export const fieldOf = (definition: icd.Message, key: icd.FieldKey): icd.BaseField => {
+  const field = definition.payload.fields.find((f) => f.key === key);
+  if (field == null)
+    throw new Error(`Field ${key} is not in message ${definition.name}`);
   return field;
 };
 

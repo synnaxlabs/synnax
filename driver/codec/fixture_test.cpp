@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -61,12 +60,9 @@ std::vector<Fixture> load(const std::string &kind) {
 
 /// @returns the first error of compiling each message of ic and a matcher over them.
 x::errors::Error compile(const icd::ICD &ic) {
-    std::vector<icd::MessageEntry> messages;
-    for (const auto &e: ic.entries)
-        if (const auto *m = std::get_if<icd::MessageEntry>(&e)) messages.push_back(*m);
-    for (const auto &m: messages)
+    for (const auto &m: ic.messages)
         if (auto [_, err] = Plan::compile(m); err) return err;
-    return Matcher::compile(messages).second;
+    return Matcher::compile(ic.messages).second;
 }
 }
 
