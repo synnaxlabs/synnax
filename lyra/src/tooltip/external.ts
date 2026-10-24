@@ -10,4 +10,3 @@
 export * from "@/tooltip/Config";
 export * from "@/tooltip/Dialog";
 export * from "@/tooltip/Frame";
-export * from "@/tooltip/tooltip";
