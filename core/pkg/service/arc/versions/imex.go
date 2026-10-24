@@ -14,6 +14,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
@@ -30,7 +31,10 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	} else {
 		var doc legacy.Document
 		if doc, err = decodeConsole(ctx, env); err == nil {
-			a.Mode, a.Graph, a.Text = Mode(doc.Mode), doc.Graph, doc.Text
+			a, err = liftFirst(
+				ctx,
+				v3.Arc{Mode: v3.Mode(doc.Mode), Graph: doc.Graph, Text: doc.Text},
+			)
 		}
 	}
 	if err != nil {

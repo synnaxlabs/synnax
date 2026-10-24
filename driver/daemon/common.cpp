@@ -32,6 +32,7 @@ x::errors::Error load_env() {
 
 x::errors::Error create_system_user() {
     LOG(INFO) << "creating system user";
+    // NOLINTNEXTLINE(bugprone-command-processor): a fixed string.
     if (system("id -u synnax >/dev/null 2>&1 || useradd -r -s /sbin/nologin synnax") !=
         0)
         return x::errors::Error("failed to create system user");

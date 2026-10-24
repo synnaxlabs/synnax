@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -67,7 +68,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"

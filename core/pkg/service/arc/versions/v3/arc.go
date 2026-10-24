@@ -11,9 +11,9 @@ package v3
 
 import (
 	graph "github.com/synnaxlabs/arc/graph/versions/v1"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 var _ gorp.Entry[Key] = Arc{}

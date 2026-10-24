@@ -55,7 +55,7 @@ class Slave {
     std::atomic<bool> running_;
     std::string ip_address_;
     int port_;
-    int socket_;
+    int socket_{-1};
     mutable std::mutex mutex_;
     SlaveConfig config_;
     modbus_mapping_t *mb_mapping_; // Add as member
@@ -195,11 +195,11 @@ class Slave {
             rd_set = ref_set;
 
             // Add timeout to allow checking running_ flag
-            struct timeval timeout;
+            struct timeval timeout{};
             timeout.tv_sec = 0;
             timeout.tv_usec = 100000; // 100ms timeout
 
-            const int ready = select(fd_max + 1, &rd_set, NULL, NULL, &timeout);
+            const int ready = select(fd_max + 1, &rd_set, nullptr, nullptr, &timeout);
             if (ready == -1) {
                 if (errno == EINTR) continue;
                 LOG(ERROR) << "Select error: " << strerror(errno);
@@ -214,8 +214,8 @@ class Slave {
 
                 if (master_socket == socket_) {
                     // Handle new connection
-                    socklen_t addr_len;
-                    struct sockaddr_in client_addr;
+                    socklen_t addr_len = 0;
+                    struct sockaddr_in client_addr{};
 
                     addr_len = sizeof(client_addr);
                     memset(&client_addr, 0, sizeof(client_addr));
@@ -235,7 +235,7 @@ class Slave {
                               << ntohs(client_addr.sin_port) << " on socket " << new_fd;
 
                     FD_SET(new_fd, &ref_set);
-                    if (new_fd > fd_max) fd_max = new_fd;
+                    fd_max = std::max(new_fd, fd_max);
                 } else {
                     // Handle existing connection
                     modbus_set_socket(ctx_, master_socket);
@@ -275,11 +275,7 @@ public:
     /// @brief Create a new Modbus TCP slave with the given configuration
     /// @param config The slave configuration
     explicit Slave(const SlaveConfig &config):
-        running_(false),
-        ip_address_(config.host),
-        port_(config.port),
-        socket_(-1),
-        config_(config) {
+        running_(false), ip_address_(config.host), port_(config.port), config_(config) {
         ctx_ = modbus_new_tcp(ip_address_.c_str(), port_);
         if (ctx_ == nullptr) {
             throw std::runtime_error("Failed to create modbus context");

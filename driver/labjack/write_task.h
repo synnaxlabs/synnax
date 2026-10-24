@@ -212,7 +212,7 @@ public:
 
     /// @brief flushes the current value buffer to the LabJack device, executing the
     /// write.
-    x::errors::Error write_buf_to_dev() const {
+    [[nodiscard]] x::errors::Error write_buf_to_dev() const {
         int err_addr = 0;
         auto locs = this->ports_buf;
         return this->dev->e_write_names(

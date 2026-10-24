@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -30,7 +31,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
 

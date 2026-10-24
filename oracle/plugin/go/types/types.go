@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/schemadiff"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
@@ -738,33 +739,10 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 		result.IsGeneric = len(result.TypeParams) > 0
 		return result
 	case resolution.AliasForm:
-		targetRef := form.Target
-		if targetResolved, ok := targetRef.Resolve(data.table); ok {
-			if targetForm, ok := targetResolved.Form.(resolution.StructForm); ok {
-				nonDefaultedParams := resolution.NonDefaultedTypeParams(
-					targetForm.TypeParams,
-				)
-				providedArgs := len(targetRef.TypeArgs)
-				if providedArgs < len(nonDefaultedParams) {
-					newTypeArgs := make([]resolution.TypeRef, len(nonDefaultedParams))
-					copy(newTypeArgs, targetRef.TypeArgs)
-					for i := providedArgs; i < len(nonDefaultedParams); i++ {
-						if nonDefaultedParams[i].Optional {
-							newTypeArgs[i] = resolution.TypeRef{Name: "nil"}
-						}
-					}
-					targetRef = resolution.TypeRef{
-						Name:     targetRef.Name,
-						TypeArgs: newTypeArgs,
-					}
-				}
-			}
-		}
-		baseType := data.resolver.ResolveTypeRef(targetRef, data.ctx)
 		result := typeDefData{
 			Name:     name,
 			Doc:      doc.Get(td.Domains),
-			BaseType: baseType,
+			BaseType: data.resolver.ResolveTypeRef(form.Target, data.ctx),
 			IsAlias:  true,
 		}
 		for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
@@ -936,9 +914,7 @@ func processField(field resolution.Field, data *templateData) fieldData {
 		data = data.latest
 	}
 	goType := data.resolver.ResolveTypeRef(field.Type, data.ctx)
-	if field.Optional && !strings.HasPrefix(goType, "[]") &&
-		!strings.HasPrefix(goType, "map[") &&
-		!strings.HasPrefix(goType, "msgpack.EncodedJSON") {
+	if field.Optional && !typemap.Nilable(field.Type, data.table) {
 		goType = "*" + goType
 	}
 	return fieldData{
@@ -961,24 +937,16 @@ func buildGenericType(
 		return baseName
 	}
 
-	var args []string
+	var typeParams []resolution.TypeParam
 	if targetType != nil {
-		if form, ok := targetType.Form.(resolution.StructForm); ok {
-			for i, arg := range typeArgs {
-				if i < len(form.TypeParams) && form.TypeParams[i].HasDefault() {
-					continue
-				}
-				args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
-			}
-		} else {
-			for _, arg := range typeArgs {
-				args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
-			}
+		typeParams = resolution.TypeParams(targetType.Form)
+	}
+	var args []string
+	for i, arg := range typeArgs {
+		if i < len(typeParams) && typeParams[i].HasDefault() {
+			continue
 		}
-	} else {
-		for _, arg := range typeArgs {
-			args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
-		}
+		args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
 	}
 
 	if len(args) == 0 {

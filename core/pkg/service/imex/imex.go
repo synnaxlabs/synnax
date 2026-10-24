@@ -26,12 +26,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
 

@@ -24,7 +24,7 @@ Windows), and linkopts (`ws2_32.lib`, `Iphlpapi.lib`).
 clang-format (repo-root `.clang-format`: LLVM base, 88-char lines, 4-space indent).
 Format with `scripts/clang_format.sh <path>`, check with
 `scripts/check_clang_format.sh <path>` (see `scripts/CLAUDE.md`); install the pinned
-version via `scripts/install_clang_format.sh`, never a plain package-manager install.
+version via `scripts/install_clang_tools.sh`, never a plain package-manager install.
 Include order: system `<...>`, then vendor, then internal `"..."`. Naming: `PascalCase`
 types, `camelCase`/`snake_case` functions (consistent within a component), `snake_case`
 variables, `UPPER_CASE`/`kPascalCase` constants, lowercase namespaces.
@@ -44,6 +44,22 @@ doc-comment rules in the root CLAUDE.md apply.
 /// @returns the number of days since 1970-01-01.
 [[nodiscard]] constexpr int32_t days_from_civil(const Date &date);
 ```
+
+## Linting
+
+clang-tidy (repo-root `.clang-tidy`) runs as a Bazel aspect. Each source and header is
+one cached action, and any finding fails the build. CI lints each component on Ubuntu.
+
+```bash
+bazel build --config=clang-tidy //driver/... # lint
+scripts/clang_tidy_fix.sh //driver/...       # apply the fixes clang-tidy offers
+```
+
+The aspect lints each header as its own file, so a header must include, and its target
+must depend on, everything it uses. Suppress one finding with
+`// NOLINTNEXTLINE(<check>): <reason>` above its line, never a bare `NOLINT`. The aspect
+skips a file whose header says `Code generated`. A target that holds vendor SDK headers,
+or embeds a large generated table, takes `tags = ["no-clang-tidy"]`.
 
 ## Memory
 

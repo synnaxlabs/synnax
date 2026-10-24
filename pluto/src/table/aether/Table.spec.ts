@@ -176,6 +176,23 @@ describe("aether Table", () => {
     });
   });
 
+  describe("hidden cells", () => {
+    it("draws nothing for a hidden cell", () => {
+      const boxes = { a: cell(0, 0), b: cell(60, 0) };
+      const { draw, drawn } = mount(boxes, { hidden: ["a"] });
+      draw();
+      expect(drawn()).toEqual([boxes.b]);
+    });
+
+    it("draws a cell again once it is no longer hidden", () => {
+      const boxes = { a: cell(0, 0), b: cell(60, 0) };
+      const { h, draw, drawn } = mount(boxes, { hidden: ["a"] });
+      h.setState((p) => ({ ...p, hidden: [] }));
+      draw();
+      expect(drawn()).toEqual([boxes.a, boxes.b]);
+    });
+  });
+
   describe("visibility", () => {
     it("draws no cells while hidden", () => {
       const { draw, drawn } = mount({ a: cell(0, 0) }, { visible: false });
