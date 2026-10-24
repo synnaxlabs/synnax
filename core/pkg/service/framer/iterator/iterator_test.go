@@ -2564,6 +2564,70 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(iter.Close()).To(Succeed())
 			})
 
+			It("Should reduce Prev with AutoSpan to the groups of Next", func(
+				ctx SpecContext,
+			) {
+				calc := &channel.Channel{
+					Name:       "aggregate_septupled",
+					DataType:   telem.Float32T,
+					Expression: "return aggregate_sensor * 7",
+				}
+				Expect(channelWriter.Create(ctx, calc)).To(Succeed())
+				cfg := aggregated(calc.Key())
+				cfg.ChunkSize = 7
+				type group struct {
+					alignment telem.Alignment
+					multiple  uint32
+					values    []float32
+				}
+				// groups returns the alignment, alignment multiple, and samples of each
+				// series in m.
+				groups := func(m telem.MultiSeries) []group {
+					out := make([]group, len(m.Series))
+					for i, s := range m.Series {
+						out[i] = group{
+							alignment: s.Alignment,
+							multiple:  s.AlignmentMultiple,
+							values:    s.Unmarshal[float32](),
+						}
+					}
+					return out
+				}
+				forward := MustSucceed(iteratorSvc.Open(ctx, cfg))
+				Expect(forward.SeekFirst()).To(BeTrue())
+				Expect(forward.Next(iterator.AutoSpan)).To(BeTrue())
+				next := forward.Value().Get(calc.Key())
+				Expect(forward.Close()).To(Succeed())
+				backward := MustSucceed(iteratorSvc.Open(ctx, cfg))
+				Expect(backward.SeekLast()).To(BeTrue())
+				Expect(backward.Prev(iterator.AutoSpan)).To(BeTrue())
+				prev := backward.Value().Get(calc.Key())
+				Expect(backward.Prev(iterator.AutoSpan)).To(BeFalse())
+				Expect(backward.Close()).To(Succeed())
+				Expect(values(prev)).To(Equal(groupEnds(ramp(7), 20)))
+				Expect(groups(prev)).To(Equal(groups(next)))
+			})
+
+			It("Should clip the groups of Prev with a fixed span at its edges", func(
+				ctx SpecContext,
+			) {
+				calc := &channel.Channel{
+					Name:       "aggregate_octupled",
+					DataType:   telem.Float32T,
+					Expression: "return aggregate_sensor * 8",
+				}
+				Expect(channelWriter.Create(ctx, calc)).To(Succeed())
+				cfg := aggregated(calc.Key())
+				cfg.ChunkSize = 7
+				iter := MustSucceed(iteratorSvc.Open(ctx, cfg))
+				Expect(iter.SeekLast()).To(BeTrue())
+				Expect(iter.Prev(30 * telem.Second)).To(BeTrue())
+				v := ramp(8)
+				Expect(values(iter.Value().Get(calc.Key()))).
+					To(Equal([]float32{v[70], v[79], v[80], v[99]}))
+				Expect(iter.Close()).To(Succeed())
+			})
+
 			It("Should keep each group inside its domain when read in pieces", func(
 				ctx SpecContext,
 			) {

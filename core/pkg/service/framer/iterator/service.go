@@ -51,7 +51,8 @@ type Config struct {
 	// Reduction reduces the samples of each channel read. A stride keeps the samples
 	// whose alignment is a multiple of its factor. A limit reduces each channel in
 	// Bounds to about PointLimit points. Either way, every channel on one index keeps
-	// the same alignments.
+	// the same alignments. Under a limit, Next and Prev with AutoSpan read every
+	// remaining sample in their direction when the read runs calculations.
 	//
 	// [OPTIONAL]
 	Reduction telem.Reduction `json:"reduction" msgpack:"reduction"`
