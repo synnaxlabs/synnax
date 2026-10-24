@@ -10,9 +10,6 @@
 package gorp_test
 
 import (
-	"math"
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -50,15 +47,7 @@ var _ = Describe("Reader", func() {
 					}
 					err = errors.Join(err, iter.Close())
 				}
-				// Other goroutines only add to a sample, so the least sample is exact.
-				least := func(f func()) float64 {
-					n := math.Inf(1)
-					for range 5 {
-						n = min(n, testing.AllocsPerRun(100, f))
-					}
-					return n
-				}
-				allocs, kvAllocs := least(open), least(openKV)
+				allocs, kvAllocs := leastAllocs(open), leastAllocs(openKV)
 				Expect(err).To(Succeed())
 				Expect(allocs).To(Equal(kvAllocs))
 			},
