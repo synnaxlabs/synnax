@@ -61,6 +61,8 @@ Master::~Master() {
 x::errors::Error Master::initialize() {
     if (this->initialized) return x::errors::NIL;
 
+    if (auto err = this->api->check_socket(this->iface_name.c_str())) return err;
+
     if (this->api->init(this->iface_name.c_str()) <= 0)
         return x::errors::Error(
             errors::MASTER_INIT_ERROR,
