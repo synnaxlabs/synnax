@@ -10,6 +10,7 @@
 import { Unreachable } from "@synnaxlabs/freighter";
 import {
   type Aggregation,
+  type DataType,
   debounce,
   errors,
   MultiSeries,
@@ -91,6 +92,7 @@ export interface TileReaderProps {
 }
 
 interface CacheEntry {
+  channel: channel.Key;
   series: MultiSeries;
   bytes: number;
   fetchedAt: TimeStamp;
@@ -123,6 +125,9 @@ export class TileReader {
   private readonly batcher: debounce.Batcher<TileSpec, MultiSeries>;
   // Map order is recency order: a hit moves its entry to the end.
   private readonly tiles = new Map<string, CacheEntry>();
+  // dataTypes holds the data type of each channel's newest fetched tile, which every
+  // cached tile of the channel shares.
+  private readonly dataTypes = new Map<channel.Key, DataType>();
   private readonly pending = new Map<string, Promise<MultiSeries>>();
   private readonly inFlight = new Set<Array<debounce.Entry<TileSpec, MultiSeries>>>();
   private bytes = 0;
@@ -146,17 +151,26 @@ export class TileReader {
 
   /**
    * Reads the tile, serving it from the cache when a fresh copy is there.
+   * @param dataType - The data type of the series the caller holds. A cached tile of
+   * another data type is read again.
    * @throws {UnexpectedError} if the reader is closed while the read is pending.
    * @throws {Unreachable} if the fetch serving the read exceeds the fetch timeout.
    */
-  async read(spec: TileSpec): Promise<MultiSeries> {
+  async read(spec: TileSpec, dataType?: DataType): Promise<MultiSeries> {
     if (this.closed) throw new UnexpectedError("tile reader is closed");
     if (spec.start != null || spec.end != null) return await this.batcher.enqueue(spec);
     const key = cacheKey(spec);
     const cached = this.tiles.get(key);
     if (cached != null) {
       this.remove(key, cached);
-      if (TimeStamp.since(cached.fetchedAt).lessThan(this.props.staleThreshold)) {
+      const fresh = TimeStamp.since(cached.fetchedAt).lessThan(
+        this.props.staleThreshold,
+      );
+      if (
+        fresh &&
+        (dataType == null ||
+          cached.series.series.every((s) => s.dataType.equals(dataType)))
+      ) {
         this.tiles.set(key, cached);
         this.bytes += cached.bytes;
         return cached.series;
@@ -168,16 +182,16 @@ export class TileReader {
     this.pending.set(key, fetched);
     try {
       const series = await fetched;
-      if (!this.closed) this.insert(key, series);
+      if (!this.closed) this.insert(key, spec.key, series);
       return series;
     } finally {
       this.pending.delete(key);
     }
   }
 
-  private insert(key: string, series: MultiSeries): void {
+  private insert(key: string, ch: channel.Key, series: MultiSeries): void {
     const bytes = series.series.reduce((sum, s) => sum + s.byteLength.valueOf(), 0);
-    this.tiles.set(key, { series, bytes, fetchedAt: TimeStamp.now() });
+    this.tiles.set(key, { channel: ch, series, bytes, fetchedAt: TimeStamp.now() });
     this.bytes += bytes;
     const budget = this.props.budget.valueOf();
     for (const [k, t] of this.tiles) {
@@ -189,6 +203,16 @@ export class TileReader {
   private remove(key: string, tile: CacheEntry): void {
     this.tiles.delete(key);
     this.bytes -= tile.bytes;
+  }
+
+  // A channel's data type can change, and tiles of two data types cannot be drawn
+  // together, so a fetched tile of a new data type drops the channel's cached tiles.
+  private retainDataType(ch: channel.Key, dataType: DataType): void {
+    const held = this.dataTypes.get(ch);
+    this.dataTypes.set(ch, dataType);
+    if (held == null || held.equals(dataType)) return;
+    for (const [key, tile] of this.tiles)
+      if (tile.channel === ch) this.remove(key, tile);
   }
 
   private async batchRead(
@@ -220,10 +244,11 @@ export class TileReader {
       });
       if (!this.inFlight.has(group)) return;
       const results = new Map(
-        keys.map((key) => [
-          key,
-          new MultiSeries(frame.get(key).series.map((s) => transform.convert(s))),
-        ]),
+        keys.map((key) => {
+          const series = frame.get(key).series.map((s) => transform.convert(s));
+          if (series.length > 0) this.retainDataType(key, series[0].dataType);
+          return [key, new MultiSeries(series)];
+        }),
       );
       group.forEach(({ req, resolve }) => resolve(results.get(req.key)!));
     } catch (err) {
@@ -271,6 +296,7 @@ export class TileReader {
     this.inFlight.forEach((group) => group.forEach(({ reject }) => reject(err)));
     this.inFlight.clear();
     this.tiles.clear();
+    this.dataTypes.clear();
     this.bytes = 0;
   }
 }
