@@ -19,7 +19,7 @@ import (
 
 func TestRuntime(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Arc Runtime Suite")
+	RunSpecs(t, "Service Arc Runtime Suite", SuiteConfig())
 }
 
 var _ = BeforeSuite(func() {

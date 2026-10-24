@@ -104,7 +104,7 @@ public:
 /// @brief Module is the runtime factory for the variable builtin.
 class Module : public stl::Module {
 public:
-    bool handles(const std::string &node_type) const override {
+    [[nodiscard]] bool handles(const std::string &node_type) const override {
         return node_type == symbol_name || node_type == stateful_symbol_name;
     }
 

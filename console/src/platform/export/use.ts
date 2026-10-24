@@ -38,10 +38,13 @@ export const use = (): ((params: Params) => void) => {
   const download = Runtime.useDownload();
   return useCallback(
     ({ stream, name, extension }: Params) => {
-      handleError(async () => {
-        if (client == null) throw new DisconnectedError();
-        await download({ stream: await stream(client), name, extension });
-      }, `Failed to export ${name}`);
+      handleError(
+        async () => {
+          if (client == null) throw new DisconnectedError();
+          await download({ stream: await stream(client), name, extension });
+        },
+        { message: "Failed to export", name },
+      );
     },
     [client, handleError, download],
   );

@@ -21,9 +21,12 @@ namespace x::shutdown {
 namespace details {
 // These need to be declared as extern and defined in os-specific cpp files
 // so that we don't cause internal linkage issues.
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): signal handlers can
+// only reach global state.
 extern std::mutex shutdown_mutex;
 extern std::condition_variable shutdown_cv;
 extern bool should_stop;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 /// @brief platform specific implementation that registers relevant signal
 /// handlers.
@@ -56,7 +59,10 @@ inline void signal_shutdown() {
 /// @param stdin_enabled whether to listen for stdin input. Default is true.
 inline void listen(const bool sig_enabled = true, const bool stdin_enabled = true) {
     if (sig_enabled) details::listen_signal();
-    if (stdin_enabled) return details::listen_stdin();
+    if (stdin_enabled) {
+        details::listen_stdin();
+        return;
+    }
     std::unique_lock lock(details::shutdown_mutex);
     details::shutdown_cv.wait(lock, [] { return details::should_stop; });
 }

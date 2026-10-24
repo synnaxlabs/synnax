@@ -90,7 +90,7 @@ protected:
         return dev;
     }
 
-    synnax::device::Device create_slave_device(
+    [[nodiscard]] synnax::device::Device create_slave_device(
         uint32_t serial,
         const x::json::json &input_pdos,
         const x::json::json &output_pdos
@@ -175,7 +175,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithAutomaticChannel) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_output_channel_config(cmd_ch.key, "control_word")
     );
@@ -200,7 +200,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithManualChannel) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_manual_output_channel_config(cmd_ch.key, 0x7000, 2, 32, "int32")
     );
@@ -228,7 +228,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithStateChannel) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_output_channel_config(cmd_ch.key, "control_word", state_ch.key)
     );
@@ -254,7 +254,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithMultipleChannels) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_output_channel_config(ch1.key, "control_word")
     );
@@ -276,7 +276,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithInvalidPDOName) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_output_channel_config(cmd_ch.key, "nonexistent_pdo")
     );
@@ -300,7 +300,7 @@ TEST_F(EtherCATWriteTest, CmdKeysReturnsAllCommandChannels) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_output_channel_config(ch1.key, "control_word")
     );
@@ -326,7 +326,7 @@ TEST_F(EtherCATWriteTest, SinkStartRegistersWithEngine) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_output_channel_config(cmd_ch.key, "control_word")
     );
