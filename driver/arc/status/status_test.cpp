@@ -62,14 +62,14 @@ namespace {
     message_param.value = message;
     ::arc::types::Param variant_param;
     variant_param.name = "variant";
-    variant_param.type = str_type;
+    variant_param.type = std::move(str_type);
     variant_param.value = variant;
     node.inputs = ::arc::types::Params{key_param, message_param, variant_param};
     ::arc::types::Type out_type;
     out_type.kind = ::arc::types::Kind::String;
     ::arc::types::Param out;
     out.name = "output";
-    out.type = out_type;
+    out.type = std::move(out_type);
     node.outputs = ::arc::types::Params{out};
     return node;
 }

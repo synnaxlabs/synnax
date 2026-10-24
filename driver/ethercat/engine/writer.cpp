@@ -42,7 +42,7 @@ x::errors::Error Engine::Writer::Transaction::write(
         entry.data_type,
         value
     );
-    out.values[pdo_index] = value;
+    out.commands[pdo_index] = Command{value, ++this->engine.command_seq};
     return x::errors::NIL;
 }
 

@@ -142,7 +142,7 @@ public:
     /// @brief opens the IgH manager, checking device availability and loading the API.
     /// @return pair of manager instance and error (nil on success).
     static std::pair<std::unique_ptr<Manager>, x::errors::Error> open() {
-        struct stat st;
+        struct stat st{};
         if (stat(IGH_DEVICE_PATH.c_str(), &st) != 0)
             return {
                 nullptr,
@@ -179,7 +179,7 @@ public:
 
     [[nodiscard]] std::pair<std::shared_ptr<master::Master>, x::errors::Error>
     create(const std::string &key) override {
-        if (key.size() < 5 || key.substr(0, 4) != "igh:")
+        if (key.size() < 5 || !key.starts_with("igh:"))
             return {
                 nullptr,
                 x::errors::Error(

@@ -137,7 +137,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
     const auto s = x::telem::Series(static_cast<uint8_t>(1), x::telem::UINT8_T);
-    cmd_reads->emplace_back(x::telem::Frame(1, s.deep_copy()));
+    cmd_reads->emplace_back(1, s.deep_copy());
     auto mock_streamer_factory = pipeline::mock::simple_streamer_factory(
         std::vector<synnax::channel::Key>{1},
         cmd_reads
@@ -212,7 +212,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
                             ->at(mock_writer_factory->writes->size() - 1)
                             .deep_copy();
         if (fr.size() < 2) return 0;
-        if (fr.length() < 1) return 0;
+        if (fr.empty()) return 0;
         if (!fr.contains(3)) return 0;
         return fr.at<uint8_t>(3, 0);
     };
