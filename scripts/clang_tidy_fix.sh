@@ -44,7 +44,7 @@ import sys
 from urllib.parse import unquote, urlparse
 
 events, out, root = sys.argv[1], pathlib.Path(sys.argv[2]), sys.argv[3]
-sandbox = re.compile(r"[^'\"\s]*/execroot/_main/")
+sandbox = re.compile(r"[^'\"\s]*/execroot/_main\b")
 count = 0
 for line in open(events):
     files = json.loads(line).get("namedSetOfFiles", {}).get("files", [])
@@ -52,11 +52,13 @@ for line in open(events):
         path = pathlib.Path(unquote(urlparse(file["uri"]).path))
         if not path.name.endswith(".clang-tidy.yaml") or path.stat().st_size == 0:
             continue
-        text = sandbox.sub(root + "/", path.read_text())
+        text = sandbox.sub(root, path.read_text())
         (out / f"{count}.yaml").write_text(text)
         count += 1
 print(f"Applying fixes from {count} files.")
 PY
 
-clang-apply-replacements --format --style=file "$tmp/fixes"
+# Two checks can insert at one spot, such as [[nodiscard]] and static. Apply both, and
+# let the next lint run catch any result that does not compile.
+clang-apply-replacements --ignore-insert-conflict --format --style=file "$tmp/fixes"
 exit "$status"

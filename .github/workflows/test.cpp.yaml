@@ -133,7 +133,7 @@ jobs:
           disk-cache: false
           repository-cache: false
 
-      - name: Install clang-format
+      - name: Install clang tools
         if: runner.os == 'Linux' && inputs.directories != ''
         run: scripts/install_clang_tools.sh
 

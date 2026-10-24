@@ -7,9 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <memory>
+#include <string>
+#include <utility>
+
 #include "open62541/client.h"
 
-#include "x/cpp/telem/telem.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/telem/series.h"
 
 namespace driver::opcua::testutil {
 std::pair<::x::telem::Series, x::errors::Error>
