@@ -8,7 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
-import { box, DataType, id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  box,
+  DataType,
+  id,
+  sleep,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -292,7 +300,7 @@ describe("LinePlot against a Core", () => {
         }
         await writer.write({ [time.key]: times, [data.key]: values });
         last = new TimeStamp(times[99]);
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep.sleep(TimeSpan.milliseconds(100));
       }
       const target = Number(last.valueOf());
       await expect.poll(() => gaps(plot, [target])[0], { timeout: 10_000 }).toBe(0);
