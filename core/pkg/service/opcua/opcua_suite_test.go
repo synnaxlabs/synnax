@@ -28,7 +28,7 @@ var _ = BeforeSuite(func() {
 
 func TestOPCUA(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service OPC UA Suite")
+	RunSpecs(t, "Service OPC UA Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

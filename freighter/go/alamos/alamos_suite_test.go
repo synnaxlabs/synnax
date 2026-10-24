@@ -19,7 +19,7 @@ import (
 
 func TestFalamos(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Alamos Suite")
+	RunSpecs(t, "Alamos Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

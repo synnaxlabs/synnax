@@ -19,7 +19,7 @@ import (
 
 func TestIRV2(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "IR v1 Suite")
+	RunSpecs(t, "IR v1 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

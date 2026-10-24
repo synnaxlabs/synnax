@@ -36,7 +36,7 @@ import (
 
 func TestAPILicense(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API License Suite")
+	RunSpecs(t, "API License Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
