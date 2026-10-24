@@ -84,6 +84,10 @@ first failure and doubles the wait up to 30 seconds. After each connect it subsc
 every topic again. While the connection is down, the tasks of the broker stay running
 and show a warning. The warning clears when the connection returns.
 
+A task does not start when the broker refuses to subscribe to one of its topics, for
+example because of an access rule. If the broker refuses a topic after the connection
+returns, the task stays running and shows a warning.
+
 The Core also checks each broker every few seconds and shows the result as the status of
 the device in the Console.
 

@@ -304,8 +304,14 @@ export const EDGE_TYPE = `${PREFIX}_sparkplug_edge`;
 
 export interface EdgeTag extends mqtt.EdgeTag {}
 
+// Every birth of an edge node declares these tags.
+const RESERVED_TAG_NAMES = new Set(["bdSeq", "Node Control/Rebirth"]);
+
 const deployEdgeTagZ = mqtt.edgeTagZ.extend({
-  name: z.string().min(1, "Name is required"),
+  name: z
+    .string()
+    .min(1, "Name is required")
+    .refine((name) => !RESERVED_TAG_NAMES.has(name), "Sparkplug B reserves the name"),
   channel: channel.keyZ.refine((key) => key !== 0, "A channel is required"),
 });
 

@@ -827,6 +827,18 @@ describe("MQTT Edge Task", () => {
       ]);
     });
 
+    it.each(["bdSeq", "Node Control/Rebirth"])(
+      "should reject the reserved name %s",
+      (name) => {
+        const result = MQTT.Task.deployEdgeConfigZ.safeParse(
+          edgeConfig({ ...tag, name }),
+        );
+        expect(issuesOf(result)).toEqual([
+          { message: "Sparkplug B reserves the name", path: "tags.0.name" },
+        ]);
+      },
+    );
+
     it("should reject a name that two enabled tags share", () => {
       const result = MQTT.Task.deployEdgeConfigZ.safeParse(
         edgeConfig(tag, { ...tag, key: "t2", channel: 2 }),

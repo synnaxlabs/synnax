@@ -137,6 +137,16 @@ var _ = Describe("Metric", func() {
 		})
 	})
 
+	DescribeTable("Reserved",
+		func(name string, reserved bool) {
+			Expect(sparkplug.Reserved(name)).To(Equal(reserved))
+		},
+		Entry("the birth sequence tag", "bdSeq", true),
+		Entry("the rebirth tag", "Node Control/Rebirth", true),
+		Entry("another node control tag", "Node Control/Reboot", false),
+		Entry("a tag of the edge node", "temp", false),
+	)
+
 	Describe("EncodeCommand", func() {
 		node := sparkplug.NodeID{Group: "plant", EdgeNode: "line1"}
 		on := sparkplug.Metric{

@@ -155,13 +155,18 @@ Each tag:
 | `command_channel` | integer | No       | `0`        | Key of the channel that takes commands for the tag. `0` rejects them |
 | `disabled`        | boolean | No       | `false`    | Excludes the tag from the task                                       |
 
+Every birth declares the tags `bdSeq` and `Node Control/Rebirth`, so no tag of the task
+can use these names.
+
 The task publishes each sample written to a channel as an `NDATA` message, with the
 timestamp of the sample. Its birth message declares every tag with its data type. A tag
 whose channel has had no sample since the task started is null in the birth.
 
 The task is its own MQTT client, so that the broker sends its death message when the
 connection drops. It publishes its birth again when a host asks for a rebirth, and after
-it connects again.
+it connects again. The task does not start when the broker refuses to subscribe to its
+commands. If the broker refuses them after the task connects again, the task shows a
+warning.
 
 A command for a tag writes the value to the `command_channel` of that tag, with the
 `authority` of the task. A tag with no command channel rejects commands. A Synnax writer

@@ -583,6 +583,26 @@ var _ = Describe("Scan task", func() {
 			Eventually(broker.clientCount).Should(BeZero())
 		})
 
+		It("Should report a filter that the broker refuses", func(ctx SpecContext) {
+			port := broker.port
+			broker.stop()
+			broker = startBrokerWith(brokerOptions{
+				port:    port,
+				refused: []string{"plant/#"},
+			})
+			configured, t := scan(ctx)
+			stat := answer(ctx, configured, t, task.Command{
+				Type: "browse", Key: "browse",
+				Args: msgpack.EncodedJSON{
+					"device": dev.Key, "filter": "plant/#", "duration": 50,
+				},
+			})
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal(
+				"the broker refused the subscription to plant/#",
+			))
+		})
+
 		It("Should report a device that does not exist", func(ctx SpecContext) {
 			configured, t := scan(ctx)
 			stat := answer(ctx, configured, t, task.Command{

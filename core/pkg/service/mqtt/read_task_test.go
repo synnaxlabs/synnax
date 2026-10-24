@@ -440,6 +440,49 @@ var _ = Describe("Read task", func() {
 					Should(BeEquivalentTo(1))
 			},
 		)
+
+		It("Should fail to start when the broker refuses a topic",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.Float64T)
+				port := broker.port
+				broker.stop()
+				broker = startBrokerWith(brokerOptions{
+					port:    port,
+					refused: []string{"plant/denied"},
+				})
+				t := newTask(rackKey, mqtt.ReadTaskType, readConfig(dev, plainEntry(
+					"plant/denied", field("v", data[0], ""),
+				)))
+				configured := configure(ctx, factory, t)
+				Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
+					To(MatchError(ContainSubstring(
+						"the broker refused the subscription to plant/denied",
+					)))
+			},
+		)
+
+		It("Should warn when the broker refuses a topic after it reconnects",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.Float64T)
+				t := start(ctx, readConfig(dev, plainEntry(
+					"plant/line9", field("v", data[0], ""),
+				)))
+				port := broker.port
+				broker.stop()
+				broker = startBrokerWith(brokerOptions{
+					port:    port,
+					refused: []string{"plant/line9"},
+				})
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx, t)
+					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+					g.Expect(stat.Message).To(Equal(
+						"the broker refused the subscription to plant/line9",
+					))
+					g.Expect(stat.Details.Running).To(BeTrue())
+				}, 10*time.Second).Should(Succeed())
+			},
+		)
 	})
 
 	Describe("Configuration errors", func() {

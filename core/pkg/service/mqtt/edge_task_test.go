@@ -517,6 +517,52 @@ var _ = Describe("Edge task", func() {
 			},
 		)
 
+		It("Should fail to start when the broker refuses its commands",
+			func(ctx SpecContext) {
+				port := broker.port
+				broker.stop()
+				broker = startBrokerWith(brokerOptions{
+					port:    port,
+					refused: []string{"spBv1.0/plant/NCMD/line1"},
+				})
+				t := newTask(rackKey, mqtt.EdgeTaskType, edgeConfig(
+					dev,
+					edgeTag("temp", createVirtual(ctx, telem.Float64T), "double"),
+				))
+				configured := configure(ctx, factory, t)
+				startCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				defer cancel()
+				Expect(configured.Exec(
+					startCtx,
+					task.Command{Type: "start", Key: "start"},
+				)).To(MatchError(ContainSubstring(
+					"the broker refused the subscription to spBv1.0/plant/NCMD/line1",
+				)))
+			},
+		)
+
+		It("Should warn when the broker refuses its commands after it reconnects",
+			func(ctx SpecContext) {
+				_, t := start(ctx, edgeConfig(
+					dev,
+					edgeTag("temp", createVirtual(ctx, telem.Float64T), "double"),
+				))
+				port := broker.port
+				broker.stop()
+				broker = startBrokerWith(brokerOptions{
+					port:    port,
+					refused: []string{"spBv1.0/plant/NCMD/line1"},
+				})
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx, t)
+					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+					g.Expect(stat.Message).To(Equal("the broker refused the " +
+						"subscription to spBv1.0/plant/NCMD/line1"))
+					g.Expect(stat.Details.Running).To(BeTrue())
+				}, 10*time.Second).Should(Succeed())
+			},
+		)
+
 		It("Should write a command by alias to the command channel",
 			func(ctx SpecContext) {
 				_, cmdData := createIndexed(ctx, telem.Float64T)
@@ -986,6 +1032,21 @@ var _ = Describe("Edge task", func() {
 					again["key"] = "again"
 					return edgeConfig(dev, edgeTag("temp", ch, "double"), again),
 						"tags: tag temp appears more than once"
+				},
+			),
+			Entry("a tag named bdSeq",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Float64T)
+					return edgeConfig(dev, edgeTag("bdSeq", ch, "double")),
+						"tag bdSeq: Sparkplug B reserves the name"
+				},
+			),
+			Entry("a tag named Node Control/Rebirth",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Float64T)
+					tag := edgeTag("Node Control/Rebirth", ch, "double")
+					return edgeConfig(dev, tag),
+						"tag Node Control/Rebirth: Sparkplug B reserves the name"
 				},
 			),
 			Entry("two tags that write to the same command channel",

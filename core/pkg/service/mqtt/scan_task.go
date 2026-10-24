@@ -204,7 +204,7 @@ func (s *scanner) browse(ctx context.Context, cmd task.Command) (browseResult, e
 	defer disconnect()
 	// The handler writes to res until the deferred disconnect, so an error path must
 	// not read it.
-	if err = wait(ctx, client.Subscribe(args.Filter, 0, nil)); err != nil {
+	if err = waitSubscribe(ctx, client.Subscribe(args.Filter, 0, nil)); err != nil {
 		return browseResult{}, err
 	}
 	timer := time.NewTimer(duration)

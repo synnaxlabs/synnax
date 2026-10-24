@@ -12,8 +12,10 @@ package mqtt
 import (
 	"context"
 	"crypto/tls"
+	"maps"
 	"net"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -73,7 +75,9 @@ type message struct {
 // subscription is one topic filter on a connection and the attachments that use it.
 type subscription struct {
 	attachments set.Set[*attachment]
-	qos         byte
+	// refused is the error of a broker that refused the filter, or nil.
+	refused error
+	qos     byte
 }
 
 // connection is the one MQTT client that the tasks of a broker device share. It
@@ -198,11 +202,17 @@ func (c *connection) run(ctx context.Context, cfg clientConfig, settle func()) {
 				SetConnectionLostHandler(reportLost(lost))
 		},
 		serve: func(ctx context.Context, client paho.Client, lost <-chan error) {
-			c.setClient(ctx, client)
+			if err := c.setClient(ctx, client); err != nil {
+				if ctx.Err() == nil {
+					c.ins.L.Warn("failed to subscribe after connect", zap.Error(err))
+				}
+				settle()
+				return
+			}
 			c.publishState(ctx, client, cfg.hostID, true, stateStamp)
 			settle()
 			c.serve(ctx, client, lost)
-			c.setClient(ctx, nil)
+			c.clearClient()
 			if ctx.Err() != nil {
 				// The broker sends the last will only for a connection that drops.
 				stateCtx, cancel := context.WithTimeout(
@@ -370,25 +380,45 @@ func (c *connection) requestRebirth(
 	}
 }
 
-// setClient makes client the client in use, where nil means the connection is down.
-// A new client subscribes to every filter and asks every edge node for a birth,
-// because the host session missed the messages of the outage.
-func (c *connection) setClient(ctx context.Context, client paho.Client) {
+// setClient makes client the client in use. It subscribes client to every filter and
+// asks every edge node for a birth, because the host session missed the messages of the
+// outage. When the broker does not answer the subscribe, it returns the error and
+// leaves the connection down.
+func (c *connection) setClient(ctx context.Context, client paho.Client) error {
 	c.mu.Lock()
 	c.mu.client = client
 	filters := make(map[string]byte, len(c.mu.subs))
 	for filter, sub := range c.mu.subs {
 		filters[filter] = sub.qos
 	}
-	if client != nil {
-		c.mu.host.Reset()
-	}
+	c.mu.host.Reset()
 	c.mu.Unlock()
-	if client != nil && len(filters) > 0 {
-		if err := wait(ctx, client.SubscribeMultiple(filters, nil)); err != nil {
-			c.ins.L.Error("failed to subscribe after connect", zap.Error(err))
+	defer c.notify()
+	if len(filters) == 0 {
+		return nil
+	}
+	token := client.SubscribeMultiple(filters, nil)
+	err := wait(ctx, token)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err != nil {
+		c.mu.client = nil
+		return err
+	}
+	refused := refusedFilters(token)
+	for filter := range filters {
+		if sub, ok := c.mu.subs[filter]; ok {
+			sub.refused = refusal(refused, filter)
 		}
 	}
+	return nil
+}
+
+// clearClient marks the connection down.
+func (c *connection) clearClient() {
+	c.mu.Lock()
+	c.mu.client = nil
+	c.mu.Unlock()
 	c.notify()
 }
 
@@ -474,10 +504,19 @@ func (c *connection) unused() bool {
 	return len(c.mu.attachments) == 0
 }
 
-func (c *connection) connected() bool {
+// health returns errNotConnected while the connection is down, and the refusal of each
+// filter of a while it is up.
+func (c *connection) health(a *attachment) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.mu.client != nil
+	if c.mu.client == nil {
+		return errNotConnected
+	}
+	var err error
+	for _, filter := range slices.Sorted(maps.Keys(a.filters)) {
+		err = errors.Join(err, c.mu.subs[filter].refused)
+	}
+	return err
 }
 
 // attach returns a new attachment whose queue holds queueSize messages.
@@ -488,11 +527,9 @@ func (c *connection) attach(queueSize int) *attachment {
 		stateChanged: make(chan struct{}, 1),
 		filters:      make(set.Set[string]),
 		nodes:        make(set.Set[sparkplug.NodeID]),
-		// An attachment assumes a connection until next sees that there is none.
-		reportedConnected: true,
 	}
-	// The pending signal makes the first call to next report a connection that is
-	// down.
+	// The pending signal makes the first call to next report an attachment that is not
+	// healthy.
 	a.stateChanged <- struct{}{}
 	c.mu.Lock()
 	c.mu.attachments.Add(a)
@@ -518,16 +555,16 @@ func (c *connection) close() {
 type attachment struct {
 	conn  *connection
 	queue chan message
-	// stateChanged signals that the connection state may differ from
-	// reportedConnected.
+	// stateChanged signals that the health of the attachment may differ from reported.
 	stateChanged chan struct{}
 	// filters and nodes are guarded by conn.mu.
 	filters set.Set[string]
 	nodes   set.Set[sparkplug.NodeID]
 	// dropped counts the messages that a full queue pushed out.
 	dropped atomic.Uint64
-	// reportedConnected is the connection state that next last reported.
-	reportedConnected bool
+	// reported is the text of the error that next last reported. Empty while the
+	// attachment is healthy.
+	reported string
 }
 
 // enqueue puts msg on the queue. A full queue drops its oldest message. Only the
@@ -551,9 +588,9 @@ func (a *attachment) enqueue(msg message) {
 	}
 }
 
-// next blocks until a message arrives, the connection state changes, or ctx is
-// cancelled. It returns errNotConnected once for each loss of the connection, and a
-// zero message with a nil error once for each recovery.
+// next blocks until a message arrives, the health of the attachment changes, or ctx is
+// cancelled. It returns the error of each change of health, and a zero message with a
+// nil error once for each recovery.
 func (a *attachment) next(ctx context.Context) (message, error) {
 	for {
 		select {
@@ -562,15 +599,16 @@ func (a *attachment) next(ctx context.Context) (message, error) {
 		case msg := <-a.queue:
 			return msg, nil
 		case <-a.stateChanged:
-			connected := a.conn.connected()
-			if connected == a.reportedConnected {
+			err := a.conn.health(a)
+			reported := ""
+			if err != nil {
+				reported = err.Error()
+			}
+			if reported == a.reported {
 				continue
 			}
-			a.reportedConnected = connected
-			if !connected {
-				return message{}, errNotConnected
-			}
-			return message{}, nil
+			a.reported = reported
+			return message{}, err
 		}
 	}
 }
@@ -642,12 +680,26 @@ func (a *attachment) subscribe(ctx context.Context, filter string, qos byte) err
 		sub.qos = qos
 	}
 	client := c.mu.client
+	refused := sub.refused
 	c.mu.Unlock()
 	// A connection that is down subscribes to every filter when it connects.
-	if !needed || client == nil {
+	if client == nil {
 		return nil
 	}
-	return wait(ctx, client.Subscribe(filter, qos, nil))
+	if !needed {
+		return refused
+	}
+	token := client.Subscribe(filter, qos, nil)
+	if err := wait(ctx, token); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	sub.refused = refusal(refusedFilters(token), filter)
+	refused = sub.refused
+	c.mu.Unlock()
+	// Other attachments of the filter report the refusal through next.
+	c.notify()
+	return refused
 }
 
 // publish sends one message. It returns errNotConnected when the connection is down:
@@ -703,6 +755,47 @@ func (a *attachment) close() (unused bool) {
 		}
 	}
 	return unused
+}
+
+// subscribeRefused is the lowest return code of a subscription that the broker refused.
+const subscribeRefused = 0x80
+
+// refusedFilters returns the filters that the broker refused in the answer to a
+// completed subscribe token.
+func refusedFilters(token paho.Token) set.Set[string] {
+	refused := make(set.Set[string])
+	for filter, code := range token.(*paho.SubscribeToken).Result() {
+		if code >= subscribeRefused {
+			refused.Add(filter)
+		}
+	}
+	return refused
+}
+
+// refusal returns the temporary error of filter when refused holds it, and nil when it
+// does not.
+func refusal(refused set.Set[string], filter string) error {
+	if !refused.Contains(filter) {
+		return nil
+	}
+	return errors.Mark(
+		errors.Newf("the broker refused the subscription to %s", filter),
+		driver.ErrTemporary,
+	)
+}
+
+// waitSubscribe blocks like wait for a subscribe token, and then returns the refusal of
+// each filter that the broker refused.
+func waitSubscribe(ctx context.Context, token paho.Token) error {
+	if err := wait(ctx, token); err != nil {
+		return err
+	}
+	refused := refusedFilters(token)
+	var err error
+	for _, filter := range slices.Sorted(maps.Keys(refused)) {
+		err = errors.Join(err, refusal(refused, filter))
+	}
+	return err
 }
 
 // wait blocks until token completes, ctx is cancelled, or operationTimeout passes.

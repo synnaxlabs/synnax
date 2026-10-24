@@ -23,6 +23,10 @@ const (
 	BdSeqMetric = "bdSeq"
 )
 
+// Reserved reports whether name is a tag that every birth of an edge node declares, so
+// that no other tag can take it.
+func Reserved(name string) bool { return name == RebirthMetric || name == BdSeqMetric }
+
 // DataType is the Sparkplug B data type of a tag.
 type DataType uint32
 

@@ -14,6 +14,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -157,13 +158,35 @@ func (h *connectHook) OnConnect(cl *mochi.Client, pk packets.Packet) error {
 	return nil
 }
 
+// openHook lets every client connect, and refuses each subscription to one of refused.
+type openHook struct {
+	mochi.HookBase
+	refused []string
+}
+
+func (h *openHook) ID() string { return "open" }
+
+func (h *openHook) Provides(b byte) bool {
+	return b == mochi.OnConnectAuthenticate || b == mochi.OnACLCheck
+}
+
+func (h *openHook) OnConnectAuthenticate(*mochi.Client, packets.Packet) bool {
+	return true
+}
+
+func (h *openHook) OnACLCheck(_ *mochi.Client, topic string, write bool) bool {
+	return write || !slices.Contains(h.refused, topic)
+}
+
 // brokerOptions selects what a test broker requires of its clients.
 type brokerOptions struct {
 	// tls makes the listener serve TLS.
 	tls *tls.Config
 	// username and password, when set, are the only credentials the broker accepts.
 	username, password string
-	port               int
+	// refused holds the topic filters that an open broker refuses to subscribe to.
+	refused []string
+	port    int
 }
 
 // startBroker starts an open broker on port, or on a free port when port is zero. It
@@ -181,7 +204,7 @@ func startBrokerWith(opts brokerOptions) *testBroker {
 		Logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 	if opts.username == "" {
-		Expect(b.server.AddHook(new(auth.AllowHook), nil)).To(Succeed())
+		Expect(b.server.AddHook(&openHook{refused: opts.refused}, nil)).To(Succeed())
 	} else {
 		Expect(b.server.AddHook(new(auth.Hook), &auth.Options{
 			Ledger: &auth.Ledger{Auth: auth.AuthRules{{

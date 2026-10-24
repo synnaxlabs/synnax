@@ -57,6 +57,11 @@ func newPublishedTag(
 	if cfg.Name == "" {
 		return t, sparkplug.Tag{}, errors.Wrap(validate.ErrValidation, "tag: required")
 	}
+	if sparkplug.Reserved(cfg.Name) {
+		return t, sparkplug.Tag{}, errors.Wrapf(
+			validate.ErrValidation, "tag %s: Sparkplug B reserves the name", cfg.Name,
+		)
+	}
 	ch, ok := channels[cfg.Channel]
 	if !ok {
 		return t, sparkplug.Tag{}, errors.Wrapf(
@@ -109,10 +114,16 @@ type edgeHealth struct {
 	// commandErr is the text of the error of the last command. Empty when the command
 	// was written.
 	commandErr string
+	// sessionErr is the text of the error of a session that failed to start. Empty
+	// while connected.
+	sessionErr string
 	connected  bool
 }
 
 func (h edgeHealth) err() error {
+	if h.sessionErr != "" {
+		return errors.Mark(errors.New(h.sessionErr), driver.ErrTemporary)
+	}
 	if !h.connected {
 		return errNotConnected
 	}
@@ -154,6 +165,9 @@ type edgeNode struct {
 		// commandErr is the text of the error of the last command. Empty when the
 		// command was written.
 		commandErr string
+		// sessionErr is the error of the last session that failed to start. Nil after a
+		// session that started.
+		sessionErr error
 		// cfg is the client config of the next connection attempt.
 		cfg clientConfig
 		// restart ends the current connection, so the next one takes cfg. Nil before
@@ -205,6 +219,7 @@ func (n *edgeNode) Open(ctx context.Context) (driver.Writer, error) {
 	n.mu.cfg = cfg
 	n.mu.restart = nil
 	n.mu.commandErr = ""
+	n.mu.sessionErr = nil
 	n.mu.latest = make(map[string]sparkplug.Metric)
 	n.mu.reported = edgeHealth{connected: true}
 	n.mu.Unlock()
@@ -231,13 +246,18 @@ func (n *edgeNode) Open(ctx context.Context) (driver.Writer, error) {
 	e.stopped = sCtx.Stopped()
 	select {
 	case <-settled:
-		return e, nil
 	case <-ctx.Done():
-		e.disconnect()
-		cancel()
-		<-e.stopped
-		return nil, ctx.Err()
+		return nil, errors.Combine(ctx.Err(), e.Close())
 	}
+	// A broker that is down makes a warning, but a session that connected and failed to
+	// start fails the start.
+	n.mu.Lock()
+	err = n.mu.sessionErr
+	n.mu.Unlock()
+	if err != nil {
+		return nil, errors.Combine(err, e.Close())
+	}
+	return e, nil
 }
 
 // Close implements driver.Writer.
@@ -365,24 +385,25 @@ func (e *edgeSession) connect(ctx context.Context, settle func()) {
 		},
 		serve: func(ctx context.Context, client paho.Client, lost <-chan error) {
 			defer e.endSession()
-			err := wait(ctx, client.Subscribe(e.command, 0, nil))
+			err := waitSubscribe(ctx, client.Subscribe(e.command, 0, nil))
 			if err == nil {
 				err = e.publishBirth(ctx, client)
 			}
 			if err != nil {
-				e.clearClient()
+				e.clearClient(err)
 				if ctx.Err() == nil {
 					e.ins.L.Warn(
 						"failed to start the edge node session",
 						zap.Error(err),
 					)
 				}
+				settle()
 				return
 			}
 			e.notify()
 			settle()
 			e.serve(ctx, client, lost)
-			e.clearClient()
+			e.clearClient(nil)
 			if ctx.Err() != nil {
 				// The broker sends the last will only for a connection that drops.
 				deathCtx, cancel := context.WithTimeout(
@@ -444,17 +465,23 @@ func (e *edgeSession) writeCommands(ctx context.Context) {
 	}
 }
 
-// clearClient stops data from going out until the next birth.
-func (e *edgeSession) clearClient() {
+// clearClient stops data from going out until the next birth. err is the error of a
+// session that failed to start, or nil.
+func (e *edgeSession) clearClient(err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.mu.client = nil
+	e.mu.sessionErr = err
 	e.notify()
 }
 
 // health returns the state that the task reports. The caller holds e.mu.
 func (e *edgeSession) health() edgeHealth {
-	return edgeHealth{connected: e.mu.client != nil, commandErr: e.mu.commandErr}
+	h := edgeHealth{connected: e.mu.client != nil, commandErr: e.mu.commandErr}
+	if !h.connected && e.mu.sessionErr != nil {
+		h.sessionErr = e.mu.sessionErr.Error()
+	}
+	return h
 }
 
 func (e *edgeSession) notify() {

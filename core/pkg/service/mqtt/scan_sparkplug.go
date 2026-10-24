@@ -164,7 +164,7 @@ func browseNodes(
 	for _, f := range filters {
 		subs[f] = 0
 	}
-	if err = wait(ctx, client.SubscribeMultiple(subs, nil)); err != nil {
+	if err = waitSubscribe(ctx, client.SubscribeMultiple(subs, nil)); err != nil {
 		return nil, err
 	}
 	timer := time.NewTimer(duration)
@@ -237,7 +237,7 @@ func browseTags(
 	for _, filter := range node.Filters() {
 		filters[filter] = 0
 	}
-	if err = wait(ctx, client.SubscribeMultiple(filters, nil)); err != nil {
+	if err = waitSubscribe(ctx, client.SubscribeMultiple(filters, nil)); err != nil {
 		return nil, err
 	}
 	rebirth, err := sparkplug.EncodeRebirth(node, telem.Now())
