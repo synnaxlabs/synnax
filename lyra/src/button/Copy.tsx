@@ -80,7 +80,7 @@ export const Copy = ({
           () => setCopied(false),
           TimeSpan.fromMilliseconds(copiedDuration).milliseconds,
         );
-      }, "Failed to copy to clipboard");
+      }, "Failed to copy to the clipboard");
     },
     [text, onCopy, copiedDuration, addStatus, successMessage, handleError, onClick],
   );

@@ -333,7 +333,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
             handleLayouts(nodeEl, nodeElBox, zoom),
           );
         } catch (e) {
-          handleError(e, "Failed to align symbols");
+          handleError(e, "Failed to distribute symbols");
         }
         return null;
       })

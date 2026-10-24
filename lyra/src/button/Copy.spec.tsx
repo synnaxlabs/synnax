@@ -308,7 +308,8 @@ describe("Copy", () => {
       const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
       expect(lastCall).toHaveLength(1);
       expect(lastCall[0].variant).toBe("error");
-      expect(lastCall[0].message).toBe("Failed to compute");
+      expect(lastCall[0].message).toBe("Failed to copy to the clipboard");
+      expect(lastCall[0].description).toBe("Failed to compute");
     });
   });
 
