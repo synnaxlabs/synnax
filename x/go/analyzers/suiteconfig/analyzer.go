@@ -23,6 +23,7 @@ const (
 	suiteConfig = "SuiteConfig"
 )
 
+// Analyzer reports each RunSpecs call that does not pass SuiteConfig().
 var Analyzer = &analysis.Analyzer{
 	Name: "suiteconfig",
 	Doc: `enforces the shared Ginkgo configuration in every test suite.
