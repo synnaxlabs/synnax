@@ -60,12 +60,13 @@ One of these:
 </Problem.Fix>
 </Problem.Body>
 
-### `Cannot acquire control on <name> because there are no channels to control.`
+### `No symbols control any channels.`
 
 <Problem.Body>
 <Problem.Cause>
 
-No symbol on the schematic has a command channel.
+No symbol on the schematic has a command channel. The notification shows "Failed to
+acquire control", with this text in the description.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -241,14 +242,14 @@ No fix is necessary when the sensor streams. See
 </Problem.Fix>
 </Problem.Body>
 
-### `WASM execution failed in node <key> at sample <i>/<n>: ...`
+### `The <type> node failed: WASM execution failed in node <key> at sample <i>/<n>: ...`
 
 <Problem.Body>
 <Problem.Cause>
 
-A runtime error on a Driver, such as an index out of bounds. A Driver stops the
-automation on such an error. The Core drops the cycle, shows
-`Runtime error in <node type>`, and keeps running.
+A runtime error, such as an index out of bounds. On a Driver, the status shows "Failed
+to run Arc program" with this text in the description, and the automation stops. On the
+Core, the status shows "Node failed", and the Core drops the cycle and keeps running.
 
 </Problem.Cause>
 <Problem.Fix>

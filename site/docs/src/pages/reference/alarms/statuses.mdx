@@ -47,7 +47,8 @@ client.statuses.set(
         key="tank-pressure",
         name="Tank pressure",
         variant="warning",
-        message="Tank pressure is above 600 psi",
+        message="Above 600 psi",
+        description="Vent the tank before you continue.",
     )
 )
 ```
@@ -61,7 +62,8 @@ await client.statuses.set({
   key: "tank-pressure",
   name: "Tank pressure",
   variant: "warning",
-  message: "Tank pressure is above 600 psi",
+  message: "Above 600 psi",
+  description: "Vent the tank before you continue.",
 });
 ```
 
@@ -152,8 +154,8 @@ When a status changes, the Console shows a notification in the corner of the win
 - The Console shows notifications only while it is connected to the Core.
 - A notification closes 7 seconds after the time of the status.
 - The Console shows one notification for each status key. A new change replaces it.
-- Different statuses with the same name, variant, and message merge into one
-  notification with a count.
+- Different statuses with the same name, variant, message, and description merge into
+  one notification with a count.
 - The Console shows up to four notifications. Click **+N more** to see the rest, and
   **Clear all** to close them.
 - When you close a notification, the Console does not show that status again until you
@@ -171,10 +173,10 @@ loading, and disabled statuses, so routine changes do not fill the screen.
 | Field       | Required | Description                                                          |
 | ----------- | -------- | -------------------------------------------------------------------- |
 | Key         | No       | The unique ID of the status. Synnax makes one when you leave it out. |
-| Name        | No       | A name for people to read, such as "Tank pressure".                  |
+| Name        | No       | What the status is about, such as "Tank pressure".                   |
 | Variant     | Yes      | The kind of condition. See [variants](#variants).                    |
-| Message     | Yes      | A short description of the current condition.                        |
-| Description | No       | More detail about the condition.                                     |
+| Message     | Yes      | What happened, or the current state, in one short line.              |
+| Description | No       | Why, and what to do now, in full sentences.                          |
 | Time        | No       | The time of the change. The default is now.                          |
 | Details     | No       | Extra data in JSON, such as the value that set off the alarm.        |
 | Labels      | No       | Labels that group related statuses. Set them in the Console.         |

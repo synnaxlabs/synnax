@@ -910,7 +910,7 @@ The device cannot sample that slowly.
 </Problem.Cause>
 <Problem.Fix>
 
-Raise the **Sample rate** to at least the minimum in the message.
+Raise the **Sample rate** to at least the minimum in the description.
 
 </Problem.Fix>
 </Problem.Item>
@@ -954,10 +954,11 @@ Set one of them.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"the network cannot keep up with the stream rate specified"}>
+<Problem.Item message={"The network cannot keep up with the stream rate."}>
 <Problem.Cause>
 
-The Driver cannot send the samples fast enough.
+The Driver cannot send the samples fast enough. The task shows "Failed to read data",
+with this text in the description.
 
 </Problem.Cause>
 <Problem.Fix>

@@ -199,7 +199,7 @@ Give each endpoint its own index channel.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"field ... not found in response from ..."}>
+<Problem.Item message={"Field ... not found in response from ..."}>
 <Problem.Cause>
 
 The response has no value at the pointer.
@@ -213,10 +213,11 @@ case sensitive.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"... endpoints ... overran the period"}>
+<Problem.Item message={"Falling behind poll rate"}>
 <Problem.Cause>
 
-The requests take longer than one period.
+The requests take longer than one period. The description gives the number of endpoints
+and the read period.
 
 </Problem.Cause>
 <Problem.Fix>

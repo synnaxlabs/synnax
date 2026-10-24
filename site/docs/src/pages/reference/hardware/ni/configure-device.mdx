@@ -119,10 +119,11 @@ For more causes, see
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Cannot create the task because the NI-DAQmx and System Configuration libraries are not installed"}>
+<Problem.Item message={"The NI-DAQmx and System Configuration libraries are not installed on this system."}>
 <Problem.Cause>
 
-The Driver cannot load the NI-DAQmx and System Configuration libraries.
+The Driver cannot load the libraries. The task shows "Failed to create task", with this
+text in the description.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -133,10 +134,11 @@ The Driver cannot load the NI-DAQmx and System Configuration libraries.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"The device is temporarily unreachable. Will keep trying"}>
+<Problem.Item message={"The device is temporarily unreachable. The Driver will keep trying to reach it."}>
 <Problem.Cause>
 
-The Driver lost the connection to the device.
+The Driver lost the connection to the device. The task shows "Failed to read data" or
+"Failed to write commands", with this text in the description.
 
 </Problem.Cause>
 <Problem.Fix>
