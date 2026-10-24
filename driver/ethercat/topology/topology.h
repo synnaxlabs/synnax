@@ -63,8 +63,11 @@ namespace driver::ethercat::topology {
         if (!found)
             return x::errors::Error(
                 errors::TOPOLOGY_MISMATCH,
-                "device " + device_key + " expected at position " +
-                    std::to_string(props.position) + " not found on bus"
+                std::format(
+                    "device {} expected at position {} not found on bus",
+                    device_key,
+                    props.position
+                )
             );
     }
     return x::errors::NIL;

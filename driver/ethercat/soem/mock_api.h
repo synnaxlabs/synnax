@@ -53,7 +53,10 @@ public:
     uint32_t obytes = 0;
     uint16_t outputs_wkc = 1;
     uint16_t inputs_wkc = 1;
-    int16_t siifind_return = 0;
+    /// @brief the SII address of each category, keyed by category.
+    std::map<uint16_t, int16_t> sii_categories;
+    /// @brief SII bytes returned by siigetbyte, keyed by address.
+    std::map<uint16_t, uint8_t> sii_bytes;
     int readODlist_return = 0;
     bool close_called = false;
     bool init_called = false;
@@ -128,9 +131,15 @@ public:
         return 1;
     }
 
-    int16_t siifind(uint16_t, uint16_t) override { return this->siifind_return; }
+    int16_t siifind(uint16_t, uint16_t category) override {
+        const auto it = this->sii_categories.find(category);
+        return it == this->sii_categories.end() ? 0 : it->second;
+    }
 
-    uint8_t siigetbyte(uint16_t, uint16_t) override { return 0; }
+    uint8_t siigetbyte(uint16_t, uint16_t address) override {
+        const auto it = this->sii_bytes.find(address);
+        return it == this->sii_bytes.end() ? 0 : it->second;
+    }
 
     void siistring(char *str, uint16_t, uint16_t) override { str[0] = '\0'; }
 
@@ -231,13 +240,21 @@ public:
         return this->slave_infos[pos - 1].ALstatuscode;
     }
 
-    uint32_t group_Ibytes(uint8_t) const override { return this->ibytes; }
+    uint32_t group_Ibytes(uint8_t group) const override {
+        return group == this->mapped_group ? this->ibytes : 0;
+    }
 
-    uint32_t group_Obytes(uint8_t) const override { return this->obytes; }
+    uint32_t group_Obytes(uint8_t group) const override {
+        return group == this->mapped_group ? this->obytes : 0;
+    }
 
-    uint16_t group_outputsWKC(uint8_t) const override { return this->outputs_wkc; }
+    uint16_t group_outputsWKC(uint8_t group) const override {
+        return group == this->mapped_group ? this->outputs_wkc : 0;
+    }
 
-    uint16_t group_inputsWKC(uint8_t) const override { return this->inputs_wkc; }
+    uint16_t group_inputsWKC(uint8_t group) const override {
+        return group == this->mapped_group ? this->inputs_wkc : 0;
+    }
 };
 
 }

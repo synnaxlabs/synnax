@@ -58,8 +58,6 @@ public:
         data_saving_disabled(false),
         state_rate(0) {}
 
-    /// @param state_channels the state channel of each output, keyed by the output's
-    /// command channel.
     Sink(
         const x::telem::Rate state_rate,
         std::set<synnax::channel::Key> state_indexes,

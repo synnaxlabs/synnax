@@ -112,16 +112,9 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
                 by_key.emplace(ch.key, std::move(ch));
             for (const auto &out: this->outputs) {
                 if (out->state_key == 0) continue;
-                const auto it = by_key.find(out->state_key);
-                if (it == by_key.end()) {
-                    cfg.field_err(
-                        "channels",
-                        "state channel " + std::to_string(out->state_key) + " not found"
-                    );
-                    return;
-                }
-                this->state_channels[out->command_key] = it->second;
-                if (it->second.index != 0) this->state_indexes.insert(it->second.index);
+                const auto &state = by_key.at(out->state_key);
+                this->state_channels[out->command_key] = state;
+                if (state.index != 0) this->state_indexes.insert(state.index);
             }
         }
     }

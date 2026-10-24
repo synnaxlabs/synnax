@@ -49,16 +49,6 @@ constexpr uint16_t RXPDO_MAPPING_END = 0x17FF;
 
 /// @}
 
-namespace {
-/// @brief returns the Synnax type of a PDO entry, inferring it from the bit length
-/// when the CoE type has no fixed width.
-x::telem::DataType pdo_entry_type(const telem::DataType coe_type, const uint8_t bits) {
-    const auto data_type = telem::map_ethercat_to_synnax(coe_type, bits);
-    if (data_type.is_variable()) return telem::infer_type_from_bit_length(bits);
-    return data_type;
-}
-}
-
 Master::Master(std::unique_ptr<API> api, std::string interface_name):
     iface_name(std::move(interface_name)),
     api(std::move(api)),
@@ -483,7 +473,7 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
                     entry_name = name_buf;
                 }
 
-                const auto data_type = pdo_entry_type(coe_type, bitlen);
+                const auto data_type = telem::map_ethercat_to_synnax(coe_type, bitlen);
                 const std::string name = telem::generate_pdo_entry_name(
                     entry_name,
                     obj_idx,
@@ -667,7 +657,7 @@ x::errors::Error Master::read_pdo_mapping(
             index,
             sub_index
         );
-        const auto data_type = pdo_entry_type(coe_type, bit_length);
+        const auto data_type = telem::map_ethercat_to_synnax(coe_type, bit_length);
         const std::string name = telem::generate_pdo_entry_name(
             coe_name,
             index,
@@ -771,6 +761,9 @@ x::errors::Error Master::request_state(const uint16_t state, const int timeout) 
 }
 
 x::errors::Error Master::request_operational() {
+    // Slaves with outputs need one valid process data frame before they enter OP.
+    this->api->send_processdata(ENABLED_GROUP);
+    this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
     std::vector<uint16_t> pending;
     for (int i = 1; i <= this->api->slave_count(); ++i) {
         if (this->api->slave_group(i) != ENABLED_GROUP) continue;
@@ -806,7 +799,7 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     }
     return x::errors::Error(
         errors::STATE_CHANGE_ERROR,
-        std::to_string(failed.size()) + " slaves failed to reach " + target + ": " + msg
+        "failed to reach " + target + ": " + msg
     );
 }
 

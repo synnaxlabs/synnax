@@ -77,7 +77,8 @@ infer_type_from_bit_length(const uint8_t bit_length, const bool is_signed = fals
     return is_signed ? x::telem::INT64_T : x::telem::UINT64_T;
 }
 
-/// @brief maps an EtherCAT CoE data type to a Synnax x::telem::DataType.
+/// @brief maps an EtherCAT CoE data type to a Synnax x::telem::DataType. A type with
+/// no fixed numeric width, such as a string, takes its type from bit_length.
 inline x::telem::DataType
 map_ethercat_to_synnax(const DataType ec_type, const uint8_t bit_length) {
     switch (ec_type) {
@@ -118,10 +119,6 @@ map_ethercat_to_synnax(const DataType ec_type, const uint8_t bit_length) {
             return x::telem::FLOAT32_T;
         case DataType::EC_REAL64:
             return x::telem::FLOAT64_T;
-        case DataType::EC_VISIBLE_STRING:
-        case DataType::EC_OCTET_STRING:
-        case DataType::EC_UNICODE_STRING:
-            return x::telem::STRING_T;
         case DataType::EC_TIME_OF_DAY:
         case DataType::EC_TIME_DIFFERENCE:
             return x::telem::INT64_T;

@@ -126,6 +126,33 @@ TEST_F(SOEMMasterTest, CoEDiscoveryUsesEntryNamesAndDataTypes) {
     EXPECT_EQ(inputs[1].data_type, x::telem::FLOAT32_T);
 }
 
+TEST_F(SOEMMasterTest, SIIDiscoveryUsesEntryDataTypes) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    this->add_slave(slave);
+    constexpr uint16_t start = 0x40;
+    this->mock->sii_categories = {{ECT_SII_PDO, start}};
+    // One TxPDO, 0x1A00, with entries 0x6000:01 (INTEGER16) and 0x6000:02 (REAL32).
+    const std::vector<uint8_t> category = {
+        12, 0,    0x00, 0x1A, 2, 3,    0,    0, 0, 0,    0x00, 0x60, 1,
+        0,  0x03, 16,   0,    0, 0x00, 0x60, 2, 0, 0x08, 32,   0,    0,
+    };
+    for (size_t i = 0; i < category.size(); ++i)
+        this->mock->sii_bytes[start + i] = category[i];
+
+    ASSERT_NIL(this->master->initialize());
+
+    const auto slaves = this->master->slaves();
+    ASSERT_EQ(slaves.size(), 1);
+    const auto &inputs = slaves[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 2);
+    EXPECT_EQ(inputs[0].index, 0x6000);
+    EXPECT_EQ(inputs[0].sub_index, 1);
+    EXPECT_EQ(inputs[0].data_type, x::telem::INT16_T);
+    EXPECT_EQ(inputs[1].sub_index, 2);
+    EXPECT_EQ(inputs[1].data_type, x::telem::FLOAT32_T);
+}
+
 ////////////////////// Activation //////////////////////
 
 TEST_F(SOEMMasterTest, ActivateHappyPath) {
@@ -159,8 +186,8 @@ TEST_F(SOEMMasterTest, ActivateSafeOpTransitionFails) {
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
         err.data,
-        "1 slaves failed to reach SAFE-OP: slave 1 (TestSlave) is in PRE-OP: Invalid "
-        "output configuration"
+        "failed to reach SAFE-OP: slave 1 (TestSlave) is in PRE-OP: Invalid output "
+        "configuration"
     );
 }
 
@@ -178,8 +205,8 @@ TEST_F(SOEMMasterTest, ActivateExchangesProcessDataUntilOperational) {
     this->mock->ibytes = 4;
     this->mock->statecheck_pending_polls[EC_STATE_OPERATIONAL] = 3;
     ASSERT_NIL(this->master->activate());
-    EXPECT_EQ(this->mock->send_count, 4);
-    EXPECT_EQ(this->mock->receive_count, 4);
+    EXPECT_EQ(this->mock->send_count, 5);
+    EXPECT_EQ(this->mock->receive_count, 5);
 }
 
 TEST_F(SOEMMasterTest, ActivateDisabledSlavesSetGroup) {
@@ -216,17 +243,20 @@ TEST_F(SOEMMasterTest, DisabledSlaveStaysOutOfStateTransitions) {
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->master->activate());
-    for (const auto &[pos, state]: this->mock->state_change_requests)
-        EXPECT_EQ(pos, 1);
+    const std::vector<std::pair<uint16_t, uint16_t>> expected = {
+        {1, EC_STATE_SAFE_OP},
+        {1, EC_STATE_OPERATIONAL},
+    };
+    EXPECT_EQ(this->mock->state_change_requests, expected);
 }
 
 TEST_F(SOEMMasterTest, CyclicExchangeUsesEnabledGroupOnly) {
     this->initialize_with_slave();
     this->activate_master();
+    this->mock->processdata_groups.clear();
     ASSERT_NIL(this->master->send());
     ASSERT_NIL(this->master->receive());
-    for (const auto group: this->mock->processdata_groups)
-        EXPECT_EQ(group, 1);
+    EXPECT_EQ(this->mock->processdata_groups, std::vector<uint8_t>({1, 1}));
 }
 
 ////////////////////// Receive //////////////////////

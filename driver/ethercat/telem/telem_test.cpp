@@ -79,15 +79,18 @@ TEST(MapEthercatToSynnax, FloatingPoint) {
     EXPECT_EQ(map_ethercat_to_synnax(DataType::EC_REAL64, 64), x::telem::FLOAT64_T);
 }
 
-TEST(MapEthercatToSynnax, StringTypes) {
+TEST(MapEthercatToSynnax, StringTypesUseBitLength) {
     EXPECT_EQ(
-        map_ethercat_to_synnax(DataType::EC_VISIBLE_STRING, 0),
-        x::telem::STRING_T
+        map_ethercat_to_synnax(DataType::EC_VISIBLE_STRING, 8),
+        x::telem::UINT8_T
     );
-    EXPECT_EQ(map_ethercat_to_synnax(DataType::EC_OCTET_STRING, 0), x::telem::STRING_T);
     EXPECT_EQ(
-        map_ethercat_to_synnax(DataType::EC_UNICODE_STRING, 0),
-        x::telem::STRING_T
+        map_ethercat_to_synnax(DataType::EC_OCTET_STRING, 16),
+        x::telem::UINT16_T
+    );
+    EXPECT_EQ(
+        map_ethercat_to_synnax(DataType::EC_UNICODE_STRING, 32),
+        x::telem::UINT32_T
     );
 }
 
