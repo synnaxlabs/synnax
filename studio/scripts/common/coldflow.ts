@@ -37,12 +37,8 @@ export const startColdflow = async (
   // Indicators show while editing, so editing goes off before they hide.
   const table = leaf("Thermocouples").locator(".console-table").first();
   for (const option of ["Disable editing", "Hide indicators", "Center table"]) {
-    await session.rightClick(table, { zoom: false });
-    const menu = page.locator(".pluto-menu-context").first();
-    await session.waitFor(menu);
-    await session.click(menu.getByText(option, { exact: true }).first(), {
-      zoom: false,
-    });
+    await capture.contextMenu(session, table, option);
+    session.endZoom();
     await session.settle(300);
   }
 

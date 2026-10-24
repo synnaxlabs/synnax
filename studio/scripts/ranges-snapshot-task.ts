@@ -36,6 +36,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     .first();
   await session.waitFor(range);
   await capture.contextMenu(session, range, "Clear active range");
+  session.endZoom();
   await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
@@ -43,6 +44,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await capture.contextMenu(session, range, "Set as active range");
   await session.hold(1000);
+  session.endZoom();
 
   await capture.openToolbar(session, "task");
   const task = page
@@ -53,12 +55,14 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(600);
   await capture.contextMenu(session, task, `Snapshot to ${RANGE}`);
   await session.hold(1000);
+  session.endZoom();
 
   // Snapshots show only on the range overview.
   await capture.openToolbar(session, "range");
   await session.waitFor(range);
   await session.hold(400);
   await capture.contextMenu(session, range, "View details");
+  session.endZoom();
   const snapshot = page
     .locator(".console-range__overview")
     .getByText(`${TASK} (Snapshot)`, { exact: true })

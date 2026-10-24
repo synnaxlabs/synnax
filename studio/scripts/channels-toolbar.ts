@@ -48,11 +48,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.drag(temperature, axis, { zoom: false });
     await session.hold(2000);
 
-    await session.zoom(pressure, 1.6);
-    await session.hold(400);
-    await session.rightClick(temperature, { text: true });
+    await session.rightClick(temperature, { text: true, zoom: false });
     const menu = page.locator(".pluto-menu-context").first();
     await session.waitFor(menu);
+    await session.zoom([temperature, menu]);
     await session.hold(500);
     for (const item of await menu.locator(".pluto-menu-item").all()) {
       await session.moveTo(item);
@@ -60,6 +59,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     }
     await session.hold(400);
     await session.press("Escape");
+    session.endZoom();
     await session.waitForHidden(menu);
     await session.hold(600);
 
@@ -68,10 +68,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.click(temperature, { text: true });
     await page.keyboard.up("ControlOrMeta");
     await session.hold(400);
-    await session.rightClick(temperature, { text: true });
-    await session.waitFor(menu);
-    await session.hold(400);
-    await session.click(menu.getByText("Group selection", { exact: true }).first());
+    await capture.contextMenu(session, temperature, "Group selection");
     const editable = page
       .locator(".pluto-text--editable[contenteditable='true']")
       .first();

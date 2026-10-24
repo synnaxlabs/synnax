@@ -37,18 +37,11 @@ export const configureDeviceScript =
       session.startRecording();
       await session.hold(1500);
 
-      await session.zoom(rack, 1.6);
       await session.click(rack, { text: true });
       const item = capture.treeItem(page, "device:", device.name);
       await session.waitFor(item);
       await session.hold(600);
-      await session.rightClick(item, { text: true });
-      const menu = page.locator(".pluto-menu-context").first();
-      await session.waitFor(menu);
-      await session.hold(500);
-      await session.click(menu.getByText("Configure", { exact: true }).first(), {
-        text: true,
-      });
+      await capture.contextMenu(session, item, "Configure");
 
       const modal = page.locator(".console-configure").first();
       const nameInput = modal.locator("input").first();

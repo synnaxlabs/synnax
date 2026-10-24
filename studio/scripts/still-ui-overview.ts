@@ -185,6 +185,7 @@ const favorite = async (
       item.getByText(name, { exact: true }).first(),
       "Favorite",
     );
+    session.endZoom();
     await session.settle(300);
   }
   const tab = page.locator(".console-mosaic .pluto-tabs__tab.pluto--selected").first();

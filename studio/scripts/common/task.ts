@@ -137,13 +137,7 @@ export const recordTask = async (
   session.startRecording();
   await session.hold(1500);
 
-  await session.zoom(node, 1.6);
-  await session.hold(600);
-  await session.rightClick(node, { text: true });
-  const menu = page.locator(".pluto-menu-context").first();
-  await session.waitFor(menu);
-  await session.hold(500);
-  await session.click(menu.getByText(item, { exact: true }).first(), { text: true });
+  await capture.contextMenu(session, node, item);
   session.endZoom();
   const form = page.locator(".console-task-configure").first();
   await session.waitFor(form);

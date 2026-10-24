@@ -68,6 +68,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(1800);
 
   await capture.contextMenu(session, item, `Snapshot to ${RANGE}`);
+  session.endZoom();
   const snapshot = page
     .locator(".console-snapshots__list-item")
     .filter({ hasText: NAME })

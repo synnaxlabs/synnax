@@ -40,7 +40,7 @@ export const mosaicTab = (session: capture.CaptureSession, name: string): Locato
     .first();
 
 /** menuItem returns a context menu item by a prefix of its text. */
-export const menuItem = (session: capture.CaptureSession, prefix: string): Locator =>
+const menuItem = (session: capture.CaptureSession, prefix: string): Locator =>
   // Prefix match: the item's text carries its shortcut indicator too.
   session.page
     .locator(".pluto-menu-context")

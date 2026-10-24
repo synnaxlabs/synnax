@@ -9,6 +9,8 @@
 
 import { capture, fixtures } from "@/index";
 
+import { pickComponent } from "./common/create-component";
+
 /**
  * Docs `console/line-plots/create`: open the component selector on an empty panel,
  * create a line plot, press V, and select a channel in Y1 on the Data tab; the plot
@@ -30,26 +32,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(1800);
 
     await capture.clickPanelCreate(session);
-    // The selector frame fills the panel, so a zoom on it renders at 1x. Zoom on the
-    // center of its options instead.
-    const options = page.locator(".console-layout-selector__frame").getByRole("button");
-    await session.waitFor(options.first());
-    const [first, last] = await Promise.all([
-      options.first().boundingBox(),
-      options.last().boundingBox(),
-    ]);
-    if (first == null || last == null) throw new Error("selector options are hidden");
-    await session.zoom(
-      {
-        x: (first.x + last.x + last.width) / 2,
-        y: (first.y + last.y + last.height) / 2,
-      },
-      1.5,
-    );
-    await session.hold(800);
-    await capture.createComponent(session, "Line plot");
-    session.endZoom();
-    await session.waitFor(page.locator(".pluto-line-plot").first());
+    await pickComponent(session, "Line plot", ".pluto-line-plot");
     await session.hold(1200);
 
     await session.press("v");

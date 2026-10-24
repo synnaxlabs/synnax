@@ -9,6 +9,8 @@
 
 import { capture } from "@/index";
 
+import { pickComponent } from "./common/create-component";
+
 /**
  * Docs `control/arc/get-started/create-automation`: from an empty panel, open
  * the component selector with "+", pick Arc automation, name it, choose the
@@ -24,24 +26,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(1800);
 
   await capture.clickPanelCreate(session);
-  // The selector frame fills the panel, so a zoom on it renders at 1x. Zoom on the
-  // center of its options instead.
-  const options = page.locator(".console-layout-selector__frame").getByRole("button");
-  await session.waitFor(options.first());
-  const [first, last] = await Promise.all([
-    options.first().boundingBox(),
-    options.last().boundingBox(),
-  ]);
-  if (first == null || last == null) throw new Error("selector options are hidden");
-  await session.zoom(
-    {
-      x: (first.x + last.x + last.width) / 2,
-      y: (first.y + last.y + last.height) / 2,
-    },
-    1.5,
-  );
-  await session.hold(800);
-  await capture.createComponent(session, "Arc automation");
+  await pickComponent(session, "Arc automation", capture.MODAL);
 
   const modal = page.locator(capture.MODAL).first();
   const name = modal.getByPlaceholder("Name").first();

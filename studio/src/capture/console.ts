@@ -81,25 +81,24 @@ export const login = async (
 };
 
 /**
- * contextMenu right-clicks the target and selects an option from the menu that
- * opens, all as recorded input.
+ * contextMenu right-clicks the target in the full frame, zooms on the target and its
+ * menu together, and picks `option`. Call it with no zoom open. The zoom stays open
+ * after the pick: the next zoom replaces it, and a pick that swaps the view ends it
+ * with `session.endZoom()`. A string matches the option's exact text; an option with a
+ * shortcut needs a RegExp.
  */
 export const contextMenu = async (
   session: CaptureSession,
-  target: Parameters<CaptureSession["rightClick"]>[0],
-  option: string,
+  target: Locator,
+  option: string | RegExp,
 ): Promise<void> => {
   const { page } = session;
-  // The menu opens at the click point, so framing the menu keeps its target in view.
-  await session.rightClick(target, { zoom: false });
+  await session.rightClick(target, { text: true, zoom: false });
   const menu = page.locator(".pluto-menu-context").first();
   await session.waitFor(menu);
-  await session.zoom(menu);
-  await session.hold(300);
-  await session.click(menu.getByText(option, { exact: true }).first(), {
-    zoom: false,
-  });
-  session.endZoom();
+  await session.zoom([target, menu]);
+  await session.hold(500);
+  await session.click(menu.getByText(option, { exact: true }).first(), { text: true });
 };
 
 /**

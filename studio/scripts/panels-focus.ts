@@ -9,7 +9,7 @@
 
 import { capture } from "@/index";
 
-import { createStand, menuItem, mosaicTab, splitRight } from "./common/panels";
+import { createStand, mosaicTab, splitRight } from "./common/panels";
 
 /**
  * Docs `console/panels/focus`: with a line plot and a table side by side, right-click
@@ -28,17 +28,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(1800);
 
     const leaves = page.locator(".console-mosaic .pluto-mosaic__leaf:visible");
-    await session.rightClick(mosaicTab(session, stand.table), { text: true });
-    await session.waitFor(page.locator(".pluto-menu-context").first());
-    await session.hold(400);
-    await session.click(menuItem(session, "Focus"), { text: true, zoom: false });
+    await capture.contextMenu(session, mosaicTab(session, stand.table), /^Focus/);
+    session.endZoom();
     await session.waitFor(page.locator(".pluto-panel-mosaic__overlaid-leaf").first());
     await session.hold(2000);
 
-    await session.rightClick(mosaicTab(session, stand.table), { text: true });
-    await session.waitFor(page.locator(".pluto-menu-context").first());
-    await session.hold(400);
-    await session.click(menuItem(session, "Exit focus"), { text: true, zoom: false });
+    await capture.contextMenu(session, mosaicTab(session, stand.table), /^Exit focus/);
+    session.endZoom();
     await session.waitForHidden(
       page.locator(".pluto-panel-mosaic__overlaid-leaf").first(),
     );

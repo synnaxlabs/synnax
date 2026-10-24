@@ -9,6 +9,8 @@
 
 import { capture, fixtures } from "@/index";
 
+import { pickComponent } from "./common/create-component";
+
 /**
  * Docs `console/logs/create`: create a log from the component selector, click Configure
  * channels, and add a channel.
@@ -26,25 +28,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(1800);
 
     await capture.clickPanelCreate(session);
-    // The selector frame fills the panel, so zoom on the center of its options.
-    const options = page.locator(".console-layout-selector__frame").getByRole("button");
-    await session.waitFor(options.first());
-    const [first, last] = await Promise.all([
-      options.first().boundingBox(),
-      options.last().boundingBox(),
-    ]);
-    if (first == null || last == null) throw new Error("selector options are hidden");
-    await session.zoom(
-      {
-        x: (first.x + last.x + last.width) / 2,
-        y: (first.y + last.y + last.height) / 2,
-      },
-      1.5,
-    );
-    await session.hold(800);
-    await capture.createComponent(session, "Log");
-    session.endZoom();
-    await session.waitFor(page.locator(".pluto-log").first());
+    await pickComponent(session, "Log", ".pluto-log");
     await session.hold(1000);
 
     await session.click(page.getByText("Configure channels", { exact: true }).first(), {

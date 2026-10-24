@@ -114,11 +114,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(page.locator(".pluto-diagram").first());
     await session.hold(1600);
 
-    await session.rightClick(mosaicTabs(session).first(), { zoom: false });
-    const menu = page.locator(".pluto-menu-context").first();
-    await session.waitFor(menu);
-    await session.hold(300);
-    await session.click(menu.getByText(/^Move to panel/).first(), { zoom: false });
+    await capture.contextMenu(session, mosaicTabs(session).first(), /^Move to panel/);
+    session.endZoom();
     const picker = page.locator(".console-panel-move-picker").first();
     await session.waitFor(picker);
     await session.hold(800);

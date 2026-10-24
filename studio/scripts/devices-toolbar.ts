@@ -39,14 +39,14 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.click(rack, { text: true });
     const ni = capture.treeItem(page, "device:", fixtures.NI_USB_6343.name);
     await session.waitFor(ni);
-    await session.zoom(rack, 1.6);
     await session.hold(600);
     await session.moveTo(ni);
     await session.hold(1500);
 
-    await session.rightClick(ni, { text: true });
+    await session.rightClick(ni, { text: true, zoom: false });
     const menu = page.locator(".pluto-menu-context").first();
     await session.waitFor(menu);
+    await session.zoom([ni, menu]);
     await session.hold(600);
     for (const label of ["Rename", "Configure", "Create analog read task"]) {
       await session.moveTo(menu.getByText(label, { exact: true }).first());

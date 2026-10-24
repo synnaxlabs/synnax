@@ -12,7 +12,6 @@ import { capture } from "@/index";
 import {
   createPanel,
   createStand,
-  menuItem,
   NEW_PANEL,
   pill,
   renamePanel,
@@ -55,10 +54,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(pill(session, STAND));
     await session.hold(1000);
 
-    await session.rightClick(pill(session, DRAFT), { text: true, zoom: false });
-    await session.waitFor(page.locator(".pluto-menu-context").first());
-    await session.hold(400);
-    await session.click(menuItem(session, "Delete"), { text: true, zoom: false });
+    session.endZoom();
+    await capture.contextMenu(session, pill(session, DRAFT), /^Delete/);
     const dialog = page.locator(capture.MODAL).first();
     await session.waitFor(dialog);
     await session.zoom(dialog);

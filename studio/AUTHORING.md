@@ -35,8 +35,9 @@ These come from user review and are not open for reinterpretation.
 - **Form dialogs frame the whole dialog.**
   `session.zoom(page.locator(capture.MODAL).first())` once it opens, `session.endZoom()`
   at the click that closes it. Never zoom a button that the dialog already covered.
-- **Context menus never zoom.** The menu and the row it came from must both stay in
-  frame.
+- **Context menus go through `capture.contextMenu`.** It zooms on the target and its
+  menu together and leaves the zoom open after the pick. End it after a pick that swaps
+  the view. A shot that only browses a menu uses `session.zoom([target, menu])`.
 - **View-swapping clicks pass `{ zoom: false }`.** A click that replaces the panel
   contents leaves the camera nothing to punch into, and the receding zoom smears the
   next beat. Same for every `session.drag`.
