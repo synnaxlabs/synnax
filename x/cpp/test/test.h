@@ -429,7 +429,7 @@ auto assert_nil_p(Pair &&pair_result, const char *file, const int line)
         ADD_FAILURE_AT(file, line)
             << "Expected operation to succeed, but got error: " << pair_result.second;
     }
-    return std::move(pair_result.first);
+    return std::forward<Pair>(pair_result).first;
 }
 
 /// @brief macro for asserting that an operation returning a pair<T, errors::Error>
@@ -459,13 +459,13 @@ auto assert_occurred_as_p(
         ADD_FAILURE_AT(file, line) << "Expected error to match " << expected
                                    << ", but got " << pair_result.second;
     }
-    return std::move(pair_result.first);
+    return std::forward<Pair>(pair_result).first;
 }
 
 /// @brief macro asserting that the provided errors::Error is NIL.
 #define ASSERT_NIL(expr)                                                               \
     do {                                                                               \
-        const auto _xtest_err = (expr);                                                \
+        const auto &_xtest_err = (expr);                                               \
         ASSERT_FALSE(_xtest_err) << _xtest_err;                                        \
     } while (0)
 
@@ -473,7 +473,7 @@ auto assert_occurred_as_p(
 /// provided error.
 #define ASSERT_OCCURRED_AS(expr, err)                                                  \
     do {                                                                               \
-        const auto _xtest_err = (expr);                                                \
+        const auto &_xtest_err = (expr);                                               \
         ASSERT_TRUE(_xtest_err) << _xtest_err;                                         \
         ASSERT_MATCHES(_xtest_err, err);                                               \
     } while (0)

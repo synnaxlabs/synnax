@@ -299,9 +299,7 @@ private:
             apply_comparison_op_typed<uint32_t>(other, result, op);
         else if (dt == UINT16_T)
             apply_comparison_op_typed<uint16_t>(other, result, op);
-        else if (dt == UINT8_T)
-            apply_comparison_op_typed<uint8_t>(other, result, op);
-        else if (dt == BOOLEAN_T)
+        else if (dt == UINT8_T || dt == BOOLEAN_T)
             apply_comparison_op_typed<uint8_t>(other, result, op);
 
         return result;
@@ -377,9 +375,7 @@ private:
             apply_scalar_comparison_op_typed<uint32_t>(scalar, result, op);
         else if (dt == UINT16_T)
             apply_scalar_comparison_op_typed<uint16_t>(scalar, result, op);
-        else if (dt == UINT8_T)
-            apply_scalar_comparison_op_typed<uint8_t>(scalar, result, op);
-        else if (dt == BOOLEAN_T)
+        else if (dt == UINT8_T || dt == BOOLEAN_T)
             apply_scalar_comparison_op_typed<uint8_t>(scalar, result, op);
 
         return result;
@@ -690,9 +686,11 @@ public:
             return;
         }
         std::visit(
-            [this]<typename IT>(IT &&arg) {
-                this->data_ = alloc(this->byte_size());
-                memcpy(data_.get(), &arg, this->byte_size());
+            [this]<typename IT>(const IT &arg) {
+                if constexpr (std::is_trivially_copyable_v<IT>) {
+                    this->data_ = alloc(this->byte_size());
+                    memcpy(this->data_.get(), &arg, this->byte_size());
+                }
             },
             v
         );
@@ -1158,9 +1156,7 @@ public:
             output_partial_vector(os, s.values<int64_t>());
         else if (dt == UINT64_T)
             output_partial_vector(os, s.values<uint64_t>());
-        else if (dt == UINT8_T)
-            output_partial_vector_byte(os, s.values<uint8_t>());
-        else if (dt == BOOLEAN_T)
+        else if (dt == UINT8_T || dt == BOOLEAN_T)
             output_partial_vector_byte(os, s.values<uint8_t>());
         else if (dt == INT32_T)
             output_partial_vector(os, s.values<int32_t>());

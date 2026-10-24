@@ -68,9 +68,7 @@ TEST(DeferTests, ExceptionHandling) {
     try {
         defer d([&called] { called = true; });
         throw std::runtime_error("Test exception");
-    } catch (const std::exception &) {
-        // Exception caught
-    }
+    } catch (const std::exception &e) { EXPECT_STREQ(e.what(), "Test exception"); }
     ASSERT_TRUE(called);
 }
 

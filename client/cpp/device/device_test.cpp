@@ -15,7 +15,10 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
+// printed so that a failing run can be replayed.
 std::mt19937 gen_rand_device = random_generator("Device Tests");
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 namespace synnax::device {
 /// @brief it should correctly create a device.
@@ -166,7 +169,7 @@ TEST(DeviceTests, testCreateDevices) {
     auto device_map = map_device_keys(retrieved_devices);
 
     for (const auto &device: devices) {
-        ASSERT_TRUE(device_map.find(device.key) != device_map.end());
+        ASSERT_TRUE(device_map.contains(device.key));
         const auto &retrieved = device_map[device.key];
         ASSERT_EQ(retrieved.name, device.name);
         ASSERT_EQ(retrieved.rack, r.key);
@@ -351,8 +354,8 @@ TEST(DeviceTests, testRetrieveWithRequest) {
     const auto devices_keys = ASSERT_NIL_P(client.devices.retrieve(req_keys));
     ASSERT_EQ(devices_keys.size(), 2);
     auto dm = map_device_keys(devices_keys);
-    ASSERT_TRUE(dm.find(d1.key) != dm.end());
-    ASSERT_TRUE(dm.find(d3.key) != dm.end());
+    ASSERT_TRUE(dm.contains(d1.key));
+    ASSERT_TRUE(dm.contains(d3.key));
     device::RetrieveRequest req_names{};
     req_names.names = {d1.name, d2.name};
     const auto devices_names = ASSERT_NIL_P(client.devices.retrieve(req_names));

@@ -40,6 +40,7 @@ TEST(LocalShared, CopyConstruction) {
     EXPECT_EQ(ptr1, ptr2);
 }
 
+// NOLINTBEGIN(bugprone-use-after-move): the tests check the moved-from state.
 TEST(LocalShared, MoveConstruction) {
     auto ptr1 = make_local_shared<int>(42);
     EXPECT_EQ(ptr1.use_count(), 1);
@@ -76,6 +77,7 @@ TEST(LocalShared, MoveAssignment) {
     EXPECT_EQ(ptr2.use_count(), 1);
     EXPECT_EQ(*ptr2, 42);
 }
+// NOLINTEND(bugprone-use-after-move)
 
 TEST(LocalShared, Reset) {
     auto ptr = make_local_shared<int>(42);

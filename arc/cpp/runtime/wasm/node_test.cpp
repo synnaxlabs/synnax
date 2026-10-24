@@ -36,7 +36,10 @@
 #include "arc/cpp/stl/time/time.h"
 
 namespace arc::runtime {
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
+// printed so that a failing run can be replayed.
 std::mt19937 gen_rand = random_generator("Node Tests");
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 std::string random_name(const std::string &prefix) {
     std::uniform_int_distribution<> dis(10000, 99999);

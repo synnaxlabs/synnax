@@ -21,9 +21,12 @@ namespace x::shutdown {
 namespace details {
 // These need to be declared as extern and defined in os-specific cpp files
 // so that we don't cause internal linkage issues.
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): signal handlers can
+// only reach global state.
 extern std::mutex shutdown_mutex;
 extern std::condition_variable shutdown_cv;
 extern bool should_stop;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 /// @brief platform specific implementation that registers relevant signal
 /// handlers.

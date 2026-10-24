@@ -21,7 +21,7 @@ namespace {
 /// @brief maximum time the event loop blocks when no transfers are active. Only affects
 /// shutdown latency — new submissions interrupt the wait immediately via
 /// curl_multi_wakeup.
-const auto IDLE_POLL_TIMEOUT = static_cast<long>(x::telem::SECOND.milliseconds());
+const auto IDLE_POLL_TIMEOUT = static_cast<int>(x::telem::SECOND.milliseconds());
 
 const auto SKIPPED = x::errors::Error(
     http::errors::SKIPPED_ERROR,

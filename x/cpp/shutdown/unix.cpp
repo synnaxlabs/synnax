@@ -17,9 +17,12 @@
 #include "x/cpp/shutdown/shutdown.h"
 
 namespace x::shutdown::details {
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): signal handlers can
+// only reach global state.
 std::mutex shutdown_mutex;
 std::condition_variable shutdown_cv;
 bool should_stop = false;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 void signal_handler(const int signal) {
     if (signal == SIGINT || signal == SIGTERM) signal_shutdown();

@@ -359,7 +359,7 @@ private:
         output_time->resize(n);
         for (int64_t i = 0; i < n; i++) {
             const auto current_val = static_cast<double>(input_data->at<T>(i));
-            const auto current_ts = input_time->at<int64_t>(i);
+            const auto current_ts = input_time->at<int64_t>(static_cast<int>(i));
             output_time->set(static_cast<int>(i), current_ts);
             if (!this->has_prev) {
                 output->set(static_cast<int>(i), 0.0);
@@ -674,13 +674,11 @@ public:
         auto [inputs, err] = WindowInputs::create(cfg.node.inputs);
         if (err) return {nullptr, err};
 
-        Aggregator::Op op;
+        auto op = Aggregator::Op::Max;
         if (cfg.node.type == "avg")
             op = Aggregator::Op::Avg;
         else if (cfg.node.type == "min")
             op = Aggregator::Op::Min;
-        else
-            op = Aggregator::Op::Max;
 
         auto [input_idx, in_err] = cfg.node.resolve_input(ir::default_input_param);
         if (in_err) return {nullptr, in_err};

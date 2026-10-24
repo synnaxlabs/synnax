@@ -24,7 +24,7 @@ using RS = test::Message;
 using UNARY_RPC = test::UnaryMessageService;
 using STREAM_RPC = test::StreamMessageService;
 
-auto base_target = "localhost:8080";
+const std::string base_target = "localhost:8080";
 
 /// @brief it should set and get payload in a message proto.
 TEST(testGRPC, basicProto) {

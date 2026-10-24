@@ -1248,7 +1248,7 @@ TEST(HTTPWriteTask, TimeFormatISO8601) {
     ASSERT_EQ(reqs.size(), 1);
     auto body = x::json::json::parse(reqs[0].body);
     const auto ts_str = body["timestamp"].get<std::string>();
-    EXPECT_TRUE(ts_str.find("2025-01-15") != std::string::npos);
+    EXPECT_TRUE(ts_str.contains("2025-01-15"));
 }
 
 /// @brief it should format a TIMESTAMP channel value as unix seconds when

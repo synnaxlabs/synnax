@@ -30,13 +30,12 @@ namespace arc::runtime::wasm {
 /// @brief Convert SampleValue to wasmtime::Val for WASM function calls.
 inline wasmtime::Val sample_to_wasm(const x::telem::SampleValue &val) {
     return std::visit(
-        []<typename T0>(T0 &&arg) -> wasmtime::Val {
+        []<typename T0>(const T0 &arg) -> wasmtime::Val {
             using T = std::decay_t<T0>;
-            if constexpr (std::is_same_v<T, double>) {
-                return wasmtime::Val(arg);
-            } else if constexpr (std::is_same_v<T, float>) {
-                return wasmtime::Val(arg);
-            } else if constexpr (std::is_same_v<T, int64_t>) {
+            if constexpr (
+                std::is_same_v<T, double> || std::is_same_v<T, float> ||
+                std::is_same_v<T, int64_t>
+            ) {
                 return wasmtime::Val(arg);
             } else if constexpr (std::is_same_v<T, uint64_t>) {
                 return wasmtime::Val(static_cast<int64_t>(arg));
@@ -132,7 +131,8 @@ sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
 inline x::telem::SampleValue
 sample_from_bits(const uint64_t bits, const types::Type &type) {
     // Check for timestamp (i64 with nanosecond time units)
-    if (type.is_timestamp()) return x::telem::SampleValue(x::telem::TimeStamp(bits));
+    if (type.is_timestamp())
+        return x::telem::SampleValue(x::telem::TimeStamp(static_cast<int64_t>(bits)));
 
     switch (type.kind) {
         case types::Kind::U8:

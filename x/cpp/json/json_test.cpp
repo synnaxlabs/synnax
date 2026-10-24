@@ -380,9 +380,7 @@ TEST(testConfig, testParseFromFileInvalidJSON) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "");
-    EXPECT_TRUE(
-        err["message"].get<std::string>().find("parse error") != std::string::npos
-    );
+    EXPECT_TRUE(err["message"].get<std::string>().contains("parse error"));
 
     // Clean up
     std::remove(test_file.c_str());
@@ -400,10 +398,7 @@ TEST(testConfig, testFieldErrWithXError) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "test_field");
-    EXPECT_TRUE(
-        err["message"].get<std::string>().find("Custom validation error") !=
-        std::string::npos
-    );
+    EXPECT_TRUE(err["message"].get<std::string>().contains("Custom validation error"));
 }
 
 struct BasicConstructibleConfig {
@@ -596,9 +591,7 @@ TEST(testConfig, testConstructibleTypeWithInvalidType) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "config.value");
-    EXPECT_TRUE(
-        err["message"].get<std::string>().find("expected a number") != std::string::npos
-    );
+    EXPECT_TRUE(err["message"].get<std::string>().contains("expected a number"));
 }
 
 /// @brief it should report nested error path for constructible type errors.
@@ -947,9 +940,7 @@ TEST(testConfig, testMapWithInvalidValueType) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "servers.host1");
-    EXPECT_TRUE(
-        err["message"].get<std::string>().find("expected a number") != std::string::npos
-    );
+    EXPECT_TRUE(err["message"].get<std::string>().contains("expected a number"));
 }
 
 /// @brief it should parse nested maps successfully.
@@ -1261,6 +1252,7 @@ TEST(testConfig, testAlternativePathsNoneFound) {
     const auto version = parser.field<std::string>(
         std::vector<std::string>{"version", "version_v1", "version_v2", "version_v3"}
     );
+    EXPECT_TRUE(version.empty());
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
@@ -1298,6 +1290,7 @@ TEST(testConfig, testAlternativePathsEmptyVector) {
     Parser parser(j);
     std::vector<std::string> empty_paths;
     const auto version = parser.field<std::string>(empty_paths);
+    EXPECT_TRUE(version.empty());
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
@@ -1472,6 +1465,7 @@ TEST(testConfig, testOptionalChildMissing) {
     EXPECT_TRUE(parser.ok());
     // Trying to use the child parser should be a noop
     const auto name = child.field<std::string>("name");
+    EXPECT_TRUE(name.empty());
     EXPECT_TRUE(parser.ok()); // Still ok because child is noop
 }
 

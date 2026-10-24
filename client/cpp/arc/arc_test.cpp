@@ -19,7 +19,10 @@
 #include "x/cpp/test/test.h"
 
 namespace synnax::arc {
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
+// printed so that a failing run can be replayed.
 std::mt19937 gen_rand = random_generator("Arc Tests");
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 std::string random_arc_name(const std::string &prefix) {
     std::uniform_int_distribution<> dis(10000, 99999);

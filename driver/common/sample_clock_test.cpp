@@ -395,14 +395,15 @@ INSTANTIATE_TEST_SUITE_P(
             .k_d = 0.05,
             .constant_offset = x::telem::MICROSECOND * 100,
             .jitter_func =
-                [gen = std::mt19937(42),
-                 dist = std::uniform_int_distribution<int64_t>(
-                     -80 * x::telem::MICROSECOND.nanoseconds(),
-                     80 * x::telem::MICROSECOND.nanoseconds()
-                 )](int cycle) mutable {
-                    if (cycle < 10000) return x::telem::TimeSpan(0);
-                    return x::telem::TimeSpan(dist(gen));
-                },
+                // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable jitter.
+            [gen = std::mt19937(42),
+             dist = std::uniform_int_distribution<int64_t>(
+                 -80 * x::telem::MICROSECOND.nanoseconds(),
+                 80 * x::telem::MICROSECOND.nanoseconds()
+             )](int cycle) mutable {
+                if (cycle < 10000) return x::telem::TimeSpan(0);
+                return x::telem::TimeSpan(dist(gen));
+            },
             .n_cycles = 15000
         }
     )

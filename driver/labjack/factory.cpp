@@ -28,12 +28,12 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     common::ConfigureResult result;
     auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task, timing_cfg);
     if (err) return {std::move(result), err};
+    result.auto_start = cfg.auto_start;
     std::unique_ptr<common::Source> source;
     if (cfg.has_thermocouples())
         source = std::make_unique<UnarySource>(devs, std::move(cfg));
     else
         source = std::make_unique<StreamSource>(devs, std::move(cfg));
-    result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,

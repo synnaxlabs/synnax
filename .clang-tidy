@@ -22,6 +22,9 @@
 #   flags the risky ones.
 # - avoid-endl: a tool that prints to a pipe needs the flush that std::endl does.
 # - use-string-view: it changes return types and leaves callers that append to them.
+# - slicing: the Arc runtime copies a Program to its IR on purpose.
+# - inefficient-string-concatenation and use-anyofallof: style only, and the rewrite
+#   reads no better. Frame is not a range, so it cannot take std::ranges::all_of.
 # - include-cleaner and inconsistent-declaration-parameter-name: the result differs
 #   between libc++ and libstdc++.
 # - Brace, parameter, literal, and declaration style: clang-format and review own it.
@@ -41,9 +44,7 @@ Checks: |
     cppcoreguidelines-pro-type-cstyle-cast,
     cppcoreguidelines-pro-type-member-init,
     cppcoreguidelines-rvalue-reference-param-not-moved,
-    cppcoreguidelines-slicing,
     cppcoreguidelines-virtual-class-destructor,
-    google-explicit-constructor,
     misc-*,
     -misc-const-correctness,
     -misc-include-cleaner,
@@ -65,6 +66,7 @@ Checks: |
     performance-*,
     -performance-avoid-endl,
     -performance-enum-size,
+    -performance-inefficient-string-concatenation,
     -performance-no-int-to-ptr,
     portability-*,
     -portability-avoid-pragma-once,
@@ -83,6 +85,7 @@ Checks: |
     -readability-redundant-lambda-parameter-list,
     -readability-trailing-comma,
     -readability-uppercase-literal-suffix,
+    -readability-use-anyofallof,
     -readability-use-concise-preprocessor-directives
 WarningsAsErrors: "*"
 # Each header is linted as its own file, so report only the file being linted.
@@ -92,14 +95,29 @@ HeaderFilterRegex: "^$"
 ExtraArgs: ["-w"]
 FormatStyle: file
 CheckOptions:
-    # GoogleTest macros declare globals and override TestBody.
+    # GoogleTest macros declare globals, use old type traits, and override TestBody.
     cppcoreguidelines-avoid-non-const-global-variables.IgnoreMacros: true
+    modernize-type-traits.IgnoreMacros: true
     misc-override-with-different-visibility.IgnoredFunctions: ::testing::Test::TestBody
+    # A private override only hides a method that the base class makes public.
+    misc-override-with-different-visibility.DisallowedVisibilityChange: widening
     cppcoreguidelines-init-variables.MathHeader: <cmath>
+    # Containers index with size_t, and Series indexes with int.
+    bugprone-narrowing-conversions.IgnoreConversionFromTypes: size_t;size_type;difference_type
+    bugprone-narrowing-conversions.WarnOnIntegerToFloatingPointNarrowingConversion: false
+    # A factory moves the parts of its config that it keeps.
+    cppcoreguidelines-rvalue-reference-param-not-moved.AllowPartialMove: true
+    cppcoreguidelines-rvalue-reference-param-not-moved.IgnoreUnnamedParams: true
     # A throw from a destructor or a move ends the process, which is the right result.
     bugprone-exception-escape.CheckDestructors: false
     bugprone-exception-escape.CheckMoveMemberFunctions: false
+    # The standard library throws these only for a size past max_size.
+    bugprone-exception-escape.IgnoredExceptions: bad_array_new_length;length_error
     # std::lock_guard is fine for one mutex.
     modernize-use-scoped-lock.WarnOnSingleLocks: false
-    # curl's public headers include each other.
-    misc-header-include-cycle.IgnoredFilesList: /curl/curl\.h$
+    # Vendor headers include each other.
+    misc-header-include-cycle.IgnoredFilesList: /curl/curl\.h$;(^|/)vendor/
+    # std::from_chars takes the end of the range.
+    bugprone-suspicious-stringview-data-usage.AllowedCallees: ::std::from_chars
+    # An int8_t sign-extends on purpose.
+    bugprone-signed-char-misuse.CharTypedefsToIgnore: int8_t

@@ -399,8 +399,8 @@ TEST(TestSeries, testOstreamOperatorForAllTypes) {
     );
 
     Series s_float32{FLOAT32_T, 3};
-    for (float i = 1.5f; i <= 3.5f; i += 1.0f)
-        s_float32.write(i);
+    for (const float v: {1.5f, 2.5f, 3.5f})
+        s_float32.write(v);
     std::ostringstream oss_float32;
     oss_float32 << s_float32;
     ASSERT_EQ(
@@ -439,8 +439,8 @@ TEST(TestSeries, testOstreamOperatorForAllTypes) {
     );
 
     Series s_float64{FLOAT64_T, 3};
-    for (double i = 1.5; i <= 3.5; i += 1.0)
-        s_float64.write(i);
+    for (const double v: {1.5, 2.5, 3.5})
+        s_float64.write(v);
     std::ostringstream oss_float64;
     oss_float64 << s_float64;
     ASSERT_EQ(

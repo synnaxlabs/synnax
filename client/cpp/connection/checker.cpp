@@ -96,7 +96,7 @@ void Checker::stop() {
 }
 
 State Checker::check() {
-    Status prev_status;
+    auto prev_status = Status::DISCONNECTED;
     bool prev_skew_exceeded = false;
     {
         std::lock_guard lk(this->mu);

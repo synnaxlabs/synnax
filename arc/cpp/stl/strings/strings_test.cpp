@@ -119,7 +119,7 @@ struct StrModuleFixture {
     void write_spec(const std::string &spec) {
         const auto mem_span = memory.data(store);
         auto *mem = const_cast<uint8_t *>(mem_span.data());
-        strcpy((char *) mem + SPEC_OFFSET, spec.data());
+        strcpy(reinterpret_cast<char *>(mem) + SPEC_OFFSET, spec.data());
     }
 
 private:

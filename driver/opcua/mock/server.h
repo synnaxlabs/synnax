@@ -284,6 +284,7 @@ struct ServerConfig {
         UA_Variant_init(&invalid_double_val);
         invalid_double_val.type = &UA_TYPES[UA_TYPES_DOUBLE];
         invalid_double_val.arrayLength = 0;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast): open62541 macro.
         invalid_double_val.data = UA_EMPTY_ARRAY_SENTINEL;
 
         cfg.test_nodes = {

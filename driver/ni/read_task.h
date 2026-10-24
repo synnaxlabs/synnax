@@ -94,7 +94,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         )),
         skew_warn_on_count(cfg.field<std::size_t>(
             "skew_warn_on_count",
-            this->sample_rate.hz() // Default to 1 second behind
+            // Default to 1 second behind
+            static_cast<std::size_t>(this->sample_rate.hz())
         )) {
         if (this->channels.empty()) {
             cfg.field_err("channels", "task must have at least one enabled channel");
@@ -173,10 +174,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         return chs;
     }
 
-    [[nodiscard]] x::errors::Error apply(
-        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-        const TaskHandle handle
-    ) const {
+    [[nodiscard]] x::errors::Error
+    apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle handle) const {
         for (const auto &ch: this->channels)
             if (auto err = ch->apply(dmx, handle)) return err;
         if (this->software_timed) return x::errors::NIL;

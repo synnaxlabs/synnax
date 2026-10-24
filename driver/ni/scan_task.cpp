@@ -35,7 +35,7 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
     dev.make = MAKE;
     dev.rack = this->task.rack;
     dev.configured = false;
-    NISysCfgBool is_simulated;
+    NISysCfgBool is_simulated = NISysCfgBoolFalse;
     if (const auto err = this->syscfg->GetResourceProperty(
             resource,
             NISysCfgResourcePropertyIsSimulated,
@@ -243,7 +243,9 @@ x::errors::Error Scanner::start() {
             nullptr,
             NISysCfgLocaleDefault,
             NISysCfgBoolTrue,
-            (this->cfg.rate.period() - x::telem::SECOND).milliseconds(),
+            static_cast<unsigned int>(
+                (this->cfg.rate.period() - x::telem::SECOND).milliseconds()
+            ),
             nullptr,
             &this->session
         ))

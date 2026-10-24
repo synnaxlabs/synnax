@@ -30,8 +30,8 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         if (it != connections_.end()) {
             for (auto &entry: it->second) {
                 if (!entry.in_use) {
-                    UA_SessionState session_state;
-                    UA_SecureChannelState channel_state;
+                    UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+                    UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
                     UA_Client_getState(
                         entry.client.get(),
                         &channel_state,
@@ -151,8 +151,8 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
             if (it != connections_.end()) {
                 for (auto &entry: it->second) {
                     if (!entry.in_use) {
-                        UA_SessionState ss;
-                        UA_SecureChannelState cs;
+                        UA_SessionState ss = UA_SESSIONSTATE_CLOSED;
+                        UA_SecureChannelState cs = UA_SECURECHANNELSTATE_CLOSED;
                         UA_Client_getState(entry.client.get(), &cs, &ss, nullptr);
                         if (ss == UA_SESSIONSTATE_ACTIVATED) {
                             entry.in_use = true;
@@ -242,8 +242,8 @@ void Pool::release(const std::string &key, const std::shared_ptr<UA_Client> &cli
 
     for (auto &entry: it->second) {
         if (entry.client == client) {
-            UA_SessionState session_state;
-            UA_SecureChannelState channel_state;
+            UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+            UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
             UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
             if (session_state == UA_SESSIONSTATE_ACTIVATED) {
                 entry.in_use = false;
@@ -279,8 +279,8 @@ void Pool::cleanup_stale_entries(
         if (it == connections_.end()) return;
         for (auto &entry: it->second) {
             if (entry.in_use || !entry.client) continue;
-            UA_SessionState ss;
-            UA_SecureChannelState cs;
+            UA_SessionState ss = UA_SESSIONSTATE_CLOSED;
+            UA_SecureChannelState cs = UA_SECURECHANNELSTATE_CLOSED;
             UA_Client_getState(entry.client.get(), &cs, &ss, nullptr);
             if (ss != UA_SESSIONSTATE_ACTIVATED) {
                 stale.push_back(entry.client);
@@ -334,8 +334,8 @@ x::errors::Error Pool::run_iterate_checked(
         return driver::opcua::errors::parse(status);
     }
 
-    UA_SessionState session_state;
-    UA_SecureChannelState channel_state;
+    UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+    UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
     UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
 
     if (session_state != UA_SESSIONSTATE_ACTIVATED) {

@@ -19,7 +19,7 @@
 #include "x/cpp/telem/series.h"
 
 namespace driver::opcua::types {
-// NOLINTBEGIN(google-explicit-constructor): each wrapper converts to the open62541 type
+// NOLINTBEGIN(misc-explicit-constructor): each wrapper converts to the open62541 type
 // it holds.
 struct Node {
     x::telem::DataType data_type;
@@ -386,5 +386,5 @@ public:
     /// @brief Get mutable pointer for output parameters
     UA_ByteString *ptr() { return &str_; }
 };
-// NOLINTEND(google-explicit-constructor)
+// NOLINTEND(misc-explicit-constructor)
 }

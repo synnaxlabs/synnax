@@ -154,9 +154,9 @@ TEST(FrameTests, testIteration) {
     }
     ASSERT_EQ(count, 3);
     ASSERT_EQ(seen_keys.size(), 3);
-    ASSERT_TRUE(seen_keys.find(65537) != seen_keys.end());
-    ASSERT_TRUE(seen_keys.find(65538) != seen_keys.end());
-    ASSERT_TRUE(seen_keys.find(65539) != seen_keys.end());
+    ASSERT_TRUE(seen_keys.contains(65537));
+    ASSERT_TRUE(seen_keys.contains(65538));
+    ASSERT_TRUE(seen_keys.contains(65539));
 
     const auto &const_frame = frame;
     count = 0;
@@ -212,6 +212,7 @@ TEST(FrameTests, testIteratorWithSTLAlgorithms) {
 }
 
 /// @brief it should correctly move construct a frame.
+// NOLINTBEGIN(bugprone-use-after-move): the tests check the moved-from state.
 TEST(FrameTests, testMoveConstructor) {
     // Create a frame with data
     auto f1 = Frame(2);
@@ -516,6 +517,7 @@ TEST(FrameTests, testMovedFromAtThrows) {
     auto f2 = std::move(f1);
     ASSERT_THROW(f1.at<float>(65537, 0), std::runtime_error);
 }
+// NOLINTEND(bugprone-use-after-move)
 
 /// @brief it should correctly move assign to an empty frame.
 TEST(FrameTests, testMoveAssignmentToEmpty) {

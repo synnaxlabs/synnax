@@ -1362,8 +1362,8 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     for (const auto &channel: cfg->channels)
         if (!channel->dev_loc.empty()) { unique_locs.insert(channel->dev_loc); }
     EXPECT_EQ(unique_locs.size(), 2);
-    EXPECT_TRUE(unique_locs.count("cDAQ1Mod1") > 0);
-    EXPECT_TRUE(unique_locs.count("cDAQ1Mod2") > 0);
+    EXPECT_TRUE(unique_locs.contains("cDAQ1Mod1"));
+    EXPECT_TRUE(unique_locs.contains("cDAQ1Mod2"));
 }
 
 /// @brief Verify a counter read config without a top-level device binds each
@@ -1467,11 +1467,11 @@ TEST(ReadTaskConfigTest, testMinimumSampleRateErrorMessageFormat) {
     std::string result = msg.str();
 
     // Verify the message contains all required components
-    EXPECT_TRUE(result.find("25 Hz") != std::string::npos);
-    EXPECT_TRUE(result.find("50 Hz") != std::string::npos);
-    EXPECT_TRUE(result.find("cDAQ1Mod1") != std::string::npos);
-    EXPECT_TRUE(result.find("NI SIM") != std::string::npos);
-    EXPECT_TRUE(result.find("below device minimum") != std::string::npos);
+    EXPECT_TRUE(result.contains("25 Hz"));
+    EXPECT_TRUE(result.contains("50 Hz"));
+    EXPECT_TRUE(result.contains("cDAQ1Mod1"));
+    EXPECT_TRUE(result.contains("NI SIM"));
+    EXPECT_TRUE(result.contains("below device minimum"));
 }
 
 /// Regression test to ensure enable_auto_commit is set to true in WriterConfig.

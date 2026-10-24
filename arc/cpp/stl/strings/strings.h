@@ -465,9 +465,7 @@ inline std::string go_quote(const std::string &s) {
                 out += "\\v";
                 break;
             default:
-                if (c >= 0x20 && c < 0x7F) {
-                    out += static_cast<char>(c);
-                } else if (c >= 0x80) {
+                if ((c >= 0x20 && c < 0x7F) || c >= 0x80) {
                     out += static_cast<char>(c);
                 } else {
                     char hexbuf[8];

@@ -291,7 +291,7 @@ struct WriterConfig {
     ///     - WriterPersistStream: persist data and stream it.
     ///     - WriterPersistOnly: persist data only.
     ///     - WriterStreamOnly: stream data only.
-    WriterMode mode;
+    WriterMode mode = PersistStream;
 
     /// @brief sets whether auto commit is enabled for the writer. If true, samples
     /// will be made immediately available for reads. If false, samples will be made
