@@ -295,8 +295,9 @@
     }
 
     /* A readout hangs under the field as a tray, so it reads as part of the control
-       and not as a label. */
+       and not as a label. Its text never sizes the field, so a long value truncates. */
     .pluto-symbol-field__readout {
+        contain: inline-size;
         display: flex;
         align-items: center;
         justify-content: space-between;
