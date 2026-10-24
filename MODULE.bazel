@@ -18,6 +18,7 @@ bazel_dep(name = "google_benchmark", version = "1.9.5")
 bazel_dep(name = "googletest", version = "1.18.0.bcr.1")
 bazel_dep(name = "gperftools", version = "2.18.1")
 bazel_dep(name = "grpc", version = "1.84.0")
+bazel_dep(name = "mbedtls", version = "3.6.7")
 bazel_dep(name = "nlohmann_json", version = "3.12.0.bcr.2")
 
 # Declared here only so the root can set //:use-no-asm-fallback. The version still comes
@@ -27,6 +28,7 @@ bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "protobuf", version = "36.2")
 bazel_dep(name = "rules_cc", version = "0.2.26")
 bazel_dep(name = "rules_proto_grpc_cpp", version = "5.8.0")
+bazel_dep(name = "rules_python", version = "2.0.2")
 
 # Runs clang-tidy as an aspect under --config=clang-tidy. The registry does not have it.
 bazel_dep(name = "bazel_clang_tidy", dev_dependency = True)
