@@ -103,15 +103,23 @@ to a switch or to your office network.
 The Core's Docker image runs as a user without these permissions, so its embedded Driver
 cannot run EtherCAT tasks.
 
-To start the Driver on Linux by hand, run it as root or give it the capability that the
-service has:
+To start the Driver on Linux by hand, run it as root or give it the access that the
+service has. Without IgH, the Driver needs the raw Ethernet capability:
 
 ```bash
 sudo setcap cap_net_raw+ep /usr/local/bin/synnax-driver
 ```
 
+With IgH, the Driver needs access to the master device (`/dev/EtherCAT0`) instead.
+`sudo synnax-driver install` gives this access to the `synnax` group, so add your user
+to that group, then log in again:
+
+```bash
+sudo usermod -aG synnax $USER
+```
+
 <Note.Note variant="info" className="compact">
-  A service installed by an older Driver does not have this permission. To update it,
+  A service installed by an older Driver does not have these permissions. To update it,
   run `sudo synnax-driver install` again.
 </Note.Note>
 

@@ -23,7 +23,7 @@ const x::errors::Error MASTER_INIT_ERROR = BASE_ERROR.sub("master_init");
 /// @brief error returned when the network interface cannot be opened.
 const x::errors::Error INTERFACE_ERROR = BASE_ERROR.sub("interface");
 /// @brief error returned when the Driver lacks permission to open the network
-/// interface.
+/// interface or the IgH master device.
 const x::errors::Error PERMISSION_DENIED = INTERFACE_ERROR.sub("permission_denied");
 /// @brief error returned when slave configuration fails.
 const x::errors::Error SLAVE_CONFIG_ERROR = BASE_ERROR.sub("slave_config");
