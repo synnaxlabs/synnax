@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
-	pdlegacy "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/legacy"
+	pdversions "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -126,9 +126,7 @@ var _ = Describe("ImEx", Ordered, func() {
 				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
 
 				env := MustSucceed(svc.Export(ctx, t.OntologyID()))
-				// The version is the config type's own number line: one above
-				// PagerDuty's last legacy shape.
-				Expect(env.Version).To(Equal(pdlegacy.LastVersion + 1))
+				Expect(env.Version).To(Equal(pdversions.Latest))
 				Expect(env.Type).To(Equal(pagerduty.AlertTaskType))
 				Expect(env.Name).To(Equal("Exported Task"))
 

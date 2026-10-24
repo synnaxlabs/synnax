@@ -1704,7 +1704,7 @@ using {{$td.Name}} = {{$td.CppType}};
 {{end}}struct {{$s.Name}}{{if $s.HasExtends}} : {{range $i, $parent := $s.ExtendsTypes}}{{if $i}}, {{end}}public {{$parent}}{{end}}{{end}} {
 {{- range $s.Fields}}
 {{- if .Doc}}
-    {{formatDoc .Name .Doc | printf "%s"}}
+    {{formatDoc .Name .Doc 4 | printf "%s"}}
 {{- end}}
     {{.CppType}} {{.Name}}{{if .DefaultValue}} = {{.DefaultValue}}{{end}};
 {{- end}}

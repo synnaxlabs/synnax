@@ -1,0 +1,228 @@
+{
+  "type": "ni_counter_read",
+  "name": "ni_counter_read",
+  "version": 2,
+  "auto_start": true,
+  "data_saving_disabled": true,
+  "sample_rate": 321.5,
+  "stream_rate": 32.5,
+  "channels": [
+    {
+      "type": "ci_frequency",
+      "key": "ch-ci-frequency",
+      "units": "Ticks",
+      "name": "fixture_ci_frequency",
+      "disabled": false,
+      "port": 0,
+      "custom_scale": {
+        "scaled_units": "rpm-custom",
+        "type": "linear",
+        "slope": 3.25,
+        "y_intercept": -1.5,
+        "pre_scaled_units": "Hz"
+      },
+      "edge": "Falling",
+      "meas_time": 0.0125,
+      "terminal": "/Dev1/PFI0",
+      "channel": 5010,
+      "device": "fixture-ni-counter-dev-1",
+      "min_val": 5.5,
+      "divisor": 7,
+      "max_val": 1250.5,
+      "meas_method": "HighFreq2Ctr"
+    },
+    {
+      "name": "fixture_ci_edge_count",
+      "channel": 5020,
+      "terminal": "/Dev1/PFI1",
+      "type": "ci_edge_count",
+      "key": "ch-ci-edge-count",
+      "disabled": false,
+      "port": 1,
+      "device": "fixture-ni-counter-dev-1",
+      "active_edge": "Falling",
+      "count_direction": "CountDown",
+      "initial_count": 1234
+    },
+    {
+      "disabled": true,
+      "channel": 5030,
+      "meas_method": "LargeRng2Ctr",
+      "terminal": "/Dev1/PFI2",
+      "starting_edge": "Falling",
+      "divisor": 9,
+      "name": "fixture_ci_period",
+      "port": 2,
+      "device": "fixture-ni-counter-dev-2",
+      "custom_scale": {
+        "pre_scaled_max": 0.75,
+        "scaled_min": 0.5,
+        "scaled_max": 750.5,
+        "pre_scaled_units": "Seconds",
+        "scaled_units": "ms-custom",
+        "type": "map",
+        "pre_scaled_min": 0.0005
+      },
+      "max_val": 0.75,
+      "type": "ci_period",
+      "min_val": 0.0005,
+      "units": "Ticks",
+      "meas_time": 0.025,
+      "key": "ch-ci-period"
+    },
+    {
+      "starting_edge": "Falling",
+      "terminal": "/Dev1/PFI3",
+      "type": "ci_pulse_width",
+      "key": "ch-ci-pulse-width",
+      "channel": 5040,
+      "device": "fixture-ni-counter-dev-2",
+      "max_val": 0.55,
+      "units": "Ticks",
+      "name": "fixture_ci_pulse_width",
+      "disabled": false,
+      "port": 3,
+      "custom_scale": {
+        "type": "none"
+      },
+      "min_val": 0.0002
+    },
+    {
+      "terminal": "",
+      "name": "fixture_ci_semi_period",
+      "disabled": false,
+      "channel": 5050,
+      "port": 4,
+      "custom_scale": {
+        "type": "none"
+      },
+      "min_val": 0.0004,
+      "units": "Ticks",
+      "type": "ci_semi_period",
+      "key": "ch-ci-semi-period",
+      "device": "fixture-ni-counter-dev-3",
+      "max_val": 0.65
+    },
+    {
+      "units": "Ticks",
+      "name": "fixture_ci_two_edge_sep",
+      "disabled": false,
+      "custom_scale": {
+        "type": "linear",
+        "slope": 1000.5,
+        "y_intercept": 0.125,
+        "pre_scaled_units": "Seconds",
+        "scaled_units": "sep-custom"
+      },
+      "channel": 5060,
+      "port": 5,
+      "second_edge": "Rising",
+      "key": "ch-ci-two-edge-sep",
+      "device": "fixture-ni-counter-dev-3",
+      "first_edge": "Falling",
+      "first_terminal": "",
+      "second_terminal": "",
+      "type": "ci_two_edge_sep",
+      "min_val": 0.0003,
+      "max_val": 0.85
+    },
+    {
+      "min_val": -10.5,
+      "type": "ci_velocity_linear",
+      "port": 6,
+      "max_val": 10.5,
+      "decoding_type": "X2",
+      "terminal_a": "/Dev1/PFI4",
+      "device": "fixture-ni-counter-dev-4",
+      "units": "in/s",
+      "terminal_b": "/Dev1/PFI5",
+      "key": "ch-ci-velocity-linear",
+      "name": "fixture_ci_velocity_linear",
+      "disabled": false,
+      "channel": 5070,
+      "custom_scale": {
+        "type": "none"
+      },
+      "dist_per_pulse": 0.0125
+    },
+    {
+      "type": "ci_velocity_angular",
+      "key": "ch-ci-velocity-angular",
+      "channel": 5080,
+      "custom_scale": {
+        "type": "none"
+      },
+      "units": "Degrees/s",
+      "terminal_a": "/Dev1/PFI6",
+      "device": "fixture-ni-counter-dev-4",
+      "decoding_type": "X1",
+      "pulses_per_rev": 360.5,
+      "disabled": true,
+      "min_val": -720.5,
+      "terminal_b": "/Dev1/PFI7",
+      "name": "fixture_ci_velocity_angular",
+      "port": 7,
+      "max_val": 720.5
+    },
+    {
+      "name": "fixture_ci_position_linear",
+      "device": "fixture-ni-counter-dev-5",
+      "z_index_val": 0.5,
+      "z_index_phase": "ALowBHigh",
+      "initial_pos": 1.125,
+      "terminal_a": "/Dev1/PFI8",
+      "terminal_b": "/Dev1/PFI9",
+      "type": "ci_position_linear",
+      "port": 8,
+      "dist_per_pulse": 0.00025,
+      "units": "Inches",
+      "decoding_type": "TwoPulse",
+      "key": "ch-ci-position-linear",
+      "disabled": false,
+      "channel": 5090,
+      "terminal_z": "/Dev1/PFI10",
+      "custom_scale": {
+        "type": "none"
+      },
+      "z_index_enabled": true
+    },
+    {
+      "key": "ch-ci-position-angular",
+      "name": "fixture_ci_position_angular",
+      "disabled": false,
+      "channel": 5100,
+      "port": 9,
+      "custom_scale": {
+        "type": "none"
+      },
+      "pulses_per_rev": 1024.5,
+      "initial_angle": 0.7853,
+      "z_index_enabled": true,
+      "z_index_phase": "AHighBLow",
+      "terminal_z": "/Dev1/PFI13",
+      "terminal_b": "/Dev1/PFI12",
+      "z_index_val": 1.5,
+      "units": "Radians",
+      "terminal_a": "/Dev1/PFI11",
+      "type": "ci_position_angular",
+      "device": "fixture-ni-counter-dev-5",
+      "decoding_type": "X2"
+    },
+    {
+      "type": "ci_duty_cycle",
+      "key": "ch-ci-duty-cycle",
+      "name": "fixture_ci_duty_cycle",
+      "disabled": false,
+      "channel": 5110,
+      "port": 10,
+      "min_val": 4.5,
+      "device": "fixture-ni-counter-dev-6",
+      "custom_scale": {
+        "type": "none"
+      },
+      "max_val": 9999.5,
+      "active_edge": "Falling",
+      "terminal": "/Dev1/PFI14"
+    }
+  ]
+}

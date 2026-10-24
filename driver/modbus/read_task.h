@@ -220,13 +220,13 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             }
             if (const auto *c = std::get_if<
                     ::synnax::modbus::HoldingRegisterReadChannel>(&parsed))
-                holding_registers.emplace_back(*c);
+                holding_registers.emplace_back(*c, this->conn);
             else if (
                 const auto *c = std::get_if<::synnax::modbus::InputRegisterReadChannel>(
                     &parsed
                 )
             )
-                input_registers.emplace_back(*c);
+                input_registers.emplace_back(*c, this->conn);
             else if (
                 const auto *c = std::get_if<::synnax::modbus::CoilReadChannel>(&parsed)
             )
