@@ -62,7 +62,8 @@ x::errors::Error SugaredAPI::SetFilterProperty(
     NISysCfgFilterProperty propertyID,
     ...
 ) {
-    va_list args = nullptr;
+    // NOLINTNEXTLINE(cppcoreguidelines-init-variables): va_start sets it.
+    va_list args;
     // Note: Enum types undergo default argument promotion to int in varargs.
     // This is a known limitation of C varargs but is how the NI API is designed.
     // Suppressing the warning to maintain semantic type safety of the enum.
