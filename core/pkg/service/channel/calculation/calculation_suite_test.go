@@ -19,7 +19,7 @@ import (
 
 func TestCalculation(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Channel Calculation Suite")
+	RunSpecs(t, "Service Channel Calculation Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
