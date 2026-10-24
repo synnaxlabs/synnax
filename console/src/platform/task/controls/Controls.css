@@ -42,13 +42,26 @@
         padding-right: 4rem;
     }
 
-    .console-task-status__message-content {
+    .console-task-status__message-content,
+    .console-task-status__message-body {
         min-width: 0;
+    }
+
+    /* The indicator draws at 1em, so the margin centers it on the first line. */
+    .console-task-status__indicator {
+        margin-top: calc((var(--pluto-p-line-height) - 1em) / 2);
     }
 
     .console-task-status__message-text {
         display: -webkit-box;
         -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .console-task-status__preview {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
     }

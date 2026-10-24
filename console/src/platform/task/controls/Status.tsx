@@ -63,19 +63,36 @@ export const Status = ({
         grow
         className={CSS.BE("task-status", "message")}
       >
-        <Flex.Box x gap="small" className={CSS.BE("task-status", "message-content")}>
-          <Text.Text level="p">
+        <Flex.Box
+          x
+          align="start"
+          gap="small"
+          className={CSS.BE("task-status", "message-content")}
+        >
+          <Text.Text level="p" className={CSS.BE("task-status", "indicator")}>
             <PStatus.Indicator variant={stat.variant} />
           </Text.Text>
-          <Text.Text
-            level="p"
-            status={stat.variant}
-            weight={500}
-            overflow="wrap"
-            className={CSS.BE("task-status", "message-text")}
-          >
-            {message}
-          </Text.Text>
+          <Flex.Box y gap="tiny" className={CSS.BE("task-status", "message-body")}>
+            <Text.Text
+              level="p"
+              status={stat.variant}
+              weight={500}
+              overflow="wrap"
+              className={CSS.BE("task-status", "message-text")}
+            >
+              {message}
+            </Text.Text>
+            {!expanded && hasDescription && (
+              <Text.Text
+                level="small"
+                color={9}
+                overflow="wrap"
+                className={CSS.BE("task-status", "preview")}
+              >
+                {stat.description}
+              </Text.Text>
+            )}
+          </Flex.Box>
         </Flex.Box>
         {expanded && (
           <Flex.Box x>
