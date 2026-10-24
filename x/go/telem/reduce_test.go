@@ -57,18 +57,18 @@ var _ = Describe("Reduce", func() {
 				uint32(20),
 			),
 			Entry(
-				"min/max rounds odd sizes up",
+				"min/max rounds up",
 				int64(1010),
 				uint32(100),
 				telem.AggregationMinMax,
 				uint32(22),
 			),
 			Entry(
-				"min/max with a limit of one",
-				int64(10),
-				uint32(1),
+				"min/max with an odd limit",
+				int64(1000),
+				uint32(3),
 				telem.AggregationMinMax,
-				uint32(10),
+				uint32(668),
 			),
 			Entry(
 				"average",
@@ -99,6 +99,43 @@ var _ = Describe("Reduce", func() {
 				uint32(math.MaxUint32-1),
 			),
 		)
+
+		It("Should follow the group size of decimation under the same limit", func() {
+			counts := []int64{
+				1,
+				2,
+				3,
+				999,
+				1000,
+				1001,
+				2001,
+				1 << 32,
+				1 << 33,
+				1 << 40,
+				math.MaxInt64,
+			}
+			limits := []uint32{0, 1, 2, 3, 1000, 1024, math.MaxUint32}
+			aggs := []telem.Aggregation{
+				telem.AggregationMinMax,
+				telem.AggregationAverage,
+				telem.AggregationDecimate,
+			}
+			for _, count := range counts {
+				for _, limit := range limits {
+					decimated := telem.GroupSize(
+						count,
+						limit,
+						telem.AggregationDecimate,
+					)
+					for _, agg := range aggs {
+						Expect(agg.GroupSize(decimated)).To(
+							Equal(telem.GroupSize(count, limit, agg)),
+							"count %d, limit %d, %s", count, limit, agg,
+						)
+					}
+				}
+			}
+		})
 	})
 
 	Describe("GroupStart", func() {

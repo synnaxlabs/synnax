@@ -132,9 +132,9 @@ one `reduction` field, a union of two variants:
 
 Cesium reduces in the unary iterator. Each channel counts the samples of its index
 inside the read bounds with a binary search of the index, so every channel on one index
-gets the same group size: the smallest that brings the count under the limit, rounded up
-to an even size for `min_max`. Groups are anchored at sample `0` of each index domain,
-so two reads of overlapping bounds cut the same groups.
+gets the same group size: the count over the limit, rounded up, and twice that for
+`min_max`, which keeps two points per group. Groups are anchored at sample `0` of each
+index domain, so two reads of overlapping bounds cut the same groups.
 
 A fixed-span read without a limit can be large: 12 hours of a 1 kHz channel is about 400
 MB. Cesium sends a fixed-span `Next` or `Prev` in pieces, in time order. Each piece
@@ -145,9 +145,11 @@ and the limit already bounds it.
 A calculation must see every sample, so a request that runs one reads every channel raw,
 and the service reduces the output. Each channel's group size comes from the concrete
 indexes it depends on, so a stored channel reduces the same way with or without a
-calculation beside it. The reducer keeps each channel's last group until the next piece
-completes it. The service reads a `Next` or `Prev` with the automatic span as one
-fixed-span read to the end of the bounds, so no chunk edge cuts a group.
+calculation beside it. The service reads each index decimated under the same limit and
+takes the group size Cesium picks for it. The reducer keeps each channel's last group
+until the next piece completes it. The service reads a `Next` or `Prev` with the
+automatic span as one fixed-span read to the end of the bounds, so no chunk edge cuts a
+group.
 
 ### 3.5 The wire
 
