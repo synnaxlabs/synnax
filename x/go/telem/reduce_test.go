@@ -10,6 +10,8 @@
 package telem_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
@@ -82,6 +84,20 @@ var _ = Describe("Reduce", func() {
 				telem.AggregationDecimate,
 				uint32(11),
 			),
+			Entry(
+				"a size past the largest uint32",
+				int64(1)<<33,
+				uint32(1),
+				telem.AggregationDecimate,
+				uint32(math.MaxUint32-1),
+			),
+			Entry(
+				"a min/max size past the largest uint32",
+				int64(1)<<40,
+				uint32(2),
+				telem.AggregationMinMax,
+				uint32(math.MaxUint32-1),
+			),
 		)
 	})
 
@@ -145,6 +161,15 @@ var _ = Describe("Reduce", func() {
 			Expect(r.AlignmentMultiple).To(Equal(uint32(1)))
 		})
 
+		It("Should reduce a min/max group to NaN only when it starts with NaN", func() {
+			s := telem.NewSeriesV(math.NaN(), 1, 2, 4, math.NaN(), 3)
+			r := s.Reduce(telem.AggregationMinMax, 3).Unmarshal[float64]()
+			Expect(r).To(HaveLen(4))
+			Expect(math.IsNaN(r[0])).To(BeTrue())
+			Expect(math.IsNaN(r[1])).To(BeTrue())
+			Expect(r[2:]).To(Equal([]float64{4, 3}))
+		})
+
 		It("Should keep the mean of each group", func() {
 			s := telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6)
 			r := s.Reduce(telem.AggregationAverage, 3)
@@ -167,14 +192,52 @@ var _ = Describe("Reduce", func() {
 			).To(Equal([]telem.TimeStamp{base + 2}))
 		})
 
-		It(
-			"Should average a narrow signed group whose range overflows the type",
-			func() {
-				s := telem.NewSeriesV[int8](-100, 100)
-				r := s.Reduce(telem.AggregationAverage, 2)
-				Expect(r.Unmarshal[int8]()).To(Equal([]int8{0}))
+		DescribeTable(
+			"Should average a group whose range overflows the type",
+			func(s, expected telem.Series) {
+				r := s.Reduce(telem.AggregationAverage, uint32(s.Len()))
+				Expect(r.Data).To(Equal(expected.Data))
 			},
+			Entry(
+				"float32",
+				telem.NewSeriesV[float32](-math.MaxFloat32, math.MaxFloat32),
+				telem.NewSeriesV[float32](0),
+			),
+			Entry(
+				"float32 with a mean offset past the largest float32",
+				telem.NewSeriesV[float32](
+					-math.MaxFloat32,
+					math.MaxFloat32,
+					math.MaxFloat32,
+				),
+				telem.NewSeriesV[float32](math.MaxFloat32/3),
+			),
+			Entry(
+				"float64",
+				telem.NewSeriesV(-math.MaxFloat64, math.MaxFloat64),
+				telem.NewSeriesV[float64](0),
+			),
+			Entry(
+				"int8",
+				telem.NewSeriesV[int8](-100, 100),
+				telem.NewSeriesV[int8](0),
+			),
+			Entry(
+				"int8 with a mean offset past the largest int8",
+				telem.NewSeriesV[int8](-128, 127, 127),
+				telem.NewSeriesV[int8](42),
+			),
+			Entry(
+				"int64",
+				telem.NewSeriesV[int64](math.MinInt64, math.MaxInt64),
+				telem.NewSeriesV[int64](-1),
+			),
 		)
+
+		It("Should scale the mean of a partial group to its count", func() {
+			r := telem.NewSeriesV(0.1, 0.2, 2.3).Reduce(telem.AggregationAverage, 4)
+			Expect(r.Unmarshal[float64]()).To(Equal([]float64{0.8666666666666665}))
+		})
 
 		It("Should panic on an unknown aggregation", func() {
 			s := telem.NewSeriesV[float32](1, 2, 3, 4)
@@ -260,50 +323,203 @@ var _ = Describe("Reduce", func() {
 		)
 	})
 
-	Describe("MultiSeries.Reduce", func() {
-		It("Should reduce a group split across contiguous series once", func() {
-			a := telem.NewSeriesV[int64](1, 2, 3)
-			a.Alignment = telem.NewAlignment(0, 0)
-			a.TimeRange = telem.TimeRange{Start: 1, End: 4}
-			b := telem.NewSeriesV[int64](4, 5, 6)
-			b.Alignment = telem.NewAlignment(0, 3)
-			b.TimeRange = telem.TimeRange{Start: 4, End: 7}
-			r := telem.NewMultiSeriesV(a, b).Reduce(telem.AggregationMinMax, 4)
-			Expect(r.Series).To(HaveLen(1))
-			Expect(r.Series[0].Unmarshal[int64]()).To(Equal([]int64{1, 4, 5, 6}))
-			Expect(r.Series[0].TimeRange).To(Equal(telem.TimeRange{Start: 1, End: 7}))
-			Expect(r.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
+	Describe("Cut groups", func() {
+		// at returns s with its first sample at sample index at.
+		at := func(s telem.Series, at uint32) telem.Series {
+			s.Alignment = telem.NewAlignment(0, at)
+			return s
+		}
+
+		Describe("Series.ReduceCut", func() {
+			// starts returns the start of each group, or -1 for a nil group.
+			starts := func(groups ...*telem.Group) []int64 {
+				out := make([]int64, len(groups))
+				for k, g := range groups {
+					out[k] = -1
+					if g != nil {
+						out[k] = int64(g.Start().SampleIndex())
+					}
+				}
+				return out
+			}
+
+			DescribeTable("Should summarize the groups the series holds only part of",
+				func(first uint32, count int, head, tail int64) {
+					s := at(telem.NewSeries(make([]int64, count)), first)
+					reduced, h, t := s.ReduceCut(telem.AggregationMinMax, 4)
+					Expect(reduced).To(Equal(s.Reduce(telem.AggregationMinMax, 4)))
+					Expect(starts(h, t)).To(Equal([]int64{head, tail}))
+				},
+				Entry("whole groups", uint32(0), 8, int64(-1), int64(-1)),
+				Entry("a cut first group", uint32(2), 6, int64(0), int64(-1)),
+				Entry("a cut last group", uint32(0), 6, int64(-1), int64(4)),
+				Entry("cut first and last groups", uint32(2), 9, int64(0), int64(8)),
+				Entry("one group cut at its end", uint32(0), 2, int64(-1), int64(0)),
+				Entry("one group cut on both sides", uint32(1), 2, int64(0), int64(0)),
+			)
+
+			It("Should return the series unchanged when it does not reduce", func() {
+				s := telem.NewSeriesV("a", "b", "c")
+				reduced, head, tail := s.ReduceCut(telem.AggregationMinMax, 2)
+				Expect(reduced).To(Equal(s))
+				Expect(head).To(BeNil())
+				Expect(tail).To(BeNil())
+			})
 		})
 
-		It("Should reduce series with a gap between them separately", func() {
-			a := telem.NewSeriesV[int64](1, 2)
-			a.Alignment = telem.NewAlignment(0, 0)
-			b := telem.NewSeriesV[int64](3, 4)
-			b.Alignment = telem.NewAlignment(1, 0)
-			r := telem.NewMultiSeriesV(a, b).Reduce(telem.AggregationAverage, 2)
-			Expect(r.Series).To(HaveLen(2))
-			Expect(r.Series[0].Unmarshal[int64]()).To(Equal([]int64{1}))
-			Expect(r.Series[1].Unmarshal[int64]()).To(Equal([]int64{3}))
-			Expect(r.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
-		})
-
-		DescribeTable("returns the multi-series unchanged",
-			func(m telem.MultiSeries, agg telem.Aggregation, size uint32) {
-				Expect(m.Reduce(agg, size)).To(Equal(m))
+		DescribeTable("Should reduce a group cut into parts once",
+			func(agg telem.Aggregation, parts ...telem.Series) {
+				whole := telem.NewMultiSeries(parts)
+				size := uint32(whole.Len())
+				expected := telem.Series{
+					DataType: whole.DataType(),
+					Data:     whole.Data(),
+				}.Reduce(agg, size)
+				By("Absorbing each part into the part before it")
+				forward, _, tail := parts[0].ReduceCut(agg, size)
+				for _, p := range parts[1:] {
+					next, head, _ := p.ReduceCut(agg, size)
+					var merged telem.Group
+					forward, next, merged = forward.AbsorbNext(next, *tail, *head)
+					Expect(next.Len()).To(BeZero())
+					tail = &merged
+				}
+				Expect(forward.Data).To(Equal(expected.Data))
+				By("Absorbing each part into the part after it")
+				last := len(parts) - 1
+				backward, head, _ := parts[last].ReduceCut(agg, size)
+				for k := last - 1; k >= 0; k-- {
+					prev, _, tail := parts[k].ReduceCut(agg, size)
+					var merged telem.Group
+					backward, prev, merged = backward.AbsorbPrev(prev, *tail, *head)
+					Expect(prev.Len()).To(BeZero())
+					head = &merged
+				}
+				Expect(backward.Data).To(Equal(expected.Data))
 			},
 			Entry(
-				"group size one",
-				telem.NewMultiSeriesV(telem.NewSeriesV[int64](1, 2)),
+				"min_max with the max before the min",
 				telem.AggregationMinMax,
-				uint32(1),
+				telem.NewSeriesV[float64](2, 9),
+				at(telem.NewSeriesV[float64](4, -3), 2),
 			),
 			Entry(
-				"strings",
-				telem.NewMultiSeriesV(telem.NewSeriesV("a", "b")),
+				"min_max with the min in both parts",
 				telem.AggregationMinMax,
-				uint32(2),
+				telem.NewSeriesV[int32](1, 5),
+				at(telem.NewSeriesV[int32](3, 1), 2),
+			),
+			Entry(
+				"min_max with NaN first in a later part",
+				telem.AggregationMinMax,
+				telem.NewSeriesV[float32](3, 1),
+				at(telem.NewSeriesV(float32(math.NaN()), 7), 2),
+			),
+			Entry(
+				"min_max with NaN first in the group",
+				telem.AggregationMinMax,
+				telem.NewSeriesV(math.NaN(), 1),
+				at(telem.NewSeriesV[float64](5), 2),
+			),
+			Entry(
+				"average of three parts",
+				telem.AggregationAverage,
+				telem.NewSeriesV[float64](1, 2),
+				at(telem.NewSeriesV[float64](3), 2),
+				at(telem.NewSeriesV[float64](6, 8), 3),
+			),
+			Entry(
+				"average of int64 extremes",
+				telem.AggregationAverage,
+				telem.NewSeriesV[int64](math.MinInt64, math.MaxInt64),
+				at(telem.NewSeriesV[int64](math.MinInt64, math.MinInt64), 2),
+			),
+			Entry(
+				"average of uint64 extremes",
+				telem.AggregationAverage,
+				telem.NewSeriesV[uint64](math.MaxUint64, math.MaxUint64),
+				at(telem.NewSeriesV[uint64](math.MaxUint64, 0), 2),
+			),
+			Entry(
+				"average of uint8 extremes",
+				telem.AggregationAverage,
+				telem.NewSeriesV[uint8](255, 255),
+				at(telem.NewSeriesV[uint8](255, 254), 2),
+			),
+			Entry(
+				"decimate",
+				telem.AggregationDecimate,
+				telem.NewSeriesV[int16](4, 2),
+				at(telem.NewSeriesV[int16](1), 2),
 			),
 		)
+
+		Describe("Series.AbsorbNext", func() {
+			It("Should keep the groups of next that follow the cut group", func() {
+				s := telem.NewSeriesV[int64](1, 2, 3)
+				s.TimeRange = telem.TimeRange{Start: 1, End: 4}
+				n := at(telem.NewSeriesV[int64](4, 5, 6), 3)
+				n.TimeRange = telem.TimeRange{Start: 4, End: 7}
+				reduced, _, tail := s.ReduceCut(telem.AggregationMinMax, 4)
+				next, head, _ := n.ReduceCut(telem.AggregationMinMax, 4)
+				reduced, next, _ = reduced.AbsorbNext(next, *tail, *head)
+				Expect(reduced.Unmarshal[int64]()).To(Equal([]int64{1, 4}))
+				Expect(reduced.TimeRange).To(Equal(s.TimeRange))
+				Expect(next.Unmarshal[int64]()).To(Equal([]int64{5, 6}))
+				Expect(next.Alignment).To(Equal(telem.NewAlignment(0, 4)))
+				Expect(next.TimeRange).To(Equal(n.TimeRange))
+			})
+
+			It("Should extend the time range over a next series it empties", func() {
+				s := telem.NewSeriesV[int64](1, 2)
+				s.TimeRange = telem.TimeRange{Start: 1, End: 3}
+				n := at(telem.NewSeriesV[int64](3), 2)
+				n.TimeRange = telem.TimeRange{Start: 3, End: 4}
+				reduced, _, tail := s.ReduceCut(telem.AggregationAverage, 4)
+				next, head, _ := n.ReduceCut(telem.AggregationAverage, 4)
+				reduced, _, _ = reduced.AbsorbNext(next, *tail, *head)
+				Expect(reduced.TimeRange).To(Equal(telem.TimeRange{Start: 1, End: 4}))
+			})
+
+			It("Should panic when the summaries are of two different groups", func() {
+				_, _, tail := telem.NewSeriesV[float64](1).
+					ReduceCut(telem.AggregationMinMax, 2)
+				next, head, _ := at(telem.NewSeriesV[float64](4), 3).
+					ReduceCut(telem.AggregationMinMax, 2)
+				Expect(func() { next.AbsorbNext(next, *tail, *head) }).To(
+					PanicWith(
+						"telem: cannot merge the summaries of two different groups",
+					),
+				)
+			})
+		})
+
+		Describe("Series.AbsorbPrev", func() {
+			It("Should keep the groups of prev that come before the cut group", func() {
+				p := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
+				p.TimeRange = telem.TimeRange{Start: 1, End: 6}
+				s := at(telem.NewSeriesV[int64](6, 7), 5)
+				s.TimeRange = telem.TimeRange{Start: 6, End: 8}
+				prev, _, tail := p.ReduceCut(telem.AggregationDecimate, 4)
+				reduced, head, _ := s.ReduceCut(telem.AggregationDecimate, 4)
+				reduced, prev, _ = reduced.AbsorbPrev(prev, *tail, *head)
+				Expect(reduced.Unmarshal[int64]()).To(Equal([]int64{5}))
+				Expect(reduced.TimeRange).To(Equal(s.TimeRange))
+				Expect(prev.Unmarshal[int64]()).To(Equal([]int64{1}))
+				Expect(prev.TimeRange).To(Equal(p.TimeRange))
+			})
+
+			It("Should extend the time range over a prev series it empties", func() {
+				p := at(telem.NewSeriesV[int64](1), 1)
+				p.TimeRange = telem.TimeRange{Start: 1, End: 2}
+				s := at(telem.NewSeriesV[int64](2, 3), 2)
+				s.TimeRange = telem.TimeRange{Start: 2, End: 4}
+				prev, _, tail := p.ReduceCut(telem.AggregationAverage, 4)
+				reduced, head, _ := s.ReduceCut(telem.AggregationAverage, 4)
+				reduced, _, _ = reduced.AbsorbPrev(prev, *tail, *head)
+				Expect(reduced.TimeRange).To(Equal(telem.TimeRange{Start: 1, End: 4}))
+			})
+		})
 	})
 
 	Describe("Reducible", func() {

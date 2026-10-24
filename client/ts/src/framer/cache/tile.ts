@@ -70,8 +70,9 @@ export interface TileReaderProps {
    */
   batchDebounce?: TimeSpan;
   /**
-   * Byte size the cache evicts down to, least recently used first. A tile whose series
-   * a caller holds is never evicted, so the cache can exceed the budget.
+   * Byte size the cache evicts down to, least recently used first. Each tile counts its
+   * samples and a small fixed overhead. A tile whose series a caller holds is never
+   * evicted, so the cache can exceed the budget.
    * @default Size.megabytes(128)
    */
   budget?: Size;
@@ -96,6 +97,10 @@ interface CacheEntry {
 }
 
 const DEFAULT_BUDGET = Size.megabytes(128);
+
+// ENTRY_OVERHEAD estimates the memory of a cache entry apart from its samples, so that
+// tiles with no samples count against the budget too.
+const ENTRY_OVERHEAD = 256;
 
 const cacheKey = ({ key, level, index, pointLimit, aggregation }: TileSpec): string =>
   `${key}/${level}/${index}/${pointLimit}/${aggregation}`;
@@ -201,7 +206,10 @@ export class TileReader {
   }
 
   private insert(key: string, ch: channel.Key, series: MultiSeries): void {
-    const bytes = series.series.reduce((sum, s) => sum + s.byteLength.valueOf(), 0);
+    const bytes = series.series.reduce(
+      (sum, s) => sum + s.byteLength.valueOf(),
+      ENTRY_OVERHEAD,
+    );
     this.tiles.set(key, { channel: ch, series, bytes, fetchedAt: TimeStamp.now() });
     this.bytes += bytes;
     const budget = this.props.budget.valueOf();

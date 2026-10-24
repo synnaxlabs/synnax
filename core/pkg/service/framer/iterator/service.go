@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -123,7 +124,10 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{cfg: cfg}, nil
 }
 
-func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {
+func (s *Service) NewStream(
+	ctx context.Context,
+	cfg Config,
+) (_ StreamIterator, err error) {
 	cfg.Reduction.ApplyDefaults()
 	if err := cfg.validate(); err != nil {
 		return nil, err
@@ -132,6 +136,14 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	calcTransform, sizer, err := s.newCalculationTransform(ctx, &cfg)
 	if err != nil {
 		return nil, err
+	}
+	if calcTransform != nil {
+		// The pipeline closes the calculators once it owns them.
+		defer func() {
+			if err != nil {
+				err = errors.Combine(err, calcTransform.close())
+			}
+		}()
 	}
 	var sizes map[channel.Key]uint32
 	if sizer != nil {
@@ -268,16 +280,6 @@ func (s *Service) newCalculationTransform(
 		return nil, nil, nil
 	}
 
-	// Open calculators from modules
-	calculators := make([]*calculator.Calculator, 0, len(modules))
-	for _, mod := range modules {
-		calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
-		if err != nil {
-			return nil, nil, err
-		}
-		calculators = append(calculators, calc)
-	}
-
 	calculatedKeys := calcGraph.CalculatedKeys()
 	concreteBaseKeys := calcGraph.ConcreteBaseKeys()
 
@@ -307,14 +309,31 @@ func (s *Service) newCalculationTransform(
 		return !calculatedKeys.Contains(item) && !item.Free()
 	})
 
-	transform := newCalculationTransform(originalKeys, calculators)
-	limit, ok := cfg.Reduction.Variant.(telem.LimitReduction)
-	if !ok {
-		return transform, nil, nil
+	var sizer *groupSizer
+	if limit, ok := cfg.Reduction.Variant.(telem.LimitReduction); ok {
+		if sizer, err = s.newGroupSizer(
+			limit,
+			channels,
+			concreteBaseChannels,
+			calcGraph,
+		); err != nil {
+			return nil, nil, err
+		}
 	}
-	sizer, err := s.newGroupSizer(limit, channels, concreteBaseChannels, calcGraph)
-	if err != nil {
-		return nil, nil, err
+
+	// Calculators hold resources until they close, so they open after every other step
+	// that can fail.
+	transform := newCalculationTransform(
+		originalKeys,
+		make([]*calculator.Calculator, 0, len(modules)),
+		len(channel.Keys(concreteBaseKeys.Slice()).UniqueLeaseholders()) > 1,
+	)
+	for _, mod := range modules {
+		calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
+		if err != nil {
+			return nil, nil, errors.Combine(err, transform.close())
+		}
+		transform.calculators = append(transform.calculators, calc)
 	}
 	return transform, sizer, nil
 }
