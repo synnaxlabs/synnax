@@ -23,6 +23,7 @@
 #include "x/cpp/thread/thread.h"
 
 #include "driver/common/status.h"
+#include "driver/errors/errors.h"
 #include "driver/pipeline/base.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/task.h"
@@ -60,6 +61,12 @@ struct ScanTaskConfig : ::synnax::task::ScanConfig {
         ::synnax::task::ScanConfig(::synnax::task::ScanConfig::parse(cfg)) {}
 };
 
+/// @brief returned by a scanner whose scan failed in part, together with the devices it
+/// found. The scan task keeps the devices and reports the error as a warning.
+const x::errors::Error PARTIAL_SCAN_ERROR = driver::errors::BASE_ERROR.sub(
+    "partial_scan"
+);
+
 struct ScannerContext {
     /// @brief the number of scans run before the current one.
     std::size_t count = 0;
@@ -90,7 +97,8 @@ struct Scanner {
     /// @brief Lifecycle method called when the scan task stops.
     virtual x::errors::Error stop() { return x::errors::NIL; }
 
-    /// @brief Periodic scan method to discover/update devices.
+    /// @brief Periodic scan method to discover/update devices. Returns
+    /// PARTIAL_SCAN_ERROR with the devices found when part of the scan fails.
     virtual std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const ScannerContext &ctx) = 0;
 
@@ -207,6 +215,24 @@ class ScanTask final : public task::Task, public pipeline::Base {
         this->status.time = x::telem::TimeStamp::now();
         this->ctx->set_status(this->status);
         this->status.details.cmd = driver::task::NO_COMMAND;
+    }
+
+    /// @brief sends a warning when the scan error changes, and a success once scans
+    /// recover.
+    void report_scan(const x::errors::Error &err) {
+        if (err) {
+            if (this->status.variant == synnax::status::VARIANT_WARNING &&
+                this->status.message == err.message())
+                return;
+            LOG(WARNING) << this->log_prefix << "failed to scan for devices: " << err;
+            this->status.variant = synnax::status::VARIANT_WARNING;
+            this->status.message = err.message();
+        } else {
+            if (this->status.variant == synnax::status::VARIANT_SUCCESS) return;
+            this->status.variant = synnax::status::VARIANT_SUCCESS;
+            this->status.message = "Scan task running";
+        }
+        this->send_status();
     }
 
     [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {
@@ -386,13 +412,7 @@ public:
         this->status.message = "Scan task started";
         this->send_status();
         while (this->breaker.running()) {
-            if (const auto err = this->scan()) {
-                this->status.variant = synnax::status::VARIANT_WARNING;
-                this->status.message = err.message();
-                this->send_status();
-                LOG(WARNING) << this->log_prefix
-                             << "failed to scan for devices: " << err;
-            }
+            this->report_scan(this->scan());
             this->timer.wait(this->breaker);
         }
 
@@ -422,9 +442,14 @@ public:
         }
         if (cmd.type == common::SCAN_CMD_TYPE) {
             const auto err = this->scan();
-            this->status.variant = err ? synnax::status::VARIANT_ERROR
-                                       : synnax::status::VARIANT_SUCCESS;
-            this->status.message = err ? err.message() : "Scan complete";
+            this->status.variant = synnax::status::VARIANT_SUCCESS;
+            this->status.message = "Scan complete";
+            if (err) {
+                this->status.variant = err.matches(PARTIAL_SCAN_ERROR)
+                                         ? synnax::status::VARIANT_WARNING
+                                         : synnax::status::VARIANT_ERROR;
+                this->status.message = err.message();
+            }
             this->send_status();
             return;
         }
@@ -440,6 +465,7 @@ public:
     }
 
     x::errors::Error scan() {
+        x::errors::Error scan_err;
         std::vector<synnax::device::Device> to_create;
         std::vector<synnax::device::Status> statuses;
         {
@@ -448,7 +474,8 @@ public:
             // Step 1: Scanner produces list of devices.
             this->scanner_ctx.devices = &this->dev_states;
             auto [scanned_devs, err] = this->scanner->scan(scanner_ctx);
-            if (err) return err;
+            if (err && !err.matches(PARTIAL_SCAN_ERROR)) return err;
+            scan_err = err;
             this->scanner_ctx.count++;
 
             // Step 1.5: Deduplicate by key (keep last). During physical device
@@ -539,7 +566,7 @@ public:
             LOG(ERROR) << this->log_prefix
                        << "failed to propagate statuses: " << state_err;
 
-        if (to_create.empty()) return x::errors::NIL;
+        if (to_create.empty()) return scan_err;
 
         if (const auto err = this->client->create_devices(to_create)) {
             LOG(WARNING) << this->log_prefix << "failed to create devices: " << err;
@@ -547,7 +574,7 @@ public:
         }
         for (const auto &dev: to_create)
             LOG(INFO) << this->log_prefix << "successfully created device " << dev.key;
-        return x::errors::NIL;
+        return scan_err;
     }
 
     std::string name() const override { return this->task.name; }

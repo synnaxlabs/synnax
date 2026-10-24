@@ -10,7 +10,6 @@
 #pragma once
 
 #include <algorithm>
-#include <array>
 #include <cctype>
 #include <string>
 #include <string_view>
@@ -23,7 +22,7 @@ namespace driver::ethercat::soem {
 /// @param description the adapter description, e.g. "Intel(R) Wi-Fi 6 AX201".
 inline bool
 is_wired_interface(const std::string &name, const std::string &description) {
-    constexpr std::array<std::string_view, 14> name_prefixes = {
+    constexpr std::string_view name_prefixes[] = {
         "lo",
         "tun",
         "tap",
@@ -39,13 +38,13 @@ is_wired_interface(const std::string &name, const std::string &description) {
         "gif",
         "zt",
     };
-    constexpr std::array<std::string_view, 4> name_parts = {
+    constexpr std::string_view name_parts[] = {
         "localhost",
         "loopback",
         "tailscale",
         "docker",
     };
-    constexpr std::array<std::string_view, 9> description_parts = {
+    constexpr std::string_view description_parts[] = {
         "wi-fi",
         "wireless",
         "802.11",

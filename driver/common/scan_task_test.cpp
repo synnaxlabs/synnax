@@ -1496,4 +1496,58 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
 
     scan_task.stop();
 }
+
+/// @brief it should create the devices of a partial scan and return its error.
+TEST(TestScanTask, testPartialScanKeepsDevices) {
+    synnax::device::Device dev;
+    dev.key = "device1";
+    dev.name = "Device 1";
+    const auto partial = x::errors::Error(PARTIAL_SCAN_ERROR, "eth1: cannot open");
+    const auto created = std::make_shared<std::vector<synnax::device::Device>>();
+    ScanTask scan_task(
+        std::make_unique<MockScanner>(
+            std::vector<std::vector<synnax::device::Device>>{{dev}},
+            std::vector{partial},
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{}
+        ),
+        std::make_shared<task::MockContext>(nullptr),
+        new_test_task_record(),
+        x::breaker::Config{},
+        x::telem::HERTZ * 1,
+        std::make_unique<MockClusterAPI>(
+            std::make_shared<std::vector<synnax::device::Device>>(),
+            created
+        )
+    );
+    const auto err = scan_task.scan();
+    ASSERT_OCCURRED_AS(err, PARTIAL_SCAN_ERROR);
+    EXPECT_EQ(err.data, "eth1: cannot open");
+    ASSERT_EQ(created->size(), 1);
+    EXPECT_EQ(created->at(0).key, "device1");
+}
+
+/// @brief it should warn once while scans fail the same way, and report success once
+/// they recover.
+TEST(TestScanTask, testScanWarningIsSentOnceAndClears) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto partial = x::errors::Error(PARTIAL_SCAN_ERROR, "eth1: cannot open");
+    const auto scan_task = new_test_task(
+        ctx,
+        new_test_task_record(),
+        {partial, partial}
+    );
+    scan_task->start();
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        ctx->statuses.size(),
+        3,
+        std::chrono::seconds(4),
+        std::chrono::milliseconds(1)
+    );
+    scan_task->stop(false);
+    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(ctx->statuses[1].message, partial.message());
+    EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[2].message, "Scan task running");
+}
 }

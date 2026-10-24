@@ -14,6 +14,7 @@
 
 #include "driver/ethercat/engine/pool.h"
 #include "driver/ethercat/errors/errors.h"
+#include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/mock/master.h"
 #include "driver/ethercat/scan_task.h"
 
@@ -288,47 +289,42 @@ TEST_F(EtherCATScanProbeTest, ProbesAnInterfaceWithNoSlavesEverySixthScan) {
     for (int i = 0; i < 7; ++i)
         this->scan();
     EXPECT_EQ(this->master->init_call_count(), 2);
-    EXPECT_TRUE(this->ctx->statuses.empty());
 }
 
-TEST_F(EtherCATScanProbeTest, ReportsAScanFailureAsAWarningUntilItClears) {
+TEST_F(EtherCATScanProbeTest, ReturnsAnInterfaceItCannotScanAsAPartialScan) {
     this->master->inject_init_error(
         x::errors::Error(errors::MASTER_INIT_ERROR, "cannot open eth0")
     );
-    this->scan();
-    ASSERT_EQ(this->ctx->statuses.size(), 1);
-    EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(this->ctx->statuses.back().message, "Failed to scan EtherCAT interfaces");
-    EXPECT_EQ(this->ctx->statuses.back().description, "cannot open eth0");
-    this->scan();
-    EXPECT_EQ(this->ctx->statuses.size(), 1);
+    const auto [devices, err] = this->scanner->scan({});
+    ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+    EXPECT_EQ(err.data, "cannot open eth0");
+    EXPECT_TRUE(devices.empty());
     this->master->inject_init_error(x::errors::NIL);
-    this->scan();
-    ASSERT_EQ(this->ctx->statuses.size(), 2);
-    EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(this->ctx->statuses.back().message, "Scanning EtherCAT interfaces");
-    EXPECT_EQ(this->ctx->statuses.back().description, "");
+    ASSERT_NIL_P(this->scanner->scan({.count = 1}));
 }
 
-TEST_F(EtherCATScanTest, ReportsAMissingPacketCaptureLibrary) {
-    Scanner scanner(
+TEST_F(EtherCATScanTest, ScanTaskFailsToConfigureWithoutAPacketCaptureLibrary) {
+    Factory factory(std::unique_ptr<master::Manager>{});
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "EtherCAT Scanner",
+        .type = SCAN_TASK_TYPE,
+        .internal = true,
+    };
+    const auto [configured, handled] = factory.configure_task(
         this->ctx,
-        synnax::task::Task{
-            .rack = this->rack.key,
-            .name = "EtherCAT Scanner",
-            .type = SCAN_TASK_TYPE,
-            .internal = true,
-        },
-        ScanTaskConfig{},
-        std::make_shared<engine::Pool>(nullptr)
+        task,
+        driver::task::NO_COMMAND
     );
-    ASSERT_NIL_P(scanner.scan({}));
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(configured, nullptr);
     ASSERT_EQ(this->ctx->statuses.size(), 1);
-    EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(
-        this->ctx->statuses.back().description,
-        "EtherCAT is unavailable because a required packet capture library is not "
-        "installed. Check driver logs for details."
+        this->ctx->statuses.back().message,
+        "[" + x::lib::LOAD_ERROR.type +
+            "] EtherCAT is unavailable because a required packet capture library is "
+            "not installed. Check driver logs for details."
     );
 }
 }

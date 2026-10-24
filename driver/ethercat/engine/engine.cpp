@@ -566,7 +566,7 @@ x::telem::Rate Engine::cycle_rate() const {
     return x::telem::Rate(this->cycle_hz.load(std::memory_order_acquire));
 }
 
-x::errors::Error Engine::ensure_initialized() const {
+x::errors::Error Engine::ensure_initialized() {
     std::lock_guard lock(this->mu);
     if (this->running()) return x::errors::NIL;
     if (auto err = this->master->initialize()) return err;

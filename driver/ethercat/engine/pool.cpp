@@ -24,7 +24,7 @@ std::vector<master::Info> Pool::enumerate() const {
     return this->manager->enumerate();
 }
 
-x::errors::Error Pool::available() const {
+x::errors::Error Pool::check_available() const {
     if (this->manager != nullptr) return x::errors::NIL;
     return x::errors::Error(
         x::lib::LOAD_ERROR,
@@ -38,7 +38,7 @@ Pool::acquire(const std::string &key) {
     std::lock_guard lock(this->mu);
     const auto it = this->engines.find(key);
     if (it != this->engines.end()) return {it->second, x::errors::NIL};
-    if (auto err = this->available()) return {nullptr, err};
+    if (auto err = this->check_available()) return {nullptr, err};
     auto [m, err] = this->manager->create(key);
     if (err) return {nullptr, err};
     engine::Config cfg;

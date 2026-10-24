@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <ranges>
+#include <set>
+#include <string>
 #include <utility>
 
 #include "absl/log/log.h"
@@ -20,6 +22,9 @@
 
 namespace driver::ethercat {
 namespace {
+/// The number of scans to skip an interface that had no slaves.
+constexpr size_t EMPTY_INTERFACE_PROBE_INTERVAL = 6;
+
 std::string get_pdo_error_guidance(const std::string &error) {
     if (error.find("CoE") != std::string::npos ||
         error.find("mailbox") != std::string::npos)
@@ -83,7 +88,6 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     }
 
     std::set<std::string> failures;
-    if (const auto err = this->pool->available()) failures.insert(err.data);
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
 
@@ -106,30 +110,11 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             devices.push_back(this->create_slave_device(slave, key, scan_ctx));
     }
 
-    this->report_failures(failures);
-    return {devices, x::errors::NIL};
-}
-
-void Scanner::report_failures(const std::set<std::string> &failures) {
+    if (failures.empty()) return {devices, x::errors::NIL};
     std::string desc;
     for (const auto &failure: failures)
         desc += (desc.empty() ? "" : "; ") + failure;
-    if (desc == this->reported_failures) return;
-    this->reported_failures = desc;
-    synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
-        .name = this->task.name,
-        .variant = desc.empty() ? synnax::status::VARIANT_SUCCESS
-                                : synnax::status::VARIANT_WARNING,
-        .message = desc.empty() ? "Scanning EtherCAT interfaces"
-                                : "Failed to scan EtherCAT interfaces",
-        .description = desc,
-        .details = synnax::task::StatusDetails{
-            .task = this->task.key,
-            .running = true,
-        },
-    };
-    this->ctx->set_status(status);
+    return {devices, x::errors::Error(common::PARTIAL_SCAN_ERROR, desc)};
 }
 
 bool Scanner::exec(

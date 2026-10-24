@@ -259,7 +259,7 @@ public:
     /// @brief initializes the master unless the bus is running. While the bus is
     /// stopped, rediscovers the slaves when the number that answer has changed.
     /// Thread-safe.
-    [[nodiscard]] x::errors::Error ensure_initialized() const;
+    [[nodiscard]] x::errors::Error ensure_initialized();
 
     /// @brief returns discovered slaves.
     [[nodiscard]] std::vector<slave::DiscoveryResult> slaves() const;

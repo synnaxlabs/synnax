@@ -38,7 +38,7 @@ public:
     [[nodiscard]] std::vector<master::Info> enumerate() const;
 
     /// @brief returns why no master can be created, or NIL when masters are available.
-    [[nodiscard]] x::errors::Error available() const;
+    [[nodiscard]] x::errors::Error check_available() const;
 
     /// @brief acquires or creates an engine for the specified master key.
     std::pair<std::shared_ptr<Engine>, x::errors::Error>

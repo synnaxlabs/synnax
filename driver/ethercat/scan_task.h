@@ -10,7 +10,6 @@
 #pragma once
 
 #include <memory>
-#include <set>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -31,8 +30,6 @@ const std::string SCAN_LOG_PREFIX = "[ethercat.scan_task] ";
 
 /// @brief command type for testing a master.
 const std::string TEST_INTERFACE_CMD_TYPE = "test_interface";
-/// @brief the number of scans to skip an interface that had no slaves.
-constexpr size_t EMPTY_INTERFACE_PROBE_INTERVAL = 6;
 
 /// @brief configuration for the EtherCAT scan task.
 struct ScanTaskConfig : common::ScanTaskConfig {
@@ -69,7 +66,9 @@ public:
     /// @brief lifecycle method called when the scan task stops.
     x::errors::Error stop() override;
 
-    /// @brief periodic scan method to discover networks and slaves.
+    /// @brief periodic scan method to discover networks and slaves. Returns
+    /// common::PARTIAL_SCAN_ERROR, naming each interface it could not scan, with the
+    /// slaves of the others.
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const common::ScannerContext &ctx) override;
 
@@ -90,11 +89,6 @@ private:
     std::shared_ptr<engine::Pool> pool;
     /// @brief the scan count at which to probe again each interface that had no slaves.
     std::unordered_map<std::string, size_t> next_probes;
-    /// @brief the scan failures in the latest task status, joined.
-    std::string reported_failures;
-
-    /// @brief sets the task status when the scan failures change.
-    void report_failures(const std::set<std::string> &failures);
 
     /// @brief creates a slave device for the given slave.
     synnax::device::Device create_slave_device(
