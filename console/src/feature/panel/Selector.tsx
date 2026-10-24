@@ -28,6 +28,8 @@ import {
   isPillHaulItem,
   PILL_HAUL_TYPE,
 } from "@/feature/panel/haul";
+import { renderIcon } from "@/feature/panel/icon";
+import { IconPicker, openIconPicker } from "@/feature/panel/IconPicker";
 import { useCreate } from "@/feature/panel/useCreate";
 import { type Dwell, useDwell } from "@/feature/panel/useDwell";
 import {
@@ -72,6 +74,12 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
     <CMenu.Menu>
       {hasUpdatePermission && keys.length === 1 && (
         <CMenu.RenameItem onClick={() => Text.edit(PCSS.B(`tab-${key}`))} />
+      )}
+      {hasUpdatePermission && keys.length === 1 && (
+        <Menu.Item itemKey="change-icon" onClick={() => openIconPicker(key)}>
+          <Icon.FillColor />
+          Change icon
+        </Menu.Item>
       )}
       <Menu.Divider />
       {keys.length === 1 && Session.Runtime.ENGINE === "tauri" && (
@@ -147,24 +155,29 @@ const useTabDrop = (
   };
 };
 
+type AnchorHandler = (key: panel.Key, pill: HTMLElement | null) => void;
+
 interface TabProps {
   tabKey: panel.Key;
   dwell: Dwell;
+  onAnchorChange: AnchorHandler;
 }
 
 // A pill whose panel vanished between the list answer and the retrieve
 // renders nothing; the by-project subscription evicts the key right after.
 const TabFallback = (): null => null;
 
-const Tab = ({ tabKey, dwell }: TabProps): ReactElement => (
+const Tab = (props: TabProps): ReactElement => (
   <Errors.SuspenseBoundary loading={null} FallbackComponent={TabFallback}>
-    <TabContent tabKey={tabKey} dwell={dwell} />
+    <TabContent {...props} />
   </Errors.SuspenseBoundary>
 );
 
-const TabContent = ({ tabKey, dwell }: TabProps): ReactElement => {
+const TabContent = ({ tabKey, dwell, onAnchorChange }: TabProps): ReactElement => {
   Panel.useEnsure({ key: tabKey });
   const name = Panel.useName({ key: tabKey });
+  const icon = Panel.useIcon({ key: tabKey });
+  const color = Panel.useColor({ key: tabKey });
   const canEdit = Panel.useCanEdit({ key: tabKey });
   const { update: rename } = Panel.useRename();
   const handleChange = useCallback(
@@ -192,8 +205,13 @@ const TabContent = ({ tabKey, dwell }: TabProps): ReactElement => {
     onDragLeave();
     dwell.leave(tabKey);
   }, [onDragLeave, dwell, tabKey]);
+  const handleRef = useCallback(
+    (pill: HTMLDivElement | null) => onAnchorChange(tabKey, pill),
+    [onAnchorChange, tabKey],
+  );
   return (
     <Tabs.Tab
+      ref={handleRef}
       itemKey={tabKey}
       className={CSS.cls(className)}
       draggable
@@ -202,7 +220,7 @@ const TabContent = ({ tabKey, dwell }: TabProps): ReactElement => {
       onDragLeave={handleDragLeave}
       {...dropProps}
     >
-      <Icon.Panel />
+      {renderIcon({ icon, color })}
       <Text.MaybeEditable
         id={PCSS.B(`tab-${tabKey}`)}
         value={name}
@@ -259,31 +277,50 @@ const Internal = (): ReactElement => {
 
   const menuProps = Menu.useContextMenu();
 
+  const [anchors, setAnchors] = useState<Record<panel.Key, HTMLElement>>({});
+  const handleAnchorChange = useCallback<AnchorHandler>(
+    (key, pill) =>
+      setAnchors(({ [key]: _, ...rest }) =>
+        pill == null ? rest : { ...rest, [key]: pill },
+      ),
+    [],
+  );
+
   return (
-    <Menu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Tabs.Frame
-        className={CSS.B("panel-selector")}
-        value={selected ?? ""}
-        onChange={handleSelect}
-        x
-        align="center"
-        empty={false}
-        gap="small"
-      >
-        <Tabs.Selector
-          size="medium"
-          variant="pill"
-          haulType={PILL_HAUL_TYPE}
-          onDrop={handleDrop}
-          onContextMenu={menuProps.open}
+    <>
+      <Menu.ContextMenu menu={contextMenu} {...menuProps}>
+        <Tabs.Frame
+          className={CSS.B("panel-selector")}
+          value={selected ?? ""}
+          onChange={handleSelect}
+          x
+          align="center"
+          empty={false}
+          gap="small"
         >
-          {ordered.map((key) => (
-            <Tab key={key} tabKey={key} dwell={dwell} />
-          ))}
-        </Tabs.Selector>
-        <CreateButton />
-      </Tabs.Frame>
-    </Menu.ContextMenu>
+          <Tabs.Selector
+            size="medium"
+            variant="pill"
+            haulType={PILL_HAUL_TYPE}
+            onDrop={handleDrop}
+            onContextMenu={menuProps.open}
+          >
+            {ordered.map((key) => (
+              <Tab
+                key={key}
+                tabKey={key}
+                dwell={dwell}
+                onAnchorChange={handleAnchorChange}
+              />
+            ))}
+          </Tabs.Selector>
+          <CreateButton />
+        </Tabs.Frame>
+      </Menu.ContextMenu>
+      {Object.entries(anchors).map(([key, anchor]) => (
+        <IconPicker key={key} panel={key} anchor={anchor} />
+      ))}
+    </>
   );
 };
 

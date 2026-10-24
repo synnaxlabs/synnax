@@ -31,6 +31,7 @@ from x.fs import FilePath, stream_to_file
 _FILE_CONTENT_TYPES: dict[str, str] = {
     "json": "application/json",
     "csv": "text/csv",
+    "tdms": "application/x-tdms",
 }
 
 

@@ -59,7 +59,11 @@ const renderProperties = async ({
     sessionState: {
       editable: true,
       selected: nodeKeys,
-      toolbar: { selectedTab: "properties", selectedSymbolGroup: "general" },
+      toolbar: {
+        selectedTab: "properties",
+        selectedSymbolGroup: "general",
+        changing: false,
+      },
       ...sessionState,
     },
   });
