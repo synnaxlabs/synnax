@@ -374,8 +374,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     let [, yData] = yTelem.value(valueProps);
     yData = this.internal.yDownsampler.transform(yData);
     const xAlignment = xSeries.alignment + BigInt(index) * xSeries.alignmentMultiple;
-    const ySeries = yData.series.find((ys) =>
-      bounds.contains(ys.alignmentBounds, xAlignment),
+    const ySeries = yData.series.find(
+      (ys) =>
+        seriesOverlap(xSeries, ys, DEFAULT_OVERLAP_THRESHOLD) &&
+        bounds.contains(ys.alignmentBounds, xAlignment),
     );
     if (ySeries == null) return result;
     result.value.x = safelyGetDataValue(series, index, xData);

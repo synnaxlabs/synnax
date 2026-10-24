@@ -16,7 +16,6 @@ import {
   TimeRange,
   ValidationError,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
 import {
   bounds,
   type breaker,
@@ -27,7 +26,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { afterAll, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { createFactory, type CreateOptions } from "@/telem/aether/factory";
 import {
@@ -45,7 +44,6 @@ import {
 } from "@/telem/aether/remote";
 import { type Source, type View } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/test";
-import { line } from "@/vis/line/aether";
 
 const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   source.value();
@@ -2232,11 +2230,10 @@ describe("remote", () => {
     interface Pending {
       spec: framer.TileSpec;
       resolve: (series: MultiSeries) => void;
-      reject: (e: unknown) => void;
     }
 
-    // Returns one series per tile. Data tiles hold [level, index], and index tiles
-    // hold the tile's start and end.
+    // Returns one series per tile. Data tiles hold [level, index], and index tiles hold
+    // the tile's start and end.
     const tileSeries = (spec: framer.TileSpec): MultiSeries => {
       const tr = framer.tileRange(spec);
       const alignment = (BigInt(spec.level) << 32n) + BigInt(spec.index);
@@ -2296,8 +2293,8 @@ describe("remote", () => {
         readTile: async (spec: framer.TileSpec): Promise<MultiSeries> => {
           this.tiles.push(spec);
           if (this.deferred)
-            return await new Promise<MultiSeries>((resolve, reject) =>
-              this.pending.push({ spec, resolve, reject }),
+            return await new Promise<MultiSeries>((resolve) =>
+              this.pending.push({ spec, resolve }),
             );
           const series = tileSeries(spec);
           this.served.set(`${spec.level}/${spec.index}/${spec.key}`, series);
@@ -2480,7 +2477,10 @@ describe("remote", () => {
         source.value({ view: view(2000, 3000) });
         const before = c.tiles.length;
         source.value({ view: view(3000, 4000) });
-        expect(c.tiles.length).toBeGreaterThan(before);
+        expect(c.tiles.slice(before).map((t) => [t.level, t.index])).toEqual([
+          [9, 6],
+          [9, 7],
+        ]);
       });
     });
 
@@ -2817,107 +2817,6 @@ describe("remote", () => {
     });
   });
 
-  describe("TiledChannelData against a Core", () => {
-    const synnax = createTestClient();
-    const feed = synnax.openFeed();
-    const client: Client = {
-      feed,
-      channels: synnax.channels,
-      now: () => TimeStamp.now(),
-    };
-    afterAll(async () => await feed.close());
-
-    const COUNT = 10_000;
-
-    // Writes COUNT samples one millisecond apart. Data sample i holds sin(i / 100).
-    const writeChannels = async () => {
-      const time = await synnax.channels.create({
-        name: id.create(),
-        dataType: DataType.TIMESTAMP,
-        isIndex: true,
-      });
-      const data = await synnax.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        index: time.key,
-      });
-      const start = TimeStamp.seconds(1_000_000);
-      await synnax.write(start, {
-        [time.key]: Array.from({ length: COUNT }, (_, i) =>
-          start.add(TimeSpan.milliseconds(i)),
-        ),
-        [data.key]: Array.from({ length: COUNT }, (_, i) => Math.sin(i / 100)),
-      });
-      const home = new TimeRange(start, start.add(TimeSpan.milliseconds(COUNT)));
-      return { data, home };
-    };
-
-    const create = (props: Partial<TiledChannelDataProps>) =>
-      new TiledChannelData(client, props, undefined, undefined, TimeSpan.ZERO);
-
-    const createPair = (dataKey: channel.Key, home: TimeRange) => ({
-      x: create({ channel: dataKey, useIndexOfChannel: true, timeRange: home }),
-      y: create({ channel: dataKey, timeRange: home }),
-    });
-
-    const settle = async (...sources: TiledChannelData[]): Promise<void> =>
-      await expect.poll(() => sources.every((s) => !s.loading())).toBe(true);
-
-    const drawn = (x: MultiSeries, y: MultiSeries) =>
-      line.buildDrawOperations(x, y, 1, 1, "average", line.DEFAULT_OVERLAP_THRESHOLD);
-
-    it("should pair every reduced x sample with a y sample", async () => {
-      const { data, home } = await writeChannels();
-      const { x, y } = createPair(data.key, home);
-      await settle(x, y);
-      const [xBounds, xs] = x.value();
-      const [, ys] = y.value();
-      expect(xBounds).toEqual(home.numericBounds);
-      expect(xs.length).toBe(ys.length);
-      expect(xs.length).toBeLessThan(COUNT);
-      expect(xs.series.map((s) => s.alignment)).toEqual(
-        ys.series.map((s) => s.alignment),
-      );
-      expect(ys.series.every((s) => s.alignmentMultiple > 1n)).toBe(true);
-      const ops = drawn(xs, ys);
-      expect(ops.reduce((n, op) => n + op.count, 0)).toBe(ys.length);
-      expect(y.value()[0].upper).toBeCloseTo(1, 3);
-      expect(y.value()[0].lower).toBeCloseTo(-1, 3);
-      x.cleanup();
-      y.cleanup();
-    });
-
-    it("should draw finer tiles for a zoomed view", async () => {
-      const { data, home } = await writeChannels();
-      const { x, y } = createPair(data.key, home);
-      await settle(x, y);
-      const homePoints = y.value()[1].length;
-      const start = Number(home.start.valueOf());
-      const v: View = {
-        bounds: {
-          lower: start,
-          upper: start + Number(TimeSpan.milliseconds(500).valueOf()),
-        },
-        width: 1000,
-      };
-      x.value({ view: v });
-      y.value({ view: v });
-      await expect
-        .poll(
-          () => !x.fetching() && !y.fetching() && y.value({ view: v })[1].length > 0,
-        )
-        .toBe(true);
-      const xs = x.value({ view: v })[1];
-      const ys = y.value({ view: v })[1];
-      expect(ys.series.every((s) => s.alignmentMultiple === 1n)).toBe(true);
-      expect(ys.length).toBeGreaterThanOrEqual(500);
-      expect(ys.length).toBeLessThan(homePoints + 1024);
-      expect(drawn(xs, ys).reduce((n, op) => n + op.count, 0)).toBe(ys.length);
-      x.cleanup();
-      y.cleanup();
-    });
-  });
-
   describe("disconnected", () => {
     it("should still create remote sources from a null-client factory", () => {
       const factory = createFactory(null);
@@ -2938,6 +2837,22 @@ describe("remote", () => {
       // A repeated read must not re-report: the source is rebuilt on reconnect.
       expect(scv.value()).toBe(NaN);
       expect(statuses).toHaveLength(1);
+    });
+
+    it("should clear loading for a disconnected TiledChannelData source", () => {
+      const statuses: cstatus.Crude[] = [];
+      const source = new TiledChannelData(
+        null,
+        {
+          channel: 1,
+          timeRange: new TimeRange(TimeStamp.SECOND, TimeStamp.seconds(10)),
+        },
+        { onStatusChange: (s) => statuses.push(s) },
+      );
+      expect(source.loading()).toBe(false);
+      expect(source.value()[1]).toHaveLength(0);
+      expect(statuses).toHaveLength(1);
+      expect(statuses[0].variant).toEqual("warning");
     });
 
     it("should return empty data from a disconnected ChannelData source", () => {

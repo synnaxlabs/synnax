@@ -793,22 +793,13 @@ const DEFAULT_WIDTH = 1000;
 // How long a view must hold a new level before its tiles are requested.
 const DEFAULT_LEVEL_SETTLE = TimeSpan.milliseconds(150);
 
-const tileKey = (spec: framer.TileSpec): string => {
-  const { level, index, pointLimit, aggregation, start, end } = spec;
-  return [level, index, pointLimit, aggregation, start?.valueOf(), end?.valueOf()].join(
-    "/",
-  );
-};
-
 const viewRange = ({ lower, upper }: bounds.Bounds): TimeRange =>
   new TimeRange(BigInt(Math.max(Math.floor(lower), 0)), BigInt(Math.ceil(upper)));
 
 /**
- * A series source for a line whose x channel is an index. It draws tiles of reduced
- * data that cover the view the line passes to value(), and its home view when the line
- * passes none. A live line streams the recent part of its home view at full
- * resolution. A line whose x channel is not an index reads its home view once, reduced
- * with decimate, or streams it at full resolution when live.
+ * A series source that draws tiles of reduced data covering the view passed to value(),
+ * or the home view when none is passed. A live line streams its newest data at full
+ * resolution. An xy line reads its home view once, reduced with decimate.
  */
 export class TiledChannelData
   extends AbstractSource<typeof tiledChannelDataPropsZ>
@@ -825,12 +816,9 @@ export class TiledChannelData
   private channel: SelectedChannelProperties | null = null;
   // xy is true when the line's x channel is not an index.
   private xy = false;
-  // held maps tile keys to the tiles this source has acquired.
   private readonly held = new Map<string, HeldTile>();
-  // pending holds the keys of tiles being fetched.
   private readonly pending = new Set<string>();
   private width = DEFAULT_WIDTH;
-  private homeLoaded = false;
   // raw holds the acquired full-resolution series of a live line, in time order.
   private readonly raw = new MultiSeries([]);
   private rawLoaded = false;
@@ -867,6 +855,7 @@ export class TiledChannelData
     this.failures = new FailureReporter(options?.onStatusChange);
     this.breaker = newRetryBreaker(this.retryNotifier, breakerConfig);
     this.tileBreaker = newRetryBreaker(this.retryNotifier, breakerConfig);
+    this.loading_ = true;
   }
 
   private get live(): boolean {
@@ -874,13 +863,13 @@ export class TiledChannelData
   }
 
   loading(): boolean {
-    if (primitive.isZero(this.props.channel) || this.homeLoaded) return false;
+    if (primitive.isZero(this.props.channel) || !this.loading_) return false;
     this.value();
-    return !this.homeLoaded;
+    return this.loading_;
   }
 
   fetching(): boolean {
-    return this.homeLoaded && this.pending.size > 0;
+    return !this.loading_ && this.pending.size > 0;
   }
 
   value(props?: ValueProps): [bounds.Bounds, MultiSeries] {
@@ -897,8 +886,12 @@ export class TiledChannelData
       !this.xy &&
       bounds.isFinite(view.bounds) &&
       bounds.span(view.bounds) > 0;
-    const series = this.select(drawsView ? viewRange(view.bounds) : home, drawsView);
-    if (!drawsView) this.homeLoaded ||= this.loaded(home);
+    const series = this.select(
+      ch.key,
+      drawsView ? viewRange(view.bounds) : home,
+      drawsView,
+    );
+    if (!drawsView && this.loaded(ch.key, home)) this.loading_ = false;
     return [this.bounds(ch, home, series), series];
   }
 
@@ -918,8 +911,7 @@ export class TiledChannelData
     return new TimeStamp((home.start.valueOf() / span) * span);
   }
 
-  private targets(view: TimeRange): framer.TileSpec[] {
-    const { key } = this.channel!;
+  private targets(key: channel.Key, view: TimeRange): framer.TileSpec[] {
     const aggregation = this.xy ? "decimate" : this.props.aggregation;
     // Tiles are cut to [start, end): the home view for an xy line, and the start of
     // full-resolution data for a live line.
@@ -983,12 +975,12 @@ export class TiledChannelData
     return false;
   }
 
-  private select(view: TimeRange, prune: boolean): MultiSeries {
-    const targets = this.targets(view);
+  private select(key: channel.Key, view: TimeRange, prune: boolean): MultiSeries {
+    const targets = this.targets(key, view);
     if (!prune || (targets.length > 0 && this.settled(targets[0].level)))
       targets.forEach((spec) => this.request(spec));
     const preferred = new Map(
-      targets.map((t) => [`${t.level}/${t.index}`, tileKey(t)]),
+      targets.map((t) => [`${t.level}/${t.index}`, framer.tileRequestKey(t)]),
     );
     const out: Series[] = [];
     if (targets.length > 0) {
@@ -1002,23 +994,23 @@ export class TiledChannelData
       if (prune) {
         // The home view's tiles stay held, and so do the tiles that stand in for them
         // until they arrive.
-        const home = this.targets(this.home());
+        const home = this.targets(key, this.home());
         const homePreferred = new Map(
-          home.map((t) => [`${t.level}/${t.index}`, tileKey(t)]),
+          home.map((t) => [`${t.level}/${t.index}`, framer.tileRequestKey(t)]),
         );
         const keep = new Set([
-          ...chosen.map((t) => tileKey(t.spec)),
+          ...chosen.map((t) => framer.tileRequestKey(t.spec)),
           ...preferred.values(),
           ...homePreferred.values(),
           ...home.flatMap((t) => {
             const found = this.find(t, homePreferred);
-            return found == null ? [] : [tileKey(found.spec)];
+            return found == null ? [] : [framer.tileRequestKey(found.spec)];
           }),
         ]);
-        for (const [key, tile] of this.held)
-          if (!keep.has(key)) {
+        for (const [tileKey, tile] of this.held)
+          if (!keep.has(tileKey)) {
             tile.series.release();
-            this.held.delete(key);
+            this.held.delete(tileKey);
           }
       }
     }
@@ -1029,9 +1021,11 @@ export class TiledChannelData
     return new MultiSeries(out);
   }
 
-  private loaded(home: TimeRange): boolean {
+  private loaded(key: channel.Key, home: TimeRange): boolean {
     if (this.live && !this.rawLoaded) return false;
-    return this.targets(home).every((spec) => this.held.has(tileKey(spec)));
+    return this.targets(key, home).every((spec) =>
+      this.held.has(framer.tileRequestKey(spec)),
+    );
   }
 
   private bounds(
@@ -1043,15 +1037,13 @@ export class TiledChannelData
     if (!this.live) return home.numericBounds;
     const latest = this.raw.series.length > 0 ? this.raw.bounds.upper : NaN;
     const upper = Number.isFinite(latest) ? latest : Number(home.end.valueOf());
-    return { lower: upper - Number(this.props.timeSpan!.valueOf()), upper };
+    return { lower: upper - Number(home.span.valueOf()), upper };
   }
 
-  /**
-   * Never rejects. A failed tile waits for tileBreaker before a later value() call
-   * requests it again, and a definitive rejection parks it until cleanup.
-   */
+  // A failed tile waits for tileBreaker before a later value() call requests it again.
+  // A definitive rejection parks it until cleanup.
   private request(spec: framer.TileSpec): void {
-    const key = tileKey(spec);
+    const key = framer.tileRequestKey(spec);
     const { client } = this;
     if (
       client == null ||
@@ -1105,6 +1097,7 @@ export class TiledChannelData
     this.valid = true;
     const { client } = this;
     if (client == null) {
+      this.declareLoaded();
       this.onStatusChange?.(DISCONNECTED_STATUS);
       return;
     }
@@ -1187,9 +1180,7 @@ export class TiledChannelData
   // forever.
   private fail(e: unknown): void {
     this.failures.report(e, "Failed to read channel data");
-    if (this.homeLoaded) return;
-    this.homeLoaded = true;
-    this.notify();
+    this.declareLoaded();
   }
 
   cleanup(): void {
@@ -1209,7 +1200,7 @@ export class TiledChannelData
     this.raw.series.splice(0, this.raw.series.length);
     this.valid = false;
     this.channel = null;
-    this.homeLoaded = false;
+    this.loading_ = true;
     this.rawLoaded = false;
     this.failures.reset();
   }
