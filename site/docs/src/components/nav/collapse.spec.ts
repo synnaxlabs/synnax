@@ -37,6 +37,8 @@ const PAGE = `
 `;
 
 const nav = (): HTMLElement => document.querySelector(".page-nav") as HTMLElement;
+const isCollapsed = (doc: Document = document): boolean =>
+  doc.documentElement.dataset.pageNavCollapsed != null;
 const toggle = (): HTMLElement =>
   document.querySelector("[data-page-nav-toggle]") as HTMLElement;
 const sections = (): HTMLElement[] => [
@@ -78,6 +80,7 @@ describe("collapse", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     localStorage.clear();
+    delete document.documentElement.dataset.pageNavCollapsed;
     document.body.innerHTML = PAGE;
     document.dispatchEvent(new Event("astro:after-swap"));
     // jsdom lays nothing out, so every element reads as not shown.
@@ -89,12 +92,13 @@ describe("collapse", () => {
   afterEach(() => {
     vi.advanceTimersByTime(1000);
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   describe("toggle", () => {
     it("should collapse the sidebar and remember it", () => {
       collapse();
-      expect(nav().dataset.collapsed).toBe("");
+      expect(isCollapsed()).toBe(true);
       expect(toggle().getAttribute("aria-label")).toBe("Expand sidebar");
       expect(toggle().getAttribute("aria-expanded")).toBe("false");
       expect(localStorage.getItem(STORAGE_KEY)).toBe("true");
@@ -103,7 +107,7 @@ describe("collapse", () => {
     it("should expand a collapsed sidebar and remember it", () => {
       collapse();
       toggle().click();
-      expect(nav().dataset.collapsed).toBeUndefined();
+      expect(isCollapsed()).toBe(false);
       expect(toggle().getAttribute("aria-label")).toBe("Collapse sidebar");
       expect(toggle().getAttribute("aria-expanded")).toBe("true");
       expect(localStorage.getItem(STORAGE_KEY)).toBe("false");
@@ -111,49 +115,62 @@ describe("collapse", () => {
   });
 
   describe("page swap", () => {
-    const swapTo = (collapsedBefore: boolean): HTMLElement => {
+    const swapTo = (collapsedBefore: boolean, page = PAGE): Document => {
       if (collapsedBefore) collapse();
       const next = document.implementation.createHTMLDocument();
-      next.body.innerHTML = PAGE;
+      next.body.innerHTML = page;
       document.dispatchEvent(
         Object.assign(new Event("astro:before-swap"), { newDocument: next }),
       );
-      return next.querySelector(".page-nav") as HTMLElement;
+      return next;
     };
 
     it("should collapse an incoming sidebar before it paints", () => {
-      expect(swapTo(true).dataset.collapsed).toBe("");
+      expect(isCollapsed(swapTo(true))).toBe(true);
     });
 
     it("should leave an incoming sidebar open when not collapsed", () => {
-      expect(swapTo(false).dataset.collapsed).toBeUndefined();
+      expect(isCollapsed(swapTo(false))).toBe(false);
+    });
+
+    it("should leave a page without the sidebar unmarked", () => {
+      expect(isCollapsed(swapTo(true, "<main><article></article></main>"))).toBe(false);
+    });
+
+    it("should carry the collapse when the browser blocks storage", () => {
+      const blocked = (): never => {
+        throw new DOMException("blocked", "SecurityError");
+      };
+      vi.spyOn(Storage.prototype, "getItem").mockImplementation(blocked);
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(blocked);
+      expect(isCollapsed(swapTo(true))).toBe(true);
     });
   });
 
   describe("shortcut", () => {
     it("should toggle the sidebar on Cmd or Ctrl+B", () => {
       expect(press(SHORTCUT)).toBe(false);
-      expect(nav().dataset.collapsed).toBe("");
+      expect(isCollapsed()).toBe(true);
       press({ ...SHORTCUT, metaKey: false, ctrlKey: true });
-      expect(nav().dataset.collapsed).toBeUndefined();
+      expect(isCollapsed()).toBe(false);
     });
 
     it("should leave the key alone in a text field", () => {
       const input = document.createElement("input");
       article().append(input);
       expect(press(SHORTCUT, input)).toBe(true);
-      expect(nav().dataset.collapsed).toBeUndefined();
+      expect(isCollapsed()).toBe(false);
     });
 
     it("should leave the key alone when the sidebar is not shown", () => {
       vi.spyOn(nav(), "getClientRects").mockReturnValue([] as unknown as DOMRectList);
       expect(press(SHORTCUT)).toBe(true);
-      expect(nav().dataset.collapsed).toBeUndefined();
+      expect(isCollapsed()).toBe(false);
     });
 
     it("should ignore B with another modifier", () => {
       press({ ...SHORTCUT, shiftKey: true });
-      expect(nav().dataset.collapsed).toBeUndefined();
+      expect(isCollapsed()).toBe(false);
     });
   });
 

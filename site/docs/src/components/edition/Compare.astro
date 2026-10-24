@@ -13,16 +13,11 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { type Edition } from "@/components/edition/edition";
+import { type Edition, NAMES } from "@/components/edition/edition";
 
 const EDITIONS = [
-    { key: "desktop", name: "Synnax Desktop", price: "Free", icon: Icon.Desktop },
-    {
-        key: "enterprise",
-        name: "Synnax Enterprise",
-        price: "Contact Synnax Labs",
-        icon: Icon.Core,
-    },
+    { key: "desktop", price: "Free", icon: Icon.Computer },
+    { key: "enterprise", price: "Contact Synnax Labs", icon: Icon.Core },
 ] as const;
 
 const MACOS = { label: "macOS", icon: Icon.Logo.Apple };
@@ -127,7 +122,6 @@ const GROUPS: Group[] = [
 ];
 ---
 
----
 <table class="docs-compare">
     <colgroup>
         <col class="docs-compare__capability" />
@@ -138,10 +132,10 @@ const GROUPS: Group[] = [
     <thead>
         <tr>
             <td></td>
-            {EDITIONS.map(({ name, price, icon: EditionIcon }) => (
+            {EDITIONS.map(({ key, price, icon: EditionIcon }) => (
                 <th scope="col">
                     <EditionIcon />
-                    <span class="docs-compare__name">{name}</span>
+                    <span class="docs-compare__name">Synnax {NAMES[key]}</span>
                     <span class="docs-compare__price">{price}</span>
                 </th>
             ))}
@@ -230,14 +224,17 @@ const GROUPS: Group[] = [
         }
 
         /* The header stays under the site navigation while the reader scrolls. */
-        & thead th {
+        & thead :is(th, td) {
             position: sticky;
             top: var(--nav-height);
             z-index: 1;
-            padding-top: 2rem;
-            padding-bottom: 2rem;
             background: var(--pluto-gray-l0);
             box-shadow: inset 0 -1px var(--pluto-gray-l4);
+        }
+
+        & thead th {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
             white-space: normal;
 
             & .pluto-icon {
@@ -247,14 +244,6 @@ const GROUPS: Group[] = [
                 margin-bottom: 1.5rem;
                 color: var(--pluto-gray-l9);
             }
-        }
-
-        & thead td {
-            background: var(--pluto-gray-l0);
-            box-shadow: inset 0 -1px var(--pluto-gray-l4);
-            position: sticky;
-            top: var(--nav-height);
-            z-index: 1;
         }
 
         & .docs-compare__name {

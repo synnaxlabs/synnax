@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type capture, fixtures } from "@/index";
+import { capture, fixtures } from "@/index";
 
-import { controlButton, createValveSchematic } from "./common/valve-schematic";
+import { createValveSchematic } from "./common/valve-schematic";
 
 const AUTOMATION = "Valve Guard";
 
@@ -44,14 +44,15 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     // The valve shows its echoed state channel, so it reads open only once the echo
     // lands, and closed again once the Arc's next write does.
     const open = symbol.locator("button.pluto-symbol-primitive-toggle.pluto--enabled");
+    const control = capture.control(page, "circle");
 
     session.startRecording();
     await session.hold(1800);
 
-    await session.moveTo(controlButton(session));
+    await session.moveTo(control);
     await session.waitFor(page.getByText("Acquire control", { exact: true }).first());
     await session.hold(900);
-    await session.click(controlButton(session), { zoom: false });
+    await session.click(control, { zoom: false });
     await session.waitFor(entry("Schematic"));
     await session.hold(1200);
 
@@ -69,7 +70,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(1400);
     session.endZoom();
 
-    await session.click(controlButton(session), { zoom: false });
+    await session.click(control, { zoom: false });
     await session.waitFor(entry(AUTOMATION));
     await session.waitForHidden(open);
     await session.moveTo({

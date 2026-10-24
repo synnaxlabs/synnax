@@ -101,7 +101,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.settleWall(3000);
   await session.settle(500);
   // Off the plot, so no crosshair or readout shows.
-  await session.moveTo({ x: 900, y: 24 });
+  await session.moveTo(capture.PARK);
 
   session.startRecording();
   await session.hold(2500);

@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ZOOM_RECT_MARGIN_PX } from "@/director/constants";
-import { capture } from "@/index";
+import { capture, director } from "@/index";
 
 const ZOOM = 1.5;
 
@@ -36,15 +35,15 @@ export const pickComponent = async (
     .getByRole("button", { name: title })
     .first()
     .boundingBox();
-  if (first == null || last == null || target == null)
+  const viewport = page.viewportSize();
+  if (first == null || last == null || target == null || viewport == null)
     throw new Error("selector options are hidden");
   // Shift the zoom off the options' center only as far as it takes to hold the picked
   // option inside the crop's margin, so the camera does not pan to reach it.
-  const viewport = page.viewportSize() ?? { width: 1600, height: 900 };
   const keep = (center: number, pos: number, size: number, span: number): number => {
     const half = span / ZOOM / 2;
-    const lo = pos + size + ZOOM_RECT_MARGIN_PX - half;
-    const hi = pos - ZOOM_RECT_MARGIN_PX + half;
+    const lo = pos + size + director.ZOOM_RECT_MARGIN_PX - half;
+    const hi = pos - director.ZOOM_RECT_MARGIN_PX + half;
     return Math.min(hi, Math.max(lo, center));
   };
   await session.zoom(

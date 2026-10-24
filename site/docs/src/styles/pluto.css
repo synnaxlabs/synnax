@@ -64,6 +64,16 @@ article .pluto-tabs__selector {
     --pluto-height-medium: 7rem;
     --pluto-tabs-tab-height: 5rem;
 
+    @media (pointer: coarse) {
+        --pluto-height-medium: 8rem;
+        --pluto-tabs-tab-height: 6.5rem;
+
+        /* A chip takes the small button height, not the tab height. */
+        &.pluto-tabs__selector--chip {
+            --pluto-height-small: 6rem;
+        }
+    }
+
     .pluto-tabs__tab {
         padding: 0 2rem;
         gap: 1.5rem;
@@ -79,26 +89,10 @@ article .pluto-tabs__selector {
     }
 }
 
-/* Tree component */
+/* Tree component. The page nav and the header drawer each size their own tree. */
 .pluto-tree {
-    max-height: calc(100vh - 15rem);
     overflow-y: auto;
     overflow-x: hidden;
-    padding-top: 5rem;
-    mask-image: linear-gradient(
-        to bottom,
-        transparent 0,
-        black 5rem,
-        black calc(100% - 5rem),
-        transparent 100%
-    );
-    -webkit-mask-image: linear-gradient(
-        to bottom,
-        transparent 0,
-        black 5rem,
-        black calc(100% - 5rem),
-        transparent 100%
-    );
 
     /* Firefox scrollbar */
     scrollbar-width: thin;

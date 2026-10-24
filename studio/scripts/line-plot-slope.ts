@@ -42,7 +42,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.drag(at(0.3, 0.7), at(0.97, 0.71), { zoom: false });
     await session.settle(800);
     // Off the plot, so no hover tooltip shows before the first click.
-    await session.moveTo({ x: 900, y: 24 });
+    await session.moveTo(capture.PARK);
 
     session.startRecording();
     await session.hold(1800);
@@ -60,7 +60,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.click(at(0.6, 0.35), { zoom: false });
     await session.hold(900);
     // The hover tooltip follows the cursor and covers the second readout.
-    await session.moveTo({ x: 900, y: 24 });
+    await session.moveTo(capture.PARK);
     await session.hold(3000);
   } finally {
     await fixture.stop();

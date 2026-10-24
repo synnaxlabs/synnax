@@ -30,10 +30,6 @@
 }
 
 /* An Enterprise page says so once, under its title, so its tabs and blocks do not. */
-article[data-edition="enterprise"] .edition-badge--enterprise {
+article[data-edition="enterprise"] .edition-badge--enterprise:not(.article-top > *) {
     display: none;
-}
-
-article[data-edition="enterprise"] .article-top > .edition-badge--enterprise {
-    display: inline-flex;
 }

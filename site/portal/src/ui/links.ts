@@ -7,4 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const DOWNLOAD_URL = "https://docs.synnaxlabs.com/reference/desktop/get-started";
+export const DOWNLOAD_URL =
+  "https://docs.synnaxlabs.com/reference/get-started/install-desktop";

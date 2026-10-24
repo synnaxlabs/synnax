@@ -493,6 +493,20 @@ describe("Tabs", () => {
       expect(el.classList.contains(`pluto-tabs__selector--${sizing}`)).toBe(true);
     });
 
+    it.each([
+      ["default", "pluto-btn--text", "pluto--sharp"],
+      ["pill", "pluto-btn--outlined", "pluto--rounded"],
+      ["chip", "pluto-btn--outlined", "pluto--rounded"],
+    ] as const)(
+      "should render a %s tab as a %s, %s button",
+      (variant, kind, corner) => {
+        strip({ variant });
+        const { classList } = tab("Tab A");
+        expect(classList.contains(kind)).toBe(true);
+        expect(classList.contains(corner)).toBe(true);
+      },
+    );
+
     it.each(["elastic", "fixed", "content"] as const)(
       "should apply the %s sizing",
       (sizing) => {

@@ -27,13 +27,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(1800);
 
   await session.click(capture.toolbarButton(page, "group", "add"), { zoom: false });
-  const name = page
-    .locator(".pluto-dialog__dialog.pluto--modal")
-    .getByPlaceholder("Name")
-    .first();
+  const name = page.locator(capture.MODAL).getByPlaceholder("Name").first();
   await session.waitFor(name);
   await session.hold(600);
-  await session.zoom(page.locator(".pluto-dialog__dialog.pluto--modal").first());
+  await session.zoom(page.locator(capture.MODAL).first());
 
   await session.click(name);
   await session.type("Test stand");

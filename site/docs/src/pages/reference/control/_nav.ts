@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/Page";
+import { type PageNavNode } from "@/components/nav/tree";
 import { ARC_NAV } from "@/pages/reference/control/arc/_nav";
 import { PYTHON_SEQUENCES_NAV } from "@/pages/reference/control/python/_nav";
 
@@ -16,24 +16,20 @@ export const CONTROL_NAV: PageNavNode = {
   name: "Control",
   children: [
     {
-      key: "/reference/control",
       href: "/reference/control",
       name: "Overview",
     },
     {
-      key: "/reference/control/authority",
       href: "/reference/control/authority",
       name: "Authority",
     },
     {
-      key: "/reference/control/manual",
       href: "/reference/control/manual",
       name: "Manual control",
     },
     ARC_NAV,
     PYTHON_SEQUENCES_NAV,
     {
-      key: "/reference/control/troubleshooting",
       href: "/reference/control/troubleshooting",
       name: "Troubleshooting",
     },

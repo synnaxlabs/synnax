@@ -50,11 +50,6 @@
     border-radius: var(--pluto-border-radius);
     text-decoration: none;
 
-    /* Buttons are pluto-text too, so this outranks the link underline in Text.css. */
-    &.pluto-text:hover {
-        text-decoration: none;
-    }
-
     /* We give the button a fixed z-index to ensure that we maintain a consistent
     stacking context even when increasing the z-index on hover. This prevents strange
     layout shifting of internal content (especially icons) */

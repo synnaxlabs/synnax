@@ -59,14 +59,21 @@ export const locate = (route: string, needle: string): string => {
   return route;
 };
 
-// Astro gives no route to a file whose name starts with an underscore.
+/** Returns true if Astro routes the page file: its name has no leading underscore. */
 export const routed = (f: string): boolean => !path.basename(f).startsWith("_");
 
-/** Derives every route from the src/pages file tree. */
+/** Returns the route of a page file, given relative to src/pages. */
+export const toRoute = (f: string): string =>
+  `/${f.replace(/\.(mdx|astro)$/, "").replace(/(^|\/)index$/, "$1")}`;
+
+/**
+ * Derives every route from the src/pages file tree. Dynamic routes are left out, since
+ * they serve pages that have files of their own.
+ */
 export const enumerateRoutes = (): string[] => {
   const routes = pageFiles()
-    .filter((f) => /\.(mdx|astro)$/.test(f) && routed(f))
-    .map((f) => `/${f.replace(/\.(mdx|astro)$/, "").replace(/(^|\/)index$/, "$1")}`);
+    .filter((f) => /\.(mdx|astro)$/.test(f) && routed(f) && !f.includes("["))
+    .map(toRoute);
   return [...new Set(routes)];
 };
 

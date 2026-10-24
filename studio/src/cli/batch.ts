@@ -25,6 +25,7 @@ import {
   stampFile,
   THEMES,
 } from "@/cli/common";
+import { entryHash } from "@/cli/hash";
 import { runCapture, runRender, STUDIO_PORT } from "@/cli/pipeline";
 import { type Entry, stillsDir, videoName } from "@/manifest";
 import { type Timeline } from "@/timeline";
@@ -34,8 +35,8 @@ Produces every manifest entry (videos.ts) whose id contains [filter]: for each,
 captures light and dark against fresh ephemeral cores and renders the themed
 pair into the consolidated out/videos/ directory. A stills entry skips the render:
 its stills land in out/stills/<id>/, and their regions at the entry's regions path.
-Entries whose script and options are unchanged since their last successful
-production are skipped.
+Entries whose script, the modules it imports from scripts/, and options are
+unchanged since their last successful production are skipped.
   --exact           treat [filter] as a full id instead of a substring
   --draft           fast review renders: higher crf + fast encoder preset
   --force           re-produce even when unchanged
@@ -48,14 +49,6 @@ production are skipped.
   --jobs <n>        entries to produce concurrently (default 1); worker i gets
                     port + i, and its log prints when the entry finishes.
                     Entries pinning a port produce first, one at a time`;
-
-const entryHash = async (entry: Entry, draft: boolean): Promise<string> => {
-  const script = await readFile(path.resolve(ROOT, entry.script));
-  return createHash("sha256")
-    .update(script)
-    .update(JSON.stringify({ entry, draft }))
-    .digest("hex");
-};
 
 const paths = (entry: Entry) => ({
   captureDir: (theme: "light" | "dark") => path.join(OUT_ROOT, entry.id, theme),
@@ -151,7 +144,7 @@ const produceEntry = async ({
         await rm(path.join(captureDir, "frames"), { recursive: true, force: true });
     }
   const stamp: Stamp = {
-    hash: await entryHash(entry, draft),
+    hash: await entryHash(entry, draft, ROOT),
     draft,
     producedAt: new Date().toISOString(),
   };
@@ -260,13 +253,13 @@ const main = async (): Promise<void> => {
   const stale: Entry[] = [];
   for (const entry of entries) {
     const p = paths(entry);
-    const hash = await entryHash(entry, values.draft);
+    const hash = await entryHash(entry, values.draft, ROOT);
     const stamp = await readStamp(entry.id);
-    const produced =
+    const present =
       entry.stills != null
         ? existsSync(p.stills)
         : THEMES.every((theme) => existsSync(p.video(theme)));
-    const fresh = stamp?.hash === hash && produced;
+    const fresh = stamp?.hash === hash && present;
     if (fresh && !values.force) {
       console.log(`${entry.id}: unchanged, skipping`);
       skipped++;

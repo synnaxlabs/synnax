@@ -13,7 +13,7 @@ import { type Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement, useId } from "react";
 
 import { Content, Item } from "@/components/diagram/Block";
-import { nodeHeight, nodeWidth, type PlacedNode } from "@/components/diagram/layout";
+import { nodeHeight, nodeWidth, ROW_GAP, span } from "@/components/diagram/layout";
 
 /** A box in a nested diagram. A box with children draws as a group around them. */
 export interface NestNode {
@@ -32,13 +32,10 @@ export interface NestProps {
   root: NestNode;
   /** Describes the diagram for screen readers. */
   title: string;
-  /** Gives each level of groups its own accent color. */
-  colored?: boolean;
 }
 
 const PADDING = 12;
-// Matches the row gap of a block diagram.
-const GAP = 20;
+const GAP = ROW_GAP;
 const HATCH_SPACING = 6;
 // Keeps the hatch clear of the border, which is 0.5 wide and centered on the box edge.
 const HATCH_INSET = 1;
@@ -64,10 +61,6 @@ const groupDepth = (node: NestNode): number =>
 const leafWidth = (node: NestNode): number =>
   node.children == null ? nodeWidth(node) : Math.max(...node.children.map(leafWidth));
 
-// The total length of the items with a gap between each pair.
-const sum = (v: number[]): number =>
-  v.length === 0 ? 0 : v.reduce((a, b) => a + b, 0) + GAP * (v.length - 1);
-
 const place = (
   node: NestNode,
   x: number,
@@ -90,16 +83,16 @@ const place = (
   const children = node.children.map((child, i) => {
     const c = i % count;
     const r = Math.floor(i / count);
-    const cx = x + PADDING + sum(colWidths.slice(0, c)) + (c > 0 ? GAP : 0);
-    const cy = y + header + sum(rowHeights.slice(0, r)) + (r > 0 ? GAP : 0);
+    const cx = x + PADDING + span(colWidths.slice(0, c), GAP) + (c > 0 ? GAP : 0);
+    const cy = y + header + span(rowHeights.slice(0, r), GAP) + (r > 0 ? GAP : 0);
     return place(child, cx, cy, leaf, columns);
   });
   return {
     node,
     x,
     y,
-    width: sum(colWidths) + 2 * PADDING,
-    height: header + sum(rowHeights) + PADDING,
+    width: span(colWidths, GAP) + 2 * PADDING,
+    height: header + span(rowHeights, GAP) + PADDING,
     children,
   };
 };
@@ -112,14 +105,6 @@ interface GroupProps {
 
 const Group = ({ placed, depth, hatch }: GroupProps): ReactElement => {
   const { node, x, y, width, height, children } = placed;
-  const header: PlacedNode = {
-    ...node,
-    column: 0,
-    x,
-    y,
-    width,
-    height: nodeHeight(node),
-  };
   const box = { x, y, width, height, rx: 6 };
   return (
     <g data-depth={depth}>
@@ -134,7 +119,7 @@ const Group = ({ placed, depth, hatch }: GroupProps): ReactElement => {
       />
       <rect {...box} className="block-diagram__border" />
       <g className="block-diagram__header">
-        <Content node={header} />
+        <Content node={{ ...node, x, y, width, height: nodeHeight(node) }} />
       </g>
       {children.map((c) =>
         c.node.children != null ? (
@@ -142,14 +127,7 @@ const Group = ({ placed, depth, hatch }: GroupProps): ReactElement => {
         ) : (
           <Item
             key={c.node.key}
-            node={{
-              ...c.node,
-              column: 0,
-              x: c.x,
-              y: c.y,
-              width: c.width,
-              height: c.height,
-            }}
+            node={{ ...c.node, x: c.x, y: c.y, width: c.width, height: c.height }}
           />
         ),
       )}
@@ -162,8 +140,8 @@ const Svg = ({
   title,
   columns,
   variant,
-}: NestProps & { columns: Columns; variant: string }): ReactElement => {
-  const hatch = `nest-hatch-${useId().replace(/:/g, "")}`;
+}: NestProps & { columns: Columns; variant: "wide" | "narrow" }): ReactElement => {
+  const hatch = `nest-hatch-${useId()}`;
   const placed = place(root, 0, 0, leafWidth(root), columns);
   return (
     <svg
@@ -209,9 +187,7 @@ const Svg = ({
  * that uses narrowColumns.
  */
 export const Nest = (props: NestProps): ReactElement => (
-  <figure
-    className={`block-diagram block-diagram--nest${props.colored === true ? " block-diagram--colored" : ""}`}
-  >
+  <figure className="block-diagram block-diagram--nest">
     <Svg {...props} columns={wideColumns} variant="wide" />
     <Svg {...props} columns={narrowColumns} variant="narrow" />
   </figure>

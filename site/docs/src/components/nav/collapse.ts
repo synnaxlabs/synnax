@@ -22,23 +22,24 @@ const SKIP_DELAY_MS = 300;
 const CLOSE_MS = 150;
 const OFFSET = 6;
 
-const collapsed = (nav: HTMLElement): boolean => nav.dataset.collapsed != null;
+// The flag is on the root, so a script in the head can set it before the body parses.
+const collapsed = (): boolean =>
+  document.documentElement.dataset.pageNavCollapsed != null;
 
 const sync = (nav: HTMLElement): void => {
   const toggle = nav.querySelector(TOGGLE);
-  toggle?.setAttribute("aria-label", toggleLabel(nav));
-  toggle?.setAttribute("aria-expanded", String(!collapsed(nav)));
+  toggle?.setAttribute("aria-label", toggleLabel());
+  toggle?.setAttribute("aria-expanded", String(!collapsed()));
   // Only the collapsed section icons act as links, so only they take focus.
   for (const section of nav.querySelectorAll<HTMLElement>(SECTION))
-    section.tabIndex = collapsed(nav) ? 0 : -1;
+    section.tabIndex = collapsed() ? 0 : -1;
 };
 
-const toggleLabel = (nav: HTMLElement): string =>
-  collapsed(nav) ? "Expand sidebar" : "Collapse sidebar";
+const toggleLabel = (): string => (collapsed() ? "Expand sidebar" : "Collapse sidebar");
 
 const setCollapsed = (nav: HTMLElement, value: boolean): void => {
-  if (value) nav.dataset.collapsed = "";
-  else delete nav.dataset.collapsed;
+  if (value) document.documentElement.dataset.pageNavCollapsed = "";
+  else delete document.documentElement.dataset.pageNavCollapsed;
   sync(nav);
   try {
     localStorage.setItem(STORAGE_KEY, String(value));
@@ -72,7 +73,7 @@ const anchorOf = (target: EventTarget | null): HTMLElement | null => {
   const anchor = target.closest<HTMLElement>(`${TOGGLE}, ${SECTION}`);
   const nav = navOf(anchor);
   if (anchor == null || nav == null) return null;
-  if (anchor.matches(SECTION) && !collapsed(nav)) return null;
+  if (anchor.matches(SECTION) && !collapsed()) return null;
   return anchor;
 };
 
@@ -106,7 +107,7 @@ export const start = (): void => {
     const keys = tip.querySelector<HTMLElement>("[data-tooltip-keys]");
     if (label != null)
       label.textContent = isToggle
-        ? toggleLabel(nav)
+        ? toggleLabel()
         : (target.querySelector(".pluto-text")?.textContent ?? "");
     if (keys != null) keys.hidden = !isToggle;
     anchor?.removeAttribute("aria-describedby");
@@ -140,7 +141,7 @@ export const start = (): void => {
   };
 
   const toggle = (nav: HTMLElement): void => {
-    setCollapsed(nav, !collapsed(nav));
+    setCollapsed(nav, !collapsed());
     if (anchor != null && anchor.matches(TOGGLE)) show(anchor);
     else hide(true);
   };
@@ -179,7 +180,7 @@ export const start = (): void => {
     if (nav == null) return;
     if (e.target.closest(TOGGLE) != null) return toggle(nav);
     const section = e.target.closest(SECTION);
-    if (section != null && collapsed(nav)) openSection(section);
+    if (section != null && collapsed()) openSection(section);
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") return hide(true);
@@ -197,12 +198,11 @@ export const start = (): void => {
     e.preventDefault();
     toggle(nav);
   });
-  // A page swap from a page without the sidebar brings a new one, and its inline
-  // script only runs after the swap paints. Collapsing it first keeps it from
-  // opening and then animating closed.
+  // A page swap replaces the root's attributes with the incoming page's, so the
+  // incoming root must carry the collapse.
   document.addEventListener("astro:before-swap", (e) => {
-    const next = e.newDocument.querySelector<HTMLElement>(NAV);
-    if (next != null && stored()) next.dataset.collapsed = "";
+    if (e.newDocument.querySelector(NAV) != null && (collapsed() || stored()))
+      e.newDocument.documentElement.dataset.pageNavCollapsed = "";
   });
   const load = (): void => {
     hide(true);

@@ -9,18 +9,24 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type PageNavNode } from "@/components/nav/Page";
-import { editionOf, groupOf, neighbors } from "@/components/nav/tree";
+import {
+  editionOf,
+  firstPages,
+  groupOf,
+  labels,
+  neighbors,
+  type PageNavNode,
+  sectionOf,
+} from "@/components/nav/tree";
 
 const NODES: PageNavNode[] = [
-  { key: "/reference/", href: "/reference/", name: "Get started" },
+  { href: "/reference/", name: "Get started" },
   {
     key: "channels",
     name: "Channels",
     children: [
-      { key: "/reference/channels", href: "/reference/channels", name: "Channels" },
+      { href: "/reference/channels", name: "Channels" },
       {
-        key: "/reference/channels/create",
         href: "/reference/channels/create",
         name: "Create channels",
       },
@@ -31,13 +37,12 @@ const NODES: PageNavNode[] = [
     name: "Enterprise",
     edition: "enterprise",
     children: [
-      { key: "/reference/enterprise", href: "/reference/enterprise", name: "Set up" },
+      { href: "/reference/enterprise", name: "Set up" },
       {
         key: "advanced",
         name: "Advanced",
         children: [
           {
-            key: "/reference/enterprise/cli",
             href: "/reference/enterprise/cli",
             name: "CLI",
           },
@@ -46,7 +51,6 @@ const NODES: PageNavNode[] = [
     ],
   },
   {
-    key: "/reference/desktop",
     href: "/reference/desktop",
     name: "Desktop",
     edition: "desktop",
@@ -123,6 +127,130 @@ describe("tree", () => {
 
     it("should return undefined for a path outside the tree", () => {
       expect(groupOf(NODES, "/reference/missing")).toBeUndefined();
+    });
+  });
+
+  describe("sectionOf", () => {
+    it("should return the top-level group that holds the page", () => {
+      expect(sectionOf(NODES, "/reference/enterprise/cli")).toBe("Enterprise");
+    });
+
+    it("should return undefined for a top-level page", () => {
+      expect(sectionOf(NODES, "/reference/desktop")).toBeUndefined();
+    });
+
+    it("should return undefined for a path outside the tree", () => {
+      expect(sectionOf(NODES, "/reference/missing")).toBeUndefined();
+    });
+  });
+
+  describe("firstPages", () => {
+    const GROUPS: PageNavNode[] = [
+      {
+        key: "get-started",
+        name: "Get started",
+        children: [
+          { href: "/reference/", name: "Overview" },
+          { href: "/reference/get-started/concepts", name: "Concepts" },
+        ],
+      },
+      {
+        key: "hardware",
+        name: "Hardware",
+        children: [
+          { href: "/reference/hardware", name: "Overview" },
+          {
+            key: "ni",
+            name: "NI",
+            children: [
+              {
+                key: "devices",
+                name: "Devices",
+                children: [{ href: "/reference/hardware/ni/devices/add", name: "Add" }],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        href: "/reference/arc",
+        name: "Arc",
+        children: [
+          {
+            key: "library",
+            name: "Library",
+            children: [{ href: "/reference/arc/library/math", name: "math" }],
+          },
+        ],
+      },
+    ];
+    const pages = firstPages(GROUPS, "/reference");
+
+    it("should map a group to its first page as the nav writes it", () => {
+      expect(pages.get("/reference/get-started")).toBe("/reference/");
+    });
+
+    it("should skip a group whose route is already a page", () => {
+      expect(pages.has("/reference/hardware")).toBe(false);
+    });
+
+    it("should map a group whose first page sits in a nested group", () => {
+      expect(pages.get("/reference/hardware/ni")).toBe(
+        "/reference/hardware/ni/devices/add",
+      );
+      expect(pages.get("/reference/hardware/ni/devices")).toBe(
+        "/reference/hardware/ni/devices/add",
+      );
+    });
+
+    it("should place a group under a page at the route of the page", () => {
+      expect(pages.get("/reference/arc/library")).toBe("/reference/arc/library/math");
+    });
+
+    it("should map nothing but group routes", () => {
+      expect([...pages.keys()].sort()).toEqual([
+        "/reference/arc/library",
+        "/reference/get-started",
+        "/reference/hardware/ni",
+        "/reference/hardware/ni/devices",
+      ]);
+    });
+  });
+
+  describe("labels", () => {
+    it("should name a page after its node", () => {
+      expect(labels(NODES).get("/reference/channels/create")).toBe("Create channels");
+    });
+
+    it("should name the route that a group's pages share after the group", () => {
+      expect(labels(NODES).get("/reference/enterprise")).toBe("Enterprise");
+    });
+
+    it("should name a route that nested groups share after the outermost one", () => {
+      const named = labels([
+        {
+          key: "enterprise",
+          name: "Enterprise",
+          children: [
+            { href: "/reference/enterprise", name: "Set up" },
+            {
+              key: "tls",
+              name: "TLS",
+              children: [
+                { href: "/reference/enterprise/tls", name: "Set up TLS" },
+                { href: "/reference/enterprise/certificates", name: "Certificates" },
+              ],
+            },
+          ],
+        },
+        { href: "/reference/desktop", name: "Desktop" },
+      ]);
+      expect(named.get("/reference/enterprise")).toBe("Enterprise");
+      expect(named.get("/reference/enterprise/tls")).toBe("Set up TLS");
+    });
+
+    it("should leave the route that every page shares without a name", () => {
+      expect(labels(NODES).has("/reference")).toBe(false);
     });
   });
 });

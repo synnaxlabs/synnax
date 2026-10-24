@@ -7,23 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Locator } from "playwright";
-
 import { capture, fixtures } from "@/index";
 
-/**
- * zoomCenter zooms on the center of a region wider than a zoomed frame. A rect that
- * wide caps the zoom at 1x, so the camera aims at the center and pans with the cursor.
- */
-const zoomCenter = async (
-  session: capture.CaptureSession,
-  region: Locator,
-  amount: number,
-): Promise<void> => {
-  const box = await region.boundingBox();
-  if (box == null) throw new Error("zoom region is hidden");
-  await session.zoom({ x: box.x + box.width / 2, y: box.y + box.height / 2 }, amount);
-};
+import { pickComponent } from "./common/create-component";
 
 /**
  * Docs `console/line-plots/create`: open the component selector on an empty panel,
@@ -46,32 +32,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(1800);
 
     await capture.clickPanelCreate(session);
-    // The selector frame fills the panel, so a zoom on it renders at 1x. Zoom on the
-    // center of its options instead.
-    const options = page.locator(".console-layout-selector__frame").getByRole("button");
-    await session.waitFor(options.first());
-    const [first, last] = await Promise.all([
-      options.first().boundingBox(),
-      options.last().boundingBox(),
-    ]);
-    if (first == null || last == null) throw new Error("selector options are hidden");
-    await session.zoom(
-      {
-        x: (first.x + last.x + last.width) / 2,
-        y: (first.y + last.y + last.height) / 2,
-      },
-      1.5,
-    );
-    await session.hold(800);
-    await capture.createComponent(session, "Line plot");
-    session.endZoom();
-    await session.waitFor(page.locator(".pluto-line-plot").first());
+    await pickComponent(session, "Line plot", ".pluto-line-plot");
     await session.hold(1200);
 
     await session.press("v");
     await session.waitFor(page.locator("label").filter({ hasText: "Y1" }).first());
     await session.hold(800);
-    await zoomCenter(
+    await capture.zoomCenter(
       session,
       page.locator(".console-nav__drawer.pluto--location-bottom").first(),
       1.4,
@@ -85,7 +52,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(600);
 
     // Off the plot, so no crosshair covers the new line.
-    await session.moveTo({ x: 900, y: 24 });
+    await session.moveTo(capture.PARK);
     await session.settleWall(1500);
     await session.hold(3000);
   } finally {

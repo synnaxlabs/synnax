@@ -29,13 +29,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   session.startRecording();
   await session.hold(1500);
 
-  await session.zoom(item, 1.6);
-  await session.hold(400);
-  await session.rightClick(item, { text: true });
-  const menu = page.locator(".pluto-menu-context").first();
-  await session.waitFor(menu);
-  await session.hold(400);
-  await session.click(menu.getByText("Rename", { exact: true }).first());
+  await capture.contextMenu(session, item, "Rename");
   // The name turns into a contenteditable with its text selected, so typing
   // replaces it.
   const editable = page

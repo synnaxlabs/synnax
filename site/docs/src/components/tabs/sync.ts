@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { hashTarget } from "@/util/hash";
+
 /**
  * Names the URL query parameter an element syncs with. Tab frames, pickers, and inline
  * values that share a key show the same choice. An empty value marks a tab frame that
@@ -19,8 +21,6 @@ export const PICKER_ATTRIBUTE = "data-tabs-picker";
 
 /** Dispatched on the document after any element changes its choice. */
 export const CHANGE_EVENT = "docs:tabs-change";
-
-import { hashTarget } from "@/util/hash";
 
 const TAB = '[role="tab"]';
 const STRIP = '[role="tablist"]';

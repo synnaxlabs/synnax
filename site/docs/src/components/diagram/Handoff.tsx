@@ -42,11 +42,12 @@ interface Bar {
  * Returns the index of the writer that controls the channel after each event. The
  * highest authority controls, and the writer that opened first wins a tie.
  */
-const controllers = (writers: HandoffWriter[], events: number): (number | null)[] => {
+const controllers = (writers: HandoffWriter[], count: number): (number | null)[] => {
   const opened = writers.map(() => -1);
   const result: (number | null)[] = [];
-  for (let i = 0; i < events; i++) {
+  for (let i = 0; i < count; i++) {
     let controller: number | null = null;
+    let highest = -1;
     for (let w = 0; w < writers.length; w++) {
       const a = writers[w].authority[i];
       if (a == null) {
@@ -54,12 +55,14 @@ const controllers = (writers: HandoffWriter[], events: number): (number | null)[
         continue;
       }
       if (opened[w] === -1) opened[w] = i;
-      if (controller == null) {
+      if (
+        controller == null ||
+        a > highest ||
+        (a === highest && opened[w] < opened[controller])
+      ) {
         controller = w;
-        continue;
+        highest = a;
       }
-      const b = writers[controller].authority[i] ?? -1;
-      if (a > b || (a === b && opened[w] < opened[controller])) controller = w;
     }
     result.push(controller);
   }
@@ -79,7 +82,7 @@ const bars = (authority: (number | null)[], controlling: boolean[]): Bar[] => {
   return result;
 };
 
-const Swatch = ({ variant }: { variant: string }): ReactElement => (
+const Swatch = ({ variant }: { variant: "controlling" | "blocked" }): ReactElement => (
   <i className={`handoff-diagram__swatch handoff-diagram__bar--${variant}`} />
 );
 
@@ -88,29 +91,20 @@ const Swatch = ({ variant }: { variant: string }): ReactElement => (
  * events. Each writer gets a track of bars labeled with its authority, and a numbered
  * list under the tracks says which writer controls the channel after each event.
  */
-export const Handoff = ({
-  title,
-  writers,
-  events: list,
-}: HandoffProps): ReactElement => {
-  const events = list.length;
+export const Handoff = ({ title, writers, events }: HandoffProps): ReactElement => {
+  const count = events.length;
   for (const { name, authority } of writers)
-    if (authority.length !== events)
-      throw new Error(`${name} needs an authority for each of the ${events} events`);
-  const control = controllers(writers, events);
+    if (authority.length !== count)
+      throw new Error(`${name} needs an authority for each of the ${count} events`);
+  const control = controllers(writers, count);
   const style = {
-    "--events": events,
+    "--events": count,
     "--writers": writers.length,
-    "--event-rows": Math.ceil(events / 2),
+    "--event-rows": Math.ceil(count / 2),
   } as CSSProperties;
   return (
-    <figure className="handoff-diagram">
-      <div
-        className="handoff-diagram__grid"
-        role="img"
-        aria-label={title}
-        style={style}
-      >
+    <figure className="handoff-diagram" style={style}>
+      <div className="handoff-diagram__grid" role="img" aria-label={title}>
         {control.map((_, i) => (
           <span
             key={i}
@@ -137,7 +131,7 @@ export const Handoff = ({
                 className={[
                   "handoff-diagram__bar",
                   `handoff-diagram__bar--${controlling ? "controlling" : "blocked"}`,
-                  end === events ? "handoff-diagram__bar--open" : "",
+                  end === count ? "handoff-diagram__bar--open" : "",
                 ].join(" ")}
                 style={{ gridRow: w + 2, gridColumn: `${start + 2} / ${end + 2}` }}
               >
@@ -161,8 +155,8 @@ export const Handoff = ({
           Authority
         </span>
       </figcaption>
-      <ol className="handoff-diagram__events" style={style}>
-        {list.map(({ label, reason }, i) => {
+      <ol className="handoff-diagram__events">
+        {events.map(({ label, reason }, i) => {
           const c = control[i];
           return (
             <li key={i}>

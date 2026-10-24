@@ -44,12 +44,9 @@ const UNITS = [
   "days",
 ];
 
-const NUMBER_UNIT = new RegExp(`(\\d) (?=(?:${UNITS.join("|")})(?![\\w]))`, "g");
+const NUMBER_UNIT = new RegExp(`(\\d) (?=(?:${UNITS.join("|")})(?!\\w))`, "g");
 
 const CODE = new Set(["code", "pre"]);
-
-/** Joins each number in the text to the unit after it with a no-break space. */
-export const joinUnits = (text: string): string => text.replace(NUMBER_UNIT, "$1 ");
 
 /** Keeps a number and its unit, such as 50,000 Hz, on one line. Code is unchanged. */
 export const quantities = (): HastPluginDefinition => ({
@@ -57,7 +54,7 @@ export const quantities = (): HastPluginDefinition => ({
   text: (node, ctx) => {
     const parent = ctx.parent(node);
     if (parent.type === "element" && CODE.has(parent.tagName)) return;
-    const value = joinUnits(node.value);
+    const value = node.value.replace(NUMBER_UNIT, "$1\u00a0");
     if (value !== node.value) ctx.replaceNode(node, { type: "text", value });
   },
 });

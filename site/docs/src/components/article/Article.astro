@@ -10,7 +10,7 @@
 
 import { Breadcrumb } from "@/components/article/Breadcrumb";
 import NextPrev from "@/components/article/NextPrev.astro";
-import { Badge } from "@/components/edition/Badge";
+import { Edition } from "@/components/edition";
 import { InlineCode } from "@/components/text/InlineCode";
 import { Text } from "@synnaxlabs/lyra/text";
 const {
@@ -47,7 +47,7 @@ const publishedLabel =
         {showBreadcrumb && url.split("/").length > 2 && (
             <Breadcrumb url={url} title={title} />
         )}
-        {edition && <Badge edition={edition} />}
+        {edition && <Edition.Badge edition={edition} />}
     </div>
     {published && (
         <div class="blog-meta">
@@ -125,6 +125,11 @@ const publishedLabel =
                     color: var(--pluto-gray-l10);
                     text-decoration: none;
                 }
+                /* A taller touch target that leaves the line in place. */
+                @media (pointer: coarse) {
+                    padding-block: 1.25rem;
+                    margin-block: -1.25rem;
+                }
             }
         }
 
@@ -164,6 +169,14 @@ const publishedLabel =
             gap: 1rem 2rem;
             > .edition-badge {
                 margin-left: auto;
+            }
+            /* A narrow breadcrumb wraps, so the badge takes its own line. */
+            @media (max-width: 800px) {
+                flex-direction: column;
+                align-items: flex-start;
+                > .edition-badge {
+                    margin-left: 0;
+                }
             }
         }
         .article-description {

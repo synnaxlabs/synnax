@@ -9,6 +9,8 @@
 
 import { capture, fixtures } from "@/index";
 
+import { createValveSchematic } from "./common/valve-schematic";
+
 /**
  * Docs `console/schematics/valve`: acquire control on a schematic, click the
  * valve to command it open, and watch the control indicator, the legend, and
@@ -18,66 +20,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const fixture = await fixtures.echoValve();
   try {
     const { page } = session;
-    await capture.login(session);
-
-    await capture.createComponent(session, "Schematic");
-    await session.waitFor(page.locator(".pluto-diagram").first());
-    // "Generic" is the catalog name of the plain valve; "Valve" is its label.
-    const valve = await capture.place(session, "Generic", { x: 500, y: 200 });
-
-    const properties = page.locator(".console-schematic__properties").first();
-    await session.click(
-      properties.locator("[role='tab']").filter({ hasText: "Control" }).first(),
-      { text: true, zoom: false },
-    );
-    const bind = async (section: string, channel: string): Promise<void> => {
-      const item = properties
-        .locator(".pluto-form-section")
-        .filter({
-          has: page
-            .locator(".pluto-form-section__header")
-            .getByText(section, { exact: true }),
-        })
-        .locator(".pluto-input__item")
-        .filter({ hasText: "Channel" })
-        .first();
-      await session.click(item.getByText("Select channel", { exact: true }).first(), {
-        zoom: false,
-      });
-      const search = page.getByPlaceholder("Search channels...").first();
-      await session.waitFor(search);
-      await search.fill(channel);
-      const option = page
-        .locator(".pluto-list__item")
-        .filter({ has: page.getByText(channel, { exact: true }) })
-        .first();
-      await session.waitFor(option);
-      await session.click(option, { zoom: false });
-      await session.settle(400);
-    };
-    await bind("State", fixture.state);
-    await bind("Command", fixture.command);
-
-    await capture.deselect(session, { x: 100, y: 290 });
-    // Control mode leaves the toolbar on a "not editable" placeholder, so the
-    // drawer closes before recording.
-    await session.click(page.locator(".console-main-nav__item").last(), {
-      zoom: false,
-    });
-    await session.settle(600);
-    // The canvas only reaches its recorded size once the drawer closes.
-    await capture.fitView(session);
-    // Park the cursor inside the schematic: the floating controls only show
-    // while the panel is hovered.
-    await session.moveTo({ x: 300, y: 560 });
+    const valve = await createValveSchematic(session, fixture);
 
     session.startRecording();
     await session.hold(1800);
 
-    await session.click(
-      page.locator(".console-controls button:has(svg.pluto-icon--circle)").first(),
-      { zoom: false },
-    );
+    await session.click(capture.control(page, "circle"), { zoom: false });
     await session.waitFor(page.locator(".pluto-legend-entry").first());
     await session.hold(1400);
 

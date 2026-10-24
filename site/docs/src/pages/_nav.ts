@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/Page";
+import { firstPages, labels, type PageNavNode } from "@/components/nav/tree";
 import { FLAGS } from "@/flags";
 import { ALARMS_NAV } from "@/pages/reference/alarms/_nav";
 import { CHANNELS_NAV } from "@/pages/reference/channels/_nav";
@@ -41,45 +41,14 @@ export const REFERENCE_PAGES: PageNavNode[] = visible([
   ENTERPRISE_NAV,
 ]);
 
-const contains = (node: PageNavNode, route: string): boolean =>
-  (node.href != null && normalizeRoute(node.href) === route) ||
-  (node.children?.some((child) => contains(child, route)) ?? false);
-
-/** Returns the name of the nav section that holds a route, if one does. */
-export const sectionOf = (route: string): string | undefined =>
-  REFERENCE_PAGES.find((node) => node.children != null && contains(node, route))?.name;
-
-const routesOf = (node: PageNavNode): string[] => [
-  ...(node.href == null ? [] : [normalizeRoute(node.href)]),
-  ...(node.children ?? []).flatMap(routesOf),
-];
-
-const commonPath = (routes: string[]): string => {
-  const [first, ...rest] = routes.map((route) => route.split("/"));
-  const end = first.findIndex((part, i) => rest.some((parts) => parts[i] !== part));
-  return (end === -1 ? first : first.slice(0, end)).join("/");
-};
-
-// A section names the route that its pages share, unless an enclosing section shares
-// the same route. The section entry comes last, so it wins over its overview page.
-const labels = (nodes: PageNavNode[], parent: string): [string, string][] =>
-  nodes.flatMap((node): [string, string][] => {
-    if (node.children == null)
-      return node.href == null ? [] : [[normalizeRoute(node.href), node.name]];
-    const shared = commonPath(routesOf(node));
-    if (shared === parent) return labels(node.children, parent);
-    return [...labels(node.children, shared), [shared, node.name]];
-  });
-
-const ROOT = commonPath(REFERENCE_PAGES.flatMap(routesOf));
-
-const LABELS: ReadonlyMap<string, string> = new Map(
-  labels(REFERENCE_PAGES, ROOT).filter(([route]) => route !== ROOT),
-);
+const LABELS = labels(REFERENCE_PAGES);
 
 /**
- * Returns the nav name of a route. A route that a section's pages share, such as the
- * route of its overview page, takes the name of the section.
+ * Returns the nav name of a route. A route that the pages of a group share, such as the
+ * route of its overview page, takes the name of the group.
  */
 export const labelOf = (route: string): string | undefined =>
   LABELS.get(normalizeRoute(route));
+
+/** Maps the route of each reference group without a page to the group's first page. */
+export const FIRST_PAGES = firstPages(REFERENCE_PAGES, "/reference");

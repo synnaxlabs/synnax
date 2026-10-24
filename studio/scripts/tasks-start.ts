@@ -7,34 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ni } from "@synnaxlabs/client";
+import { ni, type rack } from "@synnaxlabs/client";
 
-import { NI_USB_6343, simulatedDriver } from "@/fixtures/hardware";
 import { capture, fixtures } from "@/index";
 
 const TASK = "Tank sensors";
 
-/**
- * Docs `reference/hardware/start-and-stop-tasks` (Start a task): open the tasks
- * toolbar, double-click an NI analog read task to open its tab, and click Start; the
- * status turns to "Task started successfully". The NI device is simulated.
- */
-export default async (session: capture.CaptureSession): Promise<void> => {
-  const driver = await simulatedDriver({
-    devices: [
-      {
-        ...NI_USB_6343,
-        configured: true,
-        properties: { ...NI_USB_6343.properties, identifier: "dev1" },
-      },
-    ],
-  });
+/** Creates the NI analog read task the shot starts. */
+const createTask = async (rackKey: rack.Key): Promise<void> => {
+  const client = fixtures.connect();
   try {
-    const client = fixtures.connect();
     await client.tasks.create({
       name: TASK,
       type: "ni_analog_read",
-      rack: driver.rack,
+      rack: rackKey,
       config: ni.analogReadConfigZ.parse({
         sampleRate: 100,
         streamRate: 10,
@@ -42,14 +28,31 @@ export default async (session: capture.CaptureSession): Promise<void> => {
           ni.aiVoltageChannelZ.parse({
             type: "ai_voltage",
             port,
-            device: NI_USB_6343.key,
+            device: fixtures.NI_USB_6343.key,
             minVal: -10,
             maxVal: 10,
           }),
         ),
       }),
     });
+  } finally {
     await client.close();
+  }
+};
+
+/**
+ * Docs `reference/hardware/start-and-stop-tasks` (Start a task): open the tasks
+ * toolbar, double-click an NI analog read task to open its tab, and click Start; the
+ * status turns to "Task started successfully". The NI device is simulated.
+ */
+export default async (session: capture.CaptureSession): Promise<void> => {
+  const driver = await fixtures.simulatedDriver({
+    devices: [
+      fixtures.configured(fixtures.NI_USB_6343, fixtures.NI_USB_6343.name, "dev1"),
+    ],
+  });
+  try {
+    await createTask(driver.rack);
 
     const { page } = session;
     await capture.login(session);

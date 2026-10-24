@@ -169,6 +169,51 @@ export const configured = (
   properties: { ...dev.properties, identifier },
 });
 
+/** rackStatus returns the status a Driver writes for its rack while it runs. */
+export const rackStatus = ({ key, name }: { key: rack.Key; name: string }) => ({
+  key: `rack:${key}`,
+  name,
+  variant: "success" as const,
+  message: "Driver is running",
+  details: { rack: key },
+});
+
+/** deviceStatus returns the status a Driver on `rackKey` writes for a found device. */
+export const deviceStatus = (
+  rackKey: rack.Key,
+  { key, name }: { key: string; name: string },
+  message = "Device present",
+) => ({
+  key: `device:${key}`,
+  name,
+  variant: "success" as const,
+  message,
+  details: { rack: rackKey, device: key },
+});
+
+/**
+ * taskStatus returns the status a Driver on `rackKey` writes once it starts or stops
+ * a task. `cmd` is the key of the command it answers, if any.
+ */
+export const taskStatus = (
+  rackKey: rack.Key,
+  t: task.Task,
+  running: boolean,
+  cmd?: string,
+) => ({
+  key: task.statusKey(t.key),
+  name: t.name,
+  variant: "success" as const,
+  message: running ? "Task started successfully" : "Task stopped successfully",
+  details: {
+    task: t.key,
+    running,
+    ...(cmd != null && { cmd }),
+    configHash: t.configHash,
+    rack: rackKey,
+  },
+});
+
 export interface DriverOptions extends ConnectionOptions {
   /** Devices to create on the embedded rack, with a status for each. */
   devices?: SimulatedDevice[];
@@ -185,11 +230,11 @@ export interface DriverFixture {
 
 /**
  * simulatedDriver stands in for the Driver on a capture core started with
- * `--no-driver`. It creates the devices on the embedded rack, writes the rack's
- * "Driver is running" status every `periodMs`, and answers each start and stop
- * command with the status the real Driver writes on success. Nothing reads or writes
- * hardware, so read tasks produce no samples. The rack claims no integrations, so the
- * Modbus, OPC UA, and HTTP connect dialogs find no Driver.
+ * `--no-driver`. It creates the devices on the embedded rack, writes the rack's "Driver
+ * is running" status every `periodMs`, and answers each start and stop command with the
+ * status the real Driver writes on success. Nothing reads or writes hardware, so read
+ * tasks produce no samples. The rack claims no integrations, so the Modbus, OPC UA, and
+ * HTTP connect dialogs find no Driver.
  */
 export const simulatedDriver = async ({
   devices = [],
@@ -198,27 +243,14 @@ export const simulatedDriver = async ({
 }: DriverOptions = {}): Promise<DriverFixture> => {
   const client = connect(opts);
   const [embedded] = await client.racks.retrieve({ embedded: true });
-  const rackStatus = () => ({
-    key: `rack:${embedded.key}`,
-    name: embedded.name,
-    variant: "success" as const,
-    message: "Driver is running",
-    details: { rack: embedded.key },
-  });
-  await client.statuses.set(rackStatus());
+  await client.statuses.set(rackStatus(embedded));
 
   if (devices.length > 0)
     await client.devices.create(
-      devices.map(({ message = "Device present", ...dev }) => ({
+      devices.map(({ message, ...dev }) => ({
         ...dev,
         rack: embedded.key,
-        status: {
-          key: `device:${dev.key}`,
-          name: dev.name,
-          variant: "success" as const,
-          message,
-          details: { rack: embedded.key, device: dev.key },
-        },
+        status: deviceStatus(embedded.key, dev, message),
       })),
     );
 
@@ -228,20 +260,9 @@ export const simulatedDriver = async ({
       for (const cmd of frame.get(task.COMMAND_CHANNEL_NAME).parseJSON(task.commandZ)) {
         if (cmd.type !== "start" && cmd.type !== "stop") continue;
         const t = await client.tasks.retrieve({ key: cmd.task });
-        const running = cmd.type === "start";
-        await client.statuses.set({
-          key: task.statusKey(t.key),
-          name: t.name,
-          variant: "success",
-          message: running ? "Task started successfully" : "Task stopped successfully",
-          details: {
-            task: t.key,
-            running,
-            cmd: cmd.key,
-            configHash: t.configHash,
-            rack: embedded.key,
-          },
-        });
+        await client.statuses.set(
+          taskStatus(embedded.key, t, cmd.type === "start", cmd.key),
+        );
       }
   })();
 
@@ -249,7 +270,7 @@ export const simulatedDriver = async ({
   const heartbeat = (async () => {
     while (running) {
       await new Promise((resolve) => setTimeout(resolve, periodMs));
-      if (running) await client.statuses.set(rackStatus());
+      if (running) await client.statuses.set(rackStatus(embedded));
     }
   })();
 

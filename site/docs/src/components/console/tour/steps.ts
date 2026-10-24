@@ -9,7 +9,7 @@
 
 /** Where a group of steps sits in the Console. */
 export interface Group {
-  key: string;
+  key: "mosaic" | "left" | "top";
   name: string;
 }
 
@@ -19,7 +19,7 @@ export interface Step {
   title: string;
   /** The fragment that links to the step, kept from the page's earlier headings. */
   anchor: string;
-  group: string;
+  group: Group["key"];
   /** The key that opens the part, when it has one. */
   trigger?: string;
   /** The still of the Console that shows the step. */
@@ -41,7 +41,7 @@ const slug = (title: string): string => title.toLowerCase().replaceAll(" ", "-")
 const part = (
   key: string,
   title: string,
-  group: string,
+  group: Group["key"],
   anchor = slug(title),
 ): Step => ({
   key,
@@ -52,10 +52,15 @@ const part = (
   regions: [key],
 });
 
-const toolbar = (key: string, title: string, trigger: string): Step => ({
+const toolbar = (
+  key: string,
+  title: string,
+  trigger: string,
+  anchor = slug(title),
+): Step => ({
   key,
   title,
-  anchor: slug(title),
+  anchor,
   group: "left",
   trigger,
   still: key,
@@ -85,7 +90,7 @@ export const STEPS: Step[] = [
   toolbar("task", "Tasks", "T"),
   toolbar("arc", "Arcs", "A"),
   toolbar("status", "Statuses", "S"),
-  { ...toolbar("component", "Component toolbar", "V"), anchor: "component" },
+  toolbar("component", "Component toolbar", "V", "component"),
   part("panels", "Panel selector", "top"),
   part("help", "Help and updates", "top", "getting-help"),
 ];

@@ -10,9 +10,9 @@
 import { manifest } from "@/index";
 
 /**
- * The production manifest: one entry per docs video, keyed by the id the docs
- * site's Video component uses. `pnpm batch` produces the light/dark pair for
- * every entry; `pnpm upload` pushes them to the docs CDN.
+ * The production manifest: one entry per docs video or set of stills, keyed by the id
+ * the docs site requests. `pnpm batch` produces the light and dark media for every
+ * entry; `pnpm upload` pushes them to the docs CDN.
  */
 export default manifest.define([
   {

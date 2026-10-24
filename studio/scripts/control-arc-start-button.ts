@@ -12,7 +12,7 @@ import { type Locator } from "playwright";
 
 import { capture, fixtures } from "@/index";
 
-const AUTOMATION = "Press sequence";
+import { AUTOMATION, channels, createTankIndex } from "./common/press-sequence";
 
 const PROGRAM = `import time
 
@@ -43,20 +43,14 @@ const STAGES = ["Idle", "Pressurizing", "Holding", "Venting"];
 const createChannels = async (): Promise<void> => {
   const client = fixtures.connect();
   try {
-    const tankTime = await client.channels.create(
-      { name: "tank_time", isIndex: true, dataType: "timestamp" },
-      { retrieveIfNameExists: true },
-    );
+    const tankTime = await createTankIndex(client);
     const stageTime = await client.channels.create(
       { name: "press_stage_time", isIndex: true, dataType: "timestamp" },
       { retrieveIfNameExists: true },
     );
     const [, , , , stage] = await client.channels.create(
       [
-        { name: "press_vlv_cmd", dataType: "uint8", virtual: true },
-        { name: "vent_vlv_cmd", dataType: "uint8", virtual: true },
-        { name: "start_cmd", dataType: "uint8", virtual: true },
-        { name: "tank_pt", dataType: "float64", index: tankTime.key },
+        ...channels(tankTime.key),
         { name: "press_stage", dataType: "uint8", index: stageTime.key },
       ],
       { retrieveIfNameExists: true },
@@ -107,31 +101,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await target.press("Enter");
       await session.settle(300);
     };
-    const bind = async (section: string, channel: string): Promise<void> => {
-      const item = properties
-        .locator(".pluto-form-section")
-        .filter({
-          has: page
-            .locator(".pluto-form-section__header")
-            .getByText(section, { exact: true }),
-        })
-        .locator(".pluto-input__item")
-        .filter({ hasText: "Channel" })
-        .first();
-      await session.click(item.getByText("Select channel", { exact: true }).first(), {
-        zoom: false,
-      });
-      const search = page.getByPlaceholder("Search channels...").first();
-      await session.waitFor(search);
-      await search.fill(channel);
-      const option = page
-        .locator(".pluto-list__item")
-        .filter({ has: page.getByText(channel, { exact: true }) })
-        .first();
-      await session.waitFor(option);
-      await session.click(option, { zoom: false });
-      await session.settle(400);
-    };
     const valve = async (
       label: string,
       channel: string,
@@ -142,8 +111,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await openTab("Style");
       await fill("Label", label);
       await openTab("Control");
-      await bind("State", channel);
-      await bind("Command", channel);
+      await capture.bindChannel(session, "State", channel);
+      await capture.bindChannel(session, "Command", channel);
       return symbol;
     };
 
@@ -154,14 +123,14 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await openTab("Style");
     await fill("Label", "Start");
     await openTab("Control");
-    await bind("Command", "start_cmd");
+    await capture.bindChannel(session, "Command", "start_cmd");
 
     const indicator = await capture.place(session, "State indicator", {
       x: 400,
       y: 160,
     });
     await openTab("Telemetry");
-    await bind("State", "press_stage");
+    await capture.bindChannel(session, "State", "press_stage");
     await fill("Timeout", "60");
     await openTab("Options");
     await session.click(properties.getByText("Add an option", { exact: true }), {
@@ -181,18 +150,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     }
 
     await capture.deselect(session, { x: 40, y: 40 });
-    await session.click(
-      page.locator(".console-controls button:has(svg.pluto-icon--edit-off)").first(),
-      { zoom: false },
-    );
-    await session.click(page.locator(".console-main-nav__item").last(), {
-      zoom: false,
-    });
+    await session.click(capture.control(page, "edit-off"), { zoom: false });
+    await capture.hideBottomToolbar(session);
     await session.settle(600);
-    await session.click(
-      page.locator(".console-controls button:has(svg.pluto-icon--expand)").first(),
-      { zoom: false },
-    );
+    await session.click(capture.control(page, "expand"), { zoom: false });
     await session.settle(600);
     const status = indicator.locator(".pluto-state-indicator").first();
     await session.waitFor(status.getByText("Idle", { exact: true }));
@@ -201,7 +162,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const startButton = button.locator(".pluto-symbol-button").first();
     session.startRecording();
     await session.hold(1800);
-    await frame(session, [button, indicator, press, vent]);
+    await session.zoom([button, indicator, press, vent], 1.6);
     await session.hold(1000);
     await session.click(startButton);
     session.endZoom();
@@ -216,35 +177,4 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   } finally {
     await automation.stop();
   }
-};
-
-/**
- * frame opens an authored zoom holding every target. The symbols share no element of
- * their own, so the depth comes from their joint rect.
- */
-const frame = async (
-  session: capture.CaptureSession,
-  targets: Locator[],
-): Promise<void> => {
-  const boxes = await Promise.all(targets.map(async (t) => await t.boundingBox()));
-  const view = session.page.viewportSize();
-  if (view == null || boxes.some((b) => b == null))
-    throw new Error("a framed symbol is hidden");
-  const found = boxes.filter((b) => b != null);
-  const left = Math.min(...found.map((b) => b.x));
-  const top = Math.min(...found.map((b) => b.y));
-  const right = Math.max(...found.map((b) => b.x + b.width));
-  const bottom = Math.max(...found.map((b) => b.y + b.height));
-  const margin = 192;
-  await session.zoom(
-    { x: (left + right) / 2, y: (top + bottom) / 2 },
-    Math.max(
-      1,
-      Math.min(
-        1.6,
-        view.width / (right - left + margin),
-        view.height / (bottom - top + margin),
-      ),
-    ),
-  );
 };

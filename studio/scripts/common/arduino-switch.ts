@@ -13,8 +13,8 @@ import { frameLegend } from "./valve-schematic";
 
 /**
  * arduinoSwitchScript returns a script for the custom devices tutorial: bind a
- * schematic switch to the Arduino's command channel and to `state`, take control,
- * and click the switch on.
+ * schematic switch to the Arduino's command channel and to `state`, take control, and
+ * click the switch on.
  */
 export const arduinoSwitchScript =
   (state: (fixture: fixtures.ArduinoFixture) => string) =>
@@ -53,16 +53,7 @@ export const arduinoSwitchScript =
       );
       await session.hold(500);
       const bind = async (section: string, channel: string): Promise<void> => {
-        const item = properties
-          .locator(".pluto-form-section")
-          .filter({
-            has: page
-              .locator(".pluto-form-section__header")
-              .getByText(section, { exact: true }),
-          })
-          .locator(".pluto-input__item")
-          .filter({ hasText: "Channel" })
-          .first();
+        const item = capture.channelField(properties, section);
         await session.click(item.getByText("Select channel", { exact: true }).first(), {
           text: true,
           zoom: false,
@@ -97,10 +88,7 @@ export const arduinoSwitchScript =
       await session.moveTo({ x: 800, y: 620 });
       await session.hold(600);
 
-      await session.click(
-        page.locator(".console-controls button:has(svg.pluto-icon--circle)").first(),
-        { zoom: false },
-      );
+      await session.click(capture.control(page, "circle"), { zoom: false });
       await session.waitFor(page.locator(".pluto-legend-entry").first());
       await session.hold(1000);
 

@@ -7,7 +7,7 @@ layout: "@/layouts/Reference.astro"
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import Compare from "@/components/edition/Compare.astro";
+import { Edition } from "@/components/edition";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -38,7 +38,7 @@ Use **Synnax Enterprise** when a team shares one system. Choose Enterprise when 
 The two editions share most capabilities. They differ in where they run and in who can
 connect.
 
-<Compare />
+<Edition.Compare />
 
 <Divider.Divider x />
 

@@ -12,32 +12,30 @@
 import { markdownToHtml } from "satteri";
 import { describe, expect, it } from "vitest";
 
-import { joinUnits, quantities } from "@/util/quantities";
+import { quantities } from "@/util/quantities";
+
+const NBSP = "\u00a0";
 
 const html = async (source: string): Promise<string> =>
   (await markdownToHtml(source, { hastPlugins: [quantities] })).html;
 
-describe("joinUnits", () => {
-  it("should join a number to its unit", () => {
-    expect(joinUnits("Up to 50,000 Hz.")).toBe("Up to 50,000 Hz.");
-  });
-
-  it("should join a unit with a symbol", () => {
-    expect(joinUnits("at 25 °C and 10 Ω")).toBe("at 25 °C and 10 Ω");
-  });
-
-  it("should leave a word that starts with a unit", () => {
-    expect(joinUnits("1 second")).toBe("1 second");
-  });
-
-  it("should leave a number before a word that is not a unit", () => {
-    expect(joinUnits("step 1 and 2 more")).toBe("step 1 and 2 more");
-  });
-});
-
 describe("quantities", () => {
-  it("should join units in prose", async () => {
-    expect(await html("Reads at 10 kHz.")).toBe("<p>Reads at 10 kHz.</p>\n");
+  it("should join a number to its unit", async () => {
+    expect(await html("Up to 50,000 Hz.")).toBe(`<p>Up to 50,000${NBSP}Hz.</p>\n`);
+  });
+
+  it("should join a unit with a symbol", async () => {
+    expect(await html("At 25 °C and 10 Ω.")).toBe(
+      `<p>At 25${NBSP}°C and 10${NBSP}Ω.</p>\n`,
+    );
+  });
+
+  it("should leave a word that starts with a unit", async () => {
+    expect(await html("Wait 1 second.")).toBe("<p>Wait 1 second.</p>\n");
+  });
+
+  it("should leave a number before a word that is not a unit", async () => {
+    expect(await html("Step 1 and 2 more.")).toBe("<p>Step 1 and 2 more.</p>\n");
   });
 
   it("should leave inline code unchanged", async () => {

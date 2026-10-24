@@ -6,16 +6,13 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-import { NI_USB_6343 } from "@/fixtures/hardware";
+import { fixtures } from "@/index";
 
 import { configureDeviceScript } from "./common/configure-device";
+import { NI_DAQ } from "./common/task";
 
 /**
  * Docs `reference/hardware/ni/configure-device` (Configure a device): configure an
  * unconfigured NI USB-6343 with a name and an identifier. The device is simulated.
  */
-export default configureDeviceScript({
-  device: NI_USB_6343,
-  name: "Test stand DAQ",
-  identifier: "dev1",
-});
+export default configureDeviceScript(fixtures.NI_USB_6343, NI_DAQ);

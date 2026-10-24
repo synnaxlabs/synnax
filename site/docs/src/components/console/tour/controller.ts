@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { GROUPS, STEPS } from "@/components/console/tour/steps";
+import { find, GROUPS, STEPS } from "@/components/console/tour/steps";
 import { BASE, box } from "@/components/console/tour/stills";
 
 const ROOT = "[data-tour-root]";
@@ -20,17 +20,6 @@ const GAP = 14;
 const INSET = 12;
 // Pixels the spotlight leaves around its box.
 const PAD = 4;
-
-const TRIGGERS: Record<string, string> = {
-  c: "channel",
-  r: "range",
-  w: "workspace",
-  d: "device",
-  t: "task",
-  a: "arc",
-  s: "status",
-  v: "component",
-};
 
 const all = <E extends Element = HTMLElement>(
   root: ParentNode,
@@ -195,11 +184,12 @@ const back = (tour: Tour): void => {
   if (tour.step != null && tour.step > 0) go(tour, tour.step - 1);
 };
 
+const indexOf = (key: string): number => STEPS.indexOf(find(key));
+
 // Selecting the part of the active step closes what the step opened, as in the
 // Console: a toolbar, the component toolbar, or the palette.
 const select = (tour: Tour, key: string): void => {
-  const index = STEPS.findIndex((s) => s.key === key);
-  if (index === -1) throw new Error(`unknown tour step: ${key}`);
+  const index = indexOf(key);
   if (index === tour.step && STEPS[index].still !== BASE) go(tour, null);
   else go(tour, index);
 };
@@ -230,10 +220,7 @@ const mount = (root: HTMLElement): (() => void) => {
     }
     const progress = e.target.closest<HTMLElement>(".docs-tour__progress-step");
     if (progress != null) {
-      go(
-        tour,
-        STEPS.findIndex((s) => s.key === progress.dataset.stepTarget),
-      );
+      go(tour, indexOf(progress.dataset.stepTarget ?? ""));
       return;
     }
     const hotspot = e.target.closest<HTMLElement>(".docs-tour__hotspot");
@@ -267,10 +254,10 @@ const mount = (root: HTMLElement): (() => void) => {
       else back(tour);
       return;
     }
-    const key = TRIGGERS[e.key.toLowerCase()];
-    if (key == null) return;
+    const step = STEPS.find((s) => s.trigger?.toLowerCase() === e.key.toLowerCase());
+    if (step == null) return;
     e.preventDefault();
-    select(tour, key);
+    select(tour, step.key);
   };
 
   // The other stills load once the reader reaches for the tour.

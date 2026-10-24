@@ -17,7 +17,6 @@ import { create, PARK, setup } from "./common/calculated-channel";
  * operation with a 15s Window, and click Save.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
-  const { page } = session;
   const m = await setup(session);
   // Off-camera: startRecording drops the input events of the create.
   const item = await create(session, m);
@@ -27,14 +26,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   session.startRecording();
   await session.hold(1500);
 
-  await session.rightClick(item, { zoom: false });
-  const menu = page.locator(".pluto-menu-context").first();
-  await session.waitFor(menu);
-  await session.hold(300);
-  const edit = menu.getByText("Edit calculation", { exact: true }).first();
-  await session.moveTo(edit);
-  await session.hold(500);
-  await session.click(edit, { zoom: false });
+  await capture.contextMenu(session, item, "Edit calculation");
   await session.waitFor(m.editor);
   await m.zoom();
   await session.hold(300);
@@ -45,7 +37,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.press("Delete");
   await session.hold(300);
   await m.typeExpression(" / 2");
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await m.blurEditor();
   await session.hold(300);
 
   await session.click(m.modal.getByText("Max", { exact: true }).first(), {

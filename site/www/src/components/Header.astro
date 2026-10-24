@@ -97,7 +97,9 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
         padding: 0 var(--content-padding);
     }
 
-    .header .logo-link {
+    /* The drawer header repeats the page header, so the logo keeps its place and size
+       when the drawer opens. */
+    :is(.header, .mobile-drawer-header) .logo-link {
         text-decoration: none;
         display: flex;
         align-items: center;
@@ -265,8 +267,12 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
         display: none;
     }
 
+    .mobile-drawer {
+        --mobile-drawer-inset: var(--content-padding);
+    }
+
     .mobile-product-link {
-        padding-left: 2.5rem;
+        padding-left: calc(var(--mobile-drawer-inset) + 0.5rem);
     }
 
     .mobile-product-section {
@@ -278,11 +284,11 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
 
     .mobile-drawer-cta {
         display: block;
-        margin: 0.5rem 2rem;
-        padding: 1.2rem 2rem;
+        margin: 0.5rem var(--mobile-drawer-inset);
+        padding: 2rem;
         background: var(--pluto-primary-p1);
         color: var(--pluto-text-on-primary);
-        font-size: 1.8rem;
+        font-size: var(--pluto-p-size);
         font-weight: 550;
         text-align: center;
         text-decoration: none;

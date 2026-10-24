@@ -14,12 +14,6 @@ import { capture, fixtures } from "@/index";
 export const STAND = "Test stand";
 export const NEW_PANEL = "New panel";
 
-/**
- * PARK is a point on the top bar with no control under it. Over a plot, the cursor
- * raises a crosshair.
- */
-export const PARK = { x: 900, y: 24 };
-
 /** pill returns the panel selector's pill for `name`. */
 export const pill = (session: capture.CaptureSession, name: string): Locator =>
   session.page
@@ -46,7 +40,7 @@ export const mosaicTab = (session: capture.CaptureSession, name: string): Locato
     .first();
 
 /** menuItem returns a context menu item by a prefix of its text. */
-export const menuItem = (session: capture.CaptureSession, prefix: string): Locator =>
+const menuItem = (session: capture.CaptureSession, prefix: string): Locator =>
   // Prefix match: the item's text carries its shortcut indicator too.
   session.page
     .locator(".pluto-menu-context")
@@ -55,11 +49,12 @@ export const menuItem = (session: capture.CaptureSession, prefix: string): Locat
     .first();
 
 /** zoomSelector zooms on the panel selector, which the camera pins to the top edge. */
-export const zoomSelector = async (session: capture.CaptureSession): Promise<void> => {
-  const box = await session.page.locator(".console-panel-selector").boundingBox();
-  if (box == null) throw new Error("the panel selector is not on screen");
-  await session.zoom({ x: box.x + box.width / 2, y: box.y + box.height / 2 }, 1.5);
-};
+export const zoomSelector = async (session: capture.CaptureSession): Promise<void> =>
+  await capture.zoomCenter(
+    session,
+    session.page.locator(".console-panel-selector"),
+    1.5,
+  );
 
 /** renamePanel renames a panel off camera through its context menu. */
 export const renamePanel = async (
@@ -109,9 +104,9 @@ export interface Stand {
 }
 
 /**
- * createStand logs in and fills the first panel, named `name`, with a line plot of
- * live sine telemetry and a table, as two tabs in one pane with the plot visible. Call
- * stop when the shot ends.
+ * createStand logs in and fills the first panel, named `name`, with a line plot of live
+ * sine telemetry and a table, as two tabs in one pane with the plot visible. Call stop
+ * when the shot ends.
  */
 export const createStand = async (
   session: capture.CaptureSession,
@@ -148,8 +143,8 @@ export const createStand = async (
 };
 
 /**
- * splitRight drags a tab to the right third of its pane, which splits the pane with
- * the tab on the right.
+ * splitRight drags a tab to the right third of its pane, which splits the pane with the
+ * tab on the right.
  */
 export const splitRight = async (
   session: capture.CaptureSession,

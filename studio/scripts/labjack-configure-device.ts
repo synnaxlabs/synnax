@@ -6,16 +6,13 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-import { LABJACK_T7 } from "@/fixtures/hardware";
+import { fixtures } from "@/index";
 
 import { configureDeviceScript } from "./common/configure-device";
+import { LABJACK } from "./common/task";
 
 /**
  * Docs `reference/hardware/labjack/configure-device` (Configure a device): configure an
  * unconfigured LabJack T7 with a name and an identifier. The device is simulated.
  */
-export default configureDeviceScript({
-  device: LABJACK_T7,
-  name: "Thrust stand T7",
-  identifier: "lj1",
-});
+export default configureDeviceScript(fixtures.LABJACK_T7, LABJACK);

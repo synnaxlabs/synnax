@@ -57,6 +57,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await capture.contextMenu(session, item, "Set as active range");
   await session.hold(1200);
+  session.endZoom();
 
   await capture.clickPanelCreate(session);
   await session.hold(800);

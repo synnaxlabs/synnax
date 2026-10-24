@@ -117,7 +117,7 @@ const supported = PLATFORMS.filter(({ key }) => platforms?.[key]);
 const unsupported = PLATFORMS.filter(({ key }) => platforms?.[key] === false);
 ---
 
-{integration != null && (
+{integration != null ? (
     <dl class="docs-platform-list">
         <dt>Supported</dt>
         <dd>
@@ -142,9 +142,7 @@ const unsupported = PLATFORMS.filter(({ key }) => platforms?.[key] === false);
             </>
         )}
     </dl>
-)}
-
-{integration == null && (
+) : (
     <div class="docs-platforms">
         <Table>
             <thead>
@@ -167,23 +165,21 @@ const unsupported = PLATFORMS.filter(({ key }) => platforms?.[key] === false);
                             <a href={row.href}>{row.name}</a>
                             <small>{row.connects}</small>
                         </td>
-                        {PLATFORMS.map(({ key }) =>
-                            row.platforms[key] ? (
-                                <td class="docs-platforms-yes">
+                        {PLATFORMS.map(({ key }) => (
+                            <td class="docs-platforms-mark">
+                                {row.platforms[key] ? (
                                     <Icon.Check
                                         className="docs-mark docs-mark--yes"
                                         aria-label="Supported"
                                     />
-                                </td>
-                            ) : (
-                                <td class="docs-platforms-no">
+                                ) : (
                                     <Icon.Subtract
                                         className="docs-mark docs-mark--no"
                                         aria-label="Not supported"
                                     />
-                                </td>
-                            ),
-                        )}
+                                )}
+                            </td>
+                        ))}
                     </tr>
                 ))}
             </tbody>
@@ -238,8 +234,7 @@ const unsupported = PLATFORMS.filter(({ key }) => platforms?.[key] === false);
             vertical-align: bottom;
         }
         & th:not(:first-child),
-        & td.docs-platforms-yes,
-        & td.docs-platforms-no {
+        & td.docs-platforms-mark {
             text-align: center;
         }
         & .docs-platforms-label {
@@ -252,8 +247,7 @@ const unsupported = PLATFORMS.filter(({ key }) => platforms?.[key] === false);
             min-width: 30rem;
         }
         @media (max-width: 800px) {
-            & td.docs-platforms-yes,
-            & td.docs-platforms-no {
+            & td.docs-platforms-mark {
                 text-align: left;
             }
         }

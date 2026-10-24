@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type capture } from "@/index";
+import { capture } from "@/index";
 
 import {
   createPanel,
   createStand,
-  menuItem,
   NEW_PANEL,
-  PARK,
   pill,
   renamePanel,
   selectPanel,
@@ -37,7 +35,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await createPanel(session, DRAFT);
     await renamePanel(session, STAND, NEW_PANEL);
     await selectPanel(session, NEW_PANEL);
-    await session.moveTo(PARK);
+    await session.moveTo(capture.PARK);
 
     session.startRecording();
     await session.hold(1800);
@@ -56,18 +54,16 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(pill(session, STAND));
     await session.hold(1000);
 
-    await session.rightClick(pill(session, DRAFT), { text: true, zoom: false });
-    await session.waitFor(page.locator(".pluto-menu-context").first());
-    await session.hold(400);
-    await session.click(menuItem(session, "Delete"), { text: true, zoom: false });
-    const dialog = page.locator(".pluto-dialog__dialog.pluto--modal").first();
+    session.endZoom();
+    await capture.contextMenu(session, pill(session, DRAFT), /^Delete/);
+    const dialog = page.locator(capture.MODAL).first();
     await session.waitFor(dialog);
     await session.zoom(dialog);
     await session.hold(800);
     await session.click(dialog.getByRole("button", { name: "Delete", exact: true }));
     session.endZoom();
     await session.waitForHidden(pill(session, DRAFT));
-    await session.moveTo(PARK);
+    await session.moveTo(capture.PARK);
     await session.hold(2800);
   } finally {
     await stand.stop();

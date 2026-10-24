@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type capture, fixtures } from "@/index";
+import { capture, fixtures } from "@/index";
 
-import { controlButton, createValveSchematic } from "./common/valve-schematic";
+import { createValveSchematic } from "./common/valve-schematic";
 
 const ABSOLUTE = "You have absolute control. Click to release.";
 
@@ -28,7 +28,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     session.startRecording();
     await session.hold(1800);
 
-    await session.click(controlButton(session), { zoom: false });
+    await session.click(capture.control(page, "circle"), { zoom: false });
     await session.waitFor(page.locator(".pluto-legend-entry").first());
     await session.hold(1000);
 

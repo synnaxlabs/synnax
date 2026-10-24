@@ -13,7 +13,7 @@ import { z } from "zod";
  * The manifest maps docs media ids to the scripts that produce them. For a video, the
  * id is the same string the docs site passes to its Video component: the CDN serves
  * `docs/<id>-light.mp4` and `docs/<id>-dark.mp4`. For stills, the CDN serves
- * `docs/<id>/<name>-<theme>.webp` for each still the script saves.
+ * `docs/<id>/<version>/<name>-<theme>.webp` for each still the script saves.
  */
 
 export const entryZ = z.object({

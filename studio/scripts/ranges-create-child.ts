@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, TimeStamp } from "@synnaxlabs/client";
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
 import { capture, fixtures } from "@/index";
 
@@ -29,7 +29,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const now = TimeStamp.now();
   await fixtures.ensureRange({
     name: PARENT,
-    timeRange: new TimeRange(now.sub(TimeStamp.hours(1)), now.add(TimeStamp.hours(1))),
+    timeRange: new TimeRange(now.sub(TimeSpan.hours(1)), now.add(TimeSpan.hours(1))),
     labels: [keys.Hotfire],
   });
   await capture.login(session);
@@ -50,7 +50,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(1500);
 
   await capture.contextMenu(session, parent, "Create child range");
-  const modal = page.locator(".pluto-dialog__dialog.pluto--modal").first();
+  const modal = page.locator(capture.MODAL).first();
   const name = modal.getByPlaceholder("Name").first();
   await session.waitFor(name);
   await session.hold(400);

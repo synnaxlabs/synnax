@@ -10,8 +10,8 @@
 import Buttons from "@/components/download/Buttons.astro";
 import { appVersion } from "@/util/releases";
 
-// Desktop has only candidates until its first release. That release removes the
-// desktop flag and moves this to the stable channel.
+// Desktop has only candidates until its first release. That release removes the desktop
+// flag and moves this to the stable channel.
 const version = await Astro.locals.releases.latest("desktop", "next");
 const app = appVersion(version);
 ---

@@ -31,18 +31,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   session.startRecording();
   await session.hold(1500);
 
-  await session.zoom(pressure, 1.6);
-  await session.hold(400);
   await session.click(pressure, { text: true });
   await page.keyboard.down("ControlOrMeta");
   await session.click(temperature, { text: true });
   await page.keyboard.up("ControlOrMeta");
   await session.hold(500);
-  await session.rightClick(temperature, { text: true });
-  const menu = page.locator(".pluto-menu-context").first();
-  await session.waitFor(menu);
-  await session.hold(400);
-  await session.click(menu.getByText("Delete", { exact: true }).first());
+  await capture.contextMenu(session, temperature, "Delete");
 
   const dialog = page.locator(".console-confirm").first();
   await session.waitFor(dialog);

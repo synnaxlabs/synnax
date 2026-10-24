@@ -24,6 +24,7 @@ import { zip } from "@synnaxlabs/x";
 
 import { startArc } from "@/fixtures/arc";
 import { connect, type ConnectionOptions } from "@/fixtures/client";
+import { deviceStatus, rackStatus, taskStatus } from "@/fixtures/hardware";
 
 /** Project bundle of the test stand world, with channels referenced by name. */
 const TPC_DIR = path.join(import.meta.dirname, "../../worlds/tpc");
@@ -384,42 +385,21 @@ const report = async (
   client: Synnax,
   { rack, task: acquire }: { rack: rack.Rack; task: task.Task },
 ): Promise<void> => {
-  await client.statuses.set({
-    key: `rack:${rack.key}`,
-    name: rack.name,
-    variant: "success",
-    message: "Driver is running",
-    details: { rack: rack.key },
-  });
-  await client.statuses.set({
-    key: `device:${DAQ_DEVICE}`,
-    name: "NI PXIe-6363",
-    variant: "success",
-    message: "Device present",
-    details: { rack: rack.key, device: DAQ_DEVICE },
-  });
-  await client.statuses.set({
-    key: task.statusKey(acquire.key),
-    name: acquire.name,
-    variant: "success",
-    message: "Task started successfully",
-    details: {
-      task: acquire.key,
-      running: true,
-      configHash: acquire.configHash,
-      rack: rack.key,
-    },
-  });
+  await client.statuses.set(rackStatus(rack));
+  await client.statuses.set(
+    deviceStatus(rack.key, { key: DAQ_DEVICE, name: "NI PXIe-6363" }),
+  );
+  await client.statuses.set(taskStatus(rack.key, acquire, true));
 };
 
 /**
  * testStand builds an LOX coldflow stand on the capture's Core: its sensor, valve, and
  * log channels, three earlier coldflow runs saved as ranges, a DAQ card with its read
  * task, and the TPC project (panels for operations, each subsystem, automation,
- * hardware, and review). It deploys the Ox Coldflow
- * Arc program to the Core, where the Start Sequence button runs it, and simulates the
- * stand until stopped: valves follow their commands, and tank, pressurant, and feed
- * readings follow the valves. The DAQ card's rack and task report that they run.
+ * hardware, and review). It deploys the Ox Coldflow Arc program to the Core, where the
+ * Start Sequence button runs it, and simulates the stand until stopped: valves follow
+ * their commands, and tank, pressurant, and feed readings follow the valves. The DAQ
+ * card's rack and task report that they run.
  */
 export const testStand = async ({
   now = () => TimeStamp.now(),

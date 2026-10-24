@@ -10,7 +10,7 @@
 import { type HastPluginDefinition } from "satteri";
 
 /** The longest inline code, in characters, that stays on one line. */
-export const SHORT_LENGTH = 32;
+const SHORT_LENGTH = 32;
 
 const HEADING = /^h[1-6]$/;
 
@@ -29,8 +29,8 @@ export const inlineCode = (): HastPluginDefinition => ({
   element: {
     filter: ["code"],
     visit: (node, ctx) => {
-      const parent = ctx.parent(node) as { type: string; tagName?: string };
-      const tag = parent.type === "element" ? (parent.tagName ?? "") : "";
+      const parent = ctx.parent(node);
+      const tag = parent.type === "element" ? parent.tagName : "";
       if (tag === "pre") return;
       const text = ctx.textContent(node);
       const short = HEADING.test(tag) ? isToken(text) : text.length <= SHORT_LENGTH;

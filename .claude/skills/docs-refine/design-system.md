@@ -50,8 +50,9 @@ An icon in text, such as **Arcs** (`<Icon.Arc />`), is 1em and centers on the ca
 - **Gray-l4 frame** (`--pluto-border`) -> the edge of a block that has its own surface.
 - **Primary** -> links, the state that matters in a diagram, the Enterprise mark, and
   the brand accent: the rule under a page title and the landing use cases.
-- **Error and warning** -> the severity dot of a problem entry, and notes. Nothing else
-  uses color.
+- **Error and warning** -> the severity dot of a problem entry, and notes.
+- **Warning (amber) and secondary (green)** -> the accents of the outer and inner group
+  of a nest diagram: border, hatch, and header icon. Nothing else uses color.
 
 ### Markers
 

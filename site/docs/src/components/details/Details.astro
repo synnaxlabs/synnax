@@ -38,6 +38,7 @@ const { open = false } = Astro.props;
         overflow: hidden;
         background: var(--pluto-gray-l0);
 
+        /* The margins collapse, so this cancels the gap above and leaves 2rem. */
         & + .docs-details {
             margin-top: calc(var(--docs-block-gap) * -1 + 2rem);
         }

@@ -32,18 +32,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
         text: true,
         zoom: false,
       });
-      const search = page.locator("input[placeholder*='Search']").first();
-      await session.waitFor(search);
-      await search.fill(channel);
-      const item = page
-        .locator(".pluto-list__item:not(.pluto-tree__item)")
-        .filter({ hasText: channel })
-        .first();
-      await session.waitFor(item);
-      await session.click(item.getByText(channel, { exact: true }).first(), {
-        text: true,
-        zoom: false,
-      });
+      await capture.pickChannel(session, channel);
       await session.settle(400);
     }
     await capture.hideBottomToolbar(session);
@@ -51,7 +40,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     // A log shows only values that arrive while it is open, on wall time.
     await session.settleWall(12000);
     await session.settle(500);
-    await session.moveTo({ x: 900, y: 24 });
+    await session.moveTo(capture.PARK);
 
     session.startRecording();
     await session.hold(2500);

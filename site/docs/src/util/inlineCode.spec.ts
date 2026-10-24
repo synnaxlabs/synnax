@@ -12,7 +12,9 @@
 import { markdownToHtml } from "satteri";
 import { describe, expect, it } from "vitest";
 
-import { inlineCode, SHORT_LENGTH } from "@/util/inlineCode";
+import { inlineCode } from "@/util/inlineCode";
+
+const LIMIT = 32;
 
 const html = async (source: string): Promise<string> =>
   (await markdownToHtml(source, { hastPlugins: [inlineCode] })).html;
@@ -25,13 +27,11 @@ describe("inlineCode", () => {
   });
 
   it("should mark inline code at the length limit", async () => {
-    expect(await html(`\`${"a".repeat(SHORT_LENGTH)}\``)).toContain("data-short");
+    expect(await html(`\`${"a".repeat(LIMIT)}\``)).toContain("data-short");
   });
 
   it("should leave long inline code free to wrap", async () => {
-    expect(await html(`\`${"a".repeat(SHORT_LENGTH + 1)}\``)).not.toContain(
-      "data-short",
-    );
+    expect(await html(`\`${"a".repeat(LIMIT + 1)}\``)).not.toContain("data-short");
   });
 
   it("should mark a single token in a heading", async () => {

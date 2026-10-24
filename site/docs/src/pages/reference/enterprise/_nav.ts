@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/Page";
+import { type PageNavNode } from "@/components/nav/tree";
 
 export const ENTERPRISE_NAV: PageNavNode = {
   key: "enterprise",
@@ -15,27 +15,22 @@ export const ENTERPRISE_NAV: PageNavNode = {
   edition: "enterprise",
   children: [
     {
-      key: "/reference/enterprise",
       href: "/reference/enterprise",
       name: "Set up Enterprise",
     },
     {
-      key: "/reference/enterprise/requirements",
       href: "/reference/enterprise/requirements",
       name: "Requirements",
     },
     {
-      key: "/reference/enterprise/console",
       href: "/reference/enterprise/console",
       name: "Connect the Console",
     },
     {
-      key: "/reference/enterprise/license",
       href: "/reference/enterprise/license",
       name: "Activate a license",
     },
     {
-      key: "/reference/enterprise/upgrade",
       href: "/reference/enterprise/upgrade",
       name: "Upgrade",
     },
@@ -44,34 +39,28 @@ export const ENTERPRISE_NAV: PageNavNode = {
       name: "TLS",
       children: [
         {
-          key: "/reference/enterprise/tls",
           href: "/reference/enterprise/tls",
           name: "Set up TLS",
         },
         {
-          key: "/reference/enterprise/certificates",
           href: "/reference/enterprise/certificates",
           name: "Install certificates",
         },
         {
-          key: "/reference/enterprise/listeners",
           href: "/reference/enterprise/listeners",
           name: "Serve multiple listeners",
         },
       ],
     },
     {
-      key: "/reference/enterprise/users",
       href: "/reference/enterprise/users",
       name: "Users",
     },
     {
-      key: "/reference/enterprise/service",
       href: "/reference/enterprise/service",
       name: "Run as a service",
     },
     {
-      key: "/reference/enterprise/production-checklist",
       href: "/reference/enterprise/production-checklist",
       name: "Production checklist",
     },
@@ -80,29 +69,24 @@ export const ENTERPRISE_NAV: PageNavNode = {
       name: "Standalone Driver",
       children: [
         {
-          key: "/reference/enterprise/driver/install",
           href: "/reference/enterprise/driver/install",
           name: "Install",
         },
         {
-          key: "/reference/enterprise/driver/configuration",
           href: "/reference/enterprise/driver/configuration",
           name: "Configuration",
         },
         {
-          key: "/reference/enterprise/driver/cli-reference",
           href: "/reference/enterprise/driver/cli-reference",
           name: "CLI reference",
         },
       ],
     },
     {
-      key: "/reference/enterprise/cli-reference",
       href: "/reference/enterprise/cli-reference",
       name: "CLI reference",
     },
     {
-      key: "/reference/enterprise/troubleshooting",
       href: "/reference/enterprise/troubleshooting",
       name: "Troubleshooting",
     },

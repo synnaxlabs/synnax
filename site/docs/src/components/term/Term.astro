@@ -27,11 +27,8 @@
         padding-top: 2.5rem;
         border-top: var(--pluto-border);
 
-        & > h3 {
-            margin: 0 !important;
-        }
-        & > p {
-            margin: 0 !important;
+        & > :is(h3, p) {
+            margin: 0;
         }
         & > p + p {
             color: var(--pluto-gray-l8);

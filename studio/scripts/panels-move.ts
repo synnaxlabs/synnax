@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type capture } from "@/index";
+import { capture } from "@/index";
 
 import {
   createPanel,
   createStand,
   mosaicTab,
   NEW_PANEL,
-  PARK,
   pill,
   selectedPill,
   selectPanel,
@@ -31,7 +30,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const { page } = session;
     await createPanel(session, NEW_PANEL);
     await selectPanel(session, STAND);
-    await session.moveTo(PARK);
+    await session.moveTo(capture.PARK);
 
     session.startRecording();
     await session.hold(1800);
@@ -45,7 +44,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     );
     await session.waitFor(selectedPill(session, NEW_PANEL));
     await session.waitFor(mosaicTab(session, stand.table));
-    await session.moveTo(PARK);
+    await session.moveTo(capture.PARK);
     await session.hold(2800);
   } finally {
     await stand.stop();

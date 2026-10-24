@@ -29,7 +29,7 @@ export interface CanvasPosition {
 export const canvas = (page: Page): Locator =>
   page.locator(".react-flow__pane").first();
 
-/** symbols returns every symbol on the canvas, in the order they were added. */
+/** symbols returns every symbol on the canvas, in no fixed order. */
 const symbols = (page: Page): Locator => page.locator(".react-flow__node");
 
 /**
@@ -152,8 +152,53 @@ export const selectSymbols = async (
 };
 
 /**
- * fitView fits and centers the schematic in its pane, off camera. Each click on
- * the control also toggles fit on resize, so a second click turns it back off.
+ * channelField returns the Channel field of a section, such as "State" or "Command",
+ * in the selected symbol's Control tab.
+ */
+export const channelField = (properties: Locator, section: string): Locator =>
+  properties
+    .locator(".pluto-form-section")
+    .filter({
+      has: properties
+        .page()
+        .locator(".pluto-form-section__header")
+        .getByText(section, { exact: true }),
+    })
+    .locator(".pluto-input__item")
+    .filter({ hasText: "Channel" })
+    .first();
+
+/**
+ * bindChannel picks `channel` for a section's Channel field in the selected symbol's
+ * open properties tab. It fills the search instead of typing, so it suits setup, not
+ * a recorded beat.
+ */
+export const bindChannel = async (
+  session: CaptureSession,
+  section: string,
+  channel: string,
+): Promise<void> => {
+  const { page } = session;
+  const properties = page.locator(".console-schematic__properties").first();
+  const item = channelField(properties, section);
+  await session.click(item.getByText("Select channel", { exact: true }).first(), {
+    zoom: false,
+  });
+  const search = page.getByPlaceholder("Search channels...").first();
+  await session.waitFor(search);
+  await search.fill(channel);
+  const option = page
+    .locator(".pluto-list__item")
+    .filter({ has: page.getByText(channel, { exact: true }) })
+    .first();
+  await session.waitFor(option);
+  await session.click(option, { zoom: false });
+  await session.settle(400);
+};
+
+/**
+ * fitView fits and centers the schematic in its pane, off camera. Each click on the
+ * control also toggles fit on resize, so a second click turns it back off.
  */
 export const fitView = async (session: CaptureSession): Promise<void> => {
   const button = control(session.page, "expand");
