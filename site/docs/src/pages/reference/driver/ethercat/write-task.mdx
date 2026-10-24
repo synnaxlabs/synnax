@@ -77,6 +77,9 @@ The Console lists each entry the device reports, with its address. In code, find
 address of an entry by name with `ethercat.find_entry(dev, name, direction="output")` in
 Python or `ethercat.findEntry` in TypeScript.
 
+To add every output of a device at once, right-click one of its channels in the Console
+and select **Add every output of** _device name_.
+
 A task from an earlier release can hold an `"unresolved"` channel: one that named an
 entry the device does not have, or has more than once. Pick an entry for it in the
 Console before the task runs.

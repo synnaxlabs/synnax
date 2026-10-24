@@ -15,6 +15,7 @@ import { primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { useSlavesByKeys } from "@/feature/ethercat/device/queries";
+import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem";
 import {
   WriteChannelDetails,
   WriteDetailsTitle,
@@ -26,6 +27,7 @@ import {
 } from "@/feature/ethercat/task/configure";
 import {
   addressKey,
+  createEntryWriteChannel,
   createWriteChannel,
   deployWriteConfigZ,
   type EntryWriteChannel,
@@ -82,6 +84,19 @@ const detailsTitle = Component.renderProp(WriteDetailsTitle);
 
 const listItem = Component.renderProp(ChannelListItem);
 
+const ContextMenuItems = (props: Task.ContextMenuItemProps<WriteChannel>) => (
+  <>
+    <AddSlaveEntriesItem
+      {...props}
+      pdoType="outputs"
+      createChannel={createEntryWriteChannel}
+    />
+    <Task.WriteChannelContextMenuItems {...props} />
+  </>
+);
+
+const contextMenuItems = Component.renderProp(ContextMenuItems);
+
 const Form: FC = () => {
   const slaves = useSlavesByKeys(Task.useChannelDeviceKeys());
   const resolve = useCallback(
@@ -102,7 +117,7 @@ const Form: FC = () => {
       details={channelDetails}
       detailsTitle={detailsTitle}
       createChannel={createWriteChannel}
-      contextMenuItems={Task.writeChannelContextMenuItems}
+      contextMenuItems={contextMenuItems}
       resolve={resolve}
     />
   );
