@@ -528,6 +528,7 @@ public:
                 if (!dev.status.has_value()) dev.status = synnax::device::Status{};
                 dev.status->variant = synnax::status::VARIANT_WARNING;
                 dev.status->message = "Device disconnected";
+                dev.status->description.clear();
             }
 
             statuses.reserve(this->dev_states.size());

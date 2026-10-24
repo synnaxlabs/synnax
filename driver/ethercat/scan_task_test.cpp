@@ -79,8 +79,9 @@ protected:
 
     /// @brief scans once and returns the status of the only slave device.
     synnax::device::Status scan_status() const {
-        auto [devices, err] = this->scanner->scan(common::ScannerContext{.count = 1});
-        EXPECT_FALSE(err) << err.message();
+        const auto devices = ASSERT_NIL_P(
+            this->scanner->scan(common::ScannerContext{.count = 1})
+        );
         EXPECT_EQ(devices.size(), 1);
         return devices.at(0).status.value();
     }
@@ -307,6 +308,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     ASSERT_FALSE(this->ctx->statuses.empty());
     EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
 }
+
 TEST_F(EtherCATScanStatusTest, SlaveOnStoppedBusShowsDiscovery) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);

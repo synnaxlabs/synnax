@@ -723,6 +723,7 @@ TEST(TestScanTask, TestStatePropagation) {
     dev2.status = synnax::device::Status{};
     dev2.status->key = synnax::device::status_key(dev2);
     dev2.status->variant = synnax::status::VARIANT_WARNING;
+    dev2.status->description = "Sync manager watchdog";
     dev2.status->details.rack = 2;
 
     // First scan will find both devices, second scan only dev1
@@ -793,6 +794,7 @@ TEST(TestScanTask, TestStatePropagation) {
             ASSERT_EQ(status.variant, synnax::status::VARIANT_WARNING);
             ASSERT_EQ(status.details.rack, 2);
             ASSERT_EQ(status.message, "Device disconnected");
+            ASSERT_EQ(status.description, "");
         } else
             FAIL() << "Unexpected device key: " << status.key;
     }
