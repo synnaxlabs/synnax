@@ -18,7 +18,6 @@ import {
   type PropsWithChildren,
   type ReactElement,
   type RefCallback,
-  type RefObject,
   useCallback,
   useLayoutEffect,
   useMemo,
@@ -219,20 +218,16 @@ export const useData = <
 };
 
 /** @returns a ref for the scroll container that fetches once when it first mounts. */
-const useFetchMoreRefCallback = (
-  elRef: RefObject<HTMLDivElement | null>,
-  onFetchMore?: () => void,
-) => {
+const useFetchMoreRefCallback = (onFetchMore?: () => void) => {
   const onFetchMoreRef = useSyncedRef(onFetchMore);
   const initialFetchCalledRef = useRef(false);
   return useCallback(
     (el: HTMLDivElement | null) => {
-      elRef.current = el;
       if (el == null || initialFetchCalledRef.current) return;
       initialFetchCalledRef.current = true;
       onFetchMoreRef.current?.();
     },
-    [elRef, onFetchMoreRef],
+    [onFetchMoreRef],
   );
 };
 
@@ -339,7 +334,9 @@ const VirtualFrame = <
   pinned,
 }: FrameProps<K, E>): ReactElement => {
   "use no memo"; // useVirtualizer returns one instance whose reads change in place.
-  const ref = useRef<HTMLDivElement>(null);
+  // State, not a ref: the virtualizer adopts a remounted scroll container only when
+  // this frame renders. A dialog remounts it without rendering the frame.
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
   // Content above the items in the scroll container shifts them down. The container is
   // positioned (Scroll.css), so offsetTop measures that shift and ignores scrolling. It
@@ -366,7 +363,8 @@ const VirtualFrame = <
       mutation.disconnect();
     };
   }, []);
-  const refCallback = useFetchMoreRefCallback(ref, onFetchMore);
+  const fetchMoreRef = useFetchMoreRefCallback(onFetchMore);
+  const refCallback = useCombinedRefs<HTMLDivElement>(fetchMoreRef, setScrollEl);
   const dataRef = useSyncedRef(data);
   const pinnedRef = useRef<record.Key | null>(null);
   // The indexes of the rows that are mounted only because they are pinned.
@@ -420,7 +418,7 @@ const VirtualFrame = <
   // eslint-disable-next-line synnax/react-compiler
   const virtualizer = useVirtualizer({
     count: data.length,
-    getScrollElement: () => ref.current,
+    getScrollElement: () => scrollEl,
     estimateSize: () => itemHeight,
     getItemKey: useCallback((index: number) => data[index] ?? index, [data]),
     // The container has no measured rect until an effect runs, and an unmeasured
@@ -492,7 +490,6 @@ const StaticFrame = <
   onFetchMore,
   itemHeight,
 }: FrameProps<K, E>): ReactElement => {
-  const ref = useRef<HTMLDivElement>(null);
   const itemsElRef = useRef<HTMLDivElement | null>(null);
   const itemsRef = useCallback((el: HTMLDivElement | null) => {
     itemsElRef.current = el;
@@ -512,7 +509,7 @@ const StaticFrame = <
   }, []);
   const elements = useElements(NO_PIN);
 
-  const initialFetchCallback = useFetchMoreRefCallback(ref, onFetchMore);
+  const initialFetchCallback = useFetchMoreRefCallback(onFetchMore);
   const { containerRef: intersectionContainerRef, sentinelRef } =
     useIntersectionFetchMore(onFetchMore, data.length);
   const refCallback = useCombinedRefs(initialFetchCallback, intersectionContainerRef);
