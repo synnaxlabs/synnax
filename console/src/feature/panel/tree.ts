@@ -15,7 +15,7 @@ import { Tree } from "@/platform/tree";
 
 const appearanceZ = panel.panelZ.pick({ icon: true, color: true });
 
-// The panel's ontology resource carries the panel itself, so the row needs no retrieve.
+// The panel's ontology resource carries the panel, so the tree item needs no retrieve.
 const icon = (resource: ontology.Resource): Icon.ReactElement =>
   renderIcon(appearanceZ.parse(resource.data ?? {}));
 
