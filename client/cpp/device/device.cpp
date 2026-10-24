@@ -79,7 +79,7 @@ Client::retrieve(RetrieveRequest &req) const {
     for (const auto &d: res.devices()) {
         auto [pld, proto_err] = Device::from_proto(d);
         if (proto_err) return {std::vector<Device>(), proto_err};
-        devices.push_back(Device(std::move(pld)));
+        devices.emplace_back(std::move(pld));
     }
     return {devices, x::errors::NIL};
 }

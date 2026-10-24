@@ -107,7 +107,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = x::json::json::object_t{};
-    cmd.key = 1;
+    cmd.key = '1';
 
     bool handled = scanner.exec(cmd, task, ctx);
     EXPECT_TRUE(handled);
@@ -160,7 +160,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "eth0"}};
-    cmd.key = 1;
+    cmd.key = '1';
 
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
@@ -215,7 +215,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "enp3s0"}};
-    cmd.key = 2;
+    cmd.key = '2';
 
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
@@ -246,7 +246,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "eth0"}};
-    cmd.key = 3;
+    cmd.key = '3';
 
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
@@ -282,6 +282,7 @@ protected:
     void scan() { ASSERT_NIL_P(this->scanner->scan({.count = this->scans++})); }
 };
 
+/// @brief it should probe an interface with no slaves only on every sixth scan.
 TEST_F(EtherCATScanProbeTest, ProbesAnInterfaceWithNoSlavesEverySixthScan) {
     this->master->inject_init_error(
         x::errors::Error(errors::NO_SLAVES_FOUND, "no EtherCAT slaves found on eth0")
@@ -291,6 +292,8 @@ TEST_F(EtherCATScanProbeTest, ProbesAnInterfaceWithNoSlavesEverySixthScan) {
     EXPECT_EQ(this->master->init_call_count(), 2);
 }
 
+/// @brief it should return a partial scan error for an interface it cannot open, then
+/// scan the interface again when it opens.
 TEST_F(EtherCATScanProbeTest, ReturnsAnInterfaceItCannotScanAsAPartialScan) {
     this->master->inject_init_error(
         x::errors::Error(errors::MASTER_INIT_ERROR, "cannot open eth0")
@@ -303,6 +306,8 @@ TEST_F(EtherCATScanProbeTest, ReturnsAnInterfaceItCannotScanAsAPartialScan) {
     ASSERT_NIL_P(this->scanner->scan({.count = 1}));
 }
 
+/// @brief it should fail to configure the scan task and report an error status when the
+/// packet capture library is missing.
 TEST_F(EtherCATScanTest, ScanTaskFailsToConfigureWithoutAPacketCaptureLibrary) {
     Factory factory(std::unique_ptr<master::Manager>{});
     const synnax::task::Task task{

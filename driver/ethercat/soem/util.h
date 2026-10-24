@@ -66,9 +66,9 @@ is_wired_interface(const std::string &name, const std::string &description) {
     for (const auto prefix: name_prefixes)
         if (n.starts_with(prefix)) return false;
     for (const auto part: name_parts)
-        if (n.find(part) != std::string::npos) return false;
+        if (n.contains(part)) return false;
     for (const auto part: description_parts)
-        if (d.find(part) != std::string::npos) return false;
+        if (d.contains(part)) return false;
     return true;
 }
 

@@ -12,8 +12,8 @@ package v1
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Migration re-encodes stored policies from MessagePack to Orc.

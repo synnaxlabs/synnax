@@ -79,6 +79,8 @@ TEST(MapEthercatToSynnax, FloatingPoint) {
     EXPECT_EQ(map_ethercat_to_synnax(DataType::EC_REAL64, 64), x::telem::FLOAT64_T);
 }
 
+/// @brief it should map a string type to the unsigned integer type that matches its bit
+/// length.
 TEST(MapEthercatToSynnax, StringTypesUseBitLength) {
     EXPECT_EQ(
         map_ethercat_to_synnax(DataType::EC_VISIBLE_STRING, 8),

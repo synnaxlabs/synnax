@@ -66,6 +66,7 @@ Master::Master(std::unique_ptr<API> api, std::string interface_name):
     activated(false),
     expected_wkc(0) {}
 
+// NOLINTNEXTLINE(bugprone-exception-escape): its strings throw only past max_size.
 Master::~Master() {
     if (this->activated || this->initialized) this->deactivate();
 }
@@ -685,9 +686,9 @@ x::errors::Error Master::read_pdo_mapping(
 
         if (mapping == 0) continue;
 
-        const uint16_t index = static_cast<uint16_t>((mapping >> 16) & 0xFFFF);
-        const uint8_t sub_index = static_cast<uint8_t>((mapping >> 8) & 0xFF);
-        const uint8_t bit_length = static_cast<uint8_t>(mapping & 0xFF);
+        const auto index = static_cast<uint16_t>((mapping >> 16) & 0xFFFF);
+        const auto sub_index = static_cast<uint8_t>((mapping >> 8) & 0xFF);
+        const auto bit_length = static_cast<uint8_t>(mapping & 0xFF);
 
         if (index == 0 && sub_index == 0) continue;
 
@@ -875,7 +876,7 @@ Manager::create(const std::string &key) {
             nullptr,
             x::errors::Error(errors::MASTER_INIT_ERROR, "empty interface name")
         };
-    if (key.size() >= 4 && key.substr(0, 4) == "igh:")
+    if (key.size() >= 4 && key.starts_with("igh:"))
         return {
             nullptr,
             x::errors::Error(

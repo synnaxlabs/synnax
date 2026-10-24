@@ -11,7 +11,7 @@ package view
 
 import (
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // MatchTypes returns a filter for views whose type matches any of the provided types.

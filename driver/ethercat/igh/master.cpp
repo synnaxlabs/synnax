@@ -351,15 +351,14 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
             &bit_pos
         );
         if (result >= 0) {
-            const size_t abs_offset = static_cast<size_t>(result);
+            const auto abs_offset = static_cast<size_t>(result);
             const size_t byte_size = telem::pdo_required_bytes(
                 static_cast<uint8_t>(bit_pos),
                 pdo.bit_length
             );
             pdo::Key key{position, pdo.index, pdo.sub_index, false};
             this->pdo_offsets[key] = {abs_offset, static_cast<uint8_t>(bit_pos)};
-            if (abs_offset + byte_size > this->output_sz)
-                this->output_sz = abs_offset + byte_size;
+            this->output_sz = std::max(this->output_sz, abs_offset + byte_size);
             registered_outputs++;
         } else {
             LOG(WARNING) << "[ethercat.igh] failed to register output PDO 0x"
@@ -380,15 +379,14 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
             &bit_pos
         );
         if (result >= 0) {
-            const size_t abs_offset = static_cast<size_t>(result);
+            const auto abs_offset = static_cast<size_t>(result);
             const size_t byte_size = telem::pdo_required_bytes(
                 static_cast<uint8_t>(bit_pos),
                 pdo.bit_length
             );
             pdo::Key key{position, pdo.index, pdo.sub_index, true};
             this->pdo_offsets[key] = {abs_offset, static_cast<uint8_t>(bit_pos)};
-            if (abs_offset + byte_size > this->input_sz)
-                this->input_sz = abs_offset + byte_size;
+            this->input_sz = std::max(this->input_sz, abs_offset + byte_size);
             registered_inputs++;
         } else {
             LOG(WARNING) << "[ethercat.igh] failed to register input PDO 0x" << std::hex

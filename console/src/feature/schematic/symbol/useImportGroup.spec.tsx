@@ -80,17 +80,29 @@ const renderModal = async () => {
   return { statuses: () => rendered.result.current.statuses };
 };
 
-const successMessage = (name: string): string => `Imported symbol group "${name}"`;
+interface ExpectedStatus {
+  variant: string;
+  message: string;
+  name?: string;
+}
+
+const importedStatus = (name: string): ExpectedStatus => ({
+  variant: "success",
+  name,
+  message: "Imported symbol group",
+});
+
+const FAILED: ExpectedStatus = {
+  variant: "error",
+  message: "Failed to import symbol group",
+};
 
 const awaitStatus = async (
   statuses: () => Status.NotificationSpec[],
-  variant: string,
-  message: string,
+  expected: ExpectedStatus,
 ): Promise<void> => {
   await waitFor(() =>
-    expect(
-      statuses().some((st) => st.variant === variant && st.message === message),
-    ).toBe(true),
+    expect(statuses()).toContainEqual(expect.objectContaining(expected)),
   );
 };
 
@@ -134,7 +146,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
       fireEvent.click(screen.getByText(ZONE_TEXT));
       await waitFor(() => expect(picker.lastInput()).toBeDefined());
       picker.selectFiles([fakePickedFile(`${groupName}.zip`, bytes)]);
-      await awaitStatus(statuses, "success", successMessage(groupName));
+      await awaitStatus(statuses, importedStatus(groupName));
       // The export's source group shares the name, so the import adds a second.
       const groups = await importedGroupsNamed(groupName);
       expect(groups).toHaveLength(2);
@@ -148,7 +160,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
       fireFileDrop(screen.getByText(ZONE_TEXT), [
         fakeFileEntry(createFile(`${groupName}.zip`, bytes)),
       ]);
-      await awaitStatus(statuses, "success", successMessage(groupName));
+      await awaitStatus(statuses, importedStatus(groupName));
       const groups = await importedGroupsNamed(groupName);
       expect(groups).toHaveLength(2);
       const imported = groups.find((g) => g.id.key !== sourceKey);
@@ -162,7 +174,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
       fireFileDrop(screen.getByText(ZONE_TEXT), [
         fakeFileEntry(createJSONFile("manifest.json", { version: 2 })),
       ]);
-      await awaitStatus(statuses, "error", "Failed to import symbol group");
+      await awaitStatus(statuses, FAILED);
       expect(screen.queryByText(ZONE_TEXT)).not.toBeNull();
     });
   });
@@ -186,7 +198,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
           ),
         ]),
       ]);
-      await awaitStatus(statuses, "success", successMessage(groupName));
+      await awaitStatus(statuses, importedStatus(groupName));
       const [imported] = await importedGroupsNamed(groupName);
       if (imported == null) throw new Error("imported group not found");
       expect(await childNames(imported.id)).toContain(symbolName);
@@ -217,7 +229,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
           `${groupName}/sym1.json`,
         ),
       ]);
-      await awaitStatus(statuses, "success", successMessage(groupName));
+      await awaitStatus(statuses, importedStatus(groupName));
       const [imported] = await importedGroupsNamed(groupName);
       if (imported == null) throw new Error("imported group not found");
       expect(await childNames(imported.id)).toContain(symbolName);
@@ -231,7 +243,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
       picker.selectFiles([
         fakePickedFile("stray.json", "{}", "no_manifest_dir/stray.json"),
       ]);
-      await awaitStatus(statuses, "error", "Failed to import symbol group");
+      await awaitStatus(statuses, FAILED);
       expect(screen.queryByText(ZONE_TEXT)).not.toBeNull();
     });
 
@@ -258,7 +270,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
         ),
         fakePickedFile("ok.json", createLegacySymbolFile("ok"), `${groupName}/ok.json`),
       ]);
-      await awaitStatus(statuses, "error", "Failed to import symbol group");
+      await awaitStatus(statuses, FAILED);
       expect(await importedGroupsNamed(groupName)).toHaveLength(0);
     });
 
@@ -282,7 +294,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
           `${groupName}/${symbolName}.json`,
         ),
       ]);
-      await awaitStatus(statuses, "success", successMessage(groupName));
+      await awaitStatus(statuses, importedStatus(groupName));
       const [imported] = await importedGroupsNamed(groupName);
       if (imported == null) throw new Error("imported group not found");
       expect(await childNames(imported.id)).toContain(symbolName);

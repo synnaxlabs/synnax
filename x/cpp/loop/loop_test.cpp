@@ -230,7 +230,7 @@ TEST(LoopTest, testPreciseSleepEndsOnDeadline) {
             timer.precise_sleep(duration, brk);
             late.emplace_back(telem::TimeSpan(hs_clock::now() - start) - duration);
         }
-        EXPECT_GE(*std::min_element(late.begin(), late.end()), telem::TimeSpan::ZERO())
+        EXPECT_GE(*std::ranges::min_element(late), telem::TimeSpan::ZERO())
             << "at " << duration;
         EXPECT_LT(median(late), telem::MICROSECOND * 20) << "at " << duration;
     }

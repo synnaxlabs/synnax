@@ -13,6 +13,7 @@
 
 namespace driver::ethercat::soem {
 
+/// @brief it should accept wired Ethernet adapters by name or by description.
 TEST(IsWiredInterface, AcceptsWiredAdapters) {
     ASSERT_TRUE(is_wired_interface("eth0", ""));
     ASSERT_TRUE(is_wired_interface("enp3s0", ""));
@@ -24,6 +25,7 @@ TEST(IsWiredInterface, AcceptsWiredAdapters) {
     ));
 }
 
+/// @brief it should reject loopback interfaces.
 TEST(IsWiredInterface, RejectsLoopback) {
     ASSERT_FALSE(is_wired_interface("lo", ""));
     ASSERT_FALSE(is_wired_interface("lo0", ""));
@@ -31,6 +33,7 @@ TEST(IsWiredInterface, RejectsLoopback) {
     ASSERT_FALSE(is_wired_interface("\\Device\\NPF_Loopback", "Adapter for loopback"));
 }
 
+/// @brief it should reject wireless adapters by name or by description.
 TEST(IsWiredInterface, RejectsWirelessAdapters) {
     ASSERT_FALSE(is_wired_interface("wlan0", ""));
     ASSERT_FALSE(is_wired_interface("wlp2s0", ""));
@@ -40,6 +43,7 @@ TEST(IsWiredInterface, RejectsWirelessAdapters) {
     );
 }
 
+/// @brief it should reject virtual, bridge, VPN, and container interfaces.
 TEST(IsWiredInterface, RejectsVirtualInterfaces) {
     ASSERT_FALSE(is_wired_interface("veth1234", ""));
     ASSERT_FALSE(is_wired_interface("docker0", ""));

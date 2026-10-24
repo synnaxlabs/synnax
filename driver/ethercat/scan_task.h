@@ -91,7 +91,7 @@ private:
     std::unordered_map<std::string, size_t> next_probes;
 
     /// @brief creates a slave device for the given slave.
-    synnax::device::Device create_slave_device(
+    [[nodiscard]] synnax::device::Device create_slave_device(
         const slave::DiscoveryResult &slave,
         const std::string &master_key,
         const common::ScannerContext &scan_ctx
