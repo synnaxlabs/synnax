@@ -63,6 +63,7 @@ func ResolveReadConfig(
 				Index:           e.Index,
 				SubIndex:        e.SubIndex,
 				DataType:        e.DataType,
+				Scale:           Scale{Variant: NoneScale{}},
 			}
 		}
 	}

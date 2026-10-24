@@ -51,6 +51,12 @@ ReadChannel union on type extends BaseReadChannel {
             @doc value "is the data type of the PDO entry."
             @ts type   "string"
         }
+        scale     Scale = none {
+            @doc value """
+                is the scale applied to raw samples after acquisition. A scaled channel
+                writes to a float Synnax channel.
+            """
+        }
 
         @doc value "addresses a PDO entry by its CoE index and sub-index."
     }
@@ -177,4 +183,43 @@ ScanConfig struct extends task.ScanConfig {
     @go imex    body
     @go marshal
     @go migrate
+}
+
+Scale union on type {
+    linear {
+        slope  float64 = 1 {
+            @doc value "is the multiplier applied to the raw value."
+        }
+        offset float64 = 0 {
+            @doc value "is the offset added after scaling."
+        }
+
+        @doc value "maps raw values to engineering units with a slope and offset."
+    }
+    map {
+        pre_scaled_min float64 = 0 {
+            @default group "pre_scaled"
+            @doc value     "is the lower bound of the raw input range."
+        }
+        pre_scaled_max float64 = 1 {
+            @default group "pre_scaled"
+            @doc value     "is the upper bound of the raw input range."
+        }
+        scaled_min     float64 = 0 {
+            @default group "scaled"
+            @doc value     "is the lower bound of the scaled output range."
+        }
+        scaled_max     float64 = 1 {
+            @default group "scaled"
+            @doc value     "is the upper bound of the scaled output range."
+        }
+
+        @doc value "maps a raw range linearly onto a scaled range."
+    }
+    none {
+        @doc value "applies no scaling; the raw value is used directly."
+    }
+
+    @doc value  "determines how raw PDO values are transformed to engineering units."
+    @go marshal
 }
