@@ -373,7 +373,12 @@ var _ = Describe("Domain", func() {
 					) {
 						Expect(idx.EndAfter(ctx, ref, n)).To(Equal(expected))
 					},
-					Entry("zero samples", 1*telem.SecondTS, int64(0), 1*telem.SecondTS),
+					Entry(
+						"zero samples, after ref",
+						1*telem.SecondTS,
+						int64(0),
+						1*telem.SecondTS+1,
+					),
 					Entry(
 						"inside the first domain",
 						1*telem.SecondTS,
@@ -417,6 +422,39 @@ var _ = Describe("Domain", func() {
 						telem.TimeStampMax,
 					),
 				)
+				Context("Equal timestamps", func() {
+					BeforeEach(func(ctx SpecContext) {
+						Expect(domain.Write(
+							ctx,
+							db,
+							(19 * telem.SecondTS).Range(21*telem.SecondTS+1),
+							telem.NewSeriesSecondsTSV(19, 20, 20, 20, 21).Data,
+						)).To(Succeed())
+					})
+					DescribeTable(
+						"ends after the whole run of equal timestamps",
+						func(
+							ctx SpecContext,
+							ref telem.TimeStamp,
+							n int64,
+							expected telem.TimeStamp,
+						) {
+							Expect(idx.EndAfter(ctx, ref, n)).To(Equal(expected))
+						},
+						Entry(
+							"inside the run",
+							20*telem.SecondTS,
+							int64(1),
+							20*telem.SecondTS+1,
+						),
+						Entry(
+							"past the run",
+							20*telem.SecondTS,
+							int64(2),
+							21*telem.SecondTS,
+						),
+					)
+				})
 			})
 
 			Describe("AppendSegments", func() {

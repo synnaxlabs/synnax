@@ -245,8 +245,9 @@ func (s *streamIterator) execWithResponse(
 }
 
 // nextInPieces moves each iterator forward by span in pieces that each hold at most
-// AutoChunkSize samples of every index. It sends one data response per piece, holding
-// every channel's data up to the end of that piece.
+// AutoChunkSize samples of every index, or more for a run of equal timestamps. It sends
+// one data response per piece, holding every channel's data up to the end of that
+// piece.
 func (s *streamIterator) nextInPieces(
 	ctx context.Context,
 	seqNum int,

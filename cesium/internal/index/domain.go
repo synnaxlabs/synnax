@@ -276,8 +276,9 @@ func (i *Domain) Stamp(
 
 // EndAfter returns the exclusive end of the time range that starts at ref and holds the
 // next n samples of the index, which is the timestamp of sample n at or after ref,
-// counting from zero. It returns telem.TimeStampMax when fewer than n samples follow
-// ref. Gaps between domains do not count.
+// counting from zero. The end is always after ref. A run of equal timestamps can make
+// the range hold more or fewer than n samples. It returns telem.TimeStampMax when n or
+// fewer samples follow ref. Gaps between domains do not count.
 func (i *Domain) EndAfter(
 	ctx context.Context,
 	ref telem.TimeStamp,
@@ -298,9 +299,9 @@ func (i *Domain) EndAfter(
 	return telem.TimeStampMax, nil
 }
 
-// endInDomain looks for sample n at or after ref in the domain at iter. It returns the
-// sample's timestamp when the domain holds it, and otherwise the count still owed after
-// the domain's samples.
+// endInDomain looks for sample n at or after ref in the domain at iter. When the domain
+// holds it, endInDomain returns the end that EndAfter returns. Otherwise it returns the
+// count still owed after the domain's samples.
 func (i *Domain) endInDomain(
 	ctx context.Context,
 	iter *domain.Iterator,
@@ -323,7 +324,7 @@ func (i *Domain) endInDomain(
 	count := sampleCount(r.Size())
 	if start+n < count {
 		end, err = newStampReader()(r, byteSize(start+n))
-		return end, true, 0, err
+		return max(end, ref+1), true, 0, err
 	}
 	return 0, false, n - (count - start), nil
 }

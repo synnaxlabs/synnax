@@ -151,8 +151,7 @@ func (i *Iterator) Continue(ctx context.Context, end telem.TimeStamp) bool {
 }
 
 // EndAfter returns the end of the time range that starts at the end of the view and
-// holds the next n samples of the channel. It returns telem.TimeStampMax when fewer
-// than n samples follow the view.
+// holds the next n samples of the channel. See index.Domain.EndAfter.
 func (i *Iterator) EndAfter(ctx context.Context, n int64) (telem.TimeStamp, error) {
 	return i.idx.EndAfter(ctx, i.view.End, n)
 }
