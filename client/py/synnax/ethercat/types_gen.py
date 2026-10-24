@@ -110,6 +110,7 @@ class EntryWriteChannel(BaseWriteChannel):
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
     data_type: telem.DataType
+    stop_value: float = 0
 
 
 class UnresolvedWriteChannel(BaseWriteChannel):

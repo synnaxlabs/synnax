@@ -208,6 +208,7 @@ inline EntryWriteChannel EntryWriteChannel::parse(x::json::Parser parser) {
     result.index = parser.field<std::uint16_t>("index");
     result.sub_index = parser.field<std::uint8_t>("sub_index");
     result.data_type = parser.field<::x::telem::DataType>("data_type");
+    result.stop_value = parser.field<double>("stop_value", 0);
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -219,6 +220,7 @@ inline x::json::json EntryWriteChannel::to_json() const {
     j["index"] = this->index;
     j["sub_index"] = this->sub_index;
     j["data_type"] = this->data_type;
+    j["stop_value"] = this->stop_value;
     j["type"] = this->type;
     return j;
 }

@@ -158,6 +158,7 @@ func (wc WriteChannel) EncodeOrc(w *orc.Writer) error {
 		w.Uint16(uint16(v.Index))
 		w.Uint8(uint8(v.SubIndex))
 		w.String(string(v.DataType))
+		w.Float64(float64(v.StopValue))
 	case UnresolvedWriteChannel:
 		w.String("unresolved")
 		if err := v.BaseWriteChannel.EncodeOrc(w); err != nil {
@@ -194,6 +195,9 @@ func (wc *WriteChannel) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.DataType = telem.DataType(rawV)
+		}
+		if v.StopValue, err = r.Float64(); err != nil {
+			return err
 		}
 		wc.Variant = v
 	case "unresolved":
