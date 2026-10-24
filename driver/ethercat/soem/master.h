@@ -105,6 +105,9 @@ private:
     /// @brief populates the cached slave list from SOEM's slavelist.
     void populate_slaves();
 
+    /// @brief reads the identity and PDO layout of the slave at a position.
+    slave::DiscoveryResult discover_slave(uint16_t pos);
+
     /// @brief computes and caches PDO offsets for all slaves after activation.
     void cache_pdo_offsets();
 

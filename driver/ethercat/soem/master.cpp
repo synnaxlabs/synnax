@@ -142,19 +142,19 @@ x::errors::Error Master::activate() {
     if (this->activated)
         return x::errors::Error(errors::ACTIVATION_ERROR, "master already activated");
 
+    std::vector<uint16_t> parameterized;
     {
         std::lock_guard lock(this->mu);
         this->startup_failures.clear();
         for (int i = 1; i <= this->api->slave_count(); ++i) {
-            this->api->set_slave_group(
-                i,
-                this->disabled_slaves.contains(i) ? DISABLED_GROUP : ENABLED_GROUP
-            );
+            const bool disabled = this->disabled_slaves.contains(i);
+            this->api->set_slave_group(i, disabled ? DISABLED_GROUP : ENABLED_GROUP);
             const auto it = this->startup_parameters.find(i);
             if (it == this->startup_parameters.end() || it->second.empty()) {
                 this->api->set_PO2SOconfig(i, nullptr);
                 continue;
             }
+            if (!disabled) parameterized.push_back(static_cast<uint16_t>(i));
             this->api->set_PO2SOconfig(i, [this, params = it->second](uint16_t pos) {
                 this->write_startup_parameters(pos, params);
             });
@@ -180,6 +180,13 @@ x::errors::Error Master::activate() {
                    std::to_string(pos) + " (" + this->api->slave_name(pos) + ") " +
                    failure;
         if (!msg.empty()) return x::errors::Error(errors::STARTUP_PARAMETER_ERROR, msg);
+    }
+
+    // A startup parameter can change the slave's PDO assignment.
+    for (const auto pos: parameterized) {
+        auto result = this->discover_slave(pos);
+        std::lock_guard lock(this->mu);
+        this->slave_list[pos - 1] = std::move(result);
     }
 
     this->input_sz = this->api->group_Ibytes(ENABLED_GROUP);
@@ -346,21 +353,24 @@ void Master::populate_slaves() {
     this->slave_list.clear();
     this->slave_list.reserve(this->api->slave_count());
 
-    for (int i = 1; i <= this->api->slave_count(); ++i) {
-        slave::DiscoveryResult result{};
-        result.properties.network = this->interface_name();
-        result.properties.position = static_cast<uint16_t>(i);
-        result.properties.vendor_id = this->api->slave_eep_man(i);
-        result.properties.product_code = this->api->slave_eep_id(i);
-        result.properties.revision = this->api->slave_eep_rev(i);
-        result.properties.serial = this->api->slave_eep_ser(i);
-        result.properties.name = this->api->slave_name(i);
-        result.properties.input_bits = this->api->slave_Ibits(i);
-        result.properties.output_bits = this->api->slave_Obits(i);
-        result.status.state = slave::from_al_state(this->api->slave_state(i));
-        this->discover_slave_pdos(result);
-        this->slave_list.push_back(result);
-    }
+    for (int i = 1; i <= this->api->slave_count(); ++i)
+        this->slave_list.push_back(this->discover_slave(static_cast<uint16_t>(i)));
+}
+
+slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {
+    slave::DiscoveryResult result{};
+    result.properties.network = this->interface_name();
+    result.properties.position = pos;
+    result.properties.vendor_id = this->api->slave_eep_man(pos);
+    result.properties.product_code = this->api->slave_eep_id(pos);
+    result.properties.revision = this->api->slave_eep_rev(pos);
+    result.properties.serial = this->api->slave_eep_ser(pos);
+    result.properties.name = this->api->slave_name(pos);
+    result.properties.input_bits = this->api->slave_Ibits(pos);
+    result.properties.output_bits = this->api->slave_Obits(pos);
+    result.status.state = slave::from_al_state(this->api->slave_state(pos));
+    this->discover_slave_pdos(result);
+    return result;
 }
 
 void Master::cache_pdo_offsets() {

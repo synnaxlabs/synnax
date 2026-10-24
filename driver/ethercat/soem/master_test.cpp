@@ -742,6 +742,31 @@ TEST_F(SOEMMasterTest, ActivateSkipsStartupParametersOfDisabledSlave) {
     EXPECT_TRUE(this->mock->sdo_writes.empty());
 }
 
+TEST_F(SOEMMasterTest, ActivateReadsLayoutThatStartupParametersAssign) {
+    this->add_slave(coe_slave(24));
+    serve_padded_txpdo(*this->mock);
+    this->mock->sdo_objects[{0x1A01, 0}] = 1;
+    this->mock->sdo_objects[{0x1A01, 1}] = 0x60100110;
+    this->mock->oe_entries[{0x6010, 1}] = {"Value", 0x0003};
+    ASSERT_NIL(this->master->initialize());
+    const slave::StartupParameter assign_1a01{
+        .index = ECT_SDO_TXPDOASSIGN,
+        .sub_index = 1,
+        .data_type = x::telem::UINT16_T,
+        .value = 0x1A01,
+    };
+    this->master->set_slave_config(1, {.startup_parameters = {assign_1a01}});
+    this->mock->slave_infos[0].Ibits = 16;
+    this->mock->ibytes = 2;
+    ASSERT_NIL(this->master->activate());
+
+    const auto offset = ASSERT_NIL_P(
+        this->master->pdo_offset(pdo::Entry(1, 0x6010, 1, 16, true, x::telem::INT16_T))
+    );
+    EXPECT_EQ(offset.byte, 0);
+    EXPECT_EQ(this->master->slaves()[0].properties.input_pdos.size(), 1);
+}
+
 TEST_F(SOEMMasterTest, CheckWritesStartupParametersAgainOnReconfig) {
     this->initialize_with_slave();
     this->master->set_slave_config(1, {.startup_parameters = {FILTER}});

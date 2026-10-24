@@ -76,7 +76,8 @@ public:
     std::vector<std::pair<uint16_t, uint16_t>> state_change_requests;
     std::vector<uint8_t> processdata_groups;
     int mapped_group = -1;
-    /// @brief CoE objects returned by SDOread, keyed by index and sub-index.
+    /// @brief CoE objects keyed by index and sub-index. SDOread returns them, and a
+    /// successful SDOwrite replaces them.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
     /// @brief entry names and CoE data types returned by readOEsingle, keyed by index
     /// and sub-index.
@@ -239,7 +240,12 @@ public:
             {slave, index, sub_index, std::vector(bytes, bytes + psize)}
         );
         const auto it = this->sdo_write_aborts.find({index, sub_index});
-        if (it == this->sdo_write_aborts.end()) return 1;
+        if (it == this->sdo_write_aborts.end()) {
+            uint32_t value = 0;
+            std::memcpy(&value, p, std::min(psize, 4));
+            this->sdo_objects[{index, sub_index}] = value;
+            return 1;
+        }
         if (it->second != 0)
             this->sdo_aborts.push_back({slave, index, sub_index, it->second});
         return 0;
