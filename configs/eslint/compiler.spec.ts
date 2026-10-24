@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
 import { transformSync } from "@babel/core";
 import compiler from "babel-plugin-react-compiler";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
-import { plugins } from "./compiler";
+import { isWorker, plugins } from "./compiler";
 
 const compile = (code: string): string => {
   const result = transformSync(code, {
@@ -124,5 +128,62 @@ describe("plugins", () => {
     it("should accept useBare$ in a string", () => {
       expect(compile('export const name = "useBare$";\n')).toContain('"useBare$"');
     });
+  });
+
+});
+
+describe("isWorker", () => {
+  const PLUTO = "@synnaxlabs/pluto";
+  const roots: string[] = [];
+
+  afterEach(() => {
+    for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  });
+
+  const createPackage = (name: string, files: Record<string, string>): string => {
+    const root = mkdtempSync(path.join(tmpdir(), "is-worker-"));
+    roots.push(root);
+    for (const [file, content] of Object.entries({
+      "package.json": JSON.stringify({ name }),
+      ...files,
+    })) {
+      mkdirSync(path.join(root, path.dirname(file)), { recursive: true });
+      writeFileSync(path.join(root, file), content);
+    }
+    return root;
+  };
+
+  const namespace = (name: string): string =>
+    `export * as ${name} from "./external";\n`;
+
+  it("should report a file below a lowercase Pluto namespace", () => {
+    const root = createPackage(PLUTO, { "src/telem/index.ts": namespace("telem") });
+    expect(isWorker(path.join(root, "src/telem/source/remote.ts"))).toBe(true);
+  });
+
+  it("should not report a PascalCase namespace in an aether directory", () => {
+    const root = createPackage(PLUTO, { "src/aether/index.ts": namespace("Aether") });
+    expect(isWorker(path.join(root, "src/aether/store.ts"))).toBe(false);
+  });
+
+  it("should read the namespace from the nearest barrel", () => {
+    const root = createPackage(PLUTO, {
+      "src/telem/index.ts": namespace("Telem"),
+      "src/telem/aether/index.ts": namespace("telem"),
+    });
+    expect(isWorker(path.join(root, "src/telem/aether/remote.ts"))).toBe(true);
+    expect(isWorker(path.join(root, "src/telem/Provider.tsx"))).toBe(false);
+  });
+
+  it("should not report a file outside any namespace", () => {
+    const root = createPackage(PLUTO, { "src/index.ts": 'export * from "./a";\n' });
+    expect(isWorker(path.join(root, "src/vis/draw2d/canvas.ts"))).toBe(false);
+  });
+
+  it("should not report a lowercase namespace outside Pluto", () => {
+    const root = createPackage("@synnaxlabs/lyra", {
+      "src/state/index.ts": namespace("state"),
+    });
+    expect(isWorker(path.join(root, "src/state/state.ts"))).toBe(false);
   });
 });

@@ -32,13 +32,13 @@ import {
 } from "react";
 import { assert, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { aetherTest } from "@/aether/test";
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
+import { createAetherProvider } from "@/testutil/Aether";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -55,7 +55,7 @@ const quiet = (): void => {};
 
 /** Mounts the real provider against a live cluster reached through `port`. */
 const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
-  const AetherProvider = aetherTest.createProvider({
+  const AetherProvider = createAetherProvider({
     ...synnax.REGISTRY,
     ...status.REGISTRY,
   });

@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
-import { createProvider } from "@/aether/test/provider";
+import { createAetherProvider } from "@/testutil/Aether";
 
 const testStateZ = z.object({
   value: z.number(),
@@ -32,14 +32,14 @@ class TestLeaf extends aether.Leaf<typeof testStateZ> {
   afterDelete(): void {}
 }
 
-describe("createProvider", () => {
+describe("createAetherProvider", () => {
   it("should return a functional component", () => {
-    const Provider = createProvider({});
+    const Provider = createAetherProvider({});
     expect(typeof Provider).toBe("function");
   });
 
   it("should render children", () => {
-    const Provider = createProvider({});
+    const Provider = createAetherProvider({});
     const { getByText } = render(
       <Provider>
         <div>Test Child</div>
@@ -49,7 +49,7 @@ describe("createProvider", () => {
   });
 
   it("should allow Aether.use with registered components", async () => {
-    const Provider = createProvider({
+    const Provider = createAetherProvider({
       [TestLeaf.TYPE]: TestLeaf,
     });
 
@@ -73,14 +73,14 @@ describe("createProvider", () => {
   });
 
   it("should create isolated instances for each call", () => {
-    const Provider1 = createProvider({});
-    const Provider2 = createProvider({});
+    const Provider1 = createAetherProvider({});
+    const Provider2 = createAetherProvider({});
 
     expect(Provider1).not.toBe(Provider2);
   });
 
   it("should work with renderHook", () => {
-    const Provider = createProvider({
+    const Provider = createAetherProvider({
       [TestLeaf.TYPE]: TestLeaf,
     });
 

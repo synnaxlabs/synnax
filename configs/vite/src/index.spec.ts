@@ -191,8 +191,11 @@ describe("lib", () => {
       "export const useCount = () => { const [n] = useState(0); return { n }; };\n";
     const COMPILED = 'from "react/compiler-runtime"';
 
-    const buildBundle = async (files: Record<string, string>): Promise<string> => {
-      const root = createPackage({ ...REACT, ...files });
+    const buildBundle = async (
+      files: Record<string, string>,
+      manifest: Record<string, unknown> = {},
+    ): Promise<string> => {
+      const root = createPackage({ ...REACT, ...files }, { manifest });
       await build({
         root,
         configFile: false,
@@ -254,11 +257,15 @@ describe("lib", () => {
       expect(code).toContain(COMPILED);
     });
 
-    it("should leave Aether worker code uncompiled", async () => {
-      const code = await buildBundle({
-        "src/index.ts": 'export * from "@/aether/count";\n',
-        "src/aether/count.ts": HOOK,
-      });
+    it("should leave a lowercase Pluto namespace uncompiled", async () => {
+      const code = await buildBundle(
+        {
+          "src/index.ts": 'export * from "@/telem";\n',
+          "src/telem/index.ts": 'export * as telem from "@/telem/count";\n',
+          "src/telem/count.ts": HOOK,
+        },
+        { name: "@synnaxlabs/pluto" },
+      );
       expect(code).not.toContain(COMPILED);
     });
   });

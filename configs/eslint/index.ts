@@ -10,7 +10,7 @@
 import pluginJs from "@eslint/js";
 import pluginReact from "@eslint-react/eslint-plugin";
 import stylistic from "@stylistic/eslint-plugin";
-import type { ESLint, Linter } from "eslint";
+import type { ESLint, Linter, Rule } from "eslint";
 import { includeIgnoreFile } from "eslint/config";
 import reactHooks from "eslint-plugin-react-hooks";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
@@ -18,17 +18,24 @@ import globals from "globals";
 import path from "path";
 import tseslint from "typescript-eslint";
 
+import { isWorker } from "./compiler";
 import { jsxFilenameExtension } from "./rules/jsxFilenameExtension";
 import { namedHookCallers } from "./rules/namedHookCallers";
 import { namedHookValues } from "./rules/namedHookValues";
 import { reactCompiler } from "./rules/reactCompiler";
 
+// ESLint matches files only by glob, so a rule skips Aether worker code itself.
+const skipWorkers = (rule: Rule.RuleModule): Rule.RuleModule => ({
+  ...rule,
+  create: (context) => (isWorker(context.filename) ? {} : rule.create(context)),
+});
+
 const synnax: ESLint.Plugin = {
   rules: {
     "jsx-filename-extension": jsxFilenameExtension,
-    "named-hook-callers": namedHookCallers,
-    "named-hook-values": namedHookValues,
-    "react-compiler": reactCompiler,
+    "named-hook-callers": skipWorkers(namedHookCallers),
+    "named-hook-values": skipWorkers(namedHookValues),
+    "react-compiler": skipWorkers(reactCompiler),
   },
 };
 
@@ -92,7 +99,12 @@ const config: Linter.Config[] = [
     plugins: {
       "simple-import-sort": simpleImportSort,
       "@stylistic": stylistic,
-      "react-hooks": { rules: reactHooks.rules },
+      "react-hooks": {
+        rules: {
+          ...reactHooks.rules,
+          "rules-of-hooks": skipWorkers(reactHooks.rules["rules-of-hooks"]),
+        },
+      },
       synnax,
     },
     rules: {
@@ -257,12 +269,6 @@ const config: Linter.Config[] = [
     // Specs do not ship, so their harnesses may break them.
     ignores: ["**/*.spec.ts", "**/*.spec.tsx"],
     rules: COMPILER_RULES,
-  },
-  {
-    // Aether worker code names its functions like hooks but runs outside React, so the
-    // compiler skips it too (configs/vite/src/compiler.ts).
-    files: ["**/aether/**/*.ts", "**/vis/render/**/*.ts"],
-    rules: Object.fromEntries(Object.keys(COMPILER_RULES).map((rule) => [rule, "off"])),
   },
   {
     // Packages declare their JavaScript free of side effects, so a bundler skips a

@@ -31,7 +31,7 @@ const lazyComms = (registry: aether.ComponentRegistry): aether.MainComms => {
   };
 };
 
-export const createProvider = (
+export const createAetherProvider = (
   registry: aether.ComponentRegistry,
 ): FC<PropsWithChildren> => {
   const TestProvider: FC<PropsWithChildren> = ({ children }) => {

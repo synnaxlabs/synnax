@@ -10,6 +10,9 @@
 // Builds compile with these passes too (configs/vite). Lint cannot depend on a built
 // package, so they live here.
 
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+
 import {
   type NodePath,
   type PluginItem,
@@ -17,6 +20,30 @@ import {
   type types as t,
   type Visitor,
 } from "@babel/core";
+
+const PLUTO = "@synnaxlabs/pluto";
+const NAMESPACE = /^export \* as (\w+) from /m;
+const LOWERCASE = /^[a-z]/;
+
+const read = (file: string): string =>
+  existsSync(file) ? readFileSync(file, "utf8") : "";
+
+/**
+ * Reports whether a file is Aether worker code, which names its functions like hooks
+ * but runs outside React. Worker code is every lowercase namespace in Pluto, read from
+ * the nearest `index.ts` above the file.
+ */
+export const isWorker = (file: string): boolean => {
+  let namespace: string | undefined;
+  for (let dir = path.dirname(file); ; dir = path.dirname(dir)) {
+    namespace ??= NAMESPACE.exec(read(path.join(dir, "index.ts")))?.[1];
+    if (namespace != null && !LOWERCASE.test(namespace)) return false;
+    const manifest = read(path.join(dir, "package.json"));
+    if (manifest !== "")
+      return namespace != null && JSON.parse(manifest).name === PLUTO;
+    if (path.dirname(dir) === dir) return false;
+  }
+};
 
 /**
  * Renames each binding that shadows the global `Symbol`, such as a `Symbol` namespace

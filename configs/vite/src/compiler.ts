@@ -19,7 +19,7 @@ import babel, {
   defineRolldownBabelPreset,
   type RolldownBabelPreset,
 } from "@rolldown/plugin-babel";
-import { plugins } from "@synnaxlabs/eslint-config/compiler";
+import { isWorker, plugins } from "@synnaxlabs/eslint-config/compiler";
 import { type PluginOption, type ResolvedConfig } from "vite";
 
 const require = createRequire(import.meta.url);
@@ -31,19 +31,19 @@ const CACHE_KEY = createHash("sha1")
   .update(readFileSync(require.resolve("@synnaxlabs/eslint-config/compiler")))
   .digest("hex");
 
-// Outlining moves a callback in a hook or component nested in a factory to module
-// scope, where the factory's bindings are unbound.
-const OPTIONS = { environment: { enableFunctionOutlining: false } };
+const OPTIONS = {
+  // Outlining moves a callback in a hook or component nested in a factory to module
+  // scope, where the factory's bindings are unbound.
+  environment: { enableFunctionOutlining: false },
+  // A compiled worker function throws "Invalid hook call" on the Aether worker.
+  sources: (file: string) => !isWorker(file),
+};
 
 /** Fails on any component or hook that the compiler cannot compile. */
 const STRICT = { ...OPTIONS, panicThreshold: "all_errors" };
 
 // A workspace dependency's dist is already compiled.
 const DIST = /[/\\]dist[/\\]/;
-
-// Aether worker code, in `aether/` directories and Pluto's `vis/render/`, names its
-// functions like hooks. A compiled one throws "Invalid hook call" on the worker.
-const WORKER = /[/\\](aether|vis[/\\]render)[/\\].*\.ts$/;
 
 // Spec files and test helpers never ship, so a spec run compiles them leniently.
 const TEST_CODE = /\.spec\.tsx?$|testutil/i;
@@ -66,7 +66,7 @@ const preset = ({
       plugins: plugins([COMPILER, strict ? STRICT : OPTIONS]),
     }),
     rolldown: {
-      filter: { id: { include, exclude: [DIST, WORKER, ...exclude] } },
+      filter: { id: { include, exclude: [DIST, ...exclude] } },
       optimizeDeps: { include: ["react/compiler-runtime"] },
       configResolvedHook: applies,
     },
