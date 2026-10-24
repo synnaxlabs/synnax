@@ -11,9 +11,16 @@ import react from "@astrojs/react";
 import { getViteConfig } from "astro/config";
 import { type ViteUserConfigFn } from "vitest/config";
 
+import { schema } from "./src/util/env";
+
 const config: ViteUserConfigFn = getViteConfig(
   { test: { environment: "jsdom" } },
-  { root: import.meta.dirname, configFile: false, integrations: [react()] },
+  {
+    root: import.meta.dirname,
+    configFile: false,
+    integrations: [react()],
+    env: { schema },
+  },
 );
 
 export default config;
