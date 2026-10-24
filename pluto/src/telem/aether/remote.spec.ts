@@ -1001,6 +1001,23 @@ describe("remote", () => {
       expect(positions(source.value({ view: view(2000, 3000) })[1])).toHaveLength(3);
     });
 
+    it("should draw finer tiles until a zoomed out view's tiles arrive", async () => {
+      const source = create();
+      await settle(source);
+      c.deferred = true;
+      const [, series] = source.value({ view: view(0, 60000) });
+      expect(positions(series)).toEqual([
+        [13, 0],
+        [13, 1],
+      ]);
+      c.resolveAll();
+      await expect.poll(() => source.fetching()).toBe(false);
+      expect(positions(source.value({ view: view(0, 60000) })[1])).toEqual([
+        [15, 0],
+        [15, 1],
+      ]);
+    });
+
     it("should request each tile once while it is pending", async () => {
       const source = create();
       await settle(source);
@@ -1409,8 +1426,9 @@ describe("remote", () => {
         source.value({ view: v });
         await expect.poll(() => source.fetching()).toBe(false);
         expect(left.refCount).toBe(0);
+        // The tile stops where the held raw series starts, so no span draws twice.
         const cut = c.tiles.find((t) => t.level === 14 && t.index === 5);
-        expect(cut?.end?.valueOf()).toBe(TimeStamp.milliseconds(90_112).valueOf());
+        expect(cut?.end?.valueOf()).toBe(TimeStamp.seconds(90).valueOf());
         expect(positions(source.value({ view: v })[1])).toEqual([
           [14, 4],
           [14, 5],

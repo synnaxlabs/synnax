@@ -704,6 +704,14 @@ export class TiledChannelData
     return new TimeStamp((home.start.valueOf() / span) * span);
   }
 
+  // tilesEnd is where a live line's tiles stop: rawFrom, or the start of a held raw
+  // series that crosses it, so no span draws twice.
+  private tilesEnd(): TimeStamp {
+    const first = this.window.data.series.at(0);
+    const rawFrom = this.rawFrom();
+    return first == null ? rawFrom : TimeStamp.min(rawFrom, first.timeRange.start);
+  }
+
   aggregation(): Aggregation {
     return this.xy ? "decimate" : this.props.aggregation;
   }
@@ -719,7 +727,7 @@ export class TiledChannelData
       if (this.live) return [];
       [start, end] = [this.home().start, this.home().end];
     } else if (this.live) {
-      end = this.rawFrom();
+      end = this.tilesEnd();
       if (!end.after(view.start)) return [];
       if (view.end.after(end)) tiled = new TimeRange(view.start, end);
     }
@@ -773,6 +781,7 @@ export class TiledChannelData
   }
 
   private select(key: channel.Key, view: TimeRange, prune: boolean): MultiSeries {
+    if (this.live) this.window.prune();
     const targets = this.targets(key, view);
     if (!prune || (targets.length > 0 && this.settled(targets[0].level)))
       targets.forEach((spec) => this.request(spec));
@@ -785,7 +794,7 @@ export class TiledChannelData
       const chosen = choose(
         l,
         targets.map((t) => t.index),
-        (p) => this.find(p, preferred) != null,
+        [...this.held.values()].map((t) => t.spec),
       ).map((p) => this.find(p, preferred)!);
       chosen.forEach((tile) => out.push(...tile.series.series));
       if (prune) {
@@ -811,10 +820,7 @@ export class TiledChannelData
           }
       }
     }
-    if (this.live) {
-      this.window.prune();
-      out.push(...this.window.data.series);
-    }
+    if (this.live) out.push(...this.window.data.series);
     return new MultiSeries(out);
   }
 

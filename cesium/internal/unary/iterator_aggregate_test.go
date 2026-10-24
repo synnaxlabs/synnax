@@ -10,6 +10,8 @@
 package unary_test
 
 import (
+	"math"
+	"runtime"
 	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -574,19 +576,216 @@ var _ = Describe("Aggregated Iteration", func() {
 				},
 			)
 
-			It("Should reduce groups larger than one read buffer", func(
-				ctx SpecContext,
-			) {
-				const count = 400_000
-				write(ctx, telem.SecondTS, count)
-				bounds := telem.SecondTS.Range((count + 1) * telem.SecondTS)
-				series := readSpan(
-					ctx,
-					dataDB,
-					aggregated(bounds, telem.AggregationMinMax, 2),
+			Describe("A group cut by a data domain edge", func() {
+				const count = 128
+				var wholeDB, cutDB *unary.DB
+				BeforeEach(func(ctx SpecContext) {
+					fs := openFS()
+					open := func(name string) *unary.DB {
+						db := MustOpen(unary.Open(ctx, unary.Config{
+							FS:        MustSucceed(fs.Sub(name)),
+							MetaCodec: json.Codec,
+							Channel: channel.Channel{
+								Key:      GenerateChannelKey(),
+								Name:     name,
+								DataType: telem.Float64T,
+								Index:    indexDB.Channel().Key,
+							},
+						}))
+						db.SetIndex(indexDB.Index())
+						return db
+					}
+					wholeDB, cutDB = open("whole"), open("cut")
+					stamps := make([]telem.TimeStamp, count)
+					values := make([]float64, count)
+					for i := range count {
+						stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
+						values[i] = float64((i*37)%61 - 30)
+					}
+					values[40] = math.NaN()
+					Expect(
+						unary.Write(ctx, indexDB, stamps[0], telem.NewSeries(stamps)),
+					).To(Succeed())
+					Expect(
+						unary.Write(ctx, wholeDB, stamps[0], telem.NewSeries(values)),
+					).To(Succeed())
+					// Groups hold 16 samples, so the edges at 40 and 42 cut the group
+					// at 32 three ways, and the edge at 64 falls between groups.
+					edges := []int{0, 40, 42, 64, count}
+					for k := 1; k < len(edges); k++ {
+						lo, hi := edges[k-1], edges[k]
+						part := telem.NewSeries(values[lo:hi])
+						Expect(unary.Write(ctx, cutDB, stamps[lo], part)).To(Succeed())
+					}
+				})
+
+				// read reads every series of the bounds in time order.
+				read := func(
+					ctx SpecContext,
+					db *unary.DB,
+					cfg unary.IteratorConfig,
+					backward bool,
+					span telem.TimeSpan,
+				) []telem.Series {
+					GinkgoHelper()
+					iter := MustOpen(db.OpenIterator(cfg))
+					var series []telem.Series
+					if backward {
+						Expect(iter.SeekLast(ctx)).To(BeTrue())
+						for iter.Prev(ctx, span) {
+							series = append(iter.Value().SeriesSlice(), series...)
+						}
+					} else {
+						Expect(iter.SeekFirst(ctx)).To(BeTrue())
+						for iter.Next(ctx, span) {
+							series = append(series, iter.Value().SeriesSlice()...)
+						}
+					}
+					Expect(iter.Error()).ToNot(HaveOccurred())
+					return series
+				}
+
+				const (
+					minMax   = telem.AggregationMinMax
+					average  = telem.AggregationAverage
+					decimate = telem.AggregationDecimate
+					fixed    = telem.TimeSpanMax
+					auto     = unary.AutoSpan
 				)
-				Expect(series[0].Unmarshal[int64]()).To(Equal([]int64{1, count}))
+				DescribeTable(
+					"Should reduce the cut group as one group",
+					func(
+						ctx SpecContext,
+						agg telem.Aggregation,
+						backward bool,
+						span telem.TimeSpan,
+						chunk int,
+					) {
+						// Every aggregation gets groups of 16 samples.
+						limit := 8 * agg.PointsPerGroup()
+						cfg := aggregated(
+							telem.SecondTS.Range((count+1)*telem.SecondTS),
+							agg,
+							uint32(limit),
+						)
+						cfg.AutoChunkSize = int64(chunk)
+						whole := read(ctx, wholeDB, cfg, backward, span)
+						cut := read(ctx, cutDB, cfg, backward, span)
+						Expect(telem.NewMultiSeries(cut).Data()).
+							To(Equal(telem.NewMultiSeries(whole).Data()))
+						idx := read(ctx, indexDB, cfg, backward, span)
+						Expect(telem.NewMultiSeries(cut).Len()).
+							To(Equal(telem.NewMultiSeries(idx).Len()))
+						for k := 1; k < len(cut); k++ {
+							Expect(cut[k].Alignment).
+								To(Equal(cut[k-1].AlignmentBounds().Upper))
+							Expect(cut[k].TimeRange.Start).
+								To(BeNumerically(">=", cut[k-1].TimeRange.End))
+						}
+					},
+					func(
+						agg telem.Aggregation,
+						backward bool,
+						span telem.TimeSpan,
+						chunk int,
+					) string {
+						direction := "forward"
+						if backward {
+							direction = "backward"
+						}
+						mode := "a fixed span"
+						if span == auto {
+							mode = "auto spans of " + strconv.Itoa(chunk) + " points"
+						}
+						return string(agg) + ", " + direction + ", " + mode
+					},
+					Entry(nil, minMax, false, fixed, 100000),
+					Entry(nil, minMax, true, fixed, 100000),
+					Entry(nil, minMax, false, auto, 100000),
+					Entry(nil, minMax, false, auto, 3),
+					Entry(nil, minMax, true, auto, 3),
+					Entry(nil, average, false, fixed, 100000),
+					Entry(nil, average, true, fixed, 100000),
+					Entry(nil, average, false, auto, 1),
+					Entry(nil, average, true, auto, 1),
+					Entry(nil, decimate, false, fixed, 100000),
+					Entry(nil, decimate, true, fixed, 100000),
+					Entry(nil, decimate, false, auto, 1),
+					Entry(nil, decimate, true, auto, 1),
+				)
 			})
+
+			DescribeTable(
+				"Should reduce a group larger than the read buffer within it",
+				func(
+					ctx SpecContext,
+					agg telem.Aggregation,
+					limit uint32,
+					cut int,
+					expected []int64,
+				) {
+					const count = 400_000
+					stamps := make([]telem.TimeStamp, count)
+					values := make([]int64, count)
+					for i := range count {
+						stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
+						values[i] = int64(i) + 1
+					}
+					Expect(
+						unary.Write(ctx, indexDB, stamps[0], telem.NewSeries(stamps)),
+					).To(Succeed())
+					edges := []int{0, count}
+					if cut > 0 {
+						edges = []int{0, cut, count}
+					}
+					for k := 1; k < len(edges); k++ {
+						lo, hi := edges[k-1], edges[k]
+						part := telem.NewSeries(values[lo:hi])
+						Expect(unary.Write(ctx, dataDB, stamps[lo], part)).To(Succeed())
+					}
+					bounds := telem.SecondTS.Range((count + 1) * telem.SecondTS)
+					var before, after runtime.MemStats
+					runtime.ReadMemStats(&before)
+					series := readSpan(ctx, dataDB, aggregated(bounds, agg, limit))
+					runtime.ReadMemStats(&after)
+					Expect(telem.NewMultiSeries(series).Data()).
+						To(Equal(telem.NewSeries(expected).Data))
+					// The group holds 3.2 MB of samples, and each segment read holds
+					// one
+					// buffer of 1 MB.
+					segments := uint64(len(edges) - 1)
+					Expect(after.TotalAlloc - before.TotalAlloc).
+						To(BeNumerically("<", segments*uint64(2*telem.Megabyte)))
+				},
+				Entry(
+					"min_max",
+					telem.AggregationMinMax,
+					uint32(2),
+					0,
+					[]int64{1, 400_000},
+				),
+				Entry(
+					"average",
+					telem.AggregationAverage,
+					uint32(1),
+					0,
+					[]int64{200_000},
+				),
+				Entry(
+					"min_max cut by a write",
+					telem.AggregationMinMax,
+					uint32(2),
+					200_000,
+					[]int64{1, 400_000},
+				),
+				Entry(
+					"average cut by a write",
+					telem.AggregationAverage,
+					uint32(1),
+					200_000,
+					[]int64{200_000},
+				),
+			)
 		})
 	}
 })
