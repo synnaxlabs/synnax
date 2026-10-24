@@ -11,7 +11,6 @@
 
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include <format>
 #include <limits>
 #include <optional>
@@ -91,16 +90,17 @@ struct StartupParameter {
 
     bool operator==(const StartupParameter &) const = default;
 
-    /// @brief parses a startup parameter, adding a field error for an index,
-    /// sub-index, data type, or value the slave cannot take.
+    /// @brief parses a startup parameter, adding a field error for an index, sub-index,
+    /// data type, or value the slave cannot take.
     static StartupParameter parse(x::json::Parser &parser) {
+        const auto errors_before = parser.errors->size();
         StartupParameter param;
         const auto index = parser.field<int64_t>("index");
         const auto sub_index = parser.field<int64_t>("sub_index");
         param.value = parser.field<double>("value");
         param.name = parser.field<std::string>("name", "");
         const auto data_type = parser.field<std::string>("data_type");
-        if (parser.error()) return param;
+        if (parser.errors->size() > errors_before) return param;
         if (index < 0 || index > std::numeric_limits<uint16_t>::max())
             parser.field_err("index", "must be between 0x0000 and 0xFFFF");
         if (sub_index < 0 || sub_index > std::numeric_limits<uint8_t>::max())
@@ -132,18 +132,16 @@ struct StartupParameter {
 
     /// @brief returns the little-endian bytes of the value in data_type.
     [[nodiscard]] std::vector<uint8_t> bytes() const {
-        std::vector<uint8_t> out;
-        visit(this->data_type, [&]<typename T>() {
-            const auto v = static_cast<T>(this->value);
-            out.resize(sizeof(T));
-            std::memcpy(out.data(), &v, sizeof(T));
-        });
-        return out;
+        const auto sample = this->data_type.cast(this->value);
+        const auto *data = static_cast<const uint8_t *>(
+            x::telem::cast_to_void_ptr(sample)
+        );
+        return {data, data + this->data_type.density()};
     }
 
 private:
-    /// @brief calls f with the C++ type of a numeric data type, returning false for
-    /// any other data type.
+    /// @brief calls f with the C++ type of a numeric data type, returning false for any
+    /// other data type.
     template<typename F>
     static bool visit(const x::telem::DataType &dt, F &&f) {
         if (dt == x::telem::INT8_T)
@@ -174,12 +172,22 @@ private:
     template<typename T>
     static bool fits_in(const double v) {
         if constexpr (std::is_floating_point_v<T>)
-            return std::isfinite(v);
+            return std::abs(v) <= static_cast<double>(std::numeric_limits<T>::max());
         else
+            // The maximum of a 64-bit integer has no exact double, so the bound is the
+            // power of two above it.
             return v == std::trunc(v) &&
                    v >= static_cast<double>(std::numeric_limits<T>::min()) &&
-                   v <= static_cast<double>(std::numeric_limits<T>::max());
+                   v < std::ldexp(1.0, std::numeric_limits<T>::digits);
     }
+};
+
+/// @brief the settings the master applies to a slave each time the bus starts.
+struct Config {
+    /// @brief whether the slave joins cyclic exchange.
+    bool enabled = true;
+    /// @brief CoE objects written to the slave before each move to SAFE-OP.
+    std::vector<StartupParameter> startup_parameters;
 };
 
 /// @brief static properties of an EtherCAT slave device stored in device.properties.
@@ -306,11 +314,13 @@ struct Health {
     uint16_t position = 0;
     /// @brief application layer state the slave reports.
     State state = State::UNKNOWN;
-    /// @brief true when the slave set the error flag of its AL status.
+    /// @brief true when the slave set the error flag of its AL status or rejected a
+    /// startup parameter.
     bool faulted = false;
     /// @brief true when the slave stopped responding.
     bool lost = false;
-    /// @brief description of the slave's AL status code, empty when it reports none.
+    /// @brief the description of the slave's AL status code, or why it rejected a
+    /// startup parameter. Empty when it reports neither.
     std::string al_status;
 
     bool operator==(const Health &) const = default;

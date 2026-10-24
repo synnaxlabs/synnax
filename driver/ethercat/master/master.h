@@ -40,16 +40,10 @@ public:
     /// @brief initializes the master and scans the EtherCAT network for slaves.
     [[nodiscard]] virtual x::errors::Error initialize() = 0;
 
-    /// @brief sets whether a slave joins cyclic exchange. Takes effect at the next
-    /// activate().
-    virtual void set_slave_enabled(uint16_t position, bool enabled) = 0;
-
-    /// @brief sets the CoE objects the master writes to a slave in PRE-OP each time
-    /// it moves the slave to SAFE-OP. Takes effect at the next activate().
-    virtual void set_startup_parameters(
-        uint16_t position,
-        std::vector<slave::StartupParameter> parameters
-    ) = 0;
+    /// @brief sets whether a slave joins cyclic exchange and the CoE objects the master
+    /// writes to it in PRE-OP each time it moves the slave to SAFE-OP. Takes effect at
+    /// the next activate().
+    virtual void set_slave_config(uint16_t position, slave::Config config) = 0;
 
     /// @brief maps the process data of every enabled slave and transitions the enabled
     /// slaves to OP.

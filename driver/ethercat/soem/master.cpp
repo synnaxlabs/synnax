@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <algorithm>
 #include <chrono>
 #include <format>
-#include <ranges>
 #include <thread>
 
 #include "absl/log/log.h"
@@ -99,20 +97,13 @@ x::errors::Error Master::initialize() {
     return x::errors::NIL;
 }
 
-void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
+void Master::set_slave_config(const uint16_t position, slave::Config config) {
     std::lock_guard lock(this->mu);
-    if (!enabled)
-        this->disabled_slaves.insert(position);
-    else
+    if (config.enabled)
         this->disabled_slaves.erase(position);
-}
-
-void Master::set_startup_parameters(
-    const uint16_t position,
-    std::vector<slave::StartupParameter> parameters
-) {
-    std::lock_guard lock(this->mu);
-    this->startup_parameters[position] = std::move(parameters);
+    else
+        this->disabled_slaves.insert(position);
+    this->startup_parameters[position] = std::move(config.startup_parameters);
 }
 
 void Master::write_startup_parameters(
@@ -133,7 +124,9 @@ void Master::write_startup_parameters(
             ) > 0)
             continue;
         failure = "rejected startup parameter " + param.to_string() + ": " +
-                  errors::sdo_abort_reason(this->api->pop_sdo_abort());
+                  errors::sdo_abort_reason(
+                      this->api->pop_sdo_abort(pos, param.index, param.sub_index)
+                  );
         break;
     }
     std::lock_guard lock(this->mu);
@@ -181,15 +174,11 @@ x::errors::Error Master::activate() {
 
     {
         std::lock_guard lock(this->mu);
-        std::vector<uint16_t> rejected;
-        for (const auto &pos: this->startup_failures | std::views::keys)
-            rejected.push_back(pos);
-        std::ranges::sort(rejected);
         std::string msg;
-        for (const auto pos: rejected)
+        for (const auto &[pos, failure]: this->startup_failures)
             msg += (msg.empty() ? "" : "; ") + std::string("slave ") +
                    std::to_string(pos) + " (" + this->api->slave_name(pos) + ") " +
-                   this->startup_failures.at(pos);
+                   failure;
         if (!msg.empty()) return x::errors::Error(errors::STARTUP_PARAMETER_ERROR, msg);
     }
 

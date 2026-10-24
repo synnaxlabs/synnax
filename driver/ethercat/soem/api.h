@@ -74,8 +74,8 @@ public:
         int timeout
     ) = 0;
 
-    /// @brief writes to a slave object dictionary via SDO, returning a positive
-    /// working counter on success.
+    /// @brief writes to a slave object dictionary via SDO, returning a positive working
+    /// counter on success.
     virtual int SDOwrite(
         uint16_t slave,
         uint16_t index,
@@ -87,12 +87,12 @@ public:
     ) = 0;
 
     /// @brief empties the SOEM error list, returning the code of the latest SDO abort
-    /// in it, or 0 when it holds none.
-    virtual uint32_t pop_sdo_abort() = 0;
+    /// in it for the given object, or 0 when it holds none.
+    virtual uint32_t
+    pop_sdo_abort(uint16_t slave, uint16_t index, uint8_t subindex) = 0;
 
     /// @brief makes SOEM call config in PRE-OP each time it maps the slave on the way
-    /// to SAFE-OP, including reconfiguration after a fault. Passing nullptr removes
-    /// it.
+    /// to SAFE-OP, including reconfiguration after a fault. Passing nullptr removes it.
     virtual void
     set_PO2SOconfig(uint16_t slave, std::function<void(uint16_t)> config) = 0;
 
@@ -278,11 +278,12 @@ public:
         );
     }
 
-    uint32_t pop_sdo_abort() override {
+    uint32_t pop_sdo_abort(uint16_t slave, uint16_t index, uint8_t subindex) override {
         uint32_t code = 0;
         ec_errort err;
         while (ecx_poperror(&this->context, &err))
-            if (err.Etype == EC_ERR_TYPE_SDO_ERROR)
+            if (err.Etype == EC_ERR_TYPE_SDO_ERROR && err.Slave == slave &&
+                err.Index == index && err.SubIdx == subindex)
                 code = static_cast<uint32_t>(err.AbortCode);
         return code;
     }

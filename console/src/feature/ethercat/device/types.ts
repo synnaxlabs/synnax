@@ -36,7 +36,7 @@ const pdosZ = z.object({
 export interface PDOs extends z.infer<typeof pdosZ> {}
 
 /** A CoE object the Driver writes to the slave before each move to SAFE-OP. */
-export const startupParameterZ = z.object({
+const startupParameterZ = z.object({
   index: z.number(),
   subIndex: z.number(),
   dataType: z.string(),

@@ -184,20 +184,15 @@ public:
         return x::errors::NIL;
     }
 
-    void set_slave_enabled(const uint16_t position, const bool enabled) override {
+    void set_slave_config(const uint16_t position, slave::Config config) override {
         std::lock_guard lock(this->mu);
-        if (enabled)
+        if (config.enabled)
             this->disabled_slaves.erase(position);
         else
             this->disabled_slaves.insert(position);
-    }
-
-    void set_startup_parameters(
-        const uint16_t position,
-        std::vector<slave::StartupParameter> parameters
-    ) override {
-        std::lock_guard lock(this->mu);
-        this->startup_parameters_by_slave[position] = std::move(parameters);
+        this->startup_parameters_by_slave[position] = std::move(
+            config.startup_parameters
+        );
     }
 
     /// @brief returns the startup parameters set for a slave.

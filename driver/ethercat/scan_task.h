@@ -77,7 +77,8 @@ public:
         const std::shared_ptr<task::Context> &ctx
     ) override;
 
-    /// @brief handles device updates to sync enabled flag to engine.
+    /// @brief passes a slave device's enabled flag and startup parameters to its
+    /// engine, and sets an error status when its properties are invalid.
     void on_device_set(const synnax::device::Device &dev) override;
 
 private:
@@ -87,10 +88,14 @@ private:
     std::shared_ptr<engine::Pool> pool;
     std::unordered_map<std::string, size_t> last_slave_counts;
 
-    /// @brief creates a slave device for the given slave.
-    /// @brief passes a slave's enabled flag and startup parameters to its engine.
-    x::errors::Error configure_slave(const slave::Properties &props) const;
+    /// @brief parses a slave device's properties and passes its enabled flag and
+    /// startup parameters to its engine.
+    /// @returns the properties, and x::errors::VALIDATION with each invalid field when
+    /// they do not parse, or the error that kept the engine from being acquired.
+    std::pair<slave::Properties, x::errors::Error>
+    configure_slave(const synnax::device::Device &dev) const;
 
+    /// @brief creates a slave device for the given slave.
     synnax::device::Device create_slave_device(
         const slave::DiscoveryResult &slave,
         const std::string &master_key,

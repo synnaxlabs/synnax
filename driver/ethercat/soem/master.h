@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -46,11 +47,10 @@ class Master final : public master::Master {
     /// @brief slave positions that are disabled (excluded from cyclic exchange).
     std::set<uint16_t> disabled_slaves;
     /// @brief CoE objects written to each slave before SAFE-OP, keyed by position.
-    std::unordered_map<uint16_t, std::vector<slave::StartupParameter>>
-        startup_parameters;
+    std::map<uint16_t, std::vector<slave::StartupParameter>> startup_parameters;
     /// @brief why each slave rejected a startup parameter at its latest move to
     /// SAFE-OP, keyed by position.
-    std::unordered_map<uint16_t, std::string> startup_failures;
+    std::map<uint16_t, std::string> startup_failures;
     /// @brief protects slave state queries.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -71,12 +71,7 @@ public:
 
     x::errors::Error initialize() override;
 
-    void set_slave_enabled(uint16_t position, bool enabled) override;
-
-    void set_startup_parameters(
-        uint16_t position,
-        std::vector<slave::StartupParameter> parameters
-    ) override;
+    void set_slave_config(uint16_t position, slave::Config config) override;
 
     x::errors::Error activate() override;
 

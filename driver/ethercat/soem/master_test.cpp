@@ -229,7 +229,7 @@ TEST_F(SOEMMasterTest, ActivateDisabledSlavesSetGroup) {
     this->add_slave(slave2);
 
     ASSERT_NIL(this->master->initialize());
-    this->master->set_slave_enabled(2, false);
+    this->master->set_slave_config(2, {.enabled = false});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->master->activate());
@@ -247,7 +247,7 @@ TEST_F(SOEMMasterTest, DisabledSlaveStaysOutOfStateTransitions) {
     this->add_slave(slave2);
 
     ASSERT_NIL(this->master->initialize());
-    this->master->set_slave_enabled(2, false);
+    this->master->set_slave_config(2, {.enabled = false});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->master->activate());
@@ -444,7 +444,7 @@ TEST_F(SOEMMasterTest, CheckFindsLostSlaveThatAnswers) {
 TEST_F(SOEMMasterTest, CheckSkipsDisabledSlave) {
     this->add_default_slave();
     this->add_default_slave();
-    this->master->set_slave_enabled(2, false);
+    this->master->set_slave_config(2, {.enabled = false});
     ASSERT_NIL(this->master->initialize());
     this->activate_master();
     this->mock->slave_infos[1].state = EC_STATE_SAFE_OP;
@@ -492,8 +492,8 @@ TEST_F(SOEMMasterTest, InterfaceName) {
 
 TEST_F(SOEMMasterTest, SetSlaveDisabledThenReEnabled) {
     this->initialize_with_slave();
-    this->master->set_slave_enabled(1, false);
-    this->master->set_slave_enabled(1, true);
+    this->master->set_slave_config(1, {.enabled = false});
+    this->master->set_slave_config(1, {});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->master->activate());
@@ -673,7 +673,7 @@ const slave::StartupParameter RANGE{
 
 TEST_F(SOEMMasterTest, ActivateWritesStartupParametersInOrder) {
     this->initialize_with_slave();
-    this->master->set_startup_parameters(1, {FILTER, RANGE});
+    this->master->set_slave_config(1, {.startup_parameters = {FILTER, RANGE}});
     this->activate_master();
     EXPECT_EQ(
         this->mock->sdo_writes,
@@ -686,7 +686,7 @@ TEST_F(SOEMMasterTest, ActivateWritesStartupParametersInOrder) {
 
 TEST_F(SOEMMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
     this->initialize_with_slave();
-    this->master->set_startup_parameters(1, {FILTER, RANGE});
+    this->master->set_slave_config(1, {.startup_parameters = {FILTER, RANGE}});
     this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
     const auto err = this->master->activate();
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
@@ -701,7 +701,20 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
 
 TEST_F(SOEMMasterTest, ActivateFailsWhenStartupParameterGetsNoResponse) {
     this->initialize_with_slave();
-    this->master->set_startup_parameters(1, {RANGE});
+    this->master->set_slave_config(1, {.startup_parameters = {RANGE}});
+    this->mock->sdo_write_aborts[{0x8000, 0x19}] = 0;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (TestSlave) rejected startup parameter 0x8000:19: no response"
+    );
+}
+
+TEST_F(SOEMMasterTest, StartupFailureIgnoresAbortsOfOtherObjects) {
+    this->initialize_with_slave();
+    this->master->set_slave_config(1, {.startup_parameters = {RANGE}});
+    this->mock->sdo_aborts.push_back({1, 0x1C12, 0, 0x06020000});
     this->mock->sdo_write_aborts[{0x8000, 0x19}] = 0;
     const auto err = this->master->activate();
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
@@ -713,23 +726,25 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenStartupParameterGetsNoResponse) {
 
 TEST_F(SOEMMasterTest, ActivateWritesNothingAfterStartupParametersAreCleared) {
     this->initialize_with_slave();
-    this->master->set_startup_parameters(1, {FILTER});
-    this->master->set_startup_parameters(1, {});
+    this->master->set_slave_config(1, {.startup_parameters = {FILTER}});
+    this->master->set_slave_config(1, {});
     this->activate_master();
     EXPECT_TRUE(this->mock->sdo_writes.empty());
 }
 
 TEST_F(SOEMMasterTest, ActivateSkipsStartupParametersOfDisabledSlave) {
     this->initialize_with_slave();
-    this->master->set_startup_parameters(1, {FILTER});
-    this->master->set_slave_enabled(1, false);
+    this->master->set_slave_config(
+        1,
+        {.enabled = false, .startup_parameters = {FILTER}}
+    );
     this->activate_master();
     EXPECT_TRUE(this->mock->sdo_writes.empty());
 }
 
 TEST_F(SOEMMasterTest, CheckWritesStartupParametersAgainOnReconfig) {
     this->initialize_with_slave();
-    this->master->set_startup_parameters(1, {FILTER});
+    this->master->set_slave_config(1, {.startup_parameters = {FILTER}});
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->master->check(this->brk);
@@ -739,7 +754,7 @@ TEST_F(SOEMMasterTest, CheckWritesStartupParametersAgainOnReconfig) {
 
 TEST_F(SOEMMasterTest, CheckHoldsSlaveInPreOpWhenReconfigWriteFails) {
     this->initialize_with_slave();
-    this->master->set_startup_parameters(1, {FILTER});
+    this->master->set_slave_config(1, {.startup_parameters = {FILTER}});
     this->activate_master();
     this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
     this->mock->slave_infos[0].state = EC_STATE_INIT;
@@ -761,7 +776,7 @@ TEST_F(SOEMMasterTest, CheckHoldsSlaveInPreOpWhenReconfigWriteFails) {
 
 TEST_F(SOEMMasterTest, CheckClearsStartupFailureOnceWriteSucceeds) {
     this->initialize_with_slave();
-    this->master->set_startup_parameters(1, {FILTER});
+    this->master->set_slave_config(1, {.startup_parameters = {FILTER}});
     this->activate_master();
     this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
     this->mock->slave_infos[0].state = EC_STATE_INIT;

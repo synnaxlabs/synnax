@@ -334,7 +334,7 @@ TEST_F(EngineTest, RejectedEntryLeavesTheRunningBusUp) {
 
 TEST_F(EngineTest, DisabledSlaveIsNotMapped) {
     this->master->add_slave(io_slave(1));
-    this->engine->set_slave_enabled(1, false);
+    this->engine->set_slave_config(1, {.enabled = false});
     ASSERT_OCCURRED_AS_P(
         this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1),
         errors::PDO_MAPPING_ERROR
@@ -348,7 +348,7 @@ TEST_F(EngineTest, StartupParametersReachTheMaster) {
          .data_type = x::telem::UINT16_T,
          .value = 3}
     };
-    this->engine->set_startup_parameters(0, params);
+    this->engine->set_slave_config(0, {.startup_parameters = params});
     EXPECT_EQ(this->master->startup_parameters(0), params);
 }
 
@@ -503,7 +503,7 @@ TEST_F(EngineTest, BusSlowsDownWhenAFasterTaskCloses) {
 
 TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
     this->master->add_slave(io_slave(1));
-    this->engine->set_slave_enabled(1, false);
+    this->engine->set_slave_config(1, {.enabled = false});
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );

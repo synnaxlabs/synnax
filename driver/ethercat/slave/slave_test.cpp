@@ -365,6 +365,46 @@ TEST(StartupParameter, RejectsAFractionForAnIntegerType) {
     EXPECT_EQ(message, "1.5 does not fit in int16");
 }
 
+TEST(StartupParameter, RejectsTwoToTheSixtyThreeForInt64) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000},
+         {"sub_index", 1},
+         {"data_type", "int64"},
+         {"value", 9223372036854775808.0}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "9223372036854775808 does not fit in int64");
+}
+
+TEST(StartupParameter, AcceptsTheMinimumInt64) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000},
+         {"sub_index", 1},
+         {"data_type", "int64"},
+         {"value", -9223372036854775808.0}}
+    );
+    EXPECT_EQ(path, "");
+}
+
+TEST(StartupParameter, RejectsTwoToTheSixtyFourForUint64) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000},
+         {"sub_index", 1},
+         {"data_type", "uint64"},
+         {"value", 18446744073709551616.0}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "18446744073709551616 does not fit in uint64");
+}
+
+TEST(StartupParameter, RejectsAValueAboveTheFloat32Maximum) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "float32"}, {"value", 1e39}}
+    );
+    EXPECT_EQ(path, "value");
+    EXPECT_EQ(message, "1e+39 does not fit in float32");
+}
+
 TEST(StartupParameter, EncodesLittleEndianBytesOfItsType) {
     EXPECT_EQ(
         (StartupParameter{.data_type = x::telem::UINT16_T, .value = 0x1234}).bytes(),
@@ -404,6 +444,37 @@ TEST(Properties, ParsesStartupParameters) {
     ASSERT_EQ(props.startup_parameters.size(), 1);
     EXPECT_EQ(props.startup_parameters[0].index, 0x8000);
     EXPECT_FALSE(props.to_json().contains("startup_parameters"));
+}
+
+TEST(Properties, ReportsEveryInvalidStartupParameter) {
+    x::json::Parser parser(
+        x::json::json{
+            {"serial", 1},
+            {"vendor_id", 2},
+            {"product_code", 3},
+            {"revision", 4},
+            {"name", "EL3102"},
+            {"position", 0},
+            {"enabled", true},
+            {"pdos",
+             {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
+            {"startup_parameters",
+             {{{"index", 0x8000},
+               {"sub_index", 0x15},
+               {"data_type", "uint8"},
+               {"value", 300}},
+              {{"index", 0x8000},
+               {"sub_index", 0x19},
+               {"data_type", "uint16"},
+               {"value", 70000}}}},
+        }
+    );
+    Properties::parse(parser);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 2);
+    EXPECT_EQ(errors[0]["path"], "startup_parameters.0.value");
+    EXPECT_EQ(errors[1]["path"], "startup_parameters.1.value");
+    EXPECT_EQ(errors[1]["message"], "70000 does not fit in uint16");
 }
 
 TEST(Properties, ParsesWithoutStartupParameters) {

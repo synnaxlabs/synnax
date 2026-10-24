@@ -290,8 +290,8 @@ public:
         return this->func_ptrs.slave_config_sdo(sc, index, subindex, data, size);
     }
 
-    /// @brief writes an SDO to a slave and blocks until it answers, setting
-    /// abort_code when the slave rejects the write.
+    /// @brief writes an SDO to a slave and blocks until it answers, setting abort_code
+    /// when the slave rejects the write.
     [[nodiscard]] virtual int master_sdo_download(
         ec_master_t *master,
         uint16_t slave_position,

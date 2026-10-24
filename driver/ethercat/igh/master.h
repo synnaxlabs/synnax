@@ -86,12 +86,7 @@ public:
 
     x::errors::Error initialize() override;
 
-    void set_slave_enabled(uint16_t position, bool enabled) override;
-
-    void set_startup_parameters(
-        uint16_t position,
-        std::vector<slave::StartupParameter> parameters
-    ) override;
+    void set_slave_config(uint16_t position, slave::Config config) override;
 
     x::errors::Error activate() override;
 

@@ -98,14 +98,6 @@ x::errors::Error Master::initialize() {
     return x::errors::NIL;
 }
 
-void Master::set_startup_parameters(
-    const uint16_t position,
-    std::vector<slave::StartupParameter> parameters
-) {
-    std::lock_guard lock(this->mu);
-    this->startup_parameters[position] = std::move(parameters);
-}
-
 x::errors::Error Master::add_startup_parameters(
     const slave::Properties &slave,
     ec_slave_config_t *sc,
@@ -148,12 +140,13 @@ x::errors::Error Master::add_startup_parameters(
     return x::errors::NIL;
 }
 
-void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
+void Master::set_slave_config(const uint16_t position, slave::Config config) {
     std::lock_guard lock(this->mu);
-    if (!enabled)
-        this->disabled_slaves.insert(position);
-    else
+    if (config.enabled)
         this->disabled_slaves.erase(position);
+    else
+        this->disabled_slaves.insert(position);
+    this->startup_parameters[position] = std::move(config.startup_parameters);
 }
 
 x::errors::Error Master::activate() {

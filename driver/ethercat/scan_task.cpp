@@ -68,15 +68,10 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 
     if (scan_ctx.count == 0 && scan_ctx.devices != nullptr) {
         for (const auto &dev: *scan_ctx.devices | std::views::values) {
-            auto props_parser = x::json::Parser(dev.properties);
-            auto props = slave::Properties::parse(props_parser);
-            if (props_parser.error() ||
-                (props.enabled && props.startup_parameters.empty()))
-                continue;
-            if (const auto err = this->configure_slave(props))
-                LOG(WARNING) << SCAN_LOG_PREFIX << "failed to configure slave "
-                             << props.position << " on " << props.network << ": "
-                             << err;
+            if (dev.model != SLAVE_DEVICE_MODEL) continue;
+            if (const auto err = this->configure_slave(dev).second)
+                LOG(WARNING) << SCAN_LOG_PREFIX << "failed to configure " << dev.name
+                             << ": " << err;
         }
     }
 
@@ -203,19 +198,34 @@ std::string Scanner::generate_slave_key(
            std::to_string(slave.product_code) + "_" + std::to_string(slave.position);
 }
 
-x::errors::Error Scanner::configure_slave(const slave::Properties &props) const {
+std::pair<slave::Properties, x::errors::Error>
+Scanner::configure_slave(const synnax::device::Device &dev) const {
+    auto parser = x::json::Parser(dev.properties);
+    auto props = slave::Properties::parse(parser);
+    if (!parser.ok()) {
+        std::string problems;
+        for (const auto &e: parser.error_json()["errors"])
+            problems += (problems.empty() ? "" : "; ") + e["path"].get<std::string>() +
+                        ": " + e["message"].get<std::string>();
+        return {props, x::errors::Error(x::errors::VALIDATION, problems)};
+    }
     auto [engine, err] = this->pool->acquire(props.network);
-    if (err) return err;
-    engine->set_slave_enabled(props.position, props.enabled);
-    engine->set_startup_parameters(props.position, props.startup_parameters);
-    return x::errors::NIL;
+    if (!err)
+        engine->set_slave_config(
+            props.position,
+            {.enabled = props.enabled, .startup_parameters = props.startup_parameters}
+        );
+    return {props, err};
 }
 
 void Scanner::on_device_set(const synnax::device::Device &dev) {
     if (dev.model != SLAVE_DEVICE_MODEL) return;
-    auto props_parser = x::json::Parser(dev.properties);
-    auto props = slave::Properties::parse(props_parser);
-
+    const auto [props, err] = this->configure_slave(dev);
+    if (err && !err.matches(x::errors::VALIDATION)) {
+        LOG(WARNING) << SCAN_LOG_PREFIX << "failed to configure " << dev.name << ": "
+                     << err;
+        return;
+    }
     synnax::device::Status status{
         .key = synnax::device::status_key(dev),
         .name = dev.name,
@@ -225,18 +235,10 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
         .time = x::telem::TimeStamp::now(),
         .details = {.rack = dev.rack, .device = dev.key},
     };
-    if (!props_parser.ok()) {
+    if (err) {
         status.variant = synnax::status::VARIANT_ERROR;
-        std::string problems;
-        for (const auto &e: props_parser.error_json()["errors"])
-            problems += (problems.empty() ? "" : "; ") + e["path"].get<std::string>() +
-                        ": " + e["message"].get<std::string>();
         status.message = "Invalid device properties";
-        status.description = problems;
-    } else if (const auto err = this->configure_slave(props)) {
-        LOG(WARNING) << SCAN_LOG_PREFIX << "failed to configure slave "
-                     << props.position << " on " << props.network << ": " << err;
-        return;
+        status.description = err.data;
     } else
         LOG(INFO) << SCAN_LOG_PREFIX << "set slave " << props.position << " on "
                   << props.network << " enabled=" << props.enabled << " with "

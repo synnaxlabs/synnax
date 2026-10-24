@@ -337,6 +337,32 @@ TEST_F(EtherCATScanDeviceSetTest, PassesStartupParametersToTheMaster) {
     EXPECT_EQ(this->status(dev).message, "Device enabled");
 }
 
+TEST_F(EtherCATScanDeviceSetTest, FirstScanPassesStartupParametersToTheMaster) {
+    const auto dev = this->create_slave(
+        {{{"index", 0x8000},
+          {"sub_index", 0x15},
+          {"data_type", "uint16"},
+          {"value", 3},
+          {"name", "Filter"}}}
+    );
+    const std::unordered_map<std::string, synnax::device::Device> devices{
+        {dev.key, dev}
+    };
+    ASSERT_NIL_P(
+        this->scanner->scan(common::ScannerContext{.count = 0, .devices = &devices})
+    );
+    EXPECT_EQ(
+        this->master->startup_parameters(0),
+        (std::vector<slave::StartupParameter>{{
+            .index = 0x8000,
+            .sub_index = 0x15,
+            .data_type = x::telem::UINT16_T,
+            .value = 3,
+            .name = "Filter",
+        }})
+    );
+}
+
 TEST_F(EtherCATScanDeviceSetTest, ReportsAnInvalidStartupParameter) {
     const auto dev = this->create_slave(
         {{{"index", 0x8000},
