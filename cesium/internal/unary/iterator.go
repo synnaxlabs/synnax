@@ -98,6 +98,9 @@ type Iterator struct {
 	// groupSize is the number of samples per aggregation group over bounds. Zero means
 	// it has not been computed since bounds last changed.
 	groupSize uint32
+	// head and tail summarize the cut groups at the start and end of the frame, so a
+	// read of the rest of a group can complete it. Each is nil when its group is whole.
+	head, tail *telem.Group
 }
 
 func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
@@ -324,12 +327,12 @@ func (i *Iterator) nextChunk(ctx context.Context) bool {
 			endSample = min(startSample+nRemaining, limit)
 		)
 		if i.groupSize > 1 {
-			if endSample, err = i.groupEnd(
-				ctx,
-				startSample,
-				limit,
-				nRemaining,
-			); err != nil {
+			if nRemaining > 0 {
+				endSample, err = i.groupEnd(ctx, startSample, limit, nRemaining)
+			} else {
+				endSample, err = i.cutGroupEnd(ctx, startSample, limit)
+			}
+			if err != nil {
 				i.err = err
 				return false
 			}
@@ -351,7 +354,9 @@ func (i *Iterator) nextChunk(ctx context.Context) bool {
 			return false
 		}
 		nRemaining -= used
-		if more = closed || nRemaining <= 0; more || !i.internal.Next() {
+		// A full chunk reads on into the next domain only to complete a cut group.
+		more = closed || nRemaining <= 0
+		if closed || (more && i.tail == nil) || !i.internal.Next() {
 			break
 		}
 	}
@@ -404,12 +409,12 @@ func (i *Iterator) prevChunk(ctx context.Context) bool {
 			startSample = max(endSample-nRemaining, first)
 		)
 		if i.groupSize > 1 {
-			if startSample, err = i.groupStart(
-				ctx,
-				first,
-				endSample,
-				nRemaining,
-			); err != nil {
+			if nRemaining > 0 {
+				startSample, err = i.groupStart(ctx, first, endSample, nRemaining)
+			} else {
+				startSample, err = i.cutGroupStart(ctx, first, endSample)
+			}
+			if err != nil {
 				i.err = err
 				return false
 			}
@@ -431,7 +436,8 @@ func (i *Iterator) prevChunk(ctx context.Context) bool {
 			return false
 		}
 		nRemaining -= used
-		if more = closed || nRemaining <= 0; more || !i.internal.Prev() {
+		more = closed || nRemaining <= 0
+		if closed || (more && i.head == nil) || !i.internal.Prev() {
 			break
 		}
 	}
@@ -570,6 +576,9 @@ func (i *Iterator) read(
 	ctx context.Context,
 	start, end int64,
 ) (used int64, err error) {
+	if start == end {
+		return 0, nil
+	}
 	if err = i.loadSegments(ctx, start, end); err != nil {
 		return 0, err
 	}
@@ -584,53 +593,126 @@ func (i *Iterator) read(
 	// follow the frame goes in front of it, last segment first.
 	if i.frame.Empty() || i.frame.SeriesAt(-1).TimeRange.End.BeforeEq(tr.Start) {
 		for _, seg := range i.segments {
-			series, n, err := i.readSegment(ctx, r, seg, start, tr)
+			res, err := i.readSegment(ctx, r, seg, start, tr)
 			if err != nil {
 				return 0, err
 			}
-			if series.Len() > 0 {
-				i.frame = i.frame.Append(i.Channel.Key, series)
-			}
-			used += i.consumed(series, n)
+			used += i.consumed(i.append(res), res.srcLen)
 			start += seg.Len
 		}
 		return used, nil
 	}
 	for _, seg := range slices.Backward(i.segments) {
 		end -= seg.Len
-		series, n, err := i.readSegment(ctx, r, seg, end, tr)
+		res, err := i.readSegment(ctx, r, seg, end, tr)
 		if err != nil {
 			return 0, err
 		}
-		if series.Len() > 0 {
-			i.frame = i.frame.Prepend(i.Channel.Key, series)
-		}
-		used += i.consumed(series, n)
+		used += i.consumed(i.prepend(res), res.srcLen)
 	}
 	return used, nil
 }
 
+// segmentRead is the result of reading one index segment.
+type segmentRead struct {
+	series telem.Series
+	// srcLen is the number of source samples read.
+	srcLen int64
+	// head and tail summarize the first and last groups of a reduced read when the
+	// segment holds only part of them.
+	head, tail *telem.Group
+}
+
+// append adds res to the end of the frame and returns the series it added. When the
+// frame's last series and res hold parts of the same group, the last series takes the
+// merged group and res drops its part.
+func (i *Iterator) append(res segmentRead) telem.Series {
+	s := res.series
+	if s.Len() == 0 {
+		return s
+	}
+	if i.tail != nil && res.head != nil && i.tail.Start() == res.head.Start() {
+		merged := i.tail.Merge(*res.head)
+		points := merged.Data()
+		last := i.frame.SeriesAt(-1)
+		last.Data = slices.Concat(last.Data[:len(last.Data)-len(points)], points)
+		s.Data = s.Data[len(points):]
+		s.Alignment = s.Alignment.AddSamples(i.groupSize)
+		if s.Len() == 0 {
+			last.TimeRange.End = s.TimeRange.End
+			if res.tail != nil {
+				res.tail = &merged
+			}
+		}
+		i.frame.SetSeriesAt(-1, last)
+		if i.head != nil && i.head.Start() == merged.Start() {
+			i.head = &merged
+		}
+	}
+	if s.Len() > 0 {
+		if i.frame.Empty() {
+			i.head = res.head
+		}
+		i.frame = i.frame.Append(i.Channel.Key, s)
+	}
+	i.tail = res.tail
+	return s
+}
+
+// prepend mirrors append for a read that goes in front of the frame. The frame's first
+// series takes the merged group.
+func (i *Iterator) prepend(res segmentRead) telem.Series {
+	s := res.series
+	if s.Len() == 0 {
+		return s
+	}
+	if i.head != nil && res.tail != nil && res.tail.Start() == i.head.Start() {
+		merged := res.tail.Merge(*i.head)
+		points := merged.Data()
+		first := i.frame.SeriesAt(0)
+		first.Data = slices.Concat(points, first.Data[len(points):])
+		s.Data = s.Data[:len(s.Data)-len(points)]
+		if s.Len() == 0 {
+			first.TimeRange.Start = s.TimeRange.Start
+			if res.head != nil {
+				res.head = &merged
+			}
+		}
+		i.frame.SetSeriesAt(0, first)
+		if i.tail != nil && i.tail.Start() == merged.Start() {
+			i.tail = &merged
+		}
+	}
+	if s.Len() > 0 {
+		if i.frame.Empty() {
+			i.tail = res.tail
+		}
+		i.frame = i.frame.Prepend(i.Channel.Key, s)
+	}
+	i.head = res.head
+	return s
+}
+
 // readSegment reads the samples of seg, the first of which is sample start of the
-// current domain. tr is the time range of the whole read. It returns the series and the
-// number of source samples it read. A strided read keeps the samples whose alignment is
-// a multiple of the stride, so every channel that shares an index keeps the same
-// samples.
+// current domain. tr is the time range of the whole read. A strided read keeps the
+// samples whose alignment is a multiple of the stride, so every channel that shares an
+// index keeps the same samples.
 func (i *Iterator) readSegment(
 	ctx context.Context,
 	r *domain.Reader,
 	seg index.Segment,
 	start int64,
 	tr telem.TimeRange,
-) (series telem.Series, srcLen int64, err error) {
+) (segmentRead, error) {
 	offset, err := i.resolver.byteOffset(ctx, i.internal, start)
 	if err != nil {
-		return telem.Series{}, 0, err
+		return segmentRead{}, err
 	}
 	endOffset, err := i.resolver.byteOffset(ctx, i.internal, start+seg.Len)
 	if err != nil {
-		return telem.Series{}, 0, err
+		return segmentRead{}, err
 	}
-	series = telem.Series{
+	series := telem.Series{
 		DataType:  i.Channel.DataType,
 		TimeRange: tr.BoundBy(seg.TimeRange),
 		Alignment: seg.Alignment,
@@ -646,23 +728,24 @@ func (i *Iterator) readSegment(
 		skip := (factor - seg.Alignment.SampleIndex()%factor) % factor
 		series.Alignment = seg.Alignment.AddSamples(skip)
 		series.AlignmentMultiple = factor
+		var srcLen int64
 		if series.Data, srcLen, err = i.readStrided(
 			r,
 			offset,
 			size,
 			int64(skip),
 		); err != nil {
-			return telem.Series{}, 0, err
+			return segmentRead{}, err
 		}
-		return series, srcLen, nil
+		return segmentRead{series: series, srcLen: srcLen}, nil
 	}
 	series.Data = make([]byte, size)
 	n, err := r.ReadAt(series.Data, int64(offset))
 	if err != nil && !errors.Is(err, io.EOF) {
-		return telem.Series{}, 0, err
+		return segmentRead{}, err
 	}
 	series.Data = series.Data[:n]
-	return series, series.Len(), nil
+	return segmentRead{series: series, srcLen: series.Len()}, nil
 }
 
 // strideBufferSize bounds the scratch buffer a strided read holds, so the buffer never
@@ -751,6 +834,36 @@ func (i *Iterator) groupStart(
 	return first, nil
 }
 
+// cutGroupEnd returns the end of the samples of the current domain from start that
+// complete the frame's cut last group. It returns start when the domain does not
+// continue the group.
+func (i *Iterator) cutGroupEnd(ctx context.Context, start, limit int64) (int64, error) {
+	if err := i.loadSegments(ctx, start, limit); err != nil || len(i.segments) == 0 {
+		return start, err
+	}
+	seg := i.segments[0]
+	if telem.GroupStart(seg.Alignment, i.groupSize) != i.tail.Start() {
+		return start, nil
+	}
+	rest := int64(i.groupSize - seg.Alignment.SampleIndex()%i.groupSize)
+	return start + min(rest, seg.Len), nil
+}
+
+// cutGroupStart mirrors cutGroupEnd for a backward chunk that ends at end, completing
+// the frame's cut first group.
+func (i *Iterator) cutGroupStart(ctx context.Context, first, end int64) (int64, error) {
+	if err := i.loadSegments(ctx, first, end); err != nil || len(i.segments) == 0 {
+		return end, err
+	}
+	seg := i.segments[len(i.segments)-1]
+	last := seg.Alignment.AddSamples(uint32(seg.Len - 1))
+	if telem.GroupStart(last, i.groupSize) != i.head.Start() {
+		return end, nil
+	}
+	held := int64(last.SampleIndex()-i.head.Start().SampleIndex()) + 1
+	return end - min(held, seg.Len), nil
+}
+
 // points returns the number of points a reduced read of seg yields.
 func (i *Iterator) points(seg index.Segment) int64 {
 	var (
@@ -799,14 +912,13 @@ func (i *Iterator) backwardGroupSpan(end telem.Alignment, points int64) int64 {
 
 // readReduced reads the slice [offset, offset+size) of r in chunks of whole groups and
 // reduces each chunk into series. The first chunk ends on the first group boundary, so
-// no group spans two chunks. It returns the reduced series and the number of source
-// samples read.
+// no group spans two chunks.
 func (i *Iterator) readReduced(
 	r io.ReaderAt,
 	series telem.Series,
 	offset telem.Size,
 	size telem.Size,
-) (telem.Series, int64, error) {
+) (segmentRead, error) {
 	var (
 		density   = i.Channel.DataType.Density()
 		groupSize = int64(i.groupSize)
@@ -814,37 +926,56 @@ func (i *Iterator) readReduced(
 		chunk     = max(density.SampleCount(reduceBufferSize)/groupSize, 1) * groupSize
 		buf       = make([]byte, density.Size(min(chunk, src)))
 		start     = series.Alignment
+		lead      = int64(start.SampleIndex()) % groupSize
 		// next is the sample count of the next chunk. The first chunk stops at the end
 		// of the group that holds the first sample.
-		next = chunk - int64(start.SampleIndex())%groupSize
-		read int64
+		next = chunk - lead
+		res  segmentRead
 	)
 	series.Alignment = telem.GroupStart(start, i.groupSize)
-	for read < src {
-		n := min(next, src-read)
+	for res.srcLen < src {
+		n := min(next, src-res.srcLen)
 		b := buf[:density.Size(n)]
-		count, err := r.ReadAt(b, int64(offset+density.Size(read)))
+		count, err := r.ReadAt(b, int64(offset+density.Size(res.srcLen)))
 		if err != nil && !errors.Is(err, io.EOF) {
-			return telem.Series{}, 0, err
+			return segmentRead{}, err
 		}
 		avail := density.SampleCount(telem.Size(count))
 		if avail == 0 {
 			break
 		}
-		part := telem.Series{
+		raw := telem.Series{
 			DataType:  series.DataType,
 			Data:      b[:density.Size(avail)],
-			Alignment: start.AddSamples(uint32(read)),
-		}.Reduce(i.aggregation, i.groupSize)
+			Alignment: start.AddSamples(uint32(res.srcLen)),
+		}
+		if res.srcLen == 0 && lead > 0 {
+			res.head = i.summarize(raw, 0, min(groupSize-lead, avail))
+		}
+		// Only the last chunk can end inside a group.
+		if cut := (lead + res.srcLen + avail) % groupSize; cut > 0 {
+			res.tail = i.summarize(raw, avail-min(cut, avail), avail)
+		}
+		part := raw.Reduce(i.aggregation, i.groupSize)
 		series.Data = append(series.Data, part.Data...)
 		series.AlignmentMultiple = part.AlignmentMultiple
-		read += avail
+		res.srcLen += avail
 		if avail < n {
 			break
 		}
 		next = chunk
 	}
-	return series, read, nil
+	res.series = series
+	return res, nil
+}
+
+// summarize returns the summary of samples [from, to) of the series s.
+func (i *Iterator) summarize(s telem.Series, from, to int64) *telem.Group {
+	density := s.DataType.Density()
+	s.Data = s.Data[density.Size(from):density.Size(to)]
+	s.Alignment = s.Alignment.AddSamples(uint32(from))
+	g := s.Summarize(i.aggregation, i.groupSize)
+	return &g
 }
 
 // readDecimated keeps the first present sample of each group in the slice [offset,
@@ -855,32 +986,58 @@ func (i *Iterator) readDecimated(
 	series telem.Series,
 	offset telem.Size,
 	size telem.Size,
-) (telem.Series, int64, error) {
+) (segmentRead, error) {
 	var (
 		groupSize = int64(i.groupSize)
+		first     = series.Alignment
+		lead      = int64(first.SampleIndex()) % groupSize
 		// skip is the position in the slice of the first group start.
-		skip = (groupSize - int64(series.Alignment.SampleIndex())%groupSize) % groupSize
+		skip = (groupSize - lead) % groupSize
 		head []byte
+		res  segmentRead
 	)
-	series.Alignment = telem.GroupStart(series.Alignment, i.groupSize)
+	series.Alignment = telem.GroupStart(first, i.groupSize)
 	series.AlignmentMultiple = i.groupSize
 	if skip > 0 {
 		// A partial first group keeps its first sample, which is not a group start.
 		head = make([]byte, i.Channel.DataType.Density())
 		n, err := r.ReadAt(head, int64(offset))
 		if err != nil && !errors.Is(err, io.EOF) {
-			return telem.Series{}, 0, err
+			return segmentRead{}, err
 		}
 		if n < len(head) {
-			return series, 0, nil
+			return segmentRead{series: series}, nil
 		}
+		res.head = i.summarize(
+			telem.Series{DataType: series.DataType, Data: head, Alignment: first},
+			0,
+			1,
+		)
 	}
 	data, srcLen, err := i.readStridedFixed(r, offset, size, skip, groupSize)
 	if err != nil {
-		return telem.Series{}, 0, err
+		return segmentRead{}, err
 	}
 	series.Data = append(head, data...)
-	return series, srcLen, nil
+	if (lead+srcLen)%groupSize > 0 && series.Len() > 0 {
+		// The last sample kept is the first sample of the cut last group.
+		at := max(
+			telem.GroupStart(first.AddSamples(uint32(srcLen-1)), i.groupSize),
+			first,
+		)
+		density := int(series.DataType.Density())
+		res.tail = i.summarize(
+			telem.Series{
+				DataType:  series.DataType,
+				Data:      series.Data[len(series.Data)-density:],
+				Alignment: at,
+			},
+			0,
+			1,
+		)
+	}
+	res.series, res.srcLen = series, srcLen
+	return res, nil
 }
 
 var errPrefixOverrunsSlice = errors.New("length prefix exceeds domain slice")
@@ -1081,6 +1238,7 @@ func (i *Iterator) partiallySatisfied() bool { return i.frame.HasData() }
 
 func (i *Iterator) reset(nextView telem.TimeRange) {
 	i.frame = channel.Frame{}
+	i.head, i.tail = nil, nil
 	i.view = nextView
 }
 

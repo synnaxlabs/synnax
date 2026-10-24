@@ -161,6 +161,15 @@ var _ = Describe("Reduce", func() {
 			Expect(r.AlignmentMultiple).To(Equal(uint32(1)))
 		})
 
+		It("Should reduce a min/max group to NaN only when it starts with NaN", func() {
+			s := telem.NewSeriesV(math.NaN(), 1, 2, 4, math.NaN(), 3)
+			r := s.Reduce(telem.AggregationMinMax, 3).Unmarshal[float64]()
+			Expect(r).To(HaveLen(4))
+			Expect(math.IsNaN(r[0])).To(BeTrue())
+			Expect(math.IsNaN(r[1])).To(BeTrue())
+			Expect(r[2:]).To(Equal([]float64{4, 3}))
+		})
+
 		It("Should keep the mean of each group", func() {
 			s := telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6)
 			r := s.Reduce(telem.AggregationAverage, 3)
@@ -224,6 +233,11 @@ var _ = Describe("Reduce", func() {
 				telem.NewSeriesV[int64](-1),
 			),
 		)
+
+		It("Should scale the mean of a partial group to its count", func() {
+			r := telem.NewSeriesV(0.1, 0.2, 2.3).Reduce(telem.AggregationAverage, 4)
+			Expect(r.Unmarshal[float64]()).To(Equal([]float64{0.8666666666666665}))
+		})
 
 		It("Should panic on an unknown aggregation", func() {
 			s := telem.NewSeriesV[float32](1, 2, 3, 4)
@@ -353,6 +367,101 @@ var _ = Describe("Reduce", func() {
 				uint32(2),
 			),
 		)
+	})
+
+	Describe("Group", func() {
+		// at returns s with its first sample at sample index at.
+		at := func(s telem.Series, at uint32) telem.Series {
+			s.Alignment = telem.NewAlignment(0, at)
+			return s
+		}
+
+		DescribeTable("Should merge the parts of a cut group into the whole group",
+			func(agg telem.Aggregation, parts ...telem.Series) {
+				whole := telem.NewMultiSeries(parts)
+				size := uint32(whole.Len())
+				expected := telem.Series{
+					DataType: whole.DataType(),
+					Data:     whole.Data(),
+				}.Reduce(agg, size)
+				g := parts[0].Summarize(agg, size)
+				for _, p := range parts[1:] {
+					g = g.Merge(p.Summarize(agg, size))
+				}
+				Expect(g.Data()).To(Equal(expected.Data))
+				Expect(g.Start()).To(Equal(telem.NewAlignment(0, 0)))
+			},
+			Entry(
+				"min_max with the max before the min",
+				telem.AggregationMinMax,
+				telem.NewSeriesV[float64](2, 9),
+				at(telem.NewSeriesV[float64](4, -3), 2),
+			),
+			Entry(
+				"min_max with the min in both parts",
+				telem.AggregationMinMax,
+				telem.NewSeriesV[int32](1, 5),
+				at(telem.NewSeriesV[int32](3, 1), 2),
+			),
+			Entry(
+				"min_max with NaN first in a later part",
+				telem.AggregationMinMax,
+				telem.NewSeriesV[float32](3, 1),
+				at(telem.NewSeriesV(float32(math.NaN()), 7), 2),
+			),
+			Entry(
+				"min_max with NaN first in the group",
+				telem.AggregationMinMax,
+				telem.NewSeriesV(math.NaN(), 1),
+				at(telem.NewSeriesV[float64](5), 2),
+			),
+			Entry(
+				"average of three parts",
+				telem.AggregationAverage,
+				telem.NewSeriesV[float64](1, 2),
+				at(telem.NewSeriesV[float64](3), 2),
+				at(telem.NewSeriesV[float64](6, 8), 3),
+			),
+			Entry(
+				"average of int64 extremes",
+				telem.AggregationAverage,
+				telem.NewSeriesV[int64](math.MinInt64, math.MaxInt64),
+				at(telem.NewSeriesV[int64](math.MinInt64, math.MinInt64), 2),
+			),
+			Entry(
+				"average of uint64 extremes",
+				telem.AggregationAverage,
+				telem.NewSeriesV[uint64](math.MaxUint64, math.MaxUint64),
+				at(telem.NewSeriesV[uint64](math.MaxUint64, 0), 2),
+			),
+			Entry(
+				"average of uint8 extremes",
+				telem.AggregationAverage,
+				telem.NewSeriesV[uint8](255, 255),
+				at(telem.NewSeriesV[uint8](255, 254), 2),
+			),
+			Entry(
+				"decimate",
+				telem.AggregationDecimate,
+				telem.NewSeriesV[int16](4, 2),
+				at(telem.NewSeriesV[int16](1), 2),
+			),
+		)
+
+		It("Should panic when summarizing the samples of two groups", func() {
+			Expect(func() {
+				telem.NewSeriesV[float64](1, 2, 3).Summarize(telem.AggregationMinMax, 2)
+			}).To(PanicWith("telem: can only summarize the samples of one group"))
+		})
+
+		It("Should panic when merging the summaries of two groups", func() {
+			a := telem.NewSeriesV[float64](1, 2).Summarize(telem.AggregationMinMax, 2)
+			b := at(telem.NewSeriesV[float64](3, 4), 2).
+				Summarize(telem.AggregationMinMax, 2)
+			Expect(func() { a.Merge(b) }).To(
+				PanicWith("telem: cannot merge the summaries of two different groups"),
+			)
+		})
 	})
 
 	Describe("Reducible", func() {

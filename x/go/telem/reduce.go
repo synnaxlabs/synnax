@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"math"
 	"math/bits"
-	"slices"
+	"unsafe"
 
 	"github.com/synnaxlabs/x/types"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
@@ -69,31 +69,6 @@ func (s Series) Reduce(agg Aggregation, groupSize uint32) Series {
 	if s.Multiple() > 1 {
 		panic("telem: cannot reduce a series that is already reduced")
 	}
-	var data []byte
-	switch s.DataType {
-	case Float64T:
-		data = reduceData(s, agg, groupSize, floatMean[float64])
-	case Float32T:
-		data = reduceData(s, agg, groupSize, floatMean[float32])
-	case Int64T, TimestampT:
-		data = reduceData(s, agg, groupSize, intMean[int64])
-	case Int32T:
-		data = reduceData(s, agg, groupSize, intMean[int32])
-	case Int16T:
-		data = reduceData(s, agg, groupSize, intMean[int16])
-	case Int8T:
-		data = reduceData(s, agg, groupSize, intMean[int8])
-	case Uint64T:
-		data = reduceData(s, agg, groupSize, intMean[uint64])
-	case Uint32T:
-		data = reduceData(s, agg, groupSize, intMean[uint32])
-	case Uint16T:
-		data = reduceData(s, agg, groupSize, intMean[uint16])
-	case Uint8T, BooleanT:
-		data = reduceData(s, agg, groupSize, intMean[uint8])
-	default:
-		panic(fmt.Sprintf("telem: no reduction for reducible data type %s", s.DataType))
-	}
 	multiple := groupSize
 	if agg == AggregationMinMax {
 		multiple = groupSize / 2
@@ -101,7 +76,7 @@ func (s Series) Reduce(agg Aggregation, groupSize uint32) Series {
 	return Series{
 		TimeRange:         s.TimeRange,
 		DataType:          s.DataType,
-		Data:              data,
+		Data:              reducerFor(s.DataType).reduce(s, agg, groupSize),
 		Alignment:         GroupStart(s.Alignment, groupSize),
 		AlignmentMultiple: multiple,
 	}
@@ -133,62 +108,279 @@ func (m MultiSeries) Reduce(agg Aggregation, groupSize uint32) MultiSeries {
 	return out
 }
 
-// floatMean returns the mean of the group. Dividing each value before summing keeps the
-// sum finite for any finite values.
-func floatMean[T types.Floating](group []T) T {
-	n := float64(len(group))
-	var mean float64
-	for _, v := range group {
-		mean += float64(v) / n
-	}
-	return T(mean)
+// Group summarizes the samples of one reduction group that a read has passed. A read
+// that cuts a group into parts merges the summaries of the parts, so the group reduces
+// to the same points as when it is read whole. Only a float average can differ, by
+// rounding.
+type Group struct {
+	tally
+	start       Alignment
+	aggregation Aggregation
+	dataType    DataType
+	size        uint32
+	// samples holds the first sample and the smallest and largest samples that are
+	// not NaN.
+	samples []byte
 }
 
-// intMean returns the mean of the group rounded down. It sums the offsets from the
-// minimum in 128 bits, so the mean is exact for any 64-bit values.
-func intMean[T types.Integer](group []T) T {
-	lo := slices.Min(group)
-	var hi, sum uint64
-	for _, v := range group {
+// Summarize returns the summary of the samples of s for agg in groups of groupSize. It
+// panics if s is empty or its samples span more than one group.
+func (s Series) Summarize(agg Aggregation, groupSize uint32) Group {
+	start := GroupStart(s.Alignment, groupSize)
+	if s.Len() == 0 ||
+		GroupStart(s.Alignment.AddSamples(uint32(s.Len()-1)), groupSize) != start {
+		panic("telem: can only summarize the samples of one group")
+	}
+	return reducerFor(s.DataType).summarize(s, agg, groupSize)
+}
+
+// Start returns the alignment of the first sample position of the group.
+func (g Group) Start() Alignment { return g.start }
+
+// Merge returns the summary of the samples of g followed by those of next. It panics
+// unless next summarizes later samples of the same group under the same aggregation.
+func (g Group) Merge(next Group) Group {
+	if g.start != next.start ||
+		g.aggregation != next.aggregation ||
+		g.dataType != next.dataType ||
+		g.size != next.size {
+		panic("telem: cannot merge the summaries of two different groups")
+	}
+	return reducerFor(g.dataType).merge(g, next)
+}
+
+// Data returns the points the group reduces to, encoded as its data type.
+func (g Group) Data() []byte { return reducerFor(g.dataType).data(g) }
+
+// tally holds the parts of a group summary that do not depend on the data type. lowAt
+// and highAt are the sample indices of the smallest and largest samples, which are
+// only set when numeric is true. sum is the sum of each sample divided by the group
+// size for floats. sumHi and sumLo are the 128-bit sum of each sample's distance from
+// the type's minimum for integers, which keeps the mean exact.
+type tally struct {
+	count         uint64
+	lowAt, highAt uint32
+	numeric       bool
+	sum           float64
+	sumHi, sumLo  uint64
+}
+
+// summary is the summary of the samples of one group of type T. See Group.
+type summary[T types.SizedNumeric] struct {
+	tally
+	first, low, high T
+}
+
+// summarize returns the summary of in, the samples of one group, the first of which
+// has sample index at. float is true when T is a float type.
+func summarize[T types.SizedNumeric](
+	in []T,
+	at uint32,
+	agg Aggregation,
+	size uint32,
+	float bool,
+) summary[T] {
+	s := summary[T]{count: uint64(len(in)), first: in[0]}
+	switch agg {
+	case AggregationMinMax:
+		s.low, s.high, s.lowAt, s.highAt, s.numeric = extremes(in, at)
+	case AggregationAverage:
+		if float {
+			s.sum = scaledSum(in, float64(size))
+		} else {
+			s.sumHi, s.sumLo = offsetSum(in)
+		}
+	case AggregationDecimate:
+	default:
+		panic(fmt.Sprintf("telem: unknown aggregation %q", agg))
+	}
+	return s
+}
+
+// extremes returns the smallest and largest samples of in that are not NaN, with their
+// sample indices, given that in[0] has sample index at. numeric is false when every
+// sample is NaN.
+func extremes[T types.SizedNumeric](
+	in []T,
+	at uint32,
+) (low, high T, lowAt, highAt uint32, numeric bool) {
+	for i, v := range in {
+		pos := at + uint32(i)
+		switch {
+		case math.IsNaN(float64(v)):
+		case !numeric:
+			low, high, lowAt, highAt, numeric = v, v, pos, pos, true
+		case v < low:
+			low, lowAt = v, pos
+		case v > high:
+			high, highAt = v, pos
+		}
+	}
+	return low, high, lowAt, highAt, numeric
+}
+
+// scaledSum returns the sum of each sample of in divided by size. Dividing before
+// summing keeps the sum finite for any finite samples.
+func scaledSum[T types.SizedNumeric](in []T, size float64) float64 {
+	var sum float64
+	for _, v := range in {
+		sum += float64(v) / size
+	}
+	return sum
+}
+
+// offsetSum returns the 128-bit sum of each sample's distance from the smallest value
+// of the integer type T.
+func offsetSum[T types.SizedNumeric](in []T) (hi, lo uint64) {
+	lowest := uint64(typeMin[T]())
+	for _, v := range in {
 		var carry uint64
-		sum, carry = bits.Add64(sum, uint64(v)-uint64(lo), 0)
+		lo, carry = bits.Add64(lo, uint64(v)-lowest, 0)
 		hi += carry
 	}
-	offset, _ := bits.Div64(hi, sum, uint64(len(group)))
-	return T(uint64(lo) + offset)
+	return hi, lo
 }
 
-func reduceData[T types.SizedNumeric](
-	s Series,
+// merge returns the summary of the samples of s followed by those of next.
+func (s summary[T]) merge(next summary[T]) summary[T] {
+	s.count += next.count
+	if next.numeric && (!s.numeric || next.low < s.low) {
+		s.low, s.lowAt = next.low, next.lowAt
+	}
+	if next.numeric && (!s.numeric || next.high > s.high) {
+		s.high, s.highAt = next.high, next.highAt
+	}
+	s.numeric = s.numeric || next.numeric
+	s.sum += next.sum
+	var carry uint64
+	s.sumLo, carry = bits.Add64(s.sumLo, next.sumLo, 0)
+	s.sumHi += next.sumHi + carry
+	return s
+}
+
+// appendPoints appends the points the group reduces to under agg. float is true when T
+// is a float type.
+func (s summary[T]) appendPoints(
+	out []T,
 	agg Aggregation,
-	groupSize uint32,
-	mean func(group []T) T,
-) []byte {
+	size uint32,
+	float bool,
+) []T {
+	switch agg {
+	case AggregationMinMax:
+		return appendExtremes(out, s.first, s.low, s.high, s.lowAt, s.highAt, s.numeric)
+	case AggregationAverage:
+		if float {
+			return append(out, T(floatMean(s.sum, s.count, size)))
+		}
+		return append(out, intMean[T](s.sumHi, s.sumLo, s.count))
+	case AggregationDecimate:
+		return append(out, s.first)
+	default:
+		panic(fmt.Sprintf("telem: unknown aggregation %q", agg))
+	}
+}
+
+// appendExtremes appends the min/max points of a group whose first sample is first, in
+// the order the samples occur.
+func appendExtremes[T types.SizedNumeric](
+	out []T,
+	first, low, high T,
+	lowAt, highAt uint32,
+	numeric bool,
+) []T {
+	// A scan that starts at NaN never moves, so the group reduces to NaN.
+	if !numeric || math.IsNaN(float64(first)) {
+		return append(out, first, first)
+	}
+	if highAt < lowAt {
+		return append(out, high, low)
+	}
+	return append(out, low, high)
+}
+
+// floatMean returns the mean of count samples whose sum, each divided by size, is sum.
+func floatMean(sum float64, count uint64, size uint32) float64 {
+	if count == uint64(size) {
+		return sum
+	}
+	return sum * (float64(size) / float64(count))
+}
+
+// intMean returns the mean, rounded down, of count samples of the integer type T whose
+// offset sum is hi and lo. See offsetSum.
+func intMean[T types.SizedNumeric](hi, lo, count uint64) T {
+	offset, _ := bits.Div64(hi, lo, count)
+	return T(uint64(typeMin[T]()) + offset)
+}
+
+func (s summary[T]) export(
+	start Alignment,
+	dt DataType,
+	agg Aggregation,
+	size uint32,
+) Group {
+	return Group{
+		tally:       s.tally,
+		start:       start,
+		aggregation: agg,
+		dataType:    dt,
+		size:        size,
+		samples:     xunsafe.CastSlice[T, byte]([]T{s.first, s.low, s.high}),
+	}
+}
+
+func importGroup[T types.SizedNumeric](g Group) summary[T] {
+	samples := xunsafe.CastSlice[byte, T](g.samples)
+	return summary[T]{
+		tally: g.tally,
+		first: samples[0],
+		low:   samples[1],
+		high:  samples[2],
+	}
+}
+
+// numericReducer reduces the samples of one data type.
+type numericReducer interface {
+	reduce(s Series, agg Aggregation, groupSize uint32) []byte
+	summarize(s Series, agg Aggregation, groupSize uint32) Group
+	merge(a, b Group) Group
+	data(g Group) []byte
+}
+
+type typedReducer[T types.SizedNumeric] struct {
+	// float is true when T is a float type.
+	float bool
+}
+
+func (r typedReducer[T]) reduce(s Series, agg Aggregation, groupSize uint32) []byte {
 	var (
 		in    = xunsafe.CastSlice[byte, T](s.Data)
+		at    = s.Alignment.SampleIndex()
 		size  = int(groupSize)
-		first = int(s.Alignment.SampleIndex() % groupSize)
+		first = int(at % groupSize)
 		n     = (first + len(in) + size - 1) / size
 		out   = make([]T, 0, n*int(agg.PointsPerGroup()))
+		scale = float64(groupSize)
 	)
 	// start is the index in the series where the current group begins. Only the first
 	// group can start before the series.
 	for start := -first; start < len(in); start += size {
-		group := in[max(start, 0):min(start+size, len(in))]
+		lo := max(start, 0)
+		group := in[lo:min(start+size, len(in))]
 		switch agg {
 		case AggregationMinMax:
-			minI, maxI := 0, 0
-			for i, v := range group {
-				if v < group[minI] {
-					minI = i
-				}
-				if v > group[maxI] {
-					maxI = i
-				}
-			}
-			out = append(out, group[min(minI, maxI)], group[max(minI, maxI)])
+			low, high, lowAt, highAt, numeric := extremes(group, at+uint32(lo))
+			out = appendExtremes(out, group[0], low, high, lowAt, highAt, numeric)
 		case AggregationAverage:
-			out = append(out, mean(group))
+			count := uint64(len(group))
+			if r.float {
+				mean := floatMean(scaledSum(group, scale), count, groupSize)
+				out = append(out, T(mean))
+				break
+			}
+			sumHi, sumLo := offsetSum(group)
+			out = append(out, intMean[T](sumHi, sumLo, count))
 		case AggregationDecimate:
 			out = append(out, group[0])
 		default:
@@ -196,6 +388,64 @@ func reduceData[T types.SizedNumeric](
 		}
 	}
 	return xunsafe.CastSlice[T, byte](out)
+}
+
+func (r typedReducer[T]) summarize(s Series, agg Aggregation, groupSize uint32) Group {
+	in := xunsafe.CastSlice[byte, T](s.Data)
+	return summarize(in, s.Alignment.SampleIndex(), agg, groupSize, r.float).export(
+		GroupStart(s.Alignment, groupSize),
+		s.DataType,
+		agg,
+		groupSize,
+	)
+}
+
+func (typedReducer[T]) merge(a, b Group) Group {
+	return importGroup[T](a).
+		merge(importGroup[T](b)).
+		export(a.start, a.dataType, a.aggregation, a.size)
+}
+
+func (r typedReducer[T]) data(g Group) []byte {
+	return xunsafe.CastSlice[T, byte](
+		importGroup[T](g).appendPoints(nil, g.aggregation, g.size, r.float),
+	)
+}
+
+func reducerFor(dt DataType) numericReducer {
+	switch dt {
+	case Float64T:
+		return typedReducer[float64]{float: true}
+	case Float32T:
+		return typedReducer[float32]{float: true}
+	case Int64T, TimestampT:
+		return typedReducer[int64]{}
+	case Int32T:
+		return typedReducer[int32]{}
+	case Int16T:
+		return typedReducer[int16]{}
+	case Int8T:
+		return typedReducer[int8]{}
+	case Uint64T:
+		return typedReducer[uint64]{}
+	case Uint32T:
+		return typedReducer[uint32]{}
+	case Uint16T:
+		return typedReducer[uint16]{}
+	case Uint8T, BooleanT:
+		return typedReducer[uint8]{}
+	default:
+		panic(fmt.Sprintf("telem: no reduction for data type %s", dt))
+	}
+}
+
+// typeMin returns the smallest value of the integer type T.
+func typeMin[T types.SizedNumeric]() T {
+	var zero T
+	if zero-1 > zero {
+		return zero
+	}
+	return T(int64(-1) << (8*unsafe.Sizeof(zero) - 1))
 }
 
 // Reducible returns true if Series.Reduce can aggregate series of the data type.
