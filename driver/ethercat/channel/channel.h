@@ -61,12 +61,14 @@ protected:
     ) {
         if (!this->enabled) return;
         const auto pdo = slave.find_pdo(index, sub_index, this->is_input);
-        if (!pdo)
-            return parser.field_err(
+        if (!pdo) {
+            parser.field_err(
                 path + "index",
                 "slave " + slave.name + " has no " + this->direction() + " entry at " +
                     telem::format_index_sub_index(index, sub_index)
             );
+            return;
+        }
         static const std::vector NUMBER_TYPES = {
             x::telem::FLOAT64_T,
             x::telem::FLOAT32_T,
@@ -83,19 +85,23 @@ protected:
                            " on slave " + slave.name;
         const auto width = telem::infer_type_from_bit_length(pdo->bit_length).density();
         const auto pick = "Pick a " + std::to_string(width) + " byte ";
-        if (!data_type.matches(NUMBER_TYPES))
-            return parser.field_err(
+        if (!data_type.matches(NUMBER_TYPES)) {
+            parser.field_err(
                 path + "data_type",
                 "data type " + data_type.name() + " cannot be exchanged with " + entry +
                     ". " + pick + "number type."
             );
-        if (data_type.density() != width)
-            return parser.field_err(
+            return;
+        }
+        if (data_type.density() != width) {
+            parser.field_err(
                 path + "data_type",
                 "data type " + data_type.name() + " is " + bytes(data_type.density()) +
                     " but " + entry + " holds " + bytes(pdo->byte_length()) + ". " +
                     pick + "type."
             );
+            return;
+        }
         this->index = index;
         this->sub_index = sub_index;
         this->bit_length = pdo->bit_length;

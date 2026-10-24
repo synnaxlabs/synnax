@@ -34,7 +34,7 @@ export const useReset = (): (() => void) => {
         });
         if (confirmed !== true) return;
         await reset();
-      }, "Failed to erase the data"),
+      }, "Failed to erase data"),
     [confirm, handleError],
   );
 };

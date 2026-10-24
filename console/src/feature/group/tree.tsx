@@ -102,7 +102,7 @@ interface UngroupParams extends Tree.ContextMenuProps {
 }
 
 const baseUngroup = Flux.createUpdate<UngroupParams>({
-  name: Group.RESOURCE_NAME,
+  name: "resources",
   verbs: {
     present: "ungroup",
     past: "ungrouped",

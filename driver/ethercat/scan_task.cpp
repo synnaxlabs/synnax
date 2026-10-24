@@ -20,12 +20,10 @@
 namespace driver::ethercat {
 namespace {
 std::string get_pdo_error_guidance(const std::string &error) {
-    if (error.find("CoE") != std::string::npos ||
-        error.find("mailbox") != std::string::npos)
+    if (error.contains("CoE") || error.contains("mailbox"))
         return "Check the slave's CoE mailbox and scan again. Channels can use only "
                "the entries a scan discovers.";
-    if (error.find("SII") != std::string::npos ||
-        error.find("fallback") != std::string::npos)
+    if (error.contains("SII") || error.contains("fallback"))
         return "PDO order may be unreliable. Verify data correctness after configuration.";
     return "Channels can use only the entries a scan discovers. Scan again if entries "
            "are missing.";
@@ -38,10 +36,7 @@ Scanner::Scanner(
     ScanTaskConfig cfg,
     std::shared_ptr<engine::Pool> pool
 ):
-    ctx(std::move(ctx)),
-    task(std::move(task)),
-    cfg(std::move(cfg)),
-    pool(std::move(pool)) {}
+    ctx(std::move(ctx)), task(std::move(task)), cfg(cfg), pool(std::move(pool)) {}
 
 common::ScannerConfig Scanner::config() const {
     return common::ScannerConfig{
@@ -126,7 +121,7 @@ synnax::device::Device Scanner::create_slave_device(
 
     nlohmann::json json_props = get_existing_properties(key, scan_ctx);
     auto slave_props = props.to_json();
-    for (auto &[k, v]: slave_props.items())
+    for (const auto &[k, v]: slave_props.items())
         if (k != "enabled" || !json_props.contains("enabled")) json_props[k] = v;
 
     const bool is_enabled = json_props["enabled"].get<bool>();
@@ -198,7 +193,7 @@ std::string Scanner::generate_slave_key(
         return "ethercat_" + std::to_string(slave.vendor_id) + "_" +
                std::to_string(slave.product_code) + "_" + std::to_string(slave.serial);
     std::string safe_key = master_key;
-    std::replace(safe_key.begin(), safe_key.end(), ':', '_');
+    std::ranges::replace(safe_key, ':', '_');
     return "ethercat_" + safe_key + "_" + std::to_string(slave.vendor_id) + "_" +
            std::to_string(slave.product_code) + "_" + std::to_string(slave.position);
 }

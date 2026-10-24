@@ -38,11 +38,10 @@ export type Crude<
   ([DetailsSchema] extends [z.ZodNever] ? {} : { details: z.output<DetailsSchema> });
 
 /**
- * Interface that errors may optionally implement to provide richer rendering when
- * passed to {@link fromException}. Implementers return a partial {@link Crude} spec
- * whose fields override the defaults derived from the underlying `Error`. This is a
- * duck-typed contract: `fromException` checks for the presence of a `toStatus` method
- * via the `in` operator, so there is no need to import this interface to use it.
+ * An error that implements this gives {@link fromException} richer text. Its message
+ * leads the status description, and its description and details replace the defaults
+ * built from the error. fromException finds the method by duck typing, so implementers
+ * need not import this interface.
  */
 export interface Custom {
   toStatus(): Partial<Crude<z.ZodRecord, "error">>;
@@ -183,36 +182,37 @@ const causeChain = (err: Error): string | undefined => {
 };
 
 /**
- * Turns any thrown value into an error status, flattening its cause chain into the
- * description and keeping the error and its stack in the details.
+ * The text a status built by {@link fromException} leads with: a message, or a message
+ * and the name of what the status is about.
+ */
+export type Heading = string | Pick<Base<Variant>, "message" | "name">;
+
+const joinParts = (parts: Array<string | undefined>, separator: string): string =>
+  parts.filter((part) => part != null && part.length > 0).join(separator);
+
+/**
+ * Turns any thrown value into an error status. The heading sets the message and name.
+ * The error's own message and its flattened cause chain form the description, and the
+ * details keep the error and its stack.
  */
 export const fromException = (
   exc: unknown,
-  message?: string,
+  heading: Heading,
 ): Status<typeof exceptionDetailsSchema, z.ZodLiteral<"error">> => {
   const err = errors.fromUnknown(exc);
-  const detail = causeChain(err);
-  const crude: Crude<typeof exceptionDetailsSchema, "error"> = {
-    variant: "error",
-    message: message ?? err.message,
-    description:
-      message != null
-        ? [err.message, detail].filter((part) => part != null).join(": ")
-        : detail,
-    details: { stack: err.stack ?? "", error: cloneSafeError(err) },
-  };
+  const { message, name } =
+    typeof heading === "string" ? { message: heading, name: "" } : heading;
   // Probe the original (pre-coercion) value so a non-Error throwable with a custom
   // `toStatus()` method still contributes its status fields.
   const custom = safeToStatus(exc);
-  if (custom != null) {
-    if (message != null && custom.message != null)
-      crude.message = `${message}: ${custom.message}`;
-    else if (custom.message != null) crude.message = custom.message;
-    if (custom.description != null) crude.description = custom.description;
-    if (custom.details != null && crude.details != null)
-      crude.details = { ...crude.details, ...custom.details };
-  }
-  return create<typeof exceptionDetailsSchema, "error">(crude);
+  const reason = custom?.description ?? joinParts([err.message, causeChain(err)], ": ");
+  return create<typeof exceptionDetailsSchema, "error">({
+    variant: "error",
+    name,
+    message,
+    description: joinParts([custom?.message, reason], ". "),
+    details: { stack: err.stack ?? "", error: cloneSafeError(err), ...custom?.details },
+  });
 };
 
 /**

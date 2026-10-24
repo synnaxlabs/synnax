@@ -214,6 +214,8 @@ TEST(FindOffset, ReturnsOffsetForExistingEntry) {
     EXPECT_EQ(result.bit, 3);
 }
 
+/// @brief it should return a mapping error when the entry in the offsets has another
+/// bit length.
 TEST(FindOffset, ReturnsMappingErrorForAnotherBitLength) {
     Offsets offsets;
     offsets[Key{1, 0x6000, 1, true}] = {10, 3, 16};
@@ -232,6 +234,8 @@ TEST(FindOffset, ReturnsMappingErrorForAnotherBitLength) {
     );
 }
 
+/// @brief it should return a mapping error that names the entry and slave when the
+/// entry is not in the offsets.
 TEST(FindOffset, ReturnsMappingErrorForMissingEntry) {
     Offsets offsets;
     Entry entry{.slave_position = 1, .index = 0x6000, .sub_index = 1, .is_input = true};
@@ -389,6 +393,7 @@ TEST(PDOPropertiesTest, JSONRoundTrip) {
     EXPECT_EQ(json["data_type"], "int32");
 }
 
+/// @brief it should parse the PDO name and write it back to JSON.
 TEST(PDOPropertiesTest, PDONameRoundTrip) {
     x::json::Parser parser(std::string(R"({
         "pdo_index": 6656,
@@ -405,6 +410,8 @@ TEST(PDOPropertiesTest, PDONameRoundTrip) {
     EXPECT_EQ(props.to_json()["pdo_name"], "Channel 1");
 }
 
+/// @brief it should leave the PDO name empty when the JSON has none, and not write it
+/// back.
 TEST(PDOPropertiesTest, PDONameAbsent) {
     x::json::Parser parser(std::string(R"({
         "pdo_index": 6656,
@@ -420,11 +427,14 @@ TEST(PDOPropertiesTest, PDONameAbsent) {
     EXPECT_FALSE(props.to_json().contains("pdo_name"));
 }
 
+/// @brief it should treat an entry with index 0 as padding.
 TEST(PDOPropertiesTest, IsPadding) {
     EXPECT_TRUE((Properties{.index = 0, .bit_length = 7}).is_padding());
     EXPECT_FALSE((Properties{.index = 0x6000, .sub_index = 1}).is_padding());
 }
 
+/// @brief it should give padding no offset, and shift the offsets of later entries by
+/// its bit length.
 TEST(ComputeOffsetsProperties, PaddingShiftsLaterEntries) {
     Offsets offsets;
     const std::vector<Properties> pdos = {
@@ -440,6 +450,7 @@ TEST(ComputeOffsetsProperties, PaddingShiftsLaterEntries) {
     EXPECT_EQ(value.bit, 0);
 }
 
+/// @brief it should count padding bits in the total bit length.
 TEST(TotalBits, CountsPadding) {
     const std::vector<Properties> pdos = {
         {.index = 0x6000, .sub_index = 1, .bit_length = 1},

@@ -24,6 +24,8 @@ import (
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
+	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -158,19 +160,25 @@ func collect(req *plugin.Request) (collection, error) {
 		c.jsonPaths.Add(path)
 	}
 	for _, path := range c.distinct.Paths() {
-		if lo.SomeBy(c.distinct.Get(path), isVariableLengthArray) {
+		if lo.SomeBy(c.distinct.Get(path), func(t resolution.Type) bool {
+			return serializesArray(t, req.Resolutions)
+		}) {
 			c.jsonPaths.Add(path)
 		}
 	}
 	return c, nil
 }
 
-// isVariableLengthArray reports whether t is a distinct type wrapping a variable-length
-// array, the only distinct form that needs JSON serialization.
-func isVariableLengthArray(t resolution.Type) bool {
+// serializesArray reports whether t is a distinct type wrapping an array, the only
+// distinct form that needs JSON serialization. A fixed-size uint8 array is excluded,
+// since its own hand-written header serializes it.
+func serializesArray(t resolution.Type, table *resolution.Table) bool {
 	form, ok := t.Form.(resolution.DistinctForm)
-	return ok && form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 &&
-		form.Base.ArraySize == nil
+	if !ok {
+		return false
+	}
+	_, ok = arrays.Wrapped(form, table)
+	return ok && !isFixedSizeUint8ArrayType(t, table)
 }
 
 func (p *Plugin) generateFile(
@@ -230,18 +238,24 @@ func (p *Plugin) processArrayWrapper(
 	dt resolution.Type,
 	data *templateData,
 ) *arrayWrapperData {
-	if !isVariableLengthArray(dt) {
+	if !serializesArray(dt, data.table) {
 		return nil
 	}
-	form := dt.Form.(resolution.DistinctForm)
+	base, _ := arrays.Wrapped(dt.Form.(resolution.DistinctForm), data.table)
+	var arraySize int64
+	if base.ArraySize != nil {
+		arraySize = *base.ArraySize
+		data.AddSystem("algorithm")
+		data.AddSystem("string")
+	}
 
 	name := domain.GetName(dt, "cpp")
-	elemType := form.Base.TypeArgs[0]
+	elemType := base.TypeArgs[0]
 	elemCppType := p.typeRefToCpp(elemType, data)
 
 	elemNeedsConversion := false
-	if elemResolved, ok := elemType.Resolve(data.table); ok {
-		if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
+	if elem, _, ok := resolution.Dealias(elemType, data.table); ok {
+		if _, isStruct := elem.Form.(resolution.StructForm); isStruct {
 			elemNeedsConversion = true
 		}
 	}
@@ -250,6 +264,8 @@ func (p *Plugin) processArrayWrapper(
 		Name:                name,
 		ElementType:         elemCppType,
 		ElementNeedsConvert: elemNeedsConversion,
+		IsFixedSizeArray:    base.ArraySize != nil,
+		ArraySize:           arraySize,
 	}
 }
 
@@ -350,34 +366,6 @@ func isSelfReference(
 	return resolution.RefersTo(t, parent.QualifiedName, table)
 }
 
-func (p *Plugin) resolveToArrayElement(
-	typeRef resolution.TypeRef,
-	data *templateData,
-) (resolution.TypeRef, bool) {
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		return typeRef.TypeArgs[0], true
-	}
-
-	resolved, ok := typeRef.Resolve(data.table)
-	if !ok {
-		return resolution.TypeRef{}, false
-	}
-
-	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-		if aliasForm.Target.Name == "Array" && len(aliasForm.Target.TypeArgs) > 0 {
-			return aliasForm.Target.TypeArgs[0], true
-		}
-	}
-
-	if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
-		if distinctForm.Base.Name == "Array" && len(distinctForm.Base.TypeArgs) > 0 {
-			return distinctForm.Base.TypeArgs[0], true
-		}
-	}
-
-	return resolution.TypeRef{}, false
-}
-
 func (p *Plugin) processField(
 	field resolution.Field,
 	parent resolution.Type,
@@ -463,15 +451,12 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 		return resolved.Name
 	}
 
-	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-		if targetResolved, targetOk := aliasForm.Target.Resolve(data.table); targetOk {
-			if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
-				if targetResolved.Namespace != data.rawNs {
-					targetOutputPath := output.GetPath(targetResolved, "cpp")
-					if targetOutputPath != "" {
-						data.AddInternal(data.jsonInclude(targetOutputPath))
-					}
-				}
+	if _, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+		target, _, ok := resolution.Dealias(typeRef, data.table)
+		_, isStruct := target.Form.(resolution.StructForm)
+		if ok && isStruct && target.Namespace != data.rawNs {
+			if path := output.GetPath(target, "cpp"); path != "" {
+				data.AddInternal(data.jsonInclude(path))
 			}
 		}
 	}
@@ -489,7 +474,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 				}
 			}
 			if includePath == "" {
-				if p.isFixedSizeUint8ArrayType(resolved) {
+				if isFixedSizeUint8ArrayType(resolved, data.table) {
 					headerName := lo.SnakeCase(resolved.Name)
 					includePath = fmt.Sprintf("%s/%s.h", targetOutputPath, headerName)
 				} else {
@@ -513,6 +498,26 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 	return name
 }
 
+// typeArgsToCpp returns args as a C++ template argument list, leaving out each argument
+// bound to a defaulted parameter in params. It returns "" when no argument is left.
+func (p *Plugin) typeArgsToCpp(
+	params []resolution.TypeParam,
+	args []resolution.TypeRef,
+	data *templateData,
+) string {
+	var out []string
+	for i, arg := range args {
+		if i < len(params) && params[i].HasDefault() {
+			continue
+		}
+		out = append(out, p.typeRefToCpp(arg, data))
+	}
+	if len(out) == 0 {
+		return ""
+	}
+	return "<" + strings.Join(out, ", ") + ">"
+}
+
 func (p *Plugin) parseExprForField(
 	field resolution.Field,
 	cppType string,
@@ -534,10 +539,10 @@ func (p *Plugin) parseExprForField(
 		return fmt.Sprintf(`parser.field<%s>("%s")`, typeRef.TypeParam.Name, jsonName)
 	}
 
-	if resolved, ok := typeRef.Resolve(data.table); ok {
-		if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
-			if distinctForm.Base.Name == "Array" &&
-				len(distinctForm.Base.TypeArgs) > 0 {
+	if target, _, ok := resolution.Dealias(typeRef, data.table); ok {
+		if form, isDistinct := target.Form.(resolution.DistinctForm); isDistinct {
+			if _, wraps := arrays.Wrapped(form, data.table); wraps {
+				resolved, _ := typeRef.Resolve(data.table)
 				wrapperType := domain.GetName(resolved, "cpp")
 				if resolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(resolved, "cpp")
@@ -546,12 +551,15 @@ func (p *Plugin) parseExprForField(
 						wrapperType = fmt.Sprintf("::%s::%s", ns, wrapperType)
 					}
 				}
+				if field.Optional {
+					wrapperType = fmt.Sprintf("std::optional<%s>", wrapperType)
+				}
 				return fmt.Sprintf(`parser.field<%s>("%s")`, wrapperType, jsonName)
 			}
 		}
 	}
 
-	if elemType, isArray := p.resolveToArrayElement(typeRef, data); isArray {
+	if elemType, isArray := arrays.ElementType(typeRef, data.table); isArray {
 		innerType := p.typeRefToCpp(elemType, data)
 
 		if elemType.TypeParam != nil {
@@ -611,10 +619,10 @@ func (p *Plugin) parseExprForField(
 					structType,
 				)
 			}
-			if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
-				parseFn := "parse_" + lo.SnakeCase(domain.GetName(elemResolved, "cpp"))
-				if elemResolved.Namespace != data.rawNs {
-					targetOutputPath := output.GetPath(elemResolved, "cpp")
+			if union, ok := dealiasUnion(elemType, data.table); ok {
+				parseFn := "parse_" + lo.SnakeCase(domain.GetName(union, "cpp"))
+				if union.Namespace != data.rawNs {
+					targetOutputPath := output.GetPath(union, "cpp")
 					if targetOutputPath != "" {
 						ns := cppnaming.Namespace(targetOutputPath)
 						parseFn = fmt.Sprintf("::%s::%s", ns, parseFn)
@@ -697,23 +705,7 @@ func (p *Plugin) parseExprForField(
 					structType = fmt.Sprintf("::%s::%s", ns, structType)
 				}
 			}
-			if len(typeRef.TypeArgs) > 0 {
-				var args []string
-				for i, arg := range typeRef.TypeArgs {
-					if i < len(structForm.TypeParams) &&
-						structForm.TypeParams[i].HasDefault() {
-						continue
-					}
-					args = append(args, p.typeRefToCpp(arg, data))
-				}
-				if len(args) > 0 {
-					structType = fmt.Sprintf(
-						"%s<%s>",
-						structType,
-						strings.Join(args, ", "),
-					)
-				}
-			}
+			structType += p.typeArgsToCpp(structForm.TypeParams, typeRef.TypeArgs, data)
 			if field.Optional {
 				if isSelfRef {
 					return fmt.Sprintf(
@@ -730,13 +722,14 @@ func (p *Plugin) parseExprForField(
 			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)
 		}
-		if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
-			unionType := domain.GetName(resolved, "cpp")
+		if union, ok := dealiasUnion(typeRef, data.table); ok {
+			unionType := domain.GetName(union, "cpp")
 			parseFn := "parse_" + lo.SnakeCase(unionType)
-			if resolved.Namespace != data.rawNs {
-				targetOutputPath := output.GetPath(resolved, "cpp")
+			if union.Namespace != data.rawNs {
+				targetOutputPath := output.GetPath(union, "cpp")
 				if targetOutputPath != "" {
 					ns := cppnaming.Namespace(targetOutputPath)
+					unionType = fmt.Sprintf("::%s::%s", ns, unionType)
 					parseFn = fmt.Sprintf("::%s::%s", ns, parseFn)
 					data.AddInternal(data.jsonInclude(targetOutputPath))
 				}
@@ -762,7 +755,7 @@ func (p *Plugin) parseExprForField(
 					fallback = fmt.Sprintf(
 						"%s{%s{}}",
 						cppType,
-						cppnaming.QualifiedVariantTypeName(cppType, uv.Variant.Name),
+						cppnaming.QualifiedVariantTypeName(unionType, uv.Variant.Name),
 					)
 				}
 				return fmt.Sprintf(
@@ -773,10 +766,8 @@ func (p *Plugin) parseExprForField(
 			return fmt.Sprintf(`%s(parser.child("%s"))`, parseFn, jsonName)
 		}
 		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-			if targetResolved, targetOk := aliasForm.Target.Resolve(
-				data.table,
-			); targetOk {
-				if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
+			if target, _, ok := resolution.Dealias(typeRef, data.table); ok {
+				if _, isStruct := target.Form.(resolution.StructForm); isStruct {
 					aliasType := domain.GetName(resolved, "cpp")
 					if resolved.Namespace != data.rawNs {
 						targetOutputPath := output.GetPath(resolved, "cpp")
@@ -785,6 +776,11 @@ func (p *Plugin) parseExprForField(
 							aliasType = fmt.Sprintf("::%s::%s", ns, aliasType)
 						}
 					}
+					aliasType += p.typeArgsToCpp(
+						aliasForm.TypeParams,
+						typeRef.TypeArgs,
+						data,
+					)
 					if field.Optional {
 						return fmt.Sprintf(
 							`parser.field<std::optional<%s>>("%s")`,
@@ -895,16 +891,23 @@ func (p *Plugin) toJSONExprForField(
 		)
 	}
 
-	if resolved, ok := typeRef.Resolve(data.table); ok {
-		if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
-			if distinctForm.Base.Name == "Array" &&
-				len(distinctForm.Base.TypeArgs) > 0 {
+	if target, _, ok := resolution.Dealias(typeRef, data.table); ok {
+		if form, isDistinct := target.Form.(resolution.DistinctForm); isDistinct {
+			if _, wraps := arrays.Wrapped(form, data.table); wraps {
+				if field.Optional {
+					return fmt.Sprintf(
+						`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
+						fieldName,
+						jsonName,
+						fieldName,
+					)
+				}
 				return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
 			}
 		}
 	}
 
-	if elemType, isArray := p.resolveToArrayElement(typeRef, data); isArray {
+	if elemType, isArray := arrays.ElementType(typeRef, data.table); isArray {
 		if elemType.TypeParam != nil {
 			typeName := elemType.TypeParam.Name
 			return fmt.Sprintf(`{
@@ -922,7 +925,7 @@ func (p *Plugin) toJSONExprForField(
 
 		// UUIDs serialize through their to_json member, which nlohmann_json cannot
 		// reach inside a vector.
-		if elemType.Name == "uuid" || p.resolvesToUUID(elemType, data) {
+		if resolution.PrimitiveBase(elemType, data.table) == "uuid" {
 			src := "this->" + fieldName
 			if field.Optional {
 				src = "*" + src
@@ -938,8 +941,8 @@ func (p *Plugin) toJSONExprForField(
 			return body
 		}
 
-		if elemResolved, ok := elemType.Resolve(data.table); ok {
-			if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
+		if elem, _, ok := resolution.Dealias(elemType, data.table); ok {
+			if _, isStruct := elem.Form.(resolution.StructForm); isStruct {
 				if field.Optional {
 					return fmt.Sprintf(
 						`if (this->%s.has_value()) j["%s"] = x::json::to_array(*this->%s);`,
@@ -954,12 +957,12 @@ func (p *Plugin) toJSONExprForField(
 					fieldName,
 				)
 			}
-			if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
+			if _, isUnion := elem.Form.(resolution.UnionForm); isUnion {
 				// Qualify the free to_json: unqualified lookup inside a member
 				// to_json() finds the member and never reaches the overload.
 				qualifier := "::" + data.Namespace
-				if elemResolved.Namespace != data.rawNs {
-					targetOutputPath := output.GetPath(elemResolved, "cpp")
+				if elem.Namespace != data.rawNs {
+					targetOutputPath := output.GetPath(elem, "cpp")
 					if targetOutputPath != "" {
 						data.AddInternal(data.jsonInclude(targetOutputPath))
 						qualifier = "::" + cppnaming.Namespace(targetOutputPath)
@@ -975,9 +978,9 @@ func (p *Plugin) toJSONExprForField(
 			// (e.g., Members = []Member) whose inner element is a struct. nlohmann_json
 			// can't serialize vector<vector<Struct>> directly — serialize each inner
 			// array via to_array and bundle them in a JSON array.
-			if innerElem, ok := p.resolveToArrayElement(elemType, data); ok {
-				if innerResolved, ok := innerElem.Resolve(data.table); ok {
-					if _, isStruct := innerResolved.Form.(resolution.StructForm); isStruct {
+			if innerElem, ok := arrays.ElementType(elemType, data.table); ok {
+				if inner, _, ok := resolution.Dealias(innerElem, data.table); ok {
+					if _, isStruct := inner.Form.(resolution.StructForm); isStruct {
 						return fmt.Sprintf(`{
         auto arr = x::json::json::array();
         for (const auto& inner : this->%s) arr.push_back(x::json::to_array(inner));
@@ -1020,12 +1023,12 @@ func (p *Plugin) toJSONExprForField(
 			}
 			return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
 		}
-		if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
+		if union, ok := dealiasUnion(typeRef, data.table); ok {
 			// Qualify the free to_json: unqualified lookup inside a member to_json()
 			// finds the member and never reaches the overload.
 			qualifier := "::" + data.Namespace
-			if resolved.Namespace != data.rawNs {
-				targetOutputPath := output.GetPath(resolved, "cpp")
+			if union.Namespace != data.rawNs {
+				targetOutputPath := output.GetPath(union, "cpp")
 				if targetOutputPath != "" {
 					data.AddInternal(data.jsonInclude(targetOutputPath))
 					qualifier = "::" + cppnaming.Namespace(targetOutputPath)
@@ -1047,11 +1050,9 @@ func (p *Plugin) toJSONExprForField(
 				fieldName,
 			)
 		}
-		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-			if targetResolved, targetOk := aliasForm.Target.Resolve(
-				data.table,
-			); targetOk {
-				if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
+		if _, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+			if target, _, ok := resolution.Dealias(typeRef, data.table); ok {
+				if _, isStruct := target.Form.(resolution.StructForm); isStruct {
 					if field.Optional {
 						return fmt.Sprintf(
 							`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
@@ -1070,13 +1071,20 @@ func (p *Plugin) toJSONExprForField(
 		}
 	}
 
-	lowerName := strings.ToLower(typeRef.Name)
-	if strings.HasSuffix(lowerName, "timestamp") ||
-		strings.HasSuffix(lowerName, "timespan") {
+	if telem.IsTimeStamp(typeRef, data.table, "cpp") ||
+		telem.IsTimeSpan(typeRef, data.table, "cpp") {
+		if field.Optional {
+			return fmt.Sprintf(
+				`if (this->%s.has_value()) j["%s"] = this->%s->nanoseconds();`,
+				fieldName,
+				jsonName,
+				fieldName,
+			)
+		}
 		return fmt.Sprintf(`j["%s"] = this->%s.nanoseconds();`, jsonName, fieldName)
 	}
 
-	if typeRef.Name == "uuid" || p.resolvesToUUID(typeRef, data) {
+	if resolution.PrimitiveBase(typeRef, data.table) == "uuid" {
 		if field.Optional {
 			return fmt.Sprintf(
 				`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
@@ -1089,6 +1097,19 @@ func (p *Plugin) toJSONExprForField(
 	}
 
 	return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
+}
+
+// dealiasUnion returns the union ref stands for, following aliases.
+func dealiasUnion(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) (resolution.Type, bool) {
+	t, _, ok := resolution.Dealias(ref, table)
+	if !ok {
+		return resolution.Type{}, false
+	}
+	_, isUnion := t.Form.(resolution.UnionForm)
+	return t, isUnion
 }
 
 // hasRenderableDefault reports whether the field declares a default the parse
@@ -1216,41 +1237,13 @@ func defaultValueForPrimitive(primitive string) string {
 	}
 }
 
-func (p *Plugin) resolvesToUUID(typeRef resolution.TypeRef, data *templateData) bool {
-	resolved, ok := typeRef.Resolve(data.table)
-	if !ok {
-		return false
-	}
-
-	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-		if aliasForm.Target.Name == "uuid" {
-			return true
-		}
-		return p.resolvesToUUID(aliasForm.Target, data)
-	}
-
-	if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
-		if distinctForm.Base.Name == "uuid" {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (p *Plugin) isFixedSizeUint8ArrayType(resolved resolution.Type) bool {
+func isFixedSizeUint8ArrayType(resolved resolution.Type, table *resolution.Table) bool {
 	form, ok := resolved.Form.(resolution.DistinctForm)
 	if !ok {
 		return false
 	}
-	if form.Base.Name != "Array" || form.Base.ArraySize == nil {
-		return false
-	}
-	if len(form.Base.TypeArgs) == 0 {
-		return false
-	}
-	elemType := form.Base.TypeArgs[0]
-	return resolution.IsPrimitive(elemType.Name) && elemType.Name == "uint8"
+	base, ok := arrays.Wrapped(form, table)
+	return ok && base.ArraySize != nil && base.TypeArgs[0].Name == "uint8"
 }
 
 type templateData struct {
@@ -1276,6 +1269,9 @@ type arrayWrapperData struct {
 	ElementType string
 	// ElementNeedsConvert is true if element is a struct that needs to_json()/parse().
 	ElementNeedsConvert bool
+	// IsFixedSizeArray is true when the wrapper holds exactly ArraySize elements.
+	IsFixedSizeArray bool
+	ArraySize        int64
 }
 
 type serializerData struct {

@@ -841,7 +841,7 @@ describe("Arc queries", () => {
         { wrapper },
       );
       await waitFor(() =>
-        expect(result.current.taskStatus.message).toBe("Not deployed yet"),
+        expect(result.current.taskStatus.message).toBe("Task not deployed"),
       );
       expect(result.current.running).toBe(false);
       expect(result.current.taskKey).toBe("");
