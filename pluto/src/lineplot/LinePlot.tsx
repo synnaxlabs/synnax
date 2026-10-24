@@ -153,8 +153,8 @@ const Line = ({
       }),
       y: telem.tiledChannelData({ ...props, channel: yChannel }),
     };
-  }, [resolved, line?.xChannel, line?.yChannel, aggregation, detail]);
-  if (line == null || telemetry == null) return null;
+  }, [resolved, line.xChannel, line.yChannel, aggregation, detail]);
+  if (telemetry == null) return null;
   return (
     <BaseLine
       key={key}
