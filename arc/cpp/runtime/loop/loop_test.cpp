@@ -1087,7 +1087,7 @@ protected:
 
     void SetUp() override {
         Config config;
-        config.mode = GetParam();
+        config.mode = this->GetParam();
         this->loop = ASSERT_NIL_P(create_and_start(config));
         this->notifier = x::notify::create();
         ASSERT_TRUE(this->loop->watch(*this->notifier));
@@ -1162,7 +1162,7 @@ protected:
 
     void SetUp() override {
         Config config;
-        config.mode = GetParam();
+        config.mode = this->GetParam();
         config.interval = this->INTERVAL;
         this->loop = ASSERT_NIL_P(create_and_start(config));
         this->breaker.start();
@@ -1285,7 +1285,7 @@ protected:
 
     void SetUp() override {
         Config config;
-        config.mode = GetParam();
+        config.mode = this->GetParam();
         config.cpu_affinity = CPU_AFFINITY_NONE;
         this->loop = std::make_unique<FailingArmLoop>(config);
         ASSERT_NIL(this->loop->start());
@@ -1390,8 +1390,8 @@ struct CountingEpollApi {
         const timespec &timeout
     ) const {
         if (this->timeouts != nullptr)
-            this->timeouts->push_back(
-                x::telem::TimeSpan(timeout.tv_sec * 1'000'000'000 + timeout.tv_nsec)
+            this->timeouts->emplace_back(
+                timeout.tv_sec * 1'000'000'000 + timeout.tv_nsec
             );
         if (!this->pwait2) {
             errno = ENOSYS;
@@ -1400,14 +1400,14 @@ struct CountingEpollApi {
         return EpollApi::wait(epfd, events, max, timeout);
     }
 
-    int set(const int fd, const itimerspec &ts) const {
+    [[nodiscard]] int set(const int fd, const itimerspec &ts) const {
         (*this->arms)++;
         return EpollApi::set(fd, ts);
     }
 
-    bool realtime() const { return this->realtime_thread; }
+    [[nodiscard]] bool realtime() const { return this->realtime_thread; }
 
-    int hold_latency() const {
+    [[nodiscard]] int hold_latency() const {
         if (this->holds != nullptr) (*this->holds)++;
         return open("/dev/null", O_WRONLY | O_CLOEXEC);
     }
@@ -1775,8 +1775,8 @@ protected:
     x::telem::TimeSpan duration;
 
     void SetUp() override {
-        const auto config = Config().apply_defaults(std::get<0>(GetParam()));
-        this->duration = std::get<1>(GetParam());
+        const auto config = Config().apply_defaults(std::get<0>(this->GetParam()));
+        this->duration = std::get<1>(this->GetParam());
         this->loop = ASSERT_NIL_P(create_and_start(config));
         this->breaker.start();
     }

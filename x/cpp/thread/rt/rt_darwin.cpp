@@ -89,7 +89,6 @@ Capabilities capabilities() {
     };
 }
 
-// NOLINTNEXTLINE(readability-convert-member-functions-to-static): Linux reads members.
 std::string Capabilities::permissions_guidance() const {
     return "";
 }

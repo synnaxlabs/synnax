@@ -62,7 +62,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     // Health probe runs outside the lock so other threads can acquire
     // different connections concurrently.
     if (candidate) {
-        if (const auto err = run_iterate_checked(candidate, log_prefix)) {
+        if (const auto err = this->run_iterate_checked(candidate, log_prefix)) {
             VLOG(1) << log_prefix << "Cached connection failed maintenance, discarding";
             std::lock_guard<std::mutex> lock(mutex_);
             auto it = connections_.find(key);
@@ -204,7 +204,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     }
 
     // Perform initial connection maintenance with error checking.
-    if (const auto iterate_err = run_iterate_checked(client, log_prefix)) {
+    if (const auto iterate_err = this->run_iterate_checked(client, log_prefix)) {
         LOG(WARNING) << log_prefix << "New connection failed initial maintenance";
         std::lock_guard<std::mutex> lock(mutex_);
         auto &breaker = breakers[key];

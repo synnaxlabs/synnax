@@ -167,8 +167,6 @@ public:
     /// @note Each call creates a fresh connection. Connections are not cached or shared
     /// to avoid thread-safety issues (libmodbus is not thread-safe) and stale
     /// connection problems when servers restart.
-    // NOLINTBEGIN(readability-convert-member-functions-to-static): callers go through
-    // the injected manager.
     std::pair<std::shared_ptr<Device>, x::errors::Error>
     acquire(const ConnectionConfig &config) {
         auto *ctx = modbus_new_tcp(config.host.c_str(), config.port);
@@ -182,6 +180,5 @@ public:
 
         return {std::make_shared<Device>(ctx), x::errors::NIL};
     }
-    // NOLINTEND(readability-convert-member-functions-to-static)
 };
 }

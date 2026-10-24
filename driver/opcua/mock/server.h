@@ -333,7 +333,7 @@ public:
     /// @return true if server is ready, false if timeout expired.
     bool wait_until_ready(
         std::chrono::milliseconds timeout = std::chrono::milliseconds(5000)
-    ) {
+    ) const {
         const auto start = std::chrono::steady_clock::now();
         while (!ready.load() && running.load()) {
             if (std::chrono::steady_clock::now() - start >= timeout) return false;

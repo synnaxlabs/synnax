@@ -120,7 +120,7 @@ protected:
         return dev;
     }
 
-    static x::json::json create_base_config() {
+    x::json::json create_base_config() {
         return {
             {"data_saving_disabled", true},
             {"state_rate", 10.0},
@@ -175,7 +175,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithAutomaticChannel) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_output_channel_config(cmd_ch.key, "control_word")
     );
@@ -200,7 +200,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithManualChannel) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_manual_output_channel_config(cmd_ch.key, 0x7000, 2, 32, "int32")
     );
@@ -228,7 +228,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithStateChannel) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_output_channel_config(cmd_ch.key, "control_word", state_ch.key)
     );
@@ -254,7 +254,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithMultipleChannels) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_output_channel_config(ch1.key, "control_word")
     );
@@ -276,7 +276,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithInvalidPDOName) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_output_channel_config(cmd_ch.key, "nonexistent_pdo")
     );
@@ -300,7 +300,7 @@ TEST_F(EtherCATWriteTest, CmdKeysReturnsAllCommandChannels) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_output_channel_config(ch1.key, "control_word")
     );
@@ -326,7 +326,7 @@ TEST_F(EtherCATWriteTest, SinkStartRegistersWithEngine) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_output_channel_config(cmd_ch.key, "control_word")
     );
@@ -382,7 +382,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithMixedChannelTypes) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_output_channel_config(auto_ch.key, "control_word")
     );
@@ -408,7 +408,7 @@ TEST_F(EtherCATWriteTest, SinkWritesDataToEngine) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_output_channel_config(cmd_ch.key, "control_word")
     );
@@ -444,7 +444,7 @@ TEST_F(EtherCATWriteTest, SinkLastWriteWins) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_output_channel_config(cmd_ch.key, "control_word")
     );
@@ -486,7 +486,7 @@ TEST_F(EtherCATWriteTest, SinkWritesMultipleChannels) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_output_channel_config(ch1.key, "control_word")
     );
@@ -523,7 +523,7 @@ TEST_F(EtherCATWriteTest, SinkIgnoresMissingChannelInFrame) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_output_channel_config(cmd_ch.key, "control_word")
     );
@@ -549,7 +549,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_output_channel_config(cmd_ch.key, "control_word")
     );

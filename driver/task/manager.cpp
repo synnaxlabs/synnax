@@ -560,7 +560,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                         entry->instance->stop(true);
                         entry->instance = nullptr;
                     }
-                    clear_deploy(entry);
+                    this->clear_deploy(entry);
                     std::lock_guard lock{this->mu};
                     this->remove(op.task_key, true);
                     break;
@@ -655,7 +655,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                 entry->instance->stop(true);
                 entry->instance = nullptr;
             }
-            clear_deploy(entry);
+            this->clear_deploy(entry);
             // The row is gone from the cluster, so the entry goes unconditionally.
             std::lock_guard lock{this->mu};
             this->entries.erase(op.task_key);
@@ -670,7 +670,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             }
             // The row may have moved back to this rack while the release was queued,
             // so the entry can survive and must not keep a stale hash.
-            clear_deploy(entry);
+            this->clear_deploy(entry);
             std::lock_guard lock{this->mu};
             this->remove(op.task_key, true);
             break;

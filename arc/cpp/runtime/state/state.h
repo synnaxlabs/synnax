@@ -36,7 +36,7 @@ using Series = x::mem::local_shared<x::telem::Series>;
 
 struct AuthorityChange {
     std::optional<types::ChannelKey> channel_key;
-    uint8_t authority;
+    uint8_t authority = 0;
 };
 
 struct Value {

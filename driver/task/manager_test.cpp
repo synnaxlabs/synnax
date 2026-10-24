@@ -915,7 +915,7 @@ public:
         if (destroyed != nullptr) *destroyed = true;
     }
 
-    std::string name() const override { return "destructor_tracking"; }
+    [[nodiscard]] std::string name() const override { return "destructor_tracking"; }
 
     void exec(synnax::task::Command &) override {}
 

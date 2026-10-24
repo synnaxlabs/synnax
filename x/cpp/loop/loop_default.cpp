@@ -16,7 +16,6 @@ Timer::ImplPtr Timer::make_impl() {
     return {nullptr, [](Impl *) {}};
 }
 
-// NOLINTNEXTLINE(readability-convert-member-functions-to-static): Windows reads state.
 void Timer::step() {
     std::this_thread::sleep_for(RESOLUTION.chrono());
 }

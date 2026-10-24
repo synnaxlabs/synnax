@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdlib>
 
 #include "grpc/grpc.h"
@@ -153,8 +154,9 @@ public:
 
 /// @brief Freighter stream object.
 template<typename RQ, typename RS, typename RPC>
-class Stream final : public freighter::Stream<RQ, RS>,
-                     Finalizer<nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> {
+class Stream final
+    : public freighter::Stream<RQ, RS>,
+      Finalizer<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> {
 
     MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> mw;
 

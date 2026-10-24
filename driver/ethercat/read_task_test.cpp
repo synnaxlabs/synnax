@@ -118,7 +118,7 @@ protected:
         return dev;
     }
 
-    static x::json::json create_base_config() {
+    x::json::json create_base_config() {
         return {
             {"data_saving_disabled", true},
             {"sample_rate", 100},
@@ -168,7 +168,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithAutomaticChannel) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(data_ch, "status_word")
     );
@@ -191,7 +191,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithManualChannel) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_manual_input_channel_config(data_ch, 0x6000, 2, 32, "int32")
     );
@@ -219,7 +219,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithMultipleChannels) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(ch1, "status_word")
     );
@@ -234,7 +234,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithMultipleChannels) {
 }
 
 TEST_F(EtherCATReadTest, ParseConfigWithInvalidChannel) {
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     synnax::channel::Channel invalid_ch;
     invalid_ch.key = 99999;
     cfg["channels"].push_back(
@@ -254,7 +254,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithInvalidPDOName) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(data_ch, "nonexistent_pdo")
     );
@@ -278,7 +278,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithMixedChannelTypes) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(auto_ch, "status_word")
     );
@@ -304,7 +304,7 @@ TEST_F(EtherCATReadTest, WriterConfigIncludesAllChannels) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(ch1, "status_word")
     );
@@ -325,7 +325,7 @@ TEST_F(EtherCATReadTest, SourceStartRegistersWithEngine) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(data_ch, "status_word")
     );
@@ -373,7 +373,7 @@ TEST_F(EtherCATReadTest, SourceReadsDataFromEngine) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_input_channel_config(data_ch, "status_word")
     );
@@ -407,7 +407,7 @@ TEST_F(EtherCATReadTest, SourceReadsCorrectValueFromEngine) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["sample_rate"] = 10;
     cfg["stream_rate"] = 10;
     cfg["channels"].push_back(
@@ -454,7 +454,7 @@ TEST_F(EtherCATReadTest, SourceReadsMultipleChannelValues) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["sample_rate"] = 10;
     cfg["stream_rate"] = 10;
     cfg["channels"].push_back(
@@ -506,7 +506,7 @@ TEST_F(EtherCATReadTest, SourceReturnsEmptyFrameWhenBreakerStopped) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_input_channel_config(data_ch, "status_word")
     );
@@ -536,7 +536,7 @@ TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         this->create_automatic_input_channel_config(data_ch, "status_word")
     );

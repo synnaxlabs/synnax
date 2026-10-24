@@ -180,7 +180,7 @@ private:
 
     /// @brief Performs connection maintenance via run_iterate and verifies
     /// session state.
-    static x::errors::Error run_iterate_checked(
+    x::errors::Error run_iterate_checked(
         const std::shared_ptr<UA_Client> &client,
         const std::string &log_prefix
     );

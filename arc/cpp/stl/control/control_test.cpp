@@ -162,8 +162,8 @@ class SetAuthorityInputsTest : public testing::TestWithParam<bool> {
 protected:
     std::shared_ptr<runtime::state::State> auth = auth_state();
 
-    [[nodiscard]] static stl::testutil::Fixture
-    config(const uint8_t value, const uint32_t channel) {
+    [[nodiscard]] stl::testutil::Fixture
+    config(const uint8_t value, const uint32_t channel) const {
         stl::testutil::InputValue v = x::json::json(value);
         if (GetParam())
             v = std::shared_ptr<stl::testutil::VarBinding>(
@@ -183,7 +183,7 @@ INSTANTIATE_TEST_SUITE_P(
 );
 
 TEST_P(SetAuthorityInputsTest, BuffersAPerChannelAuthorityChange) {
-    auto f = config(200, 42);
+    auto f = this->config(200, 42);
     control::Module module(this->auth);
     auto n = ASSERT_NIL_P(module.create(f.make_config()));
     auto ctx = make_context();
@@ -196,7 +196,7 @@ TEST_P(SetAuthorityInputsTest, BuffersAPerChannelAuthorityChange) {
 }
 
 TEST_P(SetAuthorityInputsTest, BuffersAGlobalAuthorityChange) {
-    auto f = config(150, 0);
+    auto f = this->config(150, 0);
     control::Module module(this->auth);
     auto n = ASSERT_NIL_P(module.create(f.make_config()));
     auto ctx = make_context();
@@ -208,7 +208,7 @@ TEST_P(SetAuthorityInputsTest, BuffersAGlobalAuthorityChange) {
 }
 
 TEST_P(SetAuthorityInputsTest, FiresOnlyOnceBeforeReset) {
-    auto f = config(200, 42);
+    auto f = this->config(200, 42);
     control::Module module(this->auth);
     auto n = ASSERT_NIL_P(module.create(f.make_config()));
     auto ctx = make_context();
@@ -221,7 +221,7 @@ TEST_P(SetAuthorityInputsTest, FiresOnlyOnceBeforeReset) {
 }
 
 TEST_P(SetAuthorityInputsTest, MarksDoneOnlyOnTheRunThatSetsAuthority) {
-    auto f = config(200, 42);
+    auto f = this->config(200, 42);
     control::Module module(this->auth);
     auto n = ASSERT_NIL_P(module.create(f.make_config()));
     int done = 0;
@@ -237,7 +237,7 @@ TEST_P(SetAuthorityInputsTest, MarksDoneOnlyOnTheRunThatSetsAuthority) {
 }
 
 TEST_P(SetAuthorityInputsTest, DoesNotCallMarkChanged) {
-    auto f = config(200, 42);
+    auto f = this->config(200, 42);
     control::Module module(this->auth);
     auto n = ASSERT_NIL_P(module.create(f.make_config()));
     std::vector<std::string> outputs;
@@ -249,7 +249,7 @@ TEST_P(SetAuthorityInputsTest, DoesNotCallMarkChanged) {
 }
 
 TEST_P(SetAuthorityInputsTest, AllowsReFireAfterReset) {
-    auto f = config(200, 42);
+    auto f = this->config(200, 42);
     control::Module module(this->auth);
     auto n = ASSERT_NIL_P(module.create(f.make_config()));
     auto ctx = make_context();
@@ -261,7 +261,7 @@ TEST_P(SetAuthorityInputsTest, AllowsReFireAfterReset) {
 }
 
 TEST_P(SetAuthorityInputsTest, ProducesSameAuthorityOnReFire) {
-    auto f = config(200, 42);
+    auto f = this->config(200, 42);
     control::Module module(this->auth);
     auto n = ASSERT_NIL_P(module.create(f.make_config()));
     auto ctx = make_context();

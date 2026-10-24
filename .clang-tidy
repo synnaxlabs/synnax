@@ -25,6 +25,9 @@
 # - use-std-numbers: it swaps a literal near pi or e, such as 3.14159, which changes the
 #   value a test checks.
 # - slicing: the Arc runtime copies a Program to its IR on purpose.
+# - convert-member-functions-to-static and static-accessed-through-instance: we call
+#   members through this->, and a method that does not use its object yet still
+#   belongs to the object's interface.
 # - inefficient-string-concatenation and use-anyofallof: style only, and the rewrite
 #   reads no better. Frame is not a range, so it cannot take std::ranges::all_of.
 # - include-cleaner and inconsistent-declaration-parameter-name: the result differs
@@ -76,6 +79,7 @@ Checks: |
     -portability-template-virtual-member-function,
     readability-*,
     -readability-braces-around-statements,
+    -readability-convert-member-functions-to-static,
     -readability-function-cognitive-complexity,
     -readability-identifier-length,
     -readability-implicit-bool-conversion,
@@ -86,6 +90,7 @@ Checks: |
     -readability-math-missing-parentheses,
     -readability-named-parameter,
     -readability-redundant-lambda-parameter-list,
+    -readability-static-accessed-through-instance,
     -readability-trailing-comma,
     -readability-uppercase-literal-suffix,
     -readability-use-anyofallof,
