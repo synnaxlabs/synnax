@@ -140,8 +140,20 @@ func (i *Iterator) SetBounds(tr telem.TimeRange) {
 
 func (i *Iterator) Bounds() telem.TimeRange { return i.bounds }
 
+// MoveTo empties the frame and moves the view to the empty range at ts without reading,
+// so that Continue reads forward from ts. Unlike a seek, MoveTo keeps the error that
+// stopped the iterator.
+func (i *Iterator) MoveTo(ctx context.Context, ts telem.TimeStamp) {
+	i.reset(ts.SpanRange(0))
+	// A domain at or before ts keeps the iterator on a domain when none follows ts, so
+	// a later Prev still finds the earlier ones.
+	if !i.internal.SeekLE(ctx, ts) {
+		i.internal.SeekGE(ctx, ts)
+	}
+}
+
 // Continue replaces the frame with the data between the end of the view and end, and
-// extends the view to end. It splits one Next into consecutive reads.
+// extends the view to end. It splits one read into consecutive pieces.
 func (i *Iterator) Continue(ctx context.Context, end telem.TimeStamp) bool {
 	start := i.view.Start
 	ok := i.Next(ctx, i.view.End.Span(end))

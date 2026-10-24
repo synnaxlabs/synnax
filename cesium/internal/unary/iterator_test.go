@@ -2013,6 +2013,19 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.Close()).To(Succeed())
 						})
 
+						It("should keep the fault through MoveTo", func(
+							ctx SpecContext,
+						) {
+							faulty, _, iter := openFaulty(ctx)
+							Expect(iter.SeekFirst(ctx)).To(BeTrue())
+							faulty.SetOptions(WithFailReadAt())
+							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
+							faulty.SetOptions()
+							iter.MoveTo(ctx, 10*telem.SecondTS)
+							Expect(iter.Error()).To(MatchError(ErrFault))
+							Expect(iter.Close()).To(MatchError(ErrFault))
+						})
+
 						It("should prefix a Read fault with the channel once", func(
 							ctx SpecContext,
 						) {
@@ -3051,11 +3064,11 @@ var _ = Describe("Downsampled Iteration", func() {
 var _ = Describe("Pieced Iteration", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, func() {
-			var dataDB *unary.DB
+			var indexDB, dataDB *unary.DB
 			BeforeEach(func(ctx SpecContext) {
 				fs := openFS()
 				indexKey := GenerateChannelKey()
-				indexDB := MustOpen(unary.Open(ctx, unary.Config{
+				indexDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("index")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -3104,6 +3117,84 @@ var _ = Describe("Pieced Iteration", func() {
 					Entry("inside the data", int64(2), 3*telem.SecondTS),
 					Entry("past the data", int64(4), telem.TimeStampMax),
 				)
+			})
+
+			Describe("MoveTo", func() {
+				BeforeEach(func(ctx SpecContext) {
+					Expect(unary.Write(
+						ctx,
+						indexDB,
+						10*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(10, 11),
+					)).To(Succeed())
+					Expect(unary.Write(
+						ctx,
+						dataDB,
+						10*telem.SecondTS,
+						telem.NewSeriesV[int64](10, 11),
+					)).To(Succeed())
+				})
+
+				// values returns the samples in the frame of iter, in order.
+				values := func(iter *unary.Iterator) []int64 {
+					var out []int64
+					for _, s := range iter.Value().Get(iter.Channel.Key).Series {
+						out = append(out, s.Unmarshal[int64]()...)
+					}
+					return out
+				}
+
+				DescribeTable(
+					"Should move the view to ts and read forward from it after any read",
+					func(
+						ctx SpecContext,
+						ts telem.TimeStamp,
+						end telem.TimeStamp,
+						expected []int64,
+					) {
+						iter := MustOpen(dataDB.OpenIterator(unary.IterRange(
+							telem.TimeRangeMax,
+						)))
+						Expect(iter.SeekFirst(ctx)).To(BeTrue())
+						Expect(iter.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
+						iter.MoveTo(ctx, ts)
+						Expect(iter.View()).To(Equal(ts.SpanRange(0)))
+						Expect(iter.Value().Empty()).To(BeTrue())
+						Expect(iter.Continue(ctx, end)).To(BeTrue())
+						Expect(values(iter)).To(Equal(expected))
+						Expect(iter.View()).To(Equal(ts.Range(end)))
+					},
+					Entry(
+						"inside a domain",
+						2*telem.SecondTS,
+						11*telem.SecondTS,
+						[]int64{2, 3, 4, 10},
+					),
+					Entry(
+						"between domains",
+						6*telem.SecondTS,
+						12*telem.SecondTS,
+						[]int64{10, 11},
+					),
+					Entry(
+						"before the first domain",
+						telem.SecondTS/2,
+						3*telem.SecondTS,
+						[]int64{1, 2},
+					),
+				)
+
+				It("Should stay on the last domain when ts follows every domain", func(
+					ctx SpecContext,
+				) {
+					iter := MustOpen(dataDB.OpenIterator(unary.IterRange(
+						telem.TimeRangeMax,
+					)))
+					Expect(iter.SeekFirst(ctx)).To(BeTrue())
+					iter.MoveTo(ctx, 20*telem.SecondTS)
+					Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+					Expect(values(iter)).To(Equal([]int64{1, 2, 3, 4, 10, 11}))
+				})
 			})
 
 			Describe("Continue", func() {

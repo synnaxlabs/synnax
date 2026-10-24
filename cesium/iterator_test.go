@@ -1056,10 +1056,12 @@ var _ = Describe("Iterator Behavior", func() {
 					))).To(Succeed())
 				})
 
-				// nextPieces seeks the first sample, sends one Next of span, and
-				// returns the samples of the data channels in each data response.
-				nextPieces := func(
+				// pieces sends seek and then cmd with span, and returns the samples of
+				// the data channels in each data response to cmd.
+				pieces := func(
 					cfg cesium.IteratorConfig,
+					seek cesium.IteratorCommand,
+					cmd cesium.IteratorCommand,
 					span telem.TimeSpan,
 					data ...cesium.ChannelKey,
 				) [][]int64 {
@@ -1069,14 +1071,9 @@ var _ = Describe("Iterator Behavior", func() {
 					defer cancel()
 					requests, responses := confluence.Attach(it, 1)
 					it.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-					requests.Inlet() <- cesium.IteratorRequest{
-						Command: cesium.IteratorCommandSeekFirst,
-					}
+					requests.Inlet() <- cesium.IteratorRequest{Command: seek}
 					Eventually(responses.Outlet()).Should(Receive())
-					requests.Inlet() <- cesium.IteratorRequest{
-						Command: cesium.IteratorCommandNext,
-						Span:    span,
-					}
+					requests.Inlet() <- cesium.IteratorRequest{Command: cmd, Span: span}
 					var pieces [][]int64
 					for {
 						var res cesium.IteratorResponse
@@ -1098,11 +1095,11 @@ var _ = Describe("Iterator Behavior", func() {
 					return pieces
 				}
 
-				It(
+				DescribeTable(
 					"Should send a fixed span as one response per piece of at most "+
-						"AutoChunkSize samples per index",
-					func() {
-						Expect(nextPieces(
+						"AutoChunkSize samples per index, in time order",
+					func(seek, cmd cesium.IteratorCommand) {
+						Expect(pieces(
 							cesium.IteratorConfig{
 								Bounds: telem.TimeRangeMax,
 								Channels: []cesium.ChannelKey{
@@ -1113,6 +1110,8 @@ var _ = Describe("Iterator Behavior", func() {
 								},
 								AutoChunkSize: 2,
 							},
+							seek,
+							cmd,
 							10*telem.Second,
 							dataA,
 							dataB,
@@ -1122,12 +1121,22 @@ var _ = Describe("Iterator Behavior", func() {
 							{50, 60, 300},
 						}))
 					},
+					Entry(
+						"Next",
+						cesium.IteratorCommandSeekFirst,
+						cesium.IteratorCommandNext,
+					),
+					Entry(
+						"Prev",
+						cesium.IteratorCommandSeekLast,
+						cesium.IteratorCommandPrev,
+					),
 				)
 
-				It(
+				DescribeTable(
 					"Should split a strided fixed span into pieces that keep the samples "+
 						"of one read",
-					func() {
+					func(seek, cmd cesium.IteratorCommand) {
 						cfg := cesium.IteratorConfig{
 							Bounds:   telem.TimeRangeMax,
 							Channels: []cesium.ChannelKey{idxA, dataA},
@@ -1135,17 +1144,27 @@ var _ = Describe("Iterator Behavior", func() {
 								Variant: telem.StrideReduction{Factor: 2},
 							},
 						}
-						Expect(nextPieces(cfg, 10*telem.Second, dataA)).
+						Expect(pieces(cfg, seek, cmd, 10*telem.Second, dataA)).
 							To(Equal([][]int64{{10, 30, 50}}))
 						cfg.AutoChunkSize = 2
-						Expect(nextPieces(cfg, 10*telem.Second, dataA)).
+						Expect(pieces(cfg, seek, cmd, 10*telem.Second, dataA)).
 							To(Equal([][]int64{{10}, {30}, {50}}))
 					},
+					Entry(
+						"Next",
+						cesium.IteratorCommandSeekFirst,
+						cesium.IteratorCommandNext,
+					),
+					Entry(
+						"Prev",
+						cesium.IteratorCommandSeekLast,
+						cesium.IteratorCommandPrev,
+					),
 				)
 
-				It(
+				DescribeTable(
 					"Should end each piece after a run of equal timestamps",
-					func(ctx SpecContext) {
+					func(ctx SpecContext, seek, cmd cesium.IteratorCommand) {
 						idx, data := GenerateChannelKey(), GenerateChannelKey()
 						Expect(db.CreateChannel(
 							ctx,
@@ -1169,20 +1188,91 @@ var _ = Describe("Iterator Behavior", func() {
 								telem.NewSeriesV[int64](10, 20, 30, 40, 50),
 							},
 						))).To(Succeed())
-						pieces := nextPieces(
+						read := pieces(
 							cesium.IteratorConfig{
 								Bounds:        telem.TimeRangeMax,
 								Channels:      []cesium.ChannelKey{idx, data},
 								AutoChunkSize: 1,
 							},
+							seek,
+							cmd,
 							10*telem.Second,
 							data,
 						)
-						Expect(slices.Concat(pieces...)).
+						Expect(slices.Concat(read...)).
 							To(Equal([]int64{10, 20, 30, 40, 50}))
 					},
-					SpecTimeout(10*time.Second),
+					Entry(
+						"Next",
+						cesium.IteratorCommandSeekFirst,
+						cesium.IteratorCommandNext,
+						SpecTimeout(10*time.Second),
+					),
+					Entry(
+						"Prev",
+						cesium.IteratorCommandSeekLast,
+						cesium.IteratorCommandPrev,
+						SpecTimeout(10*time.Second),
+					),
 				)
+
+				It("Should continue from a pieced Prev across domains", func(
+					ctx SpecContext,
+				) {
+					idx, data := GenerateChannelKey(), GenerateChannelKey()
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      idx,
+							Name:     "Shackleton",
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						},
+						cesium.Channel{
+							Key:      data,
+							Name:     "Bancroft",
+							Index:    idx,
+							DataType: telem.Int64T,
+						},
+					)).To(Succeed())
+					Expect(db.Write(ctx, telem.SecondTS, telem.MultiFrame(
+						[]cesium.ChannelKey{idx, data},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(1, 2, 3),
+							telem.NewSeriesV[int64](1, 2, 3),
+						},
+					))).To(Succeed())
+					Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+						[]cesium.ChannelKey{idx, data},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(10, 11, 12),
+							telem.NewSeriesV[int64](10, 11, 12),
+						},
+					))).To(Succeed())
+					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+						Bounds:        telem.TimeRangeMax,
+						Channels:      []cesium.ChannelKey{idx, data},
+						AutoChunkSize: 1,
+					}))
+					values := func() []int64 {
+						GinkgoHelper()
+						var out []int64
+						for _, s := range i.Value().Get(data).Series {
+							out = append(out, s.Unmarshal[int64]()...)
+						}
+						return out
+					}
+					Expect(i.SeekLast()).To(BeTrue())
+					Expect(i.Prev(5 * telem.Second)).To(BeTrue())
+					Expect(values()).To(Equal([]int64{10, 11, 12}))
+					Expect(i.Prev(10 * telem.Second)).To(BeTrue())
+					Expect(values()).To(Equal([]int64{1, 2, 3}))
+					Expect(i.Next(4 * telem.Second)).To(BeTrue())
+					Expect(values()).To(Equal([]int64{10, 11}))
+					Expect(i.Prev(cesium.AutoSpan)).To(BeTrue())
+					Expect(values()).To(Equal([]int64{3}))
+					Expect(i.Close()).To(Succeed())
+				})
 
 				It("Should keep the view start of a pieced Next", func() {
 					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
