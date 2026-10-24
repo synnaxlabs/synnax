@@ -80,15 +80,16 @@ var _ = Describe("Create", Ordered, func() {
 					gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
 				)
 				var (
-					e   = entry{ID: 1, Data: "data"}
-					key = []byte("key")
-					err error
+					e       = entry{ID: 1, Data: "data"}
+					entries = []entry{e}
+					key     = []byte("key")
+					err     error
 				)
 				create := func() {
 					tx := db.OpenTx()
 					err = errors.Join(
 						err,
-						table.NewCreate().Entry(&e).Exec(ctx, tx),
+						table.NewCreate().Entries(&entries).Exec(ctx, tx),
 						tx.Close(),
 					)
 				}
