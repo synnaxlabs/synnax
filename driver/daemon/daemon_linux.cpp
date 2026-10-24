@@ -43,7 +43,7 @@ Group=synnax
 EnvironmentFile=-/etc/synnax/driver.env
 
 # Raw Ethernet access for EtherCAT
-AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_RAW
 
 # Watchdog configuration
 WatchdogSec=30s
