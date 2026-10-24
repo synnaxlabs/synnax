@@ -1,0 +1,59 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-pane {
+    flex-shrink: 0;
+    overflow: hidden;
+    background: var(--pluto-gray-l0);
+    border: var(--pluto-border);
+    border-radius: var(--pluto-border-radius-medium);
+}
+
+/* The bar at the top of a pane. A disclosure summary takes it too. */
+.pluto-pane > .pluto-pane__bar {
+    min-height: 7rem;
+    padding: 0 3rem;
+    background: var(--pluto-gray-l1);
+}
+
+.pluto-pane__item {
+    padding: 2rem 3rem;
+}
+
+.pluto-pane__item + .pluto-pane__item {
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
+}
+
+.pluto-pane__button {
+    gap: 2rem;
+    width: 100%;
+    height: auto;
+    border-radius: 0;
+    text-align: start;
+    white-space: normal;
+
+    --pluto-hover-bg: var(--pluto-gray-l1);
+    --pluto-active-bg: var(--pluto-gray-l2);
+
+    & > .pluto-pane__caret {
+        flex-shrink: 0;
+        margin-left: auto;
+        color: var(--pluto-gray-l7);
+        transition:
+            color 0.15s ease-in-out,
+            transform 0.15s ease-in-out;
+    }
+
+    &:hover > .pluto-pane__caret {
+        color: var(--pluto-gray-l10);
+        transform: translateX(0.5rem);
+    }
+}
