@@ -12,8 +12,6 @@
 #include "driver/ethercat/engine/clock.h"
 
 namespace driver::ethercat::engine {
-constexpr int64_t MS = 1'000'000;
-
 TEST(Clock, AnchorsTheFirstTimeToTheHost) {
     Clock clock;
     EXPECT_EQ(
@@ -24,31 +22,32 @@ TEST(Clock, AnchorsTheFirstTimeToTheHost) {
 
 TEST(Clock, KeepsDCSpacingThroughHostJitter) {
     Clock clock;
-    clock.map(x::telem::TimeStamp(0), x::telem::TimeStamp(1'000 * MS));
+    const x::telem::TimeStamp start(x::telem::SECOND);
+    const x::telem::TimeStamp dc(x::telem::MILLISECOND);
+    clock.map(x::telem::TimeStamp(0), start);
     EXPECT_EQ(
-        clock.map(x::telem::TimeStamp(MS), x::telem::TimeStamp(1'001 * MS + MS / 2)),
-        x::telem::TimeStamp(1'001 * MS + MS / 2'000)
+        clock.map(dc, start + x::telem::MICROSECOND * 1'500),
+        start + x::telem::MILLISECOND + x::telem::NANOSECOND * 500
     );
 }
 
 TEST(Clock, ReanchorsWhenTheHostJumps) {
     Clock clock;
-    clock.map(x::telem::TimeStamp(0), x::telem::TimeStamp(1'000 * MS));
+    const x::telem::TimeStamp start(x::telem::SECOND);
+    clock.map(x::telem::TimeStamp(0), start);
     EXPECT_EQ(
-        clock.map(x::telem::TimeStamp(MS), x::telem::TimeStamp(3'000 * MS)),
-        x::telem::TimeStamp(3'000 * MS)
+        clock.map(x::telem::TimeStamp(x::telem::MILLISECOND), start + x::telem::SECOND),
+        start + x::telem::SECOND
     );
 }
 
 TEST(Clock, FollowsAHostClockThatRunsFaster) {
     Clock clock;
-    int64_t host = 0;
-    int64_t error = 0;
+    x::telem::TimeSpan error;
     for (int64_t i = 0; i < 20'000; ++i) {
-        host = i * (MS + 100);
-        error = host - clock.map(x::telem::TimeStamp(i * MS), x::telem::TimeStamp(host))
-                           .nanoseconds();
+        const x::telem::TimeStamp host((x::telem::MILLISECOND + 100) * i);
+        error = host - clock.map(x::telem::TimeStamp(x::telem::MILLISECOND * i), host);
     }
-    EXPECT_LT(error, MS / 8);
+    EXPECT_LT(error.abs(), x::telem::MICROSECOND * 125);
 }
 }

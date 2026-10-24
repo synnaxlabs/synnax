@@ -9,20 +9,18 @@
 
 #pragma once
 
-#include <cstdint>
-
 #include "x/cpp/telem/telem.h"
 
 namespace driver::ethercat::engine {
 /// @brief maps distributed clock times onto the host clock. Mapped times keep the low
 /// jitter of the DC clock and follow the rate of the host clock.
 class Clock {
-    /// @brief a residual above this many nanoseconds re-anchors the offset instead of
-    /// filtering it.
-    static constexpr int64_t STEP = 100'000'000;
+    /// @brief a residual larger than this re-anchors the offset instead of filtering
+    /// it.
+    inline static const x::telem::TimeSpan STEP = x::telem::MILLISECOND * 100;
     /// @brief the number of updates over which the offset follows the host clock.
     static constexpr int64_t GAIN = 1000;
-    int64_t offset = 0;
+    x::telem::TimeSpan offset;
     bool anchored = false;
 
 public:
@@ -31,13 +29,13 @@ public:
     /// @param host the host time of the same event, read with jitter.
     x::telem::TimeStamp
     map(const x::telem::TimeStamp dc, const x::telem::TimeStamp host) {
-        const int64_t residual = host.nanoseconds() - dc.nanoseconds() - this->offset;
-        if (!this->anchored || residual > STEP || residual < -STEP) {
+        const auto residual = host - dc - this->offset;
+        if (!this->anchored || residual.abs() > STEP) {
             this->offset += residual;
             this->anchored = true;
         } else
             this->offset += residual / GAIN;
-        return x::telem::TimeStamp(dc.nanoseconds() + this->offset);
+        return dc + this->offset;
     }
 };
 }

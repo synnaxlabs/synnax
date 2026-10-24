@@ -124,10 +124,10 @@ Reads data from a TxPDO using explicit CoE addressing.
   EtherCAT cycle time.
 - **Stream rate** -> For sample rates under 50 Hz, set the stream rate equal to the
   sample rate. Above that, keep the stream rate under 50 Hz.
-- **Timestamps** -> Each sample has the time of the bus cycle that read it. With the
-  SOEM master, if a device on the network has a distributed clock (DC), the Driver
-  spaces the timestamps by that clock and keeps them aligned with the host clock. The
-  samples are then evenly spaced even when the host computer is busy.
+- **Timestamps** -> Each sample has the time of the bus cycle that read it. If a device
+  on the network has a distributed clock (DC), the SOEM master spaces the timestamps by
+  that clock. The timestamps stay aligned with the host clock, and they stay evenly
+  spaced when the host computer is busy.
 
 <Divider.Divider x />
 
