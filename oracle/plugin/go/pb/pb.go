@@ -692,34 +692,7 @@ func (p *Plugin) processFieldForTranslation(
 
 	typeRef := dealiasPrimitive(field.Type, data.table)
 
-	// Optional primitives that need type conversion (e.g., *uint8 <-> *uint32) require
-	// pointer dereference before casting and re-addressing after.
-	if isOptional && resolution.IsPrimitive(typeRef.Name) &&
-		primitiveNeedsConversion(typeRef.Name) {
-		fd.NeedsPtrConversion = true
-		goFieldDeref := "*r." + goName
-		pbFieldDeref := "*pb." + pbName
-		fd.ForwardExpr, fd.BackwardExpr, _, _ = p.generatePrimitiveConversion(
-			typeRef.Name,
-			goFieldDeref,
-			pbFieldDeref,
-			data,
-		)
-	}
-
-	// Optional typedefs over primitives (e.g. *channel.Key <-> *uint32) need the same
-	// deref-convert-readdress treatment.
-	if isOptional && !resolution.IsPrimitive(typeRef.Name) {
-		if resolved, _, ok := resolution.Dealias(typeRef, data.table); ok {
-			if form, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct &&
-				resolution.IsPrimitive(dealiasPrimitive(form.Base, data.table).Name) {
-				fd.NeedsPtrConversion = true
-				fd.ForwardExpr, fd.BackwardExpr, _, _ = p.generateTypeDefConversion(
-					resolved, form, data, "*r."+goName, "*pb."+pbName,
-				)
-			}
-		}
-	}
+	p.setPtrConversion(&fd, field, data)
 
 	// Maps whose value type does not survive a direct copy (numeric primitives that
 	// widen, opaque records that bridge through structpb.Struct, struct values that
@@ -755,6 +728,58 @@ func (p *Plugin) processFieldForTranslation(
 	}
 
 	return fd
+}
+
+// setPtrConversion sets an optional field to convert through its dereferenced value
+// (e.g. *channel.Key <-> *uint32) when Go holds a primitive, or a distinct type over
+// one, behind a pointer and proto holds it as another type.
+func (p *Plugin) setPtrConversion(
+	fd *fieldTranslatorData,
+	field resolution.Field,
+	data *templateData,
+) {
+	if !field.Optional || typemap.Nilable(field.Type, data.table) {
+		return
+	}
+	ref := dealiasPrimitive(field.Type, data.table)
+	resolved, _, _ := resolution.Dealias(ref, data.table)
+	form, isDistinct := resolved.Form.(resolution.DistinctForm)
+	base := ref.Name
+	if isDistinct {
+		base = dealiasPrimitive(form.Base, data.table).Name
+	}
+	if !resolution.IsPrimitive(base) ||
+		(!isDistinct && !primitiveNeedsConversion(base) && base != "uuid" && base != "any") {
+		return
+	}
+	fd.NeedsPtrConversion = true
+	// Proto holds an optional scalar behind a pointer, and any as bytes.
+	fd.PBIndirect = base != "any"
+	goField, pbField := "*r."+fd.GoName, "pb."+fd.PBName
+	if fd.PBIndirect {
+		pbField = "*" + pbField
+	}
+	if isDistinct {
+		fd.ForwardExpr, fd.BackwardExpr, fd.BackwardCast, fd.HasError, fd.HasBackwardError = p.generateTypeDefConversion(
+			resolved,
+			form,
+			data,
+			goField,
+			pbField,
+		)
+		return
+	}
+	if base == "uuid" {
+		// A method call dereferences the pointer itself.
+		goField = "r." + fd.GoName
+	}
+	fd.BackwardCast = ""
+	fd.ForwardExpr, fd.BackwardExpr, fd.HasError, fd.HasBackwardError = p.generatePrimitiveConversion(
+		base,
+		goField,
+		pbField,
+		data,
+	)
 }
 
 // buildMapValueConversion returns the per-element conversion data for a Map field whose
@@ -990,6 +1015,8 @@ func (p *Plugin) processGenericFieldForTranslation(
 		HasError:         hasError,
 		HasBackwardError: hasBackwardError,
 	}
+
+	p.setPtrConversion(&fd, field, data)
 
 	// An optional list is a nullable wrapper message in proto (see pb/types), matching
 	// the non-generic path in processFieldForTranslation.
@@ -1234,14 +1261,7 @@ func (p *Plugin) generateFieldConversion(
 				return f, b, c, hasErr, hasErr
 			}
 		}
-		f, b, c, be := p.generateTypeDefConversion(
-			target,
-			form,
-			data,
-			goFieldName,
-			pbFieldName,
-		)
-		return f, b, c, false, be
+		return p.generateTypeDefConversion(target, form, data, goFieldName, pbFieldName)
 	}
 	return goFieldName, pbFieldName, "", false, false
 }
@@ -1568,15 +1588,19 @@ func (p *Plugin) generateEnumArrayConversion(
 	return forward, backward, true
 }
 
+// generateTypeDefConversion converts a distinct type over a primitive. A Go distinct
+// type is a defined type, which has none of its base's methods, so it converts to and
+// from its
+// base around the base's own conversion.
 func (p *Plugin) generateTypeDefConversion(
 	resolved resolution.Type,
 	form resolution.DistinctForm,
 	data *templateData,
 	goField, pbField string,
-) (forward, backward, backwardCast string, hasBackwardError bool) {
+) (forward, backward, backwardCast string, hasError, hasBackwardError bool) {
 	baseType := dealiasPrimitive(form.Base, data.table)
 	if !resolution.IsPrimitive(baseType.Name) {
-		return goField, pbField, "", false
+		return goField, pbField, "", false, false
 	}
 
 	typedefPrefix := ""
@@ -1595,22 +1619,27 @@ func (p *Plugin) generateTypeDefConversion(
 		typedefPrefix = data.parentAlias + "."
 	}
 
-	resolvedGoName := naming.GetGoName(resolved)
-
-	if baseType.Name == "uuid" {
-		data.AddExternal("uuid")
-		forward = fmt.Sprintf("%s.String()", goField)
-		backward = fmt.Sprintf("uuid.Parse(%s)", pbField)
-		backwardCast = fmt.Sprintf("%s%s", typedefPrefix, resolvedGoName)
-		return forward, backward, backwardCast, true
+	cast := typedefPrefix + naming.GetGoName(resolved)
+	switch baseType.Name {
+	case "uuid", "record", "bytes", "any":
+		operand := goField
+		if baseType.Name == "uuid" {
+			operand = fmt.Sprintf("uuid.UUID(%s)", goField)
+		}
+		forward, backward, hasError, hasBackwardError = p.generatePrimitiveConversion(
+			baseType.Name,
+			operand,
+			pbField,
+			data,
+		)
+		if hasBackwardError {
+			return forward, backward, cast, hasError, true
+		}
+		return forward, fmt.Sprintf("%s(%s)", cast, backward), "", hasError, false
 	}
-
-	protoType := primitiveToProtoType(baseType.Name)
-
-	forward = fmt.Sprintf("%s(%s)", protoType, goField)
-	backward = fmt.Sprintf("%s%s(%s)", typedefPrefix, resolvedGoName, pbField)
-
-	return forward, backward, "", false
+	forward = fmt.Sprintf("%s(%s)", primitiveToProtoType(baseType.Name), goField)
+	backward = fmt.Sprintf("%s(%s)", cast, pbField)
+	return forward, backward, "", false, false
 }
 
 func (p *Plugin) generateArrayConversion(
@@ -2200,6 +2229,9 @@ type fieldTranslatorData struct {
 	// NeedsPtrConversion is true when a optional primitive needs type conversion (e.g.,
 	// *uint8 <-> *uint32). The template must dereference, convert, and re-address.
 	NeedsPtrConversion bool
+	// PBIndirect is true when proto holds the converted value of a NeedsPtrConversion
+	// field behind a pointer.
+	PBIndirect bool
 	// MapValueConversion holds the forward and backward conversion expressions for map
 	// value types that need conversion (e.g., uint8 <-> uint32). When set, the template
 	// generates an element-wise conversion loop instead of a direct assignment.
