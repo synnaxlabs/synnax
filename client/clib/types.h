@@ -12,8 +12,10 @@
 
 #pragma once
 
+// NOLINTBEGIN(modernize-deprecated-headers): C callers include this header.
 #include <stddef.h>
 #include <stdint.h>
+// NOLINTEND(modernize-deprecated-headers)
 
 #ifdef __cplusplus
 extern "C" {

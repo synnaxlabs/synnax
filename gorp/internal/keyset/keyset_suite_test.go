@@ -19,7 +19,7 @@ import (
 
 func TestKeyset(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Keyset Suite")
+	RunSpecs(t, "Keyset Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

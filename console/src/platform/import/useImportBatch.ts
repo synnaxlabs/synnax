@@ -55,7 +55,7 @@ export const useImportBatch = (): ImportBatch => {
             onSuccess?.(item);
             return id;
           } catch (e) {
-            handleError(e, `Failed to import ${item.name}`);
+            handleError(e, { message: "Failed to import", name: item.name });
           }
         }),
       );

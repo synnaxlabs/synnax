@@ -30,7 +30,7 @@ import (
 
 func TestAPITask(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Task Suite")
+	RunSpecs(t, "API Task Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

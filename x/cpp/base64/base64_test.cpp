@@ -38,7 +38,7 @@ TEST(Base64, DecodeHelloWorld) {
 TEST(Base64, RoundTrip) {
     const std::string inputs[] = {
         "",
-        "\0",
+        std::string("\0", 1),
         "Hello, World!",
         "user:pass",
         "a",

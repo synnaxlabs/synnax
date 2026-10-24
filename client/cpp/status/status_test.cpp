@@ -265,6 +265,7 @@ TEST(StatusTest, CustomDetailsSetMultiple) {
     EXPECT_EQ(statuses.size(), 3);
 
     std::vector<std::string> keys;
+    keys.reserve(statuses.size());
     for (const auto &s: statuses)
         keys.push_back(s.key);
 

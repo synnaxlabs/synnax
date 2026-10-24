@@ -137,6 +137,17 @@ multi-node clusters. If you are referring to code paths, then put those in backt
 
 Prefer using the word "and" instead of an ampersand (&) in prose.
 
+### Status text
+
+Every status (toasts, task footers, the status list) splits its text three ways:
+
+- `name`: what it is about, such as a task, device, or rack. Empty if nothing named.
+- `message`: what happened, in one short line: "Failed to start task", "Started task". A
+  status that reports a state names the state: "Driver not running".
+- `description`: why, and what to do now, in full sentences. Raw error text goes here.
+
+If the message alone does not tell the outcome, or it says "because", split it.
+
 ### 🚨 KEEP PROSE SHORT. LENGTH IS A DEFECT. 🚨
 
 Claude sessions consistently write too much. Cut every draft in half before delivery.

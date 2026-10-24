@@ -45,18 +45,19 @@ func NewStatusHandler(db *gorp.DB, svc *status.Service, t task.Task) *StatusHand
 }
 
 // Send records a status transition and writes it, answering cmdKey (NoCommand for
-// unsolicited updates). It clears any description a prior transition set.
+// unsolicited updates). It replaces the prior description, so an empty one clears it.
 func (h *StatusHandler) Send(
 	ctx context.Context,
 	cmdKey string,
 	variant status.Variant,
 	running bool,
 	message string,
+	description string,
 ) error {
 	h.mu.Lock()
 	h.stat.Variant = variant
 	h.stat.Message = message
-	h.stat.Description = ""
+	h.stat.Description = description
 	h.stat.Details.Running = running
 	h.stat.Details.Cmd = cmdKey
 	stat := h.stamp()
