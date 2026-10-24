@@ -83,8 +83,7 @@ export const setup = async (session: capture.CaptureSession): Promise<Modal> => 
 
 /**
  * create clicks the create calculated channel button in the Channels toolbar, enters
- * NAME and an expression, and clicks Create. It returns the new channel's toolbar
- * item.
+ * NAME and an expression, and clicks Create. It returns the new channel's toolbar item.
  */
 export const create = async (
   session: capture.CaptureSession,

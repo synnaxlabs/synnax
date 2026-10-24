@@ -53,7 +53,7 @@ export type Direction = "right" | "down";
 export const TAB_EXTEND = 6;
 const PADDING = TAB_EXTEND + 2;
 const COLUMN_GAP = 72;
-const ROW_GAP = 20;
+export const ROW_GAP = 20;
 const RANK_GAP = 40;
 const SIBLING_GAP = 12;
 // The widest rank that fits a phone column at full size.
@@ -67,6 +67,10 @@ const CAPTION_CHAR_WIDTH = 6.8;
 const ICON_SPACE = 26;
 const X_PADDING = 24;
 const CORNER_RADIUS = 8;
+
+/** The total length of the given lengths with a gap between each pair. */
+export const span = (lengths: number[], gap: number): number =>
+  lengths.reduce((a, b) => a + b, 0) + gap * Math.max(0, lengths.length - 1);
 
 // A label or caption can hold line breaks.
 const lines = (text: string): number => text.split("\n").length;
@@ -168,11 +172,7 @@ interface Placement {
 // right angles in the gap before their target column.
 const placeRight = (columns: Node[][]): Placement => {
   const columnWidths = columns.map((col) => Math.max(0, ...col.map(nodeWidth)));
-  const columnHeights = columns.map(
-    (col) =>
-      col.reduce((sum, n) => sum + nodeHeight(n), 0) +
-      Math.max(0, col.length - 1) * ROW_GAP,
-  );
+  const columnHeights = columns.map((col) => span(col.map(nodeHeight), ROW_GAP));
   const contentHeight = Math.max(...columnHeights);
   const nodes = new Map<string, PlacedNode>();
   let x = PADDING;
@@ -201,9 +201,7 @@ const placeRight = (columns: Node[][]): Placement => {
   };
 };
 
-const rankWidth = (rank: Node[]): number =>
-  rank.reduce((sum, n) => sum + nodeWidth(n), 0) +
-  Math.max(0, rank.length - 1) * SIBLING_GAP;
+const rankWidth = (rank: Node[]): number => span(rank.map(nodeWidth), SIBLING_GAP);
 
 // Each column becomes a rank, with its blocks side by side at their own widths and
 // centered. A rank too wide for a phone breaks its text onto two lines. Lines bend at

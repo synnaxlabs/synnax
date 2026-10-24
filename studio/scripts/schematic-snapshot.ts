@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Synnax } from "@synnaxlabs/client";
 import { type Locator } from "playwright";
 
 import { capture, fixtures } from "@/index";
@@ -32,7 +31,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.place(session, "Gate", { x: 700, y: 160 });
   await capture.deselect(session, { x: 100, y: 290 });
   // Close the symbol library so the schematic tab closes cleanly.
-  await page.locator(".console-main-nav__item").last().click();
+  await capture.hideBottomToolbar(session);
   await session.settle(400);
 
   await capture.openToolbar(session, "project");
@@ -86,12 +85,7 @@ const key = async (item: Locator): Promise<string> => {
 };
 
 const rename = async (schematicKey: string, name: string): Promise<void> => {
-  const client = new Synnax({
-    host: "localhost",
-    port: fixtures.defaultPort(),
-    username: "synnax",
-    password: "seldon",
-  });
+  const client = fixtures.connect();
   try {
     await client.schematics.rename(schematicKey, name);
   } finally {

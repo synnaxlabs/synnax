@@ -28,7 +28,12 @@ import { Logo } from "@synnaxlabs/lyra/logo";
         <Text.Text level="h3" color={10}>
             Database performance compared
         </Text.Text>
-        <Text.Text level="p" color={9} weight={400} style={{ maxWidth: 450 }}>
+        <Text.Text
+            level="p"
+            color={9}
+            weight={400}
+            className="one-billion-rows__summary"
+        >
             See how Synnax stacks up against InfluxDB and Timescale in a head to head
             ingestion and retrieval of 1 billion rows.
         </Text.Text>
@@ -171,6 +176,10 @@ import { Logo } from "@synnaxlabs/lyra/logo";
 
         & .one-billion-rows__content {
             height: 100%;
+        }
+
+        & .one-billion-rows__summary {
+            max-width: 450px;
         }
 
         & .one-billion-rows__logos {

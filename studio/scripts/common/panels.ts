@@ -109,9 +109,9 @@ export interface Stand {
 }
 
 /**
- * createStand logs in and fills the first panel, named `name`, with a line plot of
- * live sine telemetry and a table, as two tabs in one pane with the plot visible. Call
- * stop when the shot ends.
+ * createStand logs in and fills the first panel, named `name`, with a line plot of live
+ * sine telemetry and a table, as two tabs in one pane with the plot visible. Call stop
+ * when the shot ends.
  */
 export const createStand = async (
   session: capture.CaptureSession,
@@ -148,8 +148,8 @@ export const createStand = async (
 };
 
 /**
- * splitRight drags a tab to the right third of its pane, which splits the pane with
- * the tab on the right.
+ * splitRight drags a tab to the right third of its pane, which splits the pane with the
+ * tab on the right.
  */
 export const splitRight = async (
   session: capture.CaptureSession,

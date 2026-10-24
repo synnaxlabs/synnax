@@ -7,39 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/Page";
+import { type PageNavNode } from "@/components/nav/tree";
 
 export const CHANNELS_NAV: PageNavNode = {
   key: "channels",
   name: "Channels",
   children: [
     {
-      key: "/reference/channels",
       href: "/reference/channels",
       name: "Overview",
     },
     {
-      key: "/reference/channels/create",
       href: "/reference/channels/create",
       name: "Create",
     },
     {
-      key: "/reference/channels/find",
       href: "/reference/channels/find",
       name: "Find",
     },
     {
-      key: "/reference/channels/rename-and-delete",
       href: "/reference/channels/rename-and-delete",
       name: "Rename and delete",
     },
     {
-      key: "/reference/channels/calculated",
       href: "/reference/channels/calculated",
       name: "Calculated channels",
     },
     {
-      key: "/reference/channels/reference",
       href: "/reference/channels/reference",
       name: "Reference",
     },

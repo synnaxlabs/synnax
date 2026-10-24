@@ -25,8 +25,8 @@ export interface Segment {
   /** The authored framing the segment opens on. */
   focus: Focus;
   /**
-   * Cursor targets within the segment, in tick order, each at its move's departure.
-   * The camera pans to keep each one in frame.
+   * Cursor targets within the segment, in tick order, each at its move's departure. The
+   * camera pans to keep each one in frame.
    */
   follow: Focus[];
 }
@@ -50,9 +50,9 @@ interface ZoomOverride {
 }
 
 /**
- * overrideAmount resolves an authored override's magnification: the authored
- * amount when given, otherwise as tight as the framing margin allows for the
- * rect. Either is capped at max.
+ * overrideAmount resolves an authored override's magnification: the authored amount
+ * when given, otherwise as tight as the framing margin allows for the rect. Either is
+ * capped at max.
  */
 const overrideAmount = (
   o: ZoomOverride,
@@ -67,11 +67,11 @@ const overrideAmount = (
 };
 
 /**
- * plan returns the camera's zoom segments: one per authored zoom override. Clicks
- * never zoom; the camera holds the full frame unless a shot asks for a zoom. Every
- * amount is capped at the deepest zoom that stays crisp in a video outputWidth pixels
- * wide: the capture's native width over outputWidth, and at least 1, so a render wider
- * than the capture holds the full frame.
+ * plan returns the camera's zoom segments: one per authored zoom override. Clicks never
+ * zoom; the camera holds the full frame unless a shot asks for a zoom. Every amount is
+ * capped at the deepest zoom that stays crisp in a video outputWidth pixels wide: the
+ * capture's native width over outputWidth, and at least 1, so a render wider than the
+ * capture holds the full frame.
  */
 export const plan = (tl: Timeline, outputWidth: number): Segment[] => {
   const { width, height, dsf } = tl.meta;

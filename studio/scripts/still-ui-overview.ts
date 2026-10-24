@@ -29,7 +29,10 @@ const TOOLBARS = {
 } as const;
 
 /** The tree item each toolbar still expands, by step key. */
-const EXPANDED = { workspace: "TPC", device: "Test stand DAQ" } as const;
+const EXPANDED: Partial<Record<string, string>> = {
+  workspace: "TPC",
+  device: "Test stand DAQ",
+};
 
 /** Alarms on the stand, which the statuses toolbar shows once they are favorites. */
 const ALARMS = [
@@ -137,7 +140,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     for (const [step, toolbar] of Object.entries(TOOLBARS)) {
       await capture.openToolbar(session, toolbar);
       await session.waitFor(left);
-      const expand = EXPANDED[step as keyof typeof EXPANDED];
+      const expand = EXPANDED[step];
       if (expand != null)
         await session.click(left.getByText(expand, { exact: true }).first(), {
           text: true,

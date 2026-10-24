@@ -109,7 +109,6 @@ main {
        inside the tree's clip. */
     padding-left: var(--docs-page-nav-padding);
     min-height: 0;
-    max-height: none;
     padding-top: 2rem;
     mask-image: linear-gradient(
         to bottom,

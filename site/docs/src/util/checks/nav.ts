@@ -8,7 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type Check } from "@/util/checks/check";
-import { enumerateRoutes, navRefs, pageFiles, routed } from "@/util/checks/crawl";
+import {
+  enumerateRoutes,
+  navRefs,
+  pageFiles,
+  routed,
+  toRoute,
+} from "@/util/checks/crawl";
 import { normalizeRoute } from "@/util/route";
 
 // Reference pages written in MDX. Section index.astro files only rewrite to a page, so
@@ -16,9 +22,7 @@ import { normalizeRoute } from "@/util/route";
 const referencePages = (): string[] =>
   pageFiles()
     .filter((f) => f.startsWith("reference/") && f.endsWith(".mdx") && routed(f))
-    .map((f) =>
-      normalizeRoute(`/${f.replace(/\.mdx$/, "").replace(/(^|\/)index$/, "$1")}`),
-    );
+    .map((f) => normalizeRoute(toRoute(f)));
 
 /**
  * Fails every reference page missing from the nav, since the nav sets reading order and
@@ -28,13 +32,15 @@ export const nav = (fullCrawl: boolean): Check => ({
   name: "nav",
   finish: async (_, report) => {
     if (!fullCrawl) return;
-    const refs = navRefs();
-    const linked = new Set(refs.map(({ href }) => normalizeRoute(href.split("#")[0])));
+    const refs = navRefs().map((ref) => ({
+      ...ref,
+      route: normalizeRoute(ref.href.split("#")[0]),
+    }));
+    const linked = new Set(refs.map(({ route }) => route));
     for (const route of referencePages())
       if (!linked.has(route)) report(`${route}: page is missing from the nav`);
     const routes = new Set(enumerateRoutes().map(normalizeRoute));
-    for (const { source, href } of refs)
-      if (!routes.has(normalizeRoute(href.split("#")[0])))
-        report(`${source}: nav entry ${href} names no page`);
+    for (const { source, href, route } of refs)
+      if (!routes.has(route)) report(`${source}: nav entry ${href} names no page`);
   },
 });

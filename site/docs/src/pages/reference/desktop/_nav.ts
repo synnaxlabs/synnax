@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/Page";
+import { type PageNavNode } from "@/components/nav/tree";
 
 export const DESKTOP_NAV: PageNavNode = {
   key: "desktop",
@@ -15,17 +15,14 @@ export const DESKTOP_NAV: PageNavNode = {
   edition: "desktop",
   children: [
     {
-      key: "/reference/desktop/troubleshooting",
       href: "/reference/desktop/troubleshooting",
       name: "Troubleshooting",
     },
     {
-      key: "/reference/desktop/data",
       href: "/reference/desktop/data",
       name: "Data",
     },
     {
-      key: "/reference/desktop/uninstall",
       href: "/reference/desktop/uninstall",
       name: "Uninstall",
     },

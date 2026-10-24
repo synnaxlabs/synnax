@@ -185,11 +185,11 @@ export interface DriverFixture {
 
 /**
  * simulatedDriver stands in for the Driver on a capture core started with
- * `--no-driver`. It creates the devices on the embedded rack, writes the rack's
- * "Driver is running" status every `periodMs`, and answers each start and stop
- * command with the status the real Driver writes on success. Nothing reads or writes
- * hardware, so read tasks produce no samples. The rack claims no integrations, so the
- * Modbus, OPC UA, and HTTP connect dialogs find no Driver.
+ * `--no-driver`. It creates the devices on the embedded rack, writes the rack's "Driver
+ * is running" status every `periodMs`, and answers each start and stop command with the
+ * status the real Driver writes on success. Nothing reads or writes hardware, so read
+ * tasks produce no samples. The rack claims no integrations, so the Modbus, OPC UA, and
+ * HTTP connect dialogs find no Driver.
  */
 export const simulatedDriver = async ({
   devices = [],

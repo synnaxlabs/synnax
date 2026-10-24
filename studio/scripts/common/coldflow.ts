@@ -70,9 +70,7 @@ export const startColdflow = async (
 
   await session.click(page.getByText("Operator", { exact: true }).first());
   await session.settle(500);
-  await session.click(
-    page.locator(".console-controls button:has(svg.pluto-icon--circle)").first(),
-  );
+  await session.click(capture.control(page, "circle"));
   await session.settle(800);
   const start = session.now();
   await session.click(diagram.getByRole("button", { name: "Start Sequence" }).first());

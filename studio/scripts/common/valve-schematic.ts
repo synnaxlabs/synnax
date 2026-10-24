@@ -9,7 +9,21 @@
 
 import { type Locator } from "playwright";
 
-import { capture, type fixtures } from "@/index";
+import { capture, director, type fixtures } from "@/index";
+
+/** channelField returns the Channel field of a section in the symbol's Control tab. */
+export const channelField = (properties: Locator, section: string): Locator =>
+  properties
+    .locator(".pluto-form-section")
+    .filter({
+      has: properties
+        .page()
+        .locator(".pluto-form-section__header")
+        .getByText(section, { exact: true }),
+    })
+    .locator(".pluto-input__item")
+    .filter({ hasText: "Channel" })
+    .first();
 
 export interface ValveSchematicOptions {
   /** Control authority the schematic acquires with. Unset keeps the Console default. */
@@ -41,16 +55,7 @@ export const createValveSchematic = async (
     { text: true, zoom: false },
   );
   const bind = async (section: string, channel: string): Promise<void> => {
-    const item = properties
-      .locator(".pluto-form-section")
-      .filter({
-        has: page
-          .locator(".pluto-form-section__header")
-          .getByText(section, { exact: true }),
-      })
-      .locator(".pluto-input__item")
-      .filter({ hasText: "Channel" })
-      .first();
+    const item = channelField(properties, section);
     await session.click(item.getByText("Select channel", { exact: true }).first(), {
       zoom: false,
     });
@@ -101,10 +106,6 @@ export const createValveSchematic = async (
   return symbol;
 };
 
-/** controlButton returns the schematic's acquire/release control toggle. */
-export const controlButton = (session: capture.CaptureSession): Locator =>
-  session.page.locator(".console-controls button:has(svg.pluto-icon--circle)").first();
-
 /**
  * frameLegend opens an authored zoom holding both the control legend and the valve,
  * which sit far apart. Returns a point beside the valve to park the cursor on, so it
@@ -126,13 +127,10 @@ export const frameLegend = async (
   const top = Math.min(legend.y, body.y);
   const right = Math.max(legend.x + legend.width, body.x + body.width);
   const bottom = Math.max(legend.y + legend.height, body.y + body.height);
+  const both = { x: left, y: top, width: right - left, height: bottom - top };
   await session.zoom(
     { x: (left + right) / 2, y: (top + bottom) / 2 },
-    Math.min(
-      1.6,
-      view.width / (right - left + 192),
-      view.height / (bottom - top + 192),
-    ),
+    Math.min(1.6, director.fitAmount(both, view.width, view.height)),
   );
   return { x: body.x + body.width / 2 + 180, y: body.y + body.height + 120 };
 };

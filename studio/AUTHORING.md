@@ -105,8 +105,8 @@ The Remotion ffmpeg needs its own directory as the working directory:
 
 ```bash
 cd node_modules/.pnpm/@remotion+compositor-darwin-arm64@*/node_modules/@remotion/compositor-darwin-arm64
-./ffmpeg -y -sseof -1 -i 1 -frames:v 1 /tmp/end.png < video > -update # last frame
-./ffmpeg -y -ss 4.0 -i 1 -frames:v 1 /tmp/mid.png < video > -update   # by time
+./ffmpeg -y -sseof -1 -i "$VIDEO" -frames:v 1 -update 1 /tmp/end.png # last frame
+./ffmpeg -y -ss 4.0 -i "$VIDEO" -frames:v 1 -update 1 /tmp/mid.png   # by time
 ```
 
 `-vf select=eq(n\,N)` with a `%d` output fails here; extract one frame per call with

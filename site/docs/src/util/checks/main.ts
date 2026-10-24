@@ -11,9 +11,9 @@
 // over the results. Set DOCS_URL to check an already-running server instead.
 //
 // usage: check-site [check ...] [--route prefix ...]
-//   pnpm check-site:build                        build dist/ for checking
-//   pnpm check-site                              all checks, all pages
-//   pnpm check-site links media                  only the named checks
+//   pnpm check-site:build                          build dist/ for checking
+//   pnpm check-site                                all checks, all pages
+//   pnpm check-site links media                    only the named checks
 //   pnpm check-site --route /reference/hardware    only routes under the prefix
 
 import { preview } from "astro";

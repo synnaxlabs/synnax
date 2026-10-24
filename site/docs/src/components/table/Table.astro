@@ -31,13 +31,12 @@ const MARKS: Record<string, string> = {
 const props = Astro.props;
 const html = await Astro.slots.render("default");
 const ENTITIES: Record<string, string> = { "&lt;": "<", "&gt;": ">", "&amp;": "&" };
+// Leaves the text escaped, so it can go back into the HTML as an attribute.
+const strip = (cell: string): string => cell.replace(/<[^>]+>/g, "").trim();
 const text = (cell: string): string =>
-    cell
-        .replace(/<[^>]+>/g, "")
-        .replace(/&(lt|gt|amp);/g, (e) => ENTITIES[e])
-        .trim();
+    strip(cell).replace(/&(lt|gt|amp);/g, (e) => ENTITIES[e]);
 const labels = [...html.matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/g)].map((m) =>
-    text(m[1]),
+    strip(m[1]),
 );
 const cells = [...html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/g)]
     .map((m) => [...m[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/g)].map((c) => c[1]))

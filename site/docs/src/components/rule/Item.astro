@@ -8,19 +8,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { toAnchor } from "@/util/anchor";
+
 interface Props {
     title: string;
     /** The anchor for the rule. Defaults to the title in kebab case. */
     id?: string;
 }
 
-const {
-    title,
-    id = title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, ""),
-} = Astro.props;
+const { title, id = toAnchor(title) } = Astro.props;
 ---
 
 <li class="rule-item" id={id}>
@@ -30,3 +26,57 @@ const {
         <slot />
     </div>
 </li>
+
+<style is:global>
+    .rule-item {
+        counter-increment: rule;
+        display: grid;
+        grid-template-columns: 7rem minmax(0, 1fr);
+        margin: 0;
+        padding: 3.5rem 0;
+        border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l3);
+        color: var(--docs-body-color);
+
+        &:last-child {
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+    }
+
+    .rule-item__number {
+        font:
+            500 12px/28px "Geist Mono",
+            monospace;
+        font-variant-numeric: tabular-nums;
+        color: var(--pluto-gray-l7);
+        text-decoration: none;
+
+        &::before {
+            content: counter(rule, decimal-leading-zero);
+        }
+
+        &:hover {
+            color: var(--pluto-primary-z);
+            text-decoration: none;
+        }
+    }
+
+    .rule-item__body {
+        & > * {
+            margin: 0;
+        }
+
+        & > .rule-item__title {
+            margin-bottom: 0.5rem;
+            font-weight: 550;
+            letter-spacing: -0.01em;
+            color: var(--pluto-gray-l11);
+        }
+    }
+
+    @media (max-width: 800px) {
+        .rule-item {
+            grid-template-columns: 5rem minmax(0, 1fr);
+        }
+    }
+</style>

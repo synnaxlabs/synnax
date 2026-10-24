@@ -11,6 +11,11 @@
 import type { MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 
+import { type Client } from "@/components/client/choice";
+import { INFO as CLIENTS } from "@/components/client/Client";
+import { type Platform } from "@/components/platform/choice";
+import { INFO as PLATFORMS } from "@/components/platform/Platform";
+import { Picker } from "@/components/tabs/Picker";
 import { InlineCode } from "@/components/text/InlineCode";
 import { type Entry } from "@/util/outline";
 
@@ -21,11 +26,33 @@ interface Props {
     outline?: Record<string, Entry>;
     /** Selects the page headings that the reading position follows. */
     select?: string;
+    /** The clients a picker above the list chooses between. */
+    clients?: Client[];
+    /** The platforms a picker above the list chooses between. */
+    platforms?: Platform[];
 }
 
-const { headings, outline = {}, select = "article :is(h1, h2, h3)" } = Astro.props;
+const {
+    headings,
+    outline = {},
+    select = "article :is(h1, h2, h3)",
+    clients = [],
+    platforms = [],
+} = Astro.props;
 ---
 
+{platforms.length > 0 && (
+    <Picker
+        query="platform"
+        options={PLATFORMS.filter(({ key }) => platforms.includes(key))}
+    />
+)}
+{clients.length > 0 && (
+    <Picker
+        query="client"
+        options={CLIENTS.filter(({ key }) => clients.includes(key))}
+    />
+)}
 <div class="on-this-page-menu" data-outline={select}>
     <div class="on-this-page-indicator" data-outline-indicator></div>
     {headings.map(({ slug, text, depth }) => (

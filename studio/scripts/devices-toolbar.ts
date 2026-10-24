@@ -15,6 +15,8 @@ import {
 } from "@/fixtures/hardware";
 import { capture } from "@/index";
 
+import { DRIVER } from "./common/task";
+
 /**
  * Docs `reference/hardware/devices` (Devices toolbar): open the devices toolbar, expand
  * the embedded Driver to show its devices, then right-click a device to show its menu.
@@ -38,7 +40,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     await capture.openToolbar(session, "device");
     await session.hold(800);
-    const rack = capture.treeItem(page, "rack:", "Node 1 Embedded Driver");
+    const rack = capture.treeItem(page, "rack:", DRIVER);
     await session.waitFor(rack);
     await session.click(rack, { text: true });
     const ni = capture.treeItem(page, "device:", NI_USB_6343.name);

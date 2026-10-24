@@ -13,7 +13,7 @@ and TypeScript client libraries. Synnax Labs is backed by Y Combinator.
 
 - [Docs index](https://docs.synnaxlabs.com/llms.txt): Every docs page, with a Markdown link and a summary.
 - [Get started](https://docs.synnaxlabs.com/reference.md): What Synnax is and where to start.
-- [Installation](https://docs.synnaxlabs.com/reference/installation.md): Install a Core and connect a Console.
+- [Installation](https://docs.synnaxlabs.com/reference/enterprise.md): Install a Core and connect a Console.
 
 ## Company
 

@@ -19,6 +19,7 @@ const { headings, frontmatter } = Astro.props;
 const { title, heading, description, published, author, authorImage, authorLink } =
     frontmatter;
 const route = normalizeRoute(Astro.url.pathname);
+const shown = outlined(headings);
 const organization = {
     "@type": "Organization",
     name: "Synnax Labs",
@@ -50,11 +51,7 @@ const posting = {
         type="application/ld+json"
         set:html={JSON.stringify(posting).replaceAll("<", "\\u003c")}
     />
-    <OutlineBar
-        slot="subheader"
-        headings={outlined(headings)}
-        outline={frontmatter.outline}
-    />
+    <OutlineBar slot="subheader" headings={shown} outline={frontmatter.outline} />
     <section>
         <Article
             url={Astro.url.pathname}
@@ -68,7 +65,7 @@ const posting = {
         >
             <slot />
         </Article>
-        <OnThisPage headings={headings} outline={frontmatter.outline} hideFeedback>
+        <OnThisPage headings={shown} outline={frontmatter.outline} hideFeedback>
             <div class="blog-human-note">
                 All of our blog posts were written and edited carefully by humans
             </div>

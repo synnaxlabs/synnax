@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { start } from "@/components/nav/onThisPage";
 import { CHANGE_EVENT } from "@/components/tabs/sync";
 
-// Mirrors the markup of the article and of OnThisPage.astro.
+// Mirrors the markup of the article and of Outline.astro.
 const PAGE = `
   <article>
     <h2 id="create">Create</h2>
@@ -175,8 +175,10 @@ describe("on this page", () => {
       showBar({ create: 100 });
       const hide = vi.fn();
       const panel = document.querySelector<HTMLElement>("[popover]");
-      if (panel != null) panel.hidePopover = hide;
-      (document.querySelector('[data-item-key="delete"]') as HTMLElement).click();
+      const entry = document.querySelector<HTMLElement>('[data-item-key="delete"]');
+      if (panel == null || entry == null) throw new Error("no outline panel");
+      panel.hidePopover = hide;
+      entry.click();
       expect(current()?.textContent).toBe("Delete key");
       expect(hide).toHaveBeenCalled();
     });

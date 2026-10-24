@@ -9,15 +9,14 @@
 
 import { type Locator } from "playwright";
 
-import { simulator, type SimulatorOptions } from "@/fixtures/simulator";
-import { capture } from "@/index";
+import { capture, fixtures } from "@/index";
 
 import { DRIVER, fieldItem, recordTask, type TaskShot } from "./task";
 
 /** A simulated server and how to connect it from the Console. */
 export interface Server {
   /** The simulated server the Driver connects to. */
-  server: SimulatorOptions;
+  server: fixtures.SimulatorOptions;
   /** The palette command that opens the connect dialog. */
   command: string;
   /** The name the dialog starts with, which is also its placeholder. */
@@ -120,7 +119,7 @@ export const connect = async (
 export const serverTaskScript =
   (server: Server, shot: Omit<TaskShot, "device">) =>
   async (session: capture.CaptureSession): Promise<void> => {
-    const sim = await simulator(server.server);
+    const sim = await fixtures.simulator(server.server);
     try {
       await capture.login(session);
       await capture.clearPanel(session);
@@ -139,7 +138,7 @@ export const serverTaskScript =
 export const connectServerScript =
   (server: Server) =>
   async (session: capture.CaptureSession): Promise<void> => {
-    const sim = await simulator(server.server);
+    const sim = await fixtures.simulator(server.server);
     try {
       const { page } = session;
       await capture.login(session);

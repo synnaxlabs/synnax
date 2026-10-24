@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/components/edition/Badge";
+export { default as Compare } from "@/components/edition/Compare.astro";
 export * from "@/components/edition/edition";
 export { default as Enterprise } from "@/components/edition/Enterprise.astro";

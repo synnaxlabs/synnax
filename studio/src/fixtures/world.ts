@@ -416,10 +416,10 @@ const report = async (
  * testStand builds an LOX coldflow stand on the capture's Core: its sensor, valve, and
  * log channels, three earlier coldflow runs saved as ranges, a DAQ card with its read
  * task, and the TPC project (panels for operations, each subsystem, automation,
- * hardware, and review). It deploys the Ox Coldflow
- * Arc program to the Core, where the Start Sequence button runs it, and simulates the
- * stand until stopped: valves follow their commands, and tank, pressurant, and feed
- * readings follow the valves. The DAQ card's rack and task report that they run.
+ * hardware, and review). It deploys the Ox Coldflow Arc program to the Core, where the
+ * Start Sequence button runs it, and simulates the stand until stopped: valves follow
+ * their commands, and tank, pressurant, and feed readings follow the valves. The DAQ
+ * card's rack and task report that they run.
  */
 export const testStand = async ({
   now = () => TimeStamp.now(),

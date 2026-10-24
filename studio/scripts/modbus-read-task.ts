@@ -12,6 +12,8 @@ import { type Locator } from "playwright";
 import { MODBUS_PLC, simulatedDriver } from "@/fixtures/hardware";
 import { capture } from "@/index";
 
+import { DRIVER } from "./common/task";
+
 /**
  * Docs `reference/hardware/modbus/read-task` (Create a Modbus read task): right-click
  * a Modbus server in the devices toolbar and create a read task, add a float32 holding
@@ -31,7 +33,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     await capture.openToolbar(session, "device");
     await session.hold(600);
-    const rack = capture.treeItem(page, "rack:", "Node 1 Embedded Driver");
+    const rack = capture.treeItem(page, "rack:", DRIVER);
     await session.waitFor(rack);
     await session.click(rack, { text: true });
     const plc = capture.treeItem(page, "device:", MODBUS_PLC.name);

@@ -50,9 +50,9 @@ export const crop = (s: CameraSample, width: number, height: number): Crop => ({
 });
 
 /**
- * focusToCenter maps a focus point (CSS px) to the travel-space center that puts
- * the point at the middle of the crop. A focus too near an edge to center pins the
- * crop flush to that edge.
+ * focusToCenter maps a focus point (CSS px) to the travel-space center that puts the
+ * point at the middle of the crop. A focus too near an edge to center pins the crop
+ * flush to that edge.
  */
 export const focusToCenter = (
   focus: Point,
@@ -130,8 +130,8 @@ export const frameRect = (
 };
 
 /**
- * segmentAmount caps a segment's zoom so its framing rect (when present) fits
- * inside the viewport with margin.
+ * segmentAmount caps a segment's zoom so its framing rect (when present) fits inside
+ * the viewport with margin.
  */
 const segmentAmount = (seg: Segment, width: number, height: number): number =>
   seg.focus.rect == null
@@ -177,11 +177,11 @@ export const contain = (
 };
 
 /**
- * simulate runs the spring-driven virtual camera over the planned segments and
- * samples it once per output frame. Targets are step functions; velocity carries
- * across retargets. While fully zoomed out the center pre-aims at the next segment's
- * framing so zoom-ins scale straight toward their subject. Within a segment the
- * camera holds its framing and pans only when a cursor target leaves the crop.
+ * simulate runs the spring-driven virtual camera over the planned segments and samples
+ * it once per output frame. Targets are step functions; velocity carries across
+ * retargets. While fully zoomed out the center pre-aims at the next segment's framing
+ * so zoom-ins scale straight toward their subject. Within a segment the camera holds
+ * its framing and pans only when a cursor target leaves the crop.
  */
 export const simulate = (tl: Timeline, segments: Segment[]): CameraTrack => {
   const { fps, frames, width, height } = tl.meta;

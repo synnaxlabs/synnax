@@ -32,10 +32,14 @@ const { columns = 3 } = Astro.props;
             --docs-card-columns: 3;
         }
         @media (max-width: 900px) {
-            --docs-card-columns: 2 !important;
+            &[data-columns] {
+                --docs-card-columns: 2;
+            }
         }
         @media (max-width: 600px) {
-            --docs-card-columns: 1 !important;
+            &[data-columns] {
+                --docs-card-columns: 1;
+            }
         }
     }
 </style>

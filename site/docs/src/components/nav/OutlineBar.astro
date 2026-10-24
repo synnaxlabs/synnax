@@ -8,31 +8,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { MarkdownHeading } from "astro";
+import type { ComponentProps } from "astro/types";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { unescape } from "html-escaper";
 
-import { type Client } from "@/components/client/choice";
-import { INFO as CLIENTS } from "@/components/client/Client";
 import Outline from "@/components/nav/Outline.astro";
-import { type Platform } from "@/components/platform/choice";
-import { INFO as PLATFORMS } from "@/components/platform/Platform";
-import { Picker } from "@/components/tabs/Picker";
 import { InlineCode } from "@/components/text/InlineCode";
-import { type Entry } from "@/util/outline";
 
-interface Props {
-    /** The headings to list, in page order. */
-    headings: MarkdownHeading[];
-    /** Restores the inline code and step labels the heading list drops. */
-    outline?: Record<string, Entry>;
-    /** Selects the page headings that the reading position follows. */
-    select?: string;
-    clients?: Client[];
-    platforms?: Platform[];
-}
+type Props = ComponentProps<typeof Outline>;
 
-const { headings, outline = {}, select, clients = [], platforms = [] } = Astro.props;
+const { headings, outline = {} } = Astro.props;
 const first = headings[0];
 const PANEL = "outline-bar-panel";
 ---
@@ -48,19 +33,7 @@ const PANEL = "outline-bar-panel";
             <Icon.Caret.Down className="outline-bar__caret" />
         </button>
         <div id={PANEL} class="outline-bar__panel styled-scrollbar" popover="auto">
-            {platforms.length > 0 && (
-                <Picker
-                    query="platform"
-                    options={PLATFORMS.filter(({ key }) => platforms.includes(key))}
-                />
-            )}
-            {clients.length > 0 && (
-                <Picker
-                    query="client"
-                    options={CLIENTS.filter(({ key }) => clients.includes(key))}
-                />
-            )}
-            <Outline headings={headings} outline={outline} select={select} />
+            <Outline {...Astro.props} />
         </div>
     </div>
 )}

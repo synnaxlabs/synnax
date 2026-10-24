@@ -11,7 +11,8 @@ import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { InlineCode } from "@/components/text/InlineCode";
-import { SHORT_LENGTH } from "@/util/inlineCode";
+
+const LIMIT = 32;
 
 const code = (text: string): HTMLElement => {
   const { container } = render(<InlineCode text={text} />);
@@ -30,7 +31,7 @@ describe("InlineCode", () => {
   });
 
   it("should leave a token over the length limit free to wrap", () => {
-    const token = "a".repeat(SHORT_LENGTH + 1);
+    const token = "a".repeat(LIMIT + 1);
     expect(code(`\`${token}\``).hasAttribute("data-short")).toBe(false);
   });
 });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, TimeStamp } from "@synnaxlabs/client";
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
 import { capture, fixtures } from "@/index";
 
@@ -17,7 +17,7 @@ const LABELS = [
   { name: "Anomaly", color: "#DC1360" },
 ];
 
-const hoursAgo = (h: number): TimeStamp => TimeStamp.now().sub(TimeStamp.hours(h));
+const hoursAgo = (h: number): TimeStamp => TimeStamp.now().sub(TimeSpan.hours(h));
 
 /**
  * Docs `client/ranges/create`: click the "+" in the Ranges toolbar, name the range,

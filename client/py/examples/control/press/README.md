@@ -23,15 +23,15 @@ The simulator for this example is located in `examples/simulators/press.py`.
 To run the example, make sure you have:
 
 1. A Synnax Core running locally. See the
-   [Quick Start](https://docs.synnaxlabs.com/reference/enterprise) guide for more
-   information.
+   [Set up Synnax Enterprise](https://docs.synnaxlabs.com/reference/enterprise) guide
+   for more information.
 2. The Synnax Python client installed. See the
    [Quick Start](https://docs.synnaxlabs.com/reference/client/quick-start) guide for
    more information.
 3. Optionally, the Synnax Console installed and set up to visualize the data generated
    by the control sequence. See the
-   [Getting Started](https://docs.synnaxlabs.com/reference/enterprise/console) guide for
-   more information.
+   [Connect the Console](https://docs.synnaxlabs.com/reference/enterprise/console) guide
+   for more information.
 
 If you are using the Console, you can use a combination of
 [Schematics](https://docs.synnaxlabs.com/reference/visualize/schematics) and

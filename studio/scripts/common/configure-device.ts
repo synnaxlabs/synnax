@@ -6,12 +6,14 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-import { type SimulatedDevice, simulatedDriver } from "@/fixtures/hardware";
-import { capture } from "@/index";
+
+import { capture, fixtures } from "@/index";
+
+import { DRIVER } from "./task";
 
 export interface ConfigureDeviceShot {
   /** An unconfigured device on the simulated Driver. */
-  device: SimulatedDevice;
+  device: fixtures.SimulatedDevice;
   /** The name to give the device. */
   name: string;
   /** The identifier to give the device. */
@@ -26,14 +28,14 @@ export interface ConfigureDeviceShot {
 export const configureDeviceScript =
   ({ device, name, identifier }: ConfigureDeviceShot) =>
   async (session: capture.CaptureSession): Promise<void> => {
-    const driver = await simulatedDriver({ devices: [device] });
+    const driver = await fixtures.simulatedDriver({ devices: [device] });
     try {
       const { page } = session;
       await capture.login(session);
       await capture.clearPanel(session);
       await capture.openToolbar(session, "device");
       await capture.resizeToolbar(session, 400);
-      const rack = capture.treeItem(page, "rack:", "Node 1 Embedded Driver");
+      const rack = capture.treeItem(page, "rack:", DRIVER);
       await session.waitFor(rack);
       await session.moveTo({ x: 800, y: 450 });
 

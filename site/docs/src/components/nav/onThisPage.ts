@@ -57,10 +57,11 @@ const follow = (menu: HTMLElement, signal: AbortSignal): void => {
     const label = active.querySelector(LABEL);
     if (current != null && label != null)
       current.replaceChildren(...label.cloneNode(true).childNodes);
-    if (indicator == null) return active;
-    indicator.style.transform = `translateY(${active.offsetTop}px)`;
-    indicator.style.height = `${active.offsetHeight}px`;
-    indicator.style.opacity = "1";
+    if (indicator != null) {
+      indicator.style.transform = `translateY(${active.offsetTop}px)`;
+      indicator.style.height = `${active.offsetHeight}px`;
+      indicator.style.opacity = "1";
+    }
     return active;
   };
 

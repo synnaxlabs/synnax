@@ -8,11 +8,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import Body from "@/components/problem/Body.astro";
+import { InlineCode } from "@/components/text/InlineCode";
+import { toAnchor } from "@/util/anchor";
+
 interface Props {
     /** The exact message the reader sees, or each message that has the same cause. Give
         this or `symptom`. */
     message?: string | string[];
-    /** What the reader sees, in words, when there is no message. Backticks mark code. */
+    /** What the reader sees, in words, when there is no message. Backticks mark
+        code. */
     symptom?: string;
     /** The diagnostic code, for example `ARC3001`. */
     code?: string;
@@ -26,16 +31,8 @@ const { message, symptom, code, severity } = Astro.props;
 if ((message == null) === (symptom == null))
     throw new Error("Problem.Item needs exactly one of message or symptom");
 const titles = message == null ? [symptom as string] : [message].flat();
-const id =
-    Astro.props.id ??
-    (code ?? titles[0])
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "")
-        .slice(0, 64);
+const id = Astro.props.id ?? toAnchor(code ?? titles[0]).slice(0, 64);
 const SEVERITIES = { error: "Error", warning: "Warning" };
-const segments = (title: string): { text: string; code: boolean }[] =>
-    title.split("`").map((text, i) => ({ text, code: i % 2 === 1 }));
 ---
 
 <li class="problem" id={id}>
@@ -57,16 +54,12 @@ const segments = (title: string): { text: string; code: boolean }[] =>
             ]}
             href={`#${id}`}
         >
-            {message != null
-                ? title
-                : segments(title).map(({ text, code }) =>
-                      code ? <code>{text}</code> : text,
-                  )}
+            {message != null ? title : <InlineCode text={title} />}
         </a>
     ))}
-    <dl class="problem__body">
+    <Body>
         <slot />
-    </dl>
+    </Body>
 </li>
 
 <style is:global>
@@ -142,42 +135,7 @@ const segments = (title: string): { text: string; code: boolean }[] =>
         font-weight: 500;
     }
 
-    .problem__body {
-        display: grid;
-        grid-template-columns: max-content minmax(0, 1fr);
-        align-items: baseline;
-        gap: 1rem 3rem;
+    .problem > .problem__body {
         margin: 1.5rem 0 0;
-    }
-
-    .problem__label {
-        font-size: var(--pluto-small-size);
-        font-weight: 500;
-        color: var(--pluto-gray-l8);
-    }
-
-    /* A phone puts each label above its value, so the value keeps the full width. */
-    @media (max-width: 600px) {
-        .problem__body {
-            grid-template-columns: minmax(0, 1fr);
-            gap: 0.5rem;
-        }
-
-        .problem__value + .problem__label {
-            margin-top: 1.5rem;
-        }
-    }
-
-    .problem__value {
-        margin: 0;
-        color: var(--docs-body-color);
-
-        & > :first-child {
-            margin-top: 0;
-        }
-
-        & > :last-child {
-            margin-bottom: 0;
-        }
     }
 </style>

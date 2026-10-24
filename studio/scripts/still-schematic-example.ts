@@ -60,10 +60,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await capture.selectToolbarTab(session, "Properties");
       await session.click(
         drawer.locator("[role='tab']").filter({ hasText: "Style" }).first(),
-        {
-          text: true,
-          zoom: false,
-        },
+        { text: true, zoom: false },
       );
       for (const [name, text] of [
         ["Label", label],
@@ -77,10 +74,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       }
       const telemetry = drawer.getByText("Telemetry", { exact: true }).first();
       await session.waitFor(telemetry);
-      await session.click(telemetry, {
-        text: true,
-        zoom: false,
-      });
+      await session.click(telemetry, { text: true, zoom: false });
       await session.click(drawer.getByText("Select channel", { exact: true }).first(), {
         zoom: false,
       });

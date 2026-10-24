@@ -262,11 +262,11 @@ const main = async (): Promise<void> => {
     const p = paths(entry);
     const hash = await entryHash(entry, values.draft);
     const stamp = await readStamp(entry.id);
-    const produced =
+    const present =
       entry.stills != null
         ? existsSync(p.stills)
         : THEMES.every((theme) => existsSync(p.video(theme)));
-    const fresh = stamp?.hash === hash && produced;
+    const fresh = stamp?.hash === hash && present;
     if (fresh && !values.force) {
       console.log(`${entry.id}: unchanged, skipping`);
       skipped++;

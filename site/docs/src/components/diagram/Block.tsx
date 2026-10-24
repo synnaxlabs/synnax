@@ -69,12 +69,14 @@ const Tab = ({ x, y, side }: TabProps): ReactElement => {
   );
 };
 
+interface NodeProps {
+  node: Omit<PlacedNode, "key" | "column">;
+}
+
 /** The icon chip and text of a block, drawn over the given box. */
 export const Content = ({
   node: { label, caption, icon: Icon, x, y, width, height },
-}: {
-  node: PlacedNode;
-}): ReactElement => (
+}: NodeProps): ReactElement => (
   <foreignObject x={x} y={y} width={width} height={height}>
     <div className="block-diagram__content">
       {Icon != null && (
@@ -90,7 +92,7 @@ export const Content = ({
   </foreignObject>
 );
 
-export const Item = ({ node }: { node: PlacedNode }): ReactElement => (
+export const Item = ({ node }: NodeProps): ReactElement => (
   <g>
     <rect
       x={node.x}

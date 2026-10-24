@@ -9,28 +9,36 @@
 
 import { type Locator } from "playwright";
 
-import {
-  configured,
-  EL2004,
-  EL3102,
-  LABJACK_T7,
-  NI_USB_6343,
-  type SimulatedDevice,
-  simulatedDriver,
-} from "@/fixtures/hardware";
-import { capture } from "@/index";
+import { capture, fixtures } from "@/index";
 
+/** Name of the embedded rack the Driver runs on in every capture's Core. */
 export const DRIVER = "Node 1 Embedded Driver";
 
 /** The devices the configure device videos leave behind. */
-export const NI_DAQ = configured(NI_USB_6343, "Test stand DAQ", "dev1");
-export const LABJACK = configured(LABJACK_T7, "Thrust stand T7", "lj1");
-export const TANK_PRESSURES = configured(EL3102, "Tank pressures", "ai1");
-export const VALVE_OUTPUTS = configured(EL2004, "Valve outputs", "do1");
+export const NI_DAQ = fixtures.configured(
+  fixtures.NI_USB_6343,
+  "Test stand DAQ",
+  "dev1",
+);
+export const LABJACK = fixtures.configured(
+  fixtures.LABJACK_T7,
+  "Thrust stand T7",
+  "lj1",
+);
+export const TANK_PRESSURES = fixtures.configured(
+  fixtures.EL3102,
+  "Tank pressures",
+  "ai1",
+);
+export const VALVE_OUTPUTS = fixtures.configured(
+  fixtures.EL2004,
+  "Valve outputs",
+  "do1",
+);
 
 /**
- * fieldItem returns the form field whose label is exactly `label`, with or without
- * the mark of a required field.
+ * fieldItem returns the form field whose label is exactly `label`, with or without the
+ * mark of a required field.
  */
 export const fieldItem = (scope: Locator, label: string): Locator =>
   scope
@@ -44,7 +52,7 @@ export const fieldItem = (scope: Locator, label: string): Locator =>
     .first();
 
 /** setNumber replaces the value of the numeric field with the given label. */
-export const setNumber = async (
+const setNumber = async (
   session: capture.CaptureSession,
   scope: Locator,
   label: string,
@@ -170,9 +178,12 @@ export const recordTask = async (
  * Driver. Nothing reads or writes hardware, so the task produces no samples.
  */
 export const taskScript =
-  ({ device, ...shot }: Omit<TaskShot, "device"> & { device: SimulatedDevice }) =>
+  ({
+    device,
+    ...shot
+  }: Omit<TaskShot, "device"> & { device: fixtures.SimulatedDevice }) =>
   async (session: capture.CaptureSession): Promise<void> => {
-    const driver = await simulatedDriver({ devices: [device] });
+    const driver = await fixtures.simulatedDriver({ devices: [device] });
     try {
       await capture.login(session);
       await capture.clearPanel(session);

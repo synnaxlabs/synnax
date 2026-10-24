@@ -10,17 +10,17 @@
 import { renderToString } from "react-dom/server";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { Page, type PageNavNode } from "@/components/nav/Page";
+import { Page } from "@/components/nav/Page";
 import { start } from "@/components/nav/sidebar";
+import { type PageNavNode } from "@/components/nav/tree";
 
 const NODES: PageNavNode[] = [
   {
     key: "channels",
     name: "Channels",
     children: [
-      { key: "/reference/channels", href: "/reference/channels", name: "Overview" },
+      { href: "/reference/channels", name: "Overview" },
       {
-        key: "/reference/channels/create",
         href: "/reference/channels/create",
         name: "Create channels",
       },
@@ -31,12 +31,10 @@ const NODES: PageNavNode[] = [
     name: "Control",
     children: [
       {
-        key: "arc",
         name: "Arc",
         href: "/reference/control/arc",
         children: [
           {
-            key: "/reference/control/arc/get-started",
             href: "/reference/control/arc/get-started",
             name: "Get started",
           },
@@ -45,7 +43,6 @@ const NODES: PageNavNode[] = [
             name: "Concepts",
             children: [
               {
-                key: "/reference/control/arc/concepts/stages",
                 href: "/reference/control/arc/concepts/stages",
                 name: "Stages",
               },
@@ -57,9 +54,9 @@ const NODES: PageNavNode[] = [
   },
 ];
 
-const show = (path: string): void => {
+const show = (path: string, nodes: PageNavNode[] = NODES): void => {
   window.history.replaceState(null, "", path);
-  document.body.innerHTML = renderToString(<Page nodes={NODES} currentPage={path} />);
+  document.body.innerHTML = renderToString(<Page nodes={nodes} currentPage={path} />);
 };
 
 const item = (name: string): HTMLElement => {
@@ -127,6 +124,45 @@ describe("sidebar", () => {
       ]);
       expect(item("Arc").getAttribute("aria-expanded")).toBe("false");
       expect(selected()).toEqual(["Create channels"]);
+    });
+
+    it("should expand a group whose key is not part of the page's path", () => {
+      show("/reference/enterprise/certificates", [
+        {
+          key: "enterprise",
+          name: "Enterprise",
+          children: [
+            {
+              key: "tls",
+              name: "TLS",
+              children: [
+                { href: "/reference/enterprise/certificates", name: "Certificates" },
+              ],
+            },
+          ],
+        },
+      ]);
+      expect(visible()).toEqual(["Enterprise", "TLS", "Certificates"]);
+    });
+
+    it("should collapse a group whose key matches another part of the path", () => {
+      show("/reference/control/arc", [
+        {
+          key: "control",
+          name: "Control",
+          children: [
+            { href: "/reference/control/arc", name: "Arc" },
+            {
+              key: "reference",
+              name: "Language reference",
+              children: [
+                { href: "/reference/control/arc/reference/syntax", name: "Syntax" },
+              ],
+            },
+          ],
+        },
+      ]);
+      expect(visible()).toEqual(["Control", "Arc", "Language reference"]);
     });
   });
 

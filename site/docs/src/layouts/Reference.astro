@@ -12,8 +12,7 @@ import Article from "@/components/article/Article.astro";
 import OnThisPage from "@/components/nav/OnThisPage.astro";
 import OutlineBar from "@/components/nav/OutlineBar.astro";
 import PageNav from "@/components/nav/Page.astro";
-import { type PageNavNode } from "@/components/nav/Page";
-import { editionOf, groupOf, neighbors } from "@/components/nav/tree";
+import { editionOf, groupOf, neighbors, type PageNavNode } from "@/components/nav/tree";
 import Main from "@/layouts/Root.astro";
 import { labelOf, REFERENCE_PAGES } from "@/pages/_nav";
 import { outlined } from "@/util/outline";
@@ -37,8 +36,8 @@ interface Link {
     group?: string;
 }
 const link = (node?: PageNavNode): Link => {
-    if (node == null) return {};
-    const href = node.href as string;
+    if (node?.href == null) return {};
+    const { href } = node;
     const title = labelOf(href) ?? node.name;
     const target = groupOf(REFERENCE_PAGES, href);
     return {
@@ -50,6 +49,7 @@ const link = (node?: PageNavNode): Link => {
 const nextLink = link(next);
 const prevLink = link(prev);
 const edition = editionOf(REFERENCE_PAGES, Astro.url.pathname);
+const shown = outlined(headings);
 ---
 
 <Main frontmatter={frontmatter} headings={headings}>
@@ -62,7 +62,7 @@ const edition = editionOf(REFERENCE_PAGES, Astro.url.pathname);
     <Fragment slot="subheader">
         {showOnThisPage && (
             <OutlineBar
-                headings={outlined(headings)}
+                headings={shown}
                 outline={frontmatter.outline}
                 clients={clients}
                 platforms={platforms}
@@ -87,7 +87,7 @@ const edition = editionOf(REFERENCE_PAGES, Astro.url.pathname);
         </Article>
         {showOnThisPage && (
             <OnThisPage
-                headings={headings}
+                headings={shown}
                 outline={frontmatter.outline}
                 clients={clients}
                 platforms={platforms}

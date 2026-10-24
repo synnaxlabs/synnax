@@ -15,7 +15,8 @@ import { ClientRouter } from "astro:transitions";
 import Footer from "@synnaxlabs/site-common/Footer.astro";
 import Head from "@synnaxlabs/site-common/Head.astro";
 import { enabled } from "@/flags";
-import { sectionOf } from "@/pages/_nav";
+import { sectionOf } from "@/components/nav/tree";
+import { REFERENCE_PAGES } from "@/pages/_nav";
 import { normalizeRoute } from "@/util/route";
 const {
     frontmatter: { title, heading, description, url, image, flag },
@@ -28,7 +29,7 @@ if (hidden) Astro.response.status = 404;
 // into duplicates.
 const route = normalizeRoute(Astro.url.pathname);
 const canonicalUrl = new URL(route, Astro.site).href;
-const section = sectionOf(route);
+const section = sectionOf(REFERENCE_PAGES, route);
 const cleanTitle = title?.replace(/`/g, "");
 // An overview page has the name of its section, so the section shows once.
 const pageTitle =
@@ -91,11 +92,11 @@ const FOOTER_COLUMNS = [
             href="/blog/rss.xml"
         />
         <ClientRouter />
-        <slot name="head" />
+        {!hidden && <slot name="head" />}
     </head>
     <body>
         <Header url={url} transition:persist />
-        <slot name="subheader" />
+        {!hidden && <slot name="subheader" />}
         <main>
             {hidden ? (
                 <section class="not-found">

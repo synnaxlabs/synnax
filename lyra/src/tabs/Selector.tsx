@@ -333,8 +333,7 @@ export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop" | "align"> {
   size?: Component.Size;
   /**
    * variant is the chassis its tabs wear: see {@link Variant}. Everything else about
-   * how the strip behaves is a knob below, which variant only supplies the default
-   * for.
+   * how the strip behaves is a knob below, which variant only supplies the default for.
    */
   variant?: Variant;
   /** align places a tab's contents along the strip. Defaults per variant. */

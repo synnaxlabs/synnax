@@ -14,6 +14,7 @@
 // its type, and a group shows the icon of its first type.
 
 import { type Group, type Option, Options, Picker } from "@/components/channel/Picker";
+import { toAnchor } from "@/util/anchor";
 
 const html = (await Astro.slots.render("default")).trim();
 
@@ -53,8 +54,7 @@ for (const pane of panes) {
     if (name == null) continue;
     let group = groups.find((g) => g.name === name);
     if (group == null) {
-        const key = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-        group = { key, name, icon: option.icon, options: [] };
+        group = { key: toAnchor(name), name, icon: option.icon, options: [] };
         groups.push(group);
     }
     group.options.push(option);

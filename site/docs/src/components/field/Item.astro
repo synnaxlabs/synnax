@@ -8,11 +8,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { toAnchor } from "@/util/anchor";
+
 export interface Props {
-    /** The flag, key, or field, set in mono. Give this, `label`, or a `name` slot, such
-        as a `Client.Var`, together with an `id`. */
+    /** The flag, key, or field, set in mono. Give one of this, `label`, or a `name`
+        slot. A `name` slot, such as a `Client.Var`, needs an `id`. */
     name?: string;
-    /** The Console label, set as text. Give this or `name`. */
+    /** The title, set as text, for an entry with no code name. */
     label?: string;
     /** The client field or fields that the entry sets. Give `py` and `ts` when the
         Python and TypeScript names differ. */
@@ -32,7 +34,8 @@ export interface Props {
     default?: string;
     /** The environment variable that sets the same value. */
     env?: string;
-    /** The anchor of the entry. Defaults to the name without leading dashes. */
+    /** The anchor of the entry. Defaults to the name without leading dashes, or to the
+        label in kebab case. */
     id?: string;
 }
 
@@ -54,15 +57,10 @@ if ([name != null, label != null, slotted].filter(Boolean).length !== 1)
     throw new Error("Field.Item needs exactly one of name, label, or a name slot");
 if (slotted && Astro.props.id == null)
     throw new Error("Field.Item with a name slot needs an id");
-const title = (name ?? label ?? "") as string;
 const id =
-    Astro.props.id ??
-    (name != null
-        ? name.replace(/^-+/, "")
-        : title
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, "-")
-              .replace(/^-|-$/g, ""));
+    Astro.props.id ?? (name != null ? name.replace(/^-+/, "") : toAnchor(label ?? ""));
+// A flag shows the value it takes in angle brackets.
+const typeText = type != null && name?.startsWith("-") ? `<${type}>` : type;
 const clientNames = typeof field === "object" && !Array.isArray(field) ? field : null;
 const fields = field == null || clientNames != null ? [] : [field].flat();
 const hasMeta =
@@ -82,7 +80,7 @@ const hasMeta =
             ) : name != null ? (
                 <code>{name}</code>
             ) : (
-                <span class="field__label">{title}</span>
+                <span class="field__label">{label}</span>
             )}
             {short != null && (
                 <span>
@@ -90,15 +88,13 @@ const hasMeta =
                 </span>
             )}
         </a>
-        {type != null &&
+        {typeText != null &&
             (typeHref != null ? (
                 <a class="field__type-link" href={typeHref}>
-                    <code class="field__type">{type}</code>
+                    <code class="field__type">{typeText}</code>
                 </a>
             ) : (
-                <code class="field__type">
-                    {name?.startsWith("-") ? `<${type}>` : type}
-                </code>
+                <code class="field__type">{typeText}</code>
             ))}
         {required && <span class="field__required">Required</span>}
         {hasMeta && (

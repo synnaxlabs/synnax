@@ -18,9 +18,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { type Edition } from "@/components/edition/edition";
+import { ancestry, type PageNavNode } from "@/components/nav/tree";
 import { InlineCode } from "@/components/text/InlineCode";
-import { type Flag } from "@/flags";
 import { normalizeRoute } from "@/util/route";
 
 const SECTION_ICONS: Record<string, ReactElement> = {
@@ -36,18 +35,6 @@ const SECTION_ICONS: Record<string, ReactElement> = {
   enterprise: <Icon.Core />,
 };
 
-export interface PageNavNode {
-  key: string;
-  name: string;
-  href?: string;
-  icon?: string;
-  /** Hides the node and its children while the flag is off. */
-  flag?: Flag;
-  /** Marks the node and its children as applying only to this edition. */
-  edition?: Edition;
-  children?: PageNavNode[];
-}
-
 const ITEM_CLASS = "pluto-tree__item pluto--margin pluto-list__item";
 const SELECTED_CLASS = "pluto--selected";
 
@@ -58,16 +45,18 @@ interface Row {
   hidden: boolean;
 }
 
+const idOf = (node: PageNavNode): string => node.href ?? node.key;
+
 // Lists every node in reading order, as Lyra's tree does, so a collapsed node's
 // descendants follow it and hide with it.
 const rows = (
   nodes: PageNavNode[],
-  open: Set<string>,
+  open: Set<PageNavNode>,
   depth = 0,
   hidden = false,
 ): Row[] =>
   nodes.flatMap((node) => {
-    const expanded = depth === 0 || open.has(node.key);
+    const expanded = depth === 0 || open.has(node);
     return [
       { node, depth, expanded, hidden },
       ...rows(node.children ?? [], open, depth + 1, hidden || !expanded),
@@ -102,7 +91,7 @@ const Section = ({ node }: Row): ReactElement => (
     style={SECTION_STYLE}
   >
     {caret(true)}
-    {SECTION_ICONS[node.key]}
+    {SECTION_ICONS[idOf(node)]}
     <Text.Text level="p" weight={500}>
       <InlineCode text={node.name} />
     </Text.Text>
@@ -163,7 +152,7 @@ export interface TreeProps extends PageProps {
  */
 export const Page = ({ id, nodes, currentPage: path }: TreeProps): ReactElement => {
   const currentPage = normalizeRoute(path);
-  const open = new Set(currentPage.split("/").filter((part) => part !== ""));
+  const open = new Set(ancestry(nodes, currentPage));
   return (
     <div
       id={id}
@@ -173,9 +162,9 @@ export const Page = ({ id, nodes, currentPage: path }: TreeProps): ReactElement 
       <div className="pluto-list__virtualizer">
         {rows(nodes, open).map((row) =>
           row.depth === 0 && row.node.children != null ? (
-            <Section key={row.node.key} {...row} />
+            <Section key={idOf(row.node)} {...row} />
           ) : (
-            <Item key={row.node.key} {...row} currentPage={currentPage} />
+            <Item key={idOf(row.node)} {...row} currentPage={currentPage} />
           ),
         )}
       </div>

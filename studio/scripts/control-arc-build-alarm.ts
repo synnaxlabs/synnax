@@ -73,9 +73,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       .first(),
     { zoom: false },
   );
-  await session.click(page.getByRole("button", { name: "Create", exact: true }), {
-    zoom: false,
-  });
+  await capture.clickButton(session, "Create");
   await session.waitForHidden(modal);
   const pane = capture.canvas(page);
   await session.waitFor(pane);

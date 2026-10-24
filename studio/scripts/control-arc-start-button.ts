@@ -181,18 +181,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     }
 
     await capture.deselect(session, { x: 40, y: 40 });
-    await session.click(
-      page.locator(".console-controls button:has(svg.pluto-icon--edit-off)").first(),
-      { zoom: false },
-    );
-    await session.click(page.locator(".console-main-nav__item").last(), {
-      zoom: false,
-    });
+    await session.click(capture.control(page, "edit-off"), { zoom: false });
+    await capture.hideBottomToolbar(session);
     await session.settle(600);
-    await session.click(
-      page.locator(".console-controls button:has(svg.pluto-icon--expand)").first(),
-      { zoom: false },
-    );
+    await session.click(capture.control(page, "expand"), { zoom: false });
     await session.settle(600);
     const status = indicator.locator(".pluto-state-indicator").first();
     await session.waitFor(status.getByText("Idle", { exact: true }));

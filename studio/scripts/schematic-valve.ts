@@ -61,9 +61,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await capture.deselect(session, { x: 100, y: 290 });
     // Control mode leaves the toolbar on a "not editable" placeholder, so the
     // drawer closes before recording.
-    await session.click(page.locator(".console-main-nav__item").last(), {
-      zoom: false,
-    });
+    await capture.hideBottomToolbar(session);
     await session.settle(600);
     // The canvas only reaches its recorded size once the drawer closes.
     await capture.fitView(session);
@@ -74,10 +72,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     session.startRecording();
     await session.hold(1800);
 
-    await session.click(
-      page.locator(".console-controls button:has(svg.pluto-icon--circle)").first(),
-      { zoom: false },
-    );
+    await session.click(capture.control(page, "circle"), { zoom: false });
     await session.waitFor(page.locator(".pluto-legend-entry").first());
     await session.hold(1400);
 

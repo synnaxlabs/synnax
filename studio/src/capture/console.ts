@@ -162,16 +162,11 @@ export const hideBottomToolbar = async (session: CaptureSession): Promise<void> 
 
 /** closeToolbar closes the open side toolbar by clicking its selected nav icon. */
 export const closeToolbar = async (session: CaptureSession): Promise<void> => {
-  const { page } = session;
-  const selected = page.locator("button.console-main-nav__item.pluto--selected");
-  if (
-    !(await selected
-      .first()
-      .isVisible()
-      .catch(() => false))
-  )
-    return;
-  await session.click(selected.first());
+  const selected = session.page
+    .locator("button.console-main-nav__item.pluto--selected")
+    .first();
+  if (!(await selected.isVisible().catch(() => false))) return;
+  await session.click(selected);
 };
 
 /**
@@ -279,8 +274,8 @@ const PALETTE_READ_MS = 700;
  */
 export const openPalette = async (session: CaptureSession): Promise<Locator> => {
   const { page } = session;
-  // No zoom: the dialog spans most of the window, so any zoom deep enough to read
-  // as one crops its edges.
+  // No zoom: the dialog spans most of the window, so any zoom deep enough to read as
+  // one crops its edges.
   await session.click(page.locator(".console-palette button").first(), {
     zoom: false,
   });

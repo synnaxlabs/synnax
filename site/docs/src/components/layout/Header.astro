@@ -216,6 +216,25 @@ const label = version?.split(".").slice(0, -1).join(".");
         flex: 1;
         overflow-y: auto;
         padding-bottom: 2rem;
+
+        .pluto-tree {
+            max-height: calc(100vh - 15rem);
+            padding-top: 5rem;
+            mask-image: linear-gradient(
+                to bottom,
+                transparent 0,
+                black 5rem,
+                black calc(100% - 5rem),
+                transparent 100%
+            );
+            -webkit-mask-image: linear-gradient(
+                to bottom,
+                transparent 0,
+                black 5rem,
+                black calc(100% - 5rem),
+                transparent 100%
+            );
+        }
     }
 
     @media (pointer: coarse) {

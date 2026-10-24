@@ -29,7 +29,7 @@ export interface CanvasPosition {
 export const canvas = (page: Page): Locator =>
   page.locator(".react-flow__pane").first();
 
-/** symbols returns every symbol on the canvas, in the order they were added. */
+/** symbols returns every symbol on the canvas, in no fixed order. */
 const symbols = (page: Page): Locator => page.locator(".react-flow__node");
 
 /**
@@ -152,8 +152,8 @@ export const selectSymbols = async (
 };
 
 /**
- * fitView fits and centers the schematic in its pane, off camera. Each click on
- * the control also toggles fit on resize, so a second click turns it back off.
+ * fitView fits and centers the schematic in its pane, off camera. Each click on the
+ * control also toggles fit on resize, so a second click turns it back off.
  */
 export const fitView = async (session: CaptureSession): Promise<void> => {
   const button = control(session.page, "expand");

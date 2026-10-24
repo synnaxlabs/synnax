@@ -11,6 +11,7 @@ export { Block, type BlockProps } from "@/components/diagram/Block";
 export { default as Diagram } from "@/components/diagram/Diagram.astro";
 export {
   Handoff,
+  type HandoffEvent,
   type HandoffProps,
   type HandoffWriter,
 } from "@/components/diagram/Handoff";

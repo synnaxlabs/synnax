@@ -8,38 +8,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { MarkdownHeading } from "astro";
+import type { ComponentProps } from "astro/types";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Client } from "@/components/client/choice";
-import { INFO as CLIENTS } from "@/components/client/Client";
 import Feedback from "@/components/feedback/Feedback.astro";
 import Outline from "@/components/nav/Outline.astro";
-import { type Platform } from "@/components/platform/choice";
-import { INFO as PLATFORMS } from "@/components/platform/Platform";
-import { Picker } from "@/components/tabs/Picker";
-import { type Entry, outlined } from "@/util/outline";
 
-interface Props {
-    headings?: MarkdownHeading[];
-    /** Restores the inline code and step labels the heading list drops. */
-    outline?: Record<string, Entry>;
-    clients?: Client[];
-    platforms?: Platform[];
+type Props = Omit<ComponentProps<typeof Outline>, "select"> & {
     hideFeedback?: boolean;
-}
+};
 
-const {
-    headings = [],
-    outline = {},
-    clients = [],
-    platforms = [],
-    hideFeedback = false,
-} = Astro.props;
-const shown = outlined(headings);
-const hasHeadings = shown.length > 0;
+const { hideFeedback = false, ...rest } = Astro.props;
+const hasHeadings = rest.headings.length > 0;
 ---
 
 <Flex.Box el="nav" className="on-this-page" gap="medium">
@@ -57,19 +39,7 @@ const hasHeadings = shown.length > 0;
             gap={2}
             className="on-this-page__content styled-scrollbar"
         >
-            {platforms.length > 0 && (
-                <Picker
-                    query="platform"
-                    options={PLATFORMS.filter(({ key }) => platforms.includes(key))}
-                />
-            )}
-            {clients.length > 0 && (
-                <Picker
-                    query="client"
-                    options={CLIENTS.filter(({ key }) => clients.includes(key))}
-                />
-            )}
-            <Outline headings={shown} outline={outline} />
+            <Outline {...rest} />
         </Flex.Box>
     )}
     {!hideFeedback && (
@@ -117,10 +87,6 @@ const hasHeadings = shown.length > 0;
                 black calc(100% - 2rem),
                 transparent 100%
             );
-        }
-
-        .pluto-dialog {
-            margin-bottom: 1rem;
         }
 
         flex-shrink: 0;

@@ -619,11 +619,11 @@ export class CaptureSession {
   }
 
   /**
-   * drag presses at `from`, travels to `to` with the button held, and releases.
-   * Unlike moveTo, the real mouse tracks the travel tick by tick (along the same
-   * minimum-jerk profile the director renders), so drag interactions follow the
-   * cursor on screen. With a list of stops, the drag rests `pauseMs` on each stop
-   * before the last, and resolves each stop only when it travels there.
+   * drag presses at `from`, travels to `to` with the button held, and releases. Unlike
+   * moveTo, the real mouse tracks the travel tick by tick (along the same minimum-jerk
+   * profile the director renders), so drag interactions follow the cursor on screen.
+   * With a list of stops, the drag rests `pauseMs` on each stop before the last, and
+   * resolves each stop only when it travels there.
    */
   async drag(
     from: Locator | Point,
@@ -682,10 +682,10 @@ export class CaptureSession {
   }
 
   /**
-   * zoom opens an authored camera override framing the target, superseding
-   * auto-zoom until endZoom (or finish) closes it. When amount is omitted the
-   * director derives it from the target's rect: as tight as the framing margin
-   * allows. The director caps every amount at the deepest zoom the render keeps crisp.
+   * zoom opens a camera zoom framing the target until endZoom (or finish) closes it.
+   * When amount is omitted the director derives it from the target's rect: as tight as
+   * the framing margin allows. The director caps every amount at the deepest zoom the
+   * render keeps crisp.
    */
   async zoom(target: Locator | Point, amount?: number): Promise<void> {
     if (this.openZoom != null) this.endZoom();
@@ -697,9 +697,9 @@ export class CaptureSession {
   }
 
   /**
-   * endZoom closes the open authored zoom, returning the camera to auto. A zoom
-   * that saw a click holds until CLICK_HOLD_S past it, unless a later zoom opens
-   * or the recording ends first.
+   * endZoom closes the open zoom, returning the camera to the full frame. A zoom that
+   * saw a click holds until CLICK_HOLD_S past it, unless a later zoom opens or the
+   * recording ends first.
    */
   endZoom(): void {
     if (this.openZoom == null) return;

@@ -67,14 +67,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(item);
     await session.doubleClick(item, { zoom: false, text: true });
     await session.waitFor(page.locator(".pluto-editor").first());
-    // The nav button toggles its drawer, so a second click closes it.
-    await session.click(
-      page
-        .locator("button.console-main-nav__item")
-        .filter({ has: page.locator("svg.pluto-icon--arc") })
-        .first(),
-      { zoom: false },
-    );
+    await capture.closeToolbar(session);
     const controls = page.locator(".console-arc-editor__controls").first();
     await session.waitFor(controls.getByText("Task started successfully").first());
     await session.waitFor(controls.getByText("Node 1", { exact: true }).first());
