@@ -13,6 +13,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -73,5 +74,9 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 		return nil, channel.NewNotFoundError(key)
 	}
 	_, limited := cfg.Reduction.Variant.(telem.LimitReduction)
-	return &streamIterator{internal: internal, limited: limited}, nil
+	return &streamIterator{
+		internal:  internal,
+		limited:   limited,
+		pieceSize: override.Numeric(defaultPieceSize, cfg.pieceSize),
+	}, nil
 }
