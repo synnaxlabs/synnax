@@ -26,7 +26,7 @@ import (
 
 func TestRanges(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Arc Ranges Suite")
+	RunSpecs(t, "Service Arc Ranges Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -19,7 +19,7 @@ import (
 
 func TestCasing(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Casing Suite")
+	RunSpecs(t, "Plugin Casing Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -166,13 +166,14 @@ func (s *Service) ResolveKeyOrName(
 
 // SetTarget builds the status a by-key-or-name set should write: the first match, or a
 // new UUID-keyed status named keyOrName when nothing matched, with the new fields
-// applied.
+// applied. It clears the description, which explained the previous message.
 func SetTarget(matches []Status[any], keyOrName, message, variant string) Status[any] {
 	st := Status[any]{Key: uuid.New().String(), Name: keyOrName}
 	if len(matches) > 0 {
 		st = matches[0]
 	}
 	st.Message = message
+	st.Description = ""
 	st.Variant = Variant(variant)
 	st.Time = telem.Now()
 	return st

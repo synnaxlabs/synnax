@@ -23,7 +23,7 @@ var magic = [3]byte{0x4F, 0x52, 0x43}
 
 func TestORC(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Encoding ORC Suite")
+	RunSpecs(t, "Encoding ORC Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

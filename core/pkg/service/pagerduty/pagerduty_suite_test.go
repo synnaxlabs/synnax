@@ -13,7 +13,6 @@ import (
 	"context"
 	"encoding/json/v2"
 	"sync"
-	"sync/atomic"
 	"testing"
 
 	"github.com/PagerDuty/go-pagerduty"
@@ -33,7 +32,7 @@ import (
 
 func TestPagerDuty(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service PagerDuty Suite")
+	RunSpecs(t, "Service PagerDuty Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -72,10 +71,9 @@ func encodeConfig(cfg pd.TaskConfig) msgpack.EncodedJSON {
 
 // mockEventSender records events sent through it for test assertions.
 type mockEventSender struct {
-	mu        sync.Mutex
-	events    []pagerduty.V2Event
-	err       error
-	sendCalls atomic.Int32
+	mu     sync.Mutex
+	events []pagerduty.V2Event
+	err    error
 }
 
 var _ pd.EventSender = (*mockEventSender)(nil)
@@ -86,7 +84,6 @@ func (m *mockEventSender) SendEvent(
 	_ context.Context,
 	event pagerduty.V2Event,
 ) (*pagerduty.V2EventResponse, error) {
-	m.sendCalls.Add(1)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.err != nil {
@@ -99,8 +96,6 @@ func (m *mockEventSender) SendEvent(
 		Message:  "Event processed",
 	}, nil
 }
-
-func (m *mockEventSender) sendCallCount() int32 { return m.sendCalls.Load() }
 
 func (m *mockEventSender) getEvents() []pagerduty.V2Event {
 	m.mu.Lock()
