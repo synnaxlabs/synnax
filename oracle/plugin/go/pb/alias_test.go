@@ -21,6 +21,12 @@ const aliasBase = `
 
 Key = uuid
 
+Data = record
+
+Small = uint8
+
+Port Small
+
 Size enum {
 	small = "small"
 	large = "large"
@@ -60,6 +66,9 @@ import "schemas/base"
 @pb
 
 Key = base.Key
+Data = base.Data
+Small = base.Small
+Port = base.Port
 Size = base.Size
 Labeled = base.Labeled
 Valve = base.Valve
@@ -88,7 +97,42 @@ var _ = Describe("Go PB aliases", func() {
 			Panel struct {
 				key Key
 			}
-		`, "Key: r.Key.String(),", "r.Key = test.Key(parsedKey)"),
+		`, "Key: r.Key.String(),", "r.Key, err = uuid.Parse(pb.Key)"),
+		Entry("an alias of record", `
+			Panel struct {
+				data Data
+			}
+		`, "dataVal, err := structpb.NewStruct(r.Data)", "r.Data = pb.Data.AsMap()"),
+		Entry("an optional alias of record", `
+			Panel struct {
+				data Data?
+			}
+		`, "pb.Data, err = structpb.NewStruct(r.Data)", "r.Data = pb.Data.AsMap()"),
+		Entry("an alias of a record array", `
+			Panel struct {
+				data Data[]
+			}
+		`, "dataVal, err := recordsToPB(r.Data)", "r.Data = recordsFromPB(pb.Data)"),
+		Entry("an alias of a primitive that protobuf widens", `
+			Panel struct {
+				small Small
+			}
+		`, "Small: uint32(r.Small),", "r.Small = uint8(pb.Small)"),
+		Entry("an optional alias of a primitive that protobuf widens", `
+			Panel struct {
+				small Small?
+			}
+		`, "v := uint32(*r.Small)", "v := uint8(*pb.Small)"),
+		Entry("a distinct type over an alias of a primitive", `
+			Panel struct {
+				port Port
+			}
+		`, "Port: uint32(r.Port),", "r.Port = base.Port(pb.Port)"),
+		Entry("an optional distinct type over an alias of a primitive", `
+			Panel struct {
+				port Port?
+			}
+		`, "v := uint32(*r.Port)", "v := base.Port(*pb.Port)"),
 		Entry("an enum", `
 			Panel struct {
 				size Size

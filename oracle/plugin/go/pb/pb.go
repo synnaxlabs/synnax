@@ -690,7 +690,7 @@ func (p *Plugin) processFieldForTranslation(
 		HasBackwardError: hasBackwardError,
 	}
 
-	typeRef := field.Type
+	typeRef := dealiasPrimitive(field.Type, data.table)
 
 	// Optional primitives that need type conversion (e.g., *uint8 <-> *uint32) require
 	// pointer dereference before casting and re-addressing after.
@@ -712,7 +712,7 @@ func (p *Plugin) processFieldForTranslation(
 	if isOptional && !resolution.IsPrimitive(typeRef.Name) {
 		if resolved, _, ok := resolution.Dealias(typeRef, data.table); ok {
 			if form, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct &&
-				resolution.IsPrimitive(form.Base.Name) {
+				resolution.IsPrimitive(dealiasPrimitive(form.Base, data.table).Name) {
 				fd.NeedsPtrConversion = true
 				fd.ForwardExpr, fd.BackwardExpr, _, _ = p.generateTypeDefConversion(
 					resolved, form, data, "*r."+goName, "*pb."+pbName,
@@ -1140,7 +1140,7 @@ func (p *Plugin) generateFieldConversion(
 	data *templateData,
 	parentStruct resolution.Type,
 ) (forward, backward, backwardCast string, hasError, hasBackwardError bool) {
-	typeRef := field.Type
+	typeRef := dealiasPrimitive(field.Type, data.table)
 	goFieldName := "r." + naming.GetFieldName(field)
 	pbFieldName := "pb." + lo.PascalCase(lo.SnakeCase(field.Name))
 
@@ -1186,11 +1186,6 @@ func (p *Plugin) generateFieldConversion(
 		return f, b, "", e, be
 	}
 
-	resolved, ok := typeRef.Resolve(data.table)
-	if !ok {
-		return goFieldName, pbFieldName, "", false, false
-	}
-
 	// An alias converts as the type it stands for.
 	target, _, ok := resolution.Dealias(typeRef, data.table)
 	if !ok {
@@ -1198,17 +1193,6 @@ func (p *Plugin) generateFieldConversion(
 	}
 
 	switch form := target.Form.(type) {
-	case resolution.PrimitiveForm:
-		if _, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-			f, b, c, be := p.generateAliasConversion(
-				resolved,
-				form.Name,
-				data,
-				goFieldName,
-				pbFieldName,
-			)
-			return f, b, c, false, be
-		}
 	case resolution.UnionForm:
 		prefix, name := p.resolveUnionTranslatorName(target, data)
 		if field.Optional {
@@ -1590,7 +1574,7 @@ func (p *Plugin) generateTypeDefConversion(
 	data *templateData,
 	goField, pbField string,
 ) (forward, backward, backwardCast string, hasBackwardError bool) {
-	baseType := form.Base
+	baseType := dealiasPrimitive(form.Base, data.table)
 	if !resolution.IsPrimitive(baseType.Name) {
 		return goField, pbField, "", false
 	}
@@ -1629,45 +1613,6 @@ func (p *Plugin) generateTypeDefConversion(
 	return forward, backward, "", false
 }
 
-func (p *Plugin) generateAliasConversion(
-	resolved resolution.Type,
-	primitiveName string,
-	data *templateData,
-	goField, pbField string,
-) (forward, backward, backwardCast string, hasBackwardError bool) {
-	aliasPrefix := ""
-	goOutput := output.GetPath(resolved, "go")
-	if resolved.Namespace != data.Namespace ||
-		(goOutput != "" && goOutput != data.ParentGoPath) {
-		if goOutput != "" {
-			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
-			if err == nil {
-				alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
-				data.AddInternal(alias, importPath)
-				aliasPrefix = alias + "."
-			}
-		}
-	} else {
-		aliasPrefix = data.parentAlias + "."
-	}
-
-	resolvedGoName := naming.GetGoName(resolved)
-
-	// Handle uuid specially
-	if primitiveName == "uuid" {
-		data.AddExternal("uuid")
-		forward = fmt.Sprintf("%s.String()", goField)
-		backward = fmt.Sprintf("uuid.Parse(%s)", pbField)
-		backwardCast = fmt.Sprintf("%s%s", aliasPrefix, resolvedGoName)
-		return forward, backward, backwardCast, true
-	}
-
-	protoType := primitiveToProtoType(primitiveName)
-	forward = fmt.Sprintf("%s(%s)", protoType, goField)
-	backward = fmt.Sprintf("%s%s(%s)", aliasPrefix, resolvedGoName, pbField)
-	return forward, backward, "", false
-}
-
 func (p *Plugin) generateArrayConversion(
 	field resolution.Field,
 	data *templateData,
@@ -1685,7 +1630,7 @@ func (p *Plugin) generateArrayConversion(
 		return goField, pbField, false, false
 	}
 
-	if elemType.Name == "record" {
+	if dealiasPrimitive(elemType, data.table).Name == "record" {
 		data.NeedsRecordArrayHelpers = true
 		data.AddExternal("google.golang.org/protobuf/types/known/structpb")
 		data.AddExternal("github.com/synnaxlabs/x/encoding/msgpack")
@@ -1797,12 +1742,12 @@ func (p *Plugin) generateArrayConversion(
 	// conversions in both directions using the proto/distinct type names.
 	if dealiased {
 		if distinctForm, isDistinct := elem.Form.(resolution.DistinctForm); isDistinct {
-			if resolution.IsPrimitive(distinctForm.Base.Name) &&
-				distinctForm.Base.Name != "uuid" {
+			base := dealiasPrimitive(distinctForm.Base, data.table)
+			if resolution.IsPrimitive(base.Name) && base.Name != "uuid" {
 				data.AddExternal("github.com/samber/lo")
 				elemGoType, ok := p.qualifiedDistinctGoName(elem, data)
 				if ok {
-					protoType := primitiveToProtoType(distinctForm.Base.Name)
+					protoType := primitiveToProtoType(base.Name)
 					forward := fmt.Sprintf(
 						"lo.Map(%s, func(v %s, _ int) %s { return %s(v) })",
 						goField,
@@ -2132,6 +2077,23 @@ func primitiveNeedsConversion(primitive string) bool {
 
 func toScreamingSnake(s string) string {
 	return strings.ToUpper(lo.SnakeCase(s))
+}
+
+// dealiasPrimitive returns the primitive ref stands for through aliases, or ref itself
+// when ref is not an alias of a primitive. A Go alias is the same type as its target,
+// so an alias of a primitive converts as the primitive does.
+func dealiasPrimitive(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) resolution.TypeRef {
+	target, targetRef, ok := resolution.Dealias(ref, table)
+	if !ok {
+		return ref
+	}
+	if _, isPrimitive := target.Form.(resolution.PrimitiveForm); !isPrimitive {
+		return ref
+	}
+	return targetRef
 }
 
 // isUnionType reports whether the type reference resolves to a discriminated union.

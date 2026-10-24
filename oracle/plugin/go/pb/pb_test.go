@@ -1259,8 +1259,8 @@ var _ = Describe("Go PB Plugin", func() {
 					@go output "x/go/telem"
 					@pb
 
-					TimeStamp = uint64
-					TimeSpan = int64
+					TimeStamp uint64
+					TimeSpan int64
 				`)
 			})
 
@@ -1307,7 +1307,7 @@ var _ = Describe("Go PB Plugin", func() {
 					@go output "core/test"
 					@pb
 
-					Key = uint32
+					Key uint32
 
 					Test struct {
 						rack Key
@@ -1325,7 +1325,7 @@ var _ = Describe("Go PB Plugin", func() {
 					@go output "core/test"
 					@pb
 
-					ResourceKey = uuid
+					ResourceKey uuid
 
 					Test struct {
 						resource_key ResourceKey
@@ -1348,7 +1348,7 @@ var _ = Describe("Go PB Plugin", func() {
 					@go output "core/test"
 					@pb
 
-					Key = uint32
+					Key uint32
 
 					Test struct {
 						@key
@@ -1690,7 +1690,7 @@ var _ = Describe("Go PB Plugin", func() {
 					@go output "core/ids"
 					@pb
 
-					NodeID = uint32
+					NodeID uint32
 				`)
 			})
 
