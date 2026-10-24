@@ -1874,11 +1874,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			v := iterValue.Get(dataCh.Key())
 			Expect(v.Series).To(HaveLen(1))
 			Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 3, 5, 7))
+			Expect(v.Series[0].AlignmentMultiple).To(Equal(uint32(2)))
 
 			idxV := iterValue.Get(indexCh.Key())
 			Expect(idxV.Series).To(HaveLen(1))
 			Expect(idxV.Series[0]).
 				To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 3, 5, 7)))
+			Expect(idxV.AlignmentBounds()).To(Equal(v.AlignmentBounds()))
 
 			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 			Expect(iter.Close()).To(Succeed())
@@ -2049,11 +2051,15 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				v := iter.Value()
 				Expect(v.Get(indexCh.Key()).Series[0]).
 					To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 3, 5, 7)))
-				Expect(v.Get(dataCh.Key()).Series[0]).
-					To(telem.MatchSeriesDataV[float32](5, 7))
+				data := v.Get(dataCh.Key()).Series[0]
+				Expect(data).To(telem.MatchSeriesDataV[float32](5, 7))
+				Expect(data.AlignmentMultiple).To(Equal(uint32(2)))
+				Expect(v.Get(indexCh.Key()).AlignmentBounds().Upper).
+					To(Equal(data.AlignmentBounds().Upper))
 				if calculated {
-					Expect(v.Get(calc.Key()).Series[0]).
-						To(telem.MatchSeriesDataV[float32](10, 14))
+					doubled := v.Get(calc.Key()).Series[0]
+					Expect(doubled).To(telem.MatchSeriesDataV[float32](10, 14))
+					Expect(doubled.AlignmentBounds()).To(Equal(data.AlignmentBounds()))
 				}
 				Expect(iter.Close()).To(Succeed())
 			},

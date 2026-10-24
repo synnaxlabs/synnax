@@ -106,22 +106,13 @@ type csvColumn struct {
 	offset int
 	// position is the index of the next sample within the first pending series.
 	position uint32
-	// stride is the alignment distance between consecutive samples of a series.
-	stride uint32
 }
 
 // newCSVGroups builds the columns of the response, grouped by index channel and ordered
 // by the first channel each group timestamps. It returns a validation error when the
 // response leaves out the index of a channel or carries a limit reduction.
 func newCSVGroups(res ReadResponse) ([]csvGroup, error) {
-	var (
-		all    = slices.Concat(res.Channels, res.Indexes)
-		stride = uint32(1)
-	)
-	switch r := res.Reduction.Variant.(type) {
-	case telem.StrideReduction:
-		stride = max(r.Factor, 1)
-	case telem.LimitReduction:
+	if _, ok := res.Reduction.Variant.(telem.LimitReduction); ok {
 		// A limit leaves non-numeric channels raw beside their reduced index, so their
 		// samples have no row.
 		return nil, errors.Wrap(
@@ -129,6 +120,7 @@ func newCSVGroups(res ReadResponse) ([]csvGroup, error) {
 			"a CSV read cannot take a limit reduction: use a stride",
 		)
 	}
+	all := slices.Concat(res.Channels, res.Indexes)
 	records := make(map[channel.Key]channel.Channel, len(all))
 	for _, ch := range all {
 		records[ch.Key()] = ch
@@ -149,18 +141,18 @@ func newCSVGroups(res ReadResponse) ([]csvGroup, error) {
 		if !ok {
 			i, position[index.Key()] = len(groups), len(groups)
 			groups = append(groups, csvGroup{
-				columns: []csvColumn{newCSVColumn(index, stride)},
+				columns: []csvColumn{newCSVColumn(index)},
 			})
 		}
 		if !ch.IsIndex {
-			groups[i].columns = append(groups[i].columns, newCSVColumn(ch, stride))
+			groups[i].columns = append(groups[i].columns, newCSVColumn(ch))
 		}
 	}
 	return groups, nil
 }
 
-func newCSVColumn(ch channel.Channel, stride uint32) csvColumn {
-	c := csvColumn{key: ch.Key(), name: ch.Name, dataType: ch.DataType, stride: stride}
+func newCSVColumn(ch channel.Channel) csvColumn {
+	c := csvColumn{key: ch.Key(), name: ch.Name, dataType: ch.DataType}
 	if !ch.DataType.IsVariable() {
 		c.size = int(ch.DataType.Density())
 	}
@@ -268,7 +260,7 @@ func (c *csvColumn) sample() (sample []byte, n int) {
 // alignment returns the alignment of the sample the column points at. Only valid when
 // sample returns one.
 func (c *csvColumn) alignment() telem.Alignment {
-	return c.pending[0].Alignment.AddSamples(c.position * c.stride)
+	return c.pending[0].Alignment.AddSamples(c.position * c.pending[0].Multiple())
 }
 
 // writeCSVRows appends the rows of the read in timestamp order, writing dst to w each

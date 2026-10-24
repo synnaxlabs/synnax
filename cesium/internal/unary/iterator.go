@@ -633,6 +633,7 @@ func (i *Iterator) readSegment(
 	if factor := i.stride; factor > 1 {
 		skip := (factor - seg.Alignment.SampleIndex()%factor) % factor
 		series.Alignment = seg.Alignment.AddSamples(skip)
+		series.AlignmentMultiple = factor
 		if series.Data, srcLen, err = i.readStrided(
 			r,
 			offset,

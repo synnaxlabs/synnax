@@ -2904,6 +2904,7 @@ var _ = Describe("Downsampled Iteration", func() {
 					series := readAll(ctx, dataDB, factor)
 					Expect(series).To(HaveLen(1))
 					Expect(series[0].Unmarshal[int64]()).To(Equal(expected))
+					Expect(series[0].Multiple()).To(Equal(max(factor, 1)))
 				},
 				Entry(
 					"Should keep every other sample",
@@ -3023,6 +3024,7 @@ var _ = Describe("Downsampled Iteration", func() {
 				Expect(
 					series[0].Unmarshal[string](),
 				).To(Equal([]string{"alpha", "gamma", "epsilon"}))
+				Expect(series[0].AlignmentMultiple).To(Equal(uint32(2)))
 			})
 
 			It("Should size auto spans by source samples", func(ctx SpecContext) {
