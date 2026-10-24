@@ -11,7 +11,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type color, text } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import { type ReactElement, type ReactNode, type Ref } from "react";
 
 const HEIGHT_RATIO = 0.72;
 
@@ -28,13 +28,21 @@ export interface ReadoutProps {
   value?: ReactNode;
   units?: string;
   color?: color.Color;
+  /** valueRef receives the value cell, so a value drawn on the canvas can fit it. */
+  valueRef?: Ref<HTMLParagraphElement>;
 }
 
 /**
  * Readout is a read-only tray that hangs under a field and shows the value a device
  * reports.
  */
-export const Readout = ({ size, value, units, color }: ReadoutProps): ReactElement => {
+export const Readout = ({
+  size,
+  value,
+  units,
+  color,
+  valueRef,
+}: ReadoutProps): ReactElement => {
   const level = readoutLevel(size);
   return (
     <div
@@ -42,8 +50,10 @@ export const Readout = ({ size, value, units, color }: ReadoutProps): ReactEleme
       style={{ height: readoutHeight(size) }}
     >
       <Text.Text
+        ref={valueRef}
         level={level}
         color={color}
+        overflow="ellipsis"
         className={CSS.BE("symbol-field", "readout-value")}
       >
         {value}

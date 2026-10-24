@@ -13,7 +13,7 @@ from console.schematic.symbol import Symbol
 
 
 class Select(Symbol):
-    """Schematic select symbol (write-only dropdown + send button)"""
+    """Schematic select symbol (dropdown, Set button, and optional read-back)"""
 
     _symbol_group = "General"
 

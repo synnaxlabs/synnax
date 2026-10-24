@@ -9,9 +9,10 @@
 
 import { type channel, type schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
+import { useResize } from "@synnaxlabs/lyra/hooks";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { box, type color, xy } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo, useState } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
@@ -50,26 +51,31 @@ const Readback = ({
   const theme = Theming.use();
   const level = Primitive.readoutLevel(size);
   const fontHeight = theme.typography[level].size * theme.sizes.base;
-  const offset = xy.construct(
-    READOUT_INSET - 6 - fontHeight * 0.75,
-    Component.HEIGHTS[size],
+  const textInset = 6 + fontHeight * 0.75;
+  const offset = xy.construct(READOUT_INSET - textInset, Component.HEIGHTS[size]);
+  // offsetWidth ignores the diagram zoom, so it is in the same units as the box.
+  const [cellWidth, setCellWidth] = useState(0);
+  const valueRef = useResize<HTMLParagraphElement>(
+    useCallback((_, el) => setCellWidth(el.offsetWidth), []),
   );
   const telem = useMemo(() => BaseValue.stringSource({ channel }), [channel]);
   BaseValue.use({
     aetherKey: `${nodeKey}-readback`,
     level,
     color: theme.colors.gray.l10,
-    // The box anchors the text. A zero area would skip the render.
+    // The box ends at the value cell's right edge, and the clip keeps a long value
+    // inside it.
     box: box.construct(xy.translate(position ?? xy.ZERO, offset), {
       height: Primitive.readoutHeight(size),
-      width: 1,
+      width: textInset + cellWidth,
     }),
+    clip: true,
     telem,
     minWidth: 0,
     stalenessColor,
     stalenessTimeout,
   });
-  return <Primitive.Readout size={size} units={units} />;
+  return <Primitive.Readout size={size} units={units} valueRef={valueRef} />;
 };
 
 export const Symbol = ({

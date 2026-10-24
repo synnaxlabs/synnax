@@ -56,8 +56,11 @@ export const Setpoint = ({
   // A draft is a typed value not yet sent. Without one, the field follows the target,
   // and stays blank while no target is known.
   const [draft, setDraft] = useState<number | null>(null);
+  // Numeric reports a value only on Enter or blur, so a keystroke marks the field
+  // edited until then.
+  const [edited, setEdited] = useState(false);
   const shown = draft ?? value;
-  const dirty = draft != null && draft !== value;
+  const dirty = edited || (draft != null && draft !== value);
   const inputRef = useRef<HTMLInputElement>(null);
   const symbolColor = color.rgbaString(fillColor);
   const mergedStyle = useMemo(
@@ -118,7 +121,12 @@ export const Setpoint = ({
           className={CSS.BE("symbol-field", "control")}
           value={shown ?? NaN}
           emptyValue={NaN}
-          onChange={(v) => setDraft(Number.isNaN(v) ? null : v)}
+          onChange={(v) => {
+            setEdited(false);
+            setDraft(Number.isNaN(v) ? null : v);
+          }}
+          onInput={() => setEdited(true)}
+          onBlur={() => setEdited(false)}
           showDragHandle={false}
           selectOnFocus
           endContent={units === "" ? undefined : units}

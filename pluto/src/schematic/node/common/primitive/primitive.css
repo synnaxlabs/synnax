@@ -320,6 +320,8 @@
     }
 
     .pluto-symbol-field__readout-value {
+        flex: 1;
+        min-width: 0;
         color: var(--pluto-gray-l10);
         font-family: var(--pluto-code-font-family);
         font-variant-numeric: tabular-nums;

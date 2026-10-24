@@ -97,6 +97,25 @@ describe("setpoint symbol", () => {
       container.querySelector(".pluto-setpoint")?.classList.contains("pluto--dirty") ??
       false;
 
+    it("should mark the field dirty on the first keystroke", () => {
+      const { container } = render(<Setpoint onSend={vi.fn()} value={3} />);
+      const input = container.querySelector("input");
+      if (input == null) throw new Error("expected an input");
+      input.focus();
+      fireEvent.input(input, { target: { value: "5" } });
+      expect(isDirty(container)).toBe(true);
+    });
+
+    it("should clear the dirty mark when an invalid entry is abandoned", async () => {
+      const { container } = render(<Setpoint onSend={vi.fn()} value={3} />);
+      const input = container.querySelector("input");
+      if (input == null) throw new Error("expected an input");
+      input.focus();
+      fireEvent.input(input, { target: { value: "abc" } });
+      await act(async () => fireEvent.blur(input));
+      expect(isDirty(container)).toBe(false);
+    });
+
     it("should stage a typed value on Enter without sending it", () => {
       const onSend = vi.fn();
       const { container } = render(<Setpoint onSend={onSend} value={3} />);
