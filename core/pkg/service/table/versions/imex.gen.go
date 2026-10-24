@@ -43,3 +43,13 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 	}
 	return Table{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }
+
+// liftFirst lifts the first exported Table shape to the current shape. A decoder
+// of an older shape builds the first exported shape and enters the ladder here.
+func liftFirst(ctx context.Context, t1 v1.Table) (Table, error) {
+	t2, err := v2.MigrateTable(ctx, t1)
+	if err != nil {
+		return Table{}, err
+	}
+	return t2, nil
+}
