@@ -22,6 +22,9 @@ var _ = Describe("Telem", func() {
 	BeforeEach(func() {
 		table = resolution.NewTable()
 		ref := func(name string) resolution.TypeRef { return resolution.TypeRef{Name: name} }
+		hand := map[string]resolution.Domain{
+			"ts": {Expressions: resolution.Expressions{{Name: "hand"}}},
+		}
 		for _, typ := range []resolution.Type{
 			{
 				Name:          "TimeStamp",
@@ -49,6 +52,17 @@ var _ = Describe("Telem", func() {
 				Form:          resolution.AliasForm{Target: ref("test.Created")},
 			},
 			{
+				Name:          "Rate",
+				QualifiedName: "telem.Rate",
+				Form:          resolution.DistinctForm{Base: ref("float64")},
+			},
+			{
+				Name:          "NumericTimeSpan",
+				QualifiedName: "telem.NumericTimeSpan",
+				Domains:       hand,
+				Form:          resolution.AliasForm{Target: ref("telem.TimeSpan")},
+			},
+			{
 				Name:          "Count",
 				QualifiedName: "test.Count",
 				Form:          resolution.DistinctForm{Base: ref("int64")},
@@ -60,7 +74,7 @@ var _ = Describe("Telem", func() {
 
 	DescribeTable("IsTimeStamp",
 		func(name string, expected bool) {
-			Expect(telem.IsTimeStamp(resolution.TypeRef{Name: name}, table)).
+			Expect(telem.IsTimeStamp(resolution.TypeRef{Name: name}, table, "ts")).
 				To(Equal(expected))
 		},
 		Entry("the TimeStamp itself", "telem.TimeStamp", true),
@@ -74,12 +88,29 @@ var _ = Describe("Telem", func() {
 	)
 
 	DescribeTable("IsTimeSpan",
-		func(name string, expected bool) {
-			Expect(telem.IsTimeSpan(resolution.TypeRef{Name: name}, table)).
+		func(name, domainName string, expected bool) {
+			Expect(telem.IsTimeSpan(resolution.TypeRef{Name: name}, table, domainName)).
 				To(Equal(expected))
 		},
-		Entry("the TimeSpan itself", "telem.TimeSpan", true),
-		Entry("the TimeStamp", "telem.TimeStamp", false),
-		Entry("an alias of the TimeStamp", "test.Stamp", false),
+		Entry("the TimeSpan itself", "telem.TimeSpan", "ts", true),
+		Entry("the TimeStamp", "telem.TimeStamp", "ts", false),
+		Entry("an alias of the TimeStamp", "test.Stamp", "ts", false),
+		Entry(
+			"an alias hand-written in the language",
+			"telem.NumericTimeSpan", "ts", false,
+		),
+		Entry(
+			"an alias hand-written in another language",
+			"telem.NumericTimeSpan", "py", true,
+		),
+	)
+
+	DescribeTable("IsRate",
+		func(name string, expected bool) {
+			Expect(telem.IsRate(resolution.TypeRef{Name: name}, table, "ts")).
+				To(Equal(expected))
+		},
+		Entry("the Rate itself", "telem.Rate", true),
+		Entry("the TimeSpan", "telem.TimeSpan", false),
 	)
 })

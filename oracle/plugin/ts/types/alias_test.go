@@ -15,8 +15,36 @@ import (
 	. "github.com/synnaxlabs/oracle/testutil"
 )
 
+const aliasTelem = `
+@ts output "x/ts/src/telem"
+
+TimeStamp int64 {
+	@ts hand
+}
+
+TimeSpan int64 {
+	@ts hand
+}
+
+NumericTimeSpan = TimeSpan {
+	@ts hand
+}
+`
+
 const aliasBase = `
+import "schemas/x/telem"
+
 @ts output "client/ts/src/base"
+
+Stamp = telem.TimeStamp
+
+Span = telem.TimeSpan
+
+Data = record
+
+Labels = string[]
+
+Index = map<string, int32>
 
 Labeled struct {
 	label  string
@@ -61,6 +89,13 @@ Credentials = base.Credentials
 Size = base.Size
 Sized = base.Sized
 Edge = base.Edge
+Stamp = base.Stamp
+Span = base.Span
+Data = base.Data
+Labels = base.Labels
+Index = base.Index
+Moment Stamp
+Names string[]
 `
 
 const aliasStatus = `
@@ -82,6 +117,7 @@ var _ = Describe("TS aliases", func() {
 
 	BeforeEach(func() {
 		loader = NewMockFileLoader().
+			Add("schemas/x/telem", aliasTelem).
 			Add("schemas/base", aliasBase).
 			Add("schemas/status", aliasStatus)
 		typesPlugin = types.New(types.DefaultOptions())
@@ -171,6 +207,43 @@ var _ = Describe("TS aliases", func() {
 			}
 		`).ToContain("T extends z.ZodType<Size>")
 	})
+
+	DescribeTable(
+		"Should parse a field of an alias as a field of its target",
+		func(ctx SpecContext, field, expected string) {
+			generate(ctx, "Panel struct {\n"+field+"\n}\n").ToContain(expected)
+		},
+		Entry("a now default on an alias of a timestamp",
+			"created Stamp = now", "created: stampZ.default(() => TimeStamp.now()),"),
+		Entry("a now default on a distinct type over an alias of a timestamp",
+			"created Moment = now", "created: momentZ.default(() => TimeStamp.now()),"),
+		Entry("a zero default on an alias of a timespan",
+			"span Span = 0", "span: spanZ.default(TimeSpan.ZERO),"),
+		Entry("a numeric default on an alias of a timespan",
+			"span Span = 5", "span: spanZ.default(new TimeSpan(5)),"),
+		Entry(
+			"a numeric default on an alias hand-written as a number",
+			"span telem.NumericTimeSpan = 5",
+			"span: telem.numericTimeSpanZ.default(5),",
+		),
+		Entry("an alias of a record", "data Data", "data: dataZ.default(() => ({})),"),
+		Entry("an optional alias of a record",
+			"data Data?", "data: zod.nullToUndefined(dataZ),"),
+		Entry("an alias of an array",
+			"labels Labels", "labels: labelsZ.default(() => []),"),
+		Entry("an optional alias of an array",
+			"labels Labels?", "labels: zod.nullToUndefined(labelsZ),"),
+		Entry("an alias of a map", "index Index", "index: indexZ.default(() => ({})),"),
+		Entry("an optional alias of a map",
+			"index Index?", "index: zod.nullToUndefined(indexZ),"),
+		Entry(
+			"a distinct collection, which is not an alias",
+			"names Names",
+			"names: namesZ,",
+		),
+		Entry("an alias of a record with a type override",
+			"data Data {\n@ts type string\n}", "data: z.string(),"),
+	)
 
 	DescribeTable("Should name an enum constraint through the package that declares it",
 		func(ctx SpecContext, schema, typeParams string, expected ...string) {

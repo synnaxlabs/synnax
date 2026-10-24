@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
@@ -1862,6 +1863,19 @@ func (p *Plugin) processField(
 			fd.ZodType = "record.unknownZ().default(() => ({}))"
 			fd.ZodSchemaType = "z.ZodDefault<ReturnType<typeof record.unknownZ>>"
 		}
+	} else if empty, ok := aliasedCollectionEmpty(field.Type, typeOverride, table); ok {
+		// An alias of a literal collection parses as that collection does.
+		if isAnyOptional {
+			addXImport(data, xImport{name: "zod", submodule: "zod"})
+			fd.ZodType = fmt.Sprintf("zod.nullToUndefined(%s)", fd.ZodType)
+			fd.ZodSchemaType = fmt.Sprintf(
+				"ReturnType<typeof zod.nullToUndefined<%s>>",
+				fd.ZodSchemaType,
+			)
+		} else if field.Default == nil {
+			fd.ZodType = fmt.Sprintf("%s.default(() => %s)", fd.ZodType, empty)
+			fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+		}
 	} else if isAnyOptional {
 		if isUnionField(field, table) {
 			// Optional union-typed fields tolerate null: the Go side
@@ -1899,6 +1913,30 @@ func (p *Plugin) processField(
 }
 
 // isUnionField reports whether a field's type resolves to a discriminated union.
+// aliasedCollectionEmpty returns the empty value of the array, map, or record that ref
+// is an alias of. ok is false when ref is not such an alias, or when a type override
+// replaces its form.
+func aliasedCollectionEmpty(
+	ref resolution.TypeRef,
+	typeOverride string,
+	table *resolution.Table,
+) (empty string, ok bool) {
+	if typeOverride != "" {
+		return "", false
+	}
+	_, target, ok := resolution.Dealias(ref, table)
+	if !ok {
+		return "", false
+	}
+	switch target.Name {
+	case "Array":
+		return "[]", true
+	case "Map", "record":
+		return "({})", true
+	}
+	return "", false
+}
+
 func isUnionField(field resolution.Field, table *resolution.Table) bool {
 	resolved, _, ok := resolution.Dealias(field.Type, table)
 	if !ok {
@@ -2674,6 +2712,7 @@ func (p *Plugin) applyValidation(
 			if tsTypeOverride == "" {
 				expr, ok = tsTelemNumericDefault(
 					typeRef,
+					table,
 					data,
 					fmt.Sprintf("%d", defaultVal.IntValue),
 					defaultVal.IntValue == 0,
@@ -2689,6 +2728,7 @@ func (p *Plugin) applyValidation(
 			if tsTypeOverride == "" {
 				expr, ok = tsTelemNumericDefault(
 					typeRef,
+					table,
 					data,
 					fmt.Sprintf("%g", defaultVal.FloatValue),
 					defaultVal.FloatValue == 0,
@@ -2704,7 +2744,7 @@ func (p *Plugin) applyValidation(
 		case resolution.ValueKindIdent:
 			// Handle identifier-based defaults like "now" for timestamps
 			if defaultVal.IdentValue == "now" &&
-				(typeRef.Name == "TimeStamp" || strings.HasSuffix(typeRef.Name, ".TimeStamp")) {
+				telem.IsTimeStamp(typeRef, table, "ts") {
 				addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
 				zodType = fmt.Sprintf("%s.default(() => TimeStamp.now())", zodType)
 			}
@@ -2779,21 +2819,28 @@ func (p *Plugin) applyValidation(
 // ("new Rate(10)"). A zero TimeStamp or TimeSpan keeps the canonical .ZERO
 // constant.
 func tsTelemNumericDefault(
-	typeRef resolution.TypeRef, data *templateData, literal string, isZero bool,
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+	literal string,
+	isZero bool,
 ) (string, bool) {
-	name := typeRef.Name
-	if _, bare, ok := strings.CutLast(name, "."); ok {
-		name = bare
+	var name string
+	switch {
+	case telem.IsTimeStamp(typeRef, table, "ts"):
+		name = "TimeStamp"
+	case telem.IsTimeSpan(typeRef, table, "ts"):
+		name = "TimeSpan"
+	case telem.IsRate(typeRef, table, "ts"):
+		name = "Rate"
+	default:
+		return "", false
 	}
-	switch name {
-	case "TimeStamp", "TimeSpan", "Rate":
-		addXImport(data, xImport{name: name, submodule: "telem"})
-		if isZero && name != "Rate" {
-			return name + ".ZERO", true
-		}
-		return fmt.Sprintf("new %s(%s)", name, literal), true
+	addXImport(data, xImport{name: name, submodule: "telem"})
+	if isZero && name != "Rate" {
+		return name + ".ZERO", true
 	}
-	return "", false
+	return fmt.Sprintf("new %s(%s)", name, literal), true
 }
 
 // tsStringLiteral renders a Go string as a double-quoted TypeScript string
