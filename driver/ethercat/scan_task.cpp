@@ -81,7 +81,8 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 
     for (const auto &master_info: masters) {
         auto [slaves, err] = this->pool->discover_slaves(master_info.key);
-        // Permission is per process, so every other interface fails the same way.
+        // One permission covers every master (CAP_NET_RAW for SOEM, one udev rule for
+        // all IgH devices), so the other masters fail the same way.
         if (err.matches(errors::PERMISSION_DENIED)) return {{}, err};
         if (err) {
             VLOG(1) << SCAN_LOG_PREFIX << "discovery failed for " << master_info.key
