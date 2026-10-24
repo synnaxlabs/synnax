@@ -8,6 +8,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+
 import { find } from "@/components/console/tour/steps";
 
 interface Props {
@@ -20,7 +22,8 @@ const { title, trigger, key, anchor } = find(Astro.props.step);
 
 <section class="docs-tour__step" id={anchor} data-step={key} hidden>
     <h2 class="docs-tour__step-title">
-        {title} {trigger != null && <kbd>{trigger}</kbd>}
+        {title}
+        {trigger != null && <Triggers.Text trigger={[trigger]} level="small" />}
     </h2>
     <slot />
 </section>

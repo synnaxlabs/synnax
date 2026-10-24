@@ -10,6 +10,8 @@
 
 import "./lostSignal.css";
 
+import { Button } from "@synnaxlabs/lyra/button";
+
 import { decode, GAP, HISTORY, MAX, path, samples, top, transform } from "./lostSignal";
 
 const values = samples();
@@ -35,10 +37,15 @@ const style = [
                 {pathname}
             </span>
         </div>
-        <button class="lost-signal__live" type="button" aria-pressed="true">
+        <Button.Button
+            variant="outlined"
+            size="small"
+            className="lost-signal__live"
+            aria-pressed="true"
+        >
             <span class="lost-signal__live-dot"></span>
             Live
-        </button>
+        </Button.Button>
     </div>
     <div class="lost-signal__axis" aria-hidden="true">
         {Y_TICKS.map((v) => (

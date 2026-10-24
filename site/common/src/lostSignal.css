@@ -69,25 +69,6 @@
 
 .lost-signal__live {
     flex: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem 1.5rem;
-    border: var(--pluto-border);
-    border-radius: var(--pluto-border-radius);
-    background: transparent;
-    color: var(--pluto-gray-l9);
-    font: inherit;
-    cursor: pointer;
-
-    &:hover {
-        background: var(--pluto-gray-l2);
-    }
-
-    &:focus-visible {
-        outline: 2px solid var(--pluto-primary-z);
-        outline-offset: 2px;
-    }
 }
 
 .lost-signal__live-dot {

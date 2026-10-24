@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Triggers } from "@synnaxlabs/lyra/triggers";
+
 /** Where a group of steps sits in the Console. */
 export interface Group {
   key: "mosaic" | "left" | "top";
@@ -21,7 +23,7 @@ export interface Step {
   anchor: string;
   group: Group["key"];
   /** The key that opens the part, when it has one. */
-  trigger?: string;
+  trigger?: Triggers.Key;
   /** The still of the Console that shows the step. */
   still: string;
   /** The regions of the still that the step highlights, as one box around them all. */
@@ -55,7 +57,7 @@ const part = (
 const toolbar = (
   key: string,
   title: string,
-  trigger: string,
+  trigger: Triggers.Key,
   anchor = slug(title),
 ): Step => ({
   key,

@@ -10,6 +10,7 @@
 
 import { Logo } from "@synnaxlabs/lyra/logo";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import Search from "@/components/search/Search.astro";
@@ -100,7 +101,7 @@ const label = version?.split(".").slice(0, -1).join(".");
                         <a href="/reliability/" class="mobile-drawer-link">
                             Reliability
                         </a>
-                        <div class="mobile-drawer-divider"></div>
+                        <Divider.Divider x className="mobile-drawer-divider" />
                         <span class="mobile-drawer-section-label">Reference</span>
                     </div>
                     <div class="mobile-drawer-tree">
@@ -248,7 +249,7 @@ const label = version?.split(".").slice(0, -1).join(".");
     @media (max-width: 1023px) {
         .main-header {
             .mobile-menu-btn {
-                display: block;
+                display: flex;
             }
             .mobile-drawer {
                 display: flex;

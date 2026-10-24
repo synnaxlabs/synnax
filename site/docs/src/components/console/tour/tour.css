@@ -233,17 +233,6 @@
         line-height: var(--pluto-h5-line-height);
     }
 
-    kbd {
-        padding: 0 1rem;
-        border: var(--pluto-border);
-        border-radius: var(--pluto-border-radius-small);
-        background: var(--pluto-gray-l2);
-        color: var(--pluto-gray-l10);
-        font-family: var(--pluto-code-font-family);
-        font-size: var(--pluto-small-size);
-        font-weight: 400;
-    }
-
     :is(p, ul, li, .edition-block) {
         margin: 0;
         font: inherit;
