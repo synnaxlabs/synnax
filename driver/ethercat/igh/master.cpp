@@ -231,8 +231,9 @@ x::errors::Error Master::receive() {
     this->api->domain_state(this->output_domain, &this->output_domain_state);
     this->api->domain_state(this->input_domain, &this->input_domain_state);
 
-    if (this->output_domain_state.wc_state == EC_WC_ZERO ||
-        this->input_domain_state.wc_state == EC_WC_ZERO)
+    // IgH reports a zero working counter for an empty domain, which exchanges no data.
+    if ((this->output_sz > 0 && this->output_domain_state.wc_state == EC_WC_ZERO) ||
+        (this->input_sz > 0 && this->input_domain_state.wc_state == EC_WC_ZERO))
         return x::errors::Error(errors::WORKING_COUNTER_ERROR, "no slaves responded");
 
     if (this->output_domain_state.wc_state == EC_WC_INCOMPLETE ||
