@@ -902,11 +902,7 @@ func (p *Plugin) processStruct(
 				allParentsValid = false
 				break
 			}
-			// An alias re-exports its target's schema under its own name and type
-			// parameters.
 			parentType, _ := extendsRef.Resolve(table)
-			parentParams := resolution.TypeParams(parentType.Form)
-
 			parentTSName := domain.GetName(parentType, "ts")
 			schemaName := casing.CamelAcronym(parentTSName) + "Z"
 			importLocalHand(parentType, schemaName, data)
@@ -920,22 +916,11 @@ func (p *Plugin) processStruct(
 				schemaName = ns + "." + schemaName
 			}
 
-			parentInfo := extendsParentInfo{
+			sd.ExtendsParents = append(sd.ExtendsParents, extendsParentInfo{
 				Name:     schemaName,
 				TypeName: parentTSName,
-			}
-
-			if len(parentParams) > 0 {
-				parentInfo.IsGeneric = true
-				for _, tp := range parentParams {
-					parentInfo.SchemaArgs = append(
-						parentInfo.SchemaArgs,
-						casing.CamelAcronym(tp.Name),
-					)
-				}
-			}
-
-			sd.ExtendsParents = append(sd.ExtendsParents, parentInfo)
+				Schema:   p.typeRefToZodInternal(&extendsRef, table, data, true),
+			})
 		}
 
 		if allParentsValid && len(sd.ExtendsParents) > 0 {
@@ -3051,10 +3036,11 @@ type structData struct {
 }
 
 type extendsParentInfo struct {
-	Name       string
-	TypeName   string
-	SchemaArgs []string
-	IsGeneric  bool
+	Name     string
+	TypeName string
+	// Schema instantiates the parent's schema with the type arguments the child
+	// passes, e.g. `boxZ(z.string())`.
+	Schema string
 }
 
 type typeParamData struct {
@@ -3254,7 +3240,7 @@ export const {{ camelCase .TSName }}Z: {{ .TSName }}ZFunction = <{{ range $i, $p
 export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>({{ range $i, $p := .TypeParams }}{{ $p.Name | camelCase }}{{ if $p.HasDefault }}?{{ end }}: {{ $p.Name }}{{ end }}) =>
 {{- end }}
 {{- if .HasExtends }}
-  {{ range $i, $p := .ExtendsParents }}{{ if $i }}.extend({{ end }}{{ $p.Name }}({{ if $p.IsGeneric }}{{ range $j, $a := $p.SchemaArgs }}{{ if $j }}, {{ end }}{{ $a }}{{ end }}{{ end }}){{ if $i }}.shape){{ end }}{{ end }}
+  {{ range $i, $p := .ExtendsParents }}{{ if $i }}.extend({{ end }}{{ $p.Schema }}{{ if $i }}.shape){{ end }}{{ end }}
 {{- if .OmittedFields }}
     .omit({ {{ range $i, $f := .OmittedFields }}{{ if $i }}, {{ end }}{{ $f }}: true{{ end }} })
 {{- end }}
@@ -3328,7 +3314,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
 }: Partial<{{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>>{{ if .AllParamsOptional }} = {}{{ end }}) =>
 {{- end }}
 {{- if .HasExtends }}
-  {{ range $i, $p := .ExtendsParents }}{{ if $i }}.extend({{ end }}{{ $p.Name }}({{ if $p.IsGeneric }}{ {{ range $j, $a := $p.SchemaArgs }}{{ if $j }}, {{ end }}{{ $a }}{{ end }} }{{ end }}){{ if $i }}.shape){{ end }}{{ end }}
+  {{ range $i, $p := .ExtendsParents }}{{ if $i }}.extend({{ end }}{{ $p.Schema }}{{ if $i }}.shape){{ end }}{{ end }}
 {{- if .OmittedFields }}
     .omit({ {{ range $i, $f := .OmittedFields }}{{ if $i }}, {{ end }}{{ $f }}: true{{ end }} })
 {{- end }}
@@ -3419,7 +3405,7 @@ export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }
 {{- else if .HasExtends }}
 {{- if not .TypeOnly }}
 
-export const {{ camelCase .TSName }}Z = {{ range $i, $p := .ExtendsParents }}{{ if $i }}.extend({{ end }}{{ $p.Name }}{{ if $i }}.shape){{ end }}{{ end }}
+export const {{ camelCase .TSName }}Z = {{ range $i, $p := .ExtendsParents }}{{ if $i }}.extend({{ end }}{{ $p.Schema }}{{ if $i }}.shape){{ end }}{{ end }}
 {{- if .OmittedFields }}
   .omit({ {{ range $i, $f := .OmittedFields }}{{ if $i }}, {{ end }}{{ $f }}: true{{ end }} })
 {{- end }}

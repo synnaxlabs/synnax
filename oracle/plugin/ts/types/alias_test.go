@@ -110,7 +110,7 @@ var _ = Describe("TS aliases", func() {
 			}
 		`).ToContain(
 			"export const crateZ = <T extends z.ZodType>(t: T) =>\n" +
-				"  boxZ(t)\n    .extend({",
+				"  base.boxZ(t)\n    .extend({",
 		)
 	})
 
