@@ -10,6 +10,8 @@
 package telem_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
@@ -81,6 +83,20 @@ var _ = Describe("Reduce", func() {
 				uint32(100),
 				telem.AggregationDecimate,
 				uint32(11),
+			),
+			Entry(
+				"a size past the largest uint32",
+				int64(1)<<33,
+				uint32(1),
+				telem.AggregationDecimate,
+				uint32(math.MaxUint32-1),
+			),
+			Entry(
+				"a min/max size past the largest uint32",
+				int64(1)<<40,
+				uint32(2),
+				telem.AggregationMinMax,
+				uint32(math.MaxUint32-1),
 			),
 		)
 	})
@@ -167,13 +183,46 @@ var _ = Describe("Reduce", func() {
 			).To(Equal([]telem.TimeStamp{base + 2}))
 		})
 
-		It(
-			"Should average a narrow signed group whose range overflows the type",
-			func() {
-				s := telem.NewSeriesV[int8](-100, 100)
-				r := s.Reduce(telem.AggregationAverage, 2)
-				Expect(r.Unmarshal[int8]()).To(Equal([]int8{0}))
+		DescribeTable(
+			"Should average a group whose range overflows the type",
+			func(s, expected telem.Series) {
+				r := s.Reduce(telem.AggregationAverage, uint32(s.Len()))
+				Expect(r.Data).To(Equal(expected.Data))
 			},
+			Entry(
+				"float32",
+				telem.NewSeriesV[float32](-math.MaxFloat32, math.MaxFloat32),
+				telem.NewSeriesV[float32](0),
+			),
+			Entry(
+				"float32 with a mean offset past the largest float32",
+				telem.NewSeriesV[float32](
+					-math.MaxFloat32,
+					math.MaxFloat32,
+					math.MaxFloat32,
+				),
+				telem.NewSeriesV[float32](math.MaxFloat32/3),
+			),
+			Entry(
+				"float64",
+				telem.NewSeriesV(-math.MaxFloat64, math.MaxFloat64),
+				telem.NewSeriesV[float64](0),
+			),
+			Entry(
+				"int8",
+				telem.NewSeriesV[int8](-100, 100),
+				telem.NewSeriesV[int8](0),
+			),
+			Entry(
+				"int8 with a mean offset past the largest int8",
+				telem.NewSeriesV[int8](-128, 127, 127),
+				telem.NewSeriesV[int8](42),
+			),
+			Entry(
+				"int64",
+				telem.NewSeriesV[int64](math.MinInt64, math.MaxInt64),
+				telem.NewSeriesV[int64](-1),
+			),
 		)
 
 		It("Should panic on an unknown aggregation", func() {
