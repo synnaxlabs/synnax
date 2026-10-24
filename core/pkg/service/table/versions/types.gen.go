@@ -11,47 +11,47 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
+import "github.com/synnaxlabs/synnax/pkg/service/table/versions/v3"
 
 // Key is a unique identifier for a table, represented as a UUID.
-type Key = v2.Key
+type Key = v3.Key
 
 // FlexAlignment is a cross-axis flex alignment for laid-out content.
-type FlexAlignment = v2.FlexAlignment
+type FlexAlignment = v3.FlexAlignment
 
 const (
-	FlexAlignmentStart   FlexAlignment = v2.FlexAlignmentStart
-	FlexAlignmentCenter  FlexAlignment = v2.FlexAlignmentCenter
-	FlexAlignmentEnd     FlexAlignment = v2.FlexAlignmentEnd
-	FlexAlignmentStretch FlexAlignment = v2.FlexAlignmentStretch
+	FlexAlignmentStart   FlexAlignment = v3.FlexAlignmentStart
+	FlexAlignmentCenter  FlexAlignment = v3.FlexAlignmentCenter
+	FlexAlignmentEnd     FlexAlignment = v3.FlexAlignmentEnd
+	FlexAlignmentStretch FlexAlignment = v3.FlexAlignmentStretch
 )
 
 // CellConfig is the per-cell configuration stored in the table cells map. The variant
 // selects which Pluto cell component renders the cell.
-type CellConfig = v2.CellConfig
-type CellConfigVariant = v2.CellConfigVariant
-type CellConfigType = v2.CellConfigType
+type CellConfig = v3.CellConfig
+type CellConfigVariant = v3.CellConfigVariant
+type CellConfigType = v3.CellConfigType
 
 const (
 	// TextCellConfigType is the configuration for static text cells.
-	TextCellConfigType CellConfigType = v2.TextCellConfigType
+	TextCellConfigType CellConfigType = v3.TextCellConfigType
 	// ValueCellConfigType is the configuration for live telemetry value cells.
-	ValueCellConfigType CellConfigType = v2.ValueCellConfigType
+	ValueCellConfigType CellConfigType = v3.ValueCellConfigType
 )
 
 // TextCellConfig is the configuration for static text cells.
-type TextCellConfig = v2.TextCellConfig
+type TextCellConfig = v3.TextCellConfig
 
 // ValueCellConfig is the configuration for live telemetry value cells.
-type ValueCellConfig = v2.ValueCellConfig
+type ValueCellConfig = v3.ValueCellConfig
 
-// Row is a single row in a table, with height and ordered cell keys.
-type Row = v2.Row
+// Row is a single row in a table, with a key, height, and ordered cell keys.
+type Row = v3.Row
 
-// Column is a single column in a table, with width.
-type Column = v2.Column
+// Column is a single column in a table, with a key and width.
+type Column = v3.Column
 
 // Table is a tabular data display component for viewing structured telemetry data.
 // Tables support multiple columns, channel data sources, and customizable formatting
 // options.
-type Table = v2.Table
+type Table = v3.Table

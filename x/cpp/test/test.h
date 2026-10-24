@@ -423,13 +423,13 @@ inline void eventually_nil(
 /// @param line The source line number
 /// @return The first element of the pair (the result value) if successful
 template<typename Pair>
-auto assert_nil_p(Pair &&pair_result, const char *file, const int line) ->
-    typename std::remove_reference<decltype(pair_result.first)>::type {
+auto assert_nil_p(Pair &&pair_result, const char *file, const int line)
+    -> std::remove_reference_t<decltype(pair_result.first)> {
     if (pair_result.second) {
         ADD_FAILURE_AT(file, line)
             << "Expected operation to succeed, but got error: " << pair_result.second;
     }
-    return std::move(pair_result.first);
+    return std::forward<Pair>(pair_result).first;
 }
 
 /// @brief macro for asserting that an operation returning a pair<T, errors::Error>
@@ -451,7 +451,7 @@ auto assert_occurred_as_p(
     const errors::Error &expected,
     const char *file,
     const int line
-) -> typename std::remove_reference<decltype(pair_result.first)>::type {
+) -> std::remove_reference_t<decltype(pair_result.first)> {
     if (!pair_result.second) {
         ADD_FAILURE_AT(file, line) << "Expected operation to fail with error "
                                    << expected << ", but it succeeded";
@@ -459,13 +459,13 @@ auto assert_occurred_as_p(
         ADD_FAILURE_AT(file, line) << "Expected error to match " << expected
                                    << ", but got " << pair_result.second;
     }
-    return std::move(pair_result.first);
+    return std::forward<Pair>(pair_result).first;
 }
 
 /// @brief macro asserting that the provided errors::Error is NIL.
 #define ASSERT_NIL(expr)                                                               \
     do {                                                                               \
-        const auto _xtest_err = (expr);                                                \
+        const auto &_xtest_err = (expr);                                               \
         ASSERT_FALSE(_xtest_err) << _xtest_err;                                        \
     } while (0)
 
@@ -473,7 +473,7 @@ auto assert_occurred_as_p(
 /// provided error.
 #define ASSERT_OCCURRED_AS(expr, err)                                                  \
     do {                                                                               \
-        const auto _xtest_err = (expr);                                                \
+        const auto &_xtest_err = (expr);                                               \
         ASSERT_TRUE(_xtest_err) << _xtest_err;                                         \
         ASSERT_MATCHES(_xtest_err, err);                                               \
     } while (0)
@@ -489,8 +489,8 @@ auto assert_occurred_as_p(
 /// @brief macro asserting that the provided error matches the expeced err via a call
 /// to err.matches(expect).
 #define ASSERT_MATCHES(err, expected)                                                  \
-    ASSERT_TRUE(err.matches(expected))                                                 \
-        << "Expected error to match " << expected << ", but got " << err;
+    ASSERT_TRUE((err).matches(expected))                                               \
+        << "Expected error to match " << (expected) << ", but got " << (err);
 
 /// @brief macro asserting that the provided error will eventually be NIL.
 /// @param expr The expression to evaluate
@@ -615,7 +615,7 @@ inline void eventually_false(
     const std::chrono::milliseconds timeout = std::chrono::seconds(1),
     const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
 ) {
-    bool last_value;
+    bool last_value = false;
     eventually(
         [&]() {
             last_value = condition();
@@ -648,7 +648,7 @@ inline void eventually_true(
     const std::chrono::milliseconds timeout = std::chrono::seconds(1),
     const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
 ) {
-    bool last_value;
+    bool last_value = false;
     eventually(
         [&]() {
             last_value = condition();

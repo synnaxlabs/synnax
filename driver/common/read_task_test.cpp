@@ -22,11 +22,13 @@ class MockSource final : public Source {
     const std::vector<x::errors::Error> stop_errs;
     pipeline::mock::Source wrapped;
 
-    synnax::framer::WriterConfig writer_config() const override {
+    [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
         return synnax::framer::WriterConfig();
     }
 
-    std::vector<synnax::channel::Channel> channels() const override { return {}; }
+    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
+        return {};
+    }
 
 public:
     explicit MockSource(
@@ -63,7 +65,7 @@ TEST(TestCommonReadTask, testBasicOperation) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
-    reads->emplace_back(x::telem::Frame(0, std::move(s)));
+    reads->emplace_back(0, std::move(s));
     auto mock_source = std::make_unique<MockSource>(reads);
     ReadTask read_task(
         t,
@@ -103,7 +105,7 @@ TEST(TestCommonReadTask, testStartWhileRunningAcks) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
-    reads->emplace_back(x::telem::Frame(0, std::move(s)));
+    reads->emplace_back(0, std::move(s));
     auto mock_source = std::make_unique<MockSource>(reads);
     ReadTask read_task(
         t,
@@ -139,7 +141,7 @@ TEST(TestCommonReadTask, testErrorOnStart) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
-    reads->emplace_back(x::telem::Frame(0, std::move(s)));
+    reads->emplace_back(0, std::move(s));
     auto mock_source = std::make_unique<MockSource>(
         reads,
         nullptr,
@@ -171,7 +173,7 @@ TEST(TestCommonReadTask, testErrorOnStop) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
-    reads->emplace_back(x::telem::Frame(0, std::move(s)));
+    reads->emplace_back(0, std::move(s));
     auto mock_source = std::make_unique<MockSource>(
         reads,
         nullptr,
@@ -215,7 +217,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
 
     auto s = x::telem::Series(x::telem::TimeStamp::now());
     for (int i = 0; i < 30; i++)
-        reads->emplace_back(x::telem::Frame(i, s.deep_copy()));
+        reads->emplace_back(i, s.deep_copy());
 
     auto mock_source = std::make_unique<MockSource>(reads);
     ReadTask read_task(
@@ -283,8 +285,8 @@ TEST(TestCommonReadTask, testReadError) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
-    reads->emplace_back(x::telem::Frame(0, s.deep_copy()));
-    reads->emplace_back(x::telem::Frame(1, s.deep_copy()));
+    reads->emplace_back(0, s.deep_copy());
+    reads->emplace_back(1, s.deep_copy());
     auto mock_source = std::make_unique<MockSource>(
         reads,
         std::make_shared<std::vector<x::errors::Error>>(
@@ -339,7 +341,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
-    reads->emplace_back(x::telem::Frame(0, std::move(s)));
+    reads->emplace_back(0, std::move(s));
 
     // Create a source that fails on first start but succeeds on second start
     auto mock_source = std::make_unique<MockSource>(
@@ -404,7 +406,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     auto s = x::telem::Series(x::telem::TimeStamp::now());
     // Give the pipeline essentially infinite reads.
     for (int i = 0; i < 30; i++)
-        reads->emplace_back(x::telem::Frame(0, s.deep_copy()));
+        reads->emplace_back(0, s.deep_copy());
 
     // Create a source that fails on first stop but succeeds on second stop
     auto mock_source = std::make_unique<MockSource>(
@@ -486,7 +488,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     const auto s = x::telem::Series(x::telem::TimeStamp::now());
     for (int i = 0; i < 30; i++)
-        reads->emplace_back(x::telem::Frame(i, s.deep_copy()));
+        reads->emplace_back(i, s.deep_copy());
     auto mock_source = std::make_unique<MockSource>(
         reads,
         std::make_shared<std::vector<x::errors::Error>>(std::vector{
@@ -544,7 +546,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarningShowsRetry) {
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     const auto s = x::telem::Series(x::telem::TimeStamp::now());
     for (int i = 0; i < 30; i++)
-        reads->emplace_back(x::telem::Frame(i, s.deep_copy()));
+        reads->emplace_back(i, s.deep_copy());
     auto mock_source = std::make_unique<MockSource>(
         reads,
         std::make_shared<std::vector<x::errors::Error>>(std::vector{

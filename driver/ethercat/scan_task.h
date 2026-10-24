@@ -92,11 +92,11 @@ private:
     /// startup parameters to its engine.
     /// @returns the properties, and x::errors::VALIDATION with each invalid field when
     /// they do not parse, or the error that kept the engine from being acquired.
-    std::pair<slave::Properties, x::errors::Error>
+    [[nodiscard]] std::pair<slave::Properties, x::errors::Error>
     configure_slave(const synnax::device::Device &dev) const;
 
     /// @brief creates a slave device for the given slave.
-    synnax::device::Device create_slave_device(
+    [[nodiscard]] synnax::device::Device create_slave_device(
         const slave::DiscoveryResult &slave,
         const std::string &master_key,
         const common::ScannerContext &scan_ctx
