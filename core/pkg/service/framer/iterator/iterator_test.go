@@ -2446,6 +2446,54 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			},
 		)
 
+		It("Should reduce a cut group with a calculation as storage does", func(
+			ctx SpecContext,
+		) {
+			index := &channel.Channel{
+				Name:     "aggregate_cut_time",
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(channelWriter.Create(ctx, index)).To(Succeed())
+			cut := &channel.Channel{
+				Name:       "aggregate_cut",
+				DataType:   telem.Float32T,
+				LocalIndex: index.LocalKey,
+			}
+			Expect(channelWriter.Create(ctx, cut)).To(Succeed())
+			stamps := make([]telem.TimeStamp, 100)
+			for i := range stamps {
+				stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
+			}
+			write := func(key channel.Key, start int, s telem.Series) {
+				w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start:            stamps[start],
+					Keys:             []channel.Key{key},
+					EnableAutoCommit: new(true),
+				}))
+				Expect(w.Write(frame.NewUnary(key, s))).To(BeTrue())
+				Expect(w.Close()).To(Succeed())
+			}
+			write(index.Key(), 0, telem.NewSeries(stamps))
+			// Groups hold 20 samples, so the second write cuts the group at 40.
+			v := ramp(1)
+			v[45], v[55] = 500, -500
+			write(cut.Key(), 0, telem.NewSeries(v[:50]))
+			write(cut.Key(), 50, telem.NewSeries(v[50:]))
+			calc := &channel.Channel{
+				Name:       "aggregate_cut_doubled",
+				DataType:   telem.Float32T,
+				Expression: "return aggregate_cut * 2",
+			}
+			Expect(channelWriter.Create(ctx, calc)).To(Succeed())
+			points := []float32{1, 20, 21, 40, 500, -500, 61, 80, 81, 100}
+			expected := telem.NewSeries(points).Data
+			alone := read(ctx, aggregated(cut.Key())).Get(cut.Key())
+			Expect(alone.Data()).To(Equal(expected))
+			mixed := read(ctx, aggregated(calc.Key(), cut.Key())).Get(cut.Key())
+			Expect(mixed.Data()).To(Equal(expected))
+		})
+
 		It("Should reduce a stateful calculation after it runs", func(
 			ctx SpecContext,
 		) {
