@@ -548,7 +548,7 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
-				Expect(stat.Message).To(Equal("Task started successfully"))
+				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Details.Running).To(BeTrue())
 			},
 		)
@@ -581,7 +581,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
-				Expect(stat.Message).To(Equal("Task started successfully"))
+				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Details.Running).To(BeTrue())
 			},
 		)
@@ -726,7 +726,7 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
-			Expect(stat.Message).To(Equal("Task started successfully"))
+			Expect(stat.Message).To(Equal("Started task"))
 			Expect(stat.Details.Running).To(BeTrue())
 		})
 	})
@@ -1938,9 +1938,11 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.MatchKeys[task.StatusDetails](taskKey)).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
-					g.Expect(stat.Message).
-						To(ContainSubstring("multiple statuses named"))
-					g.Expect(stat.Message).To(ContainSubstring("test-status-report"))
+					g.Expect(stat.Name).To(Equal("test-status-report"))
+					g.Expect(stat.Message).To(Equal("Found duplicate status names"))
+					g.Expect(stat.Description).To(HavePrefix(
+						fmt.Sprintf("Several statuses are named %q.", dupName),
+					))
 				}).Should(Succeed())
 			},
 		)

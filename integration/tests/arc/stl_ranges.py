@@ -237,7 +237,7 @@ class StlRanges(ArcCase):
 
     def _verify_invalid_color_rejected(self) -> None:
         if not self.wait_for_task_status(
-            self.task_key(self.arc_name), "ranges.create: invalid color"
+            self.task_key(self.arc_name), "Failed to create range"
         ):
             self.fail("no warning status surfaced for the invalid-color create")
         if self.client.ranges.retrieve(names=[BAD_COLOR_NAME]):
