@@ -116,14 +116,14 @@ than the task can write them, the task drops the oldest ones and shows a warning
 <Client.Tabs client:load exclude={["typescript", "cpp"]}>
   <Fragment slot="console">
 
-1. Open the command palette and run **Create an MQTT read task**.
-2. Select the broker. To find topics, enter a filter such as `plant/#` in the browser
-   and click **Browse**. The browser listens for a few seconds and lists the topics it
-   saw with a sample of each payload.
-3. Drag topics from the browser into the task. The Console makes one field for each
-   value it finds in the sample payload. You can also add a topic by hand.
+1. Open the command palette and run **Create MQTT read task**, then select the broker.
+2. Click **Add data**. The dialog listens to the broker for a few seconds and lists the
+   topics that it saw.
+3. Select a topic to see the last value and the type of each field. Select the fields to
+   record, then click the **Add** button. Each field becomes a channel. For a topic that
+   publishes rarely, use **Add a topic by name**.
 4. Adjust the pointer, the data type, and the channel name of each field.
-5. Click **Configure**, then start the task. The Console creates the channels for you.
+5. Click **Start**. The Console creates the channels and starts the task.
 
   </Fragment>
   <Fragment slot="python">

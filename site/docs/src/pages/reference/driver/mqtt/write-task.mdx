@@ -100,13 +100,13 @@ a command.
 <Client.Tabs client:load exclude={["typescript", "cpp"]}>
   <Fragment slot="console">
 
-1. Open the command palette and run **Create an MQTT write task**.
-2. Select the broker, and add a target for each command topic. You can also drag a topic
-   from the browser.
+1. Open the command palette and run **Create MQTT write task**, then select the broker.
+2. Click **Add targets**. Select a topic, select the field that carries the command
+   value, then click the **Add** button. Each field becomes a target. For a topic that
+   publishes rarely, use **Add a topic by name**.
 3. Set the pointer and the JSON type of the command value, and add any extra fields that
    the device expects.
-4. Click **Configure**, then start the task. The Console creates the command channels
-   for you.
+4. Click **Start**. The Console creates the command channels and starts the task.
 
   </Fragment>
   <Fragment slot="python">

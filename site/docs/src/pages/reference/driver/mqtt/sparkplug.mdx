@@ -175,22 +175,22 @@ task shows a warning.
 <Client.Tabs client:load exclude={["typescript", "cpp"]}>
   <Fragment slot="console">
 
-1. Open the command palette and run **Create an MQTT read task**, then select the
-   broker.
-2. In the browser, select **Sparkplug B** and click **Browse**. The browser lists the
-   edge nodes that publish now.
-3. Open an edge node to see its tags. The Console asks the edge node for a rebirth to
+1. Open the command palette and run **Create MQTT read task**, then select the broker.
+2. Click **Add data**, then select **Sparkplug B**. The dialog lists the edge nodes that
+   publish now.
+3. Select an edge node to see its tags. The Console asks the edge node for a rebirth to
    get them.
-4. Drag tags into the task. You can also add a tag by hand.
-5. Click **Configure**, then start the task. The Console creates a channel and an index
-   channel for each tag.
+4. Select the tags to record, then click the **Add** button. For a tag that is not
+   listed, use **Add a tag by name**.
+5. Click **Start**. The Console creates a channel and an index channel for each tag, and
+   starts the task.
 
-To send commands, run **Create an MQTT write task** and drag tags into it in the same
-way.
+To send commands, run **Create MQTT write task**, click **Add targets**, and select tags
+in the same way.
 
-To run an edge node, run **Create a Sparkplug edge node**. Add a tag for each channel to
-publish, pick the channel, and set the name and the data type of the tag. Use **Add
-command channel** on a tag to let a host write to it.
+To run an edge node, run **Create Sparkplug edge node**. Click **Add tag** for each
+channel to publish, pick the channel, and set the name and the data type of the tag. To
+let a host write to a tag, right-click it and select **Add command channel**.
 
   </Fragment>
   <Fragment slot="python">

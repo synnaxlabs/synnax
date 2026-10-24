@@ -254,6 +254,9 @@ func reconnect(ctx context.Context, ins alamos.Instrumentation, hooks reconnectH
 		lost := make(chan error, 1)
 		client, disconnect, err := open(ctx, ins, hooks.options(lost))
 		if ctx.Err() != nil {
+			if err == nil {
+				disconnect()
+			}
 			return
 		}
 		if err != nil {

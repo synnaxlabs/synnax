@@ -83,7 +83,9 @@ type Runner struct {
 	// lifecycle serializes start and stop, so Open never runs while the previous run
 	// still releases its resources.
 	lifecycle sync.Mutex
-	mu        struct {
+	// mu guards active. A run that ends on its own holds mu until its status is
+	// written, so a start that follows reports running after it.
+	mu struct {
 		// active is the current run. It is nil when the task is stopped.
 		active *activeRun
 		sync.Mutex
@@ -137,6 +139,28 @@ func (r *Runner) release(active *activeRun) bool {
 	return true
 }
 
+// end releases active, which ended on its own with err, and writes its error status.
+// It returns false when a stop already released active.
+func (r *Runner) end(active *activeRun, err error) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.mu.active != active {
+		return false
+	}
+	r.mu.active = nil
+	active.cancel()
+	message := "Task stopped"
+	if err != nil {
+		message = err.Error()
+	}
+	if sErr := r.status.Send(
+		context.TODO(), NoCommand, status.VariantError, false, message,
+	); sErr != nil {
+		r.cfg.L.Error("failed to write error status", zap.Error(sErr))
+	}
+	return true
+}
+
 func (r *Runner) current() *activeRun {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -173,18 +197,8 @@ func (r *Runner) Start(ctx context.Context, cmdKey string) error {
 	active.sCtx.Go(func(ctx context.Context) error {
 		err := r.runRecovered(ctx, run)
 		// A stop that already released the run waits on this error and reports it.
-		if !r.release(active) {
+		if !r.end(active, err) {
 			return err
-		}
-		active.cancel()
-		message := "Task stopped"
-		if err != nil {
-			message = err.Error()
-		}
-		if sErr := r.status.Send(
-			context.TODO(), NoCommand, status.VariantError, false, message,
-		); sErr != nil {
-			r.cfg.L.Error("failed to write error status", zap.Error(sErr))
 		}
 		return nil
 	})

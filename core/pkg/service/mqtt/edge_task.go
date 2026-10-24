@@ -370,6 +370,7 @@ func (e *edgeSession) connect(ctx context.Context, settle func()) {
 				err = e.publishBirth(ctx, client)
 			}
 			if err != nil {
+				e.clearClient()
 				if ctx.Err() == nil {
 					e.ins.L.Warn(
 						"failed to start the edge node session",
@@ -378,10 +379,10 @@ func (e *edgeSession) connect(ctx context.Context, settle func()) {
 				}
 				return
 			}
-			e.setClient(client)
+			e.notify()
 			settle()
 			e.serve(ctx, client, lost)
-			e.setClient(nil)
+			e.clearClient()
 			if ctx.Err() != nil {
 				// The broker sends the last will only for a connection that drops.
 				deathCtx, cancel := context.WithTimeout(
@@ -443,10 +444,11 @@ func (e *edgeSession) writeCommands(ctx context.Context) {
 	}
 }
 
-func (e *edgeSession) setClient(client paho.Client) {
+// clearClient stops data from going out until the next birth.
+func (e *edgeSession) clearClient() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.mu.client = client
+	e.mu.client = nil
 	e.notify()
 }
 
@@ -482,7 +484,8 @@ func (e *edgeSession) Health(ctx context.Context) error {
 	}
 }
 
-// publishBirth publishes the NBIRTH message that starts a new sequence.
+// publishBirth publishes the NBIRTH message that starts a new sequence on client, and
+// makes client carry the data that follows it.
 func (e *edgeSession) publishBirth(ctx context.Context, client paho.Client) error {
 	token, err := e.queueBirth(client)
 	if err != nil {
@@ -498,6 +501,7 @@ func (e *edgeSession) queueBirth(client paho.Client) (paho.Token, error) {
 	if err != nil {
 		return nil, err
 	}
+	e.mu.client = client
 	return client.Publish(pub.Topic, pub.QoS, pub.Retained, pub.Payload), nil
 }
 

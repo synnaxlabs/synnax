@@ -36,6 +36,29 @@ type uncommittableTx struct{ kv.Tx }
 
 func (uncommittableTx) Commit(context.Context, ...any) error { return errCommit }
 
+// gatedDB is a kv.DB that, once gated, holds the next commit until release closes.
+type gatedDB struct {
+	kv.DB
+	gated   atomic.Bool
+	held    chan struct{}
+	release chan struct{}
+}
+
+func (d *gatedDB) OpenTx() kv.Tx { return gatedTx{Tx: d.DB.OpenTx(), db: d} }
+
+type gatedTx struct {
+	kv.Tx
+	db *gatedDB
+}
+
+func (t gatedTx) Commit(ctx context.Context, opts ...any) error {
+	if t.db.gated.CompareAndSwap(true, false) {
+		close(t.db.held)
+		<-t.db.release
+	}
+	return t.Tx.Commit(ctx, opts...)
+}
+
 var _ = Describe("Runner", func() {
 	var (
 		t      task.Task
@@ -167,6 +190,37 @@ var _ = Describe("Runner", func() {
 				}).Should(Succeed())
 				Expect(r.Start(ctx, "cmd-2")).To(Succeed())
 				Expect(opened).To(Equal(2))
+			},
+		)
+
+		It("Should report a start as running after the status of a run that ended",
+			func(ctx SpecContext) {
+				gated := &gatedDB{
+					DB:      db.KV(),
+					held:    make(chan struct{}),
+					release: make(chan struct{}),
+				}
+				fail := make(chan struct{})
+				var runs atomic.Int32
+				r := openOn(gorp.Wrap(gated), func(ctx context.Context) error {
+					if runs.Add(1) == 1 {
+						<-fail
+						return errors.New("boom")
+					}
+					return waitRun(ctx)
+				})
+				Expect(r.Start(ctx, "cmd-1")).To(Succeed())
+				gated.gated.Store(true)
+				close(fail)
+				Eventually(gated.held).Should(BeClosed())
+				started := make(chan error, 1)
+				go func() { started <- r.Start(ctx, "cmd-2") }()
+				Consistently(started).ShouldNot(Receive())
+				close(gated.release)
+				Eventually(started).Should(Receive(BeNil()))
+				stat := retrieve(ctx)
+				Expect(stat.Details.Running).To(BeTrue())
+				Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 			},
 		)
 	})
