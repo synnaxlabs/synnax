@@ -114,7 +114,7 @@ result as the server status in the devices toolbar. For the messages, see
   answers the check path with an error such as 404, **Connect** fails.
 - **Validate response body** -> also checks one value in the JSON response. Set a **JSON
   pointer**, such as `/status`, and the **Expected value**, such as `ok`. The status is
-  "Health check validation failed" when the value is different.
+  "Health check failed" when the value is different.
 
 <Divider.Divider x />
 
@@ -198,7 +198,8 @@ The Driver could not reach the address. The description shows the reason.
 <Problem.Item message={["HTTP 401", "HTTP 403"]}>
 <Problem.Cause>
 
-The server rejected the credentials.
+The server rejected the credentials. The status shows "Health check failed", or "Failed
+to connect to server" in the **Connect** dialog, with the code in the description.
 
 </Problem.Cause>
 <Problem.Fix>

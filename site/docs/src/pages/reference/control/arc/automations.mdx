@@ -126,13 +126,13 @@ To import a file, run the "Import components" command from the command palette.
 The controls bar shows the status of the automation. Click the status to see its time,
 its full description, and **Copy diagnostics**.
 
-| Status                      | Meaning                                                                           |
-| --------------------------- | --------------------------------------------------------------------------------- |
-| Not deployed yet            | The automation has not started since you created it or chose its Driver.          |
-| Started task                | The automation runs.                                                              |
-| Stopped task                | You stopped the automation.                                                       |
-| Failed to run Arc program   | A part of the automation had an error while it ran on the Core. It keeps running. |
-| An error with compiler text | The code did not compile. The text shows the line and the problem.                |
+| Status                    | Meaning                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------ |
+| Task not deployed         | The automation has not started since you created it or chose its Driver.                   |
+| Started task              | The automation runs.                                                                       |
+| Stopped task              | You stopped the automation.                                                                |
+| Failed to run Arc program | A part of the automation had an error. On the Core it keeps running. On a Driver it stops. |
+| Failed to configure task  | The code did not compile. The description shows the line and the problem.                  |
 
 For what to do about an error, see [errors](/reference/control/arc/reference/errors).
 For how the Core and a Driver handle errors, see
