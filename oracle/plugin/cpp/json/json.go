@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
+	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -904,7 +905,7 @@ func (p *Plugin) toJSONExprForField(
 
 		// UUIDs serialize through their to_json member, which nlohmann_json cannot
 		// reach inside a vector.
-		if elemType.Name == "uuid" || p.resolvesToUUID(elemType, data) {
+		if resolution.PrimitiveBase(elemType, data.table) == "uuid" {
 			src := "this->" + fieldName
 			if field.Optional {
 				src = "*" + src
@@ -1050,13 +1051,20 @@ func (p *Plugin) toJSONExprForField(
 		}
 	}
 
-	lowerName := strings.ToLower(typeRef.Name)
-	if strings.HasSuffix(lowerName, "timestamp") ||
-		strings.HasSuffix(lowerName, "timespan") {
+	if telem.IsTimeStamp(typeRef, data.table, "cpp") ||
+		telem.IsTimeSpan(typeRef, data.table, "cpp") {
+		if field.Optional {
+			return fmt.Sprintf(
+				`if (this->%s.has_value()) j["%s"] = this->%s->nanoseconds();`,
+				fieldName,
+				jsonName,
+				fieldName,
+			)
+		}
 		return fmt.Sprintf(`j["%s"] = this->%s.nanoseconds();`, jsonName, fieldName)
 	}
 
-	if typeRef.Name == "uuid" || p.resolvesToUUID(typeRef, data) {
+	if resolution.PrimitiveBase(typeRef, data.table) == "uuid" {
 		if field.Optional {
 			return fmt.Sprintf(
 				`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
@@ -1207,28 +1215,6 @@ func defaultValueForPrimitive(primitive string) string {
 	default:
 		return "{}"
 	}
-}
-
-func (p *Plugin) resolvesToUUID(typeRef resolution.TypeRef, data *templateData) bool {
-	resolved, ok := typeRef.Resolve(data.table)
-	if !ok {
-		return false
-	}
-
-	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-		if aliasForm.Target.Name == "uuid" {
-			return true
-		}
-		return p.resolvesToUUID(aliasForm.Target, data)
-	}
-
-	if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
-		if distinctForm.Base.Name == "uuid" {
-			return true
-		}
-	}
-
-	return false
 }
 
 func (p *Plugin) isFixedSizeUint8ArrayType(resolved resolution.Type) bool {

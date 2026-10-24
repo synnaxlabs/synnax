@@ -15,8 +15,28 @@ import (
 	. "github.com/synnaxlabs/oracle/testutil"
 )
 
+const aliasTelem = `
+@cpp output "x/cpp/telem"
+
+TimeStamp int64 {
+	@cpp hand
+}
+
+TimeSpan int64 {
+	@cpp hand
+}
+`
+
 const aliasBase = `
+import "schemas/x/telem"
+
 @cpp output "client/cpp/base"
+
+Key = uuid
+
+Stamp = telem.TimeStamp
+
+Span = telem.TimeSpan
 
 Labeled struct {
 	label string
@@ -50,12 +70,19 @@ Gate = Valve
 ValveList = base.ValveList
 Edge = base.Edge
 Signal = base.Signal
+Key = base.Key
+Ident Key
+Stamp = base.Stamp
+Span = base.Span
+Moment Stamp
 `
 
 var _ = Describe("C++ JSON aliases", func() {
 	DescribeTable("Should code a use of an alias as a use of its target",
 		func(ctx SpecContext, use string, expected ...string) {
-			loader := NewMockFileLoader().Add("schemas/base", aliasBase)
+			loader := NewMockFileLoader().
+				Add("schemas/x/telem", aliasTelem).
+				Add("schemas/base", aliasBase)
 			resp := MustGenerate(
 				ctx,
 				aliasHead+use,
@@ -104,6 +131,41 @@ var _ = Describe("C++ JSON aliases", func() {
 			`.list = parser.field<ValveList>("list"),`,
 			`j["list"] = this->list.to_json();`,
 		),
+		Entry("an alias of a timestamp", `
+			Panel struct {
+				created Stamp
+			}
+		`, `j["created"] = this->created.nanoseconds();`),
+		Entry("an alias of a timespan", `
+			Panel struct {
+				span Span
+			}
+		`, `j["span"] = this->span.nanoseconds();`),
+		Entry("a distinct type over an alias of a timestamp", `
+			Panel struct {
+				created Moment
+			}
+		`, `j["created"] = this->created.nanoseconds();`),
+		Entry("an optional alias of a timestamp", `
+			Panel struct {
+				created Stamp?
+			}
+		`, `if (this->created.has_value()) j["created"] = this->created->nanoseconds();`),
+		Entry("a distinct type over an alias of a uuid", `
+			Panel struct {
+				key Ident
+			}
+		`, `j["key"] = this->key.to_json();`),
+		Entry("an optional distinct type over an alias of a uuid", `
+			Panel struct {
+				key Ident?
+			}
+		`, `if (this->key.has_value()) j["key"] = this->key->to_json();`),
+		Entry("an array of a distinct type over an alias of a uuid", `
+			Panel struct {
+				keys Ident[]
+			}
+		`, "for (const auto& item : this->keys) arr.push_back(item.to_json());"),
 		Entry("a distinct array's elements", `
 			Gates Gate[]
 
