@@ -386,7 +386,7 @@ TEST_F(EngineReadValueTest, ReadValueMultiplePDOs) {
     ));
 
     this->mock_master->set_input<int16_t>(0, 0x1234);
-    this->mock_master->set_input<int32_t>(2, 0xDEADBEEF);
+    this->mock_master->set_input<int32_t>(2, static_cast<int32_t>(0xDEADBEEF));
 
     x::breaker::Breaker brk;
     brk.start();
@@ -721,7 +721,7 @@ TEST_F(EngineReadValueTest, ReadAfterReconfigureGetsCorrectValues) {
     ));
 
     this->mock_master->set_input<uint16_t>(0, 0x5678);
-    this->mock_master->set_input<int32_t>(2, 0xDEADBEEF);
+    this->mock_master->set_input<int32_t>(2, static_cast<int32_t>(0xDEADBEEF));
 
     x::telem::Frame frame1b(1, x::telem::Series(x::telem::UINT16_T, 1));
     ASSERT_NIL(reader1->read(brk, frame1b));
@@ -786,7 +786,7 @@ TEST_F(EngineReadValueTest, ReaderAfterRemovalAndReconfigure) {
     ));
 
     this->mock_master->set_input<uint16_t>(0, 0xAAAA);
-    this->mock_master->set_input<int32_t>(2, 0xBBBBCCCC);
+    this->mock_master->set_input<int32_t>(2, static_cast<int32_t>(0xBBBBCCCC));
 
     x::breaker::Breaker brk;
     brk.start();
