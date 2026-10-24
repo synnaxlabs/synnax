@@ -144,10 +144,11 @@ export const Provider = ({
 
   const ensure = useCallback((): Promise<Monaco> => {
     if (initRef.current == null)
-      initRef.current = initializeMonaco(languages).then((m) => {
+      initRef.current = (async () => {
+        const m = await initializeMonaco(languages);
         setMonaco(m);
         return m;
-      });
+      })();
     return initRef.current;
   }, [languages]);
 

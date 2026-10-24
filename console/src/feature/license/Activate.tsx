@@ -78,11 +78,11 @@ export const Activate = ({ onBack }: ActivateProps): ReactElement => {
     if (client == null || key.trim() === "") return;
     setActivating(true);
     setError(null);
-    await client.license
-      .activate(key.trim())
-      .catch((e: unknown) =>
-        setError(status.fromException(e, "Failed to activate license")),
-      );
+    try {
+      await client.license.activate(key.trim());
+    } catch (e) {
+      setError(status.fromException(e, "Failed to activate license"));
+    }
     setActivating(false);
   };
 

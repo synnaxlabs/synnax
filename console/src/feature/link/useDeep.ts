@@ -73,7 +73,8 @@ export const useDeep = (
   const waitProject = useWaitFor(Session.Project.useSelectIsAnySelected());
   const awaitProject = async (): Promise<void> => {
     dispatch(Session.Link.beginProjectWait());
-    await waitProject().finally(() => dispatch(Session.Link.endProjectWait()));
+    await waitProject();
+    dispatch(Session.Link.endProjectWait());
   };
   const awaitPanel = useWaitFor(Session.Panel.useSelectSelected() != null);
   // A parked link outlives the handlers and client of the render that received it.

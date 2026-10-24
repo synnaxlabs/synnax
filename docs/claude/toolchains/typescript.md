@@ -141,6 +141,9 @@ errors.
   child that reads without subscribing shows stale data.
 - Write `if (x == null) x = y;` in a component or hook. The compiler cannot compile
   `??=`.
+- Await in a `try`/`catch` and put the cleanup after it, never in `finally` or a promise
+  chain. The compiler cannot compile `finally`, or `?.`, `??`, `?:`, and `&&` in a `try`
+  body, so assign the awaited value there and test it after the `catch`.
 - Give a computed object key a plain identifier. The compiler cannot compile a call as a
   key, so move `[CSS.variable("x", "y")]` to a module constant.
 - Never give a parameter a JSX default (`icon = <Icon.Close />`). Put the element in a

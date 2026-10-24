@@ -52,12 +52,14 @@ const subscribeFor = (
   if (known != null) return subscribe(known);
   let released = false;
   let release: destructor.Destructor | undefined;
-  resolveSubjectAsync(client, subject)
-    .then((resolved) => {
+  void (async () => {
+    try {
+      const resolved = await resolveSubjectAsync(client, subject);
       if (!released) release = subscribe(resolved);
-    })
-    // The fetch waits for the same login and reports its failure.
-    .catch(() => {});
+    } catch {
+      // The fetch waits for the same login and reports its failure.
+    }
+  })();
   return () => {
     released = true;
     release?.();

@@ -285,7 +285,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const watchedRef = useInitializerRef(() => new Map<string, destructor.Destructor>());
 
   const watchChildren = useCallback(
-    (parent: ontology.ID) => {
+    async (parent: ontology.ID): Promise<void> => {
       if (client == null) return;
       const key = ontology.idToString(parent);
       // An already-watched parent has nothing to wait for, and no fetch will come
@@ -305,19 +305,14 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       // A retained answer paints before the fetch that reconfirms it.
       const cached = client.ontology.children.getCached({ ids: parent });
       if (query.isLive(cached)) applyAnswer(parent, cached);
-      handleError(
-        async () =>
-          await client.ontology.children
-            .retrieve({ ids: parent })
-            .then((resources) => {
-              // A release during the fetch means the answer is no longer wanted.
-              if (watchedRef.current.has(key)) applyAnswer(parent, resources);
-            })
-            .finally(() => {
-              if (loadingRef.current === key) setLoading(false);
-            }),
-        "Failed to retrieve resources",
-      );
+      try {
+        const resources = await client.ontology.children.retrieve({ ids: parent });
+        // A release during the fetch means the answer is no longer wanted.
+        if (watchedRef.current.has(key)) applyAnswer(parent, resources);
+      } catch (e) {
+        handleError(e, "Failed to retrieve resources");
+      }
+      if (loadingRef.current === key) setLoading(false);
     },
     [client, applyAnswer, handleError, setLoading, watchedRef],
   );
@@ -333,7 +328,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   );
 
   useEffect(() => {
-    watchChildren(root);
+    void watchChildren(root);
     return () => releaseChildren([...watchedRef.current.keys()]);
   }, [client, ontology.idToString(root)]);
 
@@ -357,7 +352,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         return;
       }
       setLoading(clicked);
-      watchChildren(ontology.parseID(clicked));
+      void watchChildren(ontology.parseID(clicked));
     },
     [watchChildren, releaseChildren, setLoading, nodesRef],
   );

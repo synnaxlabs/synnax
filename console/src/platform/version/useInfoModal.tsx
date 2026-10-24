@@ -45,13 +45,15 @@ const checkForUpdate = async (): Promise<Update | null> => {
 const useUpdateCheck = (): UpdateCheck => {
   const [result, setResult] = useState<UpdateCheck>({ variant: "loading" });
   useAsyncEffect(async (signal) => {
-    const next = await checkForUpdate().then(
-      (update): UpdateCheck => ({ variant: "success", update }),
-      (error: unknown): UpdateCheck => ({
+    let next: UpdateCheck;
+    try {
+      next = { variant: "success", update: await checkForUpdate() };
+    } catch (error) {
+      next = {
         variant: "error",
         status: status.fromException(error, "Failed to check for updates"),
-      }),
-    );
+      };
+    }
     if (!signal.aborted) setResult(next);
   }, []);
   return result;

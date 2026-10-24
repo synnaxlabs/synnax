@@ -418,7 +418,7 @@ export const createList = <
     }, [client]);
 
     const retrieveSingle = useCallback(
-      (key: Key, options: query.FetchOptions = {}) => {
+      async (key: Key, options: query.FetchOptions = {}): Promise<void> => {
         const { signal } = options;
         // The compiler rejects `?.`, `??`, and `?:` in a try, so the body is a closure.
         const apply = async (): Promise<void> => {
@@ -437,11 +437,13 @@ export const createList = <
           dataRef.current.set(key, item);
           notifyListeners(key);
         };
-        apply().catch((error: unknown) => {
+        try {
+          await apply();
+        } catch (error) {
           if (signal?.aborted) return;
           dataRef.current.set(key, null);
           setResult(errorResult(`retrieve ${name}`, error));
-        });
+        }
       },
       [client, filterRef, setResult, notifyListeners, openItemSub],
     );
@@ -455,7 +457,7 @@ export const createList = <
         // for a zero-value instead.
         if (primitive.isZero(key)) return undefined;
         const res = dataRef.current.get(key);
-        if (res === undefined) retrieveSingle(key);
+        if (res === undefined) void retrieveSingle(key);
         return res;
       },
       [retrieveSingle],
