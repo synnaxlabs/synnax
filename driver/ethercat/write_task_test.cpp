@@ -252,8 +252,9 @@ TEST_F(EtherCATWriteTest, ParseConfigWithStateChannel) {
     auto parser = x::json::Parser(cfg);
     WriteTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
-    EXPECT_EQ(task_cfg.outputs.size(), 1);
-    EXPECT_EQ(task_cfg.state_channels.size(), 1);
+    ASSERT_EQ(task_cfg.outputs.size(), 1);
+    ASSERT_TRUE(task_cfg.outputs[0]->state.has_value());
+    EXPECT_EQ(task_cfg.outputs[0]->state->key, state_ch.key);
 }
 
 /// @brief it should pair each state channel with the command channel that names it, not
@@ -289,8 +290,13 @@ TEST_F(EtherCATWriteTest, StateChannelPairsWithItsOwnCommandChannel) {
     auto parser = x::json::Parser(cfg);
     WriteTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(task_cfg.state_channels.size(), 1);
-    EXPECT_EQ(task_cfg.state_channels.at(cmd_2.key).key, state_2.key);
+    const auto outs = task_cfg.output_channels();
+    ASSERT_EQ(outs.size(), 2);
+    EXPECT_EQ(outs[0].command, cmd_1.key);
+    EXPECT_FALSE(outs[0].state.has_value());
+    EXPECT_EQ(outs[1].command, cmd_2.key);
+    ASSERT_TRUE(outs[1].state.has_value());
+    EXPECT_EQ(outs[1].state->key, state_2.key);
 }
 
 TEST_F(EtherCATWriteTest, ParseConfigWithMultipleChannels) {
@@ -339,7 +345,8 @@ TEST_F(EtherCATWriteTest, ParseConfigWithInvalidPDOName) {
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
 }
 
-TEST_F(EtherCATWriteTest, CmdKeysReturnsAllCommandChannels) {
+/// @brief it should list the command channel of every output in bus order.
+TEST_F(EtherCATWriteTest, OutputChannelsHoldEveryCommandChannel) {
     auto ch1 = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("ch1"),
         x::telem::INT16_T,
@@ -365,10 +372,10 @@ TEST_F(EtherCATWriteTest, CmdKeysReturnsAllCommandChannels) {
     WriteTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
 
-    auto cmd_keys = task_cfg.cmd_keys();
-    EXPECT_EQ(cmd_keys.size(), 2);
-    EXPECT_EQ(cmd_keys[0], ch1.key);
-    EXPECT_EQ(cmd_keys[1], ch2.key);
+    const auto outs = task_cfg.output_channels();
+    ASSERT_EQ(outs.size(), 2);
+    EXPECT_EQ(outs[0].command, ch1.key);
+    EXPECT_EQ(outs[1].command, ch2.key);
 }
 
 TEST_F(EtherCATWriteTest, SinkStartRegistersWithEngine) {
