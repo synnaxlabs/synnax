@@ -12,8 +12,16 @@ easy to get wrong by hand.
   `.cpp`/`.hpp`/`.h`/`.cc` in place, parallelized across cores. Excludes come from the
   root `.clang-format-ignore`. `check_clang_format.sh <path>` — dry run, non-zero exit
   on diffs.
-- `install_clang_format.sh` — installs the pinned LLVM 23 clang-format via apt. Always
-  use this over a plain `apt install clang-format`, so the version matches CI.
+- `install_clang_tools.sh` — installs the pinned LLVM 23 clang-format and clang-tidy via
+  apt. Always use this over a plain `apt install`, so the versions match CI.
+
+## Linting
+
+- `clang_tidy_fix.sh <bazel targets...>` — applies the fixes clang-tidy offers for the
+  C++ files in the targets, then formats the changed code. Lint without fixing through
+  `bazel build --config=clang-tidy <targets>`.
+- `clang_tidy_wrapper.sh` — the clang-tidy the Bazel aspect runs. Never call it
+  directly.
 
 Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo script.
 

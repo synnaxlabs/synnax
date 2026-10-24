@@ -271,7 +271,9 @@ describe("connection", () => {
 
   describe("reduce", () => {
     it("should start in loading", () => {
-      expect(createInitialStatus(createConfig()).variant).toEqual("loading");
+      const initial = createInitialStatus(createConfig());
+      expect(initial.variant).toEqual("loading");
+      expect(initial.message).toEqual("Connecting");
     });
 
     it("should track an in-flight check without moving the variant", () => {
@@ -298,11 +300,13 @@ describe("connection", () => {
     });
 
     it("should reach success on a check when no stream is required", () => {
-      const status = apply(createConfig(), {
+      const status = apply(createConfig({ name: "Lab Core" }), {
         type: "check.success",
         info: createInfo(),
       });
       expect(status.variant).toEqual("success");
+      expect(status.name).toEqual("Lab Core");
+      expect(status.message).toEqual("Connected");
       expect(status.details.clusterKey).toEqual("test-cluster");
     });
 
@@ -355,6 +359,8 @@ describe("connection", () => {
       const failed = apply(config, { type: "check.failure", error, attempt: 1 });
       const exhausted = reduce(failed, { type: "retry.exhausted" }, config);
       expect(exhausted.variant).toEqual("error");
+      expect(exhausted.message).toEqual("Cannot reach Core");
+      expect(exhausted.description).toEqual("server down");
       expect(reasonOf(exhausted)).toEqual("unreachable");
       expect(exhausted.details.retry).toBeNull();
     });
@@ -387,9 +393,12 @@ describe("connection", () => {
         { type: "stream.denied" },
       );
       expect(denied.variant).toEqual("warning");
+      expect(denied.message).toEqual("Connected");
+      expect(denied.description).toEqual(
+        "Live updates are unavailable. This user cannot read the change channels.",
+      );
       expect(denied.details.streamDenied).toBe(true);
       expect(denied.details.streamLive).toBe(false);
-      expect(denied.description).not.toEqual("");
       // later checks must not drag the settled denial back into loading
       const checked = reduce(
         denied,
@@ -439,6 +448,8 @@ describe("connection", () => {
         error: new AuthError("invalid credentials"),
       });
       expect(rejected.variant).toEqual("error");
+      expect(rejected.message).toEqual("Failed to authenticate");
+      expect(rejected.description).toEqual("invalid credentials");
       expect(reasonOf(rejected)).toEqual("auth");
       expect(rejected.details.authenticated).toBe(false);
       const retrying = reduce(rejected, { type: "retry.requested" }, config);
@@ -525,6 +536,8 @@ describe("connection", () => {
       expect(once.variant).toEqual("loading");
       const twice = reduce(once, { type: "check.failure", error, attempt: 2 }, config);
       expect(reasonOf(twice)).toEqual("unreachable");
+      expect(twice.message).toEqual("Cannot reach Core");
+      expect(twice.description).toEqual("server down");
       expect(twice.details.error).toBe(error);
     });
 
@@ -585,6 +598,7 @@ describe("connection", () => {
         config,
       );
       expect(replaced.variant).toEqual("loading");
+      expect(replaced.message).toEqual("Connecting");
       expect(replaced.details.clusterKey).toEqual("other-cluster");
       expect(replaced.details.epoch).toBe(0);
       expect(replaced.details.streamLive).toBe(false);

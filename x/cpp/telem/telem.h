@@ -338,7 +338,7 @@ public:
         const int64_t frac_ns = value - sec * 1000000000;
         const int64_t day = sec / 86400 - (sec % 86400 != 0 && sec < 0);
         const int64_t sod = sec - day * 86400;
-        const date::Date d = date::civil_from_days(day);
+        const date::Date d = date::civil_from_days(static_cast<int32_t>(day));
         const auto hh = sod / 3600;
         const auto mm = (sod / 60) % 60;
         const auto ss = sod % 60;
@@ -350,11 +350,11 @@ public:
         buf[7] = '-';
         strings::write_number(buf + 8, d.day, 2);
         buf[10] = 'T';
-        strings::write_number(buf + 11, hh, 2);
+        strings::write_number(buf + 11, static_cast<int>(hh), 2);
         buf[13] = ':';
-        strings::write_number(buf + 14, mm, 2);
+        strings::write_number(buf + 14, static_cast<int>(mm), 2);
         buf[16] = ':';
-        strings::write_number(buf + 17, ss, 2);
+        strings::write_number(buf + 17, static_cast<int>(ss), 2);
 
         int len = 19;
 
@@ -363,7 +363,7 @@ public:
 
             // write 9 digits then trim without looping over the whole tail
             char frac[9];
-            strings::write_number(frac, frac_ns, 9);
+            strings::write_number(frac, static_cast<int>(frac_ns), 9);
 
             // find last non-zero digit
             int8_t last = 8;
@@ -613,7 +613,7 @@ public:
     [[nodiscard]] x::json::json to_json() const;
 
     /// @brief converts the TimeRange to protobuf representation.
-    std::pair<pb::TimeRange, x::errors::Error> to_proto() const;
+    [[nodiscard]] std::pair<pb::TimeRange, x::errors::Error> to_proto() const;
 
     /// @brief constructs a TimeRange from protobuf representation.
     static std::pair<TimeRange, x::errors::Error> from_proto(const pb::TimeRange &pb);
@@ -628,7 +628,7 @@ inline std::pair<pb::TimeRange, x::errors::Error> TimeRange::to_proto() const {
 
 inline std::pair<TimeRange, x::errors::Error>
 TimeRange::from_proto(const pb::TimeRange &pb) {
-    TimeRange cpp;
+    TimeRange cpp{};
     cpp.start = TimeStamp::from_proto(pb.start());
     cpp.end = TimeStamp::from_proto(pb.end());
     return {cpp, x::errors::NIL};
@@ -693,7 +693,9 @@ public:
 
     Rate operator*(const Rate &other) const { return Rate(value * other.value); }
 
-    size_t operator/(const Rate &other) const { return value / other.value; }
+    size_t operator/(const Rate &other) const {
+        return static_cast<size_t>(value / other.value);
+    }
 
     friend Rate operator+(const float &lhs, const Rate &rhs) {
         return Rate(lhs + rhs.value);
@@ -765,7 +767,7 @@ inline constexpr TimeStamp TIME_STAMP_MIN = TimeStamp::min();
 
 #define ASSERT_TYPE_SIZE(type, size)                                                   \
     static_assert(                                                                     \
-        sizeof(type) == size,                                                          \
+        sizeof(type) == (size),                                                        \
         "synnax only supports compilation environments with " #size " bit " #type "s"  \
     )
 
@@ -804,7 +806,7 @@ template<typename T>
     if (std::holds_alternative<T>(value)) return std::get<T>(value);
     if constexpr (std::is_same_v<T, std::string>) {
         return std::visit(
-            []<typename IT>(IT &&arg) -> std::string {
+            []<typename IT>(const IT &arg) -> std::string {
                 if constexpr (std::is_same_v<std::decay_t<IT>, std::string>)
                     return arg;
                 else if constexpr (std::is_same_v<std::decay_t<IT>, TimeStamp>)
@@ -817,7 +819,7 @@ template<typename T>
     }
     if constexpr (std::is_same_v<T, TimeStamp>) {
         return std::visit(
-            []<typename IT>(IT &&arg) -> TimeStamp {
+            []<typename IT>(const IT &arg) -> TimeStamp {
                 if constexpr (std::is_arithmetic_v<std::decay_t<IT>>) {
                     return TimeStamp(static_cast<std::int64_t>(arg));
                 } else if constexpr (std::is_same_v<std::decay_t<IT>, std::string>) {
@@ -854,7 +856,7 @@ template<typename T>
         }
     }
     return std::visit(
-        []<typename IT>(IT &&arg) -> T {
+        []<typename IT>(const IT &arg) -> T {
             if constexpr (
                 std::is_arithmetic_v<T> && std::is_arithmetic_v<std::decay_t<IT>>
             )
@@ -1065,7 +1067,7 @@ public:
         if (*this == details::TIMESTAMP_T) return telem::cast<TimeStamp>(value);
         if (*this == details::BOOLEAN_T) {
             return std::visit(
-                []<typename IT>(IT &&arg) -> SampleValue {
+                []<typename IT>(const IT &arg) -> SampleValue {
                     using T = std::decay_t<IT>;
                     if constexpr (std::is_arithmetic_v<T>)
                         return static_cast<uint8_t>(arg != 0 ? 1 : 0);
@@ -1342,5 +1344,3 @@ struct std::hash<x::telem::DataType> {
         return hash<string>()(dt.value);
     }
 };
-
-#include "x/cpp/telem/mono_clock.h"

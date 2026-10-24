@@ -89,7 +89,7 @@ private:
 
     /// @brief creates a slave device for the given slave. The status reflects the
     /// slave's live state when health holds an entry for it.
-    synnax::device::Device create_slave_device(
+    [[nodiscard]] synnax::device::Device create_slave_device(
         const slave::DiscoveryResult &slave,
         const std::vector<slave::Health> &health,
         const std::string &master_key,

@@ -138,7 +138,7 @@ func checkUnionDefaultConstructible(c *analysisCtx) {
 		if !ok {
 			return
 		}
-		payload, ok := uv.Variant.Type.Resolve(c.table)
+		payload, _, ok := resolution.Dealias(uv.Variant.Type, c.table)
 		if !ok {
 			return
 		}

@@ -277,6 +277,7 @@ TEST(MasterSendReceive, ReceiveWithInjectedError) {
     ASSERT_OCCURRED_AS(master.receive(), errors::MASTER_INIT_ERROR);
 }
 
+/// @brief it should return the image offset of each mapped entry.
 TEST(MasterPdoOffset, ReturnsOffsetsOfEveryMappedEntry) {
     Master master;
     master.add_slave(
@@ -312,6 +313,7 @@ TEST(MasterPdoOffset, ReturnsOffsetsOfEveryMappedEntry) {
     EXPECT_EQ(second->byte, 2);
 }
 
+/// @brief it should return no offset for an entry that is not mapped.
 TEST(MasterPdoOffset, ReturnsNulloptForUnmappedEntry) {
     Master master;
     ASSERT_NIL(master.initialize());
@@ -321,6 +323,7 @@ TEST(MasterPdoOffset, ReturnsNulloptForUnmappedEntry) {
                      .has_value());
 }
 
+/// @brief it should return no offset for an entry on a disabled slave.
 TEST(MasterPdoOffset, SkipsDisabledSlave) {
     Master master;
     master.add_slave(
@@ -344,13 +347,14 @@ TEST(MasterPdoOffset, SkipsDisabledSlave) {
                      .has_value());
 }
 
+/// @brief it should copy a set input into the input image only on the next receive.
 TEST(MasterIoMap, SetInputReachesImageOnReceive) {
     Master master;
     master.add_slave(slave::Properties{.position = 0});
     ASSERT_NIL(master.initialize());
     ASSERT_NIL(master.activate());
     master.set_input<int16_t>(0, 0x1234);
-    int16_t value;
+    int16_t value = 0;
     std::memcpy(&value, master.input_data().data(), sizeof(value));
     EXPECT_EQ(value, 0);
     ASSERT_NIL(master.receive());
@@ -358,6 +362,7 @@ TEST(MasterIoMap, SetInputReachesImageOnReceive) {
     EXPECT_EQ(value, 0x1234);
 }
 
+/// @brief it should return an output value only after it is sent.
 TEST(MasterIoMap, GetOutputReadsSentOutputs) {
     Master master;
     master.add_slave(slave::Properties{.position = 0});
@@ -365,7 +370,7 @@ TEST(MasterIoMap, GetOutputReadsSentOutputs) {
     ASSERT_NIL(master.activate());
     auto data = master.output_data();
     ASSERT_GE(data.size(), 4);
-    int32_t write_val = 0xDEADBEEF;
+    auto write_val = static_cast<int32_t>(0xDEADBEEF);
     std::memcpy(data.data(), &write_val, sizeof(write_val));
     EXPECT_EQ(master.get_output<int32_t>(0), 0);
     ASSERT_NIL(master.send());
@@ -392,6 +397,7 @@ protected:
     void TearDown() override { this->brk.stop(); }
 };
 
+/// @brief it should report the health of each enabled slave.
 TEST_F(MasterCheckTest, ReportsEachEnabledSlave) {
     this->master.add_slave(slave::Properties{.position = 0});
     this->master.add_slave(slave::Properties{.position = 1});
@@ -404,6 +410,7 @@ TEST_F(MasterCheckTest, ReportsEachEnabledSlave) {
     );
 }
 
+/// @brief it should report a faulted slave, then return it to OP on the next check.
 TEST_F(MasterCheckTest, ReportsFaultThenRecoversSlave) {
     this->master.add_slave(slave::Properties{.position = 0});
     ASSERT_NIL(this->master.initialize());
@@ -422,6 +429,7 @@ TEST_F(MasterCheckTest, ReportsFaultThenRecoversSlave) {
     EXPECT_TRUE(this->master.check(this->brk)[0].operational());
 }
 
+/// @brief it should keep a slave out of OP while its transition to OP fails.
 TEST_F(MasterCheckTest, KeepsBlockedSlaveOutOfOp) {
     this->master.add_slave(slave::Properties{.position = 0});
     this->master.set_slave_transition_failure(0, slave::State::OP);
@@ -434,6 +442,7 @@ TEST_F(MasterCheckTest, KeepsBlockedSlaveOutOfOp) {
     EXPECT_EQ(this->master.slave_state(0), slave::State::OP);
 }
 
+/// @brief it should not recover a faulted slave after the breaker stops.
 TEST_F(MasterCheckTest, TakesNoRecoveryStepOnceBreakerStops) {
     this->master.add_slave(slave::Properties{.position = 0});
     ASSERT_NIL(this->master.initialize());

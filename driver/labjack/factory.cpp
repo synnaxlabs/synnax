@@ -28,12 +28,12 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     common::ConfigureResult result;
     auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task, timing_cfg);
     if (err) return {std::move(result), err};
+    result.auto_start = cfg.auto_start;
     std::unique_ptr<common::Source> source;
     if (cfg.has_thermocouples())
         source = std::make_unique<UnarySource>(devs, std::move(cfg));
     else
         source = std::make_unique<StreamSource>(devs, std::move(cfg));
-    result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
@@ -108,7 +108,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const synnax::task::Task &task,
     const std::string &cmd_key
 ) {
-    if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
+    if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     if (!this->check_health(ctx, task, cmd_key)) return {nullptr, true};
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == SCAN_TASK_TYPE) res = configure_scan(this->dev_manager, ctx, task);

@@ -18,7 +18,7 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // Migration lifts stored devices from v0 to v1, dropping the persisted status and

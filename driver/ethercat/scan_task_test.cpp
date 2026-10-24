@@ -78,7 +78,7 @@ protected:
     }
 
     /// @brief scans once and returns the status of the only slave device.
-    synnax::device::Status scan_status() const {
+    [[nodiscard]] synnax::device::Status scan_status() const {
         const auto devices = ASSERT_NIL_P(
             this->scanner->scan(common::ScannerContext{.count = 1})
         );
@@ -162,7 +162,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = x::json::json::object_t{};
-    cmd.key = 1;
+    cmd.key = '1';
 
     bool handled = scanner.exec(cmd, task, ctx);
     EXPECT_TRUE(handled);
@@ -215,7 +215,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "eth0"}};
-    cmd.key = 1;
+    cmd.key = '1';
 
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
@@ -270,7 +270,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "enp3s0"}};
-    cmd.key = 2;
+    cmd.key = '2';
 
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
@@ -301,7 +301,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "eth0"}};
-    cmd.key = 3;
+    cmd.key = '3';
 
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
@@ -309,12 +309,15 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
 }
 
+/// @brief it should show the discovery result in the status of a slave while the bus is
+/// stopped.
 TEST_F(EtherCATScanStatusTest, SlaveOnStoppedBusShowsDiscovery) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(status.message, "Discovered (1 inputs, 0 outputs)");
 }
 
+/// @brief it should show a slave in OP on a running bus as operational.
 TEST_F(EtherCATScanStatusTest, SlaveInOpShowsOperational) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const auto reader = ASSERT_NIL_P(
@@ -326,6 +329,8 @@ TEST_F(EtherCATScanStatusTest, SlaveInOpShowsOperational) {
     EXPECT_EQ(status.message, "Operational");
 }
 
+/// @brief it should show a faulted slave as an error and put its AL status in the
+/// description.
 TEST_F(EtherCATScanStatusTest, FaultedSlaveShowsItsALStatus) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const auto reader = ASSERT_NIL_P(
@@ -345,6 +350,7 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveShowsItsALStatus) {
     EXPECT_EQ(this->scan_status().message, "Operational");
 }
 
+/// @brief it should show a lost slave as not responding.
 TEST_F(EtherCATScanStatusTest, LostSlaveShowsNotResponding) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const auto reader = ASSERT_NIL_P(
@@ -358,6 +364,8 @@ TEST_F(EtherCATScanStatusTest, LostSlaveShowsNotResponding) {
     EXPECT_EQ(status.description, "Check the power and cabling of the device.");
 }
 
+/// @brief it should show a slave that left OP as a warning while the Driver returns it
+/// to OP.
 TEST_F(EtherCATScanStatusTest, SlaveLeavingOpShowsAWarning) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const auto reader = ASSERT_NIL_P(

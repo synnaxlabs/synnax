@@ -83,6 +83,7 @@ const beforeSave = async ({
   // Since we just scanned successfully, we create a default healthy status for the
   // device that can then be overwritten by the scanner if we lose connection.
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
+    name: get<string>("name").value,
     message: "Server connected",
     variant: "success",
     details: {

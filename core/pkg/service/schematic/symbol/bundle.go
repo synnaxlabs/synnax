@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -23,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filename"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
 
