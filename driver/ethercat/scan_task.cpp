@@ -22,14 +22,13 @@ namespace {
 std::string get_pdo_error_guidance(const std::string &error) {
     if (error.find("CoE") != std::string::npos ||
         error.find("mailbox") != std::string::npos)
-        return "Use manual channel configuration with explicit index/sub_index values.";
+        return "Check the slave's CoE mailbox and scan again. Channels can use only "
+               "the entries a scan discovers.";
     if (error.find("SII") != std::string::npos ||
         error.find("fallback") != std::string::npos)
         return "PDO order may be unreliable. Verify data correctness after configuration.";
-    if (error.find("empty") != std::string::npos ||
-        error.find("no PDO") != std::string::npos)
-        return "Device reports no PDOs. Use manual channel configuration if needed.";
-    return "Use manual channel configuration if automatic discovery is insufficient.";
+    return "Channels can use only the entries a scan discovers. Scan again if entries "
+           "are missing.";
 }
 }
 
