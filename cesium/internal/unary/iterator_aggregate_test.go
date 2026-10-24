@@ -253,6 +253,78 @@ var _ = Describe("Aggregated Iteration", func() {
 				Entry("min/max", telem.AggregationMinMax, []int64{1, 6, 7, 12}),
 			)
 
+			DescribeTable("Should decimate to the first present sample of each group",
+				func(
+					ctx SpecContext,
+					starts []telem.TimeStamp,
+					count int,
+					bounds telem.TimeRange,
+					multiple uint32,
+					groupStarts []uint32,
+					expected [][]int64,
+				) {
+					for _, start := range starts {
+						write(ctx, start, count)
+					}
+					series := readSpan(ctx, dataDB, aggregated(
+						bounds,
+						telem.AggregationDecimate,
+						10,
+					))
+					Expect(series).To(HaveLen(len(expected)))
+					for i, s := range series {
+						Expect(s.Unmarshal[int64]()).To(Equal(expected[i]))
+						Expect(s.Alignment.SampleIndex()).To(Equal(groupStarts[i]))
+						Expect(s.AlignmentMultiple).To(Equal(multiple))
+					}
+				},
+				Entry(
+					"a partial first group",
+					[]telem.TimeStamp{telem.SecondTS},
+					100,
+					(6*telem.SecondTS).Range(101*telem.SecondTS),
+					uint32(10),
+					[]uint32{0},
+					[][]int64{{6, 11, 21, 31, 41, 51, 61, 71, 81, 91}},
+				),
+				Entry(
+					"a partial last group",
+					[]telem.TimeStamp{telem.SecondTS},
+					100,
+					telem.SecondTS.Range(96*telem.SecondTS),
+					uint32(10),
+					[]uint32{0},
+					[][]int64{{1, 11, 21, 31, 41, 51, 61, 71, 81, 91}},
+				),
+				Entry(
+					"two index domains",
+					[]telem.TimeStamp{telem.SecondTS, 100 * telem.SecondTS},
+					25,
+					(7*telem.SecondTS).Range(123*telem.SecondTS),
+					uint32(5),
+					[]uint32{5, 0},
+					[][]int64{{7, 11, 16, 21}, {1, 6, 11, 16, 21}},
+				),
+			)
+
+			It("Should decimate reads larger than one read buffer", func(
+				ctx SpecContext,
+			) {
+				const count = 300_000
+				write(ctx, telem.SecondTS, count)
+				bounds := (6 * telem.SecondTS).Range((count + 1) * telem.SecondTS)
+				series := readSpan(
+					ctx,
+					dataDB,
+					aggregated(bounds, telem.AggregationDecimate, 1000),
+				)
+				Expect(series).To(HaveLen(1))
+				values := series[0].Unmarshal[int64]()
+				Expect(values).To(HaveLen(1000))
+				Expect(values[:3]).To(Equal([]int64{6, 301, 601}))
+				Expect(values[len(values)-1]).To(Equal(int64(299_701)))
+			})
+
 			It("Should anchor groups at the start of each index domain", func(
 				ctx SpecContext,
 			) {

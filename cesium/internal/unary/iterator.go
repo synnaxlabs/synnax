@@ -625,6 +625,9 @@ func (i *Iterator) readSegment(
 	}
 	size := endOffset - offset
 	if i.groupSize > 1 {
+		if i.aggregation == telem.AggregationDecimate {
+			return i.readDecimated(r, series, offset, size)
+		}
 		return i.readReduced(r, series, offset, size)
 	}
 	if factor := i.stride; factor > 1 {
@@ -831,6 +834,42 @@ func (i *Iterator) readReduced(
 	return series, read, nil
 }
 
+// readDecimated keeps the first present sample of each group in the slice [offset,
+// offset+size) of r, and reads only the samples it keeps. It returns the series and the
+// number of source samples the slice held.
+func (i *Iterator) readDecimated(
+	r io.ReaderAt,
+	series telem.Series,
+	offset telem.Size,
+	size telem.Size,
+) (telem.Series, int64, error) {
+	var (
+		groupSize = int64(i.groupSize)
+		// skip is the position in the slice of the first group start.
+		skip = (groupSize - int64(series.Alignment.SampleIndex())%groupSize) % groupSize
+		head []byte
+	)
+	series.Alignment = telem.GroupStart(series.Alignment, i.groupSize)
+	series.AlignmentMultiple = i.groupSize
+	if skip > 0 {
+		// A partial first group keeps its first sample, which is not a group start.
+		head = make([]byte, i.Channel.DataType.Density())
+		n, err := r.ReadAt(head, int64(offset))
+		if err != nil && !errors.Is(err, io.EOF) {
+			return telem.Series{}, 0, err
+		}
+		if n < len(head) {
+			return series, 0, nil
+		}
+	}
+	data, srcLen, err := i.readStridedFixed(r, offset, size, skip, groupSize)
+	if err != nil {
+		return telem.Series{}, 0, err
+	}
+	series.Data = append(head, data...)
+	return series, srcLen, nil
+}
+
 var errPrefixOverrunsSlice = errors.New("length prefix exceeds domain slice")
 
 // readStrided reads every stride-th sample of the slice [offset, offset+size) in r,
@@ -846,18 +885,20 @@ func (i *Iterator) readStrided(
 	if i.Channel.DataType.IsVariable() {
 		return i.readStridedVariable(r, offset, size, skip)
 	}
-	return i.readStridedFixed(r, offset, size, skip)
+	return i.readStridedFixed(r, offset, size, skip, int64(i.stride))
 }
 
+// readStridedFixed is readStrided for a fixed-density data type, keeping every
+// factor-th sample.
 func (i *Iterator) readStridedFixed(
 	r io.ReaderAt,
 	offset telem.Size,
 	size telem.Size,
 	skip int64,
+	factor int64,
 ) ([]byte, int64, error) {
 	var (
 		density    = i.Channel.DataType.Density()
-		factor     = int64(i.stride)
 		srcSamples = density.SampleCount(size)
 		strided    = max(srcSamples-skip, 0)
 		kept       = strided/factor + min(strided%factor, 1)
