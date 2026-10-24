@@ -614,10 +614,10 @@ TEST(HTTPScanTask, ScanHealthCheckValidationFailure) {
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(result[0].status->message, "Health check validation failed");
+    EXPECT_EQ(result[0].status->message, "Health check failed");
     EXPECT_EQ(
         result[0].status->description,
-        "expected value at '/status' to be \"ok\", got \"degraded\""
+        "The value at '/status' is \"degraded\", but the health check expects \"ok\"."
     );
 
     server.stop();
@@ -942,11 +942,10 @@ TEST(HTTPScanTask, ScanHealthCheckNonJSONResponse) {
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(result[0].status->message, "Health check validation failed");
-    EXPECT_NE(
-        result[0].status->description.find("failed to parse response body as JSON"),
-        std::string::npos
-    );
+    EXPECT_EQ(result[0].status->message, "Health check failed");
+    const auto &description = result[0].status->description;
+    EXPECT_TRUE(description.starts_with("The response body is not valid JSON: "));
+    EXPECT_TRUE(description.ends_with("."));
 
     server.stop();
 }
@@ -995,10 +994,10 @@ TEST(HTTPScanTask, ScanHealthCheckMissingPointer) {
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
     EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(result[0].status->message, "Health check validation failed");
+    EXPECT_EQ(result[0].status->message, "Health check failed");
     EXPECT_EQ(
         result[0].status->description,
-        "response body does not contain pointer '/status'"
+        "The response body has no value at '/status'."
     );
 
     server.stop();
@@ -1131,10 +1130,10 @@ TEST(HTTPScanTask, TestConnectionValidationFailure) {
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
     ASSERT_FALSE(ctx->statuses.empty());
     EXPECT_EQ(ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(ctx->statuses.back().message, "Invalid health check response");
+    EXPECT_EQ(ctx->statuses.back().message, "Health check failed");
     EXPECT_EQ(
         ctx->statuses.back().description,
-        "expected value at '/status' to be \"ok\", got \"bad\""
+        "The value at '/status' is \"bad\", but the health check expects \"ok\"."
     );
 
     server.stop();
@@ -1182,7 +1181,7 @@ TEST(HTTPScanTask, TestConnectionNon2xxStatus) {
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
     ASSERT_FALSE(ctx->statuses.empty());
     EXPECT_EQ(ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(ctx->statuses.back().message, "Failed to connect to server");
+    EXPECT_EQ(ctx->statuses.back().message, "Health check failed");
     EXPECT_EQ(
         ctx->statuses.back().description,
         "The server responded with HTTP 503: Service Unavailable"

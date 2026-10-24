@@ -398,7 +398,7 @@ public:
                          << "failed to start signal monitoring: " << err;
 
         this->status.details.running = true;
-        this->send_status(synnax::status::VARIANT_SUCCESS, "Scan task started");
+        this->send_status(synnax::status::VARIANT_SUCCESS, "Started scan task");
         while (this->breaker.running()) {
             if (const auto err = this->scan()) {
                 this->send_status(

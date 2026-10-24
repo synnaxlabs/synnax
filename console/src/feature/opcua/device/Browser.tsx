@@ -9,7 +9,7 @@
 
 import "@/feature/opcua/device/Browser.css";
 
-import { type rack, status, type Synnax as Client } from "@synnaxlabs/client";
+import { type rack, status, type Synnax as Client, task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -104,12 +104,13 @@ const browseNodes = async (
   id: string,
 ): Promise<ScannedNode[]> => {
   const scanTask = await retrieveScanTask(client, rack);
-  const { details, variant, description } = await scanTask.executeCommandSync({
+  const browseStatus = await scanTask.executeCommandSync({
     type: BROWSE_COMMAND_TYPE,
     timeout: BROWSE_TIMEOUT,
     args: { connection, node_id: id },
   });
-  if (variant !== "success") throw new Error(description);
+  if (browseStatus.variant === "error") throw new task.StatusError(browseStatus);
+  const { details } = browseStatus;
   if (details?.data == null || !("channels" in details.data)) return [];
   return details.data.channels;
 };

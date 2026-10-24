@@ -344,11 +344,8 @@ private:
         // hardware acquisition rate. Skew tracking is only meaningful for
         // hardware-timed tasks.
         if (!this->cfg.software_timed &&
-            static_cast<size_t>(std::abs(hw_res.skew)) > this->cfg.skew_warn_on_count) {
-            LOG(WARNING) << "[ni] trailing " << hw_res.skew
-                         << " samples behind the hardware";
+            static_cast<size_t>(std::abs(hw_res.skew)) > this->cfg.skew_warn_on_count)
             res.warning = common::SKEW_WARNING;
-        }
 
         auto prev_read_err = this->curr_read_err;
         this->curr_read_err = translate_error(hw_res.error);

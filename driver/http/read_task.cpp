@@ -272,8 +272,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             const auto &req = requests[ei];
             auto msg = std::string(to_string(req.method)) + " " + req.url +
                        " returned " + std::to_string(resp.status_code);
-            if (!resp.body.empty())
-                msg += ": " + x::strings::escape_line_breaks(resp.body);
+            if (!resp.body.empty()) msg += ": " + resp.body_excerpt();
             warnings.push_back(msg);
             continue;
         }
@@ -303,15 +302,16 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         );
         return res;
     }
+    std::string overrun;
     if (failed == 0 && skipped == 0 && !this->requests.empty() &&
         this->requests.size() > this->requests.front().max_concurrent_requests &&
         tick > this->cfg.rate.period())
-        warnings.push_back(
-            std::to_string(this->requests.size()) + " endpoints (polled " +
-            std::to_string(this->requests.front().max_concurrent_requests) +
-            " at a time) overran the period. Lower the rate or raise the max "
-            "concurrent requests in the device properties."
-        );
+        overrun = "Polling " + std::to_string(this->requests.size()) + " endpoints " +
+                  std::to_string(this->requests.front().max_concurrent_requests) +
+                  " at a time takes longer than the " +
+                  this->cfg.rate.period().to_string() +
+                  " read period. Lower the rate or raise the max concurrent "
+                  "requests in the device properties.";
 
     // Process each sampling group atomically: either all fields in the group succeed
     // and are written to the frame, or the entire group is skipped.
@@ -347,7 +347,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                 );
                 if (conv_err)
                     warning = "failed to convert " + field.pointer.to_string() +
-                              " for channel " + ch.name + ": " + conv_err.message();
+                              " for channel " + ch.name + ": " + conv_err.data;
                 else
                     sample_val = std::move(val);
             }
@@ -382,11 +382,14 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         }
     }
 
-    if (!warnings.empty())
+    if (!warnings.empty()) {
+        if (!overrun.empty()) warnings.push_back(overrun);
         res.warning = {
             .message = "Failed to read some data",
             .description = x::strings::join(warnings, "; "),
         };
+    } else if (!overrun.empty())
+        res.warning = {.message = "Falling behind poll rate", .description = overrun};
     return res;
 }
 

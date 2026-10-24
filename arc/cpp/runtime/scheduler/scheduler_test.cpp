@@ -496,6 +496,22 @@ TEST_F(SchedulerTest, ContinuesAfterErrorReport) {
     EXPECT_EQ(h.errors.size(), 1);
 }
 
+/// @brief a reported error should keep its type and name the node type it came from.
+TEST_F(SchedulerTest, ReportedErrorNamesNodeType) {
+    MockErrorHandler h;
+    mock("A").on_next = [](const node::Context &ctx) {
+        ctx.report_error(x::errors::Error(errors::WARNING, "The period is zero."));
+    };
+    auto a = ir_node("A");
+    a.type = "interval";
+    auto ir = program_of({a}, {}, root_scope({ir::node_member("A")}));
+    const auto s = build_with_handler(std::move(ir), h.handler);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
+    ASSERT_EQ(h.errors.size(), 1);
+    EXPECT_TRUE(h.errors[0].matches(errors::WARNING));
+    EXPECT_EQ(h.errors[0].data, "The interval node failed: The period is zero.");
+}
+
 TEST_F(SchedulerTest, AccumulatesMultipleErrors) {
     MockErrorHandler h;
     const auto err_a = x::errors::Error("boom-A", "test");

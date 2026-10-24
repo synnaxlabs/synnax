@@ -311,7 +311,7 @@ TEST(SetStatusTest, NextWarnsOnInvalidVariant) {
     ASSERT_NIL(created->next(ctx));
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, "Failed to set status");
-    EXPECT_FALSE(calls[0].description.empty());
+    EXPECT_NE(calls[0].description.find("invalid status variant"), std::string::npos);
 }
 
 TEST(SetStatusTest, IsOutputTruthyDoesNotThrow) {

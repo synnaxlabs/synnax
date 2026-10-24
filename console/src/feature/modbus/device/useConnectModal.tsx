@@ -9,7 +9,7 @@
 
 import "@/feature/modbus/device/Connect.css";
 
-import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
+import { type device, type rack, status, task, TimeSpan } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -79,11 +79,11 @@ const beforeSave = async ({
     timeout: TEST_CONNECTION_TIMEOUT,
     args: { connection: get("properties.connection").value },
   });
-  if (state.variant === "error") throw new Error(state.description);
+  if (state.variant === "error") throw new task.StatusError(state);
   // Since we just scanned successfully, we create a default healthy status for the
   // device that can then be overwritten by the scanner if we lose connection.
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
-    message: "Server connected",
+    message: "Device connected",
     variant: "success",
     details: {
       rack: get<rack.Key>("rack").value,

@@ -66,7 +66,13 @@ struct TaskConfig : ::synnax::task::PersistConfig {
         );
         if (arc_err) return {std::move(cfg), arc_err};
         if (!arc_data.program.has_value())
-            return {std::move(cfg), x::errors::Error("arc module not compiled")};
+            return {
+                std::move(cfg),
+                x::errors::Error(
+                    x::errors::INTERNAL,
+                    "The Arc program is not compiled."
+                )
+            };
         cfg.program = *arc_data.program;
         return {std::move(cfg), x::errors::NIL};
     }
@@ -189,7 +195,7 @@ public:
             runtime_cfg,
             [task_ptr = task.get()](const x::errors::Error &err) {
                 if (err.matches(::arc::runtime::errors::WARNING))
-                    task_ptr->state.send_warning("Arc program warning", err.data);
+                    task_ptr->state.send_warning("Failed to run Arc program", err.data);
                 else {
                     task_ptr->state.send_error(err, "Failed to run Arc program");
                     task_ptr->runtime->close_outputs();

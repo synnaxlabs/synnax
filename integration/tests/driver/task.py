@@ -238,11 +238,11 @@ def run_and_expect_rejection(
 ) -> str | None:
     """Start a saved task and return the driver's rejection text, if any.
 
-    Deploy failures acknowledge the start command with an error status; runtime
-    failures surface after a successful ack, so statuses are watched for the full
-    timeout window. The text is the status message and its description. Returns None
-    when no rejection arrives. The task is stopped before returning. Accepts both
-    sugared tasks and plain ``sy.task.Task``.
+    Deploy failures acknowledge the start command with an error status; runtime failures
+    surface after a successful ack, so statuses are watched for the full timeout window.
+    The text is the status message and its description. Returns None when no rejection
+    arrives. The task is stopped before returning. Accepts both sugared tasks and plain
+    ``sy.task.Task``.
     """
     internal = task if isinstance(task, sy.Task) else task._internal
     with client.open_streamer(["sy_status_set"]) as streamer:
@@ -290,9 +290,8 @@ def assert_start_rejected(
     *,
     timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
 ) -> str:
-    """Save a task, start it, and assert the driver rejects it with an error or
-    warning status. Returns the rejection message. The task is deleted before
-    returning."""
+    """Save a task, start it, and assert the driver rejects it with an error or warning
+    status. Returns the rejection text. The task is deleted before returning."""
     client.tasks.configure(task)
     try:
         message = run_and_expect_rejection(client, task, timeout=timeout)
@@ -325,7 +324,7 @@ def _buffered_task_errors(statuses: sy.Streamer, task_key: sy.task.Key) -> list[
 
 
 def _status_text(status: sy.task.Status) -> str:
-    """Join the message and description of a status into one line."""
+    """Join the message and description of a status."""
     return ": ".join(part for part in (status.message, status.description) if part)
 
 

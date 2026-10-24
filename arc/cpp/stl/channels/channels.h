@@ -184,9 +184,11 @@ public:
         if (time->size() != data->size()) {
             ctx.report_error(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "write to channel " + std::to_string(k) + ": sample count " +
-                    std::to_string(data->size()) + " does not match timestamp count " +
-                    std::to_string(time->size())
+                        std::to_string(data->size()) +
+                        " does not match timestamp count " +
+                        std::to_string(time->size())
                 )
             );
             return x::errors::NIL;

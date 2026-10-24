@@ -52,7 +52,7 @@ inline std::string dispatch_create(
         if (err) {
             report(
                 CREATE_FAILURE_MSG,
-                "Invalid color \"" + color_hex + "\": " + err.data
+                "The color \"" + color_hex + "\" is not valid: " + err.data
             );
             return "";
         }
@@ -68,7 +68,10 @@ inline std::string dispatch_create(
     if (!parent.empty()) {
         auto [uid, err] = x::uuid::UUID::parse(parent);
         if (err) {
-            report(CREATE_FAILURE_MSG, "Invalid parent key \"" + parent + "\".");
+            report(
+                CREATE_FAILURE_MSG,
+                "The parent key \"" + parent + "\" is not a valid range key."
+            );
             return "";
         }
         synnax::ranger::Range parent_range;
@@ -91,7 +94,7 @@ inline std::string dispatch_end(
 ) {
     auto [uid, parse_err] = x::uuid::UUID::parse(key);
     if (parse_err) {
-        report(END_FAILURE_MSG, "Invalid range key \"" + key + "\".");
+        report(END_FAILURE_MSG, "The key \"" + key + "\" is not a valid range key.");
         return "";
     }
     if (const auto err = client->ranges.set_end(uid, x::telem::TimeStamp::now())) {

@@ -29,10 +29,6 @@ struct StatusHandler {
     const std::shared_ptr<driver::task::Context> ctx;
     /// @brief the raw synnax task.
     const synnax::task::Task task;
-    /// @brief the accumulated error in the task state.
-    x::errors::Error accumulated_err = x::errors::NIL;
-    /// @brief what failed when accumulated_err occurred, sent as the status message.
-    std::string accumulated_msg;
     /// @brief the wrapped raw task state that will be sent back to Synnax.
     synnax::task::Status status;
 
@@ -151,6 +147,10 @@ struct StatusHandler {
     static constexpr size_t MAX_RECENT_STATUSES = 50;
 
 private:
+    /// @brief the accumulated error in the task state.
+    x::errors::Error accumulated_err = x::errors::NIL;
+    /// @brief what failed when accumulated_err occurred, sent as the status message.
+    std::string accumulated_msg;
     /// @brief tracks recently sent statuses to suppress identical repeated updates. Key
     /// is "variant:message:description", value is the timestamp it was last sent.
     std::unordered_map<std::string, x::telem::TimeStamp> recent_statuses;

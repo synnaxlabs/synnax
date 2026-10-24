@@ -79,8 +79,8 @@ struct Warning {
     [[nodiscard]] bool empty() const { return this->message.empty(); }
 };
 
-/// @brief the warning a source reports when it falls behind the hardware. Sources log
-/// the sample count, which changes on every read.
+/// @brief the warning a source reports when it falls behind the hardware. It holds no
+/// sample count, so its text stays the same from read to read.
 const Warning SKEW_WARNING{
     .message = "Falling behind hardware",
     .description = "The Driver cannot keep up with the hardware and is falling "
@@ -157,8 +157,8 @@ class ReadTask final : public driver::task::Task {
                         if (!description.empty()) description += " ";
                         description += "Next " + retry + ".";
                     }
-                    LOG(WARNING) << this->p.name() << ": " << err.message() << ". "
-                                 << description;
+                    LOG(WARNING)
+                        << this->p.name() << ": [" << err.type << "] " << description;
                     this->p.state.send_warning("Failed to read data", description);
                 } else
                     LOG(ERROR) << this->p.name() << ": " << err.message();

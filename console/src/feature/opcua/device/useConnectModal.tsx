@@ -9,7 +9,7 @@
 
 import "@/feature/opcua/device/Connect.css";
 
-import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
+import { type device, type rack, status, task, TimeSpan } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -78,7 +78,7 @@ const beforeSave = async ({
     timeout: TEST_CONNECTION_TIMEOUT,
     args: { connection: get("properties.connection").value },
   });
-  if (scanStatus.variant === "error") throw new Error(scanStatus.description);
+  if (scanStatus.variant === "error") throw new task.StatusError(scanStatus);
   // Since we just scanned successfully, we create a default healthy status for the
   // device that can then be overwritten by the scanner if we lose connection.
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({

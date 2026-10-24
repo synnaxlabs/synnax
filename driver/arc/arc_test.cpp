@@ -756,6 +756,10 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
     );
     ASSERT_NE(error_status, nullptr) << "Fatal WASM trap should produce error status";
     expect_status(*error_status, synnax::status::VARIANT_ERROR, false);
+    EXPECT_EQ(error_status->message, "Failed to run Arc program");
+    EXPECT_TRUE(
+        error_status->description.starts_with("The divide_by_zero node failed: ")
+    );
 
     task->stop("test_stop", true);
 }

@@ -33,6 +33,7 @@ namespace driver::arc::status {
 // Reporter text. Keep in sync with core/pkg/service/arc/status/status.go.
 const std::string SET_FAILURE_MSG = "Failed to set status";
 const std::string MULTI_MATCH_MSG = "Found duplicate status names";
+/// @brief returns the description for a set that matched more than one status.
 inline std::string multi_match_description(
     const std::string &key_or_name,
     const std::string &resolved_key

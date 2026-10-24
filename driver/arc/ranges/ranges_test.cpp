@@ -284,7 +284,9 @@ TEST(CreateRangeTest, NextWarnsAndDoesNotCreateOnInvalidColor) {
     EXPECT_EQ(output_key(s), "");
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, "Failed to create range");
-    EXPECT_NE(calls[0].description.find("Invalid color"), std::string::npos);
+    EXPECT_TRUE(
+        calls[0].description.starts_with("The color \"not-a-color\" is not valid: ")
+    );
 }
 
 TEST(CreateRangeTest, NextWarnsAndEmitsEmptyKeyOnInvalidParent) {
@@ -308,7 +310,10 @@ TEST(CreateRangeTest, NextWarnsAndEmitsEmptyKeyOnInvalidParent) {
     EXPECT_EQ(output_key(s), "");
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, "Failed to create range");
-    EXPECT_NE(calls[0].description.find("Invalid parent key"), std::string::npos);
+    EXPECT_EQ(
+        calls[0].description,
+        "The parent key \"not-a-uuid\" is not a valid range key."
+    );
 }
 
 TEST(CreateRangeTest, ReadsAVarBoundParentAtFireTime) {
@@ -333,7 +338,10 @@ TEST(CreateRangeTest, ReadsAVarBoundParentAtFireTime) {
     EXPECT_EQ(std::get<std::string>((*node.output(0)).at(0)), "");
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, "Failed to create range");
-    EXPECT_NE(calls[0].description.find("Invalid parent key"), std::string::npos);
+    EXPECT_EQ(
+        calls[0].description,
+        "The parent key \"not-a-uuid\" is not a valid range key."
+    );
 }
 
 TEST(EndRangeTest, NextSetsEndToNow) {
@@ -412,7 +420,7 @@ TEST(EndRangeTest, NextWarnsOnInvalidKey) {
     ASSERT_NIL(created->next(ctx));
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, "Failed to end range");
-    EXPECT_NE(calls[0].description.find("Invalid range key"), std::string::npos);
+    EXPECT_EQ(calls[0].description, "The key \"not-a-uuid\" is not a valid range key.");
 }
 
 }

@@ -537,6 +537,28 @@ TEST_F(TaskManagerTest, StartForNonexistentTaskStaysSilent) {
     expect_no_driver_status(task, true);
 }
 
+/// @brief a start for a task type no integration handles should answer with an error.
+TEST_F(TaskManagerTest, StartForUnhandledTypeAnswersWithError) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = "unhandled",
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.variant == synnax::status::VARIANT_ERROR;
+    });
+    EXPECT_EQ(s.name, task.name);
+    EXPECT_EQ(s.message, "Failed to configure task");
+    EXPECT_EQ(
+        s.description,
+        "No integration on this Driver handles task type 'unhandled'."
+    );
+    EXPECT_EQ(s.details.cmd, "start-cmd");
+}
+
 TEST_F(TaskManagerTest, StopOnShutdown) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
@@ -798,6 +820,11 @@ TEST_F(TaskManagerTest, Timeout) {
         5 * x::telem::SECOND
     );
     ASSERT_EQ(s.details.task, task.key);
+    ASSERT_EQ(
+        s.description,
+        "The operation did not finish within " +
+            (500 * x::telem::MILLISECOND).to_string() + "."
+    );
     // The timeout report is the only signal a stuck task gives, so it carries
     // everything needed to identify what hung: the command waiting on it, the task,
     // and the config the stuck operation is deploying.

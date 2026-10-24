@@ -253,6 +253,7 @@ TEST_F(TestScanTask, testInvalidConnection) {
     EXPECT_EQ(state.key, synnax::task::status_key(task));
     EXPECT_EQ(state.details.cmd, "invalid_scan_cmd");
     EXPECT_EQ(state.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(state.message, "Failed to connect to server");
 }
 
 /// @brief Tests that Scanner::config() returns correct values.

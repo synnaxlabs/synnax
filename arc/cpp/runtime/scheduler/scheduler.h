@@ -488,12 +488,17 @@ private:
         return first;
     }
 
+    /// @brief sends e to the error handler with its data prefixed by the type of the
+    /// node that raised it. Only callable from inside a node's next().
     void report_error(const x::errors::Error &e) const {
-        if (e.matches(errors::WARNING))
-            LOG(WARNING) << "[arc.scheduler] node reported a warning: " << e;
+        DCHECK(this->curr_node != NO_INDEX);
+        const auto &type = this->prog.nodes[this->curr_node].type;
+        const x::errors::Error err(e, "The " + type + " node failed: " + e.data);
+        if (err.matches(errors::WARNING))
+            LOG(WARNING) << "[arc.scheduler] node reported a warning: " << err;
         else
-            LOG(ERROR) << "[arc.scheduler] node encountered error: " << e;
-        this->error_handler(e);
+            LOG(ERROR) << "[arc.scheduler] node encountered error: " << err;
+        this->error_handler(err);
     }
 
     /// @brief propagates the current node's output to downstream nodes, records a fresh

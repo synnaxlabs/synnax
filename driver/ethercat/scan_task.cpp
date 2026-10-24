@@ -29,14 +29,16 @@ std::string get_pdo_error_guidance(const std::string &error) {
         return "PDO order may be unreliable. Verify data correctness after configuration.";
     if (error.find("empty") != std::string::npos ||
         error.find("no PDO") != std::string::npos)
-        return "Device reports no PDOs. Use manual channel configuration if needed.";
+        return "Use manual channel configuration if needed.";
     return "Use manual channel configuration if automatic discovery is insufficient.";
 }
 
 /// @brief describes a PDO discovery error and what the user can do about it.
 std::string pdo_error_description(const std::string &error) {
     auto sentence = error;
-    sentence[0] = static_cast<char>(std::toupper(sentence[0]));
+    sentence[0] = static_cast<char>(
+        std::toupper(static_cast<unsigned char>(sentence[0]))
+    );
     return sentence + ". " + get_pdo_error_guidance(error);
 }
 }
@@ -251,7 +253,7 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
 
     if (!parser.ok()) {
         LOG(WARNING) << SCAN_LOG_PREFIX << "test_interface: failed to parse command";
-        task_status.message = "Failed to parse command";
+        task_status.message = "Failed to parse test command";
         task_status.description = common::config_err_description(parser.error());
         task_status.details.data = parser.error_json();
         this->ctx->set_status(task_status);

@@ -81,22 +81,17 @@ bool Scanner::exec(
     return false;
 }
 
-/// @brief the longest response body excerpt a status description quotes.
-constexpr std::size_t MAX_BODY_EXCERPT = 500;
-
 /// @brief describes a response the server rejected by its status code and the start of
 /// its body.
 static std::string rejection_description(const Response &resp) {
-    auto description = "The server responded with HTTP " +
-                       std::to_string(resp.status_code);
+    const auto description = "The server responded with HTTP " +
+                             std::to_string(resp.status_code);
     if (resp.body.empty()) return description + ".";
-    description += ": " + resp.body.substr(0, MAX_BODY_EXCERPT);
-    if (resp.body.size() > MAX_BODY_EXCERPT) description += "...";
-    return description;
+    return description + ": " + resp.body_excerpt();
 }
 
 /// @brief validates the response body against an expected response config.
-/// @returns empty string on success, error message on failure.
+/// @returns an empty string on success, or a description of the problem.
 static std::string validate_health_response(
     const std::optional<ExpectedResponseConfig> &expected_response,
     const Response &resp
@@ -107,14 +102,14 @@ static std::string validate_health_response(
     try {
         body = x::json::json::parse(resp.body);
     } catch (const x::json::json::parse_error &e) {
-        return "failed to parse response body as JSON: " + std::string(e.what());
+        return "The response body is not valid JSON: " + std::string(e.what()) + ".";
     }
     const auto ptr = x::json::json::json_pointer(er.pointer);
     if (!body.contains(ptr))
-        return "response body does not contain pointer '" + er.pointer + "'";
+        return "The response body has no value at '" + er.pointer + "'.";
     if (body[ptr] == er.expected_value) return "";
-    return "expected value at '" + er.pointer + "' to be " + er.expected_value.dump() +
-           ", got " + body[ptr].dump();
+    return "The value at '" + er.pointer + "' is " + body[ptr].dump() +
+           ", but the health check expects " + er.expected_value.dump() + ".";
 }
 
 void Scanner::set_device_status(
@@ -192,7 +187,7 @@ void Scanner::process_health_response(
         return this->set_device_status(
             dev,
             synnax::status::VARIANT_ERROR,
-            "Health check validation failed",
+            "Health check failed",
             v_err
         );
     this->set_device_status(dev, synnax::status::VARIANT_SUCCESS, "Device connected");
@@ -228,7 +223,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
     }
     const auto status_err = errors::from_status(resp.status_code);
     if (status_err) {
-        status.message = "Failed to connect to server";
+        status.message = "Health check failed";
         status.description = rejection_description(resp);
         return ctx->set_status(status);
     }
@@ -238,7 +233,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
         resp
     );
     if (!validation_err.empty()) {
-        status.message = "Invalid health check response";
+        status.message = "Health check failed";
         status.description = validation_err;
         return ctx->set_status(status);
     }
