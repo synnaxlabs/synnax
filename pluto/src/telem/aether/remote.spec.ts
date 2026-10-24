@@ -828,6 +828,7 @@ describe("remote", () => {
     class MockClient implements Client {
       now = (): TimeStamp => TimeStamp.now();
       tiles: framer.TileSpec[] = [];
+      tileDataTypes: Array<DataType | undefined> = [];
       reads: TimeRange[] = [];
       deferred = false;
       pending: Pending[] = [];
@@ -860,8 +861,12 @@ describe("remote", () => {
           this.reads.push(tr);
           return this.response;
         },
-        readTile: async (spec: framer.TileSpec): Promise<MultiSeries> => {
+        readTile: async (
+          spec: framer.TileSpec,
+          dataType?: DataType,
+        ): Promise<MultiSeries> => {
           this.tiles.push(spec);
+          this.tileDataTypes.push(dataType);
           if (this.deferred)
             return await new Promise<MultiSeries>((resolve) =>
               this.pending.push({ spec, resolve }),
@@ -1003,6 +1008,46 @@ describe("remote", () => {
       source.value({ view: view(2000, 3000) });
       source.value({ view: view(2000, 3000) });
       expect(c.tiles.length - before).toBe(3);
+    });
+
+    describe("data type changes", () => {
+      const bytes = (spec: framer.TileSpec): MultiSeries =>
+        new MultiSeries([
+          new Series({
+            data: new Uint8Array([spec.level, spec.index]),
+            timeRange: framer.tileRange(spec),
+          }),
+        ]);
+
+      it("should ask for tiles in the data type the line holds", async () => {
+        const source = create();
+        await settle(source);
+        expect(c.tileDataTypes).toEqual([undefined, undefined]);
+        source.value({ view: view(2000, 3000) });
+        await expect.poll(() => source.fetching()).toBe(false);
+        expect(c.tileDataTypes.slice(2)).toEqual([
+          DataType.FLOAT32,
+          DataType.FLOAT32,
+          DataType.FLOAT32,
+        ]);
+      });
+
+      it("should read the channel again when a tile of a new data type arrives", async () => {
+        const source = create();
+        await settle(source);
+        const home = [...c.served.values()];
+        c.feed.readTile = async (spec) => bytes(spec);
+        source.value({ view: view(2000, 3000) });
+        await expect
+          .poll(() => home.every((tile) => tile.series[0].refCount === 0))
+          .toBe(true);
+        await settle(source);
+        expect(positions(source.value()[1])).toEqual([
+          [13, 0],
+          [13, 1],
+        ]);
+        expect(source.value()[1].dataType.equals(DataType.UINT8)).toBe(true);
+      });
     });
 
     describe("level settle", () => {
@@ -1396,6 +1441,42 @@ describe("remote", () => {
           [95, 96],
           [97, 98],
         ]);
+      });
+
+      it("should read the channel again when a new data type meets held tiles", async () => {
+        const source = createLive();
+        await settle(source);
+        const v = view(75_000, 100_000, 1000);
+        source.value({ view: v });
+        await expect.poll(() => source.fetching()).toBe(false);
+        const tile = c.served.get(`14/4/${DATA_KEY}`)!;
+        const opened = c.streamHandler;
+        const bytes = new Series({
+          data: new Uint8Array([3, 4]),
+          timeRange: new TimeRange(TimeStamp.seconds(96), TimeStamp.seconds(97)),
+        });
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([bytes])]]));
+        expect(tile.series[0].refCount).toBe(0);
+        expect(bytes.refCount).toBe(0);
+        expect(source.value({ view: v })[1].series).toEqual([]);
+        await expect.poll(() => c.streamHandler !== opened).toBe(true);
+        source.cleanup();
+      });
+
+      it("should keep streaming series the feed converted from the channel's data type", async () => {
+        c.channels.retrieve = async (key) =>
+          new channel.Channel({
+            key,
+            name: "data",
+            dataType: DataType.FLOAT64,
+            index: INDEX_KEY,
+          });
+        const source = createLive();
+        await settle(source);
+        const opened = c.streamHandler;
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([raw(100, 101)])]]));
+        expect(c.streamHandler).toBe(opened);
+        expect(positions(source.value()[1])).toEqual([[100, 101]]);
       });
 
       it("should read the channel again when its data type changes", async () => {

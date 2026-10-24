@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { debounce, MultiSeries, type Size, type TimeRange } from "@synnaxlabs/x";
+import {
+  type DataType,
+  debounce,
+  MultiSeries,
+  type Size,
+  type TimeRange,
+} from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
@@ -176,11 +182,13 @@ export class Feed {
    * are cached, so the result may be shared with other callers. Reads of tiles with
    * equal bounds and options within one batch window share a single request, so their
    * series share one group size.
+   * @param dataType - The data type of the series the caller holds. A cached tile of
+   * another data type is read again.
    * @throws {UnexpectedError} if the feed is closed while the read is pending.
    * @throws {Unreachable} if the fetch serving the read exceeds the fetch timeout.
    */
-  async readTile(spec: TileSpec): Promise<MultiSeries> {
-    return await this.tiles.read(spec);
+  async readTile(spec: TileSpec, dataType?: DataType): Promise<MultiSeries> {
+    return await this.tiles.read(spec, dataType);
   }
 
   /**
