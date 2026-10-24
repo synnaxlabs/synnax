@@ -17,6 +17,7 @@ wget -O llvm.sh https://apt.llvm.org/llvm.sh
 sudo bash llvm.sh "$LLVM_VERSION"
 for tool in clang-format clang-tidy; do
     sudo apt-get install -y "${tool}-${LLVM_VERSION}"
-    sudo update-alternatives --install "/usr/bin/${tool}" "$tool" "/usr/bin/${tool}-${LLVM_VERSION}" 100
+    sudo update-alternatives --install \
+        "/usr/bin/${tool}" "$tool" "/usr/bin/${tool}-${LLVM_VERSION}" 100
     sudo update-alternatives --set "$tool" "/usr/bin/${tool}-${LLVM_VERSION}"
 done
