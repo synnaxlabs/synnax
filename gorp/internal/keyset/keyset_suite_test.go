@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package gorp
+package keyset_test
 
 import (
-	"cmp"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-// sortedEntry is a single (value, key) pair inside a SortedIndex's sorted
-// slice.
-type sortedEntry[K Key, V cmp.Ordered] struct {
-	// key is the entry's primary key.
-	key K
-	// value is the indexed field value that orders this entry.
-	value V
+func TestKeyset(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Keyset Suite", SuiteConfig())
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
