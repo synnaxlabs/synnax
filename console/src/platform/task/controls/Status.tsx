@@ -25,8 +25,6 @@ export interface ExpandableStatusProps extends Omit<Flex.BoxProps, "children"> {
   expanded: boolean;
   /** Callback when expand/collapse is toggled */
   onToggle: () => void;
-  /** Number of lines to show when collapsed. Defaults to 1. */
-  collapsedLines?: number;
   /** Fallback message when status.message is empty */
   fallbackMessage?: string;
 }
@@ -83,12 +81,7 @@ export const Status = ({
               {message}
             </Text.Text>
             {!expanded && hasDescription && (
-              <Text.Text
-                level="small"
-                color={9}
-                overflow="wrap"
-                className={CSS.BE("task-status", "preview")}
-              >
+              <Text.Text level="small" color={9} overflow="wrap" lineClamp={2}>
                 {stat.description}
               </Text.Text>
             )}
