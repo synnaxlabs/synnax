@@ -15,7 +15,7 @@ import { DataType } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 /** Data types that no JSON field can carry. */
-export const HIDDEN_DATA_TYPES = [
+const HIDDEN_DATA_TYPES = [
   DataType.TIMESTAMP,
   DataType.UUID,
   DataType.JSON,
