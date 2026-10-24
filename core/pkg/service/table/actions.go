@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -84,10 +85,8 @@ func (p RenamePayload) Handle(state Table) (Table, error) {
 // clamp up to minCellDim; indices clamp down to the end of the rows slice. Returns a
 // validation error if the key is empty.
 func (p AddRowPayload) Handle(state Table) (Table, error) {
-	v := validate.New("table.AddRow")
-	v.NotEmptyString("key", p.Key)
-	if err := v.Error(); err != nil {
-		return Table{}, err
+	if p.Key == "" {
+		return Table{}, errors.Wrap(validate.ErrValidation, "row key is required")
 	}
 	cells := p.Cells
 	if p.CellTemplate != nil {
@@ -137,10 +136,8 @@ func (p RemoveRowPayload) Handle(state Table) (Table, error) {
 // axes swapped. Cells whose row index exceeds the row count enter the cells map without
 // being referenced by any row. Returns a validation error if the key is empty.
 func (p AddColPayload) Handle(state Table) (Table, error) {
-	v := validate.New("table.AddCol")
-	v.NotEmptyString("key", p.Key)
-	if err := v.Error(); err != nil {
-		return Table{}, err
+	if p.Key == "" {
+		return Table{}, errors.Wrap(validate.ErrValidation, "column key is required")
 	}
 	cells := p.Cells
 	if p.CellTemplate != nil {

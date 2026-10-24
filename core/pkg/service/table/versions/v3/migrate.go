@@ -17,9 +17,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// MigrateTable transforms the previous Table snapshot (v2) into the v3 Table, which
-// gives every row and column a key. The keys derive from position, so every migration
-// of the same table produces the same keys.
+// MigrateTable lifts a v2 table to v3 and keys each row and column by its position, so
+// every migration of a table produces the same keys.
 func MigrateTable(ctx context.Context, old v2.Table) (Table, error) {
 	out, err := autoMigrateTable(ctx, old)
 	if err != nil {

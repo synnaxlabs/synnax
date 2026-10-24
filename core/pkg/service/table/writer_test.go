@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -74,6 +75,29 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil(), &t)).To(Succeed())
 			Expect(t.Key).ToNot(Equal(uuid.Nil()))
 		})
+
+		DescribeTable(
+			"Should reject a table whose rows or columns share a key",
+			func(ctx SpecContext, rows []table.Row, cols []table.Column, msg string) {
+				t := table.Table{Name: "test", Rows: rows, Columns: cols}
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &t)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(msg),
+				))
+			},
+			Entry(
+				"rows",
+				[]table.Row{{Key: "r0", Size: 30}, {Key: "r0", Size: 30}},
+				[]table.Column(nil),
+				`duplicate row key "r0": validation error`,
+			),
+			Entry(
+				"columns",
+				[]table.Row(nil),
+				[]table.Column{{Key: "c0", Size: 80}, {Key: "c0", Size: 80}},
+				`duplicate column key "c0": validation error`,
+			),
+		)
 	})
 
 	Describe("CreateMany", func() {

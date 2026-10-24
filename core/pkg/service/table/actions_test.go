@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // textCfg constructs a complete text cell config with the given content, matching what
@@ -481,12 +482,22 @@ var _ = Describe("Reducer", func() {
 	)
 
 	DescribeTable("rejects an added row or column with no key",
-		func(action table.Action) {
-			Expect(table.Reduce(create3x3(), action)).Error().
-				To(MatchError("key: required"))
+		func(action table.Action, msg string) {
+			Expect(table.Reduce(create3x3(), action)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(msg),
+			))
 		},
-		Entry("AddRow", table.NewAddRowAction(table.AddRowPayload{Size: 40})),
-		Entry("AddCol", table.NewAddColAction(table.AddColPayload{Size: 80})),
+		Entry(
+			"AddRow",
+			table.NewAddRowAction(table.AddRowPayload{Size: 40}),
+			"row key is required: validation error",
+		),
+		Entry(
+			"AddCol",
+			table.NewAddColAction(table.AddColPayload{Size: 80}),
+			"column key is required: validation error",
+		),
 	)
 
 	Describe("SetCell", func() {
