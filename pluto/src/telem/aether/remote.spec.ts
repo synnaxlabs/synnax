@@ -960,6 +960,7 @@ describe("remote", () => {
         [1024, "average"],
         [1024, "average"],
       ]);
+      expect(source.aggregation()).toBe("average");
     });
 
     it("should bound an index channel by the home view", async () => {
@@ -1154,6 +1155,7 @@ describe("remote", () => {
         [0, "decimate", HOME.start.valueOf(), undefined],
         [1, "decimate", undefined, HOME.end.valueOf()],
       ]);
+      expect(source.aggregation()).toBe("decimate");
       const before = c.tiles.length;
       source.value({ view: view(2000, 3000, 1000) });
       expect(c.tiles.length).toBe(before);
@@ -1354,6 +1356,7 @@ describe("remote", () => {
         expect(c.tiles).toHaveLength(0);
         expect(c.reads[0].start.valueOf()).toBe(TimeStamp.seconds(90).valueOf());
         expect(positions(source.value()[1])).toEqual([[90, 100]]);
+        expect(source.aggregation()).toBe("decimate");
       });
 
       it("should stream new samples into the live window", async () => {

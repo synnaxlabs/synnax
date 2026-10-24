@@ -163,7 +163,6 @@ const Line = ({
       x={telemetry.x}
       y={telemetry.y}
       visible={visible}
-      aggregation={aggregation}
       groupsPerColumn={groupsPerColumn}
       legendGroup={line.yAxis.toUpperCase()}
       {...line}

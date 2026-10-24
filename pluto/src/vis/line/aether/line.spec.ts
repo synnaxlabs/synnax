@@ -808,8 +808,9 @@ describe("line", () => {
         expect(deletes(m)).toBe(2);
       });
 
-      it("should reduce by the aggregation and groups per column of its state", () => {
-        const decimated = mount([ramp(N)], [waves(N)], { aggregation: "decimate" });
+      it("should reduce by its y source's aggregation and groups per column", () => {
+        const decimated = mount([ramp(N)], [waves(N)]);
+        decimated.ySource.aggregation = () => "decimate";
         decimated.line.render(showing(0, N - 1));
         expect(decimated.strips()).toEqual([[0, N / 32]]);
         const fine = mount([ramp(N)], [waves(N)], { groupsPerColumn: 1 });

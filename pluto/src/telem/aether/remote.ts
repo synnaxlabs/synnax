@@ -16,6 +16,7 @@ import {
   ValidationError,
 } from "@synnaxlabs/client";
 import {
+  type Aggregation,
   aggregationZ,
   bounds,
   breaker,
@@ -703,8 +704,12 @@ export class TiledChannelData
     return new TimeStamp((home.start.valueOf() / span) * span);
   }
 
+  aggregation(): Aggregation {
+    return this.xy ? "decimate" : this.props.aggregation;
+  }
+
   private targets(key: channel.Key, view: TimeRange): framer.TileSpec[] {
-    const aggregation = this.xy ? "decimate" : this.props.aggregation;
+    const aggregation = this.aggregation();
     // Tiles are cut to [start, end): the home view for an xy line, and the start of
     // full-resolution data for a live line.
     let start: TimeStamp | undefined;

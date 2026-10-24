@@ -10,7 +10,6 @@
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
-  aggregationZ,
   bounds,
   box,
   color,
@@ -47,7 +46,6 @@ export const stateZ = z.object({
   color: color.colorZ,
   strokeWidth: z.number().default(1),
   visible: z.boolean().default(true),
-  aggregation: aggregationZ.default("min_max"),
   /** The number of aggregation groups the line draws per pixel column. */
   groupsPerColumn: z
     .number()
@@ -390,7 +388,9 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   render(props: LineProps): void {
     if (this.deleted || !this.state.visible) return;
     const { xTelem, yTelem, lineCtx: ctx, reducer } = this.internal;
-    const { aggregation, groupsPerColumn } = this.state;
+    const { groupsPerColumn } = this.state;
+    // Full-resolution data reduces as the source reduces its tiles.
+    const aggregation = yTelem.aggregation?.() ?? "min_max";
     const { dataToDecimalScale } = props;
     const valueProps = { view: view(props) };
     const [[, xData], [, yData]] = [xTelem.value(valueProps), yTelem.value(valueProps)];

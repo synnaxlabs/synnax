@@ -9,6 +9,7 @@
 
 import { type status, ValidationError } from "@synnaxlabs/client";
 import {
+  type Aggregation,
   type bounds,
   type color,
   type destructor,
@@ -82,6 +83,8 @@ export interface Source<V> extends Telem, observe.Observable<void> {
   loading?: () => boolean;
   /** @returns true while the source fetches data for a view it already drew. */
   fetching?: () => boolean;
+  /** @returns the aggregation the source reduces its data by, or null for none. */
+  aggregation?: () => Aggregation | null;
   sampleTime?: () => TimeStamp | null;
 }
 

@@ -9,6 +9,7 @@
 
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
+  type Aggregation,
   array,
   deep,
   type destructor,
@@ -109,6 +110,10 @@ export class MemoizedSource<V, S extends Source<V> = Source<V>> extends Memoized
 
   fetching(): boolean {
     return this.wrapped.fetching?.() ?? false;
+  }
+
+  aggregation(): Aggregation | null {
+    return this.wrapped.aggregation?.() ?? null;
   }
 
   sampleTime(): TimeStamp | null {
