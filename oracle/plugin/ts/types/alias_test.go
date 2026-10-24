@@ -172,6 +172,45 @@ var _ = Describe("TS aliases", func() {
 		`).ToContain("T extends z.ZodType<Size>")
 	})
 
+	DescribeTable("Should name an enum constraint through the package that declares it",
+		func(ctx SpecContext, schema, typeParams string, expected ...string) {
+			loader.Add("schemas/other", `
+				import "schemas/base"
+
+				@ts output "client/ts/src/other"
+
+				Size = base.Size
+			`)
+			resp := MustGenerate(ctx, `
+				import "schemas/`+schema+`"
+
+				@ts output "client/ts/src/test"
+
+				Tray struct<`+typeParams+`> {
+					item T
+					@ts concrete_types
+				}
+			`, "test", loader, typesPlugin)
+			ExpectContent(resp, "test/types.gen.ts").ToContain(expected...)
+		},
+		Entry("an enum", "base", "T extends base.Size = base.Size",
+			`import { base } from "@/base";`,
+			"<T extends z.ZodType<base.Size> = typeof base.sizeZ>",
+			"item: t ?? base.sizeZ,",
+		),
+		Entry(
+			"an imported alias of an enum",
+			"other",
+			"T extends other.Size = other.Size",
+			`import { other } from "@/other";`,
+			"<T extends z.ZodType<other.Size> = typeof other.sizeZ>",
+			"item: t ?? other.sizeZ,",
+		),
+		Entry("an optional parameter", "other", "T? extends other.Size",
+			"item: [T] extends [z.ZodNever] ? typeof other.sizeZ : T;",
+		),
+	)
+
 	DescribeTable("Should project a create field typed through an alias to its New",
 		func(ctx SpecContext, decls, expected string) {
 			resp := MustGenerate(ctx, `

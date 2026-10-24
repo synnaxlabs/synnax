@@ -154,7 +154,12 @@ var _ = Describe("Go PB aliases", func() {
 			Panel struct {
 				status Status<Details>
 			}
-		`, "DetailsToPBAny", "StatusToPB(r.Status, DetailsToPBAny)"),
+		`,
+			"StatusToPB(r.Status, DetailsToPBAny)",
+			"func DetailsToPBAny(v base.Details) (*anypb.Any, error) {",
+			"pb, err := basepb.DetailsToPB(v)",
+			"var pb basepb.Details",
+		),
 		Entry("a nested array's element", `
 			Members = Member[]
 

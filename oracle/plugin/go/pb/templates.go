@@ -635,7 +635,7 @@ func {{pluralize .Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}
 // translators. It wraps the value in structpb.Struct (JSON) for cross-language
 // compatibility.
 func {{.TypeName}}ToPBAny(v {{.GoType}}) (*anypb.Any, error) {
-	pb, err := {{.TypeName}}ToPB(v)
+	pb, err := {{.PBType}}ToPB(v)
 	if err != nil {
 		return nil, err
 	}
@@ -662,7 +662,7 @@ func {{.TypeName}}FromPBAny(a *anypb.Any) ({{.GoType}}, error) {
 	// First try typed proto
 	var pb {{.PBType}}
 	if err := a.UnmarshalTo(&pb); err == nil {
-		return {{.TypeName}}FromPB(&pb)
+		return {{.PBType}}FromPB(&pb)
 	}
 	// Fall back to JSON for cross-language compatibility
 	var (

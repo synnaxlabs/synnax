@@ -1448,10 +1448,9 @@ func (p *Plugin) generateGenericStructConversion(
 				fmt.Sprintf("%sFromPBAny", argGoName),
 			)
 
-			declared, _ := typeArg.Resolve(data.table)
 			explicitTypeArgs = append(
 				explicitTypeArgs,
-				fmt.Sprintf("%s.%s", data.parentAlias, naming.GetGoName(declared)),
+				p.resolveGoTypeLiteral(typeArg, data),
 			)
 			continue
 		}
@@ -1512,17 +1511,14 @@ func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
 	data.AddExternal("google.golang.org/protobuf/proto")
 	data.AddExternal("encoding/json/v2")
 
-	goName := naming.GetGoName(s)
-
-	pbName := getPBName(s)
-	if pbName == "" {
-		pbName = s.Name
-	}
-
+	prefix, pbName := p.resolvePBTranslatorInfo(s, data)
 	data.AnyHelpers = append(data.AnyHelpers, anyHelperData{
-		TypeName: goName,
-		GoType:   fmt.Sprintf("%s.%s", data.parentAlias, goName),
-		PBType:   pbName,
+		TypeName: naming.GetGoName(s),
+		GoType: p.resolveGoTypeLiteral(
+			resolution.TypeRef{Name: s.QualifiedName},
+			data,
+		),
+		PBType: prefix + pbName,
 	})
 }
 
@@ -2324,7 +2320,8 @@ type anyHelperData struct {
 	TypeName string
 	// GoType is the fully qualified Go type (e.g., "rack.StatusDetails").
 	GoType string
-	// PBType is the protobuf message type name (e.g., "PBStatusDetails").
+	// PBType is the protobuf message type, which also names its ToPB and FromPB
+	// translators (e.g., "rackpb.StatusDetails").
 	PBType string
 }
 

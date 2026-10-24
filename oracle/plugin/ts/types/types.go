@@ -757,7 +757,7 @@ func (p *Plugin) processStruct(
 			return sd
 		}
 		for _, tp := range aliasForm.TypeParams {
-			sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table))
+			sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table, data))
 		}
 		for _, tp := range sd.TypeParams {
 			if tp.IsJSON || strings.Contains(tp.Constraint, "record.") ||
@@ -852,7 +852,7 @@ func (p *Plugin) processStruct(
 		}
 	}
 	for _, tp := range form.TypeParams {
-		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table))
+		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table, data))
 	}
 	for _, tp := range sd.TypeParams {
 		if tp.IsJSON || strings.Contains(tp.Constraint, "record.") ||
@@ -1095,6 +1095,7 @@ func (p *Plugin) processStruct(
 				FallbackSchemaType: fallbackSchemaTypeForConstraint(
 					effectiveRef,
 					table,
+					data,
 				),
 			})
 		} else {
@@ -1451,6 +1452,7 @@ func coalesceTSType(tsType string, typeParams []typeParamData) string {
 func (p *Plugin) processTypeParam(
 	tp resolution.TypeParam,
 	table *resolution.Table,
+	data *templateData,
 ) typeParamData {
 	tpd := typeParamData{Name: tp.Name, Constraint: "z.ZodType"}
 	if tp.Constraint != nil {
@@ -1467,12 +1469,8 @@ func (p *Plugin) processTypeParam(
 			tpd.IsPrimitiveConstrained = true
 			tpd.BareConstraint = "numeric.Value"
 		}
-		resolved, ok := tp.Constraint.Resolve(table)
-		if ok {
-			if isEnumRef(*tp.Constraint, table) {
-				enumTypeName := lo.Capitalize(fieldCamel(resolved.Name))
-				tpd.Constraint = "z.ZodType<" + enumTypeName + ">"
-			}
+		if typeName, _, ok := enumNames(*tp.Constraint, table, data); ok {
+			tpd.Constraint = "z.ZodType<" + typeName + ">"
 		}
 	}
 	if tp.Optional {
@@ -1481,17 +1479,9 @@ func (p *Plugin) processTypeParam(
 		tpd.DefaultValue = "z.unknown()"
 	} else if tp.Default != nil {
 		tpd.HasDefault = true
-		// Handle enum defaults
-		resolved, ok := tp.Default.Resolve(table)
-		if ok {
-			if isEnumRef(*tp.Default, table) {
-				enumZodName := casing.CamelAcronym(resolved.Name) + "Z"
-				tpd.Default = "typeof " + enumZodName
-				tpd.DefaultValue = enumZodName
-			} else {
-				tpd.Default = defaultToTS(tp.Default.Name)
-				tpd.DefaultValue = defaultValueToTS(tp.Default.Name)
-			}
+		if _, schema, ok := enumNames(*tp.Default, table, data); ok {
+			tpd.Default = "typeof " + schema
+			tpd.DefaultValue = schema
 		} else {
 			tpd.Default = defaultToTS(tp.Default.Name)
 			tpd.DefaultValue = defaultValueToTS(tp.Default.Name)
@@ -1566,37 +1556,56 @@ func defaultValueToTS(rawType string) string {
 func fallbackForConstraint(
 	constraint *resolution.TypeRef,
 	table *resolution.Table,
+	data *templateData,
 ) string {
 	if constraint == nil {
 		return "z.unknown().optional()"
 	}
-	resolved, ok := constraint.Resolve(table)
-	if ok && isEnumRef(*constraint, table) {
-		return casing.CamelAcronym(resolved.Name) + "Z"
+	if _, schema, ok := enumNames(*constraint, table, data); ok {
+		return schema
 	}
 	return defaultValueToTS(constraint.Name)
 }
 
-// isEnumRef reports whether ref, or the type its aliases stand for, is an enum.
-func isEnumRef(ref resolution.TypeRef, table *resolution.Table) bool {
-	resolved, _, ok := resolution.Dealias(ref, table)
+// enumNames returns the type and schema names that ref, an enum or an alias of one, has
+// in the file data generates, and imports the namespace that declares ref. ok is false
+// when ref is not an enum.
+func enumNames(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) (typeName, schema string, ok bool) {
+	target, _, ok := resolution.Dealias(ref, table)
 	if !ok {
-		return false
+		return "", "", false
 	}
-	_, isEnum := resolved.Form.(resolution.EnumForm)
-	return isEnum
+	if _, isEnum := target.Form.(resolution.EnumForm); !isEnum {
+		return "", "", false
+	}
+	declared, _ := ref.Resolve(table)
+	typeName = domain.GetName(declared, "ts")
+	schema = casing.CamelAcronym(typeName) + "Z"
+	if declared.Namespace == data.Namespace {
+		return typeName, schema, true
+	}
+	outputPath := output.GetPath(declared, "ts")
+	if _, isEnum := declared.Form.(resolution.EnumForm); isEnum {
+		outputPath = enum.FindOutputPath(declared, table, "ts")
+	}
+	ns := importNamespace(declared.Namespace, outputPath, data)
+	return ns + "." + typeName, ns + "." + schema, true
 }
 
 func fallbackSchemaTypeForConstraint(
 	constraint *resolution.TypeRef,
 	table *resolution.Table,
+	data *templateData,
 ) string {
 	if constraint == nil {
 		return "z.ZodOptional<z.ZodUnknown>"
 	}
-	resolved, ok := constraint.Resolve(table)
-	if ok && isEnumRef(*constraint, table) {
-		return "typeof " + casing.CamelAcronym(resolved.Name) + "Z"
+	if _, schema, ok := enumNames(*constraint, table, data); ok {
+		return "typeof " + schema
 	}
 	if m, ok := typeParamMappings[constraint.Name]; ok {
 		return m.zodType
@@ -1949,7 +1958,7 @@ func (p *Plugin) typeRefToZodInternal(
 			return fmt.Sprintf(
 				"%s ?? %s",
 				paramName,
-				fallbackForConstraint(effectiveRef, table),
+				fallbackForConstraint(effectiveRef, table, data),
 			)
 		}
 		return paramName

@@ -2334,6 +2334,45 @@ var _ = Describe("Go PB Plugin", func() {
 						)
 				},
 			)
+
+			It(
+				"Should translate an imported struct type argument in its own package",
+				func(ctx SpecContext) {
+					loader.Add("schemas/common", `
+					@go output "core/common"
+					@pb
+
+					Details struct {
+						label string
+					}
+				`)
+					source := `
+					import "schemas/common"
+
+					@go output "core/control"
+					@pb
+
+					Pair struct<A, B?> {
+						first  A
+						second B
+					}
+
+					Channel struct {
+						pair Pair<common.Details, nil>
+					}
+				`
+					resp := MustGenerate(ctx, source, "control", loader, pbPlugin)
+
+					ExpectContent(resp, "translator.gen.go").
+						ToContain(
+							"func DetailsToPBAny(v common.Details) (*anypb.Any, error) {",
+							"pb, err := commonpb.DetailsToPB(v)",
+							"var pb commonpb.Details",
+							"return commonpb.DetailsFromPB(&pb)",
+							"PairFromPB[common.Details, struct{}](pb.Pair, DetailsFromPBAny, nil)",
+						)
+				},
+			)
 		})
 
 		Context("cross-schema namespace collision", func() {
