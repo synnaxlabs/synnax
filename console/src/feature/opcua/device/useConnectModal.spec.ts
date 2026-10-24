@@ -14,8 +14,13 @@ import { describe, expect, it } from "vitest";
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
 import { createTestSink } from "@/platform/analytics/testutil";
-import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
-import { answerNextCommand, selectFromDropdown } from "@/platform/task/testutil";
+import { createRunningRack } from "@/platform/device/testutil";
+import {
+  findLastButton,
+  pressSaveTrigger,
+  renderModalOpener,
+} from "@/platform/modals/testutil";
+import { answerNextCommand } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -58,18 +63,17 @@ describe("OPCUA.Device.useConnectModal", () => {
   });
 
   it("should report a device it connected", async () => {
-    const rack = await client.racks.create({
-      name: uniqueName("opcua_rack"),
-      integrations: ["opc"],
-    });
+    const rack = await createRunningRack(client, "opc");
     const scan = await rack.createTask({
       name: uniqueName("opcua_scan"),
       type: OPCUA.Task.SCAN_TYPE,
       config: {},
     });
     const analytics = createTestSink();
-    await renderModalOpener(OPCUA.Device.useConnectModal, [{}], { client, analytics });
-    await selectFromDropdown("Select Driver", rack.name);
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+      analytics,
+    });
     fireEvent.change(screen.getByPlaceholderText("opc.tcp://localhost:4840"), {
       target: { value: "opc.tcp://localhost:4840" },
     });
@@ -83,9 +87,22 @@ describe("OPCUA.Device.useConnectModal", () => {
     );
   });
 
-  // Submitting with no rack chosen fails validation. That error is the proof the keys
-  // reached the same save path the Connect button uses.
+  it("should start from the rack it opens with and block Connect while it is not running", async () => {
+    const rack = await client.racks.create({
+      name: uniqueName("opcua_rack"),
+      integrations: ["opc"],
+    });
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+    });
+    await screen.findByText(`${rack.name} is not running`);
+    expect(findLastButton("Connect").getAttribute("aria-disabled")).toBe("true");
+  });
+
+  // A running rack keeps Connect enabled while none is chosen, so the save fails
+  // validation. That error proves the keys reached the Connect button's save path.
   it("should submit on the shortcut its footer advertises", async () => {
+    await createRunningRack(client, "opc");
     await renderModalOpener(OPCUA.Device.useConnectModal, [{}], { client });
     await screen.findByRole("dialog");
     pressSaveTrigger();

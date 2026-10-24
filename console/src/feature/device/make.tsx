@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement, useCallback } from "react";
 import { z } from "zod";
 
+import { useConfigureModal as useConfigureHardwareModal } from "@/feature/device/Configure";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
@@ -52,25 +53,26 @@ export const getIcon = (make: Make | null) =>
  * hooks.
  */
 export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => void) => {
-  const ethercat = EtherCAT.Device.useConfigureModal();
+  const configure = useConfigureHardwareModal();
   const http = HTTP.Device.useConnectModal();
-  const labjack = LabJack.Device.useConfigureModal();
   const modbus = Modbus.Device.useConnectModal();
-  const ni = NI.Device.useConfigureModal();
   const opcua = OPCUA.Device.useConnectModal();
   return useCallback(
     (make, deviceKey) => {
       const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
-        [EtherCAT.Device.MAKE]: ethercat,
+        [EtherCAT.Device.MAKE]: ({ deviceKey }) =>
+          configure({ deviceKey, integration: EtherCAT.Device.INTEGRATION }),
         [HTTP.Device.MAKE]: http,
-        [LabJack.Device.MAKE]: labjack,
+        [LabJack.Device.MAKE]: ({ deviceKey }) =>
+          configure({ deviceKey, integration: LabJack.Device.INTEGRATION }),
         [Modbus.Device.MAKE]: modbus,
-        [NI.Device.MAKE]: ni,
+        [NI.Device.MAKE]: ({ deviceKey }) =>
+          configure({ deviceKey, integration: NI.Device.INTEGRATION }),
         [OPCUA.Device.MAKE]: opcua,
       };
       openers[make]({ deviceKey });
     },
-    [ethercat, http, labjack, modbus, ni, opcua],
+    [configure, http, modbus, opcua],
   );
 };
 

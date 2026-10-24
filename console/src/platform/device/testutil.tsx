@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, type ontology, type Synnax } from "@synnaxlabs/client";
+import { device, type ontology, rack, status, type Synnax } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { id } from "@synnaxlabs/x";
@@ -22,12 +22,37 @@ import { Session } from "@/session";
 import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
 
 export interface CreateTestDeviceOptions extends Partial<
-  Pick<device.New, "name" | "configured" | "properties" | "make" | "model">
+  Pick<device.New, "name" | "configured" | "properties" | "make" | "model" | "rack">
 > {}
 
 /**
- * Creates a rack and a device on the live Core and returns the created device. Names
- * are generated Core-safe unless overridden.
+ * Creates a rack on the live Core whose Driver reports as running with the integration.
+ * The Core marks it not running after one health check interval (5 s) without a new
+ * status.
+ */
+export const createRunningRack = async (
+  client: Synnax,
+  integration: string,
+): Promise<rack.Rack> => {
+  const r = await client.racks.create({
+    name: uniqueName("rack"),
+    integrations: [integration],
+  });
+  await client.statuses.set(
+    status.create<typeof rack.statusDetailsZ>({
+      key: rack.statusKey(r.key),
+      name: r.name,
+      variant: "success",
+      message: "Driver running",
+      details: { rack: r.key },
+    }),
+  );
+  return r;
+};
+
+/**
+ * Creates a device on the live Core and returns it. Without a rack, it creates one for
+ * the device. Names are generated Core-safe unless overridden.
  */
 export const createTestDevice = async (
   client: Synnax,
@@ -37,13 +62,14 @@ export const createTestDevice = async (
     properties = {},
     make = "make",
     model = "model",
+    rack: rackKey,
   }: CreateTestDeviceOptions = {},
 ): Promise<device.Device> => {
-  const rack = await client.racks.create({ name: uniqueName("rack") });
+  rackKey ??= (await client.racks.create({ name: uniqueName("rack") })).key;
   return await client.devices.create({
     key: id.create(),
     name: name ?? uniqueName("device"),
-    rack: rack.key,
+    rack: rackKey,
     location: "dev1",
     make,
     model,

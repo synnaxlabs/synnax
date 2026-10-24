@@ -14,8 +14,9 @@ import { describe, expect, it } from "vitest";
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import { createTestSink } from "@/platform/analytics/testutil";
+import { createRunningRack } from "@/platform/device/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
-import { answerNextCommand, selectFromDropdown } from "@/platform/task/testutil";
+import { answerNextCommand } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -41,18 +42,17 @@ describe("Modbus.Device.useConnectModal", () => {
   });
 
   it("should report a device it connected", async () => {
-    const rack = await client.racks.create({
-      name: uniqueName("modbus_rack"),
-      integrations: ["modbus"],
-    });
+    const rack = await createRunningRack(client, "modbus");
     const scan = await rack.createTask({
       name: uniqueName("modbus_scan"),
       type: Modbus.Task.SCAN_TYPE,
       config: {},
     });
     const analytics = createTestSink();
-    await renderModalOpener(Modbus.Device.useConnectModal, [{}], { client, analytics });
-    await selectFromDropdown("Select Driver", rack.name);
+    await renderModalOpener(Modbus.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+      analytics,
+    });
     fireEvent.change(screen.getByPlaceholderText("localhost"), {
       target: { value: "localhost" },
     });
@@ -66,9 +66,10 @@ describe("Modbus.Device.useConnectModal", () => {
     );
   });
 
-  // Submitting with no rack chosen fails validation. That error is the proof the keys
-  // reached the same save path the Connect button uses.
+  // A running rack keeps Connect enabled while none is chosen, so the save fails
+  // validation. That error proves the keys reached the Connect button's save path.
   it("should submit on the shortcut its footer advertises", async () => {
+    await createRunningRack(client, "modbus");
     await renderModalOpener(Modbus.Device.useConnectModal, [{}], { client });
     await screen.findByRole("dialog");
     pressSaveTrigger();

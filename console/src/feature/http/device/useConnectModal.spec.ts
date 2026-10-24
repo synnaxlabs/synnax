@@ -14,8 +14,9 @@ import { describe, expect, it } from "vitest";
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import { createTestSink } from "@/platform/analytics/testutil";
+import { createRunningRack } from "@/platform/device/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
-import { answerNextCommand, selectFromDropdown } from "@/platform/task/testutil";
+import { answerNextCommand } from "@/platform/task/testutil";
 import { getSwitchInput, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -141,18 +142,17 @@ describe("useConnectModal", () => {
   });
 
   it("should report a device it connected", async () => {
-    const rack = await client.racks.create({
-      name: uniqueName("http_rack"),
-      integrations: ["http"],
-    });
+    const rack = await createRunningRack(client, "http");
     const scan = await rack.createTask({
       name: uniqueName("http_scan"),
       type: HTTP.Task.SCAN_TYPE,
       config: {},
     });
     const analytics = createTestSink();
-    await renderModalOpener(HTTP.Device.useConnectModal, [{}], { client, analytics });
-    await selectFromDropdown("Select Driver", rack.name);
+    await renderModalOpener(HTTP.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+      analytics,
+    });
     fireEvent.change(screen.getByPlaceholderText("www.example.com"), {
       target: { value: "localhost:8080" },
     });
@@ -167,8 +167,8 @@ describe("useConnectModal", () => {
   });
 
   it("should not report an edited device as connected", async () => {
-    const dev = await createHTTPDevice(client);
-    const rack = await client.racks.retrieve({ key: dev.rack });
+    const rack = await createRunningRack(client, "http");
+    const dev = await createHTTPDevice(client, { rack: rack.key });
     const scan = await rack.createTask({
       name: uniqueName("http_scan"),
       type: HTTP.Task.SCAN_TYPE,
@@ -187,9 +187,10 @@ describe("useConnectModal", () => {
     expect(analytics.capture).not.toHaveBeenCalled();
   });
 
-  // Submitting with no rack chosen fails validation. That error is the proof the keys
-  // reached the same save path the Connect button uses.
+  // A running rack keeps Connect enabled while none is chosen, so the save fails
+  // validation. That error proves the keys reached the Connect button's save path.
   it("should submit on the shortcut its footer advertises", async () => {
+    await createRunningRack(client, "http");
     await renderModalOpener(HTTP.Device.useConnectModal, [{}], { client });
     await screen.findByRole("dialog");
     pressSaveTrigger();
