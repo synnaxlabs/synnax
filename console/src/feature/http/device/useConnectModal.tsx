@@ -9,7 +9,7 @@
 
 import "@/feature/http/device/Connect.css";
 
-import { type device, type rack, status, task, TimeSpan } from "@synnaxlabs/client";
+import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -94,7 +94,7 @@ const beforeSave = async ({
     timeout: TEST_CONNECTION_TIMEOUT,
     args: { connection, healthCheck },
   });
-  if (state.variant === "error") throw new task.StatusError(state);
+  if (state.variant === "error") throw status.toError(state);
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
     message: "Device connected",
     variant: "success",

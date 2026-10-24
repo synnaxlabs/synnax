@@ -9,7 +9,7 @@
 
 import "@/feature/opcua/device/Browser.css";
 
-import { type rack, status, type Synnax as Client, task } from "@synnaxlabs/client";
+import { type rack, status, type Synnax as Client } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -109,7 +109,7 @@ const browseNodes = async (
     timeout: BROWSE_TIMEOUT,
     args: { connection, node_id: id },
   });
-  if (browseStatus.variant === "error") throw new task.StatusError(browseStatus);
+  if (browseStatus.variant === "error") throw status.toError(browseStatus);
   const { details } = browseStatus;
   if (details?.data == null || !("channels" in details.data)) return [];
   return details.data.channels;
