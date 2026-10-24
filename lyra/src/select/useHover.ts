@@ -177,6 +177,6 @@ export const useHover = <K extends record.Key>({
       return;
     movedRef.current = key;
     setHoverKey(key);
-  }, []);
+  }, [enabledRef]);
   return { hover, setHover };
 };
