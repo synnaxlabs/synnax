@@ -326,6 +326,7 @@ func (s *Service) newCalculationTransform(
 	transform := newCalculationTransform(
 		originalKeys,
 		make([]*calculator.Calculator, 0, len(modules)),
+		len(channel.Keys(concreteBaseKeys.Slice()).UniqueLeaseholders()) > 1,
 	)
 	for _, mod := range modules {
 		calc, err := calculator.Open(ctx, calculator.Config{Module: mod})

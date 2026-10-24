@@ -2888,3 +2888,79 @@ var _ = Describe("Read failure", func() {
 		Expect(writer.DeleteMany(ctx, keys, false)).To(Succeed())
 	})
 })
+
+var _ = Describe("Calculations across Cores", func() {
+	It("Should calculate the inputs of one read from two Cores together", func(
+		ctx SpecContext,
+	) {
+		cluster := mock.NewCluster(ctx, 0)
+		nodes := []mock.Node{cluster.Provision(ctx), cluster.Provision(ctx)}
+		iteratorSvc, channelSvc := openServices(ctx, nodes[0])
+		writer := channelSvc.NewWriter(nil)
+		for k, n := range nodes {
+			idx := &channel.Channel{
+				Name:        "cross_time_" + strconv.Itoa(k),
+				DataType:    telem.TimestampT,
+				IsIndex:     true,
+				Leaseholder: n.Cluster.HostKey(),
+			}
+			Expect(writer.Create(ctx, idx)).To(Succeed())
+			data := &channel.Channel{
+				Name:        "cross_" + strconv.Itoa(k),
+				DataType:    telem.Float32T,
+				LocalIndex:  idx.LocalKey,
+				Leaseholder: n.Cluster.HostKey(),
+			}
+			Expect(writer.Create(ctx, data)).To(Succeed())
+			// A channel leased by the second Core reaches the first by gossip.
+			Eventually(func(g Gomega) {
+				var res channel.Channel
+				g.Expect(channelSvc.NewRetrieve().
+					Where(channel.MatchKeys(data.Key())).
+					Entry(&res).
+					Exec(ctx, nil)).To(Succeed())
+			}).Should(Succeed())
+			stamps := make([]telem.TimeStamp, 20)
+			values := make([]float32, 20)
+			for j := range values {
+				stamps[j] = telem.TimeStamp(j + 1)
+				values[j] = float32((j + 1) * (1 + 99*k))
+			}
+			keys := []channel.Key{idx.Key(), data.Key()}
+			w := MustSucceed(nodes[0].Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start:            telem.SecondTS,
+				Keys:             keys,
+				EnableAutoCommit: new(true),
+			}))
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(stamps...),
+				telem.NewSeries(values),
+			}))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+		}
+		sum := &channel.Channel{
+			Name:       "cross_sum",
+			DataType:   telem.Float32T,
+			Expression: "return cross_0 + cross_1",
+		}
+		Expect(writer.Create(ctx, sum)).To(Succeed())
+		iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+			Keys:   []channel.Key{sum.Key()},
+			Bounds: telem.TimeRangeMax,
+		}))
+		Expect(iter.SeekFirst()).To(BeTrue())
+		var got []float32
+		for range 2 {
+			Expect(iter.Next(10 * telem.Second)).To(BeTrue())
+			for _, s := range iter.Value().Get(sum.Key()).Series {
+				got = append(got, s.Unmarshal[float32]()...)
+			}
+		}
+		expected := make([]float32, 20)
+		for j := range expected {
+			expected[j] = float32((j + 1) * 101)
+		}
+		Expect(got).To(Equal(expected))
+		Expect(iter.Close()).To(Succeed())
+	})
+})
