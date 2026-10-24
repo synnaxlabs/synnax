@@ -282,13 +282,14 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             ep_parsed[ei] = true;
         } catch (const x::json::json::parse_error &e) {
             warnings.push_back(
-                "failed to parse response from " + ep.path + ": " + e.what()
+                "Failed to parse response from " + ep.path + ": " + e.what()
             );
         }
     }
     if (skipped > 0)
         warnings.push_back(
-            std::to_string(skipped) + " requests not sent, the device was unreachable"
+            "The device was unreachable, so the Driver did not send " +
+            std::to_string(skipped) + " requests"
         );
     // An error, not a warning, so the pipeline breaker backs off from a device that
     // rejects every request. Always temporary: a 401 during a token refresh or a 404
@@ -332,7 +333,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             x::telem::SampleValue sample_val;
             std::string warning;
             if (!body.contains(field.pointer))
-                warning = "field " + field.pointer.to_string() +
+                warning = "Field " + field.pointer.to_string() +
                           " not found in response from " + ep.path;
             else {
                 auto tf = x::json::TimeFormat::ISO8601;
@@ -346,7 +347,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                     enum_ptr
                 );
                 if (conv_err)
-                    warning = "failed to convert " + field.pointer.to_string() +
+                    warning = "Failed to convert " + field.pointer.to_string() +
                               " for channel " + ch.name + ": " + conv_err.data;
                 else
                     sample_val = std::move(val);

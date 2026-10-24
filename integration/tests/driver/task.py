@@ -236,7 +236,7 @@ def run_and_expect_rejection(
     *,
     timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
 ) -> str | None:
-    """Start a saved task and return the driver's rejection text, if any.
+    """Start a saved task and return the Driver's rejection text, if any.
 
     Deploy failures acknowledge the start command with an error status; runtime failures
     surface after a successful ack, so statuses are watched for the full timeout window.
@@ -290,7 +290,7 @@ def assert_start_rejected(
     *,
     timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
 ) -> str:
-    """Save a task, start it, and assert the driver rejects it with an error or warning
+    """Save a task, start it, and assert the Driver rejects it with an error or warning
     status. Returns the rejection text. The task is deleted before returning."""
     client.tasks.configure(task)
     try:

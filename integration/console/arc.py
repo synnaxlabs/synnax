@@ -194,9 +194,8 @@ class ArcClient(ResourceClient):
         """Deploy the Arc from the editor controls.
 
         Play deploys and starts a stopped task; a drifted deployment shows a
-        Redeploy button instead. Waits for either "Task configured
-        successfully" or "Started task" and retries once on timeout to handle
-        transient driver slowness.
+        Redeploy button instead. Waits for "Started task" and retries once on
+        timeout to handle transient Driver slowness.
         """
         for attempt in range(2):
             controls = self._get_controls()
@@ -208,10 +207,9 @@ class ArcClient(ResourceClient):
                 play_btn = controls.locator("button:has(.pluto-icon--play)")
                 play_btn.wait_for(state="visible", timeout=5000)
                 play_btn.click()
-            configured = controls.locator("text=Task configured successfully")
             started = controls.locator("text=Started task")
             try:
-                configured.or_(started).wait_for(state="visible", timeout=30000)
+                started.wait_for(state="visible", timeout=30000)
                 return
             except PlaywrightTimeoutError:
                 if attempt == 1:

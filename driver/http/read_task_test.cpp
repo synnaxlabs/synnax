@@ -1631,7 +1631,7 @@ TEST(HTTPReadTask, SkippedEndpointsCollapseIntoOneLine) {
     ASSERT_OCCURRED_AS(res.error, errors::UNREACHABLE_ERROR);
     EXPECT_EQ(fr.size(), 0);
     EXPECT_NE(res.error.data.find("/slow"), std::string::npos);
-    EXPECT_NE(res.error.data.find("2 requests not sent"), std::string::npos);
+    EXPECT_NE(res.error.data.find("did not send 2 requests"), std::string::npos);
     EXPECT_EQ(res.error.data.find("/a"), std::string::npos);
     EXPECT_EQ(res.error.data.find("at a time"), std::string::npos);
 }
@@ -3675,7 +3675,7 @@ TEST(HTTPReadTask, MissingFloatSkipsGroupByDefault) {
         false
     );
     ASSERT_NIL(res.error);
-    EXPECT_NE(res.warning.description.find("/p2 not found"), std::string::npos);
+    EXPECT_TRUE(res.warning.description.starts_with("Field /p2 not found"));
     EXPECT_EQ(fr.size(), 0);
 }
 
@@ -3688,7 +3688,7 @@ TEST(HTTPReadTask, MissingFloatFilledWithNaN) {
         true
     );
     ASSERT_NIL(res.error);
-    EXPECT_NE(res.warning.description.find("/p2 not found"), std::string::npos);
+    EXPECT_TRUE(res.warning.description.starts_with("Field /p2 not found"));
     ASSERT_EQ(fr.size(), 3);
     EXPECT_TRUE(std::isnan(fr.at<float>(2, 0)));
     EXPECT_EQ(fr.at<double>(3, 0), 1.5);
@@ -3706,7 +3706,7 @@ TEST(HTTPReadTask, UnconvertibleFloatFilledWithNaN) {
     ASSERT_NIL(res.error);
     EXPECT_NE(
         res.warning.description.find(
-            "failed to convert /p2 for channel p2: cannot convert \"INVALID\" to "
+            "Failed to convert /p2 for channel p2: cannot convert \"INVALID\" to "
             "float64"
         ),
         std::string::npos
@@ -3725,7 +3725,7 @@ TEST(HTTPReadTask, InvalidIntegerSkipsGroupWhenFilled) {
         true
     );
     ASSERT_NIL(res.error);
-    EXPECT_NE(res.warning.description.find("failed to convert /p2"), std::string::npos);
+    EXPECT_TRUE(res.warning.description.starts_with("Failed to convert /p2"));
     EXPECT_EQ(fr.size(), 0);
 }
 }
