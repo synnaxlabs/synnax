@@ -338,15 +338,7 @@ void Engine::supervise() {
 }
 
 x::errors::Error Engine::start_locked(const x::telem::Rate rate) {
-    x::breaker::Breaker retry(
-        x::breaker::Config{
-            .name = "ethercat_engine",
-            .base_interval = x::telem::MILLISECOND * 100,
-            .max_retries = 10,
-            .scale = 1.5f,
-            .max_interval = x::telem::SECOND * 5
-        }
-    );
+    x::breaker::Breaker retry(this->config.start_retry);
     retry.start();
     while (true) {
         auto err = this->master->initialize();
