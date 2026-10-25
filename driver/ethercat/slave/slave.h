@@ -102,12 +102,14 @@ struct StartupParameter {
         param.name = parser.field<std::string>("name", "");
         const auto data_type = parser.field<std::string>("data_type");
         if (parser.errors->size() > errors_before) return param;
-        if (!whole_in(index, std::numeric_limits<uint16_t>::max()))
+        if (whole_in(index, std::numeric_limits<uint16_t>::max()))
+            param.index = static_cast<uint16_t>(index);
+        else
             parser.field_err("index", "must be a whole number from 0x0000 to 0xFFFF");
-        if (!whole_in(sub_index, std::numeric_limits<uint8_t>::max()))
+        if (whole_in(sub_index, std::numeric_limits<uint8_t>::max()))
+            param.sub_index = static_cast<uint8_t>(sub_index);
+        else
             parser.field_err("sub_index", "must be a whole number from 0 to 255");
-        param.index = static_cast<uint16_t>(index);
-        param.sub_index = static_cast<uint8_t>(sub_index);
         param.data_type = x::telem::DataType(data_type);
         std::string value_err;
         if (!visit(param.data_type, [&]<typename T>() {
@@ -333,9 +335,10 @@ struct Health {
     bool faulted = false;
     /// @brief true when the slave stopped responding.
     bool lost = false;
-    /// @brief the description of the slave's AL status code, or why it rejected a
-    /// startup parameter. Empty when it reports neither or the master cannot read it.
-    std::string al_status;
+    /// @brief why the slave is faulted: the description of its AL status code, or why
+    /// it rejected a startup parameter. Empty when it reports neither or the master
+    /// cannot read it.
+    std::string fault;
 
     bool operator==(const Health &) const = default;
 
@@ -350,7 +353,7 @@ struct Health {
         if (this->lost) return "not responding";
         std::string desc = slave_state_to_string(this->state);
         if (this->faulted) desc += " + ERROR";
-        if (!this->al_status.empty()) desc += ": " + this->al_status;
+        if (!this->fault.empty()) desc += ": " + this->fault;
         return desc;
     }
 };
