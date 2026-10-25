@@ -64,9 +64,12 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 		ChangeErr(func(_ gorp.Context, l Label) (Label, error) {
 			next, err := Reduce(l, acts...)
 			if err != nil {
-				return l, err
+				return Label{}, err
 			}
-			return next, next.Validate()
+			if err = next.Validate(); err != nil {
+				return Label{}, err
+			}
+			return next, nil
 		}).
 		Exec(ctx, w.tx)
 }

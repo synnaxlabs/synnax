@@ -212,12 +212,15 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 		ChangeErr(func(_ gorp.Context, r Range) (Range, error) {
 			next, err := Reduce(r, acts...)
 			if err != nil {
-				return r, err
+				return Range{}, err
 			}
 			if err = next.Validate(); err != nil {
-				return r, err
+				return Range{}, err
 			}
-			return next, w.validate(next)
+			if err = w.validate(next); err != nil {
+				return Range{}, err
+			}
+			return next, nil
 		}).
 		Exec(ctx, w.tx)
 }
