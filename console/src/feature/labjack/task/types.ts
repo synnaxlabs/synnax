@@ -16,7 +16,6 @@ import { Task } from "@/platform/task";
 export const PREFIX = "labjack";
 
 export type Scale = labjack.Scale;
-export type ScaleType = labjack.ScaleType;
 export const SCALE_SCHEMAS = labjack.SCALE_SCHEMAS;
 
 const NO_SCALE: Scale = { type: "none" };
