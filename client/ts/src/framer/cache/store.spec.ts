@@ -36,6 +36,8 @@ interface TestBlock extends Block {
 
 const createBlock = (overrides: Partial<TestBlock> = {}): TestBlock => ({
   channel: 1,
+  range: TimeRange.ZERO,
+  pins: 0,
   fetchedAt: TimeStamp.now(),
   bytes: BYTES,
   held: false,

@@ -20,12 +20,16 @@ export const RAW_LEVEL = 16;
 /** A cached part of one channel's samples. */
 export interface Block {
   readonly channel: channel.Key;
+  /** The span of the block's samples. */
+  readonly range: TimeRange;
   /** When the oldest fetch the block answers reads with landed. */
   readonly fetchedAt: TimeStamp;
   /** The bytes of the block's samples. */
   readonly bytes: number;
   /** True while the block must stay cached, as when a caller holds its series. */
   readonly held: boolean;
+  /** The number of subscriptions that serve the block's series. */
+  pins: number;
 }
 
 /** @returns the index of the raw block that holds the timestamp. */
@@ -99,9 +103,11 @@ export const align = (
     });
 };
 
-// Returns the position of the first sample of the timestamp series at or after t, from
-// lo.
-const search = (s: Series, t: bigint, lo = 0): number => {
+/**
+ * @returns the position of the first sample of the timestamp series at or after t,
+ * searching from lo.
+ */
+export const search = (s: Series, t: bigint, lo = 0): number => {
   let hi = s.length;
   while (lo < hi) {
     const mid = (lo + hi) >>> 1;
@@ -196,11 +202,15 @@ interface Streamed {
 /**
  * One channel's raw samples over one level 16 tile of the grid. Fetched series carry
  * block alignment and cover the block from its start. Streamed series keep the stream's
- * alignment and never claim coverage.
+ * alignment and never claim coverage, unless the block is joined: then the stream
+ * writes block-aligned samples that extend the coverage.
  */
 export class RawBlock implements Block {
   readonly range: TimeRange;
   fetchedAt = TimeStamp.ZERO;
+  pins = 0;
+  /** True while a join writes the stream's samples into the block. */
+  joined = false;
   /** Fetched samples cover [range.start, coveredEnd). */
   coveredEnd: TimeStamp;
   /** The index samples in [range.start, coveredEnd). */
@@ -239,6 +249,7 @@ export class RawBlock implements Block {
 
   get held(): boolean {
     return (
+      this.pins > 0 ||
       this.buffer != null ||
       this.pending != null ||
       this.fetched.some((s) => s.refCount > 0) ||
@@ -246,9 +257,19 @@ export class RawBlock implements Block {
     );
   }
 
-  /** @returns true when fetched samples cover the part of tr inside the block. */
+  /**
+   * @returns true when fetched samples cover the part of tr inside the block. A joined
+   * block covers every span, since the stream delivers its samples.
+   */
   covers(tr: TimeRange): boolean {
-    return TimeStamp.min(tr.end, this.range.end).beforeEq(this.coveredEnd);
+    return this.joined || TimeStamp.min(tr.end, this.range.end).beforeEq(this.coveredEnd);
+  }
+
+  /** Moves the coverage to end, which holds count index samples of the block. */
+  extend(end: TimeStamp, count: number): void {
+    if (this.coveredEnd.equals(this.range.start)) this.fetchedAt = this.now();
+    this.coveredEnd = end;
+    this.coveredCount = count;
   }
 
   /**

@@ -14,6 +14,7 @@ import {
   debounce,
   type MultiSeries,
   sync,
+  type TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -57,9 +58,11 @@ export interface TileReaderProps {
 /** A cached tile: one channel's reduced samples. */
 class Tile implements Block {
   readonly bytes: number;
+  pins = 0;
 
   constructor(
     readonly channel: channel.Key,
+    readonly range: TimeRange,
     readonly series: MultiSeries,
     readonly fetchedAt: TimeStamp,
   ) {
@@ -67,11 +70,14 @@ class Tile implements Block {
   }
 
   get held(): boolean {
-    return this.series.series.some((s) => s.refCount > 0);
+    return this.pins > 0 || this.series.series.some((s) => s.refCount > 0);
   }
 }
 
-const cacheKey = ({ key, level, index, pointLimit, aggregation }: TileSpec): string =>
+/**
+ * @returns the store key of the tile. A tile cut short at either end is never cached.
+ */
+export const tileKey = ({ key, level, index, pointLimit, aggregation }: TileSpec): string =>
   `${key}/${level}/${index}/${pointLimit}/${aggregation}`;
 
 /**
@@ -121,7 +127,7 @@ export class TileReader {
     if (this.closed) throw new UnexpectedError("tile reader is closed");
     if (spec.start != null || spec.end != null) return await this.batcher.enqueue(spec);
     const { store } = this.props;
-    const key = cacheKey(spec);
+    const key = tileKey(spec);
     const tile = tileRequestKey(spec);
     const cached = store.get(key);
     if (cached != null && !(cached instanceof Tile))
@@ -151,7 +157,7 @@ export class TileReader {
     reads.set(spec.key, fetched);
     try {
       const series = await fetched;
-      if (!this.closed) store.set(key, new Tile(spec.key, series, this.props.now()));
+      if (!this.closed) store.set(key, new Tile(spec.key, tileRange(spec), series, this.props.now()));
       return series;
     } finally {
       reads.delete(spec.key);
