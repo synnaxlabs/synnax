@@ -41,6 +41,10 @@ public:
     /// @brief initializes the master and scans the EtherCAT network for slaves.
     [[nodiscard]] virtual x::errors::Error initialize() = 0;
 
+    /// @brief counts the slaves that answer on the bus now, without changing their
+    /// state. Valid between initialize() and deactivate().
+    [[nodiscard]] virtual std::pair<size_t, x::errors::Error> count_slaves() = 0;
+
     /// @brief sets whether a slave joins cyclic exchange. Takes effect at the next
     /// activate().
     virtual void set_slave_enabled(uint16_t position, bool enabled) = 0;

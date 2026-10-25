@@ -54,10 +54,6 @@ const notFound = (key: string): Error => new Error(`Window not found: ${key}`);
 //  Prevent the user or a programming error from creating a tiny window.
 const MIN_DIM = 250;
 
-// On macOS, we need to poll for fullscreen changes, as tauri doesn't provide an event
-// for it. This is the interval at which we poll.
-const MACOS_FULLSCREEN_POLL_INTERVAL = TimeSpan.seconds(1);
-
 // On Windows and Linux, the OS does not automatically reposition windows when a monitor
 // is disconnected. We poll for monitor changes and move off-screen windows back onto a
 // visible display.
@@ -97,56 +93,35 @@ const isPositionVisible = async (position: xy.XY): Promise<boolean> => {
   return boxes.some((b) => box.contains(b, position));
 };
 
+export interface TauriRuntimeProps {
+  /** The window this runtime drives. Defaults to the current window. */
+  window?: WebviewWindow;
+  /** Where macOS draws the window controls in each window the runtime creates. */
+  trafficLightPosition?: xy.XY;
+}
+
 /** A Tauri backed implementation of the drift Runtime. */
 export class TauriRuntime<
   S extends StoreState,
   A extends Action = UnknownAction,
 > implements Runtime<S, A> {
   private readonly win: WebviewWindow;
+  private readonly trafficLightPosition?: LogicalPosition;
   private unsubscribe: Record<string, UnlistenFn>;
-  private fullscreenPoll: NodeJS.Timeout | null = null;
   private monitorChangePoll: NodeJS.Timeout | null = null;
 
-  /**
-   * @param window - The WebviewWindow to use as the underlying engine for this runtime.
-   * This should not be set in 99% of cases. Only use this if you know what you're doing.
-   */
-  constructor(window?: WebviewWindow) {
+  constructor({ window, trafficLightPosition }: TauriRuntimeProps = {}) {
     this.win = window ?? getCurrentWindow();
+    if (trafficLightPosition != null)
+      this.trafficLightPosition = new LogicalPosition(
+        trafficLightPosition.x,
+        trafficLightPosition.y,
+      );
     this.unsubscribe = {};
   }
 
   async configure(): Promise<void> {
-    // We only need to poll for fullscreen on macOS, as tauri doesn't provide an
-    // emitted event for fullscreen changes.
-    await this.startFullscreenPoll();
     this.startMonitorChangePoll();
-  }
-
-  private async startFullscreenPoll(): Promise<void> {
-    if (runtime.getOS() !== "macOS") return;
-    let prevFullscreen = (await this.getProps()).fullscreen;
-    if (this.fullscreenPoll != null) clearInterval(this.fullscreenPoll);
-    const poll = async (): Promise<void> => {
-      const isFullscreen = await this.win.isFullscreen();
-      if (isFullscreen === prevFullscreen) return;
-      prevFullscreen = isFullscreen;
-      await this.emit(
-        {
-          action: runtimeSetWindowProps({
-            label: this.win.label,
-            fullscreen: isFullscreen,
-          }) as unknown as A,
-        },
-        undefined,
-        "WHITELIST",
-      );
-    };
-    this.fullscreenPoll = setInterval(() => {
-      poll().catch((err: unknown) =>
-        console.error(`failed to poll fullscreen state for ${this.win.label}`, err),
-      );
-    }, MACOS_FULLSCREEN_POLL_INTERVAL.milliseconds);
   }
 
   private startMonitorChangePoll(): void {
@@ -179,7 +154,6 @@ export class TauriRuntime<
 
   release(): void {
     Object.values(this.unsubscribe).forEach((f) => f?.());
-    if (this.fullscreenPoll != null) clearInterval(this.fullscreenPoll);
     if (this.monitorChangePoll != null) clearInterval(this.monitorChangePoll);
     this.unsubscribe = {};
   }
@@ -198,7 +172,6 @@ export class TauriRuntime<
 
   async subscribe(lis: (action: Event<S, A>) => void): Promise<void> {
     this.release();
-    await this.startFullscreenPoll();
     this.startMonitorChangePoll();
     this.unsubscribe[actionEvent] = await listen<string>(
       actionEvent,
@@ -261,6 +234,8 @@ export class TauriRuntime<
         maxWidth: maxSize?.width,
         maxHeight: maxSize?.height,
         titleBarStyle: "overlay",
+        hiddenTitle: true,
+        trafficLightPosition: this.trafficLightPosition,
         dragDropEnabled: false,
         ...rest,
       });
@@ -398,12 +373,15 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
   {
     key: TauriEventKey.WINDOW_RESIZED,
     debounce: 200,
+    // A window resizes as it enters and leaves fullscreen, which is the only signal
+    // Tauri gives for either.
     handler: async (window) => {
       const scaleFactor = await window.scaleFactor();
       const visible = await window.isVisible();
       const nextProps: RuntimeSetWindowProsPayload = {
         label: window.label,
         maximized: await window.isMaximized(),
+        fullscreen: await window.isFullscreen(),
         visible,
         minimized: !visible,
         position: parsePosition(await window.innerPosition(), scaleFactor),

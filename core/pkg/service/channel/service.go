@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/io"
@@ -65,10 +64,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Group *group.Service
-	// Search is the full-text search index channels are registered with.
-	//
-	// [REQUIRED]
-	Search *search.Index
 	// Limit enforces the cap on external (non-internal, non-virtual) channels.
 	//
 	// [OPTIONAL] - Defaults to no cap.
@@ -94,7 +89,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("host_provider", c.HostProvider)
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
-	v.NotNil("search", c.Search)
 	v.NotNil("limit", c.Limit)
 	v.NotNil("status", c.Status)
 	v.NotNil("validate_names", c.ValidateNames)
@@ -109,7 +103,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
@@ -126,6 +119,7 @@ type Service struct {
 	closer  io.MultiCloser
 	group   group.Group
 	table   *gorp.Table[Key, Channel]
+	search  *gorp.SearchIndex[Key, Channel]
 	indexes indexes
 	mu      struct {
 		sync.RWMutex
@@ -144,13 +138,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, db: cfg.DB, indexes: newIndexes()}
+	s = &Service{cfg: cfg, db: cfg.DB, indexes: newIndexes(), search: newSearchIndex()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
 		DB:              cfg.DB,
 		Migrations:      versions.Migrations,
-		Indexes:         s.indexes.all(),
+		Indexes:         append(s.indexes.all(), s.search),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -175,7 +169,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	s.mu.externalNonVirtualSet.Insert(KeysFromChannels(externalNonVirtualChannels)...)
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	return s, nil
 }
 
@@ -189,7 +182,7 @@ func (s *Service) newRetrieve() Retrieve {
 	return Retrieve{
 		baseTX:  s.db,
 		gorp:    s.table.NewRetrieve(),
-		search:  s.cfg.Search,
+		search:  s.search,
 		indexes: s.indexes,
 	}
 }

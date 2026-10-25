@@ -149,14 +149,12 @@ func (i indexInfo) IsSorted() bool { return i.Kind == "sorted" }
 
 // retrieveInfo holds extracted data about a @retrieve-annotated struct.
 type retrieveInfo struct {
-	GoName                      string
-	KeyType                     string
-	HasSearch                   bool
-	IsCustom                    bool // user defines the struct (@retrieve custom)
-	OntologyType                string
-	KeysFromOntologyIDsHasError bool
-	Filters                     []filterInfo
-	Indexes                     []indexInfo
+	GoName    string
+	KeyType   string
+	HasSearch bool
+	IsCustom  bool // user defines the struct (@retrieve custom)
+	Filters   []filterInfo
+	Indexes   []indexInfo
 }
 
 // HasIndexes reports whether the retrieve declared any @index fields. Used by
@@ -227,27 +225,6 @@ func generateRetrieveFile(
 		gomod.ResolveImportPath("gorp", repoRoot, gomod.DefaultModulePrefix),
 	)
 
-	// Check if any info needs search imports.
-	hasSearch := lo.SomeBy(infos, func(i retrieveInfo) bool { return i.HasSearch })
-	if hasSearch {
-		imps.AddInternal(
-			"search",
-			gomod.ResolveImportPath(
-				"core/pkg/service/search",
-				repoRoot,
-				gomod.DefaultModulePrefix,
-			),
-		)
-		imps.AddInternal(
-			"ontology",
-			gomod.ResolveImportPath(
-				"core/pkg/service/ontology",
-				repoRoot,
-				gomod.DefaultModulePrefix,
-			),
-		)
-	}
-
 	// Index-routed filters use the index's .Filter(...) method, so only slice and
 	// non-indexed variadic filters need slices.Contains.
 	needsSlices := lo.SomeBy(infos, func(i retrieveInfo) bool {
@@ -288,7 +265,7 @@ func extractRetrieveInfo(
 	// precedence; this is useful when the entry type has a computed GorpKey that is not
 	// stored as a field on the struct (e.g. channel.Channel). Otherwise, fall back to
 	// the first field carrying `@key`.
-	var keyType, keyPrimitive string
+	var keyType string
 	if keyTypeName := plugindomain.GetStringFromType(
 		typ,
 		"retrieve",
@@ -300,7 +277,6 @@ func extractRetrieveInfo(
 		}
 		keyRef := resolution.TypeRef{Name: qualified}
 		keyType = r.ResolveTypeRef(keyRef, ctx)
-		keyPrimitive = key.ResolvePrimitive(keyRef, table)
 	} else {
 		var keyField *resolution.Field
 		for i := range allFields {
@@ -313,20 +289,12 @@ func extractRetrieveInfo(
 			return nil, nil
 		}
 		keyType = r.ResolveTypeRef(keyField.Type, ctx)
-		keyPrimitive = key.ResolvePrimitive(keyField.Type, table)
 	}
 
 	goName := naming.GetGoName(typ)
 
 	isCustom := plugindomain.HasExprFromType(typ, "retrieve", "custom")
 	hasSearch := plugindomain.HasDomainFromType(typ, "search")
-
-	// Search queries the index against the struct's ontology resource type, read
-	// directly from its @ontology type annotation.
-	var ontologyType string
-	if hasSearch {
-		ontologyType = plugindomain.GetStringFromType(typ, "ontology", "type")
-	}
 
 	// Collect @filter and @index fields. A field may carry both: in that
 	// case, MatchX / MatchXs are generated to route through the index.
@@ -396,14 +364,12 @@ func extractRetrieveInfo(
 	}
 
 	return &retrieveInfo{
-		GoName:                      goName,
-		KeyType:                     keyType,
-		HasSearch:                   hasSearch,
-		IsCustom:                    isCustom,
-		OntologyType:                ontologyType,
-		KeysFromOntologyIDsHasError: keyPrimitive != "string",
-		Filters:                     filters,
-		Indexes:                     indexes,
+		GoName:    goName,
+		KeyType:   keyType,
+		HasSearch: hasSearch,
+		IsCustom:  isCustom,
+		Filters:   filters,
+		Indexes:   indexes,
 	}, nil
 }
 
@@ -497,8 +463,7 @@ type Retrieve struct {
 	baseTX gorp.Tx
 	gorp   gorp.Retrieve[{{$ret.KeyType}}, {{$ret.GoName}}]
 {{- if $ret.HasSearch}}
-	search     *search.Index
-	searchTerm string
+	search     *gorp.SearchIndex[{{$ret.KeyType}}, {{$ret.GoName}}]
 {{- end}}
 {{- if $ret.HasIndexes}}
 	indexes    indexes
@@ -610,8 +575,15 @@ func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, {{$ret.KeyType}}, {{$ret.GoName}}](f)
 }
 {{if $ret.HasSearch}}
-// Search sets a fuzzy search term that Retrieve will use to filter results.
-func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
+// Search filters the {{$ret.GoName | toLower | pluralize}} to those whose text matches
+// term, closest match first. An empty term adds no filter.
+func (r Retrieve) Search(term string) Retrieve {
+	if term == "" {
+		return r
+	}
+	r.gorp = r.gorp.Where(r.search.Filter(term))
+	return r
+}
 {{end}}
 // MatchKeys returns a filter that restricts results to
 // {{$ret.GoName | toLower | pluralize}} whose key matches any of the provided
@@ -713,59 +685,18 @@ func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r
 }
-{{if $ret.HasSearch}}
-func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
-	if r.searchTerm == "" {
-		return r, nil
-	}
-	ids, err := r.search.Search(ctx, search.Request{
-		Type: ontology.ResourceType{{$ret.OntologyType | toPascal}},
-		Term: r.searchTerm,
-	})
-	if err != nil {
-		return Retrieve{}, err
-	}
-{{- if $ret.KeysFromOntologyIDsHasError}}
-	keys, err := KeysFromOntologyIDs(ids)
-	if err != nil {
-		return Retrieve{}, err
-	}
-{{- else}}
-	keys := KeysFromOntologyIDs(ids)
-{{- end}}
-	return r.Where(MatchKeys(keys...)), nil
-}
-{{end}}
 // Exec executes the query against the provided transaction.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-{{- if $ret.HasSearch}}
-	var err error
-	if r, err = r.execSearch(ctx); err != nil {
-		return err
-	}
-{{- end}}
 	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
 // Count returns the number of {{$ret.GoName | toLower | pluralize}} matching the query.
 func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-{{- if $ret.HasSearch}}
-	var err error
-	if r, err = r.execSearch(ctx); err != nil {
-		return 0, err
-	}
-{{- end}}
 	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
 // Exists checks whether any {{$ret.GoName | toLower | pluralize}} match the query.
 func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-{{- if $ret.HasSearch}}
-	var err error
-	if r, err = r.execSearch(ctx); err != nil {
-		return false, err
-	}
-{{- end}}
 	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 {{end}}`),

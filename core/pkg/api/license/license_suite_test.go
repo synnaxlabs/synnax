@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -52,15 +51,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	kvDB := memkv.New()
 	db = DeferClose(gorp.Wrap(kvDB))
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.OpenIndex())
 	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db, Ontology: otg, Search: searchIdx,
+		DB: db, Ontology: otg,
 	}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Search: searchIdx,
+		DB: db, Ontology: otg, Group: g,
 	}))
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Search: searchIdx, User: userSvc,
+		DB: db, Ontology: otg, Group: g, User: userSvc,
 	}))
 	signer = svcmock.NewSigner()
 	licenseSvc = MustOpen(license.OpenService(ctx, license.ServiceConfig{
