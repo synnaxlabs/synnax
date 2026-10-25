@@ -89,10 +89,9 @@ type Action struct {
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on
-// each action's Type to the matching payload's Handle method. Unknown action
-// types leave state unchanged. An action whose Type names a known variant but
-// carries a nil payload pointer returns an error. Returns the first error
-// encountered along with the partially-reduced state.
+// each action's Type to the matching payload's Handle method. An unknown action
+// type, or a known type with a nil payload pointer, returns an error. Returns the
+// first error encountered along with the partially-reduced state.
 func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 	var err error
 	for _, a := range actions {
@@ -138,7 +137,7 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 			}
 			state, err = a.SetConfig.Handle(state)
 		default:
-			continue
+			return state, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
 			return state, err
