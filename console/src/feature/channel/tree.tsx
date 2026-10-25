@@ -25,7 +25,6 @@ import {
   Schematic as PSchematic,
 } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
 
 import { useOpen } from "@/feature/channel/useOpen";
 import { Channel } from "@/platform/channel";
@@ -75,15 +74,12 @@ const useSetAlias = ({
 }: Tree.ContextMenuProps): (() => void) => {
   const activeRange = Session.Range.useSelectSelectedKey();
   const { update } = PChannel.useUpdateAlias({ beforeUpdate: beforeSetAlias });
-  return useCallback(
-    () =>
-      update({
-        range: activeRange ?? undefined,
-        channel: Number(firstID.key),
-        alias: "",
-      }),
-    [update, activeRange, firstID],
-  );
+  return () =>
+    update({
+      range: activeRange ?? undefined,
+      channel: Number(firstID.key),
+      alias: "",
+    });
 };
 
 const useRename = Tree.createUseRename({
@@ -97,14 +93,11 @@ const useDeleteAlias = ({
 }: Tree.ContextMenuProps): (() => void) => {
   const activeRange = Session.Range.useSelectSelectedKey();
   const { update } = PChannel.useDeleteAlias();
-  return useCallback(
-    () =>
-      update({
-        range: activeRange ?? undefined,
-        channels: ids.map((id) => Number(id.key)),
-      }),
-    [update, activeRange, ids],
-  );
+  return () =>
+    update({
+      range: activeRange ?? undefined,
+      channels: ids.map((id) => Number(id.key)),
+    });
 };
 
 const useEditCalculated = () => {
@@ -125,7 +118,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const groupFromSelection = Group.useCreateFromSelection();
   const handleSetAlias = useSetAlias(props);
   const resources = Tree.useResources(state, ids);
-  const channelKeys = useMemo(() => ids.map((r) => Number(r.key)), [ids]);
+  const channelKeys = ids.map((r) => Number(r.key));
   const channels = PChannel.useMultiple({
     rangeKey: activeRange?.key,
     keys: channelKeys,

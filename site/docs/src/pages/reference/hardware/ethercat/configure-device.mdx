@@ -88,7 +88,7 @@ sudo usermod -aG synnax $USER
 
 ## How the Driver finds modules
 
-The Driver looks for EtherCAT modules on each Ethernet port every few seconds. A module
+The Driver looks for EtherCAT modules on each Ethernet port every 5 seconds. A module
 shows in the [devices toolbar](/reference/hardware/devices#devices-toolbar) under its
 Driver:
 
@@ -122,6 +122,24 @@ wrong values.
 - **Lost modules** -> When a module stops responding, the network continues to cycle,
   and the Driver returns the module to operation when it responds again. Until then,
   every read task on the port drops samples and shows a warning.
+
+<Divider.Divider x />
+
+## Module status
+
+While a task uses the network, the status of each module shows its live state. The
+Driver updates it every 5 seconds.
+
+| Status                                    | Meaning                                                                                                                                                  |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Operational**                           | The module exchanges data in OP, the operational state of EtherCAT.                                                                                      |
+| **In SAFE-OP**, **In PRE-OP**             | The module left OP. The Driver is returning it to OP.                                                                                                    |
+| **Error in SAFE-OP**, **Error in PRE-OP** | The module reports an error. The status description shows the error text of the module. With IgH, the kernel log (`dmesg`) shows the error code instead. |
+| **Not responding**                        | The module does not answer. Check its power and cabling.                                                                                                 |
+| **Device disconnected**                   | The last scan did not find the module.                                                                                                                   |
+
+When no task uses the network, the status shows what the scan found, such as
+**Discovered (4 inputs, 2 outputs)** or **Failed to discover PDOs**.
 
 <Divider.Divider x />
 

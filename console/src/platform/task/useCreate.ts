@@ -17,7 +17,6 @@ import {
 } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Panel } from "@/platform/panel";
 import { type GetInitialValues } from "@/platform/task/Form";
@@ -72,26 +71,23 @@ export const createUseCreate = <S extends task.Schemas = task.Schemas>({
     const client = PSynnax.use();
     const openTab = Panel.useOpenTab();
     const handleError = Status.useErrorHandler();
-    return useCallback(
-      ({ deviceKey, rackKey, config }: CreateParams = {}) => {
-        handleError(async () => {
-          if (client == null) throw new DisconnectedError();
-          const created = await create({
-            client,
-            getInitialValues,
-            deviceKey,
-            rackKey,
-            config,
-          });
-          openTab({
-            variant: "resource",
-            resource: task.ontologyID(created.key),
-            key: tabKey,
-          });
-        }, "Failed to create task");
-      },
-      [client, openTab, handleError, tabKey],
-    );
+    return ({ deviceKey, rackKey, config }: CreateParams = {}) => {
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        const created = await create({
+          client,
+          getInitialValues,
+          deviceKey,
+          rackKey,
+          config,
+        });
+        openTab({
+          variant: "resource",
+          resource: task.ontologyID(created.key),
+          key: tabKey,
+        });
+      }, "Failed to create task");
+    };
   };
   return useCreate;
 };

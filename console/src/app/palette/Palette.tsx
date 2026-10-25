@@ -16,7 +16,7 @@ import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Command } from "@/app/command";
 import { Search } from "@/app/search";
@@ -61,15 +61,12 @@ export const Palette = (): ReactElement => {
   const [value, setValue] = useState("");
   const [visible, setVisible, visibleRef] = useCombinedStateAndRef<boolean>(false);
 
-  const handleTrigger = useCallback(
-    ({ triggers, stage }: Triggers.UseEvent) => {
-      if (stage !== "start" || visibleRef.current) return;
-      const mode = Triggers.determineMode(TRIGGER_CONFIG, triggers);
-      setValue(mode === "command" ? FeatureCommand.PREFIX : "");
-      setVisible(true);
-    },
-    [visibleRef, setVisible],
-  );
+  const handleTrigger = ({ triggers, stage }: Triggers.UseEvent) => {
+    if (stage !== "start" || visibleRef.current) return;
+    const mode = Triggers.determineMode(TRIGGER_CONFIG, triggers);
+    setValue(mode === "command" ? FeatureCommand.PREFIX : "");
+    setVisible(true);
+  };
 
   Triggers.use({ triggers: flattenedConfig, callback: handleTrigger });
 

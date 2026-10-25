@@ -9,7 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { useCommonNetwork } from "@/feature/ethercat/device/queries";
 import {
@@ -38,10 +38,7 @@ export const SelectSlave = ({
   const channels = Form.useFieldValue<Channel[]>(channelsPath) ?? [];
   const network = useCommonNetwork(channels);
   const configure = useConfigureModal();
-  const filter = useCallback(
-    (d: device.Device) => filterByNetwork(d, network),
-    [network],
-  );
+  const filter = (d: device.Device) => filterByNetwork(d, network);
   return (
     <Device.Select
       path={path}

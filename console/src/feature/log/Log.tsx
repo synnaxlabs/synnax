@@ -9,7 +9,6 @@
 
 import { Log as Base, Panel as PPanel } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { Controls } from "@/feature/log/Controls";
 import { ContextMenu } from "@/platform/context-menu";
@@ -27,19 +26,16 @@ const Internal: Panel.Content = () => {
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
   const hold = Session.Log.useSelectHold();
 
-  const handleDoubleClick = useCallback(() => {
+  const handleDoubleClick = () => {
     dispatch(Session.Nav.showBottom({}));
-  }, [dispatch]);
+  };
 
-  const handleConfigureChannels = useCallback(() => {
+  const handleConfigureChannels = () => {
     dispatch(Session.Log.setSelectedToolbarTab({ key, tab: "channels" }));
     handleDoubleClick();
-  }, [dispatch, key, handleDoubleClick]);
+  };
 
-  const handleHold = useCallback(
-    (hold: boolean) => dispatch(Session.Log.setHold({ key, hold })),
-    [dispatch, key],
-  );
+  const handleHold = (hold: boolean) => dispatch(Session.Log.setHold({ key, hold }));
 
   return (
     <Base.Log

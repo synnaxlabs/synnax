@@ -25,7 +25,6 @@ const pdoEntryZ = z.object({
   bitLength: z.number(),
   dataType: z.string(),
 });
-export interface PDOEntry extends z.infer<typeof pdoEntryZ> {}
 
 /** Schema for PDO collections (inputs and outputs). */
 const pdosZ = z.object({

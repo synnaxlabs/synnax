@@ -9,7 +9,7 @@
 
 import { type SynnaxParams } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { useStatus } from "@/feature/embedded/Provider";
 import { type Connection } from "@/feature/embedded/supervisor";
@@ -29,9 +29,5 @@ export const useConnParams = (): SynnaxParams | undefined => {
   // child sees a stale connection. An effect would commit one render late.
   if (status.state === "running" && !deep.equal(connection, status.connection))
     setConnection(status.connection);
-  return useMemo(
-    () =>
-      connection == null ? undefined : { ...connection, name: NAME, secure: false },
-    [connection],
-  );
+  return connection == null ? undefined : { ...connection, name: NAME, secure: false };
 };

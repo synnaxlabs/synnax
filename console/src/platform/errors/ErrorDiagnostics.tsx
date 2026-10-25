@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Errors, Panel } from "@synnaxlabs/pluto";
-import { type ComponentType, type ReactElement, useCallback } from "react";
+import { type ComponentType, type ReactElement } from "react";
 
 import { Disconnected, isConnectionError } from "@/platform/errors/Disconnected";
 import { Session } from "@/session";
@@ -49,10 +49,6 @@ export const ErrorDiagnostics = ({
 };
 
 /** Builds the fallback component a boundary renders on a crash. */
-export const useFallback = (panelKey?: string): ComponentType<Errors.FallbackProps> =>
-  useCallback(
-    (props: Errors.FallbackProps) => (
-      <ErrorDiagnostics panelKey={panelKey} {...props} />
-    ),
-    [panelKey],
-  );
+export const useFallback =
+  (panelKey?: string): ComponentType<Errors.FallbackProps> =>
+  (props: Errors.FallbackProps) => <ErrorDiagnostics panelKey={panelKey} {...props} />;

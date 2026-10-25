@@ -14,7 +14,6 @@ import {
   type ReactElement,
   type ReactNode,
   type Ref,
-  useCallback,
   useEffect,
   useId,
   useRef,
@@ -99,52 +98,46 @@ export const Dialog = ({
   const releaseRef = useRef<destructor.Destructor | null>(null);
   const visibleRef = useSyncedRef(visible);
   const hideRef = useSyncedRef(hide);
-  const hidden = useCallback(
-    (anchor: HTMLElement): boolean => {
-      const h = hideRef.current;
-      return typeof h === "function" ? h(anchor) : h;
-    },
-    [hideRef],
-  );
+  const hidden = (anchor: HTMLElement): boolean => {
+    const h = hideRef.current;
+    return typeof h === "function" ? h(anchor) : h;
+  };
   const delayRef = useSyncedRef(delay);
 
-  const clearOpenTimeout = useCallback((): void => {
+  const clearOpenTimeout = (): void => {
     if (openTimeoutRef.current == null) return;
     clearTimeout(openTimeoutRef.current);
     openTimeoutRef.current = null;
-  }, []);
-  const clearCloseTimeout = useCallback((): void => {
+  };
+  const clearCloseTimeout = (): void => {
     if (closeTimeoutRef.current == null) return;
     clearTimeout(closeTimeoutRef.current);
     closeTimeoutRef.current = null;
-  }, []);
+  };
 
-  const close = useCallback(
-    (immediate: boolean = false): void => {
-      clearOpenTimeout();
-      if (!visibleRef.current) return;
-      markClosed();
-      releaseRef.current?.();
-      releaseRef.current = null;
-      if (immediate) {
-        clearCloseTimeout();
-        setClosing(false);
-        setVisible(false);
-        return;
-      }
-      if (closeTimeoutRef.current != null) return;
-      setClosing(true);
-      closeTimeoutRef.current = setTimeout(() => {
-        closeTimeoutRef.current = null;
-        setClosing(false);
-        setVisible(false);
-      }, CLOSE_DURATION.milliseconds);
-    },
-    [clearOpenTimeout, visibleRef, markClosed, clearCloseTimeout],
-  );
-  const closeNow = useCallback((): void => close(true), [close]);
+  const close = (immediate: boolean = false): void => {
+    clearOpenTimeout();
+    if (!visibleRef.current) return;
+    markClosed();
+    releaseRef.current?.();
+    releaseRef.current = null;
+    if (immediate) {
+      clearCloseTimeout();
+      setClosing(false);
+      setVisible(false);
+      return;
+    }
+    if (closeTimeoutRef.current != null) return;
+    setClosing(true);
+    closeTimeoutRef.current = setTimeout(() => {
+      closeTimeoutRef.current = null;
+      setClosing(false);
+      setVisible(false);
+    }, CLOSE_DURATION.milliseconds);
+  };
+  const closeNow = (): void => close(true);
 
-  const open = useCallback((): void => {
+  const open = (): void => {
     clearCloseTimeout();
     setClosing(false);
     releaseRef.current?.();
@@ -152,28 +145,22 @@ export const Dialog = ({
     // Set from the ref on open so mounting alone never re-renders the dialog
     setAnchor(anchorRef.current);
     setVisible(true);
-  }, [clearCloseTimeout, acquire, closeNow]);
+  };
 
-  const handlePointerEnter = useCallback(
-    (e: React.PointerEvent<HTMLElement>): void => {
-      if (e.pointerType === "touch" || hidden(e.currentTarget)) return;
-      clearOpenTimeout();
-      if (visibleRef.current || isWarm()) return open();
-      openTimeoutRef.current = setTimeout(
-        open,
-        new TimeSpan(delayRef.current).milliseconds,
-      );
-    },
-    [hidden, clearOpenTimeout, visibleRef, isWarm, open, delayRef],
-  );
-  const handlePointerLeave = useCallback((): void => close(), [close]);
-  const handleFocus = useCallback(
-    (e: React.FocusEvent<HTMLElement>): void => {
-      if (!e.currentTarget.matches(":focus-visible") || hidden(e.currentTarget)) return;
-      open();
-    },
-    [open, hidden],
-  );
+  const handlePointerEnter = (e: React.PointerEvent<HTMLElement>): void => {
+    if (e.pointerType === "touch" || hidden(e.currentTarget)) return;
+    clearOpenTimeout();
+    if (visibleRef.current || isWarm()) return open();
+    openTimeoutRef.current = setTimeout(
+      open,
+      new TimeSpan(delayRef.current).milliseconds,
+    );
+  };
+  const handlePointerLeave = (): void => close();
+  const handleFocus = (e: React.FocusEvent<HTMLElement>): void => {
+    if (!e.currentTarget.matches(":focus-visible") || hidden(e.currentTarget)) return;
+    open();
+  };
 
   useEffect(() => {
     if (!visible) return;
@@ -190,12 +177,9 @@ export const Dialog = ({
     return () => window.removeEventListener("scroll", handleScroll, { capture: true });
   }, [visible, close]);
 
-  const handleEscape = useCallback(
-    ({ stage }: Triggers.UseEvent): void => {
-      if (stage === "start" && visibleRef.current) close(true);
-    },
-    [visibleRef, close],
-  );
+  const handleEscape = ({ stage }: Triggers.UseEvent): void => {
+    if (stage === "start" && visibleRef.current) close(true);
+  };
   Triggers.use({
     triggers: ESCAPE_TRIGGERS,
     callback: handleEscape,

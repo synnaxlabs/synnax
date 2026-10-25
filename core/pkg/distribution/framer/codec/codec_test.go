@@ -598,7 +598,7 @@ var _ = Describe("Codec", func() {
 			codec := codec.NewDynamic(nil)
 			Expect(func() {
 				fr := framer.Frame{}
-				_, _ = codec.Encode(ctx, fr)
+				MustSucceed(codec.Encode(ctx, fr))
 			}).To(PanicWith("dynamic codec was not updated for first call to Encode"))
 		})
 

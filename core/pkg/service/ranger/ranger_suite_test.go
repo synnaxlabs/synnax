@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -42,17 +41,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.OpenIndex())
 	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db, Ontology: otg, Search: searchIdx,
+		DB: db, Ontology: otg,
 	}))
 	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Search: searchIdx,
+		DB: db, Ontology: otg, Group: g,
 	}))
 	svc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Label: labelSvc, Search: searchIdx,
+		DB: db, Ontology: otg, Group: g, Label: labelSvc,
 	}))
-	Expect(searchIdx.Initialize(ctx)).To(Succeed())
 })
 
 var _ = BeforeEach(func() {

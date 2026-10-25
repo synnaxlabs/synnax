@@ -15,7 +15,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -505,6 +507,41 @@ var _ = Describe("Retrieve", func() {
 				Expect(res).To(HaveLen(10))
 			})
 		})
+		Describe("Limit with keys", func() {
+			It(
+				"Should stop decoding keyed entries at the limit",
+				func(ctx SpecContext) {
+					codec := &decodeCountingCodec{Codec: msgpack.Codec}
+					counting := DeferClose(
+						gorp.Wrap(memkv.New(), gorp.WithCodec(codec)),
+					)
+					Expect(gorp.NewCreate[int32, entry]().
+						Entries(&entries).Exec(ctx, counting)).To(Succeed())
+					codec.decodeCount = 0
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Entries(&res).
+						Where(gorp.And(gorp.MatchKeys[int32, entry](1, 2, 3, 4, 5), idGT(1))).
+						Offset(1).
+						Limit(2).
+						Exec(ctx, counting)).To(Succeed())
+					Expect(res).To(Equal([]entry{entries[3], entries[4]}))
+					Expect(codec.decodeCount).To(Equal(4))
+				},
+			)
+
+			It("Should report every missing bare key past the limit",
+				func(ctx SpecContext) {
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Entries(&res).
+						Where(gorp.MatchKeys[int32, entry](1, 2, 44)).
+						Limit(1).
+						Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+					Expect(res).To(Equal([]entry{entries[1]}))
+				})
+		})
+
 		Describe("Offset", func() {
 			It("Should offset the entries returned", func(ctx SpecContext) {
 				toCreate := 100

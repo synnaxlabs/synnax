@@ -171,7 +171,9 @@ reads them:
   channels, EtherCAT read, Modbus read, OPC UA read, HTTP read, and every write task.
 
 An HTTP read task can also take its timestamps from the server response. See
-[endpoints and fields](/reference/hardware/http/read-task#endpoints-and-fields).
+[endpoints and fields](/reference/hardware/http/read-task#endpoints-and-fields). An
+EtherCAT read task can take its timestamps from the distributed clock of its modules.
+See [PDO channels](/reference/hardware/ethercat/read-task#pdo-channels).
 
 A hardware timed task that samples at 100 Hz and streams at 10 Hz gives these
 timestamps:

@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -42,10 +41,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Search is the search index for fuzzy searching logs.
-	//
-	// [REQUIRED]
-	Search *search.Index
 	// Signals is the optional cluster signals provider. When set, every successful
 	// Writer.Dispatch broadcasts a ScopedAction onto the sy_log_set channel, and
 	// deletes flow through sy_log_delete.
@@ -66,7 +61,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	return c
@@ -77,7 +71,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("log")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("search", c.Search)
 	v.NotNil("imex", c.ImEx)
 	return v.Error()
 }
@@ -87,6 +80,7 @@ type Service struct {
 	cfg    ServiceConfig
 	closer xio.MultiCloser
 	table  *gorp.Table[Key, Log]
+	search *gorp.SearchIndex[Key, Log]
 	state  *actions.State[Key, Action]
 }
 
@@ -98,18 +92,22 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, state: actions.NewState[Key, Action](cfg.DB)}
+	s = &Service{
+		cfg:    cfg,
+		state:  actions.NewState[Key, Action](cfg.DB),
+		search: newSearchIndex(),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Log]{
 		DB:              cfg.DB,
+		Indexes:         []gorp.Index[Key, Log]{s.search},
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
