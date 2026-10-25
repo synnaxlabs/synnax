@@ -14,12 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { box, xy } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useLayoutEffect,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useLayoutEffect } from "react";
 
 import { useContext, useFetchContext } from "@/lineplot/Frame";
 import { Viewport as Base } from "@/viewport";
@@ -43,13 +38,10 @@ export const Viewport = ({
     setViewport({ box: initial, mode: "zoom", cursor: xy.ZERO, stage: "start" });
   }, [setViewport, initial]);
 
-  const handleChange = useCallback(
-    (e: Base.UseEvent): void => {
-      setViewport(e);
-      onChange?.(e);
-    },
-    [onChange, setViewport],
-  );
+  const handleChange = (e: Base.UseEvent): void => {
+    setViewport(e);
+    onChange?.(e);
+  };
 
   const maskProps = Base.use({ onChange: handleChange, initial, ref, ...rest });
 

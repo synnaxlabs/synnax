@@ -13,7 +13,6 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Ranger, Synnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
 import { ContextMenu } from "@/platform/context-menu";
@@ -29,20 +28,17 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   const store = Session.useStore();
   const openTab = Panel.useOpenTab();
   const handleError = Status.useErrorHandler();
-  return useCallback(
-    (resource) => {
-      if (client == null) return;
-      handleError(
-        async () => {
-          const ranges = await client.ranges.retrieve([resource.id.key]);
-          store.dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
-          openTab({ variant: "resource", resource: resource.id });
-        },
-        { message: "Failed to select range", name: resource.name },
-      );
-    },
-    [client, store, openTab, handleError],
-  );
+  return (resource) => {
+    if (client == null) return;
+    handleError(
+      async () => {
+        const ranges = await client.ranges.retrieve([resource.id.key]);
+        store.dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
+        openTab({ variant: "resource", resource: resource.id });
+      },
+      { message: "Failed to select range", name: resource.name },
+    );
+  };
 };
 
 const haulItems = (resource: ontology.Resource): Haul.Item[] => {

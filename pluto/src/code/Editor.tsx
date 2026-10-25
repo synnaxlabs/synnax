@@ -23,10 +23,8 @@ import {
   type ReactNode,
   type Ref,
   type RefObject,
-  useCallback,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -448,23 +446,20 @@ const use = ({
     triggers: ESCAPE_TRIGGERS,
     priority: 120,
     double: true,
-    callback: useCallback(({ stage, target, stopPropagation }: Triggers.UseEvent) => {
+    callback: ({ stage, target, stopPropagation }: Triggers.UseEvent) => {
       if (stage !== "start" || containerRef.current?.contains(target) !== true) return;
       target.blur();
       stopPropagation();
-    }, []),
+    },
   });
 
-  const handle = useMemo<EditorHandle>(
-    () => ({
-      setValue: (next) => {
-        const model = editorRef.current?.getModel();
-        if (model == null) return;
-        setValueSuppressed(model, next, suppressChange);
-      },
-    }),
-    [],
-  );
+  const handle: EditorHandle = {
+    setValue: (next) => {
+      const model = editorRef.current?.getModel();
+      if (model == null) return;
+      setValueSuppressed(model, next, suppressChange);
+    },
+  };
 
   return { containerRef, editorRef, cursorRenameable, handle };
 };
@@ -516,18 +511,15 @@ const EditorInternal = ({
   });
   useImperativeHandle(ref, () => handle, [handle]);
 
-  const createMenuAction = useCallback(
-    (key: string) => () => {
-      const editor = editorRef.current;
-      if (editor == null) return;
-      editor.focus();
-      const action = MENU_EDITOR_ACTIONS[key];
-      editor.trigger("contextMenu", action, null);
-    },
-    [editorRef],
-  );
+  const createMenuAction = (key: string) => () => {
+    const editor = editorRef.current;
+    if (editor == null) return;
+    editor.focus();
+    const action = MENU_EDITOR_ACTIONS[key];
+    editor.trigger("contextMenu", action, null);
+  };
 
-  const menuContent = useCallback(() => {
+  const menuContent = () => {
     const editor = editorRef.current;
     const selection = editor?.getSelection();
     const hasSelection =
@@ -594,7 +586,7 @@ const EditorInternal = ({
         {extraMenuItems}
       </Menu.Menu>
     );
-  }, [createMenuAction, cursorRenameable, extraMenuItems, editorRef]);
+  };
 
   return (
     <Flex.Box

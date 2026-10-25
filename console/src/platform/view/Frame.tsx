@@ -22,14 +22,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, View as PView } from "@synnaxlabs/pluto";
 import { caseconv, location, uuid } from "@synnaxlabs/x";
 import { plural } from "pluralize";
-import {
-  Fragment,
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -55,63 +48,47 @@ const ZERO_VARIANTS: {
 };
 
 export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElement => {
-  const staticViewKey = useMemo(() => uuid.create(), []);
-  const staticViews = useMemo<StaticView[]>(
-    () => [
-      {
-        key: staticViewKey,
-        name: `All ${plural(resourceType)}`,
-        ...ZERO_VARIANTS[resourceType],
-        static: true,
-      },
-    ],
-    [resourceType, staticViewKey],
-  );
+  const staticViewKey = uuid.create();
+  const staticViews: StaticView[] = [
+    {
+      key: staticViewKey,
+      name: `All ${plural(resourceType)}`,
+      ...ZERO_VARIANTS[resourceType],
+      static: true,
+    },
+  ];
   const staticProps = List.useStaticData<view.Key, View>({ data: staticViews });
   const remoteProps = PView.useList({ initialQuery: { types: [resourceType] } });
   const { retrieve } = remoteProps;
-  const handleFetchMore = useCallback(() => retrieve((p) => p), [retrieve]);
+  const handleFetchMore = () => retrieve((p) => p);
   const combinedProps = List.useCombinedData<view.Key, View>({
     first: staticProps,
     second: remoteProps,
   });
   const { getItem } = combinedProps;
   if (getItem == null) throw new UnexpectedError("No item getter found");
-  const staticViewKeys = useMemo(() => staticViews.map((v) => v.key), [staticViews]);
+  const staticViewKeys = staticViews.map((v) => v.key);
   const [selected, setSelected] = useState(staticViews[0].key);
   const hasUpdatePermission = Access.useUpdateGranted(view.ontologyID(selected));
   const [editable, setEditable] = useState(false);
-  const getInitialView = useCallback(() => {
+  const getInitialView = () => {
     const view = getItem(selected);
     if (view == null) throw new UnexpectedError("No view found");
     return view;
-  }, [getItem, selected]);
-  const deleteSynchronizer = useCallback(
-    (key: view.Key) => {
-      if (key !== selected) return;
-      setSelected(staticViews[0].key);
-    },
-    [selected, staticViews],
-  );
+  };
+  const deleteSynchronizer = (key: view.Key) => {
+    if (key !== selected) return;
+    setSelected(staticViews[0].key);
+  };
   PView.useDeleteSynchronizer(deleteSynchronizer);
-  const contextValue = useMemo(
-    () => ({
-      resourceType,
-      selected,
-      editable: editable && hasUpdatePermission,
-      staticViews: staticViewKeys,
-      select: setSelected,
-      getInitialView,
-    }),
-    [
-      resourceType,
-      selected,
-      editable,
-      hasUpdatePermission,
-      staticViewKeys,
-      getInitialView,
-    ],
-  );
+  const contextValue = {
+    resourceType,
+    selected,
+    editable: editable && hasUpdatePermission,
+    staticViews: staticViewKeys,
+    select: setSelected,
+    getInitialView,
+  };
 
   return (
     <Flex.Box full="y" empty>
@@ -166,27 +143,21 @@ const Selector = ({
   const hasCreatePermission = Access.useCreateGranted(view.TYPE_ONTOLOGY_ID);
   const renameModal = Modals.useRename();
   const { update: create } = PView.useCreate({
-    beforeUpdate: useCallback(
-      async ({ data, rollbacks }: Flux.BeforeUpdateParams<view.New>) => {
-        const name = await renameModal({
-          initialValue: `View for ${plural(resourceType)}`,
-          title: "View.Create",
-          icon: Icon.resolve(icon),
-        });
-        if (name == null) return false;
-        const newKey = uuid.create();
-        const previousSelected = selected;
-        rollbacks.push(() => onSelect(previousSelected));
-        return { ...data, name, key: newKey };
-      },
-      [renameModal, resourceType, selected, onSelect, icon],
-    ),
-    afterSuccess: useCallback(
-      ({ data }: Flux.AfterSuccessParams<view.New>) => {
-        onSelect(data?.key ?? "");
-      },
-      [onSelect],
-    ),
+    beforeUpdate: async ({ data, rollbacks }: Flux.BeforeUpdateParams<view.New>) => {
+      const name = await renameModal({
+        initialValue: `View for ${plural(resourceType)}`,
+        title: "View.Create",
+        icon: Icon.resolve(icon),
+      });
+      if (name == null) return false;
+      const newKey = uuid.create();
+      const previousSelected = selected;
+      rollbacks.push(() => onSelect(previousSelected));
+      return { ...data, name, key: newKey };
+    },
+    afterSuccess: ({ data }: Flux.AfterSuccessParams<view.New>) => {
+      onSelect(data?.key ?? "");
+    },
   });
   const handleCreate = () => {
     const currentQuery = getItem(selected)?.query;
@@ -242,16 +213,13 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
     type: caseconv.capitalize(resourceType),
   });
   const { update: del } = PView.useDelete({
-    beforeUpdate: useCallback(
-      async ({ data }: Flux.BeforeUpdateParams<PView.DeleteParams>) => {
-        const views = getItem(keys);
-        const confirmed = await confirm(views);
-        if (!confirmed) return false;
-        if (keys.includes(selected)) select(staticViews[0]);
-        return data;
-      },
-      [getItem, keys, confirm, selected, select, staticViews],
-    ),
+    beforeUpdate: async ({ data }: Flux.BeforeUpdateParams<PView.DeleteParams>) => {
+      const views = getItem(keys);
+      const confirmed = await confirm(views);
+      if (!confirmed) return false;
+      if (keys.includes(selected)) select(staticViews[0]);
+      return data;
+    },
   });
   const canRename =
     Access.useUpdateGranted(view.ontologyID(editableKeys)) && editableKeys.length === 1;
@@ -311,10 +279,7 @@ const Item = ({ itemKey }: ItemProps): ReactElement | null => {
   const item = List.useItem<view.Key, View>(itemKey);
   const { update: rename } = PView.useRename();
   const canRename = Access.useUpdateGranted(view.ontologyID(itemKey));
-  const handleRename = useCallback(
-    (name: string) => rename({ key: itemKey, name }),
-    [itemKey, rename],
-  );
+  const handleRename = (name: string) => rename({ key: itemKey, name });
   if (item == null) return null;
   const { name } = item;
   return (
