@@ -459,6 +459,51 @@ describe("remote", () => {
         expect(scv.value()).toMatchObject({ data: 5, status: { variant: "success" } });
       });
 
+      it("should not report a failed read once live data arrives", async () => {
+        const statuses: cstatus.Crude[] = [];
+        let reject: (e: Error) => void = () => {};
+        c.feed.readLatest = async () =>
+          await new Promise<MultiSeries>((_, r) => {
+            reject = r;
+          });
+        const scv = new StreamChannelValue(
+          c,
+          { channel: c.channel.key },
+          { onStatusChange: (s) => statuses.push(s) },
+        );
+        await waitForStream(scv, c);
+        const live = new Series({ data: new Float32Array([5]) });
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        reject(new Error("read exploded"));
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(statuses).toEqual([]);
+        expect(scv.value()).toMatchObject({ data: 5, status: { variant: "success" } });
+      });
+
+      it("should not report a failed read from before a cleanup", async () => {
+        const statuses: cstatus.Crude[] = [];
+        let reject: (e: Error) => void = () => {};
+        c.feed.readLatest = async () =>
+          await new Promise<MultiSeries>((_, r) => {
+            reject = r;
+          });
+        const scv = new StreamChannelValue(
+          c,
+          { channel: c.channel.key },
+          { onStatusChange: (s) => statuses.push(s) },
+        );
+        await waitForStream(scv, c);
+        const stale = reject;
+        scv.cleanup();
+        c.feed.readLatest = async () => new MultiSeries([]);
+        await waitForStream(scv, c);
+        await expect.poll(() => scv.value().status.variant).toBe("success");
+        stale(new Error("read exploded"));
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(statuses).toEqual([]);
+        expect(scv.value().status.variant).toBe("success");
+      });
+
       describe("time", () => {
         it("should be undefined before an initial sample lands", () => {
           const scv = new StreamChannelValue(c, { channel: c.channel.key });
@@ -837,6 +882,31 @@ describe("remote", () => {
           new Map([[c.channel.key, new MultiSeries([new Series(["LIVE"])])]]),
         );
         expect(scsv.value().data).toBe("LIVE");
+      });
+
+      it("should not report a failed read once live data arrives", async () => {
+        const statuses: cstatus.Crude[] = [];
+        let reject: (e: Error) => void = () => {};
+        c.feed.readLatest = async () =>
+          await new Promise<MultiSeries>((_, r) => {
+            reject = r;
+          });
+        const scsv = new StreamChannelStringValue(
+          c,
+          { channel: c.channel.key },
+          { onStatusChange: (s) => statuses.push(s) },
+        );
+        await waitForStream(scsv, c);
+        c.streamHandler?.(
+          new Map([[c.channel.key, new MultiSeries([new Series(["LIVE"])])]]),
+        );
+        reject(new Error("read exploded"));
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(statuses).toEqual([]);
+        expect(scsv.value()).toMatchObject({
+          data: "LIVE",
+          status: { variant: "success" },
+        });
       });
 
       describe("time", () => {

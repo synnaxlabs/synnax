@@ -130,10 +130,11 @@ class FailureReporter {
 const sourceStatus = (loading: boolean, failures: FailureReporter): cstatus.Status =>
   loading ? LOADING_STATUS : (failures.status ?? SUCCESS_STATUS);
 
+// A failure goes to onError and reads as null.
 const readLatestSeries = async (
   client: Client,
   ch: channel.Channel,
-  failures: FailureReporter,
+  onError: (e: unknown) => void,
 ): Promise<Series | null> => {
   if (ch.virtual && !channel.isCalculated(ch)) return null;
   try {
@@ -141,7 +142,7 @@ const readLatestSeries = async (
     if (latest == null || latest.length === 0) return null;
     return latest;
   } catch (e) {
-    failures.report(e, "Failed to read latest value");
+    onError(e);
     return null;
   }
 };
@@ -256,7 +257,11 @@ export class StreamChannelValue
         this.notify();
         return;
       }
-      const latest = await readLatestSeries(client, ch, this.failures);
+      const latest = await readLatestSeries(client, ch, (e) => {
+        // A live sample or a cleanup makes the failed read moot.
+        if (generation === this.generation && this.leadingBuffer == null)
+          this.failures.report(e, "Failed to read latest value");
+      });
       if (generation !== this.generation) return;
       this.loading = false;
       if (latest == null || this.leadingBuffer != null) return;
@@ -562,7 +567,11 @@ export class StreamChannelStringValue
         this.notify();
         return;
       }
-      const latest = await readLatestSeries(client, ch, this.failures);
+      const latest = await readLatestSeries(client, ch, (e) => {
+        // A live sample or a cleanup makes the failed read moot.
+        if (generation === this.generation && this.leadingBuffer == null)
+          this.failures.report(e, "Failed to read latest value");
+      });
       if (generation !== this.generation) return;
       this.loading = false;
       if (latest == null || this.leadingBuffer != null) return;
