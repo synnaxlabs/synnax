@@ -514,11 +514,14 @@ func (r *reader) convert(now time.Time, msg message, b *batch) {
 
 // convertEvent applies one Sparkplug B message: a birth or a death changes which edge
 // nodes are offline, a lost birth gives the edge node the time of birthGrace to publish
-// a new one, and the values of the tags of the task go into b.
+// a new one, and the values of the tags of the task go into b. A message of an older
+// session gives its values only, since a new session can reach the reader before the
+// messages queued in the old one.
 func (r *reader) convertEvent(now time.Time, msg message, b *batch) {
 	ev := msg.sparkplug
+	current := msg.session == r.session
 	if ev.BirthLost {
-		if node := (tagScope{node: ev.Node}); r.reads(node) {
+		if node := (tagScope{node: ev.Node}); current && r.reads(node) {
 			r.awaited[node] = now.Add(r.birthGrace)
 		}
 		return
@@ -527,20 +530,22 @@ func (r *reader) convertEvent(now time.Time, msg message, b *batch) {
 	birth := false
 	switch ev.Type {
 	case sparkplug.NDeath, sparkplug.DDeath:
-		if r.reads(scope) {
+		if current && r.reads(scope) {
 			r.offline.Add(scope)
 			r.refreshOffline()
 		}
 		return
 	case sparkplug.NBirth, sparkplug.DBirth:
 		birth = true
-		delete(r.awaited, scope)
-		delete(r.offline, scope)
-		if ev.Type == sparkplug.NBirth {
-			r.awaitDevices(now, ev.Node)
+		if current {
+			delete(r.awaited, scope)
+			delete(r.offline, scope)
+			if ev.Type == sparkplug.NBirth {
+				r.awaitDevices(now, ev.Node)
+			}
+			r.refreshOffline()
+			r.checkBirth(now, scope, ev.Metrics)
 		}
-		r.refreshOffline()
-		r.checkBirth(now, scope, ev.Metrics)
 	}
 	for _, m := range ev.Metrics {
 		t, ok := r.tags[tagID{tagScope: scope, name: m.Name}]
