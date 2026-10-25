@@ -35,17 +35,17 @@ const (
 )
 
 type IteratorRequest struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Command          int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
-	Stamp            int64                  `protobuf:"varint,2,opt,name=stamp,proto3" json:"stamp,omitempty"`
-	Span             int64                  `protobuf:"varint,3,opt,name=span,proto3" json:"span,omitempty"`
-	Bounds           *pb.TimeRange          `protobuf:"bytes,4,opt,name=bounds,proto3" json:"bounds,omitempty"`
-	Keys             []uint32               `protobuf:"varint,6,rep,packed,name=keys,proto3" json:"keys,omitempty"`
-	ChunkSize        int64                  `protobuf:"varint,7,opt,name=chunk_size,json=chunkSize,proto3" json:"chunk_size,omitempty"`
-	SeqNum           int32                  `protobuf:"varint,8,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
-	DownsampleFactor uint32                 `protobuf:"varint,9,opt,name=downsample_factor,json=downsampleFactor,proto3" json:"downsample_factor,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Command       int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
+	Stamp         int64                  `protobuf:"varint,2,opt,name=stamp,proto3" json:"stamp,omitempty"`
+	Span          int64                  `protobuf:"varint,3,opt,name=span,proto3" json:"span,omitempty"`
+	Bounds        *pb.TimeRange          `protobuf:"bytes,4,opt,name=bounds,proto3" json:"bounds,omitempty"`
+	Keys          []uint32               `protobuf:"varint,6,rep,packed,name=keys,proto3" json:"keys,omitempty"`
+	ChunkSize     int64                  `protobuf:"varint,7,opt,name=chunk_size,json=chunkSize,proto3" json:"chunk_size,omitempty"`
+	SeqNum        int32                  `protobuf:"varint,8,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
+	Reduction     *pb.Reduction          `protobuf:"bytes,10,opt,name=reduction,proto3" json:"reduction,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *IteratorRequest) Reset() {
@@ -127,11 +127,11 @@ func (x *IteratorRequest) GetSeqNum() int32 {
 	return 0
 }
 
-func (x *IteratorRequest) GetDownsampleFactor() uint32 {
+func (x *IteratorRequest) GetReduction() *pb.Reduction {
 	if x != nil {
-		return x.DownsampleFactor
+		return x.Reduction
 	}
-	return 0
+	return nil
 }
 
 type IteratorResponse struct {
@@ -630,7 +630,7 @@ var File_core_pkg_distribution_framer_pb_framer_proto protoreflect.FileDescripto
 
 const file_core_pkg_distribution_framer_pb_framer_proto_rawDesc = "" +
 	"\n" +
-	",core/pkg/distribution/framer/pb/framer.proto\x12\x1asynnax.distribution.framer\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1dx/go/control/pb/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x19x/go/telem/pb/frame.proto\x1a\x19x/go/telem/pb/telem.proto\"\xfd\x01\n" +
+	",core/pkg/distribution/framer/pb/framer.proto\x12\x1asynnax.distribution.framer\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1dx/go/control/pb/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x19x/go/telem/pb/frame.proto\x1a\x19x/go/telem/pb/telem.proto\"\x8b\x02\n" +
 	"\x0fIteratorRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x14\n" +
 	"\x05stamp\x18\x02 \x01(\x03R\x05stamp\x12\x12\n" +
@@ -639,8 +639,10 @@ const file_core_pkg_distribution_framer_pb_framer_proto_rawDesc = "" +
 	"\x04keys\x18\x06 \x03(\rR\x04keys\x12\x1d\n" +
 	"\n" +
 	"chunk_size\x18\a \x01(\x03R\tchunkSize\x12\x17\n" +
-	"\aseq_num\x18\b \x01(\x05R\x06seqNum\x12+\n" +
-	"\x11downsample_factor\x18\t \x01(\rR\x10downsampleFactor\"\xde\x01\n" +
+	"\aseq_num\x18\b \x01(\x05R\x06seqNum\x123\n" +
+	"\treduction\x18\n" +
+	" \x01(\v2\x15.x.telem.pb.ReductionR\treductionJ\x04\b\t\x10\n" +
+	"\"\xde\x01\n" +
 	"\x10IteratorResponse\x12\x18\n" +
 	"\avariant\x18\x01 \x01(\x05R\avariant\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\x05R\acommand\x12'\n" +
@@ -714,34 +716,36 @@ var file_core_pkg_distribution_framer_pb_framer_proto_goTypes = []any{
 	(*WriterResponse)(nil),   // 6: synnax.distribution.framer.WriterResponse
 	(*DeleteRequest)(nil),    // 7: synnax.distribution.framer.DeleteRequest
 	(*pb.TimeRange)(nil),     // 8: x.telem.pb.TimeRange
-	(*pb.Frame)(nil),         // 9: x.telem.pb.Frame
-	(*errors.PBPayload)(nil), // 10: errors.PBPayload
-	(*pb1.Subject)(nil),      // 11: x.control.pb.Subject
-	(*emptypb.Empty)(nil),    // 12: google.protobuf.Empty
+	(*pb.Reduction)(nil),     // 9: x.telem.pb.Reduction
+	(*pb.Frame)(nil),         // 10: x.telem.pb.Frame
+	(*errors.PBPayload)(nil), // 11: errors.PBPayload
+	(*pb1.Subject)(nil),      // 12: x.control.pb.Subject
+	(*emptypb.Empty)(nil),    // 13: google.protobuf.Empty
 }
 var file_core_pkg_distribution_framer_pb_framer_proto_depIdxs = []int32{
 	8,  // 0: synnax.distribution.framer.IteratorRequest.bounds:type_name -> x.telem.pb.TimeRange
-	9,  // 1: synnax.distribution.framer.IteratorResponse.frame:type_name -> x.telem.pb.Frame
-	10, // 2: synnax.distribution.framer.IteratorResponse.error:type_name -> errors.PBPayload
-	9,  // 3: synnax.distribution.framer.RelayResponse.frame:type_name -> x.telem.pb.Frame
-	10, // 4: synnax.distribution.framer.RelayResponse.error:type_name -> errors.PBPayload
-	5,  // 5: synnax.distribution.framer.WriterRequest.config:type_name -> synnax.distribution.framer.WriterConfig
-	9,  // 6: synnax.distribution.framer.WriterRequest.frame:type_name -> x.telem.pb.Frame
-	11, // 7: synnax.distribution.framer.WriterConfig.control_subject:type_name -> x.control.pb.Subject
-	8,  // 8: synnax.distribution.framer.DeleteRequest.bounds:type_name -> x.telem.pb.TimeRange
-	0,  // 9: synnax.distribution.framer.IteratorService.Iterate:input_type -> synnax.distribution.framer.IteratorRequest
-	2,  // 10: synnax.distribution.framer.RelayService.Relay:input_type -> synnax.distribution.framer.RelayRequest
-	4,  // 11: synnax.distribution.framer.WriterService.Write:input_type -> synnax.distribution.framer.WriterRequest
-	7,  // 12: synnax.distribution.framer.DeleteService.Exec:input_type -> synnax.distribution.framer.DeleteRequest
-	1,  // 13: synnax.distribution.framer.IteratorService.Iterate:output_type -> synnax.distribution.framer.IteratorResponse
-	3,  // 14: synnax.distribution.framer.RelayService.Relay:output_type -> synnax.distribution.framer.RelayResponse
-	6,  // 15: synnax.distribution.framer.WriterService.Write:output_type -> synnax.distribution.framer.WriterResponse
-	12, // 16: synnax.distribution.framer.DeleteService.Exec:output_type -> google.protobuf.Empty
-	13, // [13:17] is the sub-list for method output_type
-	9,  // [9:13] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	9,  // 1: synnax.distribution.framer.IteratorRequest.reduction:type_name -> x.telem.pb.Reduction
+	10, // 2: synnax.distribution.framer.IteratorResponse.frame:type_name -> x.telem.pb.Frame
+	11, // 3: synnax.distribution.framer.IteratorResponse.error:type_name -> errors.PBPayload
+	10, // 4: synnax.distribution.framer.RelayResponse.frame:type_name -> x.telem.pb.Frame
+	11, // 5: synnax.distribution.framer.RelayResponse.error:type_name -> errors.PBPayload
+	5,  // 6: synnax.distribution.framer.WriterRequest.config:type_name -> synnax.distribution.framer.WriterConfig
+	10, // 7: synnax.distribution.framer.WriterRequest.frame:type_name -> x.telem.pb.Frame
+	12, // 8: synnax.distribution.framer.WriterConfig.control_subject:type_name -> x.control.pb.Subject
+	8,  // 9: synnax.distribution.framer.DeleteRequest.bounds:type_name -> x.telem.pb.TimeRange
+	0,  // 10: synnax.distribution.framer.IteratorService.Iterate:input_type -> synnax.distribution.framer.IteratorRequest
+	2,  // 11: synnax.distribution.framer.RelayService.Relay:input_type -> synnax.distribution.framer.RelayRequest
+	4,  // 12: synnax.distribution.framer.WriterService.Write:input_type -> synnax.distribution.framer.WriterRequest
+	7,  // 13: synnax.distribution.framer.DeleteService.Exec:input_type -> synnax.distribution.framer.DeleteRequest
+	1,  // 14: synnax.distribution.framer.IteratorService.Iterate:output_type -> synnax.distribution.framer.IteratorResponse
+	3,  // 15: synnax.distribution.framer.RelayService.Relay:output_type -> synnax.distribution.framer.RelayResponse
+	6,  // 16: synnax.distribution.framer.WriterService.Write:output_type -> synnax.distribution.framer.WriterResponse
+	13, // 17: synnax.distribution.framer.DeleteService.Exec:output_type -> google.protobuf.Empty
+	14, // [14:18] is the sub-list for method output_type
+	10, // [10:14] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_distribution_framer_pb_framer_proto_init() }

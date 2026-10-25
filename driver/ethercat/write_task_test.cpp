@@ -254,7 +254,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithStateChannel) {
     ASSERT_NIL(parser.error());
     ASSERT_EQ(task_cfg.outputs.size(), 1);
     ASSERT_TRUE(task_cfg.outputs[0]->state.has_value());
-    EXPECT_EQ(task_cfg.outputs[0]->state->key, state_ch.key);
+    EXPECT_EQ(task_cfg.outputs[0]->state.value().key, state_ch.key);
 }
 
 /// @brief it should pair each state channel with the command channel that names it, not
@@ -296,7 +296,7 @@ TEST_F(EtherCATWriteTest, StateChannelPairsWithItsOwnCommandChannel) {
     EXPECT_FALSE(outs[0].state.has_value());
     EXPECT_EQ(outs[1].command, cmd_2.key);
     ASSERT_TRUE(outs[1].state.has_value());
-    EXPECT_EQ(outs[1].state->key, state_2.key);
+    EXPECT_EQ(outs[1].state.value().key, state_2.key);
 }
 
 TEST_F(EtherCATWriteTest, ParseConfigWithMultipleChannels) {

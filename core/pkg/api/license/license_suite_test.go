@@ -16,10 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
-	svc "github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -36,7 +33,7 @@ import (
 
 func TestAPILicense(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API License Suite")
+	RunSpecs(t, "API License Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -69,9 +66,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	licenseSvc = MustOpen(license.OpenService(ctx, license.ServiceConfig{
 		DB: kvDB, Anchors: signer.Anchors,
 	}))
-	apiSvc = MustSucceed(apilicense.NewService(apicfg.LayerConfig{
-		Distribution: &distribution.Layer{DB: db},
-		Service:      &svc.Layer{RBAC: rbacSvc, License: licenseSvc},
+	apiSvc = MustSucceed(apilicense.NewService(apilicense.ServiceConfig{
+		RBAC:    rbacSvc,
+		License: licenseSvc,
 	}))
 })
 

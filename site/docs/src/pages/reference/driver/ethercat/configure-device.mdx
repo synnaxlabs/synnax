@@ -12,7 +12,7 @@ nextURL: "/reference/driver/ethercat/read-task"
 import { Text as TextComponent } from "@/components/text";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Image, Video } from "@/components/media/Media";
 import { Details } from "@/components/details";
@@ -33,7 +33,7 @@ Before configuring EtherCAT devices, ensure you have:
 3. An EtherCAT master configured (IgH kernel module or SOEM).
 4. The [Synnax Console](/reference/console/get-started) installed on your local machine.
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   All channels in a task must use devices connected to the **same network interface**.
   If you have devices on multiple EtherCAT networks, create separate tasks for each
   network.
@@ -55,6 +55,24 @@ The scan task runs periodically to detect new devices and update device informat
 
 <Divider.Divider x />
 
+## Device status
+
+While a task uses the network, the status of each device shows its live state. The scan
+task updates it every 5 seconds.
+
+| Status                                    | Meaning                                                                                                                                        |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Operational**                           | The device exchanges data in OP.                                                                                                               |
+| **In SAFE-OP**, **In PRE-OP**             | The device left OP. The Driver is returning it to OP.                                                                                          |
+| **Error in SAFE-OP**, **Error in PRE-OP** | The device reports an error. The status description shows the error text of the device. With IgH, the kernel log shows the error code instead. |
+| **Not responding**                        | The device does not answer. Check its power and cabling.                                                                                       |
+| **Device disconnected**                   | The last scan did not find the device.                                                                                                         |
+
+When no task uses the network, the status shows what discovery found, for example
+**Discovered (4 inputs, 2 outputs)**.
+
+<Divider.Divider x />
+
 ## Device properties reference
 
 When a device is discovered, Synnax stores the following properties:
@@ -62,7 +80,7 @@ When a device is discovered, Synnax stores the following properties:
 | Property             | Type    | Description                                                               |
 | -------------------- | ------- | ------------------------------------------------------------------------- |
 | `name`               | string  | Human-readable device name from ESI file                                  |
-| `serial`             | string  | Unique device serial number                                               |
+| `serial`             | number  | Unique device serial number                                               |
 | `vendor_id`          | number  | EtherCAT vendor ID                                                        |
 | `product_code`       | number  | Device model/product identifier                                           |
 | `revision`           | number  | Hardware/firmware revision number                                         |
@@ -331,7 +349,7 @@ import synnax as sy
 client = sy.Synnax()
 
 # Retrieve every EtherCAT device
-ethercat_devices = client.devices.retrieve(makes=["EtherCAT"])
+ethercat_devices = client.devices.retrieve(makes=["ethercat"])
 
 for dev in ethercat_devices:
     print(f"Device: {dev.name}")
@@ -370,7 +388,7 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve every EtherCAT device
-const ethercatDevices = await client.devices.retrieve({ makes: ["EtherCAT"] });
+const ethercatDevices = await client.devices.retrieve({ makes: ["ethercat"] });
 
 for (const dev of ethercatDevices) {
   console.log(`Device: ${dev.name}`);

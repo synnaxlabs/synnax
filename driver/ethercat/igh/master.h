@@ -109,6 +109,9 @@ public:
     /// OP to it on its own, so this takes no recovery step.
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
+    /// @brief returns nullopt, since this master does not read the distributed clock.
+    std::optional<x::telem::TimeStamp> dc_time() const override { return std::nullopt; }
+
     std::string interface_name() const override;
 
 private:

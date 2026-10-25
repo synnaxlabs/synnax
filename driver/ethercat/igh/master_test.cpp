@@ -63,6 +63,19 @@ TEST_F(IGHMasterTest, InitializeHappyPath) {
     EXPECT_EQ(slaves.size(), 1u);
 }
 
+/// @brief it should return the device check error when the Driver cannot open the
+/// device of the master.
+TEST_F(IGHMasterTest, InitializeDeviceCheckFails) {
+    this->add_default_slave();
+    this->mock_api->set_check_device_err(
+        x::errors::Error(
+            errors::PERMISSION_DENIED,
+            "permission denied opening /dev/EtherCAT0"
+        )
+    );
+    ASSERT_OCCURRED_AS(this->master_instance->initialize(), errors::PERMISSION_DENIED);
+}
+
 TEST_F(IGHMasterTest, InitializeRequestMasterFails) {
     this->mock_api->set_request_master_result(nullptr);
     ASSERT_OCCURRED_AS(this->master_instance->initialize(), errors::MASTER_INIT_ERROR);
@@ -470,8 +483,9 @@ TEST_F(IGHMasterTest, PaddingIsDiscoveredButNotRegistered) {
     EXPECT_EQ(this->mock_api->registered_entries, registered);
 }
 
-/// @brief it should fill the data types of live entries from the device registry.
-TEST_F(IGHMasterTest, RegistryFillsDataTypesOfLiveEntries) {
+/// @brief it should fill the names and data types of live entries from the device
+/// registry, so a rescan keeps the names that automatic channels refer to.
+TEST_F(IGHMasterTest, RegistryFillsNamesAndDataTypesOfLiveEntries) {
     constexpr uint32_t beckhoff = 0x00000002;
     constexpr uint32_t el3102 = 0x0C1E3052;
     slave::Properties registry{};
@@ -488,6 +502,7 @@ TEST_F(IGHMasterTest, RegistryFillsDataTypesOfLiveEntries) {
 
     const auto inputs = this->master_instance->slaves()[0].properties.input_pdos;
     ASSERT_EQ(inputs.size(), 1);
+    EXPECT_EQ(inputs[0].name, known->name);
     EXPECT_EQ(inputs[0].data_type, known->data_type);
 }
 

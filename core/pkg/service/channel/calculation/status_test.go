@@ -37,13 +37,12 @@ var _ = Describe("Status", func() {
 			st := calculation.StatusFromError(
 				channel.Key(42),
 				"my_channel",
-				"expression parse failed",
 				errors.New("unexpected token"),
 			)
 			Expect(st.Key).To(Equal(calculation.StatusKey(42)))
 			Expect(st.Name).To(Equal("my_channel"))
 			Expect(st.Variant).To(Equal(status.VariantError))
-			Expect(st.Message).To(Equal("expression parse failed"))
+			Expect(st.Message).To(Equal("Failed to compile calculation"))
 			Expect(st.Description).To(Equal("unexpected token"))
 			Expect(st.Time).ToNot(BeZero())
 		})

@@ -179,7 +179,7 @@ export const useSingle = <K extends record.Key>({
       onChange(key, { clicked: key });
       if (closeDialogOnSelect) close();
     },
-    [onChange, close, clear, closeDialogOnSelect],
+    [valueRef, onChange, close, clear, closeDialogOnSelect],
   );
 
   const setSelected = useCallback(
@@ -270,7 +270,17 @@ export const useMultiple = <K extends record.Key>({
       onChange(v, { clicked: key });
       if (closeDialogOnSelect) close();
     },
-    [valueRef, getOrder, onChange, close],
+    [
+      valueRef,
+      ctrl,
+      shift,
+      replaceOnSingle,
+      getOrder,
+      allowNone,
+      onChange,
+      closeDialogOnSelect,
+      close,
+    ],
   );
   const clear = useCallback((): void => onChange([], { clicked: null }), [onChange]);
   const setSelected = useCallback(

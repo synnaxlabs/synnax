@@ -59,6 +59,8 @@ class Master final : public master::Master {
     bool activated;
     /// @brief expected working counter value for cyclic exchange.
     int expected_wkc;
+    /// @brief whether the enabled slaves' frames carry the reference clock time.
+    bool has_dc = false;
 
 public:
     /// @brief constructs a SOEM master with injected API and interface name.
@@ -91,6 +93,8 @@ public:
     std::vector<slave::DiscoveryResult> slaves() const override;
 
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
+
+    std::optional<x::telem::TimeStamp> dc_time() const override;
 
     std::string interface_name() const override;
 

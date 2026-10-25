@@ -11,7 +11,7 @@ nextURL: "/reference/driver/ethercat/configure-device"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -37,7 +37,7 @@ that provides deterministic, real-time EtherCAT communication.
 - Requires kernel module installation
 - Linux only (including NI Linux Real-Time)
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   For installation instructions, see the [IgH EtherCAT Master
   documentation](https://etherlab.org/en_GB/ethercat). Note that IgH requires a
   compatible network interface card.
@@ -79,10 +79,68 @@ The Synnax Driver works with any EtherCAT-compatible device. Common vendors incl
 | <Icon.Logo.Apple /> macOS           | ✓ Supported     | SOEM           |
 | <Icon.Logo.Docker /> Docker         | ✗ Not Supported | -              |
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   Docker is not supported because EtherCAT requires direct access to the network
   interface for raw Ethernet communication.
 </Note.Note>
+
+<Divider.Divider x />
+
+## Network interface access
+
+EtherCAT sends raw Ethernet frames, so the Driver needs direct access to the network
+interface. Connect your devices to a dedicated Ethernet port. Do not connect that port
+to a switch or to your office network.
+
+| Platform                    | What the Driver needs                                                                                                      |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Linux service               | Nothing. The service has raw Ethernet access and IgH access.                                                               |
+| Linux, embedded in the Core | Run the Core as root. Without IgH, you can also start the Core from a systemd unit with `AmbientCapabilities=CAP_NET_RAW`. |
+| NI Linux Real-Time          | Nothing. The service runs as root.                                                                                         |
+| Windows                     | [Npcap](https://npcap.com/#download).                                                                                      |
+| macOS                       | Root access, because only root can open the packet capture devices (`/dev/bpf*`).                                          |
+
+The Core's Docker image runs as a user without these permissions, so its embedded Driver
+cannot run EtherCAT tasks.
+
+To start the Driver on Linux by hand, run it as root or give it the access that the
+service has. Without IgH, the Driver needs the raw Ethernet capability:
+
+```bash
+sudo setcap cap_net_raw+ep /usr/local/bin/synnax-driver
+```
+
+With IgH, the Driver needs access to the master device (`/dev/EtherCAT0`) instead.
+`sudo synnax-driver install` gives this access to the `synnax` group, so add your user
+to that group, then log in again:
+
+```bash
+sudo usermod -aG synnax $USER
+```
+
+<Note.Note variant="info">
+  A service installed by an older Driver does not have these permissions. To update it,
+  run `sudo synnax-driver install` again.
+</Note.Note>
+
+<Divider.Divider x />
+
+## How the Driver runs a network
+
+- **One bus per interface** -> All read and write tasks on a network interface share one
+  bus. Starting or stopping one task does not interrupt the others.
+- **Start and stop** -> The bus starts when the first task starts and stops when the
+  last task stops.
+- **Cycle rate** -> The bus cycles at the slowest rate that is a multiple of each read
+  task's sample rate and at least each write task's rate. The rate is always between 100
+  Hz and 10 kHz. For example, read tasks at 250 Hz and 1 kHz make the bus cycle at 1
+  kHz.
+- **Outputs** -> Each output holds the last value a write task commanded. When a write
+  task stops, its outputs go to zero. An output that another running write task
+  commanded keeps the last value of that task instead.
+- **Lost devices** -> When a device stops responding, the bus continues to cycle and the
+  Driver returns the device to operation when it responds again. Until then, every read
+  task on the network drops samples and shows a warning.
 
 <Divider.Divider x />
 

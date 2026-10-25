@@ -17,6 +17,8 @@ import { toMarkdown } from "mdast-util-to-markdown";
 const UI_TAGS = new Set(["button", "script", "style", "svg", "template"]);
 const UI_CLASSES = [
   "blog-author__photo",
+  // Marks a control that works only in the browser, such as an interactive demo.
+  "docs-ui",
   "heading-anchor",
   "next-prev",
   "pluto-breadcrumb",

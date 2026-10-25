@@ -47,9 +47,8 @@ inline x::errors::Error translate_error(const x::errors::Error &err) {
     if (err.matches(daqmx::APPLICATION_TOO_SLOW))
         return {x::errors::Error(
             errors::CRITICAL_HARDWARE_ERROR,
-            "the network cannot keep up with the stream rate specified. try making "
-            "the "
-            "sample rate a higher multiple of the stream rate"
+            "The network cannot keep up with the stream rate. Make the sample rate a "
+            "higher multiple of the stream rate."
         )};
     return err.skip(daqmx::ANALOG_WRITE_OUT_OF_BOUNDS);
 }

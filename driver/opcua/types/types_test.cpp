@@ -495,14 +495,7 @@ TEST(TypesTest, ParseInvalidByteStringNodeIdFromJSON) {
     ASSERT_EQ(parser.errors->size(), 1);
     const auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "node_id");
-    EXPECT_EQ(
-        err["message"],
-        x::errors::Error(
-            x::errors::VALIDATION,
-            "Invalid base64 in ByteString identifier: AAE"
-        )
-            .message()
-    );
+    EXPECT_EQ(err["message"], "Invalid base64 in ByteString identifier: AAE");
 }
 
 /// @brief it should round-trip NodeId through parse and to_string.

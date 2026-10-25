@@ -8,17 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { color, TimeStamp } from "@synnaxlabs/x";
-import React, {
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useMemo,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
 import { z } from "zod";
 
 import { context } from "@/context";
 import { useSyncedRef } from "@/hooks";
-import { type state } from "@/state";
+import { state } from "@/state";
 
 export const relevancyZ = z.object({
   lastUsed: z.number(),
@@ -73,14 +68,21 @@ export const recalculate = (limit: number, frequent: Frequent): Frequent => {
 };
 
 export interface ProviderProps extends PropsWithChildren<{}> {
-  useState?: state.PureUse<ContextState>;
+  /** The color state. Set it, with `onChange`, to let the caller own it. */
+  value?: ContextState;
+  onChange?: (state: ContextState) => void;
 }
 
 export const Provider = ({
-  useState = React.useState,
+  value: controlled,
+  onChange,
   children,
 }: ProviderProps): ReactElement => {
-  const [value, setValue] = useState(ZERO_CONTEXT_STATE);
+  const [value, setValue] = state.usePurePassthrough({
+    initialValue: ZERO_CONTEXT_STATE,
+    value: controlled,
+    onChange,
+  });
 
   const valueRef = useSyncedRef(value);
 
@@ -100,7 +102,7 @@ export const Provider = ({
       const nextFreq = recalculate(10, next);
       setValue({ ...prev, frequent: nextFreq });
     },
-    [setValue],
+    [valueRef, setValue],
   );
 
   const memoValue = useMemo(

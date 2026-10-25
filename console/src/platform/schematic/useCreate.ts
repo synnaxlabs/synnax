@@ -32,8 +32,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   const { capture } = Analytics.use();
   const { update } = Schematic.useCreate({
     afterOptimistic: ({ data: { key } }) => {
-      project ??= getActiveProject();
-      maybeChangeProject(project);
+      maybeChangeProject(project ?? getActiveProject());
       dispatch(Session.Schematic.create({ key, editable: true }));
       openTab({
         variant: "resource",
@@ -46,6 +45,6 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   return useCallback(
     (params = {}) =>
       update({ name: "Schematic", ...params, project: project ?? getActiveProject() }),
-    [update, project],
+    [update, project, getActiveProject],
   );
 };

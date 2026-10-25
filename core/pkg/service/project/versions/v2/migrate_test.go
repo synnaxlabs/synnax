@@ -19,7 +19,6 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -33,7 +32,7 @@ var _ = Describe("MigrateProject", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Project",
-			Migrations: []migrate.Migration{v2.Migration},
+			Migrations: []gorp.Migration{v2.Migration},
 		})).To(Succeed())
 		var got v2.Project
 		Expect(gorp.NewRetrieve[v2.Key, v2.Project]().

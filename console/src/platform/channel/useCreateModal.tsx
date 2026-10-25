@@ -25,7 +25,7 @@ import { Triggers } from "@/platform/triggers";
 
 const INDEX_QUERY: Partial<Channel.RetrieveMultipleQuery> = { isIndex: true };
 
-export const useCreateModal = Modals.create(({ close }) => {
+const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const [createMore, setCreateMore] = useState(false);
   const { capture } = Analytics.use();
   const { form, variant, save } = Channel.useForm({
@@ -120,4 +120,6 @@ export const useCreateModal = Modals.create(({ close }) => {
       </Modal.Footer>
     </Modal.Frame>
   );
-});
+};
+
+export const useCreateModal = Modals.create(Create);

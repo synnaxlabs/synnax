@@ -202,7 +202,7 @@ bool lookup_device_pdos(
     return true;
 }
 
-void fill_data_types(slave::Properties &slave) {
+void fill_known_entries(slave::Properties &slave) {
     slave::Properties registry{};
     if (!lookup_device_pdos(
             slave.vendor_id,
@@ -214,12 +214,14 @@ void fill_data_types(slave::Properties &slave) {
     const auto fill = [](std::vector<pdo::Properties> &entries,
                          const std::vector<pdo::Properties> &known) {
         for (auto &entry: entries) {
+            if (entry.is_padding()) continue;
             const auto it = std::ranges::find_if(known, [&entry](const auto &k) {
                 return k.index == entry.index && k.sub_index == entry.sub_index &&
                        k.bit_length == entry.bit_length;
             });
-            if (!entry.is_padding() && it != known.end())
-                entry.data_type = it->data_type;
+            if (it == known.end()) continue;
+            entry.name = it->name;
+            entry.data_type = it->data_type;
         }
     };
     fill(slave.input_pdos, registry.input_pdos);

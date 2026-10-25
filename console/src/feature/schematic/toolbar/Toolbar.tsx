@@ -194,7 +194,7 @@ const Internal = (): ReactElement => {
         }),
       );
     },
-    [dispatch],
+    [dispatch, key],
   );
   return (
     <Base.Content>

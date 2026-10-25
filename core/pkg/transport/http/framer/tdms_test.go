@@ -10,6 +10,7 @@
 package framer_test
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"math/bits"
@@ -740,7 +741,11 @@ var _ = Describe("TDMS", func() {
 					response(
 						channels,
 						[]svcchannel.Channel{index},
-						svcframer.IteratorConfig{DownsampleFactor: 2},
+						svcframer.IteratorConfig{
+							Reduction: telem.Reduction{
+								Variant: telem.StrideReduction{Factor: 2},
+							},
+						},
 					),
 				),
 			))
@@ -949,6 +954,35 @@ var _ = Describe("TDMS", func() {
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(channels[0].Name)),
 			))
+		})
+
+		It("Should fail a limited read before the first byte", func(ctx SpecContext) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+				channels,
+				telem.NewSeriesV[float32](1, 2, 3, 4),
+			)
+			res := response(
+				channels,
+				[]svcchannel.Channel{index},
+				svcframer.IteratorConfig{
+					Reduction: telem.Reduction{
+						Variant: telem.LimitReduction{
+							Aggregation: telem.AggregationDecimate,
+							PointLimit:  2,
+						},
+					},
+				},
+			)
+			var buf bytes.Buffer
+			Expect(framer.TDMSEncoder.EncodeStream(ctx, &buf, res)).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("cannot take a limit reduction")),
+			))
+			Expect(buf.Len()).To(BeZero())
 		})
 
 		It("Should return an error for a data type with no TDMS form", func(

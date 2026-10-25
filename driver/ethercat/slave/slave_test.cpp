@@ -110,8 +110,8 @@ TEST(PropertiesFindInputPdo, ReturnsMatchingPdo) {
     };
     auto result = props.find_input_pdo("Velocity");
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->name, "Velocity");
-    ASSERT_EQ(result->bit_length, 32);
+    ASSERT_EQ(result.value().name, "Velocity");
+    ASSERT_EQ(result.value().bit_length, 32);
 }
 
 TEST(PropertiesFindOutputPdo, ReturnsNulloptWhenEmpty) {
@@ -149,8 +149,8 @@ TEST(PropertiesFindOutputPdo, ReturnsMatchingPdo) {
     };
     auto result = props.find_output_pdo("ControlWord");
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->name, "ControlWord");
-    ASSERT_EQ(result->bit_length, 8);
+    ASSERT_EQ(result.value().name, "ControlWord");
+    ASSERT_EQ(result.value().bit_length, 8);
 }
 
 TEST(PropertiesParse, ParsesBasicProperties) {

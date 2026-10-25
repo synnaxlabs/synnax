@@ -55,7 +55,7 @@ export const useDwell = (): Dwell => {
         pending.current = undefined;
         const selected = getSelected();
         if (selected === key) return;
-        origin.current ??= selected;
+        if (origin.current == null) origin.current = selected;
         dispatch(Session.Panel.select({ key }));
       }, DWELL_DURATION);
     },

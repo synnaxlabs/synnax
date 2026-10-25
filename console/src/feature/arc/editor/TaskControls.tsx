@@ -21,6 +21,7 @@ import { Framer } from "@/platform/framer";
 import { Task } from "@/platform/task";
 
 const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
+const RACK_TRIGGER_PROPS = { collapsible: true };
 
 export const TaskControls = () => {
   const key = Arc.useKey();
@@ -60,6 +61,7 @@ export const TaskControls = () => {
             onChange={handleRackChange}
             location="top"
             initialQuery={INITIAL_RACK_QUERY}
+            triggerProps={RACK_TRIGGER_PROPS}
           />
           <SelectPerformance
             value={taskPerformance}
