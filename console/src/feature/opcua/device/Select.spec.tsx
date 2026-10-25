@@ -45,7 +45,7 @@ describe("OPCUA.Device.Select", () => {
       target: { value: dev.name },
     });
     fireEvent.click(await screen.findByText(dev.name));
-    await screen.findByText("Server");
+    await screen.findByText("OPC UA server");
     await waitFor(() => expect(screen.getByDisplayValue(dev.name)).toBeTruthy());
   });
 });

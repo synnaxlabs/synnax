@@ -12,27 +12,49 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Device } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { useConnectModal } from "@/feature/device/Connect";
+import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
 import { Tree } from "@/platform/tree";
 
-const Content = (): ReactElement => (
-  <Toolbar.Content>
-    <Toolbar.Header>
-      <Toolbar.Title>
-        <Icon.Device />
-        Devices
-      </Toolbar.Title>
-    </Toolbar.Header>
-    <Toolbar.Body>
-      <Body />
-    </Toolbar.Body>
-  </Toolbar.Content>
-);
-
-const Body = (): ReactElement => {
+const Content = (): ReactElement => {
+  const openConnect = useConnectModal();
+  const canCreate = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
   const groupID = Device.useGroupID({});
-  return <Tree.Tree root={groupID} />;
+  return (
+    <Toolbar.Content>
+      <Toolbar.Header>
+        <Toolbar.Title>
+          <Icon.Device />
+          Devices
+        </Toolbar.Title>
+        {canCreate && (
+          <Toolbar.Actions>
+            <Toolbar.Action
+              tooltip="Connect device"
+              onClick={() => openConnect()}
+              variant="filled"
+            >
+              <Icon.Add />
+            </Toolbar.Action>
+          </Toolbar.Actions>
+        )}
+      </Toolbar.Header>
+      <Toolbar.Body>
+        <Tree.Tree
+          root={groupID}
+          emptyContent={
+            <Empty.Action
+              message="No devices"
+              action={canCreate ? "Connect device" : undefined}
+              onClick={() => openConnect()}
+            />
+          }
+        />
+      </Toolbar.Body>
+    </Toolbar.Content>
+  );
 };
 
 export const TOOLBAR: Nav.Toolbar = {
