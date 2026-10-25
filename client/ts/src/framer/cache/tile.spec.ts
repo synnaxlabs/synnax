@@ -21,6 +21,7 @@ import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
+import { rawKey } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
 import { Store, type StoreProps } from "@/framer/cache/store";
 import { TileReader, type TileReaderProps, type TileSpec } from "@/framer/cache/tile";
@@ -384,6 +385,33 @@ describe("tile", () => {
         const other = await reader.read(createSpec({ index: 1, key: 2 }));
         expect(other.dataType.equals(DataType.FLOAT64)).toBe(true);
         expect(calls).toHaveLength(5);
+        reader.close();
+      });
+
+      it("should drop a channel's raw blocks when a tile fetch returns a new data type", async () => {
+        const { reader, store } = createReader({
+          readRemote: async (tr, keys) =>
+            new Frame(
+              keys,
+              keys.map(
+                (key) =>
+                  new Series({
+                    data: new Array(SAMPLES).fill(key),
+                    dataType: DataType.UINT8,
+                    timeRange: tr,
+                  }),
+              ),
+            ),
+        });
+        store.retainDataType(1, DataType.FLOAT64);
+        const block = store.raw(1, 0);
+        block.fill(
+          [new Series({ data: new Float64Array([1]), timeRange: block.range })],
+          block.range.end,
+          1,
+        );
+        await reader.read(createSpec());
+        expect(store.get(rawKey(1, 0))).toBeUndefined();
         reader.close();
       });
     });

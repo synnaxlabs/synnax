@@ -28,7 +28,7 @@ import { RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
 import { Reader, type ReaderProps } from "@/framer/cache/reader";
 import { Store } from "@/framer/cache/store";
-import { type Frame } from "@/framer/frame";
+import { Frame } from "@/framer/frame";
 import { createTestClient, SyntheticCore } from "@/testutil";
 
 const blockRange = (index: number): TimeRange => tileRange({ level: RAW_LEVEL, index });
@@ -381,6 +381,18 @@ describe("Reader", () => {
       expect(res.series).toHaveLength(1);
       expect(res.series[0]).not.toBe(store.leadingBuffer(2));
       expect(res.length).toBe(30);
+    });
+
+    it("should return a streamed series with no time range from the wall clock on", async () => {
+      const { core, reader, store } = createReader({
+        elapsed: 30,
+        answer: () => new Frame(),
+      });
+      store.write(2, new MultiSeries([new Series(new Float32Array([1, 2]))]));
+      core.advance(TimeSpan.seconds(2));
+      const res = await reader.read(new TimeRange(at(0), at(60)), 2);
+      expect(res.series).toEqual([store.leadingBuffer(2)]);
+      expect(store.leadingBuffer(2)?.timeRange.start).toEqual(at(30));
     });
   });
 
