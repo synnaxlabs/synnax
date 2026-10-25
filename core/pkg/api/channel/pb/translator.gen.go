@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	controlpb "github.com/synnaxlabs/x/control/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -49,7 +50,7 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB(*r.Status, nil)
+		pb.Status, err = statuspb.StatusToPB(*r.Status, xpb.NilToPBAny)
 		if err != nil {
 			return nil, err
 		}
@@ -85,7 +86,7 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 		r.Alias = pb.Alias
 	}
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB[struct{}](pb.Status, nil)
+		val, err := statuspb.StatusFromPB(pb.Status, xpb.NilFromPBAny)
 		if err != nil {
 			return channel.Channel{}, err
 		}
