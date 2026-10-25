@@ -117,7 +117,7 @@ var _ = Describe("SearchIndex", func() {
 		})
 
 		It("Should panic when tx is nil", func(ctx SpecContext) {
-			Expect(func() { _, _ = idx.Search(ctx, nil, "valve", 0) }).
+			Expect(func() { MustSucceed(idx.Search(ctx, nil, "valve", 0)) }).
 				To(PanicWith(ContainSubstring("nil transaction")))
 		})
 
