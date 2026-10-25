@@ -29,6 +29,14 @@ export interface Call {
 const PASSTHROUGH: Record<string, unknown> = {
   measureText: { width: 8 },
   getImageData: { data: new Uint8ClampedArray() },
+  // WebGL handles and statuses, so programs compile and link against the recording.
+  createProgram: {},
+  createShader: {},
+  createBuffer: {},
+  getShaderParameter: true,
+  getProgramParameter: true,
+  getUniformLocation: {},
+  getAttribLocation: 0,
 };
 
 /** Style/state properties seeded so reads before a write return canvas-shaped defaults

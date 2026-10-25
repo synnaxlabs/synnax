@@ -510,8 +510,8 @@ describe("lineplot reducer", () => {
       const out = apply(state, lineplot.addChannel({ axisKey: "y1", channel: 5 }));
       expect(out.lines[0]).toMatchObject({
         strokeWidth: 2,
-        downsample: 1,
-        downsampleMode: "decimate",
+        aggregation: "min_max",
+        detail: "medium",
       });
     });
 
@@ -696,17 +696,14 @@ describe("lineplot reducer", () => {
         expected: { strokeWidth: 5 },
       },
       {
-        label: "setLineDownsample",
-        action: lineplot.setLineDownsample({ key: "l1", downsample: 3 }),
-        expected: { downsample: 3 },
+        label: "setLineAggregation",
+        action: lineplot.setLineAggregation({ key: "l1", aggregation: "average" }),
+        expected: { aggregation: "average" },
       },
       {
-        label: "setLineDownsampleMode",
-        action: lineplot.setLineDownsampleMode({
-          key: "l1",
-          downsampleMode: "average",
-        }),
-        expected: { downsampleMode: "average" },
+        label: "setLineDetail",
+        action: lineplot.setLineDetail({ key: "l1", detail: "high" }),
+        expected: { detail: "high" },
       },
       {
         label: "setLineColor",
@@ -738,8 +735,8 @@ describe("lineplot reducer", () => {
       const start: lineplot.Line = {
         key: "l1",
         strokeWidth: 2,
-        downsample: 1,
-        downsampleMode: "decimate",
+        aggregation: "min_max",
+        detail: "medium",
       };
       const state = createEmpty({ lines: [start] });
       const action = lineplot.setLineColor({
@@ -772,8 +769,8 @@ describe("lineplot reducer", () => {
         key: "l1",
         color: color.construct("#0000ff"),
         strokeWidth: 4,
-        downsample: 2,
-        downsampleMode: "average",
+        aggregation: "average",
+        detail: "high",
       };
       expect(apply(state, lineplot.setLine({ line: next })).lines[0]).toEqual(next);
       expect(roundTrip(state, lineplot.setLine({ line: next })).lines).toEqual(
@@ -784,8 +781,8 @@ describe("lineplot reducer", () => {
       const inserted: lineplot.Line = {
         key: "l1",
         strokeWidth: 2,
-        downsample: 1,
-        downsampleMode: "decimate",
+        aggregation: "min_max",
+        detail: "medium",
       };
       const { targets } = lineplot.reduceAll(createEmpty(), [
         lineplot.setLine({ line: inserted }),

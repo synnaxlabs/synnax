@@ -298,6 +298,22 @@ var _ = Describe("Service.Retrieve", func() {
 			).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
+
+	It(
+		"Should return the statuses whose name matches the search term",
+		func(ctx SpecContext) {
+			s := createStatus(ctx, "cryostat pressure")
+			grantOn(ctx, author.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				statusTypeOnly)
+
+			res := MustSucceed(apiSvc.Retrieve(
+				AuthedCtx(ctx, author),
+				apistatus.RetrieveRequest{SearchTerm: "cryostat"},
+			))
+			Expect(res.Statuses).To(HaveExactElements(HaveField("Key", s.Key)))
+		},
+	)
 })
 
 var _ = Describe("Service.Rename", func() {

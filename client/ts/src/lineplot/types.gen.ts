@@ -23,9 +23,13 @@ export const TICK_TYPES = ["linear", "time"] as const;
 export const tickTypeZ = z.enum(TICK_TYPES);
 export type TickType = z.infer<typeof tickTypeZ>;
 
-export const DOWNSAMPLE_MODES = ["average", "decimate"] as const;
-export const downsampleModeZ = z.enum(DOWNSAMPLE_MODES);
-export type DownsampleMode = z.infer<typeof downsampleModeZ>;
+export const AGGREGATIONS = ["min_max", "average"] as const;
+export const aggregationZ = z.enum(AGGREGATIONS);
+export type Aggregation = z.infer<typeof aggregationZ>;
+
+export const DETAILS = ["low", "medium", "high"] as const;
+export const detailZ = z.enum(DETAILS);
+export type Detail = z.infer<typeof detailZ>;
 
 export const X_AXIS_KEYS = ["x1", "x2"] as const;
 export const xAxisKeyZ = z.enum(X_AXIS_KEYS);
@@ -99,7 +103,7 @@ export const manualBoundsZ = z.object({
 });
 export interface ManualBounds extends z.infer<typeof manualBoundsZ> {}
 
-/** Line is the per-line styling and downsampling configuration. */
+/** Line is the per-line styling and reduction configuration. */
 export const lineZ = z.object({
   /**
    * key is the line identifier derived from its channel and range assignment. Format is
@@ -118,13 +122,10 @@ export const lineZ = z.object({
   color: color.colorZ.optional(),
   /** strokeWidth is the line stroke width in pixels. */
   strokeWidth: z.number().default(2),
-  /**
-   * downsample is the downsample factor applied before rendering. 1 means render every
-   * sample; higher values render every Nth sample.
-   */
-  downsample: z.uint32().default(1),
-  /** downsampleMode selects how the downsample factor is applied. */
-  downsampleMode: downsampleModeZ.default("decimate"),
+  /** aggregation selects how the line reduces the samples of one pixel group. */
+  aggregation: aggregationZ.default("min_max"),
+  /** detail selects how many sample groups the line draws per pixel column. */
+  detail: detailZ.default("medium"),
 });
 export interface Line extends z.infer<typeof lineZ> {}
 
@@ -279,8 +280,8 @@ export const linePlotZ = z.object({
   /** axes bundles per-axis configuration. */
   axes: axesZ.prefault({}),
   /**
-   * lines holds per-line styling and downsampling configuration. Each entry corresponds
-   * to one channel and range combination produced by the channels and ranges bindings.
+   * lines holds per-line styling and reduction configuration. Each entry corresponds to
+   * one channel and range combination produced by the channels and ranges bindings.
    */
   lines: lineZ.array().default(() => []),
   /** rules holds annotation rules drawn over the plot. */

@@ -145,10 +145,8 @@ var _ = Describe("Writer", func() {
 					To(Succeed())
 				Expect(res.Lines).To(HaveLen(1))
 				Expect(res.Lines[0].StrokeWidth).To(Equal(float64(2)))
-				Expect(res.Lines[0].Downsample).To(Equal(uint32(1)))
-				Expect(
-					res.Lines[0].DownsampleMode,
-				).To(Equal(lineplot.DownsampleModeDecimate))
+				Expect(res.Lines[0].Aggregation).To(Equal(lineplot.AggregationMinMax))
+				Expect(res.Lines[0].Detail).To(Equal(lineplot.DetailMedium))
 			},
 		)
 
@@ -896,6 +894,18 @@ var _ = Describe("Writer", func() {
 									Color: new(color.MustFromHex("#ff0000")),
 								},
 							),
+							lineplot.NewSetLineAggregationAction(
+								lineplot.SetLineAggregationPayload{
+									Key:         key,
+									Aggregation: lineplot.AggregationAverage,
+								},
+							),
+							lineplot.NewSetLineDetailAction(
+								lineplot.SetLineDetailPayload{
+									Key:    key,
+									Detail: lineplot.DetailLow,
+								},
+							),
 						}),
 					).To(Succeed())
 					Expect(
@@ -906,6 +916,10 @@ var _ = Describe("Writer", func() {
 					).
 						To(Succeed())
 					Expect(res.Lines[0].StrokeWidth).To(Equal(5.0))
+					Expect(
+						res.Lines[0].Aggregation,
+					).To(Equal(lineplot.AggregationAverage))
+					Expect(res.Lines[0].Detail).To(Equal(lineplot.DetailLow))
 					Expect(
 						res.Lines[0].Color,
 					).To(Equal(new(color.MustFromHex("#ff0000"))))
@@ -958,10 +972,10 @@ var _ = Describe("Writer", func() {
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetLineAction(
 								lineplot.SetLinePayload{Line: lineplot.Line{
-									Key:            key,
-									StrokeWidth:    4,
-									Downsample:     2,
-									DownsampleMode: lineplot.DownsampleModeAverage,
+									Key:         key,
+									StrokeWidth: 4,
+									Aggregation: lineplot.AggregationAverage,
+									Detail:      lineplot.DetailHigh,
 									Color: new(
 										color.MustFromHex("#0000ff"),
 									),
@@ -978,6 +992,10 @@ var _ = Describe("Writer", func() {
 						To(Succeed())
 					Expect(res.Lines).To(HaveLen(1))
 					Expect(res.Lines[0].StrokeWidth).To(Equal(4.0))
+					Expect(
+						res.Lines[0].Aggregation,
+					).To(Equal(lineplot.AggregationAverage))
+					Expect(res.Lines[0].Detail).To(Equal(lineplot.DetailHigh))
 					Expect(
 						res.Lines[0].Color,
 					).To(Equal(new(color.MustFromHex("#0000ff"))))

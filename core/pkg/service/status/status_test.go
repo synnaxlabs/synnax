@@ -377,18 +377,68 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
-		Describe("Search", func() {
-			It("Should search for statuses", func(ctx SpecContext) {
+		Describe("MatchSearch", func() {
+			It(
+				"Should return the matching statuses, closest match first",
+				func(ctx SpecContext) {
+					var statuses []status.Status[any]
+					Expect(
+						svc.NewRetrieve[any]().
+							Where(status.MatchSearch("Status A")).
+							Entries(&statuses).
+							Exec(ctx, tx),
+					).To(Succeed())
+					Expect(len(statuses)).To(BeNumerically(">", 1))
+					Expect(statuses[0].Key).To(Equal("retrieve-a"))
+				},
+			)
+
+			It("Should page through the matches by relevance", func(ctx SpecContext) {
 				var statuses []status.Status[any]
 				Expect(
 					svc.NewRetrieve[any]().
-						Search("Status A").
+						Where(status.MatchSearch("Status A")).
+						Limit(1).
 						Entries(&statuses).
 						Exec(ctx, tx),
 				).To(Succeed())
-				Expect(len(statuses)).To(BeNumerically(">", 1))
-				Expect(statuses[0].Key).To(Equal("retrieve-a"))
+				Expect(statuses).To(HaveExactElements(HaveField("Key", "retrieve-a")))
 			})
+
+			It("Should match no status for an empty term", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(
+					svc.NewRetrieve[any]().
+						Where(status.MatchSearch("")).
+						Entries(&statuses).
+						Exec(ctx, tx),
+				).To(Succeed())
+				Expect(statuses).To(BeEmpty())
+			})
+
+			It(
+				"Should skip a match that the transaction no longer holds",
+				func(ctx SpecContext) {
+					// The delete skips the table, so the search index still holds the
+					// status.
+					Expect(gorp.NewDelete[status.Key, status.Status[any]]().
+						Where(gorp.MatchKeys[status.Key, status.Status[any]](
+							"retrieve-b",
+						)).
+						Exec(ctx, tx)).To(Succeed())
+					var statuses []status.Status[any]
+					Expect(
+						svc.NewRetrieve[any]().
+							Where(status.MatchSearch("Status")).
+							Entries(&statuses).
+							Exec(ctx, tx),
+					).To(Succeed())
+					Expect(statuses).To(ContainElement(HaveField("Key", "retrieve-a")))
+					Expect(
+						statuses,
+					).ToNot(ContainElement(HaveField("Key", "retrieve-b")))
+				},
+			)
 		})
 
 		Describe("MatchKeyPrefix", func() {

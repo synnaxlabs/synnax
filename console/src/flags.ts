@@ -21,8 +21,6 @@ export const FLAGS = {
   icd: IS_DEV || import.meta.env.VITE_FLAG_ICD === "true",
   // Owner: Emiliano Bonilla. Umbrella: SY-4971. Removed in 0.60.
   can: IS_DEV || import.meta.env.VITE_FLAG_CAN === "true",
-  // Owner: Emiliano Bonilla. Umbrella: SY-2253. Removed in 0.60.
-  lineplotTiles: IS_DEV || import.meta.env.VITE_FLAG_LINEPLOT_TILES === "true",
 } as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;

@@ -320,6 +320,7 @@ const config: Linter.Config[] = [
       "**/*.d.ts",
       "examples",
       "vite.config.ts",
+      "vitest.bench.config.ts",
       "stylelint.config.js",
       "bazel-bin",
       "bazel-out",

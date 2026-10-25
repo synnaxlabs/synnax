@@ -30,11 +30,8 @@ import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { createFactory, type CreateOptions } from "@/telem/aether/factory";
 import {
-  ChannelData,
-  type ChannelDataProps,
   type Client,
-  StreamChannelData,
-  type StreamChannelDataProps,
+  DISCONNECTED_STATUS,
   StreamChannelStringValue,
   StreamChannelValue,
   streamChannelValue,
@@ -795,1433 +792,6 @@ describe("remote", () => {
     });
   });
 
-  describe("ChannelData", () => {
-    class MockClient implements Client {
-      now = (): TimeStamp => TimeStamp.now();
-      key: string = id.create();
-      readMock = vi.fn();
-      retrieveChannelMock = vi.fn();
-
-      channel: channel.Channel = new channel.Channel({
-        key: 65537,
-        name: "test",
-        dataType: DataType.FLOAT32,
-        isIndex: false,
-        index: 65538,
-      });
-
-      indexChannel: channel.Channel = new channel.Channel({
-        key: 65538,
-        name: "test",
-        dataType: DataType.TIMESTAMP,
-        isIndex: true,
-      });
-
-      response: Record<channel.Key, MultiSeries> = {
-        [this.channel.key]: new MultiSeries([]),
-        [this.channel.index]: new MultiSeries([]),
-      };
-
-      channels = {
-        retrieve: async (key: channel.Key | channel.Name): Promise<channel.Channel> => {
-          this.retrieveChannelMock(key);
-          if (key === this.channel.key) return this.channel;
-          if (key === this.channel.index) return this.indexChannel;
-          throw new Error(`Channel with key ${key} not found`);
-        },
-      };
-
-      feed = {
-        readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
-        readTile: async (): Promise<MultiSeries> => new MultiSeries([]),
-        read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
-          this.readMock(tr, key);
-          return this.response[key];
-        },
-        stream: (): framer.Subscription => telemTest.mockSubscription(vi.fn()),
-      };
-    }
-
-    let c: MockClient;
-    beforeEach(() => {
-      c = new MockClient();
-    });
-
-    it("should return invalid bounds when no channel has been set", async () => {
-      const props = {
-        timeRange: TimeRange.MAX,
-        channel: 0,
-      };
-      const cd = new ChannelData(c, props);
-      const handleChange = vi.fn();
-      cd.onChange(handleChange);
-      const [b, data] = cd.value();
-      expect(handleChange.mock.calls.length).toBe(0);
-      expect(b).toStrictEqual(bounds.INVALID);
-      expect(data).toHaveLength(0);
-      expect(c.readMock).not.toHaveBeenCalled();
-      expect(c.retrieveChannelMock).not.toHaveBeenCalled();
-    });
-
-    it("should return invalid bounds when the time range is empty", async () => {
-      const props = {
-        timeRange: TimeRange.ZERO,
-        channel: c.channel.key,
-      };
-      const cd = new ChannelData(c, props);
-      const handleChange = vi.fn();
-      const [b, data] = cd.value();
-      expect(handleChange.mock.calls.length).toBe(0);
-      expect(b).toStrictEqual(bounds.INVALID);
-      expect(data).toHaveLength(0);
-      expect(c.readMock).not.toHaveBeenCalled();
-      expect(c.retrieveChannelMock).not.toHaveBeenCalled();
-    });
-
-    it("should return data when both the channel and time range are set", async () => {
-      const series = new Series({
-        data: new Float32Array([1, 2, 3]),
-      });
-      c.response = {
-        [c.channel.key]: new MultiSeries([series]),
-      };
-      const props = {
-        timeRange: TimeRange.MAX,
-        channel: c.channel.key,
-      };
-      const cd = new ChannelData(c, props);
-      const [b, data] = await waitForResolve(cd);
-      expect(b).toStrictEqual({ lower: 1, upper: 3 });
-      expect(data.series).toHaveLength(1);
-      expect(data.series[0]).toBe(series);
-    });
-
-    it("should fetch data from the index channel when the channel is not an index and fetchIndex is true", async () => {
-      const series = new Series({
-        data: new Float32Array([0, 2, 4]),
-      });
-      c.response = {
-        [c.channel.index]: new MultiSeries([series]),
-      };
-      const props: ChannelDataProps = {
-        timeRange: TimeRange.MAX,
-        channel: c.channel.key,
-        useIndexOfChannel: true,
-      };
-      const cd = new ChannelData(c, props);
-      const [b, data] = await waitForResolve(cd);
-      expect(b).toStrictEqual({ lower: 0, upper: 4 });
-      expect(data.series).toHaveLength(1);
-      expect(data.series[0]).toBe(series);
-    });
-
-    it("should fetch data from the same channel when the channel is an index and fetchIndex is true", async () => {
-      const series = new Series({
-        data: new Float32Array([0, 2, 4]),
-      });
-      c.response = {
-        [c.channel.index]: new MultiSeries([series]),
-      };
-      const props: ChannelDataProps = {
-        timeRange: TimeRange.MAX,
-        channel: c.channel.index,
-        useIndexOfChannel: true,
-      };
-      const cd = new ChannelData(c, props);
-      const [b, data] = await waitForResolve(cd);
-      expect(b).toStrictEqual({ lower: 0, upper: 4 });
-      expect(data.series).toHaveLength(1);
-      expect(data.series[0]).toBe(series);
-    });
-
-    it("should return invalid bounds when the data lies outside the requested range", async () => {
-      const series = new Series({
-        data: new BigInt64Array([
-          TimeStamp.seconds(1).valueOf(),
-          TimeStamp.seconds(2).valueOf(),
-        ]),
-        dataType: DataType.TIMESTAMP,
-        timeRange: TimeStamp.seconds(1).range(TimeStamp.seconds(3)),
-      });
-      c.response = { [c.channel.index]: new MultiSeries([series]) };
-      const cd = new ChannelData(c, {
-        timeRange: TimeStamp.seconds(20).range(TimeStamp.seconds(30)),
-        channel: c.channel.key,
-        useIndexOfChannel: true,
-      });
-      const [b] = await waitForResolve(cd);
-      expect(b).toStrictEqual(bounds.INVALID);
-    });
-
-    it("should not retain data when cleaned up while reading", async () => {
-      const series = new Series({ data: new Float32Array([1, 2, 3]) });
-      let release = (): void => {};
-      const gate = new Promise<void>((resolve) => (release = resolve));
-      c.feed.read = async (): Promise<MultiSeries> => {
-        await gate;
-        return new MultiSeries([series]);
-      };
-      const cd = new ChannelData(c, {
-        timeRange: TimeRange.MAX,
-        channel: c.channel.key,
-      });
-      cd.value();
-      cd.cleanup();
-      release();
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      expect(series.refCount).toBe(0);
-    });
-
-    describe("loading", () => {
-      it("should report loading while the read is pending and clear on resolve", async () => {
-        let release = (): void => {};
-        const gate = new Promise<void>((resolve) => (release = resolve));
-        c.feed.read = async (): Promise<MultiSeries> => {
-          await gate;
-          return new MultiSeries([]);
-        };
-        const cd = new ChannelData(c, {
-          timeRange: TimeRange.MAX,
-          channel: c.channel.key,
-        });
-        const handleChange = vi.fn();
-        cd.onChange(handleChange);
-        expect(cd.loading()).toBe(true);
-        release();
-        await expect.poll(() => cd.loading()).toBe(false);
-        expect(handleChange).toHaveBeenCalled();
-        cd.cleanup();
-      });
-
-      it("should not report loading for a zero channel or empty time range", () => {
-        const zeroChannel = new ChannelData(c, {
-          timeRange: TimeRange.MAX,
-          channel: 0,
-        });
-        expect(zeroChannel.loading()).toBe(false);
-        const emptyRange = new ChannelData(c, {
-          timeRange: TimeRange.ZERO,
-          channel: c.channel.key,
-        });
-        expect(emptyRange.loading()).toBe(false);
-        expect(c.readMock).not.toHaveBeenCalled();
-        expect(c.retrieveChannelMock).not.toHaveBeenCalled();
-      });
-
-      it("should report loading for a short static range until the read resolves", async () => {
-        let release = (): void => {};
-        const gate = new Promise<void>((resolve) => (release = resolve));
-        c.feed.read = async (): Promise<MultiSeries> => {
-          await gate;
-          return new MultiSeries([]);
-        };
-        const cd = new ChannelData(c, {
-          timeRange: new TimeRange(TimeStamp.seconds(0), TimeStamp.seconds(30)),
-          channel: c.channel.key,
-        });
-        const handleChange = vi.fn();
-        cd.onChange(handleChange);
-        // loading() must kick the read itself since draws are suppressed.
-        expect(cd.loading()).toBe(true);
-        expect(c.retrieveChannelMock).toHaveBeenCalled();
-        release();
-        await expect.poll(() => cd.loading()).toBe(false);
-        expect(handleChange).toHaveBeenCalled();
-        cd.cleanup();
-      });
-
-      it("should report loading for a minimal nonzero span", async () => {
-        c.feed.read = async (): Promise<MultiSeries> => new MultiSeries([]);
-        const cd = new ChannelData(c, {
-          timeRange: new TimeRange(TimeStamp.seconds(0), TimeStamp.milliseconds(1)),
-          channel: c.channel.key,
-        });
-        expect(cd.loading()).toBe(true);
-        await expect.poll(() => cd.loading()).toBe(false);
-        cd.cleanup();
-      });
-
-      it("should clear loading and notify when a short static read fails", async () => {
-        c.feed.read = async (): Promise<MultiSeries> => {
-          throw new Error("read exploded");
-        };
-        const cd = new ChannelData(c, {
-          timeRange: new TimeRange(TimeStamp.seconds(0), TimeStamp.seconds(30)),
-          channel: c.channel.key,
-        });
-        const handleChange = vi.fn();
-        cd.onChange(handleChange);
-        expect(cd.loading()).toBe(true);
-        await expect.poll(() => cd.loading()).toBe(false);
-        expect(handleChange).toHaveBeenCalled();
-        cd.cleanup();
-      });
-
-      it("should stay silent when cleanup precedes a short static read", async () => {
-        let release = (): void => {};
-        const gate = new Promise<void>((resolve) => (release = resolve));
-        c.feed.read = async (): Promise<MultiSeries> => {
-          await gate;
-          return new MultiSeries([]);
-        };
-        const cd = new ChannelData(c, {
-          timeRange: new TimeRange(TimeStamp.seconds(0), TimeStamp.seconds(30)),
-          channel: c.channel.key,
-        });
-        const handleChange = vi.fn();
-        cd.onChange(handleChange);
-        expect(cd.loading()).toBe(true);
-        cd.cleanup();
-        release();
-        await new Promise((resolve) => setTimeout(resolve, 5));
-        expect(handleChange).not.toHaveBeenCalled();
-        expect(cd.loading()).toBe(false);
-      });
-
-      it("should clear loading and notify when the read fails", async () => {
-        c.feed.read = async (): Promise<MultiSeries> => {
-          throw new Error("read exploded");
-        };
-        const cd = new ChannelData(c, {
-          timeRange: TimeRange.MAX,
-          channel: c.channel.key,
-        });
-        const handleChange = vi.fn();
-        cd.onChange(handleChange);
-        expect(cd.loading()).toBe(true);
-        await expect.poll(() => cd.loading()).toBe(false);
-        expect(handleChange).toHaveBeenCalled();
-        cd.cleanup();
-      });
-
-      it("should clear loading immediately with a null client", () => {
-        const cd = new ChannelData(null, { timeRange: TimeRange.MAX, channel: 1 });
-        expect(cd.loading()).toBe(false);
-      });
-
-      it("should clear loading immediately with a null client on a short range", () => {
-        const cd = new ChannelData(null, {
-          timeRange: new TimeRange(TimeStamp.seconds(0), TimeStamp.seconds(30)),
-          channel: 1,
-        });
-        expect(cd.loading()).toBe(false);
-      });
-
-      it("should stay silent when cleanup precedes the read resolving", async () => {
-        let release = (): void => {};
-        const gate = new Promise<void>((resolve) => (release = resolve));
-        c.feed.read = async (): Promise<MultiSeries> => {
-          await gate;
-          return new MultiSeries([]);
-        };
-        const cd = new ChannelData(c, {
-          timeRange: TimeRange.MAX,
-          channel: c.channel.key,
-        });
-        const handleChange = vi.fn();
-        cd.onChange(handleChange);
-        expect(cd.loading()).toBe(true);
-        cd.cleanup();
-        release();
-        await new Promise((resolve) => setTimeout(resolve, 5));
-        expect(handleChange).not.toHaveBeenCalled();
-      });
-    });
-
-    describe("failures", () => {
-      const props = (): ChannelDataProps => ({
-        timeRange: TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1)),
-        channel: c.channel.key,
-      });
-
-      it("should not start a read per value() call while a failed read backs off", async () => {
-        c.feed.read = async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
-          c.readMock(tr, key);
-          throw new Error("transient");
-        };
-        const onStatusChange = vi.fn();
-        const cd = new ChannelData(
-          c,
-          props(),
-          { onStatusChange },
-          {
-            sleepFn: async () => await new Promise(() => {}),
-          },
-        );
-        cd.value();
-        await expect.poll(() => onStatusChange.mock.calls.length).toBe(1);
-        for (let i = 0; i < 5; i++) cd.value();
-        await new Promise((r) => setTimeout(r, 10));
-        expect(c.readMock).toHaveBeenCalledTimes(1);
-        expect(onStatusChange).toHaveBeenCalledTimes(1);
-        cd.cleanup();
-      });
-
-      it("should park on a definitive rejection", async () => {
-        c.feed.read = async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
-          c.readMock(tr, key);
-          throw new ValidationError("bad range");
-        };
-        const onStatusChange = vi.fn();
-        const cd = new ChannelData(
-          c,
-          props(),
-          { onStatusChange },
-          {
-            sleepFn: async () => {},
-          },
-        );
-        cd.value();
-        await expect.poll(() => onStatusChange.mock.calls.length).toBe(1);
-        for (let i = 0; i < 5; i++) cd.value();
-        await new Promise((r) => setTimeout(r, 10));
-        expect(c.readMock).toHaveBeenCalledTimes(1);
-        cd.cleanup();
-      });
-
-      it("should retry a connectivity failure until the read lands", async () => {
-        const series = new Series({
-          data: new Float32Array([1, 2]),
-          timeRange: TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1)),
-        });
-        let calls = 0;
-        c.feed.read = async (): Promise<MultiSeries> => {
-          calls++;
-          if (calls === 1) throw new Error("transient");
-          return new MultiSeries([series]);
-        };
-        const cd = new ChannelData(c, props(), {}, { sleepFn: async () => {} });
-        cd.value();
-        await expect.poll(() => cd.value()[1].length).toBe(2);
-        expect(calls).toBe(2);
-        cd.cleanup();
-      });
-    });
-  });
-
-  describe("StreamChannelData", () => {
-    class MockClient implements Client {
-      now = (): TimeStamp => TimeStamp.now();
-      key: string = id.create();
-
-      streamHandler: framer.StreamHandler | null = null;
-      streamKeys: channel.Key[] = [];
-      streamF = vi.fn();
-      streamDestructorF = vi.fn();
-
-      response: MultiSeries = new MultiSeries([]);
-      readMock = vi.fn();
-
-      channel: channel.Channel = new channel.Channel({
-        key: 65537,
-        name: "test",
-        dataType: DataType.FLOAT32,
-        isIndex: false,
-        index: 65538,
-      });
-
-      indexChannel: channel.Channel = new channel.Channel({
-        key: 65538,
-        name: "test",
-        dataType: DataType.TIMESTAMP,
-        isIndex: true,
-      });
-
-      channels = {
-        retrieve: async (key: channel.Key | channel.Name): Promise<channel.Channel> => {
-          if (key === this.channel.key) return this.channel;
-          if (key === this.channel.index) return this.indexChannel;
-          throw new Error(`Channel with key ${key} not found`);
-        },
-      };
-
-      feed = {
-        readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
-        readTile: async (): Promise<MultiSeries> => new MultiSeries([]),
-        read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
-          this.readMock(tr, key);
-          return this.response;
-        },
-        stream: (
-          handler: framer.StreamHandler,
-          keys: channel.Key[],
-        ): framer.Subscription => {
-          this.streamHandler = handler;
-          this.streamKeys = keys;
-          this.streamF(handler, keys);
-          return telemTest.mockSubscription(this.streamDestructorF);
-        },
-      };
-    }
-
-    let c: MockClient;
-
-    beforeEach(() => {
-      c = new MockClient();
-      vi.resetAllMocks();
-    });
-
-    it("should return invalid bounds when no channel has been set", async () => {
-      const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.MAX,
-        channel: 0,
-      };
-      const cd = new StreamChannelData(c, props);
-      const [b, data] = cd.value();
-      expect(b).toStrictEqual(bounds.INVALID);
-      expect(data).toHaveLength(0);
-    });
-
-    it("should return data when the channel is specified", async () => {
-      const now = TimeStamp.now();
-      const series = new Series({
-        data: new Float32Array([1, 2, 3]),
-        timeRange: new TimeRange(
-          now.sub(TimeSpan.milliseconds(3)),
-          now.add(TimeSpan.milliseconds(1)),
-        ),
-      });
-      c.response = new MultiSeries([series]);
-      const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.MAX,
-        channel: c.channel.key,
-      };
-      const cd = new StreamChannelData(c, props);
-      const [b, data] = await waitForResolve(cd);
-      expect(b).toStrictEqual({ lower: 1, upper: 3 });
-      expect(data.series).toHaveLength(1);
-      expect(data.series[0]).toBe(series);
-    });
-
-    it("should not duplicate a series delivered by both read and stream", async () => {
-      const now = TimeStamp.now();
-      const series = new Series({
-        data: new Float32Array([1, 2, 3]),
-        timeRange: new TimeRange(now.sub(TimeSpan.milliseconds(3)), TimeStamp.MAX),
-      });
-      c.response = new MultiSeries([series]);
-      const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.MAX,
-        channel: c.channel.key,
-      };
-      const cd = new StreamChannelData(c, props);
-      await waitForResolve(cd);
-      // The feed's stream subscription re-delivers the live buffer that read
-      // already returned.
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
-      const [, data] = cd.value();
-      expect(data.series).toHaveLength(1);
-      expect(series.refCount).toBe(1);
-    });
-
-    it("should bind a stream handler", async () => {
-      const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.MAX,
-        channel: c.channel.key,
-      };
-      const cd = new StreamChannelData(c, props);
-      await waitForResolve(cd);
-      expect(c.streamHandler).not.toBeNull();
-      expect(c.streamF).toHaveBeenCalled();
-      expect(c.streamF).toHaveBeenCalledWith(c.streamHandler, [c.channel.key]);
-    });
-
-    // Mirrors cesium's leading-alignment region: streamed, not-yet-persisted data
-    // carries alignments whose domain index starts at MaxUint32 - 1e6, sorting after
-    // any committed alignment.
-    const leadingAlignment = (domain: bigint, sample: bigint): bigint =>
-      ((0xffffffffn - 1_000_000n + domain) << 32n) | sample;
-    const committedAlignment = (domain: bigint, sample: bigint): bigint =>
-      (domain << 32n) | sample;
-
-    // The stream must open before the back-fill read resolves, so a stalled or failed
-    // back-fill cannot block live data.
-    describe("live stream before back-fill", () => {
-      it("should serve live data while the back-fill read is pending", async () => {
-        let release = (): void => {};
-        const gate = new Promise<void>((resolve) => (release = resolve));
-        c.feed.read = async (): Promise<MultiSeries> => {
-          await gate;
-          return new MultiSeries([]);
-        };
-        const cd = new StreamChannelData(c, {
-          timeSpan: TimeSpan.MAX,
-          channel: c.channel.key,
-        });
-        await waitForStream(cd, c);
-        const live = new Series({
-          data: new Float32Array([1, 2, 3]),
-          timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
-        });
-        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-        const [b, data] = cd.value();
-        expect(b).toStrictEqual({ lower: 1, upper: 3 });
-        expect(data.series).toHaveLength(1);
-        expect(data.series[0]).toBe(live);
-        cd.cleanup();
-        release();
-      });
-
-      it("should serve live data and post a status on back-fill failure", async () => {
-        const statuses: cstatus.Crude[] = [];
-        c.feed.read = async (): Promise<MultiSeries> => {
-          throw new Error("read exploded");
-        };
-        const cd = new StreamChannelData(
-          c,
-          { timeSpan: TimeSpan.MAX, channel: c.channel.key },
-          { onStatusChange: (s) => statuses.push(s) },
-        );
-        await waitForStream(cd, c);
-        await expect.poll(() => statuses.length > 0).toBe(true);
-        expect(statuses[0].variant).toEqual("error");
-        expect(statuses[0].message).toEqual("Failed to read channel data");
-        expect(statuses[0].description).toEqual("read exploded");
-        const live = new Series({
-          data: new Float32Array([4, 5]),
-          timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
-        });
-        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-        const [, data] = cd.value();
-        expect(data.series).toHaveLength(1);
-        expect(data.series[0]).toBe(live);
-        cd.cleanup();
-      });
-
-      it("should retry the back-fill under the breaker after a failure", async () => {
-        const now = TimeStamp.now();
-        const series = new Series({
-          data: new Float32Array([1, 2, 3]),
-          timeRange: new TimeRange(
-            now.sub(TimeSpan.milliseconds(3)),
-            now.add(TimeSpan.milliseconds(1)),
-          ),
-        });
-        let calls = 0;
-        c.feed.read = async (): Promise<MultiSeries> => {
-          calls++;
-          if (calls === 1) throw new Error("transient");
-          return new MultiSeries([series]);
-        };
-        const cd = new StreamChannelData(
-          c,
-          { timeSpan: TimeSpan.MAX, channel: c.channel.key },
-          {},
-          undefined,
-          { sleepFn: async () => {} },
-        );
-        await waitForStream(cd, c);
-        // The retry runs on its own; the polled value() calls only observe it.
-        await expect.poll(() => cd.value()[1].series.length).toBe(1);
-        expect(calls).toBe(2);
-        expect(cd.value()[1].series[0]).toBe(series);
-        cd.cleanup();
-      });
-
-      it("should post one status per distinct failure across retries", async () => {
-        const statuses: cstatus.Crude[] = [];
-        let calls = 0;
-        const failures = ["boom", "boom", "other"];
-        c.feed.read = async (): Promise<MultiSeries> => {
-          const failure = failures[calls];
-          calls++;
-          if (failure != null) throw new Error(failure);
-          return new MultiSeries([]);
-        };
-        const cd = new StreamChannelData(
-          c,
-          { timeSpan: TimeSpan.MAX, channel: c.channel.key },
-          { onStatusChange: (s) => statuses.push(s) },
-          undefined,
-          { sleepFn: async () => {} },
-        );
-        cd.value();
-        await expect.poll(() => calls).toBe(4);
-        expect(statuses.map((s) => s.description)).toEqual(["boom", "other"]);
-        cd.cleanup();
-      });
-
-      it("should park without retrying on a definitive rejection", async () => {
-        const statuses: cstatus.Crude[] = [];
-        let calls = 0;
-        c.feed.read = async (): Promise<MultiSeries> => {
-          calls++;
-          throw new ValidationError("bad request");
-        };
-        const cd = new StreamChannelData(
-          c,
-          { timeSpan: TimeSpan.MAX, channel: c.channel.key },
-          { onStatusChange: (s) => statuses.push(s) },
-          undefined,
-          { sleepFn: async () => {} },
-        );
-        await waitForStream(cd, c);
-        await expect.poll(() => statuses.length).toBe(1);
-        // Neither time nor further value() calls restart a parked source.
-        cd.value();
-        await new Promise((resolve) => setTimeout(resolve, 5));
-        expect(calls).toBe(1);
-        // The live stream opened before the back-fill and stays open while parked.
-        expect(c.streamDestructorF).not.toHaveBeenCalled();
-        cd.cleanup();
-      });
-
-      it("should place the back-fill window on the Core's clock", async () => {
-        const coreNow = TimeStamp.now().sub(TimeSpan.minutes(5));
-        c.now = () => coreNow;
-        const timeSpan = TimeSpan.seconds(10);
-        const cd = new StreamChannelData(c, { timeSpan, channel: c.channel.key });
-        await waitForResolve(cd);
-        const [tr] = c.readMock.mock.calls[0] as [TimeRange, channel.Key];
-        expect(tr).toEqual(new TimeRange(coreNow.sub(timeSpan), coreNow));
-        cd.cleanup();
-      });
-
-      it("should read the span between the back-fill and the first live series", async () => {
-        const ranges: TimeRange[] = [];
-        c.feed.read = async (tr: TimeRange): Promise<MultiSeries> => {
-          ranges.push(tr);
-          return new MultiSeries([]);
-        };
-        const cd = new StreamChannelData(c, {
-          timeSpan: TimeSpan.seconds(10),
-          channel: c.channel.key,
-        });
-        await waitForStream(cd, c);
-        await expect.poll(() => ranges.length).toBe(1);
-        const liveStart = ranges[0].end.add(TimeSpan.milliseconds(200));
-        const live = new Series({
-          data: new Float32Array([1, 2]),
-          timeRange: new TimeRange(liveStart, TimeStamp.MAX),
-        });
-        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-        // The seam read waits a second for its samples to commit.
-        await expect.poll(() => ranges.length, { timeout: 3000 }).toBe(2);
-        expect(ranges[1]).toEqual(new TimeRange(ranges[0].end, liveStart));
-        cd.cleanup();
-      });
-
-      it("should retry a failed read of the span before the first live series", async () => {
-        const ranges: TimeRange[] = [];
-        c.feed.read = async (tr: TimeRange): Promise<MultiSeries> => {
-          ranges.push(tr);
-          if (ranges.length === 2) throw new Error("transient");
-          return new MultiSeries([]);
-        };
-        const cd = new StreamChannelData(
-          c,
-          { timeSpan: TimeSpan.seconds(10), channel: c.channel.key },
-          {},
-          undefined,
-          { sleepFn: async () => {} },
-        );
-        await waitForStream(cd, c);
-        await expect.poll(() => ranges.length).toBe(1);
-        const liveStart = ranges[0].end.add(TimeSpan.milliseconds(200));
-        const live = new Series({
-          data: new Float32Array([1, 2]),
-          timeRange: new TimeRange(liveStart, TimeStamp.MAX),
-        });
-        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-        // The seam read waits a second for its samples to commit.
-        await expect.poll(() => ranges.length, { timeout: 3000 }).toBe(3);
-        expect(ranges[2]).toEqual(ranges[1]);
-        cd.cleanup();
-      });
-
-      // A back-fill that overlaps the stream draws segments that cross back in time.
-      it("should end the back-fill where the stream opened", async () => {
-        const timeSpan = TimeSpan.seconds(10);
-        // Each read of the clock moves it forward, so the stream open and the read
-        // see different times.
-        let clock = TimeStamp.now();
-        const now = (): TimeStamp => (clock = clock.add(TimeSpan.seconds(1)));
-        let openedAt: TimeStamp | undefined;
-        const stream = c.feed.stream;
-        c.feed.stream = (handler, keys) => {
-          openedAt = clock;
-          return stream(handler, keys);
-        };
-        const cd = new StreamChannelData(
-          c,
-          { timeSpan, channel: c.channel.key },
-          {},
-          now,
-        );
-        await waitForResolve(cd);
-        expect(c.readMock).toHaveBeenCalledTimes(1);
-        const [tr] = c.readMock.mock.calls[0] as [TimeRange, channel.Key];
-        expect(tr.end).toStrictEqual(openedAt);
-        cd.cleanup();
-      });
-
-      it("should end a retried back-fill at the earliest held live series", async () => {
-        let releaseRetry = (): void => {};
-        const retryGate = new Promise<void>((resolve) => (releaseRetry = resolve));
-        const ranges: TimeRange[] = [];
-        c.feed.read = async (tr: TimeRange): Promise<MultiSeries> => {
-          ranges.push(tr);
-          if (ranges.length === 1) throw new Error("transient");
-          return new MultiSeries([]);
-        };
-        const cd = new StreamChannelData(
-          c,
-          { timeSpan: TimeSpan.seconds(10), channel: c.channel.key },
-          {},
-          undefined,
-          { sleepFn: async () => await retryGate },
-        );
-        await waitForStream(cd, c);
-        await expect.poll(() => ranges.length).toBe(1);
-        // Live data that arrives during the backoff starts before the retry reopens
-        // the stream.
-        const liveStart = TimeStamp.now().sub(TimeSpan.seconds(1));
-        const live = new Series({
-          data: new Float32Array([1, 2]),
-          timeRange: new TimeRange(liveStart, TimeStamp.MAX),
-        });
-        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-        releaseRetry();
-        await expect.poll(() => ranges.length).toBe(2);
-        expect(ranges[1].end).toStrictEqual(liveStart);
-        cd.cleanup();
-      });
-
-      it("should skip a retried back-fill when live data covers the window", async () => {
-        let releaseRetry = (): void => {};
-        const retryGate = new Promise<void>((resolve) => (releaseRetry = resolve));
-        const ranges: TimeRange[] = [];
-        c.feed.read = async (tr: TimeRange): Promise<MultiSeries> => {
-          ranges.push(tr);
-          throw new Error("transient");
-        };
-        const cd = new StreamChannelData(
-          c,
-          { timeSpan: TimeSpan.seconds(10), channel: c.channel.key },
-          {},
-          undefined,
-          { sleepFn: async () => await retryGate },
-        );
-        await waitForStream(cd, c);
-        await expect.poll(() => ranges.length).toBe(1);
-        const live = new Series({
-          data: new Float32Array([1, 2]),
-          timeRange: new TimeRange(
-            TimeStamp.now().sub(TimeSpan.seconds(20)),
-            TimeStamp.MAX,
-          ),
-        });
-        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-        releaseRetry();
-        // The back-fill check runs synchronously after the stream reopens.
-        await expect.poll(() => c.streamF.mock.calls.length).toBe(2);
-        expect(ranges).toHaveLength(1);
-        cd.cleanup();
-      });
-
-      it("should stop retrying at cleanup", async () => {
-        let calls = 0;
-        c.feed.read = async (): Promise<MultiSeries> => {
-          calls++;
-          throw new Error("boom");
-        };
-        const cd = new StreamChannelData(
-          c,
-          { timeSpan: TimeSpan.MAX, channel: c.channel.key },
-          {},
-          undefined,
-          { baseInterval: TimeSpan.milliseconds(1), scale: 1, jitter: 0 },
-        );
-        cd.value();
-        // Retries pace themselves on the breaker's own timer while the source lives.
-        await expect.poll(() => calls >= 3).toBe(true);
-        cd.cleanup();
-        const settled = calls;
-        await new Promise((resolve) => setTimeout(resolve, 20));
-        expect(calls).toBe(settled);
-      });
-
-      it("should insert committed back-fill before leading live series", async () => {
-        const now = TimeStamp.now();
-        const fetched = new Series({
-          data: new Float32Array([1, 2]),
-          timeRange: new TimeRange(now.sub(TimeSpan.seconds(2)), now),
-          alignment: committedAlignment(3n, 0n),
-        });
-        let release = (): void => {};
-        const gate = new Promise<void>((resolve) => (release = resolve));
-        c.feed.read = async (): Promise<MultiSeries> => {
-          await gate;
-          return new MultiSeries([fetched]);
-        };
-        const cd = new StreamChannelData(c, {
-          timeSpan: TimeSpan.MAX,
-          channel: c.channel.key,
-        });
-        await waitForStream(cd, c);
-        const live = new Series({
-          data: new Float32Array([3, 4]),
-          timeRange: new TimeRange(now, TimeStamp.MAX),
-          alignment: leadingAlignment(1n, 0n),
-        });
-        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-        release();
-        await expect.poll(() => cd.value()[1].series.length).toBe(2);
-        const [, data] = cd.value();
-        expect(data.series[0]).toBe(fetched);
-        expect(data.series[1]).toBe(live);
-        cd.cleanup();
-      });
-
-      // Unary.read documents that a span can return in both its streamed and fetched
-      // representation. The plot needs both: each alignment space must pair x with y
-      // completely, so neither representation may be dropped.
-      it("should retain both representations of a span", async () => {
-        const now = TimeStamp.now();
-        const span = new TimeRange(now.sub(TimeSpan.seconds(1)), now);
-        const live = new Series({
-          data: new Float32Array([5, 6]),
-          timeRange: span,
-          alignment: leadingAlignment(1n, 0n),
-        });
-        const fetched = new Series({
-          data: new Float32Array([5, 6]),
-          timeRange: span,
-          alignment: committedAlignment(4n, 0n),
-        });
-        let release = (): void => {};
-        const gate = new Promise<void>((resolve) => (release = resolve));
-        c.feed.read = async (): Promise<MultiSeries> => {
-          await gate;
-          return new MultiSeries([fetched, live]);
-        };
-        const cd = new StreamChannelData(c, {
-          timeSpan: TimeSpan.MAX,
-          channel: c.channel.key,
-        });
-        await waitForStream(cd, c);
-        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-        release();
-        await expect.poll(() => cd.value()[1].series.length).toBe(2);
-        const [b, data] = cd.value();
-        expect(data.series[0]).toBe(fetched);
-        expect(data.series[1]).toBe(live);
-        expect(live.refCount).toBe(1);
-        expect(fetched.refCount).toBe(1);
-        expect(b).toStrictEqual({ lower: 5, upper: 6 });
-        cd.cleanup();
-        expect(live.refCount).toBe(0);
-        expect(fetched.refCount).toBe(0);
-      });
-
-      it("should insert a late back-fill in front of live series", async () => {
-        const now = TimeStamp.now();
-        const historical = new Series({
-          data: new Float32Array([1, 2]),
-          timeRange: new TimeRange(now.sub(TimeSpan.seconds(2)), now),
-          alignment: 0n,
-        });
-        let release = (): void => {};
-        const gate = new Promise<void>((resolve) => (release = resolve));
-        c.feed.read = async (): Promise<MultiSeries> => {
-          await gate;
-          return new MultiSeries([historical]);
-        };
-        const cd = new StreamChannelData(c, {
-          timeSpan: TimeSpan.MAX,
-          channel: c.channel.key,
-        });
-        await waitForStream(cd, c);
-        const live = new Series({
-          data: new Float32Array([3, 4]),
-          timeRange: new TimeRange(now, TimeStamp.MAX),
-          alignment: 2n,
-        });
-        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-        release();
-        await expect.poll(() => cd.value()[1].series.length).toBe(2);
-        const [, data] = cd.value();
-        expect(data.series[0]).toBe(historical);
-        expect(data.series[1]).toBe(live);
-        cd.cleanup();
-      });
-
-      it("should keep the buffers of a restarted Core after the older ones", async () => {
-        c.feed.read = async (): Promise<MultiSeries> => new MultiSeries([]);
-        const cd = new StreamChannelData(c, {
-          timeSpan: TimeSpan.MAX,
-          channel: c.channel.key,
-        });
-        await waitForStream(cd, c);
-        const now = TimeStamp.now();
-        const before = new Series({
-          data: new Float32Array([1, 2]),
-          timeRange: new TimeRange(now.sub(TimeSpan.seconds(2)), now),
-          alignment: leadingAlignment(5n, 0n),
-        });
-        const after = new Series({
-          data: new Float32Array([3, 4]),
-          timeRange: new TimeRange(now.add(TimeSpan.seconds(1)), TimeStamp.MAX),
-          alignment: leadingAlignment(0n, 0n),
-        });
-        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([before])]]));
-        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([after])]]));
-        const [, data] = cd.value();
-        expect(data.series).toEqual([before, after]);
-        cd.cleanup();
-      });
-    });
-
-    it("should hold the seam read after a restart until its samples settle", async () => {
-      const ranges: TimeRange[] = [];
-      c.feed.read = async (tr: TimeRange): Promise<MultiSeries> => {
-        ranges.push(tr);
-        return new MultiSeries([]);
-      };
-      const cd = new StreamChannelData(c, {
-        timeSpan: TimeSpan.seconds(10),
-        channel: c.channel.key,
-      });
-      await waitForStream(cd, c);
-      const now = TimeStamp.now();
-      const float = new Series({
-        data: new Float32Array([1, 2]),
-        timeRange: new TimeRange(now.sub(TimeSpan.seconds(1)), now),
-      });
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([float])]]));
-      const bytes = new Series({
-        data: new Uint8Array([3, 4]),
-        timeRange: new TimeRange(now, TimeStamp.MAX),
-      });
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([bytes])]]));
-      await waitForStream(cd, c);
-      const backfills = ranges.length;
-      const live = new Series({
-        data: new Uint8Array([5, 6]),
-        timeRange: new TimeRange(
-          TimeStamp.now().add(TimeSpan.milliseconds(200)),
-          TimeStamp.MAX,
-        ),
-      });
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-      await new Promise((r) => setTimeout(r, 300));
-      expect(ranges).toHaveLength(backfills);
-      await expect.poll(() => ranges.length, { timeout: 3000 }).toBe(backfills + 1);
-      cd.cleanup();
-    });
-
-    it("should read the channel again when its data type changes", async () => {
-      c.feed.read = async (): Promise<MultiSeries> => new MultiSeries([]);
-      const cd = new StreamChannelData(c, {
-        timeSpan: TimeSpan.MAX,
-        channel: c.channel.key,
-      });
-      await waitForStream(cd, c);
-      const now = TimeStamp.now();
-      const float = new Series({
-        data: new Float32Array([1, 2]),
-        timeRange: new TimeRange(now.sub(TimeSpan.seconds(1)), now),
-      });
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([float])]]));
-      const bytes = new Series({
-        data: new Uint8Array([3, 4]),
-        timeRange: new TimeRange(now, TimeStamp.MAX),
-      });
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([bytes])]]));
-      expect(cd.value()[1].series).toEqual([]);
-      expect(float.refCount).toBe(0);
-      await waitForStream(cd, c);
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([bytes])]]));
-      expect(cd.value()[1].series).toEqual([bytes]);
-      cd.cleanup();
-    });
-
-    it("should not subscribe when cleaned up during channel retrieval", async () => {
-      let release = (): void => {};
-      const gate = new Promise<void>((resolve) => (release = resolve));
-      c.channels.retrieve = async (): Promise<channel.Channel> => {
-        await gate;
-        return c.channel;
-      };
-      const cd = new StreamChannelData(c, {
-        timeSpan: TimeSpan.MAX,
-        channel: c.channel.key,
-      });
-      cd.value();
-      cd.cleanup();
-      release();
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      expect(c.streamF).not.toHaveBeenCalled();
-    });
-
-    it("should stop streaming and drop a back-fill pending at cleanup", async () => {
-      const series = new Series({ data: new Float32Array([1, 2, 3]) });
-      let release = (): void => {};
-      const gate = new Promise<void>((resolve) => (release = resolve));
-      c.feed.read = async (): Promise<MultiSeries> => {
-        await gate;
-        return new MultiSeries([series]);
-      };
-      const cd = new StreamChannelData(c, {
-        timeSpan: TimeSpan.MAX,
-        channel: c.channel.key,
-      });
-      await waitForStream(cd, c);
-      cd.cleanup();
-      expect(c.streamDestructorF).toHaveBeenCalled();
-      release();
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      expect(series.refCount).toBe(0);
-    });
-
-    it("should garbage collect data that goes out of range", async () => {
-      let now = TimeStamp.milliseconds(10);
-      const tr = new TimeRange(
-        now.sub(TimeSpan.milliseconds(3)),
-        now.add(TimeSpan.milliseconds(1)),
-      );
-      const series = new Series({
-        data: new Float32Array([1, 2, 3]),
-        timeRange: tr,
-      });
-      c.response = new MultiSeries([series]);
-      const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.milliseconds(2),
-        channel: c.channel.key,
-      };
-      const cd = new StreamChannelData(c, props, {}, () => now);
-      const [b, data] = await waitForResolve(cd);
-      expect(b).toEqual({ lower: 1, upper: 3 });
-      expect(data.series).toHaveLength(1);
-      expect(data.series[0]).toBe(series);
-      const tr2 = new TimeRange(
-        now.add(TimeSpan.milliseconds(1)),
-        now.add(TimeSpan.milliseconds(20)),
-      );
-      const series2 = new Series({
-        data: new Float32Array([4, 5, 6]),
-        timeRange: tr2,
-      });
-      now = TimeStamp.milliseconds(30);
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series2])]]));
-      expect(series.refCount).toBe(0);
-      expect(series2.refCount).toBe(1);
-      const [b2, data2] = cd.value();
-      expect(b2).toEqual({ lower: 4, upper: 6 });
-      expect(data2.series).toHaveLength(1);
-      expect(data2.series[0]).toBe(series2);
-    });
-
-    it("should adjust the bounds of the data even if it was not garbage collected", async () => {
-      let now = TimeStamp.milliseconds(10);
-      const tr = new TimeRange(
-        now.sub(TimeSpan.milliseconds(3)),
-        now.add(TimeSpan.milliseconds(1)),
-      );
-      const series = new Series({
-        data: new Float32Array([1, 2, 3]),
-        timeRange: tr,
-      });
-      c.response = new MultiSeries([series]);
-      const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.milliseconds(2),
-        channel: c.channel.key,
-      };
-      const cd = new StreamChannelData(c, props, {}, () => now);
-      const [b, data] = await waitForResolve(cd);
-      expect(b).toEqual({ lower: 1, upper: 3 });
-      expect(data.series).toHaveLength(1);
-      expect(data.series[0]).toBe(series);
-      const tr2 = new TimeRange(
-        now.add(TimeSpan.milliseconds(1)),
-        now.add(TimeSpan.milliseconds(20)),
-      );
-      expect(series.refCount).toBe(1);
-      const series2 = new Series({
-        data: new Float32Array([4, 5, 6]),
-        timeRange: tr2,
-      });
-      // The old buffer won't be garbage collected yet
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series2])]]));
-      now = TimeStamp.milliseconds(20);
-      const [b2, data2] = cd.value();
-      expect(series2.refCount).toBe(1);
-      expect(series.refCount).toBe(1);
-      expect(b2).toEqual({ lower: 4, upper: 6 });
-      expect(data2.series).toHaveLength(2);
-      expect(data2.series[0]).toBe(series);
-      expect(data2.series[1]).toBe(series2);
-    });
-
-    it("should destroy the stream handler when cleanup is called", async () => {
-      const now = TimeStamp.milliseconds(10);
-      const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.MAX,
-        channel: c.channel.key,
-      };
-      const cd = new StreamChannelData(c, props, {}, () => now);
-      await waitForResolve(cd);
-      cd.cleanup();
-      expect(c.streamDestructorF).toHaveBeenCalled();
-    });
-
-    it("should drop the series refcounts to 0 when cleanup is called", async () => {
-      const now = TimeStamp.milliseconds(10);
-      const tr = new TimeRange(
-        now.sub(TimeSpan.milliseconds(3)),
-        now.add(TimeSpan.milliseconds(1)),
-      );
-      const series = new Series({
-        data: new Float32Array([1, 2, 3]),
-        timeRange: tr,
-      });
-      c.response = new MultiSeries([series]);
-      const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.milliseconds(2),
-        channel: c.channel.key,
-      };
-      const cd = new StreamChannelData(c, props, {}, () => now);
-      await waitForResolve(cd);
-      expect(series.refCount).toBe(1);
-      cd.cleanup();
-      expect(series.refCount).toBe(0);
-    });
-
-    it("should return the index channel data when the channel is not an index and fetchIndex is true", async () => {
-      const now = TimeStamp.milliseconds(10);
-      const tr = new TimeRange(
-        now.sub(TimeSpan.milliseconds(3)),
-        now.add(TimeSpan.milliseconds(1)),
-      );
-      const series = new Series({
-        data: new Float32Array([1, 2, 3]),
-        timeRange: tr,
-      });
-      c.response = new MultiSeries([series]);
-      const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.MAX,
-        channel: c.channel.key,
-        useIndexOfChannel: true,
-      };
-      const cd = new StreamChannelData(c, props, {}, () => now);
-      const [b, data] = await waitForResolve(cd);
-      expect(b).toStrictEqual({ lower: 1, upper: 3 });
-      expect(data.series).toHaveLength(1);
-      expect(data.series[0]).toBe(series);
-    });
-
-    it("should return the index channel data when the channel is an index and fetchIndex is true", async () => {
-      const now = TimeStamp.milliseconds(10);
-      const tr = new TimeRange(
-        now.sub(TimeSpan.milliseconds(3)),
-        now.add(TimeSpan.milliseconds(1)),
-      );
-      const series = new Series({
-        data: new Float32Array([1, 2, 3]),
-        timeRange: tr,
-      });
-      c.response = new MultiSeries([series]);
-      const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.MAX,
-        channel: c.channel.index,
-        useIndexOfChannel: true,
-      };
-      const cd = new StreamChannelData(c, props, {}, () => now);
-      const [b, data] = await waitForResolve(cd);
-      expect(b).toStrictEqual({ lower: 1, upper: 3 });
-      expect(data.series).toHaveLength(1);
-      expect(data.series[0]).toBe(series);
-    });
-
-    it("should read data when the channel is not virtual", async () => {
-      const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.seconds(20),
-        channel: c.channel.key,
-      };
-      const now = TimeStamp.milliseconds(10);
-      const cd = new StreamChannelData(c, props, undefined, () => now);
-      await waitForResolve(cd);
-      expect(c.readMock).toHaveBeenCalled();
-      const args = c.readMock.mock.calls[0];
-      expect(args).toHaveLength(2);
-      const expectedTr = new TimeRange(now.spanRange(-TimeSpan.seconds(20)));
-      expect(args[0].equals(expectedTr)).toBe(true);
-      expect(args[1]).toBe(c.channel.key);
-    });
-
-    it("should not read data when the channel is virtual", async () => {
-      c.channel = new channel.Channel({
-        ...c.channel,
-        virtual: true,
-      });
-      const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.seconds(20),
-        channel: c.channel.key,
-      };
-      const now = TimeStamp.milliseconds(10);
-      const cd = new StreamChannelData(c, props, undefined, () => now);
-      await waitForResolve(cd);
-      expect(c.readMock).not.toHaveBeenCalled();
-    });
-
-    it("should read data when the channel is calculated", async () => {
-      c.channel = new channel.Channel({
-        ...c.channel,
-        expression: "1 + 2",
-      });
-      const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.seconds(1),
-        channel: c.channel.key,
-      };
-      const now = TimeStamp.milliseconds(10);
-      const cd = new StreamChannelData(c, props, undefined, () => now);
-      await waitForResolve(cd);
-      expect(c.readMock).toHaveBeenCalled();
-      const args = c.readMock.mock.calls[0];
-      expect(args).toHaveLength(2);
-      const expectedTr = new TimeRange(now.spanRange(-TimeSpan.seconds(1)));
-      expect(args[0].equals(expectedTr)).toBe(true);
-      expect(args[1]).toBe(c.channel.key);
-    });
-
-    it("should return zero bounds for a channel with a variable length data type", async () => {
-      c.channel = new channel.Channel({
-        ...c.channel,
-        virtual: true,
-        dataType: DataType.STRING,
-      });
-      const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.MAX,
-        channel: c.channel.key,
-      };
-      const cd = new StreamChannelData(c, props);
-      await waitForResolve(cd);
-      const d = new Series({
-        data: ["cat", "in", "the", "hat"],
-        timeRange: TimeRange.MAX,
-      });
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([d])]]));
-      const [b, data] = cd.value();
-      expect(b).toStrictEqual(bounds.INVALID);
-      expect(data.series).toHaveLength(1);
-      expect(data.series[0]).toBe(d);
-    });
-
-    describe("loading", () => {
-      it("should report loading until the back-fill resolves", async () => {
-        let release = (): void => {};
-        const gate = new Promise<void>((resolve) => (release = resolve));
-        c.feed.read = async (): Promise<MultiSeries> => {
-          await gate;
-          return new MultiSeries([]);
-        };
-        const cd = new StreamChannelData(c, {
-          timeSpan: TimeSpan.MAX,
-          channel: c.channel.key,
-        });
-        const handleChange = vi.fn();
-        cd.onChange(handleChange);
-        expect(cd.loading()).toBe(true);
-        await expect.poll(() => c.streamHandler != null).toBe(true);
-        // Live data delivered during the drain must not clear the loading state.
-        const live = new Series({
-          data: new Float32Array([1]),
-          timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
-        });
-        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-        expect(cd.loading()).toBe(true);
-        release();
-        await expect.poll(() => cd.loading()).toBe(false);
-        expect(handleChange).toHaveBeenCalled();
-        cd.cleanup();
-      });
-
-      it("should clear loading on the first failure while the retry continues", async () => {
-        let calls = 0;
-        c.feed.read = async (): Promise<MultiSeries> => {
-          calls++;
-          if (calls === 1) throw new Error("boom");
-          return new MultiSeries([]);
-        };
-        const cd = new StreamChannelData(
-          c,
-          { timeSpan: TimeSpan.MAX, channel: c.channel.key },
-          {},
-          undefined,
-          { sleepFn: async () => {} },
-        );
-        const handleChange = vi.fn();
-        cd.onChange(handleChange);
-        expect(cd.loading()).toBe(true);
-        await expect.poll(() => cd.loading()).toBe(false);
-        expect(handleChange).toHaveBeenCalled();
-        await expect.poll(() => calls >= 2).toBe(true);
-        expect(cd.loading()).toBe(false);
-        cd.cleanup();
-      });
-
-      it("should not report loading for a span within the live buffer", () => {
-        const cd = new StreamChannelData(c, {
-          timeSpan: TimeSpan.seconds(30),
-          channel: c.channel.key,
-        });
-        expect(cd.loading()).toBe(false);
-        expect(c.streamF).not.toHaveBeenCalled();
-      });
-
-      it("should not report loading for a span exactly at the live buffer limit", () => {
-        const cd = new StreamChannelData(c, {
-          timeSpan: TimeSpan.minutes(1),
-          channel: c.channel.key,
-        });
-        expect(cd.loading()).toBe(false);
-        expect(c.streamF).not.toHaveBeenCalled();
-      });
-
-      it("should not report loading for a zero channel", () => {
-        const cd = new StreamChannelData(c, { timeSpan: TimeSpan.MAX, channel: 0 });
-        expect(cd.loading()).toBe(false);
-      });
-
-      it("should clear loading immediately with a null client", () => {
-        const cd = new StreamChannelData(null, { timeSpan: TimeSpan.MAX, channel: 1 });
-        expect(cd.loading()).toBe(false);
-      });
-
-      it("should clear loading for a virtual channel without a history read", async () => {
-        c.channel = new channel.Channel({ ...c.channel, virtual: true });
-        const cd = new StreamChannelData(c, {
-          timeSpan: TimeSpan.MAX,
-          channel: c.channel.key,
-        });
-        expect(cd.loading()).toBe(true);
-        await expect.poll(() => cd.loading()).toBe(false);
-        expect(c.readMock).not.toHaveBeenCalled();
-        cd.cleanup();
-      });
-
-      it("should stay silent when cleanup precedes the back-fill resolving", async () => {
-        let release = (): void => {};
-        const gate = new Promise<void>((resolve) => (release = resolve));
-        c.feed.read = async (): Promise<MultiSeries> => {
-          await gate;
-          return new MultiSeries([]);
-        };
-        const cd = new StreamChannelData(c, {
-          timeSpan: TimeSpan.MAX,
-          channel: c.channel.key,
-        });
-        const handleChange = vi.fn();
-        cd.onChange(handleChange);
-        expect(cd.loading()).toBe(true);
-        cd.cleanup();
-        release();
-        await new Promise((resolve) => setTimeout(resolve, 5));
-        expect(handleChange).not.toHaveBeenCalled();
-      });
-    });
-  });
-
   describe("TiledChannelData", () => {
     const DATA_KEY = 65537;
     const INDEX_KEY = 65538;
@@ -2233,30 +803,38 @@ describe("remote", () => {
     }
 
     // Returns one series per tile. Data tiles hold [level, index], and index tiles hold
-    // the tile's start and end.
+    // the tile's start and end. An average tile holds the mean of the two.
     const tileSeries = (spec: framer.TileSpec): MultiSeries => {
       const tr = framer.tileRange(spec);
       const alignment = (BigInt(spec.level) << 32n) + BigInt(spec.index);
-      if (spec.key === INDEX_KEY)
+      const average = spec.aggregation === "average";
+      if (spec.key === INDEX_KEY) {
+        const [start, end] = [tr.start.valueOf(), tr.end.valueOf() - 1n];
         return new MultiSeries([
           new Series({
-            data: new BigInt64Array([tr.start.valueOf(), tr.end.valueOf() - 1n]),
+            data: new BigInt64Array(average ? [(start + end) / 2n] : [start, end]),
             dataType: DataType.TIMESTAMP,
             timeRange: tr,
             alignment,
           }),
         ]);
+      }
+      const { level, index } = spec;
       return new MultiSeries([
         new Series({
-          data: new Float32Array([spec.level, spec.index]),
+          data: new Float32Array(average ? [(level + index) / 2] : [level, index]),
           timeRange: tr,
           alignment,
         }),
       ]);
     };
 
+    const servedKey = ({ level, index, key, aggregation }: framer.TileSpec): string =>
+      `${level}/${index}/${key}/${aggregation}`;
+
     class MockClient implements Client {
       now = (): TimeStamp => TimeStamp.now();
+      dataType = DataType.FLOAT32;
       tiles: framer.TileSpec[] = [];
       tileDataTypes: Array<DataType | undefined> = [];
       reads: TimeRange[] = [];
@@ -2279,7 +857,7 @@ describe("remote", () => {
           return new channel.Channel({
             key,
             name: `data-${key}`,
-            dataType: DataType.FLOAT32,
+            dataType: this.dataType,
             index: INDEX_KEY,
           });
         },
@@ -2302,7 +880,7 @@ describe("remote", () => {
               this.pending.push({ spec, resolve }),
             );
           const series = tileSeries(spec);
-          this.served.set(`${spec.level}/${spec.index}/${spec.key}`, series);
+          this.served.set(servedKey(spec), series);
           return series;
         },
         stream: (handler: framer.StreamHandler): framer.Subscription => {
@@ -2312,10 +890,15 @@ describe("remote", () => {
       };
 
       resolveAll(): void {
-        const pending = this.pending.splice(0);
+        this.resolveWhere(() => true);
+      }
+
+      resolveWhere(match: (spec: framer.TileSpec) => boolean): void {
+        const pending = this.pending.filter(({ spec }) => match(spec));
+        this.pending = this.pending.filter(({ spec }) => !match(spec));
         pending.forEach(({ spec, resolve }) => {
           const series = tileSeries(spec);
-          this.served.set(`${spec.level}/${spec.index}/${spec.key}`, series);
+          this.served.set(servedKey(spec), series);
           resolve(series);
         });
       }
@@ -2390,6 +973,16 @@ describe("remote", () => {
         [1024, "average"],
         [1024, "average"],
       ]);
+      expect(source.aggregation()).toBe("average");
+    });
+
+    it("should report the data type its channel stores", async () => {
+      c.dataType = DataType.INT16;
+      const source = create();
+      expect(source.dataType()).toBeNull();
+      await settle(source);
+      expect(source.value()[1].dataType).toEqual(DataType.FLOAT32);
+      expect(source.dataType()).toEqual(DataType.INT16);
     });
 
     it("should bound an index channel by the home view", async () => {
@@ -2403,6 +996,87 @@ describe("remote", () => {
       const source = create();
       await settle(source);
       expect(source.value()[0]).toEqual({ lower: 0, upper: 13 });
+    });
+
+    describe("extremes kept", () => {
+      it("should bound an average line by min_max tiles of the home view", async () => {
+        const source = create({ aggregation: "average" });
+        await settle(source);
+        expect(source.value()[0]).toEqual({ lower: 6.5, upper: 7 });
+        source.value({ extremesKept: true });
+        await expect.poll(() => source.fetching()).toBe(false);
+        expect(c.tiles.map((t) => [t.level, t.index, t.aggregation])).toEqual([
+          [13, 0, "average"],
+          [13, 1, "average"],
+          [13, 0, "min_max"],
+          [13, 1, "min_max"],
+        ]);
+        expect(source.value({ extremesKept: true })[0]).toEqual({
+          lower: 0,
+          upper: 13,
+        });
+      });
+
+      it("should bound a min_max line by the tiles it draws", async () => {
+        const source = create();
+        await settle(source);
+        const before = c.tiles.length;
+        expect(source.value({ extremesKept: true })[0]).toEqual({
+          lower: 0,
+          upper: 13,
+        });
+        expect(c.tiles).toHaveLength(before);
+      });
+
+      it("should bound an xy line by the decimated tiles it draws", async () => {
+        const source = create({ xChannel: XY_KEY, channel: XY_KEY });
+        await settle(source);
+        const before = c.tiles.length;
+        source.value({ extremesKept: true });
+        expect(c.tiles).toHaveLength(before);
+      });
+
+      it("should keep the min_max home tiles through a zoomed view", async () => {
+        const source = create({ aggregation: "average" });
+        await settle(source);
+        source.value({ extremesKept: true });
+        source.value({ view: view(2000, 3000, 1000) });
+        await expect.poll(() => source.fetching()).toBe(false);
+        source.value({ view: view(2000, 3000, 1000) });
+        const tile = c.served.get(`13/0/${DATA_KEY}/min_max`)!;
+        expect(tile.series[0].refCount).toBe(1);
+        const before = c.tiles.length;
+        source.value({ extremesKept: true });
+        expect(c.tiles).toHaveLength(before);
+      });
+
+      it("should report loading until a bounds read's min_max tiles land", async () => {
+        const source = create({ aggregation: "average" });
+        c.deferred = true;
+        await expect
+          .poll(() => {
+            source.value();
+            source.value({ extremesKept: true });
+            return c.pending.length;
+          })
+          .toBe(4);
+        c.resolveWhere((spec) => spec.aggregation === "average");
+        await expect.poll(() => source.value()[1].length).toBe(2);
+        expect(source.loading()).toBe(true);
+        c.resolveAll();
+        await settle(source);
+      });
+
+      it("should draw an average stand-in over a min_max one", async () => {
+        const source = create({ aggregation: "average" });
+        await expect
+          .poll(() => source.value({ extremesKept: true })[0])
+          .toEqual({ lower: 0, upper: 13 });
+        await settle(source);
+        c.deferred = true;
+        const [, series] = source.value({ view: view(2000, 3000, 1000) });
+        expect(positions(series)).toEqual([[6.5]]);
+      });
     });
 
     it("should draw the tiles of the view it is given", async () => {
@@ -2553,11 +1227,11 @@ describe("remote", () => {
       await expect
         .poll(() => source.value({ view: view(2000, 3000) })[1].series.length)
         .toBe(3);
-      const fine = c.served.get(`9/3/${DATA_KEY}`)!;
+      const fine = c.served.get(`9/3/${DATA_KEY}/min_max`)!;
       expect(fine.series[0].refCount).toBe(1);
       source.value({ view: view(1000, 10000, 1000) });
       expect(fine.series[0].refCount).toBe(0);
-      expect(c.served.get(`13/0/${DATA_KEY}`)!.series[0].refCount).toBe(1);
+      expect(c.served.get(`13/0/${DATA_KEY}/min_max`)!.series[0].refCount).toBe(1);
     });
 
     it("should release a tile that arrives after its view moved on", async () => {
@@ -2569,7 +1243,7 @@ describe("remote", () => {
       source.value({ view: home });
       c.resolveAll();
       await expect.poll(() => source.fetching()).toBe(false);
-      const late = c.served.get(`9/3/${DATA_KEY}`)!;
+      const late = c.served.get(`9/3/${DATA_KEY}/min_max`)!;
       expect(late.series[0].refCount).toBe(1);
       expect(positions(source.value({ view: home })[1])).toEqual([
         [13, 0],
@@ -2584,7 +1258,7 @@ describe("remote", () => {
       source.value({ view: view(500_000, 501_000) });
       await expect.poll(() => source.fetching()).toBe(false);
       source.value({ view: view(500_000, 501_000) });
-      expect(c.served.get(`13/0/${DATA_KEY}`)!.series[0].refCount).toBe(1);
+      expect(c.served.get(`13/0/${DATA_KEY}/min_max`)!.series[0].refCount).toBe(1);
     });
 
     it("should read an xy line's home range once with decimate", async () => {
@@ -2601,6 +1275,7 @@ describe("remote", () => {
         [0, "decimate", HOME.start.valueOf(), undefined],
         [1, "decimate", undefined, HOME.end.valueOf()],
       ]);
+      expect(source.aggregation()).toBe("decimate");
       const before = c.tiles.length;
       source.value({ view: view(2000, 3000, 1000) });
       expect(c.tiles.length).toBe(before);
@@ -2771,7 +1446,7 @@ describe("remote", () => {
     it("should release every tile on cleanup", async () => {
       const source = create();
       await settle(source);
-      const home = c.served.get(`13/0/${DATA_KEY}`)!;
+      const home = c.served.get(`13/0/${DATA_KEY}/min_max`)!;
       source.cleanup();
       expect(home.series[0].refCount).toBe(0);
     });
@@ -2834,6 +1509,7 @@ describe("remote", () => {
         expect(c.tiles).toHaveLength(0);
         expect(c.reads[0].start.valueOf()).toBe(TimeStamp.seconds(90).valueOf());
         expect(positions(source.value()[1])).toEqual([[90, 100]]);
+        expect(source.aggregation()).toBe("decimate");
       });
 
       it("should stream new samples into the live window", async () => {
@@ -2938,7 +1614,7 @@ describe("remote", () => {
         const older = view(75_000, 100_000, 1000);
         source.value({ view: older });
         await expect.poll(() => source.fetching()).toBe(false);
-        const tile = c.served.get(`14/4/${DATA_KEY}`)!;
+        const tile = c.served.get(`14/4/${DATA_KEY}/min_max`)!;
         expect(tile.series[0].refCount).toBe(1);
         source.value({ view: view(95_000, 100_000, 1000) });
         expect(tile.series[0].refCount).toBe(0);
@@ -2979,7 +1655,7 @@ describe("remote", () => {
         const v = view(75_000, 100_000, 1000);
         source.value({ view: v });
         await expect.poll(() => source.fetching()).toBe(false);
-        const tile = c.served.get(`14/4/${DATA_KEY}`)!;
+        const tile = c.served.get(`14/4/${DATA_KEY}/min_max`)!;
         const opened = c.streamHandler;
         const bytes = new Series({
           data: new Uint8Array([3, 4]),
@@ -3015,7 +1691,7 @@ describe("remote", () => {
         const v = view(75_000, 100_000, 1000);
         source.value({ view: v });
         await expect.poll(() => source.fetching()).toBe(false);
-        const tile = c.served.get(`14/4/${DATA_KEY}`)!;
+        const tile = c.served.get(`14/4/${DATA_KEY}/min_max`)!;
         const float = raw(95, 96);
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([float])]]));
         const bytes = new Series({
@@ -3146,18 +1822,17 @@ describe("remote", () => {
       expect(statuses[0].variant).toEqual("warning");
     });
 
-    it("should return empty data from a disconnected ChannelData source", () => {
+    it("should return empty data from a disconnected TiledChannelData source", () => {
       const statuses: cstatus.Crude[] = [];
-      const cd = new ChannelData(
+      const source = new TiledChannelData(
         null,
         { timeRange: TimeRange.MAX, channel: 1 },
         { onStatusChange: (s) => statuses.push(s) },
       );
-      const [b, data] = cd.value();
+      const [b, data] = source.value();
       expect(b).toStrictEqual(bounds.INVALID);
       expect(data).toHaveLength(0);
-      expect(statuses).toHaveLength(1);
-      expect(statuses[0].variant).toEqual("warning");
+      expect(statuses).toEqual([DISCONNECTED_STATUS]);
     });
   });
 });
