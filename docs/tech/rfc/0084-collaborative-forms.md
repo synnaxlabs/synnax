@@ -6,7 +6,8 @@
   [RFC 0047 - Client cache, unified reads, and Console session state](0047-client-cache-unified-reads-session-state.md),
   [RFC 0056 - Task autosave with deploy-on-start](0056-task-autosave-deploy-on-start.md),
   [RFC 0065 - Pluto form optionality](0065-pluto-form-optionality.md),
-  [RFC 0081 - Typed devices](0081-typed-devices.md)
+  [RFC 0081 - Typed devices](0081-typed-devices.md),
+  [PR #3504 - SY-5270: Edit forms collaboratively through per-field actions](https://github.com/synnaxlabs/synnax/pull/3504)
 
 ## 0 Summary
 
@@ -38,10 +39,12 @@ actions, as Arc reuses the text CRDT payloads (`schemas/synnax/arc.oracle:149-16
 
 A path segment into a list names an entry's `key`, as Lyra paths already do
 (`x/ts/src/deep/path.ts:82-90`). A path never names an index, and a list of plain values
-is set whole. `x/go/patch` applies actions to a record's JSON form, and `x/ts/src/patch`
-applies them on `deep`. Shared conformance vectors fix both, as
-`x/go/crdt/conformance_test.go` does for the text CRDT. Typed actions stay where they
-mean more than a field write: node moves, group cascades, and Arc text.
+is set whole. Paths use the stored form of the record, with snake_case keys, and the
+binding converts key case with the document's schema. `x/go/patch` applies actions to a
+record's JSON form, and `x/ts/src/patch` applies them on `deep`. Shared conformance
+vectors fix both, as `x/go/crdt/conformance_test.go` does for the text CRDT. Typed
+actions stay where they mean more than a field write: node moves, group cascades, and
+Arc text.
 
 ### 1.1 Conflict rules
 
@@ -51,9 +54,13 @@ mean more than a field write: node moves, group cascades, and Arc text.
 | One field                           | The later arrival at the Core wins           |
 | An edit inside a removed list entry | Does nothing                                 |
 | An edit for a swapped variant       | Does nothing (§1.2)                          |
-| Two writes under one absent object  | Both apply. Defaults fill the rest at decode |
+| Two writes under one absent object  | The later default replaces the earlier write |
 | Two inserts after one entry         | Both stay, in Core order                     |
 | A move of a removed entry           | Does nothing                                 |
+
+A write under an absent object first sets the object's default whole, so the form shows
+its other fields at once. Two first writes under one absent object inside one round trip
+can lose the earlier one.
 
 Pending local actions replay on top of each remote frame
 (`client/ts/src/actions/controller.ts:572-578`), so a remote write never moves text
@@ -86,8 +93,9 @@ Lyra's form keeps its own copy of the values (`lyra/src/form/state.ts:66`), whic
 today's local state, so create modals do not change. The Flux binding supplies a store
 over the client cache and the action controller. A field write dispatches `set`, the
 list helpers (`lyra/src/form/useField.ts:144-180`) dispatch `insert`, `remove`, and
-`move`, and keystrokes in one field coalesce into one dispatch. Undo and redo come from
-the controller.
+`move`, and keystrokes in one field coalesce into one dispatch. A write of the value a
+field holds sends nothing. The controller records an undo entry for each dispatch. Forms
+bind no undo hotkey, so a focused input keeps its own undo.
 
 A remote edit re-renders only the fields it touches. The controller gives the store the
 actions it applied, and Lyra marks stale only the written path, its ancestors, and its
@@ -98,10 +106,12 @@ once.
 
 The task dispatch runs under the per-task lock and writes through `config.Store.Write`,
 which decodes, fills defaults, and validates
-(`core/pkg/service/task/config/config.go:162-190`). The response carries the new config
-hash. Actions broadcast on `sy_task_action_set`, because the Driver parses `sy_task_set`
-as metadata (`driver/task/manager.cpp:242`). A write never reconfigures the Driver (RFC
-0056 §4.1). Deploy's resolve step dispatches `set` for each field it fills.
+(`core/pkg/service/task/config/config.go:162-190`). The broadcast adds a `set` of
+`config_hash`, so the cache holds the hash of the config it shows, and the response is
+empty. Actions broadcast on `sy_task_action_set`, because the Driver parses
+`sy_task_set` as metadata (`driver/task/manager.cpp:242`). Clients read only the action
+channel. A write never reconfigures the Driver (RFC 0056 §4.1). Deploy's resolve step
+dispatches `set` for each field it fills.
 
 `Writer.Create` serves Python's `configure` and imports. It broadcasts a `create` that
 carries the writer's dispatch key. The originator skips its own echo, and every other
@@ -109,24 +119,31 @@ client applies it, where a cached document drops it today (`controller.ts:551-56
 
 ### 1.6 Pinned starts
 
-`Command` gains `pinned`. Play sends `start` with the hash from its last dispatch and
-`pinned: true`. Both Drivers refuse it when the config they fetch has another hash
-(`driver/task/manager.cpp:571-600`, `core/pkg/service/driver/driver.go:257`). The status
-message is "Config changed", and the description asks the operator to review the task
-and start again. Arc starts stay unpinned, because the Core rewrites an Arc's task
-config after a debounce (`core/pkg/service/arc/dispatch.go:72`).
+`Command` gains `pinned`. Play waits until the cached task has no pending dispatch, then
+sends `start` with the cached hash and `pinned: true`. Both Drivers refuse it when the
+config they fetch has another hash (`driver/task/manager.cpp:571-600`,
+`core/pkg/service/driver/driver.go:257`). The status message is "Config changed", and
+the description asks the operator to review the task and start again. Arc starts stay
+unpinned, because the Core rewrites an Arc's task config after a debounce
+(`core/pkg/service/arc/dispatch.go:72`).
 
 ### 1.7 Other forms
 
-Device, range, label, and status forms use the same binding, each with its own dispatch
-endpoint. Device actions write only the user's field group (RFC 0081 §3). Labels are
-relationships, so the range and status forms move from replacing the whole set
-(`pluto/src/label/queries.ts:37`) to label add and remove.
+Range and label forms use the same binding, each with its own dispatch endpoint and
+action channel. The Core keeps publishing `sy_range_set` and `sy_label_set`, and the TS
+client reads only the action channels. A create form keeps a local copy and a save. The
+device connect modals and the status create modal stay local too: each commits once, and
+a connect modal tests the connection before it saves. Labels are relationships, so the
+range and status label pickers move from replacing the whole set
+(`pluto/src/label/queries.ts:37`) to label add and remove. A range metadata row sets its
+pair on blur and shows the pair the cache holds.
 
 Schematic, table, and Arc property forms bind to one element's config in the cached
 document. Today each copies the config, writes it back whole, and sets `sync: true` to
 take remote edits (`console/src/feature/schematic/toolbar/Properties.tsx:80-86`). The
-binding removes all three. The label and range forms drop `sync: true` too, and Lyra
+binding removes all three. Path actions on these documents reach only `configs`,
+`cells`, and `graph.inputs`, and each targets its element for undo. Arc node inputs keep
+the case of their keys. The label and range forms drop `sync: true` too, and Lyra
 deletes the option.
 
 ### 1.8 Controller fixes
@@ -165,6 +182,8 @@ the dispatch lock and counter are per Core
 | 10    | Flag removal                                                                |
 | 11    | One PR per other form; labels move to add and remove                        |
 | 12    | Property forms on the binding; Lyra drops `sync`                            |
+
+All phases ship in one pull request (#3504), with no flag.
 
 No stored format changes. `sy_task_set` keeps its shape. An older Driver ignores
 `pinned` and behaves as today.
