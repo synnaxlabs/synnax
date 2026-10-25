@@ -254,6 +254,35 @@ describe("useMapData", () => {
       unsubscribe();
     });
 
+    it("should notify a listener on each key it subscribed to", () => {
+      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const listener = vi.fn();
+      const unsubscribeFirst = result.current.subscribe(listener, "1");
+      const unsubscribeSecond = result.current.subscribe(listener, "2");
+      act(() => result.current.setItem({ key: "1", name: "Apple", value: 10 }));
+      expect(listener).toHaveBeenCalledTimes(1);
+      unsubscribeSecond();
+      act(() => result.current.setItem({ key: "1", name: "Apple", value: 11 }));
+      expect(listener).toHaveBeenCalledTimes(2);
+      unsubscribeFirst();
+      act(() => result.current.setItem({ key: "1", name: "Apple", value: 12 }));
+      expect(listener).toHaveBeenCalledTimes(2);
+    });
+
+    it("should notify a listener once when several of its keys change", () => {
+      const { result } = renderHook(() => useMapData<string, TestItem>());
+      const listener = vi.fn();
+      result.current.subscribe(listener, "1");
+      result.current.subscribe(listener, "2");
+      act(() =>
+        result.current.setItem([
+          { key: "1", name: "Apple", value: 10 },
+          { key: "2", name: "Banana", value: 5 },
+        ]),
+      );
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+
     it("should not notify listener for different key", async () => {
       const { result } = renderHook(() => useMapData<string, TestItem>());
 

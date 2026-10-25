@@ -13,6 +13,8 @@
 #include <cstring>
 #include <string>
 
+#include "x/cpp/errors/errors.h"
+
 extern "C" {
 #include "soem/soem.h"
 }
@@ -24,6 +26,12 @@ namespace driver::ethercat::soem {
 class API {
 public:
     virtual ~API() = default;
+
+    /// @brief checks that the process can open a raw EtherCAT socket.
+    /// @param ifname the interface named in the returned error.
+    /// @returns errors::PERMISSION_DENIED when the process lacks permission, or
+    /// errors::INTERFACE_ERROR when the socket fails to open for another reason.
+    virtual x::errors::Error check_socket(const char *ifname) = 0;
 
     /// @brief initializes EtherCAT on the specified network interface.
     virtual int init(const char *ifname) = 0;
@@ -60,6 +68,14 @@ public:
     /// @brief restores the address of a slave that lost power, returning a positive
     /// value when the same slave answered at its position.
     virtual int recover_slave(uint16_t slave, int timeout) = 0;
+
+    /// @brief measures propagation delays and sets up the distributed clock of every
+    /// slave that has one, returning true when at least one does.
+    virtual bool configdc() = 0;
+
+    /// @brief returns the reference clock system time from the latest process data
+    /// frame, in nanoseconds since 2000-01-01.
+    [[nodiscard]] virtual int64_t dc_time() const = 0;
 
     /// @brief reads from slave object dictionary via SDO.
     virtual int SDOread(
@@ -161,6 +177,10 @@ public:
 
     /// @brief returns the expected input working counter for a group.
     [[nodiscard]] virtual uint16_t group_inputsWKC(uint8_t grp) const = 0;
+
+    /// @brief returns true when the group's process data frames carry the reference
+    /// clock time.
+    [[nodiscard]] virtual bool group_hasdc(uint8_t grp) const = 0;
 };
 
 /// @brief production implementation of soem::API wrapping ecx_contextt.
@@ -169,6 +189,8 @@ class ProdAPI final : public API {
 
 public:
     ProdAPI() { std::memset(&this->context, 0, sizeof(this->context)); }
+
+    x::errors::Error check_socket(const char *ifname) override;
 
     int init(const char *ifname) override { return ecx_init(&this->context, ifname); }
 
@@ -197,6 +219,10 @@ public:
     }
 
     int readstate() override { return ecx_readstate(&this->context); }
+
+    bool configdc() override { return ecx_configdc(&this->context); }
+
+    [[nodiscard]] int64_t dc_time() const override { return this->context.DCtime; }
 
     int reconfig_slave(uint16_t slave, int timeout) override {
         return ecx_reconfig_slave(&this->context, slave, timeout);
@@ -340,6 +366,10 @@ public:
 
     [[nodiscard]] uint16_t group_inputsWKC(uint8_t grp) const override {
         return this->context.grouplist[grp].inputsWKC;
+    }
+
+    [[nodiscard]] bool group_hasdc(uint8_t grp) const override {
+        return this->context.grouplist[grp].hasdc;
     }
 };
 

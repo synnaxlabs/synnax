@@ -16,10 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
-	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
@@ -34,7 +31,7 @@ import (
 
 func TestAPIImEx(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API ImEx Suite")
+	RunSpecs(t, "API ImEx Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -80,12 +77,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	imexSvc = imex.NewService()
 	importer = &recordingImporter{}
 	Expect(imexSvc.RegisterImporter(string(importer.Type()), importer)).To(Succeed())
-	apiSvc = MustSucceed(apiimex.NewService(apicfg.LayerConfig{
-		Distribution: &distribution.Layer{DB: db},
-		Service: &service.Layer{
-			ImEx: imexSvc,
-			RBAC: rbacSvc,
-		},
+	apiSvc = MustSucceed(apiimex.NewService(apiimex.ServiceConfig{
+		ImEx: imexSvc,
+		RBAC: rbacSvc,
 	}))
 	Expect(userSvc.NewRetrieve().
 		Where(user.MatchUsernames("api-imex-suite-root")).

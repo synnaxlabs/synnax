@@ -176,7 +176,7 @@ export const Text = ({
     placeholder != null &&
     typeof placeholder !== "string";
 
-  tabIndex ??= preview ? -1 : undefined;
+  if (tabIndex == null && preview) tabIndex = -1;
 
   // A native date input formats its value for display, so a preview keeps the
   // element. Every other type renders static text: an input cannot shrink to its

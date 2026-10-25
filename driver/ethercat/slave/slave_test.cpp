@@ -125,8 +125,8 @@ TEST(PropertiesFindPdo, ReturnsTheInputEntryAtAnAddress) {
 TEST(PropertiesFindPdo, ReturnsTheOutputEntryAtAnAddress) {
     const auto result = find_pdo_slave().find_pdo(0x7000, 1, false);
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->name, "ControlWord");
-    ASSERT_EQ(result->bit_length, 8);
+    ASSERT_EQ(result.value().name, "ControlWord");
+    ASSERT_EQ(result.value().bit_length, 8);
 }
 
 /// @brief it should find no entry at an address the slave does not have.

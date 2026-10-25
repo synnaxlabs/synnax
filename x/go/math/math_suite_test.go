@@ -19,7 +19,7 @@ import (
 
 func TestMath(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Math Suite")
+	RunSpecs(t, "Math Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

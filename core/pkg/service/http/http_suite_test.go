@@ -28,7 +28,7 @@ var _ = BeforeSuite(func() {
 
 func TestHTTP(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service HTTP Suite")
+	RunSpecs(t, "Service HTTP Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cctype>
 #include <ranges>
 #include <utility>
 
@@ -15,6 +16,7 @@
 
 #include "x/cpp/telem/telem.h"
 
+#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/scan_task.h"
 
 namespace driver::ethercat {
@@ -27,6 +29,44 @@ std::string get_pdo_error_guidance(const std::string &error) {
         return "PDO order may be unreliable. Verify data correctness after configuration.";
     return "Channels can use only the entries a scan discovers. Scan again if entries "
            "are missing.";
+}
+
+/// @brief sets the variant, message, and description of status from the condition of an
+/// enabled slave on a running bus.
+void set_live_status(const slave::Health &health, synnax::device::Status &status) {
+    if (health.operational()) {
+        status.variant = synnax::status::VARIANT_SUCCESS;
+        status.message = "Operational";
+        return;
+    }
+    if (health.lost) {
+        status.variant = synnax::status::VARIANT_ERROR;
+        status.message = "Not responding";
+        status.description = "Check the power and cabling of the device.";
+        return;
+    }
+    const auto state = slave::slave_state_to_string(health.state);
+    if (health.faulted) {
+        status.variant = synnax::status::VARIANT_ERROR;
+        status.message = "Error in " + state;
+        status.description = health.al_status.empty()
+                               ? "The device reports an error without an error "
+                                 "code. With IgH, the kernel log (dmesg) shows it."
+                               : health.al_status;
+        return;
+    }
+    status.variant = synnax::status::VARIANT_WARNING;
+    status.message = "In " + state;
+    status.description = "The Driver is returning the device to OP.";
+}
+
+/// @brief describes a PDO discovery error and what the user can do about it.
+std::string pdo_error_description(const std::string &error) {
+    auto sentence = error;
+    sentence[0] = static_cast<char>(
+        std::toupper(static_cast<unsigned char>(sentence[0]))
+    );
+    return sentence + ". " + get_pdo_error_guidance(error);
 }
 }
 
@@ -80,6 +120,9 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 
     for (const auto &master_info: masters) {
         auto [slaves, err] = this->pool->discover_slaves(master_info.key);
+        // One permission covers every master (CAP_NET_RAW for SOEM, one udev rule for
+        // all IgH devices), so the other masters fail the same way.
+        if (err.matches(errors::PERMISSION_DENIED)) return {{}, err};
         if (err) {
             VLOG(1) << SCAN_LOG_PREFIX << "discovery failed for " << master_info.key
                     << ": " << err.message();
@@ -88,9 +131,10 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 
         if (slaves.empty()) continue;
 
+        const auto health = this->pool->health(master_info.key);
         for (const auto &slave: slaves)
             devices.push_back(
-                this->create_slave_device(slave, master_info.key, scan_ctx)
+                this->create_slave_device(slave, health, master_info.key, scan_ctx)
             );
     }
 
@@ -111,6 +155,7 @@ bool Scanner::exec(
 
 synnax::device::Device Scanner::create_slave_device(
     const slave::DiscoveryResult &slave,
+    const std::vector<slave::Health> &health,
     const std::string &master_key,
     const common::ScannerContext &scan_ctx
 ) const {
@@ -126,31 +171,6 @@ synnax::device::Device Scanner::create_slave_device(
 
     const bool is_enabled = json_props["enabled"].get<bool>();
 
-    std::string status_msg;
-    std::string status_variant;
-    if (!is_enabled) {
-        status_msg = "Device disabled";
-        status_variant = synnax::status::VARIANT_DISABLED;
-    } else if (sts.pdos_discovered) {
-        if (sts.pdo_discovery_error.empty()) {
-            const auto objects = [](const std::vector<pdo::Properties> &pdos) {
-                return std::to_string(std::ranges::count_if(pdos, [](const auto &p) {
-                    return !p.is_padding();
-                }));
-            };
-            status_msg = "Discovered (" + objects(props.input_pdos) + " inputs, " +
-                         objects(props.output_pdos) + " outputs)";
-            status_variant = synnax::status::VARIANT_SUCCESS;
-        } else {
-            status_msg = "Discovered with warning: " + sts.pdo_discovery_error + ". " +
-                         get_pdo_error_guidance(sts.pdo_discovery_error);
-            status_variant = synnax::status::VARIANT_WARNING;
-        }
-    } else {
-        status_msg = "Discovered (no PDOs found). " + get_pdo_error_guidance("no PDOs");
-        status_variant = synnax::status::VARIANT_WARNING;
-    }
-
     synnax::device::Device dev;
     dev.key = key;
     dev.name = props.name.empty() ? "EtherCAT Slave " + std::to_string(props.position)
@@ -160,15 +180,39 @@ synnax::device::Device Scanner::create_slave_device(
     dev.location = master_key + ".Slot " + std::to_string(props.position);
     dev.rack = rack_key;
     dev.properties = json_props;
-    dev.status = synnax::device::Status{
+    synnax::device::Status status{
         .key = synnax::device::status_key(dev),
         .name = dev.name,
-        .variant = status_variant,
-        .message = status_msg,
         .time = x::telem::TimeStamp::now(),
         .details = {.rack = rack_key, .device = dev.key},
     };
-
+    const auto live = std::ranges::find(
+        health,
+        props.position,
+        &slave::Health::position
+    );
+    if (!is_enabled) {
+        status.message = "Device disabled";
+        status.variant = synnax::status::VARIANT_DISABLED;
+    } else if (live != health.end())
+        set_live_status(*live, status);
+    else if (sts.pdos_discovered && sts.pdo_discovery_error.empty()) {
+        const auto objects = [](const std::vector<pdo::Properties> &pdos) {
+            return std::to_string(std::ranges::count_if(pdos, [](const auto &p) {
+                return !p.is_padding();
+            }));
+        };
+        status.message = "Discovered (" + objects(props.input_pdos) + " inputs, " +
+                         objects(props.output_pdos) + " outputs)";
+        status.variant = synnax::status::VARIANT_SUCCESS;
+    } else {
+        status.message = "Failed to discover PDOs";
+        status.description = pdo_error_description(
+            sts.pdo_discovery_error.empty() ? "no PDOs found" : sts.pdo_discovery_error
+        );
+        status.variant = synnax::status::VARIANT_WARNING;
+    }
+    dev.status = std::move(status);
     return dev;
 }
 
@@ -242,7 +286,8 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
 
     if (!parser.ok()) {
         LOG(WARNING) << SCAN_LOG_PREFIX << "test_interface: failed to parse command";
-        task_status.message = "Failed to parse command";
+        task_status.message = "Failed to parse test command";
+        task_status.description = common::config_err_description(parser.error());
         task_status.details.data = parser.error_json();
         this->ctx->set_status(task_status);
         return;
@@ -253,7 +298,8 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
     if (err) {
         VLOG(1) << SCAN_LOG_PREFIX << "test_interface failed for "
                 << args.interface << ": " << err.message();
-        task_status.message = "Failed to probe interface: " + err.message();
+        task_status.message = "Failed to probe interface";
+        task_status.description = err.data;
         this->ctx->set_status(task_status);
         return;
     }

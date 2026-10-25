@@ -633,7 +633,7 @@ var _ = Describe("Driver", func() {
 									Key:     t.OntologyID().String(),
 									Name:    t.Name,
 									Variant: status.VariantSuccess,
-									Message: "Task stopped successfully",
+									Message: "Stopped task",
 									Time:    telem.Now(),
 									Details: task.NewStatusDetails(t, false),
 								}
@@ -835,7 +835,8 @@ var _ = Describe("Driver", func() {
 						Exec(ctx, node.DB)).To(Succeed())
 					g.Expect(statuses).To(HaveLen(1))
 					g.Expect(statuses[0].Variant).To(Equal(status.VariantError))
-					g.Expect(statuses[0].Message).To(ContainSubstring("bad config"))
+					g.Expect(statuses[0].Message).To(Equal("Failed to configure task"))
+					g.Expect(statuses[0].Description).To(Equal("bad config"))
 					g.Expect(statuses[0].Details.Cmd).To(Equal("cmd-ack"))
 					g.Expect(statuses[0].Details.Running).To(BeFalse())
 				}).Should(Succeed())
@@ -863,7 +864,12 @@ var _ = Describe("Driver", func() {
 						)).
 						Entry(&stat).
 						Exec(ctx, node.DB)).To(Succeed())
+					g.Expect(stat.Name).To(Equal(t.Name))
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("Failed to start task"))
+					g.Expect(stat.Description).To(Equal(
+						"task type 'pagerduty_alert': task not handled by factory",
+					))
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-unhandled"))
 					g.Expect(stat.Details.Running).To(BeFalse())
 				}).Should(Succeed())

@@ -81,8 +81,17 @@ bool Scanner::exec(
     return false;
 }
 
+/// @brief describes a response the server rejected by its status code and the start of
+/// its body.
+static std::string rejection_description(const Response &resp) {
+    const auto description = "The server responded with HTTP " +
+                             std::to_string(resp.status_code);
+    if (resp.body.empty()) return description + ".";
+    return description + ": " + resp.body_excerpt();
+}
+
 /// @brief validates the response body against an expected response config.
-/// @returns empty string on success, error message on failure.
+/// @returns an empty string on success, or a description of the problem.
 static std::string validate_health_response(
     const std::optional<ExpectedResponseConfig> &expected_response,
     const Response &resp
@@ -93,14 +102,14 @@ static std::string validate_health_response(
     try {
         body = x::json::json::parse(resp.body);
     } catch (const x::json::json::parse_error &e) {
-        return "failed to parse response body as JSON: " + std::string(e.what());
+        return "The response body is not valid JSON: " + std::string(e.what()) + ".";
     }
     const auto ptr = x::json::json::json_pointer(er.pointer);
     if (!body.contains(ptr))
-        return "response body does not contain pointer '" + er.pointer + "'";
+        return "The response body has no value at '" + er.pointer + "'.";
     if (body[ptr] == er.expected_value) return "";
-    return "expected value at '" + er.pointer + "' to be " + er.expected_value.dump() +
-           ", got " + body[ptr].dump();
+    return "The value at '" + er.pointer + "' is " + body[ptr].dump() +
+           ", but the health check expects " + er.expected_value.dump() + ".";
 }
 
 void Scanner::set_device_status(
@@ -139,7 +148,7 @@ std::optional<Scanner::PreparedHealthCheck> Scanner::prepare_health_check(
             dev,
             synnax::status::VARIANT_WARNING,
             "Invalid device properties",
-            parser.error().message()
+            common::config_err_description(parser.error())
         );
         return std::nullopt;
     }
@@ -164,7 +173,7 @@ void Scanner::process_health_response(
             dev,
             synnax::status::VARIANT_WARNING,
             "Failed to reach server",
-            err.message()
+            err.data
         );
         return;
     }
@@ -172,8 +181,8 @@ void Scanner::process_health_response(
         this->set_device_status(
             dev,
             synnax::status::VARIANT_ERROR,
-            "HTTP " + std::to_string(resp.status_code),
-            resp.body
+            "Health check failed",
+            rejection_description(resp)
         );
         return;
     }
@@ -182,7 +191,7 @@ void Scanner::process_health_response(
         this->set_device_status(
             dev,
             synnax::status::VARIANT_ERROR,
-            "Health check validation failed",
+            "Health check failed",
             v_err
         );
         return;
@@ -206,7 +215,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
     };
     if (!parser.ok()) {
         status.message = "Failed to parse test command";
-        status.description = parser.error().message();
+        status.description = common::config_err_description(parser.error());
         ctx->set_status(status);
         return;
     }
@@ -214,15 +223,15 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
     if (!args.health_check.body.empty()) request.body = args.health_check.body;
     auto [resp, err] = this->processor->execute(request);
     if (err) {
-        status.message = "Failed to execute HTTP request";
-        status.description = err.message();
+        status.message = "Failed to connect to server";
+        status.description = err.data;
         ctx->set_status(status);
         return;
     }
     const auto status_err = errors::from_status(resp.status_code);
     if (status_err) {
-        status.message = "HTTP " + std::to_string(resp.status_code);
-        status.description = resp.body;
+        status.message = "Health check failed";
+        status.description = rejection_description(resp);
         ctx->set_status(status);
         return;
     }
@@ -232,13 +241,13 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
         resp
     );
     if (!validation_err.empty()) {
-        status.message = "Invalid health check response";
+        status.message = "Health check failed";
         status.description = validation_err;
         ctx->set_status(status);
         return;
     }
     status.variant = synnax::status::VARIANT_SUCCESS;
-    status.message = "Connection successful";
+    status.message = "Connected to server";
     ctx->set_status(status);
 }
 }

@@ -82,9 +82,8 @@ export const Activate = ({ onBack }: ActivateProps): ReactElement => {
       await client.license.activate(key.trim());
     } catch (e) {
       setError(status.fromException(e, "Failed to activate license"));
-    } finally {
-      setActivating(false);
     }
+    setActivating(false);
   };
 
   const description = noHardware

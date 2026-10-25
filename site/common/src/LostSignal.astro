@@ -1,0 +1,86 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "./lostSignal.css";
+
+import { Button } from "@synnaxlabs/lyra/button";
+
+import { decode, GAP, HISTORY, MAX, path, samples, top, transform } from "./lostSignal";
+
+const values = samples();
+const span = HISTORY + GAP;
+const Y_TICKS = [MAX, (MAX * 2) / 3, MAX / 3, 0];
+// A static page learns its path in the browser.
+const pathname = Astro.isPrerendered ? "" : decode(Astro.url.pathname);
+const style = [
+    `--lost-signal-loss: ${(HISTORY / span) * 100}%`,
+    `--lost-signal-last: ${top(values[values.length - 1])}%`,
+].join("; ");
+---
+
+<figure class="lost-signal" style={style}>
+    <figcaption class="lost-signal__caption">
+        A live line plot of the requested page. Its signal stops, and the plot has no
+        data after that point.
+    </figcaption>
+    <div class="lost-signal__header">
+        <div class="lost-signal__legend" aria-hidden="true">
+            <span class="lost-signal__swatch"></span>
+            <span class="lost-signal__path" data-pathname>
+                {pathname}
+            </span>
+        </div>
+        <Button.Button
+            variant="outlined"
+            size="small"
+            className="lost-signal__live"
+            aria-pressed="true"
+        >
+            <span class="lost-signal__live-dot"></span>
+            Live
+        </Button.Button>
+    </div>
+    <div class="lost-signal__axis" aria-hidden="true">
+        {Y_TICKS.map((v) => (
+            <span style={`top: ${top(v)}%`}>{v}</span>
+        ))}
+    </div>
+    <div class="lost-signal__plot" aria-hidden="true">
+        {Y_TICKS.map((v) => (
+            <span class="lost-signal__grid" style={`top: ${top(v)}%`} />
+        ))}
+        <div class="lost-signal__ticks"></div>
+        <div class="lost-signal__range">
+            <span class="lost-signal__range-label">Not found</span>
+        </div>
+        <svg class="lost-signal__svg" viewBox="0 0 1000 100" preserveAspectRatio="none">
+            <g class="lost-signal__trace" transform={transform(span)}>
+                <path d={path(values)} vector-effect="non-scaling-stroke"></path>
+            </g>
+        </svg>
+        <span class="lost-signal__end"></span>
+        <div class="lost-signal__cursor" hidden>
+            <span class="lost-signal__dot"></span>
+            <div class="lost-signal__tooltip">
+                <span>Time</span>
+                <span data-time></span>
+                <span class="lost-signal__series" data-pathname>
+                    {pathname}
+                </span>
+                <span data-value></span>
+            </div>
+        </div>
+    </div>
+</figure>
+
+<script>
+    import { start } from "./lostSignal";
+    start();
+</script>

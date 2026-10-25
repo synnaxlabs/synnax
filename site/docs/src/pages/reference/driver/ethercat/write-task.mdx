@@ -10,7 +10,7 @@ nextURL: "/reference/driver/http/connect-server"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
@@ -29,7 +29,7 @@ Before creating a write task,
 identify the RxPDOs (output PDOs) to write to each one. State channels carry feedback
 read back from the device.
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   All channels in a task must use devices connected to the **same network interface**.
   Create separate tasks for devices on different EtherCAT networks.
 </Note.Note>
@@ -81,7 +81,7 @@ A task from an earlier release can hold an `"unresolved"` channel: one that name
 entry the device does not have, or has more than once. Pick an entry for it in the
 Console before the task runs.
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   Common servo drive RxPDO objects include control word (`0x6040`), target position
   (`0x607A`), and target velocity (`0x60FF`).
 </Note.Note>
@@ -94,8 +94,11 @@ Console before the task runs.
   interface.
 - **State rate** -> Higher state rates provide faster feedback but increase network
   load. Typically 10-50 Hz is sufficient.
-- **Execution rate** -> Determines how frequently commands are sent to hardware. Higher
-  rates provide more responsive control.
+- **Execution rate** -> The bus cycles at least this fast. A higher rate sends new
+  commands to the device sooner.
+- **Stopping** -> When the task stops, its outputs go to zero, unless another running
+  write task commanded them. See
+  [how the Driver runs a network](/reference/driver/ethercat/get-started#how-the-driver-runs-a-network).
 
 <Divider.Divider x />
 

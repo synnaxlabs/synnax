@@ -38,6 +38,7 @@ Master::~Master() {
 x::errors::Error Master::initialize() {
     if (this->initialized) return x::errors::NIL;
 
+    if (auto err = this->api->check_device(this->master_index)) return err;
     this->ec_master = this->api->request_master(this->master_index);
     if (!this->ec_master)
         return x::errors::Error(
@@ -422,7 +423,7 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
     this->read_slave_pdos(slave);
     if (!props.input_pdos.empty() || !props.output_pdos.empty()) {
-        esi::fill_data_types(props);
+        esi::fill_known_entries(props);
         return;
     }
     if (!esi::lookup_device_pdos(

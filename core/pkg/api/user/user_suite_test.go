@@ -17,10 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
-	svc "github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
@@ -34,7 +31,7 @@ import (
 
 func TestAPIUser(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API User Suite")
+	RunSpecs(t, "API User Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -85,14 +82,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 		User:     userSvc,
 	}))
-	apiSvc = MustSucceed(apiuser.NewService(apicfg.LayerConfig{
-		Distribution: &distribution.Layer{DB: db},
-		Service: &svc.Layer{
-			User:     userSvc,
-			RBAC:     rbacSvc,
-			Password: passwordSvc,
-			Auth:     authSvc,
-		},
+	apiSvc = MustSucceed(apiuser.NewService(apiuser.ServiceConfig{
+		RBAC:     rbacSvc,
+		User:     userSvc,
+		Password: passwordSvc,
+		Auth:     authSvc,
 	}))
 	root = findRoot(ctx, userSvc, "api-user-suite-root")
 })

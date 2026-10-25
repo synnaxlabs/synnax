@@ -19,7 +19,7 @@ import (
 
 func TestNaming(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go Naming Suite")
+	RunSpecs(t, "Plugin Go Naming Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

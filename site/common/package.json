@@ -6,6 +6,7 @@
     "./Drawer.astro": "./src/Drawer.astro",
     "./Footer.astro": "./src/Footer.astro",
     "./Head.astro": "./src/Head.astro",
+    "./LostSignal.astro": "./src/LostSignal.astro",
     "./MenuButton.astro": "./src/MenuButton.astro",
     "./PrivacyPolicy.astro": "./src/PrivacyPolicy.astro",
     "./base.css": "./src/base.css",

@@ -13,7 +13,7 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
 )
 
@@ -44,4 +44,4 @@ func MigrateColumn(ctx context.Context, old v2.Column) (Column, error) {
 }
 
 // Migration gives every row and column of a stored table a key.
-var Migration = gorp.NewEntryMigration("v3_row_and_column_keys", MigrateTable)
+var Migration = migrate.NewEntry("v3_row_and_column_keys", MigrateTable)

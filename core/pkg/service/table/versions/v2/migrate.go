@@ -13,7 +13,7 @@ import (
 	"context"
 	"encoding/json/v2"
 
-	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -81,4 +81,4 @@ func decodeCellConfig(raw msgpack.EncodedJSON) (CellConfig, error) {
 
 // Migration lifts stored tables from the opaque v1 cell props to the typed v2 cell
 // config union.
-var Migration = gorp.NewEntryMigration("v2_typed_cell_configs", MigrateTable)
+var Migration = migrate.NewEntry("v2_typed_cell_configs", MigrateTable)
