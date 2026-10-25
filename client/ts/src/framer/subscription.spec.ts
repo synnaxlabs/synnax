@@ -64,6 +64,18 @@ const raw = (keys: channel.Key[], span: TimeSpan): SubscribeRequest => ({
   limit: { variant: "points", count: Infinity, aggregation: "min_max" },
 });
 
+const rawOver = (keys: channel.Key[], tr: TimeRange): SubscribeRequest => ({
+  keys,
+  window: staticWindow(tr),
+  limit: { variant: "points", count: Infinity, aggregation: "min_max" },
+});
+
+// Returns the series of the channel once the subscription loads them.
+const loaded = async (sub: Subscription, key: channel.Key): Promise<Series[]> => {
+  await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+  return sub.value(key).series.series;
+};
+
 const timesOf = (snap: Snapshot): bigint[] => Array.from(snap.series) as bigint[];
 
 // Advances the Core's clock by step on each tick of the real clock, so a writer keeps
@@ -281,12 +293,17 @@ describe("Feed.subscribe", () => {
         await feed.close();
       }
       const block = Number(domainOf(streamed.at(-2)!.alignment));
+      const sample = streamed.at(-2)!.at(-1, true) as bigint;
+      // A static window loads only once the Core commits all of it.
+      core.advance(TimeSpan.seconds(5));
       const fresh = core.openFeed(OPTIONS);
+      const tr = new TimeRange(
+        tileRange({ level: 16, index: block }).start,
+        new TimeStamp(sample + 1n),
+      );
+      const read = fresh.subscribe(rawOver([core.index.key], tr));
       try {
-        const fetched = await fresh.read(
-          tileRange({ level: 16, index: block }),
-          core.index.key,
-        );
+        const fetched = await loaded(read, core.index.key);
         const offsetOf = (series: Series[], t: bigint): bigint | undefined => {
           for (const s of series) {
             const at = (Array.from(s) as bigint[]).indexOf(t);
@@ -294,10 +311,10 @@ describe("Feed.subscribe", () => {
           }
           return undefined;
         };
-        const sample = streamed.at(-2)!.at(-1, true) as bigint;
         expect(offsetOf(streamed, sample)).toBeDefined();
-        expect(offsetOf(fetched.series, sample)).toBe(offsetOf(streamed, sample));
+        expect(offsetOf(fetched, sample)).toBe(offsetOf(streamed, sample));
       } finally {
+        read.close();
         await fresh.close();
       }
     });
@@ -429,7 +446,14 @@ describe("Feed.subscribe", () => {
           .toBe(true);
         await settled(core, sub, core.index.key, span);
         const reads = core.reads;
-        await feed.read(new TimeRange(first.sub(span), first), core.index.key);
+        const past = feed.subscribe(
+          rawOver([core.index.key], new TimeRange(first.sub(span), first)),
+        );
+        try {
+          await loaded(past, core.index.key);
+        } finally {
+          past.close();
+        }
         expect(core.reads).toBe(reads + 1);
       } finally {
         stop();
