@@ -938,43 +938,56 @@ describe("Feed.subscribe", () => {
         dataType: DataType.TIMESTAMP,
         isIndex: true,
       });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
       const start = TimeStamp.now();
-      const writer = await client.openWriter({ start, channels: [index.key] });
+      const writer = await client.openWriter({
+        start,
+        channels: [index.key, data.key],
+      });
       let written = 0;
       let running = true;
-      // A 1 kHz writer: ten samples a millisecond apart, paced to the wall clock.
+      // A 1 kHz writer: ten samples a millisecond apart, paced to the wall clock. Each
+      // data sample holds its sample number.
       const writing = (async () => {
         while (running) {
-          const times = Array.from({ length: 10 }, (_, i) =>
-            start.add(TimeSpan.milliseconds(written + i)).valueOf(),
-          );
-          await writer.write(index.key, new BigInt64Array(times));
+          const numbers = Array.from({ length: 10 }, (_, i) => written + i);
+          await writer.write({
+            [index.key]: new BigInt64Array(
+              numbers.map((n) => start.add(TimeSpan.milliseconds(n)).valueOf()),
+            ),
+            [data.key]: new Float64Array(numbers),
+          });
           written += 10;
           const ahead = start.add(TimeSpan.milliseconds(written)).span(TimeStamp.now());
           if (start.add(TimeSpan.milliseconds(written)).after(TimeStamp.now()))
             await sleep.sleep(ahead);
         }
       })();
-      const feed = client.openFeed();
+      const feed = client.openFeed({ removalDelay: TimeSpan.ZERO });
       const span = TimeSpan.seconds(2);
       try {
         for (let i = 0; i < 20; i++) {
-          const sub = feed.subscribe(raw([index.key], span));
+          const sub = feed.subscribe(raw([data.key], span));
           try {
             await expect
               .poll(() => {
-                const snap = sub.value(index.key);
+                const snap = sub.value(data.key);
                 return snap.status.variant === "success" && snap.series.length > 0;
               }, POLL)
               .toBe(true);
             await sleep.sleep(TimeSpan.milliseconds(50 + 10 * i));
             const opened = TimeStamp.now().sub(span);
-            const times = timesOf(sub.value(index.key));
-            expect(new Set(times).size).toBe(times.length);
-            const steps = new Set(times.slice(1).map((t, j) => t - times[j]));
-            expect([...steps]).toEqual([TimeSpan.MILLISECOND.valueOf()]);
-            const from = TimeStamp.max(start, opened).valueOf();
-            expect(times[0] <= from + TimeSpan.milliseconds(1).valueOf()).toBe(true);
+            const numbers = Array.from(sub.value(data.key).series) as number[];
+            const steps = new Set(numbers.slice(1).map((n, j) => n - numbers[j]));
+            expect([...steps]).toEqual([1]);
+            const from = TimeStamp.max(start, opened);
+            expect(numbers[0]).toBeLessThanOrEqual(
+              Number(from.span(start).milliseconds) + 1,
+            );
           } finally {
             sub.close();
           }
