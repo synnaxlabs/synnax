@@ -67,6 +67,11 @@ export interface SyntheticCoreProps {
   dataUntimed?: boolean;
   /** Streams data series at alignments that none of their index samples have. */
   dataMisaligned?: boolean;
+  /**
+   * How far the newest written sample trails the Core's clock, as for a writer that
+   * stamps its samples late.
+   */
+  lag?: TimeSpan;
 }
 
 // A span of a channel's samples rewritten with values moved by delta.
@@ -77,10 +82,11 @@ interface Rewrite {
 }
 
 /**
- * A Core in memory that serves one index channel and float32 channels sampled on it at a
- * fixed rate. Reads follow the Core's group sizes, group anchors, and alignments, but
- * reduced points of a data channel are not reductions of its raw samples. A read costs
- * time in proportion to the points it returns, so years of samples are cheap to hold.
+ * A Core in memory that serves one index channel and float32 channels sampled on it at
+ * a fixed rate. Reads follow the Core's group sizes, group anchors, alignments, and
+ * time ranges, but reduced points of a data channel are not reductions of its raw
+ * samples. A read costs time in proportion to the points it returns, so years of
+ * samples are cheap to hold.
  */
 export class SyntheticCore {
   readonly index: channel.Channel;
@@ -118,6 +124,7 @@ export class SyntheticCore {
   private readonly dataFramedApart: boolean;
   private readonly dataUntimed: boolean;
   private readonly dataMisaligned: boolean;
+  private readonly lag: TimeSpan;
   private readonly denied = new Set<channel.Key>();
 
   constructor({
@@ -130,6 +137,7 @@ export class SyntheticCore {
     dataFramedApart = false,
     dataUntimed = false,
     dataMisaligned = false,
+    lag = TimeSpan.ZERO,
   }: SyntheticCoreProps) {
     this.start = start.valueOf();
     this.period = new Rate(rate).period.valueOf();
@@ -138,6 +146,7 @@ export class SyntheticCore {
     this.dataFramedApart = dataFramedApart;
     this.dataUntimed = dataUntimed;
     this.dataMisaligned = dataMisaligned;
+    this.lag = lag;
     this.index = new channel.Channel({
       key: INDEX_KEY,
       name: "time",
@@ -328,15 +337,20 @@ export class SyntheticCore {
     const frame = new Frame();
     for (const key of keys) {
       if (size < 2) {
-        for (let c = first; c < last; c += CHUNK)
-          this.raw(key, c, Math.min(c + CHUNK, last)).forEach((s) =>
-            frame.push(key, s),
+        for (let c = first; c < last; c += CHUNK) {
+          const hi = Math.min(c + CHUNK, last);
+          // A chunk ends at the first sample it leaves behind.
+          const view = new TimeRange(
+            c === first ? tr.start : this.time(c),
+            hi === last ? tr.end : this.time(hi),
           );
+          this.raw(key, c, hi, view).forEach((s) => frame.push(key, s));
+        }
         continue;
       }
       frame.push(
         key,
-        this.reduced(key, first, last, size, reduction?.aggregation ?? "min_max"),
+        this.reduced(key, tr, first, last, size, reduction?.aggregation ?? "min_max"),
       );
     }
     return frame;
@@ -382,7 +396,7 @@ export class SyntheticCore {
   }
 
   private written(): number {
-    const elapsed = this.clock.valueOf() - this.start;
+    const elapsed = this.clock.valueOf() - this.lag.valueOf() - this.start;
     if (elapsed <= 0n) return 0;
     return Number((elapsed + this.period - 1n) / this.period);
   }
@@ -429,17 +443,21 @@ export class SyntheticCore {
     return new TimeRange(this.time(from), this.time(to - 1) + 1n);
   }
 
-  // Returns the samples [from, to) split at the first sample of each domain.
-  private raw(key: channel.Key, from: number, to: number): Series[] {
+  // Returns the samples [from, to) split at the first sample of each domain. A series
+  // read through a view spans its domain inside the view, as a Cesium read does.
+  private raw(key: channel.Key, from: number, to: number, view?: TimeRange): Series[] {
     const out: Series[] = [];
     for (let lo = from; lo < to;) {
       const domain = this.restarts.filter((r) => r <= lo).length;
       const next = this.restarts.find((r) => r > lo);
       const hi = next == null ? to : Math.min(next, to);
       const first = domain === 0 ? 0 : this.restarts[domain - 1];
-      out.push(
-        this.series(key, lo, hi, DOMAIN * BigInt(domain + 1) + BigInt(lo - first)),
-      );
+      const alignment = DOMAIN * BigInt(domain + 1) + BigInt(lo - first);
+      const timeRange =
+        view == null
+          ? this.range(lo, hi)
+          : bound(this.range(first, next ?? this.written()), view);
+      out.push(this.series(key, lo, hi, alignment, timeRange));
       lo = hi;
     }
     return out;
@@ -450,6 +468,7 @@ export class SyntheticCore {
     from: number,
     to: number,
     alignment: bigint,
+    timeRange: TimeRange,
   ): Series {
     const n = to - from;
     let data:
@@ -470,7 +489,7 @@ export class SyntheticCore {
       for (let i = 0; i < n; i++) values[i] = this.value(key, from + i);
       data = values;
     }
-    return new Series({ data, dataType, timeRange: this.range(from, to), alignment });
+    return new Series({ data, dataType, timeRange, alignment });
   }
 
   // reduced returns the samples in [first, last) in groups of size samples anchored at
@@ -479,6 +498,7 @@ export class SyntheticCore {
   // and average its midpoint.
   private reduced(
     key: channel.Key,
+    tr: TimeRange,
     first: number,
     last: number,
     size: number,
@@ -508,12 +528,16 @@ export class SyntheticCore {
     return new Series({
       data: times ?? values!,
       dataType: isIndex ? DataType.TIMESTAMP : DataType.FLOAT32,
-      timeRange: this.range(first, last),
+      timeRange: bound(this.range(0, this.written()), tr),
       alignment: DOMAIN + BigInt(head * size),
       alignmentMultiple: BigInt(minMax ? size / 2 : size),
     });
   }
 }
+
+// Returns the part of tr inside view.
+const bound = (tr: TimeRange, view: TimeRange): TimeRange =>
+  new TimeRange(TimeStamp.max(tr.start, view.start), TimeStamp.min(tr.end, view.end));
 
 /**
  * @returns the number of samples per group that brings count samples under the point
