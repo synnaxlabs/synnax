@@ -83,7 +83,6 @@ type Service struct {
 	cfg     ServiceConfig
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, User]
-	search  *gorp.SearchIndex[Key, User]
 	indexes indexes
 }
 
@@ -96,13 +95,13 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, indexes: newIndexes(), search: newSearchIndex()}
+	s := &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, User]{
 		DB:              cfg.DB,
 		Migrations:      versions.Migrations,
-		Indexes:         append(s.indexes.all(), s.search),
+		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

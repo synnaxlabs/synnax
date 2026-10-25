@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/pluralize"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Plugin generates gorp Retrieve query wrappers for structs annotated with @retrieve.
@@ -69,14 +70,24 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		structs []resolution.Type
 	}
 	entries := make(map[string]*entry)
+	// retrieved holds each @retrieve type and every type it extends: the types whose
+	// fields a generated Retrieve reads.
+	retrieved := make(set.Set[string])
 
 	for _, typ := range slices.Concat(
 		req.Resolutions.StructTypes(),
 		req.Resolutions.UnionTypes(),
 	) {
+		if plugindomain.HasDomainFromType(typ, "search") {
+			return nil, errors.Newf(
+				"%s: @search goes on the fields to search, not on the type",
+				typ.QualifiedName,
+			)
+		}
 		if !plugindomain.HasDomainFromType(typ, "retrieve") {
 			continue
 		}
+		addExtended(typ, req.Resolutions, retrieved)
 		outputPath := output.GetPath(typ, "go")
 		if outputPath == "" {
 			continue
@@ -87,6 +98,28 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			entries[outputPath] = e
 		}
 		e.structs = append(e.structs, typ)
+	}
+
+	for _, typ := range req.Resolutions.StructTypes() {
+		if retrieved.Contains(typ.QualifiedName) {
+			continue
+		}
+		form := typ.Form.(resolution.StructForm)
+		inherited := resolution.InheritedFields(form.Extends, req.Resolutions)
+		for _, f := range form.Fields {
+			// An inherited @search is checked on the parent that declares it.
+			if parent, ok := inherited[f.Name]; ok &&
+				plugindomain.HasDomainFromField(parent, "search") {
+				continue
+			}
+			if plugindomain.HasDomainFromField(f, "search") {
+				return nil, errors.Newf(
+					"%s: @search field %s needs a @retrieve type to read it",
+					typ.QualifiedName,
+					f.Name,
+				)
+			}
+		}
 	}
 
 	for _, e := range entries {
@@ -105,7 +138,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			req.RepoRoot,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate %s: %w", e.path, err)
+			return nil, errors.Wrapf(err, "failed to generate %s", e.path)
 		}
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    fmt.Sprintf("%s/%s", e.path, p.Options.FileNamePattern),
@@ -147,19 +180,30 @@ type indexInfo struct {
 // to decide whether to emit an OrderBy helper.
 func (i indexInfo) IsSorted() bool { return i.Kind == "sorted" }
 
-// retrieveInfo holds extracted data about a @retrieve-annotated struct.
-type retrieveInfo struct {
-	GoName    string
-	KeyType   string
-	HasSearch bool
-	IsCustom  bool // user defines the struct (@retrieve custom)
-	Filters   []filterInfo
-	Indexes   []indexInfo
+// searchInfo holds extracted data about a @search-annotated field.
+type searchInfo struct {
+	GoName string // PascalCase field name
+	// IsString is false when the field's type is not the string primitive itself, so
+	// the generated code converts it.
+	IsString bool
 }
 
-// HasIndexes reports whether the retrieve declared any @index fields. Used by
-// the template to gate the Indexes registration slice.
-func (r retrieveInfo) HasIndexes() bool { return len(r.Indexes) > 0 }
+// retrieveInfo holds extracted data about a @retrieve-annotated struct.
+type retrieveInfo struct {
+	GoName   string
+	KeyType  string
+	IsCustom bool // user defines the struct (@retrieve custom)
+	Filters  []filterInfo
+	Indexes  []indexInfo
+	Search   []searchInfo
+}
+
+// HasSearch reports whether the retrieve declared any @search fields.
+func (r retrieveInfo) HasSearch() bool { return len(r.Search) > 0 }
+
+// HasIndexes reports whether the retrieve declared any @index or @search fields. Used
+// by the template to gate the indexes struct.
+func (r retrieveInfo) HasIndexes() bool { return len(r.Indexes) > 0 || r.HasSearch() }
 
 // HasSortedIndex reports whether the retrieve declared any @index sorted fields. Used
 // by the template to gate the Order closure type, the Retrieve.OrderBy method, and the
@@ -294,29 +338,52 @@ func extractRetrieveInfo(
 	goName := naming.GetGoName(typ)
 
 	isCustom := plugindomain.HasExprFromType(typ, "retrieve", "custom")
-	hasSearch := plugindomain.HasDomainFromType(typ, "search")
 
 	// Collect @filter and @index fields. A field may carry both: in that
 	// case, MatchX / MatchXs are generated to route through the index.
 	// Resolve the Go type only for fields that actually contribute generated
 	// code — otherwise ResolveTypeRef would add imports for types that are
 	// never referenced in retrieve.gen.go.
-	var filters []filterInfo
-	var indexes []indexInfo
+	var (
+		filters []filterInfo
+		indexes []indexInfo
+		search  []searchInfo
+	)
 	for _, field := range allFields {
 		hasFilter := plugindomain.HasDomainFromField(field, "filter")
 		hasIndex := plugindomain.HasDomainFromField(field, "index")
-		if !hasFilter && !hasIndex {
+		hasSearch := plugindomain.HasDomainFromField(field, "search")
+		if !hasFilter && !hasIndex && !hasSearch {
 			continue
 		}
-		// A union entry holds its fields behind Variant, so generated filters cannot
-		// read them.
+		// A union entry holds its fields behind Variant, so generated code cannot read
+		// them.
 		if isUnion {
 			return nil, errors.Newf(
-				"%s: @filter and @index are not supported on union fields (%s)",
+				"%s: @filter, @index, and @search are not supported on union fields (%s)",
 				typ.QualifiedName,
 				field.Name,
 			)
+		}
+		if hasSearch {
+			textType := field.Type
+			if textType.IsTypeParam() && textType.TypeParam.HasDefault() {
+				textType = *textType.TypeParam.Default
+			}
+			if field.Optional || key.ResolvePrimitive(textType, table) != "string" {
+				return nil, errors.Newf(
+					"%s: @search field %s must be a string that is not optional",
+					typ.QualifiedName,
+					field.Name,
+				)
+			}
+			search = append(search, searchInfo{
+				GoName:   naming.GetFieldName(field),
+				IsString: textType.Name == "string",
+			})
+		}
+		if !hasFilter && !hasIndex {
+			continue
 		}
 
 		primitive := key.ResolvePrimitive(field.Type, table)
@@ -364,12 +431,12 @@ func extractRetrieveInfo(
 	}
 
 	return &retrieveInfo{
-		GoName:    goName,
-		KeyType:   keyType,
-		HasSearch: hasSearch,
-		IsCustom:  isCustom,
-		Filters:   filters,
-		Indexes:   indexes,
+		GoName:   goName,
+		KeyType:  keyType,
+		IsCustom: isCustom,
+		Filters:  filters,
+		Indexes:  indexes,
+		Search:   search,
 	}, nil
 }
 
@@ -387,6 +454,26 @@ func retrieveFields(typ resolution.Type, table *resolution.Table) []resolution.F
 		}
 	}
 	return fields
+}
+
+// addExtended adds typ and every type it extends, transitively, to types.
+func addExtended(typ resolution.Type, table *resolution.Table, types set.Set[string]) {
+	if types.Contains(typ.QualifiedName) {
+		return
+	}
+	types.Add(typ.QualifiedName)
+	var extends []resolution.TypeRef
+	switch form := typ.Form.(type) {
+	case resolution.StructForm:
+		extends = form.Extends
+	case resolution.UnionForm:
+		extends = form.Extends
+	}
+	for _, ext := range extends {
+		if parent, _, ok := resolution.Dealias(ext, table); ok {
+			addExtended(parent, table, types)
+		}
+	}
 }
 
 type templateData struct {
@@ -462,9 +549,6 @@ import (
 type Retrieve struct {
 	baseTX gorp.Tx
 	gorp   gorp.Retrieve[{{$ret.KeyType}}, {{$ret.GoName}}]
-{{- if $ret.HasSearch}}
-	search     *gorp.SearchIndex[{{$ret.KeyType}}, {{$ret.GoName}}]
-{{- end}}
 {{- if $ret.HasIndexes}}
 	indexes    indexes
 {{- end}}
@@ -480,17 +564,30 @@ type indexes struct {
 {{- range $idx := $ret.Indexes}}
 	{{$idx.StructField}} *gorp.{{if $idx.IsSorted}}SortedIndex{{else}}LookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}]
 {{- end}}
+{{- if $ret.HasSearch}}
+	search *gorp.SearchIndex[{{$ret.KeyType}}, {{$ret.GoName}}]
+{{- end}}
 }
 
-// newIndexes constructs a fresh indexes value, allocating one index instance
-// per registered field. Call once per Service in OpenService and store the
-// result on the Service struct.
+// newIndexes constructs a fresh indexes value, allocating one instance of each
+// index. Call once per Service in OpenService and store the result on the
+// Service struct.
 func newIndexes() indexes {
 	return indexes{
 {{- range $idx := $ret.Indexes}}
 		{{$idx.StructField}}: gorp.{{if $idx.IsSorted}}NewSortedIndex{{else}}NewLookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}](
 			"{{$idx.FieldName}}",
 			func(e *{{$ret.GoName}}) {{$idx.GoType}} { return e.{{$idx.GoName}} },
+		),
+{{- end}}
+{{- if $ret.HasSearch}}
+		search: gorp.NewSearchIndex[{{$ret.KeyType}}, {{$ret.GoName}}](
+			"search",
+			func(e *{{$ret.GoName}}) []string {
+				return []string{
+{{- range $i, $f := $ret.Search}}{{if $i}}, {{end}}{{if $f.IsString}}e.{{$f.GoName}}{{else}}string(e.{{$f.GoName}}){{end}}{{end -}}
+				}
+			},
 		),
 {{- end}}
 	}
@@ -502,6 +599,9 @@ func (i indexes) all() []gorp.Index[{{$ret.KeyType}}, {{$ret.GoName}}] {
 	return []gorp.Index[{{$ret.KeyType}}, {{$ret.GoName}}]{
 {{- range $idx := $ret.Indexes}}
 		i.{{$idx.StructField}},
+{{- end}}
+{{- if $ret.HasSearch}}
+		i.search,
 {{- end}}
 	}
 }
@@ -581,7 +681,7 @@ func (r Retrieve) Search(term string) Retrieve {
 	if term == "" {
 		return r
 	}
-	r.gorp = r.gorp.Where(r.search.Filter(term))
+	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
 	return r
 }
 {{end}}

@@ -72,11 +72,11 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	table  *gorp.Table[Key, Project]
-	search *gorp.SearchIndex[Key, Project]
-	group  group.Group
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	table   *gorp.Table[Key, Project]
+	indexes indexes
+	group   group.Group
 }
 
 func OpenService(
@@ -87,12 +87,12 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, search: newSearchIndex()}
+	s = &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Project]{
 		DB:      cfg.DB,
-		Indexes: []gorp.Index[Key, Project]{s.search},
+		Indexes: s.indexes.all(),
 		Migrations: versions.NewMigrations(
 			versions.MigrationsConfig{Ontology: cfg.Ontology},
 		),
@@ -134,8 +134,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		search: s.search,
-		baseTX: s.cfg.DB,
-		gorp:   s.table.NewRetrieve(),
+		indexes: s.indexes,
+		baseTX:  s.cfg.DB,
+		gorp:    s.table.NewRetrieve(),
 	}
 }
