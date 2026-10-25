@@ -208,27 +208,23 @@ static window with exact timestamps before Pluto gets it, so Pluto knows only ti
 
 Each phase is one pull request from `main`.
 
-- **Phase 1: Exact data.** §3.3. `Source.dataType` and the `transform` option go.
-- **Phase 2: The port.** §3.1 in every source, transformer, and consumer.
-- **Phase 3: Windows.** §3.5.
-- **Phase 4: Points.** The line computes `points` and owns its zoom settle timer.
-- **Phase 5: Ack on key updates.** §3.6, in Go and TypeScript.
-- **Phase 6: History change signals.** §3.6, with the payload in an Oracle schema.
-- **Phase 7: The block store.** The tile grid moves from Pluto into the client, the
-  store comes out of `TileReader`, and live writes mark reduced blocks out of date.
-- **Phase 8: Raw blocks.** Raw reads fetch whole blocks, and raw data moves into blocks
-  with block alignment. `Static`, `Unary`, and `Cache` go.
-- **Phase 9: The live request.** `Feed.subscribe` over blocks, with specs for the seam,
-  duplicates, the rolling edge, and data type changes.
-- **Phase 10: Lines.** `TiledChannelData` moves onto `subscribe` and loses its tile
-  targets and `LiveWindow`.
-- **Phase 11: Values and logs.** They move onto `subscribe`, and the old `Feed` methods
-  leave the public surface.
-- **Phase 12: Validity.** Subscription holds replace reference counts, history change
+- **Phase 1: The Core.** §3.6: the ack on key updates, in Go and TypeScript, and history
+  change signals, with the payload in an Oracle schema.
+- **Phase 2: The port.** §3.1, §3.3, and §3.5 in every source, transformer, and
+  consumer. `Source.dataType` and the `transform` option go. The line computes `points`
+  and owns its zoom settle timer.
+- **Phase 3: Blocks.** The tile grid moves from Pluto into the client and the store
+  comes out of `TileReader`. Raw reads fetch whole blocks, and raw data moves into
+  blocks with block alignment. `Static`, `Unary`, and `Cache` go. Needs phase 2.
+- **Phase 4: The live request.** `Feed.subscribe` over blocks, with specs for the seam,
+  duplicates, the rolling edge, and data type changes. Lines, values, and logs move onto
+  it. `LiveWindow` and the tile targets go, and the old `Feed` methods leave the public
+  surface. Needs phases 1 and 3.
+- **Phase 5: Validity.** Subscription holds replace reference counts, history change
   signals replace the 10 minute expiry, and the size options merge into one budget.
 
-Phases 5 and 6 change the wire: a request flag and response field on the stream, and a
-new signal channel. No phase changes a stored format.
+Phase 1 changes the wire: a request flag and response field on the stream, and a new
+signal channel. No phase changes a stored format.
 
 ## 5 Resolved decisions
 
@@ -285,7 +281,7 @@ new signal channel. No phase changes a stored format.
 
 ## 7 Open questions
 
-1. The memory cost of exact data in a real Console session, measured before Phase 1
+1. The memory cost of exact data in a real Console session, measured before Phase 2
    merges.
 2. The byte budget. Tiles have 128 MB now, and the raw cache has none.
 3. Whether `onStatusChange` stays beside `Result.status` for errors outside the data,
