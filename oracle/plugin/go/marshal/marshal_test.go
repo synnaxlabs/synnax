@@ -768,6 +768,25 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
+		Context("array of a type param", func() {
+			It("Should encode each element through the type param codec", func() {
+				source := `
+				@go output "core/pkg/test"
+				@go marshal
+
+				Set struct<T> {
+					in T[]?
+				}
+			`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").ToContain(
+					"s.In = make([]T, n)",
+					"if m, ok := any(s.In[j]).(orc.SelfEncoder); ok {",
+					"if m, ok := any(&s.In[j]).(orc.SelfDecoder); ok {",
+				)
+			})
+		})
+
 		Context("marshal json_only on a type param field", func() {
 			It(
 				"Should always use JSON encoding without SelfEncoder/SelfDecoder type assertions",
