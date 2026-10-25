@@ -18,7 +18,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { type BenchRunOptions, test, vi } from "vitest";
+import { type BenchRunOptions, test } from "vitest";
 
 import { type telem } from "@/telem/aether";
 import { GL_TRANSFORM } from "@/telem/aether/convertSeries";
@@ -306,9 +306,6 @@ const mountLine = (y: (i: number) => number): (() => void) => {
 };
 
 test("render 1M samples", async ({ bench }) => {
-  // Line reads x through the module runner's export getters, and Vitest warns that
-  // they add overhead. Every case pays the same overhead.
-  vi.spyOn(console, "warn").mockImplementation(() => {});
   const finite = mountLine((i) => Math.sin(i / 100));
   // 5000 NaN bursts of 50 samples each.
   const bursts = mountLine((i) => (i % 200 >= 150 ? NaN : Math.sin(i / 100)));

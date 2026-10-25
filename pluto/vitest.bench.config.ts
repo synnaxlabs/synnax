@@ -15,6 +15,10 @@ import config from "./vite.config.ts";
 
 // Built workspace packages load as native modules. The module runner wraps every export
 // in a getter, which adds a cost to each call that a production bundle does not pay.
+// Pluto's own modules still pay about 40 ns per access, so their warning is off.
 export default mergeConfig(config, {
-  test: { server: { deps: { external: [/\/ts\/dist\//] } } },
+  test: {
+    server: { deps: { external: [/\/ts\/dist\//] } },
+    benchmark: { suppressExportGetterWarnings: true },
+  },
 });
