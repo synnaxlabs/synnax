@@ -176,8 +176,9 @@ an exact index answers time questions with no second copy.
 - **Validity**: A block stays valid until a history change signal (§3.6) names its
   channel and range. A stream reconnect drops the blocks of the affected channels. The
   newest block of a channel the `Feed` does not stream keeps the commit margin and
-  expires after a few seconds. A block of a channel stored on another node expires after
-  10 minutes.
+  expires after a few seconds. No signal names a calculated channel, which the Core
+  computes on read, or a channel stored on another node. Their blocks expire after 10
+  minutes.
 - **Reads**: A `points` request reads reduced blocks for history and raw blocks from the
   live edge of RFC 0068 §3.8. A `latest` request reads raw blocks back from the end of
   the window.
