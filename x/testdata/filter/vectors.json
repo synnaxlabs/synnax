@@ -290,8 +290,7 @@
         "where": {
           "labels": ["00000000-0000-4000-8000-0000000000f2"]
         },
-        "expected": ["b"],
-        "server_computed": true
+        "expected": ["b"]
       },
       {
         "name": "labels matches any of the labels",
@@ -301,16 +300,14 @@
             "00000000-0000-4000-8000-0000000000f2"
           ]
         },
-        "expected": ["a", "b"],
-        "server_computed": true
+        "expected": ["a", "b"]
       },
       {
         "name": "empty labels match nothing",
         "where": {
           "labels": []
         },
-        "expected": [],
-        "server_computed": true
+        "expected": []
       },
       {
         "name": "a regex in an or branch makes the tree server-computed",
@@ -338,8 +335,7 @@
             "labels": ["00000000-0000-4000-8000-0000000000f2"]
           }
         },
-        "expected": ["a", "c"],
-        "server_computed": true
+        "expected": ["a", "c"]
       }
     ]
   }
