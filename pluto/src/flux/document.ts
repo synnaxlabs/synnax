@@ -156,7 +156,9 @@ class DocumentStore<
     // A deleted document keeps its last values, and takes no edits.
     if (query.isLive(cached) && cached !== this.doc) {
       this.doc = cached;
-      this.values = this.params.toValues(cached);
+      // Unchanged values keep their identity, so a change re-renders only the fields
+      // it reaches, even when a create replaces the whole document.
+      this.values = deep.reuse(this.values, this.params.toValues(cached));
     }
     return this.values;
   };
@@ -363,10 +365,7 @@ export interface CreateDocumentFormParams<
   domain: (client: Client) => DocumentDomain<Key, Doc>;
   /** Suspends until the document is cached. */
   useEnsure: (query: DocumentQuery<Key>) => void;
-  /**
-   * Projects the document onto the form's values. Each field the form edits keeps its
-   * document path and its identity.
-   */
+  /** Projects the document onto the form's values. Each field keeps its document path. */
   toValues: (doc: Doc) => z.infer<Schema>;
 }
 
