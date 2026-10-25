@@ -19,6 +19,7 @@ import { type ReactElement, useEffect, useState } from "react";
 
 import { loginURL, mintState } from "@/feature/account/handoff";
 import { readMachineName } from "@/feature/account/machine";
+import { useUsageDataModal } from "@/feature/account/useUsageDataModal";
 import { License } from "@/feature/license";
 import { Shell } from "@/feature/shell";
 import { CSS } from "@/platform/css";
@@ -67,6 +68,7 @@ const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
   const client = Synnax.use();
   const version = Session.Version.use();
   const online = useOnline();
+  const openUsageData = useUsageDataModal();
 
   const start = (): void =>
     handleError(async () => {
@@ -173,14 +175,26 @@ const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
           </Flex.Box>
           {action}
         </Flex.Box>
-        <Button.Button
-          variant="text"
-          size="small"
-          textColor={9}
-          onClick={() => onStage("file")}
-        >
-          Use a license file
-        </Button.Button>
+        <Flex.Box x justify="center" gap="small">
+          <Button.Button
+            variant="text"
+            size="small"
+            textColor={9}
+            onClick={() => onStage("file")}
+          >
+            Use a license file
+          </Button.Button>
+          {lapsed && (
+            <Button.Button
+              variant="text"
+              size="small"
+              textColor={9}
+              onClick={() => openUsageData()}
+            >
+              Usage data
+            </Button.Button>
+          )}
+        </Flex.Box>
       </Flex.Box>
     </Shell.Frame>
   );

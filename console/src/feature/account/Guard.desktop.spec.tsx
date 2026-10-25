@@ -17,7 +17,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Account } from "@/feature/account";
 import { License } from "@/platform/license";
-import { findButton } from "@/platform/modals/testutil";
+import { Modals } from "@/platform/modals";
+import { findButton, getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import {
   CaptureStatuses,
@@ -44,9 +45,12 @@ const renderGuard = async ({ status, account }: RenderOptions = {}): Promise<{
       account == null ? undefined : { [Session.Account.SLICE_NAME]: account },
   });
   render(
-    <Account.Guard>
-      <span>licensed content</span>
-    </Account.Guard>,
+    <>
+      <Modals.Stack />
+      <Account.Guard>
+        <span>licensed content</span>
+      </Account.Guard>
+    </>,
     { wrapper },
   );
   return { client, store };
@@ -93,6 +97,25 @@ describe("Account.Guard", () => {
     });
     expect(screen.getByText("Your login has lapsed")).toBeTruthy();
     expect(screen.getByText(/someone@example\.com/)).toBeTruthy();
+  });
+
+  it("should open the usage data settings on a machine that was linked", async () => {
+    await renderGuard({
+      status: UNLICENSED_STATUS,
+      account: {
+        ...Session.Account.ZERO_SLICE_STATE,
+        link: { secret: "shh", email: "someone@example.com", user: "user_a" },
+        analyticsAllowed: true,
+      },
+    });
+    fireEvent.click(findButton("Usage data"));
+    await screen.findByText("Share usage data");
+    expect(getSwitch("Share usage data").checked).toBe(true);
+  });
+
+  it("should not offer usage data on a machine that was never linked", async () => {
+    await renderGuard({ status: UNLICENSED_STATUS });
+    expect(screen.queryByText("Usage data")).toBeNull();
   });
 
   it("should open the hub with the state it minted", async () => {

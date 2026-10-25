@@ -22,6 +22,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Project as PProject } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
+import { Account } from "@/feature/account";
 import { ContextMenu, listItem } from "@/feature/project/Selector";
 import { Shell } from "@/feature/shell";
 import { Button } from "@/platform/button";
@@ -34,6 +35,8 @@ import { Session } from "@/session";
 export const Splash = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const logout = Session.useLogout();
+  const linked = Session.Account.useSelectEmail() != null;
+  const openUsageData = Account.useUsageDataModal();
   const activeCore = Session.Core.useSelectSelected();
   const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
@@ -92,7 +95,21 @@ export const Splash = (): ReactElement => {
               <Icon.Project />
               Projects
             </Header.Title>
-            {!Session.Runtime.CORE_EMBEDDED && (
+            {Session.Runtime.CORE_EMBEDDED ? (
+              linked && (
+                <Header.Actions>
+                  <PButton.Button
+                    variant="text"
+                    textColor={9}
+                    size="medium"
+                    onClick={() => openUsageData()}
+                  >
+                    <Icon.Analyze />
+                    Usage data
+                  </PButton.Button>
+                </Header.Actions>
+              )
+            ) : (
               <Header.Actions>
                 <PButton.Button
                   variant="text"
