@@ -51,6 +51,27 @@ export const { useResult: useResultLabelsOf } = Flux.createRetrieve<
   getCached: ({ client, query: { id } }) => client.labels.getCached({ for: id }),
 });
 
+export interface EditForParams {
+  id: ontology.ID;
+  added: label.Key[];
+  removed: label.Key[];
+}
+
+/**
+ * Adds and removes labels on a resource. Other labels on the resource stay in place,
+ * so edits from other clients at the same time are kept.
+ */
+export const { useUpdate: useEditFor } = Flux.createUpdate<EditForParams>({
+  name: PLURAL_RESOURCE_NAME,
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
+    const { id, added, removed } = data;
+    if (added.length > 0) await client.labels.label(id, added);
+    if (removed.length > 0) await client.labels.remove(id, removed);
+    return data;
+  },
+});
+
 export type ListQuery = label.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, label.Key, label.Label>({

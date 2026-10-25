@@ -528,6 +528,30 @@ describe("queries", () => {
     });
   });
 
+  describe("useEditFor", () => {
+    it("should add and remove labels and keep the labels it does not name", async () => {
+      const [kept, removed, added, target] = await client.labels.create([
+        { name: "kept", color: "#FF0000" },
+        { name: "removed", color: "#00FF00" },
+        { name: "added", color: "#0000FF" },
+        { name: "target", color: "#000000" },
+      ]);
+      const id = label.ontologyID(target.key);
+      await client.labels.label(id, [kept.key, removed.key]);
+      const { result } = renderHook(Label.useEditFor, { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({
+          id,
+          added: [added.key],
+          removed: [removed.key],
+        });
+      });
+      expect(result.current.variant).toEqual("success");
+      const labels = await client.labels.retrieve({ for: id });
+      expect(labels.map((l) => l.key).sort()).toEqual([kept.key, added.key].sort());
+    });
+  });
+
   describe("useDelete", () => {
     it("should delete a label", async () => {
       const labelToDelete = await client.labels.create({
