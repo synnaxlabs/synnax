@@ -51,7 +51,7 @@ export const payloadZ = z.object({
   },
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
-export interface Where {
+export type Where = {
   and?: Where[];
   or?: Where[];
   not?: Where;
@@ -59,7 +59,7 @@ export interface Where {
   name?: filter.String;
   overlaps?: telem.TimeRange;
   labels?: label.Key[];
-}
+};
 export const whereZ: z.ZodType<Where> = z.object({
   /** and matches when every child matches. */
   get and() {
