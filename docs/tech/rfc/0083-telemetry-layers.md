@@ -116,26 +116,30 @@ interface Source<V> extends Telem, observe.Observable<void> {
 ### 3.2 The live request
 
 ```ts
-const sub = feed.subscribe(
-  {
-    keys: [time, pressure],
-    window: { variant: "dynamic", timeSpan: TimeSpan.minutes(10).valueOf() },
-    limit: { variant: "points", count: 1024, aggregation: "min_max" },
-  },
-  (result) => render(result),
-);
+const sub = feed.subscribe({
+  keys: [time, pressure],
+  window: { variant: "dynamic", timeSpan: TimeSpan.minutes(10).valueOf() },
+  limit: { variant: "points", count: 1024, aggregation: "min_max" },
+});
+sub.onChange(() => requestRender());
+const { series, status, time: newest } = sub.value(pressure);
 ```
 
 - **`window`**: A `telem.Window` (`x/ts/src/telem/telem.ts:2089`). The `Feed` resolves a
   `dynamic` window against its own clock, so the rolling edge has one owner.
-- **`points` limit**: About `count` points across the window. The `Feed` picks the tiles
-  from the window and the count. `extremesKept` keeps minimum and maximum blocks for the
-  axis bounds when the line draws another aggregation.
+- **`points` limit**: About `count` points across the drawn range: `view` inside the
+  window, or the whole window. The `Feed` picks the tiles from the range and the count.
+  `extremesKept` keeps minimum and maximum blocks for the axis bounds when the line
+  draws another aggregation. A `count` of `Infinity` reads raw samples only.
 - **`latest` limit**: The newest `count` raw samples in the window, or across all time
   when the request has no window. A value asks for 1, and a log asks for its page size.
-- **Result**: For each key, exact series over the window and a status. Statuses stay per
-  key (RFC 0055 §3, principle 2). Every series carries its block alignment (§3.4), so
-  the x and y sources of a line pair across requests.
+- **Snapshot**: `value(key)` returns exact series over the window, a status, and the
+  time of the newest sample. Statuses stay per key (RFC 0055 §3, principle 2). Every
+  series carries its block alignment (§3.4), so the x and y sources of a line pair
+  across requests. Series stay valid until the next `value` or `close`.
+- **Changes**: `onChange` carries no data. It tells the caller to pull again.
+  `update(request)` replaces the request and does nothing for an equal one, and old
+  tiles stand in until new ones land.
 - **Join**: The `Feed` adds the keys to its stream, waits for the Core's ack (§3.6),
   then reads, so no sample falls between the read and the stream. It removes duplicates
   by sample time. A data type change restarts the request inside the `Feed`. Series
@@ -225,10 +229,12 @@ Each phase is one pull request from `main`.
   phase 2.
 - **Phase 4: The live request.** `Feed.subscribe` over blocks, with specs for the seam,
   duplicates, the rolling edge, and data type changes. The join gives streamed samples
-  block alignment. Lines, values, and logs move onto it. `LiveWindow` and the tile
-  targets go, and the old `Feed` methods leave the public surface. Needs phases 1 and 3.
-- **Phase 5: Validity.** Subscription holds replace reference counts, history change
-  signals replace the 10 minute expiry, and the size options merge into one budget.
+  block alignment. Subscription holds replace reference counts, history change signals
+  replace the 10 minute expiry, and the size options merge into one budget. The old
+  `Feed` methods stay. Needs phases 1 and 3.
+- **Phase 5: The consumers.** Lines, values, and logs move onto `subscribe`.
+  `LiveWindow` and the tile targets go, and the old `Feed` methods leave the public
+  surface. Needs phase 4.
 
 Phase 1 changes the wire: a request flag and response field on the stream, and a new
 signal channel. No phase changes a stored format.
@@ -277,6 +283,10 @@ signal channel. No phase changes a stored format.
     stream message would make history the streamer's job. The trade is real: changes
     reach only clients connected to the node that stores the channel, and anyone who
     reads the signal channel sees which channels changed.
+11. **A pulled handle, not a pushed result**: Pluto reads each source on every frame, so
+    a pushed result needs a copy in each source to answer that read. A dynamic window
+    moves with the clock, so a push needs a timer in the `Feed` and sends results that
+    no frame draws. The trade is real: a caller that wants push wraps `onChange`.
 
 ## 6 What this RFC does not cover
 
