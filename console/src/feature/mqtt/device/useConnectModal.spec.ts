@@ -121,7 +121,7 @@ describe("useConnectModal", () => {
     await waitFor(() => expect(keepAlive.value).toBe("0"));
     fireEvent.click(screen.getByRole("button", { name: /Connect/ }));
     expect(await screen.findByText("Port must be 1 to 65535")).toBeTruthy();
-    expect(screen.getByText("Keep alive must be positive")).toBeTruthy();
+    expect(screen.getByText("Keep alive must be 1 to 65535")).toBeTruthy();
   });
 
   it("should report a device it connected and leave an empty port unset", async () => {

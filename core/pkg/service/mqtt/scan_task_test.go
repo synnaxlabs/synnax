@@ -396,6 +396,9 @@ var _ = Describe("Scan task", func() {
 				Entry("a keep-alive of 7 seconds",
 					msgpack.EncodedJSON{"keep_alive": 7}, uint16(7),
 				),
+				Entry("the longest keep-alive",
+					msgpack.EncodedJSON{"keep_alive": 65535}, uint16(65535),
+				),
 			)
 		})
 
@@ -476,12 +479,17 @@ var _ = Describe("Scan task", func() {
 			}),
 			Entry("a keep-alive of zero", func() (msgpack.EncodedJSON, string) {
 				return msgpack.EncodedJSON{"keep_alive": 0},
-					"invalid broker properties: keep_alive: must be positive: " +
+					"invalid broker properties: keep_alive: must be 1 to 65535: " +
 						"validation error"
 			}),
 			Entry("a negative keep-alive", func() (msgpack.EncodedJSON, string) {
 				return msgpack.EncodedJSON{"keep_alive": -1},
-					"invalid broker properties: keep_alive: must be positive: " +
+					"invalid broker properties: keep_alive: must be 1 to 65535: " +
+						"validation error"
+			}),
+			Entry("a keep-alive above 65535", func() (msgpack.EncodedJSON, string) {
+				return msgpack.EncodedJSON{"keep_alive": 65536},
+					"invalid broker properties: keep_alive: must be 1 to 65535: " +
 						"validation error"
 			}),
 			Entry("a Sparkplug B host ID that cannot be a topic level",

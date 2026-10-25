@@ -59,7 +59,7 @@ following:
 | `username`             | string  | No       | `""`    | Username for the broker                                                |
 | `password`             | string  | No       | `""`    | Password for the broker                                                |
 | `client_id`            | string  | No       | `""`    | MQTT client ID. When empty, Synnax derives a stable ID from the device |
-| `keep_alive`           | integer | No       | `30`    | Keep-alive interval in seconds. Must be greater than zero              |
+| `keep_alive`           | integer | No       | `30`    | Keep-alive interval in seconds, from 1 to 65535                        |
 | `host_id`              | string  | No       | `""`    | [Sparkplug B](/reference/driver/mqtt/sparkplug) host application ID    |
 | `groups`               | array   | No       | `[]`    | [Sparkplug B](/reference/driver/mqtt/sparkplug) groups to browse       |
 

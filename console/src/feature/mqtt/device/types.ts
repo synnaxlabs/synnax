@@ -75,7 +75,8 @@ export const propertiesZ = z.object({
   keepAlive: z
     .number()
     .int("Keep alive must be a whole number")
-    .positive("Keep alive must be positive")
+    .min(1, "Keep alive must be 1 to 65535")
+    .max(65535, "Keep alive must be 1 to 65535")
     .optional(),
   caFile: z.string().default(""),
   certFile: z.string().default(""),

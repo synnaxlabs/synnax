@@ -352,15 +352,16 @@ class TestMQTTDevice:
         with pytest.raises(ValueError, match="port must be 1 to 65535"):
             sy.mqtt.Device(host="broker.local", port=port)
 
-    def test_device_accepts_one_second_keep_alive(self) -> None:
-        """Should keep the shortest keep alive."""
-        dev = sy.mqtt.Device(host="broker.local", keep_alive=1)
-        assert dev.properties["keep_alive"] == 1
+    @pytest.mark.parametrize("keep_alive", [1, 65535])
+    def test_device_accepts_keep_alive_at_bounds(self, keep_alive: int) -> None:
+        """Should keep a keep alive at either end of the MQTT range."""
+        dev = sy.mqtt.Device(host="broker.local", keep_alive=keep_alive)
+        assert dev.properties["keep_alive"] == keep_alive
 
-    @pytest.mark.parametrize("keep_alive", [-1, 0])
-    def test_device_rejects_keep_alive_not_positive(self, keep_alive: int) -> None:
-        """Should reject a keep alive of zero or less."""
-        with pytest.raises(ValueError, match="keep_alive must be positive"):
+    @pytest.mark.parametrize("keep_alive", [-1, 0, 65536])
+    def test_device_rejects_keep_alive_out_of_range(self, keep_alive: int) -> None:
+        """Should reject a keep alive outside the MQTT range, zero included."""
+        with pytest.raises(ValueError, match="keep_alive must be 1 to 65535"):
             sy.mqtt.Device(host="broker.local", keep_alive=keep_alive)
 
     def test_device_auto_key_generation(self) -> None:

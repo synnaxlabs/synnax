@@ -39,16 +39,16 @@ describe("MQTT Device Properties", () => {
       ]);
     });
 
-    it.each([0, -1])("should reject the keep alive %d", (keepAlive) => {
+    it.each([0, -1, 65536])("should reject the keep alive %d", (keepAlive) => {
       const result = MQTT.Device.propertiesZ.safeParse({ keepAlive });
       expect(result.error?.issues).toMatchObject([
-        { message: "Keep alive must be positive", path: ["keepAlive"] },
+        { message: "Keep alive must be 1 to 65535", path: ["keepAlive"] },
       ]);
     });
 
-    it("should accept a port of 65535 and a keep alive of 1", () => {
-      const result = MQTT.Device.propertiesZ.parse({ port: 65535, keepAlive: 1 });
-      expect(result).toMatchObject({ port: 65535, keepAlive: 1 });
+    it.each([1, 65535])("should accept a port and a keep alive of %d", (value) => {
+      const result = MQTT.Device.propertiesZ.parse({ port: value, keepAlive: value });
+      expect(result).toMatchObject({ port: value, keepAlive: value });
     });
 
     it("should reject a version other than 1", () => {

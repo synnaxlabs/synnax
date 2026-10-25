@@ -78,8 +78,9 @@ type properties struct {
 	// Port is the TCP port of the broker, from 1 to 65535. Nil selects 1883, or 8883
 	// when Secure.
 	Port *int `json:"port"`
-	// KeepAlive is the MQTT keep-alive interval in seconds, which must be positive. Nil
-	// selects 30.
+	// KeepAlive is the MQTT keep-alive interval in seconds, from 1 to 65535. Nil
+	// selects
+	// 30.
 	KeepAlive *int `json:"keep_alive"`
 	// Secure is true when the connection uses TLS.
 	Secure bool `json:"secure"`
@@ -149,8 +150,8 @@ func newClientSettings(dev device.Device, props properties) (clientConfig, error
 	)
 	v.Ternary(
 		"keep_alive",
-		props.KeepAlive != nil && *props.KeepAlive < 1,
-		"must be positive",
+		props.KeepAlive != nil && (*props.KeepAlive < 1 || *props.KeepAlive > 65535),
+		"must be 1 to 65535",
 	)
 	v.Ternary(
 		"key_file",

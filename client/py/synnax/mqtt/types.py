@@ -169,7 +169,8 @@ class Device(device.Device):
     :param username: Optional username.
     :param password: Optional password.
     :param client_id: MQTT client ID. Empty derives one from the device key.
-    :param keep_alive: MQTT keep-alive interval in seconds, above zero. None selects 30.
+    :param keep_alive: MQTT keep-alive interval in seconds, from 1 to 65535. None
+        selects 30.
     :param host_id: Sparkplug B host application ID. When set, the Core publishes its
         STATE message under this ID. Empty makes the Core a passive host.
     :param groups: Sparkplug B group IDs to browse. Empty browses every group.
@@ -205,8 +206,8 @@ class Device(device.Device):
             key = str(uuid4())
         if port is not None and not 1 <= port <= 65535:
             raise ValueError("port must be 1 to 65535")
-        if keep_alive is not None and keep_alive <= 0:
-            raise ValueError("keep_alive must be positive")
+        if keep_alive is not None and not 1 <= keep_alive <= 65535:
+            raise ValueError("keep_alive must be 1 to 65535")
         sparkplug_groups: list[JsonValue] = list(groups) if groups is not None else []
         properties: dict[str, JsonValue] = {
             "secure": secure,
