@@ -551,6 +551,30 @@ describe("Read", () => {
     );
   });
 
+  it("should reject a data type that differs from the mapped channel's", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const render = async (dataType: string) =>
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [createEntryReadChannel(slave.key, STATUS_ENTRY, { dataType })],
+      });
+    const first = await render("uint16");
+    await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    first.unmount();
+    const { container, statuses } = await render("int16");
+    await clickDeploy(container);
+    await awaitStatus(statuses, /holds uint16 data, not int16/);
+  });
+
   it("should surface an error when the task has no channels", async () => {
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
