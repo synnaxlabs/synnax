@@ -73,7 +73,7 @@ var _ = Describe("SearchIndex", func() {
 
 	search := func(ctx SpecContext, tx gorp.Tx, term string) []int32 {
 		GinkgoHelper()
-		return MustSucceed(idx.Search(ctx, tx, term)).Keys
+		return MustSucceed(idx.Search(ctx, tx, term, 0)).Keys
 	}
 
 	Describe("Name", func() {
@@ -95,6 +95,16 @@ var _ = Describe("SearchIndex", func() {
 			Entry("no match", "flow", []int32{}),
 		)
 
+		DescribeTable("Should keep the closest matches up to the limit",
+			func(ctx SpecContext, limit int, expected []int32) {
+				Expect(MustSucceed(idx.Search(ctx, db, "analog", limit)).Keys).
+					To(Equal(expected))
+			},
+			Entry("fewer than every match", 2, []int32{3, 1}),
+			Entry("more than every match", 10, []int32{3, 1, 4}),
+			Entry("every match", 0, []int32{3, 1, 4}),
+		)
+
 		It("Should index entries that a committed tx writes", func(ctx SpecContext) {
 			createIndexed(ctx, db, indexedEntry{ID: 5, Name: "flow meter"})
 			Expect(search(ctx, db, "flow")).To(Equal([]int32{5}))
@@ -107,7 +117,7 @@ var _ = Describe("SearchIndex", func() {
 		})
 
 		It("Should panic when tx is nil", func(ctx SpecContext) {
-			Expect(func() { _, _ = idx.Search(ctx, nil, "valve") }).
+			Expect(func() { _, _ = idx.Search(ctx, nil, "valve", 0) }).
 				To(PanicWith(ContainSubstring("nil transaction")))
 		})
 
@@ -219,8 +229,10 @@ var _ = Describe("SearchIndex", func() {
 		})
 
 		It("Should search by scanning every entry", func(ctx SpecContext) {
-			Expect(MustSucceed(failed.Search(ctx, failing, "analog")).Keys).
+			Expect(MustSucceed(failed.Search(ctx, failing, "analog", 0)).Keys).
 				To(Equal([]int32{3, 1, 4}))
+			Expect(MustSucceed(failed.Search(ctx, failing, "analog", 2)).Keys).
+				To(Equal([]int32{3, 1}))
 		})
 
 		It("Should retrieve the matches closest match first", func(ctx SpecContext) {

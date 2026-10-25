@@ -84,7 +84,7 @@ func (s *textService) Search(
 	for _, k := range s.keys {
 		idx.Set(k, k)
 	}
-	return search.MapKeys(idx.Search(term).First(limit), func(k string) ontology.ID {
+	return search.MapKeys(idx.Search(term, limit), func(k string) ontology.ID {
 		return ontology.ID{Type: s.typ, Key: k}
 	}), nil
 }

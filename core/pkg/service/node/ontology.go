@@ -76,7 +76,7 @@ func (s *Service) Search(
 	for _, key := range slices.Sorted(maps.Keys(nodes)) {
 		idx.Set(key, name(key))
 	}
-	return search.MapKeys(idx.Search(term).First(limit), OntologyID), nil
+	return search.MapKeys(idx.Search(term, limit), OntologyID), nil
 }
 
 // OnChange implements ontology.Service.

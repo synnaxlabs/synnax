@@ -31,8 +31,10 @@ func newRank(score int32, tokens int) uint32 {
 // Merge combines the results of one term searched in several indexes, closest match
 // first. Results whose entries match every word of the term replace the results that
 // match only some words, so Merge returns what one index holding every entry would.
-// Equal matches keep the order of results.
-func Merge[K comparable](results ...Result[K]) Result[K] {
+// Equal matches keep the order of results. Merge returns at most limit keys, or every
+// key when limit is 0. Searching each index with the same limit does not change the
+// result.
+func Merge[K comparable](limit int, results ...Result[K]) Result[K] {
 	complete := slices.ContainsFunc(results, func(r Result[K]) bool {
 		return r.complete && len(r.Keys) > 0
 	})
@@ -52,6 +54,7 @@ func Merge[K comparable](results ...Result[K]) Result[K] {
 		}
 	}
 	slices.Sort(packed)
+	packed = packed[:limited(len(packed), limit)]
 	keys := make([]K, 0, total)
 	for _, r := range results {
 		if r.complete == complete {
@@ -70,11 +73,12 @@ func Merge[K comparable](results ...Result[K]) Result[K] {
 	return merged
 }
 
-// First returns the n closest matches of r. Cutting several results to their first n
-// matches before Merge does not change the first n matches that Merge returns.
-func (r Result[K]) First(n int) Result[K] {
-	n = min(n, len(r.Keys))
-	return Result[K]{Keys: r.Keys[:n], ranks: r.ranks[:n], complete: r.complete}
+// limited returns n cut to limit, or n when limit is 0.
+func limited(n, limit int) int {
+	if limit > 0 {
+		return min(n, limit)
+	}
+	return n
 }
 
 // MapKeys returns r with each key replaced by f of the key.

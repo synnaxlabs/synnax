@@ -56,11 +56,11 @@ func SearchIndex[K gorp.Key, E gorp.Entry[K]](
 	limit int,
 	id func(K) ID,
 ) (search.Result[ID], error) {
-	res, err := idx.Search(ctx, tx, term)
+	res, err := idx.Search(ctx, tx, term, limit)
 	if err != nil {
 		return search.Result[ID]{}, err
 	}
-	return search.MapKeys(res.First(limit), id), nil
+	return search.MapKeys(res, id), nil
 }
 
 type serviceRegistrar map[ResourceType]Service

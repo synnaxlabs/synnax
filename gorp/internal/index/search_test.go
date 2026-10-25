@@ -21,7 +21,7 @@ import (
 // keys returns the keys that s matches for term under scope, closest match first.
 func keys(s *index.Search[*scope, int], scope *scope, term string) []int {
 	GinkgoHelper()
-	return MustSucceed(s.Get(scope, term)).Keys
+	return MustSucceed(s.Get(scope, term, 0)).Keys
 }
 
 var _ = Describe("Search", func() {
@@ -68,7 +68,7 @@ var _ = Describe("Search", func() {
 			insert(1, []string{"valve"})
 			finish(errLoad)
 			Expect(failed.Wait(ctx)).To(MatchError(errLoad))
-			Expect(failed.Get(nil, "valve")).Error().To(MatchError(errLoad))
+			Expect(failed.Get(nil, "valve", 0)).Error().To(MatchError(errLoad))
 		})
 	})
 
@@ -77,6 +77,10 @@ var _ = Describe("Search", func() {
 			s.Set(3, []string{"pressure valve"})
 			Expect(keys(s, nil, "valve")).To(Equal([]int{3}))
 			Expect(keys(s, nil, "pressure")).To(Equal([]int{1, 2, 3}))
+		})
+
+		It("Should keep the closest keys up to the limit", func() {
+			Expect(MustSucceed(s.Get(nil, "pressure", 1)).Keys).To(Equal([]int{1}))
 		})
 
 		It("Should remove a deleted key", func() {
@@ -115,6 +119,18 @@ var _ = Describe("Search", func() {
 			s.Stage(txn, 5, []string{"pressures"})
 			Expect(keys(s, txn, "pressure")).To(Equal([]int{1, 2, 4, 5}))
 		})
+
+		DescribeTable("Should keep the closest staged and committed keys",
+			func(limit int, expected []int) {
+				s.Stage(txn, 4, []string{"pressure inlet feed"})
+				s.Stage(txn, 5, []string{"pressures"})
+				Expect(MustSucceed(s.Get(txn, "pressure", limit)).Keys).
+					To(Equal(expected))
+			},
+			Entry("only committed keys", 2, []int{1, 2}),
+			Entry("committed and staged keys", 3, []int{1, 2, 4}),
+			Entry("every key", 0, []int{1, 2, 4, 5}),
+		)
 
 		It("Should keep the last staged change of a key", func() {
 			s.Stage(txn, 4, []string{"valve"})

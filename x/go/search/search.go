@@ -127,16 +127,23 @@ func (idx *Index[K]) Delete(key K) {
 }
 
 // Search returns the entries that match every word of term, closest match first. When
-// no entry matches every word, it returns the entries that match any word.
-func (idx *Index[K]) Search(term string) Result[K] { return idx.search(term, nil) }
+// no entry matches every word, it returns the entries that match any word. It returns
+// at most limit entries, or every entry when limit is 0.
+func (idx *Index[K]) Search(term string, limit int) Result[K] {
+	return idx.search(term, nil, limit)
+}
 
 // SearchExcept is Search with the keys for which except returns true left out. It
 // leaves them out before it checks whether any entry matches every word.
-func (idx *Index[K]) SearchExcept(term string, except func(K) bool) Result[K] {
-	return idx.search(term, except)
+func (idx *Index[K]) SearchExcept(
+	term string,
+	except func(K) bool,
+	limit int,
+) Result[K] {
+	return idx.search(term, except, limit)
 }
 
-func (idx *Index[K]) search(term string, except func(K) bool) Result[K] {
+func (idx *Index[K]) search(term string, except func(K) bool, limit int) Result[K] {
 	words := tokenize(term)
 	if len(words) == 0 {
 		return Result[K]{}
@@ -165,12 +172,13 @@ func (idx *Index[K]) search(term string, except func(K) bool) Result[K] {
 		}
 	}
 	slices.Sort(s.ranked)
+	kept := s.ranked[:limited(len(s.ranked), limit)]
 	res := Result[K]{
-		Keys:     make([]K, len(s.ranked)),
-		ranks:    make([]uint32, len(s.ranked)),
+		Keys:     make([]K, len(kept)),
+		ranks:    make([]uint32, len(kept)),
 		complete: complete,
 	}
-	for i, r := range s.ranked {
+	for i, r := range kept {
 		res.Keys[i] = idx.entries[uint32(r)].key
 		res.ranks[i] = uint32(r >> 32)
 	}

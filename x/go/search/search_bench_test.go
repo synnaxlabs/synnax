@@ -62,26 +62,28 @@ func BenchmarkReindex(b *testing.B) {
 
 func BenchmarkSearch(b *testing.B) {
 	for _, count := range counts {
-		for _, query := range []struct {
-			name string
-			term string
-		}{
-			{"single_word", "sensor"},
-			{"multi_word", "October Run"},
-			{"underscore_separated", "gse_ai"},
-			{"single_char", "s"},
-			{"typo", "sensr"},
-		} {
-			b.Run(
-				fmt.Sprintf("resources=%d/%s", count, query.name),
-				func(b *testing.B) {
-					idx := newBenchIndex(makeNames(count))
-					b.ReportAllocs()
-					for b.Loop() {
-						idx.Search(query.term)
-					}
-				},
-			)
+		for _, limit := range []int{0, 100} {
+			for _, query := range []struct {
+				name string
+				term string
+			}{
+				{"single_word", "sensor"},
+				{"multi_word", "October Run"},
+				{"underscore_separated", "gse_ai"},
+				{"single_char", "s"},
+				{"typo", "sensr"},
+			} {
+				b.Run(
+					fmt.Sprintf("resources=%d/limit=%d/%s", count, limit, query.name),
+					func(b *testing.B) {
+						idx := newBenchIndex(makeNames(count))
+						b.ReportAllocs()
+						for b.Loop() {
+							idx.Search(query.term, limit)
+						}
+					},
+				)
+			}
 		}
 	}
 }
@@ -92,7 +94,7 @@ func BenchmarkSearchMiss(b *testing.B) {
 			idx := newBenchIndex(makeNames(count))
 			b.ReportAllocs()
 			for b.Loop() {
-				idx.Search("xyznonexistent qqq")
+				idx.Search("xyznonexistent qqq", 0)
 			}
 		})
 	}

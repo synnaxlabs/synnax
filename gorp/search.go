@@ -74,9 +74,10 @@ func (s *SearchIndex[K, E]) stageDelete(tx Tx, key K) {
 }
 
 // Search returns the keys of the entries that match term, closest match first. When no
-// entry matches every word of term, it returns the entries that match any word. Search
-// merges committed index state with the changes staged against tx; pass the DB to read
-// committed state only. Search panics if tx is nil.
+// entry matches every word of term, it returns the entries that match any word. It
+// returns at most limit keys, or every key when limit is 0. Search merges committed
+// index state with the changes staged against tx; pass the DB to read committed state
+// only. Search panics if tx is nil.
 //
 // Search blocks until the index has finished populating. If population failed, Search
 // scans every entry through tx instead, so it returns the same result at scan cost.
@@ -84,14 +85,15 @@ func (s *SearchIndex[K, E]) Search(
 	ctx context.Context,
 	tx Tx,
 	term string,
+	limit int,
 ) (search.Result[K], error) {
 	checkForNilTx("SearchIndex.Search", tx)
 	if err := s.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
-		return s.scan(ctx, tx, term)
+		return s.scan(ctx, tx, term, limit)
 	} else if err != nil {
 		return search.Result[K]{}, err
 	}
-	return s.store.Get(scopeOf(tx), term)
+	return s.store.Get(scopeOf(tx), term, limit)
 }
 
 // Filter returns a Filter matching the entries that Search returns for term. A
@@ -100,7 +102,7 @@ func (s *SearchIndex[K, E]) Search(
 func (s *SearchIndex[K, E]) Filter(term string) Filter[K, E] {
 	return Filter[K, E]{
 		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
-			res, err := s.Search(ctx, tx, term)
+			res, err := s.Search(ctx, tx, term, 0)
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
@@ -114,6 +116,7 @@ func (s *SearchIndex[K, E]) scan(
 	ctx context.Context,
 	tx Tx,
 	term string,
+	limit int,
 ) (res search.Result[K], err error) {
 	entries, closer, err := wrapReader[K, E](tx, nil).OpenNexter(ctx)
 	if err != nil {
@@ -124,5 +127,5 @@ func (s *SearchIndex[K, E]) scan(
 	for e := range entries {
 		idx.Set(e.GorpKey(), s.text(&e)...)
 	}
-	return idx.Search(term), nil
+	return idx.Search(term, limit), nil
 }

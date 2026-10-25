@@ -170,7 +170,7 @@ func MatchLabels[D any](matchLabels ...label.Key) Filter[D] {
 func (r Retrieve[D]) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTX, tx)
 	if r.searchTerm != "" {
-		res, err := r.search.Search(ctx, tx, r.searchTerm)
+		res, err := r.search.Search(ctx, tx, r.searchTerm, 0)
 		if err != nil {
 			return err
 		}

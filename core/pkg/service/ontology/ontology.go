@@ -205,7 +205,7 @@ func (o *Ontology) Search(ctx context.Context, tx gorp.Tx, term string) ([]ID, e
 		}
 		results[i] = res
 	}
-	return search.Merge(results...).First(searchLimit).Keys, nil
+	return search.Merge(searchLimit, results...).Keys, nil
 }
 
 // Close closes the ontology and all of its observers and releases all resources.

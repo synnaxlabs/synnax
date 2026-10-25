@@ -159,5 +159,5 @@ func (r Reader) Search(
 	for _, a := range aliases {
 		idx.Set(a.Channel, a.Alias)
 	}
-	return idx.Search(term).Keys, nil
+	return idx.Search(term, 0).Keys, nil
 }
