@@ -218,7 +218,8 @@ const startCommandType = "start"
 
 // handleStart deploys the latest stored config before running the task: when no
 // live instance exists or the stored config differs from the one the instance
-// was built from, the task is rebuilt first, then the start command executes.
+// was built from, the task is rebuilt first, then the start command executes. A
+// pinned start whose hash differs from the stored config's is refused.
 func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 	var tsk task.Task
 	if err := d.cfg.Task.NewRetrieve().
@@ -233,7 +234,14 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 				zap.Stringer("task", cmd.Task),
 				zap.Error(err),
 			)
-			d.ackFailure(ctx, task.Task{Key: cmd.Task}, cmd, err)
+			d.refuseStart(
+				ctx,
+				task.Task{Key: cmd.Task},
+				cmd,
+				status.VariantError,
+				startFailedMessage,
+				err.Error(),
+			)
 		}
 		return
 	}
@@ -251,6 +259,18 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 		}
 		return
 	}
+	if cmd.Pinned && cmd.ConfigHash != tsk.ConfigHash {
+		d.refuseStart(
+			ctx,
+			tsk,
+			cmd,
+			status.VariantWarning,
+			"Config changed",
+			"The task config changed after you saw it. Review the task, then start "+
+				"it again.",
+		)
+		return
+	}
 	d.mu.RLock()
 	inst, ok := d.mu.instances[cmd.Task]
 	d.mu.RUnlock()
@@ -265,7 +285,14 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 			// out of time has no live context to write with.
 			if errors.Is(err, ErrTaskNotHandled) ||
 				errors.Is(err, context.DeadlineExceeded) {
-				d.ackFailure(ctx, tsk, cmd, err)
+				d.refuseStart(
+					ctx,
+					tsk,
+					cmd,
+					status.VariantError,
+					startFailedMessage,
+					err.Error(),
+				)
 			}
 			return
 		}
@@ -279,21 +306,25 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 	d.exec(ctx, inst.task, cmd)
 }
 
-// ackFailure acknowledges a start command whose deploy failed without a factory
-// reporting it.
-func (d *Driver) ackFailure(
+const startFailedMessage = "Failed to start task"
+
+// refuseStart answers a start command that did not start the task, when no factory
+// reports the reason.
+func (d *Driver) refuseStart(
 	ctx context.Context,
 	t task.Task,
 	cmd task.Command,
-	err error,
+	variant status.Variant,
+	message string,
+	description string,
 ) {
 	if sErr := NewStatusHandler(d.cfg.DB, d.cfg.Status, t).Send(
 		ctx,
 		cmd.Key,
-		status.VariantError,
+		variant,
 		false,
-		"Failed to start task",
-		err.Error(),
+		message,
+		description,
 	); sErr != nil {
 		d.cfg.L.Error("failed to write start failure status", zap.Error(sErr))
 	}

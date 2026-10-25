@@ -34,6 +34,7 @@ func CommandToPB(r task.Command) (*Command, error) {
 		Type:       r.Type,
 		Key:        r.Key,
 		ConfigHash: r.ConfigHash,
+		Pinned:     r.Pinned,
 		Task:       r.Task.String(),
 		Args:       argsVal,
 	}
@@ -55,6 +56,7 @@ func CommandFromPB(pb *Command) (task.Command, error) {
 	r.Type = pb.Type
 	r.Key = pb.Key
 	r.ConfigHash = pb.ConfigHash
+	r.Pinned = pb.Pinned
 	return r, nil
 }
 

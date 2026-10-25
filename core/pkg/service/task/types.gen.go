@@ -63,4 +63,7 @@ type Command struct {
 	ConfigHash string `json:"config_hash" msgpack:"config_hash"`
 	// Args contains optional arguments for the command.
 	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
+	// Pinned is true when the Driver must refuse a start whose config_hash differs from
+	// the hash of the stored config.
+	Pinned bool `json:"pinned" msgpack:"pinned"`
 }

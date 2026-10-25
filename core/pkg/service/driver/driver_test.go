@@ -535,6 +535,89 @@ var _ = Describe("Driver", func() {
 			},
 		)
 
+		Describe("Pinned start", func() {
+			var (
+				configured atomic.Int32
+				t          task.Task
+			)
+			BeforeEach(func(ctx SpecContext) {
+				configured.Store(0)
+				t = newTask(embeddedRackKey(ctx))
+				key := t.Key
+				openDriver(ctx, &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						cfgTask task.Task,
+					) (driver.Task, error) {
+						if cfgTask.Key == key {
+							configured.Add(1)
+						}
+						return &mockTask{key: cfgTask.Key}, nil
+					},
+				})
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+			})
+			retrieveStatus := func(ctx context.Context) task.Status {
+				GinkgoHelper()
+				var stat task.Status
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchKeys[task.StatusDetails](
+						t.OntologyID().String(),
+					)).
+					Entry(&stat).
+					Exec(ctx, nil)).To(Succeed())
+				return stat
+			}
+
+			It("should start a task whose stored config has the pinned hash", func(
+				ctx SpecContext,
+			) {
+				writeCommand(ctx, task.Command{
+					Task:       t.Key,
+					Type:       "start",
+					Key:        "cmd-pinned",
+					ConfigHash: t.ConfigHash,
+					Pinned:     true,
+				})
+				Eventually(configured.Load).Should(Equal(int32(1)))
+			})
+
+			It("should refuse a start whose pinned hash is stale", func(
+				ctx SpecContext,
+			) {
+				writeCommand(ctx, task.Command{
+					Task:       t.Key,
+					Type:       "start",
+					Key:        "cmd-stale",
+					ConfigHash: "stale",
+					Pinned:     true,
+				})
+				Eventually(func(g Gomega) {
+					stat := retrieveStatus(ctx)
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-stale"))
+					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+					g.Expect(stat.Message).To(Equal("Config changed"))
+					g.Expect(stat.Description).
+						To(ContainSubstring("Review the task, then start it again."))
+					g.Expect(stat.Details.Running).To(BeFalse())
+				}).Should(Succeed())
+				Expect(configured.Load()).To(BeZero())
+			})
+
+			It("should deploy the stored config for an unpinned stale hash", func(
+				ctx SpecContext,
+			) {
+				writeCommand(ctx, task.Command{
+					Task:       t.Key,
+					Type:       "start",
+					Key:        "cmd-unpinned",
+					ConfigHash: "stale",
+				})
+				Eventually(configured.Load).Should(Equal(int32(1)))
+			})
+		})
+
 		It("should ignore start commands for snapshot tasks", func(ctx SpecContext) {
 			var configuredCount atomic.Int32
 			factory := &mockFactory{

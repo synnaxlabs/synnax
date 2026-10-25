@@ -305,9 +305,11 @@ void Manager::process_start(const synnax::task::Command &cmd) {
             deployed = entry->deployed_hash;
             // The sender's hash can force a deploy but never confirm a
             // match: a sender that disagrees with our copy may have seen a
-            // revision whose set event has not landed here yet.
+            // revision whose set event has not landed here yet. A pinned start
+            // always fetches, because only the fetch can refuse it.
             wanted = entry->row.config_hash;
-            if (!cmd.config_hash.empty() && cmd.config_hash != wanted) wanted.clear();
+            if (cmd.pinned || (!cmd.config_hash.empty() && cmd.config_hash != wanted))
+                wanted.clear();
         }
         if (!ours) {
             // The start deploys the task on its new rack and doubles as the
@@ -566,6 +568,23 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     this->clear_deploy(entry);
                     std::lock_guard lock{this->mu};
                     this->remove(op.task_key, true);
+                    break;
+                }
+                if (op.cmd.pinned && op.cmd.config_hash != tsk.config_hash) {
+                    LOG(INFO) << "refusing start pinned to a stale config for task "
+                              << tsk;
+                    synnax::task::Status status;
+                    status.key = synnax::task::status_key(tsk);
+                    status.name = tsk.name;
+                    status.variant = synnax::status::VARIANT_WARNING;
+                    status.message = "Config changed";
+                    status.description = "The task config changed after you saw it. "
+                                         "Review the task, then start it again.";
+                    status.details.task = op.task_key;
+                    status.details.running = false;
+                    status.details.cmd = op.cmd.key;
+                    status.details.config_hash = tsk.config_hash;
+                    this->ctx->set_status(status);
                     break;
                 }
                 std::string deployed;

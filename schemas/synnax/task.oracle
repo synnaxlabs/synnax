@@ -173,6 +173,12 @@ Command struct {
         @doc value        "contains optional arguments for the command."
         @ts preserve_case
     }
+    pinned      bool = false {
+        @doc value """
+            is true when the Driver must refuse a start whose config_hash differs from
+            the hash of the stored config.
+        """
+    }
 
     @doc value "is a command to execute on a task in the Driver system."
 }
