@@ -10,13 +10,27 @@
 package cmd
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/oracle/format"
+	"github.com/synnaxlabs/oracle/pipeline"
+	"github.com/synnaxlabs/oracle/plugin"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// diskFormatter reads the file from disk, as ESLint's TypeScript project service does.
+type diskFormatter struct{}
+
+func (diskFormatter) Format(_ context.Context, content []byte, path string) ([]byte, error) {
+	if _, err := os.Stat(path); err != nil {
+		return nil, err
+	}
+	return append(content, "// formatted\n"...), nil
+}
 
 var _ = Describe("sync command", func() {
 	var (
@@ -76,5 +90,22 @@ var _ = Describe("sync command", func() {
 			Expect(executeCommand(cmd, "sync")).Error().
 				To(MatchError(ContainSubstring("no schema files found")))
 		})
+	})
+})
+
+var _ = Describe("sync outputs", func() {
+	It("Should put a new file on disk before formatting it", func(ctx SpecContext) {
+		root := GinkgoT().TempDir()
+		formatters := format.NewRegistry()
+		formatters.Register(".ts", diskFormatter{})
+		result := &pipeline.Result{Outputs: map[string][]plugin.File{
+			"ts/types": {{Path: "src/thing/types.gen.ts", Content: []byte("x\n")}},
+		}}
+		r := MustSucceed(syncOutputs(
+			ctx, result, root, formatters, format.LoadCache(root), 1,
+		))
+		Expect(r.Written).To(Equal([]string{"src/thing/types.gen.ts"}))
+		Expect(os.ReadFile(filepath.Join(root, "src", "thing", "types.gen.ts"))).
+			To(Equal([]byte("x\n// formatted\n")))
 	})
 })
