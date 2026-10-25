@@ -25,6 +25,12 @@ var (
 	ErrExpired = errors.Wrap(ErrLicense, "the license on this Core has expired")
 	// ErrInvalid is returned when a license key fails to verify.
 	ErrInvalid = errors.Wrap(ErrLicense, "invalid license")
+	// ErrEdition is returned when a Desktop license is activated on a Core that listens
+	// on an address other than loopback.
+	ErrEdition = errors.Wrap(
+		ErrLicense,
+		"a Desktop license runs only on a Core that listens on loopback addresses",
+	)
 	// ErrFingerprint is returned when the license is bound to other machines.
 	ErrFingerprint = errors.Wrap(
 		ErrLicense,

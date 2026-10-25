@@ -269,8 +269,9 @@ func BootupCore(
 		FIPS:               cfg.fips,
 		SessionIdleTimeout: cfg.sessionIdleTimeout,
 		License: license.ServiceConfig{
-			Key:     cfg.licenseKey,
-			Version: version.Get(),
+			Key:      cfg.licenseKey,
+			Version:  version.Get(),
+			Loopback: new(cfg.listeners.Loopback()),
 		},
 		ValidateChannelNames: cfg.validateChannelNames,
 	})
