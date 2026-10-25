@@ -29,6 +29,7 @@ address, use `--listen` and [Set up TLS](/reference/enterprise/tls).
    loads `node.crt` and `node.key` at start, whatever certificates the listeners use:
 
    ```bash
+   sudo mkdir -p /usr/local/synnax/certs
    sudo cp core01.crt /usr/local/synnax/certs/node.crt
    sudo cp core01.key /usr/local/synnax/certs/node.key
    ```
