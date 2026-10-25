@@ -10,6 +10,8 @@
 package query_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/query"
@@ -593,6 +595,96 @@ var _ = Describe("Go Query Plugin", func() {
 						ToNotContain("func (r Retrieve) MatchRacks(")
 				},
 			)
+
+			It("Should reject @filter on the @key field", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/rack"
+
+					Rack struct {
+						key uint32 {
+							@key
+							@filter
+						}
+						@ontology type "rack"
+						@retrieve
+					}
+				`
+				req := MustGenerateRequest(ctx, source, "rack", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"rack.Rack: @filter on the @key field key duplicates MatchKeys",
+				)))
+			})
+		})
+
+		Context("filter definitions", func() {
+			BeforeEach(func() { loader.Add("schemas/x/filter", FilterSchema) })
+
+			It(
+				"Should generate a matcher for each bare line",
+				func(ctx SpecContext) {
+					source := `
+					import "schemas/x/filter"
+
+					@go output "core/pkg/service/rack"
+
+					Rack struct {
+						key uint32 {
+							@key
+						}
+						name string
+						embedded bool
+						integrations string[]
+						location string
+						@ontology type "rack"
+						@retrieve
+					}
+
+					Where filter Rack {
+						key
+						name
+						embedded
+						integrations
+					}
+				`
+					resp := MustGenerate(ctx, source, "rack", loader, p)
+					ExpectContent(resp, "retrieve.gen.go").
+						ToContain(
+							"func MatchNames(vals ...string) Filter",
+							"func MatchEmbedded(v bool) Filter",
+							"func MatchIntegration(v string) Filter",
+						).
+						ToNotContain("MatchLocation", "MatchKey(", "MatchKeys(vals")
+				},
+			)
+
+			It(
+				"Should generate one matcher for a field with @filter and a bare line",
+				func(ctx SpecContext) {
+					source := `
+					import "schemas/x/filter"
+
+					@go output "core/pkg/service/rack"
+
+					Rack struct {
+						key uint32 {
+							@key
+						}
+						name string {
+							@filter
+						}
+						@ontology type "rack"
+						@retrieve
+					}
+
+					Where filter Rack {
+						name
+					}
+				`
+					resp := MustGenerate(ctx, source, "rack", loader, p)
+					content := MustContentOf(resp, "retrieve.gen.go")
+					Expect(strings.Count(content, "func MatchNames(")).To(Equal(1))
+				},
+			)
 		})
 
 		Context("custom retrieve", func() {
@@ -1049,7 +1141,7 @@ var _ = Describe("Go Query Plugin", func() {
 			)
 
 			It(
-				"Should generate a sorted index with Order closure type and OrderByX free function",
+				"Should generate a sorted index with an Ordering closure type and OrderByX free function",
 				func(ctx SpecContext) {
 					source := `
 					@go output "core/pkg/service/event"
@@ -1075,10 +1167,10 @@ var _ = Describe("Go Query Plugin", func() {
 							"func(e *Event) int64 { return e.CreatedAt }",
 							"func MatchCreatedAt(v int64) Filter",
 							"return r.indexes.createdAt.Filter(v)",
-							"type Order func(r Retrieve) gorp.OrderQuery[uuid.UUID, Event]",
-							"func (r Retrieve) OrderBy(o Order) Retrieve",
+							"type Ordering func(r Retrieve) gorp.OrderQuery[uuid.UUID, Event]",
+							"func (r Retrieve) OrderBy(o Ordering) Retrieve",
 							"r.gorp = r.gorp.OrderBy(o(r))",
-							"func OrderByCreatedAt(dir gorp.Direction, cursor ...int64) Order",
+							"func OrderByCreatedAt(dir gorp.Direction, cursor ...int64) Ordering",
 							"q := r.indexes.createdAt.Ordered(dir)",
 							"q = q.After(cursor[0])",
 						).

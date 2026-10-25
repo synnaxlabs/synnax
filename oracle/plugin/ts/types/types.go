@@ -452,7 +452,7 @@ func (p *Plugin) extractOntology(
 	if data == nil {
 		return nil
 	}
-	keyType := lo.Capitalize(fieldCamel(data.KeyField.Name))
+	keyType := lo.Capitalize(FieldName(data.KeyField.Name))
 	primitive := data.KeyField.Primitive
 	if override := findFieldTypeOverride(
 		structs,
@@ -846,7 +846,7 @@ func (p *Plugin) processStruct(
 				importLocalHand(base, schemaName, data)
 				sd.ExtendsName = schemaName
 				for _, f := range form.OmittedFields {
-					sd.OmittedFields = append(sd.OmittedFields, fieldCamel(f))
+					sd.OmittedFields = append(sd.OmittedFields, FieldName(f))
 				}
 				return sd
 			}
@@ -930,7 +930,7 @@ func (p *Plugin) processStruct(
 			sd.ExtendsTypeName = sd.ExtendsParents[0].TypeName
 
 			for _, f := range form.OmittedFields {
-				sd.OmittedFields = append(sd.OmittedFields, fieldCamel(f))
+				sd.OmittedFields = append(sd.OmittedFields, FieldName(f))
 			}
 
 			parentFields := make(map[string]resolution.Field)
@@ -951,12 +951,12 @@ func (p *Plugin) processStruct(
 					} else if isOnlyOptionalityChange(parentField, field) {
 						sd.PartialFields = append(
 							sd.PartialFields,
-							fieldData{TSName: fieldCamel(field.Name)},
+							fieldData{TSName: FieldName(field.Name)},
 						)
 					} else {
 						sd.OmittedFields = append(
 							sd.OmittedFields,
-							fieldCamel(field.Name),
+							FieldName(field.Name),
 						)
 						sd.ExtendFields = append(
 							sd.ExtendFields,
@@ -996,7 +996,7 @@ func (p *Plugin) processStruct(
 				for _, extendsRef := range form.Extends {
 					parentType, _, _ := resolution.Dealias(extendsRef, table)
 					for _, pf := range resolution.UnifiedFields(parentType, table) {
-						name := fieldCamel(pf.Name)
+						name := FieldName(pf.Name)
 						if handled.Contains(name) {
 							continue
 						}
@@ -1287,12 +1287,12 @@ func importNamespace(namespace, outputPath string, data *templateData) string {
 	return ident
 }
 
-// fieldCamel converts a field identifier to camelCase using the naive conversion the
+// FieldName converts a field identifier to camelCase using the naive conversion the
 // JSON codec's snake/camel round-trip relies on, preserving only a trailing acronym run
 // of two or more uppercase letters in the source ("ClientXY" -> "clientXY", "EntityID"
 // -> "entityID"). Use this for wire field keys, discriminators, and key-field names,
 // never for type or schema-const identifiers.
-func fieldCamel(s string) string {
+func FieldName(s string) string {
 	if s == "" {
 		return s
 	}
@@ -1679,7 +1679,7 @@ func (p *Plugin) processField(
 
 	fd := fieldData{
 		Name:       field.Name,
-		TSName:     fieldCamel(field.Name),
+		TSName:     FieldName(field.Name),
 		Doc:        doc.Get(field.Domains),
 		IsOptional: field.Optional,
 		IsArray:    isArray,
@@ -1781,7 +1781,7 @@ func (p *Plugin) processField(
 	// type's fields (e.g. a parent referenced by key alone), emitting a Zod .pick() and
 	// a TS Pick<> rather than a standalone reference type.
 	if pickField := domain.GetStringFromField(field, "ts", "pick"); pickField != "" {
-		camel := fieldCamel(pickField)
+		camel := FieldName(pickField)
 		fd.ZodType = fmt.Sprintf("%s.pick({ %s: true })", fd.ZodType, camel)
 		fd.TSType = fmt.Sprintf("Pick<%s, %q>", fd.TSType, camel)
 	}
@@ -2784,7 +2784,7 @@ func (p *Plugin) applyValidation(
 				zodType = fmt.Sprintf(
 					"%s.prefault({ %s: %q })",
 					zodType,
-					fieldCamel(uv.Union.Discriminator),
+					FieldName(uv.Union.Discriminator),
 					uv.Variant.Name,
 				)
 				isPrefault = true
@@ -2930,7 +2930,7 @@ func (p *Plugin) tsStructLiteral(
 			parts,
 			fmt.Sprintf(
 				"%s: %s",
-				fieldCamel(fv.Name),
+				FieldName(fv.Name),
 				p.tsDefaultLiteral(fieldsByName[fv.Name].Type, fv.Value, table, data),
 			),
 		)
