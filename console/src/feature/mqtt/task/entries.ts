@@ -16,6 +16,7 @@ import {
   toSparkplugDataType,
 } from "@/feature/mqtt/task/sparkplug";
 import {
+  type BrowsedTopic,
   type PlainReadEntry,
   type ReadField,
   type SparkplugReadEntry,
@@ -52,30 +53,22 @@ const tokens = (pointer: string): string[] =>
 export const pointerLabel = (pointer: string): string =>
   pointer === "" ? "Whole payload" : tokens(pointer).join(" › ");
 
-const format = (value: unknown): string =>
-  typeof value === "string" ? `"${value}"` : JSON.stringify(value);
-
-/** @returns the value at a pointer in a payload sample, or null when it has none. */
-export const sampleAt = (payload: string, pointer: string): string | null => {
-  let value: unknown;
-  try {
-    value = JSON.parse(payload);
-  } catch {
-    return pointer === "" ? payload : null;
-  }
-  for (const token of tokens(pointer)) {
-    if (value == null || typeof value !== "object") return null;
-    value = (value as Record<string, unknown>)[token];
-  }
-  return value === undefined ? null : format(value);
+/** @returns the sample of a browsed topic at a pointer, or null when it has none. */
+export const sampleAt = (
+  { payload, fields }: BrowsedTopic,
+  pointer: string,
+): string | null => {
+  const field = fields.find((f) => f.pointer === pointer);
+  if (field != null) return field.sample;
+  return pointer === "" ? payload : null;
 };
 
 /**
- * The fields a payload sample offers. A payload that is not JSON offers itself as one
+ * The fields a browsed topic offers. A payload that is not JSON offers itself as one
  * string field.
  */
-export const leavesOf = (payload: string): ReadField[] => {
-  const fields = createReadFields(payload);
+export const leavesOf = ({ payload, fields: scalars }: BrowsedTopic): ReadField[] => {
+  const fields = createReadFields(scalars);
   if (fields.length > 0 || payload === "") return fields;
   return [
     { ...mqtt.readFieldZ.parse({}), pointer: "", dataType: DataType.STRING.toString() },

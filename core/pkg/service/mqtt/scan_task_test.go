@@ -12,6 +12,7 @@ package mqtt_test
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -536,6 +537,10 @@ var _ = Describe("Scan task", func() {
 			return stat
 		}
 
+		field := func(pointer, t, sample string) map[string]any {
+			return map[string]any{"pointer": pointer, "type": t, "sample": sample}
+		}
+
 		It("Should list the retained topics with their payloads, in order",
 			func(ctx SpecContext) {
 				broker.publish("plant/b", `{"v":2}`, true)
@@ -547,14 +552,78 @@ var _ = Describe("Scan task", func() {
 				Expect(stat.Details.Data).To(HaveKeyWithValue("truncated", false))
 				Expect(stat.Details.Data["topics"]).To(Equal([]any{
 					map[string]any{
-						"topic": "plant/a", "payload": `{"v":1}`, "retained": true,
+						"topic":    "plant/a",
+						"payload":  `{"v":1}`,
+						"fields":   []any{field("/v", "number", "1")},
+						"retained": true,
 					},
 					map[string]any{
-						"topic": "plant/b", "payload": `{"v":2}`, "retained": true,
+						"topic":    "plant/b",
+						"payload":  `{"v":2}`,
+						"fields":   []any{field("/v", "number", "2")},
+						"retained": true,
 					},
 				}))
 			},
 		)
+
+		It("Should give the scalars of each JSON payload in document order",
+			func(ctx SpecContext) {
+				broker.publish("plant/a", "23.4", true)
+				broker.publish("plant/b", `{"state": "ON", "mode": "AUTO"}`, true)
+				broker.publish(
+					"plant/c",
+					`{"out": {"flow/rate~avg": 1.2}, "n": [1], "e": null, "on": true}`,
+					true,
+				)
+				broker.publish("plant/d", "not json", true)
+				broker.publish("plant/e", `{"v": 1, "v": 2}`, true)
+				broker.publish("plant/f", `{"v": 1} {"v": 2}`, true)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
+				fields := func(t any) any { return t.(map[string]any)["fields"] }
+				Expect(stat.Details.Data["topics"]).To(HaveExactElements(
+					WithTransform(fields, Equal([]any{field("", "number", "23.4")})),
+					WithTransform(fields, Equal([]any{
+						field("/state", "string", `"ON"`),
+						field("/mode", "string", `"AUTO"`),
+					})),
+					WithTransform(fields, Equal([]any{
+						field("/out/flow~1rate~0avg", "number", "1.2"),
+						field("/on", "boolean", "true"),
+					})),
+					WithTransform(fields, BeEmpty()),
+					WithTransform(fields, BeEmpty()),
+					WithTransform(fields, BeEmpty()),
+				))
+			},
+		)
+
+		It("Should give every scalar of a payload longer than its sample",
+			func(ctx SpecContext) {
+				long := strings.Repeat("x", 300)
+				broker.publish("plant/a", `{"text": "`+long+`", "v": 1}`, true)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
+				topic := stat.Details.Data["topics"].([]any)[0]
+				Expect(topic).To(HaveKeyWithValue("payload", HaveLen(256)))
+				Expect(topic).To(HaveKeyWithValue("fields", []any{
+					field("/text", "string", `"`+long[:63]),
+					field("/v", "number", "1"),
+				}))
+			},
+		)
+
+		It("Should give at most 256 scalars of a payload", func(ctx SpecContext) {
+			names := make([]string, 300)
+			for i := range names {
+				names[i] = fmt.Sprintf(`"f%03d": %d`, i, i)
+			}
+			broker.publish("plant/a", "{"+strings.Join(names, ", ")+"}", true)
+			stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
+			topic := stat.Details.Data["topics"].([]any)[0]
+			fields := topic.(map[string]any)["fields"].([]any)
+			Expect(fields).To(HaveLen(256))
+			Expect(fields[255]).To(Equal(field("/f255", "number", "255")))
+		})
 
 		It("Should report a list cut at the limit", func(ctx SpecContext) {
 			broker.publish("plant/a", "1", true)

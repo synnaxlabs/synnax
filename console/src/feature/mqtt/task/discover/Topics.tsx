@@ -233,7 +233,7 @@ const TopicValues = ({ topic, value, taken, single, onChange }: TopicValuesProps
   const values: Value[] = leaves.map((l) => ({
     key: l.pointer,
     name: pointerLabel(l.pointer),
-    sample: sampleAt(topic.payload, l.pointer),
+    sample: sampleAt(topic, l.pointer),
     dataType: l.dataType,
     taken: taken.has(l.pointer),
   }));
@@ -315,7 +315,7 @@ export const TopicPicker = ({
       const topics = r.topics
         // Sparkplug B payloads are not JSON. They have a tab of their own.
         .filter((t) => !isSparkplugTopic(t.topic))
-        .map((t) => ({ ...t, leaves: leavesOf(t.payload) }));
+        .map((t) => ({ ...t, leaves: leavesOf(t) }));
       return { key: id.create(), topics, truncated: r.truncated };
     },
     [device, scope],

@@ -890,7 +890,14 @@ describe("MQTT Scan Task", () => {
 
   it("should parse the status data of a browse reply", () => {
     const data = {
-      topics: [{ topic: "plant/temp", payload: "21.5", retained: true }],
+      topics: [
+        {
+          topic: "plant/temp",
+          payload: "21.5",
+          fields: [{ pointer: "", type: "number", sample: "21.5" }],
+          retained: true,
+        },
+      ],
       truncated: false,
     };
     expect(MQTT.Task.SCAN_SCHEMAS.statusData.parse(data)).toEqual(data);

@@ -236,7 +236,15 @@ describe("MQTT Read form", () => {
   describe("picking values in the add data dialog", () => {
     const TOPIC = "plant/line1/temperature";
     const TOPICS = [
-      { topic: TOPIC, payload: '{"temperature": 21.5, "label": "ok"}', retained: true },
+      {
+        topic: TOPIC,
+        payload: '{"temperature": 21.5, "label": "ok"}',
+        fields: [
+          { pointer: "/temperature", type: "number", sample: "21.5" },
+          { pointer: "/label", type: "string", sample: '"ok"' },
+        ],
+        retained: true,
+      },
     ];
     const NODES = [{ group: "plant", edgeNode: "line1", devices: [] }];
     const TAG = {
@@ -358,7 +366,12 @@ describe("MQTT Read form", () => {
     it("should leave Sparkplug B topics out of the topic list", async () => {
       const { dialog, scanner } = await openOnTopics([
         ...TOPICS,
-        { topic: "spBv1.0/plant/NBIRTH/line1", payload: "", retained: false },
+        {
+          topic: "spBv1.0/plant/NBIRTH/line1",
+          payload: "",
+          fields: [],
+          retained: false,
+        },
       ]);
       scanner.close();
       await dialog.findByRole("checkbox", { name: "Pick temperature" });
@@ -367,16 +380,33 @@ describe("MQTT Read form", () => {
 
     it("should add a field of the JSON type at the pointer of each scalar", async () => {
       const { dialog, draft, scanner } = await openOnTopics([
-        { topic: "plant/bare", payload: "23.4", retained: false },
-        { topic: "plant/valve", payload: '{"open": true}', retained: false },
+        {
+          topic: "plant/bare",
+          payload: "23.4",
+          fields: [{ pointer: "", type: "number", sample: "23.4" }],
+          retained: false,
+        },
+        {
+          topic: "plant/valve",
+          payload: '{"open": true}',
+          fields: [{ pointer: "/open", type: "boolean", sample: "true" }],
+          retained: false,
+        },
         {
           topic: "plant/pump",
           payload: '{"outlet": {"flow/rate~avg": 1.2}, "samples": [1], "error": null}',
+          fields: [
+            { pointer: "/outlet/flow~1rate~0avg", type: "number", sample: "1.2" },
+          ],
           retained: false,
         },
         {
           topic: "plant/mode",
           payload: '{"state": "ON", "mode": "AUTO"}',
+          fields: [
+            { pointer: "/state", type: "string", sample: '"ON"' },
+            { pointer: "/mode", type: "string", sample: '"AUTO"' },
+          ],
           retained: false,
         },
       ]);
@@ -402,9 +432,8 @@ describe("MQTT Read form", () => {
 
     it("should offer a non-JSON payload whole and skip an empty one", async () => {
       const { dialog, draft, scanner } = await openOnTopics([
-        { topic: "plant/raw", payload: "not json", retained: false },
-        { topic: "plant/cut", payload: '{"temperature": 21.', retained: false },
-        { topic: "plant/empty", payload: "", retained: false },
+        { topic: "plant/raw", payload: "not json", fields: [], retained: false },
+        { topic: "plant/empty", payload: "", fields: [], retained: false },
       ]);
       scanner.close();
       await dialog.findByRole("checkbox", { name: "Pick raw" });
@@ -412,11 +441,33 @@ describe("MQTT Read form", () => {
         dialog.getByRole<HTMLInputElement>("checkbox", { name: "Pick empty" }).disabled,
       ).toBe(true);
       fireEvent.click(dialog.getByRole("checkbox", { name: "Pick plant" }));
-      fireEvent.click(dialog.getByRole("button", { name: "Add 2 channels" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 channel" }));
       await waitFor(async () =>
         expect(summarizeFields(await retrieveEntries(draft.key))).toEqual({
           "plant/raw": [{ pointer: "", dataType: "string" }],
-          "plant/cut": [{ pointer: "", dataType: "string" }],
+        }),
+      );
+    });
+
+    it("should offer the fields of a payload longer than its sample", async () => {
+      const { dialog, draft, scanner } = await openOnTopics([
+        {
+          topic: "plant/long",
+          payload: '{"label": "a long label", "temperature": 21.',
+          fields: [
+            { pointer: "/label", type: "string", sample: '"a long label"' },
+            { pointer: "/temperature", type: "number", sample: "21.5" },
+          ],
+          retained: false,
+        },
+      ]);
+      scanner.close();
+      await dialog.findByText("21.5");
+      fireEvent.click(dialog.getByRole("checkbox", { name: "Pick long" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 channel" }));
+      await waitFor(async () =>
+        expect(summarizeFields(await retrieveEntries(draft.key))).toEqual({
+          "plant/long": [{ pointer: "/temperature", dataType: "float64" }],
         }),
       );
     });

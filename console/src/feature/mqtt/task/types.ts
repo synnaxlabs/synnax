@@ -362,9 +362,21 @@ export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 
 export const BROWSE_COMMAND_TYPE = "browse";
 
+const browsedFieldZ = z.object({
+  pointer: z.string(),
+  type: mqtt.jsonTypeZ,
+  /** The start of the JSON text of the value. */
+  sample: z.string(),
+});
+
+export interface BrowsedField extends z.infer<typeof browsedFieldZ> {}
+
 const browsedTopicZ = z.object({
   topic: z.string(),
+  /** The start of the last payload. */
   payload: z.string(),
+  /** The scalars of the whole last payload. */
+  fields: browsedFieldZ.array(),
   retained: z.boolean(),
 });
 

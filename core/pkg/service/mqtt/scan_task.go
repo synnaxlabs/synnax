@@ -10,7 +10,11 @@
 package mqtt
 
 import (
+	"bytes"
 	"context"
+	"encoding/json/jsontext"
+	"io"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -23,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -39,6 +44,10 @@ const (
 	maxBrowseLimit        = 5000
 	// browsePayloadLimit is the longest payload sample, in bytes, of a browsed topic.
 	browsePayloadLimit = 256
+	// browseFieldLimit is the largest count of fields of a browsed topic.
+	browseFieldLimit = 256
+	// browseSampleLimit is the longest field sample, in bytes, of a browsed topic.
+	browseSampleLimit = 64
 )
 
 // testConnectionArgs describes a broker that may not be a stored device yet, so that
@@ -59,12 +68,23 @@ type browseArgs struct {
 	Limit int `json:"limit"`
 }
 
+// browsedField is one scalar of a browsed JSON payload.
+type browsedField struct {
+	Pointer string `json:"pointer"`
+	// Type is the JSON type of the scalar: "number", "string", or "boolean".
+	Type string `json:"type"`
+	// Sample is the start of the JSON text of the scalar.
+	Sample string `json:"sample"`
+}
+
 // browsedTopic is one topic that a browse saw, with its last payload.
 type browsedTopic struct {
 	Topic string `json:"topic"`
 	// Payload is the start of the last payload. Empty when the payload is not text.
-	Payload  string `json:"payload"`
-	Retained bool   `json:"retained"`
+	Payload string `json:"payload"`
+	// Fields are the scalars of the whole last payload. Empty when it is not JSON.
+	Fields   []browsedField `json:"fields"`
+	Retained bool           `json:"retained"`
 }
 
 type browseResult struct {
@@ -194,6 +214,7 @@ func (s *scanner) browse(ctx context.Context, cmd task.Command) (browseResult, e
 		topics[m.Topic()] = browsedTopic{
 			Topic:    m.Topic(),
 			Payload:  payloadSample(m.Payload()),
+			Fields:   payloadFields(m.Payload()),
 			Retained: m.Retained(),
 		}
 	})
@@ -260,17 +281,81 @@ func (s *scanner) browseConfig(
 	return dev, props, cfg, err
 }
 
-// payloadSample returns the start of a text payload, cut at a rune boundary.
+// payloadSample returns the start of a text payload.
 func payloadSample(payload []byte) string {
 	if !utf8.Valid(payload) {
 		return ""
 	}
-	if len(payload) <= browsePayloadLimit {
-		return string(payload)
+	return cutText(payload, browsePayloadLimit)
+}
+
+// cutText returns at most limit bytes from the start of text, cut at a rune boundary.
+func cutText(text []byte, limit int) string {
+	if len(text) <= limit {
+		return string(text)
 	}
-	cut := browsePayloadLimit
-	for cut > 0 && !utf8.RuneStart(payload[cut]) {
-		cut--
+	for limit > 0 && !utf8.RuneStart(text[limit]) {
+		limit--
 	}
-	return string(payload[:cut])
+	return string(text[:limit])
+}
+
+// payloadFields returns the scalars of a JSON payload in document order, at most
+// browseFieldLimit of them. Arrays and nulls give no field. It returns no fields when
+// the payload is not JSON, is not UTF-8, or repeats a name in an object.
+func payloadFields(payload []byte) []browsedField {
+	fields := []browsedField{}
+	dec := jsontext.NewDecoder(bytes.NewReader(payload))
+	if err := appendFields(dec, nil, &fields); err != nil {
+		return []browsedField{}
+	}
+	if _, err := dec.ReadToken(); !errors.Is(err, io.EOF) {
+		return []browsedField{}
+	}
+	return fields
+}
+
+// appendFields appends the scalars of the next value of dec, at pointer, to fields.
+func appendFields(
+	dec *jsontext.Decoder,
+	pointer xjson.Pointer,
+	fields *[]browsedField,
+) error {
+	var t xjson.Type
+	switch dec.PeekKind() {
+	case '{':
+		if _, err := dec.ReadToken(); err != nil {
+			return err
+		}
+		for dec.PeekKind() != '}' {
+			name, err := dec.ReadToken()
+			if err != nil {
+				return err
+			}
+			child := append(slices.Clip(pointer), name.String())
+			if err = appendFields(dec, child, fields); err != nil {
+				return err
+			}
+		}
+		_, err := dec.ReadToken()
+		return err
+	case '"':
+		t = xjson.String
+	case '0':
+		t = xjson.Number
+	case 't', 'f':
+		t = xjson.Boolean
+	default:
+		return dec.SkipValue()
+	}
+	value, err := dec.ReadValue()
+	if err != nil || len(*fields) == browseFieldLimit {
+		return err
+	}
+	*fields = append(*fields, browsedField{
+		Pointer: pointer.String(),
+		Type:    t.String(),
+		Sample:  cutText(value, browseSampleLimit),
+	})
+	return nil
 }

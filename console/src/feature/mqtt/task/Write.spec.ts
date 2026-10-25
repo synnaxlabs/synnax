@@ -369,13 +369,22 @@ describe("MQTT Write form", () => {
 
     it("should add a target at the first value of each topic under a picked level", async () => {
       const { dialog, draft, scanner } = await openOnTopics([
-        { topic: "plant/valve", payload: '{"open": true}', retained: false },
+        {
+          topic: "plant/valve",
+          payload: '{"open": true}',
+          fields: [{ pointer: "/open", type: "boolean", sample: "true" }],
+          retained: false,
+        },
         {
           topic: "plant/speed",
           payload: '{"unit": "rpm", "rpm": 1200}',
+          fields: [
+            { pointer: "/unit", type: "string", sample: '"rpm"' },
+            { pointer: "/rpm", type: "number", sample: "1200" },
+          ],
           retained: false,
         },
-        { topic: "plant/mode", payload: "AUTO", retained: false },
+        { topic: "plant/mode", payload: "AUTO", fields: [], retained: false },
       ]);
       scanner.close();
       fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick plant" }));
@@ -402,6 +411,10 @@ describe("MQTT Write form", () => {
         {
           topic: "plant/oven",
           payload: '{"setpoint": 21.5, "mode": "AUTO"}',
+          fields: [
+            { pointer: "/setpoint", type: "number", sample: "21.5" },
+            { pointer: "/mode", type: "string", sample: '"AUTO"' },
+          ],
           retained: false,
         },
       ]);
@@ -424,8 +437,18 @@ describe("MQTT Write form", () => {
     it("should offer no value of a topic that the task writes to", async () => {
       const { dialog, scanner } = await openOnTopics(
         [
-          { topic: "plant/oven", payload: '{"setpoint": 21.5}', retained: false },
-          { topic: "plant/pump", payload: '{"speed": 3}', retained: false },
+          {
+            topic: "plant/oven",
+            payload: '{"setpoint": 21.5}',
+            fields: [{ pointer: "/setpoint", type: "number", sample: "21.5" }],
+            retained: false,
+          },
+          {
+            topic: "plant/pump",
+            payload: '{"speed": 3}',
+            fields: [{ pointer: "/speed", type: "number", sample: "3" }],
+            retained: false,
+          },
         ],
         [createWriteTarget("t1", "plant/oven")],
       );
@@ -446,7 +469,14 @@ describe("MQTT Write form", () => {
 
     it("should mark a retained topic and say when the list is full", async () => {
       const { dialog, scanner } = await openOnTopics(
-        [{ topic: "plant/temperature", payload: '{"value": 21.5}', retained: true }],
+        [
+          {
+            topic: "plant/temperature",
+            payload: '{"value": 21.5}',
+            fields: [{ pointer: "/value", type: "number", sample: "21.5" }],
+            retained: true,
+          },
+        ],
         [],
         true,
       );
