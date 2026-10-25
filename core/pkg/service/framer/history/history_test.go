@@ -27,11 +27,10 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// openStreamer streams sy_history_change. next reads published lists until one holds a
-// change to key and returns that change.
+// openStreamer streams sy_history_change. next flushes the publisher, then reads
+// published lists until one holds a change to key and returns that change.
 func openStreamer(ctx context.Context, key channel.Key) (
 	next func() framer.HistoryChange,
-	published confluence.Outlet[framer.StreamerResponse],
 ) {
 	GinkgoHelper()
 	var sigCh channel.Channel
@@ -55,6 +54,8 @@ func openStreamer(ctx context.Context, key channel.Key) (
 	Eventually(responses.Outlet()).Should(Receive())
 	return func() framer.HistoryChange {
 		GinkgoHelper()
+		Eventually(clock.Pending).Should(Equal(1))
+		clock.Advance(flushInterval.Duration())
 		var change framer.HistoryChange
 		Eventually(func(g Gomega) {
 			var res framer.StreamerResponse
@@ -68,9 +69,9 @@ func openStreamer(ctx context.Context, key channel.Key) (
 				func(c framer.HistoryChange) bool { return c.Key == key },
 			)
 			g.Expect(found).To(BeTrue())
-		}).WithTimeout(5 * flushInterval.Duration()).Should(Succeed())
+		}).Should(Succeed())
 		return change
-	}, responses
+	}
 }
 
 func createIndex(ctx context.Context) channel.Key {
@@ -125,7 +126,7 @@ func historyChange(key channel.Key, start, end telem.TimeStamp) framer.HistoryCh
 var _ = Describe("History", func() {
 	It("Should publish a write into the past", func(ctx SpecContext) {
 		key := createIndex(ctx)
-		next, _ := openStreamer(ctx, key)
+		next := openStreamer(ctx, key)
 		write(ctx, key, 20, 21)
 		write(ctx, key, 10, 11)
 		Expect(next()).To(Equal(
@@ -137,7 +138,7 @@ var _ = Describe("History", func() {
 		"Should merge changes to one channel within a flush into one change",
 		func(ctx SpecContext) {
 			key := createIndex(ctx)
-			next, _ := openStreamer(ctx, key)
+			next := openStreamer(ctx, key)
 			write(ctx, key, 20, 21)
 			write(ctx, key, 10, 11)
 			write(ctx, key, 5, 6)
@@ -151,27 +152,37 @@ var _ = Describe("History", func() {
 		"Should not publish writes at the end of the channel",
 		func(ctx SpecContext) {
 			key := createIndex(ctx)
-			_, published := openStreamer(ctx, key)
 			w := openWriter(ctx, key, 10*telem.SecondTS)
 			writeAndCommit(w, key, 10, 11)
 			writeAndCommit(w, key, 12, 13)
-			Consistently(published.Outlet(), 2*flushInterval.Duration()).
-				ShouldNot(Receive())
+			Consistently(clock.Pending).Should(BeZero())
 		},
 	)
 
 	It("Should publish a delete", func(ctx SpecContext) {
 		key := createIndex(ctx)
-		next, _ := openStreamer(ctx, key)
+		next := openStreamer(ctx, key)
 		write(ctx, key, 10, 11, 12, 13)
 		tr := (11 * telem.SecondTS).Range(13 * telem.SecondTS)
 		Expect(framerSvc.DeleteTimeRange(ctx, channel.Keys{key}, tr)).To(Succeed())
 		Expect(next()).To(Equal(framer.HistoryChange{Key: key, TimeRange: tr}))
 	})
 
-	It("Should reject a config without a framer or signals", func(ctx SpecContext) {
-		Expect(history.Publish(ctx, history.Config{})).Error().To(MatchError(
+	DescribeTable(
+		"Should reject an invalid config",
+		func(ctx SpecContext, cfg history.Config, msg string) {
+			Expect(history.Publish(ctx, cfg)).Error().To(MatchError(msg))
+		},
+		Entry(
+			"without a framer or signals",
+			history.Config{},
 			"framer: must be non-nil\nsignals: must be non-nil",
-		))
-	})
+		),
+		Entry(
+			"with a negative flush interval",
+			history.Config{FlushInterval: -telem.Millisecond},
+			"framer: must be non-nil\nsignals: must be non-nil\n"+
+				"flush_interval: must be positive",
+		),
+	)
 })

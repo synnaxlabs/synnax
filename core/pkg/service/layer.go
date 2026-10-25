@@ -379,7 +379,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	if closer, err := history.Publish(ctx, history.Config{
 		Instrumentation: cfg.Child("framer_history"),
-		Framer:          l.Framer,
+		Framer:          cfg.Distribution.Framer,
 		Signals:         l.Signals,
 	}); !ok(err, closer) {
 		return nil, err

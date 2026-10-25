@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
@@ -232,15 +231,6 @@ func (s *Service) DeleteTimeRange(
 	tr telem.TimeRange,
 ) error {
 	return s.cfg.Framer.DeleteTimeRange(ctx, keys, tr)
-}
-
-// OnHistoryChange registers handler to receive every HistoryChange to channels stored
-// on this Core. Handlers run inline under storage locks, so a handler must hand the
-// change off. The returned function unregisters the handler.
-func (s *Service) OnHistoryChange(
-	handler func(context.Context, HistoryChange),
-) observe.Disconnect {
-	return s.cfg.Framer.OnHistoryChange(handler)
 }
 
 // Close releases the resources held by the Service and its underlying streaming,

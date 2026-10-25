@@ -11,6 +11,7 @@ package history_test
 
 import (
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	xtime "github.com/synnaxlabs/x/time"
 )
 
 func TestHistory(t *testing.T) {
@@ -33,13 +35,13 @@ func TestHistory(t *testing.T) {
 	RunSpecs(t, "Service Framer History Suite", SuiteConfig())
 }
 
-// flushInterval is long enough that writes issued back to back in a spec always land
-// in one flush.
-const flushInterval = 500 * telem.Millisecond
+const flushInterval = 100 * telem.Millisecond
 
 var (
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
+	// clock only advances when a spec flushes, so every change before it merges.
+	clock = xtime.NewFake(time.Now())
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -86,9 +88,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Framer:  framerSvc,
 	}))
 	MustOpen(history.Publish(ctx, history.Config{
-		Framer:        framerSvc,
+		Framer:        node.Framer,
 		Signals:       sigs,
 		FlushInterval: flushInterval,
+		Clock:         clock,
 	}))
 })
 

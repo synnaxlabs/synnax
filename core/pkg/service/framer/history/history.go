@@ -20,8 +20,8 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -53,12 +54,16 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to 100ms.
 	FlushInterval telem.TimeSpan
+	// Clock times the flush interval.
+	//
+	// [OPTIONAL] - Defaults to xtime.Real.
+	Clock xtime.Clock
 }
 
 var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for Publish.
-	DefaultConfig = Config{FlushInterval: 100 * telem.Millisecond}
+	DefaultConfig = Config{FlushInterval: 100 * telem.Millisecond, Clock: xtime.Real}
 )
 
 // Validate implements config.Config.
@@ -67,6 +72,7 @@ func (c Config) Validate() error {
 	v.NotNil("framer", c.Framer)
 	v.NotNil("signals", c.Signals)
 	v.Positive("flush_interval", c.FlushInterval)
+	v.NotNil("clock", c.Clock)
 	return v.Error()
 }
 
@@ -76,6 +82,7 @@ func (c Config) Override(other Config) Config {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.FlushInterval = override.Numeric(c.FlushInterval, other.FlushInterval)
+	c.Clock = override.Nil(c.Clock, other.Clock)
 	return c
 }
 
@@ -91,6 +98,7 @@ func Publish(ctx context.Context, cfgs ...Config) (io.Closer, error) {
 		Observer: observe.New[[]framer.HistoryChange](),
 		wake:     make(chan struct{}, 1),
 		interval: cfg.FlushInterval.Duration(),
+		clock:    cfg.Clock,
 	}
 	c.mu.changes = make(map[channel.Key]telem.TimeRange)
 	publisher, err := cfg.Signals.PublishJSON(
@@ -119,6 +127,7 @@ type coalescer struct {
 	observe.Observer[[]framer.HistoryChange]
 	wake     chan struct{}
 	interval time.Duration
+	clock    xtime.Clock
 	mu       struct {
 		changes map[channel.Key]telem.TimeRange
 		sync.Mutex
@@ -148,10 +157,13 @@ func (c *coalescer) run(ctx context.Context) error {
 			return ctx.Err()
 		case <-c.wake:
 		}
+		due := make(chan struct{})
+		timer := c.clock.RunAt(c.clock.Now().Add(c.interval), func() { close(due) })
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return ctx.Err()
-		case <-time.After(c.interval):
+		case <-due:
 		}
 		if changes := c.drain(); len(changes) > 0 {
 			c.Notify(ctx, changes)
@@ -167,6 +179,11 @@ func (c *coalescer) drain() []framer.HistoryChange {
 		changes = append(changes, framer.HistoryChange{Key: key, TimeRange: tr})
 	}
 	clear(c.mu.changes)
+	// Every pending wake came from a change drained here.
+	select {
+	case <-c.wake:
+	default:
+	}
 	slices.SortFunc(changes, func(a, b framer.HistoryChange) int {
 		return cmp.Compare(a.Key, b.Key)
 	})
