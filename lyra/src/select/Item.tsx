@@ -81,7 +81,7 @@ const ButtonItem = <K extends record.Key>({
   return (
     <Button.Toggle
       preview={preview}
-      variant={variant}
+      variant={variant === "card" ? "outlined" : variant}
       {...rest}
       ref={ref}
       id={itemKey.toString()}
