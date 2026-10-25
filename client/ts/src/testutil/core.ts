@@ -23,7 +23,7 @@ import {
 } from "@synnaxlabs/x";
 
 import { channel } from "@/channel";
-import { NotFoundError, ValidationError } from "@/errors";
+import { AccessDeniedError, NotFoundError, ValidationError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
@@ -42,6 +42,8 @@ const INDEX_KEY = 1;
 const HISTORY_CHANGE_KEY = 1 << 20;
 // The node that stores every channel of the Core.
 const NODE = 1;
+// Moves a misaligned data series past every index sample a join remembers.
+const MISALIGNMENT = 1n << 24n;
 
 export interface SyntheticCoreProps {
   /** The rate of the index channel. */
@@ -63,6 +65,8 @@ export interface SyntheticCoreProps {
   dataFramedApart?: boolean;
   /** Streams data series with no time range. */
   dataUntimed?: boolean;
+  /** Streams data series at alignments that none of their index samples have. */
+  dataMisaligned?: boolean;
 }
 
 // A span of a channel's samples rewritten with values moved by delta.
@@ -113,6 +117,8 @@ export class SyntheticCore {
   private readonly ackDelay: TimeSpan;
   private readonly dataFramedApart: boolean;
   private readonly dataUntimed: boolean;
+  private readonly dataMisaligned: boolean;
+  private readonly denied = new Set<channel.Key>();
 
   constructor({
     rate,
@@ -123,6 +129,7 @@ export class SyntheticCore {
     ackDelay = TimeSpan.ZERO,
     dataFramedApart = false,
     dataUntimed = false,
+    dataMisaligned = false,
   }: SyntheticCoreProps) {
     this.start = start.valueOf();
     this.period = new Rate(rate).period.valueOf();
@@ -130,6 +137,7 @@ export class SyntheticCore {
     this.ackDelay = ackDelay;
     this.dataFramedApart = dataFramedApart;
     this.dataUntimed = dataUntimed;
+    this.dataMisaligned = dataMisaligned;
     this.index = new channel.Channel({
       key: INDEX_KEY,
       name: "time",
@@ -194,6 +202,11 @@ export class SyntheticCore {
   /** Changes the data type of every sample of a channel, as a recalculation does. */
   retype(key: channel.Key, dataType: DataType): void {
     this.dataTypes.set(key, dataType);
+  }
+
+  /** Rejects every stream of the channel, as the Core does for a user without access. */
+  deny(key: channel.Key): void {
+    this.denied.add(key);
   }
 
   /**
@@ -266,13 +279,15 @@ export class SyntheticCore {
       this.raw(key, from, to).forEach((s) =>
         data.push(
           key,
-          this.dataUntimed
-            ? new Series({ ...seriesProps(s), timeRange: TimeRange.ZERO })
-            : s,
+          new Series({
+            ...seriesProps(s),
+            timeRange: this.dataUntimed ? TimeRange.ZERO : s.timeRange,
+            alignment: this.dataMisaligned ? s.alignment + MISALIGNMENT : s.alignment,
+          }),
         ),
       ),
     );
-    if (this.calculated != null && this.calculatedIndex != null) {
+    if (this.calculated != null && this.calculatedIndex != null)
       // A calculation sums the alignments of its two inputs, and gives its index the
       // same alignments.
       for (const { key } of [this.calculatedIndex, this.calculated])
@@ -282,7 +297,7 @@ export class SyntheticCore {
             new Series({ ...seriesProps(s), alignment: s.alignment * 2n }),
           ),
         );
-    }
+
     if (this.virtual != null) {
       const { key } = this.virtual;
       this.raw(key, from, to).forEach((s) =>
@@ -341,10 +356,14 @@ export class SyntheticCore {
     return frame;
   }
 
-  private openStreamer(config: StreamerConfig): Streamer {
+  /** Opens a stream of the channels in the config, as the Core's streamer. */
+  openStreamer(config: StreamerConfig): Streamer {
     this.checkConnected();
-    const streamer = new SyntheticStreamer(config, this.ackDelay, (s) =>
-      this.streamers.delete(s),
+    const streamer = new SyntheticStreamer(
+      config,
+      this.ackDelay,
+      (keys) => this.checkAccess(keys),
+      (s) => this.streamers.delete(s),
     );
     this.streamers.add(streamer);
     return streamer;
@@ -371,6 +390,12 @@ export class SyntheticCore {
   private checkDomain(): void {
     if (this.written() >= Number(DOMAIN))
       throw new Error("synthetic core holds at most 2^32 samples");
+  }
+
+  private checkAccess(keys: channel.Key[]): void {
+    const denied = keys.find((k) => this.denied.has(k));
+    if (denied != null)
+      throw new AccessDeniedError(`access to channel ${denied} denied`);
   }
 
   private checkConnected(): void {
@@ -511,9 +536,11 @@ class SyntheticStreamer implements Streamer {
   constructor(
     config: StreamerConfig,
     private readonly ackDelay: TimeSpan,
+    private readonly checkAccess: (keys: channel.Key[]) => void,
     private readonly onClose: (s: SyntheticStreamer) => void,
   ) {
     this.keys = toKeys(streamerConfigZ.parse(config).channels);
+    checkAccess(this.keys);
   }
 
   push(frame: Frame): void {
@@ -527,7 +554,9 @@ class SyntheticStreamer implements Streamer {
 
   // The keys apply at once, so frames of new keys can arrive before the ack.
   async update(channels: channel.Params, _?: StreamerUpdateOptions): Promise<void> {
-    this.keys = toKeys(channels);
+    const keys = toKeys(channels);
+    this.checkAccess(keys);
+    this.keys = keys;
     if (!this.ackDelay.isZero) await sleep.sleep(this.ackDelay);
   }
 
