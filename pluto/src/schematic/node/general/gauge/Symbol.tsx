@@ -12,7 +12,7 @@ import "@/schematic/node/common/primitive/primitive.css";
 import { type schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { box, dimensions, type text, xy } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
@@ -50,14 +50,8 @@ export const Symbol = ({
     stalenessTimeout,
   },
 }: NodeProps<schematic.GaugeNodeConfig>): ReactElement => {
-  const dims = useMemo(
-    () => dimensions.construct(GAUGE_SIZE_MULTIPLIER[level] ?? 100),
-    [level],
-  );
-  const telem = useMemo(
-    () => Value.stringSource({ channel, rollingAverage, precision, notation }),
-    [channel, rollingAverage, precision, notation],
-  );
+  const dims = dimensions.construct(GAUGE_SIZE_MULTIPLIER[level] ?? 100);
+  const telem = Value.stringSource({ channel, rollingAverage, precision, notation });
   BaseGauge.use({
     aetherKey: nodeKey,
     box: box.construct(position ?? xy.ZERO, dims),
