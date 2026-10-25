@@ -98,7 +98,12 @@ export interface StreamerUpdateOptions {
 export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
   /** The keys of the channels currently being streamed from. */
   keys: channel.Key[];
-  /** Replaces the list of channels being streamed from. */
+  /**
+   * Replaces the list of channels being streamed from.
+   * @param options - Set waitForAck to resolve only once the Core streams the channels.
+   * @throws the error of the concurrent read when the stream fails before the ack, or
+   * EOF when the streamer closes first.
+   */
   update: (channels: channel.Params, options?: StreamerUpdateOptions) => Promise<void>;
   /** Close the streamer and free all associated resources. */
   close: () => void;
@@ -106,6 +111,7 @@ export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
    * Read the next frame of telemetry.
    * @throws {Unreachable} if keep-alives were flowing and the stream then stays silent
    * past the keep-alive deadline: the connection is presumed dead.
+   * @throws {UnexpectedError} if the Core sends an ack that answers no update.
    */
   read: () => Promise<Frame>;
 }
@@ -269,6 +275,7 @@ class BaseStreamer implements Streamer {
   }
 
   close(): void {
+    this.pendingAcks.splice(0).forEach(({ reject }) => reject(new EOF()));
     this.stream.closeSend();
   }
 

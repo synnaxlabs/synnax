@@ -167,11 +167,42 @@ describe("Streamer", () => {
       it("should ack an update that leaves the channels unchanged", async () => {
         const ch = await newVirtualChannel(client);
         const streamer = await client.openStreamer(ch.key);
-        const frames = streamer.read().catch(() => {});
-        await streamer.update(ch.key, { waitForAck: true });
-        expect(streamer.keys).toEqual([ch.key]);
+        const pending = streamer.read().catch((e: unknown) => e);
+        try {
+          await streamer.update(ch.key, { waitForAck: true });
+          expect(streamer.keys).toEqual([ch.key]);
+        } finally {
+          streamer.close();
+        }
+        expect(EOF.matches(await pending)).toBe(true);
+      });
+
+      it("should resolve several acked updates that wait at once", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer(ch.key);
+        try {
+          const updates = [
+            streamer.update(ch.key, { waitForAck: true }),
+            streamer.update(ch.key, { waitForAck: true }),
+          ];
+          const pending = streamer.read().catch((e: unknown) => e);
+          await Promise.all(updates);
+          streamer.close();
+          expect(EOF.matches(await pending)).toBe(true);
+        } finally {
+          streamer.close();
+        }
+      });
+
+      it("should reject a pending acked update when the streamer closes", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer([]);
+        const update = streamer
+          .update(ch.key, { waitForAck: true })
+          .catch((e: unknown) => e);
+        await expect.poll(() => streamer.keys).toEqual([ch.key]);
         streamer.close();
-        await frames;
+        expect(EOF.matches(await update)).toBe(true);
       });
     });
     describe("excludeGroups", () => {
