@@ -129,7 +129,34 @@ describe("Account.useLink", () => {
     h.store.dispatch(Session.Account.beginLogin("minted"));
     act(() => h.openURL([LINK]));
     await waitFor(() => expect(failed(h)).toBe(true));
-    expect(Session.Account.selectSliceState(h.store.getState()).link).toBeUndefined();
+    const account = Session.Account.selectSliceState(h.store.getState());
+    expect(account.link).toBeUndefined();
+    expect(account.received).toBeUndefined();
+  });
+
+  it("should finish a login whose activation a reload cut short", async () => {
+    const stalled = vi.fn(async () => await new Promise<license.Info>(() => {}));
+    const first = await setup({ license: { activate: stalled } }, PENDING);
+    act(() => first.openURL([LINK]));
+    await waitFor(() => expect(stalled).toHaveBeenCalledWith("a.b.c"));
+    const held = Session.Account.selectSliceState(first.store.getState());
+    expect(held.received).toEqual({
+      key: "a.b.c",
+      secret: "shh",
+      email: "someone@example.com",
+      user: "user_a",
+      analyticsAllowed: true,
+    });
+    const next = await setup({}, held);
+    await waitFor(() => {
+      expect(next.activate).toHaveBeenCalledWith("a.b.c");
+      expect(Session.Account.selectSliceState(next.store.getState())).toEqual({
+        version: 0,
+        link: { secret: "shh", email: "someone@example.com", user: "user_a" },
+        analyticsAllowed: true,
+      });
+    });
+    expect(failed(next)).toBe(false);
   });
 
   it("should take the link the app was launched with", async () => {

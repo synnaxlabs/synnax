@@ -12,9 +12,8 @@ import { Drift } from "@synnaxlabs/drift";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { useState } from "react";
 
-import { type Linked, parseLink } from "@/feature/account/handoff";
+import { parseLink } from "@/feature/account/handoff";
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
 
@@ -28,7 +27,8 @@ export interface LinkDeps extends Link.Deps {
 /**
  * Takes the login link the hub opens Synnax Desktop with: applies its license key to
  * the embedded Core and stores the link. A link whose state this app did not mint is
- * refused.
+ * refused. The session store holds the link until its license applies, so a reload or a
+ * restart does not lose the login.
  */
 export const useLink = (deps: LinkDeps = Link.DEFAULT_DEPS): void => {
   const handleError = Status.useErrorHandler();
@@ -36,17 +36,17 @@ export const useLink = (deps: LinkDeps = Link.DEFAULT_DEPS): void => {
   const store = Session.useStore();
   const client = Synnax.use();
   const api = deps.license ?? client?.license;
-  const [received, setReceived] = useState<Linked | null>(null);
+  const received = Session.Account.useSelectReceived();
 
   const receive = (urls: string[]): void =>
     handleError(() => {
       dispatch(Drift.focusWindow({}));
       if (urls.length === 0) throw new Error("The login link is empty");
-      const linked = parseLink(urls[0]);
+      const { state, key, secret, email, user, analyticsAllowed } = parseLink(urls[0]);
       const pending = Session.Account.selectPending(store.getState());
-      if (pending == null || linked.state !== pending)
+      if (pending == null || state !== pending)
         throw new Error("This login link was not requested by this app");
-      setReceived(linked);
+      dispatch(Session.Account.receive({ key, secret, email, user, analyticsAllowed }));
     }, FAILED_MESSAGE);
 
   Link.useReceive(receive, deps);
@@ -56,16 +56,16 @@ export const useLink = (deps: LinkDeps = Link.DEFAULT_DEPS): void => {
   useAsyncEffect(
     async (signal) => {
       if (api == null || received == null) return;
+      const { key, ...next } = received;
       try {
-        await api.activate(received.key);
+        await api.activate(key);
         if (signal.aborted) return;
-        const { secret, email, user, analyticsAllowed } = received;
-        dispatch(Session.Account.link({ secret, email, user, analyticsAllowed }));
+        dispatch(Session.Account.link(next));
       } catch (e) {
         if (signal.aborted) return;
         handleError(e, FAILED_MESSAGE);
+        dispatch(Session.Account.discardReceived());
       }
-      setReceived(null);
     },
     [api, received],
   );
