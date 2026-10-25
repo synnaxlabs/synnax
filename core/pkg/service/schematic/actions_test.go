@@ -965,6 +965,14 @@ var _ = Describe("Path actions", func() {
 			Expect(next.Name).To(Equal("Engine"))
 		})
 
+		It("Should set a boolean field", func() {
+			next := MustSucceed(schematic.Reduce(
+				state,
+				set([]string{"configs", "n1", "scale_visible"}, true),
+			))
+			Expect(tank(next).ScaleVisible).To(BeTrue())
+		})
+
 		It("Should set a color from its hex form", func() {
 			next := MustSucceed(schematic.Reduce(
 				state,

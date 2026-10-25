@@ -14,7 +14,7 @@ import {
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
-import { id } from "@synnaxlabs/x";
+import { id, record } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -240,5 +240,60 @@ describe("createDocumentForm", () => {
     await act(async () => expect(await result.current.flush()).toBe(true));
     expect((await fetchStored(second.key)).config).toMatchObject({ routingKey: "owl" });
     expect((await fetchStored(first.key)).config).toMatchObject({ routingKey: "dog" });
+  });
+
+  describe("pathOf", () => {
+    const configSchema = schema.shape.config;
+    const useConfigForm = Flux.createDocumentForm<
+      task.Key,
+      task.Task,
+      typeof configSchema
+    >({
+      name: "Task",
+      schema: configSchema,
+      docSchema: record.unknownZ(),
+      domain: (client) => client.tasks,
+      useEnsure,
+      toValues: ({ payload: { config } }) => config as Values["config"],
+      pathOf: () => ["config"],
+    });
+
+    const renderConfigForm = async (key: task.Key) =>
+      await renderHookSuspended(() => useConfigForm({ query: { key } }), { wrapper });
+
+    it("should show the part of the document at the path", async () => {
+      const t = await createTask();
+      const { result } = await renderConfigForm(t.key);
+      expect(result.current.form.value()).toMatchObject({ routingKey: "dog" });
+    });
+
+    it("should send an edit to a field below the path", async () => {
+      const t = await createTask();
+      const { result } = await renderConfigForm(t.key);
+      const send = spyOnSend(formClient);
+      act(() => result.current.form.set("routingKey", "cat"));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      const [, req] =
+        send.mock.calls.find(([target]) => target === "/task/dispatch") ?? [];
+      expect(req).toMatchObject({
+        actions: [{ type: "set", set: { path: ["config", "routing_key"] } }],
+      });
+      expect((await fetchStored(t.key)).config).toMatchObject({ routingKey: "cat" });
+    });
+
+    it("should insert a list entry below the path", async () => {
+      const t = await createTask();
+      const { result } = await renderConfigForm(t.key);
+      act(() =>
+        result.current.form.insert("alerts", { key: "b", status: "st-b" }, "a"),
+      );
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect((await fetchStored(t.key)).config).toMatchObject({
+        alerts: [
+          { key: "a", status: "st-a" },
+          { key: "b", status: "st-b" },
+        ],
+      });
+    });
   });
 });

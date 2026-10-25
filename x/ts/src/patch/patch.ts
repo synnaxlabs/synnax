@@ -78,6 +78,29 @@ export const pathOf = (action: Action): string[] => {
   }
 };
 
+/**
+ * @returns the action with the path before its own path and the path of each of its
+ * guards, so an action written against a part of a document applies to the document.
+ */
+export const prefix = (action: Action, path: string[]): Action => {
+  if (path.length === 0) return action;
+  const withPrefix = <P extends { path: string[]; guards: Guard[] }>(p: P): P => ({
+    ...p,
+    path: [...path, ...p.path],
+    guards: p.guards.map((g) => ({ ...g, path: [...path, ...g.path] })),
+  });
+  switch (action.type) {
+    case "set":
+      return { type: "set", set: withPrefix(action.set) };
+    case "remove":
+      return { type: "remove", remove: withPrefix(action.remove) };
+    case "insert":
+      return { type: "insert", insert: withPrefix(action.insert) };
+    case "move":
+      return { type: "move", move: withPrefix(action.move) };
+  }
+};
+
 type Snapshot = NonNullable<ApplyOptions["snapshot"]>;
 
 const applySet = (doc: record.Unknown, a: Set, snapshot: Snapshot): Action[] => {

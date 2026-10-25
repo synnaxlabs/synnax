@@ -10,7 +10,7 @@
 import { arc, type rack, status, task } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { compare, type record, verbs, xy } from "@synnaxlabs/x";
+import { caseconv, compare, record, verbs, xy } from "@synnaxlabs/x";
 import z from "zod";
 
 import { Node } from "@/arc/graph/node";
@@ -99,6 +99,32 @@ export const useNodeConfig = Scope.bindHook(
     ({ graph }, { nodeKey }) => graph.inputs[nodeKey] as Node.Config,
   ),
 );
+
+// A node's inputs keep the case of their keys on the wire.
+const NODE_INPUTS_Z = caseconv.preserveCase(record.unknownZ());
+
+const useDocumentNodeForm = Flux.createDocumentForm<
+  arc.Key,
+  arc.Arc,
+  typeof Node.configZ,
+  NodePropsParams
+>({
+  name: "Arc node",
+  schema: Node.configZ,
+  docSchema: NODE_INPUTS_Z,
+  domain: (client) => client.arcs,
+  useEnsure,
+  toValues: ({ graph }, { nodeKey }) => graph.inputs[nodeKey] as Node.Config,
+  pathOf: ({ nodeKey }) => ["graph", "inputs", nodeKey],
+});
+
+const useNodeFormBase = (query: NodePropsParams) => useDocumentNodeForm({ query });
+
+/**
+ * A form over one node's inputs in the cached Arc graph. Each edit reaches the Core as
+ * a path action, and an edit from another client appears as it lands.
+ */
+export const useNodeForm = Scope.bindHook(useNodeFormBase);
 
 // useMode returns the representation mode of the Arc with the given key. It
 // requires the arc to be cached, so callers must render it beneath an Arc.Suspended

@@ -103,4 +103,64 @@ describe("patch", () => {
       ).toEqual(["l", "a"]);
     });
   });
+
+  describe("prefix", () => {
+    const guards = [{ path: ["variant"], value: "tank" }];
+    const prefixedGuards = [{ path: ["configs", "n1", "variant"], value: "tank" }];
+
+    it("should prefix the path and guards of a set", () => {
+      expect(
+        patch.prefix({ type: "set", set: { path: ["label"], value: "T1", guards } }, [
+          "configs",
+          "n1",
+        ]),
+      ).toEqual({
+        type: "set",
+        set: { path: ["configs", "n1", "label"], value: "T1", guards: prefixedGuards },
+      });
+    });
+
+    it("should prefix the path and guards of a remove", () => {
+      expect(
+        patch.prefix({ type: "remove", remove: { path: [], key: "color", guards } }, [
+          "configs",
+          "n1",
+        ]),
+      ).toEqual({
+        type: "remove",
+        remove: { path: ["configs", "n1"], key: "color", guards: prefixedGuards },
+      });
+    });
+
+    it("should prefix the path of an insert and keep its position", () => {
+      expect(
+        patch.prefix(
+          {
+            type: "insert",
+            insert: { path: ["l"], value: { key: "a" }, after: "b", guards: [] },
+          },
+          ["p"],
+        ),
+      ).toEqual({
+        type: "insert",
+        insert: { path: ["p", "l"], value: { key: "a" }, after: "b", guards: [] },
+      });
+    });
+
+    it("should prefix the path of a move", () => {
+      expect(
+        patch.prefix({ type: "move", move: { path: ["l"], key: "a", guards: [] } }, [
+          "p",
+        ]),
+      ).toEqual({ type: "move", move: { path: ["p", "l"], key: "a", guards: [] } });
+    });
+
+    it("should return the action unchanged for an empty path", () => {
+      const action: patch.Action = {
+        type: "set",
+        set: { path: ["a"], value: 1, guards: [] },
+      };
+      expect(patch.prefix(action, [])).toBe(action);
+    });
+  });
 });

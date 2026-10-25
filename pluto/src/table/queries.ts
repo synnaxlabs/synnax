@@ -55,6 +55,29 @@ export const useCell = Scope.bindHook(
   ),
 );
 
+const useDocumentCellForm = Flux.createDocumentForm<
+  table.Key,
+  table.Table,
+  typeof Cell.configZ,
+  CellParams
+>({
+  name: "table cell",
+  schema: Cell.configZ,
+  docSchema: table.cellConfigZ,
+  domain: (client) => client.tables,
+  useEnsure,
+  toValues: ({ cells }, { cellKey }) => cells[cellKey],
+  pathOf: ({ cellKey }) => ["cells", cellKey],
+});
+
+const useCellFormBase = (query: CellParams) => useDocumentCellForm({ query });
+
+/**
+ * A form over one cell's config in the cached table. Each edit reaches the Core as a
+ * path action, and an edit from another client appears as it lands.
+ */
+export const useCellForm = Scope.bindHook(useCellFormBase);
+
 export interface CellsParams extends KeyParams {
   cellKeys: string[];
 }

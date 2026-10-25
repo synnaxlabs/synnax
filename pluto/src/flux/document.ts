@@ -110,13 +110,20 @@ const locate = (values: unknown, formPath: string): Target | null => {
 const overlaps = (a: string, b: string): boolean =>
   deep.pathsMatch(a, b) || deep.pathsMatch(b, a);
 
-interface StoreParams<Key extends record.Key, Doc extends query.Data, V> {
+interface StoreParams<
+  Key extends record.Key,
+  Doc extends query.Data,
+  Query extends DocumentQuery<Key>,
+  V,
+> {
   client: Client;
-  key: Key;
+  query: Query;
   domain: DocumentDomain<Key, Doc>;
   schema: z.ZodType;
   docSchema: z.ZodType;
-  toValues: (doc: Doc) => V;
+  toValues: (doc: Doc, query: Query) => V;
+  /** The path of the edited part in the form the Core stores. */
+  path: string[];
   onError: (error: unknown) => void;
 }
 
@@ -130,25 +137,28 @@ interface StoreParams<Key extends record.Key, Doc extends query.Data, V> {
 class DocumentStore<
   Key extends record.Key,
   Doc extends query.Data,
+  Query extends DocumentQuery<Key>,
   V,
 > implements Form.Store<V> {
   readonly client: Client;
-  readonly key: Key;
-  private readonly params: StoreParams<Key, Doc, V>;
+  readonly query: Query;
+  private readonly key: Key;
+  private readonly params: StoreParams<Key, Doc, Query, V>;
   private doc: Doc;
   private values: V;
   private readonly edits: Edit[] = [];
   private batched: actions.Transaction<patch.Action> | null = null;
   private sending: Promise<boolean> = Promise.resolve(true);
 
-  constructor(params: StoreParams<Key, Doc, V>) {
+  constructor(params: StoreParams<Key, Doc, Query, V>) {
     this.params = params;
     this.client = params.client;
-    this.key = params.key;
-    const cached = params.domain.getCached(params.key);
-    if (!query.isLive(cached)) throw new Error(`Document ${params.key} is not cached`);
+    this.query = params.query;
+    this.key = params.query.key;
+    const cached = params.domain.getCached(this.key);
+    if (!query.isLive(cached)) throw new Error(`Document ${this.key} is not cached`);
     this.doc = cached;
-    this.values = params.toValues(cached);
+    this.values = params.toValues(cached, this.query);
   }
 
   get = (): V => {
@@ -158,7 +168,7 @@ class DocumentStore<
       this.doc = cached;
       // Unchanged values keep their identity, so a change re-renders only the fields
       // it reaches, even when a create replaces the whole document.
-      this.values = deep.reuse(this.values, this.params.toValues(cached));
+      this.values = deep.reuse(this.values, this.params.toValues(cached, this.query));
     }
     return this.values;
   };
@@ -280,7 +290,11 @@ class DocumentStore<
   }
 
   private toWire(action: patch.Action, values: V): patch.Action {
-    return patch.camelToSnake(action, { schema: this.params.docSchema, doc: values });
+    const { docSchema, path } = this.params;
+    return patch.prefix(
+      patch.camelToSnake(action, { schema: docSchema, doc: values }),
+      path,
+    );
   }
 
   private write(at: string, action: patch.Action, valid: boolean): void {
@@ -353,6 +367,7 @@ export interface CreateDocumentFormParams<
   Key extends record.Key,
   Doc extends query.Data,
   Schema extends z.ZodType,
+  Query extends DocumentQuery<Key>,
 > {
   name: string;
   /**
@@ -360,20 +375,31 @@ export interface CreateDocumentFormParams<
    * it, and the discriminated unions of a path decide the guards of its action.
    */
   schema: Schema;
-  /** The schema the domain client decodes the document with, to convert key case. */
+  /**
+   * The schema the domain client decodes the edited part of the document with, to
+   * convert key case.
+   */
   docSchema: z.ZodType;
   domain: (client: Client) => DocumentDomain<Key, Doc>;
   /** Suspends until the document is cached. */
   useEnsure: (query: DocumentQuery<Key>) => void;
-  /** Projects the document onto the form's values. Each field keeps its document path. */
-  toValues: (doc: Doc) => z.infer<Schema>;
+  /**
+   * Projects the edited part of the document onto the form's values. Each field keeps
+   * its path in that part.
+   */
+  toValues: (doc: Doc, query: Query) => z.infer<Schema>;
+  /**
+   * The path of the edited part in the form the Core stores, such as the key of one
+   * entry in a map. The form edits the whole document when omitted.
+   */
+  pathOf?: (query: Query) => string[];
 }
 
-export interface UseDocumentFormParams<Key extends record.Key> extends Pick<
+export interface UseDocumentFormParams<Query> extends Pick<
   Form.UseParams<z.ZodType>,
   "mode" | "onHasTouched"
 > {
-  query: DocumentQuery<Key>;
+  query: Query;
 }
 
 export interface UseDocumentFormReturn<Schema extends z.ZodType> {
@@ -385,9 +411,11 @@ export interface UseDocumentFormReturn<Schema extends z.ZodType> {
   flush: () => Promise<boolean>;
 }
 
-export interface UseDocumentForm<Key extends record.Key, Schema extends z.ZodType> {
-  (params: UseDocumentFormParams<Key>): UseDocumentFormReturn<Schema>;
+export interface UseDocumentForm<Query, Schema extends z.ZodType> {
+  (params: UseDocumentFormParams<Query>): UseDocumentFormReturn<Schema>;
 }
+
+const WHOLE_DOCUMENT = (): string[] => [];
 
 /**
  * Builds a hook for a form over a document in the client cache, which other clients
@@ -399,6 +427,7 @@ export const createDocumentForm = <
   Key extends record.Key,
   Doc extends query.Data,
   Schema extends z.ZodType,
+  Query extends DocumentQuery<Key> = DocumentQuery<Key>,
 >({
   name,
   schema,
@@ -406,31 +435,35 @@ export const createDocumentForm = <
   domain,
   useEnsure,
   toValues,
-}: CreateDocumentFormParams<Key, Doc, Schema>): UseDocumentForm<Key, Schema> => {
+  pathOf = WHOLE_DOCUMENT,
+}: CreateDocumentFormParams<Key, Doc, Schema, Query>): UseDocumentForm<
+  Query,
+  Schema
+> => {
   const useDocumentForm = ({
     query,
     mode,
     onHasTouched,
-  }: UseDocumentFormParams<Key>): UseDocumentFormReturn<Schema> => {
-    useEnsure(query);
+  }: UseDocumentFormParams<Query>): UseDocumentFormReturn<Schema> => {
+    useEnsure({ key: query.key });
     const client = Synnax.use();
     const handleError = Status.useErrorHandler();
-    const { key } = query;
-    const create = (): DocumentStore<Key, Doc, z.infer<Schema>> => {
+    const create = (): DocumentStore<Key, Doc, Query, z.infer<Schema>> => {
       if (client == null)
         throw new DisconnectedError(`Cannot edit ${name}: no Core connected.`);
       return new DocumentStore({
         client,
-        key,
+        query,
         domain: domain(client),
         schema,
         docSchema,
         toValues,
+        path: pathOf(query),
         onError: (error) => handleError(error, `Failed to save ${name}`),
       });
     };
     const [store, setStore] = useState(create);
-    if (store.client !== client || store.key !== key) setStore(create());
+    if (store.client !== client || !deep.equal(store.query, query)) setStore(create());
     useEffect(() => () => store.close(), [store]);
     const form = Form.use<Schema>({ store, schema, mode, onHasTouched });
     const flush = async (): Promise<boolean> => await store.flush();
