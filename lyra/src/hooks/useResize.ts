@@ -14,7 +14,7 @@ import {
   type direction,
   TimeSpan,
 } from "@synnaxlabs/x";
-import { type RefCallback, useCallback, useEffect, useRef } from "react";
+import { type RefCallback, useEffect, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks/ref";
 import { compareArrayDeps, useMemoCompare } from "@/memo";
@@ -56,34 +56,28 @@ export const useResize = <E extends HTMLElement>(
     triggers,
   ] as const);
 
-  const startObserving = useCallback(
-    (el: HTMLElement) => {
-      if (obs.current != null) obs.current.disconnect();
-      const deb = xDebounce.debounce(() => {
-        const next = box.construct(el);
-        if (shouldResize(memoTriggers, prev.current, next)) {
-          prev.current = next;
-          onResize(next, ref.current as E);
-        }
-      }, debouncePeriod);
-      obs.current = new ResizeObserver(deb);
-      obs.current.observe(el);
-    },
-    [memoTriggers, onResize, debouncePeriod],
-  );
+  const startObserving = (el: HTMLElement) => {
+    if (obs.current != null) obs.current.disconnect();
+    const deb = xDebounce.debounce(() => {
+      const next = box.construct(el);
+      if (shouldResize(memoTriggers, prev.current, next)) {
+        prev.current = next;
+        onResize(next, ref.current as E);
+      }
+    }, debouncePeriod);
+    obs.current = new ResizeObserver(deb);
+    obs.current.observe(el);
+  };
 
   useEffect(() => {
     if (ref.current != null && enabled) startObserving(ref.current);
     return () => obs.current?.disconnect();
   }, [startObserving, enabled]);
 
-  return useCallback(
-    (el: E | null) => {
-      ref.current = el;
-      if (el != null && enabled) startObserving(el);
-    },
-    [startObserving, enabled],
-  );
+  return (el: E | null) => {
+    ref.current = el;
+    if (el != null && enabled) startObserving(el);
+  };
 };
 
 const shouldResize = (
