@@ -31,9 +31,19 @@
         display: block;
     }
 
-    /* The node draws the selection ring, so the lines only catch the pointer. */
+    /* The node draws the ring, so the lines are clear grab zones that cover it. */
     .react-flow__resize-control.line {
         border-color: transparent;
+
+        &.left,
+        &.right {
+            width: 8px;
+        }
+
+        &.top,
+        &.bottom {
+            height: 8px;
+        }
     }
 
     .react-flow__handle {

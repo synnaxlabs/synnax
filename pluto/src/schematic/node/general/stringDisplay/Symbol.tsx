@@ -42,8 +42,11 @@ export const Symbol = ({
     telem: source,
     stalenessTimeout,
   });
+  const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
+    onConfigChange({ inlineSize }),
+  );
   return (
-    <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
+    <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
       <StringDisplay
         strokeColor={strokeColor}
