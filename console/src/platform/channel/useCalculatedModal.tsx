@@ -34,8 +34,8 @@ export interface CalculatedModalParams {
   channelKey?: channel.Key;
 }
 
-const BOOLEAN_QUERY: Partial<Channel.RetrieveMultipleQuery> = {
-  dataTypes: [DataType.BOOLEAN],
+const BOOLEAN_QUERY: Channel.ListQuery = {
+  where: { dataType: { eq: DataType.BOOLEAN } },
 };
 
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {

@@ -418,13 +418,16 @@ describe("queries", () => {
         });
         const { result } = renderHook(() => Channel.useList(), { wrapper });
         act(() => {
-          result.current.retrieve({ internal: true }, { signal: controller.signal });
+          result.current.retrieve(
+            { where: { internal: { eq: true } } },
+            { signal: controller.signal },
+          );
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
         expect(result.current.data).not.toContain(normalCh.key);
       });
 
-      it("should filter by dataTypes inclusion", async () => {
+      it("should filter by data type inclusion", async () => {
         const float32Ch = await client.channels.create({
           name: id.create(),
           dataType: DataType.FLOAT32,
@@ -439,7 +442,7 @@ describe("queries", () => {
         const { result } = renderHook(() => Channel.useList(), { wrapper });
         act(() => {
           result.current.retrieve(
-            { dataTypes: [DataType.FLOAT32] },
+            { where: { dataType: { in: [DataType.FLOAT32] } } },
             { signal: controller.signal },
           );
         });
@@ -448,7 +451,7 @@ describe("queries", () => {
         expect(result.current.data).not.toContain(float64Ch.key);
       });
 
-      it("should filter by notDataTypes exclusion", async () => {
+      it("should filter by data type exclusion", async () => {
         const float32Ch = await client.channels.create({
           name: id.create(),
           dataType: DataType.FLOAT32,
@@ -463,7 +466,7 @@ describe("queries", () => {
         const { result } = renderHook(() => Channel.useList(), { wrapper });
         act(() => {
           result.current.retrieve(
-            { notDataTypes: [DataType.FLOAT32] },
+            { where: { not: { dataType: { in: [DataType.FLOAT32] } } } },
             { signal: controller.signal },
           );
         });
@@ -486,7 +489,10 @@ describe("queries", () => {
 
         const { result } = renderHook(() => Channel.useList(), { wrapper });
         act(() => {
-          result.current.retrieve({ isIndex: true }, { signal: controller.signal });
+          result.current.retrieve(
+            { where: { isIndex: { eq: true } } },
+            { signal: controller.signal },
+          );
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
         expect(result.current.data).toContain(indexCh.key);
@@ -513,7 +519,10 @@ describe("queries", () => {
 
         const { result } = renderHook(() => Channel.useList(), { wrapper });
         act(() => {
-          result.current.retrieve({ virtual: true }, { signal: controller.signal });
+          result.current.retrieve(
+            { where: { virtual: true } },
+            { signal: controller.signal },
+          );
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
         expect(result.current.data).toContain(virtualCh.key);
@@ -546,7 +555,13 @@ describe("queries", () => {
         const { result } = renderHook(() => Channel.useList(), { wrapper });
         act(() => {
           result.current.retrieve(
-            { virtual: true, dataTypes: [DataType.FLOAT32], internal: false },
+            {
+              where: {
+                virtual: true,
+                dataType: { in: [DataType.FLOAT32] },
+                internal: { eq: false },
+              },
+            },
             { signal: controller.signal },
           );
         });
@@ -969,7 +984,7 @@ describe("queries", () => {
         virtual: true,
       });
       const { result } = await renderHookSuspended(
-        () => Channel.useMultiple({ keys: [ch1.key, ch2.key] }),
+        () => Channel.useMultiple({ where: { key: { in: [ch1.key, ch2.key] } } }),
         { wrapper },
       );
       await waitFor(() => expect(result.current).not.toBeNull());
@@ -992,7 +1007,7 @@ describe("queries", () => {
         virtual: true,
       });
       const { result } = await renderHookSuspended(
-        () => Channel.useMultiple({ keys: [ch1.key, ch2.key] }),
+        () => Channel.useMultiple({ where: { key: { in: [ch1.key, ch2.key] } } }),
         { wrapper },
       );
       await waitFor(() => expect(result.current).toHaveLength(2));
@@ -1024,7 +1039,7 @@ describe("queries", () => {
       const { result } = await renderHookSuspended(
         () =>
           Channel.useMultiple({
-            keys: [ch1.key, ch2.key],
+            where: { key: { in: [ch1.key, ch2.key] } },
             rangeKey: range.key,
           }),
         { wrapper },
@@ -1050,7 +1065,9 @@ describe("queries", () => {
       });
       const { result } = await renderHookSuspended(
         () => {
-          const retrieve = Channel.useMultiple({ keys: [ch1.key, ch2.key] });
+          const retrieve = Channel.useMultiple({
+            where: { key: { in: [ch1.key, ch2.key] } },
+          });
           const rename = Channel.useRename();
           return { retrieve, rename };
         },
@@ -1306,7 +1323,7 @@ describe("queries", () => {
       const { result } = await renderHookSuspended(
         () => {
           const retrieve = Channel.useMultiple({
-            keys: [ch1.key, ch2.key],
+            where: { key: { in: [ch1.key, ch2.key] } },
             rangeKey: range.key,
           });
           const deleteAlias = Channel.useDeleteAlias();

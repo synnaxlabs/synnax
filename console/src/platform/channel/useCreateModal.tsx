@@ -23,7 +23,7 @@ import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const INDEX_QUERY: Partial<Channel.RetrieveMultipleQuery> = { isIndex: true };
+const INDEX_QUERY: Channel.ListQuery = { where: { isIndex: { eq: true } } };
 
 const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const [createMore, setCreateMore] = useState(false);

@@ -41,9 +41,7 @@ export interface DownloadCSVModalParams {
   icon?: Icon.ReactElement;
 }
 
-const NON_VIRTUAL_CHANNEL_QUERY: Partial<Channel.RetrieveMultipleQuery> = {
-  virtual: false,
-};
+const NON_VIRTUAL_CHANNEL_QUERY: Channel.ListQuery = { where: { virtual: false } };
 const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to download",
 };

@@ -267,6 +267,51 @@ describe("Channel", () => {
         })
         .toEqual(names);
     });
+    test("retrieve by where", async () => {
+      const prefix = `qry_${id.create()}`;
+      const [a, , c] = await client.channels.create([
+        { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT64 },
+        { name: `${prefix}_c`, virtual: true, dataType: DataType.FLOAT32 },
+      ]);
+      const res = await client.channels.retrieve({
+        where: { name: { regex: `^${prefix}` }, dataType: { eq: DataType.FLOAT32 } },
+      });
+      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
+    });
+    test("retrieve by a name pattern", async () => {
+      const prefix = `qry_${id.create()}`;
+      const [a, b] = await client.channels.create([
+        { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT32 },
+      ]);
+      const res = await client.channels.retrieve([`${prefix}_.*`]);
+      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, b.key].sort());
+    });
+    test("retrieve virtual channels without calculated channels", async () => {
+      const prefix = `qry_${id.create()}`;
+      const virtual = await client.channels.create({
+        name: `${prefix}_virtual`,
+        virtual: true,
+        dataType: DataType.FLOAT32,
+      });
+      const where = {
+        name: { in: [`${prefix}_virtual`, `${prefix}_calculated`] },
+        virtual: true,
+      };
+      expect((await client.channels.retrieve({ where })).map((ch) => ch.key)).toEqual([
+        virtual.key,
+      ]);
+      await client.channels.create({
+        name: `${prefix}_calculated`,
+        virtual: true,
+        dataType: DataType.FLOAT32,
+        expression: "return 1",
+      });
+      expect((await client.channels.retrieve({ where })).map((ch) => ch.key)).toEqual([
+        virtual.key,
+      ]);
+    });
   });
 
   describe("delete", async () => {
@@ -551,13 +596,17 @@ describe("cached reads", () => {
 
     it("composes a keys query from records written by create", async () => {
       const ch = await createVirtual();
-      const cached = expectLive(client.channels.getCached({ keys: [ch.key] }));
+      const cached = expectLive(
+        client.channels.getCached({ where: { key: { in: [ch.key] } } }),
+      );
       expect(cached.map(({ key }) => key)).toEqual([ch.key]);
     });
 
     it("returns undefined for a keys query with an uncached key", async () => {
       const ch = await createVirtual();
-      expect(client.channels.getCached({ keys: [ch.key, 999999999] })).toBeUndefined();
+      expect(
+        client.channels.getCached({ where: { key: { in: [ch.key, 999999999] } } }),
+      ).toBeUndefined();
     });
   });
 
@@ -639,7 +688,7 @@ describe("cached reads", () => {
       // The store cannot prove it holds every virtual channel named this, so
       // any field narrowing the request beyond names disqualifies it.
       await expect(
-        local.channels.retrieve({ names: [ch.name], virtual: true }),
+        local.channels.retrieve({ where: { name: { in: [ch.name] }, virtual: true } }),
       ).rejects.toThrow();
     }, 30000);
 
@@ -759,7 +808,7 @@ describe("cached reads", () => {
       const alias = `qry_alias_${id.create()}`;
       await client.ranges.setAlias(rng.key, a.key, alias);
       const res = await client.channels.retrieve({
-        keys: [a.key, b.key],
+        where: { key: { in: [a.key, b.key] } },
         rangeKey: rng.key,
       });
       expect(res.find((c) => c.key === a.key)?.alias).toEqual(alias);
@@ -771,7 +820,10 @@ describe("cached reads", () => {
       const rng = await createRange();
       await client.channels.retrieve(ch.key);
       expect(
-        client.channels.getCached({ keys: [ch.key], rangeKey: rng.key }),
+        client.channels.getCached({
+          where: { key: { in: [ch.key] } },
+          rangeKey: rng.key,
+        }),
       ).toBeUndefined();
     });
   });

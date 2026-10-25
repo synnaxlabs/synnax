@@ -511,7 +511,7 @@ config.sampleRate = 2000; // Increase to 2 kHz
 config.streamRate = 100; // Increase stream rate
 
 // Add a new channel
-const [ecTime] = await client.channels.retrieve({ names: ["ec_read_time"] });
+const ecTime = await client.channels.retrieve("ec_read_time");
 const newChannel = await client.channels.create(
   {
     name: "velocity_actual",
