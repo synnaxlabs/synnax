@@ -365,6 +365,68 @@ TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
 }
 
+/// @brief it should accept a stream rate below 1 Hz and read the matching number of
+/// samples for each stream.
+TEST_F(EtherCATReadTest, StreamRateBelowOneHzIsValid) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        x::telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["sample_rate"] = 2;
+    cfg["stream_rate"] = 0.5;
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(data_ch, "status_word")
+    );
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(task_cfg.samples_per_chan, 4);
+}
+
+/// @brief it should accept a 0.1 Hz stream rate, despite the float precision of a rate.
+TEST_F(EtherCATReadTest, StreamRateOfATenthHzIsValid) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        x::telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["sample_rate"] = 100;
+    cfg["stream_rate"] = 0.1;
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(data_ch, "status_word")
+    );
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(task_cfg.samples_per_chan, 1000);
+}
+
+/// @brief it should reject a stream rate that does not divide the sample rate.
+TEST_F(EtherCATReadTest, StreamRateThatDoesNotDivideSampleRateIsInvalid) {
+    auto cfg = this->create_base_config();
+    cfg["sample_rate"] = 10;
+    cfg["stream_rate"] = 3;
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["path"], "stream_rate");
+    EXPECT_EQ(
+        parser.errors->at(0)["message"],
+        "sample_rate must be divisible by stream_rate"
+    );
+}
+
 TEST_F(EtherCATReadTest, SourceReadsDataFromEngine) {
     auto data_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("analog"),

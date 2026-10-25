@@ -16,10 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
-	svc "github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -70,13 +67,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db, Ontology: otg, Group: g, Label: labelSvc,
 	}))
-	apiSvc = MustSucceed(apistatus.NewService(apicfg.LayerConfig{
-		Distribution: &distribution.Layer{DB: db},
-		Service: &svc.Layer{
-			Status: statusSvc,
-			Label:  labelSvc,
-			RBAC:   rbacSvc,
-		},
+	apiSvc = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
+		Status: statusSvc,
+		Label:  labelSvc,
+		RBAC:   rbacSvc,
 	}))
 	author = MustSucceed(
 		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),

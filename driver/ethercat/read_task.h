@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <memory>
 #include <set>
 #include <vector>
@@ -21,6 +22,7 @@
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/channel/channel.h"
 #include "driver/ethercat/engine/engine.h"
+#include "driver/ethercat/telem/telem.h"
 #include "driver/ethercat/topology/topology.h"
 
 namespace driver::ethercat {
@@ -35,7 +37,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief configured input channels.
     std::vector<std::unique_ptr<channel::Input>> channels;
     /// @brief number of samples per channel per batch.
-    size_t samples_per_chan;
+    size_t samples_per_chan = 0;
     /// @brief cached device properties for topology validation.
     std::unordered_map<std::string, slave::Properties> device_cache;
 
@@ -54,15 +56,18 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         x::json::Parser &cfg
     ):
-        BaseReadTaskConfig(cfg), samples_per_chan(sample_rate / stream_rate) {
-        const auto sample_rate_int = static_cast<size_t>(sample_rate.hz());
-        const auto stream_rate_int = static_cast<size_t>(stream_rate.hz());
-        if (sample_rate_int % stream_rate_int != 0) {
-            cfg.field_err(
-                "stream_rate",
-                "sample_rate must be divisible by stream_rate"
-            );
-            return;
+        BaseReadTaskConfig(cfg) {
+        if (this->sample_rate > x::telem::Rate(0) &&
+            this->stream_rate > x::telem::Rate(0)) {
+            const auto ratio = telem::whole_ratio(this->sample_rate, this->stream_rate);
+            if (!ratio) {
+                cfg.field_err(
+                    "stream_rate",
+                    "sample_rate must be divisible by stream_rate"
+                );
+                return;
+            }
+            this->samples_per_chan = *ratio;
         }
 
         std::unordered_map<std::string, slave::Properties> slave_cache;
@@ -205,8 +210,9 @@ public:
         for (auto &ser: *fr.series)
             ser.clear();
 
-        const auto engine_rate = this->engine->cycle_rate();
-        const auto decimation = (engine_rate / this->cfg.sample_rate);
+        const size_t decimation = std::lround(
+            this->engine->cycle_rate().hz() / this->cfg.sample_rate.hz()
+        );
         const size_t epochs_per_batch = n_samples * decimation;
 
         const auto start = x::telem::TimeStamp::now();

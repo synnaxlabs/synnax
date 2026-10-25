@@ -16,10 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	svc "github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -28,6 +25,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -86,13 +85,24 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
-	apiSvc = MustSucceed(apichannel.NewService(apicfg.LayerConfig{
-		Distribution: &distribution.Layer{DB: node.DB},
-		Service: &svc.Layer{
-			Channel: channelSvc,
-			Status:  statusSvc,
-			RBAC:    rbacSvc,
-		},
+	rangerSvc := MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Label:    labelSvc,
+	}))
+	aliasSvc := MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
+		DB:              node.DB,
+		Ontology:        otg,
+		Channel:         channelSvc,
+		ParentRetriever: rangerSvc,
+	}))
+	apiSvc = MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
+		RBAC:    rbacSvc,
+		Channel: channelSvc,
+		Ranger:  rangerSvc,
+		Alias:   aliasSvc,
+		Status:  statusSvc,
 	}))
 	author = MustSucceed(
 		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),

@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	apiconfig "github.com/synnaxlabs/synnax/pkg/api/config"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/security"
@@ -70,9 +69,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	channelWriter = svc.Channel.NewWriter(nil)
 	rbacSvc = svc.RBAC
 	userSvc = svc.User
-	apiSvc = MustSucceed(apiframer.NewService(apiconfig.LayerConfig{
-		Distribution: node.Layer,
-		Service:      svc,
+	apiSvc = MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
+		Framer:  svc.Framer,
+		Channel: svc.Channel,
+		RBAC:    svc.RBAC,
 	}))
 	Expect(svc.User.NewRetrieve().
 		Where(user.MatchUsernames(rootUsername)).

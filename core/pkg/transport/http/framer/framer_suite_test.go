@@ -15,17 +15,18 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -80,9 +81,35 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:      channelSvc,
 		ChannelGraph: channelGraph,
 	}))
-	apiChannelSvc = MustSucceed(channel.NewService(config.LayerConfig{
-		Distribution: &distribution.Layer{DB: node.DB},
-		Service:      &service.Layer{Channel: channelSvc},
+	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+	}))
+	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		User:     userSvc,
+	}))
+	rangerSvc := MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Label:    labelSvc,
+	}))
+	aliasSvc := MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
+		DB:              node.DB,
+		Ontology:        otg,
+		Channel:         channelSvc,
+		ParentRetriever: rangerSvc,
+	}))
+	apiChannelSvc = MustSucceed(channel.NewService(channel.ServiceConfig{
+		RBAC:    rbacSvc,
+		Channel: channelSvc,
+		Ranger:  rangerSvc,
+		Alias:   aliasSvc,
+		Status:  statusSvc,
 	}))
 })
 
