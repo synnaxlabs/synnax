@@ -454,7 +454,14 @@ Doc struct {
 })
 
 var _ = Describe("Live to_any on a frozen definer", func() {
-	const liveSource = `
+	const livePath = "schemas/synnax/box.oracle"
+	generate := func(ctx SpecContext, v1 string) map[string]string {
+		GinkgoHelper()
+		resp := chainGenerate(
+			ctx,
+			gotypes.New(gotypes.DefaultOptions()),
+			map[string]string{
+				livePath: `
 @go output "core/box"
 
 Box struct<T> {
@@ -464,17 +471,8 @@ Box struct<T> {
 
 	@go to_any
 }
-`
-	generate := func(v1 string) map[string]string {
-		GinkgoHelper()
-		root := GinkgoT().TempDir()
-		write := func(rel, content string) {
-			GinkgoHelper()
-			full := filepath.Join(root, rel)
-			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
-			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
-		}
-		write("schemas/synnax/versions/box/v0.oracle", `
+`,
+				"schemas/synnax/versions/box/v0.oracle": `
 Box struct<T> {
 	key uuid @key
 	value T
@@ -482,18 +480,12 @@ Box struct<T> {
 
 	@go marshal
 }
-`)
-		write("schemas/synnax/versions/box/v1.oracle", v1)
-		chains := MustSucceed(versions.Discover(root))
-		resolver := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
-		table := resolution.NewTable()
-		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), liveSource, "schemas/synnax/box.oracle", "box",
-			analyzer.NewStandardFileLoader(root), table,
+`,
+				"schemas/synnax/versions/box/v1.oracle": v1,
+			},
+			livePath,
+			"box",
 		)
-		Expect(diag.Ok()).To(BeTrue(), diag.String())
-		req := &plugin.Request{Resolutions: table, RepoRoot: root, Versions: resolver}
-		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
 		byPath := make(map[string]string, len(resp.Files))
 		for _, f := range resp.Files {
 			byPath[f.Path] = string(f.Content)
@@ -503,8 +495,8 @@ Box struct<T> {
 
 	It(
 		"Should convert a type the current version aliases from a frozen definer",
-		func() {
-			files := generate(`
+		func(ctx SpecContext) {
+			files := generate(ctx, `
 Box = v0.Box
 `)
 			Expect(files["core/box/versions/v0/types.gen.go"]).To(ContainSubstring(
@@ -518,8 +510,8 @@ Box = v0.Box
 
 	It(
 		"Should leave a frozen definer unconverted once a later version redeclares it",
-		func() {
-			files := generate(`
+		func(ctx SpecContext) {
+			files := generate(ctx, `
 Box struct<T> {
 	key uuid @key
 	value T
