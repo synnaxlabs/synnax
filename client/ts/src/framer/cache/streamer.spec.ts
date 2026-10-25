@@ -763,7 +763,7 @@ describe("MultiplexedStreamer", () => {
       // The flushed samples stay readable but claim no coverage, so a read still
       // fetches the block.
       const block = store.raw(1, 0);
-      expect(block.open).toBeNull();
+      expect(block.buffer).toBeNull();
       expect(block.streamed.flatMap((s) => Array.from(s))).toEqual([1, 2, 3]);
       expect(block.covers(TimeStamp.seconds(10).range(TimeStamp.seconds(20)))).toBe(
         false,
@@ -835,7 +835,7 @@ describe("MultiplexedStreamer", () => {
       expect(replacement.iteratorVi).toHaveBeenCalled();
       expect(store.leadingBuffer(1)).toBeNull();
       const block = store.raw(1, 0);
-      expect(block.open).toBeNull();
+      expect(block.buffer).toBeNull();
       expect(block.streamed.flatMap((s) => Array.from(s))).toEqual([1, 2, 3]);
       sub.close();
       await streamer.close();
@@ -854,7 +854,7 @@ describe("MultiplexedStreamer", () => {
 
       expect(store.leadingBuffer(2)).toBeNull();
       const block = store.raw(2, 0);
-      expect(block.open).toBeNull();
+      expect(block.buffer).toBeNull();
       expect(block.streamed.flatMap((s) => Array.from(s))).toEqual([1, 2, 3]);
       sub.close();
       await streamer.close();

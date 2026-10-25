@@ -18,20 +18,15 @@ import {
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { RAW_LEVEL, RawBlock, rawIndex, rawKey } from "@/framer/cache/block";
+import {
+  type Block,
+  RAW_LEVEL,
+  RawBlock,
+  rawIndex,
+  rawKey,
+} from "@/framer/cache/block";
 import { Dynamic, type DynamicProps } from "@/framer/cache/dynamic";
 import { tileSpan } from "@/framer/cache/grid";
-
-/** A cached part of one channel's samples. */
-export interface Block {
-  readonly channel: channel.Key;
-  /** When the oldest fetch the block answers reads with landed. */
-  readonly fetchedAt: TimeStamp;
-  /** The bytes of the block's samples. */
-  readonly bytes: number;
-  /** True while the block must stay cached, as when a caller holds its series. */
-  readonly held: boolean;
-}
 
 export interface StoreProps extends Partial<
   Pick<DynamicProps, "dynamicBufferSize" | "now">
@@ -183,7 +178,7 @@ export class Store {
       const opened = block == null;
       if (block == null) {
         block = this.raw(ch, index);
-        block.open = live.buffer;
+        block.buffer = live.buffer;
         live.block = block;
       }
       const res = live.buffer.write(new MultiSeries([s]));
@@ -228,7 +223,7 @@ export class Store {
     const live = this.live.get(ch);
     if (live == null) return true;
     live.buffer.retainDataType(dataType);
-    if (live.block != null) live.block.open = null;
+    if (live.block != null) live.block.buffer = null;
     live.block = null;
     return true;
   }
@@ -248,7 +243,7 @@ export class Store {
     if (block == null) return;
     const flushed = live.buffer.flush();
     if (flushed != null && flushed.length > 0) block.stream([flushed]);
-    block.open = null;
+    block.buffer = null;
     live.block = null;
     this.set(rawKey(block.channel, block.index), block);
   }

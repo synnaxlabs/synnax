@@ -13,10 +13,20 @@ import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type Dynamic } from "@/framer/cache/dynamic";
 import { index as tileIndex, tileRange } from "@/framer/cache/grid";
-import { type Block } from "@/framer/cache/store";
 
 /** The grid level of raw blocks: 2^16 milliseconds, about 65.5 seconds. */
 export const RAW_LEVEL = 16;
+
+/** A cached part of one channel's samples. */
+export interface Block {
+  readonly channel: channel.Key;
+  /** When the oldest fetch the block answers reads with landed. */
+  readonly fetchedAt: TimeStamp;
+  /** The bytes of the block's samples. */
+  readonly bytes: number;
+  /** True while the block must stay cached, as when a caller holds its series. */
+  readonly held: boolean;
+}
 
 /** @returns the index of the raw block that holds the timestamp. */
 export const rawIndex = (ts: TimeStamp): number => tileIndex(ts, RAW_LEVEL);
@@ -196,7 +206,7 @@ export class RawBlock implements Block {
   // The bytes of the fetched and streamed series.
   private seriesBytes = 0;
   /** The channel's live buffer while a stream writes into the block. */
-  open: Dynamic | null = null;
+  buffer: Dynamic | null = null;
   /** Settles when the fetch that fills the block lands. */
   pending: Promise<void> | null = null;
 
@@ -220,12 +230,12 @@ export class RawBlock implements Block {
   }
 
   get bytes(): number {
-    return this.seriesBytes + (this.open?.leadingBuffer?.byteCapacity.valueOf() ?? 0);
+    return this.seriesBytes + (this.buffer?.leadingBuffer?.byteCapacity.valueOf() ?? 0);
   }
 
   get held(): boolean {
     return (
-      this.open != null ||
+      this.buffer != null ||
       this.pending != null ||
       this.fetched.some((s) => s.refCount > 0) ||
       this.streamed.some((s) => s.refCount > 0)
@@ -295,10 +305,10 @@ export class RawBlock implements Block {
     const out = this._streamed
       .filter((s) => s.timeRange.overlapsWith(tr))
       .map((series) => ({ series, range: series.timeRange }));
-    const buffer = this.open?.leadingBuffer;
-    const range = this.open?.dataTimeRange;
-    if (buffer != null && range != null && buffer.length > 0 && range.overlapsWith(tr))
-      out.push({ series: buffer, range });
+    const live = this.buffer?.leadingBuffer;
+    const range = this.buffer?.dataTimeRange;
+    if (live != null && range != null && live.length > 0 && range.overlapsWith(tr))
+      out.push({ series: live, range });
     return out;
   }
 

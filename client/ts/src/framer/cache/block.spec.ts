@@ -311,7 +311,7 @@ describe("block", () => {
         buffer.write(
           new MultiSeries([createValues(9n, [1, 2], seconds(4).range(seconds(6)))]),
         );
-        block.open = buffer;
+        block.buffer = buffer;
         expect(block.streamedIn(seconds(7).range(seconds(20)))).toEqual([]);
         const [live] = block.streamedIn(seconds(5).range(seconds(20)));
         expect(live.series).toBe(buffer.leadingBuffer);
@@ -323,9 +323,9 @@ describe("block", () => {
       it("should hold a block while it is open, pending, or a series is held", () => {
         const block = new RawBlock(1, 0);
         expect(block.held).toBe(false);
-        block.open = new Dynamic({ dynamicBufferSize: 10 });
+        block.buffer = new Dynamic({ dynamicBufferSize: 10 });
         expect(block.held).toBe(true);
-        block.open = null;
+        block.buffer = null;
         block.pending = Promise.resolve();
         expect(block.held).toBe(true);
         block.pending = null;
@@ -358,7 +358,7 @@ describe("block", () => {
       buffer.write(
         new MultiSeries([createValues(9n, [1], seconds(11).range(seconds(12)))]),
       );
-      block.open = buffer;
+      block.buffer = buffer;
       expect(block.bytes).toBe(2 * 4 + 4 + 10 * 4);
     });
   });

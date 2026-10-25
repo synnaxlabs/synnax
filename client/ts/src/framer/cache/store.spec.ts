@@ -19,9 +19,9 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { RAW_LEVEL, rawKey } from "@/framer/cache/block";
+import { type Block, RAW_LEVEL, rawKey } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
-import { type Block, Store } from "@/framer/cache/store";
+import { Store } from "@/framer/cache/store";
 import { ManualClock } from "@/testutil";
 
 // Blocks this large make the fixed overhead of each block too small to change how many
@@ -259,8 +259,8 @@ describe("Store", () => {
       const store = new Store({ dynamicBufferSize: 100 });
       store.write(1, createWrite(1, [1, 2], 0n));
       const block = store.raw(1, 100);
-      expect(block.open).not.toBeNull();
-      expect(store.leadingBuffer(1)).toBe(block.open?.leadingBuffer);
+      expect(block.buffer).not.toBeNull();
+      expect(store.leadingBuffer(1)).toBe(block.buffer?.leadingBuffer);
       expect(Array.from(store.leadingBuffer(1) ?? [])).toEqual([1, 2]);
     });
 
@@ -279,19 +279,19 @@ describe("Store", () => {
       const first = store.raw(1, 100);
       const buffer = store.leadingBuffer(1);
       const allocated = store.write(1, createWrite(70, [3], 2n));
-      expect(first.open).toBeNull();
+      expect(first.buffer).toBeNull();
       expect(first.streamed).toEqual([buffer]);
       expect(buffer?.timeRange.end).toEqual(BLOCK.start.add(TimeSpan.seconds(62)));
       const next = store.raw(1, 101);
-      expect(next.open).not.toBeNull();
+      expect(next.buffer).not.toBeNull();
       expect(allocated.series).toEqual([store.leadingBuffer(1)]);
     });
 
     it("should keep a series that crosses a block edge whole in its first block", () => {
       const store = new Store({ dynamicBufferSize: 100 });
       store.write(1, createWrite(64, [1, 2, 3, 4], 0n));
-      expect(store.raw(1, 100).open).not.toBeNull();
-      expect(store.raw(1, 101).open).toBeNull();
+      expect(store.raw(1, 100).buffer).not.toBeNull();
+      expect(store.raw(1, 101).buffer).toBeNull();
       expect(Array.from(store.leadingBuffer(1) ?? [])).toEqual([1, 2, 3, 4]);
     });
 
@@ -299,15 +299,15 @@ describe("Store", () => {
       const store = new Store({ dynamicBufferSize: 100 });
       store.write(1, createWrite(1, [1], 0n));
       store.write(1, createWrite(-60, [2], 1n));
-      expect(store.raw(1, 100).open).toBeNull();
-      expect(store.raw(1, 99).open).not.toBeNull();
+      expect(store.raw(1, 100).buffer).toBeNull();
+      expect(store.raw(1, 99).buffer).not.toBeNull();
     });
 
     it("should write a series with no time range into the block of the clock", () => {
       const clock = new ManualClock(BLOCK.start);
       const store = new Store({ dynamicBufferSize: 100, now: clock.now });
       store.write(1, new MultiSeries([new Series(new Float32Array([1]))]));
-      expect(store.raw(1, 100).open).not.toBeNull();
+      expect(store.raw(1, 100).buffer).not.toBeNull();
     });
 
     it("should never evict an open block", () => {
@@ -333,7 +333,7 @@ describe("Store", () => {
           }),
         ]),
       );
-      expect(block.open).toBeNull();
+      expect(block.buffer).toBeNull();
       expect(store.raw(1, 100)).not.toBe(block);
       expect(store.leadingBuffer(1)?.dataType).toEqual(DataType.FLOAT64);
       expect(Array.from(store.leadingBuffer(1) ?? [])).toEqual([2]);
@@ -348,7 +348,7 @@ describe("Store", () => {
       store.flush(1);
       const block = store.raw(1, 100);
       expect(store.leadingBuffer(1)).toBeNull();
-      expect(block.open).toBeNull();
+      expect(block.buffer).toBeNull();
       expect(block.streamed).toEqual([buffer]);
       expect(block.covers(BLOCK)).toBe(false);
     });
