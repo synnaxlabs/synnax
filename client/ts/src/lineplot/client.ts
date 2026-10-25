@@ -54,7 +54,11 @@ interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 const retrieveResZ = z.object({ linePlots: linePlotZ.array().default(() => []) });
 
-const createReqZ = z.object({ project: project.keyZ, linePlots: linePlotZ.array() });
+const createReqZ = z.object({
+  project: project.keyZ,
+  dispatchKey: z.string(),
+  linePlots: linePlotZ.array(),
+});
 const createResZ = z.object({ linePlots: linePlotZ.array() });
 
 const emptyResZ = z.object({});
@@ -97,6 +101,7 @@ export class Client extends query.Retriever<
     const dispatcher = new actions.Controller<Key, LinePlot, Action>({
       store,
       onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
       kindOf,
       createOf,
@@ -139,11 +144,15 @@ export class Client extends query.Retriever<
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
       commit: async () =>
-        await this.cfg.unary.send(
-          "/lineplot/create",
-          { project, linePlots: optimistic },
-          createReqZ,
-          createResZ,
+        await this.dispatcher.create(
+          optimistic.map(({ key }) => key),
+          async (dispatchKey) =>
+            await this.cfg.unary.send(
+              "/lineplot/create",
+              { project, dispatchKey, linePlots: optimistic },
+              createReqZ,
+              createResZ,
+            ),
         ),
     });
     this.store.set(res.linePlots);

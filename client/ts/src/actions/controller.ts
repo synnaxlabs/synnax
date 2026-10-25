@@ -77,19 +77,6 @@ export interface Reducer<State extends query.Data, Action> {
   ): { next: State; inverse: Action[]; targets: readonly string[] };
 }
 
-/** Result of replaying a set of actions locally. The caller commits the
- *  matching server send and runs `rollback` on failure. */
-export interface ReplayResult<Action> {
-  processed: Action[];
-  inverse: Action[];
-  targets: readonly string[];
-  // changed reports whether the replay produced a different state. Reducers
-  // return the input state by reference when no action touched it, so a false
-  // value means the entire vector was a no-op and need not reach the server.
-  changed: boolean;
-  rollback: destructor.Destructor;
-}
-
 /** Result of preparing to undo or redo. The caller applies `actions` and runs
  *  `commit` on success (which itself returns a destructor for failure-rollback). */
 export interface Reversal<Action> {
@@ -108,14 +95,10 @@ export interface Transaction<Action> {
   abort: () => void;
 }
 
-/** Sends an already-processed action list to the server. Supplied by the
- *  caller so the controller stays free of network concerns. */
-export type Send<Action> = (actions: Action[]) => Promise<void>;
-
 /**
  * Network send used by the dispatch/undo/redo loops. Receives the
- * controller-generated dispatch key that was registered as outstanding before
- * the call, so the broadcast echo is recognized as own.
+ * controller-generated dispatch key, held as pending before the call, so the broadcast
+ * echo is recognized as own.
  */
 export type SendDispatch<Action> = (
   actions: Action[],
@@ -155,8 +138,7 @@ export interface Domain<Key extends record.Key, State extends query.Data, Action
  * fields). `seq` is a per-key monotonic sequence stamped by the originating server node
  * and is used to skip echoes that are stale relative to the high-water mark — see
  * `applyRemote`. `dispatchKey` is the client-generated batch identifier the originator
- * registered as outstanding before sending; it is used to recognize own echoes
- * race-safely so a redundant reduce can be skipped when no foreign action interleaved.
+ * holds as pending before sending, so it recognizes its own echoes.
  */
 export interface Frame<Key, Action> {
   key: Key;
@@ -174,8 +156,12 @@ export interface ControllerParams<
   store: Table<Key, State>;
   /** Reports listener errors that have no caller to throw to. */
   onError: (error: Error) => void;
+  /**
+   * Subscribes to the connection epoch of the cache that owns the store. A new epoch
+   * means echoes may have been lost, and epoch 0 means the cache was reset.
+   */
+  onEpoch: (callback: (epoch: number) => void) => destructor.Destructor;
   reduce: Reducer<State, Action>;
-  preprocess?: (state: State, actions: Action[]) => Action[];
   isUndoable?: (action: Action) => boolean;
   kindOf?: (actions: Action[]) => string;
   /**
@@ -189,33 +175,52 @@ export interface ControllerParams<
   now?: () => TimeStamp;
 }
 
+/** A dispatch applied to the cached doc whose echo has not arrived. */
+interface Pending<Action> {
+  dispatchKey: string;
+  actions: Action[];
+  /** The epoch in which the send started. */
+  epoch: number;
+  /** Whether the Core applied the dispatch. */
+  accepted: boolean;
+}
+
+/** The dispatch state of a doc that has pending entries. */
+interface Rebase<State, Action> {
+  /** The doc as the Core holds it, without the pending entries. */
+  base: State;
+  pending: Array<Pending<Action>>;
+  /** The doc this controller wrote last. A different doc means another writer. */
+  written: State;
+}
+
+interface Applied<Action> {
+  processed: Action[];
+  inverse: Action[];
+  targets: readonly string[];
+}
+
 /**
- * Owns the action-dispatch loop for one document table: local replay with
- * rollback, per-doc undo/redo stacks, echo recognition, and remote-frame
- * application. Operates on a plain cache table; all dispatch bookkeeping is
- * session-local and dropped when a document's row is deleted (tombstoned).
+ * Owns the action-dispatch loop for one document table: local apply, per-doc undo/redo
+ * stacks, echo recognition, and remote-frame application. The cached doc of a key with
+ * pending dispatches is its base, as the Core holds it, with the pending dispatches
+ * applied on top. A foreign frame applies to the base, and the pending dispatches apply
+ * again on the result, so the doc stays in the order the Core applies them. A failed
+ * send removes its dispatch the same way. All dispatch bookkeeping is session-local and
+ * dropped when a document is deleted.
  */
 export class Controller<Key extends record.Key, State extends query.Data, Action> {
   private readonly docs: Table<Key, State>;
   private readonly undos: Table<Key, UndoState<Action>>;
   private readonly params: Required<
-    Omit<ControllerParams<Key, State, Action>, "store">
+    Omit<ControllerParams<Key, State, Action>, "store" | "onEpoch">
   >;
   // lastAppliedSeq tracks the highest broadcast sequence number applied for each key.
-  // Echoes whose seq does not exceed this are stale (a fresher value already overwrote
-  // them on the server) and are dropped. A seq of 0 is treated as "unstamped" and
-  // always applies — that covers frames from servers that predate the field.
+  // Echoes whose seq does not exceed this are stale and are dropped. A seq of 0 is
+  // "unstamped" and always applies.
   private readonly lastAppliedSeq = new Map<Key, number>();
-  // outstandingDispatches tracks per-key dispatches the originator has applied locally
-  // via replay but whose broadcast echo has not yet arrived. Each entry's `disturbed`
-  // flag is flipped to true when a foreign echo lands during the outstanding window; on
-  // own-echo arrival, an entry that is not disturbed skips the reduce (the local replay
-  // was authoritative) and an entry that is disturbed re-runs to recover from the
-  // foreign overwrite.
-  private readonly outstandingDispatches = new Map<
-    Key,
-    Map<string, { disturbed: boolean }>
-  >();
+  private readonly rebases = new Map<Key, Rebase<State, Action>>();
+  private epoch = 0;
   // Monotonic counter ordering entry pushes against remote touches. Program
   // order is the ground truth here; the wall clock ties within a millisecond
   // and steps on sleep/wake or NTP resync, so it cannot be trusted for this.
@@ -225,7 +230,6 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.params = {
       onError: opts.onError,
       reduce: opts.reduce,
-      preprocess: opts.preprocess ?? ((_, a) => a),
       isUndoable: opts.isUndoable ?? (() => true),
       kindOf: opts.kindOf ?? (() => "default"),
       createOf: opts.createOf ?? (() => undefined),
@@ -245,12 +249,28 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.docs.subscribe((event) => {
       if (event.variant === "delete") this.drop(event.key);
     });
+    opts.onEpoch((epoch) => this.changeEpoch(epoch));
   }
 
   private drop(key: Key): void {
     this.undos.delete(key);
     this.lastAppliedSeq.delete(key);
-    this.outstandingDispatches.delete(key);
+    this.rebases.delete(key);
+  }
+
+  private changeEpoch(epoch: number): void {
+    this.epoch = epoch;
+    // Sequence numbers restart with the Core.
+    this.lastAppliedSeq.clear();
+    if (epoch === 0) {
+      this.rebases.clear();
+      this.undos.delete(() => true);
+      return;
+    }
+    // The echoes of accepted dispatches may have been lost in the gap.
+    for (const [key, r] of [...this.rebases])
+      for (const p of r.pending.filter(({ accepted }) => accepted))
+        this.settle(key, r, p.dispatchKey, p.actions);
   }
 
   private updateUndo(
@@ -260,29 +280,91 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     return this.undos.set(key, (prev) => fn(prev ?? ZERO_UNDO<Action>()));
   }
 
+  /** Takes a doc that another writer put in the table as the new base. */
+  private sync(key: Key, r: Rebase<State, Action>): boolean {
+    const doc = this.docs.get(key);
+    if (doc == null || doc === r.written) return false;
+    r.base = doc;
+    return true;
+  }
+
+  /** Writes the base with the pending entries applied. */
+  private write(key: Key, r: Rebase<State, Action>): State {
+    const doc = r.pending.reduce(
+      (state, { actions }) => this.params.reduce(state, actions).next,
+      r.base,
+    );
+    return this.set(key, r, doc);
+  }
+
+  private set(key: Key, r: Rebase<State, Action>, doc: State): State {
+    this.docs.set(key, doc);
+    r.written = this.docs.get(key) ?? doc;
+    return r.written;
+  }
+
+  /** Returns the cached doc with every pending entry applied. */
+  private current(key: Key): State | undefined {
+    const r = this.rebases.get(key);
+    if (r == null || !this.sync(key, r)) return this.docs.get(key);
+    return this.write(key, r);
+  }
+
+  /** Holds the entry as pending, if it is not yet, and writes the doc with it. */
+  private track(key: Key, current: State, entry: Pending<Action>, next: State): void {
+    let r = this.rebases.get(key);
+    if (r == null) {
+      r = { base: current, pending: [], written: current };
+      this.rebases.set(key, r);
+    }
+    if (!r.pending.includes(entry)) r.pending.push(entry);
+    this.set(key, r, next);
+  }
+
   /**
-   * Run preprocess + reduce against the cached doc and write the result.
-   * Returns the reducer output and a rollback that restores the prior doc
-   * state. Returns null if the doc isn't cached.
+   * Applies actions that the Core applied to the base, and removes the pending entry
+   * with the dispatch key. Returns whether an entry had the key, and the targets.
    */
-  replay(
+  private settle(
     key: Key,
+    r: Rebase<State, Action>,
+    dispatchKey: string,
     actions: Action[],
-    opts: { skipPreprocess?: boolean } = {},
-  ): ReplayResult<Action> | null {
-    const current = this.docs.get(key);
-    if (current == null) return null;
-    const processed = opts.skipPreprocess
-      ? actions
-      : this.params.preprocess(current, actions);
-    const { next, inverse, targets } = this.params.reduce(current, processed);
-    return {
-      processed,
-      inverse,
-      targets,
-      changed: next !== current,
-      rollback: this.docs.set(key, next),
-    };
+  ): { own: boolean; targets: readonly string[] } {
+    const replaced = this.sync(key, r);
+    const { next, targets } = this.params.reduce(r.base, actions);
+    r.base = next;
+    const i = r.pending.findIndex((p) => p.dispatchKey === dispatchKey);
+    if (i !== -1) r.pending.splice(i, 1);
+    // The Core applied the first pending entry next, so the doc already holds it.
+    if (i !== 0 || replaced) this.write(key, r);
+    if (r.pending.length === 0) this.rebases.delete(key);
+    return { own: i !== -1, targets };
+  }
+
+  /** Removes a pending entry that the Core did not apply. */
+  private discard(key: Key, dispatchKey: string): void {
+    const r = this.rebases.get(key);
+    const i = r?.pending.findIndex((p) => p.dispatchKey === dispatchKey) ?? -1;
+    if (r == null || i === -1) return;
+    this.sync(key, r);
+    r.pending.splice(i, 1);
+    this.write(key, r);
+    if (r.pending.length === 0) this.rebases.delete(key);
+  }
+
+  /** Marks a pending entry as applied by the Core. */
+  private accept(key: Key, dispatchKey: string): void {
+    const r = this.rebases.get(key);
+    const p = r?.pending.find((p) => p.dispatchKey === dispatchKey);
+    if (r == null || p == null) return;
+    p.accepted = true;
+    // The echo may have been lost when the epoch changed during the send.
+    if (p.epoch !== this.epoch) this.settle(key, r, dispatchKey, p.actions);
+  }
+
+  private pending(dispatchKey: string, actions: Action[] = []): Pending<Action> {
+    return { dispatchKey, actions, epoch: this.epoch, accepted: false };
   }
 
   /**
@@ -358,43 +440,42 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     };
   }
 
-  // Reduce + send with rollback: replay locally, run the per-op stack
-  // mutation, register the batch as outstanding *before* the network send
-  // (the broadcast echo can race the HTTP response), and roll back stack and
-  // state when the send fails. Returns false when the doc isn't cached.
+  // Applies the actions to the cached doc, runs the per-op stack mutation, adds a
+  // pending entry *before* the network send (the broadcast echo can race the
+  // response), and removes the entry and rolls back the stack when the send fails.
+  // Returns false when the doc isn't cached.
   private async applySend(
     key: Key,
     actions: Action[],
-    commitStack: (r: ReplayResult<Action>) => destructor.Destructor,
+    commitStack: (applied: Applied<Action>) => destructor.Destructor,
     send: SendDispatch<Action>,
     preprocess?: Preprocess<State, Action>,
   ): Promise<boolean> {
-    const current = this.docs.get(key);
+    const current = this.current(key);
     if (current == null) return false;
     const processed = preprocess == null ? actions : preprocess(current, actions);
-    const r = this.replay(key, processed, { skipPreprocess: true });
-    if (r == null) return false;
-    const stackRollback = commitStack(r);
-    // A replay that left the state untouched has nothing for the server: no
-    // document change, no broadcast worth echoing. The stack mutation still
-    // runs above so undo/redo consume their entry instead of pinning it.
-    if (!r.changed) return true;
+    const { next, inverse, targets } = this.params.reduce(current, processed);
+    const stackRollback = commitStack({ processed, inverse, targets });
+    // A no-op has nothing for the server. The stack mutation still runs above so
+    // undo/redo consume their entry instead of pinning it.
+    if (next === current) return true;
     const dispatchKey = id.create();
-    this.registerOutstandingDispatch(key, dispatchKey);
+    this.track(key, current, this.pending(dispatchKey, processed), next);
     try {
-      await send(r.processed, dispatchKey);
-      return true;
+      await send(processed, dispatchKey);
     } catch (e) {
       stackRollback();
-      r.rollback();
+      this.discard(key, dispatchKey);
       throw errors.fromUnknown(e);
     }
+    this.accept(key, dispatchKey);
+    return true;
   }
 
   /**
    * Apply an action batch to the cached doc and send it to the server,
    * recording an undoable entry. Returns false without side effects when the
-   * doc isn't cached. Rolls back the local apply and rethrows on send failure.
+   * doc isn't cached. Removes the local apply and rethrows on send failure.
    */
   async dispatch(
     key: Key,
@@ -431,23 +512,83 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   /**
-   * Stage actions committed atomically as one undoable entry, registering the batch as
-   * outstanding before the send so the broadcast echo is recognized as own.
+   * Sends a create for the given keys. The cached docs among them hold their create as
+   * pending, so its echo does not revert edits made before the echo arrives.
+   * @returns what the send returns.
+   * @throws the error of the send.
+   */
+  async create<T>(keys: Key[], send: (dispatchKey: string) => Promise<T>): Promise<T> {
+    const dispatchKey = id.create();
+    const tracked = keys.filter((key) => {
+      const current = this.current(key);
+      if (current == null) return false;
+      this.track(key, current, this.pending(dispatchKey), current);
+      return true;
+    });
+    let res: T;
+    try {
+      res = await send(dispatchKey);
+    } catch (e) {
+      tracked.forEach((key) => this.discard(key, dispatchKey));
+      throw errors.fromUnknown(e);
+    }
+    tracked.forEach((key) => this.accept(key, dispatchKey));
+    return res;
+  }
+
+  /**
+   * Stage actions committed atomically as one undoable entry. Each add applies to the
+   * cached doc at once, and the staged actions stay pending until the commit settles.
    */
   transaction(
     key: Key,
     send: SendDispatch<Action>,
     kind?: string,
   ): Transaction<Action> {
-    return this.beginTransaction(
-      key,
-      async (actions) => {
-        const dispatchKey = id.create();
-        this.registerOutstandingDispatch(key, dispatchKey);
-        await send(actions, dispatchKey);
+    const initial = this.current(key);
+    const entry = this.pending(id.create());
+    let done = false;
+    return {
+      add: (actions) => {
+        if (done) throw new Error("transaction finalized");
+        if (initial == null) return;
+        const current = this.current(key);
+        if (current == null) return;
+        const arr = array.toArray(actions);
+        entry.actions.push(...arr);
+        this.track(key, current, entry, this.params.reduce(current, arr).next);
       },
-      kind,
-    );
+      commit: async () => {
+        if (done) return false;
+        done = true;
+        if (entry.actions.length === 0 || initial == null) return false;
+        // Inverse must be computed against the pre-transaction snapshot so
+        // undo restores to where the user started, not the last-add post-state.
+        const { inverse, targets } = this.params.reduce(initial, entry.actions);
+        const stackRollback = this.recordEntry(
+          key,
+          entry.actions,
+          inverse,
+          targets,
+          kind,
+        );
+        entry.epoch = this.epoch;
+        try {
+          await send(entry.actions, entry.dispatchKey);
+        } catch (e) {
+          stackRollback();
+          this.discard(key, entry.dispatchKey);
+          throw errors.fromUnknown(e);
+        }
+        this.accept(key, entry.dispatchKey);
+        return true;
+      },
+      abort: () => {
+        if (done) return;
+        done = true;
+        this.discard(key, entry.dispatchKey);
+      },
+    };
   }
 
   prepareUndo(key: Key): Reversal<Action> | null {
@@ -456,49 +597,6 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
 
   prepareRedo(key: Key): Reversal<Action> | null {
     return this.prepareReversal(key, "redo");
-  }
-
-  beginTransaction(key: Key, send: Send<Action>, kind?: string): Transaction<Action> {
-    const initial = this.docs.get(key);
-    const accumulated: Action[] = [];
-    let done = false;
-    return {
-      add: (actions) => {
-        if (done) throw new Error("transaction finalized");
-        if (initial == null) return;
-        const arr = array.toArray(actions);
-        const r = this.replay(key, arr);
-        if (r != null) accumulated.push(...r.processed);
-      },
-      commit: async () => {
-        if (done) return false;
-        done = true;
-        if (accumulated.length === 0 || initial == null) return false;
-        // Inverse must be computed against the pre-transaction snapshot so
-        // undo restores to where the user started, not the last-add post-state.
-        const { inverse, targets } = this.params.reduce(initial, accumulated);
-        const stackRollback = this.recordEntry(
-          key,
-          accumulated,
-          inverse,
-          targets,
-          kind,
-        );
-        try {
-          await send(accumulated);
-          return true;
-        } catch (e) {
-          stackRollback();
-          this.docs.set(key, initial);
-          throw errors.fromUnknown(e);
-        }
-      },
-      abort: () => {
-        if (done) return;
-        done = true;
-        if (initial != null) this.docs.set(key, initial);
-      },
-    };
   }
 
   markRemoteTouched(key: Key, targets: readonly string[]): destructor.Destructor {
@@ -511,36 +609,18 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     });
   }
 
-  /** Whether any locally replayed dispatch for the key still awaits its echo. */
-  hasOutstanding(key: Key): boolean {
-    return (this.outstandingDispatches.get(key)?.size ?? 0) > 0;
-  }
-
-  /**
-   * Register a dispatch as outstanding so when its broadcast echo arrives it
-   * can be recognized as own and a redundant reduce skipped. Called by the
-   * dispatcher *before* the network send so the registration always wins the
-   * race against a fast echo. A registration whose echo has already been
-   * applied (seq advanced past it) is silently dropped; that's the safe
-   * fallback when the echo arrives before the dispatch promise resolves.
-   */
-  registerOutstandingDispatch(key: Key, dispatchKey: string): void {
-    let bucket = this.outstandingDispatches.get(key);
-    if (bucket == null) {
-      bucket = new Map();
-      this.outstandingDispatches.set(key, bucket);
-    }
-    bucket.set(dispatchKey, { disturbed: false });
+  /** Whether the cached doc holds a dispatch that the Core has not echoed. */
+  hasPending(key: Key): boolean {
+    return this.rebases.has(key);
   }
 
   /**
    * Apply a remote frame. The frame is dropped if its seq does not exceed the
-   * high-water mark previously applied for this key. If `dispatchKey` matches an entry
-   * the originator registered as outstanding, these actions were already applied via
-   * replay: if no foreign action interleaved during the outstanding window, skip the
-   * reduce; otherwise re-run it to recover from the foreign overwrite. A foreign frame
-   * (one whose dispatchKey is unknown) always reduces and marks every outstanding own
-   * dispatch with a greater seq as needing recovery.
+   * high-water mark previously applied for this key. A frame for an uncached doc
+   * applies only when a create heads it. A frame whose dispatch key matches a pending
+   * entry is that entry's echo: it moves into the base, and the doc changes only if
+   * other frames came first. Any other frame applies to the base, under the pending
+   * entries, and marks its targets as remote-touched.
    */
   applyRemote(key: Key, seq: number, dispatchKey: string, actions: Action[]): void {
     if (seq !== 0) {
@@ -548,48 +628,23 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       if (seq <= last) return;
       this.lastAppliedSeq.set(key, seq);
     }
-    // Create frames carry no dispatch key, so the originator cannot recognize
-    // its own echo; applying one to a cached doc would revert local edits to
-    // the creation state. Drop the create and keep any trailing actions.
-    if (
-      actions.length > 0 &&
-      this.params.createOf(actions[0]) != null &&
-      this.docs.get(key) != null
-    ) {
-      actions = actions.slice(1);
-      if (actions.length === 0) return;
-    }
-    const bucket = this.outstandingDispatches.get(key);
-    const ownEntry = bucket?.get(dispatchKey);
-    const isOwnEcho = ownEntry != null;
-    if (ownEntry != null) {
-      bucket?.delete(dispatchKey);
-      // Local replay was authoritative; nothing interleaved.
-      if (!ownEntry.disturbed) return;
-      // Fall through to reduce: a foreign echo overwrote state during the
-      // outstanding window, so we must re-apply to recover.
-    } else if (bucket != null)
-      // Foreign echo: any outstanding own dispatch represents a local replay that the
-      // server has not yet broadcast back. We don't know each entry's server-stamped
-      // seq yet (the echo carrying it hasn't arrived), so we can't tell whether the
-      // foreign was applied before or after it on the server — mark every outstanding
-      // entry as disturbed. Entries whose seq turns out to be greater than this
-      // foreign's seq genuinely need recovery; entries whose seq was lower will re-run
-      // idempotently and converge to the same value.
-      for (const entry of bucket.values()) entry.disturbed = true;
-    const current = this.docs.get(key);
-    if (current == null) {
-      // A create-headed frame seeds the document; anything else predates our
-      // knowledge of the doc and is unreconstructable, so it drops.
+    const doc = this.docs.get(key);
+    if (doc == null) {
+      // Anything but a create predates our knowledge of the doc, so it drops.
       const created = actions.length > 0 ? this.params.createOf(actions[0]) : undefined;
       if (created == null) return;
-      const { next } = this.params.reduce(created, actions.slice(1));
-      this.docs.set(key, next);
+      this.docs.set(key, this.params.reduce(created, actions.slice(1)).next);
       return;
     }
-    const { next, targets } = this.params.reduce(current, actions);
-    this.docs.set(key, next);
-    if (!isOwnEcho) this.markRemoteTouched(key, targets);
+    const r = this.rebases.get(key);
+    if (r == null) {
+      const { next, targets } = this.params.reduce(doc, actions);
+      this.docs.set(key, next);
+      this.markRemoteTouched(key, targets);
+      return;
+    }
+    const { own, targets } = this.settle(key, r, dispatchKey, actions);
+    if (!own) this.markRemoteTouched(key, targets);
   }
 
   hasUndo(key: Key): boolean {

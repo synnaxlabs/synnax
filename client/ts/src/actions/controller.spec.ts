@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { observe, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { describe, expect, it, type Mock, vi } from "vitest";
 import z from "zod";
 
-import { Controller, type Frame, type Reducer, type Send } from "@/actions/controller";
+import {
+  Controller,
+  type Frame,
+  type Reducer,
+  type SendDispatch,
+} from "@/actions/controller";
 import { Table } from "@/query/table";
 
 interface Doc {
@@ -38,6 +43,7 @@ const reducer: Reducer<Doc, Action> = (state, actions) => {
       // Touches a target but contributes no inverse — covers the "marks
       // targets without producing reversible work" branch.
       targets.add(a.key);
+    else if (a.type === "create") next = a.doc;
   return { next, inverse, targets: [...targets] };
 };
 
@@ -65,26 +71,48 @@ const setupStore = (
     kindOf: (acts: Action[]) => string;
     coalesceWindow: TimeSpan;
     stackCap: number;
-    preprocess: (s: Doc, acts: Action[]) => Action[];
     now: () => TimeStamp;
   }> = {},
 ) => {
   const errors: Error[] = [];
   const onError = (error: Error) => errors.push(error);
   const docs = new Table<string, Doc>({ onError });
+  const epochs = new observe.Observer<number>();
   const controller = new Controller<string, Doc, Action>({
     store: docs,
     onError,
+    onEpoch: (callback) => epochs.onChange(callback),
     reduce: reducer,
     isUndoable: opts.isUndoable,
     kindOf: opts.kindOf,
     createOf: (a) => (a.type === "create" ? a.doc : undefined),
     coalesceWindow: opts.coalesceWindow,
     stackCap: opts.stackCap,
-    preprocess: opts.preprocess,
     now: opts.now,
   });
-  return { errors, docs, controller };
+  return { errors, docs, epochs, controller };
+};
+
+const set = (key: string, value: number): Action => ({ type: "set", key, value });
+
+const resolved = (): Mock<SendDispatch<Action>> =>
+  vi.fn<SendDispatch<Action>>(async () => {});
+
+interface HeldCall {
+  actions: Action[];
+  dispatchKey: string;
+  resolve: () => void;
+  reject: (error: Error) => void;
+}
+
+/** A send that settles only when the spec says, to hold a dispatch pending. */
+const createHeldSend = () => {
+  const calls: HeldCall[] = [];
+  const send: SendDispatch<Action> = async (actions, dispatchKey) =>
+    await new Promise<void>((resolve, reject) =>
+      calls.push({ actions, dispatchKey, resolve, reject }),
+    );
+  return { send, calls };
 };
 
 const prime = (
@@ -94,59 +122,81 @@ const prime = (
 ) => docs.set(key, { values });
 
 describe("actions.Controller", () => {
-  describe("replay", () => {
-    it("returns null when the doc is not cached", () => {
+  describe("dispatch", () => {
+    it("returns false and sends nothing when the doc is not cached", async () => {
       const { controller } = setupStore();
-      expect(
-        controller.replay("missing", [{ type: "set", key: "a", value: 1 }]),
-      ).toBeNull();
+      const send = resolved();
+      expect(await controller.dispatch("missing", [set("a", 1)], send)).toBe(false);
+      expect(send).not.toHaveBeenCalled();
     });
 
-    it("applies the reducer to the cached doc and returns processed/inverse/targets", () => {
+    it("applies the actions, sends them with a dispatch key, and records an undo entry", async () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 5 });
-      const r = controller.replay("k", [{ type: "set", key: "a", value: 9 }]);
-      expect(r).not.toBeNull();
-      expect(r?.processed).toEqual([{ type: "set", key: "a", value: 9 }]);
-      expect(r?.inverse).toEqual([{ type: "set", key: "a", value: 5 }]);
-      expect(r?.targets).toEqual(["a"]);
-      expect(r?.changed).toBe(true);
+      const send = resolved();
+      expect(await controller.dispatch("k", [set("a", 9)], send)).toBe(true);
       expect(docs.get("k")).toEqual({ values: { a: 9 } });
+      expect(send).toHaveBeenCalledWith([set("a", 9)], expect.any(String));
+      expect(controller.prepareUndo("k")?.actions).toEqual([set("a", 5)]);
     });
 
-    it("reports changed=false when no action touches the state", () => {
+    it("sends nothing when no action changes the doc", async () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 5 });
-      const r = controller.replay("k", [{ type: "noop" }]);
-      expect(r).not.toBeNull();
-      expect(r?.changed).toBe(false);
+      const before = docs.get("k");
+      const send = resolved();
+      expect(await controller.dispatch("k", [{ type: "noop" }], send)).toBe(true);
+      expect(send).not.toHaveBeenCalled();
+      expect(docs.get("k")).toBe(before);
+      expect(controller.hasPending("k")).toBe(false);
     });
 
-    it("rollback restores the prior doc state", () => {
+    it("runs the preprocess option against the cached doc", async () => {
       const { docs, controller } = setupStore();
-      prime(docs, "k", { a: 1 });
-      const r = controller.replay("k", [{ type: "set", key: "a", value: 99 }]);
-      expect(docs.get("k")).toEqual({ values: { a: 99 } });
-      r?.rollback();
-      expect(docs.get("k")).toEqual({ values: { a: 1 } });
+      prime(docs, "k", { a: 3 });
+      const send = resolved();
+      await controller.dispatch("k", [set("a", 4)], send, {
+        preprocess: (doc, acts) => [...acts, set("b", doc.values.a)],
+      });
+      expect(docs.get("k")).toEqual({ values: { a: 4, b: 3 } });
+      expect(send).toHaveBeenCalledWith([set("a", 4), set("b", 3)], expect.any(String));
     });
 
-    it("runs preprocess by default and skips it under skipPreprocess", () => {
-      const preprocess = vi.fn((_: Doc, acts: Action[]): Action[] => [
-        ...acts,
-        { type: "set", key: "extra", value: 1 },
-      ]);
-      const { docs, controller } = setupStore({ preprocess });
-      prime(docs, "k");
-      const r1 = controller.replay("k", [{ type: "set", key: "a", value: 2 }]);
-      expect(r1?.processed).toHaveLength(2);
-      expect(preprocess).toHaveBeenCalledTimes(1);
-      preprocess.mockClear();
-      const r2 = controller.replay("k", [{ type: "set", key: "a", value: 3 }], {
-        skipPreprocess: true,
+    it("removes the local apply and the undo entry when the send fails", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const send = vi.fn(async () => {
+        throw new Error("boom");
       });
-      expect(r2?.processed).toHaveLength(1);
-      expect(preprocess).not.toHaveBeenCalled();
+      await expect(controller.dispatch("k", [set("a", 1)], send)).rejects.toThrow(
+        "boom",
+      );
+      expect(docs.get("k")).toEqual({ values: { a: 0 } });
+      expect(controller.hasUndo("k")).toBe(false);
+      expect(controller.hasPending("k")).toBe(false);
+    });
+
+    it("keeps a foreign change that lands before a failed send", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0, b: 0 });
+      const { send, calls } = createHeldSend();
+      const dispatched = controller.dispatch("k", [set("a", 1)], send);
+      controller.applyRemote("k", 1, "foreign", [set("b", 7)]);
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 7 } });
+      calls[0].reject(new Error("boom"));
+      await expect(dispatched).rejects.toThrow("boom");
+      expect(docs.get("k")).toEqual({ values: { a: 0, b: 7 } });
+    });
+
+    it("holds the dispatch pending until its echo arrives", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const send = resolved();
+      await controller.dispatch("k", [set("a", 1)], send);
+      expect(controller.hasPending("k")).toBe(true);
+      const dispatchKey = send.mock.calls[0][1];
+      controller.applyRemote("k", 1, dispatchKey, [set("a", 1)]);
+      expect(controller.hasPending("k")).toBe(false);
     });
   });
 
@@ -489,40 +539,27 @@ describe("actions.Controller", () => {
       ]);
     });
 
-    it("undo → redo → undo cycle restores state correctly at each step", () => {
+    it("undo → redo → undo cycle restores state correctly at each step", async () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
-      // Manually drive the cycle (no substrate): apply forward, then walk
-      // through prepareUndo / prepareRedo applying their actions so the
-      // doc state mirrors what the substrate would do via replay.
-      const entry = {
-        forward: [{ type: "set" as const, key: "a", value: 1 }],
-        inverse: [{ type: "set" as const, key: "a", value: 0 }],
-      };
-      controller.replay("k", entry.forward);
-      controller.recordEntry("k", entry.forward, entry.inverse, ["a"]);
+      const send = resolved();
+      await controller.dispatch("k", [set("a", 1)], send);
       expect(docs.get("k")?.values.a).toBe(1);
-      const undo = controller.prepareUndo("k");
-      controller.replay("k", undo!.actions, { skipPreprocess: true });
-      undo!.commit();
+      expect(await controller.undo("k", send)).toBe(true);
       expect(docs.get("k")?.values.a).toBe(0);
-      const redo = controller.prepareRedo("k");
-      controller.replay("k", redo!.actions, { skipPreprocess: true });
-      redo!.commit();
+      expect(await controller.redo("k", send)).toBe(true);
       expect(docs.get("k")?.values.a).toBe(1);
-      const undo2 = controller.prepareUndo("k");
-      controller.replay("k", undo2!.actions, { skipPreprocess: true });
-      undo2!.commit();
+      expect(await controller.undo("k", send)).toBe(true);
       expect(docs.get("k")?.values.a).toBe(0);
     });
   });
 
-  describe("beginTransaction", () => {
+  describe("transaction", () => {
     it("accumulates and commits as a single undoable", async () => {
       const { docs, controller } = setupStore();
-      const send = vi.fn<Send<Action>>(async () => {});
+      const send = resolved();
       prime(docs, "k", { a: 0 });
-      const tx = controller.beginTransaction("k", send, "move");
+      const tx = controller.transaction("k", send, "move");
       tx.add({ type: "set", key: "a", value: 1 });
       tx.add([{ type: "set", key: "a", value: 2 }]);
       const ok = await tx.commit();
@@ -541,9 +578,9 @@ describe("actions.Controller", () => {
 
     it("returns false from commit when no actions were added", async () => {
       const { docs, controller } = setupStore();
-      const send = vi.fn<Send<Action>>(async () => {});
+      const send = resolved();
       prime(docs, "k", { a: 0 });
-      const ok = await controller.beginTransaction("k", send).commit();
+      const ok = await controller.transaction("k", send).commit();
       expect(ok).toBe(false);
       expect(send).not.toHaveBeenCalled();
       expect(controller.hasUndo("k")).toBe(false);
@@ -551,8 +588,8 @@ describe("actions.Controller", () => {
 
     it("returns false from commit when the doc is not cached", async () => {
       const { controller } = setupStore();
-      const send = vi.fn<Send<Action>>(async () => {});
-      const tx = controller.beginTransaction("missing", send);
+      const send = resolved();
+      const tx = controller.transaction("missing", send);
       tx.add({ type: "set", key: "a", value: 1 });
       const ok = await tx.commit();
       expect(ok).toBe(false);
@@ -561,9 +598,9 @@ describe("actions.Controller", () => {
 
     it("subsequent commits return false and do not re-send", async () => {
       const { docs, controller } = setupStore();
-      const send = vi.fn<Send<Action>>(async () => {});
+      const send = resolved();
       prime(docs, "k", { a: 0 });
-      const tx = controller.beginTransaction("k", send);
+      const tx = controller.transaction("k", send);
       tx.add({ type: "set", key: "a", value: 1 });
       expect(await tx.commit()).toBe(true);
       expect(await tx.commit()).toBe(false);
@@ -573,10 +610,7 @@ describe("actions.Controller", () => {
     it("add throws after the transaction is finalized", async () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
-      const tx = controller.beginTransaction(
-        "k",
-        vi.fn<Send<Action>>(async () => {}),
-      );
+      const tx = controller.transaction("k", resolved());
       tx.add({ type: "set", key: "a", value: 1 });
       await tx.commit();
       expect(() => tx.add({ type: "set", key: "a", value: 2 })).toThrow();
@@ -584,9 +618,9 @@ describe("actions.Controller", () => {
 
     it("abort restores the pre-transaction snapshot and pushes nothing", () => {
       const { docs, controller } = setupStore();
-      const send = vi.fn<Send<Action>>(async () => {});
+      const send = resolved();
       prime(docs, "k", { a: 0 });
-      const tx = controller.beginTransaction("k", send);
+      const tx = controller.transaction("k", send);
       tx.add({ type: "set", key: "a", value: 1 });
       tx.add({ type: "set", key: "a", value: 2 });
       expect(docs.get("k")).toEqual({ values: { a: 2 } });
@@ -599,10 +633,7 @@ describe("actions.Controller", () => {
     it("abort is a no-op after commit", async () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
-      const tx = controller.beginTransaction(
-        "k",
-        vi.fn<Send<Action>>(async () => {}),
-      );
+      const tx = controller.transaction("k", resolved());
       tx.add({ type: "set", key: "a", value: 5 });
       await tx.commit();
       tx.abort();
@@ -616,11 +647,36 @@ describe("actions.Controller", () => {
         throw new Error("boom");
       });
       prime(docs, "k", { a: 0 });
-      const tx = controller.beginTransaction("k", send);
+      const tx = controller.transaction("k", send);
       tx.add({ type: "set", key: "a", value: 1 });
       await expect(tx.commit()).rejects.toThrow("boom");
       expect(docs.get("k")).toEqual({ values: { a: 0 } });
       expect(controller.hasUndo("k")).toBe(false);
+    });
+
+    it("keeps staged actions on top of a foreign frame that lands before the commit", () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0, b: 0 });
+      const tx = controller.transaction("k", resolved());
+      tx.add(set("a", 1));
+      controller.applyRemote("k", 1, "foreign", [set("a", 5), set("b", 5)]);
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 5 } });
+      tx.abort();
+      expect(docs.get("k")).toEqual({ values: { a: 5, b: 5 } });
+    });
+
+    it("sends the staged actions under the dispatch key it held them pending with", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const send = resolved();
+      const tx = controller.transaction("k", send);
+      tx.add(set("a", 1));
+      expect(controller.hasPending("k")).toBe(true);
+      await tx.commit();
+      const dispatchKey = send.mock.calls[0][1];
+      controller.applyRemote("k", 1, dispatchKey, [set("a", 1)]);
+      expect(controller.hasPending("k")).toBe(false);
+      expect(controller.prepareUndo("k")).not.toBeNull();
     });
   });
 
@@ -659,25 +715,14 @@ describe("actions.Controller", () => {
       expect(docs.get("fresh")).toEqual({ values: { a: 1, b: 2 } });
     });
 
-    it("drops a create frame for a doc it already caches", () => {
-      const { docs, controller } = setupStore();
-      prime(docs, "k", { a: 0 });
-      // Locally edited after creation; the late create echo must not revert.
-      controller.replay("k", [{ type: "set", key: "a", value: 7 }]);
-      controller.applyRemote("k", 1, "", [
-        { type: "create", doc: { values: { a: 0 } } },
-      ]);
-      expect(docs.get("k")).toEqual({ values: { a: 7 } });
-    });
-
-    it("applies trailing actions after dropping the create for a cached doc", () => {
+    it("applies a foreign create to a cached doc", () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
       controller.applyRemote("k", 1, "", [
         { type: "create", doc: { values: { a: 9 } } },
-        { type: "set", key: "b", value: 2 },
+        set("b", 2),
       ]);
-      expect(docs.get("k")).toEqual({ values: { a: 0, b: 2 } });
+      expect(docs.get("k")).toEqual({ values: { a: 9, b: 2 } });
     });
 
     it("orders dispatch frames after the create that seeded the doc", () => {
@@ -713,65 +758,176 @@ describe("actions.Controller", () => {
       expect(docs.get("k")).toEqual({ values: { a: 2 } });
     });
 
-    it("skips the reducer on own echoes when no foreign action interleaved", () => {
+    it("leaves the doc untouched when the echo of the first pending dispatch arrives", async () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
-      // Originator simulates local replay then registers the dispatch as
-      // outstanding before the echo arrives.
-      controller.registerOutstandingDispatch("k", "own-1");
-      // Now the echo lands. The reducer should NOT re-run: the local replay
-      // was already authoritative.
-      controller.applyRemote("k", 1, "own-1", [{ type: "set", key: "a", value: 99 }]);
-      // State unchanged — the local replay's effect (a=0 here, since the test
-      // skipped the replay step) is preserved.
-      expect(docs.get("k")).toEqual({ values: { a: 0 } });
+      const { send, calls } = createHeldSend();
+      const dispatched = controller.dispatch("k", [set("a", 1)], send);
+      const before = docs.get("k");
+      controller.applyRemote("k", 1, calls[0].dispatchKey, [set("a", 1)]);
+      expect(docs.get("k")).toBe(before);
+      calls[0].resolve();
+      await dispatched;
+      expect(controller.hasPending("k")).toBe(false);
     });
 
     it("does not mark targets remote-touched on own echoes", async () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
-      controller.recordEntry(
-        "k",
-        [{ type: "set", key: "a", value: 1 }],
-        [{ type: "set", key: "a", value: 0 }],
-        ["a"],
-      );
-      controller.registerOutstandingDispatch("k", "own-1");
-      controller.applyRemote("k", 1, "own-1", [{ type: "set", key: "a", value: 1 }]);
-      // The local undo entry survives because the echo was own.
+      const send = resolved();
+      await controller.dispatch("k", [set("a", 1)], send);
+      const dispatchKey = send.mock.calls[0][1];
+      controller.applyRemote("k", 1, dispatchKey, [set("a", 1)]);
       expect(controller.prepareUndo("k")).not.toBeNull();
     });
 
-    it("re-applies own echoes whose outstanding window was disturbed by a foreign action", () => {
+    it("applies a foreign frame under the pending dispatches", () => {
       const { docs, controller } = setupStore();
-      prime(docs, "k", { a: 0 });
-      // Alice locally replays both her dispatches up front and registers
-      // them as outstanding. State after both local replays is a=20.
-      controller.applyRemote("k", 0, "alice-1", [{ type: "set", key: "a", value: 10 }]);
-      // Reset state to what it would be after local replays:
-      prime(docs, "k", { a: 20 });
-      controller.registerOutstandingDispatch("k", "alice-1");
-      controller.registerOutstandingDispatch("k", "alice-2");
-      // Now the echoes arrive in server-seq order.
-      // Alice (own) seq=1 — own and not disturbed → skip.
-      controller.applyRemote("k", 1, "alice-1", [{ type: "set", key: "a", value: 10 }]);
-      expect(docs.get("k")).toEqual({ values: { a: 20 } });
-      // Bob (foreign) seq=2 — applies, marks all outstanding own as disturbed.
-      controller.applyRemote("k", 2, "bob-1", [{ type: "set", key: "a", value: 5 }]);
-      expect(docs.get("k")).toEqual({ values: { a: 5 } });
-      // Alice (own) seq=3 — own but disturbed → reduce to recover.
-      controller.applyRemote("k", 3, "alice-2", [{ type: "set", key: "a", value: 20 }]);
-      expect(docs.get("k")).toEqual({ values: { a: 20 } });
+      prime(docs, "k", { a: 0, b: 0 });
+      const { send, calls } = createHeldSend();
+      void controller.dispatch("k", [set("a", 10)], send);
+      void controller.dispatch("k", [set("a", 20)], send);
+      expect(docs.get("k")).toEqual({ values: { a: 20, b: 0 } });
+      controller.applyRemote("k", 1, calls[0].dispatchKey, [set("a", 10)]);
+      expect(docs.get("k")).toEqual({ values: { a: 20, b: 0 } });
+      controller.applyRemote("k", 2, "bob", [set("a", 5), set("b", 5)]);
+      expect(docs.get("k")).toEqual({ values: { a: 20, b: 5 } });
+      controller.applyRemote("k", 3, calls[1].dispatchKey, [set("a", 20)]);
+      expect(docs.get("k")).toEqual({ values: { a: 20, b: 5 } });
+      expect(controller.hasPending("k")).toBe(false);
     });
 
-    it("re-applies own echoes when their dispatchKey is unknown (registration lost the race against the echo)", () => {
+    it("applies an own echo in the order the Core applied it", () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
-      // No registration: simulate the case where the echo arrived before the dispatch
-      // promise resolved, so the originator never got to register. The substrate treats
-      // this as foreign and reduces — safer than silently dropping the action.
-      controller.applyRemote("k", 1, "stranger", [{ type: "set", key: "a", value: 7 }]);
+      const { send, calls } = createHeldSend();
+      void controller.dispatch("k", [set("a", 1)], send);
+      void controller.dispatch("k", [set("a", 2)], send);
+      // The Core applied the second dispatch before the first.
+      controller.applyRemote("k", 1, calls[1].dispatchKey, [set("a", 2)]);
+      expect(docs.get("k")).toEqual({ values: { a: 1 } });
+      controller.applyRemote("k", 2, calls[0].dispatchKey, [set("a", 1)]);
+      expect(docs.get("k")).toEqual({ values: { a: 1 } });
+    });
+
+    it("keeps a pending edit when another writer replaces the doc before its echo", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0, b: 0 });
+      const send = resolved();
+      await controller.dispatch("k", [set("a", 1)], send);
+      // A fetch that read the doc before the Core applied the dispatch.
+      docs.set("k", { values: { a: 0, b: 3 } });
+      const dispatchKey = send.mock.calls[0][1];
+      controller.applyRemote("k", 1, dispatchKey, [set("a", 1)]);
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 3 } });
+    });
+
+    it("applies pending dispatches again on a doc another writer replaced", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const { send } = createHeldSend();
+      void controller.dispatch("k", [set("a", 1)], send);
+      docs.set("k", { values: { a: 0, b: 4 } });
+      void controller.dispatch("k", [set("c", 2)], send);
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 4, c: 2 } });
+    });
+
+    it("applies a frame whose dispatch key is not pending as foreign", () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      controller.applyRemote("k", 1, "stranger", [set("a", 7)]);
       expect(docs.get("k")).toEqual({ values: { a: 7 } });
+    });
+  });
+
+  describe("epochs", () => {
+    it("settles accepted dispatches whose echoes the gap may have lost", async () => {
+      const { docs, epochs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("a", 1)], resolved());
+      epochs.notify(2);
+      expect(controller.hasPending("k")).toBe(false);
+      controller.applyRemote("k", 1, "foreign", [set("b", 2)]);
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 2 } });
+    });
+
+    it("settles a dispatch sent before the epoch changed when its send resolves", async () => {
+      const { docs, epochs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const { send, calls } = createHeldSend();
+      const dispatched = controller.dispatch("k", [set("a", 1)], send);
+      epochs.notify(2);
+      expect(controller.hasPending("k")).toBe(true);
+      calls[0].resolve();
+      await dispatched;
+      expect(controller.hasPending("k")).toBe(false);
+      expect(docs.get("k")).toEqual({ values: { a: 1 } });
+    });
+
+    it("keeps a staged transaction pending across an epoch change", () => {
+      const { docs, epochs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const tx = controller.transaction("k", resolved());
+      tx.add(set("a", 1));
+      epochs.notify(2);
+      expect(controller.hasPending("k")).toBe(true);
+      expect(docs.get("k")).toEqual({ values: { a: 1 } });
+    });
+
+    it("clears the sequence high-water mark", () => {
+      const { docs, epochs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      controller.applyRemote("k", 5, "foreign", [set("a", 1)]);
+      epochs.notify(2);
+      controller.applyRemote("k", 1, "foreign", [set("a", 2)]);
+      expect(docs.get("k")).toEqual({ values: { a: 2 } });
+    });
+
+    it("clears pending dispatches and undo stacks when the cache resets", async () => {
+      const { docs, epochs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("a", 1)], resolved());
+      expect(controller.hasUndo("k")).toBe(true);
+      epochs.notify(0);
+      expect(controller.hasUndo("k")).toBe(false);
+      expect(controller.hasPending("k")).toBe(false);
+    });
+  });
+
+  describe("create", () => {
+    it("holds the create pending so its echo does not revert later edits", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      let dispatchKey = "";
+      const res = await controller.create(["k"], async (key) => {
+        dispatchKey = key;
+        return "created";
+      });
+      expect(res).toBe("created");
+      await controller.dispatch("k", [set("a", 5)], resolved());
+      controller.applyRemote("k", 1, dispatchKey, [
+        { type: "create", doc: { values: { a: 0 } } },
+      ]);
+      expect(docs.get("k")).toEqual({ values: { a: 5 } });
+    });
+
+    it("removes the pending create and rethrows when the send fails", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      await expect(
+        controller.create(["k"], async () => {
+          throw new Error("boom");
+        }),
+      ).rejects.toThrow("boom");
+      expect(controller.hasPending("k")).toBe(false);
+    });
+
+    it("skips keys whose doc is not cached", async () => {
+      const { controller } = setupStore();
+      const send = vi.fn(async () => "created");
+      expect(await controller.create(["missing"], send)).toBe("created");
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(controller.hasPending("missing")).toBe(false);
     });
   });
 
@@ -838,6 +994,15 @@ describe("actions.Controller", () => {
       expect(docs.has("k2")).toBe(false);
       expect(controller.hasUndo("k1")).toBe(false);
       expect(controller.hasUndo("k2")).toBe(false);
+    });
+
+    it("drops pending dispatches with the doc", () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const { send } = createHeldSend();
+      void controller.dispatch("k", [set("a", 1)], send);
+      docs.delete("k");
+      expect(controller.hasPending("k")).toBe(false);
     });
 
     it("drops both for a predicate match", () => {

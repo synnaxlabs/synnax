@@ -54,7 +54,11 @@ interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 const retrieveResZ = z.object({ tables: tableZ.array().default(() => []) });
 
-const createReqZ = z.object({ project: project.keyZ, tables: tableZ.array() });
+const createReqZ = z.object({
+  project: project.keyZ,
+  dispatchKey: z.string(),
+  tables: tableZ.array(),
+});
 const createResZ = z.object({ tables: tableZ.array() });
 
 const emptyResZ = z.object({});
@@ -93,6 +97,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     const dispatcher = new actions.Controller<Key, Table, Action>({
       store,
       onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
       kindOf,
       createOf,
@@ -135,11 +140,15 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
       commit: async () =>
-        await this.cfg.unary.send(
-          "/table/create",
-          { project, tables: optimistic },
-          createReqZ,
-          createResZ,
+        await this.dispatcher.create(
+          optimistic.map(({ key }) => key),
+          async (dispatchKey) =>
+            await this.cfg.unary.send(
+              "/table/create",
+              { project, dispatchKey, tables: optimistic },
+              createReqZ,
+              createResZ,
+            ),
         ),
     });
     this.store.set(res.tables);

@@ -65,6 +65,7 @@ const retrieveResZ = z.object({ schematics: schematicZ.array() });
 
 const createReqZ = z.object({
   project: project.keyZ,
+  dispatchKey: z.string(),
   schematics: schematicZ.array(),
 });
 const createResZ = z.object({ schematics: schematicZ.array() });
@@ -113,6 +114,7 @@ export class Client extends query.Retriever<
     const dispatcher = new actions.Controller<Key, Schematic, Action>({
       store,
       onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
       kindOf,
       createOf,
@@ -156,11 +158,15 @@ export class Client extends query.Retriever<
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
       commit: async () =>
-        await this.cfg.unary.send(
-          "/schematic/create",
-          { project, schematics: optimistic },
-          createReqZ,
-          createResZ,
+        await this.dispatcher.create(
+          optimistic.map(({ key }) => key),
+          async (dispatchKey) =>
+            await this.cfg.unary.send(
+              "/schematic/create",
+              { project, dispatchKey, schematics: optimistic },
+              createReqZ,
+              createResZ,
+            ),
         ),
     });
     this.store.set(res.schematics);
