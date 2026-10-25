@@ -20,12 +20,16 @@ import {
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import { type TileBounds, tileRange } from "@/framer/cache/grid";
+import { type Position, tileRange } from "@/framer/cache/grid";
 import { DEFAULT_BATCH_DEBOUNCE, type RemoteReader } from "@/framer/cache/reader";
 import { type Block, type Store } from "@/framer/cache/store";
 
 /** Identifies one tile of one channel, reduced under a point limit. */
-export interface TileSpec extends TileBounds {
+export interface TileSpec extends Position {
+  /** Starts the range after the tile does. */
+  start?: TimeStamp;
+  /** Ends the range before the tile does. */
+  end?: TimeStamp;
   key: channel.Key;
   pointLimit: number;
   aggregation: Aggregation;

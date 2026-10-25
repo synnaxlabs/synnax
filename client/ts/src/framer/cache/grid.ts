@@ -10,16 +10,16 @@
 import { type Aggregation, TimeRange, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
 
 /**
- * Identifies one tile of the grid. Tiles at level L span 2^L milliseconds, and tile i of
- * a level starts i spans after the Unix epoch.
+ * Identifies one tile of the grid. Tiles at level L span 2^L milliseconds, and tile i
+ * of a level starts i spans after the Unix epoch.
  */
-export interface TilePosition {
+export interface Position {
   level: number;
   index: number;
 }
 
 /** A tile, optionally cut short at either end. */
-export interface TileBounds extends TilePosition {
+interface Bounds extends Position {
   /** Starts the range after the tile does. */
   start?: TimeStamp;
   /** Ends the range before the tile does. */
@@ -31,7 +31,7 @@ export const tileSpan = (level: number): TimeSpan =>
   new TimeSpan(TimeSpan.MILLISECOND.valueOf() << BigInt(level));
 
 /** @returns the time range the tile covers, cut to its start and end. */
-export const tileRange = ({ level, index, start, end }: TileBounds): TimeRange => {
+export const tileRange = ({ level, index, start, end }: Bounds): TimeRange => {
   const span = tileSpan(level).valueOf();
   let lower = BigInt(index) * span;
   let upper = lower + span;
@@ -66,7 +66,7 @@ export const POINTS_PER_GROUP: Record<Aggregation, number> = {
   decimate: 1,
 };
 
-export interface PointLimitProps {
+interface PointLimitProps {
   level: number;
   /** The range the line shows. */
   view: TimeRange;
@@ -96,7 +96,7 @@ export const pointLimit = ({
   return 2 ** Math.ceil(Math.log2(Math.max(share * POINTS_PER_GROUP[aggregation], 1)));
 };
 
-const positionKey = ({ level, index }: TilePosition): string => `${level}/${index}`;
+const positionKey = ({ level, index }: Position): string => `${level}/${index}`;
 
 /**
  * Chooses the tiles that draw the given slots of a level, from the available ones. Each
@@ -111,8 +111,8 @@ const positionKey = ({ level, index }: TilePosition): string => `${level}/${inde
 export const choose = (
   level: number,
   slots: number[],
-  available: TilePosition[],
-): TilePosition[] => {
+  available: Position[],
+): Position[] => {
   const held = new Set(available.map(positionKey));
   // above holds each position of the level or finer that has an available tile at or
   // below it.
@@ -122,15 +122,15 @@ export const choose = (
       above.add(positionKey({ level: l, index: i }));
   // finer returns the coarsest available tiles at or below p in time order, and
   // whether they cover p whole.
-  const finer = (p: TilePosition): [TilePosition[], boolean] => {
+  const finer = (p: Position): [Position[], boolean] => {
     if (held.has(positionKey(p))) return [[p], true];
     if (p.level === 0 || !above.has(positionKey(p))) return [[], false];
     const [first, firstWhole] = finer({ level: p.level - 1, index: 2 * p.index });
     const [second, secondWhole] = finer({ level: p.level - 1, index: 2 * p.index + 1 });
     return [[...first, ...second], firstWhole && secondWhole];
   };
-  const chosen = new Map<number, TilePosition[]>();
-  const partial = new Map<number, TilePosition[]>();
+  const chosen = new Map<number, Position[]>();
+  const partial = new Map<number, Position[]>();
   for (const index of slots) {
     const [tiles, whole] = finer({ level, index });
     if (whole) chosen.set(index, tiles);

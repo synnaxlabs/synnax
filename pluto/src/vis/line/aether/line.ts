@@ -444,7 +444,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       }, ZOOM_SETTLE.milliseconds);
     }
     if (i.settleTimer != null) return { bounds: b };
-    const perGroup = framer.POINTS_PER_GROUP[i.aggregation ?? DEFAULT_AGGREGATION];
+    const perGroup = framer.grid.POINTS_PER_GROUP[i.aggregation ?? DEFAULT_AGGREGATION];
     return { bounds: b, points: width * this.state.groupsPerColumn * perGroup };
   }
 

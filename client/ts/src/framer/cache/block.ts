@@ -176,7 +176,7 @@ const sumBytes = (series: Series[]): number =>
   series.reduce((sum, s) => sum + s.byteCapacity.valueOf(), 0);
 
 /** A streamed series and the span its samples cover. */
-export interface Streamed {
+interface Streamed {
   series: Series;
   range: TimeRange;
 }

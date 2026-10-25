@@ -725,7 +725,7 @@ export class TiledChannelData
   private rawFrom(): TimeStamp {
     const home = this.home();
     if (this.xy) return home.start;
-    const span = framer.tileSpan(framer.level(home)).valueOf();
+    const span = framer.grid.tileSpan(framer.grid.level(home)).valueOf();
     return new TimeStamp((home.start.valueOf() / span) * span);
   }
 
@@ -735,7 +735,7 @@ export class TiledChannelData
     const home = this.home();
     const floor = this.xy
       ? home.start
-      : this.rawFrom().sub(framer.tileSpan(framer.level(home)));
+      : this.rawFrom().sub(framer.grid.tileSpan(framer.grid.level(home)));
     this.boundary = TimeStamp.max(this.boundary, floor);
     return this.boundary;
   }
@@ -774,15 +774,15 @@ export class TiledChannelData
       if (!end.after(view.start)) return [];
       if (view.end.after(end)) tiled = new TimeRange(view.start, end);
     }
-    const l = framer.level(view);
-    const limit = framer.pointLimit({
+    const l = framer.grid.level(view);
+    const limit = framer.grid.pointLimit({
       level: l,
       view,
       points: this.points,
       drawn: this.aggregation(),
       aggregation,
     });
-    return framer.indexes(tiled, l).map((index) => {
+    return framer.grid.indexes(tiled, l).map((index) => {
       const spec: framer.TileSpec = {
         key,
         level: l,
@@ -790,7 +790,7 @@ export class TiledChannelData
         pointLimit: limit,
         aggregation,
       };
-      const tr = framer.tileRange(spec);
+      const tr = framer.grid.tileRange(spec);
       if (start != null && tr.start.before(start)) spec.start = start;
       if (end != null && tr.end.after(end)) spec.end = end;
       return spec;
@@ -800,7 +800,7 @@ export class TiledChannelData
   // find returns the held tile at the position: the preferred one, then one of the
   // aggregation, then one of another.
   private find(
-    p: framer.TilePosition,
+    p: framer.grid.Position,
     preferred: Map<string, string>,
     aggregation: Aggregation,
     tiles: Iterable<HeldTile> = this.held.values(),
@@ -854,12 +854,12 @@ export class TiledChannelData
     // it waits until the boundary moves.
     const end = this.live ? this.tilesEnd() : null;
     const drawable = [...this.held.values()].filter(
-      ({ spec }) => end == null || !framer.tileRange(spec).end.after(end),
+      ({ spec }) => end == null || !framer.grid.tileRange(spec).end.after(end),
     );
     const chosen =
       targets.length === 0
         ? []
-        : framer
+        : framer.grid
             .choose(
               targets[0].level,
               targets.map((t) => t.index),
