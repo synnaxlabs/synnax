@@ -537,25 +537,26 @@ var _ = Describe("Driver", func() {
 
 		Describe("Pinned start", func() {
 			var (
-				configured atomic.Int32
+				configured *atomic.Int32
 				t          task.Task
 			)
 			BeforeEach(func(ctx SpecContext) {
-				configured.Store(0)
-				t = newTask(embeddedRackKey(ctx))
-				key := t.Key
+				count, key := &atomic.Int32{}, &atomic.Value{}
+				configured = count
 				openDriver(ctx, &mockFactory{
 					name: "test",
 					configureFunc: func(
 						_ context.Context,
 						cfgTask task.Task,
 					) (driver.Task, error) {
-						if cfgTask.Key == key {
-							configured.Add(1)
+						if cfgTask.Key == key.Load() {
+							count.Add(1)
 						}
 						return &mockTask{key: cfgTask.Key}, nil
 					},
 				})
+				t = newTask(embeddedRackKey(ctx))
+				key.Store(t.Key)
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 			})
 			retrieveStatus := func(ctx context.Context) task.Status {
