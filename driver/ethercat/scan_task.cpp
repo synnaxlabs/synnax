@@ -210,9 +210,13 @@ synnax::device::Device Scanner::create_slave_device(
     } else if (live != health.end())
         set_live_status(*live, status);
     else if (sts.pdos_discovered && sts.pdo_discovery_error.empty()) {
-        status.message = "Discovered (" + std::to_string(props.input_pdos.size()) +
-                         " inputs, " + std::to_string(props.output_pdos.size()) +
-                         " outputs)";
+        const auto objects = [](const std::vector<pdo::Properties> &pdos) {
+            return std::to_string(std::ranges::count_if(pdos, [](const auto &p) {
+                return !p.is_padding();
+            }));
+        };
+        status.message = "Discovered (" + objects(props.input_pdos) + " inputs, " +
+                         objects(props.output_pdos) + " outputs)";
         status.variant = synnax::status::VARIANT_SUCCESS;
     } else {
         status.message = "Failed to discover PDOs";

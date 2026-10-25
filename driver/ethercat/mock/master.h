@@ -319,7 +319,8 @@ public:
         return {this->output_iomap.data(), this->output_sz};
     }
 
-    std::optional<pdo::Offset> pdo_offset(const pdo::Entry &entry) const override {
+    std::pair<pdo::Offset, x::errors::Error>
+    pdo_offset(const pdo::Entry &entry) const override {
         std::lock_guard lock(this->mu);
         return pdo::find_offset(this->pdo_offset_cache, entry);
     }
