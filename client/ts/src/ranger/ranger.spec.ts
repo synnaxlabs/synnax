@@ -1154,9 +1154,9 @@ describe("dispatch", () => {
   it("should throw for an action the range cannot hold without a send", async () => {
     const rng = await createRange();
     const send = spyOnSend(client);
-    await expect(client.ranges.dispatch(rng.key, rename(""))).rejects.toThrow(
-      "Failed to parse range",
-    );
+    await expect(
+      client.ranges.dispatch(rng.key, ranger.set({ path: ["key"], value: "k" })),
+    ).rejects.toThrow("Failed to parse range");
     expect(send).not.toHaveBeenCalled();
     expect(expectLive(client.ranges.getCached(rng.key)).name).toBe(rng.name);
   });

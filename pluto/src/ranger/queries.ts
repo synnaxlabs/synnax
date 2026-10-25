@@ -107,18 +107,20 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   getCached: ({ client, query: { keys } }) => client.ranges.getCached(keys),
 });
 
-export const formSchema = z.object({
+const timeRangeZ = z
+  .object({ start: z.number(), end: z.number() })
+  .refine(({ start, end }) => end >= start, {
+    error: "End time must be after start time",
+  });
+
+export const createFormSchema = z.object({
   ...ranger.payloadZ.omit({ timeRange: true }).partial({ key: true }).shape,
   labels: z.array(label.keyZ),
   parent: z.string().optional(),
-  timeRange: z
-    .object({ start: z.number(), end: z.number() })
-    .refine(({ start, end }) => end >= start, {
-      error: "End time must be after start time",
-    }),
+  timeRange: timeRangeZ,
 });
 
-export const toFormValues = (range: ranger.Range): z.infer<typeof formSchema> => ({
+const toCreateFormValues = (range: ranger.Range): z.infer<typeof createFormSchema> => ({
   ...range.payload,
   timeRange: range.timeRange.numeric,
   parent: range.parent?.key,
@@ -127,22 +129,26 @@ export const toFormValues = (range: ranger.Range): z.infer<typeof formSchema> =>
 
 export type FormQuery = RetrieveQuery;
 
-const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
+const ZERO_CREATE_FORM_VALUES: z.infer<typeof createFormSchema> = {
   name: "",
   labels: [],
   parent: "",
   timeRange: { start: 0, end: 0 },
 };
 
-export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
+/**
+ * A form that creates a range, or saves a whole range over the stored one, when the
+ * caller saves it.
+ */
+export const useCreateForm = Flux.createForm<FormQuery, typeof createFormSchema>({
   name: RESOURCE_NAME,
-  schema: formSchema,
-  initialValues: ZERO_FORM_VALUES,
+  schema: createFormSchema,
+  initialValues: ZERO_CREATE_FORM_VALUES,
   retrieve: async ({ client, query: { key } }) =>
-    toFormValues(await client.ranges.retrieve(key)),
+    toCreateFormValues(await client.ranges.retrieve(key)),
   getCached: ({ client, query: { key } }) => {
     const cached = client.ranges.getCached(key);
-    return query.isLive(cached) ? toFormValues(cached) : undefined;
+    return query.isLive(cached) ? toCreateFormValues(cached) : undefined;
   },
   update: async ({ client, value: getValue, reset }) => {
     const value = getValue();
@@ -165,9 +171,32 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   },
   mountListeners: ({ client, query: { key }, reset, abandon }) =>
     client.ranges.onChange(key, (result) => {
-      if (query.isLive(result)) reset(toFormValues(result));
+      if (query.isLive(result)) reset(toCreateFormValues(result));
       else if (query.Deleted.matches(result)) abandon();
     }),
+});
+
+export const formSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  timeRange: timeRangeZ,
+});
+
+/**
+ * A form over a range in the client cache. Each edit to the name or time range
+ * reaches the Core as a path action, and an edit from another client appears as it
+ * lands.
+ */
+export const useForm = Flux.createDocumentForm<
+  ranger.Key,
+  ranger.Range,
+  typeof formSchema
+>({
+  name: RESOURCE_NAME,
+  schema: formSchema,
+  docSchema: ranger.payloadZ,
+  domain: (client) => client.ranges,
+  useEnsure,
+  toValues: ({ name, timeRange }) => ({ name, timeRange: timeRange.numeric }),
 });
 
 export const useLabels = (key: ranger.Key | null): label.Label[] | undefined =>

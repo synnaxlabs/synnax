@@ -59,6 +59,14 @@ describe("ranger.reduceAll", () => {
       expect(next).toBe(prev);
     });
 
+    it("should keep the identity of the time range when the name changes", () => {
+      const prev = createRange();
+      const { next } = ranger.reduceAll(prev, [
+        ranger.set({ path: ["name"], value: "Cold flow" }),
+      ]);
+      expect(next.timeRange).toBe(prev.timeRange);
+    });
+
     it("should return a wire-form inverse that restores the range", () => {
       const prev = createRange();
       const { next, inverse, targets } = ranger.reduceAll(prev, [
@@ -66,6 +74,13 @@ describe("ranger.reduceAll", () => {
       ]);
       expect(targets).toEqual(["time_range.end"]);
       expect(ranger.reduceAll(next, inverse).next).toEqual(prev);
+    });
+
+    it("should hold a time range that ends before it starts", () => {
+      const { next } = ranger.reduceAll(createRange(), [
+        ranger.set({ path: ["time_range", "end"], value: "0" }),
+      ]);
+      expect(next.timeRange.end).toEqual(new TimeStamp(0));
     });
 
     it("should throw for a path outside the name, time range, and color", () => {

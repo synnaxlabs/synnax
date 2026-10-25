@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, patch, type record, zod } from "@synnaxlabs/x";
+import { caseconv, color, patch, type record, TimeRange, zod } from "@synnaxlabs/x";
 import { type Draft } from "immer";
+import { z } from "zod";
 
 import { actions } from "@/actions";
 import {
@@ -17,10 +18,13 @@ import {
   type HandlerResult,
   type Handlers,
 } from "@/ranger/actions.gen";
-import { type Payload, payloadZ } from "@/ranger/types.gen";
+import { type Payload } from "@/ranger/types.gen";
 
-/** The part of a range that path actions edit. */
-const documentZ = payloadZ.pick({ name: true, timeRange: true, color: true }).strict();
+// The part of a range that path actions edit. It checks shape but not validity: the
+// Core validates, and a form holds an invalid value unsent while the cache shows it.
+const documentZ = z
+  .object({ name: z.string(), timeRange: TimeRange.z, color: color.colorZ.optional() })
+  .strict();
 
 // Actions hold the wire form of a range: snake_case keys and nanosecond timestamps.
 // Immer cannot draft the cached range's TimeRange, so each action applies to the wire
@@ -36,11 +40,13 @@ const applyPath = (state: Draft<Payload>, action: patch.Action): HandlerResult =
   const next = zod.parse(documentZ, caseconv.snakeToCamel(doc, { schema: documentZ }), {
     label: "range",
   });
-  state.name = next.name;
-  state.timeRange = next.timeRange;
-  if (next.color == null) delete state.color;
+  const path = patch.pathOf(action);
+  // Only the field the action reaches changes, so the others keep their identity.
+  if (path[0] === "name") state.name = next.name;
+  else if (path[0] === "time_range") state.timeRange = next.timeRange;
+  else if (next.color == null) delete state.color;
   else state.color = next.color;
-  return { inverse, targets: [patch.pathOf(action).join(".")] };
+  return { inverse, targets: [path.join(".")] };
 };
 
 const handlers: Handlers = {
