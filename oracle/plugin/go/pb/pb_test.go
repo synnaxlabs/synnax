@@ -2445,7 +2445,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 		Context("generic struct instantiated with a struct type arg", func() {
 			It(
-				"Should keep explicit instantiation only for backward conversion with nil converters",
+				"Should translate a nil type argument with the nil Any helpers",
 				func(ctx SpecContext) {
 					source := `
 					@go output "core/control"
@@ -2466,10 +2466,8 @@ var _ = Describe("Go PB Plugin", func() {
 
 					ExpectContent(resp, "translator.gen.go").
 						ToContain(
-							// The typed argument pins the forward instantiation; the
-							// nil converter cannot pin the backward one.
-							"StatusToPB(*r.Status, nil)",
-							"StatusFromPB[struct{}](pb.Status, nil)",
+							"StatusToPB(*r.Status, xpb.NilToPBAny)",
+							"StatusFromPB(pb.Status, xpb.NilFromPBAny)",
 						)
 				},
 			)
@@ -2545,8 +2543,7 @@ var _ = Describe("Go PB Plugin", func() {
 							"pb, err := commonpb.DetailsToPB(v)",
 							"var pb commonpb.Details",
 							"return commonpb.DetailsFromPB(&pb)",
-							"PairFromPB[common.Details, struct{}]"+
-								"(pb.Pair, DetailsFromPBAny, nil)",
+							"PairFromPB(pb.Pair, DetailsFromPBAny, xpb.NilFromPBAny)",
 						)
 				},
 			)
