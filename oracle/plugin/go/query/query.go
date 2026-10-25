@@ -190,9 +190,12 @@ type retrieveInfo struct {
 	GoName   string
 	KeyType  string
 	IsCustom bool // user defines the struct (@retrieve custom)
-	Filters  []filterInfo
-	Indexes  []indexInfo
-	Search   []searchInfo
+	// IndexesOnly is true under @retrieve indexes: the service writes its own Retrieve
+	// and matchers, so only the indexes are generated.
+	IndexesOnly bool
+	Filters     []filterInfo
+	Indexes     []indexInfo
+	Search      []searchInfo
 }
 
 // HasSearch reports whether the retrieve declared any @search fields.
@@ -259,8 +262,9 @@ func generateRetrieveFile(
 		return nil, nil
 	}
 
-	// Always need context and gorp.
-	imps.AddExternal("context")
+	if lo.SomeBy(infos, func(i retrieveInfo) bool { return !i.IndexesOnly }) {
+		imps.AddExternal("context")
+	}
 	imps.AddInternal(
 		"gorp",
 		gomod.ResolveImportPath("gorp", repoRoot, gomod.DefaultModulePrefix),
@@ -356,6 +360,19 @@ func extractRetrieveInfo(
 	goName := naming.GetGoName(typ)
 
 	isCustom := plugindomain.HasExprFromType(typ, "retrieve", "custom")
+	indexesOnly := plugindomain.HasExprFromType(typ, "retrieve", "indexes")
+	if form, ok := typ.Form.(resolution.StructForm); ok && indexesOnly {
+		// The table of a generic type holds records of every type argument.
+		var args []string
+		for _, param := range form.TypeParams {
+			if !param.HasDefault() {
+				args = append(args, "any")
+			}
+		}
+		if len(args) > 0 {
+			goName += "[" + strings.Join(args, ", ") + "]"
+		}
+	}
 
 	// Collect @filter and @index fields. A field may carry both: in that
 	// case, MatchX / MatchXs are generated to route through the index.
@@ -368,7 +385,18 @@ func extractRetrieveInfo(
 		search  []searchInfo
 	)
 	for _, field := range allFields {
+		if indexesOnly && (plugindomain.HasDomainFromField(field, "filter") ||
+			plugindomain.HasExprFromField(field, "index", "sorted")) {
+			return nil, errors.Newf(
+				"%s: @retrieve indexes generates no matchers or orderings, so field "+
+					"%s cannot take @filter or @index sorted",
+				typ.QualifiedName,
+				field.Name,
+			)
+		}
 		m, hasFilter := byField[field.Name]
+		// The service writes the matchers for the filter's bare lines.
+		hasFilter = hasFilter && !indexesOnly
 		hasIndex := plugindomain.HasDomainFromField(field, "index")
 		hasSearch := plugindomain.HasDomainFromField(field, "search")
 		if !hasFilter && !hasIndex && !hasSearch {
@@ -450,12 +478,13 @@ func extractRetrieveInfo(
 	}
 
 	return &retrieveInfo{
-		GoName:   goName,
-		KeyType:  keyType,
-		IsCustom: isCustom,
-		Filters:  filters,
-		Indexes:  indexes,
-		Search:   search,
+		GoName:      goName,
+		KeyType:     keyType,
+		IsCustom:    isCustom,
+		IndexesOnly: indexesOnly,
+		Filters:     filters,
+		Indexes:     indexes,
+		Search:      search,
 	}, nil
 }
 
@@ -540,7 +569,7 @@ import (
 )
 {{- end}}
 {{range $ret := .Retrieves}}
-{{- if not $ret.IsCustom}}
+{{- if not (or $ret.IsCustom $ret.IndexesOnly)}}
 // Retrieve is used to retrieve {{$ret.GoName}} records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
@@ -639,6 +668,7 @@ func OrderBy{{$idx.GoName}}(dir gorp.Direction, cursor ...{{$idx.GoType}}) Order
 {{- end}}
 {{- end}}
 {{- end}}
+{{- if not $ret.IndexesOnly}}
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
@@ -795,5 +825,6 @@ func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
 func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
+{{- end}}
 {{end}}`),
 )
