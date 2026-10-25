@@ -9,7 +9,7 @@
 
 import { type capture } from "@/index";
 
-import { sampleButton } from "./common/sample";
+import { sampleLink } from "./common/sample";
 
 export const desktop = true;
 
@@ -17,13 +17,13 @@ export const viewport = { width: 1280, height: 800 };
 
 /**
  * Still for docs page `reference/get-started/install-desktop`: the projects screen of
- * Synnax Desktop on first launch, with its Sample project and New project buttons.
+ * Synnax Desktop on first launch, with Open sample project and New project.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
-  await session.waitFor(sampleButton(page), 1800);
+  await session.waitFor(sampleLink(page), 1800);
   await session.waitFor(page.getByText("New project").first());
-  // Clear of both buttons, so neither shows its hover state.
+  // Clear of the link and the button, so neither shows its hover state.
   await session.moveTo({ x: 1240, y: 760 });
   await session.settle(1000);
   await session.still("projects");

@@ -9,26 +9,26 @@
 
 import { capture } from "@/index";
 
-import { sampleButton, symbol } from "./common/sample";
+import { sampleLink, symbol } from "./common/sample";
 
 export const desktop = true;
 
 /**
- * Docs `get-started/sample-project/open`: on the projects screen of Synnax Desktop,
- * select Sample project. The project opens on the Tank schematic, the Tank pressure
- * line plot, and the Press sequence.
+ * Docs `get-started/sample-project/open`: on the empty projects screen of Synnax
+ * Desktop, select Open sample project. The project opens on the Tank schematic, the
+ * Tank pressure line plot, and the Press sequence.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
-  const button = sampleButton(page);
-  await session.waitFor(button, 1800);
+  const link = sampleLink(page);
+  await session.waitFor(link, 1800);
   await session.moveTo(capture.PARK);
 
   session.startRecording();
   await session.hold(1800);
   await session.zoom(page.locator(".console-project-splash__list").first());
   await session.hold(800);
-  await session.click(button, { zoom: false });
+  await session.click(link, { zoom: false });
   session.endZoom();
   await session.waitFor(symbol(page, "Start"), 1800);
   await session.moveTo(capture.PARK);

@@ -11,9 +11,9 @@ import { type Locator, type Page } from "playwright";
 
 import { capture, fixtures } from "@/index";
 
-/** sampleButton returns the projects screen's button that opens the sample project. */
-export const sampleButton = (page: Page): Locator =>
-  page.getByRole("button", { name: "Sample project" }).first();
+/** sampleLink returns the empty projects screen's Open sample project link. */
+export const sampleLink = (page: Page): Locator =>
+  page.getByText("Open sample project", { exact: true }).first();
 
 /** symbol returns the symbol of the sample's Tank schematic with the given label. */
 export const symbol = (page: Page, label: string): Locator =>
@@ -43,14 +43,15 @@ export const button = (page: Page, label: string): Locator =>
   symbol(page, label).locator(".pluto-symbol-button").first();
 
 /**
- * openSample selects Sample project on the projects screen of Synnax Desktop and waits
- * for the Tank schematic. Pass `zoom: false` through, since the click swaps the view.
+ * openSample selects Open sample project on the empty projects screen of Synnax Desktop
+ * and waits for the Tank schematic. Pass `zoom: false` through, since the click swaps
+ * the view.
  */
 export const openSample = async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
-  const button = sampleButton(page);
-  await session.waitFor(button, 1800);
-  await session.click(button, { zoom: false });
+  const link = sampleLink(page);
+  await session.waitFor(link, 1800);
+  await session.click(link, { zoom: false });
   await session.waitFor(symbol(page, "Start"), 1800);
 };
 
