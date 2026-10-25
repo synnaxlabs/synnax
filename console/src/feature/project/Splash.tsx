@@ -152,9 +152,7 @@ export const Splash = (): ReactElement => {
               grow
               message={searchTerm === "" ? "No projects" : "No matching projects"}
               action={
-                sampleVisible && searchTerm === ""
-                  ? "Open the sample project"
-                  : undefined
+                sampleVisible && searchTerm === "" ? "Open sample project" : undefined
               }
               onClick={openSample}
             />

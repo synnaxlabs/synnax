@@ -23,9 +23,21 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
 const NAME = "Sample project";
+
+// Fixed keys make each new sample overwrite the last one, even after a rename, so only
+// one copy of the Arc programs drives the sample channels.
+const KEYS = {
+  project: "adacd22e-b3a6-4b20-a587-136795288889",
+  schematic: "07ba9c3b-d84e-4e85-934d-e2c750355791",
+  linePlot: "7a17bb62-2916-496d-9b4a-55e95c91bca4",
+  panel: "6800879c-af6f-4cc7-999d-b356369c47ce",
+  simulator: "c9873e9f-69bd-473f-8653-dd4e760b19ec",
+  sequence: "c5886fec-bd93-4e34-ab17-b53f342e9729",
+} as const;
 
 const INDEX = "sample_time";
 const TANK_PT = "sample_tank_pt";
@@ -60,46 +72,45 @@ time.interval{period=100ms} -> step{}
 const SEQUENCE = `import control
 import time
 
-// The sequence runs below the schematic's authority, so an operator can take control
-// of the valves at any time. An abort takes absolute authority.
+// The sequence outranks the schematic, so a Start click does not take the valves. An
+// operator takes a valve with its control chip.
 authority 100
 
-sequence main {
+sequence press {
     stage idle {
         0 -> ${PRESS_VLV_CMD}
         0 -> ${VENT_VLV_CMD}
-        ${START_CMD} => pressurize
+        ${START_CMD} == 1 => pressurize
     }
     stage pressurize {
         control.set_authority{value=100}
         1 -> ${PRESS_VLV_CMD}
         0 -> ${VENT_VLV_CMD}
         ${TANK_PT} > 450 => abort
-        ${ABORT_CMD} => abort
+        ${ABORT_CMD} == 1 => abort
         ${TANK_PT} > 300 => hold
     }
     stage hold {
         0 -> ${PRESS_VLV_CMD}
-        ${ABORT_CMD} => abort
+        ${ABORT_CMD} == 1 => abort
         time.wait{duration=10s} => vent
     }
     stage vent {
         1 -> ${VENT_VLV_CMD}
         ${TANK_PT} < 5 => idle
     }
+    // Abort raises the sequence to the authority of a control chip, so its commands
+    // reach a valve an operator holds.
     stage abort {
         control.set_authority{value=255}
         0 -> ${PRESS_VLV_CMD}
         1 -> ${VENT_VLV_CMD}
-        ${START_CMD} => pressurize
+        ${START_CMD} == 1 => pressurize
     }
 }
 
-1 => main
+true => press
 `;
-
-/** The schematic control authority that lets an operator override the sequence. */
-export const SAMPLE_SCHEMATIC_AUTHORITY = 200;
 
 type Channels = Record<
   | typeof INDEX
@@ -136,6 +147,7 @@ const createChannels = async (client: Synnax): Promise<Channels> => {
 };
 
 const createSchematic = (ch: Channels): schematic.New => ({
+  key: KEYS.schematic,
   name: "Tank",
   nodes: [
     { key: "supply", position: { x: 0, y: 28 } },
@@ -180,7 +192,8 @@ const createSchematic = (ch: Channels): schematic.New => ({
     tank: {
       variant: "tank",
       label: { label: "Tank" },
-      fill: { channel: ch[TANK_PT], bounds: { lower: 0, upper: 500 } },
+      channel: ch[TANK_PT],
+      bounds: { lower: 0, upper: 500 },
     },
     vent_vlv: {
       variant: "valve",
@@ -214,6 +227,7 @@ const createSchematic = (ch: Channels): schematic.New => ({
 });
 
 const createLinePlot = (ch: Channels): lineplot.New => ({
+  key: KEYS.linePlot,
   name: "Tank pressure",
   channels: {
     x1: ch[INDEX],
@@ -230,43 +244,59 @@ const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
     hostIsNode: true,
   });
   if (racks.length === 0) throw new NotFoundError("No rack can run Arc programs");
-  const task = await client.arcs.setRack(key, racks[0].key);
+  const task = await client.arcs.updateTask(key, { rack: racks[0].key });
   if (task == null) throw new UnexpectedError(`Arc ${key} has no task`);
   await task.start();
 };
 
-export interface Sample {
-  project: project.Key;
-  schematic: schematic.Key;
-}
+const exists = async (client: Synnax): Promise<boolean> => {
+  const found = await client.projects.retrieve({
+    keys: [KEYS.project],
+    ignoreNotFoundError: true,
+  });
+  return found.length > 0;
+};
 
-/**
- * Creates the sample tank pressurization project: its channels, a schematic, a line
- * plot, and two running Arc programs, one that simulates the tank and one that
- * pressurizes it. Each call creates a new project and new Arc programs, and reuses the
- * sample channels when they exist.
- */
-export const createSample = async (client: Synnax): Promise<Sample> => {
+/** Creates the sample project and starts its Arc programs, replacing any old sample. */
+const createSample = async (client: Synnax): Promise<void> => {
   const ch = await createChannels(client);
-  const proj = await client.projects.create({ name: NAME, layout: {} });
-  const sch = await client.schematics.create(proj.key, createSchematic(ch));
-  const plot = await client.lineplots.create(proj.key, createLinePlot(ch));
-  const [simulator, sequence] = await client.arcs.create([
-    { name: "Tank simulator", mode: "text", text: { raw: SIMULATOR } },
-    { name: "Press sequence", mode: "text", text: { raw: SEQUENCE } },
+  await client.projects.create({ key: KEYS.project, name: NAME });
+  await client.schematics.create(KEYS.project, createSchematic(ch));
+  await client.lineplots.create(KEYS.project, createLinePlot(ch));
+  // Overwriting an existing schematic or line plot does not link it to the project,
+  // which matters after the user deletes the project.
+  await client.ontology.addChildren(
+    project.ontologyID(KEYS.project),
+    schematic.ontologyID(KEYS.schematic),
+    lineplot.ontologyID(KEYS.linePlot),
+  );
+  await client.arcs.create([
+    {
+      key: KEYS.simulator,
+      name: "Tank simulator",
+      mode: "text",
+      text: { raw: SIMULATOR },
+    },
+    {
+      key: KEYS.sequence,
+      name: "Press sequence",
+      mode: "text",
+      text: { raw: SEQUENCE },
+    },
   ]);
-  await deploy(client, simulator.key);
-  await deploy(client, sequence.key);
+  await deploy(client, KEYS.simulator);
+  await deploy(client, KEYS.sequence);
   await client.panels.create({
+    key: KEYS.panel,
     name: NAME,
-    parent: project.ontologyID(proj.key),
+    parent: project.ontologyID(KEYS.project),
     root: {
       variant: "split",
       direction: "x",
       size: 0.55,
       first: {
         variant: "leaf",
-        tabs: [{ variant: "resource", resource: schematic.ontologyID(sch.key) }],
+        tabs: [{ variant: "resource", resource: schematic.ontologyID(KEYS.schematic) }],
       },
       last: {
         variant: "split",
@@ -274,40 +304,63 @@ export const createSample = async (client: Synnax): Promise<Sample> => {
         size: 0.5,
         first: {
           variant: "leaf",
-          tabs: [{ variant: "resource", resource: lineplot.ontologyID(plot.key) }],
+          tabs: [{ variant: "resource", resource: lineplot.ontologyID(KEYS.linePlot) }],
         },
         last: {
           variant: "leaf",
           tabs: [
-            { variant: "resource", resource: arc.ontologyID(sequence.key) },
-            { variant: "resource", resource: arc.ontologyID(simulator.key) },
+            { variant: "resource", resource: arc.ontologyID(KEYS.sequence) },
+            { variant: "resource", resource: arc.ontologyID(KEYS.simulator) },
           ],
         },
       },
     },
   });
-  return { project: proj.key, schematic: sch.key };
 };
 
-/** Returns a callback that creates the sample project and opens it. */
+// Selecting a project loads its stored view state over the store's, so view state set
+// before the load lands is lost.
+const loadProject = async (store: Session.Store, key: project.Key): Promise<void> => {
+  store.dispatch(Session.Project.select(key));
+  const loaded = (): boolean => !Session.Persist.selectSwapping(store.getState());
+  if (loaded()) return;
+  await new Promise<void>((resolve) => {
+    const unsubscribe = store.subscribe(() => {
+      if (!loaded()) return;
+      unsubscribe();
+      resolve();
+    });
+  });
+};
+
+/**
+ * Returns a callback that creates the sample project and opens it. When a sample
+ * exists, the callback asks before it resets the sample.
+ */
 export const useOpenSample = (): (() => void) => {
   const client = PSynnax.use();
-  const dispatch = Session.useDispatch();
+  const store = Session.useStore();
+  const confirm = Modals.useConfirm();
   const handleError = Status.useErrorHandler();
   return useCallback(
     () =>
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
-        const sample = await createSample(client);
-        dispatch(
-          Session.Schematic.create({
-            key: sample.schematic,
-            editable: false,
-            control: { authority: SAMPLE_SCHEMATIC_AUTHORITY },
-          }),
+        if (await exists(client)) {
+          const confirmed = await confirm({
+            message: "Are you sure you want to reset the sample project?",
+            description:
+              "Your changes to the sample project and its Arc programs are lost.",
+            confirm: { label: "Reset", variant: "warning" },
+          });
+          if (confirmed !== true) return;
+        }
+        await createSample(client);
+        await loadProject(store, KEYS.project);
+        store.dispatch(
+          Session.Schematic.setEditable({ key: KEYS.schematic, editable: false }),
         );
-        dispatch(Session.Project.select(sample.project));
       }, "Failed to open the sample project"),
-    [client, dispatch, handleError],
+    [client, store, confirm, handleError],
   );
 };

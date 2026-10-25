@@ -85,15 +85,17 @@ const ExportProjectCommand = Command.create({
   useVisible: () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID),
 });
 
+const useOpenSampleVisible = (): boolean => {
+  const granted = useCreateVisible();
+  return Session.Runtime.CORE_EMBEDDED && granted;
+};
+
 const OpenSampleCommand = Command.create({
   key: "project_open_sample",
   name: "Open sample project",
   icon: <PProject.CreateIcon />,
   useOnSelect: useOpenSample,
-  useVisible: () => {
-    const granted = useCreateVisible();
-    return Session.Runtime.CORE_EMBEDDED && granted;
-  },
+  useVisible: useOpenSampleVisible,
 });
 
 export const COMMANDS = [
