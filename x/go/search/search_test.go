@@ -125,16 +125,18 @@ func (o oracle) expectRanked(keys []int, term string) {
 	}
 }
 
+// randomText joins random words. Its pieces include capitals, a rune whose lowercase
+// form is longer ('İ'), and an invalid UTF-8 byte.
 func randomText(rng *rand.Rand) string {
 	const separators = " _-."
-	alphabet := []rune("abcé")
+	pieces := []string{"a", "b", "c", "é", "A", "İ", "Σ", "\xff"}
 	words := make([]string, 1+rng.IntN(3))
 	for i := range words {
-		w := make([]rune, 1+rng.IntN(4))
-		for j := range w {
-			w[j] = alphabet[rng.IntN(len(alphabet))]
+		var w strings.Builder
+		for range 1 + rng.IntN(6) {
+			w.WriteString(pieces[rng.IntN(len(pieces))])
 		}
-		words[i] = string(w)
+		words[i] = w.String()
 	}
 	return strings.Join(words, string(separators[rng.IntN(len(separators))]))
 }
@@ -163,6 +165,25 @@ var _ = Describe("Index", func() {
 		Entry("a word split by '-'", "gse-ai", "ai"),
 		Entry("a word split by '.'", "gse.ai", "ai"),
 		Entry("a word split by a tab", "gse\tai", "ai"),
+	)
+
+	DescribeTable("Matching long words by their first 255 runes",
+		func(text, term string, expected []int) {
+			idx.Set(1, text)
+			Expect(idx.Search(term, 0).Keys).To(Equal(expected))
+		},
+		Entry(
+			"a word that agrees in its first 255 runes",
+			strings.Repeat("é", 255)+"aa",
+			strings.Repeat("é", 255)+"cc",
+			[]int{1},
+		),
+		Entry(
+			"not a word that differs within its first 255 runes",
+			strings.Repeat("é", 255)+"aa",
+			strings.Repeat("é", 200)+strings.Repeat("x", 57),
+			[]int{},
+		),
 	)
 
 	DescribeTable("Not matching",
@@ -275,6 +296,12 @@ var _ = Describe("Index", func() {
 			idx.Set(1, "alpha beta")
 			idx.Set(1, "beta alpha")
 			Expect(idx.Search("alpha", 0).Keys).To(Equal([]int{1}))
+		})
+
+		It("Should count each repeated word of an entry once", func() {
+			idx.Set(1, "valve inlet outlet")
+			idx.Set(2, "valve inlet valve valve")
+			Expect(idx.Search("valve", 0).Keys).To(Equal([]int{2, 1}))
 		})
 
 		It("Should index an entry with no tokens as matching nothing", func() {

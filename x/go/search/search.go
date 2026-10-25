@@ -24,19 +24,24 @@ const (
 	fuzzyWeight  = 1
 )
 
+// retainedScratches is how many idle search scratches an Index keeps.
+const retainedScratches = 4
+
 // Index is a full-text index of entries keyed by K. It is safe for concurrent use.
 type Index[K comparable] struct {
-	// pool holds scratch values for Search, each sized to entries.
-	pool sync.Pool
+	// scratches holds idle search scratches. Unlike a sync.Pool, it keeps them across
+	// garbage collections, since each is sized to every entry.
+	scratches chan *scratch
 	// mu guards every field below.
 	mu      sync.RWMutex
-	root    node
+	trie    trie
 	ids     map[K]uint32
 	entries []entry[K]
 	free    []uint32
 }
 
-// entry holds one term for each unique token of its key.
+// entry holds one term for each unique token of its key, in the sorted order of the
+// tokens.
 type entry[K comparable] struct {
 	key   K
 	terms []term
@@ -45,22 +50,23 @@ type entry[K comparable] struct {
 // term places an entry in a token node. pos is the index of the entry's posting in
 // that node.
 type term struct {
-	node *node
+	node uint32
 	pos  uint32
 }
 
-// scratch is the state of one search. state is indexed by entry id, and touched lists
-// the ids whose state is not zero.
+// scratch is the state of one search. slots maps an entry id to one plus the index of
+// its match, or to 0 when the entry has not matched.
 type scratch struct {
-	state   []match
-	touched []uint32
-	fuzzy   []*node
+	slots   []uint32
+	matches []match
+	fuzzy   []uint32
 	ranked  []uint64
 }
 
 // match is how one entry matches a search. word is one plus the index of the last
 // query word the entry matched.
 type match struct {
+	id      uint32
 	score   int32
 	matched uint32
 	word    uint32
@@ -69,8 +75,9 @@ type match struct {
 // New returns an empty Index.
 func New[K comparable]() *Index[K] {
 	return &Index[K]{
-		pool: sync.Pool{New: func() any { return new(scratch) }},
-		ids:  make(map[K]uint32),
+		scratches: make(chan *scratch, retainedScratches),
+		trie:      newTrie(),
+		ids:       make(map[K]uint32),
 	}
 }
 
@@ -84,13 +91,8 @@ func (idx *Index[K]) Set(key K, text ...string) {
 			tokens = append(tokens, tokenize(t)...)
 		}
 	}
-	unique := tokens[:0]
-	for _, tok := range tokens {
-		if !slices.Contains(unique, tok) {
-			unique = append(unique, tok)
-		}
-	}
-	tokens = unique
+	slices.Sort(tokens)
+	tokens = slices.Compact(tokens)
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 	id, ok := idx.ids[key]
@@ -105,9 +107,10 @@ func (idx *Index[K]) Set(key K, text ...string) {
 	e := &idx.entries[id]
 	e.terms = slices.Grow(e.terms, len(tokens))
 	for _, tok := range tokens {
-		n := idx.root.insert(tok)
-		e.terms = append(e.terms, term{node: n, pos: uint32(len(n.postings))})
-		n.postings = append(n.postings, posting{id: id, slot: uint32(len(e.terms) - 1)})
+		n := idx.trie.insert(tok)
+		postings := &idx.trie.node(n).postings
+		e.terms = append(e.terms, term{node: n, pos: uint32(len(*postings))})
+		*postings = append(*postings, posting{id: id, slot: uint32(len(e.terms) - 1)})
 	}
 }
 
@@ -150,24 +153,24 @@ func (idx *Index[K]) search(term string, except func(K) bool, limit int) Result[
 	}
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
-	s := idx.pool.Get().(*scratch)
-	if n := len(idx.entries) - len(s.state); n > 0 {
-		s.state = append(s.state, make([]match, n)...)
+	s := idx.scratch()
+	if n := len(idx.entries) - len(s.slots); n > 0 {
+		s.slots = append(s.slots, make([]uint32, n)...)
 	}
 	for i, word := range words {
-		s.match(&idx.root, word, uint32(i+1))
+		s.match(&idx.trie, word, uint32(i+1))
 	}
 	complete := false
-	for _, id := range s.touched {
-		if s.state[id].matched == uint32(len(words)) && idx.kept(id, except) {
-			s.ranked = append(s.ranked, idx.rank(id, s.state[id].score))
+	for _, m := range s.matches {
+		if m.matched == uint32(len(words)) && idx.kept(m.id, except) {
+			s.ranked = append(s.ranked, idx.rank(m.id, m.score))
 			complete = true
 		}
 	}
 	if !complete {
-		for _, id := range s.touched {
-			if idx.kept(id, except) {
-				s.ranked = append(s.ranked, idx.rank(id, s.state[id].score))
+		for _, m := range s.matches {
+			if idx.kept(m.id, except) {
+				s.ranked = append(s.ranked, idx.rank(m.id, m.score))
 			}
 		}
 	}
@@ -182,12 +185,25 @@ func (idx *Index[K]) search(term string, except func(K) bool, limit int) Result[
 		res.Keys[i] = idx.entries[uint32(r)].key
 		res.ranks[i] = uint32(r >> 32)
 	}
-	for _, id := range s.touched {
-		s.state[id] = match{}
+	for _, m := range s.matches {
+		s.slots[m.id] = 0
 	}
-	s.touched, s.ranked = s.touched[:0], s.ranked[:0]
-	idx.pool.Put(s)
+	s.matches, s.ranked = s.matches[:0], s.ranked[:0]
+	select {
+	case idx.scratches <- s:
+	default:
+	}
 	return res
+}
+
+// scratch returns an idle scratch, or a new one when none is idle.
+func (idx *Index[K]) scratch() *scratch {
+	select {
+	case s := <-idx.scratches:
+		return s
+	default:
+		return new(scratch)
+	}
 }
 
 func (idx *Index[K]) kept(id uint32, except func(K) bool) bool {
@@ -203,55 +219,54 @@ func (idx *Index[K]) rank(id uint32, score int32) uint64 {
 // match adds the entries that match word, the word at index w-1 of the query. It adds
 // exact matches before prefixes, and prefixes before fuzzy matches, so the first match
 // of an entry for a word is its best.
-func (s *scratch) match(root *node, word string, w uint32) {
-	exact := root.find(word)
-	if exact != nil {
-		s.add(exact, exactWeight, w)
-		for _, e := range exact.edges {
-			s.addTree(e.node, w)
+func (s *scratch) match(t *trie, word string, w uint32) {
+	exact := t.find(root, word)
+	if exact != none {
+		s.add(t, exact, exactWeight, w)
+		for _, e := range t.node(exact).edges {
+			s.addTree(t, e.node, w)
 		}
 	}
-	s.fuzzy = root.fuzzy(word, s.fuzzy[:0])
+	s.fuzzy = t.fuzzy(root, word, s.fuzzy[:0])
 	for _, n := range s.fuzzy {
 		// The exact node and its children already count as exact and prefix matches,
 		// and the exact node can hold many postings.
-		if exact == nil || (n != exact && n.parent != exact) {
-			s.add(n, fuzzyWeight, w)
+		if exact == none || (n != exact && t.node(n).parent != exact) {
+			s.add(t, n, fuzzyWeight, w)
 		}
-	}
-	clear(s.fuzzy)
-}
-
-func (s *scratch) addTree(n *node, w uint32) {
-	s.add(n, prefixWeight, w)
-	for _, e := range n.edges {
-		s.addTree(e.node, w)
 	}
 }
 
-func (s *scratch) add(n *node, weight int32, w uint32) {
-	for _, p := range n.postings {
-		m := &s.state[p.id]
-		if m.word == w {
-			continue
-		}
-		if m.matched == 0 {
-			s.touched = append(s.touched, p.id)
-		}
-		m.score, m.matched, m.word = m.score+weight, m.matched+1, w
+func (s *scratch) addTree(t *trie, n, w uint32) {
+	s.add(t, n, prefixWeight, w)
+	for _, e := range t.node(n).edges {
+		s.addTree(t, e.node, w)
 	}
 }
 
-// holds reports whether the entry at id holds exactly tokens.
+func (s *scratch) add(t *trie, n uint32, weight int32, w uint32) {
+	for _, p := range t.node(n).postings {
+		slot := s.slots[p.id]
+		if slot == 0 {
+			s.matches = append(s.matches, match{id: p.id})
+			slot = uint32(len(s.matches))
+			s.slots[p.id] = slot
+		}
+		if m := &s.matches[slot-1]; m.word != w {
+			m.score, m.matched, m.word = m.score+weight, m.matched+1, w
+		}
+	}
+}
+
+// holds reports whether the entry at id holds exactly tokens, which are sorted and
+// unique.
 func (idx *Index[K]) holds(id uint32, tokens []string) bool {
 	terms := idx.entries[id].terms
 	if len(terms) != len(tokens) {
 		return false
 	}
-	for _, tok := range tokens {
-		n := idx.root.find(tok)
-		if n == nil ||
-			!slices.ContainsFunc(terms, func(t term) bool { return t.node == n }) {
+	for i, tok := range tokens {
+		if idx.trie.find(root, tok) != terms[i].node {
 			return false
 		}
 	}
@@ -275,18 +290,17 @@ func (idx *Index[K]) alloc(key K) uint32 {
 // of the node into the freed position, so it runs in constant time.
 func (idx *Index[K]) unlink(id uint32) {
 	e := &idx.entries[id]
-	for _, t := range e.terms {
-		n := t.node
+	for _, tm := range e.terms {
+		n := idx.trie.node(tm.node)
 		last := len(n.postings) - 1
 		moved := n.postings[last]
-		n.postings[t.pos] = moved
-		idx.entries[moved.id].terms[moved.slot].pos = t.pos
+		n.postings[tm.pos] = moved
+		idx.entries[moved.id].terms[moved.slot].pos = tm.pos
 		n.postings = n.postings[:last]
 		if last == 0 {
 			n.postings = nil
-			n.prune()
+			idx.trie.prune(tm.node)
 		}
 	}
-	clear(e.terms)
 	e.terms = e.terms[:0]
 }

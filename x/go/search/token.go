@@ -14,9 +14,32 @@ import (
 	"unicode"
 )
 
-// tokenize splits s into lowercase tokens at whitespace, '_', '-', and '.'.
+// maxTokenRunes is the number of runes that tokenize keeps of each token, so the trie
+// holds a bounded number of nodes for each token.
+const maxTokenRunes = 255
+
+// tokenize splits s into lowercase tokens at whitespace, '_', '-', and '.', and cuts
+// each token to its first maxTokenRunes runes.
 func tokenize(s string) []string {
-	return strings.FieldsFunc(strings.ToLower(s), isSeparator)
+	tokens := strings.FieldsFunc(strings.ToLower(s), isSeparator)
+	for i, tok := range tokens {
+		tokens[i] = truncate(tok)
+	}
+	return tokens
+}
+
+func truncate(token string) string {
+	if len(token) <= maxTokenRunes {
+		return token
+	}
+	runes := 0
+	for i := range token {
+		if runes == maxTokenRunes {
+			return token[:i]
+		}
+		runes++
+	}
+	return token
 }
 
 func isSeparator(r rune) bool {

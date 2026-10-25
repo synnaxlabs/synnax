@@ -12,6 +12,7 @@ package search_test
 import (
 	"fmt"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/synnaxlabs/x/search"
@@ -85,6 +86,46 @@ func BenchmarkSearch(b *testing.B) {
 				)
 			}
 		}
+	}
+}
+
+func BenchmarkSearchAfterGC(b *testing.B) {
+	idx := newBenchIndex(makeNames(100000))
+	b.ReportAllocs()
+	for b.Loop() {
+		b.StopTimer()
+		runtime.GC()
+		runtime.GC()
+		b.StartTimer()
+		idx.Search("sensor", 100)
+	}
+}
+
+func BenchmarkGC(b *testing.B) {
+	for _, count := range counts {
+		b.Run(fmt.Sprintf("resources=%d", count), func(b *testing.B) {
+			idx := newBenchIndex(makeNames(count))
+			for b.Loop() {
+				runtime.GC()
+			}
+			runtime.KeepAlive(idx)
+		})
+	}
+}
+
+func BenchmarkSetManyWords(b *testing.B) {
+	for _, count := range []int{1000, 10000, 40000} {
+		words := make([]string, count)
+		for i := range words {
+			words[i] = fmt.Sprintf("w%d", i)
+		}
+		text := strings.Join(words, " ")
+		b.Run(fmt.Sprintf("words=%d", count), func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				search.New[int]().Set(0, text)
+			}
+		})
 	}
 }
 
