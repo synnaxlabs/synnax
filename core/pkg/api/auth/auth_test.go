@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
@@ -36,8 +35,8 @@ func requestCtx(ctx context.Context) freighter.Context {
 
 var _ = Describe("NewService", func() {
 	It("Should return an error when the config is invalid", func() {
-		Expect(apiauth.NewService(apicfg.LayerConfig{})).Error().
-			To(MatchError(ContainSubstring("service: must be non-nil")))
+		Expect(apiauth.NewService(apiauth.ServiceConfig{})).Error().
+			To(MatchError(ContainSubstring("auth: must be non-nil")))
 	})
 })
 

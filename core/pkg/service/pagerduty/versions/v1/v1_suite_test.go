@@ -19,7 +19,7 @@ import (
 
 func TestPagerDutyV1(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service PagerDuty v1 Suite")
+	RunSpecs(t, "Service PagerDuty v1 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

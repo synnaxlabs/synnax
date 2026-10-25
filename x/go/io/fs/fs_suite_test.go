@@ -19,7 +19,7 @@ import (
 
 func TestFS(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "IO FS Suite")
+	RunSpecs(t, "IO FS Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

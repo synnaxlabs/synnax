@@ -124,7 +124,7 @@ export const use = ({
       resumedAtRef.current = resumedAt;
       if (holdRef.current != null) onHold?.(false);
     },
-    [onHold],
+    [onHold, holdRef],
   );
 
   const [, state, setState] = Aether.use({

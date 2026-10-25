@@ -58,6 +58,19 @@ TEST_F(IGHMasterTest, InitializeHappyPath) {
     EXPECT_EQ(slaves.size(), 1u);
 }
 
+/// @brief it should return the device check error when the Driver cannot open the
+/// device of the master.
+TEST_F(IGHMasterTest, InitializeDeviceCheckFails) {
+    this->add_default_slave();
+    this->mock_api->set_check_device_err(
+        x::errors::Error(
+            errors::PERMISSION_DENIED,
+            "permission denied opening /dev/EtherCAT0"
+        )
+    );
+    ASSERT_OCCURRED_AS(this->master_instance->initialize(), errors::PERMISSION_DENIED);
+}
+
 TEST_F(IGHMasterTest, InitializeRequestMasterFails) {
     this->mock_api->set_request_master_result(nullptr);
     ASSERT_OCCURRED_AS(this->master_instance->initialize(), errors::MASTER_INIT_ERROR);

@@ -97,14 +97,11 @@ export const SingleTrigger = <K extends record.Key>({
   const { startDrag, onDragEnd, ...dropProps } = Haul.useDragAndDrop({
     type: haulType,
     canDrop,
-    onDrop: Haul.useFilterByTypeCallback(
-      haulType,
-      ({ items }) => {
-        if (items.length !== 0) setSelected([items[0].key as K]);
-        return items;
-      },
-      [setSelected],
-    ),
+    onDrop: ({ items }) => {
+      const dropped = Haul.filterByType(haulType, items);
+      if (dropped.length !== 0) setSelected([dropped[0].key as K]);
+      return dropped;
+    },
   });
   // A drag copies the selection: a single select must keep its value. Only a key that
   // resolves to an entry drags, so an empty sentinel such as 0 never does.

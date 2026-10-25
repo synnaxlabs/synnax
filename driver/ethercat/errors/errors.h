@@ -24,6 +24,9 @@ const x::errors::Error MASTER_INIT_ERROR = BASE_ERROR.sub("master_init");
 const x::errors::Error NO_SLAVES_FOUND = MASTER_INIT_ERROR.sub("no_slaves_found");
 /// @brief error returned when the network interface cannot be opened.
 const x::errors::Error INTERFACE_ERROR = BASE_ERROR.sub("interface");
+/// @brief error returned when the Driver lacks permission to open the network
+/// interface or the IgH master device.
+const x::errors::Error PERMISSION_DENIED = INTERFACE_ERROR.sub("permission_denied");
 /// @brief error returned when slave configuration fails.
 const x::errors::Error SLAVE_CONFIG_ERROR = BASE_ERROR.sub("slave_config");
 /// @brief error returned when PDO mapping is invalid or fails.

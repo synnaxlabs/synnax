@@ -144,18 +144,16 @@ export const Indicator = ({
   const onDragStart = Cursor.useDrag({
     onStart: useCallback(() => {
       sizeRef.current = valueRef.current;
-    }, []),
+    }, [valueRef]),
     onMove: useCallback(
       (b: box.Box) => onChange(sizeRef.current + box.dim(b, dir, true), itemKey),
       [onChange, itemKey, dir],
     ),
   });
+  const dim = direction.dimension(dir);
   const style = useMemo(
-    () => ({
-      [direction.dimension(dir)]: value,
-      transform: transform(xy.construct(dir, shift)),
-    }),
-    [dir, value, shift],
+    () => ({ [dim]: value, transform: transform(xy.construct(dir, shift)) }),
+    [dim, dir, value, shift],
   );
   const label = dir === "x" ? getCellColumn(index) : index + 1;
   return (

@@ -19,7 +19,7 @@ import (
 
 func TestViewV1(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service View v1 Suite")
+	RunSpecs(t, "Service View v1 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

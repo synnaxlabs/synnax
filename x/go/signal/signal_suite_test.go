@@ -19,7 +19,7 @@ import (
 
 func TestSignal(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Signal Suite")
+	RunSpecs(t, "Signal Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

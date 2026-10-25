@@ -12,8 +12,6 @@ import { type FC, type ReactElement } from "react";
 
 import { type RenderProp, renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
-import { type ContextValue, useContext } from "@/form/Context";
-import { type FieldState } from "@/form/state";
 import { useField, type UseFieldOptions, type UseFieldReturn } from "@/form/useField";
 import { Input } from "@/input";
 import { Select } from "@/select";
@@ -30,8 +28,8 @@ export type FieldProps<I = string | number, O = I> = UseFieldOptions<I, O> &
     children?: RenderProp<FieldChild<I, O>>;
     /** Whether to hold room for help text, so the layout does not jump. */
     padHelpText?: boolean;
-    /** Hides the field when false, or when the predicate rejects its state. */
-    visible?: boolean | ((state: FieldState<I>, ctx: ContextValue) => boolean);
+    /** Hides the field when false. */
+    visible?: boolean;
   };
 
 const defaultInput = renderProp((p: Input.TextProps) => <Input.Text {...p} />);
@@ -55,13 +53,10 @@ export const Field = <I = string | number, O = I>({
   className,
   ...rest
 }: FieldProps<I, O>): ReactElement | null => {
-  // A field the caller has hidden outright may bind a path its config lacks.
-  const field = useField<I, O>(path, { onChange, optional: visible === false });
-  const ctx = useContext(undefined, `Field(${path})`);
-  if (field == null) return null;
-  label ??= caseconv.toSentence(deep.element(path, -1));
-  visible = typeof visible === "function" ? visible(field, ctx) : visible;
-  if (!visible) return null;
+  // A hidden field may bind a path its config lacks.
+  const field = useField<I, O>(path, { onChange, optional: !visible });
+  if (field == null || !visible) return null;
+  if (label == null) label = caseconv.toSentence(deep.element(path, -1));
   const helpText = field.status.message;
   const { onChange: fieldOnChange, value } = field;
   const childrenProps: FieldChild<I, O> = { onChange: fieldOnChange, value };

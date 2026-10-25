@@ -30,18 +30,18 @@ export interface SelectSingleProps
       "preview" | "triggerProps"
     > {}
 
-const listItemRenderProp = Component.renderProp(
-  (props: List.ItemRenderProps<rack.Key>) => {
-    const { itemKey } = props;
-    const item = List.useItem<rack.Key, rack.Rack>(itemKey);
-    return (
-      <Select.Item {...props} align="center" justify="between">
-        {item?.name}
-        <StatusIndicator status={item?.status} tooltipLocation="left" />
-      </Select.Item>
-    );
-  },
-);
+const ListItem = (props: List.ItemRenderProps<rack.Key>) => {
+  const { itemKey } = props;
+  const item = List.useItem<rack.Key, rack.Rack>(itemKey);
+  return (
+    <Select.Item {...props} align="center" justify="between">
+      {item?.name}
+      <StatusIndicator status={item?.status} tooltipLocation="left" />
+    </Select.Item>
+  );
+};
+
+const listItemRenderProp = Component.renderProp(ListItem);
 
 export const SelectSingle = ({
   filter,

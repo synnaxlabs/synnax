@@ -232,7 +232,7 @@ var _ = Describe("Factory", func() {
 					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
-				Expect(stat.Message).To(Equal("Task started successfully"))
+				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Details.Running).To(BeTrue())
 				Expect(tsk.Stop(true)).To(Succeed())
 			})
@@ -274,7 +274,8 @@ var _ = Describe("Factory", func() {
 						Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("error"))
-					Expect(stat.Message).To(ContainSubstring("routing_key"))
+					Expect(stat.Message).To(Equal("Failed to configure task"))
+					Expect(stat.Description).To(ContainSubstring("routing_key"))
 				},
 			)
 
@@ -296,7 +297,7 @@ var _ = Describe("Factory", func() {
 						Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("success"))
-					Expect(stat.Message).To(Equal("Task started successfully"))
+					Expect(stat.Message).To(Equal("Started task"))
 					Expect(stat.Details.Running).To(BeTrue())
 					Expect(tsk.Stop(true)).To(Succeed())
 				},
