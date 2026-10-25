@@ -58,6 +58,7 @@ var _ = Describe("TS Types Plugin", func() {
 			AddFilterSchema(loader)
 			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
 			ExpectContent(resp, "thing/types.gen.ts").ToContain(
+				"export type Where = {",
 				"and?: Where[];",
 				"or?: Where[];",
 				"not?: Where;",
@@ -991,7 +992,7 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`export interface Type {`))
+				Expect(content).To(ContainSubstring(`export type Type = {`))
 				Expect(
 					content,
 				).To(ContainSubstring(`export const typeZ: z.ZodType<Type> = z.object({`))
@@ -1022,7 +1023,7 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`export interface Node {`))
+				Expect(content).To(ContainSubstring(`export type Node = {`))
 				Expect(
 					content,
 				).To(ContainSubstring(`export const nodeZ: z.ZodType<Node> = z.object({`))
@@ -1050,8 +1051,8 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustGenerate(ctx, source, "cycle", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
-						`export interface A {`,
-						`export interface B {`,
+						`export type A = {`,
+						`export type B = {`,
 						`export const aZ: z.ZodType<A> = z.object({`,
 						`export const bZ: z.ZodType<B> = z.object({`,
 					).
@@ -1081,8 +1082,8 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustGenerate(ctx, source, "cycle", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
-						`export interface A {`,
-						`export interface B {`,
+						`export type A = {`,
+						`export type B = {`,
 						`export const aZ: z.ZodType<A> = z.object({`,
 						`export const bZ: z.ZodType<B> = z.object({`,
 					).
@@ -1115,7 +1116,7 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`export interface MosaicNode {`))
+				Expect(content).To(ContainSubstring(`export type MosaicNode = {`))
 				Expect(
 					content,
 				).To(ContainSubstring(`export const mosaicNodeZ: z.ZodType<MosaicNode> = z.object({`))

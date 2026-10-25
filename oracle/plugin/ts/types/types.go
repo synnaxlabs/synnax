@@ -3505,11 +3505,11 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{ formatDoc .TSName .Doc }}
 {{- end }}
 {{- if and .IsRecursive $.GenerateTypes }}
-export interface {{ .TSName }} {
+export type {{ .TSName }} = {
 {{- range .Fields }}
   {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
-}
+};
 export const {{ camelCase .TSName }}Z: z.ZodType<{{ .TSName }}> = z.object({
 {{- range .Fields }}
 {{- if .Doc }}
