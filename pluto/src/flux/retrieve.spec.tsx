@@ -26,6 +26,7 @@ import {
   type PropsWithChildren,
   type ReactElement,
   startTransition,
+  useRef,
   useState,
 } from "react";
 import { assert, beforeAll, describe, expect, it, vi } from "vitest";
@@ -382,8 +383,8 @@ describe("use", () => {
     ): Promise<Error[]> => {
       const Display = (): ReactElement => {
         const value = use({ key });
-        const format = () => `n=${value}`;
-        return <div data-testid="value">{format()}</div>;
+        useRef(null);
+        return <div data-testid="value">{`n=${value}`}</div>;
       };
       const Harness = (): ReactElement => {
         const [mounted, setMounted] = useState(false);
