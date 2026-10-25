@@ -24,16 +24,23 @@ import (
 )
 
 var _ = Describe("Options", func() {
-	It("Should reject a non-positive slow consumer timeout", func(ctx SpecContext) {
-		Expect(cesium.Open(
-			ctx,
-			"",
-			cesium.WithFS(fs.NewMem()),
+	DescribeTable(
+		"Should reject an invalid option",
+		func(ctx SpecContext, opt cesium.Option, message string) {
+			Expect(cesium.Open(ctx, "", cesium.WithFS(fs.NewMem()), opt)).Error().
+				To(MatchError(ContainSubstring(message)))
+		},
+		Entry(
+			"a non-positive slow consumer timeout",
 			cesium.WithSlowConsumerTimeout(0),
-		)).Error().To(MatchError(
-			ContainSubstring("slow_consumer_timeout: must be positive"),
-		))
-	})
+			"slow_consumer_timeout: must be positive",
+		),
+		Entry(
+			"a non-positive chunk size",
+			cesium.WithChunkSize(0),
+			"chunk_size: must be positive",
+		),
+	)
 })
 
 var _ = Describe("Open", func() {

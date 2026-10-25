@@ -1,11 +1,6 @@
 # The version stamped into the Driver; release builds override it.
 build --define=SYNNAX_DRIVER_VERSION=0.0.0
 
-# Bazel 9 enables --incompatible_strict_action_env by default, which restricts PATH to
-# /bin:/usr/bin:/usr/local/bin. Pass through the host PATH so tools like cmake
-# (installed via Homebrew at /opt/homebrew/bin) are available in genrules.
-build --action_env=PATH
-
 # Enable platform-specific configs
 build --enable_platform_specific_config
 
@@ -54,6 +49,9 @@ build:linux --copt=-Wno-error=deprecated-declarations
 build:linux --copt=-Wno-sign-compare
 
 # Windows (MSVC)
+# The Windows build bots run jobs as SYSTEM but install Rust for Administrator. The
+# wasmtime genrule finds cargo there only through the host PATH.
+build:windows --action_env=PATH
 # Note: MSVC uses /std:c++latest for C++23 features (not /std:c++23)
 build:windows --enable_runfiles
 build:windows --cxxopt=/std:c++latest
