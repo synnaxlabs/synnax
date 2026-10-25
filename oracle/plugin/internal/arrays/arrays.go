@@ -133,11 +133,13 @@ func IsNested(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	return IsArray(elemType, table)
 }
 
-// OptionalWrapperName derives the wrapper message name for an optional list
-// (e.g. "Label" -> "LabelList"), distinct from the nested-array "Wrapper"
-// suffix.
+// OptionalWrapperName derives the wrapper message name for an optional list in
+// namespace (e.g. "Label" -> "LabelList"), distinct from the nested-array "Wrapper"
+// suffix. An element from another namespace takes that namespace's name first, so
+// rack.Key is RackKeyList.
 func OptionalWrapperName(
 	typeRef resolution.TypeRef,
+	namespace string,
 	table *resolution.Table,
 ) string {
 	elemType, ok := ElementType(typeRef, table)
@@ -145,7 +147,11 @@ func OptionalWrapperName(
 		return "ListWrapper"
 	}
 	if resolved, ok := elemType.Resolve(table); ok {
-		return lo.PascalCase(resolved.Name) + "List"
+		name := lo.PascalCase(resolved.Name) + "List"
+		if resolved.Namespace == "" || resolved.Namespace == namespace {
+			return name
+		}
+		return lo.PascalCase(resolved.Namespace) + name
 	}
 	if resolution.IsPrimitive(elemType.Name) {
 		return cases.Title(language.English).String(elemType.Name) + "List"
