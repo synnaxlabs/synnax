@@ -153,14 +153,15 @@ func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) 
 	return w.delete(ctx, keys, allowInternal)
 }
 
-// DeleteManyByNames deletes the channels matching the given names. Unless allowInternal
-// is true, deleting any internal channel returns an error and no channels are deleted.
+// DeleteManyByNames deletes the channels whose names match any of the given patterns,
+// as MatchNamePatterns matches them. Unless allowInternal is true, deleting any internal
+// channel returns an error and no channels are deleted.
 func (w Writer) DeleteManyByNames(
 	ctx context.Context, names []string, allowInternal bool,
 ) error {
 	var res []Channel
 	if err := w.svc.newRetrieve().
-		Where(MatchNames(names...)).
+		Where(MatchNamePatterns(names...)).
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
 		return err

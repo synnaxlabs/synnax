@@ -200,6 +200,52 @@ func (x *Channel) GetStatus() *pb2.Status {
 	return nil
 }
 
+// RetrieveResponse holds the channels a RetrieveRequest selects.
+type RetrieveResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// channels are the channels the request selects.
+	Channels      []*Channel `protobuf:"bytes,1,rep,name=channels,proto3" json:"channels,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RetrieveResponse) Reset() {
+	*x = RetrieveResponse{}
+	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RetrieveResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RetrieveResponse) ProtoMessage() {}
+
+func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
+func (*RetrieveResponse) Descriptor() ([]byte, []int) {
+	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *RetrieveResponse) GetChannels() []*Channel {
+	if x != nil {
+		return x.Channels
+	}
+	return nil
+}
+
 var File_core_pkg_api_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
@@ -225,7 +271,9 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\vconcurrency\x18\f \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x126\n" +
 	"\x06status\x18\r \x01(\v2\x19.service.status.pb.StatusH\x01R\x06status\x88\x01\x01B\b\n" +
 	"\x06_aliasB\t\n" +
-	"\a_statusB\xad\x01\n" +
+	"\a_status\"G\n" +
+	"\x10RetrieveResponse\x123\n" +
+	"\bchannels\x18\x01 \x03(\v2\x17.api.channel.pb.ChannelR\bchannelsB\xad\x01\n" +
 	"\x12com.api.channel.pbB\fChannelProtoP\x01Z/github.com/synnaxlabs/synnax/pkg/api/channel/pb\xa2\x02\x03ACP\xaa\x02\x0eApi.Channel.Pb\xca\x02\x0eApi\\Channel\\Pb\xe2\x02\x1aApi\\Channel\\Pb\\GPBMetadata\xea\x02\x10Api::Channel::Pbb\x06proto3"
 
 var (
@@ -240,22 +288,24 @@ func file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP() []byte {
 	return file_core_pkg_api_channel_pb_channel_proto_rawDescData
 }
 
-var file_core_pkg_api_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_core_pkg_api_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_core_pkg_api_channel_pb_channel_proto_goTypes = []any{
-	(*Channel)(nil),      // 0: api.channel.pb.Channel
-	(*pb.Operation)(nil), // 1: service.channel.pb.Operation
-	(pb1.Concurrency)(0), // 2: x.control.pb.Concurrency
-	(*pb2.Status)(nil),   // 3: service.status.pb.Status
+	(*Channel)(nil),          // 0: api.channel.pb.Channel
+	(*RetrieveResponse)(nil), // 1: api.channel.pb.RetrieveResponse
+	(*pb.Operation)(nil),     // 2: service.channel.pb.Operation
+	(pb1.Concurrency)(0),     // 3: x.control.pb.Concurrency
+	(*pb2.Status)(nil),       // 4: service.status.pb.Status
 }
 var file_core_pkg_api_channel_pb_channel_proto_depIdxs = []int32{
-	1, // 0: api.channel.pb.Channel.operations:type_name -> service.channel.pb.Operation
-	2, // 1: api.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
-	3, // 2: api.channel.pb.Channel.status:type_name -> service.status.pb.Status
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	2, // 0: api.channel.pb.Channel.operations:type_name -> service.channel.pb.Operation
+	3, // 1: api.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
+	4, // 2: api.channel.pb.Channel.status:type_name -> service.status.pb.Status
+	0, // 3: api.channel.pb.RetrieveResponse.channels:type_name -> api.channel.pb.Channel
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_api_channel_pb_channel_proto_init() }
@@ -270,7 +320,7 @@ func file_core_pkg_api_channel_pb_channel_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_api_channel_pb_channel_proto_rawDesc), len(file_core_pkg_api_channel_pb_channel_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

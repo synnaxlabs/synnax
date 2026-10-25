@@ -123,6 +123,15 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
+// MatchNames returns a filter for
+// channels whose Name matches any of the
+// provided values.
+func MatchNames(vals ...Name) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
+		return r.indexes.name.Filter(vals...)
+	}
+}
+
 // MatchLeaseholders returns a filter for
 // channels whose Leaseholder matches any of the
 // provided values.

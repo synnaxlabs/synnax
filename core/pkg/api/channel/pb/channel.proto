@@ -59,3 +59,9 @@ message Channel {
   // status is the current operational status of the channel.
   optional .service.status.pb.Status status = 13;
 }
+
+// RetrieveResponse holds the channels a RetrieveRequest selects.
+message RetrieveResponse {
+  // channels are the channels the request selects.
+  repeated Channel channels = 1;
+}

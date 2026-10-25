@@ -17,6 +17,7 @@ package channel
 
 import (
 	pb "github.com/synnaxlabs/synnax/pkg/api/channel/pb"
+	pb1 "github.com/synnaxlabs/synnax/pkg/service/channel/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -130,10 +131,7 @@ func (x *CreateResponse) GetChannels() []*pb.Channel {
 
 type RetrieveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	NodeKey       uint32                 `protobuf:"varint,1,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
-	Keys          []uint32               `protobuf:"varint,2,rep,packed,name=keys,proto3" json:"keys,omitempty"`
-	Names         []string               `protobuf:"bytes,3,rep,name=names,proto3" json:"names,omitempty"`
-	Search        string                 `protobuf:"bytes,4,opt,name=search,proto3" json:"search,omitempty"`
+	Request       *pb1.RetrieveRequest   `protobuf:"bytes,5,opt,name=request,proto3" json:"request,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -168,32 +166,11 @@ func (*RetrieveRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_channel_channel_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *RetrieveRequest) GetNodeKey() uint32 {
+func (x *RetrieveRequest) GetRequest() *pb1.RetrieveRequest {
 	if x != nil {
-		return x.NodeKey
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetKeys() []uint32 {
-	if x != nil {
-		return x.Keys
+		return x.Request
 	}
 	return nil
-}
-
-func (x *RetrieveRequest) GetNames() []string {
-	if x != nil {
-		return x.Names
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetSearch() string {
-	if x != nil {
-		return x.Search
-	}
-	return ""
 }
 
 type RetrieveResponse struct {
@@ -304,17 +281,14 @@ var File_core_pkg_transport_grpc_channel_channel_proto protoreflect.FileDescript
 
 const file_core_pkg_transport_grpc_channel_channel_proto_rawDesc = "" +
 	"\n" +
-	"-core/pkg/transport/grpc/channel/channel.proto\x12\fgrpc.channel\x1a%core/pkg/api/channel/pb/channel.proto\x1a\x1bgoogle/protobuf/empty.proto\"{\n" +
+	"-core/pkg/transport/grpc/channel/channel.proto\x12\fgrpc.channel\x1a%core/pkg/api/channel/pb/channel.proto\x1a)core/pkg/service/channel/pb/channel.proto\x1a\x1bgoogle/protobuf/empty.proto\"{\n" +
 	"\rCreateRequest\x123\n" +
 	"\bchannels\x18\x01 \x03(\v2\x17.api.channel.pb.ChannelR\bchannels\x125\n" +
 	"\x17retrieve_if_name_exists\x18\x02 \x01(\bR\x14retrieveIfNameExists\"E\n" +
 	"\x0eCreateResponse\x123\n" +
-	"\bchannels\x18\x01 \x03(\v2\x17.api.channel.pb.ChannelR\bchannels\"n\n" +
-	"\x0fRetrieveRequest\x12\x19\n" +
-	"\bnode_key\x18\x01 \x01(\rR\anodeKey\x12\x12\n" +
-	"\x04keys\x18\x02 \x03(\rR\x04keys\x12\x14\n" +
-	"\x05names\x18\x03 \x03(\tR\x05names\x12\x16\n" +
-	"\x06search\x18\x04 \x01(\tR\x06search\"G\n" +
+	"\bchannels\x18\x01 \x03(\v2\x17.api.channel.pb.ChannelR\bchannels\"u\n" +
+	"\x0fRetrieveRequest\x12=\n" +
+	"\arequest\x18\x05 \x01(\v2#.service.channel.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\x05R\bnode_keyR\x04keysR\x05namesR\x06search\"G\n" +
 	"\x10RetrieveResponse\x123\n" +
 	"\bchannels\x18\x01 \x03(\v2\x17.api.channel.pb.ChannelR\bchannels\"`\n" +
 	"\rDeleteRequest\x12\x12\n" +
@@ -343,29 +317,31 @@ func file_core_pkg_transport_grpc_channel_channel_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_transport_grpc_channel_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_core_pkg_transport_grpc_channel_channel_proto_goTypes = []any{
-	(*CreateRequest)(nil),    // 0: grpc.channel.CreateRequest
-	(*CreateResponse)(nil),   // 1: grpc.channel.CreateResponse
-	(*RetrieveRequest)(nil),  // 2: grpc.channel.RetrieveRequest
-	(*RetrieveResponse)(nil), // 3: grpc.channel.RetrieveResponse
-	(*DeleteRequest)(nil),    // 4: grpc.channel.DeleteRequest
-	(*pb.Channel)(nil),       // 5: api.channel.pb.Channel
-	(*emptypb.Empty)(nil),    // 6: google.protobuf.Empty
+	(*CreateRequest)(nil),       // 0: grpc.channel.CreateRequest
+	(*CreateResponse)(nil),      // 1: grpc.channel.CreateResponse
+	(*RetrieveRequest)(nil),     // 2: grpc.channel.RetrieveRequest
+	(*RetrieveResponse)(nil),    // 3: grpc.channel.RetrieveResponse
+	(*DeleteRequest)(nil),       // 4: grpc.channel.DeleteRequest
+	(*pb.Channel)(nil),          // 5: api.channel.pb.Channel
+	(*pb1.RetrieveRequest)(nil), // 6: service.channel.pb.RetrieveRequest
+	(*emptypb.Empty)(nil),       // 7: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_channel_channel_proto_depIdxs = []int32{
 	5, // 0: grpc.channel.CreateRequest.channels:type_name -> api.channel.pb.Channel
 	5, // 1: grpc.channel.CreateResponse.channels:type_name -> api.channel.pb.Channel
-	5, // 2: grpc.channel.RetrieveResponse.channels:type_name -> api.channel.pb.Channel
-	0, // 3: grpc.channel.ChannelCreateService.Exec:input_type -> grpc.channel.CreateRequest
-	2, // 4: grpc.channel.ChannelRetrieveService.Exec:input_type -> grpc.channel.RetrieveRequest
-	4, // 5: grpc.channel.ChannelDeleteService.Exec:input_type -> grpc.channel.DeleteRequest
-	1, // 6: grpc.channel.ChannelCreateService.Exec:output_type -> grpc.channel.CreateResponse
-	3, // 7: grpc.channel.ChannelRetrieveService.Exec:output_type -> grpc.channel.RetrieveResponse
-	6, // 8: grpc.channel.ChannelDeleteService.Exec:output_type -> google.protobuf.Empty
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	6, // 2: grpc.channel.RetrieveRequest.request:type_name -> service.channel.pb.RetrieveRequest
+	5, // 3: grpc.channel.RetrieveResponse.channels:type_name -> api.channel.pb.Channel
+	0, // 4: grpc.channel.ChannelCreateService.Exec:input_type -> grpc.channel.CreateRequest
+	2, // 5: grpc.channel.ChannelRetrieveService.Exec:input_type -> grpc.channel.RetrieveRequest
+	4, // 6: grpc.channel.ChannelDeleteService.Exec:input_type -> grpc.channel.DeleteRequest
+	1, // 7: grpc.channel.ChannelCreateService.Exec:output_type -> grpc.channel.CreateResponse
+	3, // 8: grpc.channel.ChannelRetrieveService.Exec:output_type -> grpc.channel.RetrieveResponse
+	7, // 9: grpc.channel.ChannelDeleteService.Exec:output_type -> google.protobuf.Empty
+	7, // [7:10] is the sub-list for method output_type
+	4, // [4:7] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_channel_channel_proto_init() }

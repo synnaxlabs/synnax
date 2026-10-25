@@ -75,3 +75,19 @@ func (c Channel) Validate() error {
 	}
 	return v.Error()
 }
+
+// RetrieveResponse holds the channels a RetrieveRequest selects.
+type RetrieveResponse struct {
+	// Channels are the channels the request selects.
+	Channels []Channel `json:"channels" msgpack:"channels"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Channels {
+		v.Exec(func() error { return validate.PathedError(r.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}

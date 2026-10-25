@@ -12,6 +12,7 @@ syntax = "proto3";
 package grpc.channel;
 
 import "core/pkg/api/channel/pb/channel.proto";
+import "core/pkg/service/channel/pb/channel.proto";
 import "google/protobuf/empty.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/channel";
@@ -38,10 +39,9 @@ message CreateResponse {
 }
 
 message RetrieveRequest {
-  uint32 node_key = 1;
-  repeated uint32 keys = 2;
-  repeated string names = 3;
-  string search = 4;
+  reserved 1 to 4;
+  reserved "node_key", "keys", "names", "search";
+  service.channel.pb.RetrieveRequest request = 5;
 }
 
 message RetrieveResponse {

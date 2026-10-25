@@ -19,9 +19,11 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func createChannel(ctx SpecContext, dt telem.DataType) channel.Channel {
@@ -113,7 +115,10 @@ var _ = Describe("Service", func() {
 				GinkgoHelper()
 				return MustSucceed(apiSvc.Retrieve(
 					AuthedCtx(ctx, author),
-					apichannel.RetrieveRequest{Keys: keys, IncludeStatus: true},
+					apichannel.RetrieveRequest{
+						Where:         &apichannel.Where{Key: &filter.Set[channel.Key]{In: keys}},
+						IncludeStatus: new(true),
+					},
 				)).Channels
 			}
 
@@ -141,6 +146,37 @@ var _ = Describe("Service", func() {
 					Expect(res[1].Status).To(BeNil())
 				},
 			)
+		})
+
+		It("Should treat a missing key as a non-match", func(ctx SpecContext) {
+			grantOn(
+				ctx,
+				author.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				ontology.ID{Type: ontology.ResourceTypeChannel},
+			)
+			ch := createChannel(ctx, telem.Float32T)
+			res := MustSucceed(apiSvc.Retrieve(
+				AuthedCtx(ctx, author),
+				apichannel.RetrieveRequest{Where: &apichannel.Where{
+					Key: &filter.Set[channel.Key]{In: []channel.Key{ch.Key(), 999999}},
+				}},
+			))
+			Expect(res.Channels).To(HaveLen(1))
+			Expect(res.Channels[0].Key).To(Equal(ch.Key()))
+		})
+
+		It("Should return a path error for an invalid regex", func(ctx SpecContext) {
+			_, err := apiSvc.Retrieve(
+				AuthedCtx(ctx, author),
+				apichannel.RetrieveRequest{Where: &apichannel.Where{
+					Name: &filter.String{Regex: new("(a")},
+				}},
+			)
+			Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+			Expect(err).To(MatchError(ContainSubstring(
+				"where.name.regex: error parsing regexp: missing closing ): `(a`",
+			)))
 		})
 	})
 })

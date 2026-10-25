@@ -135,7 +135,7 @@ func (s *Service) Delete(
 		q = q.Where(channel.MatchKeys(req.Keys...))
 	}
 	if hasNames {
-		q = q.Where(channel.MatchNames(req.Names...))
+		q = q.Where(channel.MatchNamePatterns(req.Names...))
 	}
 	if err := q.Exec(ctx, tx); err != nil {
 		return struct{}{}, err

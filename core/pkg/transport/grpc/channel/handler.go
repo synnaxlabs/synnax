@@ -16,8 +16,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/channel/pb"
-	"github.com/synnaxlabs/synnax/pkg/service/node"
+	channelpb "github.com/synnaxlabs/synnax/pkg/service/channel/pb"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -119,24 +121,26 @@ func (retrieveRequestTranslator) Forward(
 	_ context.Context,
 	msg channel.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	return &RetrieveRequest{
-		NodeKey: uint32(msg.NodeKey),
-		Names:   msg.Names,
-		Search:  msg.SearchTerm,
-		Keys:    unsafe.ReinterpretSlice[channel.Key, uint32](msg.Keys),
-	}, nil
+	req, err := channelpb.RetrieveRequestToPB(msg)
+	if err != nil {
+		return nil, err
+	}
+	return &RetrieveRequest{Request: req}, nil
 }
 
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveRequest,
 ) (channel.RetrieveRequest, error) {
-	return channel.RetrieveRequest{
-		NodeKey:    node.Key(msg.NodeKey),
-		Names:      msg.Names,
-		SearchTerm: msg.Search,
-		Keys:       unsafe.ReinterpretSlice[uint32, channel.Key](msg.Keys),
-	}, nil
+	// A client older than the Core sends the reserved fields, which would otherwise
+	// select every channel.
+	if len(msg.ProtoReflect().GetUnknown()) > 0 {
+		return channel.RetrieveRequest{}, errors.Wrap(
+			validate.ErrValidation,
+			"retrieve request has unknown fields",
+		)
+	}
+	return channelpb.RetrieveRequestFromPB(msg.Request)
 }
 
 func (retrieveResponseTranslator) Forward(

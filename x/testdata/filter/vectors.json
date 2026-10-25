@@ -1407,5 +1407,260 @@
         "expected": []
       }
     ]
+  },
+  "channels": {
+    "records": {
+      "a": {
+        "key": 1048577,
+        "name": "pressure_1",
+        "leaseholder": 1,
+        "data_type": "float32",
+        "is_index": false,
+        "index": 1048578,
+        "virtual": false,
+        "internal": false,
+        "expression": ""
+      },
+      "b": {
+        "key": 1048578,
+        "name": "time_1",
+        "leaseholder": 1,
+        "data_type": "timestamp",
+        "is_index": true,
+        "index": 1048578,
+        "virtual": false,
+        "internal": false,
+        "expression": ""
+      },
+      "c": {
+        "key": 1048579,
+        "name": "pressure_x2",
+        "leaseholder": 1,
+        "data_type": "float32",
+        "is_index": false,
+        "index": 0,
+        "virtual": true,
+        "internal": false,
+        "expression": "return pressure_1 * 2"
+      },
+      "d": {
+        "key": 1048580,
+        "name": "valve_cmd",
+        "leaseholder": 1,
+        "data_type": "uint8",
+        "is_index": false,
+        "index": 0,
+        "virtual": true,
+        "internal": false,
+        "expression": ""
+      },
+      "e": {
+        "key": 2097153,
+        "name": "sy_node_2_metrics",
+        "leaseholder": 2,
+        "data_type": "float64",
+        "is_index": false,
+        "index": 2097154,
+        "virtual": false,
+        "internal": true,
+        "expression": ""
+      }
+    },
+    "cases": [
+      {
+        "name": "an empty where matches every channel",
+        "where": {},
+        "expected": ["a", "b", "c", "d", "e"]
+      },
+      {
+        "name": "key eq",
+        "where": {
+          "key": {
+            "eq": 1048577
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "key in skips a missing key",
+        "where": {
+          "key": {
+            "in": [1048577, 2097153, 99]
+          }
+        },
+        "expected": ["a", "e"]
+      },
+      {
+        "name": "an empty key in matches none",
+        "where": {
+          "key": {
+            "in": []
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "name eq",
+        "where": {
+          "name": {
+            "eq": "time_1"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "name eq matches a pattern literally",
+        "where": {
+          "name": {
+            "eq": "pressure_.*"
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "name in",
+        "where": {
+          "name": {
+            "in": ["pressure_1", "valve_cmd"]
+          }
+        },
+        "expected": ["a", "d"]
+      },
+      {
+        "name": "name regex",
+        "where": {
+          "name": {
+            "regex": "^pressure"
+          }
+        },
+        "expected": ["a", "c"],
+        "server_computed": true
+      },
+      {
+        "name": "leaseholder eq",
+        "where": {
+          "leaseholder": {
+            "eq": 2
+          }
+        },
+        "expected": ["e"]
+      },
+      {
+        "name": "leaseholder lt",
+        "where": {
+          "leaseholder": {
+            "lt": 2
+          }
+        },
+        "expected": ["a", "b", "c", "d"]
+      },
+      {
+        "name": "data_type in",
+        "where": {
+          "data_type": {
+            "in": ["float32"]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "not data_type in",
+        "where": {
+          "not": {
+            "data_type": {
+              "in": ["float32", "timestamp"]
+            }
+          }
+        },
+        "expected": ["d", "e"]
+      },
+      {
+        "name": "is_index eq",
+        "where": {
+          "is_index": {
+            "eq": true
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "internal eq",
+        "where": {
+          "internal": {
+            "eq": true
+          }
+        },
+        "expected": ["e"]
+      },
+      {
+        "name": "virtual leaves out calculated channels",
+        "where": {
+          "virtual": true
+        },
+        "expected": ["d"]
+      },
+      {
+        "name": "not virtual keeps calculated channels",
+        "where": {
+          "virtual": false
+        },
+        "expected": ["a", "b", "c", "e"]
+      },
+      {
+        "name": "and of data_type and virtual",
+        "where": {
+          "and": [
+            {
+              "data_type": {
+                "in": ["float32"]
+              }
+            },
+            {
+              "virtual": false
+            }
+          ]
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "or of name and internal",
+        "where": {
+          "or": [
+            {
+              "name": {
+                "eq": "time_1"
+              }
+            },
+            {
+              "internal": {
+                "eq": true
+              }
+            }
+          ]
+        },
+        "expected": ["b", "e"]
+      },
+      {
+        "name": "an empty and matches every channel",
+        "where": {
+          "and": []
+        },
+        "expected": ["a", "b", "c", "d", "e"]
+      },
+      {
+        "name": "an empty or matches none",
+        "where": {
+          "or": []
+        },
+        "expected": []
+      },
+      {
+        "name": "not of an empty where matches none",
+        "where": {
+          "not": {}
+        },
+        "expected": []
+      }
+    ]
   }
 }

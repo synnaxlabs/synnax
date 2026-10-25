@@ -19,6 +19,7 @@ package pb
 
 import (
 	pb "github.com/synnaxlabs/x/control/pb"
+	pb1 "github.com/synnaxlabs/x/filter/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -302,11 +303,600 @@ func (x *Channel) GetExpression() string {
 	return ""
 }
 
+type WhereList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []*Where               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WhereList) Reset() {
+	*x = WhereList{}
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WhereList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WhereList) ProtoMessage() {}
+
+func (x *WhereList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WhereList.ProtoReflect.Descriptor instead.
+func (*WhereList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *WhereList) GetValues() []*Where {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type KeyList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []uint32               `protobuf:"varint,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KeyList) Reset() {
+	*x = KeyList{}
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KeyList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KeyList) ProtoMessage() {}
+
+func (x *KeyList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KeyList.ProtoReflect.Descriptor instead.
+func (*KeyList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *KeyList) GetValues() []uint32 {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// KeySet selects keys and enum values. A value must match every operator that is set.
+type KeySet struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// eq matches a value equal to eq.
+	Eq *uint32 `protobuf:"varint,1,opt,name=eq,proto3,oneof" json:"eq,omitempty"`
+	// in matches a value equal to an element of in.
+	In            *KeyList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KeySet) Reset() {
+	*x = KeySet{}
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KeySet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KeySet) ProtoMessage() {}
+
+func (x *KeySet) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KeySet.ProtoReflect.Descriptor instead.
+func (*KeySet) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *KeySet) GetEq() uint32 {
+	if x != nil && x.Eq != nil {
+		return *x.Eq
+	}
+	return 0
+}
+
+func (x *KeySet) GetIn() *KeyList {
+	if x != nil {
+		return x.In
+	}
+	return nil
+}
+
+type NodeKeyList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []uint32               `protobuf:"varint,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NodeKeyList) Reset() {
+	*x = NodeKeyList{}
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NodeKeyList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NodeKeyList) ProtoMessage() {}
+
+func (x *NodeKeyList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NodeKeyList.ProtoReflect.Descriptor instead.
+func (*NodeKeyList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *NodeKeyList) GetValues() []uint32 {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// NodeKeyOrdered selects numbers and times. A value must match every operator that is
+// set.
+type NodeKeyOrdered struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// eq matches a value equal to eq.
+	Eq *uint32 `protobuf:"varint,1,opt,name=eq,proto3,oneof" json:"eq,omitempty"`
+	// in matches a value equal to an element of in.
+	In *NodeKeyList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
+	// gt matches a value greater than gt.
+	Gt *uint32 `protobuf:"varint,3,opt,name=gt,proto3,oneof" json:"gt,omitempty"`
+	// gte matches a value greater than or equal to gte.
+	Gte *uint32 `protobuf:"varint,4,opt,name=gte,proto3,oneof" json:"gte,omitempty"`
+	// lt matches a value less than lt.
+	Lt *uint32 `protobuf:"varint,5,opt,name=lt,proto3,oneof" json:"lt,omitempty"`
+	// lte matches a value less than or equal to lte.
+	Lte           *uint32 `protobuf:"varint,6,opt,name=lte,proto3,oneof" json:"lte,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NodeKeyOrdered) Reset() {
+	*x = NodeKeyOrdered{}
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NodeKeyOrdered) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NodeKeyOrdered) ProtoMessage() {}
+
+func (x *NodeKeyOrdered) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NodeKeyOrdered.ProtoReflect.Descriptor instead.
+func (*NodeKeyOrdered) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *NodeKeyOrdered) GetEq() uint32 {
+	if x != nil && x.Eq != nil {
+		return *x.Eq
+	}
+	return 0
+}
+
+func (x *NodeKeyOrdered) GetIn() *NodeKeyList {
+	if x != nil {
+		return x.In
+	}
+	return nil
+}
+
+func (x *NodeKeyOrdered) GetGt() uint32 {
+	if x != nil && x.Gt != nil {
+		return *x.Gt
+	}
+	return 0
+}
+
+func (x *NodeKeyOrdered) GetGte() uint32 {
+	if x != nil && x.Gte != nil {
+		return *x.Gte
+	}
+	return 0
+}
+
+func (x *NodeKeyOrdered) GetLt() uint32 {
+	if x != nil && x.Lt != nil {
+		return *x.Lt
+	}
+	return 0
+}
+
+func (x *NodeKeyOrdered) GetLte() uint32 {
+	if x != nil && x.Lte != nil {
+		return *x.Lte
+	}
+	return 0
+}
+
+type TelemDataTypeList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TelemDataTypeList) Reset() {
+	*x = TelemDataTypeList{}
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TelemDataTypeList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TelemDataTypeList) ProtoMessage() {}
+
+func (x *TelemDataTypeList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TelemDataTypeList.ProtoReflect.Descriptor instead.
+func (*TelemDataTypeList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *TelemDataTypeList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// TelemDataTypeSet selects keys and enum values. A value must match every operator that
+// is set.
+type TelemDataTypeSet struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// eq matches a value equal to eq.
+	Eq *string `protobuf:"bytes,1,opt,name=eq,proto3,oneof" json:"eq,omitempty"`
+	// in matches a value equal to an element of in.
+	In            *TelemDataTypeList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TelemDataTypeSet) Reset() {
+	*x = TelemDataTypeSet{}
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TelemDataTypeSet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TelemDataTypeSet) ProtoMessage() {}
+
+func (x *TelemDataTypeSet) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TelemDataTypeSet.ProtoReflect.Descriptor instead.
+func (*TelemDataTypeSet) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *TelemDataTypeSet) GetEq() string {
+	if x != nil && x.Eq != nil {
+		return *x.Eq
+	}
+	return ""
+}
+
+func (x *TelemDataTypeSet) GetIn() *TelemDataTypeList {
+	if x != nil {
+		return x.In
+	}
+	return nil
+}
+
+// Where is a filter that selects channels.
+type Where struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// and matches when every child matches.
+	And *WhereList `protobuf:"bytes,1,opt,name=and,proto3" json:"and,omitempty"`
+	// or matches when any child matches.
+	Or *WhereList `protobuf:"bytes,2,opt,name=or,proto3" json:"or,omitempty"`
+	// not matches when the child does not match.
+	Not *Where `protobuf:"bytes,3,opt,name=not,proto3,oneof" json:"not,omitempty"`
+	// key selects by key.
+	Key *KeySet `protobuf:"bytes,4,opt,name=key,proto3,oneof" json:"key,omitempty"`
+	// name selects by name.
+	Name *pb1.String `protobuf:"bytes,5,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	// leaseholder selects by leaseholder.
+	Leaseholder *NodeKeyOrdered `protobuf:"bytes,6,opt,name=leaseholder,proto3,oneof" json:"leaseholder,omitempty"`
+	// data_type selects by data_type.
+	DataType *TelemDataTypeSet `protobuf:"bytes,7,opt,name=data_type,json=dataType,proto3,oneof" json:"data_type,omitempty"`
+	// is_index selects by is_index.
+	IsIndex *pb1.Bool `protobuf:"bytes,8,opt,name=is_index,json=isIndex,proto3,oneof" json:"is_index,omitempty"`
+	// internal selects by internal.
+	Internal *pb1.Bool `protobuf:"bytes,9,opt,name=internal,proto3,oneof" json:"internal,omitempty"`
+	// virtual matches virtual channels that are not calculated, or every other channel
+	// when false.
+	Virtual       *bool `protobuf:"varint,10,opt,name=virtual,proto3,oneof" json:"virtual,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Where) Reset() {
+	*x = Where{}
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Where) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Where) ProtoMessage() {}
+
+func (x *Where) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Where.ProtoReflect.Descriptor instead.
+func (*Where) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *Where) GetAnd() *WhereList {
+	if x != nil {
+		return x.And
+	}
+	return nil
+}
+
+func (x *Where) GetOr() *WhereList {
+	if x != nil {
+		return x.Or
+	}
+	return nil
+}
+
+func (x *Where) GetNot() *Where {
+	if x != nil {
+		return x.Not
+	}
+	return nil
+}
+
+func (x *Where) GetKey() *KeySet {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+func (x *Where) GetName() *pb1.String {
+	if x != nil {
+		return x.Name
+	}
+	return nil
+}
+
+func (x *Where) GetLeaseholder() *NodeKeyOrdered {
+	if x != nil {
+		return x.Leaseholder
+	}
+	return nil
+}
+
+func (x *Where) GetDataType() *TelemDataTypeSet {
+	if x != nil {
+		return x.DataType
+	}
+	return nil
+}
+
+func (x *Where) GetIsIndex() *pb1.Bool {
+	if x != nil {
+		return x.IsIndex
+	}
+	return nil
+}
+
+func (x *Where) GetInternal() *pb1.Bool {
+	if x != nil {
+		return x.Internal
+	}
+	return nil
+}
+
+func (x *Where) GetVirtual() bool {
+	if x != nil && x.Virtual != nil {
+		return *x.Virtual
+	}
+	return false
+}
+
+// RetrieveRequest is a request to retrieve channels.
+type RetrieveRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// where selects the channels to retrieve. An absent where selects all of them.
+	Where *Where `protobuf:"bytes,1,opt,name=where,proto3,oneof" json:"where,omitempty"`
+	// search_term keeps the channels that match the term, closest match first.
+	SearchTerm *string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3,oneof" json:"search_term,omitempty"`
+	// limit is the most channels to return.
+	Limit *uint32 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	// offset is the number of matching channels to skip.
+	Offset *uint32 `protobuf:"varint,4,opt,name=offset,proto3,oneof" json:"offset,omitempty"`
+	// include_status includes the status of each record.
+	IncludeStatus *bool `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3,oneof" json:"include_status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RetrieveRequest) Reset() {
+	*x = RetrieveRequest{}
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RetrieveRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RetrieveRequest) ProtoMessage() {}
+
+func (x *RetrieveRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RetrieveRequest.ProtoReflect.Descriptor instead.
+func (*RetrieveRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *RetrieveRequest) GetWhere() *Where {
+	if x != nil {
+		return x.Where
+	}
+	return nil
+}
+
+func (x *RetrieveRequest) GetSearchTerm() string {
+	if x != nil && x.SearchTerm != nil {
+		return *x.SearchTerm
+	}
+	return ""
+}
+
+func (x *RetrieveRequest) GetLimit() uint32 {
+	if x != nil && x.Limit != nil {
+		return *x.Limit
+	}
+	return 0
+}
+
+func (x *RetrieveRequest) GetOffset() uint32 {
+	if x != nil && x.Offset != nil {
+		return *x.Offset
+	}
+	return 0
+}
+
+func (x *RetrieveRequest) GetIncludeStatus() bool {
+	if x != nil && x.IncludeStatus != nil {
+		return *x.IncludeStatus
+	}
+	return false
+}
+
 var File_core_pkg_service_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	")core/pkg/service/channel/pb/channel.proto\x12\x12service.channel.pb\x1a\x1dx/go/control/pb/control.proto\"\x83\x01\n" +
+	")core/pkg/service/channel/pb/channel.proto\x12\x12service.channel.pb\x1a\x1dx/go/control/pb/control.proto\x1a\x1bx/go/filter/pb/filter.proto\"\x83\x01\n" +
 	"\tOperation\x125\n" +
 	"\x04type\x18\x01 \x01(\x0e2!.service.channel.pb.OperationTypeR\x04type\x12#\n" +
 	"\rreset_channel\x18\x02 \x01(\rR\fresetChannel\x12\x1a\n" +
@@ -328,7 +918,69 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"operations\x12\x1e\n" +
 	"\n" +
 	"expression\x18\v \x01(\tR\n" +
-	"expression*\x8f\x01\n" +
+	"expression\">\n" +
+	"\tWhereList\x121\n" +
+	"\x06values\x18\x01 \x03(\v2\x19.service.channel.pb.WhereR\x06values\"!\n" +
+	"\aKeyList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\rR\x06values\"Q\n" +
+	"\x06KeySet\x12\x13\n" +
+	"\x02eq\x18\x01 \x01(\rH\x00R\x02eq\x88\x01\x01\x12+\n" +
+	"\x02in\x18\x02 \x01(\v2\x1b.service.channel.pb.KeyListR\x02inB\x05\n" +
+	"\x03_eq\"%\n" +
+	"\vNodeKeyList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\rR\x06values\"\xd3\x01\n" +
+	"\x0eNodeKeyOrdered\x12\x13\n" +
+	"\x02eq\x18\x01 \x01(\rH\x00R\x02eq\x88\x01\x01\x12/\n" +
+	"\x02in\x18\x02 \x01(\v2\x1f.service.channel.pb.NodeKeyListR\x02in\x12\x13\n" +
+	"\x02gt\x18\x03 \x01(\rH\x01R\x02gt\x88\x01\x01\x12\x15\n" +
+	"\x03gte\x18\x04 \x01(\rH\x02R\x03gte\x88\x01\x01\x12\x13\n" +
+	"\x02lt\x18\x05 \x01(\rH\x03R\x02lt\x88\x01\x01\x12\x15\n" +
+	"\x03lte\x18\x06 \x01(\rH\x04R\x03lte\x88\x01\x01B\x05\n" +
+	"\x03_eqB\x05\n" +
+	"\x03_gtB\x06\n" +
+	"\x04_gteB\x05\n" +
+	"\x03_ltB\x06\n" +
+	"\x04_lte\"+\n" +
+	"\x11TelemDataTypeList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"e\n" +
+	"\x10TelemDataTypeSet\x12\x13\n" +
+	"\x02eq\x18\x01 \x01(\tH\x00R\x02eq\x88\x01\x01\x125\n" +
+	"\x02in\x18\x02 \x01(\v2%.service.channel.pb.TelemDataTypeListR\x02inB\x05\n" +
+	"\x03_eq\"\xf0\x04\n" +
+	"\x05Where\x12/\n" +
+	"\x03and\x18\x01 \x01(\v2\x1d.service.channel.pb.WhereListR\x03and\x12-\n" +
+	"\x02or\x18\x02 \x01(\v2\x1d.service.channel.pb.WhereListR\x02or\x120\n" +
+	"\x03not\x18\x03 \x01(\v2\x19.service.channel.pb.WhereH\x00R\x03not\x88\x01\x01\x121\n" +
+	"\x03key\x18\x04 \x01(\v2\x1a.service.channel.pb.KeySetH\x01R\x03key\x88\x01\x01\x12,\n" +
+	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x12I\n" +
+	"\vleaseholder\x18\x06 \x01(\v2\".service.channel.pb.NodeKeyOrderedH\x03R\vleaseholder\x88\x01\x01\x12F\n" +
+	"\tdata_type\x18\a \x01(\v2$.service.channel.pb.TelemDataTypeSetH\x04R\bdataType\x88\x01\x01\x121\n" +
+	"\bis_index\x18\b \x01(\v2\x11.x.filter.pb.BoolH\x05R\aisIndex\x88\x01\x01\x122\n" +
+	"\binternal\x18\t \x01(\v2\x11.x.filter.pb.BoolH\x06R\binternal\x88\x01\x01\x12\x1d\n" +
+	"\avirtual\x18\n" +
+	" \x01(\bH\aR\avirtual\x88\x01\x01B\x06\n" +
+	"\x04_notB\x06\n" +
+	"\x04_keyB\a\n" +
+	"\x05_nameB\x0e\n" +
+	"\f_leaseholderB\f\n" +
+	"\n" +
+	"_data_typeB\v\n" +
+	"\t_is_indexB\v\n" +
+	"\t_internalB\n" +
+	"\n" +
+	"\b_virtual\"\x93\x02\n" +
+	"\x0fRetrieveRequest\x124\n" +
+	"\x05where\x18\x01 \x01(\v2\x19.service.channel.pb.WhereH\x00R\x05where\x88\x01\x01\x12$\n" +
+	"\vsearch_term\x18\x02 \x01(\tH\x01R\n" +
+	"searchTerm\x88\x01\x01\x12\x19\n" +
+	"\x05limit\x18\x03 \x01(\rH\x02R\x05limit\x88\x01\x01\x12\x1b\n" +
+	"\x06offset\x18\x04 \x01(\rH\x03R\x06offset\x88\x01\x01\x12*\n" +
+	"\x0einclude_status\x18\x05 \x01(\bH\x04R\rincludeStatus\x88\x01\x01B\b\n" +
+	"\x06_whereB\x0e\n" +
+	"\f_search_termB\b\n" +
+	"\x06_limitB\t\n" +
+	"\a_offsetB\x11\n" +
+	"\x0f_include_status*\x8f\x01\n" +
 	"\rOperationType\x12\x16\n" +
 	"\x12OPERATION_TYPE_MIN\x10\x00\x12\x16\n" +
 	"\x12OPERATION_TYPE_MAX\x10\x01\x12\x16\n" +
@@ -350,22 +1002,47 @@ func file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP() []byte {
 }
 
 var file_core_pkg_service_channel_pb_channel_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_core_pkg_service_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_core_pkg_service_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_core_pkg_service_channel_pb_channel_proto_goTypes = []any{
-	(OperationType)(0),  // 0: service.channel.pb.OperationType
-	(*Operation)(nil),   // 1: service.channel.pb.Operation
-	(*Channel)(nil),     // 2: service.channel.pb.Channel
-	(pb.Concurrency)(0), // 3: x.control.pb.Concurrency
+	(OperationType)(0),        // 0: service.channel.pb.OperationType
+	(*Operation)(nil),         // 1: service.channel.pb.Operation
+	(*Channel)(nil),           // 2: service.channel.pb.Channel
+	(*WhereList)(nil),         // 3: service.channel.pb.WhereList
+	(*KeyList)(nil),           // 4: service.channel.pb.KeyList
+	(*KeySet)(nil),            // 5: service.channel.pb.KeySet
+	(*NodeKeyList)(nil),       // 6: service.channel.pb.NodeKeyList
+	(*NodeKeyOrdered)(nil),    // 7: service.channel.pb.NodeKeyOrdered
+	(*TelemDataTypeList)(nil), // 8: service.channel.pb.TelemDataTypeList
+	(*TelemDataTypeSet)(nil),  // 9: service.channel.pb.TelemDataTypeSet
+	(*Where)(nil),             // 10: service.channel.pb.Where
+	(*RetrieveRequest)(nil),   // 11: service.channel.pb.RetrieveRequest
+	(pb.Concurrency)(0),       // 12: x.control.pb.Concurrency
+	(*pb1.String)(nil),        // 13: x.filter.pb.String
+	(*pb1.Bool)(nil),          // 14: x.filter.pb.Bool
 }
 var file_core_pkg_service_channel_pb_channel_proto_depIdxs = []int32{
-	0, // 0: service.channel.pb.Operation.type:type_name -> service.channel.pb.OperationType
-	3, // 1: service.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
-	1, // 2: service.channel.pb.Channel.operations:type_name -> service.channel.pb.Operation
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	0,  // 0: service.channel.pb.Operation.type:type_name -> service.channel.pb.OperationType
+	12, // 1: service.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
+	1,  // 2: service.channel.pb.Channel.operations:type_name -> service.channel.pb.Operation
+	10, // 3: service.channel.pb.WhereList.values:type_name -> service.channel.pb.Where
+	4,  // 4: service.channel.pb.KeySet.in:type_name -> service.channel.pb.KeyList
+	6,  // 5: service.channel.pb.NodeKeyOrdered.in:type_name -> service.channel.pb.NodeKeyList
+	8,  // 6: service.channel.pb.TelemDataTypeSet.in:type_name -> service.channel.pb.TelemDataTypeList
+	3,  // 7: service.channel.pb.Where.and:type_name -> service.channel.pb.WhereList
+	3,  // 8: service.channel.pb.Where.or:type_name -> service.channel.pb.WhereList
+	10, // 9: service.channel.pb.Where.not:type_name -> service.channel.pb.Where
+	5,  // 10: service.channel.pb.Where.key:type_name -> service.channel.pb.KeySet
+	13, // 11: service.channel.pb.Where.name:type_name -> x.filter.pb.String
+	7,  // 12: service.channel.pb.Where.leaseholder:type_name -> service.channel.pb.NodeKeyOrdered
+	9,  // 13: service.channel.pb.Where.data_type:type_name -> service.channel.pb.TelemDataTypeSet
+	14, // 14: service.channel.pb.Where.is_index:type_name -> x.filter.pb.Bool
+	14, // 15: service.channel.pb.Where.internal:type_name -> x.filter.pb.Bool
+	10, // 16: service.channel.pb.RetrieveRequest.where:type_name -> service.channel.pb.Where
+	17, // [17:17] is the sub-list for method output_type
+	17, // [17:17] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_channel_pb_channel_proto_init() }
@@ -373,13 +1050,18 @@ func file_core_pkg_service_channel_pb_channel_proto_init() {
 	if File_core_pkg_service_channel_pb_channel_proto != nil {
 		return
 	}
+	file_core_pkg_service_channel_pb_channel_proto_msgTypes[4].OneofWrappers = []any{}
+	file_core_pkg_service_channel_pb_channel_proto_msgTypes[6].OneofWrappers = []any{}
+	file_core_pkg_service_channel_pb_channel_proto_msgTypes[8].OneofWrappers = []any{}
+	file_core_pkg_service_channel_pb_channel_proto_msgTypes[9].OneofWrappers = []any{}
+	file_core_pkg_service_channel_pb_channel_proto_msgTypes[10].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_channel_pb_channel_proto_rawDesc), len(file_core_pkg_service_channel_pb_channel_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   2,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
