@@ -12,7 +12,6 @@ package writer
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -26,24 +25,41 @@ import (
 // freeWriteAlignments tracks a monotonically increasing alignment counter for each
 // free index channel, shared across every writer opened on the service.
 type freeWriteAlignments struct {
-	alignments map[channel.Key]*atomic.Uint32
-	mu         sync.Mutex
+	counters map[channel.Key]*cesium.AlignmentCounter
+	mu       sync.Mutex
 }
 
-func (f *freeWriteAlignments) increment(key channel.Key) telem.Alignment {
-	a := f.alignments[key]
-	if a == nil {
-		a = new(atomic.Uint32)
-		a.Store(cesium.ZeroLeadingAlignment)
-		f.alignments[key] = a
+// reserve returns the first alignment of a new domain for each index channel in
+// indexes.
+func (f *freeWriteAlignments) reserve(
+	indexes map[channel.Key]channel.Key,
+) (map[channel.Key]telem.Alignment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	alignments := make(map[channel.Key]telem.Alignment, len(indexes))
+	for _, idx := range indexes {
+		if _, ok := alignments[idx]; ok {
+			continue
+		}
+		c, ok := f.counters[idx]
+		if !ok {
+			c = cesium.NewAlignmentCounter()
+			f.counters[idx] = c
+		}
+		a, err := c.Next()
+		if err != nil {
+			return nil, err
+		}
+		alignments[idx] = a
 	}
-	return telem.NewAlignment(a.Add(1), 0)
+	return alignments, nil
 }
 
 func (s *Service) newFree(
 	mode Mode,
 	sync bool,
 	freeIndexes map[channel.Key]channel.Key,
+	alignments map[channel.Key]telem.Alignment,
 	group uint32,
 ) StreamWriter {
 	if freeIndexes == nil {
@@ -55,14 +71,7 @@ func (s *Service) newFree(
 		sync:       sync,
 		group:      group,
 		indexes:    freeIndexes,
-		alignments: make(map[channel.Key]telem.Alignment),
-	}
-	s.freeWriteAlignments.mu.Lock()
-	defer s.freeWriteAlignments.mu.Unlock()
-	for _, idx := range w.indexes {
-		if _, ok := w.alignments[idx]; !ok {
-			w.alignments[idx] = s.freeWriteAlignments.increment(idx)
-		}
+		alignments: alignments,
 	}
 	w.Transform = w.transform
 	return w

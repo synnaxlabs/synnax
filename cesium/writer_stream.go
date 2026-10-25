@@ -574,15 +574,19 @@ func (w *idxWriter) maxDataAuth() xcontrol.Authority {
 // directly. A group that does not anchors on the cursor covering its start timestamp,
 // resolved once, and offsets by the number of samples it has written since, so the
 // index is consulted once per writer rather than once per write.
-func (w *idxWriter) resolveAlignment() telem.Alignment {
+func (w *idxWriter) resolveAlignment() (telem.Alignment, error) {
 	if w.writingToIdx {
 		return w.idx.db.WriteCursor(w.start)
 	}
 	if !w.anchorSet {
-		w.anchor = w.idx.db.WriteCursor(w.start)
+		anchor, err := w.idx.db.WriteCursor(w.start)
+		if err != nil {
+			return 0, err
+		}
+		w.anchor = anchor
 		w.anchorSet = true
 	}
-	return w.anchor.AddSamples(uint32(w.sampleCount))
+	return w.anchor.AddSamples(uint32(w.sampleCount)), nil
 }
 
 func (w *idxWriter) write(
@@ -669,7 +673,9 @@ func (w *idxWriter) write(
 			continue
 		}
 		if !alignmentSet {
-			alignment = w.resolveAlignment()
+			if alignment, err = w.resolveAlignment(); err != nil {
+				return fr, err
+			}
 			alignmentSet = true
 		}
 		if _, err := uWriter.WriteAt(series, alignment); err != nil {

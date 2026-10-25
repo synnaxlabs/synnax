@@ -54,7 +54,7 @@ type DB struct {
 	controller       *control.Controller[*controlResource]
 	wrapError        func(error) error
 	closed           *atomic.Bool
-	leadingAlignment *atomic.Uint32
+	leadingAlignment *alignment.Counter
 	openWriters      *atomic.Int32
 	cfg              Config
 }
@@ -130,10 +130,9 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		controller:       c,
 		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
-		leadingAlignment: &atomic.Uint32{},
+		leadingAlignment: alignment.NewCounter(alignment.ZeroLeading),
 		openWriters:      &atomic.Int32{},
 	}
-	db.leadingAlignment.Store(alignment.ZeroLeading)
 	return db, nil
 }
 

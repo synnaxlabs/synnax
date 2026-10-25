@@ -210,15 +210,19 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 			Authority:             cfg.Authority,
 			Subject:               cfg.Subject,
 			OpenResource: func() (*controlledWriter, error) {
+				a, err := db.leadingAlignment.Next()
+				if err != nil {
+					return nil, err
+				}
 				cw := &controlledWriter{
 					channelKey: db.cfg.Channel.Key,
 					tracker:    db.resolver.newTracker(cfg.Start),
 				}
+				cw.storeAlignment(a)
 				domainCfg := cfg.domain()
 				domainCfg.OnRollover = cw.tracker.rollover
 				dw, err := db.domain.OpenWriter(ctx, domainCfg)
 				cw.Writer = dw
-				cw.storeAlignment(telem.NewAlignment(db.leadingAlignment.Add(1), 0))
 				return cw, err
 			},
 		},

@@ -25,6 +25,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
@@ -327,7 +328,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		cfg:    cfg,
 		server: startServer(cfg),
 		freeWriteAlignments: &freeWriteAlignments{
-			alignments: make(map[channel.Key]*atomic.Uint32),
+			counters: make(map[channel.Key]*cesium.AlignmentCounter),
 		},
 	}, nil
 }
@@ -397,9 +398,12 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		hasFree           = len(batch.Free) > 0
 	)
 
-	// Resolve free channel indexes before any pipeline resources are opened, so a
-	// resolution failure requires no cleanup.
-	var freeIndexes map[channel.Key]channel.Key
+	// Resolve free channel indexes and alignments before any pipeline resources are
+	// opened, so a failure requires no cleanup.
+	var (
+		freeIndexes    map[channel.Key]channel.Key
+		freeAlignments map[channel.Key]telem.Alignment
+	)
 	if hasFree {
 		rp := s.resolver.Load()
 		if rp == nil || *rp == nil {
@@ -411,6 +415,10 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 			return ka.key
 		})
 		if freeIndexes, err = (*rp).ResolveFreeIndexes(ctx, freeKeys); err != nil {
+			return nil, err
+		}
+		freeAlignments, err = s.freeWriteAlignments.reserve(freeIndexes)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -458,7 +466,13 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	if hasFree {
 		routeSequencerTo = freeWriterAddr
 		switchTargets = append(switchTargets, freeWriterAddr)
-		w := s.newFree(cfg.Mode, *cfg.Sync, freeIndexes, cfg.ControlSubject.Group)
+		w := s.newFree(
+			cfg.Mode,
+			*cfg.Sync,
+			freeIndexes,
+			freeAlignments,
+			cfg.ControlSubject.Group,
+		)
 		pipe.SetSegment(freeWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
 	}
