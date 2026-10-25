@@ -25,8 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -85,23 +83,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:        groupSvc,
 		Status:       statusSvc,
 	}))
-	rangerSvc := MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
-	}))
-	aliasSvc := MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
-		DB:              node.DB,
-		Ontology:        otg,
-		Channel:         channelSvc,
-		ParentRetriever: rangerSvc,
-	}))
 	apiSvc = MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
 		RBAC:    rbacSvc,
 		Channel: channelSvc,
-		Ranger:  rangerSvc,
-		Alias:   aliasSvc,
 		Status:  statusSvc,
 	}))
 	author = MustSucceed(

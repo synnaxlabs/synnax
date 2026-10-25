@@ -705,8 +705,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.Channel, err = channel.NewService(channel.ServiceConfig{
 		RBAC:    cfg.Service.RBAC,
 		Channel: cfg.Service.Channel,
-		Ranger:  cfg.Service.Ranger,
-		Alias:   cfg.Service.Alias,
 		Status:  cfg.Service.Status,
 	}); err != nil {
 		return nil, err

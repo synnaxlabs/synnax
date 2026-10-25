@@ -22,8 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -45,14 +43,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// Ranger stores and retrieves ranges.
-	//
-	// [REQUIRED]
-	Ranger *ranger.Service
-	// Alias stores and retrieves channel aliases on ranges.
-	//
-	// [REQUIRED]
-	Alias *alias.Service
 	// Status stores and retrieves statuses.
 	//
 	// [REQUIRED]
@@ -69,8 +59,6 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.Ranger = override.Nil(c.Ranger, other.Ranger)
-	c.Alias = override.Nil(c.Alias, other.Alias)
 	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
@@ -80,8 +68,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.channel")
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("channel", c.Channel)
-	v.NotNil("ranger", c.Ranger)
-	v.NotNil("alias", c.Alias)
 	v.NotNil("status", c.Status)
 	return v.Error()
 }
@@ -90,8 +76,6 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	access   *rbac.Service
 	internal *channel.Service
-	ranger   *ranger.Service
-	alias    *alias.Service
 	status   *status.Service
 }
 
@@ -103,8 +87,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		access:   cfg.RBAC,
 		internal: cfg.Channel,
-		ranger:   cfg.Ranger,
-		alias:    cfg.Alias,
 		status:   cfg.Status,
 	}, nil
 }
