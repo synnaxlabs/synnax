@@ -48,6 +48,7 @@ const (
 	missingType     = errorType + ".missing"
 	expiredType     = errorType + ".expired"
 	invalidType     = errorType + ".invalid"
+	editionType     = errorType + ".edition"
 	fingerprintType = errorType + ".fingerprint"
 	tooManyType     = errorType + ".too_many"
 )
@@ -65,6 +66,9 @@ func encode(_ context.Context, err error) (errors.Payload, bool) {
 	}
 	if errors.CheapIs(err, ErrInvalid) {
 		return errors.Payload{Type: invalidType, Data: err.Error()}, true
+	}
+	if errors.CheapIs(err, ErrEdition) {
+		return errors.Payload{Type: editionType, Data: err.Error()}, true
 	}
 	if errors.CheapIs(err, ErrFingerprint) {
 		return errors.Payload{Type: fingerprintType, Data: err.Error()}, true
@@ -86,6 +90,8 @@ func decode(_ context.Context, p errors.Payload) (error, bool) {
 		return errors.Wrap(ErrExpired, p.Data), true
 	case invalidType:
 		return errors.Wrap(ErrInvalid, p.Data), true
+	case editionType:
+		return errors.Wrap(ErrEdition, p.Data), true
 	case fingerprintType:
 		return errors.Wrap(ErrFingerprint, p.Data), true
 	case tooManyType:

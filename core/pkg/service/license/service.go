@@ -245,9 +245,9 @@ func (i Info) err() error {
 	return nil
 }
 
-// fits returns ErrFingerprint when lic is bound to other machines, ErrEdition when it
-// is a Desktop license and this Core is not loopback, and nil otherwise.
-func (s *Service) fits(lic License) error {
+// checkFit returns ErrFingerprint when lic is bound to other machines, and ErrEdition
+// when it is a Desktop license and this Core is not loopback.
+func (s *Service) checkFit(lic License) error {
 	if !s.fingerprint.Covers(lic.FingerprintScheme, lic.Fingerprints) {
 		return ErrFingerprint
 	}
@@ -266,7 +266,7 @@ func (s *Service) Activate(ctx context.Context, key string) (Info, error) {
 	if err != nil {
 		return Info{}, err
 	}
-	if err = s.fits(lic); err != nil {
+	if err = s.checkFit(lic); err != nil {
 		return Info{}, err
 	}
 	info := s.evaluate(lic)
@@ -382,7 +382,7 @@ func (s *Service) load(ctx context.Context) error {
 			)
 			continue
 		}
-		if err = s.fits(lic); err != nil {
+		if err = s.checkFit(lic); err != nil {
 			s.cfg.L.Warn(
 				"skipping a stored license key that does not fit this Core",
 				zap.Stringer("jti", lic.Jti),

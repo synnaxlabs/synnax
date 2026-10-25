@@ -85,7 +85,7 @@ var understood = set.New(
 	"required",
 )
 
-// numericFormat matches a key in the numeric format Cores before 0.60 accepted.
+// numericFormat matches an unsigned numeric license key.
 var numericFormat = regexp.MustCompile(`^\d{6}-\d{8}-\d{10}$`)
 
 // header is the JWS protected header of a license key.

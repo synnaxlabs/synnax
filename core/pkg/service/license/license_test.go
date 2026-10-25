@@ -59,7 +59,7 @@ func (p *pausedDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 	return iter, err
 }
 
-// numericKey is a key in the numeric format Cores before 0.60 accepted.
+// numericKey is an unsigned numeric license key.
 const numericKey = "885508-64317384-0400500005"
 
 func seconds(t time.Time) *uint32 { return new(uint32(t.Unix())) }
@@ -310,23 +310,23 @@ var _ = Describe("License", func() {
 				Expect(*info.License).To(Equal(lic))
 			},
 		)
-		It(
+		DescribeTable(
 			"should ignore and keep a numeric key an earlier Core stored",
-			func(ctx SpecContext) {
-				stored := [][]byte{
-					[]byte("bGljZW5zZUtleQ=="),
-					append([]byte("license/"), uuid.New().String()...),
-				}
-				for _, k := range stored {
-					Expect(db.Set(ctx, k, []byte(numericKey))).To(Succeed())
-				}
+			func(ctx SpecContext, key []byte) {
+				Expect(db.Set(ctx, key, []byte(numericKey))).To(Succeed())
 				Expect(open(ctx).Retrieve().State).To(Equal(license.StateMissing))
-				for _, k := range stored {
-					value, closer := MustSucceed2(db.Get(ctx, k))
-					Expect(string(value)).To(Equal(numericKey))
-					Expect(closer.Close()).To(Succeed())
-				}
+				value, closer := MustSucceed2(db.Get(ctx, key))
+				Expect(string(value)).To(Equal(numericKey))
+				Expect(closer.Close()).To(Succeed())
 			},
+			Entry(
+				"at the key Cores used before signed keys",
+				[]byte("bGljZW5zZUtleQ=="),
+			),
+			Entry(
+				"under the license prefix",
+				append([]byte("license/"), uuid.New().String()...),
+			),
 		)
 		It("should prefer a covering entry over an expired one", func(ctx SpecContext) {
 			expired := newLicense()
