@@ -136,8 +136,10 @@ sudo usermod -aG synnax $USER
   Hz and 10 kHz. For example, read tasks at 250 Hz and 1 kHz make the bus cycle at 1
   kHz.
 - **Outputs** -> Each output holds the last value a write task commanded. When a write
-  task stops, its outputs go to their stop values and hold them until another write task
-  commands them.
+  task stops, its outputs go to their stop values and hold them while the bus runs. When
+  the bus stops, or the Driver loses contact with a device, the device sets its outputs
+  to its own safe value. When the bus starts, each output is 0 until a write task
+  commands it.
 - **Lost devices** -> When a device stops responding, the bus continues to cycle and the
   Driver returns the device to operation when it responds again. Until then, every read
   task on the network drops samples and shows a warning.

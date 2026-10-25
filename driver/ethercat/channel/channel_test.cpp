@@ -474,8 +474,8 @@ TEST(Output, ReportsADataTypeWiderThanTheEntry) {
     ASSERT_EQ(ch->index, 0);
 }
 
-/// @brief it should reject an int64 stop value of 2^53 or more, which a double may
-/// have rounded.
+/// @brief it should reject an int64 stop value of 2^53 or more, which a double may have
+/// rounded.
 TEST(Output, ReportsAnInt64StopValueThatADoubleRounds) {
     auto j = write_entry(0x7000, 1, "int64");
     j["stop_value"] = 9007199254740993;
