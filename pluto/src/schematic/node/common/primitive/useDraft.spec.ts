@@ -40,6 +40,28 @@ describe("Primitive.useDraft", () => {
     expect(result.current).toMatchObject({ value: 3, dirty: false });
   });
 
+  it("should follow the target after an edit back to it", () => {
+    const { result, rerender } = setup(3);
+    act(() => result.current.edit(5));
+    act(() => result.current.edit(3));
+    rerender({ target: 4 });
+    expect(result.current).toMatchObject({ value: 4, dirty: false });
+  });
+
+  it("should follow the target after it reaches an unsent edit", () => {
+    const { result, rerender } = setup(3);
+    act(() => result.current.edit(5));
+    rerender({ target: 5 });
+    rerender({ target: 6 });
+    expect(result.current).toMatchObject({ value: 6, dirty: false });
+  });
+
+  it("should keep an edit that matches the target over a pending send", () => {
+    const { result } = sendFive(3);
+    act(() => result.current.edit(3));
+    expect(result.current.value).toBe(3);
+  });
+
   it("should keep a sent value until the target reports it", () => {
     const { result, rerender } = sendFive(3);
     expect(result.current).toMatchObject({ value: 5, dirty: true });

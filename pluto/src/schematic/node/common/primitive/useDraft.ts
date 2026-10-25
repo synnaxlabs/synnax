@@ -15,7 +15,10 @@ export interface Draft<V> {
   value: V | null;
   /** dirty is true while the field shows a value the target does not report. */
   dirty: boolean;
-  /** edit stages a value for the field to show. Null discards the edit. */
+  /**
+   * edit stages a value for the field to show. Null, or the value the field shows
+   * without an edit, discards the edit.
+   */
   edit: (value: V | null) => void;
   /**
    * send marks the shown value as sent. The field keeps showing it until the target
@@ -43,7 +46,10 @@ export const useDraft = <V>(target: V | null): Draft<V> => {
   // React retry before it commits.
   const settled = sent != null && (target !== sent.target || target === sent.value);
   if (settled) setSent(null);
-  const value = edited ?? (settled ? null : sent?.value) ?? target;
+  const base = (settled ? null : sent?.value) ?? target;
+  // An edit that matches the base is dropped, so the field keeps following the target.
+  if (edited != null && edited === base) setEdited(null);
+  const value = edited ?? base;
   return {
     value,
     dirty: value !== target,
