@@ -271,6 +271,11 @@ var (
 			Kind:   protocol.CompletionItemKindValue,
 			Detail: protocol.NewOptional("Omit a field from JSON and msgpack"),
 		},
+		protocol.CompletionItem{
+			Label:  "to_any",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Generate ToAny on a generic struct"),
+		},
 	)
 
 	ontologyExpressionCompletions = []protocol.CompletionItem{

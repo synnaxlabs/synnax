@@ -62,7 +62,7 @@ When a device is discovered, Synnax stores the following properties:
 | Property       | Type    | Description                                                               |
 | -------------- | ------- | ------------------------------------------------------------------------- |
 | `name`         | string  | Human-readable device name from ESI file                                  |
-| `serial`       | string  | Unique device serial number                                               |
+| `serial`       | number  | Unique device serial number                                               |
 | `vendor_id`    | number  | EtherCAT vendor ID                                                        |
 | `product_code` | number  | Device model/product identifier                                           |
 | `revision`     | number  | Hardware/firmware revision number                                         |
@@ -258,7 +258,7 @@ import synnax as sy
 client = sy.Synnax()
 
 # Retrieve every EtherCAT device
-ethercat_devices = client.devices.retrieve(makes=["EtherCAT"])
+ethercat_devices = client.devices.retrieve(makes=["ethercat"])
 
 for dev in ethercat_devices:
     print(f"Device: {dev.name}")
@@ -297,7 +297,7 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve every EtherCAT device
-const ethercatDevices = await client.devices.retrieve({ makes: ["EtherCAT"] });
+const ethercatDevices = await client.devices.retrieve({ makes: ["ethercat"] });
 
 for (const dev of ethercatDevices) {
   console.log(`Device: ${dev.name}`);
