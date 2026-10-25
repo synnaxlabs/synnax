@@ -9,19 +9,17 @@ description:
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@/components/note";
-import { Image, Video } from "@/components/media/Media";
-import { Diagram } from "@/components/diagram";
+import { Video } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
+<Hero.Hero still="schematics" layout="bleed" tone="deep" palette="violet-pink" />
+
 A schematic draws your system with symbols for tanks, valves, pumps, and sensors. Each
 symbol can show the latest value of a channel, and an operator can click a valve or a
 button to command hardware. Use a schematic as the operator view of a test stand.
-
-<Diagram.Diagram preview>
-  <Image id="console/schematics/overview" />
-</Diagram.Diagram>
 
 To try one, download the
 [example schematic](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/control/tpc/schematic.json)

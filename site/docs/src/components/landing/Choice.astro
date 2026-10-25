@@ -32,7 +32,13 @@ const { title, description, action, href, primary = false } = Astro.props;
     <Text.Text level="p" color={8} className="docs-choice__description">
         {description}
     </Text.Text>
-    <Button.Button href={href} variant={primary ? "filled" : "outlined"} size="large">
+    <Button.Button
+        href={href}
+        variant={primary ? "filled" : "outlined"}
+        size="large"
+        level="p"
+        weight={500}
+    >
         <slot name="action-icon" />
         {action}
     </Button.Button>

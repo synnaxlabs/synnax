@@ -1,0 +1,227 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import ALARMS from "@/components/hero/stills/alarms.json";
+import ARC from "@/components/hero/stills/arc.json";
+import ARC_GRAPH_EDITOR from "@/components/hero/stills/arc-graph-editor.json";
+import HARDWARE from "@/components/hero/stills/hardware.json";
+import LINE_PLOTS from "@/components/hero/stills/line-plots.json";
+import LOGS from "@/components/hero/stills/logs.json";
+import PROJECTS from "@/components/hero/stills/projects.json";
+import RANGES from "@/components/hero/stills/ranges.json";
+import SCHEMATICS from "@/components/hero/stills/schematics.json";
+import TABLES from "@/components/hero/stills/tables.json";
+import VISUALIZE from "@/components/hero/stills/visualize.json";
+import { Image } from "@/components/media/Media";
+
+/** The Studio still of each hero, with the version and regions Studio recorded. */
+const STILLS = {
+    alarms: { id: "console/alarms/hero", ...ALARMS },
+    arc: { id: "control/arc/hero", ...ARC },
+    "arc-graph-editor": { id: "control/arc/graph-editor/hero", ...ARC_GRAPH_EDITOR },
+    hardware: { id: "hardware/hero", ...HARDWARE },
+    "line-plots": { id: "console/line-plots/hero", ...LINE_PLOTS },
+    logs: { id: "console/logs/hero", ...LOGS },
+    projects: { id: "console/projects/hero", ...PROJECTS },
+    ranges: { id: "console/ranges/hero", ...RANGES },
+    schematics: { id: "console/schematics/hero", ...SCHEMATICS },
+    tables: { id: "console/tables/hero", ...TABLES },
+    visualize: { id: "console/visualize/hero", ...VISUALIZE },
+};
+
+interface Rect {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+const PALETTES = {
+    "blue-violet": ["#3774d0", "#a855f7"],
+    "violet-pink": ["#7c3aed", "#ff007b"],
+    "pink-orange": ["#ff007b", "#ff9b42"],
+    "teal-blue": ["#0fa3a3", "#3774d0"],
+    "blue-pink": ["#3774d0", "#ff007b"],
+    "orange-yellow": ["#ff9b42", "#f4ca25"],
+    "violet-blue": ["#a855f7", "#3774d0"],
+    "green-blue": ["#50c878", "#3774d0"],
+    "red-orange": ["#f5242e", "#ff9b42"],
+    "green-teal": ["#50c878", "#0fa3a3"],
+    "teal-violet": ["#0fa3a3", "#a855f7"],
+} as const;
+
+export interface Props {
+    /** The Studio still of the Console window, by docs page. */
+    still: keyof typeof STILLS;
+    /**
+     * Where the window sits on the gradient. `bleed` runs it off the right and bottom
+     * edges. `layered` dims that window and lifts its bottom toolbar out in front.
+     * `centered` runs it off the bottom edge only.
+     */
+    layout: "bleed" | "layered" | "centered";
+    /**
+     * `soft` is a muted diagonal between the two colors. `deep` glows them from
+     * opposite corners of a dark base.
+     */
+    tone: "soft" | "deep";
+    /** The two colors of the gradient. */
+    palette: keyof typeof PALETTES;
+}
+
+const { still, layout, tone, palette } = Astro.props;
+const [from, to] = PALETTES[palette];
+const { id, version, stills } = STILLS[still];
+const image = `${id}/${version}/window`;
+const regions: Partial<Record<string, Rect>> = stills.window;
+const { toolbar } = regions;
+if (layout === "layered" && toolbar == null)
+    throw new Error(`the ${still} still records no toolbar for the layered layout`);
+const style = [
+    `--from: ${from}`,
+    `--to: ${to}`,
+    ...(toolbar != null
+        ? [
+              `--toolbar-x: ${toolbar.x}`,
+              `--toolbar-y: ${toolbar.y}`,
+              `--toolbar-width: ${toolbar.width}`,
+              `--toolbar-height: ${toolbar.height}`,
+          ]
+        : []),
+].join("; ");
+---
+
+<div class:list={["docs-hero", layout, tone]} style={style}>
+    <div class="window">
+        <Image id={image} extension="webp" loading="eager" />
+    </div>
+    {layout === "layered" && (
+        <div class="toolbar">
+            <Image id={image} extension="webp" loading="eager" />
+        </div>
+    )}
+</div>
+
+<style>
+    .docs-hero {
+        position: relative;
+        overflow: hidden;
+        container-type: inline-size;
+        aspect-ratio: 16 / 10;
+        margin: 5rem 0 var(--docs-block-gap);
+        border-radius: 2rem;
+        box-shadow: inset 0 0 0 1px rgb(255 255 255 / 8%);
+
+        @media (width > 1100px) {
+            width: calc(100% + 10rem);
+            margin-inline: -5rem;
+        }
+
+        /* Sizes are in CSS pixels at the 792 px desktop width, and scale with it. */
+        & > * {
+            --px: calc(100cqw / 792);
+        }
+    }
+
+    /* Turns `from` back and `to` forward in hue and lightens `to`, which keeps the two
+       colors apart at half strength when `to` follows `from` on the hue wheel. */
+    .soft {
+        --a: oklch(from var(--from) l c calc(h - 18));
+        --b: oklch(from var(--to) l c calc(h + 18));
+
+        background:
+            radial-gradient(90% 70% at 0% 0%, rgb(255 255 255 / 4%), transparent 60%),
+            linear-gradient(
+                135deg in oklab,
+                color-mix(in oklab, var(--a) 52%, #2c3044),
+                color-mix(in oklab, var(--b) 52%, #6b7089)
+            );
+    }
+
+    .deep {
+        background:
+            radial-gradient(
+                75% 95% at 0% 0%,
+                color-mix(in oklab, var(--from) 85%, transparent),
+                transparent 70%
+            ),
+            radial-gradient(
+                70% 90% at 100% 100%,
+                color-mix(in oklab, var(--to) 65%, transparent),
+                transparent 70%
+            ),
+            #282c41;
+    }
+
+    .window,
+    .toolbar {
+        position: absolute;
+        overflow: hidden;
+
+        & :global(img) {
+            display: block;
+            width: 100%;
+            height: auto;
+            margin: 0;
+            border-radius: 0;
+        }
+    }
+
+    .window {
+        /* A 12 px corner at full size, scaled with the window. */
+        border-radius: calc(12 * var(--scale) * var(--px));
+        box-shadow:
+            0 0 0 1px rgb(255 255 255 / 18%),
+            0 24px 56px -20px rgb(10 12 40 / 40%);
+    }
+
+    :is(.bleed, .layered) .window {
+        --scale: 0.75;
+
+        top: calc(50 * var(--px));
+        left: calc(56 * var(--px));
+        width: calc(960 * var(--px));
+    }
+
+    .layered .window::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: rgb(0 0 0 / 28%);
+    }
+
+    /* The toolbar's box in the still, shown at full size. */
+    .toolbar {
+        top: calc(276 * var(--px));
+        left: calc(150 * var(--px));
+        width: calc(var(--toolbar-width) * var(--px));
+        height: calc(var(--toolbar-height) * var(--px));
+        border-radius: calc(10 * var(--px));
+        box-shadow: 0 40px 80px -24px rgb(0 0 20 / 75%);
+
+        & :global(img) {
+            width: calc(1280 * var(--px));
+            margin-top: calc(var(--toolbar-y) * -1 * var(--px));
+            margin-left: calc(var(--toolbar-x) * -1 * var(--px));
+        }
+    }
+
+    .centered .window {
+        --scale: 0.62;
+
+        top: calc(54 * var(--px));
+        left: calc(72 * var(--px));
+        width: calc(648 * var(--px));
+        height: 100%;
+
+        & :global(img) {
+            width: calc(794 * var(--px));
+        }
+    }
+</style>

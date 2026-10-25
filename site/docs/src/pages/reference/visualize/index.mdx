@@ -7,6 +7,7 @@ description: "Learn what each visualization shows and which one to use."
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Diagram } from "@/components/diagram";
+import { Hero } from "@/components/hero";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 export const hierarchy = {
@@ -43,6 +44,8 @@ export const hierarchy = {
     },
   ],
 };
+
+<Hero.Hero still="visualize" layout="bleed" tone="deep" palette="blue-pink" />
 
 The Synnax Console shows your channel data in four kinds of visualizations: line plots,
 schematics, tables, and logs. Each visualization opens in a tab. You arrange tabs in

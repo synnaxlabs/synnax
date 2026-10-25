@@ -7,8 +7,11 @@ description: "Learn how statuses, redlines, Arc, and PagerDuty work together as 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Diagram } from "@/components/diagram";
+import { Hero } from "@/components/hero";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
+
+<Hero.Hero still="alarms" layout="centered" tone="soft" palette="red-orange" />
 
 An alarm tells an operator that a value is outside its limits, or that a part of the
 system has a problem. In Synnax, an alarm is a [status](/reference/alarms/statuses): a

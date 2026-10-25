@@ -6,16 +6,16 @@ description: "Learn what Arc is, what it is for, where it runs, and when to use 
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Edition } from "@/components/edition";
-import { Image } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
+
+<Hero.Hero still="arc" layout="centered" tone="deep" palette="violet-blue" />
 
 Arc is the Synnax language for automations. An Arc automation reads channels, computes
 values, and writes channels. It runs on the Synnax Core or on a Driver, where the data
 arrives, so its timing does not depend on your computer or the network. You write Arc in
 the Console, as text or as a graph of blocks.
-
-<Image id="control/arc/overview" alt="An Arc automation in the Console text editor" />
 
 <Divider.Divider x />
 

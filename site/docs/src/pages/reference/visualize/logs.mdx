@@ -6,11 +6,13 @@ description: "Follow the values of channels as lines of text while they arrive."
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Image, Video } from "@/components/media/Media";
-import { Diagram } from "@/components/diagram";
+import { Video } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
+
+<Hero.Hero still="logs" layout="centered" tone="soft" palette="teal-blue" />
 
 A log shows each new value of its channels as one line of text. Use a log to follow
 operator notes, the states of an automation, and slow sensors. A log can show channels
@@ -18,10 +20,6 @@ of any data type, including text and JSON.
 
 A log shows only values that arrive while it is open. It does not read stored data. To
 see stored data, use a [line plot](/reference/visualize/line-plots).
-
-<Diagram.Diagram preview>
-  <Image id="console/logs/overview" />
-</Diagram.Diagram>
 
 <Divider.Divider x />
 

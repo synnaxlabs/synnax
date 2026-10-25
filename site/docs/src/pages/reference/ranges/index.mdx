@@ -7,9 +7,11 @@ description: "Learn how ranges organize your data into tests, runs, and events."
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@/components/note";
-import { Image } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
+
+<Hero.Hero still="ranges" layout="bleed" tone="soft" palette="orange-yellow" />
 
 A range is a named time interval that marks an important event in your data.
 [Channels](/reference/channels) group samples by their source. Ranges group samples by
@@ -21,8 +23,6 @@ range covers the data of every channel in its time interval.
 <Note.Note variant="info">
   The interval includes its start and excludes its end.
 </Note.Note>
-
-<Image id="console/ranges/annotations" />
 
 <Divider.Divider x />
 

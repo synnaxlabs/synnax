@@ -6,19 +6,17 @@ description: "Show the latest values of many channels in a grid of cells with la
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Image, Video } from "@/components/media/Media";
-import { Diagram } from "@/components/diagram";
+import { Video } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
+<Hero.Hero still="tables" layout="centered" tone="soft" palette="pink-orange" />
+
 A table shows the latest values of channels in a grid of cells. A text cell holds a
 fixed label, and a value cell shows the latest value of one channel. Use a table to
 watch many values at once, such as every temperature on a test stand.
-
-<Diagram.Diagram preview>
-  <Image id="console/tables/overview" />
-</Diagram.Diagram>
 
 <Divider.Divider x />
 
