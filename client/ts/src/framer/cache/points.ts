@@ -22,7 +22,7 @@ import {
   type Window,
 } from "@synnaxlabs/x";
 
-import { channel } from "@/channel";
+import { type channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { type Block, type RawBlock, rawIndex } from "@/framer/cache/block";
@@ -37,7 +37,7 @@ import {
   READ_FAILED,
   SUCCESS,
 } from "@/framer/cache/status";
-import { type Store } from "@/framer/cache/store";
+import { calculated, type Store } from "@/framer/cache/store";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
 import {
   isCut,
@@ -231,7 +231,7 @@ export class Points {
       const [payload] = await this.props.retrieveChannels([this.key]);
       if (generation !== this.generation) return;
       if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
-      if (payload.virtual && !channel.isCalculated(payload))
+      if (payload.virtual && !calculated(payload))
         throw new ValidationError(
           `virtual channel ${payload.name} has no samples to draw`,
         );

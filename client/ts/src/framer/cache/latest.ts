@@ -19,7 +19,7 @@ import {
   type Window,
 } from "@synnaxlabs/x";
 
-import { channel } from "@/channel";
+import { type channel } from "@/channel";
 import { NotFoundError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { domainOf } from "@/framer/cache/block";
@@ -30,6 +30,7 @@ import {
   READ_FAILED,
   SUCCESS,
 } from "@/framer/cache/status";
+import { calculated } from "@/framer/cache/store";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
 import { type Snapshot } from "@/framer/subscription";
 import { status } from "@/status";
@@ -150,7 +151,7 @@ export class Latest {
         const [payload] = await retrieveChannels([this.key]);
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
         let read: Series[] = [];
-        if (!payload.virtual || channel.isCalculated(payload)) {
+        if (!payload.virtual || calculated(payload)) {
           await streamer.waitAcked([this.key], signal);
           if (generation !== this.generation) return;
           const tr =

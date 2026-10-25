@@ -77,6 +77,13 @@ interface Live {
 export type InvalidateHandler = (ch: channel.Key | null, tr: TimeRange) => void;
 
 /**
+ * @returns true when a calculation writes the channel's samples. It writes a calculated
+ * channel and the virtual index of one.
+ */
+export const calculated = (p: channel.Payload): boolean =>
+  channel.isCalculated(p) || (p.virtual && p.isIndex);
+
+/**
  * Caches blocks of channel samples under one byte budget. The least recently used block
  * leaves first. Every block of a channel holds one data type. Streamed samples go into
  * the raw block of their time, which stays open until the stream moves past it.
@@ -193,7 +200,7 @@ export class Store {
 
   /** Records the channel, which decides whether history signals name it. */
   setChannel(p: channel.Payload): void {
-    if (channel.isCalculated(p)) this.calculated.add(p.key);
+    if (calculated(p)) this.calculated.add(p.key);
     else this.calculated.delete(p.key);
     if (p.virtual) this.leaseholders.delete(p.key);
     else this.leaseholders.set(p.key, p.leaseholder);

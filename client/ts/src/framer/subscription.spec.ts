@@ -199,6 +199,24 @@ describe("Feed.subscribe", () => {
     });
   });
 
+  describe("calculated", () => {
+    it("should draw the index of a calculated channel", async () => {
+      const core = createCore({ derived: true });
+      const feed = core.openFeed(OPTIONS);
+      const key = core.calculatedIndex!.key;
+      const span = TimeSpan.seconds(30);
+      const sub = feed.subscribe(raw([key], span));
+      const stop = tick(core);
+      try {
+        await settled(core, sub, key, span);
+      } finally {
+        stop();
+        sub.close();
+        await feed.close();
+      }
+    });
+  });
+
   describe("duplicates", () => {
     it("should show a sample that both the read and the stream hold once", async () => {
       const core = createCore();
