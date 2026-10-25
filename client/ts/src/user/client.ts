@@ -8,12 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, primitive, record } from "@synnaxlabs/x";
+import { array, type observe, primitive, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type connection } from "@/connection";
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { Current } from "@/user/current";
 import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/types.gen";
 
 const retrieveRequestZ = z.object({
@@ -93,6 +95,9 @@ export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
+  connection: connection.Client;
+  /** Carries the user after each login, and undefined when the credentials change. */
+  identity: observe.Observable<User | undefined>;
 }
 
 export class Client extends query.Retriever<
@@ -103,6 +108,8 @@ export class Client extends query.Retriever<
   SingleParams,
   SingleParams
 > {
+  /** The signed-in user. */
+  readonly current: Current;
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, User>;
 
@@ -147,6 +154,12 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.current = new Current({
+      users: this,
+      table: store,
+      identity: cfg.identity,
+      connection: cfg.connection,
+    });
   }
 
   async create(user: New): Promise<User>;

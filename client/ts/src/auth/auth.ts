@@ -46,8 +46,13 @@ const RETRY_ON = [InvalidTokenError, ExpiredTokenError] as const;
 type AuthState =
   { authenticated: false } | { authenticated: true; user: user.User; token: string };
 
-/** Login outcome hooks. The connection machine is the sole consumer. */
+/** Login outcome hooks. */
 export interface Observer {
+  /**
+   * Fires with the user after every successful login, before onSuccess, and with
+   * undefined when setCredentials drops the user.
+   */
+  onUser?: (user: user.User | undefined) => void;
   /** Fires after every successful login. */
   onSuccess?: () => void;
   /** Fires on a definitive credential rejection, never on token self-heal. */
@@ -78,6 +83,7 @@ export class Client {
     this.authenticating = undefined;
     this.retryCount = 0;
     this.generation += 1;
+    this.observer.onUser?.(undefined);
   }
 
   get authenticated(): boolean {
@@ -135,6 +141,7 @@ export class Client {
               user: res.user,
               token: res.token,
             };
+            this.observer.onUser?.(res.user);
             this.observer.onSuccess?.();
             return null;
           } catch (err) {
