@@ -18,7 +18,10 @@ import { matches, serverComputed } from "@/ranger/where.gen";
 
 // The case table is shared with the Go interpreter, so that the Core and the client
 // cache agree on every filter.
-const VECTORS_URL = new URL("../../../../x/testdata/filter/vectors.json", import.meta.url);
+const VECTORS_URL = new URL(
+  "../../../../x/testdata/filter/vectors.json",
+  import.meta.url,
+);
 
 interface Case {
   name: string;
