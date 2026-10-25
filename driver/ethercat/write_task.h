@@ -151,19 +151,13 @@ public:
         if (auto err = topology::validate(slaves, this->cfg.device_cache); err)
             return err;
 
-        std::vector<pdo::Entry> entries;
-        std::vector<x::telem::SampleValue> stop_values;
+        std::vector<engine::Engine::Writer::Entry> entries;
         entries.reserve(this->cfg.outputs.size());
-        stop_values.reserve(this->cfg.outputs.size());
         for (const auto &ch: this->cfg.outputs) {
-            entries.push_back(*ch);
-            stop_values.emplace_back(ch->stop_value);
+            const pdo::Entry &entry = *ch;
+            entries.push_back({.entry = entry, .stop_value = ch->stop_value});
         }
-        auto [wtr, err] = this->engine->open_writer(
-            entries,
-            this->cfg.execution_rate,
-            stop_values
-        );
+        auto [wtr, err] = this->engine->open_writer(entries, this->cfg.execution_rate);
         if (err) return err;
         this->writer = std::move(wtr);
         return x::errors::NIL;

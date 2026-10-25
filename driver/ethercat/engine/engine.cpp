@@ -512,19 +512,17 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
 }
 
 std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer(
-    const std::vector<pdo::Entry> &entries,
-    const x::telem::Rate execution_rate,
-    const std::vector<x::telem::SampleValue> &stop_values
+    const std::vector<Writer::Entry> &entries,
+    const x::telem::Rate execution_rate
 ) {
-    if (stop_values.size() != entries.size())
-        return {
-            nullptr,
-            x::errors::Error(
-                x::errors::VALIDATION,
-                std::to_string(stop_values.size()) + " stop values for " +
-                    std::to_string(entries.size()) + " entries"
-            )
-        };
+    std::vector<pdo::Entry> pdo_entries;
+    std::vector<x::telem::SampleValue> stop_values;
+    pdo_entries.reserve(entries.size());
+    stop_values.reserve(entries.size());
+    for (const auto &[entry, stop_value]: entries) {
+        pdo_entries.push_back(entry);
+        stop_values.push_back(stop_value);
+    }
     std::lock_guard lock(this->mu);
     auto writes = this->write_rates_locked();
     writes.push_back(execution_rate);
@@ -539,7 +537,7 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         if (auto err = this->start_locked(rate); err) return {nullptr, err};
     auto [offsets, err] = resolve_offsets(
         *this->master,
-        entries,
+        pdo_entries,
         this->master->output_data().size()
     );
     if (err) {
@@ -547,10 +545,10 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         return {nullptr, err};
     }
     auto output = std::make_shared<Output>(Output{
-        .entries = entries,
+        .entries = std::move(pdo_entries),
         .rate = execution_rate,
         .offsets = std::move(offsets),
-        .stop_values = stop_values,
+        .stop_values = std::move(stop_values),
     });
     this->outputs.push_back(output);
     this->publish_schedule_locked(rate);

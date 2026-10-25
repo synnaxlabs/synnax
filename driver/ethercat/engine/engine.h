@@ -197,6 +197,14 @@ public:
         std::shared_ptr<Output> output;
 
     public:
+        /// @brief a PDO entry a writer commands.
+        struct Entry {
+            /// @brief the entry's location and type in the process image.
+            pdo::Entry entry;
+            /// @brief the value the entry takes when the writer closes.
+            x::telem::SampleValue stop_value;
+        };
+
         /// @brief RAII batch writer that holds the write lock for multiple writes.
         class Transaction {
             Engine &engine;
@@ -256,15 +264,12 @@ public:
     /// execution_rate while the writer is open. Starts the bus when it is not running.
     /// An entry that a closed writer left at its stop value keeps that value until the
     /// new writer commands one.
-    /// @param stop_values the value each entry takes when the writer closes.
-    /// @returns x::errors::VALIDATION when stop_values does not hold one value per
-    /// entry, errors::RATE_MISMATCH when no bus rate suits every open task,
+    /// @returns errors::RATE_MISMATCH when no bus rate suits every open task,
     /// errors::PDO_MAPPING_ERROR when an entry is not in the process image, or the
     /// error that kept the bus from starting.
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error> open_writer(
-        const std::vector<pdo::Entry> &entries,
-        x::telem::Rate execution_rate,
-        const std::vector<x::telem::SampleValue> &stop_values
+        const std::vector<Writer::Entry> &entries,
+        x::telem::Rate execution_rate
     );
 
     /// @brief returns true while the bus runs.
