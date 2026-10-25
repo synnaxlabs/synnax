@@ -303,7 +303,39 @@ describe("Read", () => {
     expect(screen.queryByText(/Add every input/)).toBeNull();
   });
 
-  it("should add every input an unresolved channel's name matches from the context menu", async () => {
+  it("should not offer every input of a slave when more than one channel is selected", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: THREE_INPUTS, outputs: [] },
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: THREE_INPUTS.slice(0, 2).map((e) =>
+        EtherCAT.Task.createEntryReadChannel(slave.key, e),
+      ),
+    });
+    const first = await screen.findByRole("option", { name: /0x6000:01/ });
+    const second = screen.getByRole("option", { name: /0x6000:02/ });
+    fireEvent.contextMenu(first);
+    expect(await screen.findByText(`Add every input of ${slave.name}`)).toBeTruthy();
+    fireEvent.keyDown(window, { key: "Escape", code: "Escape" });
+    fireEvent.keyUp(window, { key: "Escape", code: "Escape" });
+    await waitFor(() => expect(screen.queryByText("Duplicate")).toBeNull());
+    fireEvent.click(first);
+    fireEvent.keyDown(window, { key: "Control", code: "ControlLeft" });
+    fireEvent.click(second);
+    fireEvent.keyUp(window, { key: "Control", code: "ControlLeft" });
+    await waitFor(() => {
+      expect(first.getAttribute("aria-selected")).toBe("true");
+      expect(second.getAttribute("aria-selected")).toBe("true");
+    });
+    fireEvent.contextMenu(second);
+    await screen.findByText("Duplicate");
+    expect(screen.queryByText(/Add every input/)).toBeNull();
+  });
+
+  it("should add every input of an unresolved channel's slave from the context menu", async () => {
     const slave = await createRepeatedNameSlave();
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
