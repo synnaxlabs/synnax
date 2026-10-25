@@ -19,9 +19,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 import { type BenchRunOptions, test, vi } from "vitest";
-import { z } from "zod";
 
-import { aether } from "@/aether/aether";
 import { type telem } from "@/telem/aether";
 import { GL_TRANSFORM } from "@/telem/aether/convertSeries";
 import { telemTest } from "@/telem/aether/test";
@@ -29,12 +27,11 @@ import { renderAether } from "@/testutil/renderAether";
 import { windowBounds } from "@/vis/line/aether/bounds";
 import {
   buildDrawOperations,
-  Context,
   DEFAULT_OVERLAP_THRESHOLD,
   Line,
   type LineProps,
 } from "@/vis/line/aether/line";
-import { render } from "@/vis/render";
+import { lineTest } from "@/vis/line/aether/test";
 import { canvasTest } from "@/vis/render/test";
 
 // Measures back-fill fetch speed under render-loop contention and the per-frame cost
@@ -246,19 +243,6 @@ for (const spec of [...MATRIX, ...CHANNEL_SPECS]) {
   });
 }
 
-// Renders a 1M-sample line through a recording GL context, so the timings cover the
-// CPU side of a frame and leave out the GPU.
-class Host extends aether.Composite<typeof Host.stateZ> {
-  static readonly TYPE = "line-bench-host";
-  static readonly stateZ = z.object({});
-  schema = Host.stateZ;
-
-  afterUpdate(ctx: aether.Context): void {
-    Context.create(ctx, render.Context.use(ctx));
-    render.control(ctx, () => {});
-  }
-}
-
 const RENDER_SAMPLES = 1e6;
 const RENDER_PROPS: LineProps = {
   region: box.construct(0, 0, 800, 600),
@@ -296,7 +280,7 @@ const mountLine = (y: (i: number) => number): (() => void) => {
   const recorder = canvasTest.record();
   (recorder as { gl: unknown }).gl = gl;
   recorder.resize(RENDER_PROPS.region, 1);
-  const h = renderAether(Host, {
+  const h = renderAether(lineTest.Host, {
     state: {},
     render: recorder,
     registry: { [Line.TYPE]: Line },
