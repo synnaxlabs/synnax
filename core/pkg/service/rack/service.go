@@ -122,7 +122,7 @@ type Service struct {
 	group           group.Group
 	monitor         *monitor
 	table           *gorp.Table[Key, Rack]
-	search          *gorp.SearchIndex[Key, Rack]
+	indexes         indexes
 	ServiceConfig
 	EmbeddedKey Key
 }
@@ -135,12 +135,12 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg, search: newSearchIndex()}
+	s = &Service{ServiceConfig: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Rack]{
 		DB:      cfg.DB,
-		Indexes: []gorp.Index[Key, Rack]{s.search},
+		Indexes: s.indexes.all(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			HostProvider: cfg.HostProvider,
 			Status:       cfg.Status,
@@ -278,7 +278,7 @@ func (s *Service) newKey(ctx context.Context) (Key, error) {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		search:       s.search,
+		indexes:      s.indexes,
 		baseTX:       s.DB,
 		gorp:         s.table.NewRetrieve(),
 		hostProvider: s.HostProvider,

@@ -11,7 +11,7 @@ import { type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
   bounds,
-  type box,
+  box,
   color,
   DataType,
   type destructor,
@@ -34,6 +34,7 @@ import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 import { seriesOverlap, windowBounds } from "@/vis/line/aether/bounds";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
+import { groupSize, Reducer } from "@/vis/line/aether/reduce";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
 import HYBRID_VERT_SHADER from "@/vis/line/aether/vert_hybrid.glsl?raw";
 import { render } from "@/vis/render";
@@ -44,9 +45,12 @@ export const stateZ = z.object({
   label: z.string().optional(),
   color: color.colorZ,
   strokeWidth: z.number().default(1),
-  downsample: z.number().min(1).max(50).default(1),
-  downsampleMode: telem.downsampleModeZ.default("decimate"),
   visible: z.boolean().default(true),
+  /** The number of aggregation groups the line draws per pixel column. */
+  groupsPerColumn: z
+    .number()
+    .positive()
+    .default(1 / 2),
 });
 
 const safelyGetDataValue = (
@@ -81,7 +85,6 @@ export interface LineProps {
   region: box.Box;
   /** An XY scale that maps from the data space to decimal space. */
   dataToDecimalScale: scale.XY;
-  exposure: number;
 }
 
 interface TranslationBufferCacheEntry {
@@ -134,9 +137,9 @@ export class GLProgram extends render.GLProgram {
     yDataType: DataType,
   ): void {
     const { gl } = this.renderCtx;
-    const { x, y, downsample, xOffset, yOffset } = op;
-    this.bindAttrBuffer("x", x.glBuffer, downsample, xOffset, xDataType);
-    this.bindAttrBuffer("y", y.glBuffer, downsample, yOffset, yDataType);
+    const { x, y, xOffset, yOffset } = op;
+    this.bindAttrBuffer("x", x.glBuffer, 1, xOffset, xDataType);
+    this.bindAttrBuffer("y", y.glBuffer, 1, yOffset, yDataType);
     for (const [first, count] of finiteRuns(op))
       gl.drawArraysInstanced(gl.LINE_STRIP, first, count, instances);
   }
@@ -152,11 +155,15 @@ export class GLProgram extends render.GLProgram {
     gl.drawArraysInstanced(gl.LINES, 0, vertices.length / 2, instances);
   }
 
+  /**
+   * Binds buffer to the attribute of dir, reading one value every stride values from
+   * the value at alignment.
+   */
   private bindAttrBuffer(
     dir: direction.Crude,
     buffer: WebGLBuffer,
-    downsample: number,
-    alignment: number = 0,
+    stride: number,
+    alignment: number,
     dataType: DataType,
   ): void {
     const { gl } = this.renderCtx;
@@ -170,7 +177,7 @@ export class GLProgram extends render.GLProgram {
         aLoc,
         1,
         glDataType, // e.g., gl.UNSIGNED_BYTE
-        density * downsample,
+        density * stride,
         density * alignment,
       );
     else
@@ -179,7 +186,7 @@ export class GLProgram extends render.GLProgram {
         1,
         glDataType,
         false,
-        density * downsample,
+        density * stride,
         density * alignment,
       );
 
@@ -269,9 +276,7 @@ interface InternalState {
   yTelem: telem.SeriesSource;
   stopListeningYTelem?: destructor.Destructor;
   requestRender: render.Requestor;
-
-  xDownsampler: telem.SeriesDownsampler;
-  yDownsampler: telem.SeriesDownsampler;
+  reducer: Reducer;
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
@@ -288,36 +293,30 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.instrumentation = alamos.useInstrumentation(ctx, "line");
     i.lineCtx = Context.use(ctx);
     i.requestRender = render.useRequestor(ctx);
+    i.reducer ??= new Reducer();
     i.stopListeningXTelem?.();
     i.stopListeningYTelem?.();
     i.stopListeningXTelem = i.xTelem.onChange(() => i.requestRender("data"));
     i.stopListeningYTelem = i.yTelem.onChange(() => i.requestRender("data"));
     i.requestRender("layout");
-    if (
-      i.xDownsampler?.props.mode !== this.state.downsampleMode ||
-      i.xDownsampler?.props.windowSize !== this.state.downsample
-    ) {
-      i.xDownsampler = new telem.SeriesDownsampler({
-        mode: this.state.downsampleMode,
-        windowSize: this.state.downsample,
-      });
-      i.yDownsampler = new telem.SeriesDownsampler({
-        mode: this.state.downsampleMode,
-        windowSize: this.state.downsample,
-      });
-    }
   }
 
   afterDelete(): void {
     const { internal: i } = this;
     i.xTelem.cleanup?.();
     i.yTelem.cleanup?.();
+    i.reducer.release();
     i.requestRender("layout");
   }
 
   get loading(): boolean {
     const { xTelem, yTelem } = this.internal;
     return (xTelem.loading?.() ?? false) || (yTelem.loading?.() ?? false);
+  }
+
+  get fetching(): boolean {
+    const { xTelem, yTelem } = this.internal;
+    return (xTelem.fetching?.() ?? false) || (yTelem.fetching?.() ?? false);
   }
 
   xBounds(): bounds.Bounds {
@@ -332,16 +331,17 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
    */
   yBounds(xWindow: bounds.Bounds): bounds.Bounds {
     const { xTelem, yTelem } = this.internal;
-    const [b, yData] = yTelem.value();
+    const valueProps = { extremesKept: true };
+    const [b, yData] = yTelem.value(valueProps);
     if (!bounds.isFinite(xWindow)) return b;
-    const [, xData] = xTelem.value();
+    const [, xData] = xTelem.value(valueProps);
     return windowBounds(xData, yData, xWindow, DEFAULT_OVERLAP_THRESHOLD, b);
   }
 
   findByXValue(props: LineProps, target: number): FindResult {
     const { xTelem, yTelem } = this.internal;
-    let [, xData] = xTelem.value();
-    xData = this.internal.xDownsampler.transform(xData);
+    const valueProps = { view: view(props) };
+    const [, xData] = xTelem.value(valueProps);
     let [index, series] = [-1, -1];
     xData.series.find((x, i) => {
       const v = x.binarySearch(target);
@@ -365,30 +365,17 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     if (index === -1 || series === -1 || !this.state.visible) return result;
 
     const xSeries = xData.series[series];
-    let [, yData] = yTelem.value();
-    yData = this.internal.yDownsampler.transform(yData);
-    const xAlignment = xSeries.alignment + BigInt(index) * xSeries.alignmentMultiple;
-    const ySeries = yData.series.find((ys) =>
-      bounds.contains(ys.alignmentBounds, xAlignment),
+    const [, yData] = yTelem.value(valueProps);
+    const alignment = xSeries.alignment + BigInt(index) * xSeries.alignmentMultiple;
+    const ySeries = yData.series.find(
+      (ys) =>
+        seriesOverlap(xSeries, ys, DEFAULT_OVERLAP_THRESHOLD) &&
+        bounds.contains(ys.alignmentBounds, alignment),
     );
     if (ySeries == null) return result;
     result.value.x = safelyGetDataValue(series, index, xData);
 
-    const op = buildDrawOperation(
-      xSeries,
-      ySeries,
-      props.exposure,
-      this.state.downsample,
-      this.state.downsampleMode,
-      DEFAULT_OVERLAP_THRESHOLD,
-    );
-    if (op != null) {
-      index = nearestVertex(op, index);
-      result.value.x = safelyGetDataValue(series, index, xData);
-    }
-
-    const offset = (ySeries.alignment - xSeries.alignment) / ySeries.alignmentMultiple;
-    result.value.y = Number(ySeries.at(index - Number(offset)));
+    result.value.y = Number(ySeries.atAlignment(alignment, true));
 
     result.bounds = { ...ySeries.bounds };
 
@@ -401,28 +388,27 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   render(props: LineProps): void {
     if (this.deleted || !this.state.visible) return;
-    const { downsample } = this.state;
-    const { xTelem, yTelem, lineCtx: ctx, xDownsampler, yDownsampler } = this.internal;
-
-    const { dataToDecimalScale, exposure } = props;
-    let [[, xData], [, yData]] = [xTelem.value(), yTelem.value()];
-    xData = xDownsampler.transform(xData);
-    yData = yDownsampler.transform(yData);
-    xData.updateGLBuffer(ctx.gl);
-    yData.updateGLBuffer(ctx.gl);
-    if (xData.length === 0 || yData.length === 0) return;
+    const { xTelem, yTelem, lineCtx: ctx, reducer } = this.internal;
+    const { groupsPerColumn } = this.state;
+    // Full-resolution data reduces as the source reduces its tiles.
+    const aggregation = yTelem.aggregation?.() ?? "min_max";
+    const { dataToDecimalScale } = props;
+    const valueProps = { view: view(props) };
+    const [[, xData], [, yData]] = [xTelem.value(valueProps), yTelem.value(valueProps)];
+    const full = buildDrawOperations(xData, yData, DEFAULT_OVERLAP_THRESHOLD);
+    const size = groupSize(full, valueProps.view, groupsPerColumn);
+    const ops = reducer.reduce(full, aggregation, size, {
+      x: xTelem.dataType?.() ?? null,
+      y: yTelem.dataType?.() ?? null,
+    });
+    if (ops.length === 0) return;
+    ops.forEach(({ x, y }) => {
+      x.updateGLBuffer(ctx.gl);
+      y.updateGLBuffer(ctx.gl);
+    });
     const prog = ctx.getProgram(yData.dataType);
-    const ops = buildDrawOperations(
-      xData,
-      yData,
-      exposure,
-      downsample,
-      this.state.downsampleMode,
-      DEFAULT_OVERLAP_THRESHOLD,
-    );
     this.internal.instrumentation.L.debug("render", () => ({
       key: this.key,
-      downsample,
       scale: dataToDecimalScale.transform,
       props: props.region,
       ops: digests(ops),
@@ -446,6 +432,15 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     clearBridgeProg();
   }
 }
+
+// view returns the part of the x range that the region shows.
+const view = ({ region, dataToDecimalScale }: LineProps): telem.View => {
+  const decimalToData = dataToDecimalScale.x.reverse();
+  return {
+    bounds: { lower: decimalToData.pos(0), upper: decimalToData.pos(1) },
+    width: box.width(region),
+  };
+};
 
 /** Just makes sure that the lines we draw to make stuff thick are really close together. */
 const THICKNESS_DIVISOR = 5000;
@@ -487,7 +482,6 @@ export interface DrawOperation {
   xOffset: number;
   yOffset: number;
   count: number;
-  downsample: number;
 }
 
 interface DrawOperationDigest extends Omit<DrawOperation, "x" | "y"> {
@@ -498,75 +492,32 @@ interface DrawOperationDigest extends Omit<DrawOperation, "x" | "y"> {
 export const buildDrawOperations = (
   xSeries: MultiSeries,
   ySeries: MultiSeries,
-  exposure: number,
-  userSpecifiedDownSampling: number,
-  downsampleMode: telem.DownsampleMode,
   overlapThreshold: TimeSpan,
 ): DrawOperation[] => {
   if (xSeries.series.length === 0 || ySeries.series.length === 0) return [];
   const ops: DrawOperation[] = [];
   xSeries.series.forEach((x) =>
     ySeries.series.forEach((y) => {
-      const op = buildDrawOperation(
-        x,
-        y,
-        exposure,
-        userSpecifiedDownSampling,
-        downsampleMode,
-        overlapThreshold,
+      if (!seriesOverlap(x, y, overlapThreshold)) return;
+      let xAlignmentOffset = 0n;
+      let yAlignmentOffset = 0n;
+      // This means that the x series starts before the y series.
+      if (x.alignment < y.alignment) xAlignmentOffset = y.alignment - x.alignment;
+      // This means that the y series starts before the x series.
+      else if (y.alignment < x.alignment) yAlignmentOffset = x.alignment - y.alignment;
+      // The total number of alignment steps that are common to the two series.
+      const alignmentCount = math.min(
+        bounds.span(x.alignmentBounds) - xAlignmentOffset,
+        bounds.span(y.alignmentBounds) - yAlignmentOffset,
       );
-      if (op != null) ops.push(op);
+      if (alignmentCount === 0n) return;
+      const count = Number(alignmentCount / x.alignmentMultiple);
+      const xOffset = Number(xAlignmentOffset / x.alignmentMultiple);
+      const yOffset = Number(yAlignmentOffset / y.alignmentMultiple);
+      ops.push({ x, y, xOffset, yOffset, count });
     }),
   );
   return ops;
-};
-
-const buildDrawOperation = (
-  x: Series,
-  y: Series,
-  exposure: number,
-  userSpecifiedDownSampling: number,
-  downsampleMode: telem.DownsampleMode,
-  overlapThreshold: TimeSpan,
-): DrawOperation | null => {
-  if (!seriesOverlap(x, y, overlapThreshold)) return null;
-  let xAlignmentOffset = 0n;
-  let yAlignmentOffset = 0n;
-  // This means that the x series starts before the y series.
-  if (x.alignment < y.alignment) xAlignmentOffset = y.alignment - x.alignment;
-  // This means that the y series starts before the x series.
-  else if (y.alignment < x.alignment) yAlignmentOffset = x.alignment - y.alignment;
-  // The total number of alignment steps that are common to the two series.
-  const alignmentCount = math.min(
-    bounds.span(x.alignmentBounds) - xAlignmentOffset,
-    bounds.span(y.alignmentBounds) - yAlignmentOffset,
-  );
-  if (alignmentCount === 0n) return null;
-  let downsample = bounds.clamp(
-    {
-      lower: userSpecifiedDownSampling,
-      upper: 51,
-    },
-    Math.round(exposure * 4 * Number(alignmentCount)),
-  );
-  if (downsampleMode !== "decimate") downsample = 1;
-  const count = Number(alignmentCount / x.alignmentMultiple);
-  const xOffset = Number(xAlignmentOffset / x.alignmentMultiple);
-  const yOffset = Number(yAlignmentOffset / y.alignmentMultiple);
-  return { x, y, xOffset, yOffset, count, downsample };
-};
-
-/** @returns the number of vertices in the strip op draws. */
-const vertexCount = (op: DrawOperation): number => Math.floor(op.count / op.downsample);
-
-/** @returns the position in the strip of the last vertex op draws. */
-const lastVertex = (op: DrawOperation): number => Math.max(vertexCount(op) - 1, 0);
-
-/** @returns the x index of the vertex op draws nearest to the given x index. */
-export const nearestVertex = (op: DrawOperation, index: number): number => {
-  const vertex = Math.round((index - op.xOffset) / op.downsample);
-  const clamped = bounds.clamp({ lower: 0, upper: lastVertex(op) }, vertex);
-  return op.xOffset + clamped * op.downsample;
 };
 
 /**
@@ -574,10 +525,10 @@ export const nearestVertex = (op: DrawOperation, index: number): number => {
  * samples. A range with one vertex draws no segment, so it is left out.
  */
 const finiteRuns = (op: DrawOperation): Array<[number, number]> => {
-  const total = vertexCount(op);
+  const total = op.count;
   const gaps = [
-    ...nonFiniteVertices(op.x, op.xOffset, op.downsample, total),
-    ...nonFiniteVertices(op.y, op.yOffset, op.downsample, total),
+    ...nonFiniteVertices(op.x, op.xOffset, total),
+    ...nonFiniteVertices(op.y, op.yOffset, total),
   ].sort((a, b) => a.lower - b.lower);
   const runs: Array<[number, number]> = [];
   let first = 0;
@@ -592,14 +543,13 @@ const finiteRuns = (op: DrawOperation): Array<[number, number]> => {
 const nonFiniteVertices = (
   series: Series,
   offset: number,
-  downsample: number,
   total: number,
 ): bounds.Bounds[] => {
   const vertices: bounds.Bounds[] = [];
   for (const { lower, upper } of series.nonFiniteRanges) {
     const v = {
-      lower: Math.max(0, Math.ceil((lower - offset) / downsample)),
-      upper: Math.min(total, Math.ceil((upper - offset) / downsample)),
+      lower: Math.max(0, lower - offset),
+      upper: Math.min(total, upper - offset),
     };
     if (v.lower >= total) break;
     if (v.lower < v.upper) vertices.push(v);
@@ -629,7 +579,7 @@ export const bridgeVertices = (ops: DrawOperation[], s: scale.XY): Float32Array 
     const { op: a, span: aSpan } = spans[i - 1];
     const { op: b, span: bSpan } = spans[i];
     if (bSpan.start.before(aSpan.end)) continue;
-    const last = lastVertex(a) * a.downsample;
+    const last = Math.max(a.count - 1, 0);
     const segment = [
       s.x.pos(Number(a.x.at(a.xOffset + last, true))),
       s.y.pos(Number(a.y.at(a.yOffset + last, true))),

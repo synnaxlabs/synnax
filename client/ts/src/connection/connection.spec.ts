@@ -425,6 +425,25 @@ describe("connection", () => {
       expect(replaced.details.streamDenied).toBe(false);
     });
 
+    it("should hold connecting on a live stream until the new credentials log in", () => {
+      const config = createConfig({ requiresStream: true });
+      const replaced = apply(
+        config,
+        { type: "check.success", info: createInfo() },
+        { type: "credentials.replaced" },
+      );
+      expect(replaced.details.authenticated).toBe(false);
+      const live = reduce(replaced, { type: "stream.live" }, config);
+      expect(live.variant).toEqual("loading");
+      expect(live.details.streamLive).toBe(true);
+      const checked = reduce(
+        live,
+        { type: "check.success", info: createInfo() },
+        config,
+      );
+      expect(checked.variant).toEqual("success");
+    });
+
     it("should degrade to reconnecting when a heartbeat fails while connected", () => {
       const config = createConfig();
       const connected = apply(config, { type: "check.success", info: createInfo() });
@@ -925,6 +944,8 @@ describe("connection", () => {
       );
       const send = unary.send as ReturnType<typeof vi.fn>;
       while (send.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
+      // the stream opens behind the auth middleware, so a login lands first
+      client.notify({ type: "auth.success" });
       client.notify({ type: "stream.live" });
       expect(client.status.variant).toEqual("success");
       // the check issued before the stream came up fails late: it was aimed

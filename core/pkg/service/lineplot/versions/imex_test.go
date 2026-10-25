@@ -34,9 +34,18 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(lp.Title.Level).To(Equal(text.Level("h4")))
 		Expect(lp.Lines).To(HaveLen(1))
 		Expect(lp.Lines[0].StrokeWidth).To(Equal(2.5))
-		Expect(
-			lp.Lines[0].DownsampleMode,
-		).To(Equal(versions.DownsampleMode("decimate")))
+		Expect(lp.Lines[0].Aggregation).To(Equal(versions.AggregationMinMax))
+		Expect(lp.Lines[0].Detail).To(Equal(versions.DetailMedium))
+	})
+
+	It("Should lift a v6 envelope's downsample mode to an aggregation", func(
+		ctx SpecContext,
+	) {
+		lp := decode(ctx, "testdata/import_v6.json")
+		Expect(lp.Lines).To(HaveLen(1))
+		Expect(lp.Lines[0].StrokeWidth).To(Equal(2.5))
+		Expect(lp.Lines[0].Aggregation).To(Equal(versions.AggregationAverage))
+		Expect(lp.Lines[0].Detail).To(Equal(versions.DetailMedium))
 	})
 
 	It("Should lift a Console state through the legacy chain", func(ctx SpecContext) {
@@ -90,7 +99,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(lp.Axes.Y1.ManualBounds).To(Equal(versions.ManualBounds{}))
 		Expect(lp.Lines).To(HaveLen(1))
 		Expect(lp.Lines[0].StrokeWidth).To(Equal(3.0))
-		Expect(lp.Lines[0].Downsample).To(BeEquivalentTo(2))
+		// The export's downsample factor of 2 has no detail level to map to.
+		Expect(lp.Lines[0].Detail).To(Equal(versions.DetailMedium))
 		Expect(lp.Rules).To(HaveLen(1))
 		Expect(lp.Rules[0].Position).To(Equal(950.0))
 		Expect(lp.Title.Visible).To(BeTrue())

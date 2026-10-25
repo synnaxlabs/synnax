@@ -569,7 +569,7 @@ export const gaugeNodeConfigZ = labeledConfigZ
     /** location is the anchor of the value within the gauge. */
     location: spatial.locationXYZ.prefault({ x: "left", y: "center" }),
     /** units is the unit suffix displayed after the value. */
-    units: z.string().default("RPM"),
+    units: z.string().default(""),
     /** level is the typography level of the displayed value. */
     level: text.levelZ.default("h5"),
   });
@@ -586,7 +586,7 @@ export const inputNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).ex
   stateChannel: channel.keyZ.optional(),
   /** dimensions is the rendered size of the input in pixels. */
   dimensions: spatial.dimensionsZ.optional(),
-  /** fillColor is the fill color of the send button, which the input border follows. */
+  /** fillColor is the fill color of the Set button, which the input border follows. */
   fillColor: color.colorZ.optional(),
   /** disabled indicates whether the input rejects interaction. */
   disabled: z.boolean().default(false),
@@ -678,11 +678,9 @@ export const selectNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).e
   commandChannel: channel.keyZ.optional(),
   /** stateChannel is the channel that reports the state the device holds. */
   stateChannel: channel.keyZ.optional(),
-  /**
-   * fillColor is the fill color of the send button, which the select border follows.
-   */
+  /** fillColor is the fill color of the Set button, which the select border follows. */
   fillColor: color.colorZ.optional(),
-  /** inlineSize is the inline size of the select in pixels. */
+  /** inlineSize is the width of the field in pixels, not counting the Set button. */
   inlineSize: z.number().default(100),
   /** options is the set of selectable states. */
   options: stateMappingZ.array().default(() => []),
@@ -729,11 +727,11 @@ export const setpointNodeConfigZ = labeledConfigZ
     /** dimensions is the rendered size of the setpoint in pixels. */
     dimensions: spatial.dimensionsZ.optional(),
     /**
-     * fillColor is the fill color of the set button, which the setpoint border follows.
+     * fillColor is the fill color of the Set button, which the setpoint border follows.
      */
     fillColor: color.colorZ.optional(),
     /** units is the unit suffix displayed after the value. */
-    units: z.string().default("mV"),
+    units: z.string().default(""),
     /** disabled indicates whether the setpoint rejects interaction. */
     disabled: z.boolean().default(false),
     /** inlineSize is the width of the field in pixels, not counting the Set button. */
@@ -823,7 +821,7 @@ export const valueNodeConfigZ = labeledConfigZ
     position: spatial.xyZ.optional(),
     /** strokeColor is the color of the value's border and units divider. */
     strokeColor: color.colorZ.optional(),
-    /** textColor is the color of the displayed value and its units. */
+    /** textColor is the color of the displayed value. */
     textColor: color.colorZ.optional(),
     /**
      * fillColor is the fill behind the value where no redline band paints. When absent
@@ -838,7 +836,7 @@ export const valueNodeConfigZ = labeledConfigZ
     /** redline is the threshold band mapping applied to the background. */
     redline: color.scaleZ.prefault({}),
     /** units is the unit suffix displayed after the value. */
-    units: z.string().default("psi"),
+    units: z.string().default(""),
     /** inlineSize is the inline size of the value in pixels. */
     inlineSize: z.number().default(70),
     /** level is the typography level of the displayed value. */
@@ -1963,7 +1961,7 @@ export const gaugeElementConfigZ = labeledConfigZ
     /** location is the anchor of the value within the gauge. */
     location: spatial.locationXYZ.prefault({ x: "left", y: "center" }),
     /** units is the unit suffix displayed after the value. */
-    units: z.string().default("RPM"),
+    units: z.string().default(""),
     /** level is the typography level of the displayed value. */
     level: text.levelZ.default("h5"),
   });
@@ -1982,7 +1980,7 @@ export const inputElementConfigZ = labeledConfigZ
     stateChannel: channel.keyZ.optional(),
     /** dimensions is the rendered size of the input in pixels. */
     dimensions: spatial.dimensionsZ.optional(),
-    /** fillColor is the fill color of the send button, which the input border follows. */
+    /** fillColor is the fill color of the Set button, which the input border follows. */
     fillColor: color.colorZ.optional(),
     /** disabled indicates whether the input rejects interaction. */
     disabled: z.boolean().default(false),
@@ -2078,11 +2076,9 @@ export const selectElementConfigZ = labeledConfigZ
     commandChannel: channel.keyZ.optional(),
     /** stateChannel is the channel that reports the state the device holds. */
     stateChannel: channel.keyZ.optional(),
-    /**
-     * fillColor is the fill color of the send button, which the select border follows.
-     */
+    /** fillColor is the fill color of the Set button, which the select border follows. */
     fillColor: color.colorZ.optional(),
-    /** inlineSize is the inline size of the select in pixels. */
+    /** inlineSize is the width of the field in pixels, not counting the Set button. */
     inlineSize: z.number().default(100),
     /** options is the set of selectable states. */
     options: stateMappingZ.array().default(() => []),
@@ -2129,11 +2125,11 @@ export const setpointElementConfigZ = labeledConfigZ
     /** dimensions is the rendered size of the setpoint in pixels. */
     dimensions: spatial.dimensionsZ.optional(),
     /**
-     * fillColor is the fill color of the set button, which the setpoint border follows.
+     * fillColor is the fill color of the Set button, which the setpoint border follows.
      */
     fillColor: color.colorZ.optional(),
     /** units is the unit suffix displayed after the value. */
-    units: z.string().default("mV"),
+    units: z.string().default(""),
     /** disabled indicates whether the setpoint rejects interaction. */
     disabled: z.boolean().default(false),
     /** inlineSize is the width of the field in pixels, not counting the Set button. */
@@ -2225,7 +2221,7 @@ export const valueElementConfigZ = labeledConfigZ
     position: spatial.xyZ.optional(),
     /** strokeColor is the color of the value's border and units divider. */
     strokeColor: color.colorZ.optional(),
-    /** textColor is the color of the displayed value and its units. */
+    /** textColor is the color of the displayed value. */
     textColor: color.colorZ.optional(),
     /**
      * fillColor is the fill behind the value where no redline band paints. When absent
@@ -2240,7 +2236,7 @@ export const valueElementConfigZ = labeledConfigZ
     /** redline is the threshold band mapping applied to the background. */
     redline: color.scaleZ.prefault({}),
     /** units is the unit suffix displayed after the value. */
-    units: z.string().default("psi"),
+    units: z.string().default(""),
     /** inlineSize is the inline size of the value in pixels. */
     inlineSize: z.number().default(70),
     /** level is the typography level of the displayed value. */

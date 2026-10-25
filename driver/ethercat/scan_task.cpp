@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <cctype>
 #include <ranges>
+#include <set>
+#include <string>
 #include <utility>
 
 #include "absl/log/log.h"
@@ -21,6 +23,9 @@
 
 namespace driver::ethercat {
 namespace {
+/// An interface that had no slaves is probed again this many scans later.
+constexpr size_t EMPTY_INTERFACE_PROBE_INTERVAL = 6;
+
 std::string get_pdo_error_guidance(const std::string &error) {
     if (error.contains("CoE") || error.contains("mailbox"))
         return "Use manual channel configuration with explicit index/sub_index values.";
@@ -115,30 +120,38 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         }
     }
 
+    std::set<std::string> failures;
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
 
     for (const auto &master_info: masters) {
-        auto [slaves, err] = this->pool->discover_slaves(master_info.key);
+        const auto &key = master_info.key;
+        if (const auto it = this->next_probes.find(key);
+            it != this->next_probes.end() && scan_ctx.count < it->second)
+            continue;
+        auto [slaves, err] = this->pool->discover_slaves(key);
         // One permission covers every master (CAP_NET_RAW for SOEM, one udev rule for
         // all IgH devices), so the other masters fail the same way.
         if (err.matches(errors::PERMISSION_DENIED)) return {{}, err};
-        if (err) {
-            VLOG(1) << SCAN_LOG_PREFIX << "discovery failed for " << master_info.key
-                    << ": " << err.message();
+        if (err.matches(errors::NO_SLAVES_FOUND)) {
+            this->next_probes[key] = scan_ctx.count + EMPTY_INTERFACE_PROBE_INTERVAL;
             continue;
         }
-
-        if (slaves.empty()) continue;
-
-        const auto health = this->pool->health(master_info.key);
+        this->next_probes.erase(key);
+        if (err) {
+            failures.insert(err.data);
+            continue;
+        }
+        const auto health = this->pool->health(key);
         for (const auto &slave: slaves)
-            devices.push_back(
-                this->create_slave_device(slave, health, master_info.key, scan_ctx)
-            );
+            devices.push_back(this->create_slave_device(slave, health, key, scan_ctx));
     }
 
-    return {devices, x::errors::NIL};
+    if (failures.empty()) return {devices, x::errors::NIL};
+    std::string desc;
+    for (const auto &failure: failures)
+        desc += (desc.empty() ? "" : "; ") + failure;
+    return {devices, x::errors::Error(common::PARTIAL_SCAN_ERROR, desc)};
 }
 
 bool Scanner::exec(
@@ -197,9 +210,13 @@ synnax::device::Device Scanner::create_slave_device(
     } else if (live != health.end())
         set_live_status(*live, status);
     else if (sts.pdos_discovered && sts.pdo_discovery_error.empty()) {
-        status.message = "Discovered (" + std::to_string(props.input_pdos.size()) +
-                         " inputs, " + std::to_string(props.output_pdos.size()) +
-                         " outputs)";
+        const auto objects = [](const std::vector<pdo::Properties> &pdos) {
+            return std::to_string(std::ranges::count_if(pdos, [](const auto &p) {
+                return !p.is_padding();
+            }));
+        };
+        status.message = "Discovered (" + objects(props.input_pdos) + " inputs, " +
+                         objects(props.output_pdos) + " outputs)";
         status.variant = synnax::status::VARIANT_SUCCESS;
     } else {
         status.message = "Failed to discover PDOs";
