@@ -101,6 +101,7 @@ const doInitialize = async (languages: Language[]): Promise<Monaco> => {
 
 interface ContextValue {
   ensure: () => Promise<Monaco>;
+  preload: () => Promise<Monaco>;
   getLanguage: (name: string) => Language | undefined;
 }
 
@@ -115,6 +116,7 @@ NOT_MOUNTED.catch(() => {});
 
 const ZERO_CONTEXT_VALUE: ContextValue = {
   ensure: () => NOT_MOUNTED,
+  preload: () => NOT_MOUNTED,
   getLanguage: () => undefined,
 };
 
@@ -129,10 +131,10 @@ export interface ProviderProps extends PropsWithChildren {
   languages?: Language[];
 }
 
-/** Provider makes the Monaco runtime available to descendant editors. It performs no work
- * on mount: monaco initializes lazily on the first editor demand (the first suspending
- * useMonaco call). Languages with a languageServer get a reconnecting client once monaco
- * is ready. */
+/** Provider makes the Monaco runtime available to descendant editors. It performs no
+ * work on mount: monaco initializes on usePreload or on the first editor demand (the
+ * first suspending useMonaco call). Languages with a languageServer get a reconnecting
+ * client once an editor demands monaco. */
 export const Provider = ({
   children,
   languages = EMPTY_LANGUAGES,
@@ -151,10 +153,13 @@ export const Provider = ({
     return initRef.current;
   };
 
+  // Leaves monaco unset, so the language servers wait for the first editor.
+  const preload = (): Promise<Monaco> => initializeMonaco(languages);
+
   const languageMap = new Map(languages.map((l) => [l.name, l]));
   const getLanguage = (name: string) => languageMap.get(name);
 
-  const value: ContextValue = { ensure, getLanguage };
+  const value: ContextValue = { ensure, preload, getLanguage };
 
   const handleStatus = (stat: status.Status) => {
     if (stat.variant === "error" || stat.variant === "warning") addStatus(stat);
@@ -209,22 +214,22 @@ export const useMonaco = (): Monaco => use(useContext().ensure());
 const PRELOAD_DELAY = TimeSpan.seconds(2).milliseconds;
 
 /**
- * usePreload starts the Monaco runtime once the page is idle after mount, so the first
- * editor opens without waiting for it. Each window that calls it pays for its own
- * runtime (about 50 MB) and a client for each language server.
+ * usePreload loads the Monaco runtime once the page is idle after mount, so the first
+ * editor opens without waiting for it. Language servers still connect only when an
+ * editor opens. Each window that calls it loads its own runtime.
  */
 export const usePreload = (): void => {
-  const { ensure } = useContext();
+  const { preload } = useContext();
   useEffect(() => {
-    // A failed start stays cached, and the first editor rethrows it.
-    const start = () => void ensure().catch(() => {});
+    // The first editor retries a failed preload and shows its error.
+    const start = () => void preload().catch(() => {});
     if (typeof requestIdleCallback === "undefined") {
       const timeout = setTimeout(start, PRELOAD_DELAY);
       return () => clearTimeout(timeout);
     }
     const handle = requestIdleCallback(start, { timeout: PRELOAD_DELAY });
     return () => cancelIdleCallback(handle);
-  }, []);
+  }, [preload]);
 };
 
 /** useLanguage returns the registered Language descriptor for the given id, or undefined

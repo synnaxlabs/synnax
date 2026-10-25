@@ -32,8 +32,8 @@ const SideEffect = (): null => {
   return null;
 };
 
-// Mounts inside the guard: tear-off reads the required project selectors, and Monaco
-// preloads only in the main window once a project is open.
+// Mounts inside the guard: tear-off reads the required project selectors, and the
+// Monaco preload waits until the workspace has started.
 const ProjectSideEffect = (): null => {
   Panel.useTearOff();
   Code.usePreload();
