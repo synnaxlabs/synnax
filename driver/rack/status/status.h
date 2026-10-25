@@ -131,7 +131,7 @@ public:
                 .name = TASK_NAME,
                 .variant = ::synnax::status::VARIANT_ERROR,
                 .message = "Failed to retrieve rack for status task",
-                .description = rack_err.message(),
+                .description = rack_err.data,
                 .details = synnax::task::StatusDetails{
                     .task = task.key,
                 }

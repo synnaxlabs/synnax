@@ -87,6 +87,7 @@ public:
         if (this->kqueue_fd_ == -1)
             return this->fail_start(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "Failed to create kqueue: " + std::string(strerror(errno))
                 )
             );
@@ -97,6 +98,7 @@ public:
         if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1)
             return this->fail_start(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "Failed to register user event: " + std::string(strerror(errno))
                 )
             );

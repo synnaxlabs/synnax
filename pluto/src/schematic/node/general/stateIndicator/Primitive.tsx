@@ -63,7 +63,7 @@ export const StateIndicator = ({
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: color.rgbaString(strokeColor),
+      [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor),
       backgroundColor,
       minWidth: inlineSize,
       height: Component.HEIGHTS[size],

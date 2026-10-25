@@ -204,6 +204,7 @@ const Internal = (): ReactElement => {
     [ranges.x1, ranges.x2],
   );
   const resolved = Range.useResolveMultiple(rangeKeys);
+  const { custom } = ranges;
   const resolvedRanges = useMemo(() => {
     const m = new Map<string, Base.ResolvedRange>();
     for (const r of resolved)
@@ -213,7 +214,6 @@ const Internal = (): ReactElement => {
           ? { variant: "dynamic", span: new TimeSpan(r.span) }
           : { variant: "static", timeRange: new TimeRange(r.timeRange) },
       );
-    const { custom } = ranges;
     if (custom != null && rangeKeys.includes(Range.CUSTOM_KEY))
       m.set(
         Range.CUSTOM_KEY,
@@ -227,7 +227,7 @@ const Internal = (): ReactElement => {
             },
       );
     return m;
-  }, [resolved, ranges.custom, rangeKeys]);
+  }, [resolved, custom, rangeKeys]);
 
   const hiddenLineKeys = Session.LinePlot.useSelectHiddenLines();
   const hiddenLines = useMemo(() => new Set(hiddenLineKeys), [hiddenLineKeys]);
@@ -249,13 +249,12 @@ const Internal = (): ReactElement => {
   const { enableTooltip, clickMode, hold } = Session.LinePlot.useSelectControlState();
   const mode = Session.LinePlot.useSelectViewportMode();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
+  // Only setViewport bumps the trigger. A stored viewport came from the plot itself.
+  const [applied, setApplied] = useState(vis.viewport);
+  if (applied.renderTrigger !== vis.viewport.renderTrigger) setApplied(vis.viewport);
   const initialViewport = useMemo(
-    () =>
-      box.reRoot(
-        box.construct(vis.viewport.pan, vis.viewport.zoom),
-        location.BOTTOM_LEFT,
-      ),
-    [vis.viewport.renderTrigger],
+    () => box.reRoot(box.construct(applied.pan, applied.zoom), location.BOTTOM_LEFT),
+    [applied],
   );
 
   useTriggerHold({ key, enabled: hasUpdatePermission });

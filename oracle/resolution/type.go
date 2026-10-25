@@ -534,7 +534,7 @@ func UnifiedFields(typ Type, table *Table) []Field {
 
 	for _, cf := range form.Fields {
 		if pf, isOverride := parentFieldMap[cf.Name]; isOverride {
-			result = append(result, mergeOverrideField(*pf, cf))
+			result = append(result, MergeOverrideField(*pf, cf))
 		} else {
 			result = append(result, cf)
 		}
@@ -625,14 +625,14 @@ func UnifiedVariantFields(union Type, variant UnionVariant, table *Table) []Fiel
 	return result
 }
 
-// mergeOverrideField resolves a child field that overrides parent into a
+// MergeOverrideField resolves a child field that overrides parent into a
 // complete field. When the child omits its type it inherits the parent's type,
 // optionality, and (unless the child declares its own) default; writing a type
 // fully (re)defines both, leaving the override to drop the parent's default by
 // omission, matching a from-scratch field declaration. Domains are always
 // merged (child expressions win per name), after which any domains the child
 // lists via `-@domain` are dropped.
-func mergeOverrideField(parent, child Field) Field {
+func MergeOverrideField(parent, child Field) Field {
 	out := child
 	if !child.HasType() {
 		out.Type = parent.Type

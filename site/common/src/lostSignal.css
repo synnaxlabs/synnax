@@ -1,0 +1,315 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.lost-signal {
+    --lost-signal-trace: var(--pluto-primary-z);
+    --lost-signal-gap: var(--pluto-error-z);
+    --lost-signal-grid: var(--pluto-gray-l3);
+
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 3rem 1.5rem;
+    margin: 0;
+    padding: 2.5rem 3rem 6rem 2.5rem;
+    font-family: var(--pluto-code-font-family);
+    font-size: var(--pluto-small-size);
+    line-height: 1;
+    color: var(--pluto-gray-l8);
+    user-select: none;
+}
+
+.lost-signal__caption {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.lost-signal__header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    min-width: 0;
+}
+
+.lost-signal__legend {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 0;
+    color: var(--pluto-text-color);
+}
+
+.lost-signal__path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lost-signal__swatch {
+    flex: none;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.333rem;
+    background: var(--lost-signal-trace);
+}
+
+.lost-signal__live {
+    flex: none;
+}
+
+.lost-signal__live-dot {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: var(--lost-signal-trace);
+    animation: lost-signal-blink 2s ease-in-out infinite;
+}
+
+.lost-signal--paused .lost-signal__live {
+    color: var(--pluto-gray-l7);
+}
+
+.lost-signal--paused .lost-signal__live-dot {
+    background: transparent;
+    box-shadow: inset 0 0 0 2px var(--pluto-gray-l7);
+    animation: none;
+}
+
+.lost-signal__axis {
+    position: relative;
+    min-width: 2ch;
+
+    & > span {
+        position: absolute;
+        right: 0;
+        transform: translateY(-50%);
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.lost-signal__plot {
+    position: relative;
+    height: clamp(26rem, 16rem + 14vw, 42rem);
+    touch-action: pan-y;
+    cursor: crosshair;
+}
+
+.lost-signal__grid {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px solid var(--lost-signal-grid);
+}
+
+.lost-signal__ticks {
+    position: absolute;
+    inset: 0;
+}
+
+.lost-signal__tick {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left: 1px solid var(--lost-signal-grid);
+
+    &::after {
+        content: attr(data-label);
+        position: absolute;
+        top: calc(100% + 1.5rem);
+        left: 0;
+        transform: translateX(-50%);
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.lost-signal__range {
+    position: absolute;
+    inset: 0 0 0 var(--lost-signal-loss);
+    border-left: 1px solid var(--lost-signal-gap);
+    background:
+        repeating-linear-gradient(
+            135deg,
+            var(--pluto-error-z-20) 0 1px,
+            transparent 1px 1.25rem
+        ),
+        var(--pluto-error-z-5);
+    animation: lost-signal-in 0.4s ease-out 1.05s both;
+}
+
+.lost-signal__range-label {
+    position: absolute;
+    top: 1.5rem;
+    left: 1.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid var(--lost-signal-gap);
+    border-radius: var(--pluto-border-radius);
+    background: var(--pluto-gray-l0);
+    color: var(--pluto-error-z);
+    white-space: nowrap;
+}
+
+.lost-signal__svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    animation: lost-signal-reveal 1.4s linear both;
+
+    & path {
+        fill: none;
+        stroke: var(--lost-signal-trace);
+        stroke-width: 2;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+    }
+}
+
+.lost-signal__end {
+    position: absolute;
+    left: var(--lost-signal-loss);
+    top: var(--lost-signal-last);
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: var(--lost-signal-trace);
+    transform: translate(-50%, -50%);
+    animation: lost-signal-in 0.2s ease-out 1.05s both;
+
+    &::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        border: 2px solid var(--lost-signal-gap);
+        animation: lost-signal-pulse 2s ease-out 1.3s infinite;
+    }
+}
+
+.lost-signal--paused .lost-signal__end::after {
+    animation: none;
+    opacity: 0;
+}
+
+.lost-signal__cursor {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 1;
+    border-left: 1px solid var(--pluto-gray-l7);
+    pointer-events: none;
+}
+
+.lost-signal__dot {
+    position: absolute;
+    top: var(--lost-signal-value);
+    left: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 2px solid var(--pluto-gray-l0);
+    border-radius: 50%;
+    background: var(--lost-signal-trace);
+    transform: translate(-50%, -50%);
+}
+
+.lost-signal__tooltip {
+    position: absolute;
+    top: 1.5rem;
+    left: 1.5rem;
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 1rem 3rem;
+    width: max-content;
+    padding: 1.25rem 1.5rem;
+    border: var(--pluto-border);
+    border-radius: var(--pluto-border-radius);
+    background: var(--pluto-gray-l1);
+    color: var(--pluto-text-color);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.lost-signal__series {
+    max-width: 32ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--lost-signal-trace);
+}
+
+.lost-signal__cursor--flipped .lost-signal__tooltip {
+    left: auto;
+    right: 1.5rem;
+}
+
+.lost-signal__cursor--empty {
+    & .lost-signal__dot {
+        display: none;
+    }
+
+    & [data-value] {
+        color: var(--lost-signal-gap);
+    }
+}
+
+@keyframes lost-signal-reveal {
+    from {
+        clip-path: inset(0 100% 0 0);
+    }
+
+    to {
+        clip-path: inset(0);
+    }
+}
+
+@keyframes lost-signal-in {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes lost-signal-pulse {
+    from {
+        opacity: 0.8;
+        transform: scale(1);
+    }
+
+    to {
+        opacity: 0;
+        transform: scale(3.5);
+    }
+}
+
+@keyframes lost-signal-blink {
+    50% {
+        opacity: 0.3;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lost-signal__svg,
+    .lost-signal__range,
+    .lost-signal__end {
+        animation: none;
+    }
+}
+
+@media (width <= 600px) {
+    .lost-signal {
+        padding: 2rem 2rem 6rem 1.5rem;
+    }
+}

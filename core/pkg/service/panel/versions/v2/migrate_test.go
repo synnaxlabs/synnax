@@ -18,7 +18,6 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -43,7 +42,7 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Composition",
-			Migrations: []migrate.Migration{v2.Migration},
+			Migrations: []gorp.Migration{v2.Migration},
 		})).To(Succeed())
 		var got v2.Panel
 		Expect(gorp.NewRetrieve[v2.Key, v2.Panel]().

@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -51,7 +50,7 @@ var _ = Describe("NewMove", func() {
 		return gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "test",
-			Migrations: []migrate.Migration{v0.NewMove()},
+			Migrations: []gorp.Migration{v0.NewMove()},
 		})
 	}
 	passwords := func(ctx context.Context) []v0.Password {

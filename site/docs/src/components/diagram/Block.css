@@ -1,0 +1,195 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.block-diagram {
+    container-type: inline-size;
+    display: flex;
+    justify-content: center;
+    margin: 3rem 0 var(--docs-block-gap);
+    padding: 4rem 3rem;
+    border: var(--pluto-border);
+    border-radius: 1.5rem;
+    background-color: var(--pluto-gray-l2-30);
+    background-image: radial-gradient(
+        circle,
+        var(--pluto-gray-l5) 0.5px,
+        transparent 0.5px
+    );
+    background-size: 16px 16px;
+    overflow-x: auto;
+}
+
+.block-diagram__svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.block-diagram__edge {
+    fill: none;
+    stroke: var(--pluto-primary-z-30);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+}
+
+.block-diagram__node {
+    fill: var(--pluto-gray-l0);
+    stroke: var(--pluto-gray-l5);
+    stroke-width: 0.5;
+}
+
+.block-diagram__tab-body {
+    fill: var(--pluto-primary-z-20);
+    stroke: var(--pluto-primary-p1);
+    stroke-width: 0.5;
+}
+
+.block-diagram__tab-center {
+    fill: var(--pluto-primary-p1);
+}
+
+.block-diagram__content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 100%;
+    padding: 0 12px;
+    box-sizing: border-box;
+}
+
+.block-diagram__icon {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: 0.5px solid var(--pluto-primary-p1);
+    border-radius: 4px;
+    background: var(--pluto-primary-z-20);
+    color: var(--pluto-primary-p1);
+
+    svg {
+        width: 12px;
+        height: 12px;
+    }
+}
+
+.block-diagram__text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.block-diagram__label {
+    font-family: var(--pluto-font-family);
+    font-size: 13px;
+    line-height: 1.2;
+    color: var(--pluto-gray-l10);
+    white-space: pre;
+}
+
+.block-diagram__caption {
+    font-family: var(--pluto-code-font-family);
+    font-size: 11px;
+    line-height: 1.2;
+    color: var(--pluto-gray-l7);
+    white-space: pre;
+}
+
+/* A nest diagram's outer group is its frame, so the diagram sits on the page. */
+.block-diagram--nest {
+    margin: 6rem 0;
+    padding: 0;
+    border: none;
+    background: none;
+
+    /* Each level steps one gray toward the blocks and takes its own accent: amber, then
+       green. Labels keep their gray. The hatch mixes the accent into the fill, and the
+       share sets its contrast. */
+    [data-depth="0"] {
+        --docs-nest-accent: var(--pluto-warning-z);
+        --docs-nest-fill: var(--pluto-gray-l3);
+        --docs-nest-mix: 6.6%;
+    }
+
+    [data-depth="1"] {
+        --docs-nest-accent: var(--pluto-secondary-z);
+        --docs-nest-fill: var(--pluto-gray-l2);
+        --docs-nest-mix: 7.6%;
+    }
+
+    [data-depth] > .block-diagram__group {
+        fill: var(--docs-nest-fill);
+    }
+
+    [data-depth] > .block-diagram__border {
+        fill: none;
+        stroke: color-mix(in srgb, var(--docs-nest-accent) 60%, transparent);
+        stroke-width: 0.5;
+    }
+
+    .block-diagram__hatch-line {
+        stroke: color-mix(
+            in srgb,
+            var(--docs-nest-accent) var(--docs-nest-mix),
+            var(--docs-nest-fill)
+        );
+        stroke-width: 1;
+    }
+
+    .block-diagram__header .block-diagram__icon {
+        border-color: var(--docs-nest-accent);
+        background: color-mix(in srgb, var(--docs-nest-accent) 20%, transparent);
+        color: var(--docs-nest-accent);
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .block-diagram--nest {
+        [data-depth="0"] {
+            --docs-nest-mix: 2.6%;
+        }
+
+        [data-depth="1"] {
+            --docs-nest-mix: 3.5%;
+        }
+    }
+}
+
+.block-diagram__header .block-diagram__label {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Block's caption gray is under 2:1 on the group fills. */
+.block-diagram__header .block-diagram__caption {
+    color: var(--pluto-gray-l9);
+}
+
+/* A diagram draws a second, narrow layout that replaces the wide one in a narrow
+   column, so its text keeps a readable size. */
+.block-diagram__svg--narrow {
+    display: none;
+}
+
+@container (max-width: 560px) {
+    .block-diagram__svg--wide {
+        display: none;
+    }
+
+    .block-diagram__svg--narrow {
+        display: block;
+    }
+}
