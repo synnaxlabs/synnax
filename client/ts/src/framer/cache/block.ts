@@ -38,6 +38,18 @@ export const rawIndex = (ts: TimeStamp): number => tileIndex(ts, RAW_LEVEL);
 /** @returns the store key of the channel's raw block at the index. */
 export const rawKey = (ch: channel.Key, index: number): string => `${ch}/raw/${index}`;
 
+const OFFSET_MASK = (1n << 32n) - 1n;
+
+/** @returns the alignment of the sample at the offset of the domain. */
+export const alignmentOf = (domain: number | bigint, offset: number): bigint =>
+  (BigInt(domain) << 32n) | BigInt(offset);
+
+/** @returns the domain of the alignment: a Core domain, or a raw block index. */
+export const domainOf = (alignment: bigint): bigint => alignment >> 32n;
+
+/** @returns the sample offset of the alignment in its domain. */
+export const offsetOf = (alignment: bigint): number => Number(alignment & OFFSET_MASK);
+
 const derive = (
   s: Series,
   {
@@ -87,7 +99,6 @@ export const align = (
     else segments.push({ start: s.alignment, end, offset });
     offset += s.length;
   }
-  const prefix = BigInt(index) << 32n;
   return series
     .filter((s) => s.length > 0)
     .map((s) => {
@@ -98,7 +109,7 @@ export const align = (
           `no index samples share alignment ${lower} in raw block ${index}`,
         );
       return derive(s, {
-        alignment: prefix | BigInt(seg.offset + Number(lower - seg.start)),
+        alignment: alignmentOf(index, seg.offset + Number(lower - seg.start)),
       });
     });
 };
