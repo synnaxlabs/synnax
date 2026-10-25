@@ -354,8 +354,6 @@ TEST_F(SOEMMasterTest, InputDataAfterActivation) {
     EXPECT_EQ(this->master->input_data().size(), 4);
 }
 
-////////////////////// Slave State //////////////////////
-
 /// @brief it should return no distributed clock time when no slave has a distributed
 /// clock.
 TEST_F(SOEMMasterTest, DCTimeIsAbsentWithoutADistributedClock) {
@@ -377,6 +375,8 @@ TEST_F(SOEMMasterTest, DCTimeCountsFromTheDCEpoch) {
         x::telem::TimeStamp(x::telem::SECOND * 946'684'801)
     );
 }
+
+////////////////////// Slave State //////////////////////
 
 /// @brief it should report a slave in OP with one state read and no state writes.
 TEST_F(SOEMMasterTest, CheckReportsOperationalSlave) {
