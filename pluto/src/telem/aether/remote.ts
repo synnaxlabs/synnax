@@ -53,13 +53,6 @@ import {
   type Telem,
   type ValueProps,
 } from "@/telem/aether/telem";
-import {
-  choose,
-  indexes,
-  level,
-  pointLimit,
-  type Position,
-} from "@/telem/aether/tiles";
 
 /** The slice of a Synnax client that remote telemetry sources consume. */
 export interface Client {
@@ -732,7 +725,7 @@ export class TiledChannelData
   private rawFrom(): TimeStamp {
     const home = this.home();
     if (this.xy) return home.start;
-    const span = framer.tileSpan(level(home)).valueOf();
+    const span = framer.tileSpan(framer.level(home)).valueOf();
     return new TimeStamp((home.start.valueOf() / span) * span);
   }
 
@@ -742,7 +735,7 @@ export class TiledChannelData
     const home = this.home();
     const floor = this.xy
       ? home.start
-      : this.rawFrom().sub(framer.tileSpan(level(home)));
+      : this.rawFrom().sub(framer.tileSpan(framer.level(home)));
     this.boundary = TimeStamp.max(this.boundary, floor);
     return this.boundary;
   }
@@ -781,15 +774,15 @@ export class TiledChannelData
       if (!end.after(view.start)) return [];
       if (view.end.after(end)) tiled = new TimeRange(view.start, end);
     }
-    const l = level(view);
-    const limit = pointLimit({
+    const l = framer.level(view);
+    const limit = framer.pointLimit({
       level: l,
       view,
       points: this.points,
       drawn: this.aggregation(),
       aggregation,
     });
-    return indexes(tiled, l).map((index) => {
+    return framer.indexes(tiled, l).map((index) => {
       const spec: framer.TileSpec = {
         key,
         level: l,
@@ -807,7 +800,7 @@ export class TiledChannelData
   // find returns the held tile at the position: the preferred one, then one of the
   // aggregation, then one of another.
   private find(
-    p: Position,
+    p: framer.TilePosition,
     preferred: Map<string, string>,
     aggregation: Aggregation,
     tiles: Iterable<HeldTile> = this.held.values(),
@@ -866,11 +859,13 @@ export class TiledChannelData
     const chosen =
       targets.length === 0
         ? []
-        : choose(
-            targets[0].level,
-            targets.map((t) => t.index),
-            drawable.map((t) => t.spec),
-          ).map((p) => this.find(p, preferred, targets[0].aggregation, drawable)!);
+        : framer
+            .choose(
+              targets[0].level,
+              targets.map((t) => t.index),
+              drawable.map((t) => t.spec),
+            )
+            .map((p) => this.find(p, preferred, targets[0].aggregation, drawable)!);
     const out = chosen.flatMap((tile) => tile.series.series);
     if (prune) {
       // The tiles of the home view and of its bounds stay held, and so do the tiles

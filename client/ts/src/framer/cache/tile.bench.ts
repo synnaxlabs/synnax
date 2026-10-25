@@ -12,7 +12,8 @@ import { allocSuiteAsync } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
 import { type channel } from "@/channel";
-import { TileReader, tileSpan, type TileSpec } from "@/framer/cache/tile";
+import { tileSpan } from "@/framer/cache/grid";
+import { TileReader, type TileSpec } from "@/framer/cache/tile";
 import { SyntheticCore } from "@/testutil";
 
 // One week of 1kHz data. A plot 1000 pixels wide that shows the last day of it draws

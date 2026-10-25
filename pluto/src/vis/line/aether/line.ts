@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { UnexpectedError } from "@synnaxlabs/client";
+import { framer, UnexpectedError } from "@synnaxlabs/client";
 import {
   type Aggregation,
   bounds,
@@ -444,7 +444,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       }, ZOOM_SETTLE.milliseconds);
     }
     if (i.settleTimer != null) return { bounds: b };
-    const perGroup = telem.POINTS_PER_GROUP[i.aggregation ?? DEFAULT_AGGREGATION];
+    const perGroup = framer.POINTS_PER_GROUP[i.aggregation ?? DEFAULT_AGGREGATION];
     return { bounds: b, points: width * this.state.groupsPerColumn * perGroup };
   }
 

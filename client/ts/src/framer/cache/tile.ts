@@ -15,49 +15,22 @@ import {
   type MultiSeries,
   Size,
   sync,
-  TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
+import { type TileBounds, tileRange } from "@/framer/cache/grid";
 import { DEFAULT_BATCH_DEBOUNCE, type RemoteReader } from "@/framer/cache/reader";
 import { DEFAULT_STATIC_PROPS } from "@/framer/cache/static";
 
-/**
- * Identifies one tile: the samples of one channel inside a fixed span of time, reduced
- * under a point limit. Tiles at level L span 2^L milliseconds, and tile i of a level
- * starts i spans after the Unix epoch.
- */
-export interface TileSpec {
+/** Identifies one tile of one channel, reduced under a point limit. */
+export interface TileSpec extends TileBounds {
   key: channel.Key;
-  level: number;
-  index: number;
   pointLimit: number;
   aggregation: Aggregation;
-  /** Starts the read after the tile does. A read with a start is never cached. */
-  start?: TimeStamp;
-  /**
-   * Ends the read before the tile does, for a tile that is still being written. A read
-   * with an end is never cached.
-   */
-  end?: TimeStamp;
 }
-
-/** @returns the span of every tile at the given level. */
-export const tileSpan = (level: number): TimeSpan =>
-  new TimeSpan(TimeSpan.MILLISECOND.valueOf() << BigInt(level));
-
-/** @returns the time range the tile covers, cut to the spec's start and end. */
-export const tileRange = ({ level, index, start, end }: TileSpec): TimeRange => {
-  const span = tileSpan(level).valueOf();
-  let lower = BigInt(index) * span;
-  let upper = lower + span;
-  if (start != null && start.valueOf() > lower) lower = start.valueOf();
-  if (end != null && end.valueOf() < upper) upper = end.valueOf();
-  return new TimeRange(lower, upper);
-};
 
 export interface TileReaderProps {
   /** Reads reduced tiles from the Core. */

@@ -15,11 +15,18 @@ export {
   type Subscription,
 } from "@/framer/cache/streamer";
 export {
+  choose,
+  indexes,
+  level,
+  pointLimit,
+  type PointLimitProps,
+  POINTS_PER_GROUP,
+  type TileBounds,
+  type TilePosition,
   tileRange,
-  tileRequestKey,
   tileSpan,
-  type TileSpec,
-} from "@/framer/cache/tile";
+} from "@/framer/cache/grid";
+export { tileRequestKey, type TileSpec } from "@/framer/cache/tile";
 export * from "@/framer/client";
 export * from "@/framer/feed";
 export * from "@/framer/frame";

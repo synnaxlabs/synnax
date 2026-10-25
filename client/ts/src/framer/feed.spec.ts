@@ -13,7 +13,8 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import { tileSpan, type TileSpec } from "@/framer/cache/tile";
+import { tileSpan } from "@/framer/cache/grid";
+import { type TileSpec } from "@/framer/cache/tile";
 import { Feed, type FeedProps, type LatestReader } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { createTestClient } from "@/testutil";

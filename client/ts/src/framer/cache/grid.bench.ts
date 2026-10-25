@@ -15,8 +15,8 @@ import {
   indexes,
   level,
   pointLimit,
-  type Position,
-} from "@/telem/aether/tiles";
+  type TilePosition,
+} from "@/framer/cache/grid";
 
 // A line source runs each of these several times per frame.
 
@@ -46,11 +46,11 @@ test("grid", async ({ bench }) => {
 
 const SLOTS = indexes(HOUR, HOUR_LEVEL);
 
-const positions = (l: number, from: number, count: number): Position[] =>
+const positions = (l: number, from: number, count: number): TilePosition[] =>
   Array.from({ length: count }, (_, i) => ({ level: l, index: from + i }));
 
 // below returns every tile depth levels finer than the slots.
-const below = (depth: number): Position[] =>
+const below = (depth: number): TilePosition[] =>
   positions(HOUR_LEVEL - depth, SLOTS[0] * 2 ** depth, SLOTS.length * 2 ** depth);
 
 // The held tiles of a view settled at its level, of a zoom in that waits on the new

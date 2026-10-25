@@ -16,19 +16,13 @@ import {
   sleep,
   type TimeRange,
   TimeSpan,
-  TimeStamp,
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import {
-  tileRange,
-  TileReader,
-  type TileReaderProps,
-  tileSpan,
-  type TileSpec,
-} from "@/framer/cache/tile";
+import { tileRange } from "@/framer/cache/grid";
+import { TileReader, type TileReaderProps, type TileSpec } from "@/framer/cache/tile";
 import { Frame } from "@/framer/frame";
 
 interface Call {
@@ -81,49 +75,6 @@ const createSpec = (overrides: Partial<TileSpec> = {}): TileSpec => ({
 });
 
 describe("tile", () => {
-  describe("tileSpan", () => {
-    it("should span one millisecond at level zero", () => {
-      expect(tileSpan(0).equals(TimeSpan.milliseconds(1))).toBe(true);
-    });
-
-    it("should double the span with each level", () => {
-      expect(tileSpan(10).equals(TimeSpan.milliseconds(1024))).toBe(true);
-    });
-  });
-
-  describe("tileRange", () => {
-    it("should start the tile index spans after the epoch", () => {
-      const tr = tileRange(createSpec({ level: 2, index: 3 }));
-      expect(tr.start.equals(TimeStamp.milliseconds(12))).toBe(true);
-      expect(tr.end.equals(TimeStamp.milliseconds(16))).toBe(true);
-    });
-
-    it("should cut the range short at the end of the spec", () => {
-      const end = TimeStamp.milliseconds(14);
-      const tr = tileRange(createSpec({ level: 2, index: 3, end }));
-      expect(tr.end.equals(end)).toBe(true);
-    });
-
-    it("should cut the range short at the start of the spec", () => {
-      const start = TimeStamp.milliseconds(13);
-      const tr = tileRange(createSpec({ level: 2, index: 3, start }));
-      expect(tr.start.equals(start)).toBe(true);
-      expect(tr.end.equals(TimeStamp.milliseconds(16))).toBe(true);
-    });
-
-    it("should ignore a start before the tile", () => {
-      const start = TimeStamp.milliseconds(4);
-      const tr = tileRange(createSpec({ level: 2, index: 3, start }));
-      expect(tr.start.equals(TimeStamp.milliseconds(12))).toBe(true);
-    });
-
-    it("should ignore an end after the tile", () => {
-      const end = TimeStamp.milliseconds(20);
-      const tr = tileRange(createSpec({ level: 2, index: 3, end }));
-      expect(tr.end.equals(TimeStamp.milliseconds(16))).toBe(true);
-    });
-  });
-
   describe("TileReader", () => {
     it("should read the tile range with the spec's options", async () => {
       const { reader, calls } = createReader();
