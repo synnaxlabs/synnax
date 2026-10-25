@@ -1581,13 +1581,16 @@ func (p *Plugin) typeArgConverters(
 			goTypes = append(goTypes, p.resolveGoTypeLiteral(typeArg, data))
 			continue
 		}
+		if typeArg.Name == "nil" {
+			data.AddInternal("xpb", "github.com/synnaxlabs/x/pb")
+			forward = append(forward, "xpb.NilToPBAny")
+			backward = append(backward, "xpb.NilFromPBAny")
+			goTypes = append(goTypes, "struct{}")
+			continue
+		}
 		forward = append(forward, "nil")
 		backward = append(backward, "nil")
-		if typeArg.Name == "nil" {
-			goTypes = append(goTypes, "struct{}")
-		} else {
-			goTypes = append(goTypes, "any")
-		}
+		goTypes = append(goTypes, "any")
 	}
 	return forward, backward, goTypes
 }
