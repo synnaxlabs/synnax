@@ -657,6 +657,38 @@ describe("Feed.subscribe", () => {
       }
     });
 
+    it("should keep samples after the end of a static window out of the count", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const key = core.index.key;
+      const end = core.now().sub(TimeSpan.seconds(1));
+      const sub = feed.subscribe({
+        keys: [key],
+        window: staticWindow(new TimeRange(end.sub(TimeSpan.seconds(1)), end)),
+        limit: { variant: "latest", count: 100 },
+      });
+      const marker = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 1 },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        await expect.poll(() => marker.value(key).status.variant, POLL).toBe("success");
+        const before = timesOf(sub.value(key));
+        expect(before).toHaveLength(100);
+        core.advance(TimeSpan.seconds(1));
+        // The stream delivers each frame to every subscription before the next.
+        await expect
+          .poll(() => marker.value(key).series.at(-1), POLL)
+          .toBe(newestOf(core));
+        expect(timesOf(sub.value(key))).toEqual(before);
+      } finally {
+        marker.close();
+        sub.close();
+        await feed.close();
+      }
+    });
+
     it("should only stream a virtual channel", async () => {
       const core = createCore({ derived: true });
       const feed = core.openFeed(OPTIONS);

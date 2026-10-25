@@ -207,10 +207,17 @@ export class Latest {
 
   // Returns the samples of s newer than the newest sample held, or null if it has none.
   // In the newest sample's domain, alignments decide. In another domain, the ends of
-  // the time ranges decide, and a series with no time range stays.
+  // the time ranges decide, and a series with no time range stays. A series that starts
+  // at or after the end of a static window never enters.
   private fresh(s: Series): Series | null {
     if (s.length === 0) return null;
     const timed = !s.timeRange.isZero;
+    if (
+      timed &&
+      this.window?.variant === "static" &&
+      !s.timeRange.start.before(resolveWindow(this.window, this.props.now()).end)
+    )
+      return null;
     const newest = this.front < this.series.length ? this.series.at(-1) : undefined;
     if (newest == null) return s;
     if (domainOf(s.alignment) === domainOf(newest.alignment)) {
