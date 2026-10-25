@@ -94,6 +94,18 @@ var _ = Describe("Go Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, goPlugin)
+			ExpectContent(resp, "thing/types.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"And []Where `json:\"and,omitzero\" msgpack:\"and,omitempty\"`",
+					"Or []Where `json:\"or,omitzero\" msgpack:\"or,omitempty\"`",
+					"Not *Where `json:\"not,omitzero\" msgpack:\"not,omitempty\"`",
+				)
+		})
+
 		Context("field-level omit", func() {
 			It("Should keep a wire-omitted field out of JSON and msgpack", func(
 				ctx SpecContext,

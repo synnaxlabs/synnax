@@ -51,6 +51,21 @@ var _ = Describe("Go PB Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should translate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, pbPlugin)
+			ExpectContent(resp, "thing/pb/translator.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"vals, err := WheresToPB(r.And)",
+					"pb.And = &WhereList{Values: vals}",
+					"pb.Not, err = WhereToPB(*r.Not)",
+					"vals, err := WheresFromPB(pb.And.Values)",
+					"val, err := WhereFromPB(pb.Not)",
+					"r.Not = &val",
+				)
+		})
+
 		Context("field-level omit", func() {
 			It("Should not translate a field omitted in pb", func(ctx SpecContext) {
 				source := `

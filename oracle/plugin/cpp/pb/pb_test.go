@@ -62,6 +62,18 @@ var _ = Describe("C++ PB Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should translate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, pbPlugin)
+			ExpectContent(resp, "thing/proto.gen.h").ToContain(
+				"auto* wrapper = pb.mutable_and_();\n        for (const auto& item : *this->and_) {",
+				"auto [v, err] = this->not_->to_proto();",
+				"cpp.and_.emplace();",
+				"x::pb::from_proto_repeated<Where>(*cpp.and_, pb.and_().values())",
+				"auto [v, err] = Where::from_proto(pb.not_());",
+			)
+		})
+
 		Context("field-level omit", func() {
 			DescribeTable(
 				"Should leave out a field omitted in cpp or pb",

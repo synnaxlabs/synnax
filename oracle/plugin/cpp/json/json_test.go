@@ -45,6 +45,17 @@ var _ = Describe("C++ JSON Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, jsonPlugin)
+			ExpectContent(resp, "thing/json.gen.h").ToContain(
+				`.and_ = parser.field<std::optional<std::vector<Where>>>("and"),`,
+				`.not_ = parser.field<x::mem::indirect<Where>>("not"),`,
+				`if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);`,
+				`if (this->not_.has_value()) j["not"] = this->not_->to_json();`,
+			)
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave out a field omitted in cpp", func(ctx SpecContext) {
 				source := `

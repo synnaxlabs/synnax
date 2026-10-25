@@ -40,3 +40,36 @@ Direction enum {
 	descending = "descending"
 }
 `
+
+// AddFilterSchema adds FilterSchema at "schemas/x/filter" with an output for every
+// language.
+func AddFilterSchema(loader *MockFileLoader) {
+	loader.Add("schemas/x/filter", `
+@go output "x/go/filter"
+@py output "x/py/x/filter"
+@ts output "x/ts/src/filter"
+@cpp output "x/cpp/filter"
+@pb
+`+FilterSchema)
+}
+
+// ThingFilter declares a filter over Thing with an output for every language. It needs
+// AddFilterSchema.
+const ThingFilter = `
+import "schemas/x/filter"
+
+@go output "core/pkg/service/thing"
+@py output "client/py/synnax/thing"
+@ts output "client/ts/src/thing"
+@cpp output "client/cpp/thing"
+@pb
+
+Thing struct {
+	key  uuid   { @key }
+	name string
+}
+
+Where filter Thing {
+	name
+}
+`
