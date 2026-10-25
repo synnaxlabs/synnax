@@ -169,7 +169,10 @@ func (r *renderer) renderStruct(t resolution.Type, f resolution.StructForm) {
 // renderFilter renders a filter definition from its lines, not from the struct it
 // expands into.
 func (r *renderer) renderFilter(t resolution.Type, f resolution.Filter) {
-	r.line(t.Name + " filter " + r.ref(f.Target) + " {")
+	// Analysis fills in the defaulted type arguments of a generic target, but the
+	// grammar takes only a plain reference.
+	target := resolution.TypeRef{Name: f.Target.Name}
+	r.line(t.Name + " filter " + r.ref(target) + " {")
 	r.indent++
 	for _, l := range f.Lines {
 		head := l.Name
