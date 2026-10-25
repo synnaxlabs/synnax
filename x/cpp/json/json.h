@@ -571,19 +571,27 @@ struct has_to_json<T, std::void_t<decltype(std::declval<T>().to_json())>>
 template<typename T>
 inline constexpr bool has_to_json_v = has_to_json<T>::value;
 
-/// @brief Converts a container of items to a JSON array.
-/// Items with a to_json() method will have it called; others are assigned directly.
+/// @brief Converts a value to JSON. A value with a to_json() method has it called, a
+/// std::monostate becomes null, and any other value is assigned directly.
+template<typename T>
+json to_json(const T &value) {
+    if constexpr (std::is_same_v<T, std::monostate>)
+        return nullptr;
+    else if constexpr (has_to_json_v<T>)
+        return value.to_json();
+    else
+        return value;
+}
+
+/// @brief Converts a container of items to a JSON array, converting each item with
+/// to_json.
 /// @param items The container to convert.
 /// @returns A JSON array containing the serialized items.
 template<typename Container>
 json to_array(const Container &items) {
     auto arr = json::array();
-    for (const auto &item: items) {
-        if constexpr (has_to_json_v<typename Container::value_type>)
-            arr.push_back(item.to_json());
-        else
-            arr.push_back(item);
-    }
+    for (const auto &item: items)
+        arr.push_back(to_json(item));
     return arr;
 }
 

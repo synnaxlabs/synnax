@@ -56,6 +56,31 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 		})
 
+		It(
+			"Should serialize type parameter fields through x::json",
+			func(ctx SpecContext) {
+				source := `
+					@cpp output "x/cpp/thing"
+
+					Set struct<T> {
+						value T
+						eq    T?
+						in    T[]?
+						all   T[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "thing", loader, jsonPlugin)
+				ExpectContent(resp, "json.gen.h").
+					ToContain(
+						`j["value"] = x::json::to_json(this->value);`,
+						`if (this->eq.has_value()) j["eq"] = x::json::to_json(*this->eq);`,
+						`if (this->in.has_value()) j["in"] = x::json::to_array(*this->in);`,
+						`j["all"] = x::json::to_array(this->all);`,
+					).
+					ToNotContain("is_same_v")
+			},
+		)
+
 		Context("field-level omit", func() {
 			It("Should leave out a field omitted in cpp", func(ctx SpecContext) {
 				source := `

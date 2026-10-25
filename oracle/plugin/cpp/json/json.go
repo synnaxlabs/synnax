@@ -857,13 +857,15 @@ func (p *Plugin) toJSONExprForField(
 	fieldName = keywords.Escape(fieldName)
 
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
-		typeName := typeRef.TypeParam.Name
-		return fmt.Sprintf(`if constexpr (std::is_same_v<%s, x::json::json::object_t>)
-        j["%s"] = this->%s;
-    else if constexpr (std::is_same_v<%s, std::monostate>)
-        j["%s"] = nullptr;
-    else
-        j["%s"] = this->%s.to_json();`, typeName, jsonName, fieldName, typeName, jsonName, jsonName, fieldName)
+		if field.Optional {
+			return fmt.Sprintf(
+				`if (this->%s.has_value()) j["%s"] = x::json::to_json(*this->%s);`,
+				fieldName,
+				jsonName,
+				fieldName,
+			)
+		}
+		return fmt.Sprintf(`j["%s"] = x::json::to_json(this->%s);`, jsonName, fieldName)
 	}
 
 	// An indirect<T> has the same has_value() and -> interface as std::optional<T>,
@@ -897,18 +899,19 @@ func (p *Plugin) toJSONExprForField(
 
 	if elemType, isArray := arrays.ElementType(typeRef, data.table); isArray {
 		if elemType.TypeParam != nil {
-			typeName := elemType.TypeParam.Name
-			return fmt.Sprintf(`{
-        auto arr = x::json::json::array();
-        for (const auto& item : this->%s)
-            if constexpr (std::is_same_v<%s, x::json::json::object_t>)
-                arr.push_back(item);
-            else if constexpr (std::is_same_v<%s, std::monostate>)
-                arr.push_back(nullptr);
-            else
-                arr.push_back(item.to_json());
-        j["%s"] = arr;
-    }`, fieldName, typeName, typeName, jsonName)
+			if field.Optional {
+				return fmt.Sprintf(
+					`if (this->%s.has_value()) j["%s"] = x::json::to_array(*this->%s);`,
+					fieldName,
+					jsonName,
+					fieldName,
+				)
+			}
+			return fmt.Sprintf(
+				`j["%s"] = x::json::to_array(this->%s);`,
+				jsonName,
+				fieldName,
+			)
 		}
 
 		// UUIDs serialize through their to_json member, which nlohmann_json cannot
