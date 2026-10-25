@@ -74,8 +74,13 @@ const miss = (channels: number): (() => Promise<void>) => {
   };
 };
 
+// A miss waits out one batch timer, which the baseline measures alone.
+const batchTimer = async (): Promise<void> =>
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
 test("read", async ({ bench }) => {
   await bench.compare(
+    bench("baseline: one batch timer", batchTimer),
     bench("hit 3 tiles x 2 channels", await hit(1)),
     bench("hit 3 tiles x 11 channels", await hit(10)),
     bench("miss 3 tiles x 2 channels", miss(1)),
@@ -83,31 +88,73 @@ test("read", async ({ bench }) => {
   );
 });
 
-// Every insert past the budget scans the tiles callers hold before it finds one to
-// evict, so a held tile costs every later insert.
+// An insert past the budget scans the tiles callers hold before it finds one to evict,
+// so each held tile costs every later insert. The held tiles fill the budget, so every
+// insert evicts the tile inserted before it.
+const INSERTS = 100;
+// Tiles of 4 seconds, so thousands of them fit in the data.
+const HELD_LEVEL = 12;
+// Inserts cycle through this many tiles, which is more than the budget fits.
+const CYCLE = 20_000;
+
 const insertPastBudget = async (held: number): Promise<() => Promise<void>> => {
   const core = createCore(1);
-  const reader = createReader(core, Size.bytes(0));
-  const base: TileSpec = {
+  const spec = (index: number): TileSpec => ({
     key: core.data[0].key,
-    level: LEVEL,
-    index: 0,
+    level: HELD_LEVEL,
+    index,
     pointLimit: POINT_LIMIT,
     aggregation: "min_max",
+  });
+  const first = Number(START.valueOf() / tileSpan(HELD_LEVEL).valueOf()) + 1;
+  const heldSpecs = Array.from({ length: held }, (_, i) => spec(first + i));
+  const sizer = createReader(core);
+  const sizes = await Promise.all(
+    heldSpecs.map(async (s) =>
+      (await sizer.read(s)).series.reduce((sum, x) => sum + x.byteLength.valueOf(), 0),
+    ),
+  );
+  sizer.close();
+  let remoteReads = 0;
+  // The budget fits the held tiles, with a tenth to spare for each tile's overhead.
+  const reader = new TileReader({
+    readRemote: async (tr, keys, reduction) => {
+      remoteReads++;
+      return core.read(tr, keys, reduction);
+    },
+    transform: glTransform,
+    batchDebounce: TimeSpan.ZERO,
+    budget: Size.bytes(1.1 * sizes.reduce((sum, b) => sum + b, 0)),
+  });
+  const heldTiles = await Promise.all(heldSpecs.map(async (s) => await reader.read(s)));
+  heldTiles.forEach((t) => t.acquire());
+  let n = 0;
+  const insert = async (): Promise<void> => {
+    const batch = Array.from({ length: INSERTS }, () =>
+      spec(first + held + (n++ % CYCLE)),
+    );
+    await Promise.all(batch.map(async (s) => await reader.read(s)));
   };
-  for (let i = 0; i < held; i++) (await reader.read({ ...base, index: i })).acquire();
-  // Tiles past the data are empty, so the Core does no work for them.
-  let index = Number(NOW.valueOf() / tileSpan(LEVEL).valueOf()) + 1;
-  return async () => {
-    await reader.read({ ...base, index: index++ });
+  // Inserts past the spare budget reach the state where every insert evicts.
+  for (let i = 0; i < Math.max(held, INSERTS); i += INSERTS) await insert();
+  const readsFrom = async (s: TileSpec): Promise<number> => {
+    const before = remoteReads;
+    await reader.read(s);
+    return remoteReads - before;
   };
+  if (held > 0 && (await readsFrom(heldSpecs[held - 1])) > 0)
+    throw new Error("a held tile left the cache");
+  if ((await readsFrom(spec(first + held))) === 0)
+    throw new Error("inserts did not evict");
+  return insert;
 };
 
 test("evict", async ({ bench }) => {
   await bench.compare(
-    bench("insert past budget, 0 held", await insertPastBudget(0)),
-    bench("insert past budget, 100 held", await insertPastBudget(100)),
-    bench("insert past budget, 1000 held", await insertPastBudget(1000)),
+    bench("baseline: one batch timer", batchTimer),
+    bench("100 inserts past budget, 0 held", await insertPastBudget(0)),
+    bench("100 inserts past budget, 1000 held", await insertPastBudget(1000)),
+    bench("100 inserts past budget, 4000 held", await insertPastBudget(4000)),
   );
 });
 
