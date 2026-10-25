@@ -357,6 +357,28 @@ TEST_F(SOEMMasterTest, InputDataAfterActivation) {
     EXPECT_EQ(this->master->input_data().size(), 4);
 }
 
+/// @brief it should return no distributed clock time when no slave has a distributed
+/// clock.
+TEST_F(SOEMMasterTest, DCTimeIsAbsentWithoutADistributedClock) {
+    this->initialize_with_slave();
+    this->activate_master();
+    EXPECT_EQ(this->mock->configdc_count, 1);
+    EXPECT_EQ(this->master->dc_time(), std::nullopt);
+}
+
+/// @brief it should convert the distributed clock time, which counts from the year
+/// 2000, to a Unix timestamp.
+TEST_F(SOEMMasterTest, DCTimeCountsFromTheDCEpoch) {
+    this->initialize_with_slave();
+    this->mock->hasdc = true;
+    this->activate_master();
+    this->mock->dc_time_value = 1'000'000'000;
+    EXPECT_EQ(
+        this->master->dc_time(),
+        x::telem::TimeStamp(x::telem::SECOND * 946'684'801)
+    );
+}
+
 ////////////////////// Slave State //////////////////////
 
 /// @brief it should report a slave in OP with one state read and no state writes.

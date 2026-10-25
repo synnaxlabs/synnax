@@ -175,7 +175,8 @@ the channel key, level, index, point limit, aggregation, and an optional `start`
 - **Batching**: Tile reads with equal bounds and options merge into one `/frame/read`
   request, so the x and y tiles of one slot share one group size.
 - **Cache**: Keyed by the full spec, apart from the alignment-keyed cache. A cut tile is
-  not cached.
+  not cached. A cached tile is fetched again with another channel of its tile, because
+  samples written since can change the group size.
 - **Eviction**: Least recently used, by bytes, under a 128 MB budget. A tile a source
   holds is never evicted.
 - **Staleness**: A tile expires after 10 minutes, so a write into the past appears.

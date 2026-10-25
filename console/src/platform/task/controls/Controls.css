@@ -14,9 +14,12 @@
     background-color: var(--pluto-gray-l1);
     flex-basis: content;
 
+    /* The status takes the space the actions leave, down to its minimum. Below that,
+       the actions shrink instead. */
     > .console-task-status {
         position: relative;
-        flex: 1 1 auto;
+        flex: 1 1 0;
+        min-width: 25rem;
         height: auto;
         min-height: 100%;
         width: 100%;
@@ -85,7 +88,6 @@
     .console-task-controls__actions {
         padding: 2rem;
         gap: 1rem;
-        flex-shrink: 0;
     }
 
     /* Collapsed by default; --visible expands the grid track to reveal the
@@ -93,6 +95,7 @@
      * negative margin cancels the action row gap while collapsed. */
     .console-task-redeploy {
         display: grid;
+        flex-shrink: 0;
         grid-template-columns: 0fr;
         opacity: 0;
         visibility: hidden;
@@ -169,6 +172,8 @@
         }
 
         .console-task-status {
+            flex-basis: auto;
+            min-width: 0;
             min-height: 10rem;
             border-right: none !important;
             border-bottom: var(--pluto-border);
