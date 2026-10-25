@@ -19,11 +19,14 @@ const renderScale = (scale: labjack.Scale) =>
     values: { scale },
   });
 
+const valueOf = (name: string): string =>
+  screen.getByRole<HTMLInputElement>("textbox", { name }).value;
+
 describe("ScaleForm", () => {
   it("should show the slope and offset of a linear scale", async () => {
     await renderScale({ type: "linear", slope: 2, offset: 1 });
-    expect(screen.getByDisplayValue("2")).toBeTruthy();
-    expect(screen.getByDisplayValue("1")).toBeTruthy();
+    expect(valueOf("Slope")).toBe("2");
+    expect(valueOf("Offset")).toBe("1");
   });
 
   it("should show the ranges of a map scale", async () => {
@@ -31,12 +34,13 @@ describe("ScaleForm", () => {
       type: "map",
       preScaledMin: 4,
       preScaledMax: 20,
-      scaledMin: 0,
+      scaledMin: 1,
       scaledMax: 100,
     });
-    expect(screen.getByText("Pre-scaled min")).toBeTruthy();
-    expect(screen.getByDisplayValue("20")).toBeTruthy();
-    expect(screen.getByDisplayValue("100")).toBeTruthy();
+    expect(valueOf("Pre-scaled min")).toBe("4");
+    expect(valueOf("Pre-scaled max")).toBe("20");
+    expect(valueOf("Scaled min")).toBe("1");
+    expect(valueOf("Scaled max")).toBe("100");
   });
 
   it("should show no parameters when the channel is not scaled", async () => {

@@ -10,18 +10,17 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
-import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 import { type z } from "zod";
 
-export type ScaleType = "linear" | "map" | "none";
+type ScaleType = "linear" | "map" | "none";
 
 interface Scale {
   type: ScaleType;
 }
 
 /** The schema of each scale type, used to fill defaults when the type changes. */
-export type ScaleSchemas = Record<ScaleType, z.ZodType<Scale>>;
+type ScaleSchemas = Record<ScaleType, z.ZodType<Scale>>;
 
 const SelectTypeField = Form.buildSelectField<ScaleType>({
   fieldKey: "type",
@@ -78,20 +77,12 @@ export interface ScaleFormProps {
 
 /**
  * Edits a scale that is none, linear (slope and offset), or map (one range onto
- * another). Changing the type keeps the parameters the new type shares with the old.
+ * another).
  */
 export const ScaleForm = ({ path, schemas }: ScaleFormProps) => {
   const type = Form.useFieldValue<ScaleType>(`${path}.type`);
-  const handleTypeChange: Form.FieldProps<ScaleType>["onChange"] = (
-    value,
-    { get, set },
-  ) => {
-    if (type === value) return;
-    const next = schemas[value].parse({ type: value });
-    set(path, {
-      ...deep.overrideValidItems(next, get<Scale>(path).value, schemas[value]),
-      type: next.type,
-    });
+  const handleTypeChange: Form.FieldProps<ScaleType>["onChange"] = (value, { set }) => {
+    if (type !== value) set(path, schemas[value].parse({ type: value }));
   };
   const Params = PARAMS[type];
   return (
