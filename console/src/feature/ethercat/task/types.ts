@@ -90,7 +90,9 @@ export type EntryWriteChannel = ethercat.EntryWriteChannel;
 
 export type EntryChannel = EntryReadChannel | EntryWriteChannel;
 
-/** The side of the process image a task reaches: inputs for reads, outputs for writes. */
+/**
+ * The side of the process image a task reaches: inputs for reads, outputs for writes.
+ */
 export type PDOType = "inputs" | "outputs";
 
 export interface Address {
