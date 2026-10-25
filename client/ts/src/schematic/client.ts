@@ -99,6 +99,7 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Schematic>;
   private readonly dispatcher: actions.Controller<Key, Schematic, Action>;
+  private readonly dispatchSender: (key: Key) => actions.SendDispatch<Action>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
@@ -134,6 +135,11 @@ export class Client extends query.Retriever<
     this.symbols = new symbol.Client(cfg);
     this.store = store;
     this.dispatcher = dispatcher;
+    this.dispatchSender = actions.sender(
+      cfg.unary,
+      "/schematic/dispatch",
+      dispatchReqZ,
+    );
   }
 
   async create(
@@ -182,7 +188,7 @@ export class Client extends query.Retriever<
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
-      commit: async () => await this.sendDispatch(key, "", [renameAction({ name })]),
+      commit: async () => await this.dispatchSender(key)([renameAction({ name })], ""),
     });
     rename();
   }
@@ -242,24 +248,6 @@ export class Client extends query.Retriever<
   /** Stages actions committed atomically as one undoable entry. */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
-  }
-
-  private dispatchSender(key: Key): actions.SendDispatch<Action> {
-    return async (actions, dispatchKey) =>
-      await this.sendDispatch(key, dispatchKey, actions);
-  }
-
-  private async sendDispatch(
-    key: Key,
-    dispatchKey: string,
-    actions: Action[],
-  ): Promise<void> {
-    await this.cfg.unary.send(
-      "/schematic/dispatch",
-      { key, dispatchKey, actions },
-      dispatchReqZ,
-      emptyResZ,
-    );
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

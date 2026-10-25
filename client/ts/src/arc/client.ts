@@ -148,6 +148,7 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly dispatcher: actions.Controller<Key, Arc, Action>;
+  private readonly dispatchSender: (key: Key) => actions.SendDispatch<Action>;
   private readonly store: query.Table<Key, Arc>;
   private readonly taskAnswers: query.Retrieves<Key, task.Task | null>;
 
@@ -197,6 +198,7 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
+    this.dispatchSender = actions.sender(cfg.unary, "/arc/dispatch", dispatchReqZ);
     const composedTasks = cache.derive<task.Key, Omit<task.Task, "status">, task.Task>({
       name: "arc.task.composed",
       source: this.cfg.tasks.store,
@@ -296,7 +298,7 @@ export class Client extends query.Retriever<
       rollbacks: [rename()],
       onOptimistic: opts.onOptimistic,
       commit: async () =>
-        await this.sendDispatch(key, id.create(), [renameAction({ name })]),
+        await this.dispatchSender(key)([renameAction({ name })], id.create()),
     });
     rename();
   }
@@ -396,24 +398,6 @@ export class Client extends query.Retriever<
   /** Stages actions committed atomically as one undoable entry. */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
-  }
-
-  private dispatchSender(key: Key): actions.SendDispatch<Action> {
-    return async (actions, dispatchKey) =>
-      await this.sendDispatch(key, dispatchKey, actions);
-  }
-
-  private async sendDispatch(
-    key: Key,
-    dispatchKey: string,
-    actions: Action[],
-  ): Promise<void> {
-    await this.cfg.unary.send(
-      "/arc/dispatch",
-      { key, dispatchKey, actions },
-      dispatchReqZ,
-      emptyResZ,
-    );
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Arc[]> {

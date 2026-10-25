@@ -49,8 +49,6 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const ACTION_CHANNEL_NAME = "sy_range_action_set";
 export const DELETE_CHANNEL_NAME = "sy_range_delete";
 
-const emptyResZ = z.object({});
-
 const kvDeleteZ = z
   .string()
   .transform((val) => val.split("<--->"))
@@ -450,6 +448,7 @@ export class Client extends query.Retriever<
   private readonly writer: Writer;
   private readonly store: query.Table<Key, Range>;
   private readonly dispatcher: actions.Controller<Key, Range, Action>;
+  private readonly dispatchSender: (key: Key) => actions.SendDispatch<Action>;
   private readonly kvPairs: query.Table<string, kv.Pair>;
 
   constructor(cfg: ClientConfig) {
@@ -526,6 +525,7 @@ export class Client extends query.Retriever<
     this.writer = new Writer(cfg.unary);
     this.store = ranges;
     this.dispatcher = dispatcher;
+    this.dispatchSender = actions.sender(cfg.unary, "/range/dispatch", dispatchReqZ);
     this.kvPairs = kvPairs;
     this.aliases = aliases;
     const children = cache.queries<ChildrenRequest, Range[], Key, Range>({
@@ -645,17 +645,6 @@ export class Client extends query.Retriever<
   /** Stages actions that commit atomically as one dispatch. */
   beginTransaction(key: Key): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, this.dispatchSender(key));
-  }
-
-  private dispatchSender(key: Key): actions.SendDispatch<Action> {
-    return async (actions, dispatchKey) => {
-      await this.cfg.unary.send(
-        "/range/dispatch",
-        { key, dispatchKey, actions },
-        dispatchReqZ,
-        emptyResZ,
-      );
-    };
   }
 
   async delete(key: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

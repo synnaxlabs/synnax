@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   compare,
@@ -18,7 +19,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import type z from "zod";
+import { z } from "zod";
 
 import { type query } from "@/query";
 import { Table } from "@/query/table";
@@ -105,6 +106,23 @@ export type SendDispatch<Action> = (
   actions: Action[],
   dispatchKey: string,
 ) => Promise<void>;
+
+const emptyResZ = z.object({});
+
+/**
+ * Builds the sends for a domain's dispatch endpoint. The result takes a document's key
+ * and returns the send that posts actions on that document to the target.
+ */
+export const sender =
+  <Key, Action>(
+    unary: UnaryClient,
+    target: string,
+    reqZ: z.ZodType<{ key: Key; dispatchKey: string; actions: Action[] }>,
+  ) =>
+  (key: Key): SendDispatch<Action> =>
+  async (actions, dispatchKey) => {
+    await unary.send(target, { key, dispatchKey, actions }, reqZ, emptyResZ);
+  };
 
 /** Rewrites an action batch against the current document before replay. */
 export type Preprocess<State, Action> = (state: State, actions: Action[]) => Action[];
