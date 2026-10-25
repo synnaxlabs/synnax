@@ -13,17 +13,17 @@ import {
   type MultiSeries,
   type Size,
   type TimeRange,
+  type TimeSpan,
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import { Cache, type CacheProps } from "@/framer/cache/cache";
 import {
   DEFAULT_BATCH_DEBOUNCE,
   Reader,
   type ReaderProps,
 } from "@/framer/cache/reader";
-import { Store } from "@/framer/cache/store";
+import { Store, type StoreProps } from "@/framer/cache/store";
 import {
   MultiplexedStreamer,
   type MultiplexedStreamerProps,
@@ -43,16 +43,23 @@ export interface LatestReader {
 /** Props for {@link Feed}, including the transport it reads and streams through. */
 export interface FeedProps
   extends
-    CacheProps,
-    Omit<ReaderProps, "cache">,
-    Omit<MultiplexedStreamerProps, "cache" | "openStreamer"> {
+    Pick<StoreProps, "dynamicBufferSize" | "instrumentation">,
+    Omit<ReaderProps, "store">,
+    Omit<MultiplexedStreamerProps, "store" | "openStreamer"> {
   openStreamer: StreamOpener;
   readLatest: LatestReader;
   /**
-   * Byte size the tile cache evicts down to. Tiles a caller holds are never evicted.
+   * Byte size the block cache evicts down to. Blocks a caller holds and blocks the
+   * stream writes into are never evicted.
    * @default Size.megabytes(128)
    */
   tileBudget?: Size;
+  /**
+   * How long a fetched block answers reads before it is fetched again. Bounds the
+   * refetch rate of spans that stay empty.
+   * @default TimeSpan.minutes(10)
+   */
+  staleCoverageThreshold?: TimeSpan;
   /** Receives each failed reconnect attempt of the stream. Defaults to console.warn. */
   onRetry?: (error: Error) => void;
 }
@@ -60,16 +67,15 @@ export interface FeedProps
 /** The part of {@link FeedProps} a caller sets. The client supplies the rest. */
 export interface FeedOptions extends Omit<
   FeedProps,
-  "readRemote" | "openStreamer" | "readLatest" | "onRetry"
+  "readRemote" | "retrieveChannels" | "openStreamer" | "readLatest" | "onRetry"
 > {}
 
 /**
- * Cached, demand-managed access to channel telemetry: durable streaming
- * subscriptions multiplexed onto one frame stream, and batched historical reads
- * served through per-channel rolling buffers.
+ * Cached, demand-managed access to channel telemetry: durable streaming subscriptions
+ * multiplexed onto one frame stream, and batched historical reads, all cached in raw
+ * and reduced blocks under one byte budget.
  */
 export class Feed {
-  private readonly cache: Cache;
   private readonly reader: Reader;
   private readonly streamer: MultiplexedStreamer;
   private readonly tiles: TileReader;
@@ -80,40 +86,33 @@ export class Feed {
   constructor(props: FeedProps) {
     const {
       readRemote,
+      retrieveChannels,
       openStreamer,
       readLatest,
       tileBudget,
       instrumentation,
       dynamicBufferSize,
-      gcInterval,
-      staleEntryThreshold,
       staleCoverageThreshold,
       removalDelay,
       breaker,
       batchDebounce,
-      overlapThreshold,
       fetchTimeout,
       now,
       onRetry,
     } = props;
-    this.cache = new Cache({
-      dynamicBufferSize,
-      gcInterval,
-      staleEntryThreshold,
-      staleCoverageThreshold,
-      instrumentation: instrumentation?.child("cache"),
-    });
-    this.reader = new Reader({
-      readRemote,
-      cache: this.cache,
-      batchDebounce,
-      overlapThreshold,
-      fetchTimeout,
-      now,
-    });
     this.store = new Store({
       budget: tileBudget,
       staleThreshold: staleCoverageThreshold,
+      dynamicBufferSize,
+      instrumentation: instrumentation?.child("store"),
+    });
+    this.reader = new Reader({
+      readRemote,
+      retrieveChannels,
+      store: this.store,
+      batchDebounce,
+      fetchTimeout,
+      now,
     });
     this.tiles = new TileReader({
       readRemote,
@@ -122,7 +121,7 @@ export class Feed {
       fetchTimeout,
     });
     this.streamer = new MultiplexedStreamer({
-      cache: this.cache,
+      store: this.store,
       openStreamer: async (config, { onReopen, onDrop, signal }) => {
         const streamer = new HardenedStreamer(openStreamer, config, {
           breaker,
@@ -159,8 +158,9 @@ export class Feed {
   }
 
   /**
-   * Reads the given time range for the given channel, serving from the cache and
-   * gap-filling from the cluster.
+   * Reads the given time range for the given channel, serving from cached raw blocks
+   * and fetching the blocks the cache lacks. Each series is whole, so the result can
+   * hold samples outside the range.
    */
   async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
     return await this.reader.read(tr, key);
@@ -198,6 +198,5 @@ export class Feed {
     await this.reader.close();
     this.tiles.close();
     this.store.close();
-    this.cache.close();
   }
 }

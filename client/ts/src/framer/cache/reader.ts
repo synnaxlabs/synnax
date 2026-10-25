@@ -10,6 +10,7 @@
 import { Unreachable } from "@synnaxlabs/freighter";
 import {
   debounce,
+  errors,
   MultiSeries,
   type Reduction,
   type Series,
@@ -20,8 +21,17 @@ import {
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { UnexpectedError } from "@/errors";
-import { type Cache } from "@/framer/cache/cache";
+import { NotFoundError, UnexpectedError } from "@/errors";
+import { type ChannelRetriever } from "@/framer/adapter";
+import {
+  align,
+  countBefore,
+  RAW_LEVEL,
+  type RawBlock,
+  rawKey,
+} from "@/framer/cache/block";
+import { indexes, tileRange } from "@/framer/cache/grid";
+import { type Store } from "@/framer/cache/store";
 import { type Frame } from "@/framer/frame";
 
 /** Reads a telemetry frame from the Core, reduced when a reduction is given. */
@@ -35,41 +45,37 @@ export const DEFAULT_BATCH_DEBOUNCE = TimeSpan.milliseconds(50);
 // marks them as covered.
 const COMMIT_MARGIN = TimeSpan.seconds(1);
 
-interface ReadRequest {
+// The most block fetches in flight at once.
+const MAX_FETCHES = 4;
+
+// A request to fetch one channel's raw block up to at least end.
+interface Request {
   channel: channel.Key;
-  gaps: TimeRange[];
+  index: number;
+  end: TimeStamp;
 }
 
-// Tracks one read's outstanding fetches, so the read settles when its last fetch lands.
-// The first failure among them wins.
-interface Tracker {
-  entry: debounce.Entry<ReadRequest>;
-  remaining: number;
-  failure?: unknown;
-}
-
-interface BatchFetch {
-  gap: TimeRange;
+// Block fetches that start at the same time in the same block share one Core read.
+interface Group {
+  index: number;
+  start: TimeStamp;
   channels: Set<channel.Key>;
-  trackers: Set<Tracker>;
+  entries: Array<debounce.Entry<Request>>;
 }
 
 export interface ReaderProps {
   /** Function used to read remote data from the server. */
   readRemote: RemoteReader;
-  /** Will read from and populate the given cache with fetched data. */
-  cache: Cache;
+  /** Looks up the index of each channel a fetch reads. */
+  retrieveChannels: ChannelRetriever;
+  /** Caches fetched blocks, and holds the blocks the stream writes into. */
+  store: Store;
   /**
    * Used to batch read requests to the server to minimize traffic. The window is not
    * extended by later reads, so it is also the maximum wait before a batch fires.
    * @default TimeSpan.milliseconds(50)
    */
   batchDebounce?: TimeSpan;
-  /**
-   * Reads whose gap time ranges are within this threshold merge into one request.
-   * @default TimeSpan.milliseconds(5)
-   */
-  overlapThreshold?: TimeSpan;
   /**
    * Deadline for a single remote fetch. A fetch that does not settle within it rejects
    * the reads it serves with an Unreachable error.
@@ -84,24 +90,29 @@ export interface ReaderProps {
 }
 
 /**
- * Reads historical telemetry, serving from the cache and batch-filling gaps from the
- * server. A fetch failure rejects only the reads whose gaps were in the failed fetch.
+ * Reads raw telemetry through raw blocks of the store. A read fetches each block it
+ * needs from the end of the block's coverage to the block's end, with the channel's
+ * index, and gives fetched series block alignment. A fetch failure rejects only the
+ * reads that wait on it.
  */
 export class Reader {
   private readonly props: Required<Omit<ReaderProps, "batchDebounce">>;
-  private readonly batcher: debounce.Batcher<ReadRequest>;
+  private readonly batcher: debounce.Batcher<Request>;
+  private active = 0;
+  // Fetches waiting for a slot, in arrival order. Each is handed a freed slot.
+  private readonly waiting: Array<() => void> = [];
   private closed = false;
 
   constructor(props: ReaderProps) {
     const {
       readRemote,
-      cache,
+      retrieveChannels,
+      store,
       batchDebounce = DEFAULT_BATCH_DEBOUNCE,
-      overlapThreshold = TimeSpan.milliseconds(5),
       fetchTimeout = TimeSpan.seconds(30),
       now = () => TimeStamp.now(),
     } = props;
-    this.props = { readRemote, cache, overlapThreshold, fetchTimeout, now };
+    this.props = { readRemote, retrieveChannels, store, fetchTimeout, now };
     this.batcher = new debounce.Batcher({
       interval: batchDebounce,
       exec: async (entries) => await this.batchRead(entries),
@@ -109,103 +120,150 @@ export class Reader {
   }
 
   /**
-   * Reads the given time range for the given channel.
+   * Reads the given time range for the given channel. Each series is whole, so the
+   * result can hold samples outside the range. Series come in time order. A streamed
+   * series that overlaps a fetched one is left out.
    * @throws {UnexpectedError} if the reader is closed while the read is pending.
    * @throws {Unreachable} if a fetch serving the read exceeds the fetch timeout.
+   * @throws {NotFoundError} if the channel does not exist.
    */
-  async read(tr: TimeRange, channel: channel.Key): Promise<MultiSeries> {
-    const { cache } = this.props;
-    const unary = cache.get(channel);
-    const { series, gaps } = unary.read(tr);
-    if (gaps.length === 0) return series;
+  async read(tr: TimeRange, ch: channel.Key): Promise<MultiSeries> {
     if (this.closed) throw new UnexpectedError("telemetry reader is closed");
-    await this.batcher.enqueue({ channel, gaps });
-    return unary.read(tr).series;
-  }
-
-  private async batchRead(entries: Array<debounce.Entry<ReadRequest>>): Promise<void> {
-    const { cache, overlapThreshold } = this.props;
-    const batched: BatchFetch[] = [];
-    const trackers = new Map<debounce.Entry<ReadRequest>, Tracker>();
-    entries.forEach((entry) => {
-      const unary = cache.get(entry.req.channel);
-      entry.req.gaps.forEach((rawGap) => {
-        // An earlier batch or a streaming write may have filled part of the gap while
-        // this entry sat in the debounce window.
-        unary.read(rawGap).gaps.forEach((gap) => {
-          let tracker = trackers.get(entry);
-          if (tracker == null) {
-            tracker = { entry, remaining: 0 };
-            trackers.set(entry, tracker);
-          }
-          const g = batched.find((r) => r.gap.equals(gap, overlapThreshold));
-          if (g == null) {
-            batched.push({
-              gap,
-              channels: new Set([entry.req.channel]),
-              trackers: new Set([tracker]),
-            });
-            tracker.remaining++;
-          } else {
-            g.channels.add(entry.req.channel);
-            g.gap = TimeRange.max(g.gap, gap);
-            if (!g.trackers.has(tracker)) {
-              g.trackers.add(tracker);
-              tracker.remaining++;
-            }
-          }
-        });
-      });
-    });
-    entries.forEach((entry) => {
-      if (!trackers.has(entry)) entry.resolve();
-    });
-    await Promise.all(batched.map(async (b) => await this.fetchGap(b)));
-  }
-
-  // Never throws: every outcome, including a deadline expiry, settles through the
-  // trackers.
-  private async fetchGap({ gap, channels, trackers }: BatchFetch): Promise<void> {
-    const { cache, now, readRemote, fetchTimeout } = this.props;
-    let failure: unknown;
-    const answered = new TimeRange(
-      gap.start,
-      TimeStamp.min(gap.end, now().sub(COMMIT_MARGIN)),
+    const blocks = indexes(tr, RAW_LEVEL).map((i) => this.props.store.raw(ch, i));
+    const waits: Array<Promise<void>> = [];
+    for (const b of blocks) {
+      if (b.covers(tr)) continue;
+      b.pending ??= this.enqueue(b, TimeStamp.min(tr.end, b.range.end));
+      waits.push(b.pending);
+    }
+    // The read settles after its last fetch, and its first failure wins.
+    let failure: Error | undefined;
+    await Promise.all(
+      waits.map(async (w) => {
+        try {
+          await w;
+        } catch (e) {
+          failure ??= errors.fromUnknown(e);
+        }
+      }),
     );
+    if (failure != null) throw failure;
+    return assemble(tr, blocks);
+  }
+
+  private enqueue(block: RawBlock, end: TimeStamp): Promise<void> {
+    const { channel, index } = block;
+    const pending = this.batcher.enqueue({ channel, index, end }).finally(() => {
+      if (block.pending === pending) block.pending = null;
+    });
+    return pending;
+  }
+
+  private async batchRead(entries: Array<debounce.Entry<Request>>): Promise<void> {
+    const { store } = this.props;
+    const groups = new Map<string, Group>();
+    for (const entry of entries) {
+      const { channel, index, end } = entry.req;
+      // A fetch that landed while the request waited may have covered it.
+      const { coveredEnd } = store.raw(channel, index);
+      if (!coveredEnd.before(end)) {
+        entry.resolve();
+        continue;
+      }
+      const key = `${index}/${coveredEnd.valueOf()}`;
+      let group = groups.get(key);
+      if (group == null) {
+        group = { index, start: coveredEnd, channels: new Set(), entries: [] };
+        groups.set(key, group);
+      }
+      group.channels.add(channel);
+      group.entries.push(entry);
+    }
+    await Promise.all([...groups.values()].map(async (g) => await this.fetch(g)));
+  }
+
+  // Never throws: every outcome settles the group's entries.
+  private async fetch({ index, start, channels, entries }: Group): Promise<void> {
+    const { fetchTimeout } = this.props;
+    await this.acquire();
     try {
-      const frame = await sync.withTimeout(
-        readRemote(gap, Array.from(channels)),
+      const tr = new TimeRange(start, tileRange({ level: RAW_LEVEL, index }).end);
+      await sync.withTimeout(
+        this.load(index, tr, channels),
         fetchTimeout,
         () =>
           new Unreachable({
-            message: `gap read for ${gap.toString()} timed out after ${fetchTimeout.toString()}`,
+            message: `block read for ${tr.toString()} timed out after ${fetchTimeout.toString()}`,
           }),
       );
-      if (!this.closed) {
-        // Group series by key in one pass; per-key get() scans the whole frame.
-        const grouped = new Map<channel.Key, Series[]>();
-        frame.forEach((k, s) => {
-          const key = k as channel.Key;
-          const existing = grouped.get(key);
-          if (existing == null) grouped.set(key, [s]);
-          else existing.push(s);
-        });
-        channels.forEach((key) => {
-          const unary = cache.get(key);
-          unary.writeStatic(new MultiSeries(grouped.get(key) ?? []));
-          unary.markFetched(answered);
-        });
-      }
+      entries.forEach(({ resolve }) => resolve());
     } catch (err) {
-      failure = err;
+      entries.forEach(({ reject }) => reject(err));
+    } finally {
+      this.release();
     }
-    trackers.forEach((tracker) => {
-      if (failure != null) tracker.failure ??= failure;
-      tracker.remaining--;
-      if (tracker.remaining > 0) return;
-      if (tracker.failure == null) tracker.entry.resolve();
-      else tracker.entry.reject(tracker.failure);
+  }
+
+  // Reads the channels and their indexes over tr, and fills the block at the index of
+  // every channel read whose coverage still ends at tr's start.
+  private async load(
+    index: number,
+    tr: TimeRange,
+    channels: Set<channel.Key>,
+  ): Promise<void> {
+    const { readRemote, retrieveChannels, store, now } = this.props;
+    const coveredEnd = TimeStamp.max(
+      tr.start,
+      TimeStamp.min(tr.end, now().sub(COMMIT_MARGIN)),
+    );
+    const payloads = await retrieveChannels([...channels]);
+    // indexOf holds the index of each channel read, or 0 for a channel with none.
+    const indexOf = new Map<channel.Key, channel.Key>();
+    payloads.forEach((p) => {
+      const idx = p.isIndex ? p.key : p.index;
+      indexOf.set(p.key, idx);
+      if (idx !== 0) indexOf.set(idx, idx);
     });
+    channels.forEach((ch) => {
+      if (!indexOf.has(ch)) throw new NotFoundError(`channel ${ch} not found`);
+    });
+    const frame = await readRemote(tr, [...indexOf.keys()]);
+    if (this.closed) return;
+    const grouped = new Map<channel.Key, Series[]>();
+    frame.forEach((k, s) => {
+      const key = k as channel.Key;
+      const existing = grouped.get(key);
+      if (existing == null) grouped.set(key, [s]);
+      else existing.push(s);
+    });
+    indexOf.forEach((idx, key) => {
+      const series = grouped.get(key) ?? [];
+      if (series.length > 0) store.retainDataType(key, series[0].dataType);
+      const block = store.raw(key, index);
+      if (!block.coveredEnd.equals(tr.start)) return;
+      const timestamps = idx === 0 ? [] : (grouped.get(idx) ?? []);
+      const base = block.coveredCount;
+      block.fill(
+        align(index, base, timestamps, series),
+        coveredEnd,
+        base + countBefore(timestamps, coveredEnd),
+      );
+      store.set(rawKey(key, index), block);
+    });
+  }
+
+  private async acquire(): Promise<void> {
+    if (this.active < MAX_FETCHES) {
+      this.active++;
+      return;
+    }
+    await new Promise<void>((resolve) => this.waiting.push(resolve));
+  }
+
+  private release(): void {
+    const next = this.waiting.shift();
+    if (next == null) this.active--;
+    else next();
   }
 
   /**
@@ -217,3 +275,22 @@ export class Reader {
     this.batcher.close(new UnexpectedError("telemetry reader is closed"));
   }
 }
+
+// Returns the series of the blocks that overlap tr in time order. The fetched form of a
+// span wins: a streamed series that overlaps a fetched one is left out.
+const assemble = (tr: TimeRange, blocks: RawBlock[]): MultiSeries => {
+  const fetched = blocks.flatMap((b) =>
+    b.fetched
+      .filter((s) => s.timeRange.overlapsWith(tr))
+      .map((series) => ({ series, range: series.timeRange })),
+  );
+  const all = blocks.flatMap((b) => b.fetched);
+  const streamed = blocks
+    .flatMap((b) => b.streamedIn(tr))
+    .filter(({ range }) => !all.some((f) => f.timeRange.overlapsWith(range)));
+  return new MultiSeries(
+    [...fetched, ...streamed]
+      .sort((a, b) => TimeRange.sort(a.range, b.range))
+      .map(({ series }) => series),
+  );
+};

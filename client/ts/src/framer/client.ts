@@ -115,6 +115,7 @@ export class Client {
       onRetry: this.cfg.onRetry,
       readRemote: async (tr, keys, reduction) =>
         await this.read(tr, keys, { reduction }),
+      retrieveChannels: this.cfg.retrieveChannels,
       openStreamer: async (config) => await this.openStreamer(config),
       readLatest: async (keys) => await this.readLatest(keys, 1),
     });

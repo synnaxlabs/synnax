@@ -8,639 +8,452 @@
 // included in the file licenses/APL.txt.
 
 import { Unreachable } from "@synnaxlabs/freighter";
-import { id, MultiSeries, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it, type Mock, vi } from "vitest";
+import {
+  id,
+  MultiSeries,
+  Rate,
+  Series,
+  sleep,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
+import { describe, expect, it } from "vitest";
 
-import { UnexpectedError } from "@/errors";
-import { Cache } from "@/framer/cache/cache";
-import { Reader, type RemoteReader } from "@/framer/cache/reader";
-import { Frame } from "@/framer/frame";
-import { Series } from "@/index";
-import { createTestClient } from "@/testutil";
+import { type channel } from "@/channel";
+import { NotFoundError, UnexpectedError } from "@/errors";
+import { RAW_LEVEL, rawIndex } from "@/framer/cache/block";
+import { tileRange } from "@/framer/cache/grid";
+import { Reader, type ReaderProps } from "@/framer/cache/reader";
+import { Store } from "@/framer/cache/store";
+import { type Frame } from "@/framer/frame";
+import { createTestClient, SyntheticCore } from "@/testutil";
 
-const basicRemoteReadFunc =
-  (fn: Mock): RemoteReader =>
-  async (tr, keys) => {
-    fn(tr, keys);
-    return new Frame(
-      keys,
-      keys.map(
-        () =>
-          new Series({
-            data: new Float32Array([1, 2, 3]),
-            alignment: 0n,
-            timeRange: tr,
-          }),
-      ),
-    );
-  };
+const blockRange = (index: number): TimeRange => tileRange({ level: RAW_LEVEL, index });
 
-describe("read", () => {
-  it("should correctly execute a simple read", async () => {
-    const cache = new Cache();
-    const remoteReadF = vi.fn();
-    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
-    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
-    const res = await reader.read(tr, 1);
-    expect(remoteReadF).toHaveBeenCalledTimes(1);
-    expect(remoteReadF).toHaveBeenCalledWith(tr, [1]);
-    expect(res.length).toEqual(3);
-    expect(res.at(0)).toEqual(1);
-    cache.close();
+const blockAlignment = (index: number, offset: number): bigint =>
+  (BigInt(index) << 32n) | BigInt(offset);
+
+// Every Core below samples at 1 Hz from the start of raw block 100.
+const START = blockRange(100).start;
+
+const at = (seconds: number): TimeStamp => START.add(TimeSpan.seconds(seconds));
+
+interface Fetch {
+  tr: TimeRange;
+  keys: channel.Key[];
+}
+
+interface Setup {
+  core: SyntheticCore;
+  reader: Reader;
+  store: Store;
+  fetches: Fetch[];
+}
+
+interface SetupProps extends Partial<ReaderProps> {
+  /** Seconds after START on the Core's clock. */
+  elapsed?: number;
+  /** Runs before each fetch is answered. A rejection fails the fetch. */
+  before?: (fetch: Fetch) => Promise<void>;
+}
+
+// Returns a reader over a Core with one index channel (1) and two data channels (2 and
+// 3) on it, recording every fetch the reader makes.
+const createReader = ({ elapsed = 300, before, ...props }: SetupProps = {}): Setup => {
+  const core = new SyntheticCore({
+    rate: Rate.hz(1),
+    start: START,
+    now: at(elapsed),
+    channels: 2,
   });
-
-  it("should not refetch a range that returned no data", async () => {
-    const cache = new Cache();
-    const remoteReadF = vi.fn();
-    const readRemote: RemoteReader = async (tr, keys) => {
-      remoteReadF(tr, keys);
-      return new Frame([], []);
-    };
-    const reader = new Reader({ cache, readRemote });
-    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
-    const res = await reader.read(tr, 1);
-    expect(res).toHaveLength(0);
-    const res2 = await reader.read(tr, 1);
-    expect(res2).toHaveLength(0);
-    expect(remoteReadF).toHaveBeenCalledTimes(1);
-    cache.close();
+  const fetches: Fetch[] = [];
+  const store = props.store ?? new Store();
+  const reader = new Reader({
+    readRemote: async (tr, keys) => {
+      const fetch = { tr, keys };
+      fetches.push(fetch);
+      await before?.(fetch);
+      return core.read(tr, keys);
+    },
+    retrieveChannels: core.retrieveChannels,
+    now: core.now,
+    ...props,
+    store,
   });
+  return { core, reader, store, fetches };
+};
 
-  it("should refetch the part of an empty range too recent to be committed", async () => {
-    const cache = new Cache();
-    const ranges: TimeRange[] = [];
-    const readRemote: RemoteReader = async (tr) => {
-      ranges.push(tr);
-      return new Frame([], []);
-    };
-    const reader = new Reader({ cache, readRemote });
-    const now = TimeStamp.now();
-    const tr = new TimeRange(now.sub(TimeSpan.seconds(10)), now);
-    await reader.read(tr, 1);
-    await reader.read(tr, 1);
-    expect(ranges).toHaveLength(2);
-    expect(ranges[1].start.after(tr.start)).toBe(true);
-    expect(ranges[1].end).toEqual(tr.end);
-    cache.close();
-  });
+// Returns a gate that holds every fetch until it opens.
+const createGate = () => {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  return { wait: async () => await promise, open: () => resolve() };
+};
 
-  it("should judge commit recency on the Core's clock", async () => {
-    const cache = new Cache();
-    const ranges: TimeRange[] = [];
-    const readRemote: RemoteReader = async (tr) => {
-      ranges.push(tr);
-      return new Frame([], []);
-    };
-    const coreNow = TimeStamp.now().sub(TimeSpan.minutes(5));
-    const reader = new Reader({ cache, readRemote, now: () => coreNow });
-    const tr = new TimeRange(coreNow.sub(TimeSpan.seconds(10)), coreNow);
-    await reader.read(tr, 1);
-    await reader.read(tr, 1);
-    expect(ranges).toHaveLength(2);
-    expect(ranges[1].end).toEqual(tr.end);
-    cache.close();
-  });
+const timestamps = (res: MultiSeries): bigint[] => Array.from(res) as bigint[];
 
-  it("should cover a span the Core answers with no data after one fetch", async () => {
-    const client = createTestClient();
-    const time = await client.channels.create({
-      name: id.create(),
-      dataType: "timestamp",
-      isIndex: true,
+const expectedTimestamps = (from: number, to: number): bigint[] =>
+  Array.from({ length: to - from }, (_, i) => at(from + i).valueOf());
+
+describe("Reader", () => {
+  describe("fetching", () => {
+    it("should fetch the whole block a read needs, with the channel's index", async () => {
+      const { reader, fetches } = createReader();
+      const res = await reader.read(new TimeRange(at(10), at(20)), 2);
+      expect(fetches).toEqual([{ tr: blockRange(100), keys: [2, 1] }]);
+      expect(res.length).toBe(66);
     });
-    const data = await client.channels.create({
-      name: id.create(),
-      dataType: "float32",
-      index: time.key,
+
+    it("should serve a covered read from the cache", async () => {
+      const { reader, fetches } = createReader();
+      const tr = new TimeRange(at(10), at(20));
+      const first = await reader.read(tr, 2);
+      const second = await reader.read(tr, 2);
+      expect(fetches).toHaveLength(1);
+      expect(second.series).toEqual(first.series);
     });
-    const start = TimeStamp.now().sub(TimeSpan.minutes(1));
-    await client.write(start, { [time.key]: [start], [data.key]: [1] });
-    const cache = new Cache();
-    const remoteReadF = vi.fn();
-    const readRemote: RemoteReader = async (tr, keys) => {
-      remoteReadF(tr, keys);
-      return await client.read(tr, keys);
-    };
-    const reader = new Reader({ cache, readRemote });
-    const tr = new TimeRange(
-      start.add(TimeSpan.seconds(10)),
-      start.add(TimeSpan.seconds(20)),
-    );
-    expect(await reader.read(tr, data.key)).toHaveLength(0);
-    expect(await reader.read(tr, data.key)).toHaveLength(0);
-    expect(remoteReadF).toHaveBeenCalledTimes(1);
-    cache.close();
-  });
 
-  it("should refetch an empty range after its coverage expires", async () => {
-    const cache = new Cache({ staleCoverageThreshold: TimeSpan.milliseconds(50) });
-    const remoteReadF = vi.fn();
-    const readRemote: RemoteReader = async (tr, keys) => {
-      remoteReadF(tr, keys);
-      return new Frame([], []);
-    };
-    const reader = new Reader({ cache, readRemote });
-    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
-    await reader.read(tr, 1);
-    await reader.read(tr, 1);
-    expect(remoteReadF).toHaveBeenCalledTimes(1);
-    await new Promise((r) => setTimeout(r, 60));
-    expect(await reader.read(tr, 1)).toHaveLength(0);
-    expect(remoteReadF).toHaveBeenCalledTimes(2);
-    cache.close();
-  });
-
-  it("should refetch a range whose fetch failed", async () => {
-    const cache = new Cache();
-    const remoteReadF = vi.fn();
-    const readRemote: RemoteReader = async (tr, keys) => {
-      remoteReadF(tr, keys);
-      throw new Error("connection lost");
-    };
-    const reader = new Reader({ cache, readRemote });
-    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
-    await expect(reader.read(tr, 1)).rejects.toThrow("connection lost");
-    await expect(reader.read(tr, 1)).rejects.toThrow("connection lost");
-    expect(remoteReadF).toHaveBeenCalledTimes(2);
-    cache.close();
-  });
-
-  it("should skip a read if the value is in the cache", async () => {
-    const cache = new Cache();
-    const remoteReadF = vi.fn();
-    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
-    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
-    const res = await reader.read(tr, 1);
-    expect(remoteReadF).toHaveBeenCalledWith(tr, [1]);
-    expect(res).toHaveLength(3);
-    expect(res.at(0)).toEqual(1);
-    const res2 = await reader.read(tr, 1);
-    expect(remoteReadF).toHaveBeenCalledTimes(1);
-    expect(res2).toHaveLength(3);
-    expect(res2.at(0)).toEqual(1);
-    cache.close();
-  });
-
-  it("should correctly batch multiple read requests with exactly the same time range", async () => {
-    const cache = new Cache();
-    const remoteReadF = vi.fn();
-    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
-    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
-    const res = await Promise.all([
-      reader.read(tr, 1),
-      reader.read(tr, 2),
-      reader.read(tr, 3),
-      reader.read(tr, 4),
-      reader.read(tr, 5),
-    ]);
-    expect(remoteReadF).toHaveBeenCalledTimes(1);
-    expect(remoteReadF).toHaveBeenCalledWith(tr, [1, 2, 3, 4, 5]);
-    res.forEach((r) => expect(r).toHaveLength(3));
-    cache.close();
-  });
-
-  it("should correctly batch multiple read requests with different time ranges", async () => {
-    const cache = new Cache();
-    const remoteReadF = vi.fn();
-    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
-    const tr1 = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
-    const tr2 = new TimeRange(TimeSpan.seconds(2), TimeSpan.seconds(4));
-    const res = await Promise.all([
-      reader.read(tr1, 1),
-      reader.read(tr1, 2),
-      reader.read(tr2, 3),
-      reader.read(tr2, 4),
-      reader.read(tr2, 5),
-    ]);
-    expect(remoteReadF).toHaveBeenCalledTimes(2);
-    expect(remoteReadF).toHaveBeenCalledWith(tr1, [1, 2]);
-    expect(remoteReadF).toHaveBeenCalledWith(tr2, [3, 4, 5]);
-    expect(res[0].timeRange.equals(tr1)).toBe(true);
-    expect(res[2].timeRange.equals(tr2)).toBe(true);
-    cache.close();
-  });
-
-  it("should correctly batch multiple read requests with time ranges within 5 milliseconds of each other", async () => {
-    const cache = new Cache();
-    const remoteReadF = vi.fn();
-    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
-    const tr1 = new TimeRange(TimeSpan.milliseconds(999), TimeSpan.milliseconds(1001));
-    const tr2 = new TimeRange(TimeSpan.milliseconds(998), TimeSpan.seconds(1));
-    const res = await Promise.all([
-      reader.read(tr1, 1),
-      reader.read(tr1, 2),
-      reader.read(tr2, 3),
-      reader.read(tr2, 4),
-      reader.read(tr2, 5),
-    ]);
-    // We expected the read time range to have the maximum breadth possible of the two
-    // time ranges.
-    const expectedReadTr = new TimeRange(
-      TimeSpan.milliseconds(998),
-      TimeSpan.milliseconds(1001),
-    );
-    expect(remoteReadF).toHaveBeenCalledTimes(1);
-    expect(remoteReadF).toHaveBeenCalledWith(expectedReadTr, [1, 2, 3, 4, 5]);
-    res.forEach((r) => {
-      expect(r).toHaveLength(3);
-      expect(r.timeRange.equals(expectedReadTr)).toBe(true);
-      expect(r.at(0)).toEqual(1);
+    it("should fetch each block a read spans", async () => {
+      const { reader, fetches } = createReader();
+      const res = await reader.read(new TimeRange(at(60), at(70)), 1);
+      expect(fetches.map(({ tr }) => tr)).toEqual([blockRange(100), blockRange(101)]);
+      expect(timestamps(res)).toEqual(expectedTimestamps(0, 132));
     });
-    cache.close();
+
+    it("should share one Core read among channels reading one block", async () => {
+      const { reader, fetches } = createReader();
+      const tr = new TimeRange(at(10), at(20));
+      await Promise.all([reader.read(tr, 2), reader.read(tr, 3)]);
+      expect(fetches).toHaveLength(1);
+      expect(new Set(fetches[0].keys)).toEqual(new Set([1, 2, 3]));
+    });
+
+    it("should cover a block the Core answers with no data", async () => {
+      const { reader, fetches } = createReader();
+      const tr = new TimeRange(at(-30), at(-20));
+      expect(await reader.read(tr, 2)).toHaveLength(0);
+      expect(await reader.read(tr, 2)).toHaveLength(0);
+      expect(fetches).toHaveLength(1);
+    });
+
+    it("should refetch the tail of a block too recent to commit on the Core's clock", async () => {
+      const { core, reader, fetches } = createReader({ elapsed: 30 });
+      await reader.read(new TimeRange(at(0), at(30)), 1);
+      core.advance(TimeSpan.seconds(10));
+      const res = await reader.read(new TimeRange(at(0), at(40)), 1);
+      expect(fetches.map(({ tr }) => tr)).toEqual([
+        blockRange(100),
+        new TimeRange(at(29), blockRange(100).end),
+      ]);
+      expect(timestamps(res)).toEqual(expectedTimestamps(0, 40));
+    });
+
+    it("should refetch a block once its fetched samples expire", async () => {
+      const { reader, fetches } = createReader({
+        store: new Store({ staleThreshold: TimeSpan.milliseconds(50) }),
+      });
+      const tr = new TimeRange(at(10), at(20));
+      await reader.read(tr, 2);
+      await reader.read(tr, 2);
+      expect(fetches).toHaveLength(1);
+      await sleep.sleep(TimeSpan.milliseconds(60));
+      expect(await reader.read(tr, 2)).toHaveLength(66);
+      expect(fetches).toHaveLength(2);
+    });
+
+    it("should run at most four fetches at once", async () => {
+      const gate = createGate();
+      let active = 0;
+      let most = 0;
+      const { reader, fetches } = createReader({
+        before: async () => {
+          most = Math.max(most, ++active);
+          await gate.wait();
+          active--;
+        },
+      });
+      const read = reader.read(new TimeRange(at(0), blockRange(106).start), 2);
+      await expect.poll(() => fetches.length).toBe(4);
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(fetches).toHaveLength(4);
+      gate.open();
+      await read;
+      expect(fetches).toHaveLength(6);
+      expect(most).toBe(4);
+    });
   });
 
-  it("should fire a batch even while reads keep arriving", async () => {
-    const cache = new Cache();
-    const remoteReadF = vi.fn();
-    const reader = new Reader({
-      cache,
-      readRemote: basicRemoteReadFunc(remoteReadF),
-      batchDebounce: TimeSpan.milliseconds(30),
+  describe("batching", () => {
+    it("should fire a batch even while reads keep arriving", async () => {
+      const { reader, fetches } = createReader({
+        batchDebounce: TimeSpan.milliseconds(30),
+      });
+      const pending = [reader.read(new TimeRange(at(0), at(1)), 2)];
+      for (let i = 1; i <= 5; i++) {
+        await sleep.sleep(TimeSpan.milliseconds(10));
+        pending.push(reader.read(new TimeRange(at(i * 70), at(i * 70 + 1)), 2));
+      }
+      // A timer reset by each read would still be waiting for 30ms of silence.
+      expect(fetches.length).toBeGreaterThan(0);
+      await Promise.all(pending);
     });
-    const readAt = (offset: number): Promise<unknown> =>
-      reader.read(
-        new TimeRange(TimeSpan.seconds(offset), TimeSpan.seconds(offset + 1)),
-        offset + 1,
+
+    it("should join a read to the fetch pending for its block", async () => {
+      const gate = createGate();
+      const { reader, fetches } = createReader({
+        batchDebounce: TimeSpan.milliseconds(10),
+        before: gate.wait,
+      });
+      const tr = new TimeRange(at(10), at(20));
+      const first = reader.read(tr, 2);
+      await expect.poll(() => fetches.length).toBe(1);
+      const second = reader.read(tr, 2);
+      await sleep.sleep(TimeSpan.milliseconds(30));
+      gate.open();
+      expect((await first).series).toEqual((await second).series);
+      expect(fetches).toHaveLength(1);
+    });
+
+    it("should skip a block that a fetch covered while the request waited", async () => {
+      const gate = createGate();
+      const { reader, fetches } = createReader({
+        batchDebounce: TimeSpan.milliseconds(20),
+        before: gate.wait,
+      });
+      const tr = new TimeRange(at(10), at(20));
+      const data = reader.read(tr, 2);
+      await expect.poll(() => fetches.length).toBe(1);
+      // The index's block is not pending, so its read queues a fetch of its own.
+      const index = reader.read(tr, 1);
+      gate.open();
+      await data;
+      expect(timestamps(await index)).toEqual(expectedTimestamps(0, 66));
+      expect(fetches).toHaveLength(1);
+    });
+  });
+
+  describe("alignment", () => {
+    it("should give fetched series block alignment", async () => {
+      const { reader } = createReader();
+      const tr = new TimeRange(at(70), at(80));
+      const [index, data] = await Promise.all([reader.read(tr, 1), reader.read(tr, 2)]);
+      expect(index.series.map((s) => s.alignment)).toEqual([blockAlignment(101, 0)]);
+      expect(data.series.map((s) => s.alignment)).toEqual([blockAlignment(101, 0)]);
+      expect(timestamps(index)[0]).toEqual(at(66).valueOf());
+    });
+
+    it("should continue a block's offsets in a tail fetch", async () => {
+      const { core, reader } = createReader({ elapsed: 30 });
+      const first = await reader.read(new TimeRange(at(0), at(30)), 1);
+      core.advance(TimeSpan.seconds(10));
+      const res = await reader.read(new TimeRange(at(0), at(40)), 1);
+      expect(res.series.map((s) => s.alignment)).toEqual([
+        blockAlignment(100, 0),
+        blockAlignment(100, 30),
+      ]);
+      expect(res.series[0]).toBe(first.series[0]);
+    });
+
+    it("should align a channel's tail with the tail of its index", async () => {
+      const { core, reader } = createReader({ elapsed: 30 });
+      await reader.read(new TimeRange(at(0), at(30)), 2);
+      core.advance(TimeSpan.seconds(10));
+      const tr = new TimeRange(at(0), at(40));
+      const data = await reader.read(tr, 2);
+      const index = await reader.read(tr, 1);
+      expect(data.series.map((s) => s.alignmentBounds)).toEqual(
+        index.series.map((s) => s.alignmentBounds),
       );
-    const pending = [readAt(0)];
-    for (let i = 1; i <= 5; i++) {
-      await new Promise((r) => setTimeout(r, 10));
-      pending.push(readAt(i * 10));
-    }
-    // A timer reset by each read would still be waiting for 30ms of silence.
-    expect(remoteReadF).toHaveBeenCalled();
-    await Promise.all(pending);
-    cache.close();
-  });
-
-  it("should skip fetching a gap that was filled while the read was queued", async () => {
-    const cache = new Cache();
-    const remoteReadF = vi.fn();
-    const reader = new Reader({
-      cache,
-      readRemote: basicRemoteReadFunc(remoteReadF),
-      batchDebounce: TimeSpan.milliseconds(20),
     });
-    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
-    const pending = reader.read(tr, 1);
-    cache.get(1).writeStatic(
-      new MultiSeries([
-        new Series({
-          data: new Float32Array([1, 2, 3]),
-          alignment: 0n,
-          timeRange: tr,
-        }),
-      ]),
-    );
-    const res = await pending;
-    expect(remoteReadF).not.toHaveBeenCalled();
-    expect(res).toHaveLength(3);
-    cache.close();
   });
 
-  it("should narrow the fetch to the portion of the gap still missing", async () => {
-    const cache = new Cache();
-    const remoteReadF = vi.fn();
-    const reader = new Reader({
-      cache,
-      readRemote: basicRemoteReadFunc(remoteReadF),
-      batchDebounce: TimeSpan.milliseconds(20),
+  describe("streamed samples", () => {
+    const createStreamed = (from: number, to: number): MultiSeries =>
+      new MultiSeries([
+        new Series({
+          data: new Float32Array(Array.from({ length: to - from }, (_, i) => i)),
+          alignment: 1n << 60n,
+          timeRange: new TimeRange(at(from), at(to)),
+        }),
+      ]);
+
+    it("should return streamed samples the fetched ones do not overlap, in time order", async () => {
+      const { reader, store, fetches } = createReader({ elapsed: 30 });
+      store.write(2, createStreamed(40, 42));
+      const res = await reader.read(new TimeRange(at(0), at(60)), 2);
+      expect(fetches).toHaveLength(1);
+      expect(res.series).toHaveLength(2);
+      expect(res.series[1]).toBe(store.leadingBuffer(2));
     });
-    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(5));
-    const cached = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
-    const pending = reader.read(tr, 1);
-    cache.get(1).writeStatic(
-      new MultiSeries([
-        new Series({
-          data: new Float32Array([1, 2, 3]),
-          alignment: 0n,
-          timeRange: cached,
-        }),
-      ]),
-    );
-    await pending;
-    expect(remoteReadF).toHaveBeenCalledTimes(1);
-    expect(remoteReadF).toHaveBeenCalledWith(
-      new TimeRange(TimeSpan.seconds(3), TimeSpan.seconds(5)),
-      [1],
-    );
-    cache.close();
+
+    it("should fetch a span the stream holds", async () => {
+      const { reader, store, fetches } = createReader({ elapsed: 30 });
+      store.write(2, createStreamed(40, 42));
+      const tr = new TimeRange(at(40), at(42));
+      await reader.read(tr, 2);
+      await reader.read(tr, 2);
+      expect(fetches).toHaveLength(2);
+    });
+
+    it("should leave out a streamed series that a fetched series overlaps", async () => {
+      const { reader, store } = createReader({ elapsed: 30 });
+      store.write(2, createStreamed(10, 12));
+      const res = await reader.read(new TimeRange(at(0), at(20)), 2);
+      expect(res.series).toHaveLength(1);
+      expect(res.series[0]).not.toBe(store.leadingBuffer(2));
+      expect(res.length).toBe(30);
+    });
   });
 
-  // The leading buffer holds provisional leading alignments, so its span still
-  // fetches: the fetched form is what pairs with other channels' fetched data.
-  it("should fetch the range the live leading buffer covers", async () => {
-    const cache = new Cache();
-    const remoteReadF = vi.fn();
-    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
-    cache.get(1).writeDynamic(
-      new MultiSeries([
-        new Series({
-          data: new Float32Array([1, 2, 3]),
-          alignment: 0n,
-          timeRange: new TimeRange(TimeSpan.seconds(10), TimeSpan.seconds(13)),
-        }),
-      ]),
-    );
-    const res = await reader.read(
-      new TimeRange(TimeSpan.seconds(10), TimeSpan.seconds(20)),
-      1,
-    );
-    expect(remoteReadF).toHaveBeenCalledTimes(1);
-    expect(remoteReadF).toHaveBeenCalledWith(
-      new TimeRange(TimeSpan.seconds(10), TimeSpan.seconds(20)),
-      [1],
-    );
-    // The fetched form of a span wins over the live buffer's.
-    expect(res.series).toHaveLength(1);
-    expect(res.series[0]).not.toBe(cache.get(1).leadingBuffer);
-    expect(res.length).toEqual(3);
-    cache.close();
+  describe("failures", () => {
+    const failBlock = (index: number) => async (fetch: Fetch) => {
+      if (fetch.tr.start.equals(blockRange(index).start))
+        throw new Error("read exploded");
+    };
+
+    it("should fail only the reads whose fetch failed", async () => {
+      const { reader } = createReader({ before: failBlock(101) });
+      const [ok, bad] = await Promise.allSettled([
+        reader.read(new TimeRange(at(10), at(20)), 2),
+        reader.read(new TimeRange(at(70), at(80)), 3),
+      ]);
+      expect(ok.status).toBe("fulfilled");
+      expect(bad).toEqual({ status: "rejected", reason: new Error("read exploded") });
+    });
+
+    it("should reject a read after its last fetch lands when one fails", async () => {
+      const gate = createGate();
+      const { reader } = createReader({
+        before: async (fetch) => {
+          await failBlock(101)(fetch);
+          await gate.wait();
+        },
+      });
+      let settled = false;
+      const read = reader.read(new TimeRange(at(60), at(70)), 2).finally(() => {
+        settled = true;
+      });
+      await sleep.sleep(TimeSpan.milliseconds(100));
+      expect(settled).toBe(false);
+      gate.open();
+      await expect(read).rejects.toThrow("read exploded");
+    });
+
+    it("should refetch a block whose fetch failed", async () => {
+      const { reader, fetches } = createReader({ before: failBlock(100) });
+      const tr = new TimeRange(at(10), at(20));
+      await expect(reader.read(tr, 2)).rejects.toThrow("read exploded");
+      await expect(reader.read(tr, 2)).rejects.toThrow("read exploded");
+      expect(fetches).toHaveLength(2);
+    });
+
+    it("should reject a read of a channel that does not exist", async () => {
+      const { reader, fetches } = createReader();
+      const read = reader.read(new TimeRange(at(10), at(20)), 99);
+      await expect(read).rejects.toThrow(NotFoundError);
+      await expect(read).rejects.toThrow("channel 99 not found");
+      expect(fetches).toHaveLength(0);
+    });
   });
 
-  it("should fetch the full range across the leading buffer start", async () => {
-    const cache = new Cache();
-    const remoteReadF = vi.fn();
-    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
-    cache.get(1).writeDynamic(
-      new MultiSeries([
-        new Series({
-          data: new Float32Array([1, 2, 3]),
-          alignment: 0n,
-          timeRange: new TimeRange(TimeSpan.seconds(10), TimeSpan.seconds(13)),
-        }),
-      ]),
-    );
-    await reader.read(new TimeRange(TimeSpan.seconds(5), TimeSpan.seconds(20)), 1);
-    expect(remoteReadF).toHaveBeenCalledTimes(1);
-    expect(remoteReadF).toHaveBeenCalledWith(
-      new TimeRange(TimeSpan.seconds(5), TimeSpan.seconds(20)),
-      [1],
-    );
-    cache.close();
-  });
+  describe("hung fetch", () => {
+    const hang = (index: number) => async (fetch: Fetch) => {
+      if (fetch.tr.start.equals(blockRange(index).start))
+        await new Promise<never>(() => {});
+    };
 
-  it("should fail only the reads whose batch failed", async () => {
-    const cache = new Cache();
-    const failing = new TimeRange(TimeSpan.seconds(10), TimeSpan.seconds(12));
-    const readRemote: RemoteReader = async (tr, keys) => {
-      if (tr.equals(failing)) throw new Error("read exploded");
-      return new Frame(
-        keys,
-        keys.map(
-          () =>
-            new Series({
-              data: new Float32Array([1, 2, 3]),
-              alignment: 0n,
-              timeRange: tr,
-            }),
-        ),
+    it("should reject a hung read with Unreachable after the fetch timeout", async () => {
+      const { reader } = createReader({
+        batchDebounce: TimeSpan.milliseconds(10),
+        fetchTimeout: TimeSpan.milliseconds(50),
+        before: hang(100),
+      });
+      const hung = reader.read(new TimeRange(at(10), at(20)), 2);
+      await expect(hung).rejects.toSatisfy((e) => Unreachable.matches(e));
+      await expect(hung).rejects.toThrow(
+        `block read for ${blockRange(100).toString()} timed out after 50ms`,
       );
-    };
-    const reader = new Reader({ cache, readRemote });
-    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
-    const [ok, bad] = await Promise.allSettled([
-      reader.read(tr, 1),
-      reader.read(failing, 2),
-    ]);
-    expect(ok.status).toEqual("fulfilled");
-    expect(bad.status).toEqual("rejected");
-    if (bad.status === "rejected") expect(bad.reason.message).toEqual("read exploded");
-    cache.close();
-  });
-
-  it("should reject pending reads when closed", async () => {
-    const cache = new Cache();
-    const reader = new Reader({
-      cache,
-      readRemote: basicRemoteReadFunc(vi.fn()),
-      batchDebounce: TimeSpan.seconds(10),
     });
-    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
-    const pending = reader.read(tr, 1);
-    await new Promise((r) => setTimeout(r, 5));
-    await reader.close();
-    await expect(pending).rejects.toThrow(UnexpectedError);
-    cache.close();
+
+    it("should serve other blocks while a fetch hangs", async () => {
+      const { reader } = createReader({
+        batchDebounce: TimeSpan.milliseconds(10),
+        fetchTimeout: TimeSpan.seconds(5),
+        before: hang(100),
+      });
+      const hung = reader.read(new TimeRange(at(10), at(20)), 2);
+      await sleep.sleep(TimeSpan.milliseconds(30));
+      expect(await reader.read(new TimeRange(at(70), at(80)), 3)).toHaveLength(66);
+      await reader.close();
+      await expect(hung).rejects.toThrow(UnexpectedError);
+    });
   });
 
-  it("should reject reads issued after close", async () => {
-    const cache = new Cache();
-    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(vi.fn()) });
-    await reader.close();
-    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
-    await expect(reader.read(tr, 1)).rejects.toThrow(UnexpectedError);
-    cache.close();
-  });
-});
+  describe("close", () => {
+    it("should reject pending reads", async () => {
+      const { reader } = createReader({ batchDebounce: TimeSpan.seconds(10) });
+      const pending = reader.read(new TimeRange(at(10), at(20)), 2);
+      await sleep.sleep(TimeSpan.milliseconds(5));
+      await reader.close();
+      await expect(pending).rejects.toThrow(UnexpectedError);
+      await expect(pending).rejects.toThrow("telemetry reader is closed");
+    });
 
-describe("hung fetch", () => {
-  const HUNG_TR = new TimeRange(TimeSpan.seconds(10), TimeSpan.seconds(12));
-  const OK_TR = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
-
-  // Hangs forever for reads of HUNG_TR, resolves immediately otherwise.
-  const hangingRemote =
-    (fn: Mock): RemoteReader =>
-    async (tr, keys) => {
-      fn(tr, keys);
-      if (tr.equals(HUNG_TR)) return await new Promise<never>(() => {});
-      return new Frame(
-        keys,
-        keys.map(
-          () =>
-            new Series({
-              data: new Float32Array([1, 2, 3]),
-              alignment: 0n,
-              timeRange: tr,
-            }),
-        ),
+    it("should reject reads issued after close", async () => {
+      const { reader } = createReader();
+      await reader.close();
+      await expect(reader.read(new TimeRange(at(10), at(20)), 2)).rejects.toThrow(
+        "telemetry reader is closed",
       );
-    };
-
-  it("should resolve a same-batch read whose own fetch succeeded", async () => {
-    const cache = new Cache();
-    const remoteReadF = vi.fn();
-    const reader = new Reader({
-      cache,
-      readRemote: hangingRemote(remoteReadF),
-      batchDebounce: TimeSpan.milliseconds(20),
-      fetchTimeout: TimeSpan.milliseconds(250),
     });
-    const hung = reader.read(HUNG_TR, 1);
-    const ok = reader.read(OK_TR, 2);
-    const res = await ok;
-    expect(res).toHaveLength(3);
-    expect(remoteReadF).toHaveBeenCalledTimes(2);
-    await expect(hung).rejects.toThrow("timed out after 250ms");
-    cache.close();
-  });
 
-  it("should serve a later batch while a fetch hangs", async () => {
-    const cache = new Cache();
-    const remoteReadF = vi.fn();
-    const reader = new Reader({
-      cache,
-      readRemote: hangingRemote(remoteReadF),
-      batchDebounce: TimeSpan.milliseconds(20),
-      fetchTimeout: TimeSpan.milliseconds(500),
+    it("should discard a fetch that lands after close", async () => {
+      const gate = createGate();
+      const { reader, store, fetches } = createReader({
+        batchDebounce: TimeSpan.milliseconds(10),
+        before: gate.wait,
+      });
+      const hung = reader.read(new TimeRange(at(10), at(20)), 2);
+      await expect.poll(() => fetches.length).toBe(1);
+      await reader.close();
+      await expect(hung).rejects.toThrow(UnexpectedError);
+      gate.open();
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      expect(store.raw(2, 100).covers(blockRange(100))).toBe(false);
     });
-    const hung = reader.read(HUNG_TR, 1);
-    await new Promise((r) => setTimeout(r, 50));
-    expect(remoteReadF).toHaveBeenCalledTimes(1);
-    const res = await reader.read(OK_TR, 2);
-    expect(res).toHaveLength(3);
-    expect(remoteReadF).toHaveBeenCalledTimes(2);
-    await reader.close();
-    await expect(hung).rejects.toThrow(UnexpectedError);
-    cache.close();
   });
 
-  it("should close promptly and reject the hung read", async () => {
-    const cache = new Cache();
-    let release: ((f: Frame) => void) | undefined;
-    const readRemote: RemoteReader = async () =>
-      await new Promise<Frame>((r) => (release = r));
-    const reader = new Reader({
-      cache,
-      readRemote,
-      batchDebounce: TimeSpan.milliseconds(10),
-      fetchTimeout: TimeSpan.seconds(1),
+  describe("Core", () => {
+    it("should cover a span the Core answers with no data after one fetch", async () => {
+      const client = createTestClient();
+      const time = await client.channels.create({
+        name: id.create(),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: "float32",
+        index: time.key,
+      });
+      const start = TimeStamp.now().sub(TimeSpan.minutes(5));
+      await client.write(start, { [time.key]: [start], [data.key]: [1] });
+      const fetched: Frame[] = [];
+      const reader = new Reader({
+        readRemote: async (tr, keys) => {
+          const frame = await client.read(tr, keys);
+          fetched.push(frame);
+          return frame;
+        },
+        retrieveChannels: async (keys) =>
+          (await client.channels.retrieve(keys as channel.Key[])).map((c) => c.payload),
+        store: new Store(),
+      });
+      const empty = blockRange(rawIndex(start) - 3);
+      const tr = new TimeRange(empty.start, empty.start.add(TimeSpan.seconds(10)));
+      expect(await reader.read(tr, data.key)).toHaveLength(0);
+      expect(await reader.read(tr, data.key)).toHaveLength(0);
+      expect(fetched).toHaveLength(1);
     });
-    const hung = reader.read(HUNG_TR, 1);
-    await new Promise((r) => setTimeout(r, 30));
-    await reader.close();
-    await expect(hung).rejects.toThrow(UnexpectedError);
-    // A late arrival is discarded without touching the cache.
-    release?.(
-      new Frame(
-        [1],
-        [
-          new Series({
-            data: new Float32Array([1]),
-            alignment: 0n,
-            timeRange: HUNG_TR,
-          }),
-        ],
-      ),
-    );
-    await new Promise((r) => setTimeout(r, 10));
-    expect(cache.get(1).read(HUNG_TR).gaps).toHaveLength(1);
-    cache.close();
-  });
-
-  it("should reject a hung read with Unreachable after the fetch timeout", async () => {
-    const cache = new Cache();
-    const reader = new Reader({
-      cache,
-      readRemote: hangingRemote(vi.fn()),
-      batchDebounce: TimeSpan.milliseconds(10),
-      fetchTimeout: TimeSpan.milliseconds(50),
-    });
-    const hung = reader.read(HUNG_TR, 1);
-    await expect(hung).rejects.toSatisfy((e) => Unreachable.matches(e));
-    await expect(hung).rejects.toThrow(
-      `gap read for ${HUNG_TR.toString()} timed out after 50ms`,
-    );
-    cache.close();
-  });
-});
-
-describe("concurrent batches", () => {
-  // Batches no longer serialize, so two batches may fetch the same still-open gap.
-  // The cache discards the duplicate write and both reads must resolve.
-  it("should resolve both reads when two batches fetch the same range", async () => {
-    const cache = new Cache();
-    const calls: TimeRange[] = [];
-    const resolvers: Array<(f: Frame) => void> = [];
-    const readRemote: RemoteReader = async (tr) => {
-      calls.push(tr);
-      return await new Promise<Frame>((r) => resolvers.push(r));
-    };
-    const reader = new Reader({
-      cache,
-      readRemote,
-      batchDebounce: TimeSpan.milliseconds(10),
-    });
-    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
-    const first = reader.read(tr, 1);
-    await new Promise((r) => setTimeout(r, 30));
-    const second = reader.read(tr, 1);
-    await new Promise((r) => setTimeout(r, 30));
-    expect(calls).toEqual([tr, tr]);
-    resolvers.forEach((resolve) =>
-      resolve(
-        new Frame(
-          [1],
-          [
-            new Series({
-              data: new Float32Array([1, 2, 3]),
-              alignment: 0n,
-              timeRange: tr,
-            }),
-          ],
-        ),
-      ),
-    );
-    const [a, b] = await Promise.all([first, second]);
-    expect(a).toHaveLength(3);
-    expect(b).toHaveLength(3);
-    cache.close();
-  });
-});
-
-describe("read spanning multiple fetches", () => {
-  const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(8));
-  const cached = new TimeRange(TimeSpan.seconds(3), TimeSpan.seconds(5));
-
-  const createMiddleEntry = (cache: Cache): void =>
-    cache.get(1).writeStatic(
-      new MultiSeries([
-        new Series({
-          data: new Float32Array([1, 2, 3]),
-          alignment: 10n,
-          timeRange: cached,
-        }),
-      ]),
-    );
-
-  it("should resolve only after every fetch serving the read lands", async () => {
-    const cache = new Cache();
-    const remoteReadF = vi.fn();
-    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
-    createMiddleEntry(cache);
-    await reader.read(tr, 1);
-    expect(remoteReadF).toHaveBeenCalledTimes(2);
-    expect(remoteReadF).toHaveBeenCalledWith(
-      new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3)),
-      [1],
-    );
-    expect(remoteReadF).toHaveBeenCalledWith(
-      new TimeRange(TimeSpan.seconds(5), TimeSpan.seconds(8)),
-      [1],
-    );
-    cache.close();
-  });
-
-  it("should reject the read when any of its fetches fails", async () => {
-    const cache = new Cache();
-    const failing = new TimeRange(TimeSpan.seconds(5), TimeSpan.seconds(8));
-    const readRemote: RemoteReader = async (tr, keys) => {
-      if (tr.equals(failing)) throw new Error("read exploded");
-      return new Frame(
-        keys,
-        keys.map(
-          () =>
-            new Series({
-              data: new Float32Array([1, 2, 3]),
-              alignment: 0n,
-              timeRange: tr,
-            }),
-        ),
-      );
-    };
-    const reader = new Reader({ cache, readRemote });
-    createMiddleEntry(cache);
-    await expect(reader.read(tr, 1)).rejects.toThrow("read exploded");
-    cache.close();
   });
 });

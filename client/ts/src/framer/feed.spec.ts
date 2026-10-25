@@ -8,11 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { Unreachable } from "@synnaxlabs/freighter";
-import { id, Series, Size, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  array,
+  DataType,
+  id,
+  Series,
+  Size,
+  sleep,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
+import { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
+import { type ChannelRetriever } from "@/framer/adapter";
 import { tileSpan } from "@/framer/cache/grid";
 import { type TileSpec } from "@/framer/cache/tile";
 import { Feed, type FeedProps, type LatestReader } from "@/framer/feed";
@@ -36,6 +47,18 @@ const createClock = (): (() => TimeStamp) => {
     return last;
   };
 };
+
+/** Retrieves every requested key as an index channel. */
+const retrieveIndexes: ChannelRetriever = async (params) =>
+  (array.toArray(params) as channel.Key[]).map(
+    (key) =>
+      new channel.Channel({
+        key,
+        name: `index-${key}`,
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      }).payload,
+  );
 
 /** Asserts a read returned every value written so far, each exactly once. */
 const expectWrittenValues = (values: number[], writeCount: number): void => {
@@ -150,7 +173,7 @@ describe("feed", () => {
     const res = await feed.read(tr, data.key);
     expectWrittenValues(Array.from(res) as number[], value);
     // A second writer opens a new alignment domain, which flushes the old leading
-    // buffer into the static cache as a streamed entry.
+    // buffer into its raw block as a streamed entry.
     const w2 = await client.openWriter({
       start: TimeStamp.now(),
       channels: [time.key, data.key],
@@ -399,6 +422,36 @@ describe("feed", () => {
     }
   });
 
+  it("should give a calculated channel and its index one block alignment", async () => {
+    const time = await client.channels.create({
+      name: id.create(),
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    const data = await client.channels.create({
+      name: id.create(),
+      dataType: "float64",
+      index: time.key,
+    });
+    const calc = await client.channels.create({
+      name: id.create(),
+      dataType: "float64",
+      virtual: true,
+      expression: `return ${data.name} * 2`,
+    });
+    const start = TimeStamp.now().sub(TimeSpan.seconds(10));
+    const stamps = [0, 1, 2].map((i) => start.add(TimeSpan.milliseconds(i)));
+    await client.write(start, { [time.key]: stamps, [data.key]: [1, 2, 3] });
+    const tr = new TimeRange(start, start.add(TimeSpan.seconds(1)));
+    const values = await feed.read(tr, calc.key);
+    const times = await feed.read(tr, calc.index);
+    expect(Array.from(values)).toEqual([2, 4, 6]);
+    expect(Array.from(times)).toEqual(stamps.map((t) => t.valueOf()));
+    expect(values.series.map((s) => s.alignmentBounds)).toEqual(
+      times.series.map((s) => s.alignmentBounds),
+    );
+  });
+
   it("should reject reads after the feed closes", async () => {
     const closable = client.openFeed();
     await closable.close();
@@ -410,6 +463,7 @@ describe("feed", () => {
     let calls = 0;
     const direct = new Feed({
       staleCoverageThreshold: TimeSpan.milliseconds(50),
+      retrieveChannels: retrieveIndexes,
       readRemote: async () => {
         calls++;
         return new Frame([], []);
@@ -432,6 +486,7 @@ describe("feed", () => {
   it("should forward fetchTimeout to the reader", async () => {
     const direct = new Feed({
       fetchTimeout: TimeSpan.milliseconds(20),
+      retrieveChannels: retrieveIndexes,
       readRemote: async () => await new Promise<Frame>(() => {}),
       openStreamer: async () => {
         throw new UnexpectedError("streamer unused");
@@ -447,6 +502,7 @@ describe("feed", () => {
     let opens = 0;
     const direct = new Feed({
       readRemote: async () => new Frame([], []),
+      retrieveChannels: retrieveIndexes,
       openStreamer: async () => {
         opens++;
         throw new Unreachable();
@@ -581,6 +637,7 @@ describe("feed", () => {
     const createFeed = (props: Partial<FeedProps> = {}) => {
       const counter = { calls: 0 };
       const direct = new Feed({
+        retrieveChannels: retrieveIndexes,
         readRemote: async (_, keys) => {
           counter.calls++;
           return new Frame(
@@ -641,6 +698,7 @@ describe("feed", () => {
     const createFeed = (readLatest: LatestReader): Feed =>
       new Feed({
         readLatest,
+        retrieveChannels: retrieveIndexes,
         readRemote: async () => {
           throw new UnexpectedError("reader unused");
         },
