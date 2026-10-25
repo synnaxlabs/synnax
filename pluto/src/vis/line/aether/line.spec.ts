@@ -632,6 +632,22 @@ describe("line", () => {
         expect([m.line.loading, m.line.fetching]).toEqual([false, true]);
       });
 
+      it("should show no first-load message for a live window of a minute or less", () => {
+        const m = mount([X1], [], {
+          window: telemTest.dynamicWindow(TimeSpan.minutes(1)),
+        });
+        m.ySource.status = telem.LOADING_STATUS;
+        expect([m.line.loading, m.line.fetching]).toEqual([false, false]);
+      });
+
+      it("should show a first-load message for a longer live window", () => {
+        const m = mount([X1], [], {
+          window: telemTest.dynamicWindow(TimeSpan.minutes(2)),
+        });
+        m.ySource.status = telem.LOADING_STATUS;
+        expect(m.line.loading).toBe(true);
+      });
+
       it("should report neither once its sources leave loading", () => {
         const m = mount([X1], []);
         m.ySource.status = status.create({ variant: "error", message: "failed" });
@@ -951,8 +967,12 @@ describe("line", () => {
       new telem.TiledChannelData(client, props, undefined, undefined, TimeSpan.ZERO);
 
     const createPair = (dataKey: channel.Key, home: TimeRange) => ({
-      x: create({ channel: dataKey, useIndexOfChannel: true, timeRange: home }),
-      y: create({ channel: dataKey, timeRange: home }),
+      x: create({
+        channel: dataKey,
+        useIndexOfChannel: true,
+        window: telemTest.staticWindow(home),
+      }),
+      y: create({ channel: dataKey, window: telemTest.staticWindow(home) }),
     });
 
     const settle = async (...sources: telem.TiledChannelData[]): Promise<void> =>
@@ -986,7 +1006,11 @@ describe("line", () => {
 
     it("should keep a spike that an average drops inside the line's bounds", async () => {
       const { data, home } = await writeChannels(COUNT / 2);
-      const y = create({ channel: data.key, timeRange: home, aggregation: "average" });
+      const y = create({
+        channel: data.key,
+        window: telemTest.staticWindow(home),
+        aggregation: "average",
+      });
       await settle(y);
       expect(y.value().data[0].upper).toBeLessThan(SPIKE / 2);
       await expect

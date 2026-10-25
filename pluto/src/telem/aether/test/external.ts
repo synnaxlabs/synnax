@@ -12,3 +12,4 @@ export * from "@/telem/aether/test/factory";
 export * from "@/telem/aether/test/sink";
 export * from "@/telem/aether/test/source";
 export * from "@/telem/aether/test/subscription";
+export * from "@/telem/aether/test/window";

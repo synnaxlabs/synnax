@@ -30,6 +30,7 @@ import {
   TimeRange,
   TimeSpan,
   TimeStamp,
+  windowZ,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -555,10 +556,8 @@ const tiledChannelDataPropsZ = z.object({
   useIndexOfChannel: z.boolean().default(false),
   /** The line's x channel, or zero when x is the index of the line's y channel. */
   xChannel: z.number().or(z.string()).default(0),
-  /** The home view of a static line. */
-  timeRange: TimeRange.z.optional(),
-  /** The span of the home view of a live line, which ends now. */
-  timeSpan: TimeSpan.z.optional(),
+  /** The home view: a fixed range, or a span that ends now for a live line. */
+  window: windowZ,
   aggregation: aggregationZ.default("min_max"),
   /** The number of aggregation groups the line draws per pixel column. */
   groupsPerColumn: z
@@ -579,9 +578,6 @@ const DEFAULT_WIDTH = 1000;
 
 // How long a view must hold a new level before its tiles are requested.
 const DEFAULT_LEVEL_SETTLE = TimeSpan.milliseconds(150);
-
-// Spans within the live buffer draw immediately and skip the loading state.
-const LOADING_MIN_SPAN = TimeSpan.minutes(1).valueOf();
 
 const viewRange = ({ lower, upper }: bounds.Bounds): TimeRange =>
   new TimeRange(BigInt(Math.max(Math.floor(lower), 0)), BigInt(Math.ceil(upper)));
@@ -620,7 +616,6 @@ export class TiledChannelData
   private rawLoaded = false;
   // loading is true until the home view first loads or a read fails.
   private loading = true;
-  private readonly skipLoading: boolean;
   private readonly failures: FailureReporter;
   private readonly retryNotifier = new sync.Notifier();
   // breaker paces retries of the channel and live reads, and tileBreaker paces retries
@@ -663,12 +658,10 @@ export class TiledChannelData
       dataType: () => this.heldDataType(),
       restart: () => this.restart(),
     });
-    const { timeSpan } = this.props;
-    this.skipLoading = timeSpan != null && timeSpan.valueOf() <= LOADING_MIN_SPAN;
   }
 
   private get live(): boolean {
-    return this.props.timeSpan != null;
+    return this.props.window.variant === "dynamic";
   }
 
   value({ view, extremesKept = false }: ValueProps = {}): Result<
@@ -693,16 +686,14 @@ export class TiledChannelData
       view != null,
       extremesKept,
     );
-    if (!drawsView && this.loaded(ch.key, home)) this.loading = false;
+    if (this.loading && this.loaded(ch.key, home)) this.loading = false;
     return this.result([this.bounds(ch, home, series), series]);
   }
 
-  // A live window of a minute or less is not loading while its first read is in
-  // flight.
   private result(
     data: [bounds.Bounds, MultiSeries],
   ): Result<[bounds.Bounds, MultiSeries]> {
-    const loading = (this.loading && !this.skipLoading) || this.pending.size > 0;
+    const loading = this.loading || this.pending.size > 0;
     return {
       data,
       status: loading ? LOADING_STATUS : (this.failures.status ?? SUCCESS_STATUS),
@@ -711,10 +702,13 @@ export class TiledChannelData
   }
 
   private home(): TimeRange {
-    const { timeRange, timeSpan } = this.props;
-    if (timeSpan == null) return timeRange ?? TimeRange.ZERO;
+    const { window } = this.props;
+    if (window.variant === "static") {
+      const { start, end } = window.timeRange;
+      return new TimeRange(BigInt(start), BigInt(end));
+    }
     const now = this.now();
-    return new TimeRange(now.sub(timeSpan), now);
+    return new TimeRange(now.sub(window.timeSpan), now);
   }
 
   // rawFrom is where a live line's full-resolution data starts. It sits on a tile

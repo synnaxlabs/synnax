@@ -46,8 +46,12 @@ const createSource = (props: TiledChannelDataProps): TiledChannelData =>
   new TiledChannelData(client, props, undefined, client.now, TimeSpan.ZERO);
 
 const channel = core.data[0].key;
-const x = createSource({ channel, useIndexOfChannel: true, timeSpan: SPAN });
-const y = createSource({ channel, timeSpan: SPAN });
+const x = createSource({
+  channel,
+  useIndexOfChannel: true,
+  window: telemTest.dynamicWindow(SPAN),
+});
+const y = createSource({ channel, window: telemTest.dynamicWindow(SPAN) });
 
 const read = (): DrawOperation[] => {
   const v = { view: view() };

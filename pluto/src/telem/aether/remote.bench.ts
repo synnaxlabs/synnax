@@ -79,7 +79,7 @@ const staticRead = async (view: View): Promise<() => void> => {
   const { core, client } = createClient();
   const source = await createSource(
     client,
-    { channel: core.data[0].key, timeRange: WEEK },
+    { channel: core.data[0].key, window: telemTest.staticWindow(WEEK) },
     view,
   );
   return () => void source.value({ view });
@@ -92,7 +92,7 @@ const liveRead = async (): Promise<{
   const { core, client } = createClient();
   const source = await createSource(
     client,
-    { channel: core.data[0].key, timeSpan: LIVE_SPAN },
+    { channel: core.data[0].key, window: telemTest.dynamicWindow(LIVE_SPAN) },
     liveView(core),
   );
   return { core, source };
@@ -132,7 +132,7 @@ const pan = async (): Promise<() => Promise<void>> => {
   };
   const source = await createSource(
     client,
-    { channel: core.data[0].key, timeRange: WEEK },
+    { channel: core.data[0].key, window: telemTest.staticWindow(WEEK) },
     next(),
   );
   for (let s = 0; s < 2 * steps; s++) {

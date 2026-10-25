@@ -24,6 +24,7 @@ import {
   TimeRange,
   TimeSpan,
   TimeStamp,
+  windowZ,
   xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -51,7 +52,13 @@ export const stateZ = z.object({
     .number()
     .positive()
     .default(1 / 2),
+  /** The window the line draws: a fixed range, or a span that ends now. */
+  window: windowZ.optional(),
 });
+
+// A live window of a minute or less draws from the stream at once, so it shows no
+// first-load message.
+const LOADING_MIN_SPAN = Number(TimeSpan.minutes(1).valueOf());
 
 const safelyGetDataValue = (
   series: number,
@@ -318,7 +325,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const { xTelem, yTelem } = this.internal;
     const [x, y] = [xTelem.value(), yTelem.value()];
     if (x.status.variant !== "loading" && y.status.variant !== "loading") return "none";
-    return x.data[1].length === 0 || y.data[1].length === 0 ? "empty" : "drawn";
+    if (x.data[1].length > 0 && y.data[1].length > 0) return "drawn";
+    const { window } = this.state;
+    return window?.variant === "dynamic" && window.timeSpan <= LOADING_MIN_SPAN
+      ? "none"
+      : "empty";
   }
 
   xBounds(): bounds.Bounds {

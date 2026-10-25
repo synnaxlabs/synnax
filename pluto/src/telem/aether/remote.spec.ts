@@ -941,7 +941,7 @@ describe("remote", () => {
     ): TiledChannelData =>
       new TiledChannelData(
         c,
-        { channel: DATA_KEY, timeRange: HOME, ...props },
+        { channel: DATA_KEY, window: telemTest.staticWindow(HOME), ...props },
         options,
         now,
         levelSettle,
@@ -995,6 +995,18 @@ describe("remote", () => {
         [1024, "average"],
       ]);
       expect(source.value().aggregation).toBe("average");
+    });
+
+    it("should keep the exact bounds of a static window past 2^53", async () => {
+      const start = 2n ** 53n + 1n;
+      const home = new TimeRange(start, start + TimeSpan.seconds(9).valueOf());
+      const source = create({
+        xChannel: XY_KEY,
+        channel: XY_KEY,
+        window: telemTest.staticWindow(home),
+      });
+      await settle(source);
+      expect(c.tiles[0].start?.valueOf()).toBe(start);
     });
 
     it("should bound an index channel by the home view", async () => {
@@ -1489,7 +1501,7 @@ describe("remote", () => {
       });
 
       const createLive = (props: Partial<TiledChannelDataProps> = {}) =>
-        create({ timeRange: undefined, timeSpan: SPAN, ...props }, clock);
+        create({ window: telemTest.dynamicWindow(SPAN), ...props }, clock);
 
       const raw = (start: number, end: number, alignment = BigInt(start)): Series =>
         new Series({
@@ -1751,7 +1763,7 @@ describe("remote", () => {
       });
 
       it("should read the span between the back-fill and the first live series", async () => {
-        const source = create({ timeRange: undefined, timeSpan: SPAN }, () =>
+        const source = create({ window: telemTest.dynamicWindow(SPAN) }, () =>
           TimeStamp.now(),
         );
         await firstRead(source);
@@ -1770,23 +1782,27 @@ describe("remote", () => {
         source.cleanup();
       });
 
-      it("should draw a live window of up to a minute while its back-fill loads", async () => {
+      it("should draw streamed data while its back-fill loads", async () => {
         const release = gateReads();
-        const source = createLive({ timeSpan: TimeSpan.minutes(1) });
-        expect(loading(source)).toBe(false);
+        const source = createLive({
+          window: telemTest.dynamicWindow(TimeSpan.minutes(1)),
+        });
         source.value();
         await expect.poll(() => c.streamHandler != null).toBe(true);
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([raw(100, 101)])]]));
-        expect(loading(source)).toBe(false);
-        expect(positions(source.value().data[1])).toEqual([[100, 101]]);
+        const { data, status } = source.value();
+        expect(status.variant).toBe("loading");
+        expect(positions(data[1])).toEqual([[100, 101]]);
         release();
         source.cleanup();
       });
 
-      it("should report loading for a live window over a minute until its back-fill lands", async () => {
+      it("should report loading for a live window until its back-fill lands", async () => {
         const release = gateReads();
         now = TimeStamp.seconds(600);
-        const source = createLive({ timeSpan: TimeSpan.minutes(2) });
+        const source = createLive({
+          window: telemTest.dynamicWindow(TimeSpan.minutes(2)),
+        });
         expect(loading(source)).toBe(true);
         await expect.poll(() => c.streamHandler != null).toBe(true);
         expect(loading(source)).toBe(true);
@@ -1838,7 +1854,9 @@ describe("remote", () => {
         null,
         {
           channel: 1,
-          timeRange: new TimeRange(TimeStamp.SECOND, TimeStamp.seconds(10)),
+          window: telemTest.staticWindow(
+            new TimeRange(TimeStamp.SECOND, TimeStamp.seconds(10)),
+          ),
         },
         { onStatusChange: (s) => statuses.push(s) },
       );
@@ -1852,7 +1870,7 @@ describe("remote", () => {
       const statuses: cstatus.Crude[] = [];
       const source = new TiledChannelData(
         null,
-        { timeRange: TimeRange.MAX, channel: 1 },
+        { window: telemTest.staticWindow(TimeRange.MAX), channel: 1 },
         { onStatusChange: (s) => statuses.push(s) },
       );
       const [b, data] = source.value().data;
