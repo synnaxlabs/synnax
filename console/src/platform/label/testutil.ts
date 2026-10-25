@@ -34,7 +34,8 @@ export const searchAndClickNestedLabel = async (name: string): Promise<void> => 
   await searchAndClickLabelOption(name);
 };
 
-const searchAndClickLabelOption = async (name: string): Promise<void> => {
+/** Narrows the open label select dialog down to name and clicks the matching option. */
+export const searchAndClickLabelOption = async (name: string): Promise<void> => {
   const search = await waitFor(() => screen.getByPlaceholderText("Search labels..."));
   fireEvent.change(search, { target: { value: name } });
   const option = await waitFor(() => screen.getByText(name));

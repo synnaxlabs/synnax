@@ -25,6 +25,7 @@ import {
   getInputByNodePlaceholder,
   queryIconButton,
   renderSuspended,
+  selectTestProject,
   uniqueName,
 } from "@/testutil";
 
@@ -48,7 +49,8 @@ const Harness = (): ReactElement => {
 };
 
 const renderList = async (as: Client = client): Promise<HTMLElement> => {
-  const { wrapper } = await createConsoleWrapper({ client: as });
+  const { wrapper, store } = await createConsoleWrapper({ client: as });
+  await selectTestProject(store, client);
   const { container } = await renderSuspended(
     <>
       <Harness />
@@ -161,6 +163,22 @@ describe("range/list/List permissions", () => {
     fireEvent.change(input, { target: { value: rng.name } });
     await within(container).findByText(rng.name);
   };
+
+  it("should end a range on the Core from its stage selector", async () => {
+    const container = await renderList();
+    const rng = await createTestRange(client);
+    const input = await waitFor(() =>
+      getInputByNodePlaceholder(container, "Search Ranges..."),
+    );
+    fireEvent.change(input, { target: { value: rng.name } });
+    await within(container).findByText(rng.name);
+    fireEvent.click(getIconButton(container, "in-progress"));
+    fireEvent.click(await screen.findByText("Complete"));
+    await waitFor(async () => {
+      const { timeRange } = await client.ranges.retrieve(rng.key);
+      expect(timeRange.end.before(rng.timeRange.end)).toBe(true);
+    });
+  });
 
   it("should freeze the stage selector for a viewer", async () => {
     const container = await renderList(await roles.get("Viewer"));

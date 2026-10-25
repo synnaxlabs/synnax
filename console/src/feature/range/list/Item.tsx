@@ -24,6 +24,29 @@ import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
+interface StageProps {
+  rangeKey: ranger.Key;
+  disabled: boolean;
+}
+
+const Stage = ({ rangeKey, disabled }: StageProps) => {
+  const { form } = Ranger.useForm({ query: { key: rangeKey } });
+  return (
+    <Form.Form<typeof Ranger.formSchema> {...form}>
+      <Form.Field<NumericTimeRange> path="timeRange" showHelpText showLabel={false}>
+        {({ value, onChange }) => (
+          <Ranger.StageButton
+            value={value}
+            onChange={onChange}
+            iconOnly
+            disabled={disabled}
+          />
+        )}
+      </Form.Field>
+    </Form.Form>
+  );
+};
+
 export interface ItemProps extends List.ItemProps<ranger.Key> {
   showParent?: boolean;
   showLabels?: boolean;
@@ -44,22 +67,7 @@ const Base = ({
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const canEdit = Access.useUpdateGranted(ranger.ontologyID(itemKey));
   const { update: rename } = Session.Range.useRename();
-  const initialValues =
-    item == null
-      ? undefined
-      : {
-          ...item.payload,
-          labels: item.labels?.map((l) => l.key) ?? [],
-          parent: item.parent?.key ?? "",
-          timeRange: item.timeRange.numeric,
-        };
-  const { form } = Ranger.useForm({
-    query: null,
-    initialValues,
-    sync: true,
-    autoSave: true,
-  });
-  if (initialValues == null || item == null) return null;
+  if (item == null) return null;
 
   const { name, parent, labels, timeRange } = item;
 
@@ -79,64 +87,49 @@ const Base = ({
       onHover={onHover}
       {...props}
     >
-      <Form.Form<typeof Ranger.formSchema> {...form}>
-        <Flex.Box x empty>
-          <Input.Checkbox
-            value={selected}
-            onChange={onSelect}
-            size="medium"
-            variant="text"
-            reveal={!selected}
-            aria-label="Select"
+      <Flex.Box x empty>
+        <Input.Checkbox
+          value={selected}
+          onChange={onSelect}
+          size="medium"
+          variant="text"
+          reveal={!selected}
+          aria-label="Select"
+        />
+        <Flex.Box x align="center" gap="tiny">
+          <Stage rangeKey={itemKey} disabled={!canEdit} />
+          <Ranger.Breadcrumb
+            name={name}
+            parent={parent}
+            showParent={showParent}
+            overflow="nowrap"
+            nameID={List.itemNameID(itemKey)}
+            onRename={canEdit ? (name) => rename({ key: itemKey, name }) : undefined}
           />
-          <Flex.Box x align="center" gap="tiny">
-            <Form.Field<NumericTimeRange>
-              path="timeRange"
-              showHelpText
-              showLabel={false}
-            >
-              {({ value, onChange }) => (
-                <Ranger.StageButton
-                  value={value}
-                  onChange={onChange}
-                  iconOnly
-                  disabled={!canEdit}
-                />
-              )}
-            </Form.Field>
-            <Ranger.Breadcrumb
-              name={name}
-              parent={parent}
-              showParent={showParent}
-              overflow="nowrap"
-              nameID={List.itemNameID(itemKey)}
-              onRename={canEdit ? (name) => rename({ key: itemKey, name }) : undefined}
-            />
-          </Flex.Box>
         </Flex.Box>
-        <Flex.Box x align="center" className={CSS.BE("range", "list-item-trailing")}>
-          {showLabels && labels != null && labels.length > 0 && (
-            <Tag.Tags variant="text">
-              {labels.map(({ key, name, color }) => (
-                <Tag.Tag key={key} color={color} size="small">
-                  {name}
-                </Tag.Tag>
-              ))}
-            </Tag.Tags>
-          )}
-          {showTimeRange && (
-            <Telem.Text.TimeRange
-              className={CSS.BE("range", "time-range")}
-              level="small"
-              role="group"
-              aria-label="Time range"
-            >
-              {timeRange}
-            </Telem.Text.TimeRange>
-          )}
-          {showFavorite && <Range.FavoriteButton range={item} reveal />}
-        </Flex.Box>
-      </Form.Form>
+      </Flex.Box>
+      <Flex.Box x align="center" className={CSS.BE("range", "list-item-trailing")}>
+        {showLabels && labels != null && labels.length > 0 && (
+          <Tag.Tags variant="text">
+            {labels.map(({ key, name, color }) => (
+              <Tag.Tag key={key} color={color} size="small">
+                {name}
+              </Tag.Tag>
+            ))}
+          </Tag.Tags>
+        )}
+        {showTimeRange && (
+          <Telem.Text.TimeRange
+            className={CSS.BE("range", "time-range")}
+            level="small"
+            role="group"
+            aria-label="Time range"
+          >
+            {timeRange}
+          </Telem.Text.TimeRange>
+        )}
+        {showFavorite && <Range.FavoriteButton range={item} reveal />}
+      </Flex.Box>
     </List.Item>
   );
 };
