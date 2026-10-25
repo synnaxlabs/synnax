@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -290,6 +291,30 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
 			return p.Key
 		}
+
+		It(
+			"Should reject a create without changing the panel it names",
+			func(ctx SpecContext) {
+				target := create(ctx, leafNode())
+				other := create(ctx, leafNode())
+				Expect(svc.Dispatch(ctx, target, "d1", []panel.Action{
+					panel.NewCreateAction(panel.CreatePayload{
+						Panel: panel.Panel{
+							Key:    other,
+							Name:   "overwritten",
+							Root:   leafNode(),
+							Parent: &parentID,
+						},
+					}),
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("only the Core dispatches a panel create"),
+					),
+				))
+				Expect(retrieve(ctx, other).Name).To(Equal("test"))
+			},
+		)
 
 		It("Should apply a Rename action and persist it", func(ctx SpecContext) {
 			key := create(ctx, leafNode())

@@ -18,9 +18,12 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Handle replaces the document with its created state.
-func (p CreatePayload) Handle(LinePlot) (LinePlot, error) {
-	return p.LinePlot, nil
+// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
+// line plot.
+func (CreatePayload) Handle(LinePlot) (LinePlot, error) {
+	return LinePlot{}, errors.Wrap(
+		validate.ErrValidation, "only the Core dispatches a line plot create",
+	)
 }
 
 // Handle replaces the line plot's name.

@@ -199,6 +199,27 @@ var _ = Describe("Writer", func() {
 				To(Succeed())
 			return res
 		}
+		It(
+			"Should reject a create without changing the log it names",
+			func(ctx SpecContext) {
+				target := log.Log{Name: "target"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &target)).To(Succeed())
+				other := log.Log{Name: "other"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &other)).To(Succeed())
+				Expect(svc.Dispatch(ctx, target.Key, "d1", []log.Action{
+					log.NewCreateAction(log.CreatePayload{
+						Log: log.Log{Key: other.Key, Name: "overwritten"},
+					}),
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("only the Core dispatches a log create"),
+					),
+				))
+				Expect(retrieve(ctx, other.Key).Name).To(Equal("other"))
+			},
+		)
+
 		Describe("per-action semantics", func() {
 			It("Should apply Rename", func(ctx SpecContext) {
 				l := log.Log{Name: "original"}

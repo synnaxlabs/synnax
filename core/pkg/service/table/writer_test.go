@@ -153,6 +153,27 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Dispatch", func() {
+		It(
+			"Should reject a create without changing the table it names",
+			func(ctx SpecContext) {
+				target := table.Table{Name: "target"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &target)).To(Succeed())
+				other := table.Table{Name: "other"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &other)).To(Succeed())
+				Expect(svc.Dispatch(ctx, target.Key, "d1", []table.Action{
+					table.NewCreateAction(table.CreatePayload{
+						Table: table.Table{Key: other.Key, Name: "overwritten"},
+					}),
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("only the Core dispatches a table create"),
+					),
+				))
+				Expect(retrieve(ctx, other.Key).Name).To(Equal("other"))
+			},
+		)
+
 		It("Should rename a Table via a Rename action", func(ctx SpecContext) {
 			s := table.Table{Name: "test"}
 			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())

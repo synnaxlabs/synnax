@@ -93,6 +93,35 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("Dispatch", func() {
+		It(
+			"Should reject a create without changing the schematic it names",
+			func(ctx SpecContext) {
+				target := schematic.Schematic{Name: "target"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &target)).To(Succeed())
+				other := schematic.Schematic{Name: "other"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &other)).To(Succeed())
+				Expect(svc.Dispatch(ctx, target.Key, "d1", []schematic.Action{
+					schematic.NewCreateAction(schematic.CreatePayload{
+						Schematic: schematic.Schematic{
+							Key:  other.Key,
+							Name: "overwritten",
+						},
+					}),
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("only the Core dispatches a schematic create"),
+					),
+				))
+				var res schematic.Schematic
+				Expect(svc.NewRetrieve().
+					Where(schematic.MatchKeys(other.Key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res.Name).To(Equal("other"))
+			},
+		)
+
 		It("Should apply a single SetNodePosition action", func(ctx SpecContext) {
 			s := schematic.Schematic{
 				Name: "test",

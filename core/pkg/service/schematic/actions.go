@@ -21,9 +21,12 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Handle replaces the document with its created state.
-func (p CreatePayload) Handle(Schematic) (Schematic, error) {
-	return p.Schematic, nil
+// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
+// schematic.
+func (CreatePayload) Handle(Schematic) (Schematic, error) {
+	return Schematic{}, errors.Wrap(
+		validate.ErrValidation, "only the Core dispatches a schematic create",
+	)
 }
 
 // Handle replaces the schematic's name.

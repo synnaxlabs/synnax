@@ -171,13 +171,6 @@ func (s *Service) Dispatch(
 	dispatchKey string,
 	acts []Action,
 ) error {
-	for _, a := range acts {
-		if a.Type == ActionTypeCreate {
-			return errors.Wrap(
-				validate.ErrValidation, "only the Core dispatches a range create",
-			)
-		}
-	}
 	return s.state.Dispatch(ctx, key, dispatchKey, func(tx gorp.Tx) ([]Action, error) {
 		return acts, s.NewWriter(tx).apply(ctx, key, acts)
 	})

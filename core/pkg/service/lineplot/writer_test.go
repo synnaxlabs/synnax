@@ -243,6 +243,35 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Dispatch", func() {
+		It(
+			"Should reject a create without changing the line plot it names",
+			func(ctx SpecContext) {
+				target := lineplot.LinePlot{Name: "target"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &target)).To(Succeed())
+				other := lineplot.LinePlot{Name: "other"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &other)).To(Succeed())
+				Expect(svc.Dispatch(ctx, target.Key, "d1", []lineplot.Action{
+					lineplot.NewCreateAction(lineplot.CreatePayload{
+						LinePlot: lineplot.LinePlot{
+							Key:  other.Key,
+							Name: "overwritten",
+						},
+					}),
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("only the Core dispatches a line plot create"),
+					),
+				))
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().
+					Where(lineplot.MatchKeys(other.Key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res.Name).To(Equal("other"))
+			},
+		)
+
 		Describe("per-action semantics", func() {
 			It("Should apply Rename", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "original"}

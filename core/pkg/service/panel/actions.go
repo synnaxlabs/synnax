@@ -12,11 +12,15 @@ package panel
 import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// Handle replaces the document with its created state.
-func (p CreatePayload) Handle(Panel) (Panel, error) {
-	return p.Panel, nil
+// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
+// panel.
+func (CreatePayload) Handle(Panel) (Panel, error) {
+	return Panel{}, errors.Wrap(
+		validate.ErrValidation, "only the Core dispatches a panel create",
+	)
 }
 
 // Handle replaces the panel's name.

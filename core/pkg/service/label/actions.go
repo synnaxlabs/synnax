@@ -11,11 +11,18 @@ package label
 
 import (
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// Handle replaces the label with its created state.
-func (p CreatePayload) Handle(Label) (Label, error) { return p.Label, nil }
+// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
+// label.
+func (CreatePayload) Handle(Label) (Label, error) {
+	return Label{}, errors.Wrap(
+		validate.ErrValidation, "only the Core dispatches a label create",
+	)
+}
 
 // Handle applies the set to the label's name or color.
 func (p SetPayload) Handle(l Label) (Label, error) {

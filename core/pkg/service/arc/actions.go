@@ -17,14 +17,19 @@ import (
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// Handle replaces the document with its created state.
-func (p CreatePayload) Handle(Arc) (Arc, error) {
-	return p.Arc, nil
+// Handle returns an error wrapping validate.ErrValidation, as only the Core creates an
+// Arc.
+func (CreatePayload) Handle(Arc) (Arc, error) {
+	return Arc{}, errors.Wrap(
+		validate.ErrValidation, "only the Core dispatches an Arc create",
+	)
 }
 
 // Handle replaces the Arc module's name.

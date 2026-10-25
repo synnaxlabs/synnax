@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -260,13 +259,6 @@ func (s *Service) Dispatch(
 	dispatchKey string,
 	acts []Action,
 ) error {
-	for _, a := range acts {
-		if a.Type == ActionTypeCreate {
-			return errors.Wrap(
-				validate.ErrValidation, "only the Core dispatches a task create",
-			)
-		}
-	}
 	return s.state.Dispatch(ctx, key, dispatchKey, func(tx gorp.Tx) ([]Action, error) {
 		hash, err := s.NewWriter(tx).apply(ctx, key, acts)
 		if err != nil {

@@ -36,12 +36,14 @@ var _ = Describe("Actions", func() {
 	}
 
 	Describe("CreatePayload", func() {
-		It("Should replace the range with the created range", func() {
-			created := ranger.Range{Key: base.Key, Name: "Created"}
+		It("Should reject a create", func() {
 			Expect(ranger.Reduce(
 				base,
-				ranger.NewCreateAction(ranger.CreatePayload{Range: created}),
-			)).To(Equal(created))
+				ranger.NewCreateAction(ranger.CreatePayload{Range: base}),
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("only the Core dispatches a range create")),
+			))
 		})
 	})
 

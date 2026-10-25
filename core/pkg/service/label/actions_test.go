@@ -53,12 +53,14 @@ var _ = Describe("Actions", func() {
 	)
 
 	Describe("CreatePayload", func() {
-		It("Should replace the label with the created label", func() {
-			created := label.Label{Key: base.Key, Name: "Created"}
+		It("Should reject a create", func() {
 			Expect(label.Reduce(
 				base,
-				label.NewCreateAction(label.CreatePayload{Label: created}),
-			)).To(Equal(created))
+				label.NewCreateAction(label.CreatePayload{Label: base}),
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("only the Core dispatches a label create")),
+			))
 		})
 	})
 

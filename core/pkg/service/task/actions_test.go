@@ -48,12 +48,14 @@ var _ = Describe("Actions", func() {
 	}
 
 	Describe("CreatePayload", func() {
-		It("Should replace the task with the created task", func() {
-			created := task.Task{Key: base.Key, Name: "Created", Type: "arc"}
+		It("Should reject a create", func() {
 			Expect(task.Reduce(
 				base,
-				task.NewCreateAction(task.CreatePayload{Task: created}),
-			)).To(Equal(created))
+				task.NewCreateAction(task.CreatePayload{Task: base}),
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("only the Core dispatches a task create")),
+			))
 		})
 	})
 

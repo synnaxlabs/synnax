@@ -11,12 +11,19 @@ package ranger
 
 import (
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// Handle replaces the range with its created state.
-func (p CreatePayload) Handle(Range) (Range, error) { return p.Range, nil }
+// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
+// range.
+func (CreatePayload) Handle(Range) (Range, error) {
+	return Range{}, errors.Wrap(
+		validate.ErrValidation, "only the Core dispatches a range create",
+	)
+}
 
 // Handle applies the set to the range's name, time range, or color.
 func (p SetPayload) Handle(r Range) (Range, error) {

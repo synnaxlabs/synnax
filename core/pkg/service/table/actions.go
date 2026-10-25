@@ -68,9 +68,12 @@ func colIndex(cols []Column, key string) int {
 	return slices.IndexFunc(cols, func(c Column) bool { return c.Key == key })
 }
 
-// Handle replaces the document with its created state.
-func (p CreatePayload) Handle(Table) (Table, error) {
-	return p.Table, nil
+// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
+// table.
+func (CreatePayload) Handle(Table) (Table, error) {
+	return Table{}, errors.Wrap(
+		validate.ErrValidation, "only the Core dispatches a table create",
+	)
 }
 
 // Handle replaces the table's name.
