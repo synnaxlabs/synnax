@@ -771,6 +771,18 @@ describe("actions.Controller", () => {
       expect(controller.hasPending("k")).toBe(false);
     });
 
+    it("applies the actions that the Core adds to the echo of a dispatch", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const { send, calls } = createHeldSend();
+      const dispatched = controller.dispatch("k", [set("a", 1)], send);
+      controller.applyRemote("k", 1, calls[0].dispatchKey, [set("a", 1), set("b", 2)]);
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 2 } });
+      calls[0].resolve();
+      await dispatched;
+      expect(controller.hasPending("k")).toBe(false);
+    });
+
     it("does not mark targets remote-touched on own echoes", async () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });

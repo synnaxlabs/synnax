@@ -10,6 +10,7 @@
 import {
   array,
   compare,
+  deep,
   destructor,
   errors,
   id,
@@ -335,9 +336,11 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const { next, targets } = this.params.reduce(r.base, actions);
     r.base = next;
     const i = r.pending.findIndex((p) => p.dispatchKey === dispatchKey);
+    // The doc already holds the first pending entry. It changes only when the echo
+    // carries actions that the entry does not, such as fields the Core derives.
+    const held = i === 0 && !replaced && deep.equal(r.pending[0].actions, actions);
     if (i !== -1) r.pending.splice(i, 1);
-    // The Core applied the first pending entry next, so the doc already holds it.
-    if (i !== 0 || replaced) this.write(key, r);
+    if (!held) this.write(key, r);
     if (r.pending.length === 0) this.rebases.delete(key);
     return { own: i !== -1, targets };
   }
