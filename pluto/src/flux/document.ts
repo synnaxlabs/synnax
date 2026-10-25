@@ -1,0 +1,441 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import {
+  type actions,
+  DisconnectedError,
+  query,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Status } from "@synnaxlabs/lyra/status";
+import {
+  deep,
+  type destructor,
+  patch,
+  type record,
+  TimeSpan,
+  zod,
+} from "@synnaxlabs/x";
+import { useEffect, useState } from "react";
+import { type z } from "zod";
+
+import { Synnax } from "@/synnax";
+
+/** The part of a domain client that a document form reads and edits through. */
+export interface DocumentDomain<Key extends record.Key, Doc extends query.Data> {
+  getCached: (key: Key) => query.Cached<Doc> | undefined;
+  onChange: (key: Key, handler: query.ChangeHandler<Doc>) => destructor.Destructor;
+  beginTransaction: (key: Key) => actions.Transaction<patch.Action>;
+}
+
+/** Names the document that a document form edits. */
+export interface DocumentQuery<Key extends record.Key> {
+  key: Key;
+}
+
+/** How long a field holds its edits before it sends them as one dispatch. */
+const COALESCE_WINDOW = TimeSpan.milliseconds(200);
+
+/** The edits to one field that have not been sent. */
+interface Edit {
+  tx: actions.Transaction<patch.Action>;
+  /** Whether the value at each path that the edit writes passes its field schema. */
+  valid: Map<string, boolean>;
+  timer?: ReturnType<typeof setTimeout>;
+}
+
+/** Where a form path lands in the document. */
+interface Target {
+  /** The path of an action, naming each list entry by its key. */
+  path: string[];
+  /** The value at the path. */
+  node: unknown;
+  /**
+   * The rest of the form path, below a list of entries without keys. Such a list is
+   * set whole.
+   */
+  rest: string;
+}
+
+const isEntry = (value: unknown): value is record.Keyed<string> =>
+  value != null &&
+  typeof value === "object" &&
+  typeof (value as record.Unknown).key === "string";
+
+/**
+ * Finds where a form path lands in the values.
+ *
+ * @returns null when the path goes through a keyed list entry that is not there, as
+ * when another client removed it.
+ */
+const locate = (values: unknown, formPath: string): Target | null => {
+  const parts = formPath.split(deep.SEPARATOR);
+  const path: string[] = [];
+  let node = values;
+  let i = 0;
+  while (i < parts.length) {
+    if (Array.isArray(node)) {
+      const entry = deep.defaultGetter(node as unknown as record.Unknown, parts[i]);
+      if (isEntry(entry)) {
+        path.push(entry.key);
+        node = entry;
+        i++;
+        continue;
+      }
+      if (node.some(isEntry)) return null;
+      return { path, node, rest: parts.slice(i).join(deep.SEPARATOR) };
+    }
+    if (node == null || typeof node !== "object") break;
+    const best = deep.findBestKey(node as record.Unknown, parts.slice(i));
+    if (best == null) break;
+    const [key, consumed] = best;
+    path.push(key);
+    node = (node as record.Unknown)[key];
+    i += consumed;
+  }
+  if (i < parts.length) {
+    path.push(...parts.slice(i));
+    node = undefined;
+  }
+  return { path, node, rest: "" };
+};
+
+const overlaps = (a: string, b: string): boolean =>
+  deep.pathsMatch(a, b) || deep.pathsMatch(b, a);
+
+interface StoreParams<Key extends record.Key, Doc extends query.Data, V> {
+  client: Client;
+  key: Key;
+  domain: DocumentDomain<Key, Doc>;
+  schema: z.ZodType;
+  docSchema: z.ZodType;
+  toValues: (doc: Doc) => V;
+  onError: (error: unknown) => void;
+}
+
+/**
+ * A form store over a document in the client cache. A write applies to the cached
+ * document at once and reaches the Core as a path action. Writes to one field
+ * coalesce into one dispatch, and a field whose value fails its schema holds its edits
+ * until the value passes. Sends run in order, so the Core applies edits in the order
+ * they were made.
+ */
+class DocumentStore<
+  Key extends record.Key,
+  Doc extends query.Data,
+  V,
+> implements Form.Store<V> {
+  readonly client: Client;
+  readonly key: Key;
+  private readonly params: StoreParams<Key, Doc, V>;
+  private doc: Doc;
+  private values: V;
+  private readonly edits: Edit[] = [];
+  private batched: actions.Transaction<patch.Action> | null = null;
+  private sending: Promise<boolean> = Promise.resolve(true);
+
+  constructor(params: StoreParams<Key, Doc, V>) {
+    this.params = params;
+    this.client = params.client;
+    this.key = params.key;
+    const cached = params.domain.getCached(params.key);
+    if (!query.isLive(cached)) throw new Error(`Document ${params.key} is not cached`);
+    this.doc = cached;
+    this.values = params.toValues(cached);
+  }
+
+  get = (): V => {
+    const cached = this.params.domain.getCached(this.key);
+    // A deleted document keeps its last values, and takes no edits.
+    if (query.isLive(cached) && cached !== this.doc) {
+      this.doc = cached;
+      this.values = this.params.toValues(cached);
+    }
+    return this.values;
+  };
+
+  set = (formPath: string, value: unknown): void => {
+    if (formPath === "") throw new Error("A document form cannot replace its document");
+    const values = this.get();
+    const target = locate(values, formPath);
+    if (target == null) return;
+    const { schema } = this.params;
+    const field = zod.getFieldSchema(schema, formPath, { optional: true, values });
+    const valid = field == null || field.safeParse(value).success;
+    let whole = value;
+    if (target.rest !== "") {
+      whole = deep.copy(target.node);
+      deep.set(whole, target.rest, value);
+    }
+    const guards = this.guards(target.path, values);
+    const action = this.toWire(
+      { type: "set", set: { path: target.path, value: whole, guards } },
+      values,
+    );
+    this.write(target.path.join(deep.SEPARATOR), action, valid);
+  };
+
+  remove = (formPath: string): void => {
+    const values = this.get();
+    const target = locate(values, formPath);
+    if (target == null || target.path.length === 0) return;
+    const guards = this.guards(target.path, values);
+    if (target.rest !== "") {
+      const whole = deep.copy(target.node);
+      deep.remove(whole, target.rest);
+      this.dispatch(
+        this.toWire(
+          { type: "set", set: { path: target.path, value: whole, guards } },
+          values,
+        ),
+      );
+      return;
+    }
+    const path = target.path.slice(0, -1);
+    const key = target.path[target.path.length - 1];
+    this.dispatch(
+      this.toWire({ type: "remove", remove: { path, key, guards } }, values),
+    );
+  };
+
+  insert = <E extends Form.Entry>(formPath: string, value: E, after?: string): void => {
+    const values = this.get();
+    const path = this.locateList(values, formPath);
+    if (path == null) return;
+    const guards = this.guards(path, values);
+    this.dispatch(
+      this.toWire({ type: "insert", insert: { path, value, after, guards } }, values),
+    );
+  };
+
+  move = (formPath: string, key: string, after?: string): void => {
+    const values = this.get();
+    const path = this.locateList(values, formPath);
+    if (path == null) return;
+    const guards = this.guards(path, values);
+    this.dispatch(
+      this.toWire({ type: "move", move: { path, key, after, guards } }, values),
+    );
+  };
+
+  batch = (fn: () => void): void => {
+    if (this.batched != null) {
+      fn();
+      return;
+    }
+    void this.commitValid();
+    const tx = this.params.domain.beginTransaction(this.key);
+    this.batched = tx;
+    try {
+      fn();
+    } finally {
+      this.batched = null;
+      void this.send(tx);
+    }
+  };
+
+  onChange = (callback: () => void): destructor.Destructor =>
+    this.params.domain.onChange(this.key, () => callback());
+
+  /**
+   * Sends every edit the store holds.
+   * @returns false when a field holds a value that fails its schema, which stays
+   * unsent, or when a send failed.
+   */
+  async flush(): Promise<boolean> {
+    const sent = await this.commitValid();
+    await this.sending;
+    return sent && this.edits.length === 0;
+  }
+
+  /** Sends every valid edit and drops every invalid one. The store stays usable. */
+  close(): void {
+    void this.commitValid();
+    this.edits.splice(0).forEach((edit) => {
+      clearTimeout(edit.timer);
+      edit.tx.abort();
+    });
+  }
+
+  private locateList(values: V, formPath: string): string[] | null {
+    const target = locate(values, formPath);
+    if (target == null) return null;
+    if (target.rest !== "")
+      throw new Error(`${formPath} is inside a list of entries without keys`);
+    return target.path;
+  }
+
+  /** @returns a guard for each discriminated union that the path goes into. */
+  private guards(path: string[], values: V): patch.Guard[] {
+    return patch.guards(this.params.schema, path, values);
+  }
+
+  private toWire(action: patch.Action, values: V): patch.Action {
+    return patch.camelToSnake(action, { schema: this.params.docSchema, doc: values });
+  }
+
+  private write(at: string, action: patch.Action, valid: boolean): void {
+    if (this.batched != null) {
+      this.batched.add(action);
+      return;
+    }
+    let edit = this.edits.find((e) => [...e.valid.keys()].some((p) => overlaps(p, at)));
+    if (edit == null) {
+      edit = { tx: this.params.domain.beginTransaction(this.key), valid: new Map() };
+      this.edits.push(edit);
+    }
+    edit.tx.add(action);
+    // A write replaces every earlier write below its path.
+    for (const p of [...edit.valid.keys()])
+      if (deep.pathsMatch(p, at)) edit.valid.delete(p);
+    edit.valid.set(at, valid);
+    clearTimeout(edit.timer);
+    const scheduled = edit;
+    edit.timer = setTimeout(
+      () => void this.commit(scheduled),
+      COALESCE_WINDOW.milliseconds,
+    );
+  }
+
+  /** Sends the field's edits right after the edits before them. */
+  private dispatch(action: patch.Action): void {
+    if (this.batched != null) {
+      this.batched.add(action);
+      return;
+    }
+    void this.commitValid();
+    const tx = this.params.domain.beginTransaction(this.key);
+    tx.add(action);
+    void this.send(tx);
+  }
+
+  /** @returns whether every edit it sent succeeded. */
+  private async commitValid(): Promise<boolean> {
+    const sent = await Promise.all([...this.edits].map((edit) => this.commit(edit)));
+    return sent.every(Boolean);
+  }
+
+  /**
+   * Sends the edit, unless it holds a value that fails its schema.
+   * @returns whether the send succeeded.
+   */
+  private async commit(edit: Edit): Promise<boolean> {
+    clearTimeout(edit.timer);
+    if (![...edit.valid.values()].every(Boolean)) return false;
+    this.edits.splice(this.edits.indexOf(edit), 1);
+    return await this.send(edit.tx);
+  }
+
+  private async send(tx: actions.Transaction<patch.Action>): Promise<boolean> {
+    const sent = this.sending.then(async () => {
+      try {
+        return await tx.commit();
+      } catch (e) {
+        this.params.onError(e);
+        return false;
+      }
+    });
+    this.sending = sent;
+    return await sent;
+  }
+}
+
+export interface CreateDocumentFormParams<
+  Key extends record.Key,
+  Doc extends query.Data,
+  Schema extends z.ZodType,
+> {
+  name: string;
+  /**
+   * The form's schema. Each field value passes its field schema before the form sends
+   * it, and the discriminated unions of a path decide the guards of its action.
+   */
+  schema: Schema;
+  /** The schema the domain client decodes the document with, to convert key case. */
+  docSchema: z.ZodType;
+  domain: (client: Client) => DocumentDomain<Key, Doc>;
+  /** Suspends until the document is cached. */
+  useEnsure: (query: DocumentQuery<Key>) => void;
+  /**
+   * Projects the document onto the form's values. Each field the form edits keeps its
+   * document path and its identity.
+   */
+  toValues: (doc: Doc) => z.infer<Schema>;
+}
+
+export interface UseDocumentFormParams<Key extends record.Key> extends Pick<
+  Form.UseParams<z.ZodType>,
+  "mode" | "onHasTouched"
+> {
+  query: DocumentQuery<Key>;
+}
+
+export interface UseDocumentFormReturn<Schema extends z.ZodType> {
+  form: Form.UseReturn<Schema>;
+  /**
+   * Sends every edit the form holds.
+   * @returns false when a field holds a value that fails its schema, or a send failed.
+   */
+  flush: () => Promise<boolean>;
+}
+
+export interface UseDocumentForm<Key extends record.Key, Schema extends z.ZodType> {
+  (params: UseDocumentFormParams<Key>): UseDocumentFormReturn<Schema>;
+}
+
+/**
+ * Builds a hook for a form over a document in the client cache, which other clients
+ * edit at the same time. The form shows the cached document, re-rendering only the
+ * fields a remote edit reaches, and each edit reaches the Core as a path action. Call
+ * it once per document type, at module scope.
+ */
+export const createDocumentForm = <
+  Key extends record.Key,
+  Doc extends query.Data,
+  Schema extends z.ZodType,
+>({
+  name,
+  schema,
+  docSchema,
+  domain,
+  useEnsure,
+  toValues,
+}: CreateDocumentFormParams<Key, Doc, Schema>): UseDocumentForm<Key, Schema> => {
+  const useDocumentForm = ({
+    query,
+    mode,
+    onHasTouched,
+  }: UseDocumentFormParams<Key>): UseDocumentFormReturn<Schema> => {
+    useEnsure(query);
+    const client = Synnax.use();
+    const handleError = Status.useErrorHandler();
+    const { key } = query;
+    const create = (): DocumentStore<Key, Doc, z.infer<Schema>> => {
+      if (client == null)
+        throw new DisconnectedError(`Cannot edit ${name}: no Core connected.`);
+      return new DocumentStore({
+        client,
+        key,
+        domain: domain(client),
+        schema,
+        docSchema,
+        toValues,
+        onError: (error) => handleError(error, `Failed to save ${name}`),
+      });
+    };
+    const [store, setStore] = useState(create);
+    if (store.client !== client || store.key !== key) setStore(create());
+    useEffect(() => () => store.close(), [store]);
+    const form = Form.use<Schema>({ store, schema, mode, onHasTouched });
+    const flush = async (): Promise<boolean> => await store.flush();
+    return { form, flush };
+  };
+  return useDocumentForm;
+};
