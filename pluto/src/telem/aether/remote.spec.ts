@@ -890,7 +890,12 @@ describe("remote", () => {
       };
 
       resolveAll(): void {
-        const pending = this.pending.splice(0);
+        this.resolveWhere(() => true);
+      }
+
+      resolveWhere(match: (spec: framer.TileSpec) => boolean): void {
+        const pending = this.pending.filter(({ spec }) => match(spec));
+        this.pending = this.pending.filter(({ spec }) => !match(spec));
         pending.forEach(({ spec, resolve }) => {
           const series = tileSeries(spec);
           this.served.set(servedKey(spec), series);
@@ -1043,6 +1048,23 @@ describe("remote", () => {
         const before = c.tiles.length;
         source.value({ extremesKept: true });
         expect(c.tiles).toHaveLength(before);
+      });
+
+      it("should report loading until a bounds read's min_max tiles land", async () => {
+        const source = create({ aggregation: "average" });
+        c.deferred = true;
+        await expect
+          .poll(() => {
+            source.value();
+            source.value({ extremesKept: true });
+            return c.pending.length;
+          })
+          .toBe(4);
+        c.resolveWhere((spec) => spec.aggregation === "average");
+        await expect.poll(() => source.value()[1].length).toBe(2);
+        expect(source.loading()).toBe(true);
+        c.resolveAll();
+        await settle(source);
       });
 
       it("should draw an average stand-in over a min_max one", async () => {

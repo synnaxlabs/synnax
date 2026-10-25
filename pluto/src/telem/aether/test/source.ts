@@ -29,6 +29,7 @@ import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/test/factory"
 export class TestSource<V> extends observe.Observer<void> implements Source<V>, Telem {
   static readonly TYPE = TEST_SOURCE_TYPE;
   readonly id: string;
+  loading?: () => boolean;
   aggregation?: () => Aggregation | null;
   dataType?: () => DataType | null;
   private _value: V;

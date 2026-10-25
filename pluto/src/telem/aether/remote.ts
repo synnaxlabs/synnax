@@ -868,8 +868,15 @@ export class TiledChannelData
 
   private loaded(key: channel.Key, home: TimeRange): boolean {
     if (this.live && !this.rawLoaded) return false;
-    return this.targets(key, home).every((spec) =>
-      this.held.has(framer.tileRequestKey(spec)),
+    // Loading also waits for the min_max tiles that a bounds read has in flight.
+    const bounding = this.targets(key, home, true).some((spec) =>
+      this.pending.has(framer.tileRequestKey(spec)),
+    );
+    return (
+      !bounding &&
+      this.targets(key, home).every((spec) =>
+        this.held.has(framer.tileRequestKey(spec)),
+      )
     );
   }
 
