@@ -35,9 +35,19 @@
     },
     {
       "name": "set writes a field of a list entry by key",
-      "doc": { "channels": [{ "key": "a", "port": 0 }, { "key": "b", "port": 1 }] },
+      "doc": {
+        "channels": [
+          { "key": "a", "port": 0 },
+          { "key": "b", "port": 1 }
+        ]
+      },
       "actions": [{ "type": "set", "path": ["channels", "b", "port"], "value": 5 }],
-      "expected": { "channels": [{ "key": "a", "port": 0 }, { "key": "b", "port": 5 }] }
+      "expected": {
+        "channels": [
+          { "key": "a", "port": 0 },
+          { "key": "b", "port": 5 }
+        ]
+      }
     },
     {
       "name": "set through a missing list entry does nothing",
@@ -68,7 +78,9 @@
     {
       "name": "set rejects a list entry with another key",
       "doc": { "channels": [{ "key": "a" }] },
-      "actions": [{ "type": "set", "path": ["channels", "a"], "value": { "key": "b" } }],
+      "actions": [
+        { "type": "set", "path": ["channels", "a"], "value": { "key": "b" } }
+      ],
       "error": "the entry must be an object with the key a"
     },
     {
@@ -168,7 +180,12 @@
       "name": "a guard without a path fails",
       "doc": { "a": 1 },
       "actions": [
-        { "type": "set", "path": ["a"], "value": 2, "guards": [{ "path": [], "value": "x" }] }
+        {
+          "type": "set",
+          "path": ["a"],
+          "value": 2,
+          "guards": [{ "path": [], "value": "x" }]
+        }
       ],
       "error": "a guard needs a path"
     },
@@ -237,7 +254,12 @@
       "name": "insert goes after the named entry",
       "doc": { "channels": [{ "key": "a" }, { "key": "c" }] },
       "actions": [
-        { "type": "insert", "path": ["channels"], "value": { "key": "b" }, "after": "a" }
+        {
+          "type": "insert",
+          "path": ["channels"],
+          "value": { "key": "b" },
+          "after": "a"
+        }
       ],
       "expected": { "channels": [{ "key": "a" }, { "key": "b" }, { "key": "c" }] }
     },
@@ -245,7 +267,12 @@
       "name": "insert after the last entry goes last",
       "doc": { "channels": [{ "key": "a" }, { "key": "b" }] },
       "actions": [
-        { "type": "insert", "path": ["channels"], "value": { "key": "c" }, "after": "b" }
+        {
+          "type": "insert",
+          "path": ["channels"],
+          "value": { "key": "c" },
+          "after": "b"
+        }
       ],
       "expected": { "channels": [{ "key": "a" }, { "key": "b" }, { "key": "c" }] }
     },
@@ -253,7 +280,12 @@
       "name": "insert after a missing entry goes last",
       "doc": { "channels": [{ "key": "a" }] },
       "actions": [
-        { "type": "insert", "path": ["channels"], "value": { "key": "c" }, "after": "x" }
+        {
+          "type": "insert",
+          "path": ["channels"],
+          "value": { "key": "c" },
+          "after": "x"
+        }
       ],
       "expected": { "channels": [{ "key": "a" }, { "key": "c" }] }
     },
@@ -261,8 +293,18 @@
       "name": "two inserts after one entry both stay in arrival order",
       "doc": { "channels": [{ "key": "a" }, { "key": "z" }] },
       "actions": [
-        { "type": "insert", "path": ["channels"], "value": { "key": "b" }, "after": "a" },
-        { "type": "insert", "path": ["channels"], "value": { "key": "c" }, "after": "a" }
+        {
+          "type": "insert",
+          "path": ["channels"],
+          "value": { "key": "b" },
+          "after": "a"
+        },
+        {
+          "type": "insert",
+          "path": ["channels"],
+          "value": { "key": "c" },
+          "after": "a"
+        }
       ],
       "expected": {
         "channels": [{ "key": "a" }, { "key": "c" }, { "key": "b" }, { "key": "z" }]
@@ -288,7 +330,11 @@
       "name": "insert under a missing list entry does nothing",
       "doc": { "devices": [] },
       "actions": [
-        { "type": "insert", "path": ["devices", "d", "channels"], "value": { "key": "a" } }
+        {
+          "type": "insert",
+          "path": ["devices", "d", "channels"],
+          "value": { "key": "a" }
+        }
       ],
       "expected": { "devices": [] }
     },

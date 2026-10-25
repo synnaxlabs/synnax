@@ -29,12 +29,7 @@ const child = (path: string, key: string): string =>
 
 type Target = Pick<ContextValue, "batch" | "get" | "set" | "value">;
 
-const write = (
-  ctx: Target,
-  path: string,
-  prev: unknown,
-  next: unknown,
-): void => {
+const write = (ctx: Target, path: string, prev: unknown, next: unknown): void => {
   if (prev === next) return;
   if (isEntryList(prev) && isEntryList(next)) {
     const keys = next.map(({ key }) => key);
@@ -64,11 +59,7 @@ const write = (
  * by entry, and objects with the same fields compare field by field. Other values that
  * differ are set whole.
  */
-export const setChanged = (
-  ctx: Target,
-  path: string,
-  value: unknown,
-): void => {
+export const setChanged = (ctx: Target, path: string, value: unknown): void => {
   const prev = path === "" ? ctx.value() : ctx.get(path, { optional: true })?.value;
   ctx.batch(() => write(ctx, path, prev, value));
 };

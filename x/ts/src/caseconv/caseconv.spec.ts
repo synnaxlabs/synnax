@@ -948,21 +948,42 @@ describe("caseconv", () => {
     const cases: Array<[string[], string[]]> = [
       [["sampleRate"], ["sample_rate"]],
       [["channels"], ["channels"]],
-      [["channels", "ch_one"], ["channels", "ch_one"]],
-      [["channels", "ch_one", "maxVal"], ["channels", "ch_one", "max_val"]],
-      [["channels", "ch_one", "scaleConfig"], ["channels", "ch_one", "scale_config"]],
+      [
+        ["channels", "ch_one"],
+        ["channels", "ch_one"],
+      ],
+      [
+        ["channels", "ch_one", "maxVal"],
+        ["channels", "ch_one", "max_val"],
+      ],
+      [
+        ["channels", "ch_one", "scaleConfig"],
+        ["channels", "ch_one", "scale_config"],
+      ],
       [
         ["channels", "ch_one", "scaleConfig", "slopeValue"],
         ["channels", "ch_one", "scale_config", "slope_value"],
       ],
-      [["nodeProps", "node_a"], ["node_props", "node_a"]],
+      [
+        ["nodeProps", "node_a"],
+        ["node_props", "node_a"],
+      ],
       [
         ["nodeProps", "node_a", "fillColor"],
         ["node_props", "node_a", "fill_color"],
       ],
-      [["rawArgs", "someKey"], ["raw_args", "someKey"]],
-      [["rawArgs", "someKey", "nestedKey"], ["raw_args", "someKey", "nestedKey"]],
-      [["plainRecord", "recordKey"], ["plain_record", "record_key"]],
+      [
+        ["rawArgs", "someKey"],
+        ["raw_args", "someKey"],
+      ],
+      [
+        ["rawArgs", "someKey", "nestedKey"],
+        ["raw_args", "someKey", "nestedKey"],
+      ],
+      [
+        ["plainRecord", "recordKey"],
+        ["plain_record", "record_key"],
+      ],
       [
         ["plainRecord", "recordKey", "innerValue"],
         ["plain_record", "record_key", "inner_value"],
