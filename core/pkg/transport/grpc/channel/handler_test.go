@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -64,6 +65,31 @@ var _ = Describe("gRPC Channel Translators", func() {
 			Expect(err).To(MatchError(ContainSubstring(
 				"retrieve request has unknown fields",
 			)))
+		})
+	})
+
+	Describe("RetrieveResponse", func() {
+		t := retrieveResponseTranslator{}
+		It("Should round-trip a channel with a status", func(ctx SpecContext) {
+			msg := channel.RetrieveResponse{Channels: []channel.Channel{{
+				Key:      1048577,
+				Name:     "pressure",
+				DataType: telem.Float32T,
+				Status: &channel.Status{
+					Key:     "channel:1048577",
+					Name:    "pressure",
+					Variant: status.VariantSuccess,
+					Message: "Calculation running",
+					Time:    telem.TimeStamp(1),
+				},
+			}}}
+			fwd := MustSucceed(t.Forward(ctx, msg))
+			b := MustSucceed(proto.Marshal(fwd))
+			var decoded RetrieveResponse
+			Expect(proto.Unmarshal(b, &decoded)).To(Succeed())
+			res := MustSucceed(t.Backward(ctx, &decoded))
+			Expect(res.Channels).To(HaveLen(1))
+			Expect(res.Channels[0].Status).To(Equal(msg.Channels[0].Status))
 		})
 	})
 })
