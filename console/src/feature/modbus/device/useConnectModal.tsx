@@ -10,7 +10,6 @@
 import "@/feature/modbus/device/Connect.css";
 
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
@@ -41,7 +40,10 @@ const INITIAL_VALUES: Device = {
   make: "Modbus",
   model: "Modbus",
   location: "",
-  properties: ZERO_PROPERTIES,
+  properties: {
+    ...ZERO_PROPERTIES,
+    connection: { ...ZERO_PROPERTIES.connection, port: 502 },
+  },
   rack: 0,
   configured: true,
 };
@@ -133,34 +135,41 @@ export const Connect = ({
 
   return (
     <Modal.Frame className={CSS.B("modbus-connect")}>
-      <Modal.Header icon={<Icon.Logo.Modbus />}>Server.Connect</Modal.Header>
-      <Flex.Box className={CSS.B("content")} grow size="small">
+      <Modal.Header icon={<Icon.Logo.Modbus />}>{HEADER}</Modal.Header>
+      <Modal.Body gap="large">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
-          <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
-          <PlatformDevice.RackField integration={INTEGRATION} />
-          <Flex.Box x justify="between">
-            <Form.TextField
-              grow
-              path="properties.connection.host"
-              inputProps={HOST_INPUT_PROPS}
-            />
-            <Form.NumericField
-              path="properties.connection.port"
-              inputProps={PORT_INPUT_PROPS}
-            />
-          </Flex.Box>
-          <Flex.Box x justify="start">
-            <Form.SwitchField
-              path="properties.connection.swapBytes"
-              label="Swap bytes"
-            />
-            <Form.SwitchField
-              path="properties.connection.swapWords"
-              label="Swap words"
-            />
-          </Flex.Box>
+          <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
+          <Form.Sections>
+            <Form.Section title="Connection">
+              <Form.TextField
+                path="properties.connection.host"
+                label="Host"
+                padHelpText={false}
+                inputProps={HOST_INPUT_PROPS}
+              />
+              <Form.NumericField
+                path="properties.connection.port"
+                label="Port"
+                padHelpText={false}
+                inputProps={PORT_INPUT_PROPS}
+              />
+              <PlatformDevice.RackField integration={INTEGRATION} />
+            </Form.Section>
+            <Form.Section title="Byte order">
+              <Form.SwitchField
+                path="properties.connection.swapBytes"
+                label="Swap bytes"
+                padHelpText={false}
+              />
+              <Form.SwitchField
+                path="properties.connection.swapWords"
+                label="Swap words"
+                padHelpText={false}
+              />
+            </Form.Section>
+          </Form.Sections>
         </Form.Form>
-      </Flex.Box>
+      </Modal.Body>
       <PlatformDevice.ConnectFooter
         reason={reason}
         variant={variant}
@@ -177,12 +186,18 @@ export const useConnectModal = Modals.createPrompt<
   PlatformDevice.ConnectParams
 >(Connect);
 
+const HEADER = ["Device", "Connect", "Modbus TCP server"];
+
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
   placeholder: "Modbus server",
+  "aria-label": "Name",
 } as const;
 
 const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "localhost" } as const;
 
-const PORT_INPUT_PROPS = { placeholder: "502" } as const;
+const PORT_INPUT_PROPS = {
+  bounds: { lower: 1, upper: 65535 },
+  style: { width: "23rem" },
+} as const;

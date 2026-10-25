@@ -75,7 +75,7 @@ describe("OPCUA.Device.ContextMenuItems", () => {
     const { dev } = await renderItems();
     await screen.findByText("Create read task");
     fireEvent.click(screen.getByText("Edit connection"));
-    await screen.findByText("Server");
+    await screen.findByText("OPC UA server");
     await waitFor(() => expect(screen.getByDisplayValue(dev.name)).toBeTruthy());
   });
 });

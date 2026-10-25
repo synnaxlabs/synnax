@@ -32,8 +32,7 @@ describe("HTTP Device.Select", () => {
     await renderSelect(client);
     fireEvent.click(await findDialogTrigger());
     fireEvent.click(await screen.findByText("Connect HTTP server"));
-    await screen.findByText("Server");
-    expect(screen.getByPlaceholderText("www.example.com")).toBeTruthy();
+    expect(await screen.findByPlaceholderText("www.example.com")).toBeTruthy();
   });
 
   it("should open the connect modal when an unconfigured HTTP server is selected", async () => {
@@ -51,7 +50,7 @@ describe("HTTP Device.Select", () => {
       target: { value: dev.name },
     });
     fireEvent.click(await screen.findByText(dev.name));
-    await screen.findByText("Server");
+    await screen.findByText("HTTP server");
     const nameInput = await screen.findByDisplayValue(dev.name);
     expect(nameInput).toBeTruthy();
   });

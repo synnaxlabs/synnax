@@ -41,6 +41,12 @@ describe("Modbus.Device.useConnectModal", () => {
     expect(screen.getByDisplayValue("1502")).toBeTruthy();
   });
 
+  it("should start a new server at the standard Modbus TCP port", async () => {
+    await renderModalOpener(Modbus.Device.useConnectModal, [{}], { client });
+    await screen.findByText("Modbus TCP server");
+    expect(screen.getByDisplayValue("502")).toBeTruthy();
+  });
+
   it("should resolve with the device it connected", async () => {
     const rack = await createRunningRack(client, "modbus");
     const scan = await rack.createTask({

@@ -52,14 +52,69 @@ describe("OPCUA.Device.useConnectModal", () => {
 
   it("should reveal certificate fields when a security mode is enabled", async () => {
     await renderModalOpener(OPCUA.Device.useConnectModal, [{}], { client });
-    await screen.findByText("Server");
+    await screen.findByText("OPC UA server");
     fireEvent.click(screen.getByText("Sign"));
     await screen.findByText("Client certificate");
     expect(screen.getByText("Client private key")).toBeTruthy();
     expect(screen.getByText("Server certificate")).toBeTruthy();
-    expect(screen.getByText("Basic 256-bit")).toBeTruthy();
-    fireEvent.click(screen.getAllByText("None")[0]);
+    fireEvent.click(screen.getByText("None"));
     await waitFor(() => expect(screen.queryByText("Client certificate")).toBeNull());
+  });
+
+  it("should save a policy other than None with a security mode", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await rack.createTask({
+      name: uniqueName("opcua_scan"),
+      type: OPCUA.Task.SCAN_TYPE,
+      config: {},
+    });
+    const { result } = await renderModalOpener(
+      OPCUA.Device.useConnectModal,
+      [{ rack: rack.key }],
+      { client },
+    );
+    fireEvent.click(await screen.findByText("Sign"));
+    await screen.findByText("Basic 256-bit with SHA-256");
+    const { answered } = await answerNextCommand(client, scan);
+    pressSaveTrigger();
+    await answered;
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    const dev = await client.devices.retrieve({ key, schemas: OPCUA.Device.SCHEMAS });
+    expect(dev.properties.connection).toMatchObject({
+      securityMode: "Sign",
+      securityPolicy: "Basic256Sha256",
+    });
+  });
+
+  it("should save policy None when the security mode returns to None", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await rack.createTask({
+      name: uniqueName("opcua_scan"),
+      type: OPCUA.Task.SCAN_TYPE,
+      config: {},
+    });
+    const { result } = await renderModalOpener(
+      OPCUA.Device.useConnectModal,
+      [{ rack: rack.key }],
+      { client },
+    );
+    fireEvent.click(await screen.findByText("Sign"));
+    await screen.findByText("Basic 256-bit with SHA-256");
+    fireEvent.click(screen.getByText("None"));
+    await waitFor(() =>
+      expect(screen.queryByText("Basic 256-bit with SHA-256")).toBeNull(),
+    );
+    const { answered } = await answerNextCommand(client, scan);
+    pressSaveTrigger();
+    await answered;
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    const dev = await client.devices.retrieve({ key, schemas: OPCUA.Device.SCHEMAS });
+    expect(dev.properties.connection).toMatchObject({
+      securityMode: "None",
+      securityPolicy: "None",
+    });
   });
 
   it("should resolve with the device it connected", async () => {

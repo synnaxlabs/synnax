@@ -93,7 +93,7 @@ describe("HTTP device ContextMenuItems", () => {
   it("should open the connect modal from the edit connection item", async () => {
     await renderContextMenuItems(true);
     await clickAndSettle("Edit connection");
-    await screen.findByText("Server");
+    await screen.findByText("HTTP server");
     expect(screen.getByPlaceholderText("www.example.com")).toBeTruthy();
   });
 });
