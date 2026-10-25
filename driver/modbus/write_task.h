@@ -230,9 +230,7 @@ class WriteTaskSink final : public common::Sink {
 
 public:
     WriteTaskSink(const std::shared_ptr<device::Manager> &devs, WriteTaskConfig cfg):
-        Sink(x::telem::Rate(0), {}, {}, cfg.cmd_keys(), cfg.data_saving_disabled),
-        config(std::move(cfg)),
-        devs(devs) {}
+        Sink(cfg.cmd_keys()), config(std::move(cfg)), devs(devs) {}
 
     /// @brief connects on every start so a server restart between runs cannot
     /// leave the task writing to a dead socket.

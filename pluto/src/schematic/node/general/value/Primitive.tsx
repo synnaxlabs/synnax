@@ -48,7 +48,7 @@ export const Value = ({
   const symbolColor = color.rgbaString(strokeColor);
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: symbolColor,
+      [Primitive.SYMBOL_COLOR]: symbolColor,
       height: dimensions?.height,
     }),
     [symbolColor, dimensions?.height],

@@ -14,6 +14,7 @@ import (
 	"context"
 	"iter"
 
+	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/kv"
@@ -30,20 +31,20 @@ import (
 func (db *DB) newObservable[K Key, E Entry[K]](
 	src observe.Observable[kv.TxReader],
 ) observe.Observable[iter.Seq[change.Change[K, E]]] {
-	kCodec := newKeyCodec[K, E](nil)
+	kCodec := key.NewCodec[K](key.Prefix[E]())
 	return observe.Translator[kv.TxReader, TxReader[K, E]]{
 		Observable: src,
 		Translate: func(ctx context.Context, reader kv.TxReader) (TxReader[K, E], bool) {
 			var matched []kv.Change
 			for ch := range reader {
-				if bytes.HasPrefix(ch.Key, kCodec.prefix) {
+				if bytes.HasPrefix(ch.Key, kCodec.Prefix()) {
 					matched = append(matched, ch)
 				}
 			}
 			if len(matched) == 0 {
 				return nil, false
 			}
-			return wrapMatchedChanges(ctx, matched, kCodec, db), true
+			return wrapMatchedChanges[K, E](ctx, matched, kCodec, db), true
 		},
 	}
 }
@@ -57,7 +58,7 @@ func (t *Table[K, E]) Observe() observe.Observable[iter.Seq[change.Change[K, E]]
 func wrapMatchedChanges[K Key, E Entry[K]](
 	ctx context.Context,
 	changes []kv.Change,
-	kCodec keyCodec[K, E],
+	kCodec key.Codec[K],
 	codec encoding.Codec,
 ) TxReader[K, E] {
 	return func(yield func(change.Change[K, E]) bool) {
@@ -71,7 +72,7 @@ func wrapMatchedChanges[K Key, E Entry[K]](
 				}
 				op.Key = op.Value.GorpKey()
 			} else {
-				op.Key = kCodec.decode(kvChange.Key)
+				op.Key = kCodec.Decode(kvChange.Key)
 			}
 			if !yield(op) {
 				return

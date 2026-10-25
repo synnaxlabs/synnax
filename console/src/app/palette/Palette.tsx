@@ -16,7 +16,7 @@ import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type ReactElement, useCallback, useMemo, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 
 import { Command } from "@/app/command";
 import { Search } from "@/app/search";
@@ -68,12 +68,10 @@ export const Palette = (): ReactElement => {
       setValue(mode === "command" ? FeatureCommand.PREFIX : "");
       setVisible(true);
     },
-    [visibleRef],
+    [visibleRef, setVisible],
   );
 
-  const triggers = useMemo(() => flattenedConfig, [flattenedConfig]);
-
-  Triggers.use({ triggers, callback: handleTrigger });
+  Triggers.use({ triggers: flattenedConfig, callback: handleTrigger });
 
   const List = value.startsWith(FeatureCommand.PREFIX) ? Command.List : Search.List;
 

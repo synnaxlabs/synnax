@@ -442,6 +442,15 @@ describe("Select.Single", () => {
 
   describe("drag", () => {
     const HAUL_TYPE = "test-item";
+    const MIXED: Haul.Item[] = [
+      { type: "foreign", key: "1" },
+      { type: HAUL_TYPE, key: "3" },
+    ];
+
+    const MixedSource = () => {
+      const { startDrag } = Haul.useDrag({ type: "foreign", key: "mixed" });
+      return <button aria-label="Mixed drag" onClick={() => startDrag(MIXED)} />;
+    };
 
     const renderPair = (
       singleProps: Partial<Select.SingleProps<string, TestEntry>> = {},
@@ -475,13 +484,15 @@ describe("Select.Single", () => {
             >
               {listItemRenderProp}
             </Select.Multiple>
+            <MixedSource />
           </Haul.Provider>
         );
       };
       const c = render(<Pair />);
       const source = c.getByRole("button", { name: /^Source/ });
       const target = c.getByRole("button", { name: "Targets" });
-      return { source, target, onSingleChange, onMultipleChange };
+      const mixed = c.getByRole("button", { name: "Mixed drag" });
+      return { source, target, mixed, onSingleChange, onMultipleChange };
     };
 
     it("should copy the selection into a select it is dropped on", () => {
@@ -491,6 +502,23 @@ describe("Select.Single", () => {
       fireEvent.drop(target);
       expect(onMultipleChange).toHaveBeenCalledWith(["2"], expect.anything());
       expect(onSingleChange).not.toHaveBeenCalled();
+    });
+
+    it("should drop only the entries of its own type on a single select", () => {
+      const { source, mixed, onSingleChange } = renderPair();
+      fireEvent.click(mixed);
+      fireEvent.drop(source);
+      expect(onSingleChange).toHaveBeenCalledExactlyOnceWith("3", expect.anything());
+    });
+
+    it("should drop only the entries of its own type on a multiple select", () => {
+      const { target, mixed, onMultipleChange } = renderPair();
+      fireEvent.click(mixed);
+      fireEvent.drop(target);
+      expect(onMultipleChange).toHaveBeenCalledExactlyOnceWith(
+        ["3"],
+        expect.anything(),
+      );
     });
 
     it("should not be draggable while disabled", () => {

@@ -33,24 +33,20 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
 
 const useDelete = Tree.createUseDelete({
   type: "Task",
-  query: Base.useDelete,
+  useUpdate: Base.useDelete,
   convertKey: String,
 });
 
 export const useRename = Tree.createUseRename({
-  query: Base.useRename,
+  useUpdate: Base.useRename,
   ontologyID: task.ontologyID,
   convertKey: String,
 });
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
-  const {
-    selection,
-    openTab,
-    state: { getResource, shape },
-  } = props;
+  const { selection, openTab, state } = props;
   const { ids, rootID } = selection;
-  const resources = getResource(ids);
+  const resources = Tree.useResources(state, ids);
   const handleDelete = useDelete(props);
   const handleLink = Core.useCopyLinkToClipboard();
   const handleExport = Export.useResource();
@@ -79,7 +75,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           {singleResource && <ContextMenu.RenameItem onClick={rename} />}
           <Group.ContextMenuItem
             ids={ids}
-            shape={shape}
+            shape={state.shape}
             rootID={rootID}
             onClick={() => group(props)}
           />

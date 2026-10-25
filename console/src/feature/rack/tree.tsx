@@ -32,7 +32,7 @@ const CreateArcIcon = Icon.createComposite(Icon.Arc, {
 });
 
 const useRename = Tree.createUseRename({
-  query: Rack.useRename,
+  useUpdate: Rack.useRename,
   ontologyID: rack.ontologyID,
   convertKey: Number,
 });
@@ -60,7 +60,7 @@ const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
 
 const useDelete = Tree.createUseDelete({
   type: "Rack",
-  query: Rack.useDelete,
+  useUpdate: Rack.useDelete,
   convertKey: Number,
 });
 

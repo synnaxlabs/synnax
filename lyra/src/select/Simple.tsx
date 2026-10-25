@@ -102,7 +102,7 @@ export const Simple = <K extends record.Key>({
   autoSelectOnNone,
   initialHover,
   enableTriggers,
-  closeDialogOnSelect = multiple !== true,
+  closeDialogOnSelect,
   children,
   emptyContent,
   haulType,
@@ -132,7 +132,7 @@ export const Simple = <K extends record.Key>({
     autoSelectOnNone,
     initialHover,
     enableTriggers,
-    closeDialogOnSelect,
+    closeDialogOnSelect: closeDialogOnSelect ?? multiple !== true,
   };
   const dialog = (
     <SelectDialog {...dialogProps}>

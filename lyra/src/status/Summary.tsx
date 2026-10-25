@@ -45,7 +45,7 @@ export const Summary = ({
   if (status != null) ({ variant, message, description } = status);
   if (!hideIcon) icon = <Indicator variant={variant} />;
   const hasDescription = primitive.isNonZero(description);
-  children ??= message;
+  if (children == null) children = message;
   const baseText = (
     <BaseText.Text
       className={CSS.cls(className, !hasDescription && CSS.BE("status", "text"))}

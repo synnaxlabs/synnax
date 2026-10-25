@@ -109,6 +109,49 @@ cross-references. Never put types in JSDoc; the signature carries them.
  */
 ```
 
+## React Compiler
+
+The React Compiler compiles the Console, Pluto, Lyra, and Drift
+(`configs/vite/src/compiler.ts`), in builds and in specs. A build or spec run fails on a
+component or hook that the compiler cannot compile; spec files, test helpers, and the
+dev server skip it instead. The `synnax/react-compiler` lint rule runs the same compiler
+with the same passes (`configs/eslint/compiler.ts`), so the editor reports the same
+errors.
+
+- A hook can be a bare `use` (`Synnax.use`, `Form.use`). A pass gives each `use` that is
+  not React's a hook name before the compiler runs, so never name a value that is not a
+  hook `use`.
+- Keep a hook's name when you store it (`const useKey = Scope.use`, never
+  `const get = Scope.use`). The compiler knows a hook only by its name, so it caches a
+  call to `get()` like a plain function.
+- Give every component and hook a name, including one a factory returns or one passed to
+  `Component.renderProp` or `Modals.create`: `const useForm = ...; return useForm;`. The
+  compiler reads a name only from a function or variable declaration, so it skips a
+  named function expression passed as an argument too.
+- Keep render pure. The compiler caches each computation on its inputs, so a clock, a
+  ref, a module cache, or an object changed in place goes stale in render without an
+  error. Pass the current time in as state, and copy an object instead of changing it.
+- Render a component as an element, never pass it where a render function goes
+  (`{(p) => <Input.Numeric {...p} />}`, not `{Input.Numeric}`). A compiled component
+  calls a hook, so a cached call to it breaks the hook order.
+- Call `use` in the component or hook itself, never inside a plain helper. The compiler
+  caches a call to a plain function, so a later render skips the `use` in it.
+- Subscribe to any changing data a component reads in render: a store, a cache, or a
+  list's `getItem`. A compiled parent reuses a child whose props did not change, so a
+  child that reads without subscribing shows stale data.
+- Write `if (x == null) x = y;` in a component or hook. The compiler cannot compile
+  `??=`.
+- Await in a `try`/`catch` and put the cleanup after it, never in `finally` or a promise
+  chain. The compiler cannot compile `finally`, or `?.`, `??`, `?:`, and `&&` in a `try`
+  body, so assign the awaited value there and test it after the `catch`.
+- Give a computed object key a plain identifier. The compiler cannot compile a call as a
+  key, so move `[CSS.variable("x", "y")]` to a module constant.
+- Never give a parameter a JSX default (`icon = <Icon.Close />`). Put the element in a
+  module constant.
+- Use the `"use no memo"` directive only for an incompatible library, a fixed hook list,
+  or a memo hook that keeps its own cache, with a one-line reason. The lint rule still
+  checks the function, so disable `synnax/react-compiler` on each flagged line.
+
 ## Testing (Vitest — never Jest)
 
 `*.spec.ts` co-located with source. `describe`/`it` blocks, `vi.fn()` mocks,
@@ -238,7 +281,7 @@ file the tarball omits. Pluto is the only opt-out; its maps are 17MB gzipped.
 - pnpm catalog: shared versions in `pnpm-workspace.yaml`; use `catalog:` prefix in
   package.json.
 - Turbo build cache issues: `pnpm exec turbo clean`.
-- React 19 (19.1.1) — check for React 18 breaking changes.
+- React 19 (19.3.1) — check for React 18 breaking changes.
 
 ## Visual verification (Playwright MCP)
 
