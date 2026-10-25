@@ -191,8 +191,6 @@ interface Rebase<State, Action> {
   /** The doc as the Core holds it, without the pending entries. */
   base: State;
   pending: Array<Pending<Action>>;
-  /** The doc this controller wrote last. A different doc means another writer. */
-  written: State;
 }
 
 interface Applied<Action> {
@@ -206,9 +204,10 @@ interface Applied<Action> {
  * stacks, echo recognition, and remote-frame application. The cached doc of a key with
  * pending dispatches is its base, as the Core holds it, with the pending dispatches
  * applied on top. A foreign frame applies to the base, and the pending dispatches apply
- * again on the result, so the doc stays in the order the Core applies them. A failed
- * send removes its dispatch the same way. All dispatch bookkeeping is session-local and
- * dropped when a document is deleted.
+ * again on the result, so the doc stays in the order the Core applies them. A doc that
+ * another writer puts in the table becomes the base before the table stores it. A
+ * failed send removes its dispatch the same way. All dispatch bookkeeping is
+ * session-local and dropped when a document is deleted.
  */
 export class Controller<Key extends record.Key, State extends query.Data, Action> {
   private readonly docs: Table<Key, State>;
@@ -224,6 +223,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   /** Callers of settled, waiting for a doc to hold no pending entry. */
   private readonly settling = new Map<Key, Array<() => void>>();
   private epoch = 0;
+  /** Whether this controller is writing the table, so its interceptor stays out. */
+  private writing = false;
   // Monotonic counter ordering entry pushes against remote touches. Program
   // order is the ground truth here; the wall clock ties within a millisecond
   // and steps on sleep/wake or NTP resync, so it cannot be trusted for this.
@@ -252,6 +253,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.docs.subscribe((event) => {
       if (event.variant === "delete") this.drop(event.key);
     });
+    this.docs.intercept((key, doc) => this.overlay(key, doc));
     opts.onEpoch((epoch) => this.changeEpoch(epoch));
   }
 
@@ -283,37 +285,36 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     return this.undos.set(key, (prev) => fn(prev ?? ZERO_UNDO<Action>()));
   }
 
-  /** Takes a doc that another writer put in the table as the new base. */
-  private sync(key: Key, r: Rebase<State, Action>): boolean {
-    const doc = this.docs.get(key);
-    if (doc == null || doc === r.written) return false;
+  /**
+   * Makes a doc that another writer puts in the table the base of its key, and returns
+   * it with the pending entries on top.
+   */
+  private overlay(key: Key, doc: State): State {
+    const r = this.rebases.get(key);
+    if (r == null || this.writing) return doc;
     r.base = doc;
-    return true;
+    return this.rebuild(r);
   }
 
-  /** Writes the base with the pending entries applied. */
-  private write(key: Key, r: Rebase<State, Action>): State {
-    const doc = r.pending.reduce(
+  /** Returns the base with the pending entries applied. */
+  private rebuild(r: Rebase<State, Action>): State {
+    return r.pending.reduce(
       (state, { actions }) => this.params.reduce(state, actions).next,
       r.base,
     );
-    return this.set(key, r, doc);
   }
 
-  private set(key: Key, r: Rebase<State, Action>, doc: State): State {
-    this.docs.set(key, doc);
-    r.written = this.docs.get(key) ?? doc;
-    return r.written;
+  private write(key: Key, r: Rebase<State, Action>): void {
+    this.set(key, this.rebuild(r));
   }
 
-  /**
-   * Returns the cached doc with every pending entry applied. When another writer
-   * replaced the doc, writes the rebuilt doc to the table, which notifies subscribers.
-   */
-  private current(key: Key): State | undefined {
-    const r = this.rebases.get(key);
-    if (r == null || !this.sync(key, r)) return this.docs.get(key);
-    return this.write(key, r);
+  private set(key: Key, doc: State): void {
+    this.writing = true;
+    try {
+      this.docs.set(key, doc);
+    } finally {
+      this.writing = false;
+    }
   }
 
   /**
@@ -323,13 +324,13 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   private track(key: Key, current: State, entry: Pending<Action>, next: State): void {
     let r = this.rebases.get(key);
     if (r == null) {
-      r = { base: current, pending: [], written: current };
+      r = { base: current, pending: [] };
       this.rebases.set(key, r);
     }
     const i = r.pending.indexOf(entry);
     if (i === -1) r.pending.push(entry);
     if (i === -1 || i === r.pending.length - 1) {
-      this.set(key, r, next);
+      this.set(key, next);
       return;
     }
     // An open transaction sends after the entries behind it, so it moves behind them.
@@ -348,13 +349,12 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     dispatchKey: string,
     actions: Action[],
   ): { own: boolean; targets: readonly string[] } {
-    const replaced = this.sync(key, r);
     const { next, targets } = this.params.reduce(r.base, actions);
     r.base = next;
     const i = r.pending.findIndex((p) => p.dispatchKey === dispatchKey);
     // The doc already holds the first pending entry. It changes only when the echo
     // carries actions that the entry does not, such as fields the Core derives.
-    const held = i === 0 && !replaced && deep.equal(r.pending[0].actions, actions);
+    const held = i === 0 && deep.equal(r.pending[0].actions, actions);
     if (i !== -1) r.pending.splice(i, 1);
     if (!held) this.write(key, r);
     if (r.pending.length === 0) this.release(key);
@@ -366,7 +366,6 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const r = this.rebases.get(key);
     const i = r?.pending.findIndex((p) => p.dispatchKey === dispatchKey) ?? -1;
     if (r == null || i === -1) return;
-    this.sync(key, r);
     r.pending.splice(i, 1);
     this.write(key, r);
     if (r.pending.length === 0) this.release(key);
@@ -470,7 +469,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     send: SendDispatch<Action>,
     preprocess?: Preprocess<State, Action>,
   ): Promise<boolean> {
-    const current = this.current(key);
+    const current = this.docs.get(key);
     if (current == null) return false;
     const processed = preprocess == null ? actions : preprocess(current, actions);
     const { next, inverse, targets } = this.params.reduce(current, processed);
@@ -561,7 +560,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const dispatchKey = id.create();
     const tracked: Key[] = [];
     for (const key of keys) {
-      const current = this.current(key);
+      const current = this.docs.get(key);
       if (current == null) continue;
       this.track(key, current, this.createPending(dispatchKey), current);
       tracked.push(key);
@@ -582,14 +581,14 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     send: SendDispatch<Action>,
     kind?: string,
   ): Transaction<Action> {
-    const initial = this.current(key);
+    const initial = this.docs.get(key);
     const entry = this.createPending(id.create());
     let done = false;
     return {
       add: (actions) => {
         if (done) throw new Error("transaction finalized");
         if (initial == null) return;
-        const current = this.current(key);
+        const current = this.docs.get(key);
         if (current == null) return;
         const arr = array.toArray(actions);
         const { next } = this.params.reduce(current, arr);

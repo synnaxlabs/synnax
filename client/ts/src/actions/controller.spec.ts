@@ -947,9 +947,45 @@ describe("actions.Controller", () => {
       await controller.dispatch("k", [set("a", 1)], send);
       // A fetch that read the doc before the Core applied the dispatch.
       docs.set("k", { values: { a: 0, b: 3 } });
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 3 } });
       const dispatchKey = send.mock.calls[0][1];
       controller.applyRemote("k", 1, dispatchKey, [set("a", 1)]);
       expect(docs.get("k")).toEqual({ values: { a: 1, b: 3 } });
+    });
+
+    it("notifies only the doc with the pending dispatches when another writer replaces it", () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0, b: 0 });
+      const { send } = createHeldSend();
+      void controller.dispatch("k", [set("a", 1)], send);
+      const seen: Doc[] = [];
+      docs.subscribe((e) => {
+        if (e.variant === "set") seen.push(e.value);
+      }, "k");
+      docs.set("k", { values: { a: 0, b: 3 } });
+      expect(seen).toEqual([{ values: { a: 1, b: 3 } }]);
+    });
+
+    it("notifies nothing when another writer replaces a doc with what it holds", () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const { send } = createHeldSend();
+      void controller.dispatch("k", [set("a", 1)], send);
+      const listener = vi.fn();
+      docs.subscribe(listener, "k");
+      docs.set("k", { values: { a: 0 } });
+      expect(listener).not.toHaveBeenCalled();
+      expect(docs.get("k")).toEqual({ values: { a: 1 } });
+    });
+
+    it("stores a doc another writer puts in the table as is once nothing is pending", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const send = resolved();
+      await controller.dispatch("k", [set("a", 1)], send);
+      controller.applyRemote("k", 1, send.mock.calls[0][1], [set("a", 1)]);
+      docs.set("k", { values: { a: 5 } });
+      expect(docs.get("k")).toEqual({ values: { a: 5 } });
     });
 
     it("applies pending dispatches again on a doc another writer replaced", async () => {

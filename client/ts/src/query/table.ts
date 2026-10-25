@@ -174,6 +174,7 @@ export class Table<
     Array<Keyed<Key, Value>>
   > | null;
   private readonly indexes: Array<LookupIndex<Key, Value>>;
+  private interceptor: ((key: Key, value: Value) => Value) | null = null;
   private gen = 0;
   private writeSeq = 0;
   // Holds a stamp only for present entries: applyDelete drops the key's stamp, so the
@@ -254,12 +255,28 @@ export class Table<
     return index;
   }
 
+  /**
+   * Passes every value written to the table through fn before the table compares and
+   * stores it, rollbacks included. A table takes one interceptor.
+   * @throws {Error} if the table already has an interceptor.
+   */
+  intercept(fn: (key: Key, value: Value) => Value): void {
+    if (this.interceptor != null)
+      throw new Error("The table already has an interceptor");
+    this.interceptor = fn;
+  }
+
+  private intercepted(key: Key, value: Value): Value {
+    return this.interceptor == null ? value : this.interceptor(key, value);
+  }
+
   private setOne(
     key: Key,
     value: state.SetArg<Value | undefined>,
   ): destructor.Destructor | undefined {
     const prev = this.entries.get(key);
-    const next = state.executeSetter(value, prev);
+    let next = state.executeSetter(value, prev);
+    if (next != null) next = this.intercepted(key, next);
     if (next == null || (prev != null && this.equal(next, prev, key))) return undefined;
     const prevTombstone = this.tombstones.get(key);
     this.tombstones.delete(key);
@@ -272,8 +289,9 @@ export class Table<
         if (prevTombstone != null) this.tombstones.set(key, prevTombstone);
         this.notify({ variant: "delete", key });
       } else {
-        this.applySet(key, prev);
-        this.notify({ variant: "set", key, value: prev });
+        const restored = this.intercepted(key, prev);
+        this.applySet(key, restored);
+        this.notify({ variant: "set", key, value: restored });
       }
     };
   }
@@ -506,9 +524,10 @@ export class Table<
         toDelete.forEach(({ key: k, value }) => {
           if (value == null) return;
           this.tombstones.delete(k);
-          this.applySet(k, value);
+          const restored = this.intercepted(k, value);
+          this.applySet(k, restored);
           this.stampWrite(k);
-          this.notify({ variant: "set", key: k, value });
+          this.notify({ variant: "set", key: k, value: restored });
         }),
       );
   }

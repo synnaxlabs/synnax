@@ -1527,6 +1527,72 @@ describe("Table", () => {
   });
 });
 
+describe("intercept", () => {
+  interface Counter extends record.Keyed<string> {
+    key: string;
+    n: number;
+  }
+  const counter = (n: number): Counter => ({ key: "a", n });
+
+  it.each([
+    ["set", (t: query.Table<string, Counter>) => t.set("a", counter(1))],
+    ["ingest", (t: query.Table<string, Counter>) => t.ingest(counter(1))],
+  ])("should store and notify the value the interceptor returns on %s", (_, write) => {
+    const table = new query.Table<string, Counter>({ onError: noopError });
+    table.intercept((_, value) => ({ ...value, n: value.n + 10 }));
+    const listener = vi.fn();
+    table.subscribe(listener);
+    write(table);
+    expect(table.get("a")).toEqual(counter(11));
+    expect(listener).toHaveBeenCalledExactlyOnceWith({
+      variant: "set",
+      key: "a",
+      value: counter(11),
+    });
+  });
+
+  it("should notify nothing when the interceptor returns the stored value", () => {
+    const table = new query.Table<string, Counter>({ onError: noopError });
+    table.intercept(() => counter(5));
+    table.set("a", counter(1));
+    const listener = vi.fn();
+    table.subscribe(listener);
+    table.set("a", counter(2));
+    expect(listener).not.toHaveBeenCalled();
+    expect(table.get("a")).toEqual(counter(5));
+  });
+
+  it("should pass a value that a rollback restores through the interceptor", () => {
+    const table = new query.Table<string, Counter>({ onError: noopError });
+    let offset = 0;
+    table.intercept((_, value) => ({ ...value, n: value.n + offset }));
+    table.set("a", counter(1));
+    const rollback = table.set("a", counter(2));
+    offset = 10;
+    rollback();
+    expect(table.get("a")).toEqual(counter(11));
+  });
+
+  it("should pass a value that undoing a delete restores through the interceptor", () => {
+    const table = new query.Table<string, Counter>({ onError: noopError });
+    let offset = 0;
+    table.intercept((_, value) => ({ ...value, n: value.n + offset }));
+    table.set("a", counter(1));
+    const restore = table.delete("a");
+    offset = 10;
+    restore();
+    expect(table.get("a")).toEqual(counter(11));
+  });
+
+  it("should throw when the table already has an interceptor", () => {
+    const table = new query.Table<string, Counter>({ onError: noopError });
+    table.intercept((_, value) => value);
+    expect(() => table.intercept((_, value) => value)).toThrow(
+      "The table already has an interceptor",
+    );
+  });
+});
+
 describe("Tombstones", () => {
   interface Doc extends record.Keyed<string> {
     key: string;
