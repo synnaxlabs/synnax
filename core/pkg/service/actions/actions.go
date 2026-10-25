@@ -15,9 +15,8 @@
 // pieces of that shape that are independent of the per-service action variant
 // set: the Scoped envelope sent to subscribers, the DispatchRequest wire body
 // accepted by the API layer, the State that owns the observer, the monotonic
-// sequence counter, and the serialized dispatch execution, the Dispatcher that
-// stamps and forwards each notification, and the PublishSignals helper that
-// wires the set and delete pipelines onto signals channels.
+// sequence counter, and the serialized dispatch execution, and the Dispatcher that
+// stamps and forwards each notification.
 package actions
 
 import (
@@ -74,7 +73,7 @@ type DispatchRequest[K comparable, A any] struct {
 
 // State owns the per-service observer, monotonic sequence counter, and dispatch
 // execution. Construct it once in OpenService, hand Dispatcher() to each Writer,
-// expose subscriptions via OnAction, and execute dispatches through Dispatch. The
+// expose subscriptions via OnChange, and execute dispatches through Dispatch. The
 // observer is always non-nil so writers do not need to nil-check it.
 //
 // Seq is in-memory and resets on process restart. Clients reload service state
@@ -119,10 +118,10 @@ func (s *State[K, A]) Dispatch(
 	})
 }
 
-// OnAction subscribes the given handler to the action stream emitted by every
+// OnChange subscribes the given handler to the action stream emitted by every
 // Dispatcher bound to this State. The handler runs synchronously inside the
 // Dispatcher.Notify call. The returned Disconnect removes the handler.
-func (s *State[K, A]) OnAction(
+func (s *State[K, A]) OnChange(
 	handler func(context.Context, Scoped[K, A]),
 ) observe.Disconnect {
 	return s.observer.OnChange(handler)
@@ -131,7 +130,7 @@ func (s *State[K, A]) OnAction(
 // Dispatcher returns a value-typed Dispatcher bound to this State. Embed the
 // returned value on a Writer; each call to Notify increments the shared
 // sequence counter and fans the resulting Scoped envelope out to every handler
-// registered via OnAction.
+// registered via OnChange.
 func (s *State[K, A]) Dispatcher() Dispatcher[K, A] {
 	return Dispatcher[K, A]{observer: s.observer, seq: &s.seq}
 }

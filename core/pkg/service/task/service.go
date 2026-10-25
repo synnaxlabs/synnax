@@ -225,11 +225,13 @@ func OpenService(
 		}
 		// The Driver reads sy_task_set as task metadata, so actions take their own
 		// channel.
-		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
-			Provider: cfg.Signals,
-			State:    s.state,
-			Name:     "task_action",
-		}); !ok(err, sig) {
+		if sig, err = cfg.Signals.PublishActions(
+			ctx,
+			signals.ActionsConfig[Key, Action]{
+				Observable: s.state,
+				Name:       "task_action",
+			},
+		); !ok(err, sig) {
 			return nil, err
 		}
 	}
@@ -242,7 +244,7 @@ func OpenService(
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
-	return s.state.OnAction(handler)
+	return s.state.OnChange(handler)
 }
 
 // Dispatch applies the actions atomically to the task with the given key. Dispatches

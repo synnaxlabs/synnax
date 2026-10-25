@@ -78,7 +78,7 @@ var _ = Describe("State", func() {
 	It("Should hand out a usable Dispatcher", func(ctx SpecContext) {
 		state := actions.NewState[uuid.UUID, testAction](nil)
 		received := make(chan actions.Scoped[uuid.UUID, testAction], 1)
-		state.OnAction(
+		state.OnChange(
 			func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
 				received <- sa
 			},
@@ -98,7 +98,7 @@ var _ = Describe("State", func() {
 		func(ctx SpecContext) {
 			state := actions.NewState[uuid.UUID, testAction](nil)
 			seqs := make(chan uint64, 3)
-			state.OnAction(
+			state.OnChange(
 				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
 					seqs <- sa.Seq
 				},
@@ -121,7 +121,7 @@ var _ = Describe("State", func() {
 		func(ctx SpecContext) {
 			state := actions.NewState[uuid.UUID, testAction](nil)
 			var maxSeq atomic.Uint64
-			state.OnAction(
+			state.OnChange(
 				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
 					for {
 						prev := maxSeq.Load()
@@ -146,7 +146,7 @@ var _ = Describe("State", func() {
 		const N = 200
 		var mu sync.Mutex
 		seen := make([]uint64, 0, N)
-		state.OnAction(
+		state.OnChange(
 			func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
 				mu.Lock()
 				seen = append(seen, sa.Seq)
@@ -178,15 +178,15 @@ var _ = Describe("State", func() {
 	})
 
 	It(
-		"Should fan out to every subscriber registered via OnAction",
+		"Should fan out to every subscriber registered via OnChange",
 		func(ctx SpecContext) {
 			state := actions.NewState[uuid.UUID, testAction](nil)
 			a := make(chan actions.Scoped[uuid.UUID, testAction], 1)
 			b := make(chan actions.Scoped[uuid.UUID, testAction], 1)
-			state.OnAction(
+			state.OnChange(
 				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) { a <- sa },
 			)
-			state.OnAction(
+			state.OnChange(
 				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) { b <- sa },
 			)
 			state.Dispatcher().Notify(ctx, uuid.New(), "", []testAction{{Type: "fan"}})
@@ -198,7 +198,7 @@ var _ = Describe("State", func() {
 	It("Should stop notifying a subscriber after Disconnect", func(ctx SpecContext) {
 		state := actions.NewState[uuid.UUID, testAction](nil)
 		var hits atomic.Uint64
-		disconnect := state.OnAction(
+		disconnect := state.OnChange(
 			func(_ context.Context, _ actions.Scoped[uuid.UUID, testAction]) {
 				hits.Add(1)
 			},
@@ -216,7 +216,7 @@ var _ = Describe("State", func() {
 		func(ctx SpecContext) {
 			state := actions.NewState[uuid.UUID, testAction](nil)
 			received := make(chan actions.Scoped[uuid.UUID, testAction], 1)
-			state.OnAction(
+			state.OnChange(
 				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
 					received <- sa
 				},

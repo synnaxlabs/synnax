@@ -93,11 +93,10 @@ func OpenService(
 	// is disabled because action frames carry the mutation payload, but it still
 	// emits deletes so clients prune cached panels.
 	var sig io.Closer
-	if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
-		Provider: cfg.Signals,
-		State:    s.state,
-		Name:     "panel",
-	}); !ok(err, sig) {
+	if sig, err = cfg.Signals.PublishActions(
+		ctx,
+		signals.ActionsConfig[Key, Action]{Observable: s.state, Name: "panel"},
+	); !ok(err, sig) {
 		return nil, err
 	}
 	deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
@@ -116,7 +115,7 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
-	return s.state.OnAction(handler)
+	return s.state.OnChange(handler)
 }
 
 // Dispatch applies a sequence of actions atomically to the panel with the given key.

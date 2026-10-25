@@ -43,7 +43,7 @@ var _ = Describe("Dispatch", func() {
 		db = DeferClose(gorptestutil.OpenGorpMsgpackDB())
 		st = actions.NewState[string, testAction](db)
 		rec = &Recorder[string, testAction]{}
-		DeferCleanup(st.OnAction(rec.Record))
+		DeferCleanup(st.OnChange(rec.Record))
 		Expect(
 			gorp.NewCreate[string, counter]().
 				Entry(&counter{Key: "c"}).
@@ -117,7 +117,7 @@ var _ = Describe("Dispatch", func() {
 
 	It("Should notify only after the commit", func(ctx SpecContext) {
 		observed := -1
-		DeferCleanup(st.OnAction(
+		DeferCleanup(st.OnChange(
 			func(_ context.Context, _ actions.Scoped[string, testAction]) {
 				observed = fetch(ctx).Value
 			},

@@ -138,11 +138,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	); !ok(err, sig) {
 		return nil, err
 	}
-	if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
-		Provider: cfg.Signals,
-		State:    s.state,
-		Name:     "range_action",
-	}); !ok(err, sig) {
+	if sig, err = cfg.Signals.PublishActions(
+		ctx,
+		signals.ActionsConfig[Key, Action]{Observable: s.state, Name: "range_action"},
+	); !ok(err, sig) {
 		return nil, err
 	}
 	return s, nil
@@ -154,7 +153,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
-	return s.state.OnAction(handler)
+	return s.state.OnChange(handler)
 }
 
 // Dispatch applies the actions atomically to the range with the given key. Dispatches
