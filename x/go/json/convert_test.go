@@ -10,6 +10,8 @@
 package json_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	xjson "github.com/synnaxlabs/x/json"
@@ -152,6 +154,32 @@ var _ = Describe("Convert", func() {
 				"18446744073709551615",
 				telem.NewSeriesV[uint64](18446744073709551615),
 			),
+			Entry(
+				"a whole float beyond float64 precision",
+				"9007199254740993.0",
+				telem.NewSeriesV[int64](9007199254740993),
+			),
+			Entry(
+				"an exponent beyond float64 precision",
+				"9007199254740993e0",
+				telem.NewSeriesV[int64](9007199254740993),
+			),
+			Entry(
+				"the uint64 maximum with an exponent",
+				"1.8446744073709551615E19",
+				telem.NewSeriesV[uint64](18446744073709551615),
+			),
+			Entry(
+				"a negative exponent that leaves an integer",
+				"-12500e-2",
+				telem.NewSeriesV[int16](-125),
+			),
+			Entry(
+				"the int64 minimum with an exponent",
+				"-9.223372036854775808e18",
+				telem.NewSeriesV[int64](math.MinInt64),
+			),
+			Entry("a negative zero fraction", "-0.0", telem.NewSeriesV[uint8](0)),
 			Entry("true to uint8", "true", telem.NewSeriesV[uint8](1)),
 			Entry("false to float64", "false", telem.NewSeriesV[float64](0)),
 			Entry("a numeric string to float64", `"12.25"`, telem.NewSeriesV(12.25)),
@@ -266,6 +294,8 @@ var _ = Describe("Convert", func() {
 				telem.TimeStamp(1700000000123456)*telem.MicrosecondTS),
 			Entry("exact nanoseconds", "1700000000123456789", xjson.UnixNanosecond,
 				telem.TimeStamp(1700000000123456789)),
+			Entry("exact nanoseconds with an exponent", "1.700000000123456789e18",
+				xjson.UnixNanosecond, telem.TimeStamp(1700000000123456789)),
 			Entry("a numeric string", `"1700000000"`, xjson.UnixSecond,
 				telem.TimeStamp(1700000000)*telem.SecondTS),
 			Entry("ISO 8601 in UTC", `"2023-11-14T22:13:20.5Z"`, xjson.ISO8601,
@@ -302,6 +332,12 @@ var _ = Describe("Convert", func() {
 				xjson.ISO8601, "value is out of bounds"),
 			Entry("a float above the int64 maximum", "1e19", telem.Int64T,
 				xjson.ISO8601, "value is out of bounds"),
+			Entry("a fraction beyond float64 precision", "9007199254740993.5",
+				telem.Int64T, xjson.ISO8601, "value has a fractional component"),
+			Entry("an exponent above the uint64 maximum", "1.8446744073709551616e19",
+				telem.Uint64T, xjson.ISO8601, "value is out of bounds"),
+			Entry("an exponent below the int64 minimum", "-9.223372036854775809e18",
+				telem.Int64T, xjson.ISO8601, "value is out of bounds"),
 			Entry("a NaN string for a signed integer", `"NaN"`, telem.Int32T,
 				xjson.ISO8601, `cannot convert "NaN" to int32: value is out of bounds`),
 			Entry("a NaN string for an unsigned integer", `"NaN"`, telem.Uint8T,

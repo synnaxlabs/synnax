@@ -234,6 +234,9 @@ type number struct {
 	u uint64
 	// f holds a number with a fraction or an exponent.
 	f float64
+	// fractional is set when the text of f has a fractional part that f may have
+	// rounded away.
+	fractional bool
 }
 
 type numberKind uint8
@@ -250,31 +253,78 @@ func isFloatType(dt telem.DataType) bool {
 	return dt == telem.Float64T || dt == telem.Float32T
 }
 
-// parseNumber parses the text of a number. An integer target parses integer text
+// parseNumber parses the text of a number. An integer target parses decimal text
 // without passing through float64, which loses precision above 2^53.
 func parseNumber(text string, dt telem.DataType) (number, error) {
 	if text == "" {
 		return number{}, errNotNumber
 	}
-	if !isFloatType(dt) && isIntegerText(text) {
-		if text[0] == '-' {
-			i, err := strconv.ParseInt(text, 10, 64)
-			if err != nil {
-				return number{}, errOutOfBounds
-			}
-			return number{kind: kindInt, i: i}, nil
+	if !isFloatType(dt) {
+		if n, err := parseDecimal(text); !errors.Is(err, errNotDecimal) {
+			return n, err
 		}
-		u, err := strconv.ParseUint(strings.TrimPrefix(text, "+"), 10, 64)
-		if err != nil {
-			return number{}, errOutOfBounds
-		}
-		return number{kind: kindUint, u: u}, nil
 	}
+	return parseFloat(text)
+}
+
+func parseFloat(text string) (number, error) {
 	f, err := strconv.ParseFloat(text, 64)
 	if err != nil {
 		return number{}, errNotNumber
 	}
 	return number{kind: kindFloat, f: f}, nil
+}
+
+var errNotDecimal = errors.New("not decimal text")
+
+// maxDigits is the number of digits in the uint64 maximum.
+const maxDigits = 20
+
+// parseDecimal parses decimal text, such as "-1.25e3", as an exact integer, or as a
+// fractional float when its value has a fractional part. It returns errNotDecimal for
+// other text that strconv.ParseFloat accepts, such as "Inf" or a hexadecimal float.
+func parseDecimal(text string) (number, error) {
+	mantissa, exp := text, 0
+	if i := strings.IndexAny(text, "eE"); i >= 0 {
+		e, err := strconv.Atoi(text[i+1:])
+		if err != nil {
+			return number{}, errNotDecimal
+		}
+		mantissa, exp = text[:i], e
+	}
+	negative := false
+	if mantissa != "" && (mantissa[0] == '-' || mantissa[0] == '+') {
+		negative, mantissa = mantissa[0] == '-', mantissa[1:]
+	}
+	whole, frac, _ := strings.Cut(mantissa, ".")
+	if len(whole)+len(frac) == 0 || !isDigits(whole) || !isDigits(frac) {
+		return number{}, errNotDecimal
+	}
+	digits := strings.TrimLeft(whole+frac, "0")
+	significant := strings.TrimRight(digits, "0")
+	exp += len(digits) - len(significant) - len(frac)
+	if significant == "" {
+		return number{kind: kindUint}, nil
+	}
+	if exp < 0 {
+		n, err := parseFloat(text)
+		n.fractional = true
+		return n, err
+	}
+	if len(significant)+exp > maxDigits {
+		return number{}, errOutOfBounds
+	}
+	u, err := strconv.ParseUint(significant+strings.Repeat("0", exp), 10, 64)
+	if err != nil {
+		return number{}, errOutOfBounds
+	}
+	if !negative {
+		return number{kind: kindUint, u: u}, nil
+	}
+	if u > 1<<63 {
+		return number{}, errOutOfBounds
+	}
+	return number{kind: kindInt, i: int64(-u)}, nil
 }
 
 // integer returns the number that holds v.
@@ -285,15 +335,8 @@ func integer(v int64) number {
 	return number{kind: kindUint, u: uint64(v)}
 }
 
-func isIntegerText(text string) bool {
-	start := 0
-	if text[0] == '-' || text[0] == '+' {
-		start = 1
-	}
-	if start == len(text) {
-		return false
-	}
-	for i := start; i < len(text); i++ {
+func isDigits(text string) bool {
+	for i := range len(text) {
 		if text[i] < '0' || text[i] > '9' {
 			return false
 		}
@@ -349,7 +392,7 @@ func (n number) int64() (int64, error) {
 	if math.IsNaN(n.f) {
 		return 0, errOutOfBounds
 	}
-	if n.f != math.Trunc(n.f) {
+	if n.fractional || n.f != math.Trunc(n.f) {
 		return 0, errFractional
 	}
 	if n.f < -two63 || n.f >= two63 {
@@ -368,7 +411,7 @@ func (n number) uint64() (uint64, error) {
 	if math.IsNaN(n.f) {
 		return 0, errOutOfBounds
 	}
-	if n.f != math.Trunc(n.f) {
+	if n.fractional || n.f != math.Trunc(n.f) {
 		return 0, errFractional
 	}
 	if n.f < 0 || n.f >= two64 {
