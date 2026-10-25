@@ -59,9 +59,9 @@ type Config struct {
 	// instead, set it to a very small number greater than 0.
 	// [OPTIONAL] Default: 0.2
 	GCThreshold float32
-	// OnHistoryChange receives the time range of each change to stored data that the
-	// channel's live stream does not carry: a write into the past or a delete. It runs
-	// inline under the DB's locks, so it must not block or call back into the DB.
+	// OnHistoryChange receives the time range of each delete and of each write before
+	// the channel's newest data. It runs inline under the DB's locks, so it must not
+	// block or call back into the DB.
 	// [OPTIONAL]
 	OnHistoryChange func(context.Context, telem.TimeRange)
 }

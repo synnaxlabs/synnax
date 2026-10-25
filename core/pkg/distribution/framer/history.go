@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// HistoryChange names a time range of a channel's stored data that changed in a way the
-// channel's live stream does not carry: a write into the past or a delete.
+// HistoryChange names a time range of a channel's stored data that a delete or a write
+// before the channel's newest data changed.
 type HistoryChange struct {
 	// Key is the channel whose stored data changed.
 	Key channel.Key `json:"key" msgpack:"key"`
