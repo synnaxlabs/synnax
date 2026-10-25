@@ -16,8 +16,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/migrate"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
@@ -123,7 +123,7 @@ func ResolveWriteConfig(
 
 // NewReadMigration returns the migration that lifts stored read configs to v2 and
 // resolves their channels against slaves.
-func NewReadMigration(slaves Slaves) migrate.Migration {
+func NewReadMigration(slaves Slaves) gorp.Migration {
 	return newMigration(
 		"v60_ethercat_read_entry_address",
 		slaves,
@@ -134,7 +134,7 @@ func NewReadMigration(slaves Slaves) migrate.Migration {
 
 // NewWriteMigration returns the migration that lifts stored write configs to v2 and
 // resolves their channels against slaves.
-func NewWriteMigration(slaves Slaves) migrate.Migration {
+func NewWriteMigration(slaves Slaves) gorp.Migration {
 	return newMigration(
 		"v60_ethercat_write_entry_address",
 		slaves,
@@ -148,8 +148,8 @@ func newMigration[I, O gorp.Entry[uuid.UUID]](
 	slaves Slaves,
 	lift func(context.Context, I) (O, error),
 	resolve func(context.Context, gorp.Tx, Slaves, *O) error,
-) migrate.Migration {
-	return gorp.NewMigration(
+) gorp.Migration {
+	return migrate.New(
 		key,
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
 			var olds []I
