@@ -373,6 +373,50 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
+			It(
+				"Should reject @search on a field that the @retrieve type removes",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/foo"
+
+					Base struct {
+						key uuid @key
+						name string @search
+					}
+
+					Foo struct extends Base {
+						-name
+						@retrieve
+					}
+				`
+					req := MustGenerateRequest(ctx, source, "foo", loader)
+					Expect(p.Generate(req)).Error().To(MatchError(
+						"foo.Base: @search field name needs a @retrieve type " +
+							"to read it",
+					))
+				},
+			)
+
+			It(
+				"Should reject an @index field that collides with the search index",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/foo"
+
+					Foo struct {
+						key uuid @key
+						search string @index lookup
+						name string @search
+						@retrieve
+					}
+				`
+					req := MustGenerateRequest(ctx, source, "foo", loader)
+					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+						"foo.Foo: @index field search collides with the search index",
+					)))
+				},
+			)
+
 			DescribeTable(
 				"Should reject @search on a field that is not a string",
 				func(ctx SpecContext, field string) {

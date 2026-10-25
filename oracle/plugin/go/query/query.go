@@ -70,9 +70,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		structs []resolution.Type
 	}
 	entries := make(map[string]*entry)
-	// retrieved holds each @retrieve type and every type it extends: the types whose
-	// fields a generated Retrieve reads.
-	retrieved := make(set.Set[string])
+	searched := make(set.Set[searchDecl])
 
 	for _, typ := range slices.Concat(
 		req.Resolutions.StructTypes(),
@@ -87,11 +85,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if !plugindomain.HasDomainFromType(typ, "retrieve") {
 			continue
 		}
-		addExtended(typ, req.Resolutions, retrieved)
 		outputPath := output.GetPath(typ, "go")
 		if outputPath == "" {
 			continue
 		}
+		addSearched(typ, req.Resolutions, searched)
 		e, ok := entries[outputPath]
 		if !ok {
 			e = &entry{path: outputPath}
@@ -101,9 +99,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	for _, typ := range req.Resolutions.StructTypes() {
-		if retrieved.Contains(typ.QualifiedName) {
-			continue
-		}
 		form := typ.Form.(resolution.StructForm)
 		inherited := resolution.InheritedFields(form.Extends, req.Resolutions)
 		for _, f := range form.Fields {
@@ -112,7 +107,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				plugindomain.HasDomainFromField(parent, "search") {
 				continue
 			}
-			if plugindomain.HasDomainFromField(f, "search") {
+			if plugindomain.HasDomainFromField(f, "search") &&
+				!searched.Contains(searchDecl{typ: typ.QualifiedName, field: f.Name}) {
 				return nil, errors.Newf(
 					"%s: @search field %s needs a @retrieve type to read it",
 					typ.QualifiedName,
@@ -430,6 +426,18 @@ func extractRetrieveInfo(
 		}
 	}
 
+	if len(search) > 0 {
+		for _, idx := range indexes {
+			if idx.StructField == "search" {
+				return nil, errors.Newf(
+					"%s: @index field %s collides with the search index",
+					typ.QualifiedName,
+					idx.FieldName,
+				)
+			}
+		}
+	}
+
 	return &retrieveInfo{
 		GoName:   goName,
 		KeyType:  keyType,
@@ -456,24 +464,49 @@ func retrieveFields(typ resolution.Type, table *resolution.Table) []resolution.F
 	return fields
 }
 
-// addExtended adds typ and every type it extends, transitively, to types.
-func addExtended(typ resolution.Type, table *resolution.Table, types set.Set[string]) {
-	if types.Contains(typ.QualifiedName) {
-		return
-	}
-	types.Add(typ.QualifiedName)
-	var extends []resolution.TypeRef
-	switch form := typ.Form.(type) {
-	case resolution.StructForm:
-		extends = form.Extends
-	case resolution.UnionForm:
-		extends = form.Extends
-	}
-	for _, ext := range extends {
-		if parent, _, ok := resolution.Dealias(ext, table); ok {
-			addExtended(parent, table, types)
+// searchDecl names a field that declares @search on a struct.
+type searchDecl struct{ typ, field string }
+
+// addSearched adds to searched each @search declaration that the search index of
+// retrieved reads: a field of retrieved, or of a type it extends, that keeps @search in
+// the fields of retrieved.
+func addSearched(
+	retrieved resolution.Type,
+	table *resolution.Table,
+	searched set.Set[searchDecl],
+) {
+	read := make(set.Set[string])
+	for _, f := range retrieveFields(retrieved, table) {
+		if plugindomain.HasDomainFromField(f, "search") {
+			read.Add(f.Name)
 		}
 	}
+	visited := make(set.Set[string])
+	var visit func(typ resolution.Type)
+	visit = func(typ resolution.Type) {
+		if visited.Contains(typ.QualifiedName) {
+			return
+		}
+		visited.Add(typ.QualifiedName)
+		var extends []resolution.TypeRef
+		switch form := typ.Form.(type) {
+		case resolution.StructForm:
+			for _, f := range form.Fields {
+				if read.Contains(f.Name) {
+					searched.Add(searchDecl{typ: typ.QualifiedName, field: f.Name})
+				}
+			}
+			extends = form.Extends
+		case resolution.UnionForm:
+			extends = form.Extends
+		}
+		for _, ext := range extends {
+			if parent, _, ok := resolution.Dealias(ext, table); ok {
+				visit(parent)
+			}
+		}
+	}
+	visit(retrieved)
 }
 
 type templateData struct {
