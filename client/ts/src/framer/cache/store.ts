@@ -219,8 +219,8 @@ export class Store {
 
   /**
    * Drops the cached samples of the channel over the time range, or of every channel
-   * when the channel is null. A joined channel whose open block the span touches
-   * waits for a new catch-up read.
+   * when the channel is null. A joined channel whose open block the span touches waits
+   * for a new catch-up read.
    */
   invalidate(ch: channel.Key | null = null, tr: TimeRange = TimeRange.MAX): void {
     if (ch == null) this.joins.forEach((j) => this.waitJoin(j));
@@ -356,8 +356,8 @@ export class Store {
   }
 
   /**
-   * Marks the members of the index's join as caught up, and writes the series they
-   * held in the order they arrived.
+   * Marks the members of the index's join as caught up, and writes the series they held
+   * in the order they arrived.
    * @param historyless - True when the members have no history to read.
    */
   landed(index: channel.Key, keys: channel.Key[], historyless = false): void {
@@ -557,8 +557,8 @@ export class Store {
 
   /**
    * Closes the channel's open block, stamping the end of its buffer. Call it when the
-   * stream stops delivering the channel, so reads fetch the span it will not deliver.
-   * A joined channel waits for a new catch-up read.
+   * stream stops delivering the channel, so reads fetch the span it will not deliver. A
+   * joined channel waits for a new catch-up read.
    */
   flush(ch: channel.Key): void {
     const j = this.joinOf.get(ch);

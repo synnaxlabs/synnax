@@ -55,8 +55,8 @@ interface Driver {
 /**
  * Joins the streams of channels to their raw blocks. After the stream acks a joined
  * channel and its index, a catch-up read fetches their open blocks, and the store then
- * writes their streamed samples into the blocks. A catch-up read runs again whenever the
- * join loses its place, as after a gap in the stream.
+ * writes their streamed samples into the blocks. A catch-up read runs again whenever
+ * the join loses its place, as after a gap in the stream.
  */
 export class Joiner {
   private readonly props: Required<Omit<JoinerProps, "breaker">> & {

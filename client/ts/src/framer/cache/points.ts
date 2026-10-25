@@ -94,15 +94,15 @@ export class Points {
   private leave: destructor.Destructor | null = null;
   private readonly held = new Map<string, Held>();
   private readonly pending = new Set<string>();
-  // retrying holds the failed tiles that wait out the breaker, and rejected the tiles
-  // a definitive failure stopped.
+  // retrying holds failed tiles that wait out the breaker. rejected holds tiles that a
+  // definitive failure stopped.
   private readonly retrying = new Set<string>();
   private readonly rejected = new Set<string>();
   // stale holds the held tiles a history change named. They draw until they read again.
   private readonly stale = new Set<string>();
   private readonly stopInvalidations: destructor.Destructor;
-  // boundary is where tiles end and raw samples begin. It trails rawFrom until the tiles
-  // that replace the raw samples before rawFrom arrive, so their span never goes blank.
+  // boundary is where tiles end and raw samples begin. It trails rawFrom until the
+  // tiles that replace the samples before it land, so no span goes blank.
   private boundary = TimeStamp.ZERO;
   // raw holds the raw samples last served, which stand in for blocks being read again.
   private raw: Series[] = [];
@@ -263,8 +263,8 @@ export class Points {
     this.leave = this.props.joiner.join(this.key, index, () => this.notify());
   }
 
-  // rawFrom is where raw samples start. It sits on a tile edge of the window's level, so
-  // no tile of that level or finer crosses it.
+  // rawFrom is where raw samples start. It sits on a tile edge of the window's level,
+  // so no tile of that level or finer crosses it.
   private rawFrom(home: TimeRange): TimeStamp {
     if (this.rawOnly) return home.start;
     const level = grid.level(home);
@@ -344,8 +344,8 @@ export class Points {
     return keys;
   }
 
-  // Returns the held tile at the position: the target, then one of the aggregation, then
-  // one of another.
+  // Returns the held tile at the position: the target, then one of the aggregation,
+  // then one of another.
   private find(
     p: grid.Position,
     preferred: Map<string, string>,
@@ -406,7 +406,7 @@ export class Points {
       }
   }
 
-  // Returns the keys of the window's tiles, and of the held tiles that stand in for them.
+  // Returns the keys of the window's tiles and of the held tiles standing in for them.
   private homeKeys(home: TimeRange, extremesKept: boolean): string[] {
     const targets = this.targets(home, home, extremesKept);
     const preferred = new Map(targets.map((t) => [positionKey(t), tileRequestKey(t)]));
@@ -461,10 +461,10 @@ export class Points {
     this.notify();
   }
 
-  // Returns the raw samples of a live window from the boundary on, or of a static window
-  // with no point limit. The join fills the blocks from the edge of commits on, and a
-  // read fills the blocks before it. A block being filled shows the samples it showed
-  // before.
+  // Returns the raw samples of a live window from the boundary on, or of a static
+  // window with no point limit. The join fills the blocks from the edge of commits on,
+  // and a read fills the blocks before it. A block being filled shows the samples it
+  // showed before.
   private rawEdge(home: TimeRange): Series[] {
     this.rawFilling = false;
     if (!this.live && !this.rawOnly) return [];

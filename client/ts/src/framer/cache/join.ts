@@ -57,8 +57,8 @@ export class Member {
 
 /**
  * The join of one index channel's stream, and the streams of the data channels on it,
- * to their raw blocks. Streamed index samples get block offsets in time order, and
- * data samples take the offsets of the index samples with their timestamps.
+ * to their raw blocks. Streamed index samples get block offsets in time order, and data
+ * samples take the offsets of the index samples with their timestamps.
  */
 export class Join {
   readonly members = new Map<channel.Key, Member>();

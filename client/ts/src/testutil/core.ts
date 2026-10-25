@@ -154,7 +154,7 @@ export class SyntheticCore {
       .map((c) => c.payload);
   };
 
-  /** Changes the data type of a data channel's every sample, as a recalculation does. */
+  /** Changes the data type of every sample of a channel, as a recalculation does. */
   retype(key: channel.Key, dataType: DataType): void {
     this.dataTypes.set(key, dataType);
   }

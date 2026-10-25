@@ -368,8 +368,8 @@ const runs = (entries: Array<debounce.Entry<Request>>): Group[] => {
 };
 
 /**
- * @returns the series of the blocks that overlap tr in time order. The fetched form of a
- * span wins: a streamed series that overlaps a fetched one is left out.
+ * @returns the series of the blocks that overlap tr in time order. The fetched form of
+ * a span wins: a streamed series that overlaps a fetched one is left out.
  */
 export const assemble = (tr: TimeRange, blocks: RawBlock[]): Series[] => {
   const fetched = blocks.flatMap((b) =>

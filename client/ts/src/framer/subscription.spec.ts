@@ -648,7 +648,7 @@ describe("Feed.subscribe", () => {
       const { key: data } = core.data[0];
       const { key: calculated } = core.calculated!;
       try {
-        // Blocks fetched once the history changes stream are valid until one names them.
+        // Blocks fetched while history changes stream stay valid until one names them.
         await load(data);
         await sleep.sleep(TimeSpan.milliseconds(150));
         core.rewrite(data, tr, 0);
