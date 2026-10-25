@@ -401,6 +401,16 @@ describe("Reader", () => {
       expect(res.length).toBe(30);
     });
 
+    it("should return a streamed series that crosses into the read from the block before", async () => {
+      const { reader, store } = createReader({
+        elapsed: 70,
+        answer: () => new Frame(),
+      });
+      store.write(2, createStreamed(65, 67));
+      const res = await reader.read(new TimeRange(at(66), at(68)), 2);
+      expect(res.series).toEqual([store.leadingBuffer(2)]);
+    });
+
     it("should return a streamed series with no time range from the wall clock on", async () => {
       const { core, reader, store } = createReader({
         elapsed: 30,

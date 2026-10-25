@@ -143,7 +143,10 @@ export class Reader {
       }),
     );
     if (failure != null) throw failure;
-    const series = assemble(tr, blocks);
+    // A streamed series stays in the block it starts in, so one that crosses into the
+    // read's first block is in the block before it.
+    const before = this.props.store.findRaw(ch, blocks[0].index - 1);
+    const series = assemble(tr, before == null ? blocks : [before, ...blocks]);
     // A fetch with a new data type drops the channel's blocks from the store, but this
     // read took its blocks before the fetch, so they can hold the old data type.
     if (new Set(series.map((s) => s.dataType.toString())).size > 1)
