@@ -240,6 +240,13 @@ var _ = Describe("SearchIndex", func() {
 				Where(failed.Filter("analog")))).To(Equal([]int32{3, 1, 4}))
 		})
 
+		It("Should return the error of an entry the scan cannot decode",
+			func(ctx SpecContext) {
+				corrupt[int32, indexedEntry](ctx, failing, 1)
+				Expect(failed.Search(ctx, failing, "analog", 0)).Error().
+					To(MatchError(ContainSubstring("failed to decode")))
+			})
+
 		It("Should compose with a sibling index that falls back to a scan",
 			func(ctx SpecContext) {
 				Expect(

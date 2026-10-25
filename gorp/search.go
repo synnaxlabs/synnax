@@ -117,15 +117,17 @@ func (s *SearchIndex[K, E]) scan(
 	tx Tx,
 	term string,
 	limit int,
-) (res search.Result[K], err error) {
+) (search.Result[K], error) {
 	entries, closer, err := wrapReader[K, E](tx, nil).OpenNexter(ctx)
 	if err != nil {
 		return search.Result[K]{}, err
 	}
-	defer func() { err = errors.Combine(err, closer.Close()) }()
 	idx := search.New[K]()
 	for e := range entries {
 		idx.Set(e.GorpKey(), s.text(&e)...)
+	}
+	if err = closer.Close(); err != nil {
+		return search.Result[K]{}, err
 	}
 	return idx.Search(term, limit), nil
 }
