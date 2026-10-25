@@ -485,6 +485,33 @@ var _ = Describe("Filter definitions", func() {
 			})).To(Equal([]string{"name", "time"}))
 		})
 
+		It("Should hold a generic target over any", func(ctx SpecContext) {
+			table, diag := analyzer.AnalyzeSource(ctx, `
+				import "schemas/x/filter"
+
+				Kind enum {
+					a = "a"
+				}
+				Thing struct<D?, K extends Kind = Kind> {
+					key     uuid { @key }
+					details D
+					kind    K
+				}
+				Where filter Thing {
+					key
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			res := table.MustGet("test.RetrieveResponse").Form.(resolution.StructForm)
+			Expect(fieldTypes(res)["things"]).To(Equal(resolution.TypeRef{
+				Name: "Array",
+				TypeArgs: []resolution.TypeRef{{
+					Name:     "test.Thing",
+					TypeArgs: []resolution.TypeRef{{Name: "any"}},
+				}},
+			}))
+		})
+
 		It("Should take the response type and its outputs from @response", func(
 			ctx SpecContext,
 		) {

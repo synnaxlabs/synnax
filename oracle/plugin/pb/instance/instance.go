@@ -89,10 +89,10 @@ func holdsTypeParam(ref resolution.TypeRef) bool {
 	return ref.IsTypeParam() || lo.SomeBy(ref.TypeArgs, holdsTypeParam)
 }
 
-// fitsAny reports whether a google.protobuf.Any can hold ref: a struct, a union, or a
-// distinct type over one, or nil for no value.
+// fitsAny reports whether a google.protobuf.Any can hold ref: a struct, a union, a
+// distinct type over one, any, or nil for no value.
 func fitsAny(ref resolution.TypeRef, table *resolution.Table) bool {
-	if ref.Name == "nil" {
+	if ref.Name == "nil" || ref.Name == "any" {
 		return true
 	}
 	target, _, ok := resolution.Dealias(ref, table)
