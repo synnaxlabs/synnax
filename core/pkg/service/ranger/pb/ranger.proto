@@ -46,6 +46,17 @@ message Range {
 message WhereList {
   repeated Where values = 1;
 }
+message UuidList {
+  repeated string values = 1;
+}
+
+// UuidSet selects keys and enum values. A value must match every operator that is set.
+message UuidSet {
+  // eq matches a value equal to eq.
+  optional string eq = 1;
+  // in matches a value equal to an element of in.
+  UuidList in = 2;
+}
 message KeyList {
   repeated string values = 1;
 }
@@ -57,7 +68,7 @@ message Where {
   // not matches when the child does not match.
   optional Where not = 3;
   // key selects by key.
-  optional .x.filter.pb.Set key = 4;
+  optional UuidSet key = 4;
   // name selects by name.
   optional .x.filter.pb.String name = 5;
   // overlaps matches ranges whose time range overlaps the given range.

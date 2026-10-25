@@ -28,10 +28,12 @@ from synnax.ontology import Client as OntologyClient
 from synnax.ontology.payload import ID
 from synnax.ranger import alias as alias_
 from synnax.ranger import kv
-from synnax.ranger.retrieve import Request, Retriever
+from synnax.ranger.retrieve import Retriever
 from synnax.ranger.types_gen import (
     Key,
     Payload,
+    RetrieveRequest,
+    Where,
     ontology_id,
 )
 from synnax.ranger.writer import Writer
@@ -46,6 +48,7 @@ from synnax.telem import (
     SampleValue,
     TimeRange,
 )
+from x import filter
 from x.color import Color
 from x.interop import ArrayOperators
 from x.lists import all_none, normalize, override
@@ -669,6 +672,7 @@ class Client:
     def retrieve(
         self,
         *,
+        where: Where | None = None,
         names: list[str] | tuple[str, ...] | None = None,
         keys: list[Key] | tuple[Key, ...] | None = None,
         search_term: str | None = None,
@@ -686,6 +690,7 @@ class Client:
         *,
         key: Key | None = None,
         name: str | None = None,
+        where: Where | None = None,
         names: list[str] | tuple[str, ...] | None = None,
         keys: list[Key] | tuple[Key, ...] | None = None,
         search_term: str | None = None,
@@ -701,6 +706,7 @@ class Client:
 
         :param key: The key of one range to retrieve.
         :param name: The name of one range to retrieve.
+        :param where: Keeps ranges that match this filter tree.
         :param names: Keeps ranges with one of these names.
         :param keys: Keeps ranges with one of these keys.
         :param search_term: Fuzzy matches range names.
@@ -719,17 +725,24 @@ class Client:
         if key is not None and name is not None:
             raise ValueError("key and name cannot be combined; use keys or names")
         if is_single and not all_none(
-            keys, names, search_term, overlaps_with, has_labels, limit, offset
+            where, keys, names, search_term, overlaps_with, has_labels, limit, offset
         ):
             raise ValueError(
                 "key and name cannot be combined with list filters; use keys or names"
             )
-        req = Request(
-            keys=override(key, keys),
-            names=override(name, names),
+        keys = override(key, keys)
+        names = override(name, names)
+        flat = Where(
+            key=None if keys is None else filter.Set[Key](in_=keys),
+            name=None if names is None else filter.String(in_=names),
+            overlaps=overlaps_with,
+            labels=has_labels,
+        )
+        if where is not None and flat != Where():
+            where = Where(and_=[where, flat])
+        req = RetrieveRequest(
+            where=flat if where is None else where,
             search_term=search_term,
-            overlaps_with=overlaps_with,
-            has_labels=has_labels,
             limit=limit,
             offset=offset,
             include_labels=include_labels or None,
@@ -762,7 +775,7 @@ class Client:
         self,
         term: str,
     ) -> list[Range]:
-        return self._sugar(self._retriever.retrieve(Request(search_term=term)))
+        return self._sugar(self._retriever.retrieve(RetrieveRequest(search_term=term)))
 
     def _sugar(self, ranges: list[Payload]) -> list[Range]:
         result: list[Range] = []

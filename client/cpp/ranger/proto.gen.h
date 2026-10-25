@@ -29,6 +29,38 @@
 
 namespace synnax::ranger {
 
+inline std::pair<::service::ranger::pb::UuidSet, x::errors::Error>
+uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self) {
+    ::service::ranger::pb::UuidSet pb;
+    if (self.eq.has_value()) pb.set_eq(self.eq->to_string());
+    if (self.in.has_value()) {
+        auto *wrapper = pb.mutable_in();
+        for (const auto &item: *self.in) {
+            wrapper->add_values(item.to_string());
+        }
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error>
+uuid_set_from_proto(const ::service::ranger::pb::UuidSet &pb) {
+    ::x::filter::Set<x::uuid::UUID> cpp;
+    if (!pb.eq().empty()) {
+        auto [v, err] = x::uuid::UUID::parse(pb.eq());
+        if (err) return {{}, err};
+        cpp.eq = v;
+    }
+    if (pb.has_in()) {
+        cpp.in.emplace();
+        for (const auto &item: pb.in().values()) {
+            auto [v, err] = x::uuid::UUID::parse(item);
+            if (err) return {{}, err};
+            cpp.in->push_back(v);
+        }
+    }
+    return {cpp, x::errors::NIL};
+}
+
 inline std::pair<::service::ranger::pb::Range, x::errors::Error>
 Range::to_proto() const {
     ::service::ranger::pb::Range pb;
@@ -120,7 +152,7 @@ Where::to_proto() const {
         *pb.mutable_not_() = v;
     }
     if (this->key.has_value()) {
-        auto [v, err] = this->key->to_proto();
+        auto [v, err] = uuid_set_to_proto(*this->key);
         if (err) return {{}, err};
         *pb.mutable_key() = v;
     }
@@ -162,7 +194,7 @@ Where::from_proto(const ::service::ranger::pb::Where &pb) {
         cpp.not_ = v;
     }
     if (pb.has_key()) {
-        auto [v, err] = ::x::filter::Set<Key>::from_proto(pb.key());
+        auto [v, err] = uuid_set_from_proto(pb.key());
         if (err) return {{}, err};
         cpp.key = v;
     }

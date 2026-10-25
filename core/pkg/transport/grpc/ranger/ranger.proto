@@ -49,8 +49,9 @@ message CreateResponse {
 }
 
 message RetrieveRequest {
-  repeated string keys = 1;
-  repeated string names = 2;
+  reserved 1, 2;
+  reserved "keys", "names";
+  service.ranger.pb.RetrieveRequest request = 3;
 }
 
 message RetrieveResponse {

@@ -18,8 +18,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
-	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -138,35 +139,26 @@ func (retrieveRequestTranslator) Forward(
 	_ context.Context,
 	r ranger.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	w := lo.FromPtr(r.Where)
-	var keys, names []string
-	if w.Key != nil {
-		keys = lo.Map(w.Key.In, func(k ranger.Key, _ int) string { return k.String() })
+	req, err := pb.RetrieveRequestToPB(r)
+	if err != nil {
+		return nil, err
 	}
-	if w.Name != nil {
-		names = w.Name.In
-	}
-	return &RetrieveRequest{Keys: keys, Names: names}, nil
+	return &RetrieveRequest{Request: req}, nil
 }
 
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
 	r *RetrieveRequest,
 ) (ranger.RetrieveRequest, error) {
-	keys, err := lo.MapErr(r.Keys, func(k string, _ int) (ranger.Key, error) {
-		return uuid.Parse(k)
-	})
-	if err != nil {
-		return ranger.RetrieveRequest{}, err
+	// A client older than the Core sends the reserved keys and names fields, which
+	// would otherwise select every range.
+	if len(r.ProtoReflect().GetUnknown()) > 0 {
+		return ranger.RetrieveRequest{}, errors.Wrap(
+			validate.ErrValidation,
+			"retrieve request has unknown fields",
+		)
 	}
-	var w ranger.Where
-	if len(keys) > 0 {
-		w.Key = &filter.Set[ranger.Key]{In: keys}
-	}
-	if len(r.Names) > 0 {
-		w.Name = &filter.String{In: r.Names}
-	}
-	return ranger.RetrieveRequest{Where: &w}, nil
+	return pb.RetrieveRequestFromPB(r.Request)
 }
 
 func (retrieveResponseTranslator) Forward(

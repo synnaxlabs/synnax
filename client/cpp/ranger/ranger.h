@@ -51,6 +51,10 @@ public:
         set_end_client(std::move(set_end_client)),
         kv(std::move(kv_client)) {}
 
+    /// @brief retrieves the ranges that req selects.
+    [[nodiscard]] std::pair<std::vector<Range>, x::errors::Error>
+    retrieve(const RetrieveRequest &req) const;
+
     /// @brief retrieves the range with the given key.
     [[nodiscard]] std::pair<Range, x::errors::Error>
     retrieve_by_key(const Key &key) const;
@@ -91,9 +95,5 @@ private:
     std::unique_ptr<SetEndClient> set_end_client;
     /// @brief range kv get transport.
     ranger::kv::Client kv;
-
-    /// @brief retrieves multiple ranges.
-    std::pair<std::vector<Range>, x::errors::Error>
-    retrieve_many(grpc::ranger::RetrieveRequest &req) const;
 };
 }

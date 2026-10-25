@@ -17,10 +17,11 @@ import pydantic
 import pytest
 
 import synnax as sy
-from synnax import label
+from synnax import label, ranger
 from synnax.ontology import ID
 from synnax.state import LatestState, State
 from tests.channel import RetrieveCounter
+from x import filter
 from x.params import RequiresNamedParams
 from x.strings import random_name
 from x.testutil import assert_eventually
@@ -535,6 +536,23 @@ class TestRangeRetrieveFilters:
             retrieve(key=key, limit=1)
         with pytest.raises(ValueError, match="cannot be combined with list filters"):
             retrieve(name="a", keys=[key])
+
+    def test_where(
+        self,
+        client: sy.Synnax,
+        window: sy.TimeRange,
+        window_ranges: list[sy.Range],
+    ) -> None:
+        """Should keep ranges that match a filter tree and the other filters"""
+        where = ranger.Where(
+            not_=ranger.Where(name=filter.String(eq=window_ranges[0].name))
+        )
+        res = client.ranges.retrieve(where=where, overlaps_with=window)
+        assert {r.key for r in res} == {r.key for r in window_ranges[1:]}
+
+    def test_empty_keys(self, client: sy.Synnax, window_ranges: list[sy.Range]) -> None:
+        """Should retrieve no ranges for an empty list of keys"""
+        assert client.ranges.retrieve(keys=[]) == []
 
     def test_overlaps_with(
         self,
