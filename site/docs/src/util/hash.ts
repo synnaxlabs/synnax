@@ -10,7 +10,8 @@
 const SETTLE_MS = 5000;
 const READER_SCROLL_EVENTS = ["wheel", "touchstart", "keydown"];
 
-const hashTarget = (): HTMLElement | null => {
+/** Returns the element the URL hash names, or null for none. */
+export const hashTarget = (): HTMLElement | null => {
   try {
     return document.getElementById(decodeURIComponent(window.location.hash.slice(1)));
   } catch {

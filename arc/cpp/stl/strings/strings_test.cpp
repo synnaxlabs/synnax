@@ -108,12 +108,12 @@ struct StrModuleFixture {
         store(engine),
         linker(engine),
         instance(setup_instance()),
-        memory(std::get<wasmtime::Memory>(*instance.get(store, "memory"))) {
+        memory(std::get<wasmtime::Memory>(instance.get(store, "memory").value())) {
         mod.set_wasm_context(&store, &memory);
     }
 
     wasmtime::Func get_func(const std::string &name) {
-        return std::get<wasmtime::Func>(*instance.get(store, name));
+        return std::get<wasmtime::Func>(instance.get(store, name).value());
     }
 
     void write_spec(const std::string &spec) {

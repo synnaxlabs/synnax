@@ -62,7 +62,12 @@ export const Row = memo(
     shift = 0,
     colShifts,
   }: RowProps): ReactElement => {
+    const cellXs: number[] = [];
     let xCursor = x;
+    for (let i = 0; i < cells.length; i++) {
+      cellXs.push(xCursor);
+      xCursor += columns[i];
+    }
     const theme = Theming.use();
     // Table.css rounds the table's outer corners on the corner <td> by
     // --pluto-border-radius-small, but a cell that paints its background on the canvas
@@ -103,26 +108,22 @@ export const Row = memo(
             shift={shift}
           />
         )}
-        {cells.map((cellKey, i) => {
-          const xPos = xCursor;
-          xCursor += columns[i];
-          return (
-            <VariantCell
-              key={cellKey}
-              resourceKey={resourceKey}
-              cellKey={cellKey}
-              x={xPos}
-              y={y}
-              width={columns[i]}
-              height={size}
-              borderRadius={borderRadii[i]}
-              editable={editable}
-              onSelect={onCellSelect}
-              shiftX={colShifts?.[i] ?? 0}
-              shiftY={shift}
-            />
-          );
-        })}
+        {cells.map((cellKey, i) => (
+          <VariantCell
+            key={cellKey}
+            resourceKey={resourceKey}
+            cellKey={cellKey}
+            x={cellXs[i]}
+            y={y}
+            width={columns[i]}
+            height={size}
+            borderRadius={borderRadii[i]}
+            editable={editable}
+            onSelect={onCellSelect}
+            shiftX={colShifts?.[i] ?? 0}
+            shiftY={shift}
+          />
+        ))}
       </tr>
     );
   },

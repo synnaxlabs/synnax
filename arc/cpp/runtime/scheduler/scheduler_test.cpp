@@ -496,6 +496,27 @@ TEST_F(SchedulerTest, ContinuesAfterErrorReport) {
     EXPECT_EQ(h.errors.size(), 1);
 }
 
+/// @brief a reported error should reach the handler unchanged, with the node that
+/// raised it.
+TEST_F(SchedulerTest, ReportedErrorCarriesItsNode) {
+    MockErrorHandler h;
+    mock("A");
+    mock("B").on_next = [](const node::Context &ctx) {
+        ctx.report_error(x::errors::Error(errors::WARNING, "The period is zero."));
+    };
+    auto ir = program_of(
+        {ir_node("A"), ir_node("B")},
+        {},
+        root_scope({ir::node_member("A"), ir::node_member("B")})
+    );
+    const auto s = build_with_handler(std::move(ir), h.handler);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
+    ASSERT_EQ(h.errors.size(), 1);
+    EXPECT_EQ(h.node_keys[0], "B");
+    EXPECT_TRUE(h.errors[0].matches(errors::WARNING));
+    EXPECT_EQ(h.errors[0].data, "The period is zero.");
+}
+
 TEST_F(SchedulerTest, AccumulatesMultipleErrors) {
     MockErrorHandler h;
     const auto err_a = x::errors::Error("boom-A", "test");

@@ -12,7 +12,7 @@ package v7
 import (
 	"context"
 
-	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 )
 
@@ -37,4 +37,4 @@ func MigrateLine(ctx context.Context, old v6.Line) (Line, error) {
 }
 
 // Migration lifts stored v6 line plots to v7.
-var Migration = gorp.NewEntryMigration("v59_line_reduction", MigrateLinePlot)
+var Migration = migrate.NewEntry("v59_line_reduction", MigrateLinePlot)

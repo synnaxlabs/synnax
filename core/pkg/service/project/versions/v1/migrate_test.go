@@ -23,7 +23,6 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -36,7 +35,7 @@ func runMigrations(ctx context.Context, db *gorp.DB) {
 		DB:        db,
 		Namespace: "Project",
 		Migrations: append(
-			[]migrate.Migration{v0.Migration},
+			[]gorp.Migration{v0.Migration},
 			v1.NewMigrations(v1.MigrationsConfig{Ontology: otg})...,
 		),
 	})).To(Succeed())

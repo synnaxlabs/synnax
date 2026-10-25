@@ -27,7 +27,6 @@ import (
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -63,7 +62,7 @@ func migrateSeed(ctx SpecContext, seed v0.Schematic) v7.Schematic {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Schematic",
-		Migrations: []migrate.Migration{v0.Migration, v7.Migration},
+		Migrations: []gorp.Migration{v0.Migration, v7.Migration},
 	})).To(Succeed())
 	var got v7.Schematic
 	Expect(gorp.NewRetrieve[v7.Key, v7.Schematic]().
