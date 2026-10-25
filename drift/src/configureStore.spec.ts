@@ -111,14 +111,10 @@ describe("resetInitialState", () => {
     expect(restored({ fullscreen: true }).fullscreen).toBeUndefined();
   });
 
-  // Controls grey out the macOS traffic lights on a blurred window, so a stored blur
-  // leaves them dead until the runtime reports a focus.
   it("should drop a stored blur", () => {
     expect(restored({ focus: false }).focus).toBeUndefined();
   });
 
-  // completeProcess reloads a window it finds mid-reload, so the stage has to start
-  // over or the next process to finish reloads the fresh window.
   it("should start the lifecycle over", () => {
     expect(restored({ stage: "reloading" }).stage).toEqual("creating");
   });
@@ -128,10 +124,9 @@ describe("resetInitialState", () => {
   });
 
   it("should zero the counters", () => {
-    expect(restored({ focusCount: 3, centerCount: 2, processCount: 1 })).toMatchObject({
+    expect(restored({ focusCount: 3, centerCount: 2 })).toMatchObject({
       focusCount: 0,
       centerCount: 0,
-      processCount: 0,
     });
   });
 

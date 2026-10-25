@@ -21,6 +21,7 @@ import { type PropsWithChildren, type ReactElement, useEffect, useState } from "
 
 import { CSS } from "@/platform/css";
 import { Shell } from "@/platform/shell";
+import { Window } from "@/platform/window";
 import { Session } from "@/session";
 
 export interface OverlayProps extends PropsWithChildren {}
@@ -105,13 +106,11 @@ interface WindowControlsProps {
 }
 
 const WindowControls = ({ os }: WindowControlsProps): ReactElement | null => {
-  if (Session.Runtime.ENGINE !== "tauri") return null;
-  if (os !== "macOS" && os !== "Windows") return null;
+  if (Session.Runtime.ENGINE !== "tauri" || os !== "Windows") return null;
   return (
-    <Shell.Islands justify={os === "macOS" ? "start" : "end"}>
+    <Shell.Islands justify="end">
       <Shell.Island>
-        <OS.Controls
-          forceOS={os}
+        <Window.Buttons
           onClose={handleClose}
           onMinimize={handleMinimize}
           onMaximize={handleMaximize}
