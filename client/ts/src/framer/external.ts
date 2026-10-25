@@ -11,9 +11,9 @@ export { type ChannelRetriever } from "@/framer/adapter";
 export * as grid from "@/framer/cache/grid";
 export { type RemoteReader } from "@/framer/cache/reader";
 export {
+  type Demand,
   type StatusHandler,
   type StreamHandler,
-  type Demand,
 } from "@/framer/cache/streamer";
 export { tileRequestKey, type TileSpec } from "@/framer/cache/tile";
 export * from "@/framer/client";
@@ -23,5 +23,6 @@ export * from "@/framer/hardened";
 export * from "@/framer/iterator";
 export * from "@/framer/reader";
 export * from "@/framer/streamer";
+export * from "@/framer/subscription";
 export * from "@/framer/types.gen";
 export * from "@/framer/writer";

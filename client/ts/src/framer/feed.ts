@@ -12,12 +12,14 @@ import {
   debounce,
   type MultiSeries,
   type Size,
-  type TimeRange,
+  TimeRange,
   type TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
+import { Joiner } from "@/framer/cache/joiner";
 import {
   DEFAULT_BATCH_DEBOUNCE,
   Reader,
@@ -25,19 +27,31 @@ import {
 } from "@/framer/cache/reader";
 import { Store, type StoreProps } from "@/framer/cache/store";
 import {
+  type Demand,
   MultiplexedStreamer,
   type MultiplexedStreamerProps,
   type StreamHandler,
-  type Demand,
 } from "@/framer/cache/streamer";
+import { Handle } from "@/framer/cache/subscription";
 import { TileReader, type TileSpec } from "@/framer/cache/tile";
 import { type Frame } from "@/framer/frame";
 import { HardenedStreamer } from "@/framer/hardened";
 import { type StreamOpener } from "@/framer/streamer";
+import { type SubscribeRequest, type Subscription } from "@/framer/subscription";
+import { historyChangeZ } from "@/framer/types.gen";
 
-/** A function that reads the latest stored sample of each channel from the cluster. */
+/** Reads the newest count stored samples of each channel in the time range. */
 export interface LatestReader {
-  (keys: channel.Key[]): Promise<Frame>;
+  (keys: channel.Key[], count: number, tr: TimeRange): Promise<Frame>;
+}
+
+// The channel the Core publishes history changes on.
+const HISTORY_CHANGE_CHANNEL = "sy_history_change";
+
+interface LatestRequest {
+  key: channel.Key;
+  count: number;
+  tr: TimeRange;
 }
 
 /** Props for {@link Feed}, including the transport it reads and streams through. */
@@ -80,7 +94,11 @@ export class Feed {
   private readonly streamer: MultiplexedStreamer;
   private readonly tiles: TileReader;
   private readonly store: Store;
-  private readonly latest: debounce.Batcher<channel.Key, MultiSeries>;
+  private readonly joiner: Joiner;
+  private readonly latest: debounce.Batcher<LatestRequest, MultiSeries>;
+  private readonly props: FeedProps;
+  // signals carries the history changes once a subscription asks for them.
+  private signals: Promise<Demand | null> | null = null;
   private closed = false;
 
   constructor(props: FeedProps) {
@@ -100,6 +118,7 @@ export class Feed {
       now,
       onRetry,
     } = props;
+    this.props = props;
     this.store = new Store({
       budget,
       staleThreshold: staleCoverageThreshold,
@@ -139,13 +158,93 @@ export class Feed {
       breaker,
       instrumentation: instrumentation?.child("streamer"),
     });
+    this.joiner = new Joiner({
+      store: this.store,
+      reader: this.reader,
+      streamer: this.streamer,
+      now: this.now,
+      breaker,
+    });
     this.latest = new debounce.Batcher({
       interval: batchDebounce ?? DEFAULT_BATCH_DEBOUNCE,
       exec: async (entries) => {
-        const frame = await readLatest([...new Set(entries.map(({ req }) => req))]);
-        entries.forEach(({ req, resolve }) => resolve(frame.get(req)));
+        // Requests of one count and range share one read.
+        const groups = new Map<string, typeof entries>();
+        entries.forEach((e) => {
+          const key = `${e.req.count}/${e.req.tr.toString()}`;
+          const group = groups.get(key);
+          if (group == null) groups.set(key, [e]);
+          else group.push(e);
+        });
+        await Promise.all(
+          [...groups.values()].map(async (group) => {
+            const { count, tr } = group[0].req;
+            try {
+              const keys = [...new Set(group.map(({ req }) => req.key))];
+              const frame = await readLatest(keys, count, tr);
+              group.forEach(({ req, resolve }) => resolve(frame.get(req.key)));
+            } catch (e) {
+              group.forEach(({ reject }) => reject(e));
+            }
+          }),
+        );
       },
     });
+  }
+
+  private get now(): () => TimeStamp {
+    return this.props.now ?? (() => TimeStamp.now());
+  }
+
+  /**
+   * Subscribes to the channels of the request. The subscription reads and streams in
+   * the background, and reports failures as statuses of its snapshots.
+   * @throws {UnexpectedError} if the feed has been closed.
+   */
+  subscribe(request: SubscribeRequest): Subscription {
+    if (this.closed) throw new UnexpectedError("telemetry feed is closed");
+    this.signals ??= this.listen();
+    return new Handle(
+      {
+        store: this.store,
+        reader: this.reader,
+        tiles: this.tiles,
+        streamer: this.streamer,
+        joiner: this.joiner,
+        retrieveChannels: this.props.retrieveChannels,
+        readLatest: async (key, count, tr) =>
+          await this.latest.enqueue({ key, count, tr }),
+        now: this.now,
+        breaker: this.props.breaker,
+      },
+      request,
+    );
+  }
+
+  // Streams the history changes, which drop the cached samples they name. A failure to
+  // find the channel leaves fetched blocks to expire, and the next subscription tries
+  // again.
+  private async listen(): Promise<Demand | null> {
+    const { retrieveChannels, instrumentation } = this.props;
+    try {
+      const [payload] = await retrieveChannels([HISTORY_CHANGE_CHANNEL]);
+      if (payload == null)
+        throw new UnexpectedError(`${HISTORY_CHANGE_CHANNEL} not found`);
+      if (this.closed) return null;
+      this.store.setSignalKey(payload.key);
+      return this.streamer.demand([payload.key], (frame) => {
+        frame.get(payload.key)?.forEach((s) =>
+          s
+            .parseJSON(historyChangeZ.array())
+            .flat()
+            .forEach(({ key, timeRange }) => this.store.invalidate(key, timeRange)),
+        );
+      });
+    } catch (e) {
+      instrumentation?.L.warn("failed to stream history changes", { error: e });
+      this.signals = null;
+      return null;
+    }
   }
 
   /**
@@ -192,13 +291,15 @@ export class Feed {
    */
   async readLatest(key: channel.Key): Promise<MultiSeries> {
     if (this.closed) throw new UnexpectedError("telemetry feed is closed");
-    return await this.latest.enqueue(key);
+    return await this.latest.enqueue({ key, count: 1, tr: TimeRange.MAX });
   }
 
   /** Closes the feed, releasing the stream and all cached buffers. */
   async close(): Promise<void> {
     this.closed = true;
     this.latest.close(new UnexpectedError("telemetry feed is closed"));
+    this.joiner.close();
+    (await this.signals)?.close();
     await this.streamer.close();
     await this.reader.close();
     this.tiles.close();

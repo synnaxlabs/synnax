@@ -117,7 +117,8 @@ export class Client {
         await this.read(tr, keys, { reduction }),
       retrieveChannels: this.cfg.retrieveChannels,
       openStreamer: async (config) => await this.openStreamer(config),
-      readLatest: async (keys) => await this.readLatest(keys, 1),
+      readLatest: async (keys, count, tr) =>
+        await this.readLatestNFrame(keys, count, tr),
     });
   }
 
@@ -276,8 +277,12 @@ export class Client {
     return fr;
   }
 
-  private async readLatestNFrame(channels: channel.Params, n: number): Promise<Frame> {
-    const i = await this.openIterator(TimeRange.MAX, channels, { chunkSize: n });
+  private async readLatestNFrame(
+    channels: channel.Params,
+    n: number,
+    tr: TimeRange = TimeRange.MAX,
+  ): Promise<Frame> {
+    const i = await this.openIterator(tr, channels, { chunkSize: n });
     const frame = new Frame();
     if (n > 0)
       try {

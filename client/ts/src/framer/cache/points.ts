@@ -1,0 +1,614 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import {
+  type Aggregation,
+  breaker,
+  deep,
+  type destructor,
+  MultiSeries,
+  resolveWindow,
+  type Series,
+  sync,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+  type Window,
+} from "@synnaxlabs/x";
+
+import { channel } from "@/channel";
+import { NotFoundError, ValidationError } from "@/errors";
+import { type ChannelRetriever } from "@/framer/adapter";
+import { type Block, type RawBlock, rawIndex } from "@/framer/cache/block";
+import * as grid from "@/framer/cache/grid";
+import { isDefinitive, type Joiner } from "@/framer/cache/joiner";
+import { assemble, COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
+import { type Store } from "@/framer/cache/store";
+import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
+import {
+  tileKey,
+  type TileReader,
+  tileRequestKey,
+  type TileSpec,
+} from "@/framer/cache/tile";
+import { type PointsLimit, type Snapshot } from "@/framer/subscription";
+import { status } from "@/status";
+
+export interface PointsProps {
+  store: Store;
+  reader: Reader;
+  tiles: TileReader;
+  streamer: MultiplexedStreamer;
+  joiner: Joiner;
+  retrieveChannels: ChannelRetriever;
+  now: () => TimeStamp;
+  /** Retry behavior for failed reads. */
+  breaker?: breaker.Config;
+}
+
+const LOADING: status.Crude = { variant: "loading", message: "Loading channel data" };
+const SUCCESS: status.Crude = { variant: "success", message: "Loaded channel data" };
+const READ_FAILED = "Failed to read channel data";
+
+interface Held {
+  spec: TileSpec;
+  series: MultiSeries;
+  // The cached tile, when the read cached one.
+  block?: Block;
+}
+
+const newBreaker = (
+  notifier: sync.Notifier,
+  config?: breaker.Config,
+): breaker.Breaker =>
+  new breaker.Breaker({
+    baseInterval: TimeSpan.seconds(1),
+    maxInterval: TimeSpan.seconds(30),
+    maxRetries: Infinity,
+    scale: 2,
+    jitter: 0.25,
+    sleepFn: async (span) => await notifier.wait(span),
+    ...config,
+  });
+
+const positionKey = ({ level, index }: grid.Position): string => `${level}/${index}`;
+
+/**
+ * Serves one channel under a points limit: reduced tiles across the window, and raw
+ * samples from the edge of a window that rolls with the clock. The raw edge streams
+ * through a join, so it holds each sample once.
+ */
+export class Points {
+  private index: channel.Key | null = null;
+  private resolving = false;
+  // parked holds the failure that stops the channel for good.
+  private parked: status.Status | null = null;
+  private readFailure: status.Status | null = null;
+  private demand: Demand | null = null;
+  private leave: destructor.Destructor | null = null;
+  private readonly held = new Map<string, Held>();
+  private readonly pending = new Set<string>();
+  // retrying holds the failed tiles that wait out the breaker, and rejected the tiles
+  // a definitive failure stopped.
+  private readonly retrying = new Set<string>();
+  private readonly rejected = new Set<string>();
+  // stale holds the held tiles a history change named. They draw until they read again.
+  private readonly stale = new Set<string>();
+  private readonly stopInvalidations: destructor.Destructor;
+  // boundary is where tiles end and raw samples begin. It trails rawFrom until the tiles
+  // that replace the raw samples before rawFrom arrive, so their span never goes blank.
+  private boundary = TimeStamp.ZERO;
+  // raw holds the raw samples last served, which stand in for blocks being read again.
+  private raw: Series[] = [];
+  private rawReading = false;
+  private rawRetrying = false;
+  // rawFilling is true while a block of the raw edge waits for its samples.
+  private rawFilling = false;
+  private loading = true;
+  private pins = new Set<Block>();
+  private generation = 0;
+  private readonly notifier = new sync.Notifier();
+  private readonly breaker: breaker.Breaker;
+  private readonly tileBreaker: breaker.Breaker;
+  private readonly statuses = {
+    loading: status.create(LOADING),
+    success: status.create(SUCCESS),
+  };
+
+  constructor(
+    private readonly props: PointsProps,
+    readonly key: channel.Key,
+    private window: Window,
+    private limit: PointsLimit,
+    private readonly notify: () => void,
+  ) {
+    this.breaker = newBreaker(this.notifier, props.breaker);
+    this.tileBreaker = newBreaker(this.notifier, props.breaker);
+    this.stopInvalidations = props.store.onInvalidate((ch, tr) => {
+      if (ch != null && ch !== this.key) return;
+      this.held.forEach(({ spec }, key) => {
+        if (grid.tileRange(spec).overlapsWith(tr)) this.stale.add(key);
+      });
+      this.notify();
+    });
+  }
+
+  private get live(): boolean {
+    return this.window.variant === "dynamic";
+  }
+
+  private get rawOnly(): boolean {
+    return this.limit.count === Infinity;
+  }
+
+  /** Replaces the window and limit. Held tiles stand in until the new ones land. */
+  update(window: Window, limit: PointsLimit): void {
+    const wasLive = this.live;
+    const moved = !deep.equal(window, this.window);
+    this.window = window;
+    this.limit = limit;
+    if (this.index == null) return;
+    if (wasLive !== this.live) this.stream();
+    if (moved || this.rawOnly) this.boundary = this.rawFrom(this.home());
+  }
+
+  /** @returns the samples to draw for the current window and limit. */
+  value(): Snapshot {
+    if (this.index == null) {
+      void this.resolve();
+      return { series: new MultiSeries([]), status: this.status() };
+    }
+    const home = this.home();
+    const view = this.view(home);
+    const next = this.live ? this.advance(view, home) : [];
+    const extremesKept = this.limit.extremesKept === true;
+    const targets = this.targets(view, home, extremesKept);
+    targets.forEach((spec) => this.request(spec));
+    const tiles = this.select(targets);
+    const raw = this.rawEdge(home);
+    this.prune(targets, tiles, next, home, extremesKept);
+    let series = [...tiles.flatMap((t) => t.series.series), ...raw];
+    const dataType = this.props.store.dataType(this.key);
+    if (dataType != null && series.some((s) => !s.dataType.equals(dataType))) {
+      // Series of two data types cannot share a snapshot.
+      this.restart();
+      series = series.filter((s) => s.dataType.equals(dataType));
+      this.raw = this.raw.filter((s) => s.dataType.equals(dataType));
+    }
+    this.pin(home);
+    if (this.loading && this.loaded(home)) this.loading = false;
+    return {
+      series: new MultiSeries(series),
+      status: this.status(),
+      time: this.time(),
+    };
+  }
+
+  /** Releases every tile, block, and stream the channel holds. */
+  close(): void {
+    this.generation++;
+    this.notifier.notify();
+    this.stopInvalidations();
+    this.pins.forEach((b) => b.pins--);
+    this.pins.clear();
+    this.held.clear();
+    this.raw = [];
+    this.demand?.close();
+    this.demand = null;
+    this.leave?.();
+    this.leave = null;
+  }
+
+  private home(): TimeRange {
+    return resolveWindow(this.window, this.props.now());
+  }
+
+  private view(home: TimeRange): TimeRange {
+    const { view } = this.limit;
+    if (view == null || !view.start.before(view.end)) return home;
+    return view;
+  }
+
+  // Resolves the channel's index, then streams and joins a live window.
+  private async resolve(): Promise<void> {
+    if (this.resolving || this.parked != null) return;
+    this.resolving = true;
+    const generation = this.generation;
+    try {
+      const [payload] = await this.props.retrieveChannels([this.key]);
+      if (generation !== this.generation) return;
+      if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
+      if (payload.virtual && !channel.isCalculated(payload))
+        throw new ValidationError(
+          `virtual channel ${payload.name} has no samples to draw`,
+        );
+      const index = payload.isIndex ? payload.key : payload.index;
+      if (index === 0)
+        throw new ValidationError(`channel ${payload.name} has no index to draw on`);
+      this.index = index;
+      this.boundary = this.rawFrom(this.home());
+      this.stream();
+      this.breaker.reset();
+      this.readFailure = null;
+    } catch (e) {
+      if (generation !== this.generation) return;
+      this.fail(e);
+      if (isDefinitive(e)) this.parked = this.readFailure;
+      else if (!(await this.breaker.wait()) || generation !== this.generation) return;
+    } finally {
+      if (generation === this.generation) this.resolving = false;
+    }
+    this.notify();
+  }
+
+  // Streams and joins the channel while the window is live.
+  private stream(): void {
+    const index = this.index!;
+    this.demand?.close();
+    this.leave?.();
+    this.demand = null;
+    this.leave = null;
+    if (!this.live) return;
+    const keys = [...new Set([this.key, index])];
+    this.demand = this.props.streamer.demand(keys, (frame) => {
+      if (frame.has(this.key)) this.notify();
+    });
+    this.demand.onStatusChange(() => this.notify());
+    this.leave = this.props.joiner.join(this.key, index, () => this.notify());
+  }
+
+  // rawFrom is where raw samples start. It sits on a tile edge of the window's level, so
+  // no tile of that level or finer crosses it.
+  private rawFrom(home: TimeRange): TimeStamp {
+    if (this.rawOnly) return home.start;
+    const level = grid.level(home);
+    return grid.tileRange({ level, index: grid.index(home.start, level) }).start;
+  }
+
+  // Moves the boundary to at most one tile of the window's level behind rawFrom, so a
+  // window that never draws stops growing.
+  private cutoff(home: TimeRange): void {
+    const floor = this.rawOnly
+      ? home.start
+      : this.rawFrom(home).sub(grid.tileSpan(grid.level(home)));
+    this.boundary = TimeStamp.max(this.boundary, floor);
+  }
+
+  // tilesEnd is where tiles stop for the boundary: the boundary, or the start of a raw
+  // series that crosses it, so no span draws twice.
+  private tilesEnd(boundary: TimeStamp): TimeStamp {
+    const first = this.raw.find((s) => s.timeRange.end.after(boundary));
+    return first == null ? boundary : TimeStamp.min(boundary, first.timeRange.start);
+  }
+
+  private targets(
+    view: TimeRange,
+    home: TimeRange,
+    extremesKept: boolean,
+    boundary: TimeStamp = this.boundary,
+  ): TileSpec[] {
+    if (this.rawOnly) return [];
+    const aggregation: Aggregation = extremesKept ? "min_max" : this.limit.aggregation;
+    // Tiles are cut to [start, end): the window of a static window, and the start of
+    // raw samples for a live one.
+    let start: TimeStamp | undefined;
+    let end: TimeStamp | undefined;
+    let tiled = view;
+    if (this.live) {
+      end = this.tilesEnd(boundary);
+      if (!end.after(view.start)) return [];
+      if (view.end.after(end)) tiled = new TimeRange(view.start, end);
+    } else {
+      [start, end] = [home.start, home.end];
+      tiled = new TimeRange(
+        TimeStamp.max(view.start, start),
+        TimeStamp.min(view.end, end),
+      );
+      if (!tiled.start.before(tiled.end)) return [];
+    }
+    const level = grid.level(view);
+    const pointLimit = grid.pointLimit({
+      level,
+      view,
+      points: this.limit.count,
+      drawn: this.limit.aggregation,
+      aggregation,
+    });
+    return grid.indexes(tiled, level).map((index) => {
+      const spec: TileSpec = { key: this.key, level, index, pointLimit, aggregation };
+      const tr = grid.tileRange(spec);
+      if (start != null && tr.start.before(start)) spec.start = start;
+      if (end != null && tr.end.after(end)) spec.end = end;
+      return spec;
+    });
+  }
+
+  // Moves the boundary to rawFrom once the tiles that replace the raw samples before
+  // rawFrom arrive. Returns the keys of those tiles while any is missing.
+  private advance(view: TimeRange, home: TimeRange): string[] {
+    const rawFrom = this.rawFrom(home);
+    if (!rawFrom.after(this.boundary)) return [];
+    const next = this.targets(view, home, false, rawFrom);
+    const keys = next.map((spec) => tileRequestKey(spec));
+    if (keys.every((k) => this.held.has(k))) {
+      this.boundary = rawFrom;
+      return [];
+    }
+    next.forEach((spec) => this.request(spec));
+    return keys;
+  }
+
+  // Returns the held tile at the position: the target, then one of the aggregation, then
+  // one of another.
+  private find(
+    p: grid.Position,
+    preferred: Map<string, string>,
+    aggregation: Aggregation,
+    tiles: Iterable<Held> = this.held.values(),
+  ): Held | undefined {
+    const want = preferred.get(positionKey(p));
+    if (want != null) {
+      const exact = this.held.get(want);
+      if (exact != null) return exact;
+    }
+    let other: Held | undefined;
+    for (const tile of tiles) {
+      if (tile.spec.level !== p.level || tile.spec.index !== p.index) continue;
+      if (tile.spec.aggregation === aggregation) return tile;
+      other ??= tile;
+    }
+    return other;
+  }
+
+  // Chooses the held tiles that draw the targets, standing in for the missing ones.
+  private select(targets: TileSpec[]): Held[] {
+    if (targets.length === 0) return [];
+    const preferred = new Map(targets.map((t) => [positionKey(t), tileRequestKey(t)]));
+    // A held tile that reaches past tilesEnd covers raw samples the window still draws.
+    const end = this.live ? this.tilesEnd(this.boundary) : null;
+    const drawable = [...this.held.values()].filter(
+      ({ spec }) => end == null || !grid.tileRange(spec).end.after(end),
+    );
+    return grid
+      .choose(
+        targets[0].level,
+        targets.map((t) => t.index),
+        drawable.map((t) => t.spec),
+      )
+      .map((p) => this.find(p, preferred, targets[0].aggregation, drawable)!);
+  }
+
+  // Releases the tiles the window no longer draws. The tiles of the window keep, and so
+  // do the tiles that stand in for targets until they arrive.
+  private prune(
+    targets: TileSpec[],
+    chosen: Held[],
+    next: string[],
+    home: TimeRange,
+    extremesKept: boolean,
+  ): void {
+    const keep = new Set([
+      ...chosen.map((t) => tileRequestKey(t.spec)),
+      ...targets.map((t) => tileRequestKey(t)),
+      ...next,
+      ...this.homeKeys(home, extremesKept),
+    ]);
+    for (const key of this.held.keys())
+      if (!keep.has(key)) {
+        this.held.delete(key);
+        this.stale.delete(key);
+      }
+  }
+
+  // Returns the keys of the window's tiles, and of the held tiles that stand in for them.
+  private homeKeys(home: TimeRange, extremesKept: boolean): string[] {
+    const targets = this.targets(home, home, extremesKept);
+    const preferred = new Map(targets.map((t) => [positionKey(t), tileRequestKey(t)]));
+    return [
+      ...preferred.values(),
+      ...targets.flatMap((t) => {
+        const found = this.find(t, preferred, t.aggregation);
+        return found == null ? [] : [tileRequestKey(found.spec)];
+      }),
+    ];
+  }
+
+  // A failed tile waits out the breaker before a later value call requests it again. A
+  // definitive rejection stops it until the channel restarts.
+  private request(spec: TileSpec): void {
+    const key = tileRequestKey(spec);
+    if (
+      (this.held.has(key) && !this.stale.has(key)) ||
+      this.pending.has(key) ||
+      this.retrying.has(key) ||
+      this.rejected.has(key)
+    )
+      return;
+    const generation = this.generation;
+    const { tiles, store } = this.props;
+    this.pending.add(key);
+    tiles
+      .read(spec, store.dataType(this.key))
+      .then((series) => {
+        if (generation !== this.generation) return;
+        this.pending.delete(key);
+        this.stale.delete(key);
+        this.held.set(key, { spec, series, block: store.get(tileKey(spec)) });
+        this.tileBreaker.reset();
+        this.readFailure = null;
+        this.notify();
+      })
+      .catch((e: unknown) => {
+        if (generation !== this.generation) return;
+        this.pending.delete(key);
+        this.fail(e);
+        if (isDefinitive(e)) return void this.rejected.add(key);
+        const waiting = this.retrying.size > 0;
+        this.retrying.add(key);
+        if (!waiting) void this.retryTiles(generation);
+      });
+  }
+
+  private async retryTiles(generation: number): Promise<void> {
+    if (!(await this.tileBreaker.wait()) || generation !== this.generation) return;
+    this.retrying.clear();
+    this.notify();
+  }
+
+  // Returns the raw samples of a live window from the boundary on, or of a static window
+  // with no point limit. The join fills the blocks from the edge of commits on, and a
+  // read fills the blocks before it. A block being filled shows the samples it showed
+  // before.
+  private rawEdge(home: TimeRange): Series[] {
+    this.rawFilling = false;
+    if (!this.live && !this.rawOnly) return [];
+    const { store } = this.props;
+    const now = this.props.now();
+    if (this.live) this.cutoff(home);
+    const tr = this.live ? new TimeRange(this.boundary, TimeStamp.MAX) : home;
+    const last = this.live
+      ? rawIndex(now)
+      : rawIndex(home.end.sub(TimeSpan.nanoseconds(1)));
+    const joinFrom = this.live ? rawIndex(now.sub(COMMIT_MARGIN)) : Infinity;
+    const blocks: RawBlock[] = [];
+    for (let i = rawIndex(tr.start); i <= last; i++)
+      blocks.push(store.raw(this.key, i));
+    const joined = store.joined(this.key);
+    const filling = new Set(
+      blocks
+        .filter((b) => (b.index < joinFrom ? !b.covers(tr) : !joined))
+        .map((b) => b.index),
+    );
+    this.rawFilling = filling.size > 0;
+    const unread = blocks.filter((b) => b.index < joinFrom && !b.covers(tr));
+    if (unread.length > 0)
+      this.readRaw(new TimeRange(unread[0].range.start, unread.at(-1)!.range.end));
+    const fresh = assemble(
+      tr,
+      blocks.filter((b) => !filling.has(b.index)),
+    );
+    const standIns = this.raw.filter(
+      (s) =>
+        filling.has(rawIndex(s.timeRange.start)) &&
+        !fresh.some((f) => f.timeRange.overlapsWith(s.timeRange)),
+    );
+    this.raw = [...fresh, ...standIns]
+      .filter((s) => s.timeRange.overlapsWith(tr))
+      .sort((a, b) => TimeRange.sort(a.timeRange, b.timeRange));
+    return this.raw;
+  }
+
+  private readRaw(tr: TimeRange): void {
+    if (this.rawReading || this.rawRetrying) return;
+    const generation = this.generation;
+    this.rawReading = true;
+    this.props.reader
+      .read(tr, this.key)
+      .then(() => {
+        if (generation !== this.generation) return;
+        this.breaker.reset();
+        this.readFailure = null;
+      })
+      .catch(async (e: unknown) => {
+        if (generation !== this.generation) return;
+        this.fail(e);
+        if (isDefinitive(e)) return void (this.parked = this.readFailure);
+        this.rawRetrying = true;
+        if (!(await this.breaker.wait()) || generation !== this.generation) return;
+        this.rawRetrying = false;
+      })
+      .finally(() => {
+        if (generation !== this.generation) return;
+        this.rawReading = false;
+        this.notify();
+      });
+  }
+
+  // Pins the tiles and raw blocks the snapshot serves, and unpins the rest.
+  private pin(home: TimeRange): void {
+    const next = new Set<Block>();
+    this.held.forEach(({ block }) => {
+      if (block != null) next.add(block);
+    });
+    if (this.live || this.rawOnly) {
+      const { store } = this.props;
+      const start = this.live ? this.boundary : home.start;
+      const end = this.live ? this.props.now() : home.end;
+      for (let i = rawIndex(start); i <= rawIndex(end); i++) {
+        const b = store.findRaw(this.key, i);
+        if (b != null) next.add(b);
+      }
+    }
+    this.pins.forEach((b) => {
+      if (!next.has(b)) b.pins--;
+    });
+    next.forEach((b) => {
+      if (!this.pins.has(b)) b.pins++;
+    });
+    this.pins = next;
+  }
+
+  private loaded(home: TimeRange): boolean {
+    if (this.rawFilling) return false;
+    return this.targets(home, home, false).every((spec) =>
+      this.held.has(tileRequestKey(spec)),
+    );
+  }
+
+  // Returns the end of the newest raw sample's span.
+  private time(): TimeStamp | undefined {
+    const last = this.raw.at(-1);
+    if (last == null) return undefined;
+    const live = this.props.store.leadingBuffer(this.key);
+    if (last !== live) return last.timeRange.end;
+    return this.props.store.findRaw(this.key, rawIndex(last.timeRange.start))
+      ?.coveredEnd;
+  }
+
+  private status(): status.Status {
+    const candidates = [
+      this.parked,
+      this.readFailure,
+      this.props.joiner.status(this.key),
+      this.demand?.status(this.key),
+      this.index == null || this.index === this.key
+        ? undefined
+        : this.demand?.status(this.index),
+    ];
+    let worst: status.Status | undefined;
+    for (const s of candidates)
+      if (s != null && (worst == null || status.moreSevere(s.variant, worst.variant)))
+        worst = s;
+    if (worst != null && worst.variant !== "success") return worst;
+    const loading = this.loading || this.pending.size > 0;
+    return loading ? this.statuses.loading : this.statuses.success;
+  }
+
+  private fail(e: unknown): void {
+    this.readFailure = status.fromException(e, READ_FAILED);
+    this.loading = false;
+    this.notify();
+  }
+
+  // Drops every tile and raw sample the channel holds, as when its data type changes.
+  private restart(): void {
+    this.generation++;
+    this.notifier.notify();
+    this.held.clear();
+    this.pending.clear();
+    this.retrying.clear();
+    this.rejected.clear();
+    this.stale.clear();
+    this.rawReading = false;
+    this.rawRetrying = false;
+    this.loading = true;
+    if (this.index != null) this.boundary = this.rawFrom(this.home());
+    this.notify();
+  }
+}
