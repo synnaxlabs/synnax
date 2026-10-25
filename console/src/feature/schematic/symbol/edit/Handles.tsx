@@ -13,7 +13,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { box, location, scale, xy } from "@synnaxlabs/x";
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -63,10 +63,7 @@ const Handle = ({ handle, selectedHandle, svg, onSelect, onDrag }: HandleProps) 
 
   const orientation = handle.orientation || "left";
 
-  const style = useMemo(
-    () => ({ left: `${pos.x}%`, top: `${pos.y}%` }),
-    [pos.x, pos.y],
-  );
+  const style = { left: `${pos.x}%`, top: `${pos.y}%` };
 
   return (
     <div

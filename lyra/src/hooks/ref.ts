@@ -12,7 +12,6 @@ import {
   type Ref,
   type RefCallback,
   type RefObject,
-  useCallback,
   useInsertionEffect,
   useRef,
   useState,
@@ -28,9 +27,9 @@ export const useStateRef = <T extends state.State>(
   initialValue: state.Initial<T>,
 ): [RefObject<T>, state.Setter<T>] => {
   const ref = useRef<T>(state.executeInitialSetter(initialValue));
-  const setValue: state.Setter<T> = useCallback((setter) => {
+  const setValue: state.Setter<T> = (setter) => {
     ref.current = state.executeSetter(setter, ref.current);
-  }, []);
+  };
   return [ref, setValue];
 };
 
@@ -73,23 +72,20 @@ export const useCombinedRefs = <T>(
   ...refs: Array<Ref<T> | null | undefined>
 ): RefCallback<T> => {
   const refsRef = useSyncedRef(refs);
-  return useCallback(
-    (el) => {
-      const cleanups = refsRef.current.map((r) => {
-        if (r == null) return null;
-        if (typeof r !== "function") {
-          r.current = el;
-          return () => {
-            r.current = null;
-          };
-        }
-        const cleanup = r(el);
-        return typeof cleanup === "function" ? cleanup : () => r(null);
-      });
-      return () => cleanups.forEach((cleanup) => cleanup?.());
-    },
-    [refsRef],
-  );
+  return (el) => {
+    const cleanups = refsRef.current.map((r) => {
+      if (r == null) return null;
+      if (typeof r !== "function") {
+        r.current = el;
+        return () => {
+          r.current = null;
+        };
+      }
+      const cleanup = r(el);
+      return typeof cleanup === "function" ? cleanup : () => r(null);
+    });
+    return () => cleanups.forEach((cleanup) => cleanup?.());
+  };
 };
 
 /**
@@ -104,10 +100,10 @@ export const useCombinedStateAndRef = <T extends primitive.Value | object>(
   const [s, setS] = useState<T>(() => state.executeInitialSetter<T>(initialState));
   const ref = useRef<T>(s);
 
-  const setStateAndRef: state.Setter<T> = useCallback((nextState): void => {
+  const setStateAndRef: state.Setter<T> = (nextState): void => {
     ref.current = state.executeSetter<T>(nextState, ref.current);
     setS(ref.current);
-  }, []);
+  };
 
   return [s, setStateAndRef, ref];
 };

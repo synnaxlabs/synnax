@@ -130,6 +130,22 @@ TEST_F(IGHMasterTest, InitializeMultipleSlaves) {
     EXPECT_EQ(slaves[1].properties.name, "Slave1");
 }
 
+/// @brief it should return the number of slaves on the bus.
+TEST_F(IGHMasterTest, CountSlavesReportsTheSlavesOnTheBus) {
+    this->initialize_with_slave();
+    this->add_default_slave(1);
+    EXPECT_EQ(ASSERT_NIL_P(this->master_instance->count_slaves()), 2);
+}
+
+/// @brief it should return a master init error when it counts slaves before
+/// initialization.
+TEST_F(IGHMasterTest, CountSlavesFailsBeforeInitialize) {
+    ASSERT_OCCURRED_AS_P(
+        this->master_instance->count_slaves(),
+        errors::MASTER_INIT_ERROR
+    );
+}
+
 /// @brief it should configure each enabled slave on activation.
 TEST_F(IGHMasterTest, ActivateConfiguresEveryEnabledSlave) {
     this->mock_api->add_slave(0, 0x1111, 0x2222, 1, 1, "S0");

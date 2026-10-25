@@ -43,11 +43,15 @@ const changePasswordResZ = z.object({});
 
 const RETRY_ON = [InvalidTokenError, ExpiredTokenError] as const;
 
-type AuthState =
-  { authenticated: false } | { authenticated: true; user: user.User; token: string };
+type AuthState = { authenticated: false } | { authenticated: true; token: string };
 
-/** Login outcome hooks. The connection machine is the sole consumer. */
+/** Login outcome hooks. */
 export interface Observer {
+  /**
+   * Fires with the user after every successful login, before onSuccess, and with
+   * undefined when setCredentials drops the user.
+   */
+  onUser?: (user: user.User | undefined) => void;
   /** Fires after every successful login. */
   onSuccess?: () => void;
   /** Fires on a definitive credential rejection, never on token self-heal. */
@@ -78,26 +82,15 @@ export class Client {
     this.authenticating = undefined;
     this.retryCount = 0;
     this.generation += 1;
+    this.observer.onUser?.(undefined);
   }
 
   get authenticated(): boolean {
     return this.authState.authenticated;
   }
 
-  get user(): user.User | undefined {
-    return this.authState.authenticated ? this.authState.user : undefined;
-  }
-
   get token(): string | undefined {
     return this.authState.authenticated ? this.authState.token : undefined;
-  }
-
-  async retrieveUser(): Promise<user.User> {
-    if (!this.authState.authenticated) await this.authenticating;
-    const { authState } = this;
-    if (!authState.authenticated)
-      throw new Error("Authentication failed: user not available");
-    return authState.user;
   }
 
   async changePassword(newPassword: string): Promise<void> {
@@ -130,11 +123,8 @@ export class Client {
               tokenResponseZ,
             );
             if (generation !== this.generation) return null;
-            this.authState = {
-              authenticated: true,
-              user: res.user,
-              token: res.token,
-            };
+            this.authState = { authenticated: true, token: res.token };
+            this.observer.onUser?.(res.user);
             this.observer.onSuccess?.();
             return null;
           } catch (err) {

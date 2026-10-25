@@ -12,7 +12,6 @@ import "@/feature/arc/editor/TaskControls.css";
 import { type arc, type rack } from "@synnaxlabs/client";
 import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { SelectPerformance } from "@/feature/arc/editor/SelectPerformance";
 import { Arc as PlatformArc } from "@/platform/arc";
@@ -34,14 +33,9 @@ export const TaskControls = () => {
   const { update: updateTask } = Arc.useUpdateTask();
   const bound = primitive.isNonZero(taskRack);
 
-  const handleRackChange = useCallback(
-    (rackKey: rack.Key) => updateTask({ key, rack: rackKey }),
-    [updateTask, key],
-  );
-  const handlePerformanceChange = useCallback(
-    (performance: arc.task.Performance) => updateTask({ key, performance }),
-    [updateTask, key],
-  );
+  const handleRackChange = (rackKey: rack.Key) => updateTask({ key, rack: rackKey });
+  const handlePerformanceChange = (performance: arc.task.Performance) =>
+    updateTask({ key, performance });
 
   return (
     <Task.Controls.Bar

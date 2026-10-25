@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -32,10 +31,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Search is the full-text search index for resources.
-	//
-	// [REQUIRED]
-	Search *search.Index
 	// RBAC enforces access control on every request.
 	//
 	// [REQUIRED]
@@ -51,7 +46,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
@@ -60,14 +54,12 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.ontology")
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("search", c.Search)
 	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
 type Service struct {
 	ontology *ontology.Ontology
-	search   *search.Index
 	access   *rbac.Service
 }
 
@@ -78,7 +70,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}
 	return &Service{
 		ontology: cfg.Ontology,
-		search:   cfg.Search,
 		access:   cfg.RBAC,
 	}, nil
 }
@@ -106,7 +97,7 @@ func (s *Service) Retrieve(
 ) (RetrieveResponse, error) {
 	resources := make([]ontology.Resource, 0)
 	if req.SearchTerm != "" {
-		ids, err := s.search.Search(ctx, search.Request{Term: req.SearchTerm})
+		ids, err := s.ontology.Search(ctx, nil, req.SearchTerm)
 		if err != nil {
 			return RetrieveResponse{}, err
 		}

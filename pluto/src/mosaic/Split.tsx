@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Resize } from "@synnaxlabs/lyra/resize";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { useContext } from "@/mosaic/Frame";
 
@@ -25,9 +25,6 @@ export interface SplitProps extends Omit<Resize.SplitProps, "onResizeEnd"> {
  */
 export const Split = ({ nodeKey, ...rest }: SplitProps): ReactElement => {
   const { onResize, disabled } = useContext("Mosaic.Split");
-  const handleResizeEnd = useCallback(
-    (size: number) => onResize?.(nodeKey, size),
-    [onResize, nodeKey],
-  );
+  const handleResizeEnd = (size: number) => onResize?.(nodeKey, size);
   return <Resize.Split disabled={disabled} onResizeEnd={handleResizeEnd} {...rest} />;
 };

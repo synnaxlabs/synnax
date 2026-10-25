@@ -193,7 +193,6 @@ var _ = Describe("Provision", func() {
 					DB:       db,
 					Ontology: otg,
 					Group:    groupSvc,
-					Search:   searchIdx,
 					User:     userSvc,
 				}))
 
@@ -236,7 +235,6 @@ var _ = Describe("Provision", func() {
 					DB:       db,
 					Ontology: otg,
 					Group:    groupSvc,
-					Search:   searchIdx,
 					User:     userSvc,
 				}))
 
