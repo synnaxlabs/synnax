@@ -692,6 +692,25 @@ describe("Task", async () => {
         t.executeCommandSync({ type: "test", timeout: TimeSpan.milliseconds(1) }),
       ).rejects.toThrow(new Error("Command to test timed out after 1ms"));
     });
+    it("should name the task by key when its name lookup fails", async () => {
+      const t = await testRack.createTask({
+        name: "test",
+        config: {},
+        type: "pagerduty_alert",
+      });
+      await client.tasks.delete(t.key);
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      onTestFinished(() => consoleError.mockRestore());
+      await expect(
+        client.tasks.executeCommandSync({
+          task: t.key,
+          type: "test",
+          timeout: TimeSpan.milliseconds(1),
+        }),
+      ).rejects.toThrow(
+        new Error(`Command to task with key ${t.key} timed out after 1ms`),
+      );
+    });
   });
 
   describe("with schemas", () => {
