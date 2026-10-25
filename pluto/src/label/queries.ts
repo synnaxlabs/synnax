@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, query, type Synnax as Client } from "@synnaxlabs/client";
+import { label, type ontology, type Synnax as Client } from "@synnaxlabs/client";
 import { color, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -83,35 +83,48 @@ export const useList = Flux.createList<ListQuery, label.Key, label.Label>({
   getCached: ({ client, query }) => client.labels.getCached(query),
 });
 
-type FormQuery = {
-  key: label.Key;
-};
+const { useEnsure } = Flux.createRetrieve<RetrieveQuery, label.Label>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query: { key } }) => await client.labels.retrieve(key),
+  onChange: ({ client, query: { key } }, handler) =>
+    client.labels.onChange(key, handler),
+  getCached: ({ client, query: { key } }) => client.labels.getCached(key),
+});
 
-export const formSchema = label.labelZ.partial({ key: true });
+export const createFormSchema = label.labelZ.partial({ key: true });
 
-const INITIAL_VALUES: z.infer<typeof formSchema> = {
+const ZERO_CREATE_FORM_VALUES: z.infer<typeof createFormSchema> = {
   name: "",
   color: color.construct("#000000"),
 };
 
-export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
+/** A form that creates a label when the caller saves it. */
+export const useCreateForm = Flux.createForm<null, typeof createFormSchema>({
   name: RESOURCE_NAME,
-  initialValues: INITIAL_VALUES,
-  schema: formSchema,
-  retrieve: async ({ client, query: { key } }) => await client.labels.retrieve(key),
-  getCached: ({ client, query: { key } }) => {
-    const cached = client.labels.getCached(key);
-    return query.isLive(cached) ? cached : undefined;
-  },
+  initialValues: ZERO_CREATE_FORM_VALUES,
+  schema: createFormSchema,
   update: async ({ client, value, reset }) => {
-    const updated = await client.labels.create(value());
-    reset(updated);
+    reset(await client.labels.create(value()));
   },
-  mountListeners: ({ client, query: { key }, reset, abandon }) =>
-    client.labels.onChange(key, (result) => {
-      if (query.isLive(result)) reset(result);
-      else if (query.Deleted.matches(result)) abandon();
-    }),
+});
+
+export const formSchema = label.labelZ.pick({ name: true, color: true });
+
+/**
+ * A form over a label in the client cache. Each edit to the name or color reaches the
+ * Core as a path action, and an edit from another client appears as it lands.
+ */
+export const useForm = Flux.createDocumentForm<
+  label.Key,
+  label.Label,
+  typeof formSchema
+>({
+  name: RESOURCE_NAME,
+  schema: formSchema,
+  docSchema: label.labelZ,
+  domain: (client) => client.labels,
+  useEnsure,
+  toValues: ({ name, color }) => ({ name, color }),
 });
 
 export type DeleteParams = label.Key | label.Key[];
