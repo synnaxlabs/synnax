@@ -175,6 +175,8 @@ type Transport struct {
 	TaskCopy     freighter.UnaryServer[task.CopyRequest, task.CopyResponse]
 	// TaskRename renames a task.
 	TaskRename freighter.UnaryServer[task.RenameRequest, struct{}]
+	// TaskDispatch applies path actions to a task.
+	TaskDispatch freighter.UnaryServer[task.DispatchRequest, task.DispatchResponse]
 	// DEVICE
 	DeviceCreate   freighter.UnaryServer[device.CreateRequest, device.CreateResponse]
 	DeviceRetrieve freighter.UnaryServer[device.RetrieveRequest, device.RetrieveResponse]
@@ -406,6 +408,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.TaskDelete,
 		t.TaskCopy,
 		t.TaskRename,
+		t.TaskDispatch,
 
 		// DEVICE
 		t.DeviceCreate,
@@ -608,6 +611,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.TaskDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Delete))
 	t.TaskCopy.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Copy))
 	t.TaskRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Rename))
+	t.TaskDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Task.Dispatch))
 
 	// DEVICE
 	t.DeviceCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Create))

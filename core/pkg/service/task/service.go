@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -26,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -124,6 +126,7 @@ type Service struct {
 	group             group.Group
 	table             *gorp.Table[Key, Task]
 	search            *gorp.SearchIndex[Key, Task]
+	state             *actions.State[Key, Action]
 	commandChannelKey channel.Key
 }
 
@@ -140,7 +143,11 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, search: newSearchIndex()}
+	s = &Service{
+		cfg:    cfg,
+		search: newSearchIndex(),
+		state:  actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
@@ -216,8 +223,63 @@ func OpenService(
 		if sig, err = cfg.Signals.PublishFromGorp(ctx, pubCfg); !ok(err, sig) {
 			return nil, err
 		}
+		// The Driver reads sy_task_set as task metadata, so actions take their own
+		// channel.
+		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
+			Provider: cfg.Signals,
+			State:    s.state,
+			Name:     "task_action",
+		}); !ok(err, sig) {
+			return nil, err
+		}
 	}
 	return s, nil
+}
+
+// OnAction subscribes the given handler to the actions that Dispatch and Writer emit.
+// The handler runs synchronously after the transaction that applied the actions
+// commits. The returned Disconnect removes the handler.
+func (s *Service) OnAction(
+	handler func(context.Context, actions.Scoped[Key, Action]),
+) observe.Disconnect {
+	return s.state.OnAction(handler)
+}
+
+// Dispatch applies the actions atomically to the task with the given key and returns
+// the hash of its new config. Dispatches for the same task run one at a time, each in
+// its own transaction, and the actions broadcast after it commits. dispatchKey is
+// carried onto the broadcast so the sender recognizes its echo. The new config is
+// stored only when it decodes into the task type's config with no unknown members and
+// passes validation. Dispatch returns an error wrapping validate.ErrValidation when an
+// action is a create, the task is a snapshot, or the result fails to decode or
+// validate, and an error wrapping query.ErrNotFound when no task has the key.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	acts []Action,
+) (string, error) {
+	for _, a := range acts {
+		if a.Type == ActionTypeCreate {
+			return "", errors.Wrap(
+				validate.ErrValidation, "only the Core dispatches a task create",
+			)
+		}
+	}
+	var hash string
+	if err := s.state.Dispatch(
+		ctx,
+		key,
+		dispatchKey,
+		acts,
+		func(tx gorp.Tx) (err error) {
+			hash, err = s.NewWriter(tx).apply(ctx, key, acts)
+			return err
+		},
+	); err != nil {
+		return "", err
+	}
+	return hash, nil
 }
 
 func (s *Service) CommandChannelKey() channel.Key {
@@ -229,13 +291,14 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:        tx,
-		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		otg:       s.cfg.Ontology,
-		group:     s.group,
-		status:    s.cfg.Status.NewWriter(tx),
-		table:     s.table,
-		configs:   s.cfg.Configs,
+		tx:         tx,
+		otgWriter:  s.cfg.Ontology.NewWriter(tx),
+		otg:        s.cfg.Ontology,
+		group:      s.group,
+		status:     s.cfg.Status.NewWriter(tx),
+		table:      s.table,
+		configs:    s.cfg.Configs,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 

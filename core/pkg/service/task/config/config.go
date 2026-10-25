@@ -39,6 +39,14 @@ type Store interface {
 		key uuid.UUID,
 		data msgpack.EncodedJSON,
 	) error
+	// WriteStrict is Write, except that it also rejects data holding a member that the
+	// record type does not declare.
+	WriteStrict(
+		ctx context.Context,
+		tx gorp.Tx,
+		key uuid.UUID,
+		data msgpack.EncodedJSON,
+	) error
 	// Read returns the record stored under key, or an error wrapping
 	// query.ErrNotFound when no record exists.
 	Read(ctx context.Context, tx gorp.Tx, key uuid.UUID) (msgpack.EncodedJSON, error)
@@ -165,6 +173,26 @@ func (s *Service[E]) Write(
 	key uuid.UUID,
 	data msgpack.EncodedJSON,
 ) error {
+	return s.write(ctx, tx, key, data, json.RejectUnknownMembers(false))
+}
+
+// WriteStrict implements Store.
+func (s *Service[E]) WriteStrict(
+	ctx context.Context,
+	tx gorp.Tx,
+	key uuid.UUID,
+	data msgpack.EncodedJSON,
+) error {
+	return s.write(ctx, tx, key, data, json.RejectUnknownMembers(true))
+}
+
+func (s *Service[E]) write(
+	ctx context.Context,
+	tx gorp.Tx,
+	key uuid.UUID,
+	data msgpack.EncodedJSON,
+	opts json.Options,
+) error {
 	b, err := json.Marshal(data)
 	if err != nil {
 		return errors.Wrapf(
@@ -172,7 +200,7 @@ func (s *Service[E]) Write(
 		)
 	}
 	var e E
-	if err := json.Unmarshal(b, &e); err != nil {
+	if err := json.Unmarshal(b, &e, opts); err != nil {
 		return errors.Wrapf(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)

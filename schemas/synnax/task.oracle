@@ -10,6 +10,7 @@
 import "schemas/synnax/device"
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
+import "schemas/x/patch"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/task"
@@ -109,6 +110,31 @@ Task struct<
     status      Status<StatusData>? {
         @doc value  "is the current execution status of the task."
         @go marshal omit
+    }
+
+    action Create {
+        task Task
+
+        @doc value """
+            replaces the task with the given created state. Emitted by the Core when a
+            task is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the task."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value "removes an entry from a list or a field from an object in the task."
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the task."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the task."
     }
 
     @create

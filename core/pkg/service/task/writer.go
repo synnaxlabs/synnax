@@ -15,6 +15,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -27,13 +28,23 @@ import (
 )
 
 type Writer struct {
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	otg       *ontology.Ontology
-	group     group.Group
-	status    status.Writer
-	table     *gorp.Table[Key, Task]
-	configs   config.Registry
+	tx         gorp.Tx
+	otgWriter  ontology.Writer
+	otg        *ontology.Ontology
+	group      group.Group
+	status     status.Writer
+	table      *gorp.Table[Key, Task]
+	configs    config.Registry
+	dispatcher actions.Dispatcher[Key, Action]
+	// dispatchKey is stamped onto create broadcasts so the originator skips its echo.
+	dispatchKey string
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
+// broadcasts it emits, so the client that sent the create recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatchKey = dispatchKey
+	return w
 }
 
 // resolveStatus returns the status to persist for t. Without a provided status, a task
@@ -95,7 +106,8 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 // the task's key in its type's config store; the task row itself carries only the
 // config hash. A provided status is persisted as given. Without one, a new task gets
 // a "not deployed" placeholder, and an existing task keeps its reported status (healed
-// to "status unknown" if the row is missing).
+// to "status unknown" if the row is missing). After the transaction commits, Create
+// broadcasts a create action that carries the stored task.
 func (w Writer) Create(ctx context.Context, t *Task) error {
 	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()
@@ -177,6 +189,10 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		return err
 	}
 	t.Status = stat
+	key, created := t.Key, []Action{NewCreateAction(CreatePayload{Task: *t})}
+	gorp.OnCommit(w.tx, func() {
+		w.dispatcher.Notify(ctx, key, w.dispatchKey, created)
+	})
 	exists, err := w.otg.NewRetrieve().WhereIDs(otgID).Exists(ctx, w.tx)
 	if err != nil {
 		return err
@@ -210,8 +226,9 @@ func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
 }
 
 // Rename renames the task with the given key and its status, keeping every other field,
-// including its config. It returns query.ErrNotFound if no task with the key exists and
-// a validation error if name is empty.
+// including its config. After the transaction commits, Rename broadcasts a set of the
+// task's name. It returns query.ErrNotFound if no task with the key exists and a
+// validation error if name is empty.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	v := validate.New("task.task")
 	v.NotEmptyString("name", name)
@@ -227,11 +244,78 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	if err := w.renameStatus(ctx, key, name); err != nil {
+		return err
+	}
+	renamed := []Action{NewSetAction(SetPayload{Path: []string{"name"}, Value: name})}
+	gorp.OnCommit(w.tx, func() {
+		w.dispatcher.Notify(ctx, key, w.dispatchKey, renamed)
+	})
+	return nil
+}
+
+func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
 	// A missing status row is valid: the next Create heals it.
 	return errors.Skip(
 		w.status.Rename(ctx, OntologyID(key).String(), name),
 		query.ErrNotFound,
 	)
+}
+
+// apply applies the actions to the task with the given key, stores the result, and
+// returns the hash of the task's new config.
+func (w Writer) apply(ctx context.Context, key Key, acts []Action) (string, error) {
+	var prev Task
+	if err := w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Task](key)).
+		Entry(&prev).
+		Exec(ctx, w.tx); err != nil {
+		return "", err
+	}
+	if prev.Snapshot {
+		return "", errors.Wrapf(
+			validate.ErrValidation, "task %s is a snapshot and cannot change", key,
+		)
+	}
+	store, ok := w.configs.Store(prev.Type)
+	if !ok {
+		return "", errors.Wrapf(
+			validate.ErrValidation,
+			"unknown task type %q",
+			prev.Type,
+		)
+	}
+	var err error
+	if prev.Config, err = store.Read(ctx, w.tx, key); err != nil {
+		return "", err
+	}
+	next, err := Reduce(prev, acts...)
+	if err != nil {
+		return "", err
+	}
+	if err = next.Validate(); err != nil {
+		return "", err
+	}
+	if err = store.WriteStrict(ctx, w.tx, key, next.Config); err != nil {
+		return "", err
+	}
+	stored, err := store.Read(ctx, w.tx, key)
+	if err != nil {
+		return "", err
+	}
+	if next.ConfigHash, err = hashConfig(configContent(stored)); err != nil {
+		return "", err
+	}
+	next.Config = nil
+	if err = w.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
+		return "", err
+	}
+	if next.Name != prev.Name {
+		if err = w.renameStatus(ctx, key, next.Name); err != nil {
+			return "", err
+		}
+	}
+	return next.ConfigHash, nil
 }
 
 // Delete deletes the task with the given key, its config record, and its associated

@@ -159,6 +159,58 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("WriteStrict", func() {
+		It("Should store a config whose members the record declares", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.WriteStrict(ctx, nil, key, msgpack.EncodedJSON{
+				"arc_key":     uuid.New().String(),
+				"performance": "high",
+			})).To(Succeed())
+			data := MustSucceed(svc.Read(ctx, nil, key))
+			Expect(data["performance"]).To(Equal("high"))
+		})
+
+		It("Should reject a member the record does not declare", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.WriteStrict(ctx, nil, key, msgpack.EncodedJSON{
+				"arc_key":     uuid.New().String(),
+				"performnace": "high",
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring(`unknown object member name "performnace"`),
+				),
+			))
+			Expect(svc.Read(ctx, nil, key)).Error().To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should return the record's validation error when it fails validation", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.WriteStrict(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				"arc_key":     uuid.New().String(),
+				"performance": "BOGUS",
+			})).To(MatchError(ContainSubstring("invalid performance: BOGUS")))
+		})
+	})
+
+	Describe("Write", func() {
+		It("Should drop a member the record does not declare", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
+				"arc_key": uuid.New().String(),
+				"extra":   true,
+			})).To(Succeed())
+			Expect(MustSucceed(svc.Read(ctx, nil, key))).ToNot(HaveKey("extra"))
+		})
+	})
+
 	Describe("Read", func() {
 		It("Should return not found for a missing record", func(ctx SpecContext) {
 			Expect(svc.Read(ctx, nil, uuid.New())).Error().

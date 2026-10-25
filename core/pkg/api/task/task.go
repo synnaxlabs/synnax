@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -92,6 +93,9 @@ type (
 type (
 	CreateRequest struct {
 		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
+		// DispatchKey is stamped onto the create broadcasts so the sender skips its
+		// echo.
+		DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
 	}
 	CreateResponse struct {
 		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
@@ -110,10 +114,45 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.task.NewWriter(tx).CreateMany(ctx, &req.Tasks); err != nil {
+	if err := s.task.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		CreateMany(ctx, &req.Tasks); err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse(req), nil
+	return CreateResponse{Tasks: req.Tasks}, nil
+}
+
+// DispatchRequest carries an action sequence to apply to a single task. DispatchKey is
+// a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[task.Key, task.Action]
+
+// DispatchResponse is the result of a dispatch.
+type DispatchResponse struct {
+	// ConfigHash is the hash of the task's config after the dispatch.
+	ConfigHash string `json:"config_hash" msgpack:"config_hash"`
+}
+
+// Dispatch applies the action sequence to the target task atomically and returns the
+// hash of its new config. Subscribers to the task action signals receive the sequence
+// after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (DispatchResponse, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{task.OntologyID(req.Key)},
+	}); err != nil {
+		return DispatchResponse{}, err
+	}
+	hash, err := s.task.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	if err != nil {
+		return DispatchResponse{}, err
+	}
+	return DispatchResponse{ConfigHash: hash}, nil
 }
 
 type (
