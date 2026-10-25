@@ -178,11 +178,14 @@ an exact index answers time questions with no second copy.
 - **Live writes**: A streamed write goes into the newest raw block, which stays open,
   and marks the reduced blocks that cover it out of date.
 - **Validity**: A block stays valid until a history change signal (§3.6) names its
-  channel and range. A stream reconnect drops the blocks of the affected channels. The
-  newest block of a channel the `Feed` does not stream keeps the commit margin and
-  expires after a few seconds. No signal names a calculated channel, which the Core
-  computes on read, or a channel stored on another node. Their blocks expire after 10
-  minutes.
+  channel and range. No signal names an append, which lands only after the channel's
+  last sample, so this holds only for a block whose fetch saw the channel's data reach
+  its coverage end. The newest block of a channel the `Feed` does not stream covers up
+  to the commit margin. A stream reconnect drops every block, because the signals share
+  the stream. No signal names a calculated channel, which the Core computes on read, or
+  a channel stored on another node, which the `Feed` finds from the node key of the
+  connectivity check. Their blocks, and blocks the channel's data has not passed, expire
+  after 10 minutes.
 - **Reads**: A `points` request reads reduced blocks for history and raw blocks from the
   live edge of RFC 0068 §3.8. A `latest` request reads raw blocks back from the end of
   the window.
