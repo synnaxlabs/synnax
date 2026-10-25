@@ -121,6 +121,12 @@ class Join {
     }
     return null;
   }
+
+  // Returns true when the series ends before every remembered index series.
+  precedes(s: Series): boolean {
+    const first = this.recent[0];
+    return first != null && s.alignment + BigInt(s.length) <= first.series.alignment;
+  }
 }
 
 /** The buffers a write allocated, and the joins it sent back to wait. */
@@ -421,6 +427,9 @@ export class Joins {
         continue;
       }
       const at = j.locate(s.alignment);
+      // The stream carried the series before its index. The catch-up read fetched its
+      // span, or the gap check of the next series finds the hole.
+      if (at == null && j.precedes(s)) continue;
       if (
         at == null ||
         at.pos + s.length > at.mapped.series.length ||

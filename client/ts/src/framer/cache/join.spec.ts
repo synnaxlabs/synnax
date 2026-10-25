@@ -189,6 +189,17 @@ describe("Joins", () => {
       expect(store.raw(DATA, BLOCK).coveredEnd).toEqual(at(4).add(1));
     });
 
+    it("should drop data series the stream carried before their index", () => {
+      const { store, joins } = createJoins();
+      joins.write(createFrame([DATA, createData([10, 20], 0n)]));
+      joins.write(
+        createFrame([INDEX, createIndex([3, 4], 2n)], [DATA, createData([30, 40], 2n)]),
+      );
+      expect(joins.landed(INDEX, [INDEX, DATA]).size).toBe(0);
+      expect(joins.joined(DATA)).toBe(true);
+      expect(streamed(store, DATA)).toEqual([30, 40]);
+    });
+
     it("should send the join back to wait on a gap in its index stream", () => {
       const { store, joins } = createJoined();
       const { waiting } = joins.write(
