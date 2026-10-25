@@ -175,7 +175,6 @@ export class Feed {
       instrumentation: instrumentation?.child("streamer"),
     });
     this.joiner = new Joiner({
-      store: this.store,
       joins: this.joins,
       reader: this.reader,
       streamer: this.streamer,

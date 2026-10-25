@@ -15,12 +15,10 @@ import { rawIndex } from "@/framer/cache/block";
 import { type Joins } from "@/framer/cache/join";
 import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
 import { isDefinitive, newBreaker, READ_FAILED } from "@/framer/cache/status";
-import { type Store } from "@/framer/cache/store";
 import { type MultiplexedStreamer } from "@/framer/cache/streamer";
 import { status } from "@/status";
 
 export interface JoinerProps {
-  store: Store;
   joins: Joins;
   reader: Reader;
   streamer: MultiplexedStreamer;
@@ -121,7 +119,7 @@ export class Joiner {
     const driver = this.drivers.get(index);
     if (driver == null || driver.running) return;
     driver.running = true;
-    const { store, joins, reader, streamer, now } = this.props;
+    const { joins, reader, streamer, now } = this.props;
     const { signal } = driver.abort;
     let failed = false;
     try {
@@ -153,10 +151,10 @@ export class Joiner {
             this.failures.delete(k);
             caught.push(k);
           } else if (
-            // A calculation over virtual channels has no history, so it joins without
-            // it.
+            // A calculation over virtual channels and its index have no history, so
+            // they join without it.
             acked.has(k) &&
-            store.isCalculated(k) &&
+            joins.calculated(index) &&
             !Unreachable.matches(r.reason)
           ) {
             this.failures.set(k, status.create(NO_HISTORY));

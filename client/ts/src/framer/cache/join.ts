@@ -197,6 +197,14 @@ export class Joins {
     return m != null && !m.joined && m.fresh;
   }
 
+  /** @returns true when the join of the index holds a calculated channel. */
+  calculated(index: channel.Key): boolean {
+    const j = this.joins.get(index);
+    if (j == null) return false;
+    for (const k of j.members.keys()) if (this.store.isCalculated(k)) return true;
+    return false;
+  }
+
   /**
    * @returns the first raw block a catch-up read of the channel must fetch: the block
    * of its last joined sample, of its first held sample, or of at, whichever is first.
@@ -351,13 +359,6 @@ export class Joins {
     this.store.flush(m.key);
   }
 
-  // The Core sums the alignments of a calculation's inputs, so the stream of a
-  // calculated channel skips alignments where it skips no samples.
-  private calculated(j: Join): boolean {
-    for (const k of j.members.keys()) if (this.store.isCalculated(k)) return true;
-    return false;
-  }
-
   private writeIndex(j: Join, series: Series[]): MultiSeries {
     const allocated = new MultiSeries([]);
     const im = j.indexMember;
@@ -366,7 +367,9 @@ export class Joins {
         im.hold(s);
         continue;
       }
-      if (!j.continues(s) && !this.calculated(j)) {
+      // The Core sums the alignments of a calculation's inputs, so the stream of a
+      // calculated channel skips alignments where it skips no samples.
+      if (!j.continues(s) && !this.calculated(j.index)) {
         this.waitJoin(j);
         im.hold(s);
         continue;
