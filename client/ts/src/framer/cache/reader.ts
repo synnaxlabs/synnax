@@ -115,8 +115,8 @@ export class Reader {
   }
 
   /**
-   * Reads the given time range for the given channel. Each series is whole, so the
-   * result can hold samples outside the range. Series come in time order. A streamed
+   * Reads the given time range for the given channel. Series are not cut to the range,
+   * so the result can hold samples outside it. Series come in time order. A streamed
    * series that overlaps a fetched one is left out.
    * @throws {UnexpectedError} if the reader is closed while the read is pending.
    * @throws {Unreachable} if a fetch serving the read exceeds the fetch timeout.

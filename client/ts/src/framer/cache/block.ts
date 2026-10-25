@@ -58,12 +58,14 @@ interface Segment {
 }
 
 /**
- * Gives a fetch's series of one channel block alignment: (index << 32) | offset, where
- * offset counts index samples from the block start.
- * @param index - The raw block the fetch read.
+ * Sets block alignment on a fetch's series of one channel in one block. Block alignment
+ * is (index << 32) | offset, where offset counts index samples from the block start.
+ * @param index - The raw block the series are in.
  * @param base - The index samples in the block before the fetch's start.
- * @param timestamps - The fetch's series of the channel's index, in time order.
- * @param series - The fetch's series of the channel.
+ * @param timestamps - The fetch's series of the channel's index in the block, in time
+ * order.
+ * @param series - The fetch's series of the channel in the block.
+ * @returns the non-empty series, with block alignment.
  * @throws {UnexpectedError} if a series has no index samples with its Core alignment.
  */
 export const align = (
@@ -109,7 +111,7 @@ const search = (s: Series, t: bigint, lo = 0): number => {
   return lo;
 };
 
-/** @returns the samples of the timestamp series stamped before ts. */
+/** @returns the number of samples of the timestamp series stamped before ts. */
 export const countBefore = (timestamps: Series[], ts: TimeStamp): number =>
   timestamps.reduce((count, s) => count + search(s, ts.valueOf()), 0);
 

@@ -57,9 +57,9 @@ class StubStreamer implements Streamer {
 
 let _sink = 0;
 
-// Drains a full frame sequence through the streamer into the store. Each run pays
-// a fixed ~100ms demand-reconcile debounce on top of the ingest work, so use frame
-// counts large enough for ingest to dominate.
+// Drains a full frame sequence through the streamer into the store. Each run pays a
+// fixed ~100ms demand-reconcile debounce on top of the ingest work, so use frame counts
+// large enough for ingest to dominate.
 const runIngest = async (
   frames: Frame[],
   keys: channel.Key[],

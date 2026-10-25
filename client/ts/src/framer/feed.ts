@@ -161,8 +161,11 @@ export class Feed {
 
   /**
    * Reads the given time range for the given channel, serving from cached raw blocks
-   * and fetching the blocks the cache lacks. Each series is whole, so the result can
-   * hold samples outside the range.
+   * and fetching the blocks the cache lacks. Series are not cut to the range, so the
+   * result can hold samples outside it.
+   * @throws {NotFoundError} if the channel does not exist.
+   * @throws {UnexpectedError} if the feed is closed while the read is pending.
+   * @throws {Unreachable} if a fetch serving the read exceeds the fetch timeout.
    */
   async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
     return await this.reader.read(tr, key);

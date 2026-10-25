@@ -260,6 +260,29 @@ describe("block", () => {
         expect(block.fetched[1].alignment).toBe(blockAlignment(0, 3));
       });
 
+      it("should end a trimmed series where the series after it starts", () => {
+        const block = new RawBlock(1, 0);
+        const next = fetched(4, [5, 6], seconds(5).range(seconds(7)));
+        block.fill(
+          [
+            fetched(0, [1, 2], seconds(1).range(seconds(3))),
+            fetched(2, [3, 4], seconds(3).range(seconds(5))),
+            next,
+          ],
+          seconds(3),
+          2,
+        );
+        // The Core's series edges moved, so the tail's first series runs into the next.
+        block.fill(
+          [fetched(2, [3, 4, 5], seconds(3).range(seconds(6)))],
+          seconds(6),
+          5,
+        );
+        expect(block.fetched[1].timeRange).toEqual(seconds(3).range(seconds(5)));
+        expect(block.fetched[2]).toBe(next);
+        expect(block.fetched.flatMap((s) => Array.from(s))).toEqual([1, 2, 3, 4, 5, 6]);
+      });
+
       it("should drop a streamed series a fetched series holds in time", () => {
         const block = new RawBlock(1, 0);
         const inside = createValues(9n, [1], seconds(2).range(seconds(3)));
@@ -320,17 +343,36 @@ describe("block", () => {
     });
 
     describe("held", () => {
-      it("should hold a block while it is open, pending, or a series is held", () => {
+      it("should not hold an empty block", () => {
+        expect(new RawBlock(1, 0).held).toBe(false);
+      });
+
+      it("should hold a block while the stream writes into it", () => {
         const block = new RawBlock(1, 0);
-        expect(block.held).toBe(false);
         block.buffer = new Dynamic({ dynamicBufferSize: 10 });
         expect(block.held).toBe(true);
-        block.buffer = null;
+      });
+
+      it("should hold a block while a fetch fills it", () => {
+        const block = new RawBlock(1, 0);
         block.pending = Promise.resolve();
         expect(block.held).toBe(true);
-        block.pending = null;
+      });
+
+      it("should hold a block while a caller holds a fetched series", () => {
+        const block = new RawBlock(1, 0);
         const series = fetched(0, [1], seconds(1).range(seconds(2)));
         block.fill([series], seconds(5), 1);
+        series.acquire();
+        expect(block.held).toBe(true);
+        series.release();
+        expect(block.held).toBe(false);
+      });
+
+      it("should hold a block while a caller holds a streamed series", () => {
+        const block = new RawBlock(1, 0);
+        const series = createValues(9n, [1], seconds(9).range(seconds(10)));
+        block.stream([series]);
         series.acquire();
         expect(block.held).toBe(true);
         series.release();

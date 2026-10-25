@@ -470,6 +470,7 @@ describe("Reader", () => {
       expect(await reader.read(new TimeRange(at(70), at(80)), 3)).toHaveLength(66);
       await reader.close();
       await expect(hung).rejects.toThrow(UnexpectedError);
+      await expect(hung).rejects.toThrow("telemetry reader is closed");
     });
   });
 
@@ -520,6 +521,7 @@ describe("Reader", () => {
       await expect.poll(() => fetches.length).toBe(1);
       await reader.close();
       await expect(hung).rejects.toThrow(UnexpectedError);
+      await expect(hung).rejects.toThrow("telemetry reader is closed");
       gate.open();
       await sleep.sleep(TimeSpan.milliseconds(10));
       expect(store.raw(2, 100).covers(blockRange(100))).toBe(false);
