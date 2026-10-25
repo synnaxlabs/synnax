@@ -35,6 +35,18 @@ type analysisCtx struct {
 	ast         parser.ISchemaContext
 	filePath    string
 	namespace   string
+	// copied holds the earlier-version declarations the file copies. Their references
+	// count as the file's own when checking for unused imports.
+	copied []parsedRule
+	// removals holds the fields patches removed from copied declarations, for
+	// omitRemovedFields.
+	removals []removal
+}
+
+// parsedRule is a parsed rule together with the parser that holds its tokens.
+type parsedRule interface {
+	antlr.ParserRuleContext
+	GetParser() antlr.Parser
 }
 
 // report records a diagnostic against the file currently being analyzed.
@@ -152,49 +164,57 @@ func AnalyzeSeeded(
 	return diag
 }
 
-// usedQualifiers collects the package qualifiers the file references: every identifier
-// immediately followed by a dot, in any position (type references, extends clauses,
-// domain expressions).
-func usedQualifiers(ast parser.ISchemaContext) set.Set[string] {
-	used := make(set.Set[string])
-	stream, ok := ast.GetParser().GetTokenStream().(*antlr.CommonTokenStream)
-	if !ok {
-		return used
-	}
-	var defaultChan []antlr.Token
-	for _, tok := range stream.GetAllTokens() {
-		if tok.GetChannel() == antlr.TokenDefaultChannel {
-			defaultChan = append(defaultChan, tok)
+// defaultTokens returns the default-channel tokens of each rule, in order.
+func defaultTokens(rules ...parsedRule) [][]antlr.Token {
+	out := make([][]antlr.Token, 0, len(rules))
+	for _, rule := range rules {
+		stream, ok := rule.GetParser().GetTokenStream().(*antlr.CommonTokenStream)
+		if !ok {
+			continue
 		}
+		// An empty file has no stop token.
+		start, stop := rule.GetStart(), rule.GetStop()
+		if start == nil || stop == nil {
+			continue
+		}
+		var toks []antlr.Token
+		for i := start.GetTokenIndex(); i <= stop.GetTokenIndex(); i++ {
+			if tok := stream.Get(i); tok.GetChannel() == antlr.TokenDefaultChannel {
+				toks = append(toks, tok)
+			}
+		}
+		out = append(out, toks)
 	}
-	for i := 0; i+1 < len(defaultChan); i++ {
-		if defaultChan[i].GetTokenType() == parser.OracleLexerIDENT &&
-			defaultChan[i+1].GetTokenType() == parser.OracleLexerDOT {
-			used.Add(defaultChan[i].GetText())
+	return out
+}
+
+// usedQualifiers collects the package qualifiers the token runs reference: every
+// identifier immediately followed by a dot, in any position (type references, extends
+// clauses, domain expressions).
+func usedQualifiers(runs [][]antlr.Token) set.Set[string] {
+	used := make(set.Set[string])
+	for _, toks := range runs {
+		for i := 0; i+1 < len(toks); i++ {
+			if toks[i].GetTokenType() == parser.OracleLexerIDENT &&
+				toks[i+1].GetTokenType() == parser.OracleLexerDOT {
+				used.Add(toks[i].GetText())
+			}
 		}
 	}
 	return used
 }
 
-// usedQualifiedNames collects every qualified reference in the file as a
+// usedQualifiedNames collects every qualified reference in the token runs as a
 // "qualifier.member" string: an identifier, a dot, and an identifier, in any position.
-func usedQualifiedNames(ast parser.ISchemaContext) set.Set[string] {
+func usedQualifiedNames(runs [][]antlr.Token) set.Set[string] {
 	used := make(set.Set[string])
-	stream, ok := ast.GetParser().GetTokenStream().(*antlr.CommonTokenStream)
-	if !ok {
-		return used
-	}
-	var defaultChan []antlr.Token
-	for _, tok := range stream.GetAllTokens() {
-		if tok.GetChannel() == antlr.TokenDefaultChannel {
-			defaultChan = append(defaultChan, tok)
-		}
-	}
-	for i := 0; i+2 < len(defaultChan); i++ {
-		if defaultChan[i].GetTokenType() == parser.OracleLexerIDENT &&
-			defaultChan[i+1].GetTokenType() == parser.OracleLexerDOT &&
-			defaultChan[i+2].GetTokenType() == parser.OracleLexerIDENT {
-			used.Add(defaultChan[i].GetText() + "." + defaultChan[i+2].GetText())
+	for _, toks := range runs {
+		for i := 0; i+2 < len(toks); i++ {
+			if toks[i].GetTokenType() == parser.OracleLexerIDENT &&
+				toks[i+1].GetTokenType() == parser.OracleLexerDOT &&
+				toks[i+2].GetTokenType() == parser.OracleLexerIDENT {
+				used.Add(toks[i].GetText() + "." + toks[i+2].GetText())
+			}
 		}
 	}
 	return used
@@ -213,8 +233,9 @@ type importUse struct {
 // behind a used sibling. Runs after imports load, so provenance comes from the table's
 // declared file paths.
 func reportUnusedImports(c *analysisCtx, imports []importUse) {
-	qualifiers := usedQualifiers(c.ast)
-	names := usedQualifiedNames(c.ast)
+	runs := defaultTokens(append([]parsedRule{c.ast}, c.copied...)...)
+	qualifiers := usedQualifiers(runs)
+	names := usedQualifiedNames(runs)
 	byNS := make(map[string][]importUse)
 	for _, iu := range imports {
 		ns := paths.DeriveNamespace(iu.path)
@@ -346,6 +367,7 @@ func analyze(c *analysisCtx) {
 			}
 		}
 	}
+	omitRemovedFields(c)
 
 	finalizeEnumExtensions(c)
 	finalizeUnionExtensions(c)
@@ -371,7 +393,7 @@ func analyze(c *analysisCtx) {
 // desugarPartialOverrides rewrites each struct's typeless override fields into complete
 // fields, resolving the inherited type, optionality, (when omitted) default, and
 // domains from the parent. The field's own domains win on a name conflict, matching
-// mergeOverrideField. After this pass a typeless override (key?) is indistinguishable
+// MergeOverrideField. After this pass a typeless override (key?) is indistinguishable
 // from a full restatement (key Key?), so the code generators make the same
 // embed-vs-flatten decision and emit identical output. Domain removal (-@domain) is
 // intentionally left for the generators to handle, since it has no full-restatement
@@ -784,53 +806,96 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 		return
 	}
 
-	form := resolution.StructForm{
-		TypeParams: collectTypeParams(def.TypeParams()),
+	decl, ok := collectStructDecl(c, def, fileVersion(c))
+	if !ok {
+		return
 	}
-
-	if def.EXTENDS() != nil {
-		if typeRefList := def.TypeRefList(); typeRefList != nil {
-			for _, tr := range typeRefList.AllTypeRef() {
-				ext := collectTypeRef(tr, nil)
-				form.Extends = append(form.Extends, ext)
-			}
-		}
-	}
-
-	domains := make(map[string]resolution.Domain)
-	maps.Copy(domains, c.fileDomains)
-
-	if body := def.StructBody(); body != nil {
-		for _, f := range body.AllFieldDef() {
-			field := collectField(f, form.TypeParams)
-			form.Fields = append(form.Fields, field)
-		}
-		for _, fo := range body.AllFieldOmit() {
-			form.OmittedFields = append(form.OmittedFields, fo.IDENT().GetText())
-		}
-		for _, a := range body.AllActionDef() {
-			action := collectAction(c, a, form.TypeParams)
-			form.Actions = append(form.Actions, action)
-		}
-		for _, d := range body.AllDomain() {
-			de := collectDomain(d)
-			if existing, ok := domains[de.Name]; ok {
-				domains[de.Name] = de.Merge(existing)
-			} else {
-				domains[de.Name] = de
-			}
-		}
-	}
-
 	lo.Must0(c.table.Add(resolution.Type{
 		Name:          name,
 		Namespace:     c.namespace,
 		QualifiedName: qname,
 		FilePath:      c.filePath,
-		Form:          form,
-		Domains:       domains,
+		Form:          decl.form,
+		Domains:       mergeDomains(c.fileDomains, decl.domains),
 		AST:           def,
 	}))
+	if len(decl.removed) > 0 {
+		c.removals = append(c.removals, removal{typ: qname, fields: decl.removed})
+	}
+}
+
+// structDecl is a struct declaration collected but not yet registered. Its domains
+// leave out the file's domains.
+type structDecl struct {
+	form    resolution.StructForm
+	domains map[string]resolution.Domain
+	// removed names the copied fields a patch removed. See omitRemovedFields.
+	removed []string
+}
+
+// collectStructDecl collects def, declared in version below of the file's chain (0
+// outside a version file). See copyStruct for an extends entry naming an earlier
+// version.
+func collectStructDecl(
+	c *analysisCtx, def *parser.StructFullContext, below int,
+) (structDecl, bool) {
+	decl := structDecl{
+		form:    resolution.StructForm{TypeParams: collectTypeParams(def.TypeParams())},
+		domains: make(map[string]resolution.Domain),
+	}
+	if def.EXTENDS() != nil {
+		if typeRefList := def.TypeRefList(); typeRefList != nil {
+			for _, tr := range typeRefList.AllTypeRef() {
+				decl.form.Extends = append(decl.form.Extends, collectTypeRef(tr, nil))
+			}
+		}
+	}
+	if body := def.StructBody(); body != nil {
+		for _, f := range body.AllFieldDef() {
+			decl.form.Fields = append(
+				decl.form.Fields,
+				collectField(f, decl.form.TypeParams),
+			)
+		}
+		for _, fo := range body.AllFieldOmit() {
+			decl.form.OmittedFields = append(
+				decl.form.OmittedFields,
+				fo.IDENT().GetText(),
+			)
+		}
+		for _, a := range body.AllActionDef() {
+			decl.form.Actions = append(
+				decl.form.Actions,
+				collectAction(c, a, decl.form.TypeParams),
+			)
+		}
+		for _, d := range body.AllDomain() {
+			addDomain(decl.domains, collectDomain(d))
+		}
+	}
+	return copyStruct(c, def, decl, below)
+}
+
+// addDomain adds d to domains, merging it over a domain of the same name.
+func addDomain(domains map[string]resolution.Domain, d resolution.Domain) {
+	if existing, ok := domains[d.Name]; ok {
+		domains[d.Name] = d.Merge(existing)
+	} else {
+		domains[d.Name] = d
+	}
+}
+
+// mergeDomains returns child merged over parent. A domain in both takes child's
+// expressions where their names match.
+func mergeDomains(
+	parent, child map[string]resolution.Domain,
+) map[string]resolution.Domain {
+	out := make(map[string]resolution.Domain, len(parent)+len(child))
+	maps.Copy(out, parent)
+	for _, d := range child {
+		addDomain(out, d)
+	}
+	return out
 }
 
 // collectAction translates a parsed action block into a resolution.Action, reusing
@@ -1285,32 +1350,14 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 		form.Enum = collectTypeRef(tr, nil)
 	}
 
-	if def.EXTENDS() != nil {
-		if typeRefList := def.TypeRefList(); typeRefList != nil {
-			for _, tr := range typeRefList.AllTypeRef() {
-				form.Extends = append(form.Extends, collectTypeRef(tr, nil))
-			}
-		}
+	decl, ok := collectUnionDecl(c, name, def, fileVersion(c))
+	if !ok {
+		return
 	}
-
-	domains := make(map[string]resolution.Domain)
-	maps.Copy(domains, c.fileDomains)
-
-	if body := def.UnionBody(); body != nil {
-		for _, d := range body.AllDomain() {
-			de := collectDomain(d)
-			if existing, ok := domains[de.Name]; ok {
-				domains[de.Name] = de.Merge(existing)
-			} else {
-				domains[de.Name] = de
-			}
-		}
-		for _, v := range body.AllUnionVariant() {
-			form.Variants = append(
-				form.Variants,
-				collectUnionVariant(c, name, domains, v),
-			)
-		}
+	form.Extends = decl.extends
+	domains := mergeDomains(c.fileDomains, decl.domains)
+	for _, v := range decl.variants {
+		form.Variants = append(form.Variants, registerVariant(c, name, domains, v))
 	}
 
 	lo.Must0(c.table.Add(resolution.Type{
@@ -1324,12 +1371,49 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 	}))
 }
 
-func collectUnionVariant(
-	c *analysisCtx,
-	unionName string,
-	unionDomains map[string]resolution.Domain,
-	def parser.IUnionVariantContext,
-) resolution.UnionVariant {
+// unionDecl is a union declaration collected but not yet registered: no inline payload
+// is in the table yet. Its domains leave out the file's domains.
+type unionDecl struct {
+	extends  []resolution.TypeRef
+	variants []variantDecl
+	domains  map[string]resolution.Domain
+}
+
+// variantDecl is a union variant collected but not yet registered. payload holds the
+// body of an inline variant and is nil for a named one.
+type variantDecl struct {
+	variant resolution.UnionVariant
+	payload *structDecl
+}
+
+// collectUnionDecl collects the extends clause and body of def, the declaration of
+// union name in version below of the file's chain (0 outside a version file). See
+// copyUnion for an extends entry naming an earlier version.
+func collectUnionDecl(
+	c *analysisCtx, name string, def parser.IUnionDefContext, below int,
+) (unionDecl, bool) {
+	decl := unionDecl{domains: make(map[string]resolution.Domain)}
+	if def.EXTENDS() != nil {
+		if typeRefList := def.TypeRefList(); typeRefList != nil {
+			for _, tr := range typeRefList.AllTypeRef() {
+				decl.extends = append(decl.extends, collectTypeRef(tr, nil))
+			}
+		}
+	}
+	if body := def.UnionBody(); body != nil {
+		for _, d := range body.AllDomain() {
+			addDomain(decl.domains, collectDomain(d))
+		}
+		for _, v := range body.AllUnionVariant() {
+			decl.variants = append(decl.variants, collectVariantDecl(c, name, v))
+		}
+	}
+	return copyUnion(c, def, decl, below)
+}
+
+func collectVariantDecl(
+	c *analysisCtx, unionName string, def parser.IUnionVariantContext,
+) variantDecl {
 	switch v := def.(type) {
 	case *parser.NamedVariantContext:
 		variant := resolution.UnionVariant{
@@ -1344,33 +1428,28 @@ func collectUnionVariant(
 				variant.Domains[de.Name] = de
 			}
 		}
-		return variant
+		return variantDecl{variant: variant}
 	case *parser.InlineVariantContext:
-		return collectInlineVariant(c, unionName, unionDomains, v)
+		return collectInlineVariantDecl(c, unionName, v)
 	default:
-		return resolution.UnionVariant{}
+		return variantDecl{}
 	}
 }
 
-// collectInlineVariant desugars an inline variant body into a Synthetic struct type
-// registered in the table, so the variant resolves and validates like a named payload
-// while generators flatten its fields into the variant member instead of emitting a
-// standalone type. The payload takes every omit of the union.
-func collectInlineVariant(
-	c *analysisCtx,
-	unionName string,
-	unionDomains map[string]resolution.Domain,
-	def *parser.InlineVariantContext,
-) resolution.UnionVariant {
+func collectInlineVariantDecl(
+	c *analysisCtx, unionName string, def *parser.InlineVariantContext,
+) variantDecl {
 	variantName := def.VariantName().GetText()
-	variant := resolution.UnionVariant{
-		Name:    variantName,
-		Domains: make(map[string]resolution.Domain),
-		AST:     def,
-		Inline:  true,
+	decl := variantDecl{
+		variant: resolution.UnionVariant{
+			Name:    variantName,
+			Domains: make(map[string]resolution.Domain),
+			AST:     def,
+			Inline:  true,
+		},
+		payload: &structDecl{},
 	}
-
-	form := resolution.StructForm{}
+	form := &decl.payload.form
 	if def.EXTENDS() != nil {
 		if typeRefList := def.TypeRefList(); typeRefList != nil {
 			for _, tr := range typeRefList.AllTypeRef() {
@@ -1380,10 +1459,7 @@ func collectInlineVariant(
 	}
 	if body := def.StructBody(); body != nil {
 		for _, f := range body.AllFieldDef() {
-			form.Fields = append(
-				form.Fields,
-				collectField(f, nil),
-			)
+			form.Fields = append(form.Fields, collectField(f, nil))
 		}
 		for _, fo := range body.AllFieldOmit() {
 			form.OmittedFields = append(form.OmittedFields, fo.IDENT().GetText())
@@ -1399,18 +1475,35 @@ func collectInlineVariant(
 		}
 		for _, d := range body.AllDomain() {
 			de := collectDomain(d)
-			variant.Domains[de.Name] = de
+			decl.variant.Domains[de.Name] = de
 		}
 	}
+	return decl
+}
 
-	name := unionName + pascalIdent(variantName) + "Payload"
+// registerVariant registers the payload of an inline variant as a Synthetic struct
+// type, so the variant resolves and validates like a named payload while generators
+// flatten its fields into the variant member instead of emitting a standalone type.
+// The payload takes every omit of the union. It returns the variant, which references
+// the payload.
+func registerVariant(
+	c *analysisCtx,
+	unionName string,
+	unionDomains map[string]resolution.Domain,
+	decl variantDecl,
+) resolution.UnionVariant {
+	variant := decl.variant
+	if decl.payload == nil {
+		return variant
+	}
+	name := unionName + pascalIdent(variant.Name) + "Payload"
 	qname := c.namespace + "." + name
 	if _, exists := c.table.Get(qname); exists {
 		d := diagnostics.Errorf(
-			def,
+			ruleCtx(variant.AST),
 			"union %s variant %q: inline payload name %s collides with an existing type",
 			unionName,
-			variantName,
+			variant.Name,
 			qname,
 		)
 		c.report(d)
@@ -1424,11 +1517,18 @@ func collectInlineVariant(
 		Namespace:     c.namespace,
 		QualifiedName: qname,
 		FilePath:      c.filePath,
-		Form:          form,
+		Form:          decl.payload.form,
 		Domains:       domains,
-		AST:           def,
+		AST:           variant.AST,
 		Synthetic:     true,
 	}))
+	if len(decl.payload.removed) > 0 {
+		c.removals = append(c.removals, removal{
+			typ:    qname,
+			union:  c.namespace + "." + unionName,
+			fields: decl.payload.removed,
+		})
+	}
 	variant.Type = resolution.TypeRef{Name: name}
 	return variant
 }

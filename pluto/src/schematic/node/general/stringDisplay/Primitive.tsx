@@ -51,7 +51,7 @@ export const StringDisplay = ({
 }: RenderProps): ReactElement => {
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: color.rgbaString(strokeColor),
+      [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor),
       width: inlineSize,
       height: Component.HEIGHTS[LEVEL_SIZES[level]],
     }),

@@ -30,11 +30,11 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
     >(path);
 
   const handleSinkChange = (v: channel.Key | null): void => {
-    v ??= 0;
+    const commandChannel = v ?? 0;
     onChange({
       ...value,
-      commandChannel: v,
-      disabled: v === 0,
+      commandChannel,
+      disabled: commandChannel === 0,
     });
   };
 

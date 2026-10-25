@@ -145,7 +145,7 @@
         "variant": "source"
       },
       "tooltip": ["fuel_tc_2"],
-      "units": "\u00b0C",
+      "units": "°C",
       "variant": "value"
     },
     "5lnJLvZggVN": {
@@ -484,7 +484,7 @@
         "variant": "source"
       },
       "tooltip": ["press_tc_1"],
-      "units": "\u00b0C",
+      "units": "°C",
       "variant": "value"
     },
     "GXakOVjitf5": {
@@ -554,7 +554,7 @@
         "variant": "source"
       },
       "tooltip": ["fuel_tc_1"],
-      "units": "\u00b0C",
+      "units": "°C",
       "variant": "value"
     },
     "HH9i7jrQ0rH": {
@@ -949,7 +949,7 @@
         "variant": "source"
       },
       "tooltip": ["ox_tc_1"],
-      "units": "\u00b0C",
+      "units": "°C",
       "variant": "value"
     },
     "L0MCB6oJASM": {
@@ -1136,7 +1136,7 @@
         "variant": "source"
       },
       "tooltip": ["ox_tc_2"],
-      "units": "\u00b0C",
+      "units": "°C",
       "variant": "value"
     },
     "Px7l7pDawuy": {
@@ -3044,7 +3044,7 @@
         "variant": "source"
       },
       "tooltip": ["press_tc_2"],
-      "units": "\u00b0C",
+      "units": "°C",
       "variant": "value"
     },
     "wGdFMnYeLk8": {
@@ -3174,15 +3174,7 @@
       "segments": [
         {
           "direction": "y",
-          "length": 2.0174437145679462
-        },
-        {
-          "direction": "x",
-          "length": 8.375036663927403
-        },
-        {
-          "direction": "y",
-          "length": 2.0174437145679462
+          "length": 0.9620045808269424
         }
       ],
       "variant": "pneumatic"
@@ -3192,7 +3184,7 @@
       "segments": [
         {
           "direction": "x",
-          "length": 8.809159885799176
+          "length": 6.636273737869203
         }
       ],
       "variant": "pipe"
@@ -3220,11 +3212,11 @@
         },
         {
           "direction": "x",
-          "length": -233.4057355441728
+          "length": -233.44840515329815
         },
         {
           "direction": "y",
-          "length": -20.1443659962018
+          "length": -16.846493544702327
         }
       ],
       "variant": "pipe"
@@ -3234,7 +3226,7 @@
       "segments": [
         {
           "direction": "y",
-          "length": -10.039775396275516
+          "length": -6.994966082507503
         }
       ],
       "variant": "pipe"
@@ -3263,11 +3255,11 @@
       "segments": [
         {
           "direction": "x",
-          "length": -591.675536248489
+          "length": -593.0328152928544
         },
         {
           "direction": "y",
-          "length": -35.573951714250825
+          "length": -35.57395278255194
         }
       ],
       "variant": "pneumatic"
@@ -3277,11 +3269,11 @@
       "segments": [
         {
           "direction": "x",
-          "length": -26.190764982950554
+          "length": -25.25038798195135
         },
         {
           "direction": "y",
-          "length": 11.339841623186729
+          "length": 10.01670394687315
         }
       ],
       "variant": "pipe"
@@ -3313,11 +3305,11 @@
       "segments": [
         {
           "direction": "y",
-          "length": -21.738221317205273
+          "length": -5.227613484665426
         },
         {
           "direction": "x",
-          "length": 21.15953941272413
+          "length": 20.127013743585604
         }
       ],
       "variant": "pneumatic"
@@ -3359,11 +3351,11 @@
       "segments": [
         {
           "direction": "x",
-          "length": -21.793890705579884
+          "length": -20.16137721571556
         },
         {
           "direction": "y",
-          "length": -3.731337495209658
+          "length": -2.189449005345324
         }
       ],
       "variant": "pipe"
@@ -3373,11 +3365,11 @@
       "segments": [
         {
           "direction": "y",
-          "length": 17.126255845888807
+          "length": 14.08436735602453
         },
         {
           "direction": "x",
-          "length": 35.91104042066888
+          "length": 32.27852693080433
         }
       ],
       "variant": "pipe"
@@ -3387,11 +3379,11 @@
       "segments": [
         {
           "direction": "x",
-          "length": 23.574201383533193
+          "length": 21.14165737609079
         },
         {
           "direction": "y",
-          "length": 9.71191345942043
+          "length": 7.466899969556096
         }
       ],
       "variant": "pipe"
@@ -3401,11 +3393,11 @@
       "segments": [
         {
           "direction": "y",
-          "length": 19.10347799420603
+          "length": 16.061589504341697
         },
         {
           "direction": "x",
-          "length": -30.087778293132487
+          "length": -28.855142732955755
         }
       ],
       "variant": "pipe"
@@ -3452,11 +3444,11 @@
         },
         {
           "direction": "y",
-          "length": -22.810077513322653
+          "length": -22.668412128383807
         },
         {
           "direction": "x",
-          "length": 15.00767944753921
+          "length": 15.00768158414133
         }
       ],
       "variant": "pneumatic"
@@ -3513,11 +3505,11 @@
       "segments": [
         {
           "direction": "y",
-          "length": -22.615541532458984
+          "length": -20.054906857291922
         },
         {
           "direction": "x",
-          "length": 565.9781892716524
+          "length": 564.6456757817881
         }
       ],
       "variant": "pneumatic"
@@ -3550,12 +3542,8 @@
       "color": [0, 214, 35, 1],
       "segments": [
         {
-          "direction": "y",
-          "length": -0.68135597075036
-        },
-        {
           "direction": "x",
-          "length": 24.074178103465243
+          "length": 11.857427462416894
         }
       ],
       "variant": "pneumatic"
@@ -3579,11 +3567,11 @@
       "segments": [
         {
           "direction": "x",
-          "length": 38.31579517167302
+          "length": 35.88328168180874
         },
         {
           "direction": "y",
-          "length": 10.284495288420302
+          "length": 8.039481798555983
         }
       ],
       "variant": "pipe"
@@ -3593,11 +3581,11 @@
       "segments": [
         {
           "direction": "x",
-          "length": 143.29170552523067
+          "length": 142.15919203536635
         },
         {
           "direction": "y",
-          "length": -411.61577134349704
+          "length": -410.1363828536327
         }
       ],
       "variant": "pneumatic"
@@ -3621,11 +3609,11 @@
       "segments": [
         {
           "direction": "x",
-          "length": 22.49688090288504
+          "length": 21.264336895442625
         },
         {
           "direction": "y",
-          "length": -5.00919456888724
+          "length": -1.9673060790229062
         }
       ],
       "variant": "pipe"
@@ -3635,7 +3623,7 @@
       "segments": [
         {
           "direction": "y",
-          "length": -9.197029958844112
+          "length": -1.4772950143597114
         }
       ],
       "variant": "pipe"
@@ -3645,7 +3633,7 @@
       "segments": [
         {
           "direction": "x",
-          "length": -28.81734564078576
+          "length": -25.052318661057058
         }
       ],
       "variant": "pneumatic"
@@ -4124,7 +4112,7 @@
     {
       "key": "7yLD0xOFddf",
       "position": {
-        "x": 610.6803516098993,
+        "x": 611.3803516098993,
         "y": 734.0881488512645
       },
       "z_index": 24
@@ -4172,7 +4160,7 @@
     {
       "key": "tKyeVybyb2Z",
       "position": {
-        "x": 39.676555290128434,
+        "x": 38.47655529012843,
         "y": 353.1257902036398
       },
       "z_index": 4
@@ -4180,8 +4168,8 @@
     {
       "key": "QLFXTKWz3DJ",
       "position": {
-        "x": -32.279846943321495,
-        "y": 413.72341717816954
+        "x": -33.379846943321496,
+        "y": 398.72341717816954
       },
       "z_index": 4
     },
@@ -4204,8 +4192,8 @@
     {
       "key": "W1dSGKqGk1f",
       "position": {
-        "x": 135.52283117318578,
-        "y": 35.167808075727706
+        "x": 134.42283117318578,
+        "y": 35.86780807572771
       },
       "z_index": 24
     },
@@ -4252,7 +4240,7 @@
     {
       "key": "0jdKiNGUXdE",
       "position": {
-        "x": 403.5077886236238,
+        "x": 402.3077886236238,
         "y": 181.40448884810743
       },
       "z_index": 24
@@ -4308,7 +4296,7 @@
     {
       "key": "wGdFMnYeLk8",
       "position": {
-        "x": 941.0670110697548,
+        "x": 939.8670110697548,
         "y": 181.06103701783505
       },
       "z_index": 24
@@ -4341,7 +4329,7 @@
       "key": "kbJw2Oi5Ueu",
       "position": {
         "x": 124.58560325160995,
-        "y": 533.735369623691
+        "y": 532.735369623691
       },
       "z_index": 4
     },
@@ -4356,8 +4344,8 @@
     {
       "key": "0KwRzIrJ4ii",
       "position": {
-        "x": 496.49588454741297,
-        "y": 683.3125469319169
+        "x": 487.595884547413,
+        "y": 685.912546931917
       },
       "z_index": 4
     },

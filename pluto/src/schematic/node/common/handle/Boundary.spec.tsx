@@ -9,184 +9,88 @@
 
 import { render } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Handle } from "@/schematic/node/common/handle";
 
 const mocks = vi.hoisted(() => ({
   updateInternals: vi.fn(),
-  shouldThrow: false,
+  nodeID: null as string | null,
 }));
 
 vi.mock("@xyflow/react", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
+    useNodeId: () => mocks.nodeID,
     useUpdateNodeInternals: () => {
-      if (mocks.shouldThrow) throw new Error("not in RF context");
+      if (mocks.nodeID == null) throw new Error("not in RF context");
       return mocks.updateInternals;
     },
   };
 });
 
-const RFNode = ({
-  id,
-  children,
-}: {
-  id?: string;
-  children: ReactElement;
-}): ReactElement => (
-  <div className="react-flow__node" data-id={id}>
-    {children}
-  </div>
+const boundary = (props: Partial<Handle.BoundaryProps> = {}): ReactElement => (
+  <Handle.Boundary orientation="left" {...props}>
+    <span data-testid="child">child</span>
+  </Handle.Boundary>
 );
 
 describe("Handle.Boundary", () => {
   beforeEach(() => {
     mocks.updateInternals.mockReset();
-    mocks.shouldThrow = false;
+    mocks.nodeID = null;
   });
 
-  afterEach(() => {
-    mocks.updateInternals.mockReset();
-  });
-
-  describe("fallback when xyflow is unavailable", () => {
-    it("should render null when useUpdateNodeInternals throws", () => {
-      mocks.shouldThrow = true;
-      const { container } = render(
-        <Handle.Boundary orientation="left">
-          <span data-testid="child">child</span>
-        </Handle.Boundary>,
-      );
-      expect(container.querySelector('[data-testid="child"]')).toBeNull();
+  describe("outside a React Flow node", () => {
+    it("should render null", () => {
+      const { container } = render(boundary());
       expect(container.firstChild).toBeNull();
     });
 
-    it("should not call updateInternals when the hook throws", () => {
-      mocks.shouldThrow = true;
-      render(
-        <Handle.Boundary orientation="left">
-          <span>child</span>
-        </Handle.Boundary>,
-      );
+    it("should not call updateInternals when the orientation changes", () => {
+      const { rerender } = render(boundary());
+      rerender(boundary({ orientation: "top" }));
       expect(mocks.updateInternals).not.toHaveBeenCalled();
     });
   });
 
   describe("first-render skip", () => {
     it("should NOT call updateInternals on initial mount", () => {
-      render(
-        <RFNode id="n1">
-          <Handle.Boundary orientation="left">
-            <span data-testid="child">child</span>
-          </Handle.Boundary>
-        </RFNode>,
-      );
+      mocks.nodeID = "n1";
+      render(boundary());
       expect(mocks.updateInternals).not.toHaveBeenCalled();
     });
 
     it("should render its children on initial mount", () => {
-      const { container } = render(
-        <RFNode id="n1">
-          <Handle.Boundary orientation="left">
-            <span data-testid="child">visible</span>
-          </Handle.Boundary>
-        </RFNode>,
-      );
-      expect(container.querySelector('[data-testid="child"]')).not.toBeNull();
+      mocks.nodeID = "n1";
+      const { getByTestId } = render(boundary());
+      expect(getByTestId("child").textContent).toBe("child");
     });
   });
 
   describe("update triggers on dependency change", () => {
-    it("should call updateInternals with the parent node id when orientation changes", () => {
-      const { rerender } = render(
-        <RFNode id="my-node">
-          <Handle.Boundary orientation="left">
-            <span>child</span>
-          </Handle.Boundary>
-        </RFNode>,
-      );
+    it("should call updateInternals with the node id when orientation changes", () => {
+      mocks.nodeID = "my-node";
+      const { rerender } = render(boundary());
       expect(mocks.updateInternals).not.toHaveBeenCalled();
-      rerender(
-        <RFNode id="my-node">
-          <Handle.Boundary orientation="top">
-            <span>child</span>
-          </Handle.Boundary>
-        </RFNode>,
-      );
+      rerender(boundary({ orientation: "top" }));
       expect(mocks.updateInternals).toHaveBeenCalledTimes(1);
       expect(mocks.updateInternals).toHaveBeenCalledWith("my-node");
     });
 
     it("should call updateInternals when refreshDeps changes", () => {
-      const { rerender } = render(
-        <RFNode id="my-node">
-          <Handle.Boundary orientation="left" refreshDeps={1}>
-            <span>child</span>
-          </Handle.Boundary>
-        </RFNode>,
-      );
-      rerender(
-        <RFNode id="my-node">
-          <Handle.Boundary orientation="left" refreshDeps={2}>
-            <span>child</span>
-          </Handle.Boundary>
-        </RFNode>,
-      );
+      mocks.nodeID = "my-node";
+      const { rerender } = render(boundary({ refreshDeps: 1 }));
+      rerender(boundary({ refreshDeps: 2 }));
       expect(mocks.updateInternals).toHaveBeenCalledTimes(1);
       expect(mocks.updateInternals).toHaveBeenCalledWith("my-node");
     });
 
     it("should not re-fire updateInternals when neither orientation nor refreshDeps changes", () => {
-      const { rerender } = render(
-        <RFNode id="my-node">
-          <Handle.Boundary orientation="left" refreshDeps="x">
-            <span>child</span>
-          </Handle.Boundary>
-        </RFNode>,
-      );
-      rerender(
-        <RFNode id="my-node">
-          <Handle.Boundary orientation="left" refreshDeps="x">
-            <span>child</span>
-          </Handle.Boundary>
-        </RFNode>,
-      );
-      expect(mocks.updateInternals).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("data-id resolution", () => {
-    it("should bail out silently when no react-flow__node ancestor exists", () => {
-      const { rerender } = render(
-        <Handle.Boundary orientation="left">
-          <span>child</span>
-        </Handle.Boundary>,
-      );
-      rerender(
-        <Handle.Boundary orientation="top">
-          <span>child</span>
-        </Handle.Boundary>,
-      );
-      expect(mocks.updateInternals).not.toHaveBeenCalled();
-    });
-
-    it("should bail out when the ancestor node is missing its data-id", () => {
-      const { rerender } = render(
-        <div className="react-flow__node">
-          <Handle.Boundary orientation="left">
-            <span>child</span>
-          </Handle.Boundary>
-        </div>,
-      );
-      rerender(
-        <div className="react-flow__node">
-          <Handle.Boundary orientation="top">
-            <span>child</span>
-          </Handle.Boundary>
-        </div>,
-      );
+      mocks.nodeID = "my-node";
+      const { rerender } = render(boundary({ refreshDeps: "x" }));
+      rerender(boundary({ refreshDeps: "x" }));
       expect(mocks.updateInternals).not.toHaveBeenCalled();
     });
   });

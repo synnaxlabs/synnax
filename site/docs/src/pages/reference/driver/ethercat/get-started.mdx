@@ -11,7 +11,7 @@ nextURL: "/reference/driver/ethercat/configure-device"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -37,7 +37,7 @@ that provides deterministic, real-time EtherCAT communication.
 - Requires kernel module installation
 - Linux only (including NI Linux Real-Time)
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   For installation instructions, see the [IgH EtherCAT Master
   documentation](https://etherlab.org/en_GB/ethercat). Note that IgH requires a
   compatible network interface card.
@@ -79,7 +79,7 @@ The Synnax Driver works with any EtherCAT-compatible device. Common vendors incl
 | <Icon.Logo.Apple /> macOS           | ✓ Supported     | SOEM           |
 | <Icon.Logo.Docker /> Docker         | ✗ Not Supported | -              |
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   Docker is not supported because EtherCAT requires direct access to the network
   interface for raw Ethernet communication.
 </Note.Note>

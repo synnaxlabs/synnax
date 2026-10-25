@@ -12,6 +12,7 @@ import { useCallback, useMemo } from "react";
 
 import { useInitializerRef } from "@/hooks";
 import { type FrameProps } from "@/list/Frame";
+import { Store } from "@/store";
 
 interface GetItem<
   K extends record.Key = record.Key,
@@ -29,7 +30,12 @@ export interface UseMapDataReturn<
   /** Adds or replaces items, re-rendering only the rows that carry their keys. */
   setItem: (item: E | E[]) => void;
   deleteItem: (key: K | K[]) => void;
+  /** Reads the live entries, so render must not call it: subscribe instead. */
   hasItem: (key: K) => boolean;
+  /**
+   * Reads the live entries, so render must not call it. Read an entry in render through
+   * `subscribe`, as `useItem` does.
+   */
   getItem: GetItem<K, E>;
 }
 
@@ -55,44 +61,34 @@ export const useMapData = <
     initialData.forEach((i) => data.set(i.key, i));
     return data;
   });
-  const listenersRef = useInitializerRef(() => new Map<() => void, K>());
-  const notifyListeners = useCallback((keys: K[]) => {
-    const keysSet = new Set(keys);
-    listenersRef.current.forEach((key, listener) => {
-      if (keysSet.has(key)) listener();
-    });
-  }, []);
-  const setItem = useCallback((item: E | E[]) => {
-    const items = array.toArray(item);
-    const itemKeys = items.map((i) => i.key);
-    items.forEach((i) => dataRef.current.set(i.key, i));
-    notifyListeners(itemKeys);
-  }, []);
-  const deleteItem = useCallback((key: K | K[]) => {
-    const keys = array.toArray(key);
-    keys.forEach((k) => dataRef.current.delete(k));
-    notifyListeners(keys);
-  }, []);
-  const subscribe = useCallback(
-    (listener: () => void, key?: K) => {
-      if (key == null) return () => {};
-      listenersRef.current.set(listener, key);
-      return () => {
-        listenersRef.current.delete(listener);
-      };
+  const { notifyListeners, subscribe } = Store.useKeyedListeners<K>();
+  const setItem = useCallback(
+    (item: E | E[]) => {
+      const items = array.toArray(item);
+      const itemKeys = items.map((i) => i.key);
+      items.forEach((i) => dataRef.current.set(i.key, i));
+      notifyListeners(itemKeys);
     },
-    [listenersRef],
+    [dataRef, notifyListeners],
+  );
+  const deleteItem = useCallback(
+    (key: K | K[]) => {
+      const keys = array.toArray(key);
+      keys.forEach((k) => dataRef.current.delete(k));
+      notifyListeners(keys);
+    },
+    [dataRef, notifyListeners],
   );
   const getItem = useCallback(
-    ((key?: K | K[]) => {
+    (key?: K | K[]) => {
       if (key == null) return;
       if (Array.isArray(key))
         return key.map((k) => dataRef.current.get(k)).filter((i) => i != null);
       return dataRef.current.get(key);
-    }) as GetItem<K, E>,
-    [],
-  );
-  const hasItem = useCallback((key: K) => dataRef.current.has(key), []);
+    },
+    [dataRef],
+  ) as GetItem<K, E>;
+  const hasItem = useCallback((key: K) => dataRef.current.has(key), [dataRef]);
   return useMemo(
     () => ({ setItem, deleteItem, subscribe, getItem, hasItem }),
     [setItem, deleteItem, subscribe, getItem, hasItem],

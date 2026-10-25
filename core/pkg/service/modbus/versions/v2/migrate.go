@@ -12,7 +12,7 @@ package v2
 import (
 	"context"
 
-	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v1"
 )
 
@@ -48,7 +48,7 @@ func MigrateWriteConfig(ctx context.Context, old v1.WriteConfig) (WriteConfig, e
 
 var (
 	// ReadMigration lifts stored read configs to v2.
-	ReadMigration = gorp.NewEntryMigration("v59_swap_inherit", MigrateReadConfig)
+	ReadMigration = migrate.NewEntry("v59_swap_inherit", MigrateReadConfig)
 	// WriteMigration lifts stored write configs to v2.
-	WriteMigration = gorp.NewEntryMigration("v59_swap_inherit", MigrateWriteConfig)
+	WriteMigration = migrate.NewEntry("v59_swap_inherit", MigrateWriteConfig)
 )

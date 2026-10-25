@@ -128,14 +128,7 @@ func (t *impl) start(ctx context.Context, cmdKey string) error {
 		)
 		return err
 	}
-	t.setStatus(
-		ctx,
-		cmdKey,
-		status.VariantSuccess,
-		true,
-		"Task started successfully",
-		"",
-	)
+	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Started task", "")
 	return nil
 }
 
@@ -445,27 +438,25 @@ func (t *impl) stop(ctx context.Context, cmdKey string, sendStatus bool) error {
 		return err
 	}
 	if sendStatus {
-		t.setStatus(
-			ctx,
-			cmdKey,
-			status.VariantSuccess,
-			false,
-			"Task stopped successfully",
-			"",
-		)
+		t.setStatus(ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "")
 	}
 	return nil
 }
 
 func (t *impl) reporter() taskreporter.Reporter {
-	return func(ctx context.Context, variant status.Variant, message string) {
+	return func(
+		ctx context.Context,
+		variant status.Variant,
+		message string,
+		description string,
+	) {
 		t.setStatus(
 			ctx,
 			driver.NoCommand,
 			variant,
 			t.isRunning(),
-			fmt.Sprintf("[%s] %s", t.task.Name, message),
-			"",
+			message,
+			description,
 		)
 	}
 }
@@ -502,7 +493,7 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 	}
 	if setErr := t.status.Warn(
 		ctx,
-		"Failed to run Arc program",
+		"Node failed",
 		fmt.Sprintf("The %s node failed: %v", nodeType, err),
 	); setErr != nil {
 		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
