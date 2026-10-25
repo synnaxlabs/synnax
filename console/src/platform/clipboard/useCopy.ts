@@ -9,25 +9,21 @@
 
 import { clipboard } from "@synnaxlabs/lyra/clipboard";
 import { Status } from "@synnaxlabs/lyra/status";
-import { useCallback } from "react";
 
 export const useCopy = (): ((text: string, what: string, name?: string) => void) => {
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  return useCallback(
-    (text: string, what: string, name = "") => {
-      handleError(
-        async () => {
-          await clipboard.writeText(text);
-          addStatus({
-            variant: "success",
-            name,
-            message: `Copied ${what} to clipboard`,
-          });
-        },
-        { message: `Failed to copy ${what} to clipboard`, name },
-      );
-    },
-    [addStatus, handleError],
-  );
+  return (text: string, what: string, name = "") => {
+    handleError(
+      async () => {
+        await clipboard.writeText(text);
+        addStatus({
+          variant: "success",
+          name,
+          message: `Copied ${what} to clipboard`,
+        });
+      },
+      { message: `Failed to copy ${what} to clipboard`, name },
+    );
+  };
 };

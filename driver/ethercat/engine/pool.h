@@ -44,6 +44,10 @@ public:
     /// @brief checks if a master has an active (running) engine.
     [[nodiscard]] bool is_active(const std::string &key) const;
 
+    /// @brief returns the latest condition of each enabled slave on a master, or an
+    /// empty list when its bus is not running.
+    [[nodiscard]] std::vector<slave::Health> health(const std::string &key) const;
+
     /// @brief returns cached slave information from a master's engine.
     [[nodiscard]] std::vector<slave::DiscoveryResult>
     get_slaves(const std::string &key) const;

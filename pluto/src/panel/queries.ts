@@ -16,7 +16,6 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 import { array, compare, deep, type optional, verbs } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { Access } from "@/access";
 import { Flux } from "@/flux";
@@ -303,18 +302,15 @@ export const useCloseResourceTabs = (): ((
 ) => void) => {
   const client = Synnax.use();
   const { dispatch } = useDispatch();
-  return useCallback(
-    (ids: ontology.ID | ontology.ID[]) =>
-      client?.panels.listCached().forEach((p) => {
-        const actions = array
-          .toArray(ids)
-          .map((id) => panel.findTabByResource(p.root, id))
-          .filter((tab) => tab != null)
-          .map((tab) => panel.removeTab({ key: tab.key }));
-        if (actions.length > 0) dispatch({ key: p.key, actions });
-      }),
-    [client, dispatch],
-  );
+  return (ids: ontology.ID | ontology.ID[]) =>
+    client?.panels.listCached().forEach((p) => {
+      const actions = array
+        .toArray(ids)
+        .map((id) => panel.findTabByResource(p.root, id))
+        .filter((tab) => tab != null)
+        .map((tab) => panel.removeTab({ key: tab.key }));
+      if (actions.length > 0) dispatch({ key: p.key, actions });
+    });
 };
 
 export interface MoveTabToPanelParams extends Pick<
@@ -348,19 +344,16 @@ export const useMoveTabToPanel = (): ((
 ) => Promise<panel.TabKey | undefined>) => {
   const { dispatchAsync } = useDispatch();
   const client = Synnax.use();
-  return useCallback(
-    async ({ source, destination, tab, targetLeaf, index, location }) => {
-      const inserted = await dispatchAsync({
-        key: destination,
-        actions: panel.insertTabs({ tabs: [tab], targetLeaf, index, location }),
-      });
-      if (!inserted) return undefined;
-      await dispatchAsync({ key: source, actions: panel.removeTab({ key: tab.key }) });
-      const cached = client?.panels.getCached(destination);
-      return query.isLive(cached) ? landedTabKey(cached.root, tab) : undefined;
-    },
-    [dispatchAsync, client],
-  );
+  return async ({ source, destination, tab, targetLeaf, index, location }) => {
+    const inserted = await dispatchAsync({
+      key: destination,
+      actions: panel.insertTabs({ tabs: [tab], targetLeaf, index, location }),
+    });
+    if (!inserted) return undefined;
+    await dispatchAsync({ key: source, actions: panel.removeTab({ key: tab.key }) });
+    const cached = client?.panels.getCached(destination);
+    return query.isLive(cached) ? landedTabKey(cached.root, tab) : undefined;
+  };
 };
 
 // useSetCurrentTabResource swaps the current tab's content to the given resource,
@@ -369,11 +362,8 @@ export const useMoveTabToPanel = (): ((
 export const useSetCurrentTabResource = (): ((resource: ontology.ID) => void) => {
   const dispatch = useSingleDispatch();
   const tabKey = TabScope.use();
-  return useCallback(
-    (resource: ontology.ID) =>
-      dispatch(panel.setTabResource({ key: tabKey, resource })),
-    [dispatch, tabKey],
-  );
+  return (resource: ontology.ID) =>
+    dispatch(panel.setTabResource({ key: tabKey, resource }));
 };
 
 // useSetCurrentTabView swaps the current tab's content to the given inline view,
@@ -381,8 +371,5 @@ export const useSetCurrentTabResource = (): ((resource: ontology.ID) => void) =>
 export const useSetCurrentTabView = (): ((view: panel.View) => void) => {
   const dispatch = useSingleDispatch();
   const tabKey = TabScope.use();
-  return useCallback(
-    (view: panel.View) => dispatch(panel.setTabView({ key: tabKey, view })),
-    [dispatch, tabKey],
-  );
+  return (view: panel.View) => dispatch(panel.setTabView({ key: tabKey, view }));
 };

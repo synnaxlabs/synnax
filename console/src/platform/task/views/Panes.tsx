@@ -16,14 +16,7 @@ import { Header } from "@synnaxlabs/lyra/header";
 import { useResize } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { box } from "@synnaxlabs/x";
-import {
-  type MouseEvent,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type MouseEvent, type ReactNode, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { DetailsHeader } from "@/platform/task/views/DetailsHeader";
@@ -66,7 +59,7 @@ export const Panes = ({
   // switches and back on two frames later, once the new position has painted.
   const [snap, setSnap] = useState(false);
   const ref = useResize<HTMLDivElement>(
-    useCallback((b) => {
+    (b) => {
       const next = box.width(b) < NARROW_WIDTH;
       if (next === narrowRef.current) return;
       narrowRef.current = next;
@@ -74,7 +67,7 @@ export const Panes = ({
       // A drawer belongs to the narrow layout it was opened in.
       setDrawer(null);
       setSnap(true);
-    }, []),
+    },
     { triggers: ["x"] },
   );
   useEffect(() => {
@@ -91,16 +84,16 @@ export const Panes = ({
   const [hidden, setHidden] = useState(false);
   const drawerOpen = drawer?.at === detailsPath;
   const visible = narrow ? drawerOpen : !hidden;
-  const handleToggle = useCallback(() => {
+  const handleToggle = () => {
     if (narrow) setDrawer(drawerOpen ? null : { at: detailsPath });
     else setHidden((prev) => !prev);
-  }, [narrow, drawerOpen, detailsPath]);
+  };
   // With the drawer open the details are a backdrop: a click there closes the
   // drawer instead of reaching what is under it.
-  const handleDetailsClickCapture = useCallback((e: MouseEvent) => {
+  const handleDetailsClickCapture = (e: MouseEvent) => {
     e.stopPropagation();
     setDrawer(null);
-  }, []);
+  };
   const backdrop = narrow && drawerOpen;
   // Beside the list's title while the list shows, beside the details title once it
   // hides. A hidden list is inert, so only one of the two is reachable.

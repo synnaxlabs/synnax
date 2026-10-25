@@ -15,7 +15,6 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { array, compare, uuid, verbs, xy } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
@@ -269,19 +268,20 @@ export const useAddNode = () => {
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
 
-  return useCallback(
-    <V extends Node.Variant>({ key, position, config: input }: AddNodeProps<V>) => {
-      const config: Node.Config = Node.createConfig(input);
-      if (Node.isCustomConfig(config)) {
-        const sym = client?.schematics.symbols.getCached(config.specKey);
-        if (query.isLive(sym)) config.label.label = sym.name;
-      }
-      dispatch(
-        schematic.setNode({ node: { key, position: position ?? xy.ZERO }, config }),
-      );
-    },
-    [dispatch, client],
-  );
+  return <V extends Node.Variant>({
+    key,
+    position,
+    config: input,
+  }: AddNodeProps<V>) => {
+    const config: Node.Config = Node.createConfig(input);
+    if (Node.isCustomConfig(config)) {
+      const sym = client?.schematics.symbols.getCached(config.specKey);
+      if (query.isLive(sym)) config.label.label = sym.name;
+    }
+    dispatch(
+      schematic.setNode({ node: { key, position: position ?? xy.ZERO }, config }),
+    );
+  };
 };
 
 // The label a symbol takes on creation: a custom symbol's name, or its spec's label.
@@ -303,27 +303,24 @@ export const useChangeSymbol = () => {
   const key = Scope.use();
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
-  return useCallback(
-    <V extends Node.Variant>(keys: readonly string[], input: Node.Input<V>) => {
-      const s = client?.schematics.getCached({ key });
-      if (client == null || !query.isLive(s)) return;
-      const actions = keys.flatMap((k) => {
-        const config = s.configs[k];
-        if (!Node.isConfig(config)) throw new Error(`Element ${k} is not a symbol`);
-        const next = Node.changeConfig(config, input);
-        if (Node.symbolKey(next) === Node.symbolKey(config)) return [];
-        if (
-          "label" in config &&
-          "label" in next &&
-          config.label.label === defaultLabel(client, config)
-        )
-          next.label.label = defaultLabel(client, next) ?? next.label.label;
-        return [schematic.setConfig({ key: k, config: next })];
-      });
-      if (actions.length > 0) dispatch(actions);
-    },
-    [client, key, dispatch],
-  );
+  return <V extends Node.Variant>(keys: readonly string[], input: Node.Input<V>) => {
+    const s = client?.schematics.getCached({ key });
+    if (client == null || !query.isLive(s)) return;
+    const actions = keys.flatMap((k) => {
+      const config = s.configs[k];
+      if (!Node.isConfig(config)) throw new Error(`Element ${k} is not a symbol`);
+      const next = Node.changeConfig(config, input);
+      if (Node.symbolKey(next) === Node.symbolKey(config)) return [];
+      if (
+        "label" in config &&
+        "label" in next &&
+        config.label.label === defaultLabel(client, config)
+      )
+        next.label.label = defaultLabel(client, next) ?? next.label.label;
+      return [schematic.setConfig({ key: k, config: next })];
+    });
+    if (actions.length > 0) dispatch(actions);
+  };
 };
 
 /**
@@ -335,21 +332,18 @@ export const useGroup = (): ((selected: readonly string[]) => string[] | null) =
   const key = Scope.use();
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
-  return useCallback(
-    (selected) => {
-      const s = client?.schematics.getCached({ key });
-      if (!query.isLive(s)) return null;
-      const result = Group.createActions({
-        selected,
-        nodes: s.nodes,
-        configs: s.configs,
-      });
-      if (result == null) return null;
-      dispatch(result.actions);
-      return result.selection;
-    },
-    [client, key, dispatch],
-  );
+  return (selected) => {
+    const s = client?.schematics.getCached({ key });
+    if (!query.isLive(s)) return null;
+    const result = Group.createActions({
+      selected,
+      nodes: s.nodes,
+      configs: s.configs,
+    });
+    if (result == null) return null;
+    dispatch(result.actions);
+    return result.selection;
+  };
 };
 
 /**
@@ -361,15 +355,12 @@ export const useUngroup = (): ((selected: readonly string[]) => string[] | null)
   const key = Scope.use();
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
-  return useCallback(
-    (selected) => {
-      const s = client?.schematics.getCached({ key });
-      if (!query.isLive(s)) return null;
-      const result = Group.ungroupActions(selected, s.configs);
-      if (result == null) return null;
-      dispatch(result.actions);
-      return result.freed;
-    },
-    [client, key, dispatch],
-  );
+  return (selected) => {
+    const s = client?.schematics.getCached({ key });
+    if (!query.isLive(s)) return null;
+    const result = Group.ungroupActions(selected, s.configs);
+    if (result == null) return null;
+    dispatch(result.actions);
+    return result.freed;
+  };
 };
