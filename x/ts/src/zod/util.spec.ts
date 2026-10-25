@@ -257,4 +257,87 @@ describe("zod", () => {
       });
     });
   });
+
+  describe("getDiscriminators", () => {
+    const channelZ = z.discriminatedUnion("type", [
+      z.object({ key: z.string(), type: z.literal("ai_voltage"), maxVal: z.number() }),
+      z.object({
+        key: z.string(),
+        type: z.literal("ai_thermocouple"),
+        units: z.string(),
+        scale: z
+          .discriminatedUnion("kind", [
+            z.object({ kind: z.literal("linear"), slope: z.number() }),
+            z.object({ kind: z.literal("none") }),
+          ])
+          .optional(),
+      }),
+    ]);
+    const schema = z.object({
+      name: z.string(),
+      config: z.object({ channels: z.array(channelZ), extra: z.unknown() }),
+    });
+    const values = {
+      name: "task",
+      config: {
+        channels: [
+          { key: "a", type: "ai_voltage", maxVal: 10 },
+          {
+            key: "b",
+            type: "ai_thermocouple",
+            units: "C",
+            scale: { kind: "linear", slope: 2 },
+          },
+        ],
+        extra: { anything: { goes: 1 } },
+      },
+    };
+
+    it("should list nothing for a path that crosses no union", () => {
+      expect(zod.getDiscriminators(schema, ["name"], values)).toEqual([]);
+    });
+
+    it("should list the union a path goes into", () => {
+      expect(
+        zod.getDiscriminators(schema, ["config", "channels", "a", "maxVal"], values),
+      ).toEqual([{ path: ["config", "channels", "a", "type"], value: "ai_voltage" }]);
+    });
+
+    it("should not list a union that the path ends at", () => {
+      expect(
+        zod.getDiscriminators(schema, ["config", "channels", "a"], values),
+      ).toEqual([]);
+    });
+
+    it("should list nested unions from the root down", () => {
+      expect(
+        zod.getDiscriminators(
+          schema,
+          ["config", "channels", "b", "scale", "slope"],
+          values,
+        ),
+      ).toEqual([
+        { path: ["config", "channels", "b", "type"], value: "ai_thermocouple" },
+        { path: ["config", "channels", "b", "scale", "kind"], value: "linear" },
+      ]);
+    });
+
+    it("should list nothing below an unknown schema", () => {
+      expect(
+        zod.getDiscriminators(schema, ["config", "extra", "anything", "goes"], values),
+      ).toEqual([]);
+    });
+
+    it("should throw for a field of a variant the values do not hold", () => {
+      expect(() =>
+        zod.getDiscriminators(schema, ["config", "channels", "a", "units"], values),
+      ).toThrow("Schema does not contain the path config.channels.a.units");
+    });
+
+    it("should throw for a path through a missing list entry", () => {
+      expect(() =>
+        zod.getDiscriminators(schema, ["config", "channels", "x", "maxVal"], values),
+      ).toThrow("Schema does not contain the path config.channels.x.maxVal");
+    });
+  });
 });

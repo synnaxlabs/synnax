@@ -168,3 +168,112 @@ export const getFieldSchema: GetFieldSchema = ((
   if (optional) return null;
   throw new Error(`Schema does not contain the path ${path}`);
 }) as GetFieldSchema;
+
+/** A discriminated union that a path goes into. */
+export interface Discriminator {
+  /** The path to the discriminator field of the union. */
+  path: string[];
+  /** The discriminator value that the document holds. */
+  value: unknown;
+}
+
+const isObject = (v: unknown): v is Record<string, unknown> =>
+  v != null && typeof v === "object" && !Array.isArray(v);
+
+const discriminatorsAt = (
+  schema: $ZodType,
+  path: string[],
+  index: number,
+  values: unknown,
+): Discriminator[] | NotFound => {
+  if (index >= path.length) return [];
+  schema = unwrap(schema);
+  const def = schema._zod.def as $ZodTypeDef & Record<string, unknown>;
+  const seg = path[index];
+  switch (def.type) {
+    case "unknown":
+    case "any":
+      return [];
+    case "object": {
+      const shape = def.shape as Record<string, $ZodType>;
+      const field = shape[seg] ?? (def.catchall as $ZodType | undefined);
+      if (field == null) return NOT_FOUND;
+      return discriminatorsAt(
+        field,
+        path,
+        index + 1,
+        isObject(values) ? values[seg] : undefined,
+      );
+    }
+    case "array":
+      return discriminatorsAt(
+        def.element as $ZodType,
+        path,
+        index + 1,
+        Array.isArray(values)
+          ? values.find((e: unknown) => isObject(e) && e.key === seg)
+          : undefined,
+      );
+    case "tuple": {
+      const i = deep.getIndex(seg);
+      if (i == null) return NOT_FOUND;
+      const items = def.items as $ZodType[];
+      const item = i < items.length ? items[i] : (def.rest as $ZodType | null);
+      if (item == null) return NOT_FOUND;
+      return discriminatorsAt(
+        item,
+        path,
+        index + 1,
+        Array.isArray(values) ? values[i] : undefined,
+      );
+    }
+    case "record":
+    case "map":
+      return discriminatorsAt(
+        def.valueType as $ZodType,
+        path,
+        index + 1,
+        isObject(values) ? values[seg] : undefined,
+      );
+    case "union": {
+      if (def.discriminator == null) {
+        for (const option of def.options as $ZodType[]) {
+          const res = discriminatorsAt(option, path, index, values);
+          if (res !== NOT_FOUND) return res;
+        }
+        return NOT_FOUND;
+      }
+      const discriminator = def.discriminator as string;
+      const value = isObject(values) ? values[discriminator] : undefined;
+      const option = getDiscriminatedOption(
+        schema as z.ZodDiscriminatedUnion,
+        value as never,
+      );
+      if (option == null) return NOT_FOUND;
+      const rest = discriminatorsAt(option, path, index, values);
+      if (rest === NOT_FOUND) return NOT_FOUND;
+      return [{ path: [...path.slice(0, index), discriminator], value }, ...rest];
+    }
+    default:
+      return NOT_FOUND;
+  }
+};
+
+/**
+ * Lists the discriminated unions that a path goes into, from the root down, with the
+ * discriminator value that `values` holds for each. A union that the path ends at does
+ * not count. A segment into an array names the `key` of an entry. A `z.unknown()` or
+ * `z.any()` holds no unions below it.
+ *
+ * @throws {Error} if the schema does not contain the path, or `values` holds no
+ * discriminator for a union that the path goes into.
+ */
+export const getDiscriminators = (
+  schema: z.ZodType,
+  path: string[],
+  values: unknown,
+): Discriminator[] => {
+  const res = discriminatorsAt(schema, path, 0, values);
+  if (res !== NOT_FOUND) return res;
+  throw new Error(`Schema does not contain the path ${path.join(deep.SEPARATOR)}`);
+};
