@@ -1,0 +1,141 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import type { ComponentProps } from "astro/types";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { unescape } from "html-escaper";
+
+import Outline from "@/components/nav/Outline.astro";
+import { InlineCode } from "@/components/text/InlineCode";
+
+type Props = ComponentProps<typeof Outline>;
+
+const { headings, outline = {} } = Astro.props;
+const first = headings[0];
+const PANEL = "outline-bar-panel";
+---
+
+{first != null && (
+    <div class="outline-bar" data-outline-bar>
+        <button class="outline-bar__trigger" popovertarget={PANEL}>
+            <span class="outline-bar__title">On this page</span>
+            <Icon.Caret.Right className="outline-bar__separator" />
+            <span class="outline-bar__current" data-outline-current>
+                <InlineCode text={outline[first.text]?.text ?? unescape(first.text)} />
+            </span>
+            <Icon.Caret.Down className="outline-bar__caret" />
+        </button>
+        <div id={PANEL} class="outline-bar__panel styled-scrollbar" popover="auto">
+            <Outline {...Astro.props} />
+        </div>
+    </div>
+)}
+
+<style is:global>
+    .outline-bar {
+        --outline-bar-height: 7rem;
+
+        position: sticky;
+        top: var(--nav-height);
+        z-index: 3;
+        height: var(--outline-bar-height);
+        border-bottom: var(--pluto-border);
+        border-color: var(--pluto-gray-l4);
+
+        /* The same frosted glass as the header above it. */
+        &::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            background: var(--pluto-gray-l1-80);
+            -webkit-backdrop-filter: blur(3rem);
+            backdrop-filter: blur(3rem);
+        }
+    }
+
+    .outline-bar__trigger {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        width: 100%;
+        height: 100%;
+        padding: 0 var(--header-inset);
+        border: none;
+        background: none;
+        font-family: var(--pluto-font-family);
+        font-size: var(--pluto-small-size);
+        line-height: var(--pluto-small-line-height);
+        color: var(--pluto-gray-l10);
+        cursor: pointer;
+
+        .outline-bar__title {
+            flex-shrink: 0;
+            color: var(--pluto-gray-l8);
+        }
+
+        .outline-bar__separator {
+            flex-shrink: 0;
+            color: var(--pluto-gray-l6);
+        }
+
+        .outline-bar__current {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-align: start;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .outline-bar__caret {
+            flex-shrink: 0;
+            color: var(--pluto-gray-l8);
+            transition: rotate 0.2s ease;
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--pluto-primary-z);
+            outline-offset: -2px;
+        }
+    }
+
+    .outline-bar:has(:popover-open) .outline-bar__caret {
+        rotate: 180deg;
+    }
+
+    /* The panel opens in the top layer, so it is placed under the bar by hand. */
+    .outline-bar__panel {
+        --top: calc(var(--nav-height) + var(--outline-bar-height));
+
+        position: fixed;
+        inset: var(--top) 0 auto;
+        width: 100%;
+        max-height: calc(100dvh - var(--top) - 10rem);
+        margin: 0;
+        padding: 2rem var(--header-inset) 3rem;
+        overflow-y: auto;
+        border: none;
+        border-bottom: var(--pluto-border);
+        border-color: var(--pluto-gray-l4);
+        background: var(--pluto-gray-l1);
+        color: inherit;
+        box-shadow: var(--pluto-shadow-overlay);
+
+        .docs-picker {
+            margin-bottom: 2rem;
+        }
+
+        .on-this-page-item {
+            padding-top: 1.5rem;
+            padding-bottom: 1.5rem;
+        }
+    }
+</style>
