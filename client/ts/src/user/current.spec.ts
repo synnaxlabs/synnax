@@ -55,7 +55,9 @@ describe("current", () => {
           return query.isLive(cached) && cached.firstName === "Abigail";
         })
         .toBe(true);
-      expect(handler).toHaveBeenCalled();
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ firstName: "Abigail" }),
+      );
     } finally {
       off();
     }
