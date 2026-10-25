@@ -17,7 +17,7 @@ import {
   TiledChannelData,
   type TiledChannelDataProps,
 } from "@/telem/aether/remote";
-import { type View } from "@/telem/aether/telem";
+import { type ValueProps } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/test";
 
 // Each read is one frame of a line 1000 pixels wide, with every tile it draws cached.
@@ -39,33 +39,29 @@ const createClient = (): { core: SyntheticCore; client: Client } => {
   return { core, client };
 };
 
-const viewOf = (tr: TimeRange): View => ({ bounds: tr.numericBounds, width: WIDTH });
+const viewOf = (tr: TimeRange): ValueProps => ({
+  bounds: tr.numericBounds,
+  points: WIDTH,
+});
 
-const liveView = (core: SyntheticCore): View =>
+const liveView = (core: SyntheticCore): ValueProps =>
   viewOf(new TimeRange(core.now().sub(LIVE_SPAN), core.now()));
 
-// The level settle is zero, so a read requests the tiles of a new level at once.
 const createSource = async (
   client: Client,
   props: TiledChannelDataProps,
-  view: View,
+  view: ValueProps,
 ): Promise<TiledChannelData> => {
-  const source = new TiledChannelData(
-    client,
-    props,
-    undefined,
-    client.now,
-    TimeSpan.ZERO,
-  );
+  const source = new TiledChannelData(client, props, undefined, client.now);
   await settle(source, view);
   return source;
 };
 
 // settle reads the view until the source holds everything the view draws.
-const settle = async (source: TiledChannelData, view: View): Promise<void> => {
+const settle = async (source: TiledChannelData, view: ValueProps): Promise<void> => {
   const deadline = TimeStamp.now().add(TimeSpan.seconds(30));
   while (TimeStamp.now().before(deadline)) {
-    if (source.value({ view }).status.variant !== "loading") return;
+    if (source.value(view).status.variant !== "loading") return;
     await sleep.sleep(TimeSpan.milliseconds(1));
   }
   throw new Error("source did not settle");
@@ -75,14 +71,14 @@ const settle = async (source: TiledChannelData, view: View): Promise<void> => {
 const yieldTask = async (): Promise<void> =>
   await new Promise((resolve) => setImmediate(resolve));
 
-const staticRead = async (view: View): Promise<() => void> => {
+const staticRead = async (view: ValueProps): Promise<() => void> => {
   const { core, client } = createClient();
   const source = await createSource(
     client,
     { channel: core.data[0].key, window: telemTest.staticWindow(WEEK) },
     view,
   );
-  return () => void source.value({ view });
+  return () => void source.value(view);
 };
 
 const liveRead = async (): Promise<{
@@ -106,7 +102,7 @@ const HOUR = new TimeRange(
 const homeRead = await staticRead(viewOf(WEEK));
 const hourRead = await staticRead(viewOf(HOUR));
 const live = await liveRead();
-const liveHomeRead = (): void => void live.source.value({ view: liveView(live.core) });
+const liveHomeRead = (): void => void live.source.value(liveView(live.core));
 
 test("read a held view", async ({ bench }) => {
   await bench.compare(
@@ -124,7 +120,7 @@ const pan = async (): Promise<() => Promise<void>> => {
   const step = span / 60n;
   const steps = Number(TimeSpan.days(1).valueOf() / step);
   let i = 0;
-  const next = (): View => {
+  const next = (): ValueProps => {
     const phase = i++ % (2 * steps);
     const offset = BigInt(phase < steps ? phase : 2 * steps - phase) * step;
     const start = HOUR.start.add(offset);
@@ -136,12 +132,12 @@ const pan = async (): Promise<() => Promise<void>> => {
     next(),
   );
   for (let s = 0; s < 2 * steps; s++) {
-    source.value({ view: next() });
+    source.value(next());
     await yieldTask();
   }
   await settle(source, next());
   return async () => {
-    source.value({ view: next() });
+    source.value(next());
     await yieldTask();
   };
 };
@@ -151,7 +147,7 @@ const stream = async (): Promise<() => Promise<void>> => {
   return async () => {
     core.advance(FRAME);
     await yieldTask();
-    source.value({ view: liveView(core) });
+    source.value(liveView(core));
   };
 };
 

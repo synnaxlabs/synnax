@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { framer } from "@synnaxlabs/client";
-import { type Aggregation, type TimeRange } from "@synnaxlabs/x";
+import { type TimeRange } from "@synnaxlabs/x";
 
 /** Identifies one tile of the grid: tile index of level. */
 export interface Position {
@@ -39,30 +39,19 @@ export interface PointLimitProps {
   level: number;
   /** The range the line shows. */
   view: TimeRange;
-  /** The width of the line in pixels. */
-  width: number;
-  /** The number of aggregation groups the line draws per pixel column. */
-  groupsPerColumn: number;
-  aggregation: Aggregation;
+  /** About how many points the line draws across the view. */
+  points: number;
 }
 
 /**
- * @returns the point limit of one tile at the level: its share of the line's pixel
- * width, times groups per pixel column, times points per group. The limit rounds up to
- * a power of two, so a resize of a few pixels keeps the same limit.
+ * @returns the point limit of one tile at the level: its share of the points across
+ * the view. The limit rounds up to a power of two, so a resize of a few pixels keeps
+ * the same limit.
  */
-export const pointLimit = ({
-  level,
-  view,
-  width,
-  groupsPerColumn,
-  aggregation,
-}: PointLimitProps): number => {
+export const pointLimit = ({ level, view, points }: PointLimitProps): number => {
   const share =
-    (Number(framer.tileSpan(level).valueOf()) / Number(view.span.valueOf())) * width;
-  const perGroup = aggregation === "min_max" ? 2 : 1;
-  const points = Math.max(share * groupsPerColumn * perGroup, 1);
-  return 2 ** Math.ceil(Math.log2(points));
+    (Number(framer.tileSpan(level).valueOf()) / Number(view.span.valueOf())) * points;
+  return 2 ** Math.ceil(Math.log2(Math.max(share, 1)));
 };
 
 const positionKey = ({ level, index }: Position): string => `${level}/${index}`;

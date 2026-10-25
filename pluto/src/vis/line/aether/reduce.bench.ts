@@ -12,14 +12,13 @@ import { type Aggregation, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnax
 import { afterAll, test } from "vitest";
 
 import { TiledChannelData, type TiledChannelDataProps } from "@/telem/aether/remote";
-import { type View } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/test";
 import {
   buildDrawOperations,
   DEFAULT_OVERLAP_THRESHOLD,
   type DrawOperation,
 } from "@/vis/line/aether/line";
-import { groupSize, Reducer } from "@/vis/line/aether/reduce";
+import { groupSize, Reducer, type View } from "@/vis/line/aether/reduce";
 
 // Reduces the full-resolution samples of a live line 1000 pixels wide that shows the
 // last 10 minutes of a 1 kHz channel, as the line does once per frame.
@@ -43,7 +42,7 @@ const view = (): View => ({
 });
 
 const createSource = (props: TiledChannelDataProps): TiledChannelData =>
-  new TiledChannelData(client, props, undefined, client.now, TimeSpan.ZERO);
+  new TiledChannelData(client, props, undefined, client.now);
 
 const channel = core.data[0].key;
 const x = createSource({
@@ -54,7 +53,8 @@ const x = createSource({
 const y = createSource({ channel, window: telemTest.dynamicWindow(SPAN) });
 
 const read = (): DrawOperation[] => {
-  const v = { view: view() };
+  const { bounds, width } = view();
+  const v = { bounds, points: width * GROUPS_PER_COLUMN * 2 };
   return buildDrawOperations(
     x.value(v).data[1],
     y.value(v).data[1],

@@ -15,7 +15,6 @@ import {
   Series,
 } from "@synnaxlabs/x";
 
-import { type telem } from "@/telem/aether";
 import { type DrawOperation } from "@/vis/line/aether/line";
 
 interface Points {
@@ -33,6 +32,12 @@ const startOf = ({ x, xOffset }: DrawOperation): bigint =>
 
 const endOf = (op: DrawOperation): bigint => startOf(op) + BigInt(op.count);
 
+/** The span of x a line shows, and its width in pixels. */
+export interface View {
+  bounds: bounds.Bounds;
+  width: number;
+}
+
 /**
  * @returns the samples per group that draws the full-resolution ops at groupsPerColumn
  * groups per pixel column of the view: their samples per x unit times the x units per
@@ -41,7 +46,7 @@ const endOf = (op: DrawOperation): bigint => startOf(op) + BigInt(op.count);
  */
 export const groupSize = (
   ops: DrawOperation[],
-  view: telem.View,
+  view: View,
   groupsPerColumn: number,
 ): number => {
   let count = 0;

@@ -53,53 +53,22 @@ describe("tiles", () => {
   describe("pointLimit", () => {
     const view = range(0, 1024);
 
-    it("should give one pair of points per two columns at half a group", () => {
-      const limit = pointLimit({
-        level: 9,
-        view,
-        width: 1000,
-        groupsPerColumn: 1 / 2,
-        aggregation: "min_max",
-      });
-      expect(limit).toBe(512);
+    it.each([
+      [500, 256],
+      [1000, 512],
+      [2000, 1024],
+    ])("should give a tile its share of %d points", (points, expected) => {
+      expect(pointLimit({ level: 9, view, points })).toBe(expected);
     });
 
-    it.each([
-      [1 / 4, "min_max", 256],
-      [1, "min_max", 1024],
-      [1 / 2, "average", 256],
-      [1, "average", 512],
-    ] as const)(
-      "should scale %d groups per column with %s",
-      (groupsPerColumn, aggregation, expected) => {
-        expect(
-          pointLimit({ level: 9, view, width: 1000, groupsPerColumn, aggregation }),
-        ).toBe(expected);
-      },
-    );
-
     it("should keep the same limit across a small resize", () => {
-      const props = {
-        level: 9,
-        view,
-        groupsPerColumn: 1 / 2,
-        aggregation: "min_max",
-      } as const;
-      expect(pointLimit({ ...props, width: 900 })).toBe(
-        pointLimit({ ...props, width: 1000 }),
+      expect(pointLimit({ level: 9, view, points: 900 })).toBe(
+        pointLimit({ level: 9, view, points: 1000 }),
       );
     });
 
     it("should never return a limit under one", () => {
-      expect(
-        pointLimit({
-          level: 0,
-          view,
-          width: 1,
-          groupsPerColumn: 1 / 4,
-          aggregation: "average",
-        }),
-      ).toBe(1);
+      expect(pointLimit({ level: 0, view, points: 1 })).toBe(1);
     });
   });
 

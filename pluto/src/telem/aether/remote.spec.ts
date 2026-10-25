@@ -39,7 +39,7 @@ import {
   TiledChannelData,
   type TiledChannelDataProps,
 } from "@/telem/aether/remote";
-import { type Source, type ValueProps, type View } from "@/telem/aether/telem";
+import { type Source, type ValueProps } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/test";
 
 const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
@@ -936,7 +936,6 @@ describe("remote", () => {
       props: Partial<TiledChannelDataProps> = {},
       now: () => TimeStamp = () => TimeStamp.seconds(100),
       options?: CreateOptions,
-      levelSettle: TimeSpan = TimeSpan.ZERO,
       breakerConfig?: breaker.Config,
     ): TiledChannelData =>
       new TiledChannelData(
@@ -944,7 +943,6 @@ describe("remote", () => {
         { channel: DATA_KEY, window: telemTest.staticWindow(HOME), ...props },
         options,
         now,
-        levelSettle,
         breakerConfig,
       );
 
@@ -952,12 +950,12 @@ describe("remote", () => {
     const settle = async (source: TiledChannelData): Promise<void> =>
       await expect.poll(() => loading(source)).toBe(false);
 
-    const view = (lower: number, upper: number, width = 500): View => ({
+    const view = (lower: number, upper: number, points = 500): ValueProps => ({
       bounds: {
         lower: Number(TimeStamp.milliseconds(lower).valueOf()),
         upper: Number(TimeStamp.milliseconds(upper).valueOf()),
       },
-      width,
+      points,
     });
 
     const positions = (series: MultiSeries): number[][] =>
@@ -987,8 +985,9 @@ describe("remote", () => {
       ]);
     });
 
-    it("should size tiles by the line's aggregation and groups per column", async () => {
-      const source = create({ aggregation: "average", groupsPerColumn: 1 });
+    it("should split the points of a read across its tiles", async () => {
+      const source = create({ aggregation: "average" });
+      source.value({ points: 1000 });
       await settle(source);
       expect(c.tiles.map((t) => [t.pointLimit, t.aggregation])).toEqual([
         [1024, "average"],
@@ -1064,11 +1063,9 @@ describe("remote", () => {
         const source = create({ aggregation: "average" });
         await settle(source);
         source.value({ extremesKept: true });
-        source.value({ view: view(2000, 3000, 1000) });
-        await expect
-          .poll(() => loading(source, { view: view(2000, 3000, 1000) }))
-          .toBe(false);
-        source.value({ view: view(2000, 3000, 1000) });
+        source.value(view(2000, 3000, 1000));
+        await expect.poll(() => loading(source, view(2000, 3000, 1000))).toBe(false);
+        source.value(view(2000, 3000, 1000));
         const tile = c.served.get(`13/0/${DATA_KEY}/min_max`)!;
         expect(tile.series[0].refCount).toBe(1);
         const before = c.tiles.length;
@@ -1100,7 +1097,7 @@ describe("remote", () => {
           .toEqual({ lower: 0, upper: 13 });
         await settle(source);
         c.deferred = true;
-        const [, series] = source.value({ view: view(2000, 3000, 1000) }).data;
+        const [, series] = source.value(view(2000, 3000, 1000)).data;
         expect(positions(series)).toEqual([[6.5]]);
       });
     });
@@ -1108,9 +1105,9 @@ describe("remote", () => {
     it("should draw the tiles of the view it is given", async () => {
       const source = create();
       await settle(source);
-      source.value({ view: view(2000, 3000) });
+      source.value(view(2000, 3000));
       await expect
-        .poll(() => positions(source.value({ view: view(2000, 3000) }).data[1]))
+        .poll(() => positions(source.value(view(2000, 3000)).data[1]))
         .toEqual([
           [9, 3],
           [9, 4],
@@ -1122,28 +1119,26 @@ describe("remote", () => {
       const source = create();
       await settle(source);
       c.deferred = true;
-      const [, series] = source.value({ view: view(2000, 3000) }).data;
+      const [, series] = source.value(view(2000, 3000)).data;
       expect(positions(series)).toEqual([[13, 0]]);
       expect(loading(source)).toBe(true);
       c.resolveAll();
-      await expect.poll(() => loading(source, { view: view(2000, 3000) })).toBe(false);
-      expect(positions(source.value({ view: view(2000, 3000) }).data[1])).toHaveLength(
-        3,
-      );
+      await expect.poll(() => loading(source, view(2000, 3000))).toBe(false);
+      expect(positions(source.value(view(2000, 3000)).data[1])).toHaveLength(3);
     });
 
     it("should draw finer tiles until a zoomed out view's tiles arrive", async () => {
       const source = create();
       await settle(source);
       c.deferred = true;
-      const [, series] = source.value({ view: view(0, 60000) }).data;
+      const [, series] = source.value(view(0, 60000)).data;
       expect(positions(series)).toEqual([
         [13, 0],
         [13, 1],
       ]);
       c.resolveAll();
-      await expect.poll(() => loading(source, { view: view(0, 60000) })).toBe(false);
-      expect(positions(source.value({ view: view(0, 60000) }).data[1])).toEqual([
+      await expect.poll(() => loading(source, view(0, 60000))).toBe(false);
+      expect(positions(source.value(view(0, 60000)).data[1])).toEqual([
         [15, 0],
         [15, 1],
       ]);
@@ -1154,8 +1149,8 @@ describe("remote", () => {
       await settle(source);
       c.deferred = true;
       const before = c.tiles.length;
-      source.value({ view: view(2000, 3000) });
-      source.value({ view: view(2000, 3000) });
+      source.value(view(2000, 3000));
+      source.value(view(2000, 3000));
       expect(c.tiles.length - before).toBe(3);
     });
 
@@ -1172,10 +1167,8 @@ describe("remote", () => {
         const source = create();
         await settle(source);
         expect(c.tileDataTypes).toEqual([undefined, undefined]);
-        source.value({ view: view(2000, 3000) });
-        await expect
-          .poll(() => loading(source, { view: view(2000, 3000) }))
-          .toBe(false);
+        source.value(view(2000, 3000));
+        await expect.poll(() => loading(source, view(2000, 3000))).toBe(false);
         expect(c.tileDataTypes.slice(2)).toEqual([
           DataType.FLOAT32,
           DataType.FLOAT32,
@@ -1188,7 +1181,7 @@ describe("remote", () => {
         await settle(source);
         const home = [...c.served.values()];
         c.feed.readTile = async (spec) => bytes(spec);
-        source.value({ view: view(2000, 3000) });
+        source.value(view(2000, 3000));
         await expect
           .poll(() => home.every((tile) => tile.series[0].refCount === 0))
           .toBe(true);
@@ -1201,65 +1194,16 @@ describe("remote", () => {
       });
     });
 
-    describe("level settle", () => {
-      const SETTLE = TimeSpan.milliseconds(50);
-      const createSettling = () => create({}, undefined, undefined, SETTLE);
-
-      it("should read a new level's tiles once the level holds", async () => {
-        const source = createSettling();
-        await settle(source);
-        const handleChange = vi.fn();
-        source.onChange(handleChange);
-        const before = c.tiles.length;
-        source.value({ view: view(2000, 3000) });
-        expect(c.tiles).toHaveLength(before);
-        await expect.poll(() => handleChange.mock.calls.length).toBeGreaterThan(0);
-        source.value({ view: view(2000, 3000) });
-        expect(c.tiles.slice(before).map((t) => [t.level, t.index])).toEqual([
-          [9, 3],
-          [9, 4],
-          [9, 5],
-        ]);
-      });
-
-      it("should skip the levels a fast zoom passes through", async () => {
-        const source = createSettling();
-        await settle(source);
-        const before = c.tiles.length;
-        source.value({ view: view(2000, 6000) });
-        source.value({ view: view(2000, 3000) });
-        await sleep.sleep(SETTLE.mult(2));
-        source.value({ view: view(2000, 3000) });
-        expect(new Set(c.tiles.slice(before).map((t) => t.level))).toEqual(
-          new Set([9]),
-        );
-      });
-
-      it("should read a pan within a level at once", async () => {
-        const source = createSettling();
-        await settle(source);
-        source.value({ view: view(2000, 3000) });
-        await sleep.sleep(SETTLE.mult(2));
-        source.value({ view: view(2000, 3000) });
-        const before = c.tiles.length;
-        source.value({ view: view(3000, 4000) });
-        expect(c.tiles.slice(before).map((t) => [t.level, t.index])).toEqual([
-          [9, 6],
-          [9, 7],
-        ]);
-      });
-    });
-
     it("should release the tiles a view no longer needs", async () => {
       const source = create();
       await settle(source);
-      source.value({ view: view(2000, 3000) });
+      source.value(view(2000, 3000));
       await expect
-        .poll(() => source.value({ view: view(2000, 3000) }).data[1].series.length)
+        .poll(() => source.value(view(2000, 3000)).data[1].series.length)
         .toBe(3);
       const fine = c.served.get(`9/3/${DATA_KEY}/min_max`)!;
       expect(fine.series[0].refCount).toBe(1);
-      source.value({ view: view(1000, 10000, 1000) });
+      source.value(view(1000, 10000, 1000));
       expect(fine.series[0].refCount).toBe(0);
       expect(c.served.get(`13/0/${DATA_KEY}/min_max`)!.series[0].refCount).toBe(1);
     });
@@ -1268,14 +1212,14 @@ describe("remote", () => {
       const source = create();
       await settle(source);
       c.deferred = true;
-      source.value({ view: view(2000, 3000) });
+      source.value(view(2000, 3000));
       const home = view(1000, 10000, 1000);
-      source.value({ view: home });
+      source.value(home);
       c.resolveAll();
       await expect.poll(() => loading(source)).toBe(false);
       const late = c.served.get(`9/3/${DATA_KEY}/min_max`)!;
       expect(late.series[0].refCount).toBe(1);
-      expect(positions(source.value({ view: home }).data[1])).toEqual([
+      expect(positions(source.value(home).data[1])).toEqual([
         [13, 0],
         [13, 1],
       ]);
@@ -1285,11 +1229,9 @@ describe("remote", () => {
     it("should keep the home tiles through a view far from home", async () => {
       const source = create();
       await settle(source);
-      source.value({ view: view(500_000, 501_000) });
-      await expect
-        .poll(() => loading(source, { view: view(500_000, 501_000) }))
-        .toBe(false);
-      source.value({ view: view(500_000, 501_000) });
+      source.value(view(500_000, 501_000));
+      await expect.poll(() => loading(source, view(500_000, 501_000))).toBe(false);
+      source.value(view(500_000, 501_000));
       expect(c.served.get(`13/0/${DATA_KEY}/min_max`)!.series[0].refCount).toBe(1);
     });
 
@@ -1309,7 +1251,7 @@ describe("remote", () => {
       ]);
       expect(source.value().aggregation).toBe("decimate");
       const before = c.tiles.length;
-      source.value({ view: view(2000, 3000, 1000) });
+      source.value(view(2000, 3000, 1000));
       expect(c.tiles.length).toBe(before);
     });
 
@@ -1318,9 +1260,9 @@ describe("remote", () => {
       await settle(source);
       const former = [...c.served.values()];
       const wide = view(2000, 3000, 4000);
-      source.value({ view: wide });
-      await expect.poll(() => loading(source, { view: wide })).toBe(false);
-      source.value({ view: wide });
+      source.value(wide);
+      await expect.poll(() => loading(source, wide)).toBe(false);
+      source.value(wide);
       expect(c.tiles).toHaveLength(4);
       expect(former.map((s) => s.series[0].refCount)).toEqual([0, 0]);
     });
@@ -1347,7 +1289,6 @@ describe("remote", () => {
           {},
           undefined,
           { onStatusChange: (s) => statuses.push(s) },
-          undefined,
           { sleepFn: async () => await new Promise(() => {}) },
         );
         const handleChange = vi.fn();
@@ -1373,7 +1314,7 @@ describe("remote", () => {
           return tileSeries(spec);
         };
         let wake = (): void => {};
-        const source = create({}, undefined, undefined, undefined, {
+        const source = create({}, undefined, undefined, {
           sleepFn: async () =>
             await new Promise<void>((resolve) => {
               wake = resolve;
@@ -1395,7 +1336,7 @@ describe("remote", () => {
 
       it("should park a tile on a definitive rejection", async () => {
         failTiles(new ValidationError("bad tile"));
-        const source = create({}, undefined, undefined, undefined, NO_WAIT);
+        const source = create({}, undefined, undefined, NO_WAIT);
         await settle(source);
         const failed = c.tiles.length;
         await sleep.sleep(TimeSpan.milliseconds(10));
@@ -1410,7 +1351,7 @@ describe("remote", () => {
 
       it("should stop retrying tiles at cleanup", async () => {
         failTiles(new Error("boom"));
-        const source = create({}, undefined, undefined, undefined, FAST);
+        const source = create({}, undefined, undefined, FAST);
         // The notify at the end of each backoff stands in for the render it starts.
         source.onChange(() => source.value());
         source.value();
@@ -1429,7 +1370,7 @@ describe("remote", () => {
           if (calls === 1) throw new Error("transient");
           return await retrieve(key);
         };
-        const source = create({}, undefined, undefined, undefined, NO_WAIT);
+        const source = create({}, undefined, undefined, NO_WAIT);
         source.value();
         await expect
           .poll(() => positions(source.value().data[1]))
@@ -1452,7 +1393,6 @@ describe("remote", () => {
           {},
           undefined,
           { onStatusChange: (s) => statuses.push(s) },
-          undefined,
           NO_WAIT,
         );
         await settle(source);
@@ -1474,7 +1414,7 @@ describe("remote", () => {
           calls++;
           throw new Error("boom");
         };
-        const source = create({}, undefined, undefined, undefined, FAST);
+        const source = create({}, undefined, undefined, FAST);
         source.value();
         await expect.poll(() => calls >= 3).toBe(true);
         source.cleanup();
@@ -1565,9 +1505,9 @@ describe("remote", () => {
         const source = createLive();
         await firstRead(source);
         const v = view(75_000, 100_000, 1000);
-        source.value({ view: v });
-        await expect.poll(() => loading(source, { view: v })).toBe(false);
-        expect(positions(source.value({ view: v }).data[1])).toEqual([
+        source.value(v);
+        await expect.poll(() => loading(source, v)).toBe(false);
+        expect(positions(source.value(v).data[1])).toEqual([
           [14, 4],
           [82, 100],
         ]);
@@ -1576,7 +1516,7 @@ describe("remote", () => {
       it("should cut a coarse tile at the start of the live window", async () => {
         const source = createLive();
         await firstRead(source);
-        source.value({ view: view(0, 100_000, 1000) });
+        source.value(view(0, 100_000, 1000));
         const cut = c.tiles.find((t) => t.end != null);
         expect(cut?.level).toBe(16);
         expect(cut?.end?.valueOf()).toBe(TimeStamp.milliseconds(81_920).valueOf());
@@ -1600,12 +1540,12 @@ describe("remote", () => {
         await firstRead(source);
         now = TimeStamp.seconds(108);
         const v = view(80_000, 108_000, 1000);
-        source.value({ view: v });
-        await expect.poll(() => loading(source, { view: v })).toBe(false);
+        source.value(v);
+        await expect.poll(() => loading(source, v)).toBe(false);
         // The tile stops where the held raw series starts, so no span draws twice.
         const cut = c.tiles.find((t) => t.level === 14 && t.index === 5);
         expect(cut?.end?.valueOf()).toBe(TimeStamp.seconds(90).valueOf());
-        expect(positions(source.value({ view: v }).data[1])).toEqual([
+        expect(positions(source.value(v).data[1])).toEqual([
           [14, 4],
           [14, 5],
           [90, 100],
@@ -1621,15 +1561,15 @@ describe("remote", () => {
         now = TimeStamp.seconds(108);
         c.deferred = true;
         const v = view(80_000, 108_000, 1000);
-        expect(positions(source.value({ view: v }).data[1])).toEqual([
+        expect(positions(source.value(v).data[1])).toEqual([
           [82, 90],
           [90, 100],
         ]);
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([raw(100, 108)])]]));
         expect(left.refCount).toBe(1);
         c.resolveAll();
-        await expect.poll(() => loading(source, { view: v })).toBe(false);
-        expect(positions(source.value({ view: v }).data[1])).toEqual([
+        await expect.poll(() => loading(source, v)).toBe(false);
+        expect(positions(source.value(v).data[1])).toEqual([
           [14, 4],
           [14, 5],
           [90, 100],
@@ -1653,11 +1593,11 @@ describe("remote", () => {
         const source = createLive();
         await firstRead(source);
         const older = view(75_000, 100_000, 1000);
-        source.value({ view: older });
-        await expect.poll(() => loading(source, { view: older })).toBe(false);
+        source.value(older);
+        await expect.poll(() => loading(source, older)).toBe(false);
         const tile = c.served.get(`14/4/${DATA_KEY}/min_max`)!;
         expect(tile.series[0].refCount).toBe(1);
-        source.value({ view: view(95_000, 100_000, 1000) });
+        source.value(view(95_000, 100_000, 1000));
         expect(tile.series[0].refCount).toBe(0);
         source.cleanup();
       });
@@ -1694,8 +1634,8 @@ describe("remote", () => {
         const source = createLive();
         await firstRead(source);
         const v = view(75_000, 100_000, 1000);
-        source.value({ view: v });
-        await expect.poll(() => loading(source, { view: v })).toBe(false);
+        source.value(v);
+        await expect.poll(() => loading(source, v)).toBe(false);
         const tile = c.served.get(`14/4/${DATA_KEY}/min_max`)!;
         const opened = c.streamHandler;
         const bytes = new Series({
@@ -1705,7 +1645,7 @@ describe("remote", () => {
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([bytes])]]));
         expect(tile.series[0].refCount).toBe(0);
         expect(bytes.refCount).toBe(0);
-        expect(source.value({ view: v }).data[1].series).toEqual([]);
+        expect(source.value(v).data[1].series).toEqual([]);
         await expect.poll(() => c.streamHandler !== opened).toBe(true);
         source.cleanup();
       });
@@ -1727,8 +1667,8 @@ describe("remote", () => {
         const source = createLive();
         await firstRead(source);
         const v = view(75_000, 100_000, 1000);
-        source.value({ view: v });
-        await expect.poll(() => loading(source, { view: v })).toBe(false);
+        source.value(v);
+        await expect.poll(() => loading(source, v)).toBe(false);
         const tile = c.served.get(`14/4/${DATA_KEY}/min_max`)!;
         const float = raw(95, 96);
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([float])]]));
@@ -1817,7 +1757,7 @@ describe("remote", () => {
         const source = createLive();
         source.value();
         await expect.poll(() => c.streamHandler != null).toBe(true);
-        source.value({ view: view(75_000, 100_000, 1000) });
+        source.value(view(75_000, 100_000, 1000));
         expect(loading(source)).toBe(true);
         c.resolveAll();
         release();

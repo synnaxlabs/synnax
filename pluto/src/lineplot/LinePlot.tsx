@@ -114,14 +114,12 @@ const createTelemetry = (
   xChannel: channel.Key,
   yChannel: channel.Key,
   aggregation: lineplot.Aggregation,
-  groupsPerColumn: number,
 ) => {
   const hasX = primitive.isNonZero(xChannel);
   const props = {
     window,
     xChannel,
     aggregation,
-    groupsPerColumn,
   };
   return {
     x: telem.tiledChannelData({
@@ -145,9 +143,7 @@ const Line = ({
   const { xChannel, yChannel } = spec;
   const groupsPerColumn = GROUPS_PER_COLUMN[detail];
   const telemetry =
-    window == null
-      ? null
-      : createTelemetry(window, xChannel, yChannel, aggregation, groupsPerColumn);
+    window == null ? null : createTelemetry(window, xChannel, yChannel, aggregation);
   if (telemetry == null) return null;
   return (
     <BaseLine
@@ -157,6 +153,7 @@ const Line = ({
       y={telemetry.y}
       visible={visible}
       groupsPerColumn={groupsPerColumn}
+      aggregation={aggregation}
       window={window}
       legendGroup={line.yAxis.toUpperCase()}
       {...line}

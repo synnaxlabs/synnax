@@ -26,6 +26,7 @@ import {
   type StringSourceSpec,
   SUCCESS_STATUS,
   type Telem,
+  type ValueProps,
 } from "@/telem/aether/telem";
 import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/test/factory";
 
@@ -45,7 +46,7 @@ export class TestSource<V> extends observe.Observer<void> implements Source<V>, 
     this._destructor = registerInstance(this.id, this);
   }
 
-  value(): Result<V> {
+  value(_props?: ValueProps): Result<V> {
     const { status, aggregation, time } = this;
     return { data: this._value, status, aggregation, time };
   }

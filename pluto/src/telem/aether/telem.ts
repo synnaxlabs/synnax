@@ -59,18 +59,17 @@ export type SinkSpec<V extends string> = z.infer<typeof sinkSpecZ> & {
   valueType: V;
 };
 
-/** The part of a line's x range on screen, and the line's width in pixels. */
-export interface View {
-  bounds: bounds.Bounds;
-  width: number;
-}
-
 export interface ValueProps {
   /**
-   * What the caller shows. A source that fetches by view returns data for it, and
-   * returns its home data when the view is absent.
+   * The span of x the caller shows. A source that reads by span returns data for it,
+   * and returns its home data when bounds are absent.
    */
-  view?: View;
+  bounds?: bounds.Bounds;
+  /**
+   * About how many points the caller draws across bounds. A source reads nothing new
+   * for bounds given without points.
+   */
+  points?: number;
   /** True when every sample must fall inside the bounds of the returned series. */
   extremesKept?: boolean;
 }

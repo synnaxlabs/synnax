@@ -10,6 +10,8 @@
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
+  type Aggregation,
+  aggregationZ,
   bounds,
   box,
   color,
@@ -35,7 +37,7 @@ import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 import { seriesOverlap, windowBounds } from "@/vis/line/aether/bounds";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
-import { groupSize, Reducer } from "@/vis/line/aether/reduce";
+import { groupSize, Reducer, type View } from "@/vis/line/aether/reduce";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
 import HYBRID_VERT_SHADER from "@/vis/line/aether/vert_hybrid.glsl?raw";
 import { render } from "@/vis/render";
@@ -54,7 +56,18 @@ export const stateZ = z.object({
     .default(1 / 2),
   /** The window the line draws: a fixed range, or a span that ends now. */
   window: windowZ.optional(),
+  /** The aggregation the line's sources reduce by. */
+  aggregation: aggregationZ.default("min_max"),
 });
+
+// A zoom waits this long for its span to hold before the line's sources read for it.
+const ZOOM_SETTLE = TimeSpan.milliseconds(150);
+
+const POINTS_PER_GROUP: Record<Aggregation, number> = {
+  min_max: 2,
+  average: 1,
+  decimate: 1,
+};
 
 // A live window of a minute or less draws from the stream at once, so it shows no
 // first-load message.
@@ -279,6 +292,10 @@ interface InternalState {
   stopListeningYTelem?: destructor.Destructor;
   requestRender: render.Requestor;
   reducer: Reducer;
+  // zoom is the log2 span of the last bounds drawn, and settleTimer runs until that
+  // zoom has held for ZOOM_SETTLE.
+  zoom?: number;
+  settleTimer?: ReturnType<typeof setTimeout>;
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
@@ -305,6 +322,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   afterDelete(): void {
     const { internal: i } = this;
+    clearTimeout(i.settleTimer);
     i.xTelem.cleanup?.();
     i.yTelem.cleanup?.();
     i.reducer.release();
@@ -353,7 +371,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   findByXValue(props: LineProps, target: number): FindResult {
     const { xTelem, yTelem } = this.internal;
-    const valueProps = { view: view(props) };
+    const valueProps = this.read(view(props));
     const [, xData] = xTelem.value(valueProps).data;
     let [index, series] = [-1, -1];
     xData.series.find((x, i) => {
@@ -399,19 +417,42 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     return result;
   }
 
+  // read returns the value props of the view. A zoom gives the sources points only once
+  // its span holds, so a fast zoom does not read the spans it passes through. A pan
+  // reads at once.
+  private read({ bounds: b, width }: View): telem.ValueProps {
+    const { internal: i } = this;
+    const zoom = Math.ceil(Math.log2(bounds.span(b)));
+    if (zoom !== i.zoom) {
+      i.zoom = zoom;
+      clearTimeout(i.settleTimer);
+      i.settleTimer = setTimeout(() => {
+        i.settleTimer = undefined;
+        i.requestRender("data");
+      }, ZOOM_SETTLE.milliseconds);
+    }
+    if (i.settleTimer != null) return { bounds: b };
+    const { groupsPerColumn, aggregation } = this.state;
+    return {
+      bounds: b,
+      points: width * groupsPerColumn * POINTS_PER_GROUP[aggregation],
+    };
+  }
+
   render(props: LineProps): void {
     if (this.deleted || !this.state.visible) return;
     const { xTelem, yTelem, lineCtx: ctx, reducer } = this.internal;
     const { groupsPerColumn } = this.state;
     const { dataToDecimalScale } = props;
-    const valueProps = { view: view(props) };
+    const v = view(props);
+    const valueProps = this.read(v);
     const [, xData] = xTelem.value(valueProps).data;
     const y = yTelem.value(valueProps);
     const [, yData] = y.data;
     // Full-resolution data reduces as the source reduces its tiles.
     const aggregation = y.aggregation ?? "min_max";
     const full = buildDrawOperations(xData, yData, DEFAULT_OVERLAP_THRESHOLD);
-    const size = groupSize(full, valueProps.view, groupsPerColumn);
+    const size = groupSize(full, v, groupsPerColumn);
     const ops = reducer.reduce(full, aggregation, size);
     if (ops.length === 0) return;
     ops.forEach(({ x, y }) => {
@@ -446,7 +487,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 }
 
 // view returns the part of the x range that the region shows.
-const view = ({ region, dataToDecimalScale }: LineProps): telem.View => {
+const view = ({ region, dataToDecimalScale }: LineProps): View => {
   const decimalToData = dataToDecimalScale.x.reverse();
   return {
     bounds: { lower: decimalToData.pos(0), upper: decimalToData.pos(1) },

@@ -36,7 +36,8 @@ describe("MemoizedSource", () => {
       };
       const source = new MemoizedSource(wrapped, provider(), fixedNumber(1));
       const props: ValueProps = {
-        view: { bounds: { lower: 1, upper: 2 }, width: 100 },
+        bounds: { lower: 1, upper: 2 },
+        points: 100,
       };
       source.value(props);
       source.value();

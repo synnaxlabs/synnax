@@ -32,14 +32,7 @@ test("grid", async ({ bench }) => {
     bench("indexes of an hour", () => void indexes(HOUR, HOUR_LEVEL)),
     bench(
       "point limit",
-      () =>
-        void pointLimit({
-          level: HOUR_LEVEL,
-          view: HOUR,
-          width: 1000,
-          groupsPerColumn: 1 / 2,
-          aggregation: "min_max",
-        }),
+      () => void pointLimit({ level: HOUR_LEVEL, view: HOUR, points: 1000 }),
     ),
   );
 });

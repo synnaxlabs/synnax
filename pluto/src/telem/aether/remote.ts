@@ -559,11 +559,6 @@ const tiledChannelDataPropsZ = z.object({
   /** The home view: a fixed range, or a span that ends now for a live line. */
   window: windowZ,
   aggregation: aggregationZ.default("min_max"),
-  /** The number of aggregation groups the line draws per pixel column. */
-  groupsPerColumn: z
-    .number()
-    .positive()
-    .default(1 / 2),
 });
 
 export type TiledChannelDataProps = z.input<typeof tiledChannelDataPropsZ>;
@@ -573,11 +568,8 @@ interface HeldTile {
   series: MultiSeries;
 }
 
-// The width tiles are sized for before a line reports its own.
-const DEFAULT_WIDTH = 1000;
-
-// How long a view must hold a new level before its tiles are requested.
-const DEFAULT_LEVEL_SETTLE = TimeSpan.milliseconds(150);
+// The points tiles are sized for before a read gives its own.
+const DEFAULT_POINTS = 1000;
 
 const viewRange = ({ lower, upper }: bounds.Bounds): TimeRange =>
   new TimeRange(BigInt(Math.max(Math.floor(lower), 0)), BigInt(Math.ceil(upper)));
@@ -604,7 +596,7 @@ export class TiledChannelData
   private xy = false;
   private readonly held = new Map<string, HeldTile>();
   private readonly pending = new Set<string>();
-  private width = DEFAULT_WIDTH;
+  private points = DEFAULT_POINTS;
   // window holds a live line's full-resolution series from boundary on.
   private readonly window: LiveWindow;
   // boundary is where a live line's tiles end and its full-resolution data begins. It
@@ -626,24 +618,17 @@ export class TiledChannelData
   // the keys of tiles a definitive rejection stopped.
   private readonly retrying = new Set<string>();
   private readonly parked = new Set<string>();
-  private readonly levelSettle: TimeSpan;
-  // viewLevel is the level of the last view drawn, and settleTimer runs until that
-  // level has held for levelSettle.
-  private viewLevel?: number;
-  private settleTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
     client: Client | null,
     props: unknown,
     options?: CreateOptions,
     now: () => TimeStamp = client?.now ?? (() => TimeStamp.now()),
-    levelSettle: TimeSpan = DEFAULT_LEVEL_SETTLE,
     breakerConfig?: breaker.Config,
   ) {
     super(props);
     this.client = client;
     this.now = now;
-    this.levelSettle = levelSettle;
     this.onStatusChange = options?.onStatusChange;
     this.failures = new FailureReporter(options?.onStatusChange);
     this.breaker = newRetryBreaker(this.retryNotifier, breakerConfig);
@@ -664,26 +649,24 @@ export class TiledChannelData
     return this.props.window.variant === "dynamic";
   }
 
-  value({ view, extremesKept = false }: ValueProps = {}): Result<
+  value({ bounds: view, points, extremesKept = false }: ValueProps = {}): Result<
     [bounds.Bounds, MultiSeries]
   > {
+    if (points != null) this.points = points;
     if (primitive.isZero(this.props.channel))
       return success([bounds.INVALID, new MultiSeries()]);
     if (!this.valid) void this.resolve();
     const ch = this.channel;
     if (ch == null) return this.result([bounds.INVALID, new MultiSeries()]);
     const home = this.home();
-    if (view != null) this.width = view.width;
     const drawsView =
-      view != null &&
-      !this.xy &&
-      bounds.isFinite(view.bounds) &&
-      bounds.span(view.bounds) > 0;
-    // Any read with a view draws, so it releases the tiles the line no longer needs.
+      view != null && !this.xy && bounds.isFinite(view) && bounds.span(view) > 0;
+    // Any read with bounds draws, so it releases the tiles the line no longer needs.
     const series = this.select(
       ch.key,
-      drawsView ? viewRange(view.bounds) : home,
+      drawsView ? viewRange(view) : home,
       view != null,
+      view == null || points != null,
       extremesKept,
     );
     if (this.loading && this.loaded(ch.key, home)) this.loading = false;
@@ -769,9 +752,7 @@ export class TiledChannelData
     const limit = pointLimit({
       level: l,
       view,
-      width: this.width,
-      groupsPerColumn: this.props.groupsPerColumn,
-      aggregation,
+      points: this.points,
     });
     return indexes(tiled, l).map((index) => {
       const spec: framer.TileSpec = {
@@ -810,25 +791,10 @@ export class TiledChannelData
     return other;
   }
 
-  // A zoom that changes the view's level waits for the level to hold, so a fast zoom
-  // does not read the levels it passes through. A pan within a level reads at once.
-  private settled(l: number): boolean {
-    if (l === this.viewLevel) return this.settleTimer == null;
-    this.viewLevel = l;
-    clearTimeout(this.settleTimer);
-    this.settleTimer = undefined;
-    if (this.levelSettle.isZero) return true;
-    this.settleTimer = setTimeout(() => {
-      this.settleTimer = undefined;
-      this.notify();
-    }, this.levelSettle.milliseconds);
-    return false;
-  }
-
   // advance moves the boundary to rawFrom once the tiles that replace the raw series
   // before rawFrom in the drawn view arrive. It returns the keys of those tiles while
   // any is missing.
-  private advance(key: channel.Key): string[] {
+  private advance(key: channel.Key, reads: boolean): string[] {
     const rawFrom = this.rawFrom();
     if (!rawFrom.after(this.boundary)) return [];
     const next = this.targets(key, this.drawn ?? this.home(), false, rawFrom);
@@ -837,7 +803,7 @@ export class TiledChannelData
       this.boundary = rawFrom;
       return [];
     }
-    if (this.settled(next[0].level)) next.forEach((spec) => this.request(spec));
+    if (reads) next.forEach((spec) => this.request(spec));
     return keys;
   }
 
@@ -845,14 +811,14 @@ export class TiledChannelData
     key: channel.Key,
     view: TimeRange,
     prune: boolean,
+    reads: boolean,
     extremesKept: boolean,
   ): MultiSeries {
     if (prune) this.drawn = view;
-    const next = this.live ? this.advance(key) : [];
+    const next = this.live ? this.advance(key, reads) : [];
     if (this.live) this.window.prune();
     const targets = this.targets(key, view, extremesKept);
-    if (!prune || (targets.length > 0 && this.settled(targets[0].level)))
-      targets.forEach((spec) => this.request(spec));
+    if (reads) targets.forEach((spec) => this.request(spec));
     const preferred = new Map(
       targets.map((t) => [`${t.level}/${t.index}`, framer.tileRequestKey(t)]),
     );
@@ -1059,9 +1025,6 @@ export class TiledChannelData
   cleanup(): void {
     this.generation++;
     this.retryNotifier.notify();
-    clearTimeout(this.settleTimer);
-    this.settleTimer = undefined;
-    this.viewLevel = undefined;
     this.drawn = undefined;
     this.window.clear();
     this.held.forEach((tile) => tile.series.release());

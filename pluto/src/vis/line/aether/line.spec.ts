@@ -23,7 +23,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
@@ -606,8 +606,75 @@ describe("line", () => {
       const props: LineProps = { ...PROPS, dataToDecimalScale: new scale.XY(x) };
       m.line.render(props);
       m.line.findByXValue(props, 1);
-      const view = { view: { bounds: { lower: 100, upper: 300 }, width: 800 } };
-      values.forEach((value) => expect(value.mock.calls).toEqual([[view], [view]]));
+      const read = { bounds: { lower: 100, upper: 300 } };
+      values.forEach((value) => expect(value.mock.calls).toEqual([[read], [read]]));
+    });
+
+    describe("zoom settle", () => {
+      beforeEach(() => {
+        vi.useFakeTimers();
+      });
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      const showing = (lower: number, upper: number): LineProps => ({
+        ...PROPS,
+        dataToDecimalScale: new scale.XY(
+          scale.Scale.scale<number>(lower, upper).scale(0, 1),
+        ),
+      });
+
+      const mountSpied = (state: Partial<State> = {}) => {
+        const m = mount([X1], [Y1], state);
+        const value = vi.spyOn(m.ySource, "value");
+        const lastPoints = (): number | undefined =>
+          value.mock.calls.at(-1)?.[0]?.points;
+        return { ...m, lastPoints };
+      };
+
+      const settled = (state: Partial<State> = {}) => {
+        const m = mountSpied(state);
+        m.line.render(showing(100, 300));
+        vi.advanceTimersByTime(150);
+        m.line.render(showing(100, 300));
+        return m;
+      };
+
+      it("should give its sources points once a zoom holds", () => {
+        const m = mountSpied();
+        m.line.render(showing(100, 300));
+        expect(m.lastPoints()).toBeUndefined();
+        vi.advanceTimersByTime(149);
+        m.line.render(showing(100, 300));
+        expect(m.lastPoints()).toBeUndefined();
+        vi.advanceTimersByTime(1);
+        m.line.render(showing(100, 300));
+        expect(m.lastPoints()).toBe(800);
+      });
+
+      it("should give its sources points for a pan at once", () => {
+        const m = settled();
+        m.line.render(showing(200, 400));
+        expect(m.lastPoints()).toBe(800);
+      });
+
+      it("should wait again for a zoom to hold", () => {
+        const m = settled();
+        m.line.render(showing(100, 150));
+        expect(m.lastPoints()).toBeUndefined();
+        vi.advanceTimersByTime(150);
+        m.line.render(showing(100, 150));
+        expect(m.lastPoints()).toBe(800);
+      });
+
+      it("should size points by its aggregation and groups per column", () => {
+        const m = settled({ aggregation: "average", groupsPerColumn: 1 });
+        expect(m.lastPoints()).toBe(800);
+        const coarse = settled({ groupsPerColumn: 1 / 4 });
+        expect(coarse.lastPoints()).toBe(400);
+      });
     });
 
     it("should read its bounds with the extremes of every sample kept", () => {
@@ -964,7 +1031,7 @@ describe("line", () => {
     };
 
     const create = (props: Partial<telem.TiledChannelDataProps>) =>
-      new telem.TiledChannelData(client, props, undefined, undefined, TimeSpan.ZERO);
+      new telem.TiledChannelData(client, props);
 
     const createPair = (dataKey: channel.Key, home: TimeRange) => ({
       x: create({
@@ -1025,18 +1092,18 @@ describe("line", () => {
       await settle(x, y);
       const homePoints = y.value().data[1].length;
       const start = Number(home.start.valueOf());
-      const v: telem.View = {
+      const v: telem.ValueProps = {
         bounds: {
           lower: start,
           upper: start + Number(TimeSpan.milliseconds(500).valueOf()),
         },
-        width: 1000,
+        points: 1000,
       };
-      x.value({ view: v });
-      y.value({ view: v });
+      x.value(v);
+      y.value(v);
       await expect
         .poll(() => {
-          const [xr, yr] = [x.value({ view: v }), y.value({ view: v })];
+          const [xr, yr] = [x.value(v), y.value(v)];
           return (
             xr.status.variant !== "loading" &&
             yr.status.variant !== "loading" &&
@@ -1044,8 +1111,8 @@ describe("line", () => {
           );
         })
         .toBe(true);
-      const xs = x.value({ view: v }).data[1];
-      const ys = y.value({ view: v }).data[1];
+      const xs = x.value(v).data[1];
+      const ys = y.value(v).data[1];
       expect(ys.series.every((s) => s.alignmentMultiple === 1n)).toBe(true);
       expect(ys.length).toBeGreaterThanOrEqual(500);
       expect(ys.length).toBeLessThan(homePoints + 1024);

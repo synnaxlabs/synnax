@@ -137,7 +137,8 @@ describe("telem", () => {
         onChange: () => () => {},
       });
       const props: telem.ValueProps = {
-        view: { bounds: { lower: 1, upper: 2 }, width: 100 },
+        bounds: { lower: 1, upper: 2 },
+        points: 100,
       };
       p.value(props);
       expect(received).toEqual([props]);
