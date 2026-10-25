@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { compare, type destructor, type record } from "@synnaxlabs/x";
-import { useMemo, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 
 export interface UseItemsProps<K extends record.Key, E> {
   keys: K[];
@@ -47,9 +47,6 @@ export const useItems = <K extends record.Key, E>({
   subscribe,
   getItem,
 }: UseItemsProps<K, E>): E[] => {
-  const store = useMemo(
-    () => createStore({ keys, subscribe, getItem }),
-    [keys, subscribe, getItem],
-  );
+  const store = createStore({ keys, subscribe, getItem });
   return useSyncExternalStore(store.subscribe, store.getSnapshot);
 };

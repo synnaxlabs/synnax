@@ -16,7 +16,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type Tree } from "@synnaxlabs/lyra/tree";
 import { id, unique } from "@synnaxlabs/x";
 import pluralize from "pluralize";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import { browseTopics, type KeyedTopic } from "@/feature/mqtt/device/browse";
 import { type Device } from "@/feature/mqtt/device/types";
@@ -154,6 +154,25 @@ export type TopicPicks = Map<string, TopicPick>;
 
 /** The pointers that each topic of the task takes. */
 type Taken = Map<string, Set<string>>;
+
+const takenBy = (
+  entries: (ReadEntry | WriteTarget)[],
+  topics: ListedTopic[],
+  single: boolean,
+): Taken => {
+  const plain = entries.flatMap((e) => (e.type === "plain" ? [e] : []));
+  if (!single)
+    return new Map(
+      plain.map((e) => [e.topic, new Set(e.fields.map((f) => f.pointer))]),
+    );
+  // A target holds a whole topic, so one in the task takes all its values.
+  const held = new Set(plain.map((e) => e.topic));
+  return new Map(
+    topics
+      .filter((t) => held.has(t.topic))
+      .map((t) => [t.topic, new Set(t.leaves.map((l) => l.pointer))]),
+  );
+};
 
 const freeCount = (t: ListedTopic, taken: Taken) =>
   t.leaves.filter((l) => taken.get(t.topic)?.has(l.pointer) !== true).length;
@@ -304,32 +323,16 @@ export const TopicPicker = ({
   const listing = result.data;
   const topics = listing?.topics ?? NO_TOPICS;
 
-  const taken = useMemo<Taken>(() => {
-    const plain = entries.flatMap((e) => (e.type === "plain" ? [e] : []));
-    if (!single)
-      return new Map(
-        plain.map((e) => [e.topic, new Set(e.fields.map((f) => f.pointer))]),
-      );
-    // A target holds a whole topic, so one in the task takes all its values.
-    const held = new Set(plain.map((e) => e.topic));
-    return new Map(
-      topics
-        .filter((t) => held.has(t.topic))
-        .map((t) => [t.topic, new Set(t.leaves.map((l) => l.pointer))]),
-    );
-  }, [entries, single, topics]);
-
+  const taken = takenBy(entries, topics, single);
   const trimmed = search.trim();
   const q = trimmed.toLowerCase();
-  const visible = useMemo(
-    () => (q === "" ? topics : topics.filter((t) => t.topic.toLowerCase().includes(q))),
-    [topics, q],
-  );
-  const folders = useMemo(() => buildFolders(visible), [visible]);
-  const paths = useMemo(() => byPath(folders), [folders]);
-  const nodes = useMemo(() => toNodes(folders), [folders]);
-  const items = useMemo(() => toItems(folders, value, taken), [folders, value, taken]);
-  const initialExpanded = useMemo(() => branchPaths(topics), [topics]);
+  const visible =
+    q === "" ? topics : topics.filter((t) => t.topic.toLowerCase().includes(q));
+  const folders = buildFolders(visible);
+  const paths = byPath(folders);
+  const nodes = toNodes(folders);
+  const items = toItems(folders, value, taken);
+  const initialExpanded = branchPaths(topics);
   const active = selected ?? topics[0]?.topic ?? null;
   const activeTopic = topics.find((t) => t.topic === active) ?? null;
 

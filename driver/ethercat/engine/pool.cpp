@@ -24,20 +24,21 @@ std::vector<master::Info> Pool::enumerate() const {
     return this->manager->enumerate();
 }
 
+x::errors::Error Pool::check_available() const {
+    if (this->manager != nullptr) return x::errors::NIL;
+    return x::errors::Error(
+        x::lib::LOAD_ERROR,
+        "EtherCAT is unavailable because a required packet capture library is not "
+        "installed. Check the Driver logs for details."
+    );
+}
+
 std::pair<std::shared_ptr<Engine>, x::errors::Error>
 Pool::acquire(const std::string &key) {
     std::lock_guard lock(this->mu);
     const auto it = this->engines.find(key);
     if (it != this->engines.end()) return {it->second, x::errors::NIL};
-    if (this->manager == nullptr)
-        return {
-            nullptr,
-            x::errors::Error(
-                x::lib::LOAD_ERROR,
-                "EtherCAT is unavailable because a required packet capture "
-                "library is not installed. Check driver logs for details."
-            )
-        };
+    if (auto err = this->check_available()) return {nullptr, err};
     auto [m, err] = this->manager->create(key);
     if (err) return {nullptr, err};
     engine::Config cfg;
@@ -57,6 +58,17 @@ bool Pool::is_active(const std::string &key) const {
     std::lock_guard lock(this->mu);
     const auto it = this->engines.find(key);
     return it != this->engines.end() && it->second->running();
+}
+
+std::vector<slave::Health> Pool::health(const std::string &key) const {
+    std::shared_ptr<Engine> engine;
+    {
+        std::lock_guard lock(this->mu);
+        const auto it = this->engines.find(key);
+        if (it == this->engines.end()) return {};
+        engine = it->second;
+    }
+    return engine->health();
 }
 
 std::vector<slave::DiscoveryResult> Pool::get_slaves(const std::string &key) const {

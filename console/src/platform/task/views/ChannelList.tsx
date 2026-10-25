@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header as PHeader } from "@synnaxlabs/lyra/header";
-import { type ReactElement, type ReactNode, useEffect, useMemo } from "react";
+import { type ReactElement, type ReactNode, useEffect } from "react";
 
 import { Button } from "@/platform/button";
 import { Empty } from "@/platform/empty";
@@ -107,24 +107,24 @@ export const ChannelList = <C extends Channel>({
 
   const { data, push, remove } = Form.useFieldList<C["key"], C>(path);
   const { onSelect } = rest;
-  const handleAdd = useMemo(() => {
-    if (createChannel == null) return undefined;
-    return () => {
-      const channel = createChannel(ctx.get<C[]>(path).value);
-      if (channel == null) return;
-      push(channel);
-      onSelect([channel.key]);
-    };
-  }, [ctx, path, push, createChannel, onSelect]);
-  const handleDuplicate = useMemo(() => {
-    if (createChannels == null) return undefined;
-    return (chs: C[], keys: string[]) => {
-      const duplicated = createChannels(chs, keys);
-      if (duplicated.length === 0) return;
-      push(duplicated);
-      onSelect(duplicated.map(({ key }) => key));
-    };
-  }, [createChannels, onSelect, push]);
+  const handleAdd =
+    createChannel == null
+      ? undefined
+      : () => {
+          const channel = createChannel(ctx.get<C[]>(path).value);
+          if (channel == null) return;
+          push(channel);
+          onSelect([channel.key]);
+        };
+  const handleDuplicate =
+    createChannels == null
+      ? undefined
+      : (chs: C[], keys: string[]) => {
+          const duplicated = createChannels(chs, keys);
+          if (duplicated.length === 0) return;
+          push(duplicated);
+          onSelect(duplicated.map(({ key }) => key));
+        };
   return (
     <Base
       {...rest}

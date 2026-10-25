@@ -17,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { DataType, deep, id } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
@@ -82,24 +82,18 @@ const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
 const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) => {
   const { set } = PForm.useContext();
-  const handleChange = useCallback(
-    (method: ReadMethod) => {
-      set(path, method);
-      // GET carries no request body. Clearing it here keeps a body typed under POST
-      // from staying in the saved config, where it would set a content type on a
-      // request that sends nothing.
-      if (method !== "POST") set(`${epPath}.body`, "");
-    },
-    [set, path, epPath],
-  );
-  const renderMethod = useCallback(
-    (p: Select.ButtonsProps<ReadMethod>) => (
-      <Select.Buttons<ReadMethod> {...p} onChange={handleChange}>
-        <Select.Item<ReadMethod> itemKey="GET">GET</Select.Item>
-        <Select.Item<ReadMethod> itemKey="POST">POST</Select.Item>
-      </Select.Buttons>
-    ),
-    [handleChange],
+  const handleChange = (method: ReadMethod) => {
+    set(path, method);
+    // GET carries no request body. Clearing it here keeps a body typed under POST
+    // from staying in the saved config, where it would set a content type on a
+    // request that sends nothing.
+    if (method !== "POST") set(`${epPath}.body`, "");
+  };
+  const renderMethod = (p: Select.ButtonsProps<ReadMethod>) => (
+    <Select.Buttons<ReadMethod> {...p} onChange={handleChange}>
+      <Select.Item<ReadMethod> itemKey="GET">GET</Select.Item>
+      <Select.Item<ReadMethod> itemKey="POST">POST</Select.Item>
+    </Select.Buttons>
   );
   return (
     <PForm.Field<ReadMethod> path={path} label="Method">
@@ -116,26 +110,23 @@ const TimestampFields: FC<{ path: string }> = ({ path }) => {
   const indexField = fields.find(isTimingField);
   const isValueTiming = indexField != null;
 
-  const handleChange = useCallback(
-    (mode: TimingMode) => {
-      if (mode === "value" && !isValueTiming) {
-        const indexF: ReadField = {
-          ...http.readFieldZ.parse({}),
-          key: id.create(),
-          timeFormat: "unix_sec",
-        };
-        set(`${path}.fields`, [...fields, indexF]);
-        set(`${path}.index`, indexF.key);
-      } else if (mode === "software" && isValueTiming) {
-        set(
-          `${path}.fields`,
-          fields.filter((f) => !isTimingField(f)),
-        );
-        set(`${path}.index`, "");
-      }
-    },
-    [fields, isValueTiming, path, set],
-  );
+  const handleChange = (mode: TimingMode) => {
+    if (mode === "value" && !isValueTiming) {
+      const indexF: ReadField = {
+        ...http.readFieldZ.parse({}),
+        key: id.create(),
+        timeFormat: "unix_sec",
+      };
+      set(`${path}.fields`, [...fields, indexF]);
+      set(`${path}.index`, indexF.key);
+    } else if (mode === "software" && isValueTiming) {
+      set(
+        `${path}.fields`,
+        fields.filter((f) => !isTimingField(f)),
+      );
+      set(`${path}.index`, "");
+    }
+  };
 
   return (
     <>

@@ -17,7 +17,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { id, json } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -75,13 +75,10 @@ const PointerField = ({ path }: Pick<ItemProps, "path">) => (
 const StaticItem = ({ path, ...props }: ItemProps) => {
   const jsonType = Form.useFieldValue<JSONType>(`${path}.jsonType`);
   const { set } = Form.useContext();
-  const handleJSONTypeChange = useCallback(
-    (value: JSONType) => {
-      set(`${path}.jsonType`, value);
-      set(`${path}.value`, json.ZERO_PRIMITIVES[value]);
-    },
-    [set, path],
-  );
+  const handleJSONTypeChange = (value: JSONType) => {
+    set(`${path}.jsonType`, value);
+    set(`${path}.value`, json.ZERO_PRIMITIVES[value]);
+  };
   return (
     <Select.Item {...props} justify="between" align="center" x>
       <PointerField path={path} />
@@ -134,18 +131,15 @@ const GeneratedItem = ({ path, ...props }: ItemProps) => {
   const generator = Form.useFieldValue<GeneratorType>(`${path}.generator`);
   const timeFormat = Form.useFieldValue<TimeFormat | undefined>(`${path}.timeFormat`);
   const { set } = Form.useContext();
-  const handleChange = useCallback(
-    (key: GeneratorKey) => {
-      if (key === "uuid") {
-        set(`${path}.generator`, "uuid");
-        set(`${path}.timeFormat`, undefined);
-      } else {
-        set(`${path}.generator`, "timestamp");
-        set(`${path}.timeFormat`, key);
-      }
-    },
-    [set, path],
-  );
+  const handleChange = (key: GeneratorKey) => {
+    if (key === "uuid") {
+      set(`${path}.generator`, "uuid");
+      set(`${path}.timeFormat`, undefined);
+    } else {
+      set(`${path}.generator`, "timestamp");
+      set(`${path}.timeFormat`, key);
+    }
+  };
   return (
     <Select.Item {...props} justify="between" align="center" x>
       <PointerField path={path} />
@@ -186,47 +180,30 @@ export const AdditionalFields = ({ path }: AdditionalFieldsProps): ReactElement 
   const { data, push, remove } = Form.useFieldList<string, Field>(path);
   const [selected, setSelected] = useState<string[]>([]);
   const isPreview = useIsPreview();
-  const add = useCallback(
-    (field: Field) => {
-      push(field);
-      setSelected([field.key]);
-    },
-    [push],
-  );
-  const handleAddStatic = useCallback(
-    () =>
-      add({
-        key: id.create(),
-        pointer: "",
-        type: "static",
-        jsonType: "string",
-        value: "",
-      }),
-    [add],
-  );
-  const handleAddGenerated = useCallback(
-    () => add({ key: id.create(), pointer: "", type: "generated", generator: "uuid" }),
-    [add],
-  );
-  const handleRemove = useCallback(
-    (keys: string[]) => {
-      remove(keys);
-      setSelected([]);
-    },
-    [remove],
-  );
-  const listItem = useCallback(
-    ({ key, ...p }: List.ItemProps<string>) => (
-      <Item key={key} {...p} path={`${path}.${p.itemKey}`} />
-    ),
-    [path],
+  const add = (field: Field) => {
+    push(field);
+    setSelected([field.key]);
+  };
+  const handleAddStatic = () =>
+    add({
+      key: id.create(),
+      pointer: "",
+      type: "static",
+      jsonType: "string",
+      value: "",
+    });
+  const handleAddGenerated = () =>
+    add({ key: id.create(), pointer: "", type: "generated", generator: "uuid" });
+  const handleRemove = (keys: string[]) => {
+    remove(keys);
+    setSelected([]);
+  };
+  const listItem = ({ key, ...p }: List.ItemProps<string>) => (
+    <Item key={key} {...p} path={`${path}.${p.itemKey}`} />
   );
   const menuProps = Menu.useContextMenu();
-  const menu = useCallback(
-    ({ keys }: Menu.ContextMenuMenuProps) => (
-      <ContextMenu keys={keys} onRemove={handleRemove} />
-    ),
-    [handleRemove],
+  const menu = ({ keys }: Menu.ContextMenuMenuProps) => (
+    <ContextMenu keys={keys} onRemove={handleRemove} />
   );
   const actions = !isPreview && (
     <>

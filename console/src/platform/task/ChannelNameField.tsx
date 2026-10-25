@@ -11,7 +11,7 @@ import { channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Access, Channel } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { useIsPreview } from "@/platform/task/Form";
 
@@ -49,12 +49,9 @@ const Existing = ({ channel: key }: { channel: channel.Key }) => {
   const { update } = Channel.useRename();
   const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
   const isPreview = useIsPreview();
-  const handleChange = useCallback(
-    (next: string) => {
-      if (next.length > 0 && next !== name) update({ key, name: next });
-    },
-    [key, name, update],
-  );
+  const handleChange = (next: string) => {
+    if (next.length > 0 && next !== name) update({ key, name: next });
+  };
   return (
     <Input.Item label="Channel" padHelpText={false}>
       <Input.Text

@@ -47,6 +47,8 @@ class Master final : public master::Master {
     bool activated;
     /// @brief expected working counter value for cyclic exchange.
     int expected_wkc;
+    /// @brief whether the enabled slaves' frames carry the reference clock time.
+    bool has_dc = false;
 
 public:
     /// @brief constructs a SOEM master with injected API and interface name.
@@ -59,7 +61,7 @@ public:
 
     x::errors::Error initialize() override;
 
-    x::errors::Error register_pdos(const std::vector<pdo::Entry> &entries) override;
+    std::pair<size_t, x::errors::Error> count_slaves() override;
 
     void set_slave_enabled(uint16_t position, bool enabled) override;
 
@@ -75,13 +77,13 @@ public:
 
     std::span<uint8_t> output_data() override;
 
-    pdo::Offset pdo_offset(const pdo::Entry &entry) const override;
+    std::optional<pdo::Offset> pdo_offset(const pdo::Entry &entry) const override;
 
     std::vector<slave::DiscoveryResult> slaves() const override;
 
-    slave::State slave_state(uint16_t position) const override;
+    std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
-    bool all_slaves_operational() const override;
+    std::optional<x::telem::TimeStamp> dc_time() const override;
 
     std::string interface_name() const override;
 
@@ -132,6 +134,11 @@ private:
     /// @brief transitions all enabled slaves to OP while exchanging process data, so
     /// slaves with a sync manager watchdog see valid outputs.
     x::errors::Error request_operational();
+
+    /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
+    /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
+    /// slave that lost power.
+    void recover(uint16_t pos);
 
     /// @brief builds the error for enabled slaves that did not reach a state.
     x::errors::Error state_error(const std::vector<uint16_t> &failed, uint16_t state);

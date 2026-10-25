@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { BindChannels } from "@/platform/task/BindChannels";
 import { type ReadChannelField, type ReadChannelProps } from "@/platform/task/channels";
@@ -33,17 +33,14 @@ export const BindReadChannels = ({
 }: BindReadChannelsProps): ReactElement => {
   const propertiesKey = Form.useFieldValue<string>(`${path}.${propertiesKeyField}`);
   const indexKey = Form.useFieldValue<string>(`${path}.index`);
-  const resolve = useCallback(
-    (field: ReadChannelField) => {
-      if (read == null) return null;
-      const props = read[propertiesKey];
-      if (props == null) return { channel: 0 };
-      return {
-        channel:
-          field.key === indexKey ? props.index : (props.channels[field.pointer] ?? 0),
-      };
-    },
-    [read, propertiesKey, indexKey],
-  );
+  const resolve = (field: ReadChannelField) => {
+    if (read == null) return null;
+    const props = read[propertiesKey];
+    if (props == null) return { channel: 0 };
+    return {
+      channel:
+        field.key === indexKey ? props.index : (props.channels[field.pointer] ?? 0),
+    };
+  };
   return <BindChannels<ReadChannelField> path={`${path}.fields`} resolve={resolve} />;
 };

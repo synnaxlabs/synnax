@@ -9,7 +9,7 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { border, box, type dimensions, xy } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Border } from "@/schematic/node/common/border";
 import { Grid } from "@/schematic/node/common/grid";
@@ -59,10 +59,7 @@ const Fill = ({ nodeKey, position, config }: FillProps): null => {
     scaleVisible,
     dimensions: dims = Border.DEFAULT_DIMENSIONS,
   } = config;
-  const telem = useMemo(
-    () => Scale.source({ channel, rollingAverage }),
-    [channel, rollingAverage],
-  );
+  const telem = Scale.source({ channel, rollingAverage });
   VisScale.use({
     ...Scale.visProps({
       ...config,

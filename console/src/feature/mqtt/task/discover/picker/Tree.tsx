@@ -18,7 +18,7 @@ import { Skeleton } from "@synnaxlabs/lyra/skeleton";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useLayoutEffect } from "react";
+import { type ReactElement, useLayoutEffect } from "react";
 
 import { CheckSkeleton } from "@/feature/mqtt/task/discover/picker/Picker";
 import { CSS } from "@/platform/css";
@@ -132,7 +132,7 @@ export const Tree = ({
   };
   // Stable, so a new onPick re-renders no item.
   const pickRef = useSyncedRef(onPick);
-  const pick = useCallback((key: string) => pickRef.current(key), [pickRef]);
+  const pick = (key: string) => pickRef.current(key);
   return (
     <PickContext value={pick}>
       <Base.Tree<string, TreeItem>

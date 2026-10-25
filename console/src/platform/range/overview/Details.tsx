@@ -19,7 +19,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback, useState } from "react";
+import { type FC, type ReactElement, useState } from "react";
 
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -92,22 +92,16 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     ctx: form,
   });
 
-  const getPythonCode = useCallback(
-    () =>
-      `
+  const getPythonCode = () =>
+    `
       # Retrieve ${name}
       rng = client.ranges.retrieve(key="${rangeKey}")
-    `,
-    [name, rangeKey],
-  );
-  const getTypeScriptCode = useCallback(
-    () =>
-      `
+    `;
+  const getTypeScriptCode = () =>
+    `
       // Retrieve ${name}
       const rng = await client.ranges.retrieve("${rangeKey}")
-    `,
-    [name, rangeKey],
-  );
+    `;
 
   const openDownloadCSVModal = Framer.useDownloadCSVModal();
 

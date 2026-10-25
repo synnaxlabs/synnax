@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { useCallback } from "react";
 
 import { MAKE } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
@@ -18,10 +17,10 @@ import { Empty } from "@/platform/empty";
 const EmptyContent = () => {
   const connect = useConnectModal();
   const { close } = Dialog.useContext();
-  const handleClick = useCallback(() => {
+  const handleClick = () => {
     connect();
     close();
-  }, [connect, close]);
+  };
   return (
     <Empty.Action
       message="No MQTT brokers connected"

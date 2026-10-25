@@ -13,7 +13,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Channel } from "@synnaxlabs/pluto";
 import { DataType } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useCallback, useMemo } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { DataTypeField } from "@/platform/task/payload/DataTypeField";
 import { EnumMappingSection } from "@/platform/task/payload/EnumMappingSection";
@@ -49,20 +49,14 @@ export const ChannelSections = ({
 }: ChannelSectionsProps): ReactElement => {
   const key = Form.useFieldValue<channel.Key>(`${path}.channel`);
   const jsonType = Form.useFieldValue<JSONType>(`${path}.jsonType`);
-  const query = useMemo(() => (key === 0 ? null : { key }), [key]);
+  const query = key === 0 ? null : { key };
   const { data: dataType } = Channel.useResultDataType(query);
   const { set } = Form.useContext();
   // The Driver rejects enum values on any JSON type but string.
-  const handleJSONTypeChange = useCallback(
-    (value: JSONType) => {
-      if (value !== "string") set(`${path}.enumValues`, []);
-    },
-    [set, path],
-  );
-  const pointerInputProps = useMemo(
-    () => ({ placeholder: pointerPlaceholder }),
-    [pointerPlaceholder],
-  );
+  const handleJSONTypeChange = (value: JSONType) => {
+    if (value !== "string") set(`${path}.enumValues`, []);
+  };
+  const pointerInputProps = { placeholder: pointerPlaceholder };
   return (
     <>
       <Form.Section title="Channel">

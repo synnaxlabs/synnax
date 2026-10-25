@@ -179,6 +179,38 @@ struct Status {
     std::string pdo_discovery_error;
 };
 
+/// @brief the condition of a slave on a running bus.
+struct Health {
+    /// @brief position of the slave on the bus.
+    uint16_t position = 0;
+    /// @brief application layer state the slave reports.
+    State state = State::UNKNOWN;
+    /// @brief true when the slave set the error flag of its AL status.
+    bool faulted = false;
+    /// @brief true when the slave stopped responding.
+    bool lost = false;
+    /// @brief description of the slave's AL status code, empty when it reports none or
+    /// the master cannot read it.
+    std::string al_status;
+
+    bool operator==(const Health &) const = default;
+
+    /// @brief returns true when the slave is in OP with no fault.
+    [[nodiscard]] bool operational() const {
+        return this->state == State::OP && !this->faulted && !this->lost;
+    }
+
+    /// @brief returns a short description such as "SAFE-OP + ERROR: Sync manager
+    /// watchdog".
+    [[nodiscard]] std::string to_string() const {
+        if (this->lost) return "not responding";
+        std::string desc = slave_state_to_string(this->state);
+        if (this->faulted) desc += " + ERROR";
+        if (!this->al_status.empty()) desc += ": " + this->al_status;
+        return desc;
+    }
+};
+
 /// @brief combined result from slave discovery containing both static properties
 /// and dynamic status.
 struct DiscoveryResult {

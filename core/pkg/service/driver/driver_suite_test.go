@@ -29,7 +29,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -64,24 +63,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node = mock.NewNode(ctx)
 	db = node.DB
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Search:   searchIdx,
 	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		Ontology: otg,
 		DB:       node.DB,
 		Group:    groupSvc,
 		Label:    labelSvc,
-		Search:   searchIdx,
 	}))
 	rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           node.DB,
@@ -89,7 +84,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:        groupSvc,
 		HostProvider: hostProvider,
 		Status:       statusSvc,
-		Search:       searchIdx,
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:       node.DB,
@@ -97,7 +91,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    groupSvc,
 		Status:   statusSvc,
 		Rack:     rackService,
-		Search:   searchIdx,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
@@ -105,7 +98,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
-		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
@@ -128,7 +120,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Rack:     rackService,
 		Status:   statusSvc,
 		Channel:  channelSvc,
-		Search:   searchIdx,
 		ImEx:     imex.NewService(),
 		Configs:  configs,
 	}))

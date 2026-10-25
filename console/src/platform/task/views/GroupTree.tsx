@@ -19,14 +19,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { id, type record } from "@synnaxlabs/x";
-import {
-  type MouseEvent,
-  type ReactNode,
-  useCallback,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { type MouseEvent, type ReactNode, useState, useSyncExternalStore } from "react";
 
 import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
@@ -120,39 +113,32 @@ type Structure = [string, string[] | null][];
  */
 const useIndex = <F extends GroupField>(path: string): Index => {
   const { bind, get } = Form.useContext();
-  const getStructure = useCallback(
-    () =>
-      JSON.stringify(
-        get<(Group<F> | Leaf)[]>(path).value.map((g): Structure[number] => [
-          g.key,
-          isBranch<F>(g)
-            ? g.fields.filter((f) => isShown(g, f)).map((f) => f.key)
-            : null,
-        ]),
-      ),
-    [get, path],
-  );
-  const structure = useSyncExternalStore(bind, getStructure, getStructure);
-  return useMemo(() => {
-    const entries = new Map<string, Entry>();
-    const nodes = (JSON.parse(structure) as Structure).map(
-      ([groupKey, fieldKeys]): Tree.Node => {
-        entries.set(groupKey, { kind: "group", groupKey, leaf: fieldKeys == null });
-        if (fieldKeys == null) return { key: groupKey };
-        const children = fieldKeys.map((fieldKey) => {
-          entries.set(fieldKey, {
-            kind: "field",
-            groupKey,
-            fieldKey,
-            path: `${path}.${groupKey}.fields.${fieldKey}`,
-          });
-          return { key: fieldKey };
-        });
-        return { key: groupKey, children };
-      },
+  const getStructure = () =>
+    JSON.stringify(
+      get<(Group<F> | Leaf)[]>(path).value.map((g): Structure[number] => [
+        g.key,
+        isBranch<F>(g) ? g.fields.filter((f) => isShown(g, f)).map((f) => f.key) : null,
+      ]),
     );
-    return { nodes, entries };
-  }, [path, structure]);
+  const structure = useSyncExternalStore(bind, getStructure, getStructure);
+  const entries = new Map<string, Entry>();
+  const nodes = (JSON.parse(structure) as Structure).map(
+    ([groupKey, fieldKeys]): Tree.Node => {
+      entries.set(groupKey, { kind: "group", groupKey, leaf: fieldKeys == null });
+      if (fieldKeys == null) return { key: groupKey };
+      const children = fieldKeys.map((fieldKey) => {
+        entries.set(fieldKey, {
+          kind: "field",
+          groupKey,
+          fieldKey,
+          path: `${path}.${groupKey}.fields.${fieldKey}`,
+        });
+        return { key: fieldKey };
+      });
+      return { key: groupKey, children };
+    },
+  );
+  return { nodes, entries };
 };
 
 const entryPath = (path: string, entry: Entry): string =>
@@ -169,35 +155,26 @@ interface GroupItemProps extends Tree.ItemRenderProps<string> {
   children?: ReactNode;
 }
 
-const GroupItem = ({
-  path,
-  leaf,
-  label,
-  onAddField,
-  off = false,
-  children,
-  ...props
-}: GroupItemProps) => {
-  const { itemKey } = props;
-  const groupPath = `${path}.${itemKey}`;
+const GroupItem = (props: GroupItemProps) => {
   const isPreview = useIsPreview();
-  const handleAdd = useCallback(
-    (e: MouseEvent) => {
-      e.stopPropagation();
-      onAddField(itemKey);
-    },
-    [onAddField, itemKey],
-  );
+  // After the hook: the compiler assumes the label call can change the rest object, so
+  // a destructure in the parameters stretches its memo block across the hook.
+  const { path, leaf, label, onAddField, off = false, children, ...itemProps } = props;
+  const { itemKey } = itemProps;
+  const handleAdd = (e: MouseEvent) => {
+    e.stopPropagation();
+    onAddField(itemKey);
+  };
   return (
     <Tree.Item
-      {...props}
+      {...itemProps}
       className={CSS.cls(
         CSS.B("group-item"),
         leaf && CSS.M("leaf"),
         off && CSS.M("off"),
       )}
     >
-      {label({ groupKey: itemKey, path: groupPath })}
+      {label({ groupKey: itemKey, path: `${path}.${itemKey}` })}
       {!leaf && !isPreview && (
         <Button.Button
           onClick={handleAdd}
@@ -313,17 +290,14 @@ export const GroupTree = <
   const handleError = Status.useErrorHandler();
   const [initialExpanded] = useState(() => nodes.map(({ key }) => key));
   // A fold that hides the selected field moves the selection up to its group.
-  const handleExpand = useCallback(
-    ({ action, clicked }: Tree.HandleExpandProps<string>) => {
-      if (action !== "contract") return;
-      const hidesSelection = selected.some((k) => {
-        const entry = entries.get(k);
-        return entry?.kind === "field" && entry.groupKey === clicked;
-      });
-      if (hidesSelection) setSelected([clicked]);
-    },
-    [selected, entries],
-  );
+  const handleExpand = ({ action, clicked }: Tree.HandleExpandProps<string>) => {
+    if (action !== "contract") return;
+    const hidesSelection = selected.some((k) => {
+      const entry = entries.get(k);
+      return entry?.kind === "field" && entry.groupKey === clicked;
+    });
+    if (hidesSelection) setSelected([clicked]);
+  };
   const treeProps = Tree.use({
     nodes,
     selected,
@@ -334,17 +308,15 @@ export const GroupTree = <
   });
   const { expand, shape } = treeProps;
 
-  const handleSelect = useCallback<
-    Tree.TreeProps<string, record.Keyed<string>>["onSelect"]
-  >(
-    (keys, { clicked }) => {
-      setSelected(keys);
-      if (clicked == null) return;
-      const entry = entries.get(clicked);
-      if (entry?.kind === "group" && !entry.leaf) expand(clicked);
-    },
-    [entries, expand],
-  );
+  const handleSelect: Tree.TreeProps<string, record.Keyed<string>>["onSelect"] = (
+    keys,
+    { clicked },
+  ) => {
+    setSelected(keys);
+    if (clicked == null) return;
+    const entry = entries.get(clicked);
+    if (entry?.kind === "group" && !entry.leaf) expand(clicked);
+  };
 
   const handleAddGroups = () =>
     handleError(async () => {
@@ -361,147 +333,117 @@ export const GroupTree = <
       for (const g of added) if (isBranch<F>(g)) expand(g.key);
     }, `Failed to ${addLabel.toLowerCase()}`);
 
-  const handleAddField = useCallback(
-    (groupKey: string) => {
-      const g = ctx.get<Group<F>>(`${path}.${groupKey}`).value;
-      const shown = g.fields.filter((f) => isShown(g, f));
-      const last = shown.at(-1);
-      const field =
-        last != null ? copyField(last) : ({ ...createField(), key: id.create() } as F);
-      ctx.set(`${path}.${groupKey}.fields`, [...g.fields, field]);
-      setSelected([field.key]);
-      expand(groupKey);
-    },
-    [ctx, expand, createField, path],
-  );
+  const handleAddField = (groupKey: string) => {
+    const g = ctx.get<Group<F>>(`${path}.${groupKey}`).value;
+    const shown = g.fields.filter((f) => isShown(g, f));
+    const last = shown.at(-1);
+    const field =
+      last != null ? copyField(last) : ({ ...createField(), key: id.create() } as F);
+    ctx.set(`${path}.${groupKey}.fields`, [...g.fields, field]);
+    setSelected([field.key]);
+    expand(groupKey);
+  };
 
-  const handleRemove = useCallback(
-    (keys: string[]) => {
-      const removed = new Set(keys);
-      const groups = ctx.get<G[]>(path).value;
-      ctx.set(
-        path,
-        groups
-          .filter((g) => !removed.has(g.key))
-          .map((g) =>
-            isBranch<F>(g)
-              ? { ...g, fields: g.fields.filter((f) => !removed.has(f.key)) }
-              : g,
-          ),
-      );
-      // Selection moves to the nearest survivor in the visible list, below first.
-      const visible = shape.keys;
-      const first = visible.findIndex((k) => removed.has(k));
-      const after = visible.slice(first).find((k) => !removed.has(k));
-      const before = visible
-        .slice(0, Math.max(first, 0))
-        .reverse()
-        .find((k) => !removed.has(k));
-      const next = after ?? before;
-      setSelected(next == null ? [] : [next]);
-    },
-    [ctx, shape, path],
-  );
+  const handleRemove = (keys: string[]) => {
+    const removed = new Set(keys);
+    const groups = ctx.get<G[]>(path).value;
+    ctx.set(
+      path,
+      groups
+        .filter((g) => !removed.has(g.key))
+        .map((g) =>
+          isBranch<F>(g)
+            ? { ...g, fields: g.fields.filter((f) => !removed.has(f.key)) }
+            : g,
+        ),
+    );
+    // Selection moves to the nearest survivor in the visible list, below first.
+    const visible = shape.keys;
+    const first = visible.findIndex((k) => removed.has(k));
+    const after = visible.slice(first).find((k) => !removed.has(k));
+    const before = visible
+      .slice(0, Math.max(first, 0))
+      .reverse()
+      .find((k) => !removed.has(k));
+    const next = after ?? before;
+    setSelected(next == null ? [] : [next]);
+  };
 
-  const handleDuplicate = useCallback(
-    (keys: string[]) => {
-      const chosen = new Set(keys);
-      const groups = ctx.get<G[]>(path).value;
-      const next: G[] = [];
-      let first: string | null = null;
-      for (const g of groups) {
-        if (!isBranch<F>(g)) next.push(g);
-        else {
-          const fields: F[] = [];
-          for (const f of g.fields) {
-            fields.push(f);
-            if (!chosen.has(f.key)) continue;
-            const copy = copyField(f);
-            if (first == null) first = copy.key;
-            fields.push(copy);
-          }
-          next.push({ ...g, fields });
+  const handleDuplicate = (keys: string[]) => {
+    const chosen = new Set(keys);
+    const groups = ctx.get<G[]>(path).value;
+    const next: G[] = [];
+    let first: string | null = null;
+    for (const g of groups) {
+      if (!isBranch<F>(g)) next.push(g);
+      else {
+        const fields: F[] = [];
+        for (const f of g.fields) {
+          fields.push(f);
+          if (!chosen.has(f.key)) continue;
+          const copy = copyField(f);
+          if (first == null) first = copy.key;
+          fields.push(copy);
         }
-        if (!chosen.has(g.key)) continue;
-        const copy = copyGroup<F, G>(g);
-        if (first == null) first = copy.key;
-        next.push(copy);
-        if (isBranch<F>(copy)) expand(copy.key);
+        next.push({ ...g, fields });
       }
-      ctx.set(path, next);
-      if (first != null) setSelected([first]);
-    },
-    [ctx, expand, path],
-  );
+      if (!chosen.has(g.key)) continue;
+      const copy = copyGroup<F, G>(g);
+      if (first == null) first = copy.key;
+      next.push(copy);
+      if (isBranch<F>(copy)) expand(copy.key);
+    }
+    ctx.set(path, next);
+    if (first != null) setSelected([first]);
+  };
 
   const menuProps = Menu.useContextMenu();
-  const menuRenderProp = useCallback(
-    ({ keys }: Menu.ContextMenuMenuProps) => {
-      const entry = keys.length === 1 ? entries.get(keys[0]) : undefined;
-      const toggles = keys.flatMap((key) => {
-        const e = entries.get(key);
-        if (e == null || (e.kind === "group" && !groupsSwitchable)) return [];
-        const togglePath = `${entryPath(path, e)}.disabled`;
-        return [{ path: togglePath, disabled: ctx.get<boolean>(togglePath).value }];
-      });
-      const setEnabled = (enabled: boolean) =>
-        toggles.forEach((t) => ctx.set(t.path, !enabled));
-      return (
-        <ContextMenu
-          keys={keys}
-          onRemove={handleRemove}
-          onDuplicate={handleDuplicate}
-          onAddField={
-            entry?.kind === "group" && !entry.leaf
-              ? () => handleAddField(entry.groupKey)
-              : undefined
-          }
-          onEnable={
-            toggles.some((t) => t.disabled) ? () => setEnabled(true) : undefined
-          }
-          onDisable={
-            toggles.some((t) => !t.disabled) ? () => setEnabled(false) : undefined
-          }
-        />
-      );
-    },
-    [
-      ctx,
-      entries,
-      path,
-      groupsSwitchable,
-      handleRemove,
-      handleDuplicate,
-      handleAddField,
-    ],
-  );
+  const menuRenderProp = ({ keys }: Menu.ContextMenuMenuProps) => {
+    const entry = keys.length === 1 ? entries.get(keys[0]) : undefined;
+    const toggles = keys.flatMap((key) => {
+      const e = entries.get(key);
+      if (e == null || (e.kind === "group" && !groupsSwitchable)) return [];
+      const togglePath = `${entryPath(path, e)}.disabled`;
+      return [{ path: togglePath, disabled: ctx.get<boolean>(togglePath).value }];
+    });
+    const setEnabled = (enabled: boolean) =>
+      toggles.forEach((t) => ctx.set(t.path, !enabled));
+    return (
+      <ContextMenu
+        keys={keys}
+        onRemove={handleRemove}
+        onDuplicate={handleDuplicate}
+        onAddField={
+          entry?.kind === "group" && !entry.leaf
+            ? () => handleAddField(entry.groupKey)
+            : undefined
+        }
+        onEnable={toggles.some((t) => t.disabled) ? () => setEnabled(true) : undefined}
+        onDisable={
+          toggles.some((t) => !t.disabled) ? () => setEnabled(false) : undefined
+        }
+      />
+    );
+  };
 
-  const renderItem = useCallback(
-    ({ key, ...p }: Tree.ItemRenderProps<string>) => {
-      const entry = entries.get(p.itemKey);
-      if (entry?.kind === "field")
-        return (
-          <FieldItem
-            key={key}
-            {...p}
-            path={entry.path}
-            emptyLabel={emptyPointerLabel}
-          />
-        );
-      const Item = groupsSwitchable ? SwitchableGroupItem : GroupItem;
+  const renderItem = ({ key, ...p }: Tree.ItemRenderProps<string>) => {
+    const entry = entries.get(p.itemKey);
+    if (entry?.kind === "field")
       return (
-        <Item
-          key={key}
-          {...p}
-          path={path}
-          leaf={entry?.leaf ?? false}
-          label={groupLabel}
-          onAddField={handleAddField}
-        />
+        <FieldItem key={key} {...p} path={entry.path} emptyLabel={emptyPointerLabel} />
       );
-    },
-    [entries, handleAddField, groupLabel, emptyPointerLabel, path, groupsSwitchable],
-  );
+    const Item = groupsSwitchable ? SwitchableGroupItem : GroupItem;
+    return (
+      <Item
+        key={key}
+        {...p}
+        path={path}
+        leaf={entry?.leaf ?? false}
+        label={groupLabel}
+        onAddField={handleAddField}
+      />
+    );
+  };
 
   const current = selected.length > 0 ? entries.get(selected[0]) : undefined;
 

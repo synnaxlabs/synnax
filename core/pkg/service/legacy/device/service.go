@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -53,10 +52,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// Search is the search index for fuzzy searching devices.
-	//
-	// [REQUIRED]
-	Search *search.Index
 	// Signals is used to propagate device changes through the Synnax signals' channel
 	// communication mechanism.
 	//
@@ -80,7 +75,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Status = override.Nil(c.Status, other.Status)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -96,7 +90,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("status", c.Status)
 	v.NotNil("group", c.Group)
 	v.NotNil("rack", c.Rack)
-	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
@@ -107,6 +100,7 @@ type Service struct {
 	cfg    ServiceConfig
 	closer xio.MultiCloser
 	table  *gorp.Table[Key, Device]
+	search *gorp.SearchIndex[Key, Device]
 	group  group.Group
 }
 
@@ -118,11 +112,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg}
+	s = &Service{cfg: cfg, search: newSearchIndex()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Device]{
-		DB: cfg.DB,
+		DB:      cfg.DB,
+		Indexes: []gorp.Index[Key, Device]{s.search},
 		Migrations: versions.NewMigrations(
 			versions.MigrationsConfig{Status: cfg.Status},
 		),
@@ -141,7 +136,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
 	if cfg.Signals != nil {
@@ -181,7 +175,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a new Retrieve query to fetch devices from the database.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		search: s.cfg.Search,
+		search: s.search,
 		baseTX: s.cfg.DB,
 		gorp:   s.table.NewRetrieve(),
 	}

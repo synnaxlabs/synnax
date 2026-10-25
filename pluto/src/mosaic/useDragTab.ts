@@ -9,7 +9,7 @@
 
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { type record } from "@synnaxlabs/x";
-import { type DragEvent, useCallback } from "react";
+import { type DragEvent } from "react";
 
 import { createTabDropHaulItem } from "@/mosaic/haul";
 
@@ -31,10 +31,10 @@ export interface UseDragTabReturn {
  */
 export const useDragTab = (): UseDragTabReturn => {
   const { startDrag, onDragEnd } = Haul.useDrag({ type: "Mosaic" });
-  const handleStart = useCallback(
-    (e: DragEvent<HTMLElement>, tabKey: string, data?: record.Unknown) =>
-      startDrag([createTabDropHaulItem(tabKey, e.currentTarget.id, data)]),
-    [startDrag],
-  );
+  const handleStart = (
+    e: DragEvent<HTMLElement>,
+    tabKey: string,
+    data?: record.Unknown,
+  ) => startDrag([createTabDropHaulItem(tabKey, e.currentTarget.id, data)]);
   return { startDrag: handleStart, onDragEnd };
 };

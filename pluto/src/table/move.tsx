@@ -17,8 +17,6 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactElement,
   type RefObject,
-  useCallback,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -129,72 +127,56 @@ export const useMove = ({
   const grabRef = useRef(0);
   const movedRef = useRef(false);
   const startDrag = Cursor.useDrag({
-    onStart: useCallback(
-      (start: xy.XY) => {
-        const items = itemsRef.current;
-        const { key, keys } = pressedRef.current;
-        const pressed = items.findIndex((item) => item.key === key);
-        if (ref.current == null || pressed === -1) return;
-        movedRef.current = true;
-        const sizes = items.map((item) => item.size);
-        const indices = indicesOf(items, keys);
-        const before = indices.filter((i) => i < pressed);
-        const edge =
-          offsetOf(sizes, pressed) - before.reduce((a, i) => a + sizes[i], 0);
-        grabRef.current = start[dir] - originOf(ref.current, dir) - edge;
-        heldRef.current = { keys, to: landing(sizes, indices, edge) };
-        setHeld(heldRef.current);
-        Cursor.setGlobalStyle("grabbing");
-      },
-      [dir, itemsRef, ref],
-    ),
-    onMove: useCallback(
-      (_: box.Box, __: Triggers.Key, e: PointerEvent) => {
-        const current = heldRef.current;
-        if (ref.current == null || current == null) return;
-        const items = itemsRef.current;
-        const move = resolve(items, current);
-        if (move == null) return;
-        const pos = xy.construct(e)[dir] - originOf(ref.current, dir) - grabRef.current;
-        const sizes = items.map((item) => item.size);
-        const to = landing(sizes, move.indices, pos);
-        if (to === current.to) return;
-        heldRef.current = { keys: current.keys, to };
-        setHeld(heldRef.current);
-      },
-      [dir, itemsRef, ref],
-    ),
-    onEnd: useCallback(
-      (_: box.Box, __: Triggers.Key, e: PointerEvent) => {
-        const current = heldRef.current;
-        heldRef.current = null;
-        Cursor.clearGlobalStyle();
-        setHeld(null);
-        if (current == null || e.type === "pointercancel") return;
-        const move = resolve(itemsRef.current, current);
-        if (move != null) onMoveRef.current(move);
-      },
-      [itemsRef, onMoveRef],
-    ),
-  });
-  const press = useCallback(
-    (key: string, e: ReactPointerEvent) => {
-      movedRef.current = false;
-      const selected = selectedRef.current;
-      pressedRef.current = { key, keys: selected.includes(key) ? selected : [key] };
-      startDrag(e);
+    onStart: (start: xy.XY) => {
+      const items = itemsRef.current;
+      const { key, keys } = pressedRef.current;
+      const pressed = items.findIndex((item) => item.key === key);
+      if (ref.current == null || pressed === -1) return;
+      movedRef.current = true;
+      const sizes = items.map((item) => item.size);
+      const indices = indicesOf(items, keys);
+      const before = indices.filter((i) => i < pressed);
+      const edge = offsetOf(sizes, pressed) - before.reduce((a, i) => a + sizes[i], 0);
+      grabRef.current = start[dir] - originOf(ref.current, dir) - edge;
+      heldRef.current = { keys, to: landing(sizes, indices, edge) };
+      setHeld(heldRef.current);
+      Cursor.setGlobalStyle("grabbing");
     },
-    [selectedRef, startDrag],
-  );
-  const consumeMoved = useCallback(() => {
+    onMove: (_: box.Box, __: Triggers.Key, e: PointerEvent) => {
+      const current = heldRef.current;
+      if (ref.current == null || current == null) return;
+      const items = itemsRef.current;
+      const move = resolve(items, current);
+      if (move == null) return;
+      const pos = xy.construct(e)[dir] - originOf(ref.current, dir) - grabRef.current;
+      const sizes = items.map((item) => item.size);
+      const to = landing(sizes, move.indices, pos);
+      if (to === current.to) return;
+      heldRef.current = { keys: current.keys, to };
+      setHeld(heldRef.current);
+    },
+    onEnd: (_: box.Box, __: Triggers.Key, e: PointerEvent) => {
+      const current = heldRef.current;
+      heldRef.current = null;
+      Cursor.clearGlobalStyle();
+      setHeld(null);
+      if (current == null || e.type === "pointercancel") return;
+      const move = resolve(itemsRef.current, current);
+      if (move != null) onMoveRef.current(move);
+    },
+  });
+  const press = (key: string, e: ReactPointerEvent) => {
+    movedRef.current = false;
+    const selected = selectedRef.current;
+    pressedRef.current = { key, keys: selected.includes(key) ? selected : [key] };
+    startDrag(e);
+  };
+  const consumeMoved = () => {
     const moved = movedRef.current;
     movedRef.current = false;
     return moved;
-  }, []);
-  const move = useMemo(
-    () => (held == null ? null : resolve(items, held)),
-    [held, items],
-  );
+  };
+  const move = held == null ? null : resolve(items, held);
   return { move, press, consumeMoved };
 };
 
@@ -202,7 +184,11 @@ export const useMove = ({
  * Returns how far each row or column slides while a move previews where it lands: the
  * moved ones close up into a block at their landing, and the rest make room.
  */
-export const shifts = (sizes: number[], { indices, to }: Move): number[] => {
+export const shifts = (
+  items: Array<{ size: number }>,
+  { indices, to }: Move,
+): number[] => {
+  const sizes = items.map(({ size }) => size);
   const rest = [...sizes.keys()].filter((i) => !indices.includes(i));
   const order = [...rest.slice(0, to), ...indices, ...rest.slice(to)];
   const result = new Array<number>(sizes.length);

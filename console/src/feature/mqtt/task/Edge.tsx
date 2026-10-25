@@ -20,7 +20,6 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Channel as PChannel, Synnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
@@ -80,17 +79,14 @@ const TagListItem = (props: Task.ChannelListItemProps) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
 
-  const handleChannelChange = useCallback(
-    (key: channel.Key, { get, set }: PForm.ContextValue) => {
-      if (get<string>(`${path}.name`).value !== "") return;
-      handleError(async () => {
-        if (client == null) throw new DisconnectedError();
-        const ch = await client.channels.retrieve(key);
-        set(`${path}.name`, ch.name);
-      }, "Failed to name the tag");
-    },
-    [client, handleError, path],
-  );
+  const handleChannelChange = (key: channel.Key, { get, set }: PForm.ContextValue) => {
+    if (get<string>(`${path}.name`).value !== "") return;
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const ch = await client.channels.retrieve(key);
+      set(`${path}.name`, ch.name);
+    }, "Failed to name the tag");
+  };
 
   return (
     <Select.Item {...props} justify="between" align="center" x>

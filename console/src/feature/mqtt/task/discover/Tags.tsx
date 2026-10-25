@@ -16,7 +16,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { type Tree } from "@synnaxlabs/lyra/tree";
 import { id } from "@synnaxlabs/x";
 import pluralize from "pluralize";
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import { browseSparkplug } from "@/feature/mqtt/device/browse";
 import { type Device } from "@/feature/mqtt/device/types";
@@ -137,31 +137,30 @@ export const TagPicker = ({
   if (listing != null && tags.listing !== listing.key)
     setTags({ listing: listing.key, nodes: new Map() });
 
-  const loadTags = useCallback(
-    async (node: BrowsedSparkplugNode): Promise<BrowsedSparkplugTag[] | null> => {
-      const key = nodeKey(node);
-      const set = (state: NodeTags) =>
-        setTags((prev) => ({ ...prev, nodes: new Map(prev.nodes).set(key, state) }));
-      set({ tags: null, loading: true });
-      try {
-        const answer = await follow((client) => browseSparkplug(client, device, node));
-        if (answer == null) return null;
-        set({ tags: answer.tags, loading: false });
-        return answer.tags;
-      } catch (e) {
-        set({
-          tags: null,
-          loading: false,
-          error: status.fromException(e, {
-            message: "Failed to get tags",
-            name: node.edgeNode,
-          }),
-        });
-        return null;
-      }
-    },
-    [device, follow],
-  );
+  const loadTags = async (
+    node: BrowsedSparkplugNode,
+  ): Promise<BrowsedSparkplugTag[] | null> => {
+    const key = nodeKey(node);
+    const set = (state: NodeTags) =>
+      setTags((prev) => ({ ...prev, nodes: new Map(prev.nodes).set(key, state) }));
+    set({ tags: null, loading: true });
+    try {
+      const answer = await follow((client) => browseSparkplug(client, device, node));
+      if (answer == null) return null;
+      set({ tags: answer.tags, loading: false });
+      return answer.tags;
+    } catch (e) {
+      set({
+        tags: null,
+        loading: false,
+        error: status.fromException(e, {
+          message: "Failed to get tags",
+          name: node.edgeNode,
+        }),
+      });
+      return null;
+    }
+  };
 
   const nodes = listing?.nodes ?? NO_NODES;
   const first = nodes.at(0);
@@ -180,21 +179,14 @@ export const TagPicker = ({
       .filter((t) => t.supported)
       .map((t) => toTag(node, t))
       .filter((t) => !taken.has(tagKey(t)));
-  const byKey = useMemo(() => new Map(nodes.map((n) => [nodeKey(n), n])), [nodes]);
-  const groups = useMemo(() => {
-    const m = new Map<string, BrowsedSparkplugNode[]>();
-    for (const n of nodes) m.set(n.group, [...(m.get(n.group) ?? []), n]);
-    return m;
-  }, [nodes]);
-  const treeNodes = useMemo<Tree.Node[]>(
-    () =>
-      [...groups].map(([group, members]) => ({
-        key: group,
-        children: members.map((n) => ({ key: nodeKey(n) })),
-      })),
-    [groups],
-  );
-  const initialExpanded = useMemo(() => [...groups.keys()], [groups]);
+  const byKey = new Map(nodes.map((n) => [nodeKey(n), n]));
+  const groups = new Map<string, BrowsedSparkplugNode[]>();
+  for (const n of nodes) groups.set(n.group, [...(groups.get(n.group) ?? []), n]);
+  const treeNodes: Tree.Node[] = [...groups].map(([group, members]) => ({
+    key: group,
+    children: members.map((n) => ({ key: nodeKey(n) })),
+  }));
+  const initialExpanded = [...groups.keys()];
   const items: Picker.TreeItem[] = [...groups].flatMap(([group, members]) => [
     {
       key: group,

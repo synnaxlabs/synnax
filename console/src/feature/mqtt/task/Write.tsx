@@ -17,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { deep, id, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback, useState } from "react";
+import { type FC, useState } from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
@@ -252,15 +252,12 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
     setSelected([added[0].key]);
   };
 
-  const resolve = useCallback(
-    (target: WriteTarget): Partial<WriteTarget> => {
-      const { write } = device.properties;
-      if (target.type === "sparkplug")
-        return { channel: write[sparkplugPropertiesKey(target)] ?? 0 };
-      return { channel: { ...target.channel, channel: write[target.topic] ?? 0 } };
-    },
-    [device],
-  );
+  const resolve = (target: WriteTarget): Partial<WriteTarget> => {
+    const { write } = device.properties;
+    if (target.type === "sparkplug")
+      return { channel: write[sparkplugPropertiesKey(target)] ?? 0 };
+    return { channel: { ...target.channel, channel: write[target.topic] ?? 0 } };
+  };
 
   const current = selected.at(0);
   const currentPath = current == null ? null : `${TARGETS_PATH}.${current}`;

@@ -13,6 +13,8 @@
 #include <cstring>
 #include <string>
 
+#include "x/cpp/errors/errors.h"
+
 extern "C" {
 #include "soem/soem.h"
 }
@@ -24,6 +26,12 @@ namespace driver::ethercat::soem {
 class API {
 public:
     virtual ~API() = default;
+
+    /// @brief checks that the process can open a raw EtherCAT socket.
+    /// @param ifname the interface named in the returned error.
+    /// @returns errors::PERMISSION_DENIED when the process lacks permission, or
+    /// errors::INTERFACE_ERROR when the socket fails to open for another reason.
+    virtual x::errors::Error check_socket(const char *ifname) = 0;
 
     /// @brief initializes EtherCAT on the specified network interface.
     virtual int init(const char *ifname) = 0;
@@ -49,6 +57,29 @@ public:
 
     /// @brief polls slave state change with timeout in microseconds.
     virtual uint16_t statecheck(uint16_t slave, uint16_t reqstate, int timeout) = 0;
+
+    /// @brief reads the AL state and status code of every slave into the slave list.
+    virtual int readstate() = 0;
+
+    /// @brief returns the number of slaves that answer a broadcast read, or a value
+    /// below 1 when none answers.
+    virtual int count_bus_slaves() = 0;
+
+    /// @brief takes a slave through INIT and PRE-OP back to SAFE-OP with its stored
+    /// configuration, returning the state it reached.
+    virtual int reconfig_slave(uint16_t slave, int timeout) = 0;
+
+    /// @brief restores the address of a slave that lost power, returning a positive
+    /// value when the same slave answered at its position.
+    virtual int recover_slave(uint16_t slave, int timeout) = 0;
+
+    /// @brief measures propagation delays and sets up the distributed clock of every
+    /// slave that has one, returning true when at least one does.
+    virtual bool configdc() = 0;
+
+    /// @brief returns the reference clock system time from the latest process data
+    /// frame, in nanoseconds since 2000-01-01.
+    [[nodiscard]] virtual int64_t dc_time() const = 0;
 
     /// @brief reads from slave object dictionary via SDO.
     virtual int SDOread(
@@ -129,6 +160,12 @@ public:
     /// @brief returns the AL status code for a slave.
     [[nodiscard]] virtual uint16_t slave_ALstatuscode(uint16_t pos) const = 0;
 
+    /// @brief returns whether a slave is marked as no longer responding.
+    [[nodiscard]] virtual bool slave_lost(uint16_t pos) const = 0;
+
+    /// @brief marks whether a slave no longer responds.
+    virtual void set_slave_lost(uint16_t pos, bool lost) = 0;
+
     /// @brief returns the input bytes for a group.
     [[nodiscard]] virtual uint32_t group_Ibytes(uint8_t grp) const = 0;
 
@@ -140,6 +177,10 @@ public:
 
     /// @brief returns the expected input working counter for a group.
     [[nodiscard]] virtual uint16_t group_inputsWKC(uint8_t grp) const = 0;
+
+    /// @brief returns true when the group's process data frames carry the reference
+    /// clock time.
+    [[nodiscard]] virtual bool group_hasdc(uint8_t grp) const = 0;
 };
 
 /// @brief production implementation of soem::API wrapping ecx_contextt.
@@ -148,6 +189,8 @@ class ProdAPI final : public API {
 
 public:
     ProdAPI() { std::memset(&this->context, 0, sizeof(this->context)); }
+
+    x::errors::Error check_socket(const char *ifname) override;
 
     int init(const char *ifname) override { return ecx_init(&this->context, ifname); }
 
@@ -173,6 +216,32 @@ public:
 
     uint16_t statecheck(uint16_t slave, uint16_t reqstate, int timeout) override {
         return ecx_statecheck(&this->context, slave, reqstate, timeout);
+    }
+
+    int readstate() override { return ecx_readstate(&this->context); }
+
+    int count_bus_slaves() override {
+        uint16_t type = 0;
+        return ecx_BRD(
+            &this->context.port,
+            0x0000,
+            ECT_REG_TYPE,
+            sizeof(type),
+            &type,
+            EC_TIMEOUTSAFE
+        );
+    }
+
+    bool configdc() override { return ecx_configdc(&this->context); }
+
+    [[nodiscard]] int64_t dc_time() const override { return this->context.DCtime; }
+
+    int reconfig_slave(uint16_t slave, int timeout) override {
+        return ecx_reconfig_slave(&this->context, slave, timeout);
+    }
+
+    int recover_slave(uint16_t slave, int timeout) override {
+        return ecx_recover_slave(&this->context, slave, timeout);
     }
 
     int SDOread(
@@ -283,6 +352,14 @@ public:
         return this->context.slavelist[pos].ALstatuscode;
     }
 
+    [[nodiscard]] bool slave_lost(uint16_t pos) const override {
+        return this->context.slavelist[pos].islost;
+    }
+
+    void set_slave_lost(uint16_t pos, bool lost) override {
+        this->context.slavelist[pos].islost = lost;
+    }
+
     [[nodiscard]] uint32_t group_Ibytes(uint8_t grp) const override {
         return this->context.grouplist[grp].Ibytes;
     }
@@ -297,6 +374,10 @@ public:
 
     [[nodiscard]] uint16_t group_inputsWKC(uint8_t grp) const override {
         return this->context.grouplist[grp].inputsWKC;
+    }
+
+    [[nodiscard]] bool group_hasdc(uint8_t grp) const override {
+        return this->context.grouplist[grp].hasdc;
     }
 };
 

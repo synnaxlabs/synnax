@@ -23,7 +23,6 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
 import {
@@ -100,10 +99,10 @@ const Connect = ({
   } = useForm({
     query: deviceKey == null ? null : { key: deviceKey },
     beforeSave,
-    afterSave: useCallback(() => {
+    afterSave: () => {
       if (deviceKey == null) capture("device_connected", { integration: "mqtt" });
       close();
-    }, [capture, close, deviceKey]),
+    },
   });
 
   const secure = Form.useFieldValue<

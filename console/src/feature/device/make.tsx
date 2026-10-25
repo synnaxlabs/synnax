@@ -9,7 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
@@ -66,21 +66,18 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
   const mqtt = MQTT.Device.useConnectModal();
   const ni = NI.Device.useConfigureModal();
   const opcua = OPCUA.Device.useConnectModal();
-  return useCallback(
-    (make, deviceKey) => {
-      const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
-        [EtherCAT.Device.MAKE]: ethercat,
-        [HTTP.Device.MAKE]: http,
-        [LabJack.Device.MAKE]: labjack,
-        [Modbus.Device.MAKE]: modbus,
-        [MQTT.Device.MAKE]: mqtt,
-        [NI.Device.MAKE]: ni,
-        [OPCUA.Device.MAKE]: opcua,
-      };
-      openers[make]({ deviceKey });
-    },
-    [ethercat, http, labjack, modbus, mqtt, ni, opcua],
-  );
+  return (make, deviceKey) => {
+    const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
+      [EtherCAT.Device.MAKE]: ethercat,
+      [HTTP.Device.MAKE]: http,
+      [LabJack.Device.MAKE]: labjack,
+      [Modbus.Device.MAKE]: modbus,
+      [MQTT.Device.MAKE]: mqtt,
+      [NI.Device.MAKE]: ni,
+      [OPCUA.Device.MAKE]: opcua,
+    };
+    openers[make]({ deviceKey });
+  };
 };
 
 const CONTEXT_MENU_ITEMS: Partial<

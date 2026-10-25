@@ -11,7 +11,7 @@ import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { useAsyncEffect, useInitializerRef } from "@synnaxlabs/lyra/hooks";
 import { Flux, Synnax } from "@synnaxlabs/pluto";
 import { type state } from "@synnaxlabs/x";
-import { type DependencyList, useCallback, useState } from "react";
+import { type DependencyList, useState } from "react";
 
 /** Asks the broker for something through the Core. */
 export type Request<R> = (client: Client) => Promise<R>;
@@ -63,16 +63,13 @@ export const useListen = <T extends state.State>(
     },
     [client, round, ...deps],
   );
-  const listen = useCallback(() => setRound((r) => r + 1), []);
-  const follow = useCallback(
-    async <R>(request: Request<R>): Promise<R | null> => {
-      const signal = signalRef.current;
-      if (client == null) throw new DisconnectedError();
-      const answer = request(client);
-      await Promise.allSettled([answer]);
-      return signal.aborted ? null : await answer;
-    },
-    [client, signalRef],
-  );
+  const listen = () => setRound((r) => r + 1);
+  const follow = async <R>(request: Request<R>): Promise<R | null> => {
+    const signal = signalRef.current;
+    if (client == null) throw new DisconnectedError();
+    const answer = request(client);
+    await Promise.allSettled([answer]);
+    return signal.aborted ? null : await answer;
+  };
   return { result, listen, follow };
 };

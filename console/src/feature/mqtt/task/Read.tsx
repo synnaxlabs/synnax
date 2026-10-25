@@ -17,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { DataType, deep, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
@@ -71,27 +71,24 @@ const TimestampFields: FC<{ path: string }> = ({ path }) => {
   const { get, set } = PForm.useContext();
   const isPayloadTiming = index !== "";
 
-  const handleChange = useCallback(
-    (mode: TimingMode) => {
-      const { fields, index } = get<PlainReadEntry>(path).value;
-      if (mode === "payload" && index === "") {
-        const indexField: ReadField = {
-          ...mqtt.readFieldZ.parse({}),
-          dataType: DataType.TIMESTAMP.toString(),
-          timeFormat: "unix_sec",
-        };
-        set(`${path}.fields`, [...fields, indexField]);
-        set(`${path}.index`, indexField.key);
-      } else if (mode === "arrival" && index !== "") {
-        set(
-          `${path}.fields`,
-          fields.filter((f) => f.key !== index),
-        );
-        set(`${path}.index`, "");
-      }
-    },
-    [path, get, set],
-  );
+  const handleChange = (mode: TimingMode) => {
+    const { fields, index } = get<PlainReadEntry>(path).value;
+    if (mode === "payload" && index === "") {
+      const indexField: ReadField = {
+        ...mqtt.readFieldZ.parse({}),
+        dataType: DataType.TIMESTAMP.toString(),
+        timeFormat: "unix_sec",
+      };
+      set(`${path}.fields`, [...fields, indexField]);
+      set(`${path}.index`, indexField.key);
+    } else if (mode === "arrival" && index !== "") {
+      set(
+        `${path}.fields`,
+        fields.filter((f) => f.key !== index),
+      );
+      set(`${path}.index`, "");
+    }
+  };
 
   return (
     <>
@@ -267,14 +264,11 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
     <FieldPane {...props} deviceName={device.name} />
   );
 
-  const resolve = useCallback(
-    (entry: ReadEntry) => {
-      if (entry.type !== "sparkplug") return {};
-      const props = device.properties.read[sparkplugPropertiesKey(entry)];
-      return { channel: props?.channels[""] ?? 0 };
-    },
-    [device],
-  );
+  const resolve = (entry: ReadEntry) => {
+    if (entry.type !== "sparkplug") return {};
+    const props = device.properties.read[sparkplugPropertiesKey(entry)];
+    return { channel: props?.channels[""] ?? 0 };
+  };
 
   return (
     <Flex.Box x grow empty>

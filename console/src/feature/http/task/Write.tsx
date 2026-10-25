@@ -17,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { deep, id, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback, useState } from "react";
+import { type FC, useState } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
@@ -156,13 +156,10 @@ const duplicateEndpoints = (
 const Form: FC = () => {
   const [selected, setSelected] = useState<string[]>([]);
   const dev = useFromConfig();
-  const resolve = useCallback(
-    (ep: WriteEndpoint) =>
-      dev == null
-        ? null
-        : { channel: { ...ep.channel, channel: dev.properties.write[ep.path] ?? 0 } },
-    [dev],
-  );
+  const resolve = (ep: WriteEndpoint) =>
+    dev == null
+      ? null
+      : { channel: { ...ep.channel, channel: dev.properties.write[ep.path] ?? 0 } };
   const current = selected.length > 0 ? selected[0] : null;
   return (
     <Task.Views.Panes
