@@ -126,6 +126,7 @@ sequence main {
         tank_pressure > 500.0 => next
     }
     stage hold {
+        0 -> valve_cmd
         tank_pressure > 600.0 -> stable.for{duration=1s} => abort
         abort_btn == 1 => abort
         time.wait{duration=30s} => complete
