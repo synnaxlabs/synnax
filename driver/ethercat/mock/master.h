@@ -32,6 +32,8 @@ class Master final : public master::Master {
     /// @brief the AL status text of each faulted slave.
     std::unordered_map<uint16_t, std::string> faults;
     std::set<uint16_t> disabled_slaves;
+    std::optional<x::telem::TimeSpan> dc_step;
+    x::telem::TimeStamp dc_now{};
     pdo::Offsets pdo_offset_cache;
     bool initialized{false};
     bool activated{false};
@@ -253,12 +255,26 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("receive");
         if (this->inject_receive_err) return this->inject_receive_err;
+        if (this->dc_step) this->dc_now = this->dc_now + *this->dc_step;
         std::memcpy(
             this->input_iomap.data(),
             this->pending_inputs.data(),
             std::min(this->pending_inputs.size(), this->input_iomap.size())
         );
         return x::errors::NIL;
+    }
+
+    std::optional<x::telem::TimeStamp> dc_time() const override {
+        std::lock_guard lock(this->mu);
+        if (!this->dc_step) return std::nullopt;
+        return this->dc_now;
+    }
+
+    /// @brief gives the bus a distributed clock that advances by step at each
+    /// receive(), or removes it when step is nullopt.
+    void set_dc_step(const std::optional<x::telem::TimeSpan> step) {
+        std::lock_guard lock(this->mu);
+        this->dc_step = step;
     }
 
     x::errors::Error send() override {

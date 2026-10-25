@@ -17,6 +17,7 @@
 
 #include "x/cpp/loop/loop.h"
 
+#include "driver/ethercat/engine/clock.h"
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/telem/telem.h"
@@ -220,6 +221,7 @@ void Engine::run() {
     uint64_t receive_failures = 0;
     uint64_t send_failures = 0;
     x::telem::TimeStamp sent_at{};
+    Clock clock;
 
     const auto send = [&] {
         sent_at = x::telem::TimeStamp::now();
@@ -267,7 +269,7 @@ void Engine::run() {
             VLOG(1) << "[ethercat] cycle overrun: " << elapsed;
 
         // The slaves latched these inputs when the previous cycle's frame passed.
-        const auto latched_at = sent_at;
+        auto latched_at = sent_at;
         const auto err = this->master->receive();
         if (err) {
             if (receive_failures++ == 0) {
@@ -276,10 +278,14 @@ void Engine::run() {
                 std::lock_guard lock(this->cycle_err_mu);
                 this->cycle_err = err;
             }
-        } else if (receive_failures > 0) {
-            LOG(INFO) << "[ethercat] cycles recovered on " << iface << " after "
-                      << receive_failures << " failures";
-            receive_failures = 0;
+        } else {
+            if (const auto dc = this->master->dc_time())
+                latched_at = clock.map(*dc, sent_at);
+            if (receive_failures > 0) {
+                LOG(INFO) << "[ethercat] cycles recovered on " << iface << " after "
+                          << receive_failures << " failures";
+                receive_failures = 0;
+            }
         }
         const uint8_t *image = this->master->input_data().data();
         for (const auto &[input, decimation]: sched->inputs) {
