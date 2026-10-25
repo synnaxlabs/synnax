@@ -31,6 +31,7 @@ class Master final : public master::Master {
     std::unordered_map<uint16_t, slave::State> slave_states;
     /// @brief the AL status text of each faulted slave.
     std::unordered_map<uint16_t, std::string> faults;
+    std::set<uint16_t> lost_slaves;
     std::set<uint16_t> disabled_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
     x::telem::TimeStamp dc_now{};
@@ -162,6 +163,15 @@ public:
         std::lock_guard lock(this->mu);
         this->slave_states[position] = state;
         this->faults[position] = al_status;
+    }
+
+    /// @brief makes check() report a slave as not responding until lost is false.
+    void set_slave_lost(const uint16_t position, const bool lost) {
+        std::lock_guard lock(this->mu);
+        if (lost)
+            this->lost_slaves.insert(position);
+        else
+            this->lost_slaves.erase(position);
     }
 
     /// @brief returns the log of method calls for verification.
@@ -319,8 +329,10 @@ public:
                 .position = pos,
                 .state = this->slave_states[pos],
                 .faulted = fault != this->faults.end(),
+                .lost = this->lost_slaves.contains(pos),
                 .al_status = fault != this->faults.end() ? fault->second : "",
             });
+            if (this->lost_slaves.contains(pos)) continue;
             const auto blocked = this->state_transition_failures.find(pos);
             if (!breaker.running() ||
                 (blocked != this->state_transition_failures.end() &&
