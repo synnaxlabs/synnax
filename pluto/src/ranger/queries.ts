@@ -239,15 +239,14 @@ export const useListMetaData = Flux.createList<
 
 export const kvPairFormSchema = ranger.kv.pairZ;
 
-export type KVFormQuery = ListMetaDataQuery & { key: string };
-
 const ZERO_KV_PAIR_FORM_VALUES: z.infer<typeof kvPairFormSchema> = {
   key: "",
   value: "",
   range: "",
 };
 
-export const useKVPairForm = Flux.createForm<KVFormQuery, typeof kvPairFormSchema>({
+/** A form that sets a new metadata pair on a range when it saves. */
+export const useCreateKVPairForm = Flux.createForm<null, typeof kvPairFormSchema>({
   name: KV_RESOURCE_NAME,
   schema: kvPairFormSchema,
   initialValues: ZERO_KV_PAIR_FORM_VALUES,
@@ -255,13 +254,6 @@ export const useKVPairForm = Flux.createForm<KVFormQuery, typeof kvPairFormSchem
     const { key, value, range } = getPair();
     await client.ranges.getKV(range).set(key, value);
   },
-  mountListeners: ({ client, query: { rangeKey, key }, abandon }) =>
-    client.ranges.kv.onChange(rangeKey, (result) => {
-      // An undefined answer is an invalidation, not a deletion.
-      if (result === undefined) return;
-      if (query.isLive(result) && result.some((pair) => pair.key === key)) return;
-      abandon();
-    }),
 });
 
 export interface DeleteKVParams extends ListMetaDataQuery {

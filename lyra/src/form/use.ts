@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { deep, type destructor, errors } from "@synnaxlabs/x";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { type z } from "zod";
 
 import {
@@ -38,8 +38,6 @@ export interface OnChangeParams<Z extends z.ZodType> {
 
 interface BaseUseParams<Z extends z.ZodType> {
   mode?: Mode;
-  /** Whether to reset the form whenever `values` changes identity. */
-  sync?: boolean;
   onChange?: (props: OnChangeParams<Z>) => void;
   /** Called when the form goes from untouched to touched, and back. */
   onHasTouched?: (value: boolean) => void;
@@ -75,15 +73,7 @@ export interface UseReturn<Z extends z.ZodType> extends ContextValue<Z> {}
  * return <Form.Form {...form}><Form.TextField path="name" /></Form.Form>;
  */
 export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => {
-  const {
-    sync = false,
-    schema,
-    mode = "normal",
-    onChange,
-    onHasTouched,
-    store,
-  } = params;
-  const initialValues = params.values;
+  const { schema, mode = "normal", onChange, onHasTouched, store } = params;
   const ref = useInitializerRef<State<Z>>(
     () =>
       new State<Z>(
@@ -229,12 +219,6 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     ref.current.clearStatus();
     ref.current.notify();
   };
-
-  useEffect(() => {
-    if (!sync) return;
-    ref.current.reset(initialValues);
-    ref.current.notify();
-  }, [ref, sync, initialValues]);
 
   // A store of another identity replaces the one the form reads, as for another record.
   useLayoutEffect(() => {

@@ -14,7 +14,6 @@ import {
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import {
   createElement,
@@ -1273,35 +1272,26 @@ describe("queries", () => {
     });
   });
 
-  describe("useKVPairForm", () => {
-    it("should not write back a pair deleted while an autosave was pending", async () => {
+  describe("useCreateKVPairForm", () => {
+    it("should set the pair on the range when it saves", async () => {
       const rng = await client.ranges.create({
-        name: "kv_delete_race",
+        name: "kv_create",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      await rng.kv.set("test_key", "initial");
-      // The metadata list warms this answer space in production.
-      await client.ranges.kv.retrieve(rng.key);
       const { result } = renderHook(
         () =>
-          Ranger.useKVPairForm({
-            query: { rangeKey: rng.key, key: "test_key" },
-            autoSave: true,
-            // Holds the save open long enough for the delete to overtake it.
-            autoSaveDebounce: TimeSpan.milliseconds(500),
-            initialValues: { key: "test_key", value: "initial", range: rng.key },
+          Ranger.useCreateKVPairForm({
+            query: null,
+            initialValues: { key: "", value: "", range: rng.key },
           }),
         { wrapper },
       );
       act(() => {
-        result.current.form.set("value", "edited");
+        result.current.form.set("key", "operator");
+        result.current.form.set("value", "Ada");
       });
-      await act(async () => {
-        await rng.kv.delete("test_key");
-      });
-      await expectAlways(async () => {
-        expect(await rng.kv.list()).not.toHaveProperty("test_key");
-      }, 800);
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      expect(await rng.kv.get("operator")).toBe("Ada");
     });
   });
 
