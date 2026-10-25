@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <functional>
 #include <mutex>
 #include <span>
 #include <unordered_map>
@@ -34,6 +35,7 @@ class Master final : public master::Master {
     x::errors::Error inject_activate_err;
     x::errors::Error inject_receive_err;
     x::errors::Error inject_send_err;
+    std::function<void()> input_data_hook;
 
     std::unordered_map<uint16_t, slave::State> state_transition_failures;
 
@@ -71,14 +73,26 @@ public:
 
     /// @brief injects an error to be returned by receive().
     void inject_receive_error(const x::errors::Error &err) {
+        std::lock_guard lock(this->mu);
         this->inject_receive_err = err;
     }
 
     /// @brief injects an error to be returned by send().
-    void inject_send_error(const x::errors::Error &err) { this->inject_send_err = err; }
+    void inject_send_error(const x::errors::Error &err) {
+        std::lock_guard lock(this->mu);
+        this->inject_send_err = err;
+    }
+
+    /// @brief sets a function that runs on the caller's thread each time input_data()
+    /// is called.
+    void set_input_data_hook(std::function<void()> hook) {
+        std::lock_guard lock(this->mu);
+        this->input_data_hook = std::move(hook);
+    }
 
     /// @brief clears all injected errors.
     void clear_injected_errors() {
+        std::lock_guard lock(this->mu);
         this->inject_init_err = x::errors::NIL;
         this->inject_activate_err = x::errors::NIL;
         this->inject_receive_err = x::errors::NIL;
@@ -211,6 +225,12 @@ public:
     }
 
     std::span<const uint8_t> input_data() override {
+        std::function<void()> hook;
+        {
+            std::lock_guard lock(this->mu);
+            hook = this->input_data_hook;
+        }
+        if (hook) hook();
         if (!this->activated) return {};
         return {this->input_iomap.data(), this->input_sz};
     }

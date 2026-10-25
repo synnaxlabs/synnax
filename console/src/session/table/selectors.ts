@@ -29,14 +29,14 @@ export interface KeyedSelectorParams extends record.Keyed<table.Key> {
   state: StoreState;
 }
 
-const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
-  Table.Scope.bindHook(({ key }: Omit<KeyedSelectorParams, "state">): R =>
-    Select.useMemo((state: StoreState) => selector({ state, key }), [key]),
-  );
+const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) => {
+  const useSelector = ({ key }: Omit<KeyedSelectorParams, "state">): R =>
+    Select.useMemo((state: StoreState) => selector({ state, key }), [key]);
+  return Table.Scope.bindHook(useSelector);
+};
 
-const createGetter =
-  <R>(selector: (params: KeyedSelectorParams) => R) =>
-  (): ((args?: { key?: table.Key }) => R) => {
+const createGetter = <R>(selector: (params: KeyedSelectorParams) => R) => {
+  const useGetter = (): ((args?: { key?: table.Key }) => R) => {
     const store = useStore<StoreState>();
     const scopeKey = Table.Scope.useOptional();
     return useCallback(
@@ -48,6 +48,8 @@ const createGetter =
       [store, scopeKey],
     );
   };
+  return useGetter;
+};
 
 const selectOptional = ({ state, key }: KeyedSelectorParams): State | undefined =>
   Window.selectDocument(state, selectSliceState(state), key);

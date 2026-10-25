@@ -13,7 +13,12 @@ import { describe, expect, it } from "vitest";
 
 import { Window } from "@/app/window";
 import { Session } from "@/session";
-import { getBySelector, installPortalRoot, renderWithConsole } from "@/testutil";
+import {
+  getBySelector,
+  HaulProvider,
+  installPortalRoot,
+  renderWithConsole,
+} from "@/testutil";
 
 // jsdom has no DragEvent, so the transfer is defined on the event testing-library falls
 // back to. effectAllowed marks an OS file drag rather than an internal haul.
@@ -30,9 +35,9 @@ describe("app/window/Window", () => {
   // only thing standing between a right click there and a dead menu.
   it("offers Reload Console from the window background", async () => {
     const { container } = await renderWithConsole(
-      <Haul.Provider {...Session.Haul.PROVIDER_PROPS}>
+      <HaulProvider>
         <Window.Window />
-      </Haul.Provider>,
+      </HaulProvider>,
     );
     fireEvent.contextMenu(getBySelector<HTMLElement>(container, ".console-main"));
     expect(await screen.findByText("Reload Console")).toBeTruthy();
@@ -42,9 +47,9 @@ describe("app/window/Window", () => {
   // Nothing else starts that drag, so losing this makes every file drop a no-op.
   it("hauls a file when an OS file enters the window", async () => {
     const { store, container } = await renderWithConsole(
-      <Haul.Provider {...Session.Haul.PROVIDER_PROPS}>
+      <HaulProvider>
         <Window.Window />
-      </Haul.Provider>,
+      </HaulProvider>,
     );
     fireFileDragOver(getBySelector<HTMLElement>(container, ".console-main"));
     await waitFor(() =>

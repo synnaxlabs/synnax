@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type location } from "@synnaxlabs/x";
-import { useUpdateNodeInternals } from "@xyflow/react";
+import { useNodeId, useUpdateNodeInternals } from "@xyflow/react";
 import { type PropsWithChildren, type ReactElement, useEffect, useRef } from "react";
 
 export interface BoundaryProps extends PropsWithChildren<{}> {
@@ -17,33 +17,38 @@ export interface BoundaryProps extends PropsWithChildren<{}> {
 }
 
 export const Boundary = ({
-  children,
   orientation,
   refreshDeps,
+  children,
 }: BoundaryProps): ReactElement | null => {
-  let updateInternals: ReturnType<typeof useUpdateNodeInternals> | undefined;
-  try {
-    updateInternals = useUpdateNodeInternals();
-  } catch {
-    return null;
-  }
-  const ref = useRef<HTMLDivElement & HTMLButtonElement>(null);
-  const first = useRef<boolean>(true);
+  // Outside a React Flow node, as in a symbol preview, the handles have no node.
+  const nodeID = useNodeId();
+  if (nodeID == null) return null;
+  return (
+    <Refresh nodeID={nodeID} orientation={orientation} refreshDeps={refreshDeps}>
+      {children}
+    </Refresh>
+  );
+};
+
+interface RefreshProps extends BoundaryProps {
+  nodeID: string;
+}
+
+const Refresh = ({
+  nodeID,
+  orientation,
+  refreshDeps,
+  children,
+}: RefreshProps): ReactElement => {
+  const updateInternals = useUpdateNodeInternals();
+  const first = useRef(true);
   useEffect(() => {
-    if (ref.current == null) return;
     if (first.current) {
       first.current = false;
       return;
     }
-    const node = ref.current.closest(".react-flow__node");
-    const id = node?.getAttribute("data-id");
-    if (id == null) return;
-    updateInternals?.(id);
+    updateInternals(nodeID);
   }, [orientation, refreshDeps]);
-  return (
-    <>
-      <span ref={ref} />
-      {children}
-    </>
-  );
+  return <>{children}</>;
 };

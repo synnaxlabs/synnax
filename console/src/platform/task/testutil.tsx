@@ -34,7 +34,12 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import {
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  useImperativeHandle,
+} from "react";
 import { onTestFinished } from "vitest";
 import { type z } from "zod";
 
@@ -97,11 +102,13 @@ export type FormRef = { current: PForm.ContextValue<z.ZodType> | null };
 export const renderTaskFormHook = async <R,>(
   values: TaskFormValues,
   useValue: (ctx: PForm.ContextValue<z.ZodType>) => R,
-) =>
-  await renderHookWithConsole(() => {
+) => {
+  const useHarness = () => {
     const ctx = PForm.use<z.ZodType>({ values });
     return { ctx, value: useValue(ctx) };
-  });
+  };
+  return await renderHookWithConsole(useHarness);
+};
 
 export interface TaskFormProviderProps extends PropsWithChildren {
   values: TaskFormValues;
@@ -122,7 +129,7 @@ export const TaskFormProvider = ({
   children,
 }: TaskFormProviderProps): ReactElement => {
   const ctx = PForm.use<z.ZodType>({ values, mode });
-  if (formRef != null) formRef.current = ctx;
+  useImperativeHandle(formRef, () => ctx, [ctx]);
   return <PForm.Form {...ctx}>{children}</PForm.Form>;
 };
 TaskFormProvider.displayName = "TaskFormProvider";
@@ -516,6 +523,23 @@ export const deployAndAwaitTask = async <S extends task.Schemas = task.Schemas>(
     streamer.close();
   }
   return await client.tasks.retrieve({ key, schemas });
+};
+
+/**
+ * Writes the status a Driver reports while a task runs the config with the given hash.
+ * A hash other than the task's own marks the task as drifted.
+ */
+export const reportTaskRunning = async (
+  client: Client,
+  tsk: task.Task,
+  configHash: string = tsk.configHash,
+): Promise<void> => {
+  await client.statuses.set(
+    createTaskStatus({
+      key: task.statusKey(tsk.key),
+      details: { task: tsk.key, running: true, configHash, rack: tsk.rack },
+    }),
+  );
 };
 
 /**

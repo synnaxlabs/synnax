@@ -329,6 +329,9 @@ export const Table = ({
         ),
       ),
   });
+  // A method call would make the whole move object, new on each render, a dependency.
+  const consumeRowMoved = rowMove.consumeMoved;
+  const consumeColMoved = colMove.consumeMoved;
 
   const rowShifts = useMemo(
     () => (rowMove.move == null ? undefined : shifts(rowSizes, rowMove.move)),
@@ -401,12 +404,12 @@ export const Table = ({
       lastSelectedRef.current = cellKey;
       onSelectionChange?.([cellKey]);
     },
-    [editable, onSelectionChange],
+    [editable, onSelectionChange, rowsRef, selectedRef],
   );
 
   const handleRowSelect = useCallback(
     (index: number, ev: React.MouseEvent) => {
-      if (!editable || rowMove.consumeMoved()) return;
+      if (!editable || consumeRowMoved()) return;
       tableElRef.current?.focus({ preventScroll: true });
       const row = rowsRef.current[index];
       if (row == null) return;
@@ -439,12 +442,12 @@ export const Table = ({
       lastSelectedRef.current = row.cells[row.cells.length - 1] ?? null;
       onSelectionChange?.(row.cells);
     },
-    [editable, onSelectionChange, rowMove.consumeMoved],
+    [consumeRowMoved, editable, onSelectionChange, rowsRef, selectedRef],
   );
 
   const handleColSelect = useCallback(
     (index: number, ev: React.MouseEvent) => {
-      if (!editable || colMove.consumeMoved()) return;
+      if (!editable || consumeColMoved()) return;
       tableElRef.current?.focus({ preventScroll: true });
       const colCells = rowsRef.current
         .map((r) => r.cells[index])
@@ -481,7 +484,7 @@ export const Table = ({
       lastSelectedRef.current = colCells[colCells.length - 1] ?? null;
       onSelectionChange?.(colCells);
     },
-    [editable, onSelectionChange, colMove.consumeMoved],
+    [consumeColMoved, editable, onSelectionChange, rowsRef, selectedRef],
   );
 
   const handleRowResize = useCallback(
@@ -507,7 +510,7 @@ export const Table = ({
     for (const row of rowsRef.current) for (const k of row.cells) all.push(k);
     lastSelectedRef.current = all[all.length - 1] ?? null;
     onSelectionChange?.(all);
-  }, [editable, onSelectionChange]);
+  }, [editable, onSelectionChange, rowsRef]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTableElement>) => {
@@ -534,7 +537,7 @@ export const Table = ({
       lastSelectedRef.current = nextKey;
       onSelectionChange?.([nextKey]);
     },
-    [editable, onSelectionChange],
+    [editable, onSelectionChange, rowsRef],
   );
 
   const totalCol = colSizes.reduce((a, s) => a + s, 0);
@@ -560,13 +563,13 @@ export const Table = ({
   const handlePointerDown = useCallback(() => {
     if (!centered) return;
     setHeld(liveOffset);
+    const listening = new AbortController();
     const release = (): void => {
-      window.removeEventListener("pointerup", release);
-      window.removeEventListener("pointercancel", release);
+      listening.abort();
       setHeld(null);
     };
-    window.addEventListener("pointerup", release);
-    window.addEventListener("pointercancel", release);
+    window.addEventListener("pointerup", release, { signal: listening.signal });
+    window.addEventListener("pointercancel", release, { signal: listening.signal });
   }, [centered, liveOffset]);
   const offset = centered ? (held ?? liveOffset) : xy.ZERO;
   const frameStyle = useMemo(
@@ -577,7 +580,12 @@ export const Table = ({
     [offset],
   );
 
+  const rowYs: number[] = [];
   let rowYCursor = offset.y + indicatorSize;
+  for (const row of rows) {
+    rowYs.push(rowYCursor);
+    rowYCursor += row.size;
+  }
   const cellXOrigin = offset.x + indicatorSize;
   return (
     <div
@@ -622,32 +630,28 @@ export const Table = ({
                         shifts={colShifts}
                       />
                     )}
-                    {rows.map((row, rowIndex) => {
-                      const yPos = rowYCursor;
-                      rowYCursor += row.size;
-                      return (
-                        <Row
-                          key={row.key}
-                          index={rowIndex}
-                          itemKey={row.key}
-                          resourceKey={key}
-                          cells={row.cells}
-                          columns={colSizes}
-                          x={cellXOrigin}
-                          y={yPos}
-                          size={row.size}
-                          editable={editable}
-                          last={rowIndex === rows.length - 1}
-                          showIndicator={showIndicators}
-                          onSelect={handleRowSelect}
-                          onResize={handleRowResize}
-                          onCellSelect={handleCellSelect}
-                          onMovePress={editable ? rowMove.press : undefined}
-                          shift={rowShifts?.[rowIndex]}
-                          colShifts={colShifts}
-                        />
-                      );
-                    })}
+                    {rows.map((row, rowIndex) => (
+                      <Row
+                        key={row.key}
+                        index={rowIndex}
+                        itemKey={row.key}
+                        resourceKey={key}
+                        cells={row.cells}
+                        columns={colSizes}
+                        x={cellXOrigin}
+                        y={rowYs[rowIndex]}
+                        size={row.size}
+                        editable={editable}
+                        last={rowIndex === rows.length - 1}
+                        showIndicator={showIndicators}
+                        onSelect={handleRowSelect}
+                        onResize={handleRowResize}
+                        onCellSelect={handleCellSelect}
+                        onMovePress={editable ? rowMove.press : undefined}
+                        shift={rowShifts?.[rowIndex]}
+                        colShifts={colShifts}
+                      />
+                    ))}
                   </Selection.Context>
                 </Aether.Composite>
               </tbody>

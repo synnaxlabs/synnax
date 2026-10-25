@@ -18,47 +18,45 @@ import { Search as S } from "@/components/search/Search";
 <style is:global>
     .search-box {
         position: relative;
-        max-width: 280px !important;
-        width: 280px !important;
+        max-width: 280px;
+        width: 280px;
 
         & button {
             color: var(--pluto-gray-l8);
-            font-size: var(--pluto-small-size) !important;
+            font-size: var(--pluto-small-size);
             font-weight: 400;
 
             & * {
                 color: var(--pluto-gray-l8);
-                font-size: var(--pluto-small-size) !important;
+                font-size: var(--pluto-small-size);
                 font-weight: 400;
             }
 
             & .pluto-text--keyboard {
-                width: 3.5rem !important;
-                height: 3.5rem !important;
-                background: var(--pluto-gray-l0) !important;
-                border-color: var(--pluto-gray-l5) !important;
+                background: var(--pluto-gray-l0);
+                border-color: var(--pluto-gray-l5);
             }
         }
     }
 
     @media (max-width: 1100px) {
         .search-box {
-            width: auto !important;
-            max-width: none !important;
+            width: auto;
+            max-width: none;
             & button {
-                width: auto !important;
-                min-width: unset !important;
-                justify-content: center !important;
-                font-size: 0 !important;
-                gap: 0 !important;
+                width: auto;
+                min-width: unset;
+                justify-content: center;
+                font-size: 0;
+                gap: 0;
                 aspect-ratio: 1;
-                padding: 0 !important;
+                padding: 0;
             }
             & button > .pluto-icon {
-                font-size: var(--pluto-small-size) !important;
+                font-size: var(--pluto-small-size);
             }
             .pluto-trigger-indicator {
-                display: none !important;
+                display: none;
             }
         }
     }
@@ -72,7 +70,7 @@ import { Search as S } from "@/components/search/Search";
         }
         width: 800px;
         max-width: 100%;
-        height: 400px;
+        height: 460px;
         min-width: 200px;
 
         & a:hover {
@@ -84,45 +82,171 @@ import { Search as S } from "@/components/search/Search";
         }
     }
 
-    .search-results__content .pluto-list__item {
-        padding: 2rem;
+    .search-results__section {
+        display: block;
+        padding: 2rem 1.5rem 0.75rem;
+        font-weight: 550;
+        color: var(--pluto-gray-l9);
 
-        &:hover {
-            background: var(--pluto-gray-l3);
+        &:first-child {
+            padding-top: 1rem;
+        }
+    }
+
+    /* The icon spans both lines: the title with its path, then the excerpt. */
+    .search-result {
+        display: grid;
+        grid-template-columns: 4.5rem minmax(0, max-content) minmax(0, 1fr) auto;
+        grid-template-areas:
+            "icon title path enter"
+            "icon excerpt excerpt enter";
+        align-items: center;
+        align-content: center;
+        column-gap: 2rem;
+        row-gap: 0.25rem;
+        padding: 1.25rem 1.5rem;
+        height: auto;
+        white-space: normal;
+        text-decoration: none;
+        --pluto-btn-bg: transparent;
+
+        & > * {
+            min-width: 0;
+        }
+    }
+
+    /* The pointer and the arrow keys move the active result, which Enter opens. */
+    .search-result.pluto--hovered {
+        --pluto-btn-bg: var(--pluto-primary-z-10);
+
+        & .search-result__icon {
+            background: var(--pluto-primary-z);
+            border-color: var(--pluto-primary-z);
+            color: var(--pluto-text-on-primary);
         }
 
-        b {
-            background: var(--pluto-primary-z-40);
-            color: var(--pluto-gray-l11);
-            font-weight: inherit;
-            border-radius: 0.25rem;
+        & .search-result__enter {
+            visibility: visible;
+        }
+    }
+
+    .search-result__icon {
+        grid-area: icon;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 4.5rem;
+        height: 4.5rem;
+        border: var(--pluto-border);
+        border-color: var(--pluto-gray-l4);
+        border-radius: 1rem;
+        background: var(--pluto-gray-l1);
+        color: var(--pluto-gray-l9);
+
+        & svg {
+            width: 2.25rem;
+            height: 2.25rem;
+        }
+    }
+
+    .search-result__title {
+        grid-area: title;
+        font-size: var(--pluto-p-size);
+        line-height: var(--pluto-p-line-height);
+        font-weight: 500;
+        color: var(--pluto-gray-l11);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .search-result__path {
+        grid-area: path;
+        display: flex;
+        font-size: var(--pluto-small-size);
+        line-height: var(--pluto-small-line-height);
+        color: var(--pluto-gray-l9);
+        white-space: nowrap;
+        overflow: hidden;
+
+        & > span + span::before {
+            content: "/";
+            margin: 0 0.75rem;
+            color: var(--pluto-gray-l6);
+        }
+    }
+
+    .search-result__excerpt {
+        grid-area: excerpt;
+        font-size: var(--pluto-small-size);
+        line-height: var(--pluto-small-line-height);
+        color: var(--pluto-gray-l9);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .search-result__enter {
+        grid-area: enter;
+        visibility: hidden;
+    }
+
+    /* A match darkens in an excerpt. A title is already bold, so its matches take an
+       underline. */
+    .search-result b {
+        font-weight: inherit;
+        color: inherit;
+    }
+
+    .search-result__excerpt b {
+        font-weight: 600;
+        color: var(--pluto-gray-l11);
+    }
+
+    .search-result__title b {
+        text-decoration: underline;
+        text-decoration-color: var(--pluto-gray-l7);
+        text-underline-offset: 0.5rem;
+    }
+
+    .search-results__footer {
+        flex-shrink: 0;
+        padding: 1.25rem 2rem;
+        background: var(--pluto-gray-l1);
+
+        & .pluto-text {
+            color: var(--pluto-gray-l9);
+        }
+    }
+
+    /* A phone has no keys to hint at, and too little width for the path beside the
+       title. Without the footer, the list is the last box, so it takes the corners. */
+    @media (hover: none) {
+        .search-result__enter,
+        .search-results__footer {
+            display: none;
         }
 
-        .pluto-text--h5 {
-            color: var(--pluto-gray-l10) !important;
-            display: block !important;
+        .search-results__list {
+            border-bottom-left-radius: inherit;
+            border-bottom-right-radius: inherit;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .search-result {
+            grid-template-columns: 4.5rem minmax(0, 1fr);
+            grid-template-areas:
+                "icon title"
+                "icon path"
+                "icon excerpt";
         }
 
-        .pluto-breadcrumb {
-            gap: 0.25rem !important;
-            margin-left: 0.25rem;
-
-            * {
-                font-size: 2.3rem;
-                line-height: 150%;
-                color: var(--pluto-gray-l8) !important;
-            }
-
-            .pluto-icon {
-                transform: scale(0.8) translateY(0px) !important;
-            }
-        }
-
-        .pluto-text--small:not(.pluto-breadcrumb) {
-            color: var(--pluto-gray-l7) !important;
-            display: block !important;
-            white-space: normal !important;
-            word-wrap: break-word;
+        /* An empty line would take part of the icon's height as a gap. */
+        .search-result:not(:has(.search-result__path)) {
+            grid-template-areas:
+                "icon title"
+                "icon excerpt";
         }
     }
 </style>

@@ -70,9 +70,8 @@ export interface UseItemStateReturn {
   onHover: () => void;
 }
 
-// The membership and presence stores are created monomorphically at record.Key; Select
-// layers its own K back on with an assertion at each use. The stores stay honestly
-// typed — the untyped seam lives in these two accessors.
+// The membership and presence stores are typed at record.Key, so Select asserts its own
+// K wherever a key enters or leaves them. The stores stay honestly typed.
 const Members = Store.createMembership("Selection");
 const Hover = Store.createPresence("Selection.Hover");
 const Focus = Store.createPresence("Selection.Focus");
@@ -86,10 +85,6 @@ const [SetHover, useSetHover] = context.create<(key: record.Key) => void>({
   defaultValue: destructor.NOOP,
   displayName: "Select.SetHover",
 });
-const members = <K extends record.Key>(): Store.Membership<K> =>
-  Members as unknown as Store.Membership<K>;
-const hover = <K extends record.Key>(): Store.Presence<K> =>
-  Hover as unknown as Store.Presence<K>;
 
 /**
  * Context distributes a controlled selection to keyed item consumers. Membership, focus,
@@ -105,25 +100,26 @@ export const Context = <K extends record.Key = record.Key>({
   reselectNoop = false,
   setHover = destructor.NOOP,
   children,
-}: ContextProps<K>): ReactElement => {
-  const M = members<K>();
-  const H = hover<K>();
-  return (
-    <M.Context value={value} onItem={onSelect} setValue={setSelected} clear={clear}>
-      <Focus.Context value={focusOf(value)}>
-        <Head.Context value={headOf(value)}>
-          <Sole.Context value={soleOf(value)}>
-            <ReselectNoop value={reselectNoop}>
-              <SetHover value={setHover as (key: record.Key) => void}>
-                <H.Context value={hoverValue}>{children}</H.Context>
-              </SetHover>
-            </ReselectNoop>
-          </Sole.Context>
-        </Head.Context>
-      </Focus.Context>
-    </M.Context>
-  );
-};
+}: ContextProps<K>): ReactElement => (
+  <Members.Context
+    value={value}
+    onItem={onSelect as Store.MembershipProps["onItem"]}
+    setValue={setSelected as Store.MembershipProps["setValue"]}
+    clear={clear}
+  >
+    <Focus.Context value={focusOf(value)}>
+      <Head.Context value={headOf(value)}>
+        <Sole.Context value={soleOf(value)}>
+          <ReselectNoop value={reselectNoop}>
+            <SetHover value={setHover as (key: record.Key) => void}>
+              <Hover.Context value={hoverValue}>{children}</Hover.Context>
+            </SetHover>
+          </ReselectNoop>
+        </Sole.Context>
+      </Head.Context>
+    </Focus.Context>
+  </Members.Context>
+);
 
 /**
  * useReselectNoop returns whether the enclosing frame turns a click on an
@@ -133,8 +129,8 @@ export const useReselectNoop = (): boolean => useReselectNoopContext();
 
 /** useContext returns the enclosing selection's imperative handle. */
 export const useContext = <K extends record.Key = record.Key>(): ContextValue<K> => {
-  const membersCtx = members<K>().useContext();
-  const hoverCtx = hover<K>().useContext();
+  const membersCtx = Members.useContext();
+  const hoverCtx = Hover.useContext();
   return useMemo<ContextValue<K>>(
     () => ({
       onSelect: membersCtx.onItem,
@@ -142,8 +138,8 @@ export const useContext = <K extends record.Key = record.Key>(): ContextValue<K>
       clear: membersCtx.clear,
       subscribe: membersCtx.subscribe,
       getState: () => ({
-        value: membersCtx.getValue(),
-        hover: hoverCtx.getPresent(),
+        value: membersCtx.getValue() as Value<K>,
+        hover: hoverCtx.getPresent() as K | undefined,
       }),
     }),
     [membersCtx, hoverCtx],
@@ -159,11 +155,11 @@ export const useContext = <K extends record.Key = record.Key>(): ContextValue<K>
  * the dimensions it reads change, so a long list stays cheap.
  */
 export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn => {
-  const { member, onItem } = members<K>().useItem(key);
+  const { member, onItem } = Members.useItem(key);
   const focused = Focus.useIsPresent(key);
   const head = Head.useIsPresent(key);
   const sole = Sole.useIsPresent(key);
-  const hovered = hover<K>().useIsPresent(key);
+  const hovered = Hover.useIsPresent(key);
   const setHover = useSetHover();
   const onHover = useCallback(() => setHover(key), [setHover, key]);
   return useMemo(
@@ -188,11 +184,11 @@ export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn =
  */
 export const useSelectedAmong = <K extends record.Key = record.Key>(
   keys: K[],
-): K | undefined => members<K>().useMemberAmong(keys);
+): K | undefined => Members.useMemberAmong(keys) as K | undefined;
 
 /** useSelected returns the currently selected keys. */
 export const useSelected = <K extends record.Key = record.Key>(): K[] =>
-  members<K>().useMembers();
+  Members.useMembers() as K[];
 
 /** useClear returns a callback that clears the enclosing selection. */
 export const useClear = (): (() => void) => Members.useContext().clear;

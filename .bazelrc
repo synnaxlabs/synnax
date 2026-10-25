@@ -194,6 +194,10 @@ build:asan --test_timeout=120,600,1800,3600  # ASan adds ~2-3x overhead
 # macOS-specific: Suppress _FORTIFY_SOURCE redefinition warning (ASan defines it to 0)
 build:asan --copt=-Wno-macro-redefined
 
+# ASan gives each temporary in open62541's generated namespace zero its own padded stack
+# slot. One node function then needs more than the 512 KB stack of a macOS thread.
+build:asan --per_file_copt=.*/open62541/namespace0_generated\.c@-fno-sanitize=address
+
 # ASan with LeakSanitizer (Linux only - LSan not supported on macOS/Windows)
 build:asan-leak --config=asan
 build:asan-leak --copt=-fsanitize=leak
