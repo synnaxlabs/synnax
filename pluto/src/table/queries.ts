@@ -63,7 +63,6 @@ const useDocumentCellForm = Flux.createDocumentForm<
 >({
   name: "table cell",
   schema: Cell.configZ,
-  docSchema: table.cellConfigZ,
   domain: (client) => client.tables,
   useEnsure,
   toValues: ({ cells }, { cellKey }) => cells[cellKey],

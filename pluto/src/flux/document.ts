@@ -32,6 +32,7 @@ import { Synnax } from "@/synnax";
 export interface DocumentDomain<Key extends record.Key, Doc extends query.Data> {
   getCached: (key: Key) => query.Cached<Doc> | undefined;
   onChange: (key: Key, handler: query.ChangeHandler<Doc>) => destructor.Destructor;
+  /** Begins a transaction of actions on the cached document, with camelCase keys. */
   beginTransaction: (key: Key) => actions.Transaction<patch.Action>;
 }
 
@@ -140,9 +141,8 @@ interface StoreParams<
   query: Query;
   domain: DocumentDomain<Key, Doc>;
   schema: z.ZodType;
-  docSchema: z.ZodType;
   toValues: (doc: Doc, query: Query) => V | undefined;
-  /** The path of the edited part in the form the Core stores. */
+  /** The path of the edited part in the document. */
   path: string[];
   onError: (error: unknown) => void;
 }
@@ -217,11 +217,11 @@ class DocumentStore<
     }
     if (deep.equal(whole, target.node)) return;
     const guards = patch.guards(this.params.schema, target.path, values);
-    const action = this.toWire(
+    this.write(
+      target.path.join(deep.SEPARATOR),
       { type: "set", set: { path: target.path, value: whole, guards } },
-      values,
+      valid,
     );
-    this.write(target.path.join(deep.SEPARATOR), action, valid);
   };
 
   remove = (formPath: string): void => {
@@ -232,19 +232,12 @@ class DocumentStore<
     if (target.rest !== "") {
       const whole = deep.copy(target.node);
       deep.remove(whole, target.rest);
-      this.dispatch(
-        this.toWire(
-          { type: "set", set: { path: target.path, value: whole, guards } },
-          values,
-        ),
-      );
+      this.dispatch({ type: "set", set: { path: target.path, value: whole, guards } });
       return;
     }
     const path = target.path.slice(0, -1);
     const key = target.path[target.path.length - 1];
-    this.dispatch(
-      this.toWire({ type: "remove", remove: { path, key, guards } }, values),
-    );
+    this.dispatch({ type: "remove", remove: { path, key, guards } });
   };
 
   insert = <E extends Form.Entry>(formPath: string, value: E, after?: string): void => {
@@ -252,9 +245,7 @@ class DocumentStore<
     const path = this.locateList(values, formPath);
     if (path == null) return;
     const guards = patch.guards(this.params.schema, path, values);
-    this.dispatch(
-      this.toWire({ type: "insert", insert: { path, value, after, guards } }, values),
-    );
+    this.dispatch({ type: "insert", insert: { path, value, after, guards } });
   };
 
   move = (formPath: string, key: string, after?: string): void => {
@@ -262,9 +253,7 @@ class DocumentStore<
     const path = this.locateList(values, formPath);
     if (path == null) return;
     const guards = patch.guards(this.params.schema, path, values);
-    this.dispatch(
-      this.toWire({ type: "move", move: { path, key, after, guards } }, values),
-    );
+    this.dispatch({ type: "move", move: { path, key, after, guards } });
   };
 
   batch = (fn: () => void): void => {
@@ -312,18 +301,11 @@ class DocumentStore<
     return target.path;
   }
 
-  private toWire(action: patch.Action, values: V): patch.Action {
-    const { docSchema, path } = this.params;
-    return patch.prefix(
-      patch.camelToSnake(action, { schema: docSchema, data: values }),
-      path,
-    );
-  }
-
   private write(at: string, action: patch.Action, valid: boolean): void {
     if (this.removed) return;
+    const prefixed = patch.prefix(action, this.params.path);
     if (this.batched != null) {
-      this.batched.add(action);
+      this.batched.add(prefixed);
       return;
     }
     let edit = this.edits.find((e) => [...e.valid.keys()].some((p) => overlaps(p, at)));
@@ -331,7 +313,7 @@ class DocumentStore<
       edit = { tx: this.params.domain.beginTransaction(this.key), valid: new Map() };
       this.edits.push(edit);
     }
-    edit.tx.add(action);
+    edit.tx.add(prefixed);
     // A write replaces every earlier write below its path.
     for (const p of [...edit.valid.keys()])
       if (deep.pathsMatch(p, at)) edit.valid.delete(p);
@@ -347,13 +329,14 @@ class DocumentStore<
   /** Sends the field's edits right after the edits before them. */
   private dispatch(action: patch.Action): void {
     if (this.removed) return;
+    const prefixed = patch.prefix(action, this.params.path);
     if (this.batched != null) {
-      this.batched.add(action);
+      this.batched.add(prefixed);
       return;
     }
     void this.takeValid();
     const tx = this.params.domain.beginTransaction(this.key);
-    tx.add(action);
+    tx.add(prefixed);
     void this.send(tx);
   }
 
@@ -408,11 +391,6 @@ export interface CreateDocumentFormParams<
    * action.
    */
   schema: Schema;
-  /**
-   * The schema the domain client decodes the edited part of the document with, to
-   * convert key case.
-   */
-  docSchema: z.ZodType;
   domain: (client: Client) => DocumentDomain<Key, Doc>;
   /** Suspends until the document is cached. */
   useEnsure: (query: DocumentQuery<Key>) => void;
@@ -424,8 +402,8 @@ export interface CreateDocumentFormParams<
    */
   toValues: (doc: Doc, query: Query) => z.infer<Schema> | undefined;
   /**
-   * The path of the edited part in the form the Core stores, such as the key of one
-   * entry in a map. The form edits the whole document when omitted.
+   * The path of the edited part in the document, such as the key of one entry in a map.
+   * The form edits the whole document when omitted.
    */
   pathOf?: (query: Query) => string[];
 }
@@ -466,7 +444,6 @@ export const createDocumentForm = <
 >({
   name,
   schema,
-  docSchema,
   domain,
   useEnsure,
   toValues,
@@ -491,7 +468,6 @@ export const createDocumentForm = <
         query,
         domain: domain(client),
         schema,
-        docSchema,
         toValues,
         path: pathOf(query),
         onError: (error) => handleError(error, `Failed to save ${name}`),

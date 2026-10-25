@@ -163,6 +163,12 @@ export interface ControllerParams<
    */
   onEpoch: (callback: (epoch: number) => void) => destructor.Destructor;
   reduce: Reducer<State, Action>;
+  /**
+   * Converts an action that a caller dispatches or adds to a transaction into the form
+   * the Core stores, against the cached doc that the actions before it produce. Undo
+   * and redo send actions that are already in that form.
+   */
+  encode?: (state: State, action: Action) => Action;
   isUndoable?: (action: Action) => boolean;
   kindOf?: (actions: Action[]) => string;
   /**
@@ -213,8 +219,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   private readonly docs: Table<Key, State>;
   private readonly undos: Table<Key, UndoState<Action>>;
   private readonly params: Required<
-    Omit<ControllerParams<Key, State, Action>, "store" | "onEpoch">
-  >;
+    Omit<ControllerParams<Key, State, Action>, "store" | "onEpoch" | "encode">
+  > &
+    Pick<ControllerParams<Key, State, Action>, "encode">;
   // lastAppliedSeq tracks the highest broadcast sequence number applied for each key.
   // Echoes whose seq does not exceed this are stale and are dropped. A seq of 0 is
   // "unstamped" and always applies.
@@ -234,6 +241,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.params = {
       onError: opts.onError,
       reduce: opts.reduce,
+      encode: opts.encode,
       isUndoable: opts.isUndoable ?? (() => true),
       kindOf: opts.kindOf ?? (() => "default"),
       createOf: opts.createOf ?? (() => undefined),
@@ -526,14 +534,28 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     opts: Options<State, Action> = {},
   ): Promise<boolean> {
     if (actions.length === 0) return true;
+    const { preprocess } = opts;
     return await this.applySend(
       key,
       actions,
       ({ processed, inverse, targets }) =>
         this.recordEntry(key, processed, inverse, targets),
       send,
-      opts.preprocess,
+      (state, acts) =>
+        this.encode(state, preprocess == null ? acts : preprocess(state, acts)),
     );
+  }
+
+  /** Encodes each action against the doc that the actions before it produce. */
+  private encode(state: State, actions: Action[]): Action[] {
+    const { encode, reduce } = this.params;
+    if (encode == null) return actions;
+    let doc = state;
+    return actions.map((action, i) => {
+      const encoded = encode(doc, action);
+      if (i < actions.length - 1) doc = reduce(doc, [encoded]).next;
+      return encoded;
+    });
   }
 
   /**
@@ -593,7 +615,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         if (initial == null) return;
         const current = this.docs.get(key);
         if (current == null) return;
-        const arr = array.toArray(actions);
+        const arr = this.encode(current, array.toArray(actions));
         const { next } = this.params.reduce(current, arr);
         entry.actions.push(...arr);
         this.track(key, current, entry, next);

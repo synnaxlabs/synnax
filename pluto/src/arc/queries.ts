@@ -10,7 +10,7 @@
 import { arc, type rack, status, task } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { caseconv, compare, record, verbs, xy } from "@synnaxlabs/x";
+import { compare, type record, verbs, xy } from "@synnaxlabs/x";
 import z from "zod";
 
 import { Node } from "@/arc/graph/node";
@@ -100,9 +100,6 @@ export const useNodeConfig = Scope.bindHook(
   ),
 );
 
-// A node's inputs keep the case of their keys on the wire.
-const NODE_INPUTS_Z = caseconv.preserveCase(record.unknownZ());
-
 const useDocumentNodeForm = Flux.createDocumentForm<
   arc.Key,
   arc.Arc,
@@ -111,7 +108,6 @@ const useDocumentNodeForm = Flux.createDocumentForm<
 >({
   name: "Arc node",
   schema: Node.configZ,
-  docSchema: NODE_INPUTS_Z,
   domain: (client) => client.arcs,
   useEnsure,
   toValues: ({ graph }, { nodeKey }) => graph.inputs[nodeKey] as Node.Config,

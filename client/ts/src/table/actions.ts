@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type patch } from "@synnaxlabs/x";
+import { patch } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 
 import { actions } from "@/actions";
@@ -287,6 +287,22 @@ const handlers: Handlers = {
 };
 
 export const reduceAll = createReduceAll(handlers);
+
+/**
+ * Converts a path action from the camelCase form of the cached table into the
+ * snake_case form that the Core stores. Other actions keep their form.
+ */
+export const encode = (state: Table, action: Action): Action => {
+  switch (action.type) {
+    case "set":
+    case "remove":
+    case "insert":
+    case "move":
+      return patch.camelToSnake(action, { schema: tableZ, data: state });
+    default:
+      return action;
+  }
+};
 
 // createOf hands the dispatch controller the document carried by a create
 // action so frames for never-cached documents ingest instead of drop.

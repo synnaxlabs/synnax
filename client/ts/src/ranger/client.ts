@@ -28,7 +28,7 @@ import { type framer } from "@/framer";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import { createOf, reduceAll } from "@/ranger/actions";
+import { createOf, encode, reduceAll } from "@/ranger/actions";
 import { type Action, dispatchReqZ, scopedActionZ } from "@/ranger/actions.gen";
 import { alias } from "@/ranger/alias";
 import { Client as AliasClient } from "@/ranger/alias/client";
@@ -477,6 +477,7 @@ export class Client extends query.Retriever<
           targets,
         };
       },
+      encode: (range, action) => encode(range.payload, action),
       createOf: (action) => {
         const created = createOf(action);
         return created == null ? undefined : this.sugarOne(created);
@@ -628,7 +629,7 @@ export class Client extends query.Retriever<
 
   /**
    * Applies actions to the cached range and sends them to the Core. Paths and values
-   * take the snake_case form that the Core stores. Returns false without side effects
+   * take the camelCase form of the cached range. Returns false without side effects
    * when the range is not cached.
    * @throws {Error} if the range cannot hold an action, before any send.
    * @throws {Error} if the send fails, after the cached range drops the actions.

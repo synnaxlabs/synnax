@@ -24,7 +24,7 @@ import {
 import { z } from "zod/v4";
 
 import { actions } from "@/actions";
-import { createOf, isUndoable, kindOf, reduceAll } from "@/arc/actions";
+import { createOf, encode, isUndoable, kindOf, reduceAll } from "@/arc/actions";
 import {
   type Action,
   dispatchReqZ,
@@ -168,6 +168,7 @@ export class Client extends query.Retriever<
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
+      encode,
       isUndoable,
       kindOf,
       createOf,

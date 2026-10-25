@@ -12,7 +12,7 @@ import { array, primitive, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { actions } from "@/actions";
-import { createOf, reduceAll } from "@/label/actions";
+import { createOf, encode, reduceAll } from "@/label/actions";
 import { type Action, dispatchReqZ, scopedActionZ } from "@/label/actions.gen";
 import { LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE } from "@/label/payload";
 import { matchLabeledBy } from "@/label/store";
@@ -92,6 +92,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
+      encode,
       createOf,
     });
     cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));

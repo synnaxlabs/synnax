@@ -16,7 +16,7 @@ import { type group } from "@/group";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
-import { createOf, kindOf, reduceAll } from "@/schematic/actions";
+import { createOf, encode, kindOf, reduceAll } from "@/schematic/actions";
 import {
   type Action,
   dispatchReqZ,
@@ -116,6 +116,7 @@ export class Client extends query.Retriever<
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
+      encode,
       kindOf,
       createOf,
     });

@@ -144,8 +144,6 @@ export interface InitialValues<
   "key" | "rack" | "internal" | "snapshot" | "configHash"
 > {}
 
-const PAYLOAD_Z = task.payloadZ();
-
 /** Builds the hook for a task's form. */
 export const createForm = <S extends task.Schemas = task.Schemas>({
   schemas,
@@ -153,7 +151,6 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
   Flux.createDocumentForm<task.Key, task.Task, FormSchema<S>>({
     name: RESOURCE_NAME,
     schema: createFormSchema(schemas),
-    docSchema: PAYLOAD_Z,
     domain: (client) => client.tasks,
     useEnsure,
     // The cache holds every task untyped. Parsing would cost a full parse on each

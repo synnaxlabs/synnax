@@ -14,7 +14,7 @@ import {
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
-import { id, record } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -48,7 +48,6 @@ const createForm = <S extends z.ZodType<Values>>(formSchema: S) =>
   Flux.createDocumentForm<task.Key, task.Task, S>({
     name: "Task",
     schema: formSchema,
-    docSchema: task.payloadZ(),
     domain: (client) => client.tasks,
     useEnsure,
     toValues: ({ payload: { name, config } }) => ({ name, config }) as z.infer<S>,
@@ -138,7 +137,7 @@ describe("createDocumentForm", () => {
     await act(async () => {
       await client.tasks.dispatch(
         t.key,
-        task.set({ path: ["config", "routing_key"], value: "remote" }),
+        task.set({ path: ["config", "routingKey"], value: "remote" }),
       );
     });
     await waitFor(() =>
@@ -422,7 +421,6 @@ describe("createDocumentForm", () => {
     >({
       name: "Task",
       schema: configSchema,
-      docSchema: record.unknownZ(),
       domain: (client) => client.tasks,
       useEnsure,
       toValues: ({ payload: { config } }) => config as Values["config"],
@@ -456,7 +454,6 @@ describe("createDocumentForm", () => {
       const useAlertForm = Flux.createDocumentForm<task.Key, task.Task, typeof alertZ>({
         name: "Task",
         schema: alertZ,
-        docSchema: record.unknownZ(),
         domain: (client) => client.tasks,
         useEnsure,
         toValues: ({ payload: { config } }) =>

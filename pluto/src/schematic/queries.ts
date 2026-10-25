@@ -74,7 +74,6 @@ const useDocumentConfigForm = Flux.createDocumentForm<
 >({
   name: "schematic element",
   schema: elementConfigZ,
-  docSchema: schematic.elementConfigZ,
   domain: (client) => client.schematics,
   useEnsure,
   toValues: ({ configs }, { elKey }) => configs[elKey],

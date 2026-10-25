@@ -1021,7 +1021,7 @@ describe("schematic queries", () => {
       await act(async () => {
         await remote.schematics.dispatch(
           schem.key,
-          schematic.set({ path: ["configs", "n1", "scale_visible"], value: true }),
+          schematic.set({ path: ["configs", "n1", "scaleVisible"], value: true }),
         );
       });
       await waitFor(() =>

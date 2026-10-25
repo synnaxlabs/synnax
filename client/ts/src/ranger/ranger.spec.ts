@@ -1119,7 +1119,7 @@ describe("dispatch", () => {
     expect(
       await client.ranges.dispatch(rng.key, [
         rename("Cold flow"),
-        ranger.set({ path: ["time_range", "end"], value: end.valueOf() }),
+        ranger.set({ path: ["timeRange", "end"], value: end.valueOf() }),
       ]),
     ).toBe(true);
     const stored = await createTestClient().ranges.retrieve(rng.key);
@@ -1143,7 +1143,7 @@ describe("dispatch", () => {
     await expect(
       client.ranges.dispatch(rng.key, [
         rename("Cold flow"),
-        ranger.set({ path: ["time_range", "start"], value: "0" }),
+        ranger.set({ path: ["timeRange", "start"], value: "0" }),
       ]),
     ).rejects.toThrow("time_range.start");
     const cached = expectLive(client.ranges.getCached(rng.key));

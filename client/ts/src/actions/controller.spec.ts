@@ -75,6 +75,7 @@ const setupStore = (
     stackCap: number;
     now: () => TimeStamp;
     fetch: (keys: string[]) => Promise<Array<Doc & { key: string }>>;
+    encode: (doc: Doc, action: Action) => Action;
   }> = {},
 ) => {
   const errors: Error[] = [];
@@ -86,6 +87,7 @@ const setupStore = (
     onError,
     onEpoch: (callback) => epochs.onChange(callback),
     reduce: reducer,
+    encode: opts.encode,
     isUndoable: opts.isUndoable,
     kindOf: opts.kindOf,
     createOf: (a) => (a.type === "create" ? a.doc : undefined),
@@ -723,6 +725,70 @@ describe("actions.Controller", () => {
       controller.applyRemote("k", 1, dispatchKey, [set("a", 1)]);
       expect(controller.hasPending("k")).toBe(false);
       expect(controller.prepareUndo("k")).not.toBeNull();
+    });
+  });
+
+  describe("encode", () => {
+    /** Lowers the key of a set, and records the values of each doc it runs against. */
+    const createEncode = () =>
+      vi.fn((_: Doc, a: Action): Action =>
+        a.type === "set" ? { ...a, key: a.key.toLowerCase() } : a,
+      );
+
+    const valuesSeen = (encode: ReturnType<typeof createEncode>) =>
+      encode.mock.calls.map(([doc]) => doc.values);
+
+    it("encodes each dispatched action against the doc the actions before it produce", async () => {
+      const encode = createEncode();
+      const { docs, controller } = setupStore({ encode });
+      prime(docs, "k", { a: 0 });
+      const send = resolved();
+      await controller.dispatch("k", [set("A", 1), set("B", 2)], send);
+      expect(send).toHaveBeenCalledWith([set("a", 1), set("b", 2)], expect.any(String));
+      expect(valuesSeen(encode)).toEqual([{ a: 0 }, { a: 1 }]);
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 2 } });
+    });
+
+    it("encodes the actions that the preprocess option returns", async () => {
+      const { docs, controller } = setupStore({ encode: createEncode() });
+      prime(docs, "k", { a: 3 });
+      const send = resolved();
+      await controller.dispatch("k", [set("A", 4)], send, {
+        preprocess: (_, acts) => [...acts, set("B", 5)],
+      });
+      expect(send).toHaveBeenCalledWith([set("a", 4), set("b", 5)], expect.any(String));
+    });
+
+    it("encodes each add against the doc the adds before it produce", async () => {
+      const encode = createEncode();
+      const { docs, controller } = setupStore({ encode });
+      prime(docs, "k", { a: 0 });
+      const send = resolved();
+      const tx = controller.transaction("k", send);
+      tx.add(set("A", 1));
+      tx.add([set("B", 2), set("A", 3)]);
+      await tx.commit();
+      expect(send).toHaveBeenCalledWith(
+        [set("a", 1), set("b", 2), set("a", 3)],
+        expect.any(String),
+      );
+      expect(valuesSeen(encode)).toEqual([{ a: 0 }, { a: 1 }, { a: 1, b: 2 }]);
+    });
+
+    it("sends undo and redo actions as they are stored", async () => {
+      const encode = createEncode();
+      const { docs, controller } = setupStore({ encode });
+      prime(docs, "k", { a: 0 });
+      const send = resolved();
+      await controller.dispatch("k", [set("A", 1)], send);
+      await controller.undo("k", send);
+      await controller.redo("k", send);
+      expect(encode).toHaveBeenCalledTimes(1);
+      expect(send.mock.calls.map(([acts]) => acts)).toEqual([
+        [set("a", 1)],
+        [set("a", 0)],
+        [set("a", 1)],
+      ]);
     });
   });
 

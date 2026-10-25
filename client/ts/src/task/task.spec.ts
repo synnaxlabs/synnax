@@ -514,7 +514,7 @@ describe("Task", async () => {
 
   describe("dispatch", () => {
     const routingKey = (value: string) =>
-      task.set({ path: ["config", "routing_key"], value });
+      task.set({ path: ["config", "routingKey"], value });
 
     it("should store the actions and settle the cached task on the echo", async () => {
       await waitForStreamLive(client.connection);
@@ -1416,7 +1416,7 @@ describe("Task", async () => {
         expect(
           await client.tasks.dispatch(
             t.key,
-            task.set({ path: ["config", "routing_key"], value: "cat" }),
+            task.set({ path: ["config", "routingKey"], value: "cat" }),
           ),
         ).toBe(true);
         const stored = await createTestClient().tasks.retrieve(t.key);

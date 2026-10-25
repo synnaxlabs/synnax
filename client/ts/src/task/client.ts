@@ -35,7 +35,7 @@ import {
 } from "@/rack/types.gen";
 import { type ranger } from "@/ranger";
 import { status } from "@/status";
-import { createOf, reduceAll } from "@/task/actions";
+import { createOf, encode, reduceAll } from "@/task/actions";
 import { type Action, dispatchReqZ, scopedActionZ } from "@/task/actions.gen";
 import {
   type Command,
@@ -452,6 +452,7 @@ export class Client extends query.Retriever<
         const { next, inverse, targets } = reduceAll(payload, acts);
         return { next: next === payload ? task : this.sugar(next), inverse, targets };
       },
+      encode: (task, action) => encode(task.payload, action),
       createOf: (action) => {
         const created = createOf(action);
         return created == null ? undefined : this.sugar(created);
@@ -603,8 +604,8 @@ export class Client extends query.Retriever<
 
   /**
    * Applies actions to the cached task and sends them to the Core. Paths and values
-   * take the snake_case form that the Core stores. Returns false without side effects
-   * when the task is not cached.
+   * take the camelCase form of the cached task. Returns false without side effects when
+   * the task is not cached.
    * @throws {Error} if the task cannot hold an action, before any send.
    * @throws {Error} if the send fails, after the cached task drops the actions.
    */

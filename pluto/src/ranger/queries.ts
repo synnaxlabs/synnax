@@ -166,7 +166,6 @@ export const useForm = Flux.createDocumentForm<
 >({
   name: RESOURCE_NAME,
   schema: formSchema,
-  docSchema: ranger.payloadZ,
   domain: (client) => client.ranges,
   useEnsure,
   toValues: ({ name, timeRange }) => ({ name, timeRange: timeRange.numeric }),
@@ -304,7 +303,7 @@ export const { useUpdate: useSetTimeRange } = Flux.createUpdate<SetTimeRangePara
     const { key, timeRange } = data;
     await client.ranges.dispatch(
       key,
-      ranger.set({ path: ["time_range"], value: timeRange }),
+      ranger.set({ path: ["timeRange"], value: timeRange }),
     );
     return data;
   },

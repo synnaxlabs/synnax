@@ -43,6 +43,15 @@ const handlers: Handlers = {
  */
 export const reduceAll = createReduceAll(handlers);
 
+/**
+ * Converts an action from the camelCase form of the cached task into the snake_case
+ * form that the Core stores.
+ */
+export const encode = (state: Payload, action: Action): Action =>
+  action.type === "create"
+    ? action
+    : patch.camelToSnake(action, { schema: PAYLOAD_Z, data: state });
+
 /** @returns the task that a create action carries, or undefined for other actions. */
 export const createOf = (action: Action): Payload | undefined => {
   if (action.type !== "create") return undefined;

@@ -15,7 +15,7 @@ import { actions } from "@/actions";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
-import { createOf, kindOf, reduceAll } from "@/table/actions";
+import { createOf, encode, kindOf, reduceAll } from "@/table/actions";
 import {
   type Action,
   dispatchReqZ,
@@ -99,6 +99,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
+      encode,
       kindOf,
       createOf,
     });

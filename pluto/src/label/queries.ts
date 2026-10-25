@@ -118,7 +118,6 @@ export const useForm = Flux.createDocumentForm<
 >({
   name: RESOURCE_NAME,
   schema: formSchema,
-  docSchema: label.labelZ,
   domain: (client) => client.labels,
   useEnsure,
   toValues: ({ name, color }) => ({ name, color }),

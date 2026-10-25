@@ -51,6 +51,15 @@ const handlers: Handlers = {
  */
 export const reduceAll = createReduceAll(handlers);
 
+/**
+ * Converts an action from the camelCase form of the cached label into the snake_case
+ * form that the Core stores.
+ */
+export const encode = (state: Label, action: Action): Action =>
+  action.type === "create"
+    ? action
+    : patch.camelToSnake(action, { schema: documentZ, data: state });
+
 /** @returns the label that a create action carries, or undefined for other actions. */
 export const createOf = (action: Action): Label | undefined =>
   action.type === "create" ? action.create.label : undefined;
