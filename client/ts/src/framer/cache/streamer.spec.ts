@@ -713,43 +713,6 @@ describe("MultiplexedStreamer", () => {
     });
   });
 
-  describe("per-key isolation", () => {
-    it("should keep streaming healthy channels when one channel's write fails", async () => {
-      const store = new Store();
-      const write = store.write.bind(store);
-      vi.spyOn(store, "write").mockImplementation((key, series) => {
-        if (key === 1) throw new Error("write failed");
-        return write(key, series);
-      });
-      let emitted = false;
-      const ms = new MockStreamer([1, 2], async () => {
-        if (emitted) return await new Promise(() => {});
-        emitted = true;
-        return {
-          done: false,
-          value: new Frame({
-            1: new Series(new Float32Array([1])),
-            2: new Series(new Float32Array([2])),
-          }),
-        };
-      });
-      const streamer = new MultiplexedStreamer({
-        store,
-        openStreamer: createStreamOpener([ms]),
-      });
-
-      const received: Map<channel.Key, MultiSeries>[] = [];
-      const sub = streamer.stream((d) => received.push(d), [1, 2]);
-      await vi.advanceTimersByTimeAsync(300);
-
-      const withData = received.filter((r) => r.size > 0 && r.has(2));
-      expect(withData.length).toBeGreaterThan(0);
-      expect(sub.status(1).variant).toEqual("error");
-      expect(sub.status(2).variant).toEqual("success");
-      sub.close();
-    });
-  });
-
   describe("connection health", () => {
     it("should report reconnecting on drop and streaming on reopen", async () => {
       const hooks: StreamHooks[] = [];

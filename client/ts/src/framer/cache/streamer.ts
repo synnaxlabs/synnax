@@ -420,15 +420,11 @@ export class MultiplexedStreamer {
         const changed: Map<channel.Key, MultiSeries> = new Map();
         const demanded = this.demandedKeys();
         grouped.forEach((series, k) => {
-          try {
-            changed.set(k, store.write(k, new MultiSeries(series)));
-            // A frame for a key with no remaining demand arrived behind the stream
-            // update, so its block must not stay open.
-            if (!demanded.has(k)) store.flush(k);
-            this.setStatus(k, STREAMING);
-          } catch (e) {
-            this.setStatus(k, status.fromException(e, "Failed to buffer channel"));
-          }
+          changed.set(k, store.write(k, new MultiSeries(series)));
+          // A frame for a key with no remaining demand arrived behind the stream
+          // update, so its block must not stay open.
+          if (!demanded.has(k)) store.flush(k);
+          this.setStatus(k, STREAMING);
         });
         if (changed.size !== 0)
           this.entries.forEach((e) => {
